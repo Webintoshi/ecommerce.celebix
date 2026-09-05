@@ -216,7 +216,7 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
         WHEN 'fixed_amount' THEN CASE WHEN a.rule_document->'benefit'->>'currency'=p_context->>'currency' THEN LEAST(a.eligible_value,(a.rule_document->'benefit'->>'amountMinor')::bigint) ELSE 0 END
         WHEN 'free_shipping' THEN (p_context->>'shippingBeforeDiscountMinor')::bigint
         WHEN 'quantity_tiers' THEN a.eligible_value*COALESCE((SELECT max((tier->>'percentageBps')::bigint) FROM pg_catalog.jsonb_array_elements(a.rule_document->'benefit'->'tiers') tier WHERE (tier->>'minimumQuantity')::bigint<=a.eligible_quantity),0)/10000
-        WHEN 'bundle_price' THEN CASE WHEN a.rule_document->'benefit'->>'currency'=p_context->>'currency' THEN GREATEST(0,a.eligible_value-(a.eligible_quantity/(a.rule_document->'benefit'->>'bundleQuantity')::bigint)*(a.rule_document->'benefit'->>'bundlePriceMinor')::bigint) ELSE 0 END
+        WHEN 'bundle_price' THEN CASE WHEN a.rule_document->'benefit'->>'currency'=p_context->>'currency' THEN GREATEST(0,COALESCE(bundle.complete_value,0)-(a.eligible_quantity/(a.rule_document->'benefit'->>'bundleQuantity')::bigint)*(a.rule_document->'benefit'->>'bundlePriceMinor')::bigint) ELSE 0 END
         WHEN 'buy_x_get_y' THEN COALESCE(xy.saving,0)
         ELSE 0 END,
       COALESCE((a.rule_document->'limits'->>'orderMaximumMinor')::bigint,8000000000),
@@ -224,6 +224,14 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
       CASE a.rule_document->'marginPolicy'->>'kind' WHEN 'floor_at_cost' THEN a.eligible_margin WHEN 'maximum_percentage' THEN a.eligible_value*(a.rule_document->'marginPolicy'->>'maximumPercentageBps')::bigint/10000 ELSE 8000000000 END
     ) saving
     FROM aggregated a
+    LEFT JOIN LATERAL (
+      WITH bundle_lines AS MATERIALIZED (
+        SELECT l.line,(l.line->>'quantity')::bigint quantity,(l.line->>'unitPriceMinor')::bigint price,
+          sum((l.line->>'quantity')::bigint) OVER (ORDER BY (l.line->>'position')::integer,l.line->>'lineId')-(l.line->>'quantity')::bigint prior_quantity
+        FROM lines l WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,p_context->>'currency',a.rule_document->'targets',l.line)
+      ), complete_bundle AS (SELECT (a.eligible_quantity/(a.rule_document->'benefit'->>'bundleQuantity')::bigint)*(a.rule_document->'benefit'->>'bundleQuantity')::bigint quantity)
+      SELECT COALESCE(sum(bundle_lines.price*LEAST(bundle_lines.quantity,GREATEST(0,complete_bundle.quantity-bundle_lines.prior_quantity))),0)::bigint complete_value FROM bundle_lines CROSS JOIN complete_bundle
+    ) bundle ON a.rule_document->'benefit'->>'kind'='bundle_price'
     LEFT JOIN LATERAL (
       WITH reward_lines AS MATERIALIZED (
         SELECT l.line,(l.line->>'quantity')::bigint quantity,(l.line->>'unitPriceMinor')::bigint price,
@@ -270,14 +278,17 @@ RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $
     'segmentIds',COALESCE((SELECT pg_catalog.jsonb_agg(segment_id::text) FROM saas.customer_segment_memberships membership,customer WHERE membership.store_id=p_store_id AND membership.customer_id=customer.id),'[]'::jsonb),
     'tagIds',COALESCE((SELECT pg_catalog.jsonb_agg(tag_id::text) FROM saas.customer_tag_assignments membership,customer WHERE membership.store_id=p_store_id AND membership.customer_id=customer.id),'[]'::jsonb),
     'activeCustomer',EXISTS(SELECT 1 FROM saas.customers customer_row,customer WHERE customer_row.store_id=p_store_id AND customer_row.id=customer.id AND customer_row.status='active'),
-    'abandonedCart',EXISTS(SELECT 1 FROM saas.abandoned_carts cart WHERE cart.store_id=p_store_id AND cart.id=(p_context->'abandonedCart'->>'id')::uuid AND cart.status='abandoned' AND cart.abandoned_at IS NOT NULL AND cart.abandoned_at>=p_now-pg_catalog.interval '30 days'))
+    'abandonedCart',EXISTS(SELECT 1 FROM saas.abandoned_carts cart WHERE cart.store_id=p_store_id AND cart.id=(p_context->'abandonedCart'->>'id')::uuid AND cart.status='abandoned' AND cart.abandoned_at IS NOT NULL AND cart.abandoned_at>=p_now-pg_catalog.interval '30 days' AND cart.abandoned_at<=p_now))
 $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_code_facts(p_store_id uuid,p_context jsonb)
 RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
-  SELECT COALESCE(pg_catalog.jsonb_object_agg(code.promotion_id::text,code.code),'{}'::jsonb)
-  FROM saas.promotion_codes code JOIN pg_catalog.jsonb_array_elements_text(p_context->'submittedCodes') submitted(code_value) ON submitted.code_value=code.code
-  WHERE code.store_id=p_store_id AND code.status='active'
+  WITH matches AS MATERIALIZED (
+    SELECT DISTINCT ON (code.promotion_id) code.promotion_id,code.code
+    FROM saas.promotion_codes code JOIN pg_catalog.jsonb_array_elements_text(p_context->'submittedCodes') submitted(code_value) ON submitted.code_value=code.code
+    WHERE code.store_id=p_store_id AND code.status='active'
+    ORDER BY code.promotion_id,code.code
+  ) SELECT COALESCE(pg_catalog.jsonb_object_agg(promotion_id::text,code),'{}'::jsonb) FROM matches
 $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_evaluate_v1(p_store_id uuid,p_context jsonb,p_now timestamptz)
