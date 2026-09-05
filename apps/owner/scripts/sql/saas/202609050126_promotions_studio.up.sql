@@ -8,89 +8,161 @@ CREATE TABLE IF NOT EXISTS saas.promotions (
   id uuid NOT NULL,
   store_id uuid NOT NULL,
   legacy_record_id uuid NULL,
-  name text NOT NULL CHECK (length(name) BETWEEN 1 AND 200),
+  name text NOT NULL CHECK (name=pg_catalog.btrim(name) AND pg_catalog.length(name) BETWEEN 1 AND 200 AND pg_catalog.octet_length(name)<=800 AND name!~'[[:cntrl:]]'),
   status text NOT NULL CHECK (status IN ('draft','scheduled','active','paused','archived')),
-  version bigint NOT NULL DEFAULT 1 CHECK (version > 0),
-  rule_document jsonb NOT NULL,
+  version bigint NOT NULL DEFAULT 1 CHECK (version BETWEEN 1 AND 9007199254740991),
+  rule_document jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(rule_document)='object' AND pg_catalog.pg_column_size(rule_document)<=262144),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
   PRIMARY KEY (store_id,id),
   UNIQUE (id),
   UNIQUE (store_id,legacy_record_id),
-  FOREIGN KEY (store_id) REFERENCES saas.stores(id)
+  CONSTRAINT promotions_store_fk FOREIGN KEY (store_id) REFERENCES saas.stores(id)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_versions (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL,
-  version bigint NOT NULL CHECK (version > 0), rule_document jsonb NOT NULL,
+  version bigint NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991), rule_document jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(rule_document)='object' AND pg_catalog.pg_column_size(rule_document)<=262144),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
   PRIMARY KEY (store_id,id), UNIQUE (store_id,promotion_id,version),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
+  CONSTRAINT promotion_versions_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_targets (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL,
   target_kind text NOT NULL CHECK (target_kind IN ('product','variant','category','brand','collection')),
   target_id uuid NOT NULL, inclusion text NOT NULL CHECK (inclusion IN ('include','exclude')),
   PRIMARY KEY (store_id,id), UNIQUE (store_id,promotion_id,target_kind,target_id,inclusion),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
+  CONSTRAINT promotion_targets_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_code_batches (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','revoked')),
   requested_count integer NOT NULL CHECK (requested_count BETWEEN 1 AND 10000),
   operation_id uuid NOT NULL, created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
-  PRIMARY KEY (store_id,id), UNIQUE (store_id,operation_id),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
+  PRIMARY KEY (store_id,id), UNIQUE (store_id,operation_id), UNIQUE (store_id,promotion_id,id),
+  CONSTRAINT promotion_code_batches_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_codes (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL, batch_id uuid NULL,
   code text NOT NULL CHECK (code ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','revoked')),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
-  PRIMARY KEY (store_id,id), UNIQUE (store_id,code),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id),
-  FOREIGN KEY (store_id,batch_id) REFERENCES saas.promotion_code_batches(store_id,id)
+  PRIMARY KEY (store_id,id), CONSTRAINT promotion_codes_store_code_key UNIQUE (store_id,code), UNIQUE (store_id,promotion_id,id), UNIQUE (store_id,promotion_id,id,code),
+  CONSTRAINT promotion_codes_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id),
+  CONSTRAINT promotion_codes_batch_store_fk FOREIGN KEY (store_id,promotion_id,batch_id) REFERENCES saas.promotion_code_batches(store_id,promotion_id,id)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_operations (
   id uuid NOT NULL, store_id uuid NOT NULL, operation_id uuid NOT NULL,
-  operation_kind text NOT NULL CHECK (operation_kind ~ '^[a-z_]{1,64}$'),
+  operation_kind text NOT NULL CHECK (operation_kind IN ('create','update','lifecycle','archive','duplicate','code_batch','code_batch_status','reserve','release','commit','expire')),
   fingerprint text NOT NULL CHECK (fingerprint ~ '^[a-f0-9]{64}$'),
-  result_payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
-  PRIMARY KEY (store_id,id), UNIQUE (store_id,operation_id)
+  result_entity_kind text NOT NULL CHECK (result_entity_kind IN ('promotion','code_batch','reservation_group','redemption_group')),
+  result_entity_id uuid NOT NULL,
+  result_payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
+  PRIMARY KEY (store_id,id), UNIQUE (store_id,operation_id),
+  UNIQUE (store_id,operation_id,operation_kind,fingerprint,result_entity_id),
+  CONSTRAINT promotion_operations_store_fk FOREIGN KEY (store_id) REFERENCES saas.stores(id),
+  CONSTRAINT promotion_operations_result_payload_check CHECK (pg_catalog.jsonb_typeof(result_payload)='object' AND pg_catalog.pg_column_size(result_payload)<=327680),
+  CONSTRAINT promotion_operations_kind_entity_check CHECK (
+    (operation_kind IN ('create','update','lifecycle','archive','duplicate') AND result_entity_kind='promotion')
+    OR (operation_kind IN ('code_batch','code_batch_status') AND result_entity_kind='code_batch')
+    OR (operation_kind IN ('reserve','release','expire') AND result_entity_kind='reservation_group')
+    OR (operation_kind='commit' AND result_entity_kind='redemption_group')
+  )
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_usage_reservations (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL, code_id uuid NULL,
-  customer_id uuid NULL, operation_id uuid NOT NULL, source_reference text NOT NULL CHECK (length(source_reference) BETWEEN 1 AND 200),
-  reserved_uses integer NOT NULL DEFAULT 1 CHECK (reserved_uses > 0), reserved_budget_minor bigint NOT NULL DEFAULT 0 CHECK (reserved_budget_minor >= 0),
+  promotion_version bigint NOT NULL CHECK (promotion_version BETWEEN 1 AND 9007199254740991),
+  normalized_code text NULL CHECK (normalized_code IS NULL OR normalized_code ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'),
+  reservation_group_id uuid NOT NULL, customer_id uuid NULL,
+  operation_id uuid NOT NULL, operation_kind text NOT NULL DEFAULT 'reserve' CHECK (operation_kind='reserve'),
+  operation_fingerprint text NOT NULL CHECK (operation_fingerprint ~ '^[a-f0-9]{64}$'),
+  source_kind text NOT NULL CHECK (source_kind IN ('hosted_checkout','offline_checkout')),
+  source_reference text NOT NULL CHECK (source_reference=pg_catalog.btrim(source_reference) AND pg_catalog.length(source_reference) BETWEEN 1 AND 200 AND pg_catalog.octet_length(source_reference)<=800 AND source_reference!~'[[:cntrl:]]'),
+  reserved_uses integer NOT NULL DEFAULT 1 CHECK (reserved_uses = 1),
+  reserved_budget_minor bigint NOT NULL CHECK (reserved_budget_minor BETWEEN 0 AND 8000000000),
+  discount_minor bigint NOT NULL CHECK (discount_minor BETWEEN 0 AND 8000000000 AND discount_minor=reserved_budget_minor),
+  currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+  evaluator_snapshot jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(evaluator_snapshot)='object' AND pg_catalog.pg_column_size(evaluator_snapshot)<=262144),
+  evaluator_fingerprint text NOT NULL CHECK (evaluator_fingerprint ~ '^[a-f0-9]{64}$'),
   status text NOT NULL DEFAULT 'reserved' CHECK (status IN ('reserved','committed','released','expired')),
   expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(), updated_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
-  PRIMARY KEY (store_id,id), UNIQUE (store_id,operation_id),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id), FOREIGN KEY (store_id,code_id) REFERENCES saas.promotion_codes(store_id,id)
+  PRIMARY KEY (store_id,id), UNIQUE (store_id,promotion_id,id),
+  UNIQUE (store_id,reservation_group_id,promotion_id),
+  UNIQUE (store_id,reservation_group_id,promotion_id,id),
+  CONSTRAINT promotion_usage_reservations_version_store_fk FOREIGN KEY (store_id,promotion_id,promotion_version) REFERENCES saas.promotion_versions(store_id,promotion_id,version),
+  CONSTRAINT promotion_usage_reservations_code_store_fk FOREIGN KEY (store_id,promotion_id,code_id,normalized_code) REFERENCES saas.promotion_codes(store_id,promotion_id,id,code),
+  CONSTRAINT promotion_usage_reservations_operation_store_fk FOREIGN KEY (store_id,operation_id,operation_kind,operation_fingerprint,reservation_group_id) REFERENCES saas.promotion_operations(store_id,operation_id,operation_kind,fingerprint,result_entity_id) DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT promotion_usage_reservations_customer_store_fk FOREIGN KEY (store_id,customer_id) REFERENCES saas.customers(store_id,id),
+  CONSTRAINT promotion_usage_reservations_code_snapshot_check CHECK ((code_id IS NULL)=(normalized_code IS NULL)),
+  CONSTRAINT promotion_usage_reservations_time_check CHECK (expires_at>created_at AND updated_at>=created_at)
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_redemptions (
-  id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL, reservation_id uuid NULL,
-  order_id uuid NULL, customer_id uuid NULL, discount_minor bigint NOT NULL CHECK (discount_minor >= 0), currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+  id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NOT NULL, reservation_id uuid NOT NULL,
+  reservation_group_id uuid NOT NULL, redemption_group_id uuid NOT NULL,
+  operation_id uuid NOT NULL, operation_kind text NOT NULL DEFAULT 'commit' CHECK (operation_kind='commit'),
+  operation_fingerprint text NOT NULL CHECK (operation_fingerprint ~ '^[a-f0-9]{64}$'),
+  promotion_version bigint NOT NULL CHECK (promotion_version BETWEEN 1 AND 9007199254740991), code_id uuid NULL,
+  normalized_code text NULL CHECK (normalized_code IS NULL OR normalized_code ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'),
+  order_id uuid NOT NULL, customer_id uuid NULL, discount_minor bigint NOT NULL CHECK (discount_minor BETWEEN 0 AND 8000000000), currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+  evaluator_fingerprint text NOT NULL CHECK (evaluator_fingerprint ~ '^[a-f0-9]{64}$'),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(), PRIMARY KEY (store_id,id),
-  UNIQUE (store_id,reservation_id), FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id),
-  FOREIGN KEY (store_id,reservation_id) REFERENCES saas.promotion_usage_reservations(store_id,id)
+  UNIQUE (store_id,reservation_id), UNIQUE (store_id,redemption_group_id,promotion_id),
+  CONSTRAINT promotion_redemptions_version_store_fk FOREIGN KEY (store_id,promotion_id,promotion_version) REFERENCES saas.promotion_versions(store_id,promotion_id,version),
+  CONSTRAINT promotion_redemptions_code_store_fk FOREIGN KEY (store_id,promotion_id,code_id,normalized_code) REFERENCES saas.promotion_codes(store_id,promotion_id,id,code),
+  CONSTRAINT promotion_redemptions_reservation_store_fk FOREIGN KEY (store_id,reservation_group_id,promotion_id,reservation_id) REFERENCES saas.promotion_usage_reservations(store_id,reservation_group_id,promotion_id,id),
+  CONSTRAINT promotion_redemptions_operation_store_fk FOREIGN KEY (store_id,operation_id,operation_kind,operation_fingerprint,redemption_group_id) REFERENCES saas.promotion_operations(store_id,operation_id,operation_kind,fingerprint,result_entity_id) DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT promotion_redemptions_customer_store_fk FOREIGN KEY (store_id,customer_id) REFERENCES saas.customers(store_id,id),
+  CONSTRAINT promotion_redemptions_code_snapshot_check CHECK ((code_id IS NULL)=(normalized_code IS NULL))
 );
 CREATE TABLE IF NOT EXISTS saas.promotion_audit_events (
   id uuid NOT NULL, store_id uuid NOT NULL, promotion_id uuid NULL, actor_principal_id uuid NULL,
-  event_kind text NOT NULL CHECK (event_kind ~ '^[a-z_]{1,64}$'), payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  event_kind text NOT NULL CHECK (event_kind ~ '^[a-z_]{1,64}$'), payload jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (pg_catalog.jsonb_typeof(payload)='object' AND pg_catalog.pg_column_size(payload)<=32768),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(), PRIMARY KEY (store_id,id),
-  FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
+  CONSTRAINT promotion_audit_events_store_fk FOREIGN KEY (store_id) REFERENCES saas.stores(id),
+  CONSTRAINT promotion_audit_events_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id),
+  CONSTRAINT promotion_audit_events_actor_fk FOREIGN KEY (actor_principal_id) REFERENCES saas.principals(id)
 );
 CREATE TABLE IF NOT EXISTS saas.order_promotion_snapshots (
   id uuid NOT NULL, store_id uuid NOT NULL, order_id uuid NOT NULL, promotion_id uuid NOT NULL,
-  promotion_version bigint NOT NULL CHECK (promotion_version > 0), normalized_code text NULL, snapshot jsonb NOT NULL,
+  promotion_version bigint NOT NULL CHECK (promotion_version BETWEEN 1 AND 9007199254740991), normalized_code text NULL CHECK (normalized_code IS NULL OR normalized_code ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'),
+  currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'), discount_minor bigint NOT NULL CHECK (discount_minor BETWEEN 0 AND 8000000000), evaluator_fingerprint text NOT NULL CHECK (evaluator_fingerprint ~ '^[a-f0-9]{64}$'),
+  snapshot jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(snapshot)='object' AND pg_catalog.pg_column_size(snapshot)<=262144),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(), PRIMARY KEY (store_id,id),
-  UNIQUE (store_id,order_id,promotion_id,promotion_version), FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
+  UNIQUE (store_id,order_id,promotion_id,promotion_version), UNIQUE (store_id,order_id,id),
+  CONSTRAINT order_promotion_snapshots_promotion_store_fk FOREIGN KEY (store_id,promotion_id) REFERENCES saas.promotions(store_id,id)
 );
 CREATE TABLE IF NOT EXISTS saas.order_discount_allocations (
   id uuid NOT NULL, store_id uuid NOT NULL, order_id uuid NOT NULL, snapshot_id uuid NOT NULL,
   line_id uuid NULL, line_position integer NOT NULL CHECK (line_position >= 0), discount_minor bigint NOT NULL CHECK (discount_minor >= 0),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(), PRIMARY KEY (store_id,id),
-  FOREIGN KEY (store_id,snapshot_id) REFERENCES saas.order_promotion_snapshots(store_id,id)
+  CONSTRAINT order_discount_allocations_snapshot_store_fk FOREIGN KEY (store_id,order_id,snapshot_id) REFERENCES saas.order_promotion_snapshots(store_id,order_id,id)
 );
+
+DO $fn$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.promotion_code_batches'::regclass AND conname='promotion_code_batches_operation_store_fk') THEN
+    ALTER TABLE saas.promotion_code_batches ADD CONSTRAINT promotion_code_batches_operation_store_fk FOREIGN KEY (store_id,operation_id) REFERENCES saas.promotion_operations(store_id,operation_id) DEFERRABLE INITIALLY DEFERRED;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.order_discount_allocations'::regclass AND conname='order_discount_allocations_line_store_fk') THEN
+    ALTER TABLE saas.order_discount_allocations ADD CONSTRAINT order_discount_allocations_line_store_fk FOREIGN KEY (store_id,order_id,line_id) REFERENCES saas.order_items(store_id,order_id,id);
+  END IF;
+END $fn$;
+
+CREATE INDEX IF NOT EXISTS promotion_targets_lookup_idx ON saas.promotion_targets(store_id,target_kind,target_id,promotion_id);
+CREATE INDEX IF NOT EXISTS promotion_code_batches_promotion_status_idx ON saas.promotion_code_batches(store_id,promotion_id,status,id);
+CREATE INDEX IF NOT EXISTS promotion_codes_promotion_status_idx ON saas.promotion_codes(store_id,promotion_id,status,id);
+CREATE UNIQUE INDEX IF NOT EXISTS promotion_operations_reservation_group_owner_key ON saas.promotion_operations(store_id,result_entity_id) WHERE operation_kind='reserve' AND result_entity_kind='reservation_group';
+CREATE UNIQUE INDEX IF NOT EXISTS promotion_operations_redemption_group_owner_key ON saas.promotion_operations(store_id,result_entity_id) WHERE operation_kind='commit' AND result_entity_kind='redemption_group';
+CREATE INDEX IF NOT EXISTS promotion_usage_reservations_limit_idx ON saas.promotion_usage_reservations(store_id,promotion_id,status,expires_at,id);
+CREATE INDEX IF NOT EXISTS promotion_usage_reservations_group_status_idx ON saas.promotion_usage_reservations(store_id,reservation_group_id,status,promotion_id,id);
+CREATE INDEX IF NOT EXISTS promotion_usage_reservations_customer_limit_idx ON saas.promotion_usage_reservations(store_id,promotion_id,customer_id,status,expires_at,id);
+CREATE INDEX IF NOT EXISTS promotion_usage_reservations_code_limit_idx ON saas.promotion_usage_reservations(store_id,code_id,status,expires_at,id);
+CREATE INDEX IF NOT EXISTS promotion_redemptions_analytics_idx ON saas.promotion_redemptions(store_id,promotion_id,currency,created_at,id);
+CREATE INDEX IF NOT EXISTS promotion_redemptions_group_idx ON saas.promotion_redemptions(store_id,redemption_group_id,promotion_id,id);
+CREATE INDEX IF NOT EXISTS promotion_redemptions_usage_idx ON saas.promotion_redemptions(store_id,promotion_id,created_at,id);
+CREATE INDEX IF NOT EXISTS promotion_redemptions_customer_usage_idx ON saas.promotion_redemptions(store_id,promotion_id,customer_id,created_at,id);
+CREATE INDEX IF NOT EXISTS promotion_redemptions_code_usage_idx ON saas.promotion_redemptions(store_id,code_id,created_at,id);
+CREATE INDEX IF NOT EXISTS order_promotion_snapshots_order_idx ON saas.order_promotion_snapshots(store_id,order_id,id);
 
 CREATE OR REPLACE FUNCTION saas.promotion_json_keys(p_value jsonb,p_required text[],p_allowed text[])
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog AS $fn$
@@ -114,6 +186,7 @@ CREATE OR REPLACE FUNCTION saas.promotion_rule_document_valid(p_document jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SET search_path = pg_catalog, saas AS $fn$
 DECLARE b jsonb:=p_document->'benefit'; t jsonb:=p_document->'targets'; a jsonb:=p_document->'audience'; tr jsonb:=p_document->'trigger'; s jsonb:=p_document->'schedule'; l jsonb:=p_document->'limits'; c jsonb:=p_document->'conditions'; cp jsonb:=p_document->'combinationPolicy'; m jsonb:=p_document->'marginPolicy'; x jsonb; y jsonb; starts timestamptz; ends timestamptz; last_quantity integer:=0;
 BEGIN
+  IF p_document IS NULL OR pg_catalog.jsonb_typeof(p_document) IS DISTINCT FROM 'object' OR pg_catalog.pg_column_size(p_document)>262144 THEN RETURN false; END IF;
   IF NOT saas.promotion_json_keys(p_document,ARRAY['schemaVersion','benefit','targets','audience','trigger','schedule','limits','conditions','combinationPolicy','priority','marginPolicy','progressMessagePolicy'],ARRAY['schemaVersion','benefit','targets','audience','trigger','schedule','limits','conditions','combinationPolicy','priority','marginPolicy','progressMessagePolicy']) OR NOT saas.promotion_json_integer(p_document->'schemaVersion',1,1) OR NOT saas.promotion_json_integer(p_document->'priority',0,1000) THEN RETURN false; END IF;
   IF NOT saas.promotion_json_keys(t,ARRAY['mode','include','exclude'],ARRAY['mode','include','exclude']) OR t->>'mode' NOT IN ('all','selected') OR pg_catalog.jsonb_typeof(t->'include')<>'array' OR pg_catalog.jsonb_typeof(t->'exclude')<>'array' OR NOT saas.promotion_json_array_unique(t->'include') OR NOT saas.promotion_json_array_unique(t->'exclude') OR pg_catalog.jsonb_array_length(t->'include')>500 OR pg_catalog.jsonb_array_length(t->'exclude')>500 OR (t->>'mode'='all' AND pg_catalog.jsonb_array_length(t->'include')<>0) OR (t->>'mode'='selected' AND pg_catalog.jsonb_array_length(t->'include')=0) THEN RETURN false; END IF;
   FOR x IN SELECT value FROM pg_catalog.jsonb_array_elements(t->'include') UNION ALL SELECT value FROM pg_catalog.jsonb_array_elements(t->'exclude') LOOP IF NOT saas.promotion_json_keys(x,ARRAY['kind','id'],ARRAY['kind','id']) OR x->>'kind' NOT IN ('product','variant','category','brand','collection') OR NOT saas.promotion_json_uuid(x->'id') THEN RETURN false; END IF; END LOOP;
@@ -144,7 +217,201 @@ RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, saas AS
 $fn$;
 CREATE OR REPLACE FUNCTION saas.promotion_operation_fingerprint(p_kind text,p_payload jsonb)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, saas AS $fn$
-  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_kind||':'||p_payload::text,'UTF8')),'hex')
+  SELECT CASE
+    WHEN p_kind IN ('create','update','lifecycle','archive','duplicate','code_batch','code_batch_status','reserve','release','commit','expire')
+      AND pg_catalog.jsonb_typeof(p_payload)='object'
+      AND pg_catalog.pg_column_size(p_payload)<=262144
+    THEN pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_kind||':'||p_payload::text,'UTF8')),'hex')
+    ELSE NULL
+  END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_fingerprint_canonical_json(p_value jsonb,p_parent_key text DEFAULT NULL)
+RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_type text;
+  v_numeric numeric;
+  v_total bigint;
+  v_valid bigint;
+  v_body text;
+  v_set_like boolean:=p_parent_key IN ('include','exclude','referenceIds','codes','productIds','paymentMethodIds','shippingMethodIds','salesChannels','benefitClasses','customerSegmentIds','customerTagIds','cartLines','categoryIds','collectionIds','submittedCodes');
+BEGIN
+  IF p_value IS NULL THEN RETURN NULL; END IF;
+  v_type:=pg_catalog.jsonb_typeof(p_value);
+  IF v_type IN ('null','boolean','string') THEN RETURN p_value::text; END IF;
+  IF v_type='number' THEN
+    BEGIN v_numeric:=(p_value::text)::numeric; EXCEPTION WHEN others THEN RETURN NULL; END;
+    IF v_numeric<>pg_catalog.trunc(v_numeric) OR v_numeric NOT BETWEEN -9007199254740991 AND 9007199254740991 THEN RETURN NULL; END IF;
+    RETURN (v_numeric::bigint)::text;
+  END IF;
+  IF v_type='array' THEN
+    SELECT count(*),count(serialized),pg_catalog.string_agg(serialized,',' ORDER BY CASE WHEN v_set_like THEN pg_catalog.convert_to(serialized,'UTF8') END,ordinality)
+      INTO v_total,v_valid,v_body
+      FROM (SELECT ordinality,saas.promotion_fingerprint_canonical_json(value,NULL) AS serialized FROM pg_catalog.jsonb_array_elements(p_value) WITH ORDINALITY) child;
+    IF v_total<>v_valid THEN RETURN NULL; END IF;
+    RETURN '['||COALESCE(v_body,'')||']';
+  END IF;
+  IF v_type='object' THEN
+    SELECT count(*),count(serialized),pg_catalog.string_agg(pg_catalog.to_jsonb(key)::text||':'||serialized,',' ORDER BY pg_catalog.convert_to(key,'UTF8'))
+      INTO v_total,v_valid,v_body
+      FROM (SELECT key,saas.promotion_fingerprint_canonical_json(value,key) AS serialized FROM pg_catalog.jsonb_each(p_value)) child;
+    IF v_total<>v_valid THEN RETURN NULL; END IF;
+    RETURN '{'||COALESCE(v_body,'')||'}';
+  END IF;
+  RETURN NULL;
+END $fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_operation_fingerprint_v2(p_kind text,p_store_id uuid,p_payload jsonb)
+RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog, saas AS $fn$
+DECLARE v_canonical text;
+BEGIN
+  IF p_kind IS NULL OR p_kind NOT IN ('create','update','lifecycle','archive','duplicate','code_batch','code_batch_status','reserve','release','commit','expire')
+     OR p_store_id IS NULL OR p_payload IS NULL OR pg_catalog.jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR pg_catalog.pg_column_size(p_payload)>327680
+  THEN RETURN NULL; END IF;
+  v_canonical:=saas.promotion_fingerprint_canonical_json(pg_catalog.jsonb_build_object('kind',p_kind,'storeId',p_store_id,'payload',p_payload),NULL);
+  IF v_canonical IS NULL THEN RETURN NULL; END IF;
+  RETURN pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_canonical,'UTF8')),'hex');
+END $fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_json_utc_timestamp(p_value jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT SET search_path = pg_catalog AS $fn$
+DECLARE v_timestamp timestamptz; v_text text;
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_value)<>'string' THEN RETURN false; END IF;
+  v_text:=p_value#>>'{}';
+  IF v_text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$' THEN RETURN false; END IF;
+  BEGIN v_timestamp:=v_text::timestamptz; EXCEPTION WHEN others THEN RETURN false; END;
+  RETURN pg_catalog.to_char(v_timestamp AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')=v_text;
+END $fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_operation_result_valid(p_kind text,p_result jsonb)
+RETURNS boolean LANGUAGE plpgsql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_item jsonb;
+  v_key text;
+  v_previous bytea;
+  v_promotion_ids text[]:=ARRAY[]::text[];
+  v_reservation_ids text[]:=ARRAY[]::text[];
+  v_redemption_ids text[]:=ARRAY[]::text[];
+  v_discount_total bigint:=0;
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_result)<>'object' OR pg_catalog.pg_column_size(p_result)>327680 THEN RETURN false; END IF;
+  IF p_kind IN ('create','update','lifecycle','archive','duplicate') THEN
+    IF (saas.promotion_json_keys(p_result,ARRAY['id','version','name','status','ruleDocument','createdAt','updatedAt'],ARRAY['id','version','name','status','ruleDocument','createdAt','updatedAt'])
+      AND saas.promotion_json_uuid(p_result->'id')
+      AND saas.promotion_json_integer(p_result->'version',1,9007199254740991)
+      AND pg_catalog.jsonb_typeof(p_result->'name')='string'
+      AND pg_catalog.length(p_result->>'name') BETWEEN 1 AND 200
+      AND pg_catalog.octet_length(p_result->>'name')<=800
+      AND p_result->>'name'=pg_catalog.btrim(p_result->>'name')
+      AND p_result->>'name'!~'[[:cntrl:]]'
+      AND p_result->>'status' IN ('draft','scheduled','active','paused','archived')
+      AND saas.promotion_rule_document_valid(p_result->'ruleDocument')
+      AND saas.promotion_json_utc_timestamp(p_result->'createdAt')
+      AND saas.promotion_json_utc_timestamp(p_result->'updatedAt')) IS NOT TRUE THEN RETURN false; END IF;
+    RETURN (p_result->>'updatedAt')::timestamptz >= (p_result->>'createdAt')::timestamptz;
+  ELSIF p_kind='code_batch' THEN
+    RETURN (saas.promotion_json_keys(p_result,ARRAY['id','promotionId','status','count','createdAt'],ARRAY['id','promotionId','status','count','createdAt'])
+      AND saas.promotion_json_uuid(p_result->'id') AND saas.promotion_json_uuid(p_result->'promotionId')
+      AND p_result->>'status'='active' AND saas.promotion_json_integer(p_result->'count',1,10000)
+      AND saas.promotion_json_utc_timestamp(p_result->'createdAt')) IS TRUE;
+  ELSIF p_kind='code_batch_status' THEN
+    RETURN (saas.promotion_json_keys(p_result,ARRAY['id','status'],ARRAY['id','status'])
+      AND saas.promotion_json_uuid(p_result->'id') AND p_result->>'status' IN ('active','paused','revoked')) IS TRUE;
+  ELSIF p_kind IN ('reserve','release','expire') THEN
+    IF (saas.promotion_json_keys(p_result,ARRAY['schemaVersion','reservationGroupId','status','currency','discountTotalMinor','expiresAt','evaluatorFingerprint','reservations'],ARRAY['schemaVersion','reservationGroupId','status','currency','discountTotalMinor','expiresAt','evaluatorFingerprint','reservations'])
+      AND saas.promotion_json_integer(p_result->'schemaVersion',1,1)
+      AND saas.promotion_json_uuid(p_result->'reservationGroupId')
+      AND p_result->>'status'=CASE p_kind WHEN 'reserve' THEN 'reserved' WHEN 'release' THEN 'released' ELSE 'expired' END
+      AND p_result->>'currency' ~ '^[A-Z]{3}$'
+      AND saas.promotion_json_integer(p_result->'discountTotalMinor',0,8000000000)
+      AND saas.promotion_json_utc_timestamp(p_result->'expiresAt')
+      AND pg_catalog.jsonb_typeof(p_result->'evaluatorFingerprint')='string'
+      AND p_result->>'evaluatorFingerprint' ~ '^[a-f0-9]{64}$'
+      AND pg_catalog.jsonb_typeof(p_result->'reservations')='array'
+      AND pg_catalog.jsonb_array_length(p_result->'reservations') BETWEEN 1 AND 100) IS NOT TRUE THEN RETURN false; END IF;
+    FOR v_item IN SELECT value FROM pg_catalog.jsonb_array_elements(p_result->'reservations') LOOP
+      IF (saas.promotion_json_keys(v_item,ARRAY['promotionId','reservationId','promotionVersion','normalizedCode','discountMinor'],ARRAY['promotionId','reservationId','promotionVersion','normalizedCode','discountMinor'])
+          AND saas.promotion_json_uuid(v_item->'promotionId') AND saas.promotion_json_uuid(v_item->'reservationId')
+          AND saas.promotion_json_integer(v_item->'promotionVersion',1,9007199254740991)
+          AND pg_catalog.jsonb_typeof(v_item->'normalizedCode') IN ('null','string')
+          AND (v_item->'normalizedCode'='null'::jsonb OR v_item->>'normalizedCode' ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$')
+          AND saas.promotion_json_integer(v_item->'discountMinor',0,8000000000)) IS NOT TRUE THEN RETURN false; END IF;
+      IF v_item->>'promotionId'=ANY(v_promotion_ids) OR v_item->>'reservationId'=ANY(v_reservation_ids) THEN RETURN false; END IF;
+      v_key:=(v_item->>'promotionId')||':'||(v_item->>'reservationId');
+      IF v_previous IS NOT NULL AND pg_catalog.convert_to(v_key,'UTF8')<=v_previous THEN RETURN false; END IF;
+      v_previous:=pg_catalog.convert_to(v_key,'UTF8'); v_promotion_ids:=pg_catalog.array_append(v_promotion_ids,v_item->>'promotionId'); v_reservation_ids:=pg_catalog.array_append(v_reservation_ids,v_item->>'reservationId'); v_discount_total:=v_discount_total+(v_item->>'discountMinor')::bigint;
+    END LOOP;
+    RETURN v_discount_total=(p_result->>'discountTotalMinor')::bigint;
+  ELSIF p_kind='commit' THEN
+    IF (saas.promotion_json_keys(p_result,ARRAY['schemaVersion','reservationGroupId','redemptionGroupId','status','orderId','currency','discountTotalMinor','evaluatorFingerprint','redemptions'],ARRAY['schemaVersion','reservationGroupId','redemptionGroupId','status','orderId','currency','discountTotalMinor','evaluatorFingerprint','redemptions'])
+      AND saas.promotion_json_integer(p_result->'schemaVersion',1,1)
+      AND saas.promotion_json_uuid(p_result->'reservationGroupId') AND saas.promotion_json_uuid(p_result->'redemptionGroupId') AND saas.promotion_json_uuid(p_result->'orderId')
+      AND p_result->>'currency' ~ '^[A-Z]{3}$' AND saas.promotion_json_integer(p_result->'discountTotalMinor',0,8000000000)
+      AND pg_catalog.jsonb_typeof(p_result->'evaluatorFingerprint')='string'
+      AND p_result->>'evaluatorFingerprint' ~ '^[a-f0-9]{64}$'
+      AND p_result->>'status'='committed' AND pg_catalog.jsonb_typeof(p_result->'redemptions')='array'
+      AND pg_catalog.jsonb_array_length(p_result->'redemptions') BETWEEN 1 AND 100) IS NOT TRUE THEN RETURN false; END IF;
+    FOR v_item IN SELECT value FROM pg_catalog.jsonb_array_elements(p_result->'redemptions') LOOP
+      IF (saas.promotion_json_keys(v_item,ARRAY['promotionId','reservationId','redemptionId','promotionVersion','normalizedCode','discountMinor'],ARRAY['promotionId','reservationId','redemptionId','promotionVersion','normalizedCode','discountMinor'])
+          AND saas.promotion_json_uuid(v_item->'promotionId') AND saas.promotion_json_uuid(v_item->'reservationId') AND saas.promotion_json_uuid(v_item->'redemptionId')
+          AND saas.promotion_json_integer(v_item->'promotionVersion',1,9007199254740991)
+          AND pg_catalog.jsonb_typeof(v_item->'normalizedCode') IN ('null','string')
+          AND (v_item->'normalizedCode'='null'::jsonb OR v_item->>'normalizedCode' ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$')
+          AND saas.promotion_json_integer(v_item->'discountMinor',0,8000000000)) IS NOT TRUE THEN RETURN false; END IF;
+      IF v_item->>'promotionId'=ANY(v_promotion_ids) OR v_item->>'reservationId'=ANY(v_reservation_ids) OR v_item->>'redemptionId'=ANY(v_redemption_ids) THEN RETURN false; END IF;
+      v_key:=(v_item->>'promotionId')||':'||(v_item->>'redemptionId');
+      IF v_previous IS NOT NULL AND pg_catalog.convert_to(v_key,'UTF8')<=v_previous THEN RETURN false; END IF;
+      v_previous:=pg_catalog.convert_to(v_key,'UTF8'); v_promotion_ids:=pg_catalog.array_append(v_promotion_ids,v_item->>'promotionId'); v_reservation_ids:=pg_catalog.array_append(v_reservation_ids,v_item->>'reservationId'); v_redemption_ids:=pg_catalog.array_append(v_redemption_ids,v_item->>'redemptionId'); v_discount_total:=v_discount_total+(v_item->>'discountMinor')::bigint;
+    END LOOP;
+    RETURN v_discount_total=(p_result->>'discountTotalMinor')::bigint;
+  ELSE
+    RETURN false;
+  END IF;
+EXCEPTION WHEN others THEN RETURN false;
+END $fn$;
+
+DO $fn$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.promotion_operations'::regclass AND conname='promotion_operations_result_contract_check') THEN
+    ALTER TABLE saas.promotion_operations ADD CONSTRAINT promotion_operations_result_contract_check CHECK (saas.promotion_operation_result_valid(operation_kind,result_payload) IS TRUE) NOT VALID;
+  END IF;
+  ALTER TABLE saas.promotion_operations VALIDATE CONSTRAINT promotion_operations_result_contract_check;
+END $fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_operation_entity_kind(p_kind text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = pg_catalog, saas AS $fn$
+  SELECT CASE
+    WHEN p_kind IN ('create','update','lifecycle','archive','duplicate') THEN 'promotion'
+    WHEN p_kind IN ('code_batch','code_batch_status') THEN 'code_batch'
+    WHEN p_kind IN ('reserve','release','expire') THEN 'reservation_group'
+    WHEN p_kind='commit' THEN 'redemption_group'
+    ELSE NULL
+  END
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_operation_entity_id(p_kind text,p_result jsonb)
+RETURNS uuid LANGUAGE plpgsql STABLE SET search_path = pg_catalog, saas AS $fn$
+DECLARE v_value jsonb;
+BEGIN
+  IF saas.promotion_operation_result_valid(p_kind,p_result) IS NOT TRUE THEN RETURN NULL; END IF;
+  v_value:=CASE WHEN p_kind IN ('reserve','release','expire') THEN p_result->'reservationGroupId' WHEN p_kind='commit' THEN p_result->'redemptionGroupId' ELSE p_result->'id' END;
+  IF saas.promotion_json_uuid(v_value) IS NOT TRUE THEN RETURN NULL; END IF;
+  RETURN (v_value#>>'{}')::uuid;
+EXCEPTION WHEN others THEN RETURN NULL;
+END $fn$;
+
+DO $fn$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.promotion_operations'::regclass AND conname='promotion_operations_result_entity_check') THEN
+    ALTER TABLE saas.promotion_operations ADD CONSTRAINT promotion_operations_result_entity_check CHECK (result_entity_id IS NOT DISTINCT FROM saas.promotion_operation_entity_id(operation_kind,result_payload)) NOT VALID;
+  END IF;
+  ALTER TABLE saas.promotion_operations VALIDATE CONSTRAINT promotion_operations_result_entity_check;
+END $fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_operation_recovery_action(p_kind text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = pg_catalog, saas AS $fn$
+  SELECT CASE WHEN p_kind IN ('create','update','lifecycle','duplicate','code_batch','code_batch_status') THEN 'promotions.manage' WHEN p_kind='archive' THEN 'promotions.archive' ELSE NULL END
 $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_audit_append_only()
@@ -482,9 +749,25 @@ CREATE OR REPLACE FUNCTION saas.promotion_authority_error(p_store_id uuid,p_prin
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
 DECLARE v_error text;
 BEGIN
-  IF p_action NOT IN ('promotions.read','promotions.manage','promotions.archive') THEN RETURN 'durable_authority_invalid'; END IF;
+  IF p_action IS NULL OR p_action NOT IN ('promotions.read','promotions.manage','promotions.archive') THEN RETURN 'durable_authority_invalid'; END IF;
   v_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'promotions',p_action);
   RETURN v_error;
+END $fn$;
+
+-- Every promotion mutation and recovery operation uses this exact lock order:
+-- operation advisory lock, store, membership, subscription, plan, feature,
+-- authority recheck, and only then operation/business rows in the caller.
+CREATE OR REPLACE FUNCTION saas.promotion_operation_authority_lock_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_action text)
+RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+BEGIN
+  IF p_store_id IS NULL OR p_operation_id IS NULL THEN RETURN 'durable_authority_invalid'; END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('promotion-operation:'||p_store_id::text||':'||p_operation_id::text,0));
+  PERFORM 1 FROM saas.stores store_row WHERE store_row.id=p_store_id FOR SHARE;
+  PERFORM 1 FROM saas.memberships membership WHERE membership.id=p_membership_id AND membership.store_id=p_store_id AND membership.principal_id=p_principal_id FOR SHARE;
+  PERFORM 1 FROM saas.subscriptions subscription WHERE subscription.store_id=p_store_id AND subscription.plan_id=p_plan_id AND subscription.plan_code=p_plan_code AND subscription.plan_version=p_plan_version FOR SHARE;
+  PERFORM 1 FROM saas.plans plan WHERE plan.id=p_plan_id AND plan.plan_code=p_plan_code AND plan.version=p_plan_version FOR SHARE;
+  PERFORM 1 FROM saas.plan_features feature WHERE feature.plan_id=p_plan_id AND feature.feature_key='promotions' ORDER BY feature.feature_ordinal,feature.feature_key FOR SHARE;
+  RETURN saas.promotion_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_action);
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_projection(p_store_id uuid,p_id uuid)
@@ -494,44 +777,71 @@ $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_record_operation(p_store_id uuid,p_operation_id uuid,p_kind text,p_fingerprint text,p_result jsonb,p_now timestamptz)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE v_entity_kind text; v_entity_id uuid;
 BEGIN
-  INSERT INTO saas.promotion_operations(id,store_id,operation_id,operation_kind,fingerprint,result_payload,created_at)
-  VALUES (p_operation_id,p_store_id,p_operation_id,p_kind,p_fingerprint,p_result,p_now);
+  v_entity_kind:=saas.promotion_operation_entity_kind(p_kind);
+  v_entity_id:=saas.promotion_operation_entity_id(p_kind,p_result);
+  IF p_store_id IS NULL OR p_operation_id IS NULL OR p_now IS NULL OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' OR v_entity_kind IS NULL OR v_entity_id IS NULL OR saas.promotion_operation_result_valid(p_kind,p_result) IS NOT TRUE THEN
+    RAISE EXCEPTION 'promotion operation result invalid';
+  END IF;
+  INSERT INTO saas.promotion_operations(id,store_id,operation_id,operation_kind,fingerprint,result_entity_kind,result_entity_id,result_payload,created_at)
+  VALUES (p_operation_id,p_store_id,p_operation_id,p_kind,p_fingerprint,v_entity_kind,v_entity_id,p_result,p_now);
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_create_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_promotion_id uuid,p_name text,p_rule_document jsonb)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
 DECLARE v_error text; v_operation saas.promotion_operations%ROWTYPE; v_result jsonb;
 BEGIN
-  v_error:=saas.promotion_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_store_id::text||':'||p_operation_id::text,0));
+  IF p_promotion_id IS NULL OR p_operation_id IS NULL OR p_fingerprint IS DISTINCT FROM saas.promotion_operation_fingerprint_v2('create',p_store_id,pg_catalog.jsonb_build_object('name',p_name,'ruleDocument',p_rule_document)) OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR pg_catalog.length(p_name) NOT BETWEEN 1 AND 200 OR pg_catalog.octet_length(p_name)>800 OR p_name~'[[:cntrl:]]' OR saas.promotion_rule_document_valid(p_rule_document) IS NOT TRUE THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_error:=saas.promotion_operation_authority_lock_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
   SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE;
-  IF FOUND THEN IF v_operation.operation_kind<>'create' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF; RETURN; END IF;
-  IF p_promotion_id IS NULL OR p_operation_id IS NULL OR p_fingerprint<>saas.promotion_operation_fingerprint('create',pg_catalog.jsonb_build_object('id',p_promotion_id,'name',p_name,'ruleDocument',p_rule_document)) OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR p_name~'[[:cntrl:]]' OR NOT saas.promotion_rule_document_valid(p_rule_document) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  INSERT INTO saas.promotions(id,store_id,name,status,version,rule_document,created_at,updated_at) VALUES(p_promotion_id,p_store_id,p_name,'draft',1,p_rule_document,p_now,p_now);
+  IF FOUND THEN
+    IF v_operation.operation_kind<>'create' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSIF saas.promotion_operation_result_valid('create',v_operation.result_payload) IS NOT TRUE OR v_operation.result_entity_kind<>'promotion' OR v_operation.result_entity_id IS DISTINCT FROM saas.promotion_operation_entity_id('create',v_operation.result_payload) THEN RETURN QUERY SELECT 'operation_result_invalid',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF;
+    RETURN;
+  END IF;
+  INSERT INTO saas.promotions(id,store_id,name,status,version,rule_document,created_at,updated_at) VALUES(p_promotion_id,p_store_id,p_name,'draft',1,p_rule_document,p_now,p_now) ON CONFLICT DO NOTHING;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'conflict',NULL::jsonb; RETURN; END IF;
   INSERT INTO saas.promotion_versions(id,store_id,promotion_id,version,rule_document,created_at) VALUES(p_promotion_id,p_store_id,p_promotion_id,1,p_rule_document,p_now);
   v_result:=saas.promotion_projection(p_store_id,p_promotion_id); PERFORM saas.promotion_record_operation(p_store_id,p_operation_id,'create',p_fingerprint,v_result,p_now); INSERT INTO saas.promotion_audit_events(id,store_id,promotion_id,actor_principal_id,event_kind,payload,created_at) VALUES(p_operation_id,p_store_id,p_promotion_id,p_principal_id,'created','{}'::jsonb,p_now); RETURN QUERY SELECT 'created',v_result;
-EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'conflict',NULL::jsonb;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_update_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_promotion_id uuid,p_expected_version bigint,p_name text,p_rule_document jsonb)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
 DECLARE v_error text; v_current saas.promotions%ROWTYPE; v_operation saas.promotion_operations%ROWTYPE; v_result jsonb;
 BEGIN
-  v_error:=saas.promotion_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_store_id::text||':'||p_promotion_id::text,0)); SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE; IF FOUND THEN IF v_operation.operation_kind<>'update' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF; RETURN; END IF;
-  IF p_operation_id IS NULL OR p_fingerprint<>saas.promotion_operation_fingerprint('update',pg_catalog.jsonb_build_object('id',p_promotion_id,'expectedVersion',p_expected_version,'name',p_name,'ruleDocument',p_rule_document)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  SELECT * INTO v_current FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id FOR UPDATE; IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF; IF v_current.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',saas.promotion_projection(p_store_id,p_promotion_id); RETURN; END IF; IF v_current.status='archived' OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR NOT saas.promotion_rule_document_valid(p_rule_document) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF p_promotion_id IS NULL OR p_operation_id IS NULL OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991 OR p_fingerprint IS DISTINCT FROM saas.promotion_operation_fingerprint_v2('update',p_store_id,pg_catalog.jsonb_build_object('id',p_promotion_id,'expectedVersion',p_expected_version,'name',p_name,'ruleDocument',p_rule_document)) OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR pg_catalog.length(p_name) NOT BETWEEN 1 AND 200 OR pg_catalog.octet_length(p_name)>800 OR p_name~'[[:cntrl:]]' OR saas.promotion_rule_document_valid(p_rule_document) IS NOT TRUE THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_error:=saas.promotion_operation_authority_lock_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE;
+  IF FOUND THEN
+    IF v_operation.operation_kind<>'update' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSIF saas.promotion_operation_result_valid('update',v_operation.result_payload) IS NOT TRUE OR v_operation.result_entity_kind<>'promotion' OR v_operation.result_entity_id IS DISTINCT FROM saas.promotion_operation_entity_id('update',v_operation.result_payload) THEN RETURN QUERY SELECT 'operation_result_invalid',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF;
+    RETURN;
+  END IF;
+  SELECT * INTO v_current FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id FOR UPDATE; IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF; IF v_current.version IS DISTINCT FROM p_expected_version THEN RETURN QUERY SELECT 'version_conflict',saas.promotion_projection(p_store_id,p_promotion_id); RETURN; END IF; IF v_current.version=9007199254740991 OR v_current.status='archived' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   UPDATE saas.promotions SET name=p_name,rule_document=p_rule_document,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_promotion_id; INSERT INTO saas.promotion_versions(id,store_id,promotion_id,version,rule_document,created_at) VALUES(p_operation_id,p_store_id,p_promotion_id,v_current.version+1,p_rule_document,p_now); v_result:=saas.promotion_projection(p_store_id,p_promotion_id); PERFORM saas.promotion_record_operation(p_store_id,p_operation_id,'update',p_fingerprint,v_result,p_now); RETURN QUERY SELECT 'updated',v_result;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_lifecycle_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_promotion_id uuid,p_expected_version bigint,p_next_status text)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_action text; v_error text; v_current saas.promotions%ROWTYPE; v_operation saas.promotion_operations%ROWTYPE; v_result jsonb;
+DECLARE v_action text; v_kind text; v_error text; v_current saas.promotions%ROWTYPE; v_operation saas.promotion_operations%ROWTYPE; v_result jsonb;
 BEGIN
-  v_action:=CASE WHEN p_next_status='archived' THEN 'promotions.archive' ELSE 'promotions.manage' END; v_error:=saas.promotion_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,v_action); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF; IF p_next_status NOT IN ('scheduled','active','paused','archived') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_store_id::text||':'||p_promotion_id::text,0)); SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE; IF FOUND THEN IF v_operation.operation_kind<>'lifecycle' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF; RETURN; END IF; IF p_operation_id IS NULL OR p_fingerprint<>saas.promotion_operation_fingerprint('lifecycle',pg_catalog.jsonb_build_object('id',p_promotion_id,'expectedVersion',p_expected_version,'nextStatus',p_next_status)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF; SELECT * INTO v_current FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id FOR UPDATE; IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF; IF v_current.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',saas.promotion_projection(p_store_id,p_promotion_id); RETURN; END IF; IF v_current.status='archived' OR (p_next_status='active' AND NOT saas.promotion_rule_document_valid(v_current.rule_document)) THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb; RETURN; END IF;
-  UPDATE saas.promotions SET status=p_next_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_promotion_id; v_result:=saas.promotion_projection(p_store_id,p_promotion_id); PERFORM saas.promotion_record_operation(p_store_id,p_operation_id,'lifecycle',p_fingerprint,v_result,p_now); RETURN QUERY SELECT 'updated',v_result;
+  IF p_next_status IS NULL OR p_next_status NOT IN ('scheduled','active','paused','archived') OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_action:=CASE WHEN p_next_status='archived' THEN 'promotions.archive' ELSE 'promotions.manage' END;
+  v_kind:=CASE WHEN p_next_status='archived' THEN 'archive' ELSE 'lifecycle' END;
+  IF p_promotion_id IS NULL OR p_operation_id IS NULL OR p_fingerprint IS DISTINCT FROM saas.promotion_operation_fingerprint_v2(v_kind,p_store_id,pg_catalog.jsonb_build_object('id',p_promotion_id,'expectedVersion',p_expected_version,'nextStatus',p_next_status)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_error:=saas.promotion_operation_authority_lock_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,v_action); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE;
+  IF FOUND THEN
+    IF v_operation.operation_kind<>v_kind OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSIF saas.promotion_operation_result_valid(v_kind,v_operation.result_payload) IS NOT TRUE OR v_operation.result_entity_kind<>'promotion' OR v_operation.result_entity_id IS DISTINCT FROM saas.promotion_operation_entity_id(v_kind,v_operation.result_payload) THEN RETURN QUERY SELECT 'operation_result_invalid',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF;
+    RETURN;
+  END IF;
+  SELECT * INTO v_current FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id FOR UPDATE; IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF; IF v_current.version IS DISTINCT FROM p_expected_version THEN RETURN QUERY SELECT 'version_conflict',saas.promotion_projection(p_store_id,p_promotion_id); RETURN; END IF; IF v_current.version=9007199254740991 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF; IF v_current.status='archived' OR (p_next_status='active' AND saas.promotion_rule_document_valid(v_current.rule_document) IS NOT TRUE) THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb; RETURN; END IF;
+  UPDATE saas.promotions SET status=p_next_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_promotion_id; v_result:=saas.promotion_projection(p_store_id,p_promotion_id); PERFORM saas.promotion_record_operation(p_store_id,p_operation_id,v_kind,p_fingerprint,v_result,p_now); RETURN QUERY SELECT 'updated',v_result;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_list_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_search text,p_statuses text[],p_limit integer)
@@ -565,25 +875,36 @@ END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_create_code_batch_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_batch_id uuid,p_promotion_id uuid,p_count integer,p_prefix text)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_error text; v_operation saas.promotion_operations%ROWTYPE; v_code text; v_index integer; v_attempt integer; v_result jsonb;
+DECLARE v_error text; v_operation saas.promotion_operations%ROWTYPE; v_code text; v_index integer; v_attempt integer; v_result jsonb; v_constraint text;
 BEGIN
-  v_error:=saas.promotion_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
-  IF p_operation_id IS NULL OR p_batch_id IS NULL OR p_count NOT BETWEEN 1 AND 10000 OR p_prefix !~ '^[A-Z0-9_-]{0,20}$' OR p_fingerprint<>saas.promotion_operation_fingerprint('code_batch',pg_catalog.jsonb_build_object('id',p_batch_id,'promotionId',p_promotion_id,'count',p_count,'prefix',p_prefix)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_store_id::text||':'||p_promotion_id::text,0)); SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE;
-  IF FOUND THEN IF v_operation.operation_kind<>'code_batch' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF; RETURN; END IF;
+  IF p_operation_id IS NULL OR p_batch_id IS NULL OR p_promotion_id IS NULL OR p_count IS NULL OR p_count NOT BETWEEN 1 AND 10000 OR p_prefix IS NULL OR p_prefix !~ '^[A-Z0-9_-]{0,20}$' OR p_fingerprint IS DISTINCT FROM saas.promotion_operation_fingerprint_v2('code_batch',p_store_id,pg_catalog.jsonb_build_object('promotionId',p_promotion_id,'count',p_count,'prefix',p_prefix)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_error:=saas.promotion_operation_authority_lock_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,'promotions.manage'); IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE;
+  IF FOUND THEN
+    IF v_operation.operation_kind<>'code_batch' OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
+    ELSIF saas.promotion_operation_result_valid('code_batch',v_operation.result_payload) IS NOT TRUE OR v_operation.result_entity_kind<>'code_batch' OR v_operation.result_entity_id IS DISTINCT FROM saas.promotion_operation_entity_id('code_batch',v_operation.result_payload) THEN RETURN QUERY SELECT 'operation_result_invalid',NULL::jsonb;
+    ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF;
+    RETURN;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id AND status<>'archived') THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
-  INSERT INTO saas.promotion_code_batches(id,store_id,promotion_id,status,requested_count,operation_id,created_at) VALUES(p_batch_id,p_store_id,p_promotion_id,'active',p_count,p_operation_id,p_now);
+  INSERT INTO saas.promotion_code_batches(id,store_id,promotion_id,status,requested_count,operation_id,created_at) VALUES(p_batch_id,p_store_id,p_promotion_id,'active',p_count,p_operation_id,p_now) ON CONFLICT DO NOTHING;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'code_conflict',NULL::jsonb; RETURN; END IF;
   FOR v_index IN 1..p_count LOOP
     v_attempt:=0;
     LOOP
       v_attempt:=v_attempt+1; IF v_attempt>20 THEN RAISE EXCEPTION 'promotion code entropy collision limit'; END IF;
       v_code:=saas.promotion_normalize_code(p_prefix||pg_catalog.substr(pg_catalog.encode(pg_catalog.gen_random_bytes(16),'hex'),1,20));
-      BEGIN INSERT INTO saas.promotion_codes(id,store_id,promotion_id,batch_id,code,status,created_at) VALUES(pg_catalog.gen_random_uuid(),p_store_id,p_promotion_id,p_batch_id,v_code,'active',p_now); EXIT; EXCEPTION WHEN unique_violation THEN END;
+      BEGIN
+        INSERT INTO saas.promotion_codes(id,store_id,promotion_id,batch_id,code,status,created_at) VALUES(pg_catalog.gen_random_uuid(),p_store_id,p_promotion_id,p_batch_id,v_code,'active',p_now);
+        EXIT;
+      EXCEPTION WHEN unique_violation THEN
+        GET STACKED DIAGNOSTICS v_constraint=CONSTRAINT_NAME;
+        IF v_constraint NOT IN ('promotion_codes_store_code_key','promotion_codes_pkey') THEN RAISE; END IF;
+      END;
     END LOOP;
   END LOOP;
   v_result:=pg_catalog.jsonb_build_object('id',p_batch_id,'promotionId',p_promotion_id,'status','active','count',p_count,'createdAt',pg_catalog.to_char(p_now AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
   PERFORM saas.promotion_record_operation(p_store_id,p_operation_id,'code_batch',p_fingerprint,v_result,p_now); RETURN QUERY SELECT 'created',v_result;
-EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'code_conflict',NULL::jsonb;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_codes_csv_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_batch_id uuid)
@@ -632,53 +953,50 @@ RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql STABLE SECURITY DE
 $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_reserve_v1(p_store_id uuid,p_promotion_id uuid,p_code_id uuid,p_customer_id uuid,p_operation_id uuid,p_source_reference text,p_budget_minor bigint,p_now timestamptz,p_expires_at timestamptz)
-RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_existing saas.promotion_usage_reservations%ROWTYPE; v_used bigint;
-BEGIN
-  IF p_store_id IS NULL OR p_promotion_id IS NULL OR p_operation_id IS NULL OR p_source_reference IS NULL OR p_expires_at<=p_now OR p_budget_minor<0 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_store_id::text||':'||p_promotion_id::text,0)); SELECT * INTO v_existing FROM saas.promotion_usage_reservations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR UPDATE; IF FOUND THEN RETURN QUERY SELECT 'operation_replayed',pg_catalog.jsonb_build_object('reservationId',v_existing.id,'status',v_existing.status); RETURN; END IF;
-  SELECT count(*) INTO v_used FROM saas.promotion_usage_reservations WHERE store_id=p_store_id AND promotion_id=p_promotion_id AND (status='committed' OR (status='reserved' AND expires_at>p_now)); IF NOT EXISTS(SELECT 1 FROM saas.promotions WHERE store_id=p_store_id AND id=p_promotion_id AND status='active') THEN RETURN QUERY SELECT 'not_eligible',NULL::jsonb; RETURN; END IF;
-  INSERT INTO saas.promotion_usage_reservations(id,store_id,promotion_id,code_id,customer_id,operation_id,source_reference,reserved_budget_minor,status,expires_at,created_at,updated_at) VALUES(p_operation_id,p_store_id,p_promotion_id,p_code_id,p_customer_id,p_operation_id,p_source_reference,p_budget_minor,'reserved',p_expires_at,p_now,p_now); RETURN QUERY SELECT 'reserved',pg_catalog.jsonb_build_object('reservationId',p_operation_id,'contendedUses',v_used+1);
-END $fn$;
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+  SELECT 'settlement_not_ready'::text,NULL::jsonb
+$fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_release_expired_v1(p_store_id uuid,p_now timestamptz)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_count integer; BEGIN UPDATE saas.promotion_usage_reservations SET status='expired',updated_at=p_now WHERE store_id=p_store_id AND status='reserved' AND expires_at<=p_now; GET DIAGNOSTICS v_count=ROW_COUNT; RETURN v_count; END $fn$;
+RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+  SELECT 0
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_expire_due_reservations_v1(p_now timestamptz,p_limit integer)
+RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+  SELECT CASE WHEN p_now IS NOT NULL AND p_limit BETWEEN 1 AND 500 THEN 0 ELSE 0 END
+$fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_release_reservation_v1(p_store_id uuid,p_reservation_id uuid,p_operation_id uuid,p_now timestamptz)
-RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_reservation saas.promotion_usage_reservations%ROWTYPE;
-BEGIN
-  SELECT * INTO v_reservation FROM saas.promotion_usage_reservations WHERE store_id=p_store_id AND id=p_reservation_id FOR UPDATE;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
-  IF v_reservation.operation_id<>p_operation_id THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
-  IF v_reservation.status='committed' THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb; RETURN; END IF;
-  IF v_reservation.status='reserved' THEN UPDATE saas.promotion_usage_reservations SET status='released',updated_at=p_now WHERE store_id=p_store_id AND id=p_reservation_id; END IF;
-  RETURN QUERY SELECT 'released',pg_catalog.jsonb_build_object('reservationId',p_reservation_id);
-END $fn$;
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+  SELECT 'settlement_not_ready'::text,NULL::jsonb
+$fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_commit_reservation_v1(p_store_id uuid,p_reservation_id uuid,p_operation_id uuid,p_redemption_id uuid,p_order_id uuid,p_discount_minor bigint,p_currency text,p_now timestamptz)
-RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_reservation saas.promotion_usage_reservations%ROWTYPE;
-BEGIN
-  IF p_discount_minor<0 OR p_currency !~ '^[A-Z]{3}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
-  SELECT * INTO v_reservation FROM saas.promotion_usage_reservations WHERE store_id=p_store_id AND id=p_reservation_id FOR UPDATE;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
-  IF v_reservation.operation_id<>p_operation_id THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
-  IF v_reservation.status='committed' THEN RETURN QUERY SELECT 'operation_replayed',pg_catalog.jsonb_build_object('reservationId',p_reservation_id); RETURN; END IF;
-  IF v_reservation.status<>'reserved' OR v_reservation.expires_at<=p_now THEN RETURN QUERY SELECT 'not_eligible',NULL::jsonb; RETURN; END IF;
-  UPDATE saas.promotion_usage_reservations SET status='committed',updated_at=p_now WHERE store_id=p_store_id AND id=p_reservation_id;
-  INSERT INTO saas.promotion_redemptions(id,store_id,promotion_id,reservation_id,order_id,customer_id,discount_minor,currency,created_at) VALUES(p_redemption_id,p_store_id,v_reservation.promotion_id,p_reservation_id,p_order_id,v_reservation.customer_id,p_discount_minor,p_currency,p_now);
-  RETURN QUERY SELECT 'committed',pg_catalog.jsonb_build_object('reservationId',p_reservation_id,'redemptionId',p_redemption_id);
-EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'operation_replayed',pg_catalog.jsonb_build_object('reservationId',p_reservation_id); END $fn$;
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+  SELECT 'settlement_not_ready'::text,NULL::jsonb
+$fn$;
 
-CREATE OR REPLACE FUNCTION saas.promotion_recover_operation_v1(p_store_id uuid,p_operation_id uuid,p_kind text,p_fingerprint text)
-RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_operation saas.promotion_operations%ROWTYPE;
+CREATE OR REPLACE FUNCTION saas.promotion_recover_operation_v1(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_kind text,p_fingerprint text)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE v_action text; v_error text; v_operation saas.promotion_operations%ROWTYPE; v_entity_kind text; v_entity_id uuid;
 BEGIN
-  SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id;
+  v_action:=saas.promotion_operation_recovery_action(p_kind);
+  IF p_store_id IS NULL OR p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' OR v_action IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  v_error:=saas.promotion_operation_authority_lock_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,v_action);
+  IF v_error IS NOT NULL THEN RETURN QUERY SELECT v_error,NULL::jsonb; RETURN; END IF;
+  SELECT * INTO v_operation FROM saas.promotion_operations WHERE store_id=p_store_id AND operation_id=p_operation_id FOR SHARE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb; RETURN; END IF;
-  IF v_operation.operation_kind<>p_kind OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload; END IF;
+  IF v_operation.operation_kind<>p_kind OR v_operation.fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+  v_entity_kind:=saas.promotion_operation_entity_kind(p_kind);
+  v_entity_id:=saas.promotion_operation_entity_id(p_kind,v_operation.result_payload);
+  IF saas.promotion_operation_result_valid(p_kind,v_operation.result_payload) IS NOT TRUE
+     OR v_operation.result_entity_kind IS DISTINCT FROM v_entity_kind
+     OR v_operation.result_entity_id IS DISTINCT FROM v_entity_id
+     OR (v_entity_kind='promotion' AND NOT EXISTS (SELECT 1 FROM saas.promotions WHERE store_id=p_store_id AND id=v_entity_id))
+     OR (v_entity_kind='code_batch' AND NOT EXISTS (SELECT 1 FROM saas.promotion_code_batches WHERE store_id=p_store_id AND id=v_entity_id))
+  THEN RETURN QUERY SELECT 'operation_result_invalid',NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'operation_replayed',v_operation.result_payload;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_adopt_legacy_discounts_v1(p_store_id uuid,p_now timestamptz)
@@ -708,8 +1026,200 @@ BEGIN RAISE EXCEPTION 'promotion history is append-only'; END $fn$;
 CREATE OR REPLACE FUNCTION saas.promotion_reservation_transition_only()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
 BEGIN
-  IF TG_OP='DELETE' OR NEW.store_id<>OLD.store_id OR NEW.id<>OLD.id OR NEW.promotion_id<>OLD.promotion_id OR NEW.code_id IS DISTINCT FROM OLD.code_id OR NEW.customer_id IS DISTINCT FROM OLD.customer_id OR NEW.operation_id<>OLD.operation_id OR NEW.source_reference<>OLD.source_reference OR NEW.reserved_uses<>OLD.reserved_uses OR NEW.reserved_budget_minor<>OLD.reserved_budget_minor OR NEW.expires_at<>OLD.expires_at OR NEW.created_at<>OLD.created_at OR NEW.status NOT IN ('reserved','committed','released','expired') OR (OLD.status='reserved' AND NEW.status NOT IN ('reserved','committed','released','expired')) OR (OLD.status<>'reserved' AND NEW.status<>OLD.status) THEN RAISE EXCEPTION 'promotion reservation transition invalid'; END IF;
+  IF TG_OP='DELETE'
+     OR NEW.store_id<>OLD.store_id OR NEW.id<>OLD.id OR NEW.promotion_id<>OLD.promotion_id
+     OR NEW.promotion_version<>OLD.promotion_version OR NEW.code_id IS DISTINCT FROM OLD.code_id
+     OR NEW.normalized_code IS DISTINCT FROM OLD.normalized_code OR NEW.reservation_group_id<>OLD.reservation_group_id OR NEW.customer_id IS DISTINCT FROM OLD.customer_id
+     OR NEW.operation_id<>OLD.operation_id OR NEW.operation_kind<>OLD.operation_kind OR NEW.operation_fingerprint<>OLD.operation_fingerprint
+     OR NEW.source_kind<>OLD.source_kind OR NEW.source_reference<>OLD.source_reference OR NEW.reserved_uses<>OLD.reserved_uses
+     OR NEW.reserved_budget_minor<>OLD.reserved_budget_minor OR NEW.discount_minor<>OLD.discount_minor
+     OR NEW.currency<>OLD.currency OR NEW.evaluator_snapshot<>OLD.evaluator_snapshot
+     OR NEW.evaluator_fingerprint<>OLD.evaluator_fingerprint OR NEW.expires_at<>OLD.expires_at
+     OR NEW.created_at<>OLD.created_at OR NEW.updated_at<OLD.updated_at
+     OR NEW.status IS NULL OR NEW.status NOT IN ('reserved','committed','released','expired')
+     OR (OLD.status<>'reserved' AND NEW.status<>OLD.status)
+  THEN RAISE EXCEPTION 'promotion reservation transition invalid'; END IF;
   RETURN NEW;
+END $fn$;
+
+-- A reservation row is a projection of its immutable reserve-operation result.
+-- The exact operation tuple is checked here as well as by the deferred FK so a
+-- forged member, currency, expiry or evaluator digest cannot enter settlement.
+CREATE OR REPLACE FUNCTION saas.promotion_reservation_matches_operation()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_operation saas.promotion_operations%ROWTYPE;
+  v_member jsonb;
+BEGIN
+  SELECT operation_row.* INTO v_operation
+  FROM saas.promotion_operations operation_row
+  WHERE operation_row.store_id=NEW.store_id
+    AND operation_row.operation_id=NEW.operation_id
+    AND operation_row.operation_kind=NEW.operation_kind
+    AND operation_row.fingerprint=NEW.operation_fingerprint
+    AND operation_row.result_entity_kind='reservation_group'
+    AND operation_row.result_entity_id=NEW.reservation_group_id
+  FOR SHARE;
+  IF NOT FOUND
+     OR NEW.operation_kind IS DISTINCT FROM 'reserve'
+     OR NEW.status IS DISTINCT FROM 'reserved'
+     OR saas.promotion_operation_result_valid('reserve',v_operation.result_payload) IS NOT TRUE
+     OR (v_operation.result_payload->>'reservationGroupId')::uuid IS DISTINCT FROM NEW.reservation_group_id
+     OR v_operation.result_payload->>'currency' IS DISTINCT FROM NEW.currency
+     OR (v_operation.result_payload->>'expiresAt')::timestamptz IS DISTINCT FROM NEW.expires_at
+     OR v_operation.result_payload->>'evaluatorFingerprint' IS DISTINCT FROM NEW.evaluator_fingerprint
+  THEN RAISE EXCEPTION 'promotion reservation operation binding invalid'; END IF;
+
+  SELECT member.value INTO v_member
+  FROM pg_catalog.jsonb_array_elements(v_operation.result_payload->'reservations') member
+  WHERE member.value->>'promotionId'=NEW.promotion_id::text
+    AND member.value->>'reservationId'=NEW.id::text;
+  IF NOT FOUND
+     OR (v_member->>'promotionVersion')::bigint IS DISTINCT FROM NEW.promotion_version
+     OR v_member->>'normalizedCode' IS DISTINCT FROM NEW.normalized_code
+     OR (v_member->>'discountMinor')::bigint IS DISTINCT FROM NEW.discount_minor
+  THEN RAISE EXCEPTION 'promotion reservation operation member invalid'; END IF;
+  RETURN NEW;
+EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR datetime_field_overflow THEN
+  RAISE EXCEPTION 'promotion reservation operation binding invalid';
+END $fn$;
+
+-- Settlement may only copy frozen reservation authority facts.  The operation
+-- result is also bound member-for-member, making caller-supplied money, code,
+-- customer, version and evaluator facts unrepresentable in the ledger.
+CREATE OR REPLACE FUNCTION saas.promotion_redemption_matches_reservation()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_reservation saas.promotion_usage_reservations%ROWTYPE;
+  v_operation saas.promotion_operations%ROWTYPE;
+  v_member jsonb;
+BEGIN
+  SELECT reservation_row.* INTO v_reservation
+  FROM saas.promotion_usage_reservations reservation_row
+  WHERE reservation_row.store_id=NEW.store_id
+    AND reservation_row.reservation_group_id=NEW.reservation_group_id
+    AND reservation_row.promotion_id=NEW.promotion_id
+    AND reservation_row.id=NEW.reservation_id
+  FOR SHARE;
+  IF NOT FOUND
+     OR v_reservation.status IS DISTINCT FROM 'committed'
+     OR NEW.promotion_version IS DISTINCT FROM v_reservation.promotion_version
+     OR NEW.code_id IS DISTINCT FROM v_reservation.code_id
+     OR NEW.normalized_code IS DISTINCT FROM v_reservation.normalized_code
+     OR NEW.customer_id IS DISTINCT FROM v_reservation.customer_id
+     OR NEW.discount_minor IS DISTINCT FROM v_reservation.discount_minor
+     OR NEW.currency IS DISTINCT FROM v_reservation.currency
+     OR NEW.evaluator_fingerprint IS DISTINCT FROM v_reservation.evaluator_fingerprint
+  THEN RAISE EXCEPTION 'promotion redemption reservation binding invalid'; END IF;
+
+  SELECT operation_row.* INTO v_operation
+  FROM saas.promotion_operations operation_row
+  WHERE operation_row.store_id=NEW.store_id
+    AND operation_row.operation_id=NEW.operation_id
+    AND operation_row.operation_kind=NEW.operation_kind
+    AND operation_row.fingerprint=NEW.operation_fingerprint
+    AND operation_row.result_entity_kind='redemption_group'
+    AND operation_row.result_entity_id=NEW.redemption_group_id
+  FOR SHARE;
+  IF NOT FOUND
+     OR NEW.operation_kind IS DISTINCT FROM 'commit'
+     OR saas.promotion_operation_result_valid('commit',v_operation.result_payload) IS NOT TRUE
+     OR (v_operation.result_payload->>'reservationGroupId')::uuid IS DISTINCT FROM NEW.reservation_group_id
+     OR (v_operation.result_payload->>'redemptionGroupId')::uuid IS DISTINCT FROM NEW.redemption_group_id
+     OR (v_operation.result_payload->>'orderId')::uuid IS DISTINCT FROM NEW.order_id
+     OR v_operation.result_payload->>'currency' IS DISTINCT FROM NEW.currency
+     OR v_operation.result_payload->>'evaluatorFingerprint' IS DISTINCT FROM NEW.evaluator_fingerprint
+  THEN RAISE EXCEPTION 'promotion redemption operation binding invalid'; END IF;
+
+  SELECT member.value INTO v_member
+  FROM pg_catalog.jsonb_array_elements(v_operation.result_payload->'redemptions') member
+  WHERE member.value->>'promotionId'=NEW.promotion_id::text
+    AND member.value->>'reservationId'=NEW.reservation_id::text
+    AND member.value->>'redemptionId'=NEW.id::text;
+  IF NOT FOUND
+     OR (v_member->>'promotionVersion')::bigint IS DISTINCT FROM NEW.promotion_version
+     OR v_member->>'normalizedCode' IS DISTINCT FROM NEW.normalized_code
+     OR (v_member->>'discountMinor')::bigint IS DISTINCT FROM NEW.discount_minor
+  THEN RAISE EXCEPTION 'promotion redemption operation member invalid'; END IF;
+  RETURN NEW;
+EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR datetime_field_overflow THEN
+  RAISE EXCEPTION 'promotion redemption operation binding invalid';
+END $fn$;
+
+-- Group operations are finalized at transaction end, after every member row is
+-- present.  This closes the reverse direction of the binding: the payload may
+-- neither omit a durable member nor claim a member that was never persisted.
+CREATE OR REPLACE FUNCTION saas.promotion_operation_group_complete()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
+DECLARE
+  v_expected integer;
+  v_actual integer;
+  v_status text;
+BEGIN
+  IF NEW.operation_kind IN ('reserve','release','expire') THEN
+    IF saas.promotion_operation_result_valid(NEW.operation_kind,NEW.result_payload) IS NOT TRUE
+       OR NEW.result_entity_kind IS DISTINCT FROM 'reservation_group'
+       OR NEW.result_entity_id IS DISTINCT FROM (NEW.result_payload->>'reservationGroupId')::uuid
+    THEN RAISE EXCEPTION 'promotion reservation group result invalid'; END IF;
+    v_expected:=pg_catalog.jsonb_array_length(NEW.result_payload->'reservations');
+    v_status:=CASE NEW.operation_kind WHEN 'reserve' THEN 'reserved' WHEN 'release' THEN 'released' ELSE 'expired' END;
+    SELECT count(*) INTO v_actual
+    FROM saas.promotion_usage_reservations reservation_row
+    WHERE reservation_row.store_id=NEW.store_id
+      AND reservation_row.reservation_group_id=NEW.result_entity_id;
+    IF v_actual IS DISTINCT FROM v_expected OR EXISTS (
+      SELECT 1
+      FROM pg_catalog.jsonb_array_elements(NEW.result_payload->'reservations') member
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM saas.promotion_usage_reservations reservation_row
+        WHERE reservation_row.store_id=NEW.store_id
+          AND reservation_row.reservation_group_id=NEW.result_entity_id
+          AND reservation_row.promotion_id=(member.value->>'promotionId')::uuid
+          AND reservation_row.id=(member.value->>'reservationId')::uuid
+          AND reservation_row.promotion_version=(member.value->>'promotionVersion')::bigint
+          AND reservation_row.normalized_code IS NOT DISTINCT FROM member.value->>'normalizedCode'
+          AND reservation_row.discount_minor=(member.value->>'discountMinor')::bigint
+          AND reservation_row.currency=NEW.result_payload->>'currency'
+          AND reservation_row.expires_at=(NEW.result_payload->>'expiresAt')::timestamptz
+          AND reservation_row.evaluator_fingerprint=NEW.result_payload->>'evaluatorFingerprint'
+          AND reservation_row.status=v_status
+      )
+    ) THEN RAISE EXCEPTION 'promotion reservation group is incomplete'; END IF;
+  ELSIF NEW.operation_kind='commit' THEN
+    IF saas.promotion_operation_result_valid('commit',NEW.result_payload) IS NOT TRUE
+       OR NEW.result_entity_kind IS DISTINCT FROM 'redemption_group'
+       OR NEW.result_entity_id IS DISTINCT FROM (NEW.result_payload->>'redemptionGroupId')::uuid
+    THEN RAISE EXCEPTION 'promotion redemption group result invalid'; END IF;
+    v_expected:=pg_catalog.jsonb_array_length(NEW.result_payload->'redemptions');
+    SELECT count(*) INTO v_actual
+    FROM saas.promotion_redemptions redemption_row
+    WHERE redemption_row.store_id=NEW.store_id
+      AND redemption_row.redemption_group_id=NEW.result_entity_id;
+    IF v_actual IS DISTINCT FROM v_expected OR EXISTS (
+      SELECT 1
+      FROM pg_catalog.jsonb_array_elements(NEW.result_payload->'redemptions') member
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM saas.promotion_redemptions redemption_row
+        WHERE redemption_row.store_id=NEW.store_id
+          AND redemption_row.redemption_group_id=NEW.result_entity_id
+          AND redemption_row.reservation_group_id=(NEW.result_payload->>'reservationGroupId')::uuid
+          AND redemption_row.order_id=(NEW.result_payload->>'orderId')::uuid
+          AND redemption_row.promotion_id=(member.value->>'promotionId')::uuid
+          AND redemption_row.reservation_id=(member.value->>'reservationId')::uuid
+          AND redemption_row.id=(member.value->>'redemptionId')::uuid
+          AND redemption_row.promotion_version=(member.value->>'promotionVersion')::bigint
+          AND redemption_row.normalized_code IS NOT DISTINCT FROM member.value->>'normalizedCode'
+          AND redemption_row.discount_minor=(member.value->>'discountMinor')::bigint
+          AND redemption_row.currency=NEW.result_payload->>'currency'
+          AND redemption_row.evaluator_fingerprint=NEW.result_payload->>'evaluatorFingerprint'
+      )
+    ) THEN RAISE EXCEPTION 'promotion redemption group is incomplete'; END IF;
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR datetime_field_overflow THEN
+  RAISE EXCEPTION 'promotion operation group binding invalid';
 END $fn$;
 DO $fn$
 DECLARE t text;
@@ -720,8 +1230,15 @@ BEGIN
   END LOOP;
   DROP TRIGGER IF EXISTS promotion_usage_reservations_transition_only ON saas.promotion_usage_reservations;
   CREATE TRIGGER promotion_usage_reservations_transition_only BEFORE UPDATE OR DELETE ON saas.promotion_usage_reservations FOR EACH ROW EXECUTE FUNCTION saas.promotion_reservation_transition_only();
+  DROP TRIGGER IF EXISTS promotion_usage_reservations_insert_binding ON saas.promotion_usage_reservations;
+  CREATE TRIGGER promotion_usage_reservations_insert_binding BEFORE INSERT ON saas.promotion_usage_reservations FOR EACH ROW EXECUTE FUNCTION saas.promotion_reservation_matches_operation();
+  DROP TRIGGER IF EXISTS promotion_redemptions_insert_binding ON saas.promotion_redemptions;
+  CREATE TRIGGER promotion_redemptions_insert_binding BEFORE INSERT ON saas.promotion_redemptions FOR EACH ROW EXECUTE FUNCTION saas.promotion_redemption_matches_reservation();
+  DROP TRIGGER IF EXISTS promotion_operations_group_complete ON saas.promotion_operations;
+  CREATE CONSTRAINT TRIGGER promotion_operations_group_complete AFTER INSERT ON saas.promotion_operations DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION saas.promotion_operation_group_complete();
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.promotion_redemptions'::regclass AND conname='promotion_redemptions_order_store_fk') THEN ALTER TABLE saas.promotion_redemptions ADD CONSTRAINT promotion_redemptions_order_store_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id); END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.order_promotion_snapshots'::regclass AND conname='order_promotion_snapshots_order_store_fk') THEN ALTER TABLE saas.order_promotion_snapshots ADD CONSTRAINT order_promotion_snapshots_order_store_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id); ALTER TABLE saas.order_promotion_snapshots ADD CONSTRAINT order_promotion_snapshots_version_store_fk FOREIGN KEY(store_id,promotion_id,promotion_version) REFERENCES saas.promotion_versions(store_id,promotion_id,version); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.order_promotion_snapshots'::regclass AND conname='order_promotion_snapshots_order_store_fk') THEN ALTER TABLE saas.order_promotion_snapshots ADD CONSTRAINT order_promotion_snapshots_order_store_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.order_promotion_snapshots'::regclass AND conname='order_promotion_snapshots_version_store_fk') THEN ALTER TABLE saas.order_promotion_snapshots ADD CONSTRAINT order_promotion_snapshots_version_store_fk FOREIGN KEY(store_id,promotion_id,promotion_version) REFERENCES saas.promotion_versions(store_id,promotion_id,version); END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.order_discount_allocations'::regclass AND conname='order_discount_allocations_order_store_fk') THEN ALTER TABLE saas.order_discount_allocations ADD CONSTRAINT order_discount_allocations_order_store_fk FOREIGN KEY(store_id,order_id) REFERENCES saas.orders(store_id,id); END IF;
 END $fn$;
 
@@ -748,4 +1265,6 @@ BEGIN
   END LOOP;
 END $fn$;
 GRANT EXECUTE ON FUNCTION saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,text,jsonb),saas.promotion_update_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,jsonb),saas.promotion_lifecycle_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text),saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text[],integer),saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,jsonb),saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,uuid,integer,text),saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,text) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.promotion_expire_due_reservations_v1(timestamptz,integer) TO celebix_saas_workflow;
 COMMIT;
