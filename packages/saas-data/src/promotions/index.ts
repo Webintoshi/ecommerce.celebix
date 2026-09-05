@@ -1,2 +1,2 @@
-export { allocatePromotionDiscount, cappedPaidLineRefundMinor, refundablePromotionAmount } from "./allocation.ts";
-export type { AllocatePromotionDiscountInput, PromotionAllocationLine, PromotionDiscountAllocation } from "./allocation.ts";
+export { allocatePromotionDiscount, cappedCapturedUnitRefundMinor, cappedPaidLineRefundMinor, refundablePromotionAmount } from "./allocation.ts";
+export type { AllocatePromotionDiscountInput, PromotionAllocationLine, PromotionCapturedRefundKind, PromotionCapturedRefundRange, PromotionDiscountAllocation, PromotionReturnedRange } from "./allocation.ts";

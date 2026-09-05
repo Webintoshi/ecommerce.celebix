@@ -142,6 +142,7 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(assertions, /PROMOTIONS_STUDIO/);
   assert.match(assertions, /PROMOTIONS_STUDIO_DIRECT_TABLE_PRIVILEGE_INVALID/);
   assert.match(assertions, /PROMOTIONS_STUDIO_COMPOSITE_FOREIGN_KEYS_INVALID/);
+  assert.match(assertions, /order_promotion_snapshots_redemption_store_fk/);
   assert.match(assertions, /PROMOTIONS_STUDIO_CRUD_LIST_SIMULATOR_RPC_INVALID/);
   assert.match(assertions, /PROMOTIONS_STUDIO_INTERNAL_HELPER_EXPOSURE_INVALID/);
   assert.match(assertions, /promotion_picker_list_v1/);
@@ -151,7 +152,7 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
 test("promotion rehearsal is registered and admin remains outside the task", () => {
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /promotions-studio\/postgres-harness[.]mjs/);
-  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 112\\\/112/);
+  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 129\\\/129/);
   assert.equal(existsSync(path.join(ROOT, "tests/saas-phase3/promotions-studio/postgres-harness.mjs")), true);
   assert.equal(existsSync(path.join(ROOT, "apps/admin")), true);
 });
@@ -181,4 +182,38 @@ test("Slice C freezes code-batch, bundle, gift, archive and legacy contracts", (
   assert.match(up, /v_cross_version_match/);
   assert.match(down, /DROP FUNCTION saas[.]promotion_code_batch_list_v1/);
   assert.match(assertions, /PROMOTIONS_STUDIO_CODE_BATCH_SLICE_C_INVALID/);
+});
+
+test("Slice D installs only additive internal group settlement authority", () => {
+  const up = readFileSync(files.up, "utf8");
+  const down = readFileSync(files.down, "utf8");
+  const assertions = readFileSync(files.assertions, "utf8");
+  assert.match(up, /promotion_reserve_group_v1\(p_store_id uuid,p_operation_id uuid,p_fingerprint text,p_source_kind text,p_source_reference text,p_evaluator_context jsonb,p_now timestamptz\)/);
+  assert.match(up, /promotion_release_reservation_group_v1\(p_store_id uuid,p_operation_id uuid,p_fingerprint text,p_reservation_group_id uuid,p_now timestamptz\)/);
+  assert.match(up, /promotion_commit_reservation_group_v1\(p_store_id uuid,p_operation_id uuid,p_fingerprint text,p_reservation_group_id uuid,p_order_id uuid,p_now timestamptz\)/);
+  assert.match(up, /promotion_recover_settlement_operation_v1\(p_store_id uuid,p_now timestamptz,p_operation_id uuid,p_kind text,p_fingerprint text\)/);
+  assert.match(up, /promotion_expire_due_reservations_v1\(p_now timestamptz,p_limit integer\)/);
+  assert.match(up, /'promotion-source:'\|\|p_store_id::text\|\|':'\|\|p_source_kind\|\|':'\|\|p_source_reference/);
+  assert.match(up, /p_expires_at\s*:=\s*CASE WHEN p_source_kind='hosted_checkout' THEN v_hosted_expires_at ELSE p_now\+pg_catalog[.]interval '15 minutes' END/);
+  assert.match(up, /FOR UPDATE(?: OF operation_row)? SKIP LOCKED/);
+  assert.match(up, /promotion_usage_reservations_due_idx[\s\S]*WHERE status='reserved'/);
+  assert.match(up, /promotion_operations_settlement_entity_kind_key/);
+  assert.match(up, /promotion_usage_reservations_group_transition_complete AFTER UPDATE ON saas[.]promotion_usage_reservations DEFERRABLE INITIALLY DEFERRED/);
+  assert.match(up, /order_promotion_snapshots_insert_binding BEFORE INSERT/);
+  assert.match(up, /order_discount_allocations_insert_binding BEFORE INSERT/);
+  assert.match(up, /p_previously_returned_ranges IS NULL[\s\S]*p_returned_ranges IS NULL/);
+  assert.match(assertions, /has_function_privilege\('celebix_saas_workflow',v_proc,'EXECUTE'\)/);
+  assert.match(assertions, /has_function_privilege\('celebix_saas_app',v_proc,'EXECUTE'\)/);
+  assert.match(assertions, /has_function_privilege\('celebix_saas_host_resolver',v_proc,'EXECUTE'\)/);
+  assert.match(assertions, /has_function_privilege\('celebix_saas_identity',v_proc,'EXECUTE'\)/);
+  assert.match(assertions, /has_function_privilege\('public',v_proc,'EXECUTE'\)/);
+  assert.match(up, /promotion_order_snapshot_valid_v1/);
+  assert.match(up, /promotion_captured_unit_refund_minor_v1/);
+  assert.doesNotMatch(up, /GRANT EXECUTE ON FUNCTION saas[.]promotion_(?:reserve_group|release_reservation_group|commit_reservation_group|recover_settlement_operation)_v1[\s\S]*TO celebix_saas_(?:app|host_resolver|identity)/);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]promotion_expire_due_reservations_v1\(timestamptz,integer\) TO celebix_saas_workflow/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_commit_reservation_group_v1\(uuid,uuid,text,uuid,uuid,timestamptz\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_reserve_group_v1\(uuid,uuid,text,text,text,jsonb,timestamptz\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_release_reservation_group_v1\(uuid,uuid,text,uuid,timestamptz\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_recover_settlement_operation_v1\(uuid,timestamptz,uuid,text,text\)/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_SETTLEMENT_SLICE_D_INVALID/);
 });

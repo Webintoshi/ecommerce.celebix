@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { allocatePromotionDiscount, cappedPaidLineRefundMinor, refundablePromotionAmount } from "./allocation.ts";
+import { allocatePromotionDiscount, cappedCapturedUnitRefundMinor, cappedPaidLineRefundMinor, refundablePromotionAmount } from "./allocation.ts";
 
 const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -59,4 +59,44 @@ test("paid-line cash refunds never exceed captured net and gifts or free X/Y ret
   assert.equal(cappedPaidLineRefundMinor({ lineKind: "buy_x_get_y_free", capturedPaidNetMinor: 0, alreadyRefundedMinor: 0, requestedCashRefundMinor: 1 }), 0);
   assert.throws(() => cappedPaidLineRefundMinor({ lineKind: "sale", capturedPaidNetMinor: 800, alreadyRefundedMinor: 801, requestedCashRefundMinor: 1 }));
   assert.throws(() => cappedPaidLineRefundMinor({ lineKind: "gift", capturedPaidNetMinor: 1, alreadyRefundedMinor: 0, requestedCashRefundMinor: 1 }));
+});
+
+test("captured-unit refunds use only returned unit ordinals and their frozen net-paid values", () => {
+  const capturedRangeSets = [[
+    { startOrdinal: 0, quantity: 1, grossUnitMinor: 100, discountUnitMinor: 0, kind: "sale" as const },
+    { startOrdinal: 1, quantity: 1, grossUnitMinor: 100, discountUnitMinor: 100, kind: "gift" as const },
+    { startOrdinal: 2, quantity: 3, grossUnitMinor: 100, discountUnitMinor: 75, kind: "buy_x_get_y" as const },
+  ]];
+  const base = { capturedRangeSets, previouslyReturnedRanges: [], linePaidNetMinor: 175, alreadyRefundedMinor: 0, requestedCashRefundMinor: 999 };
+  assert.equal(cappedCapturedUnitRefundMinor({ ...base, returnedRanges: [{ startOrdinal: 1, quantity: 2 }] }), 25);
+  assert.equal(cappedCapturedUnitRefundMinor({ ...base, returnedRanges: [{ startOrdinal: 0, quantity: 1 }, { startOrdinal: 2, quantity: 2 }] }), 150);
+  assert.equal(cappedCapturedUnitRefundMinor({ ...base, returnedRanges: [{ startOrdinal: 0, quantity: 1 }, { startOrdinal: 1, quantity: 1 }] }), 100);
+  assert.equal(cappedCapturedUnitRefundMinor({ ...base, previouslyReturnedRanges: [{ startOrdinal: 0, quantity: 1 }], returnedRanges: [{ startOrdinal: 2, quantity: 2 }], alreadyRefundedMinor: 100 }), 50);
+  assert.throws(() => cappedCapturedUnitRefundMinor({ ...base, previouslyReturnedRanges: [{ startOrdinal: 0, quantity: 2 }], returnedRanges: [{ startOrdinal: 1, quantity: 1 }] }));
+  assert.throws(() => cappedCapturedUnitRefundMinor({ ...base, returnedRanges: [{ startOrdinal: 2, quantity: 2 }, { startOrdinal: 3, quantity: 1 }] }));
+  assert.throws(() => cappedCapturedUnitRefundMinor({ ...base, previouslyReturnedRanges: [{ startOrdinal: 0, quantity: 2 }, { startOrdinal: 1, quantity: 1 }], returnedRanges: [{ startOrdinal: 3, quantity: 1 }] }));
+  assert.throws(() => cappedCapturedUnitRefundMinor({ ...base, returnedRanges: [{ startOrdinal: 5, quantity: 1 }] }));
+  const stacked = [
+    [{ startOrdinal: 0, quantity: 2, grossUnitMinor: 100, discountUnitMinor: 10, kind: "sale" as const }],
+    [{ startOrdinal: 0, quantity: 2, grossUnitMinor: 100, discountUnitMinor: 20, kind: "sale" as const }],
+  ];
+  assert.equal(cappedCapturedUnitRefundMinor({ capturedRangeSets: stacked, previouslyReturnedRanges: [], returnedRanges: [{ startOrdinal: 0, quantity: 2 }], linePaidNetMinor: 140, alreadyRefundedMinor: 0, requestedCashRefundMinor: 999 }), 140);
+  assert.equal(cappedCapturedUnitRefundMinor({ capturedRangeSets: stacked, previouslyReturnedRanges: [], returnedRanges: [{ startOrdinal: 0, quantity: 1 }], linePaidNetMinor: 140, alreadyRefundedMinor: 0, requestedCashRefundMinor: 999 }), 70);
+  assert.equal(cappedCapturedUnitRefundMinor({ capturedRangeSets: stacked, previouslyReturnedRanges: [{ startOrdinal: 0, quantity: 1 }], returnedRanges: [{ startOrdinal: 1, quantity: 1 }], linePaidNetMinor: 140, alreadyRefundedMinor: 70, requestedCashRefundMinor: 999 }), 70);
+});
+
+test("stacked refund authority accepts exactly 6,400 compact ranges and rejects 6,401", () => {
+  const partition = (count: number) => {
+    let ordinal = 0;
+    return Array.from({ length: count }, (_, index) => {
+      const quantity = index === 0 ? 66 - count : 1;
+      const range = { startOrdinal: ordinal, quantity, grossUnitMinor: 100, discountUnitMinor: 0, kind: index % 2 === 0 ? "sale" as const : "buy_x_get_y" as const };
+      ordinal += quantity;
+      return range;
+    });
+  };
+  const max = Array.from({ length: 100 }, () => partition(64));
+  assert.equal(cappedCapturedUnitRefundMinor({ capturedRangeSets: max, previouslyReturnedRanges: [], returnedRanges: [{ startOrdinal: 0, quantity: 65 }], linePaidNetMinor: 6_500, alreadyRefundedMinor: 0, requestedCashRefundMinor: 8_000 }), 6_500);
+  const tooMany = [...Array.from({ length: 99 }, () => partition(64)), partition(65)];
+  assert.throws(() => cappedCapturedUnitRefundMinor({ capturedRangeSets: tooMany, previouslyReturnedRanges: [], returnedRanges: [{ startOrdinal: 0, quantity: 65 }], linePaidNetMinor: 6_500, alreadyRefundedMinor: 0, requestedCashRefundMinor: 8_000 }));
 });

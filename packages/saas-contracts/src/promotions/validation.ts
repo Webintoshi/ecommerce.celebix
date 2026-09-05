@@ -3,7 +3,8 @@ import {
   type PromotionAnalytics, type PromotionAudience, type PromotionBenefit, type PromotionCodeBatch, type PromotionCodeBatchListItem, type PromotionCodeBatchListResult, type PromotionCombinationPolicy,
   type PromotionConditions, type PromotionCsvRow, type PromotionDetail, type PromotionEffectiveStatus, type PromotionEvaluatorCartLine,
   type PromotionEvaluatorContext, type PromotionEvaluatorResult, type PromotionLegacyProjection, type PromotionLifecycleInput,
-  type PromotionLimits, type PromotionListQuery, type PromotionMarginPolicy, type PromotionRuleDocument, type PromotionSafeError,
+  type PromotionCapturedRange, type PromotionLimits, type PromotionListQuery, type PromotionMarginPolicy, type PromotionOrderDiscountLine,
+  type PromotionOrderGiftLine, type PromotionOrderSnapshot, type PromotionRuleDocument, type PromotionSafeError,
   type PromotionSchedule, type PromotionSimulatorResponse, type PromotionTargetReference, type PromotionTargets, type PromotionTrigger,
 } from "./types.ts";
 
@@ -11,9 +12,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const CONTROL_OR_SPACE = /[\s\u0000-\u001f\u007f]/u;
 const TEXT_CONTROL = /[\u0000-\u001f\u007f]/u;
+const UNPAIRED_SURROGATE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/u;
 const CANONICAL_CODE = /^[A-Z0-9][A-Z0-9_-]{0,63}$/;
 const CANONICAL_PREFIX = /^(?:|[A-Z0-9][A-Z0-9_-]{0,19})$/;
 const MAX_MINOR = 8_000_000_000;
+const UTF8 = new TextEncoder();
 type Input = Readonly<Record<string, unknown>>;
 
 function invalid(): never { throw new TypeError("promotion_contract_invalid"); }
@@ -21,7 +24,7 @@ function guarded<T>(parse: () => T): T { try { return parse(); } catch { return 
 function record(value: unknown): object { if (typeof value !== "object" || value === null || Array.isArray(value)) invalid(); const prototype = Object.getPrototypeOf(value); if (prototype !== Object.prototype && prototype !== null) invalid(); return value; }
 function exact(value: unknown, required: readonly string[], optional: readonly string[] = []): Input { const descriptors = Object.getOwnPropertyDescriptors(record(value)); const allowed = new Set([...required, ...optional]); const keys = Reflect.ownKeys(descriptors); if (keys.some((key) => typeof key !== "string" || !allowed.has(key)) || required.some((key) => !Object.hasOwn(descriptors, key))) invalid(); const output = Object.create(null) as Record<string, unknown>; for (const key of keys) { if (typeof key !== "string") invalid(); const descriptor = descriptors[key]; if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid(); output[key] = descriptor.value; } return output; }
 function integer(value: unknown, min: number, max: number): number { if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) invalid(); return value as number; }
-function text(value: unknown, min: number, max: number): string { if (typeof value !== "string" || value.length < min || value.length > max || value !== value.trim() || TEXT_CONTROL.test(value)) invalid(); return value; }
+function text(value: unknown, min: number, max: number): string { if (typeof value !== "string" || value.length < min || value.length > max || value !== value.trim() || TEXT_CONTROL.test(value) || UNPAIRED_SURROGATE.test(value)) invalid(); return value; }
 function uuid(value: unknown): string { const parsed = text(value, 36, 36); if (!UUID.test(parsed)) invalid(); return parsed; }
 function currency(value: unknown): string { const parsed = text(value, 3, 3); if (!/^[A-Z]{3}$/.test(parsed)) invalid(); return parsed; }
 function timestamp(value: unknown): string { if (typeof value !== "string" || !ISO.test(value)) invalid(); const date = new Date(value); if (!Number.isFinite(date.getTime()) || date.toISOString() !== value) invalid(); return value; }
@@ -29,6 +32,28 @@ function timezone(value: unknown): string { const parsed = text(value, 1, 64); t
 function freeze<T>(value: T): T { if (typeof value === "object" && value !== null && !Object.isFrozen(value)) { for (const entry of Object.values(value)) freeze(entry); Object.freeze(value); } return value; }
 function array<T>(value: unknown, min: number, max: number, parse: (entry: unknown) => T): readonly T[] { if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid(); const descriptors = Object.getOwnPropertyDescriptors(value); if (value.length < min || value.length > max || Reflect.ownKeys(descriptors).length !== value.length + 1) invalid(); const output: T[] = []; for (let i = 0; i < value.length; i += 1) { const descriptor = descriptors[String(i)]; if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid(); output.push(parse(descriptor.value)); } return Object.freeze(output); }
 function unique<T>(values: readonly T[], selector: (value: T) => string): readonly T[] { if (new Set(values.map(selector)).size !== values.length) invalid(); return values; }
+
+// jsonb's text representation is deterministic but intentionally includes a
+// space after each comma and colon. Settlement snapshots use the same byte
+// measure as PostgreSQL so a contract-valid value cannot fail the SQL cap.
+function postgresJsonbText(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") { if (!Number.isSafeInteger(value)) invalid(); return String(value); }
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(postgresJsonbText).join(", ")}]`;
+  if (typeof value !== "object") invalid();
+  const objectValue = value as Readonly<Record<string, unknown>>;
+  const keys = Object.keys(objectValue).sort((left, right) => {
+    const leftBytes = UTF8.encode(left), rightBytes = UTF8.encode(right);
+    if (leftBytes.byteLength !== rightBytes.byteLength) return leftBytes.byteLength - rightBytes.byteLength;
+    for (let index = 0; index < leftBytes.byteLength; index += 1) if (leftBytes[index] !== rightBytes[index]) return leftBytes[index]! - rightBytes[index]!;
+    return 0;
+  });
+  return `{${keys.map((key) => `${JSON.stringify(key)}: ${postgresJsonbText(objectValue[key])}`).join(", ")}}`;
+}
+
+function postgresJsonbTextBytes(value: unknown): number { return UTF8.encode(postgresJsonbText(value)).byteLength; }
 
 export function normalizePromotionCode(value: unknown): string { if (typeof value !== "string" || value.length < 1 || value.length > 64 || CONTROL_OR_SPACE.test(value) || !/^[A-Za-z0-9ıİşŞçÇğĞöÖüÜ][A-Za-z0-9_\-ıİşŞçÇğĞöÖüÜ]*$/u.test(value)) invalid(); const normalized = value.replace(/ı/g, "i").replace(/İ/g, "I").replace(/ş/gi, "s").replace(/ç/gi, "c").replace(/ğ/gi, "g").replace(/ö/gi, "o").replace(/ü/gi, "u").toUpperCase(); if (!CANONICAL_CODE.test(normalized)) invalid(); return normalized; }
 function target(value: unknown): PromotionTargetReference { const parsed = exact(value, ["kind", "id"]); if (typeof parsed.kind !== "string" || !PROMOTION_TARGET_KINDS.includes(parsed.kind as never)) invalid(); return freeze({ kind: parsed.kind as PromotionTargetReference["kind"], id: uuid(parsed.id) }); }
@@ -151,6 +176,95 @@ export function parsePromotionEvaluatorResult(value: unknown): PromotionEvaluato
 export function parsePromotionListQuery(value: unknown): PromotionListQuery { return guarded(() => { const parsed = exact(value, ["cursor", "limit", "statuses"], ["search"]); const cursor = parsed.cursor === null ? null : text(parsed.cursor, 1, 512); const search = Object.hasOwn(parsed, "search") ? text(parsed.search, 1, 100) : undefined; const statuses = unique(array(parsed.statuses, 0, 5, (entry) => { if (typeof entry !== "string" || !PROMOTION_STATUSES.includes(entry as never)) invalid(); return entry as PromotionListQuery["statuses"][number]; }), (entry) => entry); return freeze({ cursor, limit: integer(parsed.limit, 1, 100), ...(search ? { search } : {}), statuses }); }); }
 export function parsePromotionDetail(value: unknown): PromotionDetail { return guarded(() => { const parsed = exact(value, ["id", "version", "name", "status", "ruleDocument", "createdAt", "updatedAt"]); if (typeof parsed.status !== "string" || !PROMOTION_STATUSES.includes(parsed.status as never)) invalid(); const createdAt = timestamp(parsed.createdAt); const updatedAt = timestamp(parsed.updatedAt); if (Date.parse(updatedAt) < Date.parse(createdAt)) invalid(); return freeze({ id: uuid(parsed.id), version: integer(parsed.version, 1, Number.MAX_SAFE_INTEGER), name: text(parsed.name, 1, 200), status: parsed.status as PromotionDetail["status"], ruleDocument: parsePromotionRuleDocument(parsed.ruleDocument), createdAt, updatedAt }); }); }
 export function parsePromotionSimulatorResponse(value: unknown): PromotionSimulatorResponse { return guarded(() => { const parsed = exact(value, ["evaluation", "mutated"]); if (parsed.mutated !== false) invalid(); return freeze({ evaluation: parsePromotionEvaluatorResult(parsed.evaluation), mutated: false }); }); }
+function capturedRange(value: unknown): PromotionCapturedRange {
+  const parsed = exact(value, ["startOrdinal", "quantity", "grossUnitMinor", "discountUnitMinor", "kind"]);
+  if (parsed.kind !== "sale" && parsed.kind !== "gift" && parsed.kind !== "buy_x_get_y") invalid();
+  const startOrdinal = integer(parsed.startOrdinal, 0, 999_999);
+  const quantity = integer(parsed.quantity, 1, 1_000_000);
+  if (startOrdinal + quantity > 1_000_000) invalid();
+  const grossUnitMinor = integer(parsed.grossUnitMinor, 0, MAX_MINOR);
+  const discountUnitMinor = integer(parsed.discountUnitMinor, 0, MAX_MINOR);
+  if (discountUnitMinor > grossUnitMinor || (parsed.kind === "gift" && discountUnitMinor !== grossUnitMinor)) invalid();
+  return freeze({ startOrdinal, quantity, grossUnitMinor, discountUnitMinor, kind: parsed.kind });
+}
+function orderDiscountLine(value: unknown): PromotionOrderDiscountLine {
+  const parsed = exact(value, ["lineId", "position", "discountMinor", "capturedRanges"]);
+  const discountMinor = integer(parsed.discountMinor, 1, MAX_MINOR);
+  const capturedRanges = array(parsed.capturedRanges, 0, 64, capturedRange);
+  let previousEnd = 0;
+  let previousRange: PromotionCapturedRange | undefined;
+  let capturedQuantity = 0;
+  let capturedDiscount = 0n;
+  for (const range of capturedRanges) {
+    if (range.startOrdinal !== previousEnd) invalid();
+    if (previousRange && previousRange.kind === range.kind && previousRange.grossUnitMinor === range.grossUnitMinor && previousRange.discountUnitMinor === range.discountUnitMinor) invalid();
+    previousEnd = range.startOrdinal + range.quantity;
+    previousRange = range;
+    capturedQuantity += range.quantity;
+    if (capturedQuantity > 1_000_000) invalid();
+    capturedDiscount += BigInt(range.quantity) * BigInt(range.discountUnitMinor);
+    if (capturedDiscount > BigInt(MAX_MINOR)) invalid();
+  }
+  if (capturedRanges.length > 0 && Number(capturedDiscount) !== discountMinor) invalid();
+  return freeze({ lineId: uuid(parsed.lineId), position: integer(parsed.position, 0, 99), discountMinor, capturedRanges });
+}
+function orderGiftLine(value: unknown): PromotionOrderGiftLine {
+  const root = exact(value, ["variantId", "quantity", "paidMinor", "autoAdd"], ["lineId"]);
+  const variantId = uuid(root.variantId);
+  const quantity = integer(root.quantity, 1, 1_000_000);
+  if (root.paidMinor !== 0) invalid();
+  if (root.autoAdd === true) { exact(value, ["variantId", "quantity", "paidMinor", "autoAdd"]); return freeze({ variantId, quantity, paidMinor: 0, autoAdd: true }); }
+  if (root.autoAdd !== false) invalid();
+  const manual = exact(value, ["variantId", "quantity", "paidMinor", "autoAdd", "lineId"]);
+  return freeze({ variantId, quantity, paidMinor: 0, autoAdd: false, lineId: uuid(manual.lineId) });
+}
+export function parsePromotionOrderSnapshot(value: unknown): PromotionOrderSnapshot {
+  return guarded(() => {
+    const parsed = exact(value, ["promotionId", "promotionVersion", "promotionName", "couponCode", "benefit", "targets", "discountLines", "shippingDiscountMinor", "giftLines", "discountTotalMinor", "currency", "evaluatedAt"]);
+    const parsedBenefit = benefit(parsed.benefit);
+    const parsedTargets = targets(parsed.targets);
+    if (parsedBenefit.kind === "bundle_price") {
+      const itemIds = new Set(parsedBenefit.items.map((item) => item.variantId));
+      if (parsedTargets.mode !== "selected" || parsedTargets.exclude.length !== 0 || parsedTargets.include.length !== itemIds.size || parsedTargets.include.some((entry) => entry.kind !== "variant" || !itemIds.has(entry.id))) invalid();
+    }
+    const couponCode = parsed.couponCode === null ? null : (() => { const normalized = normalizePromotionCode(parsed.couponCode); if (normalized !== parsed.couponCode) invalid(); return normalized; })();
+    const discountLines = unique(array(parsed.discountLines, 0, 20, orderDiscountLine), (line) => line.lineId);
+    unique(discountLines, (line) => String(line.position));
+    if (discountLines.some((line) => line.capturedRanges.length === 0)) invalid();
+    for (let index = 1; index < discountLines.length; index += 1) {
+      const previous = discountLines[index - 1]!;
+      const current = discountLines[index]!;
+      if (previous.position > current.position || (previous.position === current.position && previous.lineId >= current.lineId)) invalid();
+    }
+    const giftLines = array(parsed.giftLines, 0, 1, orderGiftLine);
+    const shippingDiscountMinor = integer(parsed.shippingDiscountMinor, 0, MAX_MINOR);
+    const discountTotalMinor = integer(parsed.discountTotalMinor, 0, MAX_MINOR);
+    const lineDiscountTotal = discountLines.reduce((total, line) => { const next = total + line.discountMinor; if (!Number.isSafeInteger(next) || next > MAX_MINOR) invalid(); return next; }, 0);
+    if (lineDiscountTotal + shippingDiscountMinor !== discountTotalMinor) invalid();
+    if (parsedBenefit.kind === "free_shipping") {
+      if (discountLines.length !== 0 || giftLines.length !== 0) invalid();
+    } else if (parsedBenefit.kind === "gift") {
+      const gift = giftLines[0];
+      if (!gift || gift.variantId !== parsedBenefit.giftVariantId || gift.quantity !== parsedBenefit.quantity || gift.autoAdd !== parsedBenefit.autoAdd || shippingDiscountMinor !== 0) invalid();
+      if (parsedBenefit.autoAdd) {
+        if (discountLines.length !== 0 || discountTotalMinor !== 0) invalid();
+      } else {
+        if (gift.autoAdd || discountLines.length !== 1 || discountLines[0]!.lineId !== gift.lineId || discountLines[0]!.capturedRanges.some((range) => (range.kind !== "sale" && range.kind !== "gift") || (range.kind === "sale" && range.discountUnitMinor !== 0)) || discountLines[0]!.capturedRanges.filter((range) => range.kind === "gift").reduce((total, range) => total + range.quantity, 0) !== parsedBenefit.quantity) invalid();
+      }
+    } else {
+      if (giftLines.length !== 0 || shippingDiscountMinor !== 0) invalid();
+      if (parsedBenefit.kind === "buy_x_get_y") {
+        if (discountLines.some((line) => !line.capturedRanges.some((range) => range.kind === "buy_x_get_y") || line.capturedRanges.some((range) => (range.kind !== "sale" && range.kind !== "buy_x_get_y") || (range.kind === "sale" && range.discountUnitMinor !== 0)))) invalid();
+      } else if (discountLines.some((line) => line.capturedRanges.some((range) => range.kind !== "sale"))) invalid();
+    }
+    const parsedCurrency = currency(parsed.currency);
+    if ((parsedBenefit.kind === "fixed_amount" || parsedBenefit.kind === "bundle_price") && parsedBenefit.currency !== parsedCurrency) invalid();
+    if (!(parsedBenefit.kind === "gift" && parsedBenefit.autoAdd) && discountTotalMinor === 0) invalid();
+    const result = freeze({ promotionId: uuid(parsed.promotionId), promotionVersion: integer(parsed.promotionVersion, 1, Number.MAX_SAFE_INTEGER), promotionName: text(parsed.promotionName, 1, 200), couponCode, benefit: parsedBenefit, targets: parsedTargets, discountLines, shippingDiscountMinor, giftLines, discountTotalMinor, currency: parsedCurrency, evaluatedAt: timestamp(parsed.evaluatedAt) });
+    if (postgresJsonbTextBytes(result) > 131_072) invalid();
+    return result;
+  });
+}
 export function parsePromotionCodeBatch(value: unknown): PromotionCodeBatch {
   return guarded(() => {
     const parsed = exact(value, ["id", "promotionId", "version", "status", "count", "prefix", "codeLength", "perCustomerUsage", "expiresAt", "createdAt", "updatedAt"]);

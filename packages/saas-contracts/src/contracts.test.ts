@@ -623,6 +623,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parsePromotionEvaluatorResult",
     "parsePromotionLegacyProjection",
     "parsePromotionListQuery",
+    "parsePromotionOrderSnapshot",
     "parsePromotionRuleDocument",
     "parsePromotionSimulatorResponse",
     "parseProviderPaymentMethodConfig",
