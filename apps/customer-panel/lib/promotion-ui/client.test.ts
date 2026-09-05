@@ -253,6 +253,14 @@ test("rejects an update success that silently changes the lifecycle status", asy
   await assert.rejects(client.save(draft, PROMOTION_ID, 7, "draft"), /promotion_unavailable/);
 });
 
+test("preserves publication readiness when an active promotion update is blocked", async () => {
+  const readiness = { blocking: true, findings: [{ code: "schedule_ended", severity: "blocking", relatedPromotionId: null, relatedPromotionName: null }] } as const;
+  const client = new PromotionApiClient(async () => response({ code: "publish_blocked", readiness }, 409));
+  const result = await client.save(createPromotionDraft("free_shipping"), PROMOTION_ID, 7, "active");
+  assert.equal(result.kind, "publish_blocked");
+  assert.deepEqual(result.kind === "publish_blocked" ? result.readiness : null, readiness);
+});
+
 test("rejects a simulator-only not-eligible failure on create", async () => {
   const client = new PromotionApiClient(async () => response({ code: "not_eligible" }, 409));
   await assert.rejects(client.save(createPromotionDraft("free_shipping")), /promotion_unavailable/);

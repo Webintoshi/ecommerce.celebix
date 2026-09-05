@@ -220,6 +220,7 @@ export function PromotionEditor({ templateId = "custom", promotionId, timezone, 
       if (result.kind === "saved") {
         const next = promotionDraftFromDetail(result.promotion); setDraft(next); setSavedSnapshot(promotionDraftSnapshot(next)); setVersion(result.promotion.version); setStatus(result.promotion.status); setCurrentId(result.promotion.id); simulationId.current = result.promotion.id; window.history.replaceState(null, "", `/discounts/${result.promotion.id}/edit`); setMessage("Taslak güvenle kaydedildi.");
       } else if (result.kind === "version_conflict") setMessage("Bu kampanya başka bir kullanıcı tarafından güncellendi. Yaptığınız değişiklikler korunuyor; sayfayı yenilemeden önce kopyalayabilirsiniz.");
+      else if (result.kind === "publish_blocked") { setChecks((current) => ({ ...current, conflicts: result.readiness })); setMessage("Yayınlamayı engelleyen sorunları düzeltin."); }
       else setMessage(result.message);
     }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setMutating(false));
   };

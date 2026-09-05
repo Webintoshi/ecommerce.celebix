@@ -4,7 +4,7 @@ import { promotionRuleDocument, type PromotionDraft, type PromotionTarget } from
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type ListQuery = Readonly<{ cursor?: string; search?: string; effectiveStatuses?: readonly string[]; triggerKinds?: readonly string[]; benefitKinds?: readonly string[]; audienceModes?: readonly string[]; scheduleFrom?: string; scheduleTo?: string }>;
 type ApiPage = Readonly<{ items: readonly PromotionAdminListItem[]; nextCursor: string | null }>;
-type SaveResult = Readonly<{ kind: "saved"; promotion: PromotionDetail }> | Readonly<{ kind: "conflict"; message: string }> | Readonly<{ kind: "version_conflict"; current: PromotionDetail }>;
+type SaveResult = Readonly<{ kind: "saved"; promotion: PromotionDetail }> | Readonly<{ kind: "conflict"; message: string }> | Readonly<{ kind: "version_conflict"; current: PromotionDetail }> | Readonly<{ kind: "publish_blocked"; readiness: ReturnType<typeof parsePromotionConflictCheck> }>;
 const ID = "00000000-0000-4000-8000-000000000001";
 
 function origin(): string { return typeof window === "undefined" ? "https://panel.invalid" : window.location.origin; }
@@ -135,7 +135,7 @@ export class PromotionApiClient {
     let response: Response; try { response = await this.fetcher(apiPath(path), { method, cache: "no-store", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json", "idempotency-key": operation }, body: requestBody }); } catch (error) { this.settleDurable(intent, true); throw error; }
     const value = await body(response); if (response.status === 409) {
       const code = conflictCode(response.status, value, update ? ["operation_mismatch", "code_conflict", "active_code_batches", "invalid_transition", "version_conflict", "publish_blocked", "invalid_reference"] : ["operation_mismatch", "conflict", "code_conflict", "invalid_reference"]); if (code === "promotion_unavailable" || (code === "version_conflict" && !promotionId)) { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } if (code === "version_conflict" && promotionId) { try { const current = parsePromotionDetail((value as { current?: unknown }).current); if (current.id !== promotionId || expectedVersion === undefined || current.version <= expectedVersion) throw new Error(); this.settleDurable(intent, false); return Object.freeze({ kind: "version_conflict", current }); } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } }
-      if (code === "publish_blocked") { try { const readiness = parsePromotionConflictCheck((value as { readiness?: unknown }).readiness); if (!readiness.blocking) throw new Error(); } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } }
+      if (code === "publish_blocked") { try { const readiness = parsePromotionConflictCheck((value as { readiness?: unknown }).readiness); if (!readiness.blocking) throw new Error(); this.settleDurable(intent, false); return Object.freeze({ kind: "publish_blocked", readiness }); } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } }
       this.settleDurable(intent, false);
       return Object.freeze({ kind: "conflict", message: promotionErrorMessage(code) });
     }
