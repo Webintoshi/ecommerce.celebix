@@ -181,7 +181,7 @@ END $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_line_matches(p_targets jsonb,p_line jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, saas AS $fn$
-  WITH refs AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(COALESCE(p_targets->'include','[]'::jsonb))), blocked AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(COALESCE(p_targets->'exclude','[]'::jsonb))), match_ref AS (SELECT ref, CASE ref->>'kind' WHEN 'product' THEN ref->>'id'=p_line->>'productId' WHEN 'variant' THEN ref->>'id'=p_line->>'variantId' WHEN 'category' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'categoryIds') id WHERE id=ref->>'id') WHEN 'brand' THEN ref->>'id'=p_line->>'brandId' WHEN 'collection' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'collectionIds') id WHERE id=ref->>'id') ELSE false END hit FROM refs), block_ref AS (SELECT CASE ref->>'kind' WHEN 'product' THEN ref->>'id'=p_line->>'productId' WHEN 'variant' THEN ref->>'id'=p_line->>'variantId' WHEN 'category' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'categoryIds') id WHERE id=ref->>'id') WHEN 'brand' THEN ref->>'id'=p_line->>'brandId' WHEN 'collection' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'collectionIds') id WHERE id=ref->>'id') ELSE false END hit FROM blocked) SELECT (p_targets->>'mode'='all' OR EXISTS(SELECT 1 FROM match_ref WHERE hit)) AND NOT EXISTS(SELECT 1 FROM block_ref WHERE hit)
+  WITH refs AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(COALESCE(p_targets->'include','[]'::jsonb))), blocked AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(COALESCE(p_targets->'exclude','[]'::jsonb))), match_ref AS (SELECT ref, CASE ref->>'kind' WHEN 'product' THEN ref->>'id'=p_line->>'productId' WHEN 'variant' THEN ref->>'id'=p_line->>'variantId' WHEN 'category' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'categoryIds') id WHERE id=ref->>'id') WHEN 'brand' THEN ref->>'id'=p_line->>'brandId' OR EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(COALESCE(p_line->'brandIds','[]'::jsonb)) id WHERE id=ref->>'id') WHEN 'collection' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'collectionIds') id WHERE id=ref->>'id') ELSE false END hit FROM refs), block_ref AS (SELECT CASE ref->>'kind' WHEN 'product' THEN ref->>'id'=p_line->>'productId' WHEN 'variant' THEN ref->>'id'=p_line->>'variantId' WHEN 'category' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'categoryIds') id WHERE id=ref->>'id') WHEN 'brand' THEN ref->>'id'=p_line->>'brandId' OR EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(COALESCE(p_line->'brandIds','[]'::jsonb)) id WHERE id=ref->>'id') WHEN 'collection' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_line->'collectionIds') id WHERE id=ref->>'id') ELSE false END hit FROM blocked) SELECT (p_targets->>'mode'='all' OR EXISTS(SELECT 1 FROM match_ref WHERE hit)) AND NOT EXISTS(SELECT 1 FROM block_ref WHERE hit)
 $fn$;
 
 SET LOCAL check_function_bodies = off;
@@ -241,18 +241,58 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, saas AS $fn$
 $fn$;
 
 SET LOCAL check_function_bodies = on;
+-- Catalog authority is resolved exactly once for the bounded cart.  All
+-- downstream candidate and allocation work operates on these trusted facts.
+CREATE OR REPLACE FUNCTION saas.promotion_evaluator_materialize_lines(p_store_id uuid,p_currency text,p_context jsonb)
+RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+  WITH input_lines AS MATERIALIZED (
+    SELECT value line FROM pg_catalog.jsonb_array_elements(p_context->'cartLines')
+  ), catalog_lines AS MATERIALIZED (
+    SELECT input_lines.line,product.id product_id,variant.id variant_id
+    FROM input_lines
+    JOIN saas.products product ON product.store_id=p_store_id AND product.id=(input_lines.line->>'productId')::uuid AND product.status='active' AND product.currency=p_currency
+    JOIN saas.product_variants variant ON variant.store_id=product.store_id AND variant.product_id=product.id AND variant.id=(input_lines.line->>'variantId')::uuid AND variant.status='active'
+  ), enriched AS (
+    SELECT catalog_lines.line,
+      COALESCE((SELECT pg_catalog.jsonb_agg(category_id::text ORDER BY category_id) FROM saas.catalog_product_categories WHERE store_id=p_store_id AND product_id=catalog_lines.product_id),'[]'::jsonb) category_ids,
+      COALESCE((SELECT pg_catalog.jsonb_agg(resource_id::text ORDER BY resource_id) FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources resource ON resource.store_id=rp.store_id AND resource.id=rp.resource_id AND resource.status='active' AND resource.resource_kind='collection' WHERE rp.store_id=p_store_id AND rp.product_id=catalog_lines.product_id),'[]'::jsonb) collection_ids,
+      COALESCE((SELECT pg_catalog.jsonb_agg(resource_id::text ORDER BY resource_id) FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources resource ON resource.store_id=rp.store_id AND resource.id=rp.resource_id AND resource.status='active' AND resource.resource_kind='brand' WHERE rp.store_id=p_store_id AND rp.product_id=catalog_lines.product_id),'[]'::jsonb) brand_ids
+    FROM catalog_lines
+  )
+  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_set(pg_catalog.jsonb_set(pg_catalog.jsonb_set(pg_catalog.jsonb_set(line,'{categoryIds}',category_ids),'{collectionIds}',collection_ids),'{brandIds}',brand_ids),'{brandId}',COALESCE(brand_ids->0,'null'::jsonb)) ORDER BY (line->>'position')::integer,line->>'lineId'),'[]'::jsonb) FROM enriched
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_evaluator_audience_facts(p_store_id uuid,p_context jsonb,p_now timestamptz)
+RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+  WITH customer AS (SELECT CASE WHEN p_context->'customerId'='null'::jsonb THEN NULL::uuid ELSE (p_context->>'customerId')::uuid END id)
+  SELECT pg_catalog.jsonb_build_object(
+    'firstPaidOrder',NOT EXISTS(SELECT 1 FROM saas.orders order_row,customer WHERE order_row.store_id=p_store_id AND order_row.customer_id=customer.id AND (order_row.paid_at IS NOT NULL OR order_row.payment_status IN ('completed','refunded'))),
+    'segmentIds',COALESCE((SELECT pg_catalog.jsonb_agg(segment_id::text) FROM saas.customer_segment_memberships membership,customer WHERE membership.store_id=p_store_id AND membership.customer_id=customer.id),'[]'::jsonb),
+    'tagIds',COALESCE((SELECT pg_catalog.jsonb_agg(tag_id::text) FROM saas.customer_tag_assignments membership,customer WHERE membership.store_id=p_store_id AND membership.customer_id=customer.id),'[]'::jsonb),
+    'activeCustomer',EXISTS(SELECT 1 FROM saas.customers customer_row,customer WHERE customer_row.store_id=p_store_id AND customer_row.id=customer.id AND customer_row.status='active'),
+    'abandonedCart',EXISTS(SELECT 1 FROM saas.abandoned_carts cart WHERE cart.store_id=p_store_id AND cart.id=(p_context->'abandonedCart'->>'id')::uuid AND cart.status='abandoned' AND cart.abandoned_at IS NOT NULL AND cart.abandoned_at>=p_now-pg_catalog.interval '30 days'))
+$fn$;
+
+CREATE OR REPLACE FUNCTION saas.promotion_evaluator_code_facts(p_store_id uuid,p_context jsonb)
+RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+  SELECT COALESCE(pg_catalog.jsonb_object_agg(code.promotion_id::text,code.code),'{}'::jsonb)
+  FROM saas.promotion_codes code JOIN pg_catalog.jsonb_array_elements_text(p_context->'submittedCodes') submitted(code_value) ON submitted.code_value=code.code
+  WHERE code.store_id=p_store_id AND code.status='active'
+$fn$;
+
 CREATE OR REPLACE FUNCTION saas.promotion_evaluate_v1(p_store_id uuid,p_context jsonb,p_now timestamptz)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, saas AS $fn$
-DECLARE v_currency text:=p_context->>'currency'; v_lines jsonb:=COALESCE(p_context->'cartLines','[]'::jsonb); v_subtotal bigint:=0; v_shipping bigint:=0; v_line_discount bigint:=0; v_shipping_discount bigint:=0; v_paid jsonb:='{}'::jsonb; v_candidate record; v_rule jsonb; v_benefit jsonb; v_saving bigint; v_eligible_value bigint; v_eligible_quantity bigint; v_available bigint; v_cap bigint; v_bps integer; v_line jsonb; v_reward_line record; v_bundle_line record; v_line_id text; v_line_value bigint; v_allocation bigint; v_remaining bigint; v_count integer; v_index integer; v_normalized_code text; v_eligible jsonb:='[]'::jsonb; v_applied jsonb:='[]'::jsonb; v_applied_rules jsonb:='[]'::jsonb; v_rejected jsonb:='[]'::jsonb; v_effects jsonb:='[]'::jsonb; v_shipping_effects jsonb:='[]'::jsonb; v_gifts jsonb:='[]'::jsonb; v_used_non_shipping boolean:=false; v_kind text; v_reward_count bigint; v_line_quantity bigint; v_take bigint; v_bundle_quantity bigint; v_complete_quantity bigint;
+DECLARE v_currency text:=p_context->>'currency'; v_lines jsonb:=COALESCE(p_context->'cartLines','[]'::jsonb); v_fact_context jsonb; v_subtotal bigint:=0; v_shipping bigint:=0; v_line_discount bigint:=0; v_shipping_discount bigint:=0; v_paid jsonb:='{}'::jsonb; v_candidate record; v_rule jsonb; v_benefit jsonb; v_saving bigint; v_eligible_value bigint; v_eligible_quantity bigint; v_available bigint; v_cap bigint; v_bps integer; v_line jsonb; v_reward_line record; v_bundle_line record; v_line_id text; v_line_value bigint; v_allocation bigint; v_remaining bigint; v_count integer; v_index integer; v_normalized_code text; v_eligible jsonb:='[]'::jsonb; v_applied jsonb:='[]'::jsonb; v_applied_rules jsonb:='[]'::jsonb; v_rejected jsonb:='[]'::jsonb; v_effects jsonb:='[]'::jsonb; v_shipping_effects jsonb:='[]'::jsonb; v_gifts jsonb:='[]'::jsonb; v_used_non_shipping boolean:=false; v_kind text; v_reward_count bigint; v_line_quantity bigint; v_take bigint; v_bundle_quantity bigint; v_complete_quantity bigint;
 BEGIN
   IF p_now IS NULL OR NOT saas.promotion_evaluator_context_valid(p_store_id,p_context) THEN RETURN saas.promotion_evaluator_empty_result(v_currency,'invalid context'); END IF;
+  v_lines:=saas.promotion_evaluator_materialize_lines(p_store_id,v_currency,p_context);
+  v_fact_context:=p_context||pg_catalog.jsonb_build_object('cartLines',v_lines,'audienceFacts',saas.promotion_evaluator_audience_facts(p_store_id,p_context,p_now),'codeFacts',saas.promotion_evaluator_code_facts(p_store_id,p_context));
   SELECT COALESCE(sum((line->>'unitPriceMinor')::bigint*(line->>'quantity')::bigint),0) INTO v_subtotal FROM pg_catalog.jsonb_array_elements(v_lines) line;
   v_shipping:=(p_context->>'shippingBeforeDiscountMinor')::bigint;
-  FOR v_candidate IN SELECT * FROM saas.promotion_evaluator_candidate_facts(p_store_id,p_context,p_now) LOOP
+  FOR v_candidate IN SELECT * FROM saas.promotion_evaluator_candidate_facts(p_store_id,v_fact_context,p_now) LOOP
     v_rule:=v_candidate.rule_document; v_benefit:=v_rule->'benefit'; v_kind:=v_benefit->>'kind'; v_normalized_code:=NULL;
-    IF v_rule->'trigger'->>'kind'='code' THEN SELECT code.code INTO v_normalized_code FROM saas.promotion_codes code JOIN pg_catalog.jsonb_array_elements_text(p_context->'submittedCodes') submitted ON submitted=code.code WHERE code.store_id=p_store_id AND code.promotion_id=v_candidate.id AND code.status='active' ORDER BY code.code LIMIT 1; IF v_normalized_code IS NULL THEN CONTINUE; END IF; END IF;
-    IF NOT saas.promotion_evaluator_audience_matches(p_store_id,v_rule->'audience',p_context)
-       OR (v_rule->'audience'->>'mode'='abandoned_cart' AND NOT saas.promotion_evaluator_abandoned_cart_valid(p_store_id,p_context,p_now)) THEN CONTINUE; END IF;
+    IF v_rule->'trigger'->>'kind'='code' THEN v_normalized_code:=v_fact_context->'codeFacts'->>v_candidate.id::text; IF v_normalized_code IS NULL THEN CONTINUE; END IF; END IF;
+    IF NOT saas.promotion_evaluator_audience_matches(p_store_id,v_rule->'audience',v_fact_context) THEN CONTINUE; END IF;
     SELECT COALESCE(sum((line->>'unitPriceMinor')::bigint*(line->>'quantity')::bigint),0),COALESCE(sum((line->>'quantity')::bigint),0) INTO v_eligible_value,v_eligible_quantity FROM pg_catalog.jsonb_array_elements(v_lines) line WHERE saas.promotion_evaluator_catalog_line_matches(p_store_id,v_currency,v_rule->'targets',line);
     IF (v_rule->'targets'->>'mode'='selected' AND v_eligible_value=0) OR v_subtotal<(v_rule->'conditions'->>'minimumBasketMinor')::bigint OR (SELECT COALESCE(sum((line->>'quantity')::bigint),0) FROM pg_catalog.jsonb_array_elements(v_lines) line)<(v_rule->'conditions'->>'minimumQuantity')::bigint OR v_eligible_quantity<(v_rule->'conditions'->>'minimumProductQuantity')::bigint OR (v_rule->'conditions' ? 'paymentMethodIds' AND NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(v_rule->'conditions'->'paymentMethodIds') id WHERE id=p_context->>'paymentMethodId')) OR (v_rule->'conditions' ? 'shippingMethodIds' AND NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(v_rule->'conditions'->'shippingMethodIds') id WHERE id=p_context->>'shippingMethodId')) OR (v_rule->'conditions' ? 'salesChannels' AND NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(v_rule->'conditions'->'salesChannels') channel WHERE channel=p_context->>'salesChannel')) OR ((v_rule->'limits'->>'totalUsage') IS NOT NULL AND v_candidate.used>=(v_rule->'limits'->>'totalUsage')::bigint) OR ((v_rule->'limits'->>'perCustomerUsage') IS NOT NULL AND v_candidate.customer_used>=(v_rule->'limits'->>'perCustomerUsage')::bigint) THEN CONTINUE; END IF;
     v_eligible:=v_eligible||pg_catalog.jsonb_build_array(v_candidate.id); v_saving:=0;
@@ -350,45 +390,19 @@ END $fn$;
 -- The cart payload is transport only.  Product taxonomy and customer audience
 -- membership are always re-derived from store-bound relations below.
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_catalog_line_matches(p_store_id uuid,p_currency text,p_targets jsonb,p_line jsonb)
-RETURNS boolean LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
-  WITH catalog_line AS (
-    SELECT product.id product_id, variant.id variant_id
-    FROM saas.products product JOIN saas.product_variants variant
-      ON variant.store_id=product.store_id AND variant.product_id=product.id
-    WHERE product.store_id=p_store_id AND product.id=(p_line->>'productId')::uuid
-      AND variant.id=(p_line->>'variantId')::uuid AND product.status='active'
-      AND variant.status='active' AND product.currency=p_currency
-  ), refs AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(p_targets->'include')),
-  blocked AS (SELECT value ref FROM pg_catalog.jsonb_array_elements(p_targets->'exclude')),
-  hits AS (
-    SELECT ref, EXISTS(SELECT 1 FROM catalog_line l WHERE
-      (ref->>'kind'='product' AND ref->>'id'=l.product_id::text) OR
-      (ref->>'kind'='variant' AND ref->>'id'=l.variant_id::text) OR
-      (ref->>'kind'='category' AND EXISTS(SELECT 1 FROM saas.catalog_product_categories c WHERE c.store_id=p_store_id AND c.product_id=l.product_id AND c.category_id=(ref->>'id')::uuid)) OR
-      (ref->>'kind' IN ('brand','collection') AND EXISTS(SELECT 1 FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources r ON r.store_id=rp.store_id AND r.id=rp.resource_id AND r.status='active' AND r.resource_kind=ref->>'kind' WHERE rp.store_id=p_store_id AND rp.product_id=l.product_id AND rp.resource_id=(ref->>'id')::uuid))
-    ) hit FROM refs
-  ), blocked_hits AS (
-    SELECT ref, EXISTS(SELECT 1 FROM catalog_line l WHERE
-      (ref->>'kind'='product' AND ref->>'id'=l.product_id::text) OR
-      (ref->>'kind'='variant' AND ref->>'id'=l.variant_id::text) OR
-      (ref->>'kind'='category' AND EXISTS(SELECT 1 FROM saas.catalog_product_categories c WHERE c.store_id=p_store_id AND c.product_id=l.product_id AND c.category_id=(ref->>'id')::uuid)) OR
-      (ref->>'kind' IN ('brand','collection') AND EXISTS(SELECT 1 FROM saas.catalog_admin_resource_products rp JOIN saas.catalog_admin_resources r ON r.store_id=rp.store_id AND r.id=rp.resource_id AND r.status='active' AND r.resource_kind=ref->>'kind' WHERE rp.store_id=p_store_id AND rp.product_id=l.product_id AND rp.resource_id=(ref->>'id')::uuid))
-    ) hit FROM blocked
-  )
-  SELECT EXISTS(SELECT 1 FROM catalog_line)
-    AND (p_targets->>'mode'='all' OR EXISTS(SELECT 1 FROM hits WHERE hit))
-    AND NOT EXISTS(SELECT 1 FROM blocked_hits WHERE hit)
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+  SELECT saas.promotion_evaluator_line_matches(p_targets,p_line)
 $fn$;
 
 CREATE OR REPLACE FUNCTION saas.promotion_evaluator_audience_matches(p_store_id uuid,p_audience jsonb,p_context jsonb)
-RETURNS boolean LANGUAGE sql STABLE STRICT SET search_path = pg_catalog, saas AS $fn$
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, saas AS $fn$
   SELECT CASE p_audience->>'mode'
     WHEN 'everyone' THEN true
-    WHEN 'first_paid_order' THEN (p_context->'customerId'<>'null'::jsonb) AND NOT EXISTS(SELECT 1 FROM saas.orders o WHERE o.store_id=p_store_id AND o.customer_id=(p_context->>'customerId')::uuid AND (o.paid_at IS NOT NULL OR o.payment_status IN ('completed','refunded')))
-    WHEN 'customer_segments' THEN EXISTS(SELECT 1 FROM saas.customer_segment_memberships m JOIN pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) ON ref.id=m.segment_id::text WHERE m.store_id=p_store_id AND m.customer_id=(p_context->>'customerId')::uuid)
-    WHEN 'customer_tags' THEN EXISTS(SELECT 1 FROM saas.customer_tag_assignments m JOIN pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) ON ref.id=m.tag_id::text WHERE m.store_id=p_store_id AND m.customer_id=(p_context->>'customerId')::uuid)
-    WHEN 'masked_customers' THEN EXISTS(SELECT 1 FROM saas.customers c JOIN pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) ON ref.id=c.id::text WHERE c.store_id=p_store_id AND c.id=(p_context->>'customerId')::uuid AND c.status='active')
-    WHEN 'abandoned_cart' THEN EXISTS(SELECT 1 FROM saas.abandoned_carts c WHERE c.store_id=p_store_id AND c.id=(p_context->'abandonedCart'->>'id')::uuid AND c.status='abandoned')
+    WHEN 'first_paid_order' THEN (p_context->'customerId'<>'null'::jsonb) AND COALESCE((p_context->'audienceFacts'->>'firstPaidOrder')::boolean,false)
+    WHEN 'customer_segments' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) JOIN pg_catalog.jsonb_array_elements_text(p_context->'audienceFacts'->'segmentIds') fact(id) ON fact.id=ref.id)
+    WHEN 'customer_tags' THEN EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) JOIN pg_catalog.jsonb_array_elements_text(p_context->'audienceFacts'->'tagIds') fact(id) ON fact.id=ref.id)
+    WHEN 'masked_customers' THEN COALESCE((p_context->'audienceFacts'->>'activeCustomer')::boolean,false) AND EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_audience->'referenceIds') ref(id) WHERE ref.id=p_context->>'customerId')
+    WHEN 'abandoned_cart' THEN COALESCE((p_context->'audienceFacts'->>'abandonedCart')::boolean,false)
     ELSE false END
 $fn$;
 

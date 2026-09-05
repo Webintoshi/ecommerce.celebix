@@ -39,6 +39,9 @@ DROP FUNCTION saas.promotion_record_operation(uuid,uuid,text,text,jsonb,timestam
 DROP FUNCTION saas.promotion_projection(uuid,uuid);
 DROP FUNCTION saas.promotion_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
 DROP FUNCTION saas.promotion_evaluate_v1(uuid,jsonb,timestamptz);
+DROP FUNCTION saas.promotion_evaluator_code_facts(uuid,jsonb);
+DROP FUNCTION saas.promotion_evaluator_audience_facts(uuid,jsonb,timestamptz);
+DROP FUNCTION saas.promotion_evaluator_materialize_lines(uuid,text,jsonb);
 DROP FUNCTION saas.promotion_evaluator_line_matches(jsonb,jsonb);
 DROP FUNCTION saas.promotion_evaluator_context_valid(uuid,jsonb);
 DROP FUNCTION saas.promotion_evaluator_empty_result(text,text);
