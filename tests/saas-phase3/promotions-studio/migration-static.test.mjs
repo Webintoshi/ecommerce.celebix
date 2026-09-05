@@ -85,6 +85,27 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(up, /promotion_redemptions_code_usage_idx/);
   assert.match(up, /promotion_reservation_matches_operation/);
   assert.match(up, /promotion_redemption_matches_reservation/);
+  assert.match(up, /promotion_definition_references_valid/);
+  assert.match(up, /promotion_materialize_targets/);
+  assert.match(up, /promotion_sync_direct_codes/);
+  assert.match(up, /promotion_lifecycle_transition_valid/);
+  assert.match(up, /promotion_effective_status_v1/);
+  assert.match(up, /CREATE INDEX IF NOT EXISTS promotions_list_keyset_idx ON saas[.]promotions\(store_id,created_at DESC,id DESC\)/);
+  assert.match(up, /CREATE INDEX IF NOT EXISTS promotions_published_cap_idx ON saas[.]promotions\(store_id,status,id\) WHERE status IN \('active','scheduled'\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_materialize_lines\(p_store_id uuid,p_currency text,p_context jsonb,p_now timestamptz\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_evaluator_line_capacity\(p_rule jsonb,p_line jsonb,p_prior_discount bigint\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_duplicate_v1/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_definition_dimensions_overlap_v1\(p_store_id uuid,p_left jsonb,p_right jsonb\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_picker_list_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_search text,p_limit integer,p_after_sort_key text,p_after_id uuid\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_picker_resolve_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_ids uuid\[\]\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_conflicts_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_promotion_id uuid,p_expected_version bigint,p_rule_document jsonb\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_margin_check_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_promotion_id uuid,p_expected_version bigint,p_rule_document jsonb\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_list_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_search text,p_effective_statuses text\[\],p_trigger_kinds text\[\],p_benefit_kinds text\[\],p_audience_modes text\[\],p_schedule_from timestamptz,p_schedule_to timestamptz,p_limit integer,p_snapshot_at timestamptz,p_after_created_at timestamptz,p_after_id uuid\)/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]promotion_simulate_v1\(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_selected jsonb,p_context jsonb\)/);
+  assert.match(up, /promotion_versions[\s\S]*v_current[.]version\+1/);
+  assert.match(up, /p[.]status IN \('active','scheduled'\)/);
+  assert.match(up, /p[.]created_at<=v_snapshot/);
+  assert.match(up, /pg_catalog[.]strpos/);
   assert.match(up, /CREATE CONSTRAINT TRIGGER promotion_operations_group_complete AFTER INSERT ON saas[.]promotion_operations DEFERRABLE INITIALLY DEFERRED/);
   assert.match(up, /promotion reservation group is incomplete/);
   assert.match(up, /promotion redemption group is incomplete/);
@@ -97,6 +118,14 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
   assert.match(down, /DROP FUNCTION saas[.]promotion_expire_due_reservations_v1\(timestamptz,integer\)/);
   assert.match(down, /DROP FUNCTION saas[.]promotion_recover_operation_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,text\)/);
   assert.match(down, /DROP FUNCTION saas[.]promotion_operation_authority_lock_v1/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_evaluator_materialize_lines\(uuid,text,jsonb,timestamptz\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_evaluator_line_capacity\(jsonb,jsonb,bigint\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_definition_dimensions_overlap_v1\(uuid,jsonb,jsonb\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_picker_list_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,integer,text,uuid\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_picker_resolve_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid\[\]\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_conflicts_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,jsonb\)/);
+  assert.match(down, /DROP FUNCTION saas[.]promotion_margin_check_v1\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,bigint,jsonb\)/);
+  assert.doesNotMatch(down, /promotion_evaluator_materialize_lines\(uuid,text,jsonb\)/);
   for (const helper of [
     "promotion_evaluator_candidate_facts", "promotion_evaluator_catalog_line_matches",
     "promotion_evaluator_audience_matches", "promotion_evaluator_gift_variant_valid",
@@ -104,18 +133,25 @@ test("promotion migration triplet is additive, tenant-bound and guarded", () => 
     "promotion_operation_fingerprint_v2", "promotion_fingerprint_canonical_json",
     "promotion_reservation_matches_operation", "promotion_redemption_matches_reservation",
     "promotion_operation_group_complete",
+    "promotion_definition_references_valid", "promotion_materialize_targets",
+    "promotion_sync_direct_codes", "promotion_lifecycle_transition_valid",
+    "promotion_effective_status_v1", "promotion_duplicate_v1",
   ]) assert.match(down, new RegExp(`DROP FUNCTION saas[.]${helper}\\b`));
   assert.doesNotMatch(down, /CASCADE/i);
   assert.ok(down.indexOf("DROP FUNCTION") < down.indexOf("DROP TABLE"), "down drops dependent functions before relations");
   assert.match(assertions, /PROMOTIONS_STUDIO/);
   assert.match(assertions, /PROMOTIONS_STUDIO_DIRECT_TABLE_PRIVILEGE_INVALID/);
   assert.match(assertions, /PROMOTIONS_STUDIO_COMPOSITE_FOREIGN_KEYS_INVALID/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_CRUD_LIST_SIMULATOR_RPC_INVALID/);
+  assert.match(assertions, /PROMOTIONS_STUDIO_INTERNAL_HELPER_EXPOSURE_INVALID/);
+  assert.match(assertions, /promotion_picker_list_v1/);
+  assert.match(assertions, /promotion_picker_resolve_v1/);
 });
 
 test("promotion rehearsal is registered and admin remains outside the task", () => {
   const runner = readFileSync(path.join(ROOT, "tests/saas-phase3/run-current-suite.mjs"), "utf8");
   assert.match(runner, /promotions-studio\/postgres-harness[.]mjs/);
-  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 77\\\/77/);
+  assert.match(runner, /PROMOTIONS_STUDIO_POSTGRESQL16_COMPLETE 100\\\/100/);
   assert.equal(existsSync(path.join(ROOT, "tests/saas-phase3/promotions-studio/postgres-harness.mjs")), true);
   assert.equal(existsSync(path.join(ROOT, "apps/admin")), true);
 });

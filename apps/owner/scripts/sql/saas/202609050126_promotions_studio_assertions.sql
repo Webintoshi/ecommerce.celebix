@@ -37,6 +37,9 @@ BEGIN
      OR pg_catalog.to_regprocedure('saas.promotion_redemption_matches_reservation()') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_operation_group_complete()') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_operation_recovery_action(text)') IS NULL THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_EVALUATOR_HELPERS_INVALID'; END IF;
+  IF pg_catalog.to_regprocedure('saas.promotion_definition_dimensions_overlap_v1(uuid,jsonb,jsonb)') IS NULL THEN
+    RAISE EXCEPTION 'PROMOTIONS_STUDIO_CONFLICT_DIMENSIONS_INVALID';
+  END IF;
   IF pg_catalog.to_regclass('saas.promotion_operations_reservation_group_owner_key') IS NULL
      OR pg_catalog.to_regclass('saas.promotion_operations_redemption_group_owner_key') IS NULL
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.promotion_operations'::regclass AND conname IN ('promotion_operations_result_contract_check','promotion_operations_result_entity_check') AND convalidated GROUP BY conrelid HAVING count(*)=2)
@@ -64,6 +67,48 @@ BEGIN
      OR pg_catalog.to_regprocedure('saas.promotion_release_reservation_v1(uuid,uuid,uuid,timestamp with time zone)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)') IS NULL
      OR pg_catalog.to_regprocedure('saas.promotion_expire_due_reservations_v1(timestamp with time zone,integer)') IS NULL THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RPC_SURFACE_INVALID'; END IF;
+  FOREACH v_table IN ARRAY ARRAY[
+    'saas.promotion_duplicate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text[])',
+    'saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],integer)',
+    'saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],text[],text[],text[],timestamp with time zone,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
+    'saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)',
+    'saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb,jsonb)',
+    'saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)',
+    'saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
+    'saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb)',
+    'saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
+    'saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,integer,text,uuid)',
+    'saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])'
+  ] LOOP
+    v_proc:=pg_catalog.to_regprocedure(v_table);
+    IF v_proc IS NULL
+       OR NOT pg_catalog.has_function_privilege('celebix_saas_app',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('public',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_identity',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_workflow',v_proc,'EXECUTE')
+       OR (SELECT owner.rolname FROM pg_catalog.pg_proc proc JOIN pg_catalog.pg_roles owner ON owner.oid=proc.proowner WHERE proc.oid=v_proc)<>'celebix_saas_owner'
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc proc WHERE proc.oid=v_proc AND COALESCE(proc.proconfig,'{}'::text[]) @> ARRAY['search_path=pg_catalog, saas'])
+    THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_CRUD_LIST_SIMULATOR_RPC_INVALID:%',v_table; END IF;
+  END LOOP;
+  FOREACH v_table IN ARRAY ARRAY[
+    'saas.promotion_picker_source_v1(uuid,text)',
+    'saas.promotion_definition_dimensions_overlap_v1(uuid,jsonb,jsonb)',
+    'saas.promotion_conflict_projection_v1(uuid,timestamp with time zone,jsonb,uuid)',
+    'saas.promotion_margin_projection_v1(uuid,timestamp with time zone,jsonb)',
+    'saas.promotion_evaluate_internal_v1(uuid,jsonb,timestamp with time zone,jsonb)'
+  ] LOOP
+    v_proc:=pg_catalog.to_regprocedure(v_table);
+    IF v_proc IS NULL
+       OR pg_catalog.has_function_privilege('celebix_saas_app',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('public',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_identity',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',v_proc,'EXECUTE')
+       OR pg_catalog.has_function_privilege('celebix_saas_workflow',v_proc,'EXECUTE')
+       OR (SELECT owner.rolname FROM pg_catalog.pg_proc proc JOIN pg_catalog.pg_roles owner ON owner.oid=proc.proowner WHERE proc.oid=v_proc)<>'celebix_saas_owner'
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc proc WHERE proc.oid=v_proc AND COALESCE(proc.proconfig,'{}'::text[]) @> ARRAY['search_path=pg_catalog, saas'])
+    THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_INTERNAL_HELPER_EXPOSURE_INVALID:%',v_table; END IF;
+  END LOOP;
   IF NOT pg_catalog.has_function_privilege('celebix_saas_app','saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)'::regprocedure,'EXECUTE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_workflow','saas.promotion_expire_due_reservations_v1(timestamp with time zone,integer)'::regprocedure,'EXECUTE')
      OR (SELECT count(*) FROM pg_catalog.pg_proc proc WHERE proc.pronamespace='saas'::regnamespace AND proc.proname LIKE 'promotion_%' AND pg_catalog.has_function_privilege('celebix_saas_workflow',proc.oid,'EXECUTE'))<>1 THEN RAISE EXCEPTION 'PROMOTIONS_STUDIO_RPC_GRANTS_INVALID'; END IF;
