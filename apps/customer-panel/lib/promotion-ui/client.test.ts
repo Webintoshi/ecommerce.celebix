@@ -21,6 +21,16 @@ function memoryStorage() {
   };
 }
 
+test("invokes browser-style fetch without using the API client as its receiver", async () => {
+  const browserFetch = function(this: unknown, _input: RequestInfo | URL, _init?: RequestInit) {
+    if (this !== undefined) return Promise.reject(new TypeError("Illegal invocation"));
+    return Promise.resolve(response({ items: [], nextCursor: null }));
+  };
+  const client = new PromotionApiClient(browserFetch);
+
+  assert.deepEqual(await client.list({}), { items: [], nextCursor: null });
+});
+
 test("sends server-side search filters and a global cursor with no-store requests", async () => {
   const requests: Request[] = [];
   const client = new PromotionApiClient(async (input, init) => {

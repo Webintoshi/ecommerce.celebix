@@ -65,7 +65,8 @@ export function promotionErrorMessage(code: string): string {
 export class PromotionApiClient {
   private readonly durableOperations = new Map<string, DurableEntry>();
   private readonly storage: DurableStorage | undefined;
-  constructor(private readonly fetcher: Fetch = fetch, private readonly operationId: () => string = () => crypto.randomUUID(), storage?: DurableStorage) { this.storage = storage ?? browserDurableStorage(); this.restoreDurable(); }
+  private readonly fetcher: Fetch;
+  constructor(fetcher: Fetch = fetch, private readonly operationId: () => string = () => crypto.randomUUID(), storage?: DurableStorage) { this.fetcher = (input, init) => fetcher(input, init); this.storage = storage ?? browserDurableStorage(); this.restoreDurable(); }
   private restoreDurable() {
     if (!this.storage) return;
     try {
