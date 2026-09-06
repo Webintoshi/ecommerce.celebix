@@ -43,8 +43,10 @@ test("promotion code batches remain usable on narrow screens", async () => {
   const codes = await source("components/promotions/PromotionCodes.tsx");
   const stylesheet = await source("components/promotions/promotion-studio.module.css");
   assert.match(codes, /aria-label="Kupon grupları"/);
-  assert.match(codes, /styles[.]mobileCards/);
+  assert.match(codes, /styles[.]mobileCards[\s\S]*?Toplam[\s\S]*?Kullanılan[\s\S]*?Bekleyen[\s\S]*?Kalan/);
+  assert.equal(codes.match(/batchActions\(batch\)/g)?.length, 2);
   assert.match(stylesheet, /@media \(max-width: 760px\)[\s\S]*?[.]batchForm\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+  assert.match(stylesheet, /@media \(max-width: 760px\)[\s\S]*?[.]desktopTable\s*\{\s*display:\s*none;[\s\S]*?[.]mobileCards\s*\{\s*display:\s*grid/);
 });
 
 test("editor exposes every controlled merchant field and only server-backed checks and simulator", async () => {
