@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { PromotionCodeBatchListItem, PromotionDetail } from "@celebix/saas-contracts";
 import { PanelLoadingState } from "@/components/panel/PanelPageShell";
+import { defaultPromotionBatchForm, preparePromotionBatchCreate } from "@/lib/promotion-ui/batch-form";
 import { promotionApi, promotionErrorMessage } from "@/lib/promotion-ui/client";
 import { zonedLocalInputToIso } from "@/lib/promotion-ui/model";
 import styles from "./promotion-studio.module.css";
@@ -11,13 +12,15 @@ import styles from "./promotion-studio.module.css";
 export function PromotionCodes({ promotionId, timezone, storefrontOrigin, canPublish, canExportCodes }: Readonly<{ promotionId: string; timezone: string; storefrontOrigin: string | null; canPublish: boolean; canExportCodes: boolean }>) {
   const [promotion, setPromotion] = useState<PromotionDetail | null>(null), [items, setItems] = useState<readonly PromotionCodeBatchListItem[]>([]);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
-  const [count, setCount] = useState("100"), [prefix, setPrefix] = useState("VIP_"), [codeLength, setCodeLength] = useState("12"), [perCustomer, setPerCustomer] = useState("1"), [expiresAt, setExpiresAt] = useState("");
+  const [count, setCount] = useState(defaultPromotionBatchForm.count), [prefix, setPrefix] = useState(defaultPromotionBatchForm.prefix), [codeLength, setCodeLength] = useState(defaultPromotionBatchForm.codeLength), [perCustomer, setPerCustomer] = useState(defaultPromotionBatchForm.perCustomerUsage), [expiresAt, setExpiresAt] = useState("");
   const load = () => { setLoading(true); void Promise.all([promotionApi.detail(promotionId), promotionApi.listCodeBatches(promotionId)]).then(([detail, page]) => { setPromotion(detail); setItems(page.items); setMessage(""); }).catch(() => setMessage("Kupon grupları yüklenemedi.")).finally(() => setLoading(false)); };
   useEffect(load, [promotionId]);
   const create = () => {
     if (busy || !canPublish) return;
     let expiry: string | null = null; try { expiry = expiresAt ? zonedLocalInputToIso(expiresAt, timezone) : null; } catch { setMessage("Geçerli bir son kullanım zamanı seçin."); return; }
-    setBusy(true); setMessage(""); void promotionApi.createCodeBatch(promotionId, { count: Number(count), prefix, codeLength: Number(codeLength), perCustomerUsage: Number(perCustomer), expiresAt: expiry }).then(() => { setMessage("Kupon grubu oluşturuldu."); load(); }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy(false));
+    const prepared = preparePromotionBatchCreate({ count, prefix, codeLength, perCustomerUsage: perCustomer, expiresAt: expiry });
+    if (prepared.kind === "invalid") { setMessage(prepared.message); return; }
+    setBusy(true); setMessage(""); void promotionApi.createCodeBatch(promotionId, prepared.value).then(() => { setMessage("Kupon grubu oluşturuldu."); load(); }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy(false));
   };
   const transition = (batch: PromotionCodeBatchListItem, nextStatus: "active" | "paused" | "revoked") => { if (busy || !canPublish) return; if (nextStatus === "revoked" && !window.confirm("Bu kupon grubu kalıcı olarak iptal edilsin mi?")) return; setBusy(true); void promotionApi.updateCodeBatch(batch, nextStatus).then(() => { setMessage("Kupon grubu güncellendi."); load(); }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy(false)); };
   const primaryCode = promotion?.ruleDocument.trigger.kind === "code" ? promotion.ruleDocument.trigger.codes[0] ?? null : null;
