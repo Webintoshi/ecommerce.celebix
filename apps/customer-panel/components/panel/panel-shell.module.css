@@ -1,6 +1,6 @@
 .shell {
   min-height: 100dvh;
-  background: #F9F9F9;
+  background: #F7F1EB;
 }
 
 .desktopSidebar {
@@ -12,7 +12,7 @@
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid rgb(255 255 255 / 8%);
-  background: #2A2A2A;
+  background: #201C19;
   color: #FFFFFF;
   box-shadow: 14px 0 38px rgb(0 0 0 / 16%);
 }
@@ -89,10 +89,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  border-bottom: 1px solid #E3E7EE;
-  background: rgb(255 255 255 / 96%);
+  border-bottom: 1px solid #E4D5C9;
+  background: #FFFDFC;
   padding: 0 1.875rem;
-  backdrop-filter: blur(14px);
 }
 
 .desktopTopbarContext {
@@ -128,7 +127,7 @@
 
 .desktopTopbarTitle {
   overflow: hidden;
-  color: #1F2937;
+  color: #2B2B2B;
   font-size: 1.125rem;
   font-weight: 750;
   letter-spacing: -0.03em;
@@ -485,9 +484,9 @@
 
 .navigationLinkActive,
 .navigationGroupActive {
-  background: #37373B;
+  background: rgb(254 97 0 / 12%);
   color: #FFFFFF;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%);
+  box-shadow: inset 0 0 0 1px rgb(254 97 0 / 16%);
 }
 
 .activeRail {
@@ -497,7 +496,7 @@
   left: 0;
   width: 2px;
   border-radius: 999px;
-  background: #FF6A00;
+  background: #FE6100;
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms ease;
