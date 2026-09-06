@@ -213,17 +213,6 @@ function DashboardTopbarContext({ analytics, activeVisitorsEnabled, period, onPe
   );
 }
 
-function DashboardHeader() {
-  return (
-    <header className={styles.dashboardHeader}>
-      <div className={styles.dashboardHeading}>
-        <h1>Mağazanızın genel durumu</h1>
-        <p>Öne çıkan veriler ve son gelişmeler.</p>
-      </div>
-    </header>
-  );
-}
-
 function StoreStatusBar({ dashboard, analytics, analyticsState }: Readonly<{ dashboard: MerchantDashboardViewModel; analytics?: AnalyticsView; analyticsState: OptionalLoadState }>) {
   const storefront = dashboard.chromeCards.find(({ key }) => key === "storefront");
   const plan = dashboard.chromeCards.find(({ key }) => key === "plan");
@@ -442,7 +431,6 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   return (
     <PanelPageShell>
       <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton></div>} />
-      <DashboardHeader />
       <DashboardKpiGrid metrics={metrics} />
       <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><OrderStatusCard dashboard={props.dashboard} state={props.ordersState ?? (orders ? "loaded" : "unsupported")} /><ActionItemsCard tasks={tasks} state={taskState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
       <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>

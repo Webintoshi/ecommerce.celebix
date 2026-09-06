@@ -10,32 +10,6 @@
   border: 0;
 }
 
-.dashboardHeader {
-  display: flex;
-  min-height: 4.5rem;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.dashboardHeading {
-  min-width: 0;
-}
-
-.dashboardHeading h1 {
-  margin: 0;
-  color: #2B2B2B;
-  font-size: clamp(1.5rem, 2vw, 1.75rem);
-  font-weight: 750;
-  letter-spacing: -0.035em;
-  line-height: 1.15;
-}
-
-.dashboardHeading p {
-  margin: 0.35rem 0 0;
-  color: #6f655f;
-  font-size: 0.9rem;
-}
-
 .dashboardTopbarContext {
   display: flex;
   min-width: 0;
@@ -918,7 +892,6 @@
 }
 
 @media (max-width: 1024px) {
-  .dashboardHeader { align-items: flex-start; }
   .dashboardTopbarContext { justify-content: flex-start; }
   .storeStatusBar { grid-template-columns: minmax(0, 1fr) auto; }
   .storeMeta { grid-column: 1 / -1; grid-row: 2; }
@@ -931,7 +904,6 @@
 }
 
 @media (max-width: 720px) {
-  .dashboardHeader { display: grid; }
   .dashboardTopbarContext { width: 100%; justify-content: stretch; }
   .periodFilter { flex: 1; }
   .liveVisitors { flex: 1; min-width: 0; }
@@ -957,7 +929,6 @@
 }
 
 @media (max-width: 520px) {
-  .dashboardHeading h1 { font-size: 1.65rem; }
   .dashboardTopbarContext { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
   .periodFilter small { display: none; }
   .kpiCard { min-height: 7rem; padding: 0.8rem; }
@@ -987,14 +958,12 @@
 }
 
 @media (max-width: 390px) {
-  .dashboardHeader,
   .storeStatusBar,
   .kpiGrid,
   .primaryGrid,
   .operationsGrid,
   .insightGrid,
   .quickActions { max-width: 100%; }
-  .dashboardHeading p { font-size: 0.8rem; }
   .dashboardTopbarContext { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
   .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpiCard { min-height: 7rem; align-items: flex-start; flex-direction: column; gap: 0.5rem; }

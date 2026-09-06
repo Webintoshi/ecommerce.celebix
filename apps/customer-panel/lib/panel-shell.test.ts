@@ -1634,7 +1634,6 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
   assert.match(view, /loader[.]current[?][.]reload\("analytics"\)/);
   assert.match(view, /<Line[\s\S]*?isAnimationActive=\{false\}/);
-  assert.match(view, /className=\{styles[.]dashboardHeader\}/);
   assert.match(await source("components/dashboard/panel-dashboard.module.css"), /@media \(max-width: 1024px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.match(combined, /"\/analytics"/);
@@ -1716,8 +1715,8 @@ test("dashboard presentation keeps the merchant-dashboard anatomy when analytics
   );
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
-  assert.match(html, /<h1[^>]*>Mağazanızın genel durumu<\/h1>/);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
+  assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
   assert.match(html, /Mağazanız yayında/);
@@ -1752,7 +1751,7 @@ test("dashboard presentation renders independent retry controls without stale re
 
   assert.equal((html.match(/>Tekrar dene<\/button>/g) ?? []).length, 2);
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 2);
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|Etkin medya/);
 });
@@ -2873,7 +2872,7 @@ function approvedDashboardInput() {
   };
 }
 
-test("approved merchant dashboard exposes one visible h1, four honest KPIs, real routes, and canonical order links", async () => {
+test("approved merchant dashboard starts with four honest KPIs, real routes, and canonical order links", async () => {
   const { chrome, dashboard, recentOrders } = approvedDashboardInput();
   const html = await renderPanelDashboard(chrome, {
     dashboard,
@@ -2883,8 +2882,8 @@ test("approved merchant dashboard exposes one visible h1, four honest KPIs, real
     recentOrdersState: "loaded",
   });
 
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
-  assert.match(html, /<h1[^>]*>Mağazanızın genel durumu<\/h1>/);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
+  assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.doesNotMatch(html, /<h1[^>]*class="visuallyHidden"/);
   for (const label of ["Toplam satış", "Toplam sipariş", "Yeni müşteri", "Dönüşüm oranı"])
     assert.match(html, new RegExp(label));
@@ -2926,7 +2925,6 @@ test("dashboard visual system locks the approved V2 palette and compact responsi
   for (const token of ["#FE6100", "#2B2B2B", "#F8F7F5", "#FFFDFC", "#E7E2DD"])
     assert.match(css, new RegExp(token, "i"));
   assert.doesNotMatch(css, /#F7F1EB|#E4D5C9|#B4873B|#8A6427|#F6EFE3/i);
-  assert.match(css, /[.]dashboardHeader\s*\{[\s\S]*?min-height:\s*4[.]5rem;/);
   assert.match(css, /[.]kpiCard\s*\{[\s\S]*?min-height:\s*7[.]5rem;/);
   assert.match(css, /[.]primaryGrid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(15rem,\s*1fr\)\s+minmax\(15rem,\s*1fr\);/);
   assert.match(css, /@media \(max-width: 1024px\)/);
