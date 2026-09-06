@@ -555,6 +555,7 @@ test("merchant route matrix invokes every actual page, production console, clien
 
   const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
     "ai_setting",
+    "discount",
     "payment_setting",
     "category_showcase",
     "hero_banner",
@@ -789,8 +790,6 @@ test("merchant non-default route matrix invokes generic record pages and exact c
     { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
     { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },
     { route: "/content/pages/[recordId]/edit", kind: "page", returnTo: "/content/pages", mode: "edit", component: "editor" },
-    { route: "/discounts/new", kind: "discount", returnTo: "/discounts", mode: "create", component: "console" },
-    { route: "/discounts/[recordId]/edit", kind: "discount", returnTo: "/discounts", mode: "edit", component: "editor" },
   ]);
   let activeCase = cases[0]!;
   let saveMode: SaveMode = "success";

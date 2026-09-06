@@ -3,13 +3,23 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import type { PublicCart, PublicCartLine } from "@celebix/saas-contracts";
+import type {
+  PublicCart,
+  PublicCartLine,
+  PublicCheckoutQuoteV2,
+} from "@celebix/saas-contracts";
 import { storefrontCartClient } from "@/lib/cart/client.ts";
-import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
+import {
+  couponAppliedEvent,
+  emitStorefrontCommerceEvent,
+} from "@/lib/analytics/events.ts";
 import { formatTry } from "@/lib/format.ts";
+import { normalizeCouponCandidate } from "@/lib/promotions/model.ts";
 import { productIndexPath, productPath } from "@/lib/storefront-routes.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { checkoutBlockerMessage } from "./checkout-readiness";
+import { PromotionCouponField } from "./PromotionCouponField";
+import { PromotionDetails } from "./PromotionDetails";
 import { useHydrated } from "./use-hydrated";
 
 function CartLineControls({
@@ -105,15 +115,23 @@ export function CartPageClient({
   recovered = false,
   omittedItems = 0,
   adjustedItems = 0,
+  initialNormalizedCodes = [],
 }: Readonly<{
   locale: string;
   recovered?: boolean;
   omittedItems?: number;
   adjustedItems?: number;
+  initialNormalizedCodes?: readonly string[];
 }>) {
   const hydrated = useHydrated();
   const { cart, loading, refresh } = useCartStatus();
   const [pending, setPending] = useState(false);
+  const [promotionPending, setPromotionPending] = useState(true);
+  const [promotionQuote, setPromotionQuote] =
+    useState<PublicCheckoutQuoteV2 | null>(null);
+  const [appliedCodes, setAppliedCodes] =
+    useState<readonly string[]>(initialNormalizedCodes);
+  const [promotionStatus, setPromotionStatus] = useState("");
   const visibleCart = hydrated ? cart : null;
   const visibleLoading = !hydrated || loading;
   useEffect(() => {
@@ -131,6 +149,39 @@ export function CartPageClient({
           },
         });
   }, [visibleCart]);
+  useEffect(() => {
+    if (!visibleCart || visibleCart.items.length === 0)
+      return;
+    let active = true;
+    setPromotionQuote(null);
+    setPromotionPending(true);
+    void storefrontCartClient
+      .quotePromotions("cart", appliedCodes)
+      .then((selected) => {
+        if (!active) return;
+        setPromotionQuote(selected);
+        const rejected = new Set(
+          selected.rejectedPromotions.map((promotion) => promotion.normalizedCode),
+        );
+        setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
+        setPromotionStatus(
+          selected.rejectedPromotions.length > 0
+            ? "Bu kod şu anda uygulanamıyor."
+            : selected.progressMessages[0] ?? "Kampanyalar güncel.",
+        );
+      })
+      .catch(() => {
+        if (active) setPromotionStatus("Kampanyalar şu anda kontrol edilemiyor.");
+      })
+      .finally(() => {
+        if (active) setPromotionPending(false);
+      });
+    return () => {
+      active = false;
+    };
+    // The cart version is the server-owned signal that merchandise changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCart?.version]);
   if (visibleLoading && !visibleCart)
     return (
       <div className="store-empty" role="status">
@@ -170,6 +221,67 @@ export function CartPageClient({
     visibleCart.checkoutBlocker === "shipping_unavailable" ||
     visibleCart.checkoutBlocker === "payment_unavailable";
   const blockerMessage = checkoutBlockerMessage(visibleCart.checkoutBlocker);
+  const quoteCodes = async (requested: readonly string[]) => {
+    setPromotionQuote(null);
+    setPromotionPending(true);
+    try {
+      const selected = await storefrontCartClient.quotePromotions("cart", requested);
+      const rejected = new Set(
+        selected.rejectedPromotions.map((promotion) => promotion.normalizedCode),
+      );
+      setPromotionQuote(selected);
+      setAppliedCodes(requested.filter((code) => !rejected.has(code)));
+      return selected;
+    } catch {
+      setPromotionStatus("Kampanyalar şu anda kontrol edilemiyor.");
+      return null;
+    } finally {
+      setPromotionPending(false);
+    }
+  };
+  const applyCoupon = async (raw: string) => {
+    let normalized: string;
+    try {
+      normalized = normalizeCouponCandidate(raw);
+    } catch {
+      setPromotionStatus("Bu kod şu anda uygulanamıyor.");
+      return false;
+    }
+    const current = appliedCodes;
+    if (current.includes(normalized)) {
+      setPromotionStatus("Bu kod zaten eklendi.");
+      return true;
+    }
+    if (current.length >= 5) {
+      setPromotionStatus("En fazla 5 kod ekleyebilirsiniz.");
+      return false;
+    }
+    const selected = await quoteCodes(Object.freeze([...current, normalized]));
+    if (!selected) return false;
+    const event = couponAppliedEvent(selected, normalized);
+    if (event) emitStorefrontCommerceEvent(event);
+    const rejected = selected.rejectedPromotions.some(
+      (promotion) => promotion.normalizedCode === normalized,
+    );
+    setPromotionStatus(
+      rejected
+        ? "Bu kod şu anda uygulanamıyor."
+        : event
+          ? "Kod uygulandı."
+          : selected.progressMessages[0] ?? "Kod ödeme adımında tekrar kontrol edilecek.",
+    );
+    return !rejected;
+  };
+  const removeCoupon = async (code: string) => {
+    const selected = await quoteCodes(
+      Object.freeze(appliedCodes.filter((candidate) => candidate !== code)),
+    );
+    if (selected) setPromotionStatus("Kod kaldırıldı.");
+  };
+  const activePromotionQuote =
+    promotionQuote?.cart.version === visibleCart.version ? promotionQuote : null;
+  const interactionPending = pending || promotionPending;
+  const summaryCart = activePromotionQuote?.cart ?? visibleCart;
   return (
     <>
       {recovered ? (
@@ -206,13 +318,16 @@ export function CartPageClient({
                 <Link href={productPath(locale, line.slug)}>{line.title}</Link>
                 <span>{line.variantTitle}</span>
                 <strong>{formatTry(line.unitPriceCents)}</strong>
+                {activePromotionQuote?.cart.items.find((item) => item.variantId === line.variantId)?.discountCents ? (
+                  <small className="cart-line-discount">Ürün indirimi sunucu tarafından uygulandı.</small>
+                ) : null}
                 {!line.available ? <em>Şu anda kullanılamıyor</em> : null}
               </div>
               <CartLineControls
                 line={line}
                 currency={visibleCart.currency}
                 version={visibleCart.version}
-                disabled={pending}
+                disabled={interactionPending}
                 onPending={setPending}
               />
               <strong className="cart-line-total">
@@ -227,21 +342,32 @@ export function CartPageClient({
           <dl>
             <div>
               <dt>Ara toplam</dt>
-              <dd>{formatTry(visibleCart.subtotalCents)}</dd>
+              <dd>{formatTry(summaryCart.subtotalCents)}</dd>
             </div>
             <div>
               <dt>Kargo</dt>
               <dd>
-                {visibleCart.shippingCents === 0
+                {summaryCart.shippingCents === 0
                   ? "Ücretsiz"
-                  : formatTry(visibleCart.shippingCents)}
+                  : formatTry(summaryCart.shippingCents)}
               </dd>
             </div>
+            {activePromotionQuote?.cart.lineDiscountCents ? <div><dt>Ürün indirimi</dt><dd>-{formatTry(activePromotionQuote.cart.lineDiscountCents)}</dd></div> : null}
+            {activePromotionQuote?.cart.shippingDiscountCents ? <div><dt>Kargo indirimi</dt><dd>-{formatTry(activePromotionQuote.cart.shippingDiscountCents)}</dd></div> : null}
+            {activePromotionQuote?.cart.discountCents ? <div><dt>Toplam indirim</dt><dd>-{formatTry(activePromotionQuote.cart.discountCents)}</dd></div> : null}
             <div>
               <dt>Toplam</dt>
-              <dd>{formatTry(visibleCart.totalCents)}</dd>
+              <dd>{formatTry(summaryCart.totalCents)}</dd>
             </div>
           </dl>
+          {activePromotionQuote ? <PromotionDetails quote={activePromotionQuote} /> : null}
+          <PromotionCouponField
+            codes={appliedCodes}
+            pending={interactionPending}
+            status={promotionStatus}
+            onApply={applyCoupon}
+            onRemove={removeCoupon}
+          />
           {blockerMessage ? (
             <span
               className={`cart-unavailable${configurationBlocker ? " is-configuration" : ""}`}
@@ -250,7 +376,8 @@ export function CartPageClient({
               {blockerMessage}
             </span>
           ) : null}
-          {!stockBlocker &&
+          {!interactionPending &&
+          !stockBlocker &&
           (visibleCart.checkoutReady || configurationBlocker) ? (
             <Link className="store-button" href="/checkout">
               {visibleCart.checkoutReady

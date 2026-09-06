@@ -1,7 +1,9 @@
 import type {
   PublicCart,
   PublicCheckoutQuote,
+  PublicCheckoutQuoteV2,
   PublicCheckoutReceipt,
+  PublicCheckoutReceiptV2,
 } from "@celebix/saas-contracts";
 
 import type {
@@ -119,6 +121,17 @@ export interface StorefrontCommerceRepository {
       attribution?: StorefrontCommerceAttribution;
     }>,
   ): Promise<PublicCheckoutQuote>;
+  quoteV2(
+    input: Readonly<{
+      hostname: string;
+      now: Date;
+      intentKind: "cart" | "buy_now";
+      candidates: readonly StorefrontCredentialCandidate[];
+      customerCandidates: readonly StorefrontCredentialCandidate[];
+      normalizedCodes: readonly string[];
+      attribution?: StorefrontCommerceAttribution;
+    }>,
+  ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; authorityDigest: string }>>;
   complete(
     input: Readonly<{
       hostname: string;
@@ -145,6 +158,33 @@ export interface StorefrontCommerceRepository {
       credentialPersistence: StorefrontCheckoutCredentialPersistence;
     }>
   >;
+  completeV2(
+    input: Readonly<{
+      hostname: string;
+      now: Date;
+      intentKind: "cart" | "buy_now";
+      candidates: readonly StorefrontCredentialCandidate[];
+      customerCandidates: readonly StorefrontCredentialCandidate[];
+      operationId: string;
+      cartVersion: number;
+      delivery: StorefrontDelivery;
+      paymentKind: "bank_transfer" | "cash_on_delivery";
+      generated: Readonly<{
+        orderId: string;
+        customerId: string;
+        addressId: string;
+        eventId: string;
+        receipt: StorefrontGeneratedCredential;
+        customer: StorefrontGeneratedCredential;
+      }>;
+      normalizedCodes: readonly string[];
+    }>,
+  ): Promise<
+    Readonly<{
+      receipt: PublicCheckoutReceiptV2;
+      credentialPersistence: StorefrontCheckoutCredentialPersistence;
+    }>
+  >;
   getReceipt(
     input: Readonly<{
       hostname: string;
@@ -152,7 +192,7 @@ export interface StorefrontCommerceRepository {
       receiptCandidates: readonly StorefrontCredentialCandidate[];
       customerCandidates: readonly StorefrontCredentialCandidate[];
     }>,
-  ): Promise<PublicCheckoutReceipt>;
+  ): Promise<PublicCheckoutReceipt | PublicCheckoutReceiptV2>;
   listAccountOrders(
     input: Readonly<{
       hostname: string;
@@ -160,7 +200,7 @@ export interface StorefrontCommerceRepository {
       candidates: readonly StorefrontCredentialCandidate[];
       limit: number;
     }>,
-  ): Promise<readonly PublicCheckoutReceipt[]>;
+  ): Promise<readonly (PublicCheckoutReceipt | PublicCheckoutReceiptV2)[]>;
 }
 
 export type StorefrontCommerceAuditEvent = Readonly<{

@@ -19,6 +19,7 @@ import {
   PostgresInventoryRepository,
   PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresPricingRepository,
+  PostgresPromotionRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
@@ -58,6 +59,7 @@ import { registerServerCustomerRepository } from "../server-customers/runtime.ts
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
+import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
@@ -357,6 +359,155 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.analytics_connection_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.analytics_connection_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.analytics_connection_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS analytics_repository,
+      to_regclass('saas.promotions') IS NOT NULL
+        AND to_regclass('saas.promotion_versions') IS NOT NULL
+        AND to_regclass('saas.promotion_targets') IS NOT NULL
+        AND to_regclass('saas.promotion_code_batches') IS NOT NULL
+        AND to_regclass('saas.promotion_codes') IS NOT NULL
+        AND to_regclass('saas.promotion_operations') IS NOT NULL
+        AND to_regclass('saas.promotion_usage_reservations') IS NOT NULL
+        AND to_regclass('saas.promotion_redemptions') IS NOT NULL
+        AND to_regclass('saas.promotion_audit_events') IS NOT NULL
+        AND to_regclass('saas.order_promotion_snapshots') IS NOT NULL
+        AND to_regclass('saas.order_discount_allocations') IS NOT NULL
+        AND to_regprocedure('saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],text[],text[],text[],timestamp with time zone,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text[],text[],text[],text[],timestamp with time zone,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_update_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_update_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_lifecycle_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_lifecycle_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_duplicate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text[])') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_duplicate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text[])',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb,jsonb)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_simulate_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,jsonb,jsonb)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_conflicts_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_margin_check_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,jsonb)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,integer,text,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_picker_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,integer,text,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_store_timezone_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_storefront_origin_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_storefront_origin_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_picker_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text,integer,integer,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_create_code_batch_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,integer,text,integer,integer,timestamp with time zone)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_code_batch_status_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_code_batch_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer,timestamp with time zone,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_codes_csv_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_analytics_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_overview_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_overview_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_legacy_list_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_legacy_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_legacy_resolve_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_recover_operation_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)',
+          'EXECUTE'
+        ) AS promotion_repository,
       to_regclass('saas.inventory_locations') IS NOT NULL
         AND to_regclass('saas.inventory_balances') IS NOT NULL
         AND to_regclass('saas.inventory_movements') IS NOT NULL
@@ -468,6 +619,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.quick_order_hosted_authority !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.analytics_repository !== true ||
+      row.promotion_repository !== true ||
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
       row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true ||
@@ -724,6 +876,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const promotionRepository = new PostgresPromotionRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -801,6 +960,15 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }));
     registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
       save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
+    }));
+    registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository, {
+      create: ["promotions"],
+      update: ["promotions"],
+      publish: ["promotions"],
+      pause: ["promotions"],
+      resume: ["promotions"],
+      duplicate: ["promotions"],
+      archive: ["promotions"],
     }));
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,

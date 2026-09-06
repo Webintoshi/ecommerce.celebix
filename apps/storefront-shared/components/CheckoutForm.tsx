@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { PublicCheckoutQuote } from "@celebix/saas-contracts";
+import type {
+  PublicCheckoutQuote,
+  PublicCheckoutQuoteV2,
+} from "@celebix/saas-contracts";
 import {
   StorefrontCartClientError,
   storefrontCartClient,
@@ -38,13 +41,15 @@ const EMPTY: CheckoutFormDraft = Object.freeze({
 export function CheckoutForm({
   intentKind,
   initialDraft,
+  initialNormalizedCodes = [],
 }: Readonly<{
   intentKind: CheckoutIntentKind;
   initialDraft?: Partial<CheckoutFormDraft>;
+  initialNormalizedCodes?: readonly string[];
 }>) {
   const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
-  const [quote, setQuote] = useState<PublicCheckoutQuote | null>(null);
+  const [quote, setQuote] = useState<PublicCheckoutQuote | PublicCheckoutQuoteV2 | null>(null);
   const [quoteSettled, setQuoteSettled] = useState(false);
   const [draft, setDraft] = useState<CheckoutFormDraft>(() =>
     Object.freeze({ ...EMPTY, ...initialDraft }),
@@ -58,6 +63,9 @@ export function CheckoutForm({
   const [status, setStatus] = useState("Sipariş özeti yükleniyor.");
   const formRef = useRef<HTMLFormElement>(null);
   const operation = useRef<string | null>(null);
+  const [appliedCodes, setAppliedCodes] = useState<readonly string[]>(
+    initialNormalizedCodes,
+  );
   const validation = useMemo(() => validateCheckoutFormDraft(draft), [draft]);
   const visibleCart = hydrated ? cart : null;
   const visibleCartLoading = !hydrated || cartLoading;
@@ -73,11 +81,17 @@ export function CheckoutForm({
     setQuote(null);
     setQuoteSettled(false);
     setStatus("Sipariş özeti yükleniyor.");
-    void storefrontCartClient
-      .quote(intentKind)
+    const quoted = storefrontCartClient.quotePromotions(intentKind, appliedCodes);
+    void quoted
       .then((selected) => {
         if (!active) return;
         setQuote(selected);
+        if ("promotionStatus" in selected) {
+          const rejected = new Set(
+            selected.rejectedPromotions.map((promotion) => promotion.normalizedCode),
+          );
+          setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
+        }
         for (const line of selected.cart.items)
           emitStorefrontCommerceEvent({
             name: "begin_checkout",
@@ -112,7 +126,14 @@ export function CheckoutForm({
     return () => {
       active = false;
     };
+  // Codes are bootstrapped once from the HttpOnly candidate cookie. Subsequent
+  // edits happen on the cart and reach this page through a fresh navigation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intentKind]);
+
+  useEffect(() => {
+    operation.current = null;
+  }, [appliedCodes]);
 
   const field = (name: keyof CheckoutFormDraft) => ({
     value: draft[name],
@@ -223,6 +244,7 @@ export function CheckoutForm({
           shippingAddress: delivery.shippingAddress,
           shippingMethod: "standard",
           paymentMethodId: selectedMethod.id,
+          normalizedCodes: appliedCodes,
           ...(identityRequired ? { identityNumber } : {}),
           ...(delivery.note ? { note: delivery.note } : {}),
         });
@@ -243,6 +265,7 @@ export function CheckoutForm({
           shippingAddress: delivery.shippingAddress,
           shippingMethod: "standard",
           paymentKind: selectedMethod.kind,
+          normalizedCodes: appliedCodes,
           ...(delivery.note ? { note: delivery.note } : {}),
         }),
       });
@@ -490,7 +513,10 @@ export function CheckoutForm({
         </section>
       </div>
       {summaryState.kind === "summary" ? (
-        <CheckoutSummary summary={summaryState.cart} />
+        <CheckoutSummary
+          summary={summaryState.cart}
+          promotionQuote={quote && "promotionStatus" in quote ? quote : null}
+        />
       ) : summaryState.kind === "loading" ? (
         <aside className="checkout-summary" aria-busy="true">
           <span>SİPARİŞ ÖZETİ</span>

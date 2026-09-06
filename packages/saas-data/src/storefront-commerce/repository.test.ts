@@ -13,8 +13,16 @@ const PRODUCT = "40000000-0000-4000-8000-000000000081";
 const VARIANT = "50000000-0000-4000-8000-000000000081";
 const OPERATION = "70000000-0000-4000-8000-000000000081";
 const DIGEST = "a".repeat(64);
+const AUTHORITY_DIGEST = "d".repeat(64);
 const CANDIDATES = Object.freeze([
   Object.freeze({ keyId: "current_01", digest: DIGEST }),
+]);
+const NORMALIZED_CODES = Object.freeze([
+  "YUZDE10",
+  "HEDIYE",
+  "KARGO",
+  "SEPET100",
+  "VIP",
 ]);
 const CART = Object.freeze({
   version: 1,
@@ -83,6 +91,98 @@ const PERSISTED_REUSED = Object.freeze({
   receiptKeyId: "current_01",
   customerKeyId: "current_01",
 });
+const DELIVERY = Object.freeze({
+  contact: Object.freeze({
+    firstName: "Güzide",
+    lastName: "Elif",
+    email: "guzide@example.test",
+    phone: "+905551112233",
+  }),
+  shippingAddress: Object.freeze({
+    line1: "Cadde 1",
+    city: "İstanbul",
+    country: "TR" as const,
+  }),
+});
+const DISCOUNTED_ITEM = Object.freeze({
+  ...CART.items[0],
+  discountCents: 112710,
+  payableCents: 1014390,
+});
+const DISCOUNTED_CART = Object.freeze({
+  ...CART,
+  lineDiscountCents: 112710,
+  shippingDiscountCents: 0,
+  discountCents: 112710,
+  totalCents: 1024290,
+  items: Object.freeze([DISCOUNTED_ITEM]),
+});
+const APPLIED_PROMOTION = Object.freeze({
+  name: "Sepette %10",
+  benefitKind: "percentage" as const,
+  normalizedCode: "YUZDE10",
+  lineDiscountCents: 112710,
+  shippingDiscountCents: 0,
+  discountCents: 112710,
+});
+const QUOTE_V2 = Object.freeze({
+  cart: DISCOUNTED_CART,
+  paymentMethods: Object.freeze([BANK_TRANSFER]),
+  promotionStatus: Object.freeze({ kind: "evaluated" as const }),
+  appliedPromotions: Object.freeze([APPLIED_PROMOTION]),
+  rejectedPromotions: Object.freeze([
+    Object.freeze({
+      normalizedCode: "HEDIYE",
+      reason: "not_eligible" as const,
+    }),
+  ]),
+  gifts: Object.freeze([]),
+  progressMessages: Object.freeze(["Ücretsiz kargo için 500 TL daha ekleyin."]),
+});
+const RECEIPT_V2 = Object.freeze({
+  ...RECEIPT,
+  lineDiscountCents: DISCOUNTED_CART.lineDiscountCents,
+  shippingDiscountCents: DISCOUNTED_CART.shippingDiscountCents,
+  discountCents: DISCOUNTED_CART.discountCents,
+  totalCents: DISCOUNTED_CART.totalCents,
+  items: DISCOUNTED_CART.items,
+  promotionStatus: QUOTE_V2.promotionStatus,
+  appliedPromotions: QUOTE_V2.appliedPromotions,
+  gifts: QUOTE_V2.gifts,
+});
+
+function completeV2Input() {
+  return {
+    hostname: HOST,
+    now: NOW,
+    intentKind: "cart" as const,
+    candidates: CANDIDATES,
+    customerCandidates: CANDIDATES,
+    operationId: OPERATION,
+    cartVersion: 1,
+    delivery: DELIVERY,
+    paymentKind: "bank_transfer" as const,
+    generated: {
+      orderId: "72000000-0000-4000-8000-000000000081",
+      customerId: "73000000-0000-4000-8000-000000000081",
+      addressId: "74000000-0000-4000-8000-000000000081",
+      eventId: "75000000-0000-4000-8000-000000000081",
+      receipt: {
+        id: "76000000-0000-4000-8000-000000000081",
+        keyId: "current_01",
+        digest: "b".repeat(64),
+        expiresAt: new Date("2026-08-01T12:00:00.000Z"),
+      },
+      customer: {
+        id: "77000000-0000-4000-8000-000000000081",
+        keyId: "current_01",
+        digest: "c".repeat(64),
+        expiresAt: new Date("2026-08-30T12:00:00.000Z"),
+      },
+    },
+    normalizedCodes: NORMALIZED_CODES,
+  };
+}
 
 type Row = Record<string, unknown>;
 type Responder = (text: string, values: unknown[]) => Row[] | Promise<Row[]>;
@@ -278,6 +378,19 @@ test("checkout quote restores the canonical null blocker removed by jsonb_strip_
     candidates: CANDIDATES,
   });
   assert.deepEqual(result, { cart: CART, paymentMethods: [BANK_TRANSFER] });
+  const selected = client.calls.find(({ text }) =>
+    text.includes("saas.public_checkout_quote"),
+  );
+  assert.deepEqual(
+    selected?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_quote($1::text,$2::timestamptz,$3::text,$4::jsonb)",
+  );
+  assert.deepEqual(selected?.values, [
+    HOST,
+    NOW,
+    "cart",
+    JSON.stringify(CANDIDATES),
+  ]);
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
@@ -454,9 +567,266 @@ test("ordinary checkout replay never claims newly generated credentials were per
     receipt: RECEIPT,
     credentialPersistence: PERSISTED_REUSED,
   });
+  const selected = client.calls.find(({ text }) =>
+    text.includes("saas.public_checkout_complete"),
+  );
+  assert.equal(
+    selected?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_complete($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz)",
+  );
+  assert.equal(selected?.values.length, 22);
 });
 
-test("receipt read binds the receipt and customer credentials in one read-only call", async () => {
+test("V2 quote sends sorted normalized codes and customer authority through the additive seven-argument call", async () => {
+  const attribution = {
+    firstTouch: { source: "atlas-qa", medium: "test" },
+    lastTouch: { source: "atlas-qa", medium: "test" },
+    landingPathGroup: "/products/ring",
+    deviceGroup: "mobile" as const,
+  };
+  const client = new Client(
+    responder("quoted", {
+      quote: QUOTE_V2,
+      authorityDigest: AUTHORITY_DIGEST,
+    }),
+  );
+  const result = await repository(new Pool([client])).quoteV2({
+    hostname: HOST,
+    now: NOW,
+    intentKind: "cart",
+    candidates: CANDIDATES,
+    customerCandidates: CANDIDATES,
+    normalizedCodes: NORMALIZED_CODES,
+    attribution,
+  });
+
+  assert.deepEqual(result, {
+    quote: QUOTE_V2,
+    authorityDigest: AUTHORITY_DIGEST,
+  });
+  assert.equal(Object.hasOwn(result.quote, "authorityDigest"), false);
+  const selected = client.calls.find(({ text }) =>
+    text.includes("saas.public_checkout_quote_v2"),
+  );
+  assert.equal(
+    selected?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_quote_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::text[],$7::jsonb)",
+  );
+  assert.deepEqual(selected?.values, [
+    HOST,
+    NOW,
+    "cart",
+    JSON.stringify(CANDIDATES),
+    JSON.stringify(CANDIDATES),
+    ["HEDIYE", "KARGO", "SEPET100", "VIP", "YUZDE10"],
+    JSON.stringify(attribution),
+  ]);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+});
+
+test("V2 quote rejects private authority embedded in the public projection", async () => {
+  const client = new Client(
+    responder("quoted", {
+      quote: { ...QUOTE_V2, authorityDigest: AUTHORITY_DIGEST },
+      authorityDigest: AUTHORITY_DIGEST,
+    }),
+  );
+  await assert.rejects(
+    repository(new Pool([client])).quoteV2({
+      hostname: HOST,
+      now: NOW,
+      intentKind: "cart",
+      candidates: CANDIDATES,
+      customerCandidates: [],
+      normalizedCodes: ["YUZDE10"],
+    }),
+    (error: unknown) =>
+      error instanceof StorefrontCommerceRepositoryError &&
+      error.code === "unavailable",
+  );
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+});
+
+test("V2 complete binds the semantic code set and server-generated identities in its additive fingerprint", async () => {
+  const first = new Client(
+    responder("committed", {
+      receipt: RECEIPT_V2,
+      credentialPersistence: PERSISTED_REUSED,
+    }),
+  );
+  const second = new Client(
+    responder("operation_replayed", {
+      receipt: RECEIPT_V2,
+      credentialPersistence: PERSISTED_REUSED,
+    }),
+  );
+  const selected = repository(new Pool([first, second]));
+  const baseline = await selected.completeV2(completeV2Input());
+  const reordered = await selected.completeV2({
+    ...completeV2Input(),
+    normalizedCodes: [...NORMALIZED_CODES].reverse(),
+  });
+
+  assert.deepEqual(baseline, {
+    receipt: RECEIPT_V2,
+    credentialPersistence: PERSISTED_REUSED,
+  });
+  assert.deepEqual(reordered, baseline);
+  const calls = [first, second].map((client) =>
+    client.calls.find(({ text }) =>
+      text.includes("saas.public_checkout_complete_v2"),
+    ),
+  );
+  const expectedText =
+    "SELECT outcome,result_payload FROM saas.public_checkout_complete_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz,$23::text[])";
+  assert.equal(calls[0]?.text, expectedText);
+  assert.equal(calls[1]?.text, expectedText);
+  assert.equal(calls[0]?.values.length, 23);
+  assert.equal(
+    calls[0]?.values[6],
+    "5824c8a6e694d78c701f95bbb16d3f6eb3b269d3885491745072eeeddc77aa10",
+  );
+  assert.equal(calls[1]?.values[6], calls[0]?.values[6]);
+  assert.deepEqual(calls[0]?.values[22], [
+    "HEDIYE",
+    "KARGO",
+    "SEPET100",
+    "VIP",
+    "YUZDE10",
+  ]);
+  assert.deepEqual(calls[1]?.values[22], calls[0]?.values[22]);
+});
+
+test("V2 unknown commit recovers once through the version-aware checkout ledger without retrying the mutation", async () => {
+  const first = new Client(async (text) => {
+    if (text.includes("saas.public_checkout_complete_v2"))
+      return [
+        {
+          outcome: "committed",
+          result_payload: {
+            receipt: RECEIPT_V2,
+            credentialPersistence: PERSISTED_REUSED,
+          },
+        },
+      ];
+    if (text === "COMMIT") throw new Error("socket lost");
+    return [];
+  });
+  const second = new Client(
+    responder("operation_replayed", {
+      receipt: RECEIPT_V2,
+      credentialPersistence: PERSISTED_REUSED,
+    }),
+  );
+
+  const result = await repository(new Pool([first, second])).completeV2(
+    completeV2Input(),
+  );
+
+  assert.deepEqual(result, {
+    receipt: RECEIPT_V2,
+    credentialPersistence: PERSISTED_REUSED,
+  });
+  assert.deepEqual(first.releases, [true]);
+  assert.equal(
+    [first, second].flatMap(({ calls }) => calls).filter(({ text }) =>
+      text.includes("saas.public_checkout_complete_v2"),
+    ).length,
+    1,
+  );
+  const recovery = second.calls.find(({ text }) =>
+    text.includes("saas.public_checkout_recover_v2"),
+  );
+  assert.equal(
+    recovery?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_recover_v2($1::text,$2::timestamptz,$3::uuid,$4::text)",
+  );
+  assert.deepEqual(recovery?.values, [
+    HOST,
+    NOW,
+    OPERATION,
+    "5824c8a6e694d78c701f95bbb16d3f6eb3b269d3885491745072eeeddc77aa10",
+  ]);
+  assert.equal(second.calls[0]?.text, "BEGIN READ ONLY");
+});
+
+test("V2 complete strictly requires the frozen discounted receipt projection", async () => {
+  const client = new Client(
+    responder("committed", {
+      receipt: RECEIPT,
+      credentialPersistence: PERSISTED_REUSED,
+    }),
+  );
+  await assert.rejects(
+    repository(new Pool([client])).completeV2(completeV2Input()),
+    (error: unknown) =>
+      error instanceof StorefrontCommerceRepositoryError &&
+      error.code === "unavailable",
+  );
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+});
+
+test("V2 quote and complete reject client financial, tenant, evaluator context, and code overflow authority before pool checkout", async (t) => {
+  const quoteBase = {
+    hostname: HOST,
+    now: NOW,
+    intentKind: "cart" as const,
+    candidates: CANDIDATES,
+    customerCandidates: CANDIDATES,
+    normalizedCodes: ["YUZDE10"],
+  };
+  const quoteInputs = [
+    ["quote client total", { ...quoteBase, totalCents: 1 }],
+    ["quote client store", { ...quoteBase, storeId: PRODUCT }],
+    ["quote client evaluator context", { ...quoteBase, evaluatorContext: {} }],
+    [
+      "quote six coupon codes",
+      {
+        ...quoteBase,
+        normalizedCodes: ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"],
+      },
+    ],
+  ] as const;
+  for (const [name, input] of quoteInputs) {
+    await t.test(name, async () => {
+      await assert.rejects(
+        repository(new Pool([])).quoteV2(input),
+        (error: unknown) =>
+          error instanceof StorefrontCommerceRepositoryError &&
+          error.code === "invalid_input",
+      );
+    });
+  }
+
+  const completeBase = completeV2Input();
+  const completeInputs = [
+    ["complete client total", { ...completeBase, totalCents: 1 }],
+    ["complete client store", { ...completeBase, storeId: PRODUCT }],
+    [
+      "complete client evaluator context",
+      { ...completeBase, evaluatorContext: {} },
+    ],
+    [
+      "complete six coupon codes",
+      {
+        ...completeBase,
+        normalizedCodes: ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"],
+      },
+    ],
+  ] as const;
+  for (const [name, input] of completeInputs) {
+    await t.test(name, async () => {
+      await assert.rejects(
+        repository(new Pool([])).completeV2(input),
+        (error: unknown) =>
+          error instanceof StorefrontCommerceRepositoryError &&
+          error.code === "invalid_input",
+      );
+    });
+  }
+});
+
+test("receipt read binds credentials through the mixed-version read-only call", async () => {
   const receiptCandidates = Object.freeze([
     Object.freeze({ keyId: "receipt_01", digest: "b".repeat(64) }),
   ]);
@@ -472,11 +842,11 @@ test("receipt read binds the receipt and customer credentials in one read-only c
   });
   assert.deepEqual(result, RECEIPT);
   const selected = client.calls.find(({ text }) =>
-    text.includes("saas.public_receipt_get"),
+    text.includes("saas.public_receipt_get_v2"),
   );
   assert.match(
     selected?.text ?? "",
-    /public_receipt_get\(\$1::text,\$2::timestamptz,\$3::jsonb,\$4::jsonb\)/u,
+    /public_receipt_get_v2\(\$1::text,\$2::timestamptz,\$3::jsonb,\$4::jsonb\)/u,
   );
   assert.deepEqual(selected?.values, [
     HOST,
@@ -486,6 +856,66 @@ test("receipt read binds the receipt and customer credentials in one read-only c
   ]);
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("a completed V2 checkout remains exactly readable through its persisted receipt", async () => {
+  const completion = new Client(
+    responder("committed", {
+      receipt: RECEIPT_V2,
+      credentialPersistence: PERSISTED_CREATED,
+    }),
+  );
+  const receipt = new Client(responder("found", RECEIPT_V2));
+  const selected = repository(new Pool([completion, receipt]));
+
+  const committed = await selected.completeV2(completeV2Input());
+  assert.deepEqual(committed.receipt, RECEIPT_V2);
+  assert.deepEqual(
+    await selected.getReceipt({
+      hostname: HOST,
+      now: NOW,
+      receiptCandidates: CANDIDATES,
+      customerCandidates: CANDIDATES,
+    }),
+    RECEIPT_V2,
+  );
+});
+
+test("account order history strictly admits a mixed sequence of V1 and V2 receipts", async () => {
+  const client = new Client(
+    responder("found", { items: [RECEIPT, RECEIPT_V2] }),
+  );
+  const result = await repository(new Pool([client])).listAccountOrders({
+    hostname: HOST,
+    now: NOW,
+    candidates: CANDIDATES,
+    limit: 20,
+  });
+  assert.deepEqual(result, [RECEIPT, RECEIPT_V2]);
+  assert.equal(
+    client.calls.find(({ text }) => text.includes("public_account_orders_v2"))?.text,
+    "SELECT outcome,result_payload FROM saas.public_account_orders_v2($1::text,$2::timestamptz,$3::jsonb,$4::integer)",
+  );
+});
+
+test("receipt version dispatch never falls back when a V2 discriminant has an incomplete shape", async () => {
+  const client = new Client(
+    responder("found", {
+      ...RECEIPT,
+      promotionStatus: { kind: "evaluated" },
+    }),
+  );
+  await assert.rejects(
+    repository(new Pool([client])).getReceipt({
+      hostname: HOST,
+      now: NOW,
+      receiptCandidates: CANDIDATES,
+      customerCandidates: CANDIDATES,
+    }),
+    (error: unknown) =>
+      error instanceof StorefrontCommerceRepositoryError &&
+      error.code === "unavailable",
+  );
 });
 
 test("malformed database projection rolls back and never returns a partial cart", async () => {

@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const sql = path.resolve(import.meta.dirname, "202609050126_promotions_studio.up.sql");
+
+test("promotion migration preserves migration-first checkout compatibility", () => {
+  const source = readFileSync(sql, "utf8");
+  assert.match(source, /promotion_evaluate_v1/);
+  assert.match(source, /promotion_evaluator_context_valid/);
+  assert.match(source, /promotion_evaluator_line_matches/);
+  assert.match(source, /promotion_evaluator_abandoned_cart_valid/);
+  assert.match(source, /promotion_combination_compatible/);
+  assert.doesNotMatch(source, /CREATE OR REPLACE FUNCTION saas[.](?:public_checkout_quote|complete_order|hosted_checkout)\s*\(/);
+  assert.match(source, /CREATE OR REPLACE FUNCTION saas[.]public_checkout_recover_v2\s*\(/);
+  assert.match(source, /CREATE OR REPLACE FUNCTION saas[.]public_receipt_get_v2\s*\(/);
+  assert.match(source, /CREATE OR REPLACE FUNCTION saas[.]public_account_orders_v2\s*\(/);
+  assert.match(source, /CREATE OR REPLACE FUNCTION saas[.]public_receipt_get\s*\([\s\S]*promotionStatus/);
+  assert.match(source, /SET LOCAL lock_timeout = '5s'/);
+  assert.match(source, /SET LOCAL statement_timeout = '120s'/);
+});

@@ -139,3 +139,60 @@ test("cart client deeply validates cart lines and checkout quote payment methods
   const quoteClient = createStorefrontCartClient(async () => new Response(JSON.stringify({ quote: { cart: safeCart, estimatedDays: 3, paymentMethods: [{ kind: "card", label: "Kart", instructions: "Private" }] } }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
   await assert.rejects(quoteClient.quote("cart"), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
 });
+
+test("promotion quote always posts V2 intent and canonical candidates while legacy quote stays byte-for-byte V1", async () => {
+  const calls: Array<Readonly<{ input: string; body: unknown }>> = [];
+  const quoteV2 = {
+    cart: {
+      version: 1,
+      currency: "TRY",
+      itemCount: 1,
+      subtotalCents: 1_000,
+      shippingCents: 0,
+      lineDiscountCents: 100,
+      shippingDiscountCents: 0,
+      discountCents: 100,
+      totalCents: 900,
+      checkoutReady: true,
+      checkoutBlocker: null,
+      items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 1_000, lineTotalCents: 1_000, discountCents: 100, payableCents: 900, available: true }],
+    },
+    paymentMethods: [],
+    promotionStatus: { kind: "evaluated" },
+    appliedPromotions: [{ name: "Kod indirimi", benefitKind: "percentage", normalizedCode: "INDIRIM", lineDiscountCents: 100, shippingDiscountCents: 0, discountCents: 100 }],
+    rejectedPromotions: [],
+    gifts: [],
+    progressMessages: [],
+  };
+  const client = createStorefrontCartClient(async (input, init) => {
+    calls.push({ input: String(input), body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ quote: calls.length === 1 ? quoteV2 : {
+      cart: { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 1_000, shippingCents: 0, totalCents: 1_000, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 1_000, lineTotalCents: 1_000, available: true }] },
+      paymentMethods: [],
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+  }, () => OPERATION);
+
+  assert.deepEqual((await client.quotePromotions("cart", ["INDIRIM"])).appliedPromotions[0]?.normalizedCode, "INDIRIM");
+  await client.quote("cart");
+  assert.deepEqual(calls.map(({ body }) => body), [
+    { intentKind: "cart", normalizedCodes: ["INDIRIM"], attribution: { firstTouch: { source: "unknown", medium: "unknown" }, lastTouch: { source: "unknown", medium: "unknown" }, landingPathGroup: "/unknown", deviceGroup: "unknown" } },
+    { intentKind: "cart", attribution: { firstTouch: { source: "unknown", medium: "unknown" }, lastTouch: { source: "unknown", medium: "unknown" }, landingPathGroup: "/unknown", deviceGroup: "unknown" } },
+  ]);
+});
+
+test("promotion quote rejects malformed server projections instead of showing a browser-computed discount", async () => {
+  const malformed = {
+    cart: { version: 1, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 500, totalCents: 0, checkoutReady: false, checkoutBlocker: "empty_cart", items: [] },
+    paymentMethods: [],
+    promotionStatus: { kind: "evaluated" },
+    appliedPromotions: [],
+    rejectedPromotions: [],
+    gifts: [],
+    progressMessages: [],
+  };
+  const client = createStorefrontCartClient(async () => new Response(JSON.stringify({ quote: malformed }), { status: 200, headers: { "content-type": "application/json" } }));
+  await assert.rejects(
+    client.quotePromotions("cart", []),
+    (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response",
+  );
+});

@@ -125,6 +125,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
   const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
   const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain fail-closed without approved staging auth authority";
   const legacyEvidence = "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable";
+  const promotionsEvidence = "apps/customer-panel/lib/merchant-admin-console.test.ts#dedicated promotions pages use one server-owned context and never mount the generic discount console";
   const crud = ["list_records", "read_exact_record", "create_record", "update_record", "archive_record"] as const;
   const provider = [...crud, "prepare_provider_action", "cancel_provider_preparation"] as const;
   const edit = ["read_exact_record", "update_record"] as const;
@@ -153,10 +154,10 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     ["/cms/sayfalar", "/content/pages", "complete", merchantRouteEvidence, crud],
     ["/cms/sayfalar/[id]", "/content/pages/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
     ["/cms/sayfalar/yeni", "/content/pages/new", "complete", merchantRecordRouteEvidence, create],
-    ["/indirimler", "/discounts", "complete", merchantRouteEvidence, crud],
-    ["/indirimler/[id]/duzenle", "/discounts/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/indirimler", "/discounts", "complete", promotionsEvidence, crud],
+    ["/indirimler/[id]/duzenle", "/discounts/[promotionId]/edit", "complete", promotionsEvidence, edit],
     ["/indirimler/sans-carki", "/discounts/lucky-wheel", "complete", merchantRouteEvidence, crud],
-    ["/indirimler/yeni", "/discounts/new", "complete", merchantRecordRouteEvidence, create],
+    ["/indirimler/yeni", "/discounts/new", "complete", promotionsEvidence, create],
     ["/login", "/login", "complete", loginEvidence, ["view_disabled_auth"]],
     ["/markets", "/marketplaces", "provider_gated", merchantRouteEvidence, provider],
     ["/muhasabe", "/accounting", "legacy_rejected", legacyEvidence, ["legacy_rejected"]],
@@ -186,7 +187,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     expected,
   );
   assert.equal(new Set(merchantRows.map(({ donorPath }) => donorPath)).size, 48);
-  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, fixedPolicyEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
+  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, fixedPolicyEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence, promotionsEvidence].includes(evidenceTest)), true);
   assert.equal(merchantRows.some(({ evidenceTest }) => /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u.test(evidenceTest)), false);
 });
 

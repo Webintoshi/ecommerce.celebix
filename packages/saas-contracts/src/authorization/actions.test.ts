@@ -61,6 +61,10 @@ const cases = [
   ["analyst", "purchasing.read", true],
   ["analyst", "pricing.read", true],
   ["analyst", "purchasing.manage", false],
+  ["editor", "promotions.manage_draft", true],
+  ["editor", "promotions.publish", false],
+  ["editor", "promotions.export_codes", false],
+  ["analyst", "promotions.manage_draft", false],
 ] as const;
 
 test("enforces the exact merchant order action matrix", () => {
@@ -100,6 +104,9 @@ test("exports the exact immutable merchant action list", () => {
     "catalog_admin.moderate",
     "promotions.read",
     "promotions.manage",
+    "promotions.manage_draft",
+    "promotions.publish",
+    "promotions.export_codes",
     "promotions.archive",
     "content.read",
     "content.manage",

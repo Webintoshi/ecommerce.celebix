@@ -239,6 +239,28 @@ img { display: block; max-width: 100%; }
 .cart-summary dl > div:last-child { color: var(--ink); font-size: 15px; font-weight: 800; }
 .cart-summary dd { margin: 0; }
 .cart-summary .store-button { width: 100%; }
+.promotion-coupon { display: grid; min-width: 0; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
+.promotion-coupon h3 { margin: 0; font-size: 15px; }
+.promotion-coupon form { display: grid; min-width: 0; gap: 7px; }
+.promotion-coupon label { color: var(--muted); font-size: 11px; }
+.promotion-coupon-controls { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.promotion-coupon input { min-width: 0; max-width: 100%; min-height: 48px; border: 1px solid var(--line); background: var(--white); padding: 0 12px; color: var(--ink); text-transform: uppercase; }
+.promotion-coupon-list, .promotion-labels, .promotion-gifts, .promotion-progress { display: grid; min-width: 0; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.promotion-coupon-list li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.promotion-coupon-list code { overflow: hidden; text-overflow: ellipsis; }
+.promotion-coupon-list button { min-height: 44px; border: 0; background: transparent; color: var(--muted); cursor: pointer; text-decoration: underline; }
+.promotion-coupon-status { min-height: 18px; margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.promotion-details { display: grid; min-width: 0; gap: 10px; }
+.promotion-labels li { display: grid; min-width: 0; gap: 2px; border-left: 2px solid var(--accent); padding-left: 9px; }
+.promotion-labels span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.promotion-labels strong { overflow-wrap: anywhere; font-size: 12px; }
+.promotion-gifts li { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.promotion-gifts li > span:last-child { display: grid; min-width: 0; gap: 2px; }
+.promotion-gifts strong, .promotion-gifts small { overflow-wrap: anywhere; }
+.promotion-gifts small, .promotion-progress { color: var(--muted); font-size: 10px; }
+.promotion-rejection { margin: 0; color: #9b2c2c; font-size: 11px; overflow-wrap: anywhere; }
+.promotion-progress li { border-radius: 2px; background: color-mix(in srgb, var(--accent) 8%, transparent); padding: 8px 10px; overflow-wrap: anywhere; }
+.cart-line-discount { color: var(--muted); font-size: 10px; }
 .cart-continue { justify-self: center; border-bottom: 1px solid; padding-bottom: 4px; color: var(--muted); font-size: 11px; }
 .cart-unavailable { background: #f5e9e7; padding: 13px; color: #7b3430; font-size: 11px; text-align: center; }
 .cart-unavailable.is-configuration { background: #f8f0e4; color: #6c4a1e; }
@@ -674,6 +696,10 @@ img { display: block; max-width: 100%; }
   .side-cart-media { width: 80px; height: 96px; }
   .side-cart-line-total { grid-column: 2; grid-row: 2; justify-self: start; }
   .side-cart-line-utility { flex-wrap: wrap; }
+}
+@media (max-width: 390px) {
+  .promotion-coupon-controls { grid-template-columns: minmax(0, 1fr); }
+  .promotion-coupon-controls .store-button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

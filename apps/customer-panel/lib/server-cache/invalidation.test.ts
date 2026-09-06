@@ -11,7 +11,7 @@ const input = Object.freeze({ tenantContext: Object.freeze({ store: Object.freez
 function cacheFixture(fail = false) {
   const rotations: string[] = [];
   const cache = {
-    async rotateNamespace(storeId: string, dataClass: "catalog" | "settings") {
+    async rotateNamespace(storeId: string, dataClass: "catalog" | "settings" | "promotions") {
       rotations.push(`${storeId}:${dataClass}`);
       if (fail) throw new Error("down");
     },
@@ -38,6 +38,15 @@ test("failed mutation never invalidates", async () => {
   const repository = createPostCommitInvalidatingRepository({ async save(_received: unknown) { throw new Error("rollback"); } }, { save: ["catalog"] }, selected.cache);
   await assert.rejects(() => repository.save(input), /rollback/);
   assert.deepEqual(selected.rotations, []);
+});
+
+test("promotion publication rotates only the tenant promotions namespace after commit", async () => {
+  const selected = cacheFixture();
+  const repository = createPostCommitInvalidatingRepository({
+    async publish(received: typeof input) { assert.equal(received, input); return { status: "active" }; },
+  }, { publish: ["promotions"] }, selected.cache);
+  assert.deepEqual(await repository.publish(input), { status: "active" });
+  assert.deepEqual(selected.rotations, [`${STORE_ID}:promotions`]);
 });
 
 test("Redis invalidation failure is fail-open after a successful authoritative commit", async () => {

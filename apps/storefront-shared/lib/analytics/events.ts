@@ -1,5 +1,6 @@
 import {
   parseBrowserCommerceEvent,
+  parsePublicCheckoutQuoteV2,
   type BrowserCommerceEventName,
   type PublicProduct,
 } from "@celebix/saas-contracts";
@@ -53,6 +54,26 @@ export const CHECKOUT_STARTED_EVENT: PublicCommerceEvent = Object.freeze({
   name: "begin_checkout",
   data: Object.freeze({ source: "quick_order" }),
 });
+export function couponAppliedEvent(
+  quote: unknown,
+  normalizedCode: string,
+): PublicCommerceEvent | null {
+  try {
+    const parsed = parsePublicCheckoutQuoteV2(quote);
+    if (
+      !parsed.appliedPromotions.some(
+        (promotion) => promotion.normalizedCode === normalizedCode,
+      )
+    )
+      return null;
+    return Object.freeze({
+      name: "coupon_applied",
+      data: Object.freeze({}),
+    });
+  } catch {
+    return null;
+  }
+}
 export function productViewEvent(
   productId: string,
   variantId?: string,

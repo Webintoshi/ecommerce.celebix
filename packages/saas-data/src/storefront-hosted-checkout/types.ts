@@ -1,4 +1,10 @@
-import type { PublicCartLine } from "@celebix/saas-contracts";
+import type {
+  PublicAppliedPromotion,
+  PublicCartLine,
+  PublicCartLineV2,
+  PublicPromotionEvaluationStatus,
+  PublicPromotionGift,
+} from "@celebix/saas-contracts";
 
 import type { BeginPaymentAttemptResult } from "../payment-attempts/types.ts";
 import type { SealedMerchantProviderCredential } from "../provider-execution/credential-crypto.ts";
@@ -22,6 +28,14 @@ export type HostedCheckoutAuthorityInput = Readonly<{
   cartVersion: number;
   delivery: StorefrontDelivery;
   paymentMethodId: string;
+}>;
+
+export type HostedCheckoutAuthorityV2Input = HostedCheckoutAuthorityInput & Readonly<{
+  operationId: string;
+  customerCandidates: readonly StorefrontCredentialCandidate[];
+  normalizedCodes: readonly string[];
+  orderId: string;
+  prospectiveCustomerId: string;
 }>;
 
 export type HostedCheckoutAuthority = Readonly<{
@@ -59,6 +73,18 @@ export type HostedCheckoutAuthority = Readonly<{
   basket: readonly Readonly<{ reference: string; name: string; quantity: number; unitAmountMinor: number; itemType: "PHYSICAL" | "VIRTUAL" }>[];
 }>;
 
+export type HostedCheckoutAuthorityV2 = Omit<HostedCheckoutAuthority, "items"> & Readonly<{
+  orderId: string;
+  customerId: string;
+  evaluatorAuthorityDigest: string;
+  lineDiscountMinor: number;
+  shippingDiscountMinor: number;
+  promotionStatus: PublicPromotionEvaluationStatus;
+  appliedPromotions: readonly PublicAppliedPromotion[];
+  gifts: readonly PublicPromotionGift[];
+  items: readonly PublicCartLineV2[];
+}>;
+
 export type HostedCheckoutBeginInput = HostedCheckoutAuthorityInput & Readonly<{
   expectedAuthorityDigest: string;
   operationId: string;
@@ -74,6 +100,24 @@ export type HostedCheckoutBeginInput = HostedCheckoutAuthorityInput & Readonly<{
   paymentSession: HostedCheckoutIssuedCredential;
   receipt: HostedCheckoutIssuedCredential;
   customer: HostedCheckoutIssuedCredential;
+}>;
+
+export type HostedCheckoutBeginV2Input = HostedCheckoutBeginInput & Readonly<{
+  customerCandidates: readonly StorefrontCredentialCandidate[];
+  normalizedCodes: readonly string[];
+  expectedEvaluatorAuthorityDigest: string;
+}>;
+
+export type HostedCheckoutPromotionReservation = Readonly<{
+  reservationGroupId: string;
+  status: "reserved";
+  expiresAt: string;
+  evaluatorFingerprint: string;
+}>;
+
+export type HostedCheckoutBeginV2Result = HostedCheckoutBeginResult & Readonly<{
+  authority: HostedCheckoutAuthorityV2;
+  promotionReservation: HostedCheckoutPromotionReservation | null;
 }>;
 
 export type HostedCheckoutPresentationSaveInput = Readonly<{
@@ -117,7 +161,9 @@ export type HostedCheckoutPublicStatus = Readonly<{
 
 export interface StorefrontHostedCheckoutRepository {
   authority(input: HostedCheckoutAuthorityInput): Promise<HostedCheckoutAuthority>;
+  authorityV2(input: HostedCheckoutAuthorityV2Input): Promise<HostedCheckoutAuthorityV2>;
   begin(input: HostedCheckoutBeginInput): Promise<HostedCheckoutBeginResult>;
+  beginV2(input: HostedCheckoutBeginV2Input): Promise<HostedCheckoutBeginV2Result>;
   savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState>;
   presentation(input: HostedCheckoutPresentationInput): Promise<HostedCheckoutPresentationState>;
   status(input: HostedCheckoutStatusInput): Promise<HostedCheckoutPublicStatus>;

@@ -1,4 +1,4 @@
-import type { PublicCheckoutReceipt } from "@celebix/saas-contracts";
+import { normalizePromotionCode } from "@celebix/saas-contracts";
 
 import type {
   StorefrontCredentialCandidate,
@@ -139,6 +139,34 @@ export function commerceCandidates(
   }
   return Object.freeze(output);
 }
+export function commercePromotionCodes(value: unknown): readonly string[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length > 5
+  )
+    invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(
+    value,
+  ) as unknown as Record<PropertyKey, PropertyDescriptor>;
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1) invalid();
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable)
+      invalid();
+    const code = normalizePromotionCode(descriptor.value);
+    if (code !== descriptor.value || seen.has(code)) invalid();
+    seen.add(code);
+    output.push(code);
+  }
+  output.sort();
+  return Object.freeze(output);
+}
+export function commerceDigest(value: unknown): string {
+  return text(value, 64, 64, DIGEST);
+}
 function commerceAttributionDimension(value: unknown): string {
   const selected = text(value, 1, 128, ATTRIBUTION_DIMENSION);
   if (ATTRIBUTION_RISK.test(selected)) invalid();
@@ -258,9 +286,9 @@ export function commerceDelivery(value: unknown): StorefrontDelivery {
     ...(note ? { note } : {}),
   });
 }
-export function parseReceiptEnvelope(
+export function parseReceiptEnvelope<TReceipt>(
   value: unknown,
-  parse: (input: unknown) => PublicCheckoutReceipt,
+  parse: (input: unknown) => TReceipt,
 ) {
   const selected = exactCommerceInput(value, [
     "receipt",
@@ -284,10 +312,10 @@ export function parseReceiptEnvelope(
     }),
   });
 }
-export function parseReceiptList(
+export function parseReceiptList<TReceipt>(
   value: unknown,
-  parse: (input: unknown) => PublicCheckoutReceipt,
-): readonly PublicCheckoutReceipt[] {
+  parse: (input: unknown) => TReceipt,
+): readonly TReceipt[] {
   const selected = exactCommerceInput(value, ["items"]);
   if (
     !Array.isArray(selected.items) ||

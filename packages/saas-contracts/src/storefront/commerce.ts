@@ -1,5 +1,6 @@
 import type { PublicProduct, PublicProductMedia } from "./types.ts";
 import { parsePublicProduct, parsePublicProductMedia } from "./validation.ts";
+import { normalizePromotionCode } from "../promotions/validation.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -95,6 +96,74 @@ export type PublicCheckoutQuote = Readonly<{
   estimatedDays?: number;
 }>;
 
+export type PublicCartLineV2 = Readonly<{
+  productId: string;
+  categoryId?: string;
+  variantId: string;
+  slug: string;
+  title: string;
+  variantTitle: string;
+  media?: PublicProductMedia;
+  quantity: number;
+  unitPriceCents: number;
+  lineTotalCents: number;
+  discountCents: number;
+  payableCents: number;
+  available: boolean;
+}>;
+
+export type PublicCartV2 = Readonly<{
+  version: number;
+  currency: "TRY";
+  itemCount: number;
+  subtotalCents: number;
+  shippingCents: number;
+  lineDiscountCents: number;
+  shippingDiscountCents: number;
+  discountCents: number;
+  totalCents: number;
+  checkoutReady: boolean;
+  checkoutBlocker: PublicCartCheckoutBlocker;
+  items: readonly PublicCartLineV2[];
+}>;
+
+export type PublicAppliedPromotion = Readonly<{
+  name: string;
+  benefitKind: "percentage" | "fixed_amount" | "free_shipping" | "buy_x_get_y" | "quantity_tiers" | "bundle_price" | "gift";
+  normalizedCode?: string;
+  lineDiscountCents: number;
+  shippingDiscountCents: number;
+  discountCents: number;
+}>;
+
+export type PublicRejectedPromotion = Readonly<{
+  normalizedCode: string;
+  reason: "invalid_code" | "not_eligible";
+}>;
+
+export type PublicPromotionGift = Readonly<{
+  variantId: string;
+  quantity: number;
+  autoAdd: boolean;
+}>;
+
+export type PublicPromotionEvaluationStatus =
+  | Readonly<{ kind: "evaluated" }>
+  | Readonly<{ kind: "not_evaluated"; reason: "cart_line_limit" }>;
+
+export const PROMOTION_CART_LINE_LIMIT_MESSAGE = "Sepetinizde çok fazla ürün satırı olduğu için promosyon uygulanamadı.";
+
+export type PublicCheckoutQuoteV2 = Readonly<{
+  cart: PublicCartV2;
+  paymentMethods: readonly PublicPaymentMethod[];
+  promotionStatus: PublicPromotionEvaluationStatus;
+  appliedPromotions: readonly PublicAppliedPromotion[];
+  rejectedPromotions: readonly PublicRejectedPromotion[];
+  gifts: readonly PublicPromotionGift[];
+  progressMessages: readonly string[];
+  estimatedDays?: number;
+}>;
+
 export type PublicCheckoutReceipt = Readonly<{
   orderReference: string;
   currency: "TRY";
@@ -113,6 +182,25 @@ export type PublicCheckoutReceipt = Readonly<{
     country: "TR";
   }>;
   items: readonly PublicCartLine[];
+  createdAt: string;
+}>;
+
+export type PublicCheckoutReceiptV2 = Readonly<{
+  orderReference: string;
+  currency: "TRY";
+  subtotalCents: number;
+  shippingCents: number;
+  lineDiscountCents: number;
+  shippingDiscountCents: number;
+  discountCents: number;
+  totalCents: number;
+  paymentStatus: "pending" | "completed";
+  paymentMethod: PublicPaymentMethod;
+  delivery: PublicCheckoutReceipt["delivery"];
+  items: readonly PublicCartLineV2[];
+  promotionStatus: PublicPromotionEvaluationStatus;
+  appliedPromotions: readonly PublicAppliedPromotion[];
+  gifts: readonly PublicPromotionGift[];
   createdAt: string;
 }>;
 
@@ -229,6 +317,190 @@ function cartLines(value: unknown, minimum: number, maximum: number): readonly P
     }));
   }
   return Object.freeze(output);
+}
+
+function cartLinesV2(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  uniqueVariants = true,
+): readonly PublicCartLineV2[] {
+  const rows = denseArray(value, minimum, maximum);
+  const output: PublicCartLineV2[] = [];
+  const variants = new Set<string>();
+  for (const row of rows) {
+    const parsed = exact(row, [
+      "productId", "variantId", "slug", "title", "variantTitle", "quantity", "unitPriceCents",
+      "lineTotalCents", "discountCents", "payableCents", "available",
+    ], ["categoryId", "media"]);
+    const productId = text(parsed.productId, 36, 36, UUID);
+    const variantId = text(parsed.variantId, 36, 36, UUID);
+    if (uniqueVariants && variants.has(variantId)) invalid();
+    variants.add(variantId);
+    const quantity = integer(parsed.quantity, 1, 9_999);
+    const unitPriceCents = integer(parsed.unitPriceCents, 0, MAX_MONEY_CENTS);
+    const lineTotalCents = integer(parsed.lineTotalCents, 0, MAX_MONEY_CENTS);
+    const discountCents = integer(parsed.discountCents, 0, MAX_MONEY_CENTS);
+    const payableCents = integer(parsed.payableCents, 0, MAX_MONEY_CENTS);
+    if (!Number.isSafeInteger(unitPriceCents * quantity)
+      || lineTotalCents !== unitPriceCents * quantity
+      || discountCents > lineTotalCents
+      || payableCents !== lineTotalCents - discountCents) invalid();
+    const media = Object.hasOwn(parsed, "media") ? parsePublicProductMedia(parsed.media) : undefined;
+    if (media && media.productId !== productId) invalid();
+    output.push(Object.freeze({
+      productId,
+      ...(Object.hasOwn(parsed, "categoryId") ? { categoryId: text(parsed.categoryId, 36, 36, UUID) } : {}),
+      variantId,
+      slug: text(parsed.slug, 3, 100, SLUG),
+      title: text(parsed.title, 1, 200),
+      variantTitle: text(parsed.variantTitle, 1, 200),
+      ...(media ? { media } : {}),
+      quantity,
+      unitPriceCents,
+      lineTotalCents,
+      discountCents,
+      payableCents,
+      available: bool(parsed.available),
+    }));
+  }
+  return Object.freeze(output);
+}
+
+const PUBLIC_PROMOTION_BENEFIT_KINDS = new Set([
+  "percentage", "fixed_amount", "free_shipping", "buy_x_get_y", "quantity_tiers", "bundle_price", "gift",
+]);
+
+function appliedPromotion(value: unknown): PublicAppliedPromotion {
+  const parsed = exact(value, [
+    "name", "benefitKind", "lineDiscountCents", "shippingDiscountCents", "discountCents",
+  ], ["normalizedCode"]);
+  if (typeof parsed.benefitKind !== "string" || !PUBLIC_PROMOTION_BENEFIT_KINDS.has(parsed.benefitKind)) invalid();
+  const lineDiscountCents = integer(parsed.lineDiscountCents, 0, MAX_MONEY_CENTS);
+  const shippingDiscountCents = integer(parsed.shippingDiscountCents, 0, MAX_MONEY_CENTS);
+  const discountCents = integer(parsed.discountCents, 0, MAX_MONEY_CENTS);
+  if (!Number.isSafeInteger(lineDiscountCents + shippingDiscountCents)
+    || discountCents !== lineDiscountCents + shippingDiscountCents) invalid();
+  let normalizedCode: string | undefined;
+  if (Object.hasOwn(parsed, "normalizedCode")) {
+    normalizedCode = normalizePromotionCode(parsed.normalizedCode);
+    if (normalizedCode !== parsed.normalizedCode) invalid();
+  }
+  return Object.freeze({
+    name: text(parsed.name, 1, 200),
+    benefitKind: parsed.benefitKind as PublicAppliedPromotion["benefitKind"],
+    ...(normalizedCode ? { normalizedCode } : {}),
+    lineDiscountCents,
+    shippingDiscountCents,
+    discountCents,
+  });
+}
+
+function rejectedPromotion(value: unknown): PublicRejectedPromotion {
+  const parsed = exact(value, ["normalizedCode", "reason"]);
+  if (parsed.reason !== "invalid_code" && parsed.reason !== "not_eligible") invalid();
+  const normalizedCode = normalizePromotionCode(parsed.normalizedCode);
+  if (normalizedCode !== parsed.normalizedCode) invalid();
+  return Object.freeze({ normalizedCode, reason: parsed.reason });
+}
+
+function promotionGift(value: unknown): PublicPromotionGift {
+  const parsed = exact(value, ["variantId", "quantity", "autoAdd"]);
+  return Object.freeze({
+    variantId: text(parsed.variantId, 36, 36, UUID),
+    quantity: integer(parsed.quantity, 1, 1_000_000),
+    autoAdd: bool(parsed.autoAdd),
+  });
+}
+
+function promotionGifts(value: unknown): readonly PublicPromotionGift[] {
+  const gifts = denseArray(value, 0, 100).map(promotionGift);
+  if (new Set(gifts.map((gift) => `${gift.variantId}:${gift.autoAdd ? "1" : "0"}`)).size !== gifts.length) invalid();
+  for (let index = 1; index < gifts.length; index += 1) {
+    const previous = gifts[index - 1]!;
+    const current = gifts[index]!;
+    if (previous.variantId > current.variantId
+      || (previous.variantId === current.variantId && Number(previous.autoAdd) >= Number(current.autoAdd))) invalid();
+  }
+  return Object.freeze(gifts);
+}
+
+function frozenMerchandiseLines(
+  items: readonly PublicCartLineV2[],
+  gifts: readonly PublicPromotionGift[],
+): readonly PublicCartLineV2[] {
+  const expectedGiftRows = gifts.flatMap((gift) => {
+    if (!gift.autoAdd) return [];
+    const rows: { variantId: string; quantity: number }[] = [];
+    let remaining = gift.quantity;
+    while (remaining > 0) {
+      const quantity = Math.min(remaining, 9_999);
+      rows.push({ variantId: gift.variantId, quantity });
+      remaining -= quantity;
+    }
+    return rows;
+  });
+  if (expectedGiftRows.length === 0) {
+    if (new Set(items.map(({ variantId }) => variantId)).size !== items.length) invalid();
+    return items;
+  }
+  const giftStart = items.length - expectedGiftRows.length;
+  if (giftStart < 1 || !expectedGiftRows.every((expected, index) => {
+    const item = items[giftStart + index]!;
+    return item.variantId === expected.variantId
+      && item.quantity === expected.quantity
+      && item.unitPriceCents === 0
+      && item.lineTotalCents === 0
+      && item.discountCents === 0
+      && item.payableCents === 0
+      && item.available;
+  })) invalid();
+  const merchandiseItems = items.slice(0, giftStart);
+  if (new Set(merchandiseItems.map(({ variantId }) => variantId)).size !== merchandiseItems.length) invalid();
+  for (const giftItem of items.slice(giftStart)) {
+    const sameVariant = merchandiseItems.find(({ variantId }) => variantId === giftItem.variantId);
+    if (sameVariant && sameVariant.productId !== giftItem.productId) invalid();
+  }
+  return Object.freeze(merchandiseItems);
+}
+
+function promotionEvaluationStatus(value: unknown): PublicPromotionEvaluationStatus {
+  const parsed = exact(value, ["kind"], ["reason"]);
+  if (parsed.kind === "evaluated") {
+    if (Object.hasOwn(parsed, "reason")) invalid();
+    return Object.freeze({ kind: "evaluated" });
+  }
+  if (parsed.kind !== "not_evaluated" || parsed.reason !== "cart_line_limit") invalid();
+  return Object.freeze({ kind: "not_evaluated", reason: "cart_line_limit" });
+}
+
+function promotionPresentation(
+  value: Readonly<Record<string, unknown>>,
+  cart: PublicCartV2,
+  gifts: readonly PublicPromotionGift[],
+  merchandiseLineCount: number,
+) {
+  const appliedPromotions = denseArray(value.appliedPromotions, 0, 100).map(appliedPromotion);
+  const rejectedPromotions = denseArray(value.rejectedPromotions, 0, 5).map(rejectedPromotion);
+  const progressMessages = denseArray(value.progressMessages, 0, 2).map((message) => text(message, 1, 200));
+  const promotionStatus = promotionEvaluationStatus(value.promotionStatus);
+  const appliedCodes = appliedPromotions.flatMap((promotion) => promotion.normalizedCode ? [promotion.normalizedCode] : []);
+  const rejectedCodes = rejectedPromotions.map((promotion) => promotion.normalizedCode);
+  if (new Set([...appliedCodes, ...rejectedCodes]).size !== appliedCodes.length + rejectedCodes.length) invalid();
+  const appliedDiscount = appliedPromotions.reduce((total, promotion) => total + promotion.discountCents, 0);
+  if (!Number.isSafeInteger(appliedDiscount) || appliedDiscount !== cart.discountCents) invalid();
+  if (promotionStatus.kind === "evaluated") {
+    if (merchandiseLineCount > 20) invalid();
+  } else if (merchandiseLineCount <= 20 || cart.discountCents !== 0 || appliedPromotions.length !== 0
+    || rejectedPromotions.length !== 0 || gifts.length !== 0 || progressMessages.length !== 1
+    || progressMessages[0] !== PROMOTION_CART_LINE_LIMIT_MESSAGE) invalid();
+  return Object.freeze({
+    promotionStatus,
+    appliedPromotions: Object.freeze(appliedPromotions),
+    rejectedPromotions: Object.freeze(rejectedPromotions),
+    gifts: Object.freeze(gifts),
+    progressMessages: Object.freeze(progressMessages),
+  });
 }
 
 function paymentMethod(value: unknown): PublicPaymentMethod {
@@ -393,6 +665,70 @@ export function parsePublicCart(value: unknown): PublicCart {
   });
 }
 
+function publicCartV2(
+  value: unknown,
+  uniqueVariants: boolean,
+  frozenGifts?: readonly PublicPromotionGift[],
+): PublicCartV2 {
+  const parsed = exact(value, [
+    "version", "currency", "itemCount", "subtotalCents", "shippingCents", "lineDiscountCents",
+    "shippingDiscountCents", "discountCents", "totalCents", "checkoutReady", "checkoutBlocker", "items",
+  ]);
+  if (parsed.currency !== "TRY") invalid();
+  const items = cartLinesV2(parsed.items, 0, 100, uniqueVariants);
+  const itemCount = integer(parsed.itemCount, 0, 999_900);
+  const subtotalCents = integer(parsed.subtotalCents, 0, MAX_MONEY_CENTS);
+  const shippingCents = integer(parsed.shippingCents, 0, MAX_MONEY_CENTS);
+  const lineDiscountCents = integer(parsed.lineDiscountCents, 0, MAX_MONEY_CENTS);
+  const shippingDiscountCents = integer(parsed.shippingDiscountCents, 0, MAX_MONEY_CENTS);
+  const discountCents = integer(parsed.discountCents, 0, MAX_MONEY_CENTS);
+  const totalCents = integer(parsed.totalCents, 0, MAX_MONEY_CENTS);
+  const countedItems = frozenGifts ? frozenMerchandiseLines(items, frozenGifts) : items;
+  const computedCount = countedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const computedSubtotal = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
+  const computedLineDiscount = items.reduce((sum, item) => sum + item.discountCents, 0);
+  if (!Number.isSafeInteger(computedSubtotal) || !Number.isSafeInteger(computedLineDiscount)
+    || itemCount !== computedCount || subtotalCents !== computedSubtotal
+    || lineDiscountCents !== computedLineDiscount || shippingDiscountCents > shippingCents
+    || !Number.isSafeInteger(lineDiscountCents + shippingDiscountCents)
+    || discountCents !== lineDiscountCents + shippingDiscountCents
+    || totalCents !== subtotalCents + shippingCents - discountCents) invalid();
+  const checkoutReady = bool(parsed.checkoutReady);
+  const unavailable = items.some(({ available }) => !available);
+  const checkoutBlocker: PublicCartCheckoutBlocker = parsed.checkoutBlocker === null
+    ? null
+    : parsed.checkoutBlocker === "empty_cart"
+      || parsed.checkoutBlocker === "stock_unavailable"
+      || parsed.checkoutBlocker === "shipping_unavailable"
+      || parsed.checkoutBlocker === "payment_unavailable"
+      ? parsed.checkoutBlocker
+      : invalid();
+  if (checkoutReady !== (checkoutBlocker === null)) invalid();
+  if (checkoutReady && (items.length === 0 || unavailable)) invalid();
+  if (checkoutBlocker === "empty_cart" && items.length !== 0) invalid();
+  if (checkoutBlocker !== "empty_cart" && items.length === 0) invalid();
+  if (checkoutBlocker === "stock_unavailable" && !unavailable) invalid();
+  if ((checkoutBlocker === "shipping_unavailable" || checkoutBlocker === "payment_unavailable") && unavailable) invalid();
+  return Object.freeze({
+    version: integer(parsed.version, 0),
+    currency: "TRY",
+    itemCount,
+    subtotalCents,
+    shippingCents,
+    lineDiscountCents,
+    shippingDiscountCents,
+    discountCents,
+    totalCents,
+    checkoutReady,
+    checkoutBlocker,
+    items,
+  });
+}
+
+export function parsePublicCartV2(value: unknown): PublicCartV2 {
+  return publicCartV2(value, true);
+}
+
 export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
   const parsed = exact(value, ["cart", "paymentMethods"], ["estimatedDays"]);
   const cart = parsePublicCart(parsed.cart);
@@ -403,6 +739,26 @@ export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
   return Object.freeze({
     cart,
     paymentMethods: Object.freeze(methods),
+    ...(Object.hasOwn(parsed, "estimatedDays") ? { estimatedDays: integer(parsed.estimatedDays, 1, 365) } : {}),
+  });
+}
+
+export function parsePublicCheckoutQuoteV2(value: unknown): PublicCheckoutQuoteV2 {
+  const parsed = exact(value, [
+    "cart", "paymentMethods", "promotionStatus", "appliedPromotions", "rejectedPromotions", "gifts", "progressMessages",
+  ], ["estimatedDays"]);
+  const gifts = promotionGifts(parsed.gifts);
+  const cart = publicCartV2(parsed.cart, false, gifts);
+  const merchandiseItems = frozenMerchandiseLines(cart.items, gifts);
+  const methods = denseArray(parsed.paymentMethods, 0, 3).map(paymentMethod);
+  if (new Set(methods.map(({ kind }) => kind)).size !== methods.length) invalid();
+  const hostedIds = methods.flatMap((method) => method.kind === "hosted_card" ? [method.id] : []);
+  if (new Set(hostedIds).size !== hostedIds.length) invalid();
+  const presentation = promotionPresentation(parsed, cart, gifts, merchandiseItems.length);
+  return Object.freeze({
+    cart,
+    paymentMethods: Object.freeze(methods),
+    ...presentation,
     ...(Object.hasOwn(parsed, "estimatedDays") ? { estimatedDays: integer(parsed.estimatedDays, 1, 365) } : {}),
   });
 }
@@ -428,6 +784,58 @@ export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceip
     paymentMethod: selectedPaymentMethod,
     delivery: receiptDelivery(parsed.delivery),
     items,
+    createdAt: timestamp(parsed.createdAt),
+  });
+}
+
+
+export function parsePublicCheckoutReceiptV2(value: unknown): PublicCheckoutReceiptV2 {
+  const parsed = exact(value, [
+    "orderReference", "currency", "subtotalCents", "shippingCents", "lineDiscountCents",
+    "shippingDiscountCents", "discountCents", "totalCents", "paymentStatus", "paymentMethod", "delivery",
+    "items", "promotionStatus", "appliedPromotions", "gifts", "createdAt",
+  ]);
+  if (parsed.currency !== "TRY" || (parsed.paymentStatus !== "pending" && parsed.paymentStatus !== "completed")) invalid();
+  const selectedPaymentMethod = paymentMethod(parsed.paymentMethod);
+  if (parsed.paymentStatus === "completed" && selectedPaymentMethod.kind !== "hosted_card") invalid();
+  const gifts = promotionGifts(parsed.gifts);
+  const items = cartLinesV2(parsed.items, 1, 100, false);
+  const merchandiseItems = frozenMerchandiseLines(items, gifts);
+  const subtotalCents = integer(parsed.subtotalCents, 0, MAX_MONEY_CENTS);
+  const shippingCents = integer(parsed.shippingCents, 0, MAX_MONEY_CENTS);
+  const lineDiscountCents = integer(parsed.lineDiscountCents, 0, MAX_MONEY_CENTS);
+  const shippingDiscountCents = integer(parsed.shippingDiscountCents, 0, MAX_MONEY_CENTS);
+  const discountCents = integer(parsed.discountCents, 0, MAX_MONEY_CENTS);
+  const totalCents = integer(parsed.totalCents, 0, MAX_MONEY_CENTS);
+  const computedSubtotal = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
+  const computedLineDiscount = items.reduce((sum, item) => sum + item.discountCents, 0);
+  if (!Number.isSafeInteger(computedSubtotal) || !Number.isSafeInteger(computedLineDiscount)
+    || subtotalCents !== computedSubtotal || lineDiscountCents !== computedLineDiscount
+    || shippingDiscountCents > shippingCents || discountCents !== lineDiscountCents + shippingDiscountCents
+    || totalCents !== subtotalCents + shippingCents - discountCents) invalid();
+  const appliedPromotions = denseArray(parsed.appliedPromotions, 0, 100).map(appliedPromotion);
+  if (appliedPromotions.reduce((total, promotion) => total + promotion.discountCents, 0) !== discountCents) invalid();
+  const promotionStatus = promotionEvaluationStatus(parsed.promotionStatus);
+  if ((promotionStatus.kind === "evaluated" && merchandiseItems.length > 20)
+    || (promotionStatus.kind === "not_evaluated"
+      && (merchandiseItems.length <= 20 || gifts.some(({ autoAdd }) => autoAdd) || discountCents !== 0
+        || appliedPromotions.length !== 0 || gifts.length !== 0))) invalid();
+  return Object.freeze({
+    orderReference: text(parsed.orderReference, 1, 64, ORDER_REFERENCE),
+    currency: "TRY",
+    subtotalCents,
+    shippingCents,
+    lineDiscountCents,
+    shippingDiscountCents,
+    discountCents,
+    totalCents,
+    paymentStatus: parsed.paymentStatus,
+    paymentMethod: selectedPaymentMethod,
+    delivery: receiptDelivery(parsed.delivery),
+    items,
+    promotionStatus,
+    appliedPromotions: Object.freeze(appliedPromotions),
+    gifts: Object.freeze(gifts),
     createdAt: timestamp(parsed.createdAt),
   });
 }

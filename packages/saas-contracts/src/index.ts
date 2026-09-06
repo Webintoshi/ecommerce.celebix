@@ -64,6 +64,7 @@ export type {
 export * from "./storefront-assets/index.ts";
 export * from "./shipping/index.ts";
 export * from "./barcode-labels/index.ts";
+export * from "./promotions/index.ts";
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
@@ -471,9 +472,13 @@ export {
   adaptStarterPresentationV2,
   buildDefaultStarterPresentation,
   FIXED_STOREFRONT_POLICIES,
+  PROMOTION_CART_LINE_LIMIT_MESSAGE,
   parsePublicCart,
+  parsePublicCartV2,
   parsePublicCheckoutQuote,
+  parsePublicCheckoutQuoteV2,
   parsePublicCheckoutReceipt,
+  parsePublicCheckoutReceiptV2,
   parsePublicPolicyIndex,
   parsePublicPolicyPage,
   parsePublicProduct,
@@ -490,10 +495,15 @@ export {
 } from "./storefront/index.ts";
 export type {
   PublicImageMediaType,
+  PublicAppliedPromotion,
   PublicCart,
   PublicCartLine,
+  PublicCartLineV2,
+  PublicCartV2,
   PublicCheckoutQuote,
+  PublicCheckoutQuoteV2,
   PublicCheckoutReceipt,
+  PublicCheckoutReceiptV2,
   PublicPaymentMethod,
   PublicPolicyPage,
   PublicProduct,
@@ -502,6 +512,9 @@ export type {
   PublicProductMerchandising,
   PublicProductSearch,
   PublicProductVariant,
+  PublicPromotionEvaluationStatus,
+  PublicPromotionGift,
+  PublicRejectedPromotion,
   PublicStarterFooter,
   PublicStarterHomeSection,
   PublicStarterHomeSectionV2,
