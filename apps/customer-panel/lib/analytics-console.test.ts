@@ -15,19 +15,21 @@ const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
 test("commerce analytics workspace exposes URL-stable tabs, honest formulas, degraded traffic and worker health", async () => {
-  const [component, page] = await Promise.all([
+  const [componentSource, workspaceModel, page] = await Promise.all([
     source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
+    source("lib/analytics-ui/workspace.ts"),
     source("app/analytics/page.tsx"),
   ]);
+  const component = `${componentSource}\n${workspaceModel}`;
   for (const label of [
     "Genel Bakış",
     "Dönüşüm Hunisi",
-    "Sepet ve Checkout",
+    "Sepet & Checkout",
     "Trafik Kaynakları",
     "Ürün Performansı",
     "Bugün",
-    "Özel aralığı uygula",
-    "Önceki dönemle karşılaştır",
+    "Özel tarih",
+    "Önceki dönemle kıyasla",
     "Para birimi",
     "Trafik verileri geçici olarak alınamıyor",
     "Sipariş ve sepet verileri günceldir",
@@ -68,8 +70,8 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
     "payment_method_selected",
   ])
     assert.match(component, new RegExp(event));
-  assert.match(component, /Önceki:/);
-  assert.match(component, /İlk adıma\s+göre/);
+  assert.match(component, /Önceki adımdan/);
+  assert.match(component, /Toplam dönüşüm/);
   assert.match(component, /Kayıp/);
   assert.match(component, /AbortController/);
   assert.doesNotMatch(
@@ -97,6 +99,52 @@ test("overview mounts an isolated honest active visitor card", async () => {
   assert.match(component, /api[.]active/);
   assert.match(poller, /30_000/);
   assert.doesNotMatch(component, /websiteId|connectionId|console[.](log|error)/);
+});
+
+test("Mira analytics presentation has one h1, accessible responsive tabs and no fabricated features", async () => {
+  const [component, css] = await Promise.all([
+    source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
+    source("components/analytics/commerce-analytics-workspace.module.css"),
+  ]);
+  const tree = ts.createSourceFile(
+    "CommerceAnalyticsWorkspace.tsx",
+    component,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let h1Count = 0;
+  const inspect = (node: ts.Node) => {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(tree) === "h1"
+    )
+      h1Count += 1;
+    ts.forEachChild(node, inspect);
+  };
+  inspect(tree);
+  assert.equal(h1Count, 1);
+  assert.match(component, /role="tablist"/);
+  assert.match(component, /role="tab"/);
+  assert.match(component, /aria-selected=/);
+  assert.match(component, /onKeyDown=/);
+  assert.doesNotMatch(component, /Ziyaretçi & Dönüşüm|previousRevenue|topProducts/);
+  assert.match(component, /Oturum Trendi/);
+  assert.match(component, /key=\{`\$\{tab\}:\$\{serialized\}`\}/);
+  assert.match(component, /className=\{styles[.]srOnly\}/);
+  assert.match(component, /Analitik durumu/);
+  assert.match(component, /setFrom\(customFrom \?\? ""\)/);
+  assert.match(component, /selectedCurrency && !currencies[.]includes\(selectedCurrency\)/);
+  assert.match(component, /function PaginationAction/);
+  assert.match(component, /<span aria-disabled="true">\{children\}<\/span>/);
+  assert.match(css, /overflow-x:\s*auto/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /focus-visible/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /[.]breadcrumb a \{ min-height: 44px;/);
+  assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
+  assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);
+  assert.doesNotMatch(component, /284[.]590|489[.]020|156[.]300/);
 });
 
 test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {
@@ -767,8 +815,9 @@ test("dashboard model links to analytics only after the real route exists", asyn
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   assert.match(model, /href:\s*"\/analytics"/);
   assert.match(view, /\/analytics/);
+  assert.match(view, /createActiveVisitorPoller/);
   assert.doesNotMatch(
     `${model}\n${view}`,
-    /liveVisitors|conversionRate|deviceBreakdown|trafficSource/,
+    /conversionRate|deviceBreakdown|trafficSource/,
   );
 });
