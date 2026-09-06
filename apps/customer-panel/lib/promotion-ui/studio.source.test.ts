@@ -39,6 +39,14 @@ test("PromotionList loads truthful server KPI values, has range controls, table/
   assert.match(list, /catch\s*\{\s*setMessage\("Tarih filtresi mağaza saat diliminde geçerli değil[.]"\)/);
 });
 
+test("promotion code batches remain usable on narrow screens", async () => {
+  const codes = await source("components/promotions/PromotionCodes.tsx");
+  const stylesheet = await source("components/promotions/promotion-studio.module.css");
+  assert.match(codes, /aria-label="Kupon grupları"/);
+  assert.match(codes, /styles[.]mobileCards/);
+  assert.match(stylesheet, /@media \(max-width: 760px\)[\s\S]*?[.]batchForm\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+});
+
 test("editor exposes every controlled merchant field and only server-backed checks and simulator", async () => {
   const editor = await source("components/promotions/PromotionEditor.tsx");
   for (const field of ["benefit", "selectedTargets", "audience", "startsAt", "endsAt", "totalUsage", "perCustomerUsage", "budgetMinor", "orderMaximumMinor", "combination", "marginPolicy", "progressMessages"]) assert.match(editor, new RegExp(field));
