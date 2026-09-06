@@ -395,7 +395,7 @@ test("product detail composes durable merchandising without overwriting conflict
   assert.doesNotMatch(editor, /version_conflict[^]*location[.]reload|version_conflict[^]*onConflictReload\(\)/);
 });
 
-test("merchant shell adopts the Hemenaku visual language without its dedicated authorities", async () => {
+test("merchant shell applies Celebix brand tokens without adding dedicated authorities", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
   const styles = await source("components/panel/panel-shell.module.css");
@@ -403,9 +403,9 @@ test("merchant shell adopts the Hemenaku visual language without its dedicated a
   assert.match(shell, /PanelLayoutClient/);
   assert.match(navigation, /getPanelNavigation/);
   assert.match(navigation, /isPanelNavigationPathActive/);
-  assert.match(styles, /#2A2A2A/i);
-  assert.match(styles, /#F9F9F9/i);
-  assert.match(styles, /#FF6A00/i);
+  assert.match(styles, /#201C19/i);
+  assert.match(styles, /#F8F7F5/i);
+  assert.match(styles, /#FE6100/i);
   assert.match(styles, /min-width:\s*1025px/);
   assert.match(globals, /--hemenaku-orange:\s*#FF6A00/i);
   assert.match(globals, /--hemenaku-canvas:\s*#F9F9F9/i);
