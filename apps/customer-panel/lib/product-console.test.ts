@@ -404,7 +404,7 @@ test("merchant shell applies Celebix brand tokens without adding dedicated autho
   assert.match(navigation, /getPanelNavigation/);
   assert.match(navigation, /isPanelNavigationPathActive/);
   assert.match(styles, /#201C19/i);
-  assert.match(styles, /#F7F1EB/i);
+  assert.match(styles, /#F8F7F5/i);
   assert.match(styles, /#FE6100/i);
   assert.match(styles, /min-width:\s*1025px/);
   assert.match(globals, /--hemenaku-orange:\s*#FF6A00/i);

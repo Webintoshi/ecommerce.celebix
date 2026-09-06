@@ -12,9 +12,8 @@
 
 .dashboardHeader {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
+  min-height: 4.5rem;
+  align-items: center;
   margin-bottom: 1rem;
 }
 
@@ -22,19 +21,13 @@
   min-width: 0;
 }
 
-.dashboardHeading > span {
-  color: #6f655f;
-  font-size: 0.875rem;
-  font-weight: 650;
-}
-
 .dashboardHeading h1 {
-  margin: 0.2rem 0 0;
+  margin: 0;
   color: #2B2B2B;
-  font-size: clamp(1.75rem, 2.6vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 1.08;
+  font-size: clamp(1.5rem, 2vw, 1.75rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
 }
 
 .dashboardHeading p {
@@ -43,17 +36,18 @@
   font-size: 0.9rem;
 }
 
-.headerControls {
+.dashboardTopbarContext {
   display: flex;
-  flex: 0 0 auto;
-  align-items: stretch;
-  gap: 0.75rem;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .periodFilter,
 .liveVisitors {
-  min-height: 3.25rem;
-  border: 1px solid #E4D5C9;
+  min-height: 2.75rem;
+  border: 1px solid #E7E2DD;
   border-radius: 0.625rem;
   background: #FFFDFC;
 }
@@ -63,7 +57,7 @@
   grid-template-columns: auto auto;
   align-items: center;
   gap: 0 0.5rem;
-  padding: 0.35rem 0.7rem;
+  padding: 0.2rem 0.65rem;
   color: #2B2B2B;
 }
 
@@ -109,10 +103,10 @@
 
 .liveVisitors {
   display: grid;
-  min-width: 8.5rem;
+  min-width: 7.5rem;
   align-content: center;
   gap: 0.15rem;
-  padding: 0.45rem 0.75rem;
+  padding: 0.3rem 0.65rem;
 }
 
 .liveVisitors span {
@@ -140,7 +134,7 @@
   align-items: center;
   gap: 1.25rem;
   margin-bottom: 0.75rem;
-  border: 1px solid #E4D5C9;
+  border: 1px solid #E7E2DD;
   border-radius: 0.625rem;
   background: #FFFDFC;
   padding: 0.7rem 0.8rem;
@@ -253,7 +247,7 @@
   display: inline-flex;
   min-height: 1.75rem;
   align-items: center;
-  border: 1px solid #E4D5C9;
+  border: 1px solid #E7E2DD;
   border-radius: 999px;
   background: #FFFDFC;
   color: #6f655f;
@@ -281,10 +275,10 @@
 
 .dashboardTopbarActions a {
   min-height: 2.75rem;
-  border-color: #FE6100;
+  border-color: #2B2B2B;
   border-radius: 0.625rem;
-  background: #FE6100;
-  color: #2B2B2B;
+  background: #2B2B2B;
+  color: #FFFDFC;
   font-size: 0.76rem;
 }
 
@@ -300,7 +294,7 @@
 .quickAction,
 .quickActionPrimary {
   min-width: 0;
-  border: 1px solid #E4D5C9;
+  border: 1px solid #E7E2DD;
   border-radius: 0.625rem;
   background: #FFFDFC;
   box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
@@ -308,7 +302,7 @@
 
 .kpiCard {
   display: flex;
-  min-height: 7.8rem;
+  min-height: 7.5rem;
   align-items: center;
   gap: 0.85rem;
   padding: 1rem;
@@ -355,7 +349,7 @@
   width: 7rem;
   height: 1.7rem;
   border-radius: 0.4rem;
-  background: linear-gradient(90deg, #F7F1EB 25%, #FFFDFC 50%, #F7F1EB 75%);
+  background: linear-gradient(90deg, #F8F7F5 25%, #FFFDFC 50%, #F8F7F5 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -370,7 +364,7 @@
 }
 
 .primaryGrid {
-  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr) minmax(15rem, 0.95fr);
+  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr) minmax(15rem, 1fr);
 }
 
 .operationsGrid { grid-template-columns: minmax(0, 1.65fr) minmax(20rem, 0.85fr); }
@@ -416,14 +410,14 @@
 }
 
 .salesChart {
-  min-height: 17.75rem;
+  min-height: 14rem;
 }
 
 .chartSkeleton,
 .chartError,
 .emptyState,
 .inlineState {
-  min-height: 15rem;
+  min-height: 13.75rem;
   align-content: center;
   justify-items: center;
   color: #756a64;
@@ -442,7 +436,7 @@
   width: min(100%, 22rem);
   height: 7rem;
   border-radius: 0.5rem;
-  background: linear-gradient(90deg, #F7F1EB 25%, #FFFDFC 50%, #F7F1EB 75%);
+  background: linear-gradient(90deg, #F8F7F5 25%, #FFFDFC 50%, #F8F7F5 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -483,7 +477,7 @@
 .retryButton {
   min-width: 2.75rem;
   min-height: 2.75rem;
-  border: 1px solid #E4D5C9;
+  border: 1px solid #E7E2DD;
   border-radius: 0.625rem;
   background: #FFFDFC;
   color: #2B2B2B;
@@ -499,7 +493,7 @@
   grid-template-columns: minmax(8rem, 0.8fr) 1fr;
   align-items: center;
   gap: 0.8rem;
-  min-height: 15.75rem;
+  min-height: 13.75rem;
 }
 
 .orderRing {
@@ -519,7 +513,7 @@
   stroke-width: 12;
 }
 
-.ringTrack { stroke: #F7F1EB; }
+.ringTrack { stroke: #F8F7F5; }
 .ringFulfilled { stroke: #54ad72; }
 .ringPending { stroke: #FE6100; }
 
@@ -713,7 +707,7 @@
   height: 1.75rem;
   place-items: center;
   border-radius: 50%;
-  background: #F7F1EB;
+  background: #F8F7F5;
   color: #2B2B2B;
   font-size: 0.66rem;
   font-weight: 800;
@@ -735,7 +729,7 @@
   min-height: 1.55rem;
   align-items: center;
   border-radius: 999px;
-  background: #F7F1EB;
+  background: #F8F7F5;
   color: #625a55;
   padding: 0 0.55rem;
   font-size: 0.63rem;
@@ -779,7 +773,7 @@
   height: 2.6rem;
   place-items: center;
   border-radius: 0.5rem;
-  background: #F7F1EB;
+  background: #F8F7F5;
   color: #FE6100;
 }
 
@@ -820,7 +814,7 @@
 .insightCard dl div {
   display: grid;
   gap: 0.25rem;
-  border-left: 2px solid #E4D5C9;
+  border-left: 2px solid #E7E2DD;
   padding-left: 0.65rem;
 }
 
@@ -925,7 +919,7 @@
 
 @media (max-width: 1024px) {
   .dashboardHeader { align-items: flex-start; }
-  .headerControls { flex-wrap: wrap; justify-content: flex-end; }
+  .dashboardTopbarContext { justify-content: flex-start; }
   .storeStatusBar { grid-template-columns: minmax(0, 1fr) auto; }
   .storeMeta { grid-column: 1 / -1; grid-row: 2; }
   .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -938,7 +932,7 @@
 
 @media (max-width: 720px) {
   .dashboardHeader { display: grid; }
-  .headerControls { justify-content: stretch; }
+  .dashboardTopbarContext { width: 100%; justify-content: stretch; }
   .periodFilter { flex: 1; }
   .liveVisitors { flex: 1; min-width: 0; }
   .storeStatusBar { grid-template-columns: 1fr; }
@@ -964,7 +958,7 @@
 
 @media (max-width: 520px) {
   .dashboardHeading h1 { font-size: 1.65rem; }
-  .headerControls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); }
+  .dashboardTopbarContext { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
   .periodFilter small { display: none; }
   .kpiCard { min-height: 7rem; padding: 0.8rem; }
   .kpiIcon { width: 2.7rem; height: 2.7rem; flex-basis: 2.7rem; }
@@ -978,7 +972,7 @@
   .recentOrdersTable tr,
   .recentOrdersTable td { display: block; width: 100%; }
   .recentOrdersTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
-  .recentOrdersTable tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.8rem; border-top: 1px solid #E4D5C9; padding: 0.8rem 0; }
+  .recentOrdersTable tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.8rem; border-top: 1px solid #E7E2DD; padding: 0.8rem 0; }
   .recentOrdersTable tr:first-child { border-top: 0; padding-top: 0; }
   .recentOrdersTable td { display: grid; gap: 0.2rem; border: 0; padding: 0; white-space: normal; }
   .recentOrdersTable td::before { color: #7c7069; content: attr(data-label); font-size: 0.58rem; font-weight: 700; }
@@ -1001,9 +995,9 @@
   .insightGrid,
   .quickActions { max-width: 100%; }
   .dashboardHeading p { font-size: 0.8rem; }
-  .headerControls { grid-template-columns: 1fr; }
-  .kpiGrid { grid-template-columns: 1fr; }
-  .kpiCard { min-height: 6.5rem; }
+  .dashboardTopbarContext { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+  .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpiCard { min-height: 7rem; align-items: flex-start; flex-direction: column; gap: 0.5rem; }
   .orderStatusBody { grid-template-columns: 1fr; }
   .orderRing svg { max-width: 8.5rem; }
   .insightCard dl { grid-template-columns: 1fr; }

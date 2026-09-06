@@ -189,32 +189,36 @@ type DashboardKpi = Readonly<{
   loading: boolean;
 }>;
 
-function DashboardHeader({ analytics, activeVisitorsEnabled, period, onPeriodChange }: Readonly<{
+function DashboardTopbarContext({ analytics, activeVisitorsEnabled, period, onPeriodChange }: Readonly<{
   analytics?: AnalyticsView;
   activeVisitorsEnabled: boolean;
   period: AnalyticsPeriod;
   onPeriodChange?: (period: AnalyticsPeriod) => void;
 }>) {
   return (
+    <div className={styles.dashboardTopbarContext}>
+      <DashboardLiveVisitors enabled={activeVisitorsEnabled} />
+      <label className={styles.periodFilter}>
+        <CalendarDays aria-hidden="true" />
+        <span className={styles.visuallyHidden}>Dönem</span>
+        <select aria-label="Dönem" value={period} onChange={(event) => {
+          const nextPeriod = event.target.value as AnalyticsPeriod;
+          if (ANALYTICS_PERIODS.includes(nextPeriod)) onPeriodChange?.(nextPeriod);
+        }}>
+          {ANALYTICS_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
+        </select>
+        {analytics ? <small>{formatRange(analytics.rangeStart, analytics.rangeEnd)}</small> : null}
+      </label>
+    </div>
+  );
+}
+
+function DashboardHeader() {
+  return (
     <header className={styles.dashboardHeader}>
       <div className={styles.dashboardHeading}>
-        <span>Merhaba</span>
         <h1>Mağazanızın genel durumu</h1>
-        <p>Mağazanızın güncel durumu ve öne çıkan gelişmeler.</p>
-      </div>
-      <div className={styles.headerControls}>
-        <label className={styles.periodFilter}>
-          <CalendarDays aria-hidden="true" />
-          <span className={styles.visuallyHidden}>Dönem</span>
-          <select aria-label="Dönem" value={period} onChange={(event) => {
-            const nextPeriod = event.target.value as AnalyticsPeriod;
-            if (ANALYTICS_PERIODS.includes(nextPeriod)) onPeriodChange?.(nextPeriod);
-          }}>
-            {ANALYTICS_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
-          </select>
-          {analytics ? <small>{formatRange(analytics.rangeStart, analytics.rangeEnd)}</small> : null}
-        </label>
-        <DashboardLiveVisitors enabled={activeVisitorsEnabled} />
+        <p>Öne çıkan veriler ve son gelişmeler.</p>
       </div>
     </header>
   );
@@ -269,9 +273,9 @@ function SalesChartCard({ analytics, state, period, onRetry }: Readonly<{ analyt
         {state === "loaded" && analytics ? (
           hasSales && analytics.series.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={analytics.series} accessibilityLayer margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
-                  <CartesianGrid stroke="#E4D5C9" vertical={false} />
+                  <CartesianGrid stroke="#E7E2DD" vertical={false} />
                   <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={(value) => formatMoney(Number(value), analytics.currency)} axisLine={false} tickLine={false} width={76} />
                   <Tooltip labelFormatter={(value) => typeof value === "string" ? formatSeriesLabel(value) : ""} formatter={(value) => [formatMoney(Number(value), analytics.currency), "Satış"]} />
@@ -437,12 +441,12 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<span className={styles.topbarStatus} data-state={analyticsState}>{stateDetail(analyticsState)}</span>} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton></div>} />
-      <DashboardHeader analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />
-      <StoreStatusBar dashboard={props.dashboard} analytics={analytics} analyticsState={analyticsState} />
+      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton></div>} />
+      <DashboardHeader />
       <DashboardKpiGrid metrics={metrics} />
       <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><OrderStatusCard dashboard={props.dashboard} state={props.ordersState ?? (orders ? "loaded" : "unsupported")} /><ActionItemsCard tasks={tasks} state={taskState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
       <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>
+      <StoreStatusBar dashboard={props.dashboard} analytics={analytics} analyticsState={analyticsState} />
       <DashboardInsights dashboard={props.dashboard} analytics={analytics} customersState={props.customersState ?? (props.dashboard.customers.state === "ready" ? "loaded" : "unsupported")} cartsState={props.cartsState ?? (carts ? "loaded" : "unsupported")} />
       <DashboardQuickActions />
     </PanelPageShell>

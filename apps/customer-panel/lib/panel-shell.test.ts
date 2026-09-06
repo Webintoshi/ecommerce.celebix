@@ -665,7 +665,7 @@ test("desktop shell carries the Celebix visual tokens, fixed width, topbar, and 
   const css = await source("components/panel/panel-shell.module.css");
   const layout = await source("components/panel/PanelLayoutClient.tsx");
   assert.match(css, /#201C19/i);
-  assert.match(css, /#F7F1EB/i);
+  assert.match(css, /#F8F7F5/i);
   assert.match(css, /#FE6100/i);
   assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
   assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15[.]3125rem;/);
@@ -688,7 +688,7 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(utilities, /Bildirim merkezi/);
   assert.match(utilities, /Bana Sorun/);
   assert.match(utilities, /href="\/settings\/notifications"/);
-  assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*5[.]5rem;/);
+  assert.match(styles, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*4rem;/);
   assert.match(styles, /[.]desktopTopbarEyebrow\s*\{[\s\S]*?letter-spacing:/);
   assert.match(styles, /[.]desktopTopbarSubtitle\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
@@ -708,8 +708,8 @@ test("admin management header stays fixed without covering workspace content", a
 
   const workspaceStyle = window.getComputedStyle(workspace);
   const computed = window.getComputedStyle(header);
-  assert.equal(workspaceStyle.getPropertyValue("--panel-topbar-height"), "5.5rem");
-  assert.equal(workspaceStyle.paddingTop, "88px");
+  assert.equal(workspaceStyle.getPropertyValue("--panel-topbar-height"), "4rem");
+  assert.equal(workspaceStyle.paddingTop, "64px");
   assert.equal(computed.position, "fixed");
   assert.equal(computed.top, "0px");
   assert.equal(computed.right, "0px");
@@ -1296,7 +1296,8 @@ test("mobile dock is exact, safe-area aware, 48px, reduced-motion, and breakpoin
   assert.doesNotMatch(css, /[.]desktopSidebar\s*,\s*[.]desktopTopbar\s*\{\s*display:\s*none/u);
   assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopSidebar\s*\{\s*display:\s*none/u);
   assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar\s*\{[\s\S]*?display:\s*flex/u);
-  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbar > div:last-child\s*\{[\s\S]*?display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbarCommands > div:first-child\s*\{[\s\S]*?display:\s*none/u);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex/u);
 });
 
 test("crossing into desktop closes an open mobile drawer and releases its modal effects", async () => {
@@ -1678,7 +1679,7 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   const styles = await source("components/dashboard/panel-dashboard.module.css");
   assert.match(styles, /[.]storeStatusIdentity strong,[\s\S]*?[.]storeStatusIdentity small\s*\{[^}]*text-overflow:\s*ellipsis;/);
   assert.match(styles, /[.]kpiCard,[\s\S]*?[.]panelCard,[\s\S]*?\{[\s\S]*?min-width:\s*0;/);
-  assert.match(styles, /@media \(max-width: 390px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*1fr/);
+  assert.match(styles, /@media \(max-width: 390px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
 });
 
 test("dashboard presentation keeps the merchant-dashboard anatomy when analytics is unavailable", async () => {
@@ -2912,14 +2913,36 @@ test("dashboard keeps working slices when analytics is unavailable and never inv
   assert.match(html, /Son Siparişler/);
 });
 
-test("dashboard visual system locks the approved Celebix palette and real mobile transformations", async () => {
+test("dashboard visual system locks the approved V2 palette and compact responsive geometry", async () => {
   const css = await source("components/dashboard/panel-dashboard.module.css");
-  for (const token of ["#FE6100", "#2B2B2B", "#F7F1EB", "#FFFDFC", "#E4D5C9"])
+  for (const token of ["#FE6100", "#2B2B2B", "#F8F7F5", "#FFFDFC", "#E7E2DD"])
     assert.match(css, new RegExp(token, "i"));
-  assert.doesNotMatch(css, /#B4873B|#8A6427|#F6EFE3/i);
+  assert.doesNotMatch(css, /#F7F1EB|#E4D5C9|#B4873B|#8A6427|#F6EFE3/i);
+  assert.match(css, /[.]dashboardHeader\s*\{[\s\S]*?min-height:\s*4[.]5rem;/);
+  assert.match(css, /[.]kpiCard\s*\{[\s\S]*?min-height:\s*7[.]5rem;/);
+  assert.match(css, /[.]primaryGrid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(15rem,\s*1fr\)\s+minmax\(15rem,\s*1fr\);/);
   assert.match(css, /@media \(max-width: 1024px\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]recentOrdersTable/);
+  assert.match(css, /@media \(max-width: 390px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("dashboard V2 publishes the live visitor and period controls once in the topbar", async () => {
+  const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  const shellCss = await source("components/panel/panel-shell.module.css");
+
+  assert.match(dashboard, /function DashboardTopbarContext\(/);
+  assert.match(dashboard, /<DashboardTopbarContext[\s\S]*?activeVisitorsEnabled=[\s\S]*?period=\{period\}/);
+  assert.equal((dashboard.match(/<DashboardLiveVisitors\s+enabled=/g) ?? []).length, 1);
+  assert.equal((dashboard.match(/className=\{styles[.]periodFilter\}/g) ?? []).length, 1);
+  assert.doesNotMatch(dashboard, /function DashboardHeader\([^)]*activeVisitorsEnabled/);
+  assert.doesNotMatch(dashboard, /className=\{styles[.]headerControls\}/);
+  assert.match(shellCss, /[.]workspace\s*\{[\s\S]*?--panel-topbar-height:\s*4rem;/);
+  assert.match(shellCss, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*4rem;/);
+  assert.match(shellCss, /[.]content\s*\{[\s\S]*?padding:\s*1[.]25rem;/);
+  const desktopCompactRange = shellCss.match(/@media \(min-width: 1025px\) and \(max-width: 1320px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.doesNotMatch(desktopCompactRange, /grid-row:\s*2|padding-block:/);
+  assert.match(desktopCompactRange, /grid-template-columns:\s*minmax\(8rem, 11rem\) minmax\(0, 1fr\) auto;/);
 });
 
 test("dashboard never presents retained analytics under a newly selected period", async () => {
