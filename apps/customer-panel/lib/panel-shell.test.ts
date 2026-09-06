@@ -695,6 +695,14 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
 });
 
+test("compact topbar keeps the Toshi launcher accessible without clipping its label", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  const styles = await source("components/panel/panel-shell.module.css");
+
+  assert.match(utilities, /className=\{styles[.]topbarAssistantButton\}[\s\S]*?aria-label="Bana Sorun"/);
+  assert.match(styles, /[.]topbarAssistantButton > span:first-child\s*\{[\s\S]*?display:\s*none;/);
+});
+
 test("admin management header stays fixed without covering workspace content", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const window = new Window();

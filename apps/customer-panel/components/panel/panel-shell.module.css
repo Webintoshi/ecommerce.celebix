@@ -200,15 +200,7 @@
 }
 
 .topbarAssistantButton > span:first-child {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% - 0.55rem);
-  min-width: 5.4rem;
-  border: 1px solid #FFD0B2;
-  border-radius: 999px;
-  background: #FFFFFF;
-  padding: 0.35rem 0.75rem;
-  white-space: nowrap;
+  display: none;
 }
 
 .topbarAssistantAvatar {

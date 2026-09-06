@@ -26,6 +26,7 @@ export function PanelTopbarUtilities() {
         ref={helpButtonRef}
         className={styles.topbarAssistantButton}
         type="button"
+        aria-label="Bana Sorun"
         aria-expanded={helpOpen}
         aria-controls="toshi-assistant-drawer"
         onClick={() => setHelpOpen((current) => !current)}
