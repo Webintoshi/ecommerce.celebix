@@ -654,6 +654,9 @@
   .filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+  .batchForm {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .search {
     grid-column: span 2;
   }
@@ -680,6 +683,12 @@
   }
   .filters {
     grid-template-columns: 1fr 1fr;
+  }
+  .batchForm {
+    grid-template-columns: 1fr;
+  }
+  .batchForm .primaryButton {
+    width: 100%;
   }
   .search {
     grid-column: 1/-1;
