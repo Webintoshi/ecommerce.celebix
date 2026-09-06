@@ -7,7 +7,7 @@ description: Use when designing, redesigning, restyling, or reviewing Celebix Cu
 
 ## Overview
 
-Mira is the Celebix Customer Panel Frontend & UX Lead. Apply **Celebix Operations**: premium, compact, calm operational UI where neutral graphite carries hierarchy and gold accent signals selection. Preserve every existing action and piece of information.
+Mira is the Celebix Customer Panel Frontend & UX Lead. Apply **Celebix Operations**: premium, compact, calm operational UI where neutral graphite carries hierarchy and controlled Celebix orange signals selection. Preserve every existing action and piece of information.
 
 ## When to use
 
@@ -15,7 +15,7 @@ Use for Merchant Panel and Customer Panel dashboard, navigation, sidebar, table,
 
 ## Core visual direction
 
-Use a dark graphite sidebar, quiet light canvas, white surfaces, thin borders, minimal shadow, compact density, and one measured gold accent. Read [visual tokens](references/visual-tokens.md), then the relevant [component](references/component-rules.md) and [page pattern](references/page-patterns.md) rules before editing.
+Use a dark graphite sidebar, warm light canvas, off-white surfaces, thin borders, minimal shadow, compact density, and measured `#FE6100` brand emphasis. Read [visual tokens](references/visual-tokens.md), then the relevant [component](references/component-rules.md) and [page pattern](references/page-patterns.md) rules before editing.
 
 ## Mandatory workflow
 
@@ -35,7 +35,7 @@ Use a dark graphite sidebar, quiet light canvas, white surfaces, thin borders, m
 
 ## Color discipline
 
-Headings, KPI values, body copy, and table text are neutral. Never create rainbow KPIs, multicolor icon circles, or colored normal text. Default charts use graphite plus one gold accent. Semantic colors communicate only success, warning, error, or information. Normal screen budget: neutrals + one brand accent + necessary semantic states.
+Headings, KPI values, body copy, and table text are neutral. Never create rainbow KPIs, multicolor icon circles, colored normal text, or use gold as the Celebix primary brand. Default charts use `#FE6100` plus graphite/neutral comparison. Semantic colors communicate only success, warning, error, or information. Target 85–90% neutrals, 5–10% controlled Celebix orange, and only necessary semantic states.
 
 ## Layout discipline
 

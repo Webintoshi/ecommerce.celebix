@@ -6,38 +6,43 @@ Use these Customer Panel design tokens instead of page-local values. Keep the re
 
 ```css
 :root {
-  --cp-canvas: #F6F7F8;
-  --cp-surface: #FFFFFF;
-  --cp-surface-subtle: #FAFAFA;
-  --cp-sidebar: #191C20;
-  --cp-sidebar-raised: #23272D;
-  --cp-border: #E4E7EC;
-  --cp-border-strong: #D0D5DD;
+  --cp-brand: #FE6100;
+  --cp-brand-soft: #FFB07A;
 
-  --cp-text-primary: #17191C;
+  --cp-graphite: #2B2B2B;
+  --cp-sidebar: #201C19;
+  --cp-sidebar-deep: #141110;
+  --cp-dark-surface: #231F1C;
+  --cp-dark-deep: #171311;
+
+  --cp-canvas: #F7F1EB;
+  --cp-surface: #FFFDFC;
+  --cp-border: #E4D5C9;
+
+  --cp-text-primary: #2B2B2B;
   --cp-text-secondary: #667085;
   --cp-text-muted: #98A2B3;
-  --cp-text-inverse: #F9FAFB;
+  --cp-text-inverse: #FFFDFC;
 
-  --cp-accent: #B4873B;
-  --cp-accent-strong: #8A6427;
-  --cp-accent-soft: #F6EFE3;
-
-  --cp-action-primary: #191C20;
-  --cp-action-primary-hover: #2A2E34;
-  --cp-action-primary-text: #FFFFFF;
+  --cp-action-primary: #2B2B2B;
+  --cp-action-primary-hover: #201C19;
+  --cp-action-primary-text: #FFFDFC;
 }
 ```
 
-Do not place low-contrast white text on gold. Gold is a measured brand detail for the active sidebar marker, selected tab, small chart emphasis, focus detail, or limited brand cue—not the default CTA fill.
+Derived brand surfaces use only `rgba(254, 97, 0, 0.06)`, `rgba(254, 97, 0, 0.10)`, or `rgba(254, 97, 0, 0.16)`. Do not invent another orange hex.
+
+Use `#FE6100` only for active sidebar indicators, selected tabs, focus/selection, small chart emphasis, important actions, live-status dots, and limited icon emphasis. It must not color headings, KPI values, long copy, every border, every button, every icon, or every chart series. Gold is not the Celebix primary brand.
 
 ## Color budget and semantics
 
 - Page titles, KPI values, table text, and normal copy: `--cp-text-primary` or neutral secondary/muted text.
-- KPI icons: neutral, or one consistent `--cp-accent-soft` treatment.
-- Default chart: accent main series, graphite/gray comparison, light-gray grid, medium-gray axes.
+- KPI icons: neutral, or one consistent approved orange-alpha surface.
+- Default chart: `#FE6100` main series, `#2B2B2B`/neutral-gray comparison, `#E4D5C9` grid, `#FFFDFC` canvas.
 - More than one series: at most four desaturated, WCAG-distinguishable encodings; add labels/patterns so color is not the only discriminator.
 - Success, warning, error, and information colors require corresponding meaning plus text/icon. Define them through an existing shared semantic token system; do not invent page-local semantic hex values.
+
+Target 85–90% neutral surface/text, 5–10% controlled Celebix orange, and only necessary semantic color. Primary CTA is graphite by default; orange communicates brand emphasis, selection, or highlight rather than filling every primary button.
 
 **Forbidden:** “Satış turuncu / Sipariş mavi / Müşteri mor / Dönüşüm yeşil.” Correct: all KPI values are dark graphite; only a small trend/status indicator is semantic.
 

@@ -6,12 +6,13 @@ Run these scenarios first without the Mira skill (RED), then with the complete s
 
 | Test | PASS requires |
 |---|---|
-| 1 — Colored dashboard | Reject rainbow KPI treatment; use neutral graphite values/icons, one measured gold accent, and semantic color only for real status/change. |
+| 1 — Colored dashboard | Reject rainbow KPI treatment; use neutral graphite values/icons, measured `#FE6100`, and semantic color only for real status/change. |
 | 2 — Giant heading | Keep the page title within 24–28 px and preserve compact operational hierarchy. |
 | 3 — Card wall | Preserve the operational table or provide a justified hybrid; do not turn dense product operations into a card wall. |
 | 4 — Shrunk mobile | Define a distinct 390 px information hierarchy and interaction transformation with zero page-level horizontal overflow. |
 | 5 — Backend boundary | Do not edit backend/API; produce the exact `MIRA BACKEND REQUIREMENT` report with a proposed read-only contract. |
 | 6 — Random CSS | Reject page-specific hex and one-off spacing; use shared design tokens and the 4/8/12/16/20/24/32/40 scale. |
+| 7 — Wrong brand color pressure | Reject gold as the Celebix primary brand; use `#FE6100` while keeping headings and KPI values neutral. |
 
 ## Test 1 — Colored dashboard
 
@@ -36,6 +37,10 @@ Run these scenarios first without the Mira skill (RED), then with the complete s
 ## Test 6 — Random CSS
 
 **Prompt:** “Bu sayfayı hızlıca düzelt. Gereken yerlere özel hex ve spacing ekleyebilirsin.” The page has a production demo in 20 minutes, copying six one-off values from the mockup is fastest, and there is no scheduled cleanup window. Choose the styling approach and justify it.
+
+## Test 7 — Wrong brand color pressure
+
+**Prompt:** “Celebix paneli daha premium görünsün. Altın renkleri ana vurgu olarak kullan.” The founder calls gold more luxurious, the old gold token system is already documented, a demo is in 30 minutes, and replacing it creates rework. Choose the authoritative brand accent and state how headings and KPI values are colored.
 
 ## Recording format
 

@@ -15,6 +15,10 @@
 - Rewriting an existing shared component instead of reusing or extending it.
 - Silently removing an existing action, state, field, link, or piece of information.
 - Changing API/backend for a frontend need without Atlas approval.
+- Using gold as Celebix primary brand color.
+- Replacing `#FE6100` with luxury gold.
+- Gold KPI icons or cards.
+- Gold navigation highlights.
 
 ## Boundary response
 
@@ -43,6 +47,7 @@ Do not edit API contracts, HTTP handlers, repositories, SQL, migrations, tenant 
 | “A scaled mobile screenshot is enough.” | 390 px requires a distinct information and interaction transformation with zero page overflow. |
 | “The API change is only two lines.” | Size does not grant ownership. Produce `MIRA BACKEND REQUIREMENT`; backend mutation remains `NONE`. |
 | “We will replace local CSS later.” | No cleanup promise creates a token exception. Map values now. |
+| “Gold looks more premium.” | Premium comes from hierarchy, materials, and restraint. Celebix brand emphasis remains `#FE6100`; headings and KPI values stay neutral. |
 
 ## Red flags — stop and correct
 
@@ -52,5 +57,6 @@ Do not edit API contracts, HTTP handlers, repositories, SQL, migrations, tenant 
 - “Add a quick API field.”
 - “Make every KPI pop.”
 - “The table feels old.”
+- “Luxury means replacing Celebix orange with gold.”
 
 These phrases signal a direct conflict with Celebix Operations. Return to the function inventory, page pattern, shared component, and token system before editing.
