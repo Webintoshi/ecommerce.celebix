@@ -12,7 +12,32 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
 } from "react";
+import {
+  Activity,
+  BarChart3,
+  ChevronRight,
+  CircleDollarSign,
+  Eye,
+  Filter,
+  MousePointerClick,
+  PackageCheck,
+  Percent,
+  ReceiptText,
+  ShoppingCart,
+  Users,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import {
   PanelEmptyState,
@@ -25,16 +50,17 @@ import {
   analyticsTrafficMetric,
   analyticsTrafficSources,
 } from "@/lib/analytics-ui/traffic";
+import {
+  ANALYTICS_WORKSPACE_TABS,
+  analyticsFunnelStages,
+  analyticsOverviewMetrics,
+  analyticsQueryHref,
+  analyticsTabHref,
+  type AnalyticsWorkspaceTab,
+} from "@/lib/analytics-ui/workspace";
 import styles from "./commerce-analytics-workspace.module.css";
 import { ActiveVisitorsCard } from "./ActiveVisitorsCard";
 
-const TABS = [
-  ["overview", "Genel Bakış"],
-  ["funnel", "Dönüşüm Hunisi"],
-  ["carts", "Sepet ve Checkout"],
-  ["acquisition", "Trafik Kaynakları"],
-  ["products", "Ürün Performansı"],
-] as const;
 const ROUTES = Object.freeze({
   overview: "/api/analytics/overview",
   funnel: "/api/analytics/funnel",
@@ -42,17 +68,9 @@ const ROUTES = Object.freeze({
   acquisition: "/api/analytics/acquisition",
   products: "/api/analytics/products",
 });
-const FUNNEL = [
-  ["product_view", "Product view"],
-  ["add_to_cart", "Add to cart"],
-  ["view_cart", "View cart"],
-  ["begin_checkout", "Begin checkout"],
-  ["payment_method_selected", "Payment method selected"],
-  ["purchase", "Paid purchase"],
-] as const;
 const DEGRADED =
   "Trafik verileri geçici olarak alınamıyor. Sipariş ve sepet verileri günceldir.";
-type Tab = keyof typeof ROUTES;
+type Tab = AnalyticsWorkspaceTab;
 type Range = "today" | "7d" | "30d" | "90d" | "custom";
 type Currency = Readonly<{
   currency: string;
@@ -406,14 +424,6 @@ function date(value: string, timezone: string) {
     timeZone: timezone,
   }).format(new Date(value));
 }
-function analyticsDay(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value));
-}
 function items(
   value: unknown,
   path?: string,
@@ -548,6 +558,38 @@ function delta(current: number | null, previous: number | null) {
     : percent((current - previous) / previous);
 }
 
+const KPI_ICONS = Object.freeze({
+  revenue: CircleDollarSign,
+  orders: ReceiptText,
+  visitors: Users,
+  average_order: ShoppingCart,
+  conversion: Percent,
+});
+
+function MetricCards({
+  metrics,
+}: Readonly<{
+  metrics: ReturnType<typeof analyticsOverviewMetrics>;
+}>) {
+  return (
+    <section className={styles.primaryMetrics} aria-label="Ana performans göstergeleri">
+      {metrics.map((metric) => {
+        const Icon = KPI_ICONS[metric.key];
+        return (
+          <article className={styles.primaryMetric} key={metric.key}>
+            <span className={styles.metricIcon} aria-hidden="true"><Icon /></span>
+            <div>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+              <small>{metric.state === "unavailable" ? "Veri alınamıyor" : metric.source}</small>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 function Bars({
   title,
   rows,
@@ -647,14 +689,7 @@ function FunnelPanel({
   events: Readonly<Record<string, number>>;
   paidOrders: number;
 }>) {
-  const steps = [
-      ...FUNNEL.map(([eventName, label]) => ({
-        eventName,
-        label,
-        value: events[eventName] ?? null,
-      })),
-    ] as const,
-    first = steps[0].value,
+  const steps = analyticsFunnelStages(events),
     checkoutSessions = events.begin_checkout ?? null,
     checkoutConversion =
       checkoutSessions !== null && checkoutSessions > 0
@@ -672,37 +707,20 @@ function FunnelPanel({
       </div>
       <ol className={styles.funnel}>
         {steps.map((step, index) => {
-          const prior = index ? steps[index - 1]!.value : null,
-            priorRate =
-              step.value !== null && prior !== null && prior > 0
-                ? step.value / prior
-                : null,
-            firstRate =
-              step.value !== null && first !== null && first > 0
-                ? step.value / first
-                : null,
-            loss =
-              step.value !== null && prior !== null
-                ? Math.max(0, prior - step.value)
-                : null,
-            lossRate =
-              loss !== null && prior !== null && prior > 0
-                ? loss / prior
-                : null;
           return (
-            <li key={step.eventName}>
-              <strong>{step.label}</strong>
-              <span>
-                {step.value === null
-                  ? "Hesaplanamadı"
-                  : step.value.toLocaleString("tr-TR")}
-              </span>
-              <small>
-                Önceki: {index ? percent(priorRate) : "Başlangıç"} · İlk adıma
-                göre: {percent(firstRate)} · Kayıp:{" "}
-                {loss === null ? "Hesaplanamadı" : loss.toLocaleString("tr-TR")}{" "}
-                ({percent(lossRate)})
-              </small>
+            <li key={step.event}>
+              <span className={styles.funnelIndex}>{index + 1}</span>
+              <div className={styles.funnelStage}>
+                <strong>{step.label}</strong>
+                <span>{step.count === null ? "—" : step.count.toLocaleString("tr-TR")}</span>
+                <small>{index ? `Önceki adımdan ${percent(step.previousRate)}` : "Başlangıç noktası"}</small>
+              </div>
+              <div className={styles.funnelDropoff}>
+                <span>Kayıp</span>
+                <strong>{step.dropoff === null ? "—" : step.dropoff.toLocaleString("tr-TR")}</strong>
+                <small>{percent(step.dropoffRate)}</small>
+              </div>
+              <span className={styles.funnelTotal}>Toplam dönüşüm {percent(step.totalRate)}</span>
             </li>
           );
         })}
@@ -727,6 +745,7 @@ function FilterForm({
   currencies: readonly string[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }>) {
+  const selectedCurrency = params.get("currency") ?? "";
   return (
     <form
       className={styles.filterGrid}
@@ -737,6 +756,9 @@ function FilterForm({
         Para birimi
         <select name="currency" defaultValue={params.get("currency") ?? ""}>
           <option value="">Tümü (ayrı)</option>
+          {selectedCurrency && !currencies.includes(selectedCurrency) ? (
+            <option value={selectedCurrency}>{selectedCurrency}</option>
+          ) : null}
           {currencies.map((value) => (
             <option key={value}>{value}</option>
           ))}
@@ -933,6 +955,18 @@ function FilterForm({
   );
 }
 
+function PaginationAction({
+  disabled,
+  href,
+  children,
+}: Readonly<{ disabled: boolean; href: string; children: ReactNode }>) {
+  return disabled ? (
+    <span aria-disabled="true">{children}</span>
+  ) : (
+    <Link href={href}>{children}</Link>
+  );
+}
+
 export function CommerceAnalyticsWorkspace({
   tab,
   range,
@@ -958,6 +992,10 @@ export function CommerceAnalyticsWorkspace({
   const [state, setState] = useState<"loading" | "ready" | "error">("loading"),
     [data, setData] = useState<Payload>(),
     [error, setError] = useState("");
+  useEffect(() => {
+    setFrom(customFrom ?? "");
+    setTo(customTo ?? "");
+  }, [customFrom, customTo]);
   const apiQuery = useMemo(() => {
     const query = new URLSearchParams(serialized);
     query.delete("tab");
@@ -1006,53 +1044,22 @@ export function CommerceAnalyticsWorkspace({
       [data?.comparisonTraffic],
     );
   const href = (patch: Record<string, string | null>) => {
-    const query = new URLSearchParams(serialized);
-    for (const [key, value] of Object.entries(patch))
-      value === null ? query.delete(key) : query.set(key, value);
-    return `/analytics?${query.toString()}`;
+    return analyticsQueryHref(serialized, patch);
   };
-  const tabHref = (next: Tab) => {
-    const query = new URLSearchParams(serialized);
-    const allowed = new Set<string>([
-      "range",
-      "from",
-      "to",
-      "timezone",
-      "compare",
-      "currency",
-      ...(next === "funnel"
-        ? ["device", "source", "campaign", "product", "category"]
-        : next === "carts"
-          ? [
-              "lifecycle",
-              "contact",
-              "minValue",
-              "maxValue",
-              "source",
-              "campaign",
-              "device",
-              "search",
-              "page",
-            ]
-          : next === "acquisition"
-            ? ["touch", "source", "campaign"]
-            : next === "products"
-              ? [
-                  "search",
-                  "product",
-                  "category",
-                  "brand",
-                  "source",
-                  "campaign",
-                  "device",
-                  "page",
-                ]
-              : []),
-    ]);
-    for (const key of [...query.keys()])
-      if (key !== "tab" && !allowed.has(key)) query.delete(key);
-    query.set("tab", next);
-    return `/analytics?${query.toString()}`;
+  const tabHref = (next: Tab) => analyticsTabHref(serialized, next);
+  const onTabKeyDown = (event: KeyboardEvent<HTMLAnchorElement>, index: number) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const last = ANALYTICS_WORKSPACE_TABS.length - 1;
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? last
+        : event.key === "ArrowRight"
+          ? (index + 1) % ANALYTICS_WORKSPACE_TABS.length
+          : (index - 1 + ANALYTICS_WORKSPACE_TABS.length) % ANALYTICS_WORKSPACE_TABS.length;
+    event.currentTarget.parentElement?.querySelectorAll<HTMLAnchorElement>('[role="tab"]')[nextIndex]?.focus();
+    router.push(tabHref(ANALYTICS_WORKSPACE_TABS[nextIndex]!.value));
   };
   function filters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1087,16 +1094,30 @@ export function CommerceAnalyticsWorkspace({
     <PanelPageShell>
       <div className={styles.root}>
         <PanelPageHeader
-          title="Ticaret Analitiği"
-          description="Anonim trafik Umami’den; sipariş, gelir ve sepet sonuçları PostgreSQL’den gelir."
+          title="Analizler"
+          description="Mağazanızın performansını detaylı verilerle analiz edin."
         />
-        <nav className={styles.tabs} aria-label="Analitik bölümleri">
-          {TABS.map(([value, label]) => (
+        <header className={styles.pageHeader}>
+          <div>
+            <nav className={styles.breadcrumb} aria-label="İçerik yolu">
+              <Link href="/">Ana Sayfa</Link><ChevronRight aria-hidden="true" /><span aria-current="page">Analizler</span>
+            </nav>
+            <h1>Analizler</h1>
+            <p>Mağazanızın performansını detaylı verilerle analiz edin.</p>
+          </div>
+          <div className={styles.liveMetric}><ActiveVisitorsCard /></div>
+        </header>
+        <nav className={styles.tabs} aria-label="Analitik bölümleri" role="tablist">
+          {ANALYTICS_WORKSPACE_TABS.map(({ value, label }, index) => (
             <Link
               key={value}
               aria-current={value === tab ? "page" : undefined}
+              aria-selected={value === tab}
               className={value === tab ? styles.activeTab : styles.tab}
               href={tabHref(value)}
+              role="tab"
+              tabIndex={value === tab ? 0 : -1}
+              onKeyDown={(event) => onTabKeyDown(event, index)}
             >
               {label}
             </Link>
@@ -1106,10 +1127,12 @@ export function CommerceAnalyticsWorkspace({
           className={styles.controls}
           aria-label="Analitik tarih aralığı"
         >
-          <span>Tarih</span>
+          <strong>Tarih aralığı</strong>
           {(["today", "7d", "30d", "90d"] as const).map((value) => (
             <Link
               key={value}
+              aria-current={range === value ? "date" : undefined}
+              className={range === value ? styles.activeRange : undefined}
               href={href({
                 range: value,
                 from: null,
@@ -1120,81 +1143,46 @@ export function CommerceAnalyticsWorkspace({
               {value === "today" ? "Bugün" : `Son ${value.slice(0, -1)} gün`}
             </Link>
           ))}
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (from && to)
-                router.push(
-                  href({
-                    range: null,
-                    from,
-                    to,
-                    timezone: timezone ?? null,
-                    compare: null,
-                  }),
-                );
-            }}
-          >
-            <label>
-              Başlangıç
-              <input
-                type="date"
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Bitiş
-              <input
-                type="date"
-                value={to}
-                onChange={(event) => setTo(event.target.value)}
-                required
-              />
-            </label>
-            <button type="submit">Özel aralığı uygula</button>
-          </form>
           {range !== "custom" ? (
             <Link
+              className={compare ? styles.activeRange : undefined}
               href={href({ compare: compare ? null : "1" })}
               aria-pressed={compare}
             >
-              {compare ? "Önceki dönem: açık" : "Önceki dönemle karşılaştır"}
+              {compare ? "Kıyaslama açık" : "Önceki dönemle kıyasla"}
             </Link>
           ) : null}
-          <label>
-            Timezone
-            <input
-              value={timezoneDraft}
-              maxLength={64}
-              onChange={(event) => setTimezoneDraft(event.currentTarget.value)}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => {
+          <details className={styles.advancedRange}>
+            <summary>Özel tarih</summary>
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              if (from && to) router.push(href({ range: null, from, to, timezone: timezone ?? null, compare: null }));
+            }}>
+              <label>Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} required /></label>
+              <label>Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} required /></label>
+              <button type="submit">Uygula</button>
+            </form>
+          </details>
+          <details className={styles.advancedRange}>
+            <summary>Saat dilimi</summary>
+            <label>Timezone<input value={timezoneDraft} maxLength={64} onChange={(event) => setTimezoneDraft(event.currentTarget.value)} /></label>
+            <button type="button" onClick={() => {
               try {
                 new Intl.DateTimeFormat("en", { timeZone: timezoneDraft });
                 setTimezone(timezoneDraft);
                 router.push(href({ timezone: timezoneDraft }));
-              } catch {
-                setError("Geçerli bir IANA saat dilimi girin.");
-              }
-            }}
-          >
-            Saat dilimini uygula
-          </button>
+              } catch { setError("Geçerli bir IANA saat dilimi girin."); }
+            }}>Uygula</button>
+          </details>
         </section>
-        <FilterForm
-          tab={tab}
-          params={new URLSearchParams(serialized)}
-          currencies={[...new Set(current.map((row) => row.currency))]}
-          onSubmit={filters}
-        />
+        <details className={styles.filterPanel} open={tab !== "overview"}>
+          <summary><Filter aria-hidden="true" /> Filtreler</summary>
+          <FilterForm key={`${tab}:${serialized}`} tab={tab} params={new URLSearchParams(serialized)} currencies={[...new Set(current.map((row) => row.currency))]} onSubmit={filters} />
+        </details>
         {state === "loading" ? (
-          <div className={styles.loading} role="status">
-            Analitik yükleniyor…
+          <div className={styles.loading} role="status" aria-label="Analitik yükleniyor">
+            <span className={styles.skeletonMetric} /><span className={styles.skeletonMetric} /><span className={styles.skeletonMetric} /><span className={styles.skeletonMetric} /><span className={styles.skeletonMetric} />
+            <span className={styles.skeletonChart} /><span className={styles.skeletonChart} />
           </div>
         ) : null}
         {state === "error" ? (
@@ -1204,7 +1192,7 @@ export function CommerceAnalyticsWorkspace({
           <>
             {data.status === "degraded" ? (
               <div className={styles.warning} role="status">
-                <strong>{data.message ?? DEGRADED}</strong>
+                <Activity aria-hidden="true" /><div><strong>Analitik durumu</strong><span>{data.message ?? DEGRADED}</span></div>
               </div>
             ) : null}
             {compare && data.comparisonCommerce ? (
@@ -1224,14 +1212,7 @@ export function CommerceAnalyticsWorkspace({
                     prior = previous.find((row) => row.currency === currency);
                   return (
                     <span key={currency}>
-                      {currency}: paid {active?.paidOrders ?? 0} /{" "}
-                      {prior?.paidOrders ?? 0} · ciro{" "}
-                      {money(active?.grossRevenueMinor ?? 0, currency)} /{" "}
-                      {money(prior?.grossRevenueMinor ?? 0, currency)} · terk{" "}
-                      {active?.abandonedCarts ?? 0} /{" "}
-                      {prior?.abandonedCarts ?? 0} · geri kazanılan{" "}
-                      {active?.recoveredCarts ?? 0} /{" "}
-                      {prior?.recoveredCarts ?? 0}
+                      {currency}: sipariş {active ? active.paidOrders : "—"} / {prior ? prior.paidOrders : "—"} · ciro {active ? money(active.grossRevenueMinor, currency) : "—"} / {prior ? money(prior.grossRevenueMinor, currency) : "—"} · terk {active ? active.abandonedCarts : "—"} / {prior ? prior.abandonedCarts : "—"} · geri kazanılan {active ? active.recoveredCarts : "—"} / {prior ? prior.recoveredCarts : "—"}
                     </span>
                   );
                 })}
@@ -1317,29 +1298,10 @@ export function CommerceAnalyticsWorkspace({
                 description="Veri yok durumu servis kesintisinden ayrı gösterilir."
               />
             ) : null}
-            <section className={styles.health}>
-              <h2>Event teslimat sağlığı</h2>
-              <span>Bekleyen {data.commerce.worker.pending}</span>
-              <span>Claimed {data.commerce.worker.claimed}</span>
-              <span>Retry {data.commerce.worker.retry}</span>
-              <span>Dead-letter {data.commerce.worker.deadLetter}</span>
-              <span>
-                En eski {data.commerce.worker.oldestPendingSeconds} sn
-              </span>
-              <span>
-                Son başarılı teslimat{" "}
-                {data.commerce.worker.lastSuccessfulDelivery
-                  ? date(
-                      data.commerce.worker.lastSuccessfulDelivery,
-                      activeTimezone,
-                    )
-                  : "Yok"}
-              </span>
-              <span>
-                Teslimat gecikmesi{" "}
-                {data.commerce.worker.deliveryLatencyMilliseconds} ms
-              </span>
-            </section>
+            <details className={styles.health}>
+              <summary>Event teslimat sağlığı</summary>
+              <div><span>Bekleyen {data.commerce.worker.pending}</span><span>Claimed {data.commerce.worker.claimed}</span><span>Retry {data.commerce.worker.retry}</span><span>Dead-letter {data.commerce.worker.deadLetter}</span><span>En eski {data.commerce.worker.oldestPendingSeconds} sn</span><span>Son başarılı teslimat {data.commerce.worker.lastSuccessfulDelivery ? date(data.commerce.worker.lastSuccessfulDelivery, activeTimezone) : "Yok"}</span><span>Teslimat gecikmesi {data.commerce.worker.deliveryLatencyMilliseconds} ms</span></div>
+            </details>
           </>
         ) : null}
         <footer className={styles.footer}>
@@ -1351,189 +1313,99 @@ export function CommerceAnalyticsWorkspace({
   );
 }
 
-function Overview({
-  data,
-  traffic,
-  events,
-  timezone,
-}: Readonly<{
-  data: Payload;
-  traffic: ReturnType<typeof trafficSummary>;
-  events: Readonly<Record<string, number>>;
-  timezone: string;
-}>) {
+function RevenueChart({ data, timezone, currency }: Readonly<{ data: Payload; timezone: string; currency: string }>) {
+  const rows = data.commerce.series.filter((row) => row.currency === currency).map((row) => ({
+    label: new Date(row.startsAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", timeZone: timezone }),
+    revenue: row.grossRevenueMinor,
+    orders: row.paidOrders,
+  }));
+  const totalRevenue = rows.reduce((sum, row) => sum + row.revenue, 0);
+  const totalOrders = rows.reduce((sum, row) => sum + row.orders, 0);
+  return (
+    <section className={`${styles.chart} ${styles.salesChart}`} aria-labelledby={`sales-chart-${currency}`}>
+      <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><BarChart3 aria-hidden="true" /></span><div><h2 id={`sales-chart-${currency}`}>Satış Performansı</h2><p>{currency} · Seçili dönem</p></div></div><strong>{money(totalRevenue, currency)}</strong></header>
+      {rows.length ? <>
+        <div className={styles.rechart} role="img" aria-label={`${currency} satış performansı: ${totalOrders.toLocaleString("tr-TR")} sipariş ve ${money(totalRevenue, currency)} gelir.`}>
+          <ResponsiveContainer width="100%" height="100%"><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+            <defs><linearGradient id={`salesFill-${currency}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FE6100" stopOpacity={0.16} /><stop offset="100%" stopColor="#FE6100" stopOpacity={0.06} /></linearGradient></defs>
+            <CartesianGrid vertical={false} stroke="#E7E2DD" strokeDasharray="3 4" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={(value) => money(Number(value), currency)} width={72} />
+            <Tooltip formatter={(value) => [money(Number(value), currency), "Bu dönem"]} />
+            <Area type="monotone" dataKey="revenue" stroke="#FE6100" strokeWidth={2.5} fill={`url(#salesFill-${currency})`} />
+          </AreaChart></ResponsiveContainer>
+        </div>
+        <table className={styles.srOnly}>
+          <caption>{currency} satış performansı ayrıntıları</caption>
+          <thead><tr><th scope="col">Tarih</th><th scope="col">Gelir</th><th scope="col">Sipariş</th></tr></thead>
+          <tbody>{rows.map((row) => <tr key={row.label}><th scope="row">{row.label}</th><td>{money(row.revenue, currency)}</td><td>{row.orders.toLocaleString("tr-TR")}</td></tr>)}</tbody>
+        </table>
+      </> : <p className={styles.emptyChart}>Bu dönem için satış hareketi yok.</p>}
+    </section>
+  );
+}
+
+function SessionsChart({ traffic, timezone }: Readonly<{ traffic: ReturnType<typeof trafficSummary>; timezone: string }>) {
+  if (!traffic) return <UnavailableChart title="Oturum Trendi" />;
+  const rows = traffic.series.map((point) => ({
+    label: new Date(point.at).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", timeZone: timezone }),
+    sessions: point.value,
+  }));
+  return (
+    <section className={styles.chart} aria-labelledby="sessions-chart">
+      <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><Users aria-hidden="true" /></span><div><h2 id="sessions-chart">Oturum Trendi</h2><p>Umami oturum serisi</p></div></div></header>
+      {rows.length ? <>
+      <div className={styles.rechart} role="img" aria-label={`Seçili dönemde toplam ${traffic.visits.toLocaleString("tr-TR")} oturum.`}>
+        <ResponsiveContainer width="100%" height="100%"><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="#E7E2DD" strokeDasharray="3 4" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} />
+          <Tooltip formatter={(value) => [Number(value).toLocaleString("tr-TR"), "Oturum"]} />
+          <Area type="monotone" dataKey="sessions" stroke="#FE6100" strokeWidth={2.5} fill="rgba(254, 97, 0, 0.10)" />
+        </AreaChart></ResponsiveContainer>
+      </div>
+      <table className={styles.srOnly}>
+        <caption>Oturum trendi ayrıntıları</caption>
+        <thead><tr><th scope="col">Tarih</th><th scope="col">Oturum</th></tr></thead>
+        <tbody>{rows.map((row) => <tr key={row.label}><th scope="row">{row.label}</th><td>{row.sessions.toLocaleString("tr-TR")}</td></tr>)}</tbody>
+      </table>
+      </> : <p className={styles.emptyChart}>Bu dönem için oturum hareketi yok.</p>}
+    </section>
+  );
+}
+
+function Overview({ data, traffic, events, timezone }: Readonly<{ data: Payload; traffic: ReturnType<typeof trafficSummary>; events: Readonly<Record<string, number>>; timezone: string }>) {
   const sources = analyticsTrafficSources(data.traffic),
     pages = analyticsTrafficMetric(data.traffic, "path"),
     referrers = analyticsTrafficMetric(data.traffic, "referrer"),
     devices = analyticsTrafficMetric(data.traffic, "device"),
-    countries = analyticsTrafficMetric(data.traffic, "country");
+    countries = analyticsTrafficMetric(data.traffic, "country"),
+    funnel = analyticsFunnelStages(events);
   return (
-    <>
-      {
-        <section className={styles.metrics}>
-          <ActiveVisitorsCard />
-          <PanelMetricCard
-            label="Ziyaretçiler"
-            value={
-              traffic
-                ? traffic.visitors.toLocaleString("tr-TR")
-                : "Kullanılamıyor"
-            }
-          />
-          <PanelMetricCard
-            label="Sayfa görüntülemeleri"
-            value={
-              traffic
-                ? traffic.pageviews.toLocaleString("tr-TR")
-                : "Kullanılamıyor"
-            }
-          />
-          <PanelMetricCard
-            label="Oturumlar"
-            value={
-              traffic
-                ? traffic.visits.toLocaleString("tr-TR")
-                : "Kullanılamıyor"
-            }
-          />
-          <PanelMetricCard
-            label="Hemen çıkma oranı"
-            value={
-              traffic
-                ? percent(traffic.bounceRateBasisPoints / 10_000)
-                : "Kullanılamıyor"
-            }
-          />
-          <PanelMetricCard
-            label="Ortalama oturum süresi"
-            value={
-              traffic
-                ? `${traffic.averageVisitSeconds.toLocaleString("tr-TR")} sn`
-                : "Kullanılamıyor"
-            }
-          />
-          <PanelMetricCard
-            label="Sepete ekleme oranı"
-            value={percent(
-              (events.product_view ?? 0) > 0
-                ? (events.add_to_cart ?? 0) / (events.product_view ?? 1)
-                : null,
-            )}
-          />
-          <PanelMetricCard
-            label="Checkout başlatma oranı"
-            value={percent(
-              (events.add_to_cart ?? 0) > 0
-                ? (events.begin_checkout ?? 0) / (events.add_to_cart ?? 1)
-                : null,
-            )}
-          />
-        </section>
-      }
-      {data.commerce.currencies.map((bucket) => (
-        <CurrencyCards
-          key={bucket.currency}
-          bucket={bucket}
-          visitors={traffic?.visitors ?? null}
-        />
-      ))}
-      <div className={styles.chartGrid}>
-        {traffic ? (
-          <Bars
-            title="Ziyaretçi zaman serisi"
-            rows={traffic.series.map((row) => ({
-              label: new Date(row.at).toLocaleDateString("tr-TR", {
-                timeZone: timezone,
-              }),
-              value: row.value,
-            }))}
-          />
-        ) : (
-          <UnavailableChart title="Ziyaretçi zaman serisi" />
-        )}
-        <Bars
-          title="Ciro zaman serisi"
-          rows={data.commerce.series.map((row) => ({
-            label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} · ${row.currency}`,
-            value: row.grossRevenueMinor,
-          }))}
-        />
-        <Bars
-          title="Paid sipariş zaman serisi"
-          rows={data.commerce.series.map((row) => ({
-            label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} · ${row.currency}`,
-            value: row.paidOrders,
-          }))}
-        />
-        {traffic ? (
-          <Bars
-            title="Paid dönüşüm zaman serisi (binde)"
-            rows={data.commerce.series.flatMap((row) => {
-              const visitors =
-                traffic.series.find(
-                  (point) =>
-                    analyticsDay(point.at, timezone) ===
-                    analyticsDay(row.startsAt, timezone),
-                )?.value ?? 0;
-              return visitors > 0
-                ? [
-                    {
-                      label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} · ${row.currency}`,
-                      value: Math.round((row.paidOrders / visitors) * 1000),
-                    },
-                  ]
-                : [];
-            })}
-          />
-        ) : (
-          <UnavailableChart title="Paid dönüşüm zaman serisi (binde)" />
-        )}
-        <Bars
-          title="Terk / geri kazanım trendi"
-          rows={data.commerce.series.flatMap((row) => [
-            {
-              label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} terk`,
-              value: row.abandonedCarts,
-            },
-            {
-              label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} geri`,
-              value: row.recoveredCarts,
-            },
-          ])}
-        />
-        {sources !== null ? (
-          <Bars
-            title="Trafik kaynağı dağılımı"
-            rows={sources.slice(0, 10)}
-          />
-        ) : (
-          <UnavailableChart title="Trafik kaynağı dağılımı" />
-        )}
-        {pages !== null ? (
-          <Bars
-            title="En çok görüntülenen sayfalar"
-            rows={pages.slice(0, 10)}
-          />
-        ) : (
-          <UnavailableChart title="En çok görüntülenen sayfalar" />
-        )}
-        {referrers !== null ? (
-          <Bars title="Yönlendiren kaynaklar" rows={referrers.slice(0, 10)} />
-        ) : (
-          <UnavailableChart title="Yönlendiren kaynaklar" />
-        )}
-        {devices !== null ? (
-          <Bars title="Cihaz dağılımı" rows={devices.slice(0, 10)} />
-        ) : (
-          <UnavailableChart title="Cihaz dağılımı" />
-        )}
-        {countries !== null ? (
-          <Bars title="Ülke dağılımı" rows={countries.slice(0, 10)} />
-        ) : (
-          <UnavailableChart title="Ülke dağılımı" />
-        )}
+    <div className={styles.overview}>
+      {data.commerce.currencies.map((bucket, index) => <div className={styles.currencySection} key={bucket.currency}>
+        <div className={styles.currencyHeading}><strong>{bucket.currency}</strong><span>Para birimleri birleştirilmeden ayrı gösterilir.</span></div>
+        <MetricCards metrics={analyticsOverviewMetrics(bucket, traffic?.visitors ?? null)} />
+        <div className={styles.performanceGrid}><RevenueChart data={data} timezone={timezone} currency={bucket.currency} />{index === 0 ? <SessionsChart traffic={traffic} timezone={timezone} /> : null}</div>
+      </div>)}
+      <section className={styles.behaviorMetrics} aria-label="Ziyaret davranışı">
+        <article><Eye aria-hidden="true" /><span>Sayfa görüntüleme</span><strong>{traffic ? traffic.pageviews.toLocaleString("tr-TR") : "—"}</strong><small>{traffic ? "Umami" : "Veri alınamıyor"}</small></article>
+        <article><Activity aria-hidden="true" /><span>Oturumlar</span><strong>{traffic ? traffic.visits.toLocaleString("tr-TR") : "—"}</strong><small>{traffic ? `Ortalama oturum süresi ${traffic.averageVisitSeconds.toLocaleString("tr-TR")} sn` : "Veri alınamıyor"}</small></article>
+        <article><Percent aria-hidden="true" /><span>Hemen çıkma oranı</span><strong>{traffic ? percent(traffic.bounceRateBasisPoints / 10_000) : "—"}</strong><small>{traffic ? "Umami" : "Veri alınamıyor"}</small></article>
+        <article><MousePointerClick aria-hidden="true" /><span>Sepete ekleme</span><strong>{percent(events.product_view ? (events.add_to_cart ?? 0) / events.product_view : null)}</strong><small>Ürün görüntülemeden</small></article>
+        <article><Percent aria-hidden="true" /><span>Checkout başlatma</span><strong>{percent(events.add_to_cart ? (events.begin_checkout ?? 0) / events.add_to_cart : null)}</strong><small>Sepete eklemeden</small></article>
+      </section>
+      <div className={styles.summaryGrid}>
+        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><MousePointerClick aria-hidden="true" /></span><div><h2>Dönüşüm Özeti</h2><p>Altı adımlı müşteri yolculuğu</p></div></div><Link href={analyticsTabHref("", "funnel")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><ol className={styles.funnelSummary}>{funnel.map((stage, index) => <li key={stage.event}><span>{index + 1}</span><div><strong>{stage.label}</strong><small>{stage.count === null ? "Veri alınamıyor" : `${stage.count.toLocaleString("tr-TR")} oturum`}</small></div><b>{percent(stage.totalRate)}</b></li>)}</ol></section>
+        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><ShoppingCart aria-hidden="true" /></span><div><h2>Sepet Özeti</h2><p>Terk ve geri kazanım</p></div></div><Link href={analyticsTabHref("", "carts")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><div className={styles.cartSummary}>{data.commerce.currencies.map((bucket) => <dl key={bucket.currency}><div><dt>Aktif sepet</dt><dd>{bucket.activeCarts}</dd></div><div><dt>Terk edilen</dt><dd>{bucket.abandonedCarts}</dd></div><div><dt>Geri kazanılan</dt><dd>{bucket.recoveredCarts}</dd></div><div><dt>Geri kazanılan ciro</dt><dd>{money(bucket.recoveredNetMinor, bucket.currency)}</dd></div></dl>)}</div></section>
       </div>
-    </>
+      <div className={styles.summaryGrid}>
+        {sources === null ? <UnavailableChart title="Trafik Kaynakları" /> : <Bars title="Trafik Kaynakları" rows={sources.slice(0, 5)} />}
+        {countries === null ? <UnavailableChart title="Ülke dağılımı" /> : <Bars title="Ülke dağılımı" rows={countries.slice(0, 10)} />}
+      </div>
+      <details className={styles.secondaryAnalytics}><summary>Diğer trafik kırılımları</summary><div className={styles.chartGrid}>
+        {pages === null ? <UnavailableChart title="En çok görüntülenen sayfalar" /> : <Bars title="En çok görüntülenen sayfalar" rows={pages.slice(0, 10)} />}
+        {referrers === null ? <UnavailableChart title="Yönlendiren kaynaklar" /> : <Bars title="Yönlendiren kaynaklar" rows={referrers.slice(0, 10)} />}
+        {devices === null ? <UnavailableChart title="Cihaz dağılımı" /> : <Bars title="Cihaz dağılımı" rows={devices.slice(0, 10)} />}
+        <Bars title="Terk / geri kazanım trendi" rows={data.commerce.series.flatMap((row) => [{ label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} terk`, value: row.abandonedCarts }, { label: `${new Date(row.startsAt).toLocaleDateString("tr-TR", { timeZone: timezone })} geri`, value: row.recoveredCarts }])} />
+      </div></details>
+    </div>
   );
 }
 function Carts({
@@ -1582,28 +1454,20 @@ function Carts({
         ])}
       </section>
       <section className={styles.tablePanel}>
-        <h2>Sepet ve checkout listesi</h2>
+        <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><ShoppingCart aria-hidden="true" /></span><div><h2>Sepet ve Checkout Listesi</h2><p>Operasyonel sepet hareketleri, maskeli müşteri görünümü</p></div></div></header>
         <div className={styles.tableScroll}>
           <table>
             <thead>
               <tr>
-                <th>Müşteri</th>
-                <th>Ürünler</th>
-                <th>Değer</th>
-                <th>Son hareket / terk</th>
-                <th>Kaynak</th>
-                <th>Cihaz</th>
-                <th>Durum</th>
-                <th>İletişim</th>
-                <th>Aksiyon</th>
+                <th scope="col">Müşteri</th><th scope="col">Sepet</th><th scope="col">Tutar</th><th scope="col">Son hareket / terk</th><th scope="col">Kaynak</th><th scope="col">Cihaz</th><th scope="col">Durum</th><th scope="col">İletişim</th><th scope="col">Aksiyon</th>
               </tr>
             </thead>
             <tbody>
               {data.commerce.carts.map((cart) => (
                 <tr key={cart.id}>
-                  <td>{cart.customerLabel}</td>
-                  <td>{cart.productSummary}</td>
-                  <td>
+                  <td data-label="Müşteri">{cart.customerLabel}</td>
+                  <td data-label="Sepet">{cart.productSummary}</td>
+                  <td data-label="Tutar">
                     <strong>{money(cart.totalMinor, cart.currency)}</strong>
                     <small>
                       Ara {money(cart.subtotalMinor, cart.currency)} · İndirim{" "}
@@ -1611,7 +1475,7 @@ function Carts({
                       {money(cart.shippingMinor, cart.currency)}
                     </small>
                   </td>
-                  <td>
+                  <td data-label="Son hareket">
                     {date(cart.lastActivityAt, timezone)}
                     <small>
                       {cart.abandonedAt
@@ -1619,20 +1483,20 @@ function Carts({
                         : "Terk edilmedi"}
                     </small>
                   </td>
-                  <td>
+                  <td data-label="Kaynak">
                     {cart.source}
                     <small>{cart.campaign ?? "Campaign yok"}</small>
                   </td>
-                  <td>{cart.device}</td>
-                  <td>{cart.lifecycle}</td>
-                  <td>
+                  <td data-label="Cihaz">{cart.device}</td>
+                  <td data-label="Durum"><span className={styles.statusBadge}>{cart.lifecycle}</span></td>
+                  <td data-label="İletişim">
                     {cart.contacted
                       ? "İletişim kuruldu"
                       : cart.contactable
                         ? "Kurulabilir"
                         : "Kurulamaz"}
                   </td>
-                  <td>
+                  <td data-label="Aksiyon">
                     <Link href={`/orders/abandoned-carts/${cart.id}`}>
                       Detay / aksiyonlar
                     </Link>
@@ -1647,33 +1511,23 @@ function Carts({
         ) : null}
       </section>
       <nav aria-label="Sepet listesi sayfaları" className={styles.pagination}>
-        <Link
-          aria-disabled={data.commerce.cartPage.page <= 1}
-          href={
-            data.commerce.cartPage.page <= 1
-              ? href({ page: "1" })
-              : href({ page: String(data.commerce.cartPage.page - 1) })
-          }
+        <PaginationAction
+          disabled={data.commerce.cartPage.page <= 1}
+          href={href({ page: String(data.commerce.cartPage.page - 1) })}
         >
           Önceki
-        </Link>
+        </PaginationAction>
         <span>
           Sayfa {data.commerce.cartPage.page} /{" "}
           {Math.max(data.commerce.cartPage.totalPages, 1)} ·{" "}
           {data.commerce.cartPage.totalItems.toLocaleString("tr-TR")} sepet
         </span>
-        <Link
-          aria-disabled={
-            data.commerce.cartPage.page >= data.commerce.cartPage.totalPages
-          }
-          href={
-            data.commerce.cartPage.page >= data.commerce.cartPage.totalPages
-              ? href({ page: String(data.commerce.cartPage.page) })
-              : href({ page: String(data.commerce.cartPage.page + 1) })
-          }
+        <PaginationAction
+          disabled={data.commerce.cartPage.page >= data.commerce.cartPage.totalPages}
+          href={href({ page: String(data.commerce.cartPage.page + 1) })}
         >
           Sonraki
-        </Link>
+        </PaginationAction>
       </nav>
     </>
   );
@@ -1750,24 +1604,15 @@ function Acquisition({
         </p>
       ) : null}
       <section className={styles.tablePanel}>
-        <h2>
+        <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><Users aria-hidden="true" /></span><div><h2>
           {params.get("touch") === "first" ? "First-touch" : "Last-touch"}{" "}
           trafik kaynakları
-        </h2>
+        </h2><p>Kaynak, kampanya, sipariş ve gelir ilişkisi</p></div></div></header>
         <div className={styles.tableScroll}>
           <table>
             <thead>
               <tr>
-                <th>Source / medium</th>
-                <th>Campaign</th>
-                <th>Visitors</th>
-                <th>Product views</th>
-                <th>Add to cart</th>
-                <th>Checkout</th>
-                <th>Paid / conversion</th>
-                <th>Revenue</th>
-                <th>Abandoned</th>
-                <th>Recovered revenue</th>
+                <th scope="col">Kaynak / medium</th><th scope="col">Kampanya</th><th scope="col">Ziyaretçi</th><th scope="col">Ürün görüntüleme</th><th scope="col">Sepete ekleme</th><th scope="col">Checkout</th><th scope="col">Sipariş / dönüşüm</th><th scope="col">Gelir</th><th scope="col">Terk edilen</th><th scope="col">Geri kazanılan gelir</th>
               </tr>
             </thead>
             <tbody>
@@ -1779,7 +1624,7 @@ function Acquisition({
                   <tr
                     key={`${row?.touch ?? "traffic"}:${source}:${medium}:${campaign}:${row?.currency ?? "none"}:${index}`}
                   >
-                    <td>
+                    <td data-label="Kaynak">
                       {source === "direct"
                         ? "Doğrudan"
                         : source === "unknown"
@@ -1787,24 +1632,24 @@ function Acquisition({
                           : source}{" "}
                       / {medium}
                     </td>
-                    <td>{campaign ?? "—"}</td>
-                    <td>{behavior?.visitors ?? "Kullanılamıyor"}</td>
-                    <td>{behavior?.productViews ?? "Kullanılamıyor"}</td>
-                    <td>{behavior?.addsToCart ?? "Kullanılamıyor"}</td>
-                    <td>{behavior?.checkouts ?? "Kullanılamıyor"}</td>
-                    <td>
-                      {row?.paidOrders ?? 0} /{" "}
+                    <td data-label="Kampanya">{campaign ?? "—"}</td>
+                    <td data-label="Ziyaretçi">{behavior?.visitors ?? "—"}</td>
+                    <td data-label="Ürün görüntüleme">{behavior?.productViews ?? "—"}</td>
+                    <td data-label="Sepete ekleme">{behavior?.addsToCart ?? "—"}</td>
+                    <td data-label="Checkout">{behavior?.checkouts ?? "—"}</td>
+                    <td data-label="Sipariş / dönüşüm">
+                      {row ? row.paidOrders : "—"} /{" "}
                       {percent(
                         behavior?.visitors && row
                           ? row.paidOrders / behavior.visitors
                           : null,
                       )}
                     </td>
-                    <td>
+                    <td data-label="Gelir">
                       {row ? money(row.grossRevenueMinor, row.currency) : "—"}
                     </td>
-                    <td>{row?.abandonedCarts ?? 0}</td>
-                    <td>
+                    <td data-label="Terk edilen">{row ? row.abandonedCarts : "—"}</td>
+                    <td data-label="Geri kazanılan gelir">
                       {row
                         ? money(row.recoveredRevenueMinor, row.currency)
                         : "—"}
@@ -1829,20 +1674,12 @@ function Products({
   const page = data.commerce.productPage;
   return (
     <section className={styles.tablePanel}>
-      <h2>Ürün performansı</h2>
+      <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><PackageCheck aria-hidden="true" /></span><div><h2>Ürün Performansı</h2><p>Satış ve ziyaret davranışını aynı satırda izleyin</p></div></div></header>
       <div className={styles.tableScroll}>
         <table>
           <thead>
             <tr>
-              <th>Ürün</th>
-              <th>Views</th>
-              <th>Add to cart / rate</th>
-              <th>Checkout</th>
-              <th>Paid orders</th>
-              <th>Satılan</th>
-              <th>Ciro</th>
-              <th>Terk görünümü</th>
-              <th>Recovered revenue</th>
+              <th scope="col">Ürün</th><th scope="col">Görüntülenme</th><th scope="col">Sepete ekleme / oran</th><th scope="col">Checkout</th><th scope="col">Sipariş</th><th scope="col">Satılan</th><th scope="col">Ciro</th><th scope="col">Terk edilen sepet</th><th scope="col">Geri kazanılan ciro</th>
             </tr>
           </thead>
           <tbody>
@@ -1859,24 +1696,24 @@ function Products({
                 );
               return (
                 <tr key={`${row.productId}:${row.currency}`}>
-                  <td>
+                  <td data-label="Ürün">
                     <strong>{row.title}</strong>
                     <small>
                       {row.categoryName ?? "Kategori yok"} ·{" "}
                       {row.brandName ?? "Marka yok"}
                     </small>
                   </td>
-                  <td>{viewed ?? "Kullanılamıyor"}</td>
-                  <td>
-                    {added ?? "Kullanılamıyor"} /{" "}
+                  <td data-label="Görüntülenme">{viewed ?? "—"}</td>
+                  <td data-label="Sepete ekleme">
+                    {added ?? "—"} /{" "}
                     {percent(viewed && added !== null ? added / viewed : null)}
                   </td>
-                  <td>{row.checkoutStarts}</td>
-                  <td>{row.paidOrders}</td>
-                  <td>{row.quantity}</td>
-                  <td>{money(row.revenueMinor, row.currency)}</td>
-                  <td>{row.abandonedAppearances}</td>
-                  <td>{money(row.recoveredRevenueMinor, row.currency)}</td>
+                  <td data-label="Checkout">{row.checkoutStarts}</td>
+                  <td data-label="Sipariş">{row.paidOrders}</td>
+                  <td data-label="Satılan">{row.quantity}</td>
+                  <td data-label="Ciro">{money(row.revenueMinor, row.currency)}</td>
+                  <td data-label="Terk edilen">{row.abandonedAppearances}</td>
+                  <td data-label="Geri kazanılan">{money(row.recoveredRevenueMinor, row.currency)}</td>
                 </tr>
               );
             })}
@@ -1887,30 +1724,22 @@ function Products({
         aria-label="Ürün performansı sayfaları"
         className={styles.pagination}
       >
-        <Link
-          aria-disabled={page.page <= 1}
-          href={
-            page.page <= 1
-              ? href({ page: "1" })
-              : href({ page: String(page.page - 1) })
-          }
+        <PaginationAction
+          disabled={page.page <= 1}
+          href={href({ page: String(page.page - 1) })}
         >
           Önceki
-        </Link>
+        </PaginationAction>
         <span>
           Sayfa {page.page} / {Math.max(page.totalPages, 1)} ·{" "}
           {page.totalItems.toLocaleString("tr-TR")} ürün
         </span>
-        <Link
-          aria-disabled={page.page >= page.totalPages}
-          href={
-            page.page >= page.totalPages
-              ? href({ page: String(page.page) })
-              : href({ page: String(page.page + 1) })
-          }
+        <PaginationAction
+          disabled={page.page >= page.totalPages}
+          href={href({ page: String(page.page + 1) })}
         >
           Sonraki
-        </Link>
+        </PaginationAction>
       </nav>
       <p className={styles.definition}>
         Global arama ve katalog filtreleri server-side uygulanır; tek set-based
