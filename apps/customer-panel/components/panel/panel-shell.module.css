@@ -108,6 +108,14 @@
   display: none;
 }
 
+.desktopTopbarRight {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.desktopTopbarRight .desktopTopbarContext {
+  justify-self: end;
+}
+
 .desktopTopbarHeading {
   display: grid;
   min-width: 0;
@@ -744,6 +752,13 @@
     grid-row: 2;
     grid-column: 1 / -1;
     padding-bottom: 0.125rem;
+  }
+
+  .desktopTopbarRight .desktopTopbarContext {
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: end;
+    padding-bottom: 0;
   }
 
   .desktopTopbarCommands > div:first-child {

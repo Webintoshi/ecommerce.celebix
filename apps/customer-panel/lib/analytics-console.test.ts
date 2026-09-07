@@ -87,13 +87,17 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
   assert.match(page, /CommerceAnalyticsWorkspace/);
 });
 
-test("overview mounts an isolated honest active visitor card", async () => {
+test("analytics moves the honest active visitor card into a titleless sticky topbar", async () => {
   const [workspace, component, poller] = await Promise.all([
     source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
     source("components/analytics/ActiveVisitorsCard.tsx"),
     source("lib/analytics-ui/active-visitors.ts"),
   ]);
-  assert.match(workspace, /<ActiveVisitorsCard/);
+  assert.match(workspace, /<PanelTopbarBridge[\s\S]*?hideHeading[\s\S]*?context=\{<div className=\{styles[.]topbarLiveMetric\}><ActiveVisitorsCard \/><\/div>\}/);
+  assert.match(workspace, /<h1 className=\{styles[.]srOnly\}>Analizler<\/h1>/);
+  assert.doesNotMatch(workspace, /className=\{styles[.]pageHeader\}/);
+  assert.doesNotMatch(workspace, /aria-label="İçerik yolu"/);
+  assert.doesNotMatch(workspace, /Mağazanızın performansını detaylı verilerle analiz edin[.]/);
   assert.match(component, /Şu anda sitenizde/);
   assert.match(component, /Veri alınamıyor/);
   assert.match(component, /Analytics kuruluyor/);
@@ -143,7 +147,10 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /focus-visible/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.match(css, /[.]breadcrumb a \{ min-height: 44px;/);
+  assert.match(css, /[.]topbarLiveMetric\s*\{[\s\S]*?--analytics-graphite:\s*#2B2B2B;[\s\S]*?--analytics-surface:\s*#FFFDFC;[\s\S]*?--analytics-border:\s*#E4D5C9;/);
+  assert.match(css, /[.]topbarLiveMetric > article \{ min-height: 2[.]75rem;/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[\s\S]*?clip:\s*rect\(0, 0, 0, 0\);/);
+  assert.doesNotMatch(css, /[.]topbarLiveMetric > article span\s*\{\s*display:\s*none;/);
   assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
   assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);
   assert.doesNotMatch(component, /284[.]590|489[.]020|156[.]300/);

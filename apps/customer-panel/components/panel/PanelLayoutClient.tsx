@@ -24,6 +24,7 @@ import styles from "./panel-shell.module.css";
 const ModelContext = createContext<PanelClientChromeModel | null>(null);
 
 type PublishedPanelTopbarChrome = Readonly<{
+  hideHeading?: boolean;
   pathname: string;
   subtitle?: string;
   title: string;
@@ -47,6 +48,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
   const pathname = usePathname() ?? "";
   const routePresentation = getPanelRoutePresentation(pathname);
   const activeChrome = chrome?.pathname === pathname ? chrome : null;
+  const hideTopbarHeading = activeChrome?.hideHeading ?? pathname === "/analytics";
   const handleChromeChange = useCallback((next: PanelTopbarChromeState | null) => {
     setChrome((current) => {
       if (!next) return current ? null : current;
@@ -54,8 +56,9 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
         current?.pathname === pathname
         && current.title === next.title
         && current.subtitle === next.subtitle
+        && current.hideHeading === next.hideHeading
       ) return current;
-      return { pathname, title: next.title, subtitle: next.subtitle };
+      return { pathname, title: next.title, subtitle: next.subtitle, hideHeading: next.hideHeading };
     });
   }, [pathname]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -158,12 +161,14 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
           onRestoreFocus={restoreDrawerFocus}
         />
         <div ref={workspaceRef} className={styles.workspace}>
-          <header ref={topbarRef} className={styles.desktopTopbar}>
-            <div className={styles.desktopTopbarHeading}>
-              <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
-              <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>
-              {activeChrome?.subtitle ? <span className={styles.desktopTopbarSubtitle} role="status">{activeChrome.subtitle}</span> : null}
-            </div>
+          <header ref={topbarRef} className={`${styles.desktopTopbar} ${hideTopbarHeading ? styles.desktopTopbarRight : ""}`}>
+            {hideTopbarHeading ? null : (
+              <div className={styles.desktopTopbarHeading}>
+                <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
+                <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>
+                {activeChrome?.subtitle ? <span className={styles.desktopTopbarSubtitle} role="status">{activeChrome.subtitle}</span> : null}
+              </div>
+            )}
             <div id="panel-topbar-context" className={styles.desktopTopbarContext} />
             <div className={styles.desktopTopbarCommands}>
               <div id="panel-topbar-actions" />

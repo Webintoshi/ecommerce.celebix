@@ -14,11 +14,12 @@ import { createPortal } from "react-dom";
 export interface PanelTopbarChromeState {
   readonly title: string;
   readonly subtitle?: string;
+  readonly hideHeading?: boolean;
   readonly actions?: ReactNode;
   readonly context?: ReactNode;
 }
 
-type PanelTopbarChromeSnapshot = Pick<PanelTopbarChromeState, "title" | "subtitle">;
+type PanelTopbarChromeSnapshot = Pick<PanelTopbarChromeState, "title" | "subtitle" | "hideHeading">;
 type Setter = (state: PanelTopbarChromeSnapshot | null) => void;
 type Registration = Readonly<{
   publish: (state: PanelTopbarChromeSnapshot) => void;
@@ -76,8 +77,8 @@ export function usePanelTopbarChrome(state: PanelTopbarChromeState) {
   }, [registerOwner]);
 
   useEffect(() => {
-    registrationRef.current?.publish({ title: state.title, subtitle: state.subtitle });
-  }, [registerOwner, state.subtitle, state.title]);
+    registrationRef.current?.publish({ title: state.title, subtitle: state.subtitle, hideHeading: state.hideHeading });
+  }, [registerOwner, state.hideHeading, state.subtitle, state.title]);
 }
 
 type PanelTopbarTargetId = "panel-topbar-actions" | "panel-topbar-context";
