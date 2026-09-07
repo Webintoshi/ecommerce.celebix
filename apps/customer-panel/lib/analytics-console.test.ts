@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as React from "react";
 import { createElement, type ReactNode } from "react";
+import { renderToString } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
+import { AreaChart, ResponsiveContainer } from "recharts";
 import ts from "typescript";
 
 import {
@@ -145,6 +147,94 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
   assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);
   assert.doesNotMatch(component, /284[.]590|489[.]020|156[.]300/);
+});
+
+test("analytics charts provide positive initial geometry before browser measurement", async () => {
+  const component = await source(
+    "components/analytics/CommerceAnalyticsWorkspace.tsx",
+  );
+  const tree = ts.createSourceFile(
+    "CommerceAnalyticsWorkspace.tsx",
+    component,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const containers: Array<{
+    width: string;
+    height: string;
+    initialDimension?: { width: number; height: number };
+  }> = [];
+  const inspect = (node: ts.Node) => {
+    if (
+      ts.isJsxOpeningElement(node) &&
+      node.tagName.getText(tree) === "ResponsiveContainer"
+    ) {
+      const attributes = new Map(
+        node.attributes.properties
+          .filter(ts.isJsxAttribute)
+          .map((attribute) => [attribute.name.getText(tree), attribute]),
+      );
+      const stringValue = (name: string) => {
+        const initializer = attributes.get(name)?.initializer;
+        return initializer && ts.isStringLiteral(initializer)
+          ? initializer.text
+          : "";
+      };
+      const dimension = attributes.get("initialDimension")?.initializer;
+      let initialDimension: { width: number; height: number } | undefined;
+      if (
+        dimension &&
+        ts.isJsxExpression(dimension) &&
+        dimension.expression &&
+        ts.isObjectLiteralExpression(dimension.expression)
+      ) {
+        const values = new Map(
+          dimension.expression.properties
+            .filter(ts.isPropertyAssignment)
+            .map((property) => [
+              property.name.getText(tree),
+              Number(property.initializer.getText(tree)),
+            ]),
+        );
+        initialDimension = {
+          width: values.get("width") ?? -1,
+          height: values.get("height") ?? -1,
+        };
+      }
+      containers.push({
+        width: stringValue("width"),
+        height: stringValue("height"),
+        ...(initialDimension ? { initialDimension } : {}),
+      });
+    }
+    ts.forEachChild(node, inspect);
+  };
+  inspect(tree);
+
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...values: unknown[]) => {
+    warnings.push(values.map(String).join(" "));
+  };
+  try {
+    for (const props of containers) {
+      renderToString(
+        createElement(
+          ResponsiveContainer,
+          {
+            ...props,
+            children: createElement(AreaChart, { data: [] }),
+          } as React.ComponentProps<typeof ResponsiveContainer>,
+        ),
+      );
+    }
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(containers.length, 2);
+  assert.deepEqual(warnings, []);
 });
 
 test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {
