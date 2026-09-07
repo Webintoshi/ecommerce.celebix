@@ -16,10 +16,17 @@ test("analytics tabs keep the complete merchant workflow and URL history state",
   );
   assert.equal(
     module.analyticsTabHref?.(
-      "range=30d&compare=1&search=baget&page=3",
+      "tab=carts&range=30d&compare=1&search=baget&page=3",
       "products",
     ),
-    "/analytics?range=30d&compare=1&search=baget&page=3&tab=products",
+    "/analytics?tab=products&range=30d&compare=1&search=baget",
+  );
+  assert.equal(
+    module.analyticsTabHref?.(
+      "tab=products&range=30d&compare=1&search=baget&page=3",
+      "products",
+    ),
+    "/analytics?tab=products&range=30d&compare=1&search=baget&page=3",
   );
   assert.equal(
     module.analyticsTabHref?.(
@@ -27,6 +34,17 @@ test("analytics tabs keep the complete merchant workflow and URL history state",
       "funnel",
     ),
     "/analytics?range=30d&compare=1&tab=funnel",
+  );
+});
+
+test("overview detail navigation preserves shared analytics state", async () => {
+  const module = await workspace();
+  assert.equal(
+    module.analyticsOverviewDetailHref?.(
+      "tab=overview&from=2026-08-01&to=2026-08-31&timezone=Europe%2FIstanbul&compare=1&currency=TRY",
+      "funnel",
+    ),
+    "/analytics?tab=funnel&from=2026-08-01&to=2026-08-31&timezone=Europe%2FIstanbul&compare=1&currency=TRY",
   );
 });
 
@@ -126,5 +144,75 @@ test("quick ranges preserve comparison and remove stale custom dates", async () 
       to: null,
     }),
     "/analytics?compare=1&range=7d",
+  );
+});
+
+test("commerce trends preserve paid orders and derive only matched paid conversion buckets", async () => {
+  const module = await workspace();
+  const trends = module.analyticsCommerceTrends?.(
+    [
+      {
+        startsAt: "2026-09-01T00:00:00.000Z",
+        currency: "TRY",
+        paidOrders: 4,
+      },
+      {
+        startsAt: "2026-09-02T00:00:00.000Z",
+        currency: "TRY",
+        paidOrders: 3,
+      },
+    ],
+    [{ at: "2026-09-01T00:00:00.000Z", value: 40 }],
+    "UTC",
+  );
+
+  assert.deepEqual(trends, {
+    orders: [
+      { label: "1 Eyl · TRY", value: 4 },
+      { label: "2 Eyl · TRY", value: 3 },
+    ],
+    paidConversionPermille: [{ label: "1 Eyl · TRY", value: 100 }],
+  });
+  assert.equal(
+    module.analyticsCommerceTrends?.([], null, "UTC").paidConversionPermille,
+    null,
+  );
+});
+
+test("traffic-only overview keeps real visitors visible without commerce buckets", async () => {
+  const module = await workspace();
+  assert.deepEqual(module.analyticsTrafficOnlyMetrics?.(23), [
+    {
+      key: "visitors",
+      label: "Ziyaretçiler",
+      value: "23",
+      state: "ready",
+      source: "Umami",
+    },
+  ]);
+  assert.deepEqual(module.analyticsTrafficOnlyMetrics?.(null), [
+    {
+      key: "visitors",
+      label: "Ziyaretçiler",
+      value: "—",
+      state: "unavailable",
+      source: "Umami",
+    },
+  ]);
+});
+
+test("initial analytics request stays stable when the URL has no timezone", async () => {
+  const module = await workspace();
+  assert.equal(module.analyticsRequestQuery?.("tab=overview", "30d"), "range=30d");
+  assert.equal(
+    module.analyticsRequestQuery?.(
+      "tab=overview&timezone=Europe%2FIstanbul",
+      "30d",
+    ),
+    "timezone=Europe%2FIstanbul&range=30d",
+  );
+  assert.equal(
+    module.analyticsRequestQuery?.("tab=overview", "30d", "UTC"),
+    "timezone=UTC&range=30d",
   );
 });

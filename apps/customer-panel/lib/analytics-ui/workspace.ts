@@ -69,23 +69,116 @@ export function analyticsQueryHref(
   return suffix ? `/analytics?${suffix}` : "/analytics";
 }
 
+export function analyticsRequestQuery(
+  serialized: string,
+  range: "today" | "7d" | "30d" | "90d" | "custom",
+  initialTimezone?: string,
+): string {
+  const query = new URLSearchParams(serialized);
+  query.delete("tab");
+  if (!query.has("timezone") && initialTimezone) {
+    query.set("timezone", initialTimezone);
+  }
+  if (range !== "custom" && !query.has("range")) query.set("range", range);
+  return query.toString();
+}
+
 export function analyticsTabHref(
   serialized: string,
   next: AnalyticsWorkspaceTab,
 ): string {
   const query = new URLSearchParams(serialized);
+  const current = query.get("tab") ?? "overview";
   const allowed = new Set([...SHARED_QUERY, ...TAB_QUERY[next]]);
   for (const key of [...query.keys()]) {
     if (key !== "tab" && !allowed.has(key)) query.delete(key);
   }
+  if (current !== next) query.delete("page");
   query.set("tab", next);
   return `/analytics?${query.toString()}`;
+}
+
+export function analyticsOverviewDetailHref(
+  serialized: string,
+  next: Exclude<AnalyticsWorkspaceTab, "overview" | "acquisition" | "products">,
+): string {
+  return analyticsTabHref(serialized, next);
 }
 
 export type AnalyticsDisplayValue = Readonly<{
   state: "ready" | "unavailable";
   value: string;
 }>;
+
+type AnalyticsCommerceTrendPoint = Readonly<{
+  startsAt: string;
+  currency: string;
+  paidOrders: number;
+}>;
+
+type AnalyticsTrafficTrendPoint = Readonly<{
+  at: string;
+  value: number;
+}>;
+
+function analyticsCalendarDay(value: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timezone,
+  }).formatToParts(new Date(value));
+  const field = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${field("year")}-${field("month")}-${field("day")}`;
+}
+
+export function analyticsCommerceTrends(
+  commerce: readonly AnalyticsCommerceTrendPoint[],
+  traffic: readonly AnalyticsTrafficTrendPoint[] | null,
+  timezone: string,
+): Readonly<{
+  orders: readonly Readonly<{ label: string; value: number }>[];
+  paidConversionPermille:
+    | readonly Readonly<{ label: string; value: number }>[]
+    | null;
+}> {
+  const label = (row: AnalyticsCommerceTrendPoint) =>
+    `${new Date(row.startsAt).toLocaleDateString("tr-TR", {
+      day: "numeric",
+      month: "short",
+      timeZone: timezone,
+    })} · ${row.currency}`;
+  const orders = commerce.map((row) =>
+    Object.freeze({ label: label(row), value: row.paidOrders }),
+  );
+  if (traffic === null) {
+    return Object.freeze({
+      orders: Object.freeze(orders),
+      paidConversionPermille: null,
+    });
+  }
+  const visitors = new Map(
+    traffic.map((row) => [analyticsCalendarDay(row.at, timezone), row.value]),
+  );
+  const paidConversionPermille = commerce.flatMap((row) => {
+    const visitorCount = visitors.get(
+      analyticsCalendarDay(row.startsAt, timezone),
+    );
+    return visitorCount && visitorCount > 0
+      ? [
+          Object.freeze({
+            label: label(row),
+            value: Math.round((row.paidOrders / visitorCount) * 1000),
+          }),
+        ]
+      : [];
+  });
+  return Object.freeze({
+    orders: Object.freeze(orders),
+    paidConversionPermille: Object.freeze(paidConversionPermille),
+  });
+}
 
 export function analyticsBehaviorValue(value: number | null): AnalyticsDisplayValue {
   return value === null
@@ -168,6 +261,20 @@ export function analyticsOverviewMetrics(
             }).format(conversion),
       state: conversion === null ? "unavailable" : "ready",
       source: "PostgreSQL + Umami",
+    }),
+  ]);
+}
+
+export function analyticsTrafficOnlyMetrics(
+  visitors: number | null,
+): readonly AnalyticsOverviewMetric[] {
+  return Object.freeze([
+    Object.freeze({
+      key: "visitors" as const,
+      label: "Ziyaretçiler",
+      value: visitors === null ? "—" : visitors.toLocaleString("tr-TR"),
+      state: visitors === null ? ("unavailable" as const) : ("ready" as const),
+      source: "Umami" as const,
     }),
   ]);
 }

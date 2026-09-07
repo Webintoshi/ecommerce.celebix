@@ -52,10 +52,14 @@ import {
 } from "@/lib/analytics-ui/traffic";
 import {
   ANALYTICS_WORKSPACE_TABS,
+  analyticsCommerceTrends,
   analyticsFunnelStages,
   analyticsOverviewMetrics,
+  analyticsOverviewDetailHref,
   analyticsQueryHref,
+  analyticsRequestQuery,
   analyticsTabHref,
+  analyticsTrafficOnlyMetrics,
   type AnalyticsWorkspaceTab,
 } from "@/lib/analytics-ui/workspace";
 import styles from "./commerce-analytics-workspace.module.css";
@@ -996,13 +1000,10 @@ export function CommerceAnalyticsWorkspace({
     setFrom(customFrom ?? "");
     setTo(customTo ?? "");
   }, [customFrom, customTo]);
-  const apiQuery = useMemo(() => {
-    const query = new URLSearchParams(serialized);
-    query.delete("tab");
-    if (!query.has("timezone") && timezone) query.set("timezone", timezone);
-    if (range !== "custom" && !query.has("range")) query.set("range", range);
-    return query.toString();
-  }, [range, serialized, timezone]);
+  const apiQuery = useMemo(
+    () => analyticsRequestQuery(serialized, range, initialTimezone),
+    [initialTimezone, range, serialized],
+  );
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
@@ -1265,6 +1266,7 @@ export function CommerceAnalyticsWorkspace({
                 traffic={traffic}
                 events={events}
                 timezone={activeTimezone}
+                serialized={serialized}
               />
             ) : null}
             {tab === "funnel" ? (
@@ -1370,13 +1372,18 @@ function SessionsChart({ traffic, timezone }: Readonly<{ traffic: ReturnType<typ
   );
 }
 
-function Overview({ data, traffic, events, timezone }: Readonly<{ data: Payload; traffic: ReturnType<typeof trafficSummary>; events: Readonly<Record<string, number>>; timezone: string }>) {
+function Overview({ data, traffic, events, timezone, serialized }: Readonly<{ data: Payload; traffic: ReturnType<typeof trafficSummary>; events: Readonly<Record<string, number>>; timezone: string; serialized: string }>) {
   const sources = analyticsTrafficSources(data.traffic),
     pages = analyticsTrafficMetric(data.traffic, "path"),
     referrers = analyticsTrafficMetric(data.traffic, "referrer"),
     devices = analyticsTrafficMetric(data.traffic, "device"),
     countries = analyticsTrafficMetric(data.traffic, "country"),
-    funnel = analyticsFunnelStages(events);
+    funnel = analyticsFunnelStages(events),
+    commerceTrends = analyticsCommerceTrends(
+      data.commerce.series,
+      traffic?.series ?? null,
+      timezone,
+    );
   return (
     <div className={styles.overview}>
       {data.commerce.currencies.map((bucket, index) => <div className={styles.currencySection} key={bucket.currency}>
@@ -1384,6 +1391,27 @@ function Overview({ data, traffic, events, timezone }: Readonly<{ data: Payload;
         <MetricCards metrics={analyticsOverviewMetrics(bucket, traffic?.visitors ?? null)} />
         <div className={styles.performanceGrid}><RevenueChart data={data} timezone={timezone} currency={bucket.currency} />{index === 0 ? <SessionsChart traffic={traffic} timezone={timezone} /> : null}</div>
       </div>)}
+      {!data.commerce.currencies.length ? (
+        <div className={styles.currencySection}>
+          <MetricCards
+            metrics={analyticsTrafficOnlyMetrics(traffic?.visitors ?? null)}
+          />
+          <div className={styles.performanceGrid}>
+            <SessionsChart traffic={traffic} timezone={timezone} />
+          </div>
+        </div>
+      ) : null}
+      <div className={styles.chartGrid}>
+        <Bars title="Paid Sipariş Zaman Serisi" rows={commerceTrends.orders} />
+        {commerceTrends.paidConversionPermille === null ? (
+          <UnavailableChart title="Paid Dönüşüm Zaman Serisi (binde)" />
+        ) : (
+          <Bars
+            title="Paid Dönüşüm Zaman Serisi (binde)"
+            rows={commerceTrends.paidConversionPermille}
+          />
+        )}
+      </div>
       <section className={styles.behaviorMetrics} aria-label="Ziyaret davranışı">
         <article><Eye aria-hidden="true" /><span>Sayfa görüntüleme</span><strong>{traffic ? traffic.pageviews.toLocaleString("tr-TR") : "—"}</strong><small>{traffic ? "Umami" : "Veri alınamıyor"}</small></article>
         <article><Activity aria-hidden="true" /><span>Oturumlar</span><strong>{traffic ? traffic.visits.toLocaleString("tr-TR") : "—"}</strong><small>{traffic ? `Ortalama oturum süresi ${traffic.averageVisitSeconds.toLocaleString("tr-TR")} sn` : "Veri alınamıyor"}</small></article>
@@ -1392,8 +1420,8 @@ function Overview({ data, traffic, events, timezone }: Readonly<{ data: Payload;
         <article><Percent aria-hidden="true" /><span>Checkout başlatma</span><strong>{percent(events.add_to_cart ? (events.begin_checkout ?? 0) / events.add_to_cart : null)}</strong><small>Sepete eklemeden</small></article>
       </section>
       <div className={styles.summaryGrid}>
-        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><MousePointerClick aria-hidden="true" /></span><div><h2>Dönüşüm Özeti</h2><p>Altı adımlı müşteri yolculuğu</p></div></div><Link href={analyticsTabHref("", "funnel")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><ol className={styles.funnelSummary}>{funnel.map((stage, index) => <li key={stage.event}><span>{index + 1}</span><div><strong>{stage.label}</strong><small>{stage.count === null ? "Veri alınamıyor" : `${stage.count.toLocaleString("tr-TR")} oturum`}</small></div><b>{percent(stage.totalRate)}</b></li>)}</ol></section>
-        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><ShoppingCart aria-hidden="true" /></span><div><h2>Sepet Özeti</h2><p>Terk ve geri kazanım</p></div></div><Link href={analyticsTabHref("", "carts")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><div className={styles.cartSummary}>{data.commerce.currencies.map((bucket) => <dl key={bucket.currency}><div><dt>Aktif sepet</dt><dd>{bucket.activeCarts}</dd></div><div><dt>Terk edilen</dt><dd>{bucket.abandonedCarts}</dd></div><div><dt>Geri kazanılan</dt><dd>{bucket.recoveredCarts}</dd></div><div><dt>Geri kazanılan ciro</dt><dd>{money(bucket.recoveredNetMinor, bucket.currency)}</dd></div></dl>)}</div></section>
+        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><MousePointerClick aria-hidden="true" /></span><div><h2>Dönüşüm Özeti</h2><p>Altı adımlı müşteri yolculuğu</p></div></div><Link href={analyticsOverviewDetailHref(serialized, "funnel")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><ol className={styles.funnelSummary}>{funnel.map((stage, index) => <li key={stage.event}><span>{index + 1}</span><div><strong>{stage.label}</strong><small>{stage.count === null ? "Veri alınamıyor" : `${stage.count.toLocaleString("tr-TR")} oturum`}</small></div><b>{percent(stage.totalRate)}</b></li>)}</ol></section>
+        <section className={styles.panel}><header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><ShoppingCart aria-hidden="true" /></span><div><h2>Sepet Özeti</h2><p>Terk ve geri kazanım</p></div></div><Link href={analyticsOverviewDetailHref(serialized, "carts")}>Detayı gör <ChevronRight aria-hidden="true" /></Link></header><div className={styles.cartSummary}>{data.commerce.currencies.map((bucket) => <dl key={bucket.currency}><div><dt>Aktif sepet</dt><dd>{bucket.activeCarts}</dd></div><div><dt>Terk edilen</dt><dd>{bucket.abandonedCarts}</dd></div><div><dt>Geri kazanılan</dt><dd>{bucket.recoveredCarts}</dd></div><div><dt>Geri kazanılan ciro</dt><dd>{money(bucket.recoveredNetMinor, bucket.currency)}</dd></div></dl>)}</div></section>
       </div>
       <div className={styles.summaryGrid}>
         {sources === null ? <UnavailableChart title="Trafik Kaynakları" /> : <Bars title="Trafik Kaynakları" rows={sources.slice(0, 5)} />}
