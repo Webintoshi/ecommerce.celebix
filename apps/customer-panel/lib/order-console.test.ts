@@ -336,6 +336,9 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
     if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: Object.freeze({}) };
     if (specifier === "@/lib/customer-ui/client") return { customerApi: Object.freeze({}) };
     if (specifier === "@/lib/analytics-ui/client") return { createAnalyticsBrowserApi: () => Object.freeze({}) };
+    if (specifier === "@/lib/analytics-ui/active-visitors") {
+      return { createActiveVisitorPoller: () => ({ start() {}, dispose() {}, visibilityChanged() {} }) };
+    }
     if (specifier === "@/lib/panel-ui/dashboard-model") return dashboardModel;
     if (specifier === "./panel-dashboard.module.css") return styles;
     throw new Error(`unexpected_dashboard_import:${specifier}`);

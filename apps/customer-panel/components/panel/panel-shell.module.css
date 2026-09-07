@@ -1,6 +1,6 @@
 .shell {
   min-height: 100dvh;
-  background: #F9F9F9;
+  background: #F8F7F5;
 }
 
 .desktopSidebar {
@@ -12,7 +12,7 @@
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid rgb(255 255 255 / 8%);
-  background: #2A2A2A;
+  background: #201C19;
   color: #FFFFFF;
   box-shadow: 14px 0 38px rgb(0 0 0 / 16%);
 }
@@ -70,7 +70,7 @@
 }
 
 .workspace {
-  --panel-topbar-height: 5.5rem;
+  --panel-topbar-height: 4rem;
   min-width: 0;
   min-height: 100dvh;
   margin-left: 15.3125rem;
@@ -84,15 +84,14 @@
   left: 15.3125rem;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) auto;
-  min-height: 5.5rem;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr) auto;
+  min-height: 4rem;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  border-bottom: 1px solid #E3E7EE;
-  background: rgb(255 255 255 / 96%);
-  padding: 0 1.875rem;
-  backdrop-filter: blur(14px);
+  gap: 1rem;
+  border-bottom: 1px solid #E7E2DD;
+  background: #FFFDFC;
+  padding: 0 1.25rem;
 }
 
 .desktopTopbarContext {
@@ -112,7 +111,7 @@
 .desktopTopbarHeading {
   display: grid;
   min-width: 0;
-  gap: 0.18rem;
+  gap: 0.125rem;
 }
 
 .desktopTopbarEyebrow {
@@ -120,7 +119,7 @@
   color: #667085;
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -128,8 +127,8 @@
 
 .desktopTopbarTitle {
   overflow: hidden;
-  color: #1F2937;
-  font-size: 1.125rem;
+  color: #2B2B2B;
+  font-size: 1rem;
   font-weight: 750;
   letter-spacing: -0.03em;
   line-height: 1.2;
@@ -140,7 +139,7 @@
 .desktopTopbarSubtitle {
   overflow: hidden;
   color: #667085;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -201,15 +200,7 @@
 }
 
 .topbarAssistantButton > span:first-child {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% - 0.55rem);
-  min-width: 5.4rem;
-  border: 1px solid #FFD0B2;
-  border-radius: 999px;
-  background: #FFFFFF;
-  padding: 0.35rem 0.75rem;
-  white-space: nowrap;
+  display: none;
 }
 
 .topbarAssistantAvatar {
@@ -311,7 +302,7 @@
   width: 100%;
   max-width: 100rem;
   margin-inline: auto;
-  padding: 2rem;
+  padding: 1.25rem;
 }
 
 .brand {
@@ -485,9 +476,9 @@
 
 .navigationLinkActive,
 .navigationGroupActive {
-  background: #37373B;
+  background: rgb(254 97 0 / 12%);
   color: #FFFFFF;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%);
+  box-shadow: inset 0 0 0 1px rgb(254 97 0 / 16%);
 }
 
 .activeRail {
@@ -497,7 +488,7 @@
   left: 0;
   width: 2px;
   border-radius: 999px;
-  background: #FF6A00;
+  background: #FE6100;
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms ease;
@@ -743,7 +734,7 @@
 
   .desktopTopbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     min-height: 4rem;
     gap: 0.75rem;
     padding: 0.625rem 1rem;
@@ -751,11 +742,25 @@
 
   .desktopTopbarContext {
     grid-row: 2;
+    grid-column: 1 / -1;
     padding-bottom: 0.125rem;
   }
 
-  .desktopTopbar > div:last-child {
+  .desktopTopbarCommands > div:first-child {
     display: none;
+  }
+
+  .desktopTopbarUtilities {
+    display: flex;
+  }
+
+  .topbarAssistantButton > span:first-child {
+    display: none;
+  }
+
+  .topbarAssistantAvatar {
+    width: 2.75rem;
+    height: 2.75rem;
   }
 
   .workspace {
@@ -882,15 +887,11 @@
 
 }
 
-@media (min-width: 1025px) and (max-width: 1460px) {
+@media (min-width: 1025px) and (max-width: 1320px) {
   .desktopTopbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding-block: 0.75rem;
-  }
-
-  .desktopTopbarContext {
-    grid-row: 2;
-    grid-column: 1 / -1;
+    grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
   }
 }
 

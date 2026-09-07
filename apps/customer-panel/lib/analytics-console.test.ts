@@ -767,8 +767,9 @@ test("dashboard model links to analytics only after the real route exists", asyn
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   assert.match(model, /href:\s*"\/analytics"/);
   assert.match(view, /\/analytics/);
+  assert.match(view, /createActiveVisitorPoller/);
   assert.doesNotMatch(
     `${model}\n${view}`,
-    /liveVisitors|conversionRate|deviceBreakdown|trafficSource/,
+    /conversionRate|deviceBreakdown|trafficSource/,
   );
 });
