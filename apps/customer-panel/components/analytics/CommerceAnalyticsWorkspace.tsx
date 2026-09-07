@@ -1328,7 +1328,7 @@ function RevenueChart({ data, timezone, currency }: Readonly<{ data: Payload; ti
       <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><BarChart3 aria-hidden="true" /></span><div><h2 id={`sales-chart-${currency}`}>Satış Performansı</h2><p>{currency} · Seçili dönem</p></div></div><strong>{money(totalRevenue, currency)}</strong></header>
       {rows.length ? <>
         <div className={styles.rechart} role="img" aria-label={`${currency} satış performansı: ${totalOrders.toLocaleString("tr-TR")} sipariş ve ${money(totalRevenue, currency)} gelir.`}>
-          <ResponsiveContainer width="100%" height="100%"><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
             <defs><linearGradient id={`salesFill-${currency}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FE6100" stopOpacity={0.16} /><stop offset="100%" stopColor="#FE6100" stopOpacity={0.06} /></linearGradient></defs>
             <CartesianGrid vertical={false} stroke="#E7E2DD" strokeDasharray="3 4" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={(value) => money(Number(value), currency)} width={72} />
             <Tooltip formatter={(value) => [money(Number(value), currency), "Bu dönem"]} />
@@ -1356,7 +1356,7 @@ function SessionsChart({ traffic, timezone }: Readonly<{ traffic: ReturnType<typ
       <header className={styles.sectionHeader}><div><span className={styles.sectionIcon}><Users aria-hidden="true" /></span><div><h2 id="sessions-chart">Oturum Trendi</h2><p>Umami oturum serisi</p></div></div></header>
       {rows.length ? <>
       <div className={styles.rechart} role="img" aria-label={`Seçili dönemde toplam ${traffic.visits.toLocaleString("tr-TR")} oturum.`}>
-        <ResponsiveContainer width="100%" height="100%"><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}><AreaChart data={rows} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="#E7E2DD" strokeDasharray="3 4" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} />
           <Tooltip formatter={(value) => [Number(value).toLocaleString("tr-TR"), "Oturum"]} />
           <Area type="monotone" dataKey="sessions" stroke="#FE6100" strokeWidth={2.5} fill="rgba(254, 97, 0, 0.10)" />
