@@ -605,6 +605,7 @@ test("topbar chrome exposes a provider, page bridge, and dedicated action portal
   assert.match(topbar, /PanelTopbarBridge/);
   assert.match(topbar, /panel-topbar-actions/);
   assert.match(topbar, /readonly context\?: ReactNode/);
+  assert.match(topbar, /readonly hideHeading\?: boolean/);
   assert.match(topbar, /panel-topbar-context/);
   assert.match(layout, /id="panel-topbar-context"/);
   assert.match(styles, /[.]desktopTopbarContext/);
@@ -615,8 +616,20 @@ test("topbar chrome exposes a provider, page bridge, and dedicated action portal
   assert.match(topbar, /const wasActive = \[\.\.\.registrations\.keys\(\)\]\.at\(-1\) === owner/);
   assert.match(topbar, /registrations\.delete\(owner\)/);
   assert.match(topbar, /\[\.\.\.registrations\.values\(\)\]\.at\(-1\) \?\? null/);
-  assert.match(topbar, /publish\(\{ title: state\.title, subtitle: state\.subtitle \}\)/);
+  assert.match(topbar, /publish\(\{ title: state\.title, subtitle: state\.subtitle, hideHeading: state\.hideHeading \}\)/);
   assert.doesNotMatch(topbar, /publish\(\{[^}]*actions/s);
+});
+
+test("analytics can suppress route copy and right-align its sticky topbar context", async () => {
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  const styles = await source("components/panel/panel-shell.module.css");
+
+  assert.match(layout, /const hideTopbarHeading = activeChrome[?][.]hideHeading \?\? pathname === "\/analytics"/);
+  assert.match(layout, /hideTopbarHeading \? styles[.]desktopTopbarRight : ""/);
+  assert.match(layout, /hideTopbarHeading \? null : \(/);
+  assert.match(styles, /[.]desktopTopbarRight\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
+  assert.match(styles, /[.]desktopTopbarRight [.]desktopTopbarContext\s*\{[\s\S]*?justify-self:\s*end;/);
+  assert.match(styles, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTopbarRight [.]desktopTopbarContext\s*\{[\s\S]*?grid-row:\s*1;/);
 });
 
 test("page shell exports the fixed Hemenaku-derived primitive set without donor imports", async () => {

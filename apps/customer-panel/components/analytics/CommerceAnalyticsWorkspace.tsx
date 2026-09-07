@@ -42,9 +42,9 @@ import {
 import {
   PanelEmptyState,
   PanelMetricCard,
-  PanelPageHeader,
   PanelPageShell,
 } from "@/components/panel/PanelPageShell";
+import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import {
   analyticsProductMetricCount,
   analyticsTrafficMetric,
@@ -1094,20 +1094,12 @@ export function CommerceAnalyticsWorkspace({
   return (
     <PanelPageShell>
       <div className={styles.root}>
-        <PanelPageHeader
+        <PanelTopbarBridge
           title="Analizler"
-          description="Mağazanızın performansını detaylı verilerle analiz edin."
+          hideHeading
+          context={<div className={styles.topbarLiveMetric}><ActiveVisitorsCard /></div>}
         />
-        <header className={styles.pageHeader}>
-          <div>
-            <nav className={styles.breadcrumb} aria-label="İçerik yolu">
-              <Link href="/">Ana Sayfa</Link><ChevronRight aria-hidden="true" /><span aria-current="page">Analizler</span>
-            </nav>
-            <h1>Analizler</h1>
-            <p>Mağazanızın performansını detaylı verilerle analiz edin.</p>
-          </div>
-          <div className={styles.liveMetric}><ActiveVisitorsCard /></div>
-        </header>
+        <h1 className={styles.srOnly}>Analizler</h1>
         <nav className={styles.tabs} aria-label="Analitik bölümleri" role="tablist">
           {ANALYTICS_WORKSPACE_TABS.map(({ value, label }, index) => (
             <Link
