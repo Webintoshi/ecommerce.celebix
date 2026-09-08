@@ -18,7 +18,7 @@ import {
   Truck,
   UserRound,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
   type OrderDetail,
@@ -50,7 +50,7 @@ const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
   delivered: "Teslim edildi", cancelled: "İptal", refunded: "İade",
 });
 const PAYMENT_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Object.freeze({
-  pending: "Ödeme bekleniyor", processing: "İşleniyor", completed: "Başarılı", failed: "Başarısız", refunded: "İade edildi",
+  pending: "Ödeme bekleniyor", processing: "İşleniyor", completed: "Ödendi", failed: "Başarısız", refunded: "İade edildi",
 });
 const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.freeze({
   storefront: "Online mağaza",
@@ -128,9 +128,6 @@ function date(value: string) {
 }
 
 function statusTone(status: OrderStatus): "neutral" | "success" | "warning" | "danger" {
-  if (status === "delivered") return "success";
-  if (status === "cancelled" || status === "refunded") return "danger";
-  if (status === "pending" || status === "confirmed" || status === "preparing") return "warning";
   return "neutral";
 }
 
@@ -352,17 +349,91 @@ function safeMessage(error: unknown) {
   return error instanceof OrderApiError ? error.message : "İşlem tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
+// Tab-memory only: no browser storage, network writes or cross-order restoration.
+// A fresh authorized detail read must succeed before any editor is restored.
+type EditorDraft = ReadonlyArray<readonly [string, string]>;
+const orderDrafts = new Map<string, Map<string, EditorDraft>>();
+const pendingEditors = new Map<string, string>();
+type EditorSaveEvent = { orderId: string; editor: string; form: HTMLFormElement; outcome?: OrderMutationOutcome; cleared?: boolean };
+const editorSaveListeners = new Set<(event: EditorSaveEvent) => void>();
+function publishEditorSave(event: EditorSaveEvent) {
+  if (event.outcome) pendingEditors.delete(event.orderId);
+  else pendingEditors.set(event.orderId, event.editor);
+  for (const listener of editorSaveListeners) listener(event);
+}
+function editorKey(form: HTMLFormElement) {
+  return form.classList.contains(styles.noteForm) ? "note" : form.classList.contains(styles.compactForm) ? "shipping" : undefined;
+}
+function rememberDraft(orderId: string, form: HTMLFormElement) {
+  const key = editorKey(form);
+  if (!key) return;
+  const fields = Array.from(new FormData(form).entries()).filter((entry): entry is [string, string] => typeof entry[1] === "string");
+  const editors = orderDrafts.get(orderId) ?? new Map<string, EditorDraft>();
+  editors.set(key, fields);
+  orderDrafts.set(orderId, editors);
+  return fields;
+}
+function clearSubmittedDraft(orderId: string, key: string, submitted: EditorDraft | undefined) {
+  const editors = orderDrafts.get(orderId);
+  if (editors?.get(key) !== submitted) return false;
+  editors?.delete(key);
+  if (!editors?.size) orderDrafts.delete(orderId);
+  return true;
+}
+
 export function OrderDetailConsole({ orderId, capabilities }: { orderId: string; capabilities: OrderUiCapabilities }) {
   const [detail, setDetail] = useState<OrderDetail>();
   const [neighbors, setNeighbors] = useState<OrderNeighbors>();
   const [notifications, setNotifications] = useState<readonly OrderEmailDeliverySummary[]>(Object.freeze([]));
   const [state, setState] = useState<DetailState>("loading");
-  const [busy, setBusy] = useState("");
+  const [busy, setBusy] = useState(() => pendingEditors.get(orderId) ?? "");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [notificationBusy, setNotificationBusy] = useState("");
+  const generation = useRef(0);
+  const dirty = useRef(new Set<HTMLFormElement>());
+  const editorRoot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (state !== "loaded") return;
+    let restored = false;
+    for (const form of editorRoot.current?.querySelectorAll("form") ?? []) {
+      const key = editorKey(form);
+      const draft = key ? orderDrafts.get(orderId)?.get(key) : undefined;
+      if (!draft) continue;
+      for (const [name, value] of draft) {
+        const field = form.elements.namedItem(name);
+        if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) field.value = value;
+      }
+      dirty.current.add(form);
+      restored = true;
+    }
+    if (restored) setNotice("Kaydedilmemiş taslağınız korundu. Henüz sunucuya kaydedilmedi.");
+  }, [orderId, state]);
+  useEffect(() => {
+    const navigation = (window as Window & { navigation?: EventTarget }).navigation;
+    let approvedDestination: string | undefined;
+    const navigationGuard = (event: Event) => {
+      const destination = (event as Event & { destination?: { url: string } }).destination?.url;
+      if (destination === approvedDestination) { approvedDestination = undefined; return; }
+      if (dirty.current.size && event.cancelable && !window.confirm("Kaydedilmemiş değişiklikler var. Ayrılmak istiyor musunuz?")) event.preventDefault();
+    };
+    const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty.current.size) { event.preventDefault(); event.returnValue = ""; } };
+    const navigate = (event: MouseEvent) => {
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!dirty.current.size || !(link instanceof HTMLAnchorElement) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const destination = new URL(link.href, location.href);
+      if (!/^https?:$/.test(destination.protocol) || destination.href === location.href) return;
+      if (!window.confirm("Kaydedilmemiş değişiklikler var. Ayrılmak istiyor musunuz?")) { event.preventDefault(); event.stopImmediatePropagation(); }
+      else approvedDestination = destination.href;
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    navigation?.addEventListener("navigate", navigationGuard);
+    document.addEventListener("click", navigate, true);
+    return () => { navigation?.removeEventListener("navigate", navigationGuard); window.removeEventListener("beforeunload", beforeUnload); document.removeEventListener("click", navigate, true); };
+  }, []);
 
   const load = useCallback(async (conflict = false) => {
+    const request = ++generation.current;
     setError("");
     try {
       const [current, adjacent, deliveries] = await Promise.all([
@@ -370,16 +441,37 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
         orderApi.getOrderNeighbors(orderId).catch(() => undefined),
         orderApi.getOrderNotifications(orderId).catch(() => undefined),
       ]);
+      if (request !== generation.current) return;
       setDetail(current);
       setNeighbors(adjacent);
       if (deliveries !== undefined) setNotifications(deliveries);
       setState("loaded");
       if (conflict) setNotice("Başka bir güncelleme algılandı; en güncel veriler yeniden yüklendi. Değişiklikleriniz gönderilmedi.");
     } catch (failure) {
+      if (request !== generation.current) return;
       setError(safeMessage(failure));
-      setState("error");
+      setState((current) => current === "loaded" ? "loaded" : "error");
     }
   }, [orderId]);
+
+  useEffect(() => {
+    const listener = (event: EditorSaveEvent) => {
+      if (event.orderId !== orderId) return;
+      setBusy(pendingEditors.get(orderId) ?? "");
+      if (!event.outcome) return;
+      const form = Array.from(editorRoot.current?.querySelectorAll("form") ?? []).find((candidate) => editorKey(candidate) === event.editor);
+      if (form === event.form) return; // The submitting instance reconciles itself.
+      if (event.outcome.state === "success") {
+        if (event.cleared && form) { if (event.editor === "note") form.reset(); dirty.current.delete(form); }
+        setNotice(event.cleared ? "Gönderilen değişiklikler kaydedildi." : "Gönderilen değişiklikler kaydedildi. Sonraki düzenlemeleriniz henüz kaydedilmedi.");
+        void load();
+      } else if (event.outcome.state === "conflict") void load(true);
+      else if (event.outcome.state === "error") setError(safeMessage(event.outcome.failure));
+    };
+    editorSaveListeners.add(listener);
+    setBusy(pendingEditors.get(orderId) ?? "");
+    return () => { editorSaveListeners.delete(listener); };
+  }, [load, orderId]);
 
   useEffect(() => {
     setDetail(undefined);
@@ -387,6 +479,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     setNotifications(Object.freeze([]));
     setState("loading");
     void load();
+    return () => { generation.current += 1; };
   }, [load]);
 
   async function mutation(name: string, operation: () => Promise<unknown>, success: string): Promise<OrderMutationOutcome> {
@@ -410,18 +503,34 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
 
   function updateShipping(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!detail) return;
-    const data = new FormData(event.currentTarget);
+    if (!detail || pendingEditors.has(orderId)) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const submitted = rememberDraft(orderId, form);
     const update = buildOrderShippingUpdate(detail, data);
-    void mutation("shipping", () => orderApi.updateShipping(orderId, update), "Kargo bilgileri güncellendi.");
+    publishEditorSave({ orderId, editor: "shipping", form });
+    void mutation("shipping", () => orderApi.updateShipping(orderId, update), "Kargo bilgileri güncellendi.").then((outcome) => {
+      const cleared = outcome.state === "success" && clearSubmittedDraft(orderId, "shipping", submitted);
+      if (cleared) dirty.current.delete(form);
+      else if (outcome.state === "success") setNotice("Gönderilen kargo bilgileri kaydedildi. Sonraki düzenlemeleriniz henüz kaydedilmedi.");
+      publishEditorSave({ orderId, editor: "shipping", form, outcome, cleared });
+    });
   }
 
   function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pendingEditors.has(orderId)) return;
     const form = event.currentTarget;
     const body = field(new FormData(form), "body");
     if (!body) return;
-    void mutation("note", () => orderApi.addNote(orderId, body), "Dahili not eklendi.").then((outcome) => resetNoteFormAfterSuccess(outcome, form));
+    const submitted = rememberDraft(orderId, form);
+    publishEditorSave({ orderId, editor: "note", form });
+    void mutation("note", () => orderApi.addNote(orderId, body), "Dahili not eklendi.").then((outcome) => {
+      const cleared = outcome.state === "success" && clearSubmittedDraft(orderId, "note", submitted);
+      if (cleared) { resetNoteFormAfterSuccess(outcome, form); dirty.current.delete(form); }
+      else if (outcome.state === "success") setNotice("Gönderilen not kaydedildi. Sonraki düzenlemeleriniz henüz kaydedilmedi.");
+      publishEditorSave({ orderId, editor: "note", form, outcome, cleared });
+    });
   }
 
   function archiveNote(noteId: string) {
@@ -443,5 +552,5 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     }
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  return <div ref={editorRoot} onInputCapture={(event) => { const form = event.target instanceof Element ? event.target.closest("form") : null; if (form && editorKey(form)) { dirty.current.add(form); rememberDraft(orderId, form); } }}><OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} /></div>;
 }

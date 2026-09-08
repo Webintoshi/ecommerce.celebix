@@ -30,6 +30,16 @@ test("order list omits the duplicate body heading", async () => {
   assert.match(text, /aria-label="Sipariş çalışma alanı"/);
 });
 
+test("orders redesign preserves canonical links and exposes a separate inspection action", async () => {
+  const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, { ...renderProps("loaded"), onInspect() {} }));
+  assert.match(html, /Hızlı incele/);
+  assert.match(html, /Sipariş durumları/);
+  assert.match(html, /yalnız yüklenen siparişleri/);
+  assert.match(html, new RegExp(`href="/orders/${ORDER_ID}"`));
+  assert.match(html, /Teslimat/);
+});
+
 const item = Object.freeze({
   id: ORDER_ID,
   orderNumber: "HMK-1042",
@@ -210,6 +220,8 @@ async function compileOrderModule(
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return overrides.react ?? React;
     if (specifier === "next/link") return Link;
+    if (specifier === "./OrderInspector") return { OrderInspector: () => null };
+    if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: shell.PanelPageHeader };
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/components/shipping/OrderShipmentConsole") return {
@@ -654,7 +666,7 @@ test("order list renders the dense desktop order table from real DTOs", async ()
   assert.match(html, /HMK-1042/);
   assert.match(html, /Ada Lovelace/);
   assert.match(html, /Onaylandı/);
-  assert.match(html, /Başarılı/);
+  assert.match(html, /Ödendi/);
   assert.match(html, new RegExp(`/orders/${ORDER_ID}`));
   assert.match(html, /Sipariş detayını aç/);
 });
@@ -707,13 +719,13 @@ test("order list exposes search, status, sort, and cursor pagination controls", 
     },
   });
   const Console = stateful.exports.OrderListConsole as () => ReactNode;
-  let consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  let consoleView = (await hookRuntime.flush(Console) as React.ReactElement<{children: React.ReactElement<Record<string, unknown>>[]}>).props.children[0];
   assert.deepEqual((consoleView.props.items as OrderListItem[]).map(({ orderNumber }) => orderNumber), ["HMK-1042"]);
   (consoleView.props.onLoadMore as () => void)();
-  consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  consoleView = (await hookRuntime.flush(Console) as React.ReactElement<{children: React.ReactElement<Record<string, unknown>>[]}>).props.children[0];
   assert.deepEqual((consoleView.props.items as OrderListItem[]).map(({ orderNumber }) => orderNumber), ["HMK-1042", "HMK-1041"]);
   (consoleView.props.onSortChange as (value: string) => void)("lowest");
-  consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  consoleView = (await hookRuntime.flush(Console) as React.ReactElement<{children: React.ReactElement<Record<string, unknown>>[]}>).props.children[0];
   assert.deepEqual(statefulCalls, [
     { pageSize: 20, sort: "newest" },
     { pageSize: 20, cursor: "cursor_1", sort: "newest" },
@@ -831,7 +843,7 @@ test("order console switches table and mobile cards exactly at 1024/1025 with 48
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loaded")));
   assert.match(list, /styles[.]desktopTable/);
   assert.match(list, /styles[.]mobileCards/);
-  assert.match(html, new RegExp(`<a class="orderLink" href="/orders/${ORDER_ID}">HMK-1042</a>`));
+  assert.match(html, new RegExp(`<a class="orderLink" href="/orders/${ORDER_ID}" title="HMK-1042">HMK-1042</a>`));
   assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTable\s*\{\s*display:\s*none/);
   assert.match(css, /@media \(min-width: 1025px\)[\s\S]*?[.]mobileCards\s*\{\s*display:\s*none/);
   assert.match(css, /[.]orderLink\s*\{[^}]*display:\s*inline-flex[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
