@@ -1,4 +1,27 @@
 import assert from "node:assert/strict";
+test("legacy record compatibility never widens order store principal membership or operation authority",async()=>{
+  const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  const pool=new FakePool();const repo=repository(pool);
+  for(const context of [
+    tenantContext({store:{id:legacy,slug:"atlas-store",status:"active"}}),
+    tenantContext({principal:{id:legacy,issuer:"https://identity.example/oidc",subject:"synthetic"}}),
+    tenantContext({membership:{id:legacy,role:"store_owner",status:"active"}}),
+  ])await assert.rejects(repo.getOrder({tenantContext:context,now:NOW,orderId:ORDER_ID}),e=>e instanceof OrderRepositoryError);
+  await assert.rejects(repo.getOrder({tenantContext:tenantContext(),now:NOW,orderId:legacy}),e=>e instanceof OrderRepositoryError&&e.code==="invalid_input");
+  await assert.rejects(repo.transitionStatus({tenantContext:tenantContext(),now:NOW,orderId:ORDER_ID,operationId:legacy,expectedVersion:4,nextStatus:"shipped"}),e=>e instanceof OrderRepositoryError&&e.code==="invalid_input");
+  assert.equal(pool.connects,0);
+});
+test("legacy delivery retry keeps exact SQL tenant order and record identity",async()=>{
+  const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  const value={id:legacy,eventType:"order_received",recipientKind:"customer",recipientMask:"•••",status:"failed",occurredAt:NOW.toISOString(),canRetry:true};
+  const client=new FakeClient((sql,values)=>{
+    if(!sql.includes("saas.order_email_admin_retry("))return [];
+    assert.equal(values[0],STORE_ID);assert.equal(values[7],ORDER_ID);assert.equal(values[8],legacy);
+    return [{outcome:"scheduled",result_payload:value}];
+  });
+  const result=await repository(new FakePool(client)).retryEmailDelivery({tenantContext:tenantContext(),now:NOW,orderId:ORDER_ID,deliveryId:legacy});
+  assert.deepEqual(result,value);
+});
 import test from "node:test";
 
 import type { TenantContext } from "@celebix/saas-contracts";

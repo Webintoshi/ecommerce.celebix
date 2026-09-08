@@ -7,6 +7,7 @@ export {
   ORDER_STATUSES,
   ORDER_SORTS,
 } from "./types.ts";
+export { parseOrderEventId, parseOrderDeliveryId } from "./record-identity.ts";
 export type {
   OrderAddress,
   OrderDashboardSummary,
