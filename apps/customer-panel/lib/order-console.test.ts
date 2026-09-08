@@ -200,7 +200,11 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
 
 async function compileOrderModule(
   path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx" | "components/orders/OrderPrintView.tsx",
-  overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown> }> = {},
+  overrides: Readonly<{
+    react?: typeof React;
+    orderApi?: Record<string, unknown>;
+    browser?: { window: EventTarget & { navigation?: EventTarget }; document: EventTarget };
+  }> = {},
 ) {
   const output = ts.transpileModule(await source(path), {
     compilerOptions: {
@@ -254,7 +258,14 @@ async function compileOrderModule(
     if (specifier === "./order-console.module.css") return styles;
     throw new Error(`unexpected_order_console_import:${specifier}`);
   };
-  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  if (overrides.browser) {
+    // Supply only this compiled module's browser boundaries; never mutate Node globals.
+    Function("require", "module", "exports", "window", "document", output)(
+      requireModule, compiled, compiled.exports, overrides.browser.window, overrides.browser.document,
+    );
+  } else {
+    Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
+  }
   return { exports: compiled.exports, OrderApiError: CompiledOrderApiError };
 }
 
@@ -896,17 +907,24 @@ test("order detail renders immutable items, events, and merchant notes", async (
 
 test("notification failure leaves a valid order detail visible", async () => {
   const hooks = createHookRuntime();
+  const calls: string[] = [];
   const { exports } = await compileOrderModule("components/orders/OrderDetailConsole.tsx", {
     react: hooks.runtime,
+    // Real effects subscribe to these targets; this test does not simulate navigation or DOM editing.
+    browser: {
+      window: Object.assign(new EventTarget(), { navigation: new EventTarget() }),
+      document: new EventTarget(),
+    },
     orderApi: {
-      async getOrder() { return detail; },
-      async getOrderNeighbors() { return {}; },
-      async getOrderNotifications() { throw new Error("isolated_notification_failure"); },
+      async getOrder() { calls.push("detail"); return detail; },
+      async getOrderNeighbors() { calls.push("neighbors"); return {}; },
+      async getOrderNotifications() { calls.push("notifications"); throw new Error("isolated_notification_failure"); },
     },
   });
   const Console = exports.OrderDetailConsole as (props: Record<string, unknown>) => ReactNode;
   const view = await hooks.flush(() => Console({ orderId: ORDER_ID, capabilities: {} }));
   const html = renderToStaticMarkup(view);
+  assert.deepEqual(calls, ["detail", "neighbors", "notifications"]);
   assert.match(html, /HMK-1042/);
   assert.match(html, /Keten Gömlek/);
   assert.doesNotMatch(html, /isolated_notification_failure|Sipariş yüklenemedi/);
