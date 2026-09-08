@@ -1,5 +1,6 @@
 import {
   ORDER_EMAIL_EVENT_TYPES,
+  parseOrderDeliveryId,
   type OrderEmailEventType,
   type OrderEmailRecipientKind,
 } from "@celebix/saas-contracts";
@@ -64,6 +65,10 @@ function text(value: unknown, minimum: number, maximum: number, pattern?: RegExp
   return value as string;
 }
 function uuid(value: unknown, mode: "input" | "output" = "input"): string { return text(value, 36, 36, UUID, mode); }
+function deliveryRecordId(value: unknown, mode: "input" | "output" = "input"): string {
+  try { return parseOrderDeliveryId(value); }
+  catch { if (mode === "input") invalid(); else unavailable(); }
+}
 function date(value: unknown): Date {
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) invalid();
   return new Date(value.getTime());
@@ -177,7 +182,7 @@ function claim(value: unknown): Readonly<OrderEmailClaim> {
     "deliveryId", "storeId", "orderId", "eventType", "recipientKind", "attemptCount", "idempotencyKey",
     "firstAttemptAt", "idempotencyExpiresAt", "sealKeyId", "sealedRequest", "requestDigest", "projection",
   ], "output");
-  const deliveryId = uuid(parsed.deliveryId, "output"), selectedEvent = eventType(parsed.eventType);
+  const deliveryId = deliveryRecordId(parsed.deliveryId, "output"), selectedEvent = eventType(parsed.eventType);
   const selectedRecipient = recipientKind(parsed.recipientKind);
   if ((selectedEvent === "merchant_new_order") !== (selectedRecipient === "merchant")) unavailable();
   const base = {
@@ -214,7 +219,7 @@ function result(value: Readonly<{ rows: unknown[]; rowCount?: number | null }>):
 }
 function deliveryMutation(value: unknown, deliveryId: string): void {
   const parsed = exact(value, ["deliveryId"], "output");
-  if (uuid(parsed.deliveryId, "output") !== deliveryId) unavailable();
+  if (deliveryRecordId(parsed.deliveryId, "output") !== deliveryId) unavailable();
 }
 function timeout(value: number): string {
   if (!Number.isSafeInteger(value) || value < 1 || value > 60_000) unavailable();
@@ -285,7 +290,7 @@ export class PostgresOrderEmailWorkflowRepository implements OrderEmailWorkflowR
     const parsed = exact(input, ["deliveryId", "leaseId", "workerId", "now", "sealKeyId", "sealedRequest", "requestDigest", "recipientDigest", "recipientMask", "firstAttemptAt", "idempotencyExpiresAt"]);
     const now = date(parsed.now), firstAttemptAt = date(parsed.firstAttemptAt), idempotencyExpiresAt = date(parsed.idempotencyExpiresAt);
     if (now.getTime() !== firstAttemptAt.getTime() || idempotencyExpiresAt.getTime() !== firstAttemptAt.getTime() + 86_400_000 || !Buffer.isBuffer(parsed.sealedRequest) || parsed.sealedRequest.length < 32 || parsed.sealedRequest.length > 262_144) invalid();
-    const deliveryId = uuid(parsed.deliveryId);
+    const deliveryId = deliveryRecordId(parsed.deliveryId);
     await this.transaction(
       "SELECT outcome,result_payload FROM saas.order_email_work_seal($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::text,$6::bytea,$7::text,$8::text,$9::text,$10::timestamptz,$11::timestamptz)",
       [deliveryId, uuid(parsed.leaseId), text(parsed.workerId, 1, 128, WORKER), now, text(parsed.sealKeyId, 3, 32, KEY_ID), Buffer.from(parsed.sealedRequest), text(parsed.requestDigest, 64, 64, DIGEST), text(parsed.recipientDigest, 64, 64, DIGEST), text(parsed.recipientMask, 6, 320, MASK), firstAttemptAt, idempotencyExpiresAt],
@@ -294,7 +299,7 @@ export class PostgresOrderEmailWorkflowRepository implements OrderEmailWorkflowR
   }
   async accept(input: AcceptOrderEmailInput): Promise<void> {
     const parsed = exact(input, ["deliveryId", "leaseId", "workerId", "now", "providerMessageId"]);
-    const deliveryId = uuid(parsed.deliveryId);
+    const deliveryId = deliveryRecordId(parsed.deliveryId);
     await this.transaction(
       "SELECT outcome,result_payload FROM saas.order_email_work_accept($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::text)",
       [deliveryId, uuid(parsed.leaseId), text(parsed.workerId, 1, 128, WORKER), date(parsed.now), text(parsed.providerMessageId, 1, 256)], ["accepted"], (selected) => deliveryMutation(selected.payload, deliveryId),
@@ -305,13 +310,13 @@ export class PostgresOrderEmailWorkflowRepository implements OrderEmailWorkflowR
     if (typeof parsed.retryable !== "boolean") invalid();
     const now = date(parsed.now), next = parsed.nextAttemptAt === undefined ? undefined : date(parsed.nextAttemptAt);
     if ((parsed.retryable && (!next || next <= now)) || (!parsed.retryable && next)) invalid();
-    const deliveryId = uuid(parsed.deliveryId);
+    const deliveryId = deliveryRecordId(parsed.deliveryId);
     return this.transaction(
       "SELECT outcome,result_payload FROM saas.order_email_work_fail($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::text,$6::boolean,$7::timestamptz)",
       [deliveryId, uuid(parsed.leaseId), text(parsed.workerId, 1, 128, WORKER), now, text(parsed.errorCode, 1, 64, CODE), parsed.retryable, next ?? null],
       ["retry_scheduled", "failed"], (selected) => {
         const mutation = exact(selected.payload, ["deliveryId", "retryable"], "output");
-        if (uuid(mutation.deliveryId, "output") !== deliveryId || mutation.retryable !== (selected.outcome === "retry_scheduled")) unavailable();
+        if (deliveryRecordId(mutation.deliveryId, "output") !== deliveryId || mutation.retryable !== (selected.outcome === "retry_scheduled")) unavailable();
         return selected.outcome as "retry_scheduled" | "failed";
       },
     );

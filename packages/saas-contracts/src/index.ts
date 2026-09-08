@@ -290,6 +290,8 @@ export {
   ORDER_SORTS,
   parseOrderDashboardSummary,
   parseOrderDetail,
+  parseOrderEventId,
+  parseOrderDeliveryId,
   parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,

@@ -30,6 +30,7 @@ import {
   type OrderStatus,
   type OrderTracking,
 } from "./types.ts";
+import { parseOrderDeliveryId, parseOrderEventId } from "./record-identity.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
@@ -161,7 +162,7 @@ function parseItem(value: unknown): Readonly<OrderItem> {
 function parseEvent(value: unknown): Readonly<OrderEvent> {
   const parsed = exact(value, ["id", "type", "message", "createdAt"]);
   return freeze({
-    id: uuid(parsed.id),
+    id: parseOrderEventId(parsed.id),
     type: string(parsed.type, 1, 64),
     message: string(parsed.message, 1, 500),
     createdAt: timestamp(parsed.createdAt),
@@ -212,7 +213,7 @@ export function parseOrderEmailDeliverySummary(value: unknown): Readonly<OrderEm
   if ((eventType === "merchant_new_order") !== (recipientKind === "merchant")) invalid();
   if (canRetry && deliveryStatus !== "failed") invalid();
   return freeze({
-    id: uuid(parsed.id),
+    id: parseOrderDeliveryId(parsed.id),
     eventType,
     recipientKind,
     recipientMask,

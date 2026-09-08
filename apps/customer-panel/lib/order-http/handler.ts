@@ -5,6 +5,7 @@ import {
   parseOrderDraftDetail,
   parseOrderDraftListItem,
   parseOrderEmailDeliverySummary,
+  parseOrderDeliveryId,
   parseOrderListItem,
   parseOrderNeighbors,
   type TenantContext,
@@ -177,6 +178,10 @@ function isResponse(value: unknown): value is Response {
 
 function pathId(value: unknown): string | Response {
   return readOrderPathId(value) ?? error("invalid_input", 400);
+}
+
+function deliveryPathId(value: unknown): string | Response {
+  try { return parseOrderDeliveryId(value); } catch { return error("invalid_input", 400); }
 }
 
 function mutationResult(value: unknown): Readonly<OrderMutationResult> {
@@ -458,7 +463,7 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
       rawDeliveryId: unknown,
     ): Promise<Response> {
       const orderId = pathId(rawOrderId);
-      const deliveryId = pathId(rawDeliveryId);
+      const deliveryId = deliveryPathId(rawDeliveryId);
       if (isResponse(orderId)) return orderId;
       if (isResponse(deliveryId)) return deliveryId;
       const authorized = await authorize(dependencies, request, {

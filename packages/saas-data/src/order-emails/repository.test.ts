@@ -1,4 +1,41 @@
 import assert from "node:assert/strict";
+test("legacy delivery workflow preserves persisted ID and key without relaxing lease authority",async()=>{
+  const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  const client=new Client((sql,values)=>{
+    if(sql.includes("order_email_work_claim"))return [{outcome:"claimed",result_payload:{items:[unsealedClaim({deliveryId:legacy,idempotencyKey:`order-email/v1/${legacy}`})]}}];
+    if(sql.includes("order_email_work_seal")){assert.equal(values[0],legacy);return [{outcome:"sealed",result_payload:{deliveryId:legacy}}];}
+    if(sql.includes("order_email_work_fail")){assert.equal(values[0],legacy);return [{outcome:"retry_scheduled",result_payload:{deliveryId:legacy,retryable:true}}];}
+    if(sql.includes("order_email_work_accept")){assert.equal(values[0],legacy);assert.equal(values[1],LEASE);return [{outcome:"accepted",result_payload:{deliveryId:legacy}}];}
+    return [];
+  });
+  const repo=workflowRepository(client);
+  const result=await repo.claim({workerId:"order.worker",now:NOW,leaseExpiresAt:LEASE_EXPIRES,limit:1});
+  assert.equal(result.kind,"claimed");if(result.kind!=="claimed")return;
+  assert.equal(result.items[0]?.deliveryId,legacy);assert.equal(result.items[0]?.idempotencyKey,`order-email/v1/${legacy}`);
+  await repo.seal({deliveryId:legacy,leaseId:LEASE,workerId:"order.worker",now:NOW,
+    sealKeyId:"order_email_01",sealedRequest:Buffer.alloc(64,7),requestDigest:"a".repeat(64),
+    recipientDigest:"b".repeat(64),recipientMask:"a•••@example.test",firstAttemptAt:NOW,idempotencyExpiresAt:IDEMPOTENCY_EXPIRES});
+  assert.equal(await repo.fail({deliveryId:legacy,leaseId:LEASE,workerId:"order.worker",now:NOW,
+    errorCode:"provider_unavailable",retryable:true,nextAttemptAt:new Date("2026-08-05T12:00:30.000Z")}),"retry_scheduled");
+  await repo.accept({deliveryId:legacy,leaseId:LEASE,workerId:"order.worker",now:NOW,providerMessageId:"test-transport-only"});
+  await assert.rejects(repo.accept({deliveryId:legacy,leaseId:legacy,workerId:"order.worker",now:NOW,providerMessageId:"test-transport-only"}),e=>e instanceof OrderEmailRepositoryError&&e.code==="invalid_input");
+});
+test("legacy delivery mutations reject malformed or mismatched returned identities",async()=>{
+  const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  for(const returned of ["broken",DELIVERY]){
+    const repo=workflowRepository(new Client((sql)=>{
+      if(sql.includes("order_email_work_seal"))return [{outcome:"sealed",result_payload:{deliveryId:returned}}];
+      if(sql.includes("order_email_work_fail"))return [{outcome:"retry_scheduled",result_payload:{deliveryId:returned,retryable:true}}];
+      return [];
+    }));
+    const unavailable=(e:unknown)=>e instanceof OrderEmailRepositoryError&&e.code==="unavailable";
+    await assert.rejects(repo.seal({deliveryId:legacy,leaseId:LEASE,workerId:"order.worker",now:NOW,
+      sealKeyId:"order_email_01",sealedRequest:Buffer.alloc(64,7),requestDigest:"a".repeat(64),
+      recipientDigest:"b".repeat(64),recipientMask:"a•••@example.test",firstAttemptAt:NOW,idempotencyExpiresAt:IDEMPOTENCY_EXPIRES}),unavailable);
+    await assert.rejects(repo.fail({deliveryId:legacy,leaseId:LEASE,workerId:"order.worker",now:NOW,
+      errorCode:"provider_unavailable",retryable:true,nextAttemptAt:new Date("2026-08-05T12:00:30.000Z")}),unavailable);
+  }
+});
 import test from "node:test";
 
 import type { TenantContext } from "@celebix/saas-contracts";

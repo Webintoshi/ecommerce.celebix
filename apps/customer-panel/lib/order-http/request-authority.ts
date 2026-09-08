@@ -1,8 +1,10 @@
 import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+// Only the persisted delivery segment; all authority/order/note segments stay strict.
+const DELIVERY_ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const ORDER_PATH = new RegExp(
-  `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors|notifications)|/api/orders/${UUID}/notes/${UUID}/archive|/api/orders/${UUID}/notifications/${UUID}/retry)$`,
+  `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors|notifications)|/api/orders/${UUID}/notes/${UUID}/archive|/api/orders/${UUID}/notifications/${DELIVERY_ID}/retry)$`,
 );
 
 export type OrderRequestAuthorityDecision =
