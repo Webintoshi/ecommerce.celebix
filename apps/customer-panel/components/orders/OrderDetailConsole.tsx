@@ -273,7 +273,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
             <div className={styles.shippingBlock}><span>Alıcı ve teslimat adresi</span><address>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</address></div>
             <div className={styles.shippingBlock}><span>Takip bilgisi</span>{order.tracking ? <p className={styles.tracking}><strong>{order.tracking.carrier}</strong><span>{order.tracking.trackingNumber}</span></p> : <p className={styles.muted}>Takip kaydı eklenmemiş.</p>}</div>
           </div>
-          {props.capabilities.shipping ? <OrderShipmentConsole key={`${order.id}:${order.version}`} orderId={order.id} orderVersion={order.version} /> : null}
+          {props.capabilities.shipping ? <div className={styles.shipmentPresentation}><OrderShipmentConsole key={`${order.id}:${order.version}`} orderId={order.id} orderVersion={order.version} /></div> : null}
           {props.capabilities.shipping ? <details className={styles.manualShipping}><summary><span>Manuel kargo bilgisi</span><ChevronDown aria-hidden="true" size={16} /></summary><form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
             <label><span>Alıcı</span><input name="recipientName" required maxLength={200} defaultValue={order.shippingAddress.recipientName} /></label>
             <label className={styles.wide}><span>Adres</span><input name="line1" required maxLength={300} defaultValue={order.shippingAddress.line1} /></label>

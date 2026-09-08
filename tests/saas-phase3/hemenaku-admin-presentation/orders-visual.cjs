@@ -60,6 +60,7 @@ const base=process.env.ORDERS_QA_URL||'http://127.0.0.1:3487';
  await page.getByRole('textbox',{name:/Sipariş ara/}).fill('MAN-');
  await page.getByRole('button',{name:'Ara',exact:true}).click();
  await page.getByRole('table').getByRole('link',{name:b.orderNumber,exact:true}).waitFor();
+ await page.getByRole('table').getByRole('link',{name:a.orderNumber,exact:true}).waitFor({state:'hidden'});
  assert.equal(await page.getByRole('table').locator('tbody tr').count(),1);
  await page.getByRole('textbox',{name:/Sipariş ara/}).fill('');
  await page.getByRole('button',{name:'Ara',exact:true}).click();
@@ -81,6 +82,10 @@ const base=process.env.ORDERS_QA_URL||'http://127.0.0.1:3487';
  await page.getByText('QA görselsiz ürün',{exact:true}).waitFor();
  for(const [w,h] of [[1440,1000],[1024,900],[390,844]]){
   await page.setViewportSize({width:w,height:h});
+  const shipping = page.getByText('Basit Kargo',{exact:true}).locator('..').locator('..');
+  assert.equal(await shipping.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 253, 252)','Orders shipment surface must remain neutral');
+  assert.equal(await shipping.evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(231, 226, 221)');
+  assert.equal(await page.getByText('Basit Kargo',{exact:true}).evaluate(el=>getComputedStyle(el).color),'rgb(43, 43, 43)');
   await page.screenshot({path:path.join(out,'order-detail-'+w+'.png')});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth),0);
  }

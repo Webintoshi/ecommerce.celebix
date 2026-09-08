@@ -5,6 +5,34 @@ Branch: `codex/mira-orders-v1`
 
 ## Current scope and evidence
 
+### Reference and deployment preparation — 2026-09-08 follow-up
+
+The newly supplied [approved reference](mira-orders-v1/Celebix-Orders-Onayli-Referans.png) was opened and copied unchanged: 1536×1024, **1,516,948 bytes** (different from the stated 1,479,135 bytes), SHA-256 `2529e24391ba84573c37e11f9b4f6f006081c3333af61c60d44d478d80aaafd9`.
+
+Reference comparison: graphite amounts, warm neutral surfaces, restrained orange and small paid-green indicators match the written direction. Desktop retains a compact table and a right inspector. Intentional differences: inspector is a read-only overlay with stacked sections rather than the reference's simultaneous two-column editing workspace; tablet uses prioritized cards; full detail retains existing authorized operations and canonical metadata. Long canonical numbers wrap/ellipsis rather than being replaced with invented short IDs. No mockup totals, numbered pagination, global counters, customer aggregates, product images or unsupported actions were fabricated. Mobile detail remains single-column. This is visual-direction comparison, not pixel-identical reproduction.
+
+The inherited blue-gray shipping surface is neutralized using variables defined only by an Orders wrapper; shared shipping CSS retains every previous fallback outside that wrapper. Error and success rules and image/logo colors are untouched. A computed-style browser assertion reproduced RED (`rgb(250,251,252)` rather than the requested surface) before the fix. Full tests reran serially: 1318 PASS, 0 FAIL, 1 existing SKIP; typecheck PASS; production build PASS (80 pages); form regressions 8/8 PASS. Independent palette review: 0 Critical / 0 Important. Final visual run PASS: all 9 screenshots regenerated and opened, 3 viewport palette assertions PASS, overflow 0, console error/warning 0, unexpected 4xx/5xx 0; keyboard focus trap/Escape return PASS. Eight screenshots are byte-identical because layout is unchanged and the affected shipping section is below the narrow-view capture; the desktop detail screenshot visibly records the neutralized surface. These are fixture results, not authenticated QA.
+
+This follow-up started with 14,769,964 KiB available; after build 13,430,408 KiB; after final visual run 13,366,564 KiB (about 13.69 GB). No cleanup was performed. Archive work was coordinated for serial heavy checks and notified after completion.
+
+Visual harness timing correction: the search check formerly waited for a row already present before searching, then asserted row count before the async response completed. It now waits for the excluded order to disappear before asserting the same one-row result; assertions were not removed or weakened. One initial visual run timed out during fixture recompilation; it was not counted PASS.
+
+Read-only Coolify preparation (no settings saved, no deployment):
+
+| Field | Observed value |
+| --- | --- |
+| Application | `celebix-panel-staging-auth01` / `yk1h6d97z7ex0h74ok3zrj5c` |
+| Repository/source | Public GitHub `Webintoshi/ecommerce.celebix` |
+| Branch | `codex/design-tabs-save-fix-live` |
+| Configured pin | `ad2c7d479457fcc2ad0595d32476efebab20fe6d` |
+| Coolify Running commit | `ad2c7d479457fcc2ad0595d32476efebab20fe6d` (status health shown as unknown; no independent container inspection) |
+| Latest successful deployment | `qcfhopp2125g0pnclb49h8qc`, 2026-09-07 19:41:03–19:43:50 UTC |
+| Available rollback image | `ad2c7d479457fcc2ad0595d32476efebab20fe6d`, built 2026-09-07 19:43:43 UTC |
+| Rollback source settings | Same repository, canonical branch and exact pin above |
+| Proposed branch | `codex/mira-orders-v1`, exact pushed follow-up head (see PR #75) |
+
+**Deployment blocker:** current pre-deployment commands include migration-capable scripts; post-deployment runs modular-homepage and order-address migration scripts. An ordinary Redeploy cannot be certified DB-mutation-free. Any temporary frontend-only deployment requires explicit approval for safely preserving and temporarily suppressing these hooks; do not execute them or assume idempotence means no writes. No secrets were opened or copied. No migration, hook, source, environment, Owner, Storefront or Worker setting was changed. Authenticated PR QA remains pending.
+
 The 28 inventory rows below certify frontend preservation using the existing unit/contract suite and disposable browser fixture; they do **not** certify real provider operations or authenticated staging. No real customer mutations were performed. Missing authenticated evidence is not labeled PASS.
 
 Browser plugin not available: regular Playwright uses a disposable Chrome profile and the repository's existing fixture at `http://127.0.0.1:3487`. The fixture renders the actual Orders components; only API responses are controlled QA data. No fixtures were added to production data paths.
@@ -33,7 +61,7 @@ Reproduce with the existing fixture dev server on port 3487, then run `orders-re
 
 ### Remaining evidence limitations
 
-The named approved reference image is unavailable, so exact image-to-image comparison and the requested baseline screenshot are not certified. The written approved visual rules were used. Authenticated local preview, live staging and authenticated cross-module shell smoke were not run; fixture evidence is not substituted for them. The isolated shared shell fixture is not a complete authenticated application.
+The reference is now available and compared above; the requested versioned baseline screenshot is still unavailable. Authenticated local preview, live staging and authenticated cross-module shell smoke were not run; fixture evidence is not substituted for them. The isolated shared shell fixture is not a complete authenticated application.
 
 MIRA BACKEND REQUIREMENT
 Bölüm: Detayda ek finansal ve müşteri bilgileri
@@ -90,7 +118,7 @@ Backend mutation: NONE
 
 ## Evidence
 
-Approved reference filename has not been located in supplied attachments; written approved layout remains available. Screenshot comparison to the original image is pending its availability. No authenticated preview has yet been established. Fixture evidence will be labeled separately from live QA.
+Approved reference is now accessible (see follow-up above). No authenticated PR preview has yet been established. Fixture evidence remains labeled separately from live QA.
 
 Merge/deployment: prohibited for this task.
 

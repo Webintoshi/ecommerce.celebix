@@ -1211,6 +1211,12 @@ button:disabled.primaryButton,
   gap: .9rem;
 }
 
+.shipmentPresentation {
+  --shipment-surface: #FFFDFC;
+  --shipment-border: #E7E2DD;
+  --shipment-text: #2B2B2B;
+}
+
 .shippingOverview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
