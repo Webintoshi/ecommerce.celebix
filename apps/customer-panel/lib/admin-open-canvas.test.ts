@@ -35,7 +35,7 @@ test("orders use a flat workspace and divider-based mobile rows", async () => {
   ]) {
     assert.match(rule(css, ".listSurface"), declaration);
   }
-  assert.match(rule(css, ".orderCard"), /border-bottom:\s*1px solid #E8EDF4/i);
+  assert.match(rule(css, ".orderCard"), /border-bottom:\s*1px solid #E7E2DD/i);
   assert.match(rule(css, ".orderCard"), /border-radius:\s*0/);
 });
 
