@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
 import { REQUIRED_NATIVE_TOOLS, assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
+import { parseOrderEmailDeliverySummary } from "../../../packages/saas-contracts/src/orders/validation.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -23,7 +24,7 @@ const PRINCIPAL_C = "20000000-0000-4000-8000-000000000091";
 const MEMBERSHIP_A = "30000000-0000-4000-8000-000000000089";
 const MEMBERSHIP_C = "30000000-0000-4000-8000-000000000091";
 const NOW = "2026-08-05T12:00:00.000Z";
-const TOTAL = 10;
+const TOTAL = 14;
 let completed = 0;
 
 function executable(name) {
@@ -307,6 +308,60 @@ async function main() {
       assert.equal(replay.outcome, "operation_replayed");
       assert.equal(psql(box, `SELECT status FROM saas.order_email_deliveries WHERE id='${delivery}';`).stdout.trim(), "delivered");
       assert.equal(psql(box, "SELECT count(*) FROM saas.order_email_provider_events WHERE provider_event_id='svix-089';").stdout.trim(), "1");
+    });
+
+    const retryOrder = "80000000-0000-4000-8000-000000000096";
+    const legacyEvent = "42a0cbea-a3da-e403-8c64-37ec56bcaedc";
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;${orderSql({ id: retryOrder, source: "manual" })}${eventSql({ id: legacyEvent, order: retryOrder })}COMMIT;`);
+    const retryDelivery = psql(box, `SELECT id FROM saas.order_email_deliveries WHERE order_id='${retryOrder}' ORDER BY id LIMIT 1;`).stdout.trim();
+    const immutable = () => psql(box, `SELECT jsonb_build_object('order',to_jsonb(o),'event',to_jsonb(e),'deliveries',
+      (SELECT jsonb_agg(jsonb_build_array(id,store_id,order_id,order_event_id,idempotency_key) ORDER BY id)
+       FROM saas.order_email_deliveries WHERE order_id=o.id)) FROM saas.orders o JOIN saas.order_events e ON e.order_id=o.id WHERE o.id='${retryOrder}';`).stdout.trim();
+    const beforeRetry = immutable();
+    const resetRetry = () => psql(box, `UPDATE saas.order_email_deliveries SET status='failed',last_error_retryable=true,
+      attempt_count=1,first_attempt_at='${NOW}',idempotency_expires_at='2026-08-06T12:00:00Z',
+      lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id='${retryDelivery}';`);
+    const retryExpression = `saas.order_email_admin_retry(${authority()},'${retryOrder}','${retryDelivery}')`;
+    scenario("legacy event and generated delivery IDs round trip without rekeying", () => {
+      const listed = admin(box, `saas.order_email_admin_list(${authority()},'${retryOrder}')`);
+      assert.equal(listed.outcome, "listed");
+      assert.ok(listed.result.items.length > 0);
+      for (const item of listed.result.items) assert.deepEqual(parseOrderEmailDeliverySummary(item), item);
+      assert.equal(psql(box, `SELECT id FROM saas.order_events WHERE order_id='${retryOrder}';`).stdout.trim(), legacyEvent);
+      resetRetry();
+      const scheduled = admin(box, retryExpression);
+      assert.equal(scheduled.outcome, "scheduled");
+      assert.equal(parseOrderEmailDeliverySummary(scheduled.result).id, retryDelivery);
+      assert.equal(immutable(), beforeRetry);
+    });
+    scenario("valid foreign tenant and wrong order cannot retry a legacy delivery", () => {
+      psql(box, `INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at)
+        VALUES('30000000-0000-4000-8000-000000000090','${PRINCIPAL_A}','${STORE_B}','store_owner','active','2026-01-01','2026-01-01');`);
+      const foreign = authority(STORE_B).replace(MEMBERSHIP_A, "30000000-0000-4000-8000-000000000090");
+      assert.equal(admin(box, `saas.order_email_admin_list(${foreign},'${retryOrder}')`).outcome, "order_not_found");
+      assert.equal(admin(box, `saas.order_email_admin_retry(${foreign},'${retryOrder}','${retryDelivery}')`).outcome, "invalid_transition");
+      assert.equal(admin(box, `saas.order_email_admin_retry(${authority()},'${leasedOrder}','${retryDelivery}')`).outcome, "invalid_transition");
+    });
+    scenario("retry retains permission, attempt, expiry and lease gates", () => {
+      for (const change of ["attempt_count=8", "last_error_retryable=false", "status='pending'",
+        "first_attempt_at='2026-08-04T12:00:00Z',idempotency_expires_at='2026-08-05T12:00:00Z'",
+        `lease_id='${firstLease}',lease_owner='busy',lease_expires_at='2026-08-05T12:01:00Z'`]) {
+        resetRetry();
+        psql(box, `UPDATE saas.order_email_deliveries SET ${change} WHERE id='${retryDelivery}';`);
+        assert.equal(admin(box, retryExpression).outcome, "invalid_transition");
+      }
+      resetRetry();
+      psql(box, `UPDATE saas.memberships SET role='analyst' WHERE id='${MEMBERSHIP_A}';`);
+      assert.notEqual(admin(box, retryExpression).outcome, "scheduled");
+      psql(box, `UPDATE saas.memberships SET role='store_owner' WHERE id='${MEMBERSHIP_A}';`);
+    });
+    await scenarioAsync("concurrent retry preserves IDs, FK, snapshot and logical delivery count", async () => {
+      resetRetry();
+      const sql = `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT outcome FROM ${retryExpression};COMMIT;`;
+      const results = await Promise.all([psqlAsync(box, sql), psqlAsync(box, sql)]);
+      for (const result of results) assert.equal(result.stdout.trim(), "scheduled");
+      assert.equal(immutable(), beforeRetry);
+      assert.equal(psql(box, `SELECT attempt_count FROM saas.order_email_deliveries WHERE id='${retryDelivery}';`).stdout.trim(), "1");
     });
 
     scenario("down migration blocks live evidence", () => {

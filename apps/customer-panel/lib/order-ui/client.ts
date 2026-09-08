@@ -9,6 +9,7 @@ import {
   parseOrderDraftListItem,
   parseOrderDraftSaveIntent,
   parseOrderEmailDeliverySummary,
+  parseOrderDeliveryId,
   parseOrderListItem,
   parseOrderNeighbors,
   type OrderAddress,
@@ -384,7 +385,7 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
 
     async retryOrderNotification(orderId: string, deliveryId: string): Promise<Readonly<OrderEmailDeliverySummary>> {
       const order = local(() => id(orderId));
-      const delivery = local(() => id(deliveryId));
+      const delivery = local(() => parseOrderDeliveryId(deliveryId));
       const result = await request(`/api/orders/${order}/notifications/${delivery}/retry`, {
         method: "POST",
         credentials: "same-origin",

@@ -5,6 +5,7 @@ import {
   PLAN_FEATURE_KEYS,
   STORE_DOMAIN_TYPES,
   parseOrderDetail,
+  parseOrderDeliveryId,
   parseOrderDraftSaveIntent,
   type OrderAddress,
   type OrderDraftSaveIntent,
@@ -169,6 +170,10 @@ export function exactOrderInput(
 export function orderUuid(value: unknown): string {
   if (typeof value !== "string" || !ORDER_UUID.test(value)) fail();
   return value;
+}
+
+export function orderDeliveryId(value: unknown): string {
+  try { return parseOrderDeliveryId(value); } catch { return fail(); }
 }
 
 export function positiveOrderVersion(value: unknown): number {

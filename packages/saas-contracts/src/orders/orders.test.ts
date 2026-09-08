@@ -1,4 +1,20 @@
 import assert from "node:assert/strict";
+// Regression: persisted PostgreSQL UUIDs are not necessarily RFC-versioned IDs.
+const legacyRecordIds = [
+  "42a0cbea-a3da-e403-8c64-37ec56bcaedc",
+  "af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f",
+  "97df041f-b7a2-b551-7458-0cf0694045d6",
+];
+for (const legacyId of legacyRecordIds) {
+  test(`legacy event identity survives detail unchanged: ${legacyId}`, () => {
+    const value = detail(); value.events[0].id = legacyId;
+    assert.deepEqual(parseOrderDetail(value), value);
+  });
+  test(`legacy delivery identity survives notifications unchanged: ${legacyId}`, () => {
+    const value = { id: legacyId, eventType: "order_received", recipientKind: "customer", recipientMask: "•••", status: "pending", occurredAt: "2026-09-02T17:32:43.805Z", canRetry: false };
+    assert.deepEqual(parseOrderEmailDeliverySummary(value), value);
+  });
+}
 import test from "node:test";
 
 import {

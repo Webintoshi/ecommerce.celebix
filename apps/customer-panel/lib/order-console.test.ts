@@ -1,4 +1,20 @@
 import assert from "node:assert/strict";
+test("legacy delivery client retry uses unchanged ID; real HTTP and parse failures remain distinct", async () => {
+  const {createOrderApiClient,OrderApiError}=await import("./order-ui/client.ts");
+  const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  const calls: string[]=[];
+  const api=createOrderApiClient({fetch:async(input)=>{calls.push(String(input));return json({...delivery,id:legacy});}});
+  assert.equal((await api.retryOrderNotification(ORDER_ID,legacy)).id,legacy);
+  assert.deepEqual(calls,[`/api/orders/${ORDER_ID}/notifications/${legacy}/retry`]);
+  for(const bad of ["",legacy.toUpperCase(),` ${legacy}`,`${legacy}/x`,`${legacy}\n`]) await assert.rejects(api.retryOrderNotification(ORDER_ID,bad),TypeError);
+  assert.equal(calls.length,1);
+  const statuses: number[]=[];
+  for(const [http,payload] of [[503,{code:"unavailable"}],[200,{items:[{...delivery,id:"broken"}]}]] as const){
+    const client=createOrderApiClient({fetch:async()=>{statuses.push(http);return new Response(JSON.stringify(payload),{status:http,headers:{"content-type":"application/json"}});}});
+    await assert.rejects(client.getOrderNotifications(ORDER_ID),e=>e instanceof OrderApiError&&e.code==="unavailable"&&e.status===503);
+  }
+  assert.deepEqual(statuses,[503,200]);
+});
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as React from "react";
@@ -876,6 +892,24 @@ test("order detail renders immutable items, events, and merchant notes", async (
   assert.match(html, /Müşteri iletişimi/);
   assert.match(html, /mailto:ada@example[.]com/);
   assert.match(html, /tel:[+]905551112233/);
+});
+
+test("notification failure leaves a valid order detail visible", async () => {
+  const hooks = createHookRuntime();
+  const { exports } = await compileOrderModule("components/orders/OrderDetailConsole.tsx", {
+    react: hooks.runtime,
+    orderApi: {
+      async getOrder() { return detail; },
+      async getOrderNeighbors() { return {}; },
+      async getOrderNotifications() { throw new Error("isolated_notification_failure"); },
+    },
+  });
+  const Console = exports.OrderDetailConsole as (props: Record<string, unknown>) => ReactNode;
+  const view = await hooks.flush(() => Console({ orderId: ORDER_ID, capabilities: {} }));
+  const html = renderToStaticMarkup(view);
+  assert.match(html, /HMK-1042/);
+  assert.match(html, /Keten Gömlek/);
+  assert.doesNotMatch(html, /isolated_notification_failure|Sipariş yüklenemedi/);
 });
 
 test("order detail shows quiet Turkish notification history and retries only failed deliveries", async () => {

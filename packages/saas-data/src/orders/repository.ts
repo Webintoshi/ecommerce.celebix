@@ -67,6 +67,7 @@ import {
   orderStatus,
   orderStatusFilter,
   orderUuid,
+  orderDeliveryId,
   positiveOrderVersion,
   type ValidatedOrderAuthority,
 } from "./validation.ts";
@@ -558,7 +559,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const exact = exactOrderInput(input, ["tenantContext", "now", "orderId", "deliveryId"]);
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const orderId = orderUuid(exact.orderId);
-    const deliveryId = orderUuid(exact.deliveryId);
+    const deliveryId = orderDeliveryId(exact.deliveryId);
     return this.writeRpc(authority, {
       text: `SELECT outcome, result_payload FROM saas.order_email_admin_retry(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid

@@ -1,4 +1,20 @@
 import assert from "node:assert/strict";
+test("legacy delivery retry preserves tenant/order/ID and rejects malformed routes", async () => {
+  const legacy = "af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
+  const calls: unknown[] = [];
+  const handlers = createOrderHttpHandlers(dependencies(repository({async retryEmailDelivery(input) {
+    calls.push(input); return {...delivery(), id: legacy};
+  }})));
+  const path = `${ORDERS}/${ORDER_ID}/notifications/${legacy}/retry`;
+  const response = await handlers.retryEmailDelivery(request(path,{method:"POST"}),ORDER_ID,legacy);
+  assert.equal(response.status,200);
+  assert.equal((await body(response)).id,legacy);
+  assert.deepEqual(calls,[{tenantContext:tenantContext(),now:NOW,orderId:ORDER_ID,deliveryId:legacy}]);
+  for(const bad of ["",legacy.toUpperCase(),` ${legacy}`,`${legacy}/../x`,`${legacy}\n`]) {
+    assert.equal((await handlers.retryEmailDelivery(request(path,{method:"POST"}),ORDER_ID,bad)).status,400);
+  }
+  assert.equal(calls.length,1);
+});
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
