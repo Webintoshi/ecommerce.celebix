@@ -15,12 +15,15 @@ Use existing Mira/Dashboard/Analytics primitives; user palette overrides older s
 | Customers | Source8c6dd656, scoped review clean | Focused10/10; fixture18 viewport captures; broader accessibility/artifact/auth gates partial |
 | Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Focused77/77; final Panel typecheck at91097ad7 exit0; browser matrix partial, no authenticated evidence |
 | Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Initial focused116pass/1existing skip; fix-round37/37; rendered matrix partial, fresh combined types pending |
-| Promotions | Source032626f8, task review in progress | Focused76/76; final rendered matrix partial; combined typecheck NOT STARTED due disk preflight |
-| Independent order-adjacent / remaining settings and content | Pending | Briefs prepared; same approved scope, no further design approval needed |
+| Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Initial76/76; tone fix44/44; fixturefix6/6; Panel typecheck exit0 onb3527dc2 and fixturetypes exit0 on95b645a5; visual/auth partial |
+| Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Focused63/63; Panel and fixturetypes exit0; post-fix visual matrix/full build/auth pending |
+| Remaining settings and content | Pending | Brief prepared; same approved scope, no further design approval needed |
 
 No push/PR yet: fresh Auto Deploy read remains required. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
 
 Committed-scope check at a35bf118 against455a4a53: no differences in apps/admin, apps/owner, apps/storefront-shared, packages, .github, production Panel API routes or the named PR75 Orders/shipment presentation exclusions. Promotions working changes remain outside those paths. This is a source-scope check, not a fresh deployment-trigger settings check.
+
+Scope rechecked at committed438a0daf against455a4a53: the same excluded paths, Panel global CSS and all non-test Panel lib files remain unchanged. Current Task5 fix edits are not included in this committed-range attribution; they require the next scoped review. No claim that this read-only Git check proves external Auto Deploy settings.
 
 ## Customer task inventory
 
@@ -128,12 +131,12 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/orders` | @/components/orders/OrderListConsole, @/components/panel/PanelShell | EXCLUDED — PR75 dependency |
 | `/orders/[orderId]` | @/components/orders/OrderDetailConsole, @/components/panel/PanelShell | EXCLUDED — PR75 dependency |
 | `/orders/[orderId]/print` | @/components/orders/OrderPrintView | EXCLUDED — PR75 dependency |
-| `/orders/abandoned-carts` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | PENDING |
-| `/orders/abandoned-carts/[cartId]` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | PENDING |
-| `/orders/drafts` | @/components/orders/OrderDraftListConsole, @/components/panel/PanelShell | PENDING |
-| `/orders/drafts/[draftId]` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | PENDING |
-| `/orders/drafts/new` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | PENDING |
-| `/orders/quick-links` | @/components/orders/QuickOrderLinksConsole, @/components/panel/PanelShell | PENDING |
+| `/orders/abandoned-carts` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/abandoned-carts/[cartId]` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/drafts` | @/components/orders/OrderDraftListConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/drafts/[draftId]` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/drafts/new` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/quick-links` | @/components/orders/QuickOrderLinksConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
 | `/products` | @/components/catalog/ProductListConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/[productId]` | @/components/catalog/ProductDetailConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/[productId]/preview` | @/components/catalog/ProductStorefrontPreview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
@@ -303,3 +306,45 @@ Working-tree mobile390 follow-up after header amendment: shared header now names
 Task4 final commit032626f844992cad94da0afcf96aaf2eb5bd23fb: focused promotion-ui76/76, experimentaltransform warning disclosed; taskreview pending. Attempted serial combined Panel typecheck was stopped by the preliminary capacity gate:4,198,387,712bytes available, below5,000,000,000. The npm/typecheck process never started; no typecheck failure or PASS is claimed. No cleanup. Later code/review remains independent, heavy combined validation waits for adequate capacity.
 
 Committed032626f8 list1024/1440 captures inspected, overflow0 and exactly one visible graphite New action137.2×44px; desktop in sharedheader, tablet in fallback. A remaining inherited Taslak badge renders gold (#8A5A00 on#FFF4D6) via shared panel-shell status-warning; sent to task reviewer for scoped neutralization assessment, not a global/shared-shell change. Complete Promotions responsive/contrast verdict remains pending.
+
+Tone fixb3527dc28ff5445bf0f8e440db27ed4835f2f363: scoped re-review clean, both findings addressed. Shared task-local mapping gives desktop/mobile parity; no shared-shell changes. RED0/1→GREEN1/1, covering presentation/client/studio source44/44. Root1440/390 measures neutralTaslak rgb107,98,92 onrgb255,250,246, overflow0; mobilecardTab moves toView with visiblefocus, actions reachable without mutation. Full create/edit/detail/code/analytics matrix remains pending.
+
+Later capacity gate measured7,607,070,720bytes; Paneltypecheck session21444 ran serially onb3527dc2 and completed exit0. Afterward6,158,422,016bytes available; fixture strict/import-compatible typecheck96335 started alone, result pending. No cleanup or attribution of free-space changes. Task5 readonlypreparation may overlap, but no source edits duringthesechecks. Final fullPaneltest/build remains pending.
+
+Fixturetypecheck96335 then exited2: generated Next page type rejects named runtime export `PromotionFixtureScreen` from `app/mira-promotions/[view]/page.tsx` (TS2344). This is a newly added test-fixture page-boundary defect, not an application backend error. Original Promotions implementer assigned bounded round2: ordinary helper component module plus valid page exports/wrapper imports; no generated artifact deletion or compiler relaxation. Task5 stays read-only until this fix/check gate. ProductionPaneltypecheckPASS remains attributed to b3527dc2 only.
+
+Round2fixturefix95b645a5ddd8effb54ea4e477434f52842c54991: helper extracted to ordinarymodule, sixwrappers updated; focusedboundaryRED0/1→GREEN1/1 and presentation6/6. Independent scopedreviewclean. Samefullfixturetypecheck rerun58724 completed exit0 with no diagnostics, without generatedfile/config changes. Capacity6,543,126,528before→6,542,561,280after. Task5 released at95b645a5 after bothreview/typegates; no overlapping source changes duringvalidation, no cleanup.
+
+Additional390wizardQA:12templatechoicesrender, overflow0. Selectfirsttemplate→write`Mira korunacak kampanya`→Next→Back retainsname. Allfive stepbuttons clientWidth=scrollWidth142px; save643–687px remains above dock. **Open finalQA finding:** initial editor focus positions question heading35–82px behind stickyheader0–69; afterBack it remains-411–-364px while focus is the stepcontainer and scrollY839. Subsequentcaptureconfirms hiddenquestion, nottransientloading. Finalreview/fixwave mustaddress appropriate step-scroll/focus clearance; no clipping/focusPASS. No durable save or providercall. FixtureprefixÖzetheading isnotnativefailure: real/discounts/newmapsYeniİndirim inexistingnavigation.
+
+Subsequent isolated draft-save attempt: serverlogPOST/api/promotions409 in754ms; UI displays campaignconflict, retains exact`Mira korunacak kampanya`, percentage10 and automatictrigger, re-enablesfields/save. Duringrequest controls were disabled. Handler is test-only/nonpersistent; no realcampaign/provider mutation or successfulsave certification. This closes a specific controlledfailed-save UI check, notversion-conflict/current-server-reconciliation orauthenticatedQA.
+
+Wizard1024/1440 inline captures:overflow0, tablet form/summary stack andsave739–783px above dock; desktop namefield733px withrightsummary. Openpaletteobservation: trigger radios at1024 useaccent-color:auto, visibleblue20pxcontrols; finalscopedcontrolaccentreview pending alongsidecatalogcheckboxes. No global/browserprofile change proposed. Mobilefocus/clippingfinding remainsopen despitezero horizontaloverflow.
+
+Codes fixture opened in separateIABtab5 to preserveunsavedwizardtab4. Loaded1024/390:overflow0, fields310/320pxwide and44pxhigh, honestemptybatches/noverifieddomainlink. Controlledrejectedcreate keepscount12/prefixMIRA_QA_/length24/percustomer1 andreenablesbutton. **Open finalQA finding:** persistent error toast overlaps lowerpartofcreatebutton at390 (button581.9–625.9px,toaststarts~605px); sourcePromotionCodes.tsx33 usesstyles.toast withoutautomaticexpiry. Finalreview shouldkeepfeedbackvisiblewithoutcoveringactions. No actualcouponcreated, export/lifecycle/populatedbatchtable unverified.
+
+Codes final1440 loadedretake alsooverflow0; readablefive-fieldrow/graphiteCTA, errornotificationclearofactions atdesktop. Thereforeloadedcodes captures1440/1024/390 existinline, withmobiletoastoverlapstillopen. Tab5subsequentlyreused forTask5drafts; tab4unsavedcampaign andtab3productdraftremainpreserved.
+
+### Independent order-adjacent working evidence
+
+Task5implementerreports focusedRED0/4→initialGREEN4/4; broaderfocusedchecks stillrunning, notafinalpackagePASS. Stabletest-onlyviews: /mira-order-adjacent/{drafts,draft-new,draft-edit,quick-links,abandoned-carts,abandoned-cart-detail}; empty/error states available where supported. Onepagecontrolleddata and409nonpersistentmutations; existingcatalog/customerchoicequerycaps remain, no whole-store/multi-pagecertification. Rootfirstdraftsnavigationpendingdevcompilation, no renderedPASS yet.
+
+Task5 browser preflight: the actual draft-list shared header and loading state rendered at1440×1000. Fixture server recorded the page GET200 after5.2min development compilation; the subsequent catch-all/API compilation was still pending when captured. A narrow error/warning console query returned[] during loading only. This is not loaded-list, live-performance, or complete console/network certification. Product and promotion unsaved fixture tabs remain untouched.
+
+Push access remains unverified: current Chrome inventory has the independent archive comparison and Drive tab, but no management page. A bounded read of two existing Orders QA documents found no management origin to reuse; no credentials, environment files or infrastructure settings were inspected or changed. The existing asynchronous request to open the authorized Coolify page remains unanswered. Historical Auto Deploy OFF records are not treated as a fresh push-safety check; no push or deployment occurred.
+
+Latest narrow heavy-validation capacity gate:2,216,259,584 available bytes, below5,000,000,000. No new heavy test/typecheck/build started, and no cleanup performed. The change in free space is measured, not attributed to a specific process. Task5 focused/self-review work and independent remaining frontend implementation can continue; combined heavy validation is pending adequate capacity.
+
+Task5 committed438a0daf09ec6fa71428443f94deb7ff8fb6153b: serial presentation5/5, abandoned-cart3/3, quick-link22/22 and existing order-console31/31, totaling61/61; expected Node experimental warnings disclosed. Independent task-scoped review is in progress. Root diff-check exited0 and only this QA document is modified. No full-suite/typecheck/build or successful/live mutation claim is attached to this commit. The fixture server remains listening on the root-owned port3517; new navigations/compilations are deferred at the current capacity gate, not resolved by altering application behavior.
+
+Task5 review returned four Important findings: header CTA lacks inherited Mira variables; quick-link sticky save area has an overflow-hidden ancestor; the more-specific test transport shadows the existing abandoned-cart summary; and the appended duplicate CSS cascade needs integration. The existing source-regex tests missed these defects. Original implementer is assigned bounded fix round1 with rendered/request-level regression evidence and scoped re-review afterward. These findings prevent a package PASS despite61 passing focused tests.
+
+The existing draft-list request subsequently loaded. Retakes1440×1000/1024×900/390×844 were inspected inline; each page overflow0. One controlled draft displays canonical fixture255.00TRY, neutral status and readable mobile definition-list cards. The actual header action is transparent/outlined withrgb28,25,23 text, not the review's inferred orange fallback; it still fails the requested filled-graphite primary style. Mobile visibleOpen link measured327.2×36px; ShiftTab reaches draft-number link with legacyblue36%-opacity3pxoutline. Both were sent to the active scoped CSS fix, alongside the four review findings. Tab/Open→dock and ShiftTab/Open→draft-number navigation work; no opening/new-route compilation or mutation was triggered. These are pre-fix captures, not final responsive/accessibility PASS.
+
+Root then stopped only its own local fixture server(session42670, exit0) to prevent further automatic compilations at the capacity gate. No file deletion, other process or live service change; existing browser tabs/unsaved controlled drafts remain. Final local logs record draftGET200 after6.1min and13.3min compilation, not server-side/live latency certification. A subsequent narrow measurement is5,357,740,032bytes available; no cleanup or causal attribution is claimed. Fresh capacity checks are still required before each heavy run. Visual retakes require a later local test-server restart; application behavior was not changed to resolve infrastructure waiting.
+
+Task5 fix5229497744545181a064a29152904201052faaac: explicit primary colors,44px mobileaction/strongerfocus, untrapped sticky dock, fixture context gate and consolidated CSS. Reported RED3/7→GREEN7/7; final four focused groups63/63, exact diff-check clean. Scoped re-review pending. Root measured9,655,001,088bytes available and started serialPaneltypecheck33245 onthisexactcommit; result pending. No cleanup or attribution of space changes. No new settings edits or local server are running alongside this check.
+
+Task5 final scoped review: all six findings addressed; no new Critical/Important defect. A minor test-transport Allow-header mismatch remains for final review: unrelatedPOST405 advertisesPATCH althoughnoPATCHexport exists. Root checked the prior genericPATCH handler: it onlysupports a catalogproduct, not avalidorderswriteflow. Bothserialtypechecks exited0 on52294977: Panel33245 and strict/import-compatiblefixture97486. Measurements9,655,001,088before→8,577,990,656between→8,574,840,832afterbytes. FullPaneltest/build/auth andpostfixvisualretakes remainpending.
+
+Only afterbothchecks completed, root restarted itslocalfixturedevserver as session66113 onport3517 (Ready1130ms). No source/config/secret change, cleanup, push or live deployment. Task6 can proceed underthesameapprovedscope afterthiscodegate; itsreportedPolicyconflictbehavior stillrequiresfailingreproduction.
