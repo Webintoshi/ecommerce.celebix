@@ -63,14 +63,33 @@ test("Taslak stays neutral and desktop and mobile use the same promotion status 
   assert.doesNotMatch(list, /tone=\{item[.]effectiveStatus[^}]+"warning"\}/);
 });
 
-test("the browser fixture mounts real promotion views and rejects all mutations", async () => {
+test("Next promotion pages keep reusable fixture exports outside route modules", async () => {
   const fixturePage = await fixtureSource("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/mira-promotions/[view]/page.tsx");
+  const wrappers = await Promise.all([
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/new/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/[promotionId]/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/[promotionId]/edit/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/[promotionId]/codes/page.tsx",
+    "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/discounts/[promotionId]/analytics/page.tsx",
+  ].map(fixtureSource));
+
+  assert.doesNotMatch(fixturePage, /export (?:type|function) PromotionFixture/);
+  assert.match(fixturePage, /from "[.][.]\/PromotionFixtureScreen"/);
+  for (const wrapper of wrappers) {
+    assert.match(wrapper, /mira-promotions\/PromotionFixtureScreen/);
+    assert.doesNotMatch(wrapper, /\[view\]\/page/);
+  }
+});
+
+test("the browser fixture mounts real promotion views and rejects all mutations", async () => {
+  const fixtureScreen = await fixtureSource("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/mira-promotions/PromotionFixtureScreen.tsx");
   const fixtureRoute = await fixtureSource("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/promotions/[[...path]]/route.ts");
 
   for (const component of ["PromotionStudio", "PromotionCodes", "PromotionAnalytics", "PanelLayoutClient"]) {
-    assert.match(fixturePage, new RegExp(component));
+    assert.match(fixtureScreen, new RegExp(component));
   }
-  assert.match(fixturePage, /data-evidence="isolated-promotions-fixture"/);
+  assert.match(fixtureScreen, /data-evidence="isolated-promotions-fixture"/);
   assert.match(fixtureRoute, /export async function POST\(\)/);
   assert.match(fixtureRoute, /export async function PATCH\(\)/);
   assert.match(fixtureRoute, /status:\s*409/);

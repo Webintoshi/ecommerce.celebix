@@ -1,4 +1,4 @@
-import { PromotionFixtureScreen } from "../../mira-promotions/[view]/page";
+import { PromotionFixtureScreen } from "../../mira-promotions/PromotionFixtureScreen";
 
 export default function NewDiscountFixturePage() {
   return <PromotionFixtureScreen view="new" />;
