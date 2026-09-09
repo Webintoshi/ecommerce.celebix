@@ -285,7 +285,7 @@
 .previewMetrics strong,
 .migrationProgress strong { color: var(--catalog-text); }
 .sectionHeading span,
-.historyHeading span { color: var(--catalog-accent); }
+.historyHeading span { color: #667085; }
 
 .providerCard,
 .sourceForm input,
@@ -298,6 +298,7 @@
   color: var(--catalog-text);
 }
 .providerCard:hover { border-color: var(--catalog-text); }
+.importWorkspace .providerCard { padding-right: 44px; }
 .providerSelected { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); box-shadow: inset 3px 0 var(--catalog-accent); }
 .sourceTabs .tabActive { border-bottom-color: var(--catalog-accent); color: var(--catalog-text); }
 .previewMetrics div { background: var(--catalog-canvas); }
@@ -334,4 +335,8 @@
 
 @media (max-width: 700px) {
   .upload { padding-inline: 16px; }
+}
+
+@media (max-width: 480px) {
+  .importWorkspace .providerGrid { grid-template-columns: 1fr; }
 }

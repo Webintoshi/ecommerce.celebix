@@ -1,6 +1,7 @@
-import { PRODUCT_ID, STORE_ID, VARIANT_ID } from "../mira-catalog/catalog-fixture";
+import { PRODUCT_ID, STORE_ID, VARIANT_ID } from "../mira-catalog/catalog-fixture.ts";
 
 export const STOCK_NOW = "2026-09-09T10:00:00.000Z";
+export const STOCK_PREVIEW_NOW = "2026-09-09T10:00:00.000000Z";
 export const LOCATION_ID = STORE_ID;
 export const DESTINATION_ID = "92000000-0000-4000-8000-000000000001";
 export const PURCHASE_ID = "92000000-0000-4000-8000-000000000002";

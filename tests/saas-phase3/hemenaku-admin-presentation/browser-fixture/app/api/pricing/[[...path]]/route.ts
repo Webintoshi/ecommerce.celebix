@@ -1,5 +1,5 @@
-import { VARIANT_ID } from "../../../mira-catalog/catalog-fixture";
-import { PRICE_LIST, PRICE_LIST_ID, STOCK_NOW } from "../../../mira-stock/stock-fixture";
+import { VARIANT_ID } from "../../../mira-catalog/catalog-fixture.ts";
+import { PRICE_LIST, PRICE_LIST_ID, STOCK_PREVIEW_NOW } from "../../../mira-stock/stock-fixture.ts";
 
 async function selectedPath(context: { params: Promise<{ path?: string[] }> }) {
   return (await context.params).path?.join("/") ?? "";
@@ -20,7 +20,7 @@ export async function POST(request: Request, context: { params: Promise<{ path?:
     const variantIds = Array.isArray(value.variantIds) && value.variantIds.length ? value.variantIds : [VARIANT_ID];
     return Response.json({
       entries: variantIds.map((variantId) => ({ variantId, channel, basePriceCents: 249_900, effectivePriceCents: 229_900, sourceKind: "price_list", priceListId: PRICE_LIST_ID })),
-      asOf: STOCK_NOW,
+      asOf: STOCK_PREVIEW_NOW,
     });
   }
   return Response.json({ code: "conflict" }, { status: 409 });

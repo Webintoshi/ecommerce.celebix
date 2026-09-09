@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { CatalogImportPreview } from "@celebix/saas-contracts";
+import { Window } from "happy-dom";
 
 import {
   createCatalogImportPreparationController,
@@ -24,6 +25,28 @@ function browserFile(name: string, bytes: Uint8Array) {
 }
 
 const FILE = browserFile("products.csv", new TextEncoder().encode(CONTENT));
+
+function rgb(value: string): readonly [number, number, number] {
+  if (/^#[\da-f]{6}$/i.test(value)) {
+    return [Number.parseInt(value.slice(1, 3), 16), Number.parseInt(value.slice(3, 5), 16), Number.parseInt(value.slice(5, 7), 16)];
+  }
+  const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  assert.equal(channels?.length, 3, value);
+  return channels as unknown as readonly [number, number, number];
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (color: string) => {
+    const channels = rgb(color).map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+  };
+  const lighter = Math.max(luminance(foreground), luminance(background));
+  const darker = Math.min(luminance(foreground), luminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 function preview(
   status: CatalogImportPreview["status"] = "prepared",
@@ -380,4 +403,32 @@ test("Mira import consoles keep headings, previews and dock-safe actions within 
   assert.match(css, /--catalog-text:\s*#2B2B2B/);
   assert.match(css, /\.importWorkspace[\s\S]*\.upload[\s\S]*border-color:\s*var\(--catalog-border\)/);
   assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.preview > \.actions[\s\S]*bottom:\s*76px/);
+});
+
+test("import step eyebrows have AA computed contrast on the warm surface", async () => {
+  const css = await readFile(new URL("components/catalog-admin/catalog-admin-console.module.css", new URL("../", import.meta.url)), "utf8");
+  const window = new Window();
+  window.document.head.innerHTML = `<style>${css}</style>`;
+  window.document.body.innerHTML = '<section class="importWorkspace"><section class="importSection"><header class="sectionHeading"><span>1. adım</span></header></section></section>';
+  const eyebrow = window.document.querySelector(".sectionHeading span");
+  const surface = window.document.querySelector(".importSection");
+  assert.ok(eyebrow);
+  assert.ok(surface);
+  const foreground = window.getComputedStyle(eyebrow).color;
+  const background = window.getComputedStyle(surface).backgroundColor;
+  assert.ok(contrastRatio(foreground, background) >= 4.5, `${foreground} on ${background}`);
+});
+
+test("provider choices use one computed column at 390px so the radio cannot cover its title", async () => {
+  const css = await readFile(new URL("components/catalog-admin/catalog-admin-console.module.css", new URL("../", import.meta.url)), "utf8");
+  const window = new Window();
+  window.happyDOM.setViewport({ width: 390, height: 844 });
+  window.document.head.innerHTML = `<style>${css}</style>`;
+  window.document.body.innerHTML = '<section class="importWorkspace"><fieldset class="providerGrid"><label class="providerCard"><input type="radio"><strong>WooCommerce</strong><small>Ürün dışa aktarımı</small></label><label class="providerCard"><input type="radio"><strong>Shopify</strong><small>Ürün dışa aktarımı</small></label></fieldset></section>';
+  const grid = window.document.querySelector(".providerGrid");
+  const card = window.document.querySelector(".providerCard");
+  assert.ok(grid);
+  assert.ok(card);
+  assert.ok(Number.parseFloat(window.getComputedStyle(card).paddingRight) >= 44);
+  assert.equal(window.getComputedStyle(grid).gridTemplateColumns, "1fr");
 });
