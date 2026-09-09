@@ -137,9 +137,14 @@ function fallbackContext(path: string) {
   return { params: Promise.resolve({ slug: ["orders", ...path.split("/").filter(Boolean)] }) };
 }
 
-function requestedState(request: Request) {
-  const source = request.headers.get("referer") ?? request.url;
-  const state = new URL(source).searchParams.get("state");
+function requestedState(request: Request): "loaded" | "empty" | "error" | null {
+  const source = request.headers.get("referer");
+  if (!source) return null;
+  let url: URL;
+  try { url = new URL(source); }
+  catch { return null; }
+  if (!/^\/mira-order-adjacent(?:\/|$)/.test(url.pathname)) return null;
+  const state = url.searchParams.get("state");
   return state === "empty" || state === "error" ? state : "loaded";
 }
 
@@ -154,6 +159,7 @@ function invalid() {
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await pathOf(context);
   const state = requestedState(request);
+  if (state === null) return fallbackGET(request, fallbackContext(path));
   const query = new URL(request.url).searchParams;
   const scoped = path === "drafts" || path === `drafts/${ORDER_ADJACENT_DRAFT_ID}` || path === "quick-links" || path === "quick-links/payment-methods" || path === "abandoned-carts" || path === "abandoned-carts/summary" || path === `abandoned-carts/${ORDER_ADJACENT_CART_ID}`;
   if (scoped && state === "error") return unavailable();
@@ -179,7 +185,10 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
   return fallbackGET(request, fallbackContext(path));
 }
 
-export async function POST(_request: Request, context: { params: Promise<{ path?: string[] }> }) {
+export async function POST(request: Request, context: { params: Promise<{ path?: string[] }> }) {
+  if (requestedState(request) === null) {
+    return Response.json({ code: "method_not_allowed" }, { status: 405, headers: { allow: "GET, PATCH" } });
+  }
   const path = await pathOf(context);
   if (path === "drafts" || path.startsWith("drafts/") || path === "quick-links" || path.startsWith("quick-links/") || path.startsWith("abandoned-carts/")) {
     return Response.json({ code: "version_conflict" }, { status: 409 });

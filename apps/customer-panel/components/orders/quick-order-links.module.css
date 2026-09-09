@@ -1,14 +1,20 @@
 .console {
-  --accent: #FF6A00;
-  --accent-soft: #FFF3EA;
-  --ink: #172033;
   --muted: #667085;
-  --border: #E1E6EF;
-  --surface-soft: #F9F9F9;
   display: grid;
   gap: 16px;
   color: var(--ink);
   font-size: 14px;
+  --mira-accent: #FE6100;
+  --mira-text: #2B2B2B;
+  --mira-sidebar: #201C19;
+  --mira-canvas: #F8F7F5;
+  --mira-surface: #FFFDFC;
+  --mira-border: #E7E2DD;
+  --accent: var(--mira-accent);
+  --accent-soft: rgb(254 97 0 / 10%);
+  --ink: var(--mira-text);
+  --border: var(--mira-border);
+  --surface-soft: var(--mira-canvas);
 }
 
 .builderGrid {
@@ -30,24 +36,26 @@
   min-width: 0;
 }
 
-.panel,
-.summaryWorkspace {
-  min-width: 0;
-  border: 1px solid var(--border, #E2E7EE);
-  border-radius: 8px;
-  background: #FFFFFF;
-  box-shadow: 0 1px 2px rgb(16 24 40 / 4%);
-}
-
 .panel {
+  min-width: 0;
+  border-color: var(--mira-border);
+  border-radius: 12px;
   overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid var(--mira-border);
+  background: var(--mira-surface);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
 }
 
-.panelHeader,
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #EDF0F4;
+  padding: 16px 18px;
+  border-color: var(--mira-border);
+}
+
 .summaryHeader {
   display: flex;
   align-items: center;
@@ -70,8 +78,7 @@
   min-width: 0;
 }
 
-.panelHeader h2,
-.summaryHeader h2 {
+.panelHeader h2 {
   margin: 0;
   color: var(--ink, #172033);
   font-size: 15px;
@@ -80,12 +87,27 @@
   line-height: 1.35;
 }
 
-.panelHeader p,
-.summaryHeader p {
+.summaryHeader h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.35;
+  color: var(--mira-surface);
+}
+
+.panelHeader p {
   margin: 3px 0 0;
   color: var(--muted, #667085);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.summaryHeader p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--mira-surface);
 }
 
 .panelIcon,
@@ -99,7 +121,14 @@
   border-radius: 7px;
 }
 
-.panelIcon,
+.panelIcon {
+  width: 34px;
+  height: 34px;
+  border-left: 3px solid var(--mira-accent);
+  background: rgb(254 97 0 / 10%);
+  color: var(--mira-text);
+}
+
 .summaryHeader > span {
   width: 34px;
   height: 34px;
@@ -186,10 +215,46 @@
   gap: 6px;
 }
 
-.field > span,
-.customerGrid label > span,
-.addressGrid label > span,
-.selectedLine label > span,
+.field > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--mira-surface);
+}
+
+.customerGrid label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4C566A;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.addressGrid label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4C566A;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.selectedLine label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4C566A;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .quantityGroup > span {
   display: flex;
   align-items: center;
@@ -206,14 +271,120 @@
   color: #8A94A6;
 }
 
-.console input,
-.console select,
-.console textarea,
-.secondaryButton,
-.primaryButton,
-.refreshButton,
-.loadMore,
-.listError button,
+.console input {
+  min-width: 0;
+  border: 1px solid #D9DFE8;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.console select {
+  min-width: 0;
+  border: 1px solid #D9DFE8;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.console textarea {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.secondaryButton {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.primaryButton {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.refreshButton {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.loadMore {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.listError button {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #D9DFE8;
+  border-radius: 7px;
+  background: #FFFFFF;
+  padding: 9px 11px;
+  color: var(--ink, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 .paginationError button {
   min-width: 0;
   min-height: 42px;
@@ -235,9 +406,13 @@
 }
 
 .console textarea {
-  min-height: 80px;
   resize: vertical;
   line-height: 1.5;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .console input:hover,
@@ -246,18 +421,67 @@
   border-color: #C7CFDA;
 }
 
-.console input:focus-visible,
-.console select:focus-visible,
-.console textarea:focus-visible,
-.console button:focus-visible,
-.refreshButton:focus-visible,
-.loadMore:focus-visible,
-.listError button:focus-visible,
-.paginationError button:focus-visible,
+.console input:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.console select:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.console textarea:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.console button:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.refreshButton:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.loadMore:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.listError button:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.paginationError button:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
 .linksBody [tabindex="-1"]:focus-visible {
-  border-color: var(--accent, #FE6100);
-  outline: 3px solid rgb(254 97 0 / 16%);
-  outline-offset: 1px;
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
 }
 
 .pickerPopover {
@@ -268,16 +492,48 @@
   left: 0;
 }
 
-.searchResults,
-.customerResults,
-.customerSearchState,
-.productPicker > .pickerPopover > .inlineError,
-.customerPicker > .pickerPopover > .inlineError {
+.searchResults {
+  overflow: hidden;
+  border: 1px solid #DDE3EB;
+  box-shadow: 0 14px 32px rgb(16 24 40 / 14%);
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+}
+
+.customerResults {
+  overflow: hidden;
+  border: 1px solid #DDE3EB;
+  box-shadow: 0 14px 32px rgb(16 24 40 / 14%);
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+}
+
+.customerSearchState {
   overflow: hidden;
   border: 1px solid #DDE3EB;
   border-radius: 8px;
   background: #FFFFFF;
   box-shadow: 0 14px 32px rgb(16 24 40 / 14%);
+}
+
+.productPicker > .pickerPopover > .inlineError {
+  overflow: hidden;
+  border: 1px solid #DDE3EB;
+  box-shadow: 0 14px 32px rgb(16 24 40 / 14%);
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+}
+
+.customerPicker > .pickerPopover > .inlineError {
+  overflow: hidden;
+  border: 1px solid #DDE3EB;
+  box-shadow: 0 14px 32px rgb(16 24 40 / 14%);
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
 }
 
 .searchResults > ul,
@@ -311,6 +567,7 @@
   gap: 8px;
   border-bottom: 1px solid #EDF0F4;
   padding: 10px;
+  border-color: var(--mira-border);
 }
 
 .searchProduct:last-child {
@@ -437,7 +694,16 @@
   height: 14px;
 }
 
-.searchState,
+.searchState {
+  display: grid;
+  min-height: 74px;
+  place-items: center;
+  padding: 14px;
+  color: #667085;
+  font-size: 12px;
+  text-align: center;
+}
+
 .customerSearchState {
   display: grid;
   min-height: 74px;
@@ -446,6 +712,9 @@
   color: #667085;
   font-size: 12px;
   text-align: center;
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
 }
 
 .searchState {
@@ -479,6 +748,64 @@
   font-size: 11px;
 }
 
+.panelHeading h2[tabindex="-1"] {
+  scroll-margin-top: 96px;
+}
+
+.panelHeading h2[tabindex="-1"]:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--mira-text);
+  outline-offset: 4px;
+}
+
+.summaryWorkspace .field > span svg {
+  color: #D4CEC8;
+}
+
+.summaryWorkspace .expiryField svg {
+  color: #D4CEC8;
+}
+
+.summaryWorkspace .summarySectionTitle > svg {
+  color: #D4CEC8;
+}
+
+.summaryWorkspace .totals .grandTotal {
+  border-color: rgb(255 253 252 / 24%);
+}
+
+.summaryWorkspace .primaryButton {
+  border-color: var(--mira-surface);
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.summaryActions .secondaryButton {
+  border-color: rgb(255 253 252 / 24%);
+  background: transparent;
+  color: var(--mira-surface);
+}
+
+.listState > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--mira-accent);
+}
+
+.listState > span {
+  display: grid;
+  gap: 4px;
+}
+
+.listState small {
+  color: #6F655F;
+  font-size: 12px;
+}
+
+.listState[role="status"] > svg {
+  animation: search-spin .9s linear infinite;
+}
+
 @keyframes search-spin {
   to { transform: rotate(360deg); }
 }
@@ -487,13 +814,17 @@
   .searchState > svg {
     animation: none;
   }
+  .listState[role="status"] > svg {
+    animation: none;
+  }
 }
 
 .selectedLines {
   overflow: hidden;
   border: 1px solid #E3E7ED;
-  border-radius: 8px;
-  background: #FFFFFF;
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
 }
 
 .linesHeader {
@@ -505,6 +836,7 @@
   border-bottom: 1px solid #E8ECF1;
   background: #FAFBFC;
   padding: 10px 12px;
+  border-color: var(--mira-border);
 }
 
 .linesHeader > div {
@@ -578,6 +910,7 @@
   gap: 12px;
   border-bottom: 1px solid #EDF0F4;
   padding: 11px 12px;
+  border-color: var(--mira-border);
 }
 
 .selectedLine:last-child {
@@ -729,6 +1062,7 @@
 .customerResults li {
   border-bottom: 1px solid #EDF0F4;
   padding: 4px;
+  border-color: var(--mira-border);
 }
 
 .customerResults li:last-child {
@@ -902,6 +1236,7 @@
   gap: 12px;
   border-top: 1px solid #E8ECF1;
   padding-top: 16px;
+  border-color: var(--mira-border);
 }
 
 .billingBlock h3 {
@@ -910,11 +1245,18 @@
 }
 
 .summaryWorkspace {
-  overflow: hidden;
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid var(--mira-sidebar);
+  border-radius: 12px;
+  background: var(--mira-sidebar);
+  color: var(--mira-surface);
+  box-shadow: 0 8px 24px rgb(32 28 25 / 12%);
 }
 
 .summaryHeader {
   justify-content: flex-start;
+  border-color: rgb(255 253 252 / 14%);
 }
 
 .summarySection {
@@ -922,6 +1264,7 @@
   gap: 13px;
   border-bottom: 1px solid #EDF0F4;
   padding: 15px 16px;
+  border-color: rgb(255 253 252 / 14%);
 }
 
 .expiryField {
@@ -935,9 +1278,9 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #4C566A;
   font-size: 12px;
   font-weight: 700;
+  color: var(--mira-surface);
 }
 
 .expiryField svg {
@@ -963,8 +1306,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  color: #596579;
   font-size: 12px;
+  color: var(--mira-surface);
 }
 
 .totals dt,
@@ -973,22 +1316,22 @@
 }
 
 .totals dd {
-  color: #344054;
   font-weight: 700;
+  color: var(--mira-surface);
 }
 
 .totals .grandTotal {
   margin-top: 3px;
   border-top: 1px dashed #D7DDE6;
   padding-top: 12px;
-  color: var(--ink, #172033);
   font-size: 14px;
   font-weight: 750;
+  color: var(--mira-surface);
 }
 
 .grandTotal dd {
-  color: var(--ink, #172033);
   font-size: 18px;
+  color: var(--mira-surface);
 }
 
 .amountGrid {
@@ -1013,13 +1356,14 @@
 .summarySectionTitle h3 {
   margin: 0;
   font-size: 12px;
+  color: var(--mira-surface);
 }
 
 .summarySectionTitle p {
   margin: 2px 0 0;
-  color: #7A8495;
   font-size: 11px;
   line-height: 1.4;
+  color: var(--mira-surface);
 }
 
 .providerBody {
@@ -1083,16 +1427,21 @@
 
 .helpText {
   margin: 0;
-  color: #7A8495;
   font-size: 11px;
   line-height: 1.5;
+  color: var(--mira-surface);
 }
 
 .summaryActions {
   display: grid;
   gap: 8px;
-  background: #FAFBFC;
   padding: 15px 16px 16px;
+  position: sticky;
+  z-index: 4;
+  bottom: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-top: 1px solid rgb(255 253 252 / 14%);
+  background: var(--mira-sidebar);
 }
 
 .primaryButton,
@@ -1109,15 +1458,17 @@
 }
 
 .primaryButton {
-  border-color: var(--accent, #FE6100);
-  background: var(--accent, #FE6100);
-  color: #FFFFFF;
-  box-shadow: 0 1px 2px rgb(254 97 0 / 20%);
+  min-height: 44px;
+  border-color: var(--mira-text);
+  border-radius: 8px;
+  background: var(--mira-text);
+  color: var(--mira-surface);
+  box-shadow: none;
 }
 
 .primaryButton:hover:not(:disabled) {
-  border-color: #E95800;
-  background: #E95800;
+  border-color: var(--mira-sidebar);
+  background: var(--mira-sidebar);
 }
 
 .primaryButton svg,
@@ -1127,10 +1478,29 @@
   height: 15px;
 }
 
-.secondaryButton,
-.refreshButton,
-.loadMore,
-.listError button,
+.secondaryButton {
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.refreshButton {
+  background: #FFFFFF;
+  color: #475467;
+}
+
+.loadMore {
+  background: #FFFFFF;
+  color: #475467;
+}
+
+.listError button {
+  background: #FFFFFF;
+  color: #475467;
+}
+
 .paginationError button {
   background: #FFFFFF;
   color: #475467;
@@ -1182,15 +1552,21 @@
 }
 
 .refreshButton {
-  min-height: 34px;
   padding: 6px 10px;
   font-size: 12px;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .desktopTable {
   overflow-x: auto;
   border: 1px solid #E3E7ED;
-  border-radius: 8px;
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
 }
 
 .desktopTable table {
@@ -1213,11 +1589,13 @@
   font-size: 10px;
   font-weight: 750;
   text-transform: uppercase;
+  border-color: var(--mira-border);
 }
 
 .desktopTable td {
   color: #475467;
   font-size: 12px;
+  border-color: var(--mira-border);
 }
 
 .desktopTable tbody tr:last-child td {
@@ -1249,10 +1627,12 @@
   height: 32px;
   place-items: center;
   border: 1px solid #DDE3EB;
-  border-radius: 6px;
-  background: #FFFFFF;
-  color: #596579;
   cursor: pointer;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .linkActions button:hover:not(:disabled) {
@@ -1283,11 +1663,15 @@
   place-items: center;
   border: 1px dashed #D7DDE6;
   border-radius: 8px;
-  background: #FAFBFC;
   padding: 22px;
-  color: #667085;
   font-size: 12px;
-  text-align: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: center;
+  gap: 12px;
+  border-color: var(--mira-border);
+  background: var(--mira-canvas);
+  color: var(--mira-text);
+  text-align: left;
 }
 
 .listError,
@@ -1308,11 +1692,24 @@
   font-size: 12px;
 }
 
-.listError button,
-.paginationError button {
-  min-height: 34px;
+.listError button {
   padding: 6px 10px;
   font-size: 12px;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.paginationError button {
+  padding: 6px 10px;
+  font-size: 12px;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .paginationError span {
@@ -1322,8 +1719,12 @@
 
 .loadMore {
   justify-self: center;
-  min-height: 38px;
   padding: 7px 16px;
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .mobileCards {
@@ -1340,8 +1741,10 @@
   display: grid;
   gap: 12px;
   border: 1px solid #E3E7ED;
-  border-radius: 8px;
   padding: 13px;
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
 }
 
 .cardHeading {
@@ -1417,6 +1820,107 @@
   .customerGrid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .builderGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summaryColumn {
+    position: static;
+  }
+
+  .summaryWorkspace {
+    display: block;
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+    box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+  }
+
+  .summaryHeader {
+    border-color: var(--mira-border);
+  }
+
+  .summarySection {
+    border-color: var(--mira-border);
+  }
+
+  .summaryHeader h2 {
+    color: var(--mira-text);
+  }
+
+  .summarySectionTitle h3 {
+    color: var(--mira-text);
+  }
+
+  .summaryHeader p {
+    color: var(--mira-text);
+  }
+
+  .summarySectionTitle p {
+    color: var(--mira-text);
+  }
+
+  .expiryField > span {
+    color: var(--mira-text);
+  }
+
+  .field > span {
+    color: var(--mira-text);
+  }
+
+  .helpText {
+    color: var(--mira-text);
+  }
+
+  .totals > div {
+    color: var(--mira-text);
+  }
+
+  .totals dd {
+    color: var(--mira-text);
+  }
+
+  .totals .grandTotal {
+    color: var(--mira-text);
+  }
+
+  .grandTotal dd {
+    color: var(--mira-text);
+  }
+
+  .summaryWorkspace .field > span svg {
+    color: #6F655F;
+  }
+
+  .summaryWorkspace .expiryField svg {
+    color: #6F655F;
+  }
+
+  .summaryWorkspace .summarySectionTitle > svg {
+    color: #6F655F;
+  }
+
+  .summaryWorkspace .totals .grandTotal {
+    border-color: var(--mira-border);
+  }
+
+  .summaryWorkspace .primaryButton {
+    border-color: var(--mira-text);
+    background: var(--mira-text);
+    color: var(--mira-surface);
+  }
+
+  .summaryActions {
+    border-color: var(--mira-border);
+    background: rgb(255 253 252 / 96%);
+    box-shadow: 0 -8px 20px rgb(43 43 43 / 6%);
+  }
+
+  .summaryActions .secondaryButton {
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+  }
 }
 
 @media (max-width: 700px) {
@@ -1437,6 +1941,7 @@
 
   .summaryWorkspace {
     display: block;
+    border-radius: 8px;
   }
 
   .summarySection:nth-of-type(even) {
@@ -1496,6 +2001,30 @@
     align-items: stretch;
     flex-direction: column;
   }
+  .panel {
+    border-radius: 8px;
+  }
+  .selectedLines {
+    border-radius: 8px;
+  }
+  .linkCard {
+    border-radius: 8px;
+  }
+
+  .summaryActions {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .linkActions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+  }
+
+  .linkActions button {
+    width: 100%;
+    height: 44px;
+  }
 }
 
 @media (max-width: 450px) {
@@ -1546,299 +2075,5 @@
 
   .linkCard dd {
     text-align: left;
-  }
-}
-
-/* Mira order-adjacent rollout: neutral canvas with a graphite summary portal. */
-.console {
-  --mira-accent: #FE6100;
-  --mira-text: #2B2B2B;
-  --mira-sidebar: #201C19;
-  --mira-canvas: #F8F7F5;
-  --mira-surface: #FFFDFC;
-  --mira-border: #E7E2DD;
-  --accent: var(--mira-accent);
-  --accent-soft: rgb(254 97 0 / 10%);
-  --ink: var(--mira-text);
-  --border: var(--mira-border);
-  --surface-soft: var(--mira-canvas);
-}
-
-.panel,
-.selectedLines,
-.desktopTable,
-.linkCard,
-.searchResults,
-.customerResults,
-.customerSearchState,
-.productPicker > .pickerPopover > .inlineError,
-.customerPicker > .pickerPopover > .inlineError {
-  border-color: var(--mira-border);
-  border-radius: 12px;
-  background: var(--mira-surface);
-}
-
-.panel {
-  overflow: visible;
-  border: 1px solid var(--mira-border);
-  background: var(--mira-surface);
-  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
-}
-
-.panelHeading h2[tabindex="-1"] {
-  scroll-margin-top: 96px;
-}
-
-.panelHeading h2[tabindex="-1"]:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--mira-text);
-  outline-offset: 4px;
-}
-
-.panelHeader,
-.linesHeader,
-.summaryHeader,
-.summarySection,
-.desktopTable th,
-.desktopTable td,
-.selectedLine,
-.customerResults li,
-.searchProduct,
-.billingBlock {
-  border-color: var(--mira-border);
-}
-
-.panelIcon {
-  border-left: 3px solid var(--mira-accent);
-  background: rgb(254 97 0 / 10%);
-  color: var(--mira-text);
-}
-
-.console input,
-.console select,
-.console textarea,
-.secondaryButton,
-.refreshButton,
-.loadMore,
-.listError button,
-.paginationError button,
-.linkActions button {
-  min-height: 44px;
-  border-color: var(--mira-border);
-  border-radius: 8px;
-  background: var(--mira-surface);
-  color: var(--mira-text);
-}
-
-.console input:focus-visible,
-.console select:focus-visible,
-.console textarea:focus-visible,
-.console button:focus-visible,
-.refreshButton:focus-visible,
-.loadMore:focus-visible,
-.listError button:focus-visible,
-.paginationError button:focus-visible,
-.linksBody [tabindex="-1"]:focus-visible {
-  border-color: var(--mira-accent);
-  outline: 2px solid var(--mira-text);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
-}
-
-.primaryButton {
-  min-height: 44px;
-  border-color: var(--mira-text);
-  border-radius: 8px;
-  background: var(--mira-text);
-  color: var(--mira-surface);
-  box-shadow: none;
-}
-
-.primaryButton:hover:not(:disabled) {
-  border-color: var(--mira-sidebar);
-  background: var(--mira-sidebar);
-}
-
-.summaryWorkspace {
-  overflow: hidden;
-  border-color: var(--mira-sidebar);
-  border-radius: 12px;
-  background: var(--mira-sidebar);
-  color: var(--mira-surface);
-  box-shadow: 0 8px 24px rgb(32 28 25 / 12%);
-}
-
-.summaryHeader,
-.summarySection {
-  border-color: rgb(255 253 252 / 14%);
-}
-
-.summaryHeader h2,
-.summarySectionTitle h3,
-.summaryHeader p,
-.summarySectionTitle p,
-.expiryField > span,
-.field > span,
-.helpText,
-.totals > div,
-.totals dd,
-.totals .grandTotal,
-.grandTotal dd {
-  color: var(--mira-surface);
-}
-
-.summaryWorkspace .field > span svg,
-.summaryWorkspace .expiryField svg,
-.summaryWorkspace .summarySectionTitle > svg {
-  color: #D4CEC8;
-}
-
-.summaryWorkspace .totals .grandTotal {
-  border-color: rgb(255 253 252 / 24%);
-}
-
-.summaryWorkspace .primaryButton {
-  border-color: var(--mira-surface);
-  background: var(--mira-surface);
-  color: var(--mira-text);
-}
-
-.summaryActions {
-  position: sticky;
-  z-index: 4;
-  bottom: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
-  border-top: 1px solid rgb(255 253 252 / 14%);
-  background: var(--mira-sidebar);
-}
-
-.summaryActions .secondaryButton {
-  border-color: rgb(255 253 252 / 24%);
-  background: transparent;
-  color: var(--mira-surface);
-}
-
-.listState {
-  grid-template-columns: auto minmax(0, 1fr);
-  justify-content: center;
-  gap: 12px;
-  border-color: var(--mira-border);
-  background: var(--mira-canvas);
-  color: var(--mira-text);
-  text-align: left;
-}
-
-.listState > svg {
-  width: 20px;
-  height: 20px;
-  color: var(--mira-accent);
-}
-
-.listState > span {
-  display: grid;
-  gap: 4px;
-}
-
-.listState small {
-  color: #6F655F;
-  font-size: 12px;
-}
-
-.listState[role="status"] > svg {
-  animation: search-spin .9s linear infinite;
-}
-
-@media (max-width: 1024px) {
-  .builderGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .summaryColumn {
-    position: static;
-  }
-
-  .summaryWorkspace {
-    display: block;
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
-    box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
-  }
-
-  .summaryHeader,
-  .summarySection {
-    border-color: var(--mira-border);
-  }
-
-  .summaryHeader h2,
-  .summarySectionTitle h3,
-  .summaryHeader p,
-  .summarySectionTitle p,
-  .expiryField > span,
-  .field > span,
-  .helpText,
-  .totals > div,
-  .totals dd,
-  .totals .grandTotal,
-  .grandTotal dd {
-    color: var(--mira-text);
-  }
-
-  .summaryWorkspace .field > span svg,
-  .summaryWorkspace .expiryField svg,
-  .summaryWorkspace .summarySectionTitle > svg {
-    color: #6F655F;
-  }
-
-  .summaryWorkspace .totals .grandTotal {
-    border-color: var(--mira-border);
-  }
-
-  .summaryWorkspace .primaryButton {
-    border-color: var(--mira-text);
-    background: var(--mira-text);
-    color: var(--mira-surface);
-  }
-
-  .summaryActions {
-    border-color: var(--mira-border);
-    background: rgb(255 253 252 / 96%);
-    box-shadow: 0 -8px 20px rgb(43 43 43 / 6%);
-  }
-
-  .summaryActions .secondaryButton {
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
-  }
-}
-
-@media (max-width: 700px) {
-  .panel,
-  .summaryWorkspace,
-  .selectedLines,
-  .linkCard {
-    border-radius: 8px;
-  }
-
-  .summaryActions {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 12px;
-  }
-
-  .linkActions {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(44px, 1fr));
-  }
-
-  .linkActions button {
-    width: 100%;
-    height: 44px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .listState[role="status"] > svg {
-    animation: none;
   }
 }
