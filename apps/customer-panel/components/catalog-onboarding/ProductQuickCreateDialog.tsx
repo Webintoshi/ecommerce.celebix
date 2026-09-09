@@ -41,6 +41,7 @@ export type ProductQuickCreateDialogProps = Readonly<{
   api?: OnboardingApi;
   mediaClient?: MediaApi;
   draftSession?: ProductDraftSession;
+  returnFocusTarget?: HTMLElement | null;
   onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
 
@@ -75,6 +76,7 @@ export function ProductQuickCreateDialog({
   api = catalogOnboardingClient,
   mediaClient = productMediaApi,
   draftSession,
+  returnFocusTarget,
   onDraftSessionChange,
 }: ProductQuickCreateDialogProps) {
   const [submitting, setSubmitting] = useState(false);
@@ -97,10 +99,10 @@ export function ProductQuickCreateDialog({
 
   useEffect(() => {
     if (!open) return;
-    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    returnFocusRef.current = returnFocusTarget ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     titleRef.current?.focus();
     return () => { if (returnFocusRef.current?.isConnected) returnFocusRef.current?.focus(); };
-  }, [open]);
+  }, [open, returnFocusTarget]);
 
   useEffect(() => {
     if (!submitting) return;

@@ -20,10 +20,12 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import type { CatalogCategory } from "@celebix/saas-contracts";
 
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
+import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import {
   buildCatalogCategoryHierarchy,
   type CatalogCategoryTreeRow,
@@ -155,6 +157,8 @@ export function CategoryManager() {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [menuId, setMenuId] = useState<string>();
   const [highlightedId, setHighlightedId] = useState<string>();
+  const editorNameRef = useRef<HTMLInputElement>(null);
+  const editorReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -169,6 +173,7 @@ export function CategoryManager() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (editor) editorNameRef.current?.focus(); }, [editor]);
 
   const hierarchy = buildCatalogCategoryHierarchy(categories);
   const rowsById = useMemo(
@@ -219,13 +224,16 @@ export function CategoryManager() {
     });
 
   function clearEditor() {
+    const returnTarget = editorReturnFocusRef.current;
     setEditor(undefined);
     setNameError("");
     setPositionError("");
     setMenuId(undefined);
+    window.requestAnimationFrame(() => { if (returnTarget?.isConnected) returnTarget.focus(); });
   }
 
   function openCreate(parentId?: string) {
+    editorReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setEditor(parentId ? { kind: "create", parentId } : { kind: "create" });
     setNameError("");
     setPositionError("");
@@ -234,6 +242,7 @@ export function CategoryManager() {
   }
 
   function openEdit(categoryId: string) {
+    editorReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setEditor({ kind: "edit", categoryId });
     setNameError("");
     setPositionError("");
@@ -314,6 +323,13 @@ export function CategoryManager() {
     setExpandedIds(new Set(childIdsByParent.keys()));
   }
 
+  function handleEditorKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Escape" && !busy) {
+      event.preventDefault();
+      clearEditor();
+    }
+  }
+
   const editorParentId = editor?.kind === "edit"
     ? selectedCategory?.parentId
     : editor?.parentId;
@@ -382,21 +398,18 @@ export function CategoryManager() {
     </div>;
   }
 
+  const headerActions = <div className={styles.headerActions}>
+    <button type="button" className={styles.refreshButton} onClick={() => void load()} disabled={loading || busy} aria-label="Kategorileri yenile" title="Yenile">
+      <RefreshCw aria-hidden="true" />
+    </button>
+    <button type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
+      <Plus aria-hidden="true" /> Yeni kategori
+    </button>
+  </div>;
+
   return <section className={styles.categoryManager} aria-labelledby="category-manager-title">
-    <header className={styles.pageHeader}>
-      <div>
-        <h1 id="category-manager-title">Kategoriler</h1>
-        <p>Mağazanızın kategori yapısını oluşturun ve düzenleyin.</p>
-      </div>
-      <div className={styles.headerActions}>
-        <button type="button" className={styles.refreshButton} onClick={() => void load()} disabled={loading || busy} aria-label="Kategorileri yenile" title="Yenile">
-          <RefreshCw aria-hidden="true" />
-        </button>
-        <button type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
-          <Plus aria-hidden="true" /> Yeni kategori
-        </button>
-      </div>
-    </header>
+    <PanelTopbarBridge title="Kategoriler" actions={headerActions} />
+    <h1 id="category-manager-title" className="sr-only">Kategoriler</h1>
 
     {error || !hierarchy.valid ? <div className={styles.error} role="alert">{error || "Kategori hizmetinden gelen hiyerarşi doğrulanamadı."}</div> : null}
 
@@ -441,6 +454,7 @@ export function CategoryManager() {
           className={styles.editorForm}
           key={editor.kind === "edit" ? `edit:${editor.categoryId}:${selectedCategory?.version ?? 0}` : `create:${editor.parentId ?? ROOT_PARENT}`}
           onSubmit={save}
+          onKeyDown={handleEditorKeyDown}
           noValidate
         >
           <header className={styles.editorHeader}>
@@ -459,6 +473,7 @@ export function CategoryManager() {
                 <label>
                   <span>Kategori adı <b>*</b></span>
                   <input
+                    ref={editorNameRef}
                     name="name"
                     maxLength={120}
                     defaultValue={selectedCategory?.name ?? ""}
@@ -510,7 +525,6 @@ export function CategoryManager() {
           <span><FolderTree aria-hidden="true" /></span>
           <strong>Kategori detayları</strong>
           <p>Düzenlemek için ağaçtan bir kategori seçin veya yeni bir kategori oluşturun.</p>
-          <button type="button" className={styles.primaryButton} onClick={() => openCreate()}><Plus aria-hidden="true" /> Yeni kategori</button>
         </div>}
       </aside>
     </div> : null}

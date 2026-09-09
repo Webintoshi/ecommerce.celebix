@@ -1,0 +1,174 @@
+.catalogRoot,
+.previewRoot {
+  --catalog-accent: #FE6100;
+  --catalog-text: #2B2B2B;
+  --catalog-sidebar: #201C19;
+  --catalog-canvas: #F8F7F5;
+  --catalog-surface: #FFFDFC;
+  --catalog-border: #E7E2DD;
+  width: 100%;
+  min-width: 0;
+  color: var(--catalog-text);
+}
+
+.catalogRoot :global(.product-stat-grid > div),
+.catalogRoot :global(.catalog-table-shell),
+.catalogRoot :global(.product-detail-header),
+.catalogRoot :global(.product-detail-section),
+.catalogRoot :global(.variant-card),
+.catalogRoot :global(.media-upload-card),
+.catalogRoot :global(.product-media-card) {
+  border-color: var(--catalog-border);
+  border-radius: 10px;
+  background: var(--catalog-surface);
+  box-shadow: none;
+}
+
+.catalogRoot :global(.product-stat-grid > div:first-child) { box-shadow: inset 0 2px var(--catalog-accent); }
+.catalogRoot :global(.product-stat-grid dt),
+.catalogRoot :global(.product-selected-count),
+.catalogRoot :global(.product-range),
+.catalogRoot :global(.catalog-table th),
+.catalogRoot :global(.product-detail-section-header p),
+.catalogRoot :global(.variant-card small) { color: #667085; }
+.catalogRoot :global(.product-stat-grid dd),
+.catalogRoot :global(.product-link strong),
+.catalogRoot :global(.product-price),
+.catalogRoot :global(.catalog-table td),
+.catalogRoot :global(.product-detail-heading h1),
+.catalogRoot :global(.product-detail-section h2),
+.catalogRoot :global(.variant-card strong) { color: var(--catalog-text); }
+.catalogRoot :global(.product-operations-toolbar) { gap: 12px; border-color: var(--catalog-border); }
+
+.catalogRoot :global(.product-search),
+.catalogRoot :global(.command-button),
+.catalogRoot :global(.command-select),
+.catalogRoot :global(.row-count-control),
+.catalogRoot :global(.select-all-control),
+.catalogRoot :global(.product-bulk-actions > select) {
+  border-color: var(--catalog-border);
+  border-radius: 8px;
+  background: var(--catalog-surface);
+  box-shadow: none;
+}
+
+.catalogRoot :global(.product-search:focus-within),
+.catalogRoot :global(.command-button:focus-visible),
+.catalogRoot :global(.command-select:focus-within),
+.catalogRoot :global(.catalog-table-shell:focus-visible),
+.catalogRoot :global(.button:focus-visible),
+.catalogRoot :global(.icon-button:focus-visible) {
+  outline: 3px solid rgba(254, 97, 0, 0.16);
+  outline-offset: 2px;
+}
+
+.catalogRoot :global(.product-filter-panel),
+.catalogRoot :global(.product-bulkbar),
+.catalogRoot :global(.catalog-table th) { border-color: var(--catalog-border); background: var(--catalog-canvas); }
+.catalogRoot :global(.product-bulkbar) { border-radius: 10px 10px 0 0; }
+.catalogRoot :global(.catalog-table-shell) { scrollbar-color: #B8B0A9 transparent; }
+.catalogRoot :global(.catalog-table tbody tr:hover) { background: rgba(254, 97, 0, 0.06); box-shadow: inset 3px 0 var(--catalog-border); }
+.catalogRoot :global(.catalog-table tbody tr.is-selected) { background: rgba(254, 97, 0, 0.06); box-shadow: inset 3px 0 var(--catalog-accent); }
+
+.catalogRoot :global(.command-button-primary),
+.catalogRoot :global(.button-primary),
+.catalogRoot :global(.product-detail-primary-action),
+.catalogRoot :global(.product-bulk-actions > button:not(:disabled)) {
+  border-color: var(--catalog-text);
+  background: var(--catalog-text);
+  color: var(--catalog-surface);
+  box-shadow: none;
+}
+.catalogRoot :global(.command-button-primary:hover:not(:disabled)),
+.catalogRoot :global(.button-primary:hover:not(:disabled)) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
+
+.primaryAction {
+  border-color: #2B2B2B !important;
+  background: #2B2B2B !important;
+  color: #FFFDFC !important;
+}
+
+.catalogRoot :global(.product-bulk-actions > button:disabled),
+.bulkActionButton:disabled {
+  border-color: var(--catalog-border);
+  background: #eeeae6;
+  color: #8a837d;
+  opacity: 1;
+}
+.catalogRoot :global(.product-status-text.status-active),
+.catalogRoot :global(.product-stock) { color: var(--catalog-text); }
+.catalogRoot :global(.product-detail-facts) { border-color: var(--catalog-border); border-radius: 10px; background: var(--catalog-surface); }
+.catalogRoot :global(.product-detail-actions) { align-items: center; }
+.catalogRoot :global(.product-detail-actions .button) { min-height: 44px; }
+.catalogRoot :global(.catalog-tabs) { display: flex; gap: 4px; border-color: var(--catalog-border); border-bottom: 1px solid var(--catalog-border); }
+.catalogRoot :global(.catalog-tabs > button) {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  padding-inline: 14px;
+  color: #6f6964;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.catalogRoot :global(.catalog-tabs > button[aria-selected="true"]) { border-bottom-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); color: var(--catalog-text); }
+.catalogRoot :global(.catalog-tabs > button:focus-visible) { outline: 3px solid rgba(254, 97, 0, 0.16); outline-offset: 2px; }
+.catalogRoot :global(.product-detail-media > .empty-variants) { border-color: var(--catalog-border); background: var(--catalog-surface); color: var(--catalog-text); }
+.catalogRoot :global(.product-media-grid) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+.previewRoot {
+  display: grid;
+  max-width: 960px;
+  gap: 16px;
+  margin-inline: auto;
+  border: 1px solid var(--catalog-border);
+  border-radius: 12px;
+  background: var(--catalog-surface);
+  padding: 24px;
+}
+.previewRoot h1,
+.previewRoot strong { color: var(--catalog-text); }
+.previewRoot :global(.product-media-grid) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.previewRoot :global(.product-media-grid img) { width: 100%; aspect-ratio: 1; border-radius: 10px; object-fit: cover; }
+
+@media (max-width: 1024px) {
+  .catalogRoot,
+  .previewRoot { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .catalogRoot :global(.product-detail-header),
+  .catalogRoot :global(.product-detail-section-header) { align-items: flex-start; }
+  .catalogRoot :global(.product-detail-header) { flex-direction: column; }
+  .catalogRoot :global(.product-detail-heading) { width: 100%; }
+  .catalogRoot :global(.product-detail-actions) { width: 100%; flex-wrap: wrap; }
+  .catalogRoot :global(.product-detail-actions .button) { flex: 1 1 180px; }
+  .catalogRoot :global(.product-media-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .catalogRoot :global(.product-operations-toolbar) { grid-template-columns: minmax(0, 1fr) 44px; }
+  .catalogRoot :global(.product-operations-toolbar > .product-search) { grid-column: 1 / -1; }
+  .catalogRoot :global(.product-operations-toolbar > .command-button:not(.command-icon-button)) { justify-self: stretch; }
+  .catalogRoot :global(.product-filter-panel) { display: grid; grid-template-columns: 1fr; padding: 12px; }
+  .catalogRoot :global(.product-filter-panel > div),
+  .catalogRoot :global(.product-filter-panel > label),
+  .catalogRoot :global(.product-filter-panel select) { width: 100%; min-width: 0; }
+  .catalogRoot :global(.product-filter-panel > div) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .catalogRoot :global(.product-bulkbar),
+  .catalogRoot :global(.product-list-status) { align-items: stretch; }
+  .catalogRoot :global(.catalog-table tr) { border: 1px solid var(--catalog-border); background: var(--catalog-surface); }
+  .catalogRoot :global(.row-actions) { border-top: 1px solid var(--catalog-border); padding-top: 8px; }
+  .catalogRoot :global(.product-detail-header),
+  .catalogRoot :global(.product-detail-section-header) { flex-direction: column; }
+  .catalogRoot :global(.product-detail-actions),
+  .catalogRoot :global(.product-detail-actions .button) { width: 100%; }
+  .catalogRoot :global(.product-detail-facts),
+  .catalogRoot :global(.product-media-grid),
+  .previewRoot :global(.product-media-grid) { grid-template-columns: 1fr; }
+  .previewRoot { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalogRoot *,
+  .previewRoot * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

@@ -1,3 +1,14 @@
+.categoryManager,
+.primaryButton,
+.refreshButton {
+  --catalog-accent: #FE6100;
+  --catalog-text: #2B2B2B;
+  --catalog-sidebar: #201C19;
+  --catalog-canvas: #F8F7F5;
+  --catalog-surface: #FFFDFC;
+  --catalog-border: #E7E2DD;
+}
+
 .categoryManager {
   display: grid;
   width: min(100%, 1260px);
@@ -256,4 +267,50 @@
 
 @media (prefers-reduced-motion: reduce) {
   .categoryRow[data-highlighted="true"], .loadingState svg { animation-duration: .01ms; }
+}
+
+/* Mira category workspace */
+.categoryManager { color: var(--catalog-text); }
+.pageHeader { border-color: var(--catalog-border); }
+.pageHeader h1,
+.rowMain,
+.rowMain strong,
+.editorHeader h2,
+.formSection > header strong { color: var(--catalog-text); }
+.workspace,
+.editorForm,
+.searchField,
+.parentPickerTrigger,
+.parentPickerPopover { border-color: var(--catalog-border); background: var(--catalog-surface); box-shadow: none; }
+.treePanel,
+.treeToolbar,
+.treeSummary,
+.editorHeader,
+.editorFooter { border-color: var(--catalog-border); }
+.detailPanel,
+.editorFooter { background: var(--catalog-canvas); }
+.categoryRow { border-color: var(--catalog-border); }
+.categoryRow:hover,
+.treeToolbarActions button:hover { background: var(--catalog-canvas); }
+.categoryRow[data-selected="true"] { background: rgba(254, 97, 0, 0.06); }
+.categoryRow[data-selected="true"]::before { background: var(--catalog-accent); }
+.primaryButton { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); box-shadow: none; }
+.primaryButton:hover { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
+.searchField:focus-within,
+.formFields > label > input:focus,
+.parentPickerTrigger:focus-visible,
+.primaryButton:focus-visible,
+.refreshButton:focus-visible,
+.cancelButton:focus-visible,
+.archiveButton:focus-visible { outline: 3px solid rgba(254, 97, 0, 0.16); outline-offset: 2px; border-color: var(--catalog-accent); box-shadow: none; }
+.detailPlaceholder > span { background: rgba(254, 97, 0, 0.10); color: var(--catalog-accent); }
+
+@media (max-width: 1024px) {
+  .categoryManager { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 820px) {
+  .detailPanel { inset: 0 0 76px; background: rgb(32 28 25 / 45%); }
+  .editorForm { border-radius: 12px 12px 0 0; }
+  .editorFooter { bottom: 0; }
 }

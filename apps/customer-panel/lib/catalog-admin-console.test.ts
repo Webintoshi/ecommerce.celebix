@@ -96,6 +96,16 @@ test("catalog resource lists use canonical create, edit, and extra-preview route
   assert.doesNotMatch(value, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id/);
 });
 
+test("catalog administration uses a scoped neutral Mira surface with mobile dock clearance", async () => {
+  const css = await source("components/catalog-admin/catalog-admin-console.module.css");
+  assert.match(css, /--catalog-accent:\s*#FE6100/i);
+  assert.match(css, /--catalog-text:\s*#2B2B2B/i);
+  assert.match(css, /--catalog-canvas:\s*#F8F7F5/i);
+  assert.match(css, /--catalog-surface:\s*#FFFDFC/i);
+  assert.match(css, /--catalog-border:\s*#E7E2DD/i);
+  assert.match(css, /@media \(max-width:\s*1024px\)[^]*[.]form[^}]*padding-bottom:\s*calc\(76px/s);
+});
+
 test("brand administration shows durable logos and human-readable linked product names", async () => {
   const [consoleSource, editorSource] = await Promise.all([
     source("components/catalog-admin/CatalogResourceConsole.tsx"),

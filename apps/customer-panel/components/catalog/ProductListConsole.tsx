@@ -52,6 +52,7 @@ import {
   productDraftIsDirty,
   type ProductDraftSession,
 } from "@/lib/catalog-ui/product-draft-session";
+import catalogStyles from "./catalog-operations.module.css";
 
 type Filter = "all" | "draft" | "active" | "archived";
 type StockFilter = "all" | CatalogProductStockFilter;
@@ -293,6 +294,7 @@ export function ProductListConsole({
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const refreshListButtonRef = useRef<HTMLButtonElement>(null);
+  const quickCreateTriggerRef = useRef<HTMLButtonElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
   const requestQuickOptions = useCallback(() => {
@@ -695,13 +697,14 @@ export function ProductListConsole({
       <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => updateSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Son güncellenen</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option><option value="created-desc">En yeni</option><option value="created-asc">En eski</option></select></label>
       {canImport ? <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link> : null}
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
-      {canManage ? <button className="command-button command-button-primary" type="button" disabled={busy} onClick={() => void openQuickCreate()}><Plus aria-hidden="true" />Ürün Ekle</button> : null}
+      {canManage ? <button className={`command-button command-button-primary ${catalogStyles.primaryAction}`} type="button" disabled={busy} onClick={(event) => void openQuickCreate(event?.currentTarget)}><Plus aria-hidden="true" />Ürün Ekle</button> : null}
     </div>
     );
   }
 
-  async function openQuickCreate() {
+  async function openQuickCreate(trigger?: HTMLButtonElement) {
     if (!canManage) return;
+    if (trigger) quickCreateTriggerRef.current = trigger;
     setDraftSession(createEmptyProductDraftSession());
     setAdvancedCreateOpen(false);
     setQuickCreateOpen(true);
@@ -743,7 +746,7 @@ export function ProductListConsole({
   const topbarActions = productCommands();
 
   return (
-    <section className="catalog-page donor-product-page product-operations-page" aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations">
+    <section className={`catalog-page donor-product-page product-operations-page ${catalogStyles.catalogRoot}`} aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations">
       <PanelTopbarBridge title="Ürünler" actions={topbarActions} />
       <h1 id="products-title" className="sr-only">Ürünler</h1>
       <div className="product-mobile-commandbar">{productCommands()}</div>
@@ -779,7 +782,7 @@ export function ProductListConsole({
         <div className="product-bulk-actions">
           <label className="select-all-control"><input type="checkbox" disabled={busy} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
           <select value={bulkAction} disabled={busy} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option>{canManage ? <><option value="active">Aktif yap</option><option value="draft">Taslağa al</option></> : null}{canArchive ? <option value="archive">Arşivle</option> : null}</select>
-          <button type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
+          <button className={catalogStyles.bulkActionButton} type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
           <span className="product-selected-count">{selected.length} ürün seçildi</span>
         </div>
         <div className="product-list-status">
@@ -803,7 +806,7 @@ export function ProductListConsole({
           <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Search /></span><h2>Aramanızla eşleşen ürün bulunamadı</h2><p>Arama terimini veya global filtreleri değiştirip yeniden deneyin.</p></div>
         )
       ) : (
-        <div className="catalog-table-shell" data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
+        <div className="catalog-table-shell" role="region" aria-label="Ürün karşılaştırma tablosu" tabIndex={0} data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
           <table className="catalog-table">
             <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
             <tbody>
@@ -848,6 +851,7 @@ export function ProductListConsole({
         open={quickCreateOpen}
         options={quickOptions}
         draftSession={draftSession}
+        returnFocusTarget={quickCreateTriggerRef.current}
         onDraftSessionChange={setDraftSession}
         onClose={closeCreateWorkflow}
         onCreated={completeCreateWorkflow}
