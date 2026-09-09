@@ -1,4 +1,11 @@
 import assert from "node:assert/strict";
+test('archive metadata round trips while old detail remains compatible', () => {
+  const old = detail();
+  assert.deepEqual(parseOrderDetail(old),old);
+  const archived = {...old, archive:{archived:true,changedAt:'2026-09-09T12:00:00.000Z'}};
+  assert.deepEqual(parseOrderDetail(archived),archived);
+  assert.throws(()=>parseOrderDetail({...old,archive:{archived:'true',changedAt:'2026-09-09T12:00:00.000Z'}}));
+});
 // Regression: persisted PostgreSQL UUIDs are not necessarily RFC-versioned IDs.
 const legacyRecordIds = [
   "42a0cbea-a3da-e403-8c64-37ec56bcaedc",

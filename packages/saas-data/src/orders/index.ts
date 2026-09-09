@@ -2,6 +2,9 @@ export { ORDER_ERROR_CODES, OrderRepositoryError } from "./errors.ts";
 export type { OrderErrorCode } from "./errors.ts";
 export { PostgresOrderRepository } from "./repository.ts";
 export type {
+  ArchiveOrderInput,
+  OrderArchiveEligibility,
+  OrderArchiveResult,
   AddOrderNoteInput,
   ArchiveOrderNoteInput,
   CreateOrderDraftInput,

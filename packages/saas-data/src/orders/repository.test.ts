@@ -1,4 +1,27 @@
 import assert from "node:assert/strict";
+test('archive validates intent and replays committed operation through the same RPC', async()=>{
+  const result={id:ORDER_ID,archived:true,operationId:OPERATION_ID,changedAt:NOW.toISOString(),replayed:true};
+  const client=new FakeClient((sql,values)=>{
+    if(!sql.includes('saas.orders_archive(')) return [];
+    assert.equal(values[0],STORE_ID); assert.equal(values[7],OPERATION_ID); assert.equal(values[8],ORDER_ID);
+    assert.equal(values[9],'qa fixture'); assert.equal(values[10],'qa/evidence');
+    return [{outcome:'operation_replayed',result_payload:result}];
+  });
+  const repo=repository(new FakePool(client));
+  const input={tenantContext:tenantContext(),now:NOW,orderId:ORDER_ID,operationId:OPERATION_ID,reason:'qa fixture',evidenceReference:'qa/evidence'};
+  assert.deepEqual(await repo.archiveOrder(input),result);
+  await assert.rejects(repo.archiveOrder({...input,reason:''}),e=>e instanceof OrderRepositoryError&&e.code==='invalid_input');
+});
+test('active and archive cursors cannot cross query scopes',async()=>{
+ const client=()=>new FakeClient(text=>text.includes('saas.orders_list')?[{outcome:'listed',result_payload:{items:[listItem()],nextCursor:{totalCents:13000,createdAt:'2026-07-20T10:00:00.000000Z',id:ORDER_ID}}}]:[]);
+ const input={tenantContext:tenantContext(),now:NOW,pageSize:1};
+ const active=await repository(new FakePool(client())).listOrders(input);
+ const archive=await repository(new FakePool(client())).listArchivedOrders(input);
+ const pool=new FakePool(),repo=repository(pool);
+ await assert.rejects(repo.listArchivedOrders({...input,cursor:active.nextCursor}),e=>e instanceof OrderRepositoryError&&e.code==='invalid_input');
+ await assert.rejects(repo.listOrders({...input,cursor:archive.nextCursor}),e=>e instanceof OrderRepositoryError&&e.code==='invalid_input');
+ assert.equal(pool.connects,0);
+});
 test("legacy record compatibility never widens order store principal membership or operation authority",async()=>{
   const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
   const pool=new FakePool();const repo=repository(pool);
@@ -532,7 +555,7 @@ test("list rejects unordered, oversized, private, or inconsistent cursor project
 });
 
 test("detail read strictly parses and deeply freezes the safe order contract", async () => {
-  const client = new FakeClient((text) => text.includes("saas.orders_get(")
+  const client = new FakeClient((text) => text.includes("saas.orders_get_with_archive(")
     ? [{ outcome: "found", result_payload: detail() }]
     : []);
   const result = await repository(new FakePool(client)).getOrder({ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID });
@@ -544,7 +567,7 @@ test("detail read strictly parses and deeply freezes the safe order contract", a
   assert.equal(Object.isFrozen(result.items), true);
   assert.equal(Object.isFrozen(result.events[0]), true);
   assert.equal(Object.isFrozen(result.notes[0]), true);
-  assert.deepEqual(functionCall(client, "orders_get").values, [
+  assert.deepEqual(functionCall(client, "orders_get_with_archive").values, [
     STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, ORDER_ID,
   ]);
 });
@@ -948,11 +971,11 @@ test("BEGIN, timeout setup, role, function, read COMMIT, and rollback failures c
   ] as const;
   for (const { stage, releases, rollbacks } of stages) {
     const client = new FakeClient((text) => {
-      if (text === stage || (stage.startsWith("FUNCTION_") && text.includes("saas.orders_get("))) {
+      if (text === stage || (stage.startsWith("FUNCTION_") && text.includes("saas.orders_get_with_archive("))) {
         const code = stage.startsWith("FUNCTION_") ? stage.slice("FUNCTION_".length) : undefined;
         throw Object.assign(new Error(`${PRIVATE_PROXY_SECRET}:${stage}`), { code });
       }
-      if (text.includes("saas.orders_get(")) return [{ outcome: "found", result_payload: detail() }];
+      if (text.includes("saas.orders_get_with_archive(")) return [{ outcome: "found", result_payload: detail() }];
       return [];
     });
     await assert.rejects(repository(new FakePool(client)).getOrder({
@@ -963,7 +986,7 @@ test("BEGIN, timeout setup, role, function, read COMMIT, and rollback failures c
   }
 
   const rollbackFailure = new FakeClient((text) => {
-    if (text.includes("saas.orders_get(") || text === "ROLLBACK") throw new Error(PRIVATE_PROXY_SECRET);
+    if (text.includes("saas.orders_get_with_archive(") || text === "ROLLBACK") throw new Error(PRIVATE_PROXY_SECRET);
     return [];
   });
   await assert.rejects(repository(new FakePool(rollbackFailure)).getOrder({
@@ -972,7 +995,7 @@ test("BEGIN, timeout setup, role, function, read COMMIT, and rollback failures c
   assert.equal(rollbackFailure.calls.filter(({ text }) => text === "ROLLBACK").length, 1);
   assert.deepEqual(rollbackFailure.releases, [true]);
 
-  const releaseFailure = new FakeClient((text) => text.includes("saas.orders_get(")
+  const releaseFailure = new FakeClient((text) => text.includes("saas.orders_get_with_archive(")
     ? [{ outcome: "found", result_payload: detail() }]
     : [], new Error(PRIVATE_PROXY_SECRET));
   assert.deepEqual(await repository(new FakePool(releaseFailure)).getOrder({
@@ -1083,7 +1106,7 @@ test("row count, row shape, outcome, summary, detail, and mutation corruption fa
     await assert.rejects(repository(new FakePool(client)).getDashboardSummary({ tenantContext: tenantContext(), now: NOW }), orderError("unavailable"));
   }
 
-  const corruptDetail = new FakeClient((text) => text.includes("saas.orders_get(")
+  const corruptDetail = new FakeClient((text) => text.includes("saas.orders_get_with_archive(")
     ? [{ outcome: "found", result_payload: detail({ storeId: STORE_ID }) }]
     : []);
   await assert.rejects(repository(new FakePool(corruptDetail)).getOrder({ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }), orderError("unavailable"));
@@ -1100,7 +1123,7 @@ test("row count, row shape, outcome, summary, detail, and mutation corruption fa
 test("every public failure contains only its stable code and never private authority or input", async () => {
   const secrets = [PRIVATE_REQUEST_ID, PRIVATE_SUBJECT, STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, "driver-private-table"];
   const client = new FakeClient((text) => {
-    if (text.includes("saas.orders_get(")) throw new Error(`driver-private-table ${STORE_ID} ${PRINCIPAL_ID}`);
+    if (text.includes("saas.orders_get_with_archive(")) throw new Error(`driver-private-table ${STORE_ID} ${PRINCIPAL_ID}`);
     return [];
   });
   let caught: unknown;

@@ -40,7 +40,9 @@ function invalid(): never {
 function facade(repository: OrderRepository): OrderRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as OrderRepository;
+    const archiveMethods = (["getArchiveEligibility","listArchivedOrders","archiveOrder","restoreOrder"] as const)
+      .filter(method=>typeof repository[method]==="function");
+    const methods = Object.fromEntries([...METHODS,...archiveMethods].map((method) => [method, repository[method].bind(repository)])) as unknown as OrderRepository;
     return Object.freeze(methods);
   } catch { return invalid(); }
 }

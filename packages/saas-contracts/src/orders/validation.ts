@@ -248,12 +248,29 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
   } satisfies OrderListItem);
 }
 
+export function parseOrderArchiveResult(value: unknown) {
+  const parsed = exact(value, ["id", "archived", "operationId", "changedAt", "replayed"]);
+  return freeze({
+    id: uuid(parsed.id), archived: boolean(parsed.archived), operationId: uuid(parsed.operationId),
+    changedAt: timestamp(parsed.changedAt), replayed: boolean(parsed.replayed),
+  });
+}
+
+export function parseOrderArchiveEligibility(value: unknown) {
+  const parsed = exact(value, ["id", "eligible", "archived", "blockers"]);
+  if (!Array.isArray(parsed.blockers) || parsed.blockers.length > 200) invalid();
+  const blockers = parsed.blockers.map(value => string(value, 1, 128, /^[a-z][a-z0-9_]*$/));
+  const eligible = boolean(parsed.eligible);
+  if (eligible !== (blockers.length === 0)) invalid();
+  return freeze({ id: uuid(parsed.id), eligible, archived: boolean(parsed.archived), blockers });
+}
+
 export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
   const parsed = exact(value, [
     "id", "orderNumber", "source", "customerName", "customerEmail", "currency", "totalCents", "status",
     "paymentStatus", "itemCount", "createdAt", "updatedAt", "version", "subtotalCents", "shippingCents",
     "discountCents", "shippingAddress", "items", "events", "notes",
-  ], ["customerPhone", "tracking"]);
+  ], ["customerPhone", "tracking", "archive"]);
   const list = parseOrderListItem({
     id: parsed.id,
     orderNumber: parsed.orderNumber,
@@ -277,8 +294,10 @@ export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
   const events = parseArray(parsed.events, 200, parseEvent);
   const notes = parseArray(parsed.notes, 100, parseNote);
   if (list.itemCount !== items.length) invalid();
+  const archive = Object.hasOwn(parsed, "archive") ? exact(parsed.archive, ["archived", "changedAt"]) : undefined;
   return freeze({
     ...list,
+    ...(archive === undefined ? {} : { archive: { archived: boolean(archive.archived), changedAt: timestamp(archive.changedAt) } }),
     ...(Object.hasOwn(parsed, "customerPhone") ? { customerPhone: string(parsed.customerPhone, 3, 32) } : {}),
     subtotalCents,
     shippingCents,

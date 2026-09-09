@@ -1,5 +1,7 @@
 import {
   parseOrderDashboardSummary,
+  parseOrderArchiveResult,
+  parseOrderArchiveEligibility,
   parseOrderDetail,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
@@ -25,6 +27,7 @@ import {
 } from "./request-authority.ts";
 import {
   readOrderListInput,
+  readOrderArchiveInput,
   readOrderDraftListInput,
   readOrderDraftMutationInput,
   readOrderMutationInput,
@@ -229,7 +232,33 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
     ) throw new Error("invalid");
   } catch { throw new Error("order_http_handler_invalid"); }
 
+  async function archiveChange(request: Request, rawId: unknown, action: "archive"|"restore") {
+    const orderId=pathId(rawId); if(isResponse(orderId)) return orderId;
+    const authorized=await authorize(dependencies,request,{method:"POST",pathname:`${ORDERS_PATH}/${orderId}/${action}`,query:"forbidden"});
+    if(isResponse(authorized)) return authorized;
+    const input=await readOrderArchiveInput(request); if(input.kind!=="valid") return error("invalid_input",400);
+    return execute(()=>authorized.runtime.orders[action==="archive"?"archiveOrder":"restoreOrder"]({tenantContext:authorized.tenantContext,now:authorized.now,orderId,operationId:input.operationId,reason:input.reason,evidenceReference:input.evidenceReference}),parseOrderArchiveResult);
+  }
+
   return Object.freeze({
+    archiveOrder:(request:Request,orderId:unknown)=>archiveChange(request,orderId,"archive"),
+    restoreOrder:(request:Request,orderId:unknown)=>archiveChange(request,orderId,"restore"),
+    async getArchiveEligibility(request:Request,rawId:unknown) {
+      const orderId=pathId(rawId); if(isResponse(orderId)) return orderId;
+      const authorized=await authorize(dependencies,request,{method:"GET",pathname:`${ORDERS_PATH}/${orderId}/archive`,query:"forbidden"});
+      if(isResponse(authorized)) return authorized;
+      return execute(()=>authorized.runtime.orders.getArchiveEligibility({tenantContext:authorized.tenantContext,now:authorized.now,orderId}),parseOrderArchiveEligibility);
+    },
+    async listArchivedOrders(request:Request) {
+      const authorized=await authorize(dependencies,request,{method:"GET",pathname:`${ORDERS_PATH}/archive`,query:"allowed"});
+      if(isResponse(authorized)) return authorized;
+      const input=readOrderListInput(request);if(input.kind!=="valid")return error("invalid_input",400);
+      return execute(()=>authorized.runtime.orders.listArchivedOrders({tenantContext:authorized.tenantContext,now:authorized.now,...input.value}),result=>{
+        if(Object.keys(result).sort().join(",")!=="items"&&Object.keys(result).sort().join(",")!=="items,nextCursor") throw new TypeError("invalid");
+        if(result.nextCursor!==undefined&&!/^[A-Za-z0-9_-]{1,1024}$/.test(result.nextCursor)) throw new TypeError("invalid");
+        return {...result,items:result.items.map(parseOrderListItem)};
+      });
+    },
     async getDashboardSummary(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: SUMMARY_PATH, query: "forbidden",

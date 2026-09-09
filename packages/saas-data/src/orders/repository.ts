@@ -2,6 +2,8 @@ import {
   ORDER_PAYMENT_STATUSES,
   ORDER_STATUSES,
   parseOrderDashboardSummary,
+  parseOrderArchiveResult,
+  parseOrderArchiveEligibility,
   parseOrderDetail,
   parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,
@@ -34,6 +36,9 @@ import {
 import { decodeOrderCursor, encodeOrderCursor, parseDatabaseCursor } from "./cursor.ts";
 import { ORDER_ERROR_CODES, OrderRepositoryError, type OrderErrorCode } from "./errors.ts";
 import type {
+  ArchiveOrderInput,
+  OrderArchiveEligibility,
+  OrderArchiveResult,
   AddOrderNoteInput,
   ArchiveOrderNoteInput,
   CreateOrderDraftInput,
@@ -342,6 +347,7 @@ export class PostgresOrderRepository implements OrderRepository {
     spec: QuerySpec,
     expectedOutcome: string,
     parser: (value: unknown) => T,
+    allowReplay = false,
   ): Promise<T> {
     const client = await this.acquire();
     let began = false;
@@ -353,7 +359,7 @@ export class PostgresOrderRepository implements OrderRepository {
       const result = single(await client.query(spec.text, spec.values));
       const expected = this.expectedError(result.outcome);
       if (expected) throw expected;
-      if (result.outcome !== expectedOutcome) throw unavailable();
+      if (result.outcome !== expectedOutcome && !(allowReplay && result.outcome === "operation_replayed")) throw unavailable();
       const parsed = parser(result.resultPayload);
       try {
         await client.query("COMMIT");
@@ -468,15 +474,24 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   async listOrders(input: ListOrdersInput): Promise<ListOrdersResult> {
+    return this.listOrderScope(input, false);
+  }
+
+  async listArchivedOrders(input: ListOrdersInput): Promise<ListOrdersResult> {
+    return this.listOrderScope(input, true);
+  }
+
+  private async listOrderScope(input: ListOrdersInput, archived: boolean): Promise<ListOrdersResult> {
     const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort"]);
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const pageSize = orderPageSize(exact.pageSize);
     const status = orderStatusFilter(exact.status);
     const search = orderSearch(exact.search);
     const sort = orderSort(exact.sort);
-    const cursor = decodeOrderCursor(exact.cursor as string | undefined, authority.storeId, status, search, sort);
+    const cursorScope = archived ? `${authority.storeId}:archive` : authority.storeId;
+    const cursor = decodeOrderCursor(exact.cursor as string | undefined, cursorScope, status, search, sort);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.orders_list(
+      text: `SELECT outcome, result_payload FROM saas.${archived ? "orders_list_archived" : "orders_list"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
         $8::text,$9::text,$10::text,$11::bigint,$12::bigint,$13::timestamptz,$14::uuid
       )`,
@@ -503,7 +518,7 @@ export class PostgresOrderRepository implements OrderRepository {
       let databaseCursor;
       try { databaseCursor = parseDatabaseCursor(envelope.nextCursor, items.at(-1)!); }
       catch { throw unavailable(); }
-      return Object.freeze({ items, nextCursor: encodeOrderCursor(authority.storeId, status, search, sort, databaseCursor) });
+      return Object.freeze({ items, nextCursor: encodeOrderCursor(cursorScope, status, search, sort, databaseCursor) });
     });
   }
 
@@ -512,7 +527,7 @@ export class PostgresOrderRepository implements OrderRepository {
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const orderId = orderUuid(exact.orderId);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.orders_get(
+      text: `SELECT outcome, result_payload FROM saas.orders_get_with_archive(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
       )`,
       values: [...authorityValues(authority), orderId],
@@ -521,6 +536,44 @@ export class PostgresOrderRepository implements OrderRepository {
       if (result.id !== orderId) throw unavailable();
       return result;
     });
+  }
+
+  async getArchiveEligibility(input: GetOrderInput): Promise<OrderArchiveEligibility> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId);
+    return this.read(authority, {
+      text: "SELECT outcome,result_payload FROM saas.orders_archive_eligibility($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+      values: [...authorityValues(authority), orderId],
+    }, "found", (value) => {
+      const parsed = parseOrderArchiveEligibility(value);
+      if (parsed.id !== orderId) throw unavailable();
+      return parsed;
+    });
+  }
+
+  async archiveOrder(input: ArchiveOrderInput): Promise<OrderArchiveResult> { return this.archiveChange(input, true); }
+  async restoreOrder(input: ArchiveOrderInput): Promise<OrderArchiveResult> { return this.archiveChange(input, false); }
+
+  private async archiveChange(input: ArchiveOrderInput, archived: boolean): Promise<OrderArchiveResult> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId", "operationId", "reason", "evidenceReference"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId), operationId = orderUuid(exact.operationId);
+    const boundedText = (value: unknown) => {
+      if (typeof value !== "string" || value.length < 1 || value.length > 500 || value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
+        throw new OrderRepositoryError("invalid_input");
+      }
+      return value;
+    };
+    const reason = boundedText(exact.reason), evidence = boundedText(exact.evidenceReference);
+    return this.writeRpc(authority, {
+      text: `SELECT outcome,result_payload FROM saas.${archived ? "orders_archive" : "orders_restore"}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::text,$11::text)`,
+      values: [...authorityValues(authority), operationId, orderId, reason, evidence],
+    }, archived ? "archived" : "restored", (value) => {
+      const parsed = parseOrderArchiveResult(value);
+      if (parsed.id !== orderId || parsed.operationId !== operationId || parsed.archived !== archived) throw unavailable();
+      return parsed;
+    }, true);
   }
 
   async getOrderNeighbors(input: GetOrderInput): Promise<OrderNeighbors> {

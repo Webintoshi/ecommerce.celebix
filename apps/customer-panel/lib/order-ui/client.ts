@@ -3,6 +3,8 @@ import {
   ORDER_SORTS,
   ORDER_STATUSES,
   parseOrderDashboardSummary,
+  parseOrderArchiveResult,
+  parseOrderArchiveEligibility,
   parseOrderDetail,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
@@ -328,6 +330,25 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
   }
 
   return Object.freeze({
+    async getArchiveEligibility(orderId: string) {
+      const order = local(() => id(orderId));
+      const result = await request(`/api/orders/${order}/archive`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      return safeParse(() => parseOrderArchiveEligibility(result));
+    },
+    async restoreOrder(orderId: string, input: Readonly<{ operationId: string; reason: string; evidenceReference: string }>) {
+      const order = local(() => id(orderId));
+      const operationId = local(() => id(input.operationId));
+      const result = await request(`/api/orders/${order}/restore`, {
+        method: "POST", credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": operationId },
+        body: JSON.stringify({ reason: input.reason, evidenceReference: input.evidenceReference }),
+      });
+      return safeParse(() => {
+        const parsed = parseOrderArchiveResult(result);
+        if (parsed.id !== order || parsed.operationId !== operationId || parsed.archived) throw new TypeError("order_response_invalid");
+        return parsed;
+      });
+    },
     async getDashboardSummary(): Promise<Readonly<OrderDashboardSummary>> {
       const body = await request("/api/orders/summary", { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => parseOrderDashboardSummary(body));

@@ -33,6 +33,10 @@ function disabledAccess(): ServerPanelAccessRuntime {
 function orders(): OrderRepository {
   const reject = async () => { throw new Error("unused"); };
   return {
+    getArchiveEligibility: reject,
+    listArchivedOrders: reject,
+    archiveOrder: reject,
+    restoreOrder: reject,
     getDashboardSummary: reject,
     listOrders: reject,
     getOrder: reject,
@@ -65,7 +69,8 @@ test("approved access resolves an immutable order-only repository facade", () =>
     "addNote", "archiveDraft", "archiveNote", "convertDraft", "createDraft", "getDashboardSummary",
     "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listEmailDeliveries", "listOrders",
     "retryEmailDelivery", "transitionPayment", "transitionStatus", "updateDraft", "updateShipping",
-  ]);
+    "archiveOrder", "getArchiveEligibility", "listArchivedOrders", "restoreOrder",
+  ].sort());
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
     assert.equal(forbidden in runtime.orders, false);
   }

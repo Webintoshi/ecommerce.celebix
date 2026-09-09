@@ -1,4 +1,16 @@
 import assert from "node:assert/strict";
+test('archive restore uses server authority and rejects client authority or cross origin',async()=>{
+ const calls:unknown[]=[];
+ const value={id:ORDER_ID,archived:false,operationId:OPERATION_ID,changedAt:NOW.toISOString(),replayed:false};
+ const handlers=createOrderHttpHandlers(dependencies(repository({async restoreOrder(input){calls.push(input);return value;}})));
+ const path=`${ORDERS}/${ORDER_ID}/restore`;
+ const input={reason:'qa fixture',evidenceReference:'qa/evidence'};
+ assert.equal((await handlers.restoreOrder(request(path,{method:'POST',body:input}),ORDER_ID)).status,200);
+ assert.deepEqual(calls,[{tenantContext:tenantContext(),now:NOW,orderId:ORDER_ID,operationId:OPERATION_ID,...input}]);
+ assert.equal((await handlers.restoreOrder(request(path,{method:'POST',body:{...input,storeId:STORE_ID}}),ORDER_ID)).status,400);
+ assert.equal((await handlers.restoreOrder(request(path,{method:'POST',body:input,origin:'https://foreign.example'}),ORDER_ID)).status,403);
+ assert.equal(calls.length,1);
+});
 test("legacy delivery retry preserves tenant/order/ID and rejects malformed routes", async () => {
   const legacy = "af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";
   const calls: unknown[] = [];

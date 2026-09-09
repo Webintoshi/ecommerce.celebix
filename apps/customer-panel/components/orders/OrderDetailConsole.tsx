@@ -206,6 +206,7 @@ export interface OrderDetailPresentationProps {
   readonly notificationBusy?: string;
   readonly capabilities: OrderUiCapabilities;
   readonly onRetry: () => void;
+  readonly onRestoreSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onNotificationRetry?: (deliveryId: string) => void;
   readonly onStatusChange: (status: OrderStatus) => void;
   readonly onPaymentChange: (status: OrderPaymentStatus) => void;
@@ -228,7 +229,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       <header className={styles.orderTopbar}>
         <div className={styles.orderIdentity}>
           <Link className={styles.backLink} href="/orders" aria-label="Sipariş listesine dön" title="Sipariş listesine dön"><ArrowLeft aria-hidden="true" size={18} /></Link>
-          <div className={styles.orderContext}><p>Siparişler / {order.orderNumber}</p><h1>#{order.orderNumber}</h1><span>{date(order.createdAt)} · sürüm {order.version}</span></div>
+          <div className={styles.orderContext}><p>Siparişler / {order.orderNumber}</p><h1>#{order.orderNumber}</h1><span>{date(order.createdAt)} · sürüm {order.version}</span>{order.archive?.archived ? <p role="status">Arşivlenmiş sipariş · {date(order.archive.changedAt)}</p> : null}</div>
         </div>
         <div className={styles.orderTopbarActions}>
           <nav className={styles.neighborNavigation} aria-label="Siparişler arasında gezinme">
@@ -240,6 +241,11 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       </header>
       {props.error ? <div className={styles.inlineError} role="alert">{props.error}</div> : null}
       {props.notice ? <div className={styles.notice} role="status">{props.notice}</div> : null}
+      {order.archive?.archived && props.capabilities.manage && props.onRestoreSubmit ? <form className={styles.orderInfoCard} onSubmit={props.onRestoreSubmit}>
+        <label>Geri alma nedeni<input name="reason" required maxLength={500} /></label>
+        <label>QA kanıt referansı<input name="evidenceReference" required maxLength={500} /></label>
+        <button type="submit" disabled={Boolean(props.busy)}>Arşivden çıkar</button>
+      </form> : null}
 
       <div className={styles.orderWorkspace}>
         <main className={styles.workspaceMain}>
@@ -443,5 +449,11 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     }
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRetry={() => { setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRestoreSubmit={(event)=>{
+    event.preventDefault();
+    const data=new FormData(event.currentTarget);
+    const operationId=event.currentTarget.dataset.operationId ?? crypto.randomUUID();
+    event.currentTarget.dataset.operationId=operationId;
+    void mutation("restore",()=>orderApi.restoreOrder(orderId,{operationId,reason:String(data.get("reason")??""),evidenceReference:String(data.get("evidenceReference")??"")}),"Sipariş arşivden çıkarıldı.");
+  }} onRetry={() => { setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
 }

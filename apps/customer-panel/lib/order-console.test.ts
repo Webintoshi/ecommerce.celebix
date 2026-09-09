@@ -1,4 +1,18 @@
 import assert from "node:assert/strict";
+test('archived detail shows its real history and management restore form',async()=>{
+ const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
+ const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,archive:{archived:true,changedAt:NOW}},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false},onRestoreSubmit(){},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
+ assert.match(html,/Arşivlenmiş sipariş/); assert.match(html,/Arşivden çıkar/); assert.match(html,/Keten Gömlek/);
+});
+test('restore client binds exact order and explicit operation for safe retry',async()=>{
+ const {createOrderApiClient}=await import('./order-ui/client.ts');
+ const requests:unknown[]=[];
+ const api=createOrderApiClient({fetch:async(url,init)=>{requests.push([url,init]);return json({id:ORDER_ID,archived:false,operationId:OPERATION_ID,changedAt:NOW,replayed:false});}});
+ await api.restoreOrder(ORDER_ID,{operationId:OPERATION_ID,reason:'qa fixture',evidenceReference:'qa/evidence'});
+ const [url,init]=requests[0] as [string,RequestInit]; assert.equal(url,`/api/orders/${ORDER_ID}/restore`);
+ assert.equal(new Headers(init.headers).get('idempotency-key'),OPERATION_ID);
+ assert.deepEqual(JSON.parse(init.body as string),{reason:'qa fixture',evidenceReference:'qa/evidence'});
+});
 test("legacy delivery client retry uses unchanged ID; real HTTP and parse failures remain distinct", async () => {
   const {createOrderApiClient,OrderApiError}=await import("./order-ui/client.ts");
   const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";

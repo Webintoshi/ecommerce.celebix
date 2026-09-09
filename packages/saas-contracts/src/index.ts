@@ -643,3 +643,4 @@ export type {
   StorefrontDesignPublicationMutation,
   StorefrontDesignWorkspace,
 } from "./storefront-design/index.ts";
+export { parseOrderArchiveResult, parseOrderArchiveEligibility } from "./orders/index.ts";

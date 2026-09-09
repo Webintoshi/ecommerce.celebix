@@ -4,7 +4,7 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 // Only the persisted delivery segment; all authority/order/note segments stay strict.
 const DELIVERY_ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const ORDER_PATH = new RegExp(
-  `^(?:/api/orders|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:status|payment|shipping|notes|neighbors|notifications)|/api/orders/${UUID}/notes/${UUID}/archive|/api/orders/${UUID}/notifications/${DELIVERY_ID}/retry)$`,
+  `^(?:/api/orders|/api/orders/archive|/api/orders/summary|/api/orders/drafts|/api/orders/drafts/${UUID}|/api/orders/drafts/${UUID}/(?:archive|convert)|/api/orders/${UUID}|/api/orders/${UUID}/(?:archive|restore|status|payment|shipping|notes|neighbors|notifications)|/api/orders/${UUID}/notes/${UUID}/archive|/api/orders/${UUID}/notifications/${DELIVERY_ID}/retry)$`,
 );
 
 export type OrderRequestAuthorityDecision =
@@ -46,7 +46,7 @@ function exactExpectation(value: OrderRequestExpectation): OrderRequestExpectati
     (value.query !== "allowed" && value.query !== "forbidden") ||
     (value.query === "allowed" && (
       value.method !== "GET" ||
-      (value.pathname !== "/api/orders" && value.pathname !== "/api/orders/drafts")
+      (value.pathname !== "/api/orders" && value.pathname !== "/api/orders/drafts" && value.pathname !== "/api/orders/archive")
     ))
   ) invalid();
   return value;
