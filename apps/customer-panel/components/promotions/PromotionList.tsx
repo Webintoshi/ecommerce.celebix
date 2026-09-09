@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PromotionAdminListItem, PromotionOverviewResult } from "@celebix/saas-contracts";
-import { PanelActionButton, PanelEmptyState, PanelLoadingState, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelActionButton, PanelEmptyState, PanelLoadingState, PanelPageHeader, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { PromotionListLoader, promotionApi, promotionErrorMessage, type ListQuery } from "@/lib/promotion-ui/client";
 import { formatPromotionMinor, zonedCivilDayStartToIso } from "@/lib/promotion-ui/model";
 import styles from "./promotion-studio.module.css";
@@ -75,7 +75,8 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive }: R
   const rowActions = (item: PromotionAdminListItem) => <div className={styles.rowActions}><Link href={`/discounts/${item.id}`}>Görüntüle</Link><Link href={`/discounts/${item.id}/analytics`}>Analiz</Link><Link href={`/discounts/${item.id}/codes`}>Kuponlar</Link>{canManage && item.status !== "archived" ? <Link href={`/discounts/${item.id}/edit`}>Düzenle</Link> : null}{canManage ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "duplicate")}>Çoğalt</button> : null}{canPublish && (item.status === "active" || item.status === "scheduled") ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "pause")}>Duraklat</button> : null}{canPublish && item.status === "paused" ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "resume")}>Devam ettir</button> : null}{canArchive && item.status !== "archived" ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "archive")}>Arşivle</button> : null}</div>;
 
   return <section className={styles.list}>
-    <header className={styles.pageHeader}><div><h1>İndirimler ve Kampanyalar</h1><p>Satışlarınızı artıracak kampanyaları kolayca oluşturun, takip edin ve yönetin.</p></div>{canManage ? <PanelActionButton primary href="/discounts/new">Yeni kampanya</PanelActionButton> : null}</header>
+    <PanelPageHeader title="İndirimler ve Kampanyalar" description="Satışlarınızı artıracak kampanyaları kolayca oluşturun, takip edin ve yönetin." actions={canManage ? <div className={styles.headerPrimary}><PanelActionButton primary href="/discounts/new">Yeni kampanya</PanelActionButton></div> : undefined} />
+    <h1 className={styles.srOnly}>İndirimler ve Kampanyalar</h1>
     <div className={styles.kpiHeader}><h2>Kampanya özeti</h2><div role="group" aria-label="Özet dönemi">{([7, 30, 90] as const).map((day) => <button key={day} type="button" value={day} aria-pressed={range === day} onClick={() => setRange(day)}>Son {day} gün</button>)}</div></div>
     <div className={styles.kpis} aria-label="Kampanya özeti">
       <article><span>Aktif kampanya</span><strong>{overviewPhase === "loaded" ? overview?.activePromotions ?? 0 : overviewPhase === "error" ? "—" : "…"}</strong><small>Şu anda müşterilere açık</small></article>
