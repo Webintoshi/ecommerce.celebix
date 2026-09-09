@@ -55,6 +55,14 @@ test("promotion list owns the shell topbar and keeps its one primary action grap
   assert.match(stylesheet, /[.]headerPrimary a\s*\{[^}]*border-color:\s*#2B2B2B;[^}]*background:\s*#2B2B2B;[^}]*color:\s*#FFFDFC;/s);
 });
 
+test("Taslak stays neutral and desktop and mobile use the same promotion status tone", async () => {
+  const list = await source("components/promotions/PromotionList.tsx");
+
+  assert.match(list, /const STATUS_TONE:[^=]+=[\s\S]*?draft:\s*"neutral"[\s\S]*?active:\s*"success"[\s\S]*?usage_exhausted:\s*"danger"[\s\S]*?budget_exhausted:\s*"danger"/);
+  assert.equal(list.match(/tone=\{statusTone\(item[.]effectiveStatus\)\}/g)?.length, 2);
+  assert.doesNotMatch(list, /tone=\{item[.]effectiveStatus[^}]+"warning"\}/);
+});
+
 test("the browser fixture mounts real promotion views and rejects all mutations", async () => {
   const fixturePage = await fixtureSource("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/mira-promotions/[view]/page.tsx");
   const fixtureRoute = await fixtureSource("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/promotions/[[...path]]/route.ts");
