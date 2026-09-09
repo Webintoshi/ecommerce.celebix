@@ -38,6 +38,8 @@ Own components/promotions/** and directly related presentation tests. Preserve e
 
 Task4 test-only fixture scope: add isolated mira-promotions views, matching discounts wrappers and a bounded promotions fixture transport to the existing browser-fixture app. Use actual production presentation components and contract-valid controlled records; preserve all earlier fixtures and fallback routes. Never call a provider or persist a mutation. Label unavailable reports honestly and distinguish fixture computations from real business data; do not alter the production evaluator to satisfy a fixture. Root retains sole port3517 server/browser ownership. Report supported routes and unverified behavior explicitly.
 
+Carry forward verified earlier-package pitfalls: small #FE6100 text on #FFFDFC fails normal-text contrast; use neutral readable eyebrow/label text and decorative accent instead. Header primary wrappers must neutralize both desktop portal and mobile fallback without global CSS. Collapse grid columns, not only child order, at tablet breakpoints. Reserve text space beside radios/checkboxes at390 and keep step labels untruncated. Keep sticky save controls above the existing fixed dock. Fixture responses must pass the actual client boundary, not only a partial TypeScript shape.
+
 ### Task 5: Remaining order-adjacent pages
 
 Drafts/quicklinks/abandonedcarts only after checking PR75 overlap; record conflicts, progress independent pages.

@@ -137,12 +137,12 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/products/attributes` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/attributes/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/attributes/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/auto-import` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IN PROGRESS — TASK3 |
-| `/products/barcode-labels` | @/components/catalog-admin/BarcodeLabelStudio | IN PROGRESS — TASK3 |
+| `/products/auto-import` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/barcode-labels` | @/components/catalog-admin/BarcodeLabelStudio | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/brands` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/brands/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/brands/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/bulk-upload` | @/components/catalog-admin/CatalogBulkImportConsole | IN PROGRESS — TASK3 |
+| `/products/bulk-upload` | @/components/catalog-admin/CatalogBulkImportConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/categories` | @/components/catalog-onboarding/CategoryManager | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/collections` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/collections/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
@@ -154,24 +154,24 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/products/extras/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/extras/[resourceId]/preview` | @/components/catalog-admin/CatalogExtraPreview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/extras/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/inventory-counts` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
-| `/products/inventory-counts/[countId]` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
-| `/products/inventory-counts/new` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
+| `/products/inventory-counts` | @/components/inventory/InventoryCountConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/inventory-counts/[countId]` | @/components/inventory/InventoryCountConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/inventory-counts/new` | @/components/inventory/InventoryCountConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/new` | @/components/catalog/ProductCreateForm | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/price-lists` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
-| `/products/price-lists/[priceListId]` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
-| `/products/price-lists/new` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
-| `/products/purchasing` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
-| `/products/purchasing/[purchaseOrderId]` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
-| `/products/purchasing/new` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
+| `/products/price-lists` | @/components/pricing/PriceListConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/price-lists/[priceListId]` | @/components/pricing/PriceListConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/price-lists/new` | @/components/pricing/PriceListConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/purchasing` | @/components/inventory/PurchasingConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/purchasing/[purchaseOrderId]` | @/components/inventory/PurchasingConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/purchasing/new` | @/components/inventory/PurchasingConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/reviews` | @/components/catalog-admin/ProductReviewConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/shopify-converter` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IN PROGRESS — TASK3 |
+| `/products/shopify-converter` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/tags` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/tags/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/tags/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/products/transfers` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
-| `/products/transfers/[transferId]` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
-| `/products/transfers/new` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
+| `/products/transfers` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/transfers/[transferId]` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
+| `/products/transfers/new` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/seo` | Inspect route composition | PENDING |
 | `/seo/categories` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
 | `/seo/categories/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
@@ -254,5 +254,25 @@ Screenshots/viewport/overflow/keyboard: PARTIAL, see customer evidence above; in
 Extra-preview controlled fixture loaded at1024/390: inline captures inspected, page overflow0; fee and option cards retain neutral hierarchy. Small eyebrow text renders10.88px in#FE6100 on the light surface, insufficient normal-text contrast; final bounded correction/review pending. The screen's “Canlı müşteri görünümü” is its preview label, not evidence of live certification.
 
 Product-review fixture subsequently loaded:1440/1024/390 inline captures inspected and overflow0. Mobile actions stack; text/titles remain neutral and reply field has an accessible label. Entered a controlled reply draft without submitting; Tab reaches Publish and draft remains. Focus outline computes rgba(254,97,0,0.16) solid3px with no shadow, requiring final focus-contrast review rather than unconditional accessibility PASS. Current tab error/warning log query returned[]; this limited observation is not a whole-app console/network certification. No review moderation or real mutation executed.
+
+Brand-edit fixture1440/1024/390 loaded and captured inline, overflow0. Logo controls, labeled fields and selected related product are available. Mobile search focus scrolls related choice above Save (choice530–549px; Save612–654px), so it is reachable. No upload/save executed. Remaining bounded palette finding: related-product fieldset#FBFCFD/#E1E6EF and native blue checkbox accent:auto have not adopted the neutral surface/border palette; final fix/review pending. Product photos/logos themselves remain unchanged.
+
+### Stock working-tree browser checkpoint
+
+Before Task3 commit: purchasing list390 loaded controlled record, overflow0, exactly one visible create action190.8×48px. Header uses a working mobile fallback; no action loss. Remaining vivid-orange primary and yellow operational status were sent to implementer for bounded neutralization. Purchasing-new1024/390 loaded; table-to-card form is readable, overflow0 and save bar clears fixed shell dock. Duplicate visible form/page title was sent for compact hierarchy correction.
+
+Isolated purchase-create POST handler was inspected: always409, no persistence/provider path. Entered supplier `Mira kontrollü taslak`, selected controlled location/variant, quantity7 and unit cost12500. After409, UI states the new record was not applied; all exact inputs remain and fields re-enable. This verifies fixture failure preservation only, not an authenticated purchase or successful write. Native AX initially called enabled option entries disabled; DOM option.disabled=false confirmed before interaction, so no false option-access failure reported.
+
+After Task3 browser-requested fixes, purchasing list1440/1024/390 recaptured: overflow0, one visible graphite primary (#2B2B2B with#FFFDFC text), neutral in-progress status. Price-list-new390 initial form captured overflow0; tag dependency was still compiling, so failed-save behavior not yet browser-certified.
+
+Barcode fixture initial1024 selection screen exposed54px horizontal page overflow: workspace1062px, table min-width1060px. Sent exact DOM measurements for bounded workspace shrink fix; no print-style change.390 selection→editor→output navigation succeeds with overflow0; expanding summary shows1 selected variant,1 label,50×30mm and controlled barcode preview. Final-step middle label visually clips at390 and was reported before commit. No print/PDF/ZPL/internal-barcode/template-save action called; actual physical output not certified.
+
+Task3 committed `f8d55db7c879ee03861217d4522c7502b24d8db4`; independent task review underway. Fresh focused suite117total/116pass/1existing opt-in pricing Next guard skip. Earlier fixture strict/import-compatible typecheck passed; final Panel full gates pending. Browser bulk-import initially returned real500; expanded stack identified Next.loadManifest→JSON.parse during dev compilation, not the business import parser. Narrow read-only current manifest JSON validation passed; one reload rendered the app. No cleanup/config/restart used. Loaded bulk-import1440/1024/390 captures inspected, overflow0. The10.88px#FE6100 step eyebrow contrast was sent to reviewer. Final barcode1024/390 recheck still pending intermittent CDP dispatch timeouts; code/fixture tests alone are not rendered PASS.
+
+Subsequent final-source barcode recheck recovered: at1024 page overflow0; internal table viewport990px with scrollWidth1060/overflow:auto. At390 selection→editor→output steps retain complete labels (each button clientWidth=scrollWidth109px), page overflow0 and inline screenshot inspected. These two specific reported regressions are browser-verified fixed; physical printing and authenticated QA remain untested. No cleanup or application configuration changes were required.
+
+Price-list-new fixture later completed its choices load. Controlled save409 at390 preserved exact name `Mira fiyat taslağı`, quick_order channel, selected variant and219900 price; form remained mounted, controls re-enabled and page overflow0. Separate preview returned unavailable, keeping effective prices as em dashes instead of fabricated numbers. Fixture response-contract assessment was sent to task reviewer; this does not certify a live pricing error or successful effective-price calculation.
+
+Count-new fixture1440/1024/390 captured with overflow0; mobile capture initially shows an explicit loading state. After choices loaded, location/variant selectors were enabled (3/2 options including placeholders), tablet Save598–646px clears the dock. Distinct “Sayım bilgileri” section title replaces duplicated page wording. No stock count mutation was submitted. Complete list/detail/new matrix and real-session evidence remain pending.
 
 Commit/push/PR: pending implementation and trigger checks. Merge/deploy/real customer mutations: NONE.
