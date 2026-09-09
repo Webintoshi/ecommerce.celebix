@@ -1,6 +1,6 @@
 # Orders QA archive — implementation evidence
 
-Status: IMPLEMENTED; broad build verification in progress. No live migration or archive has run.
+Status: IMPLEMENTED; VALIDATION PARTIAL — remaining consumer checks blocked by disk capacity. No live migration or archive has run.
 
 ## Authority and scope
 
@@ -69,8 +69,6 @@ These are isolated database/application evidence, not live staging certification
 
 The obsolete simplified-schema cleanup harness now forwards to the actual-migration archive harness. Its old physical-delete assertions are retired, not represented as archive test evidence.
 
-## Push safety
-
 ## Full-suite and independent review
 
 Core commit: `02f5fcdfab0649bbf20c6847bcc74f8414377d23`. The full contracts suite detected the two newly exported archive parsers missing from its frozen export allowlist. Commit `52984ad216f48ef164f620da22bb3f5dac2a534f` adds only those exact expected names, preserving the strict equality assertion.
@@ -80,7 +78,11 @@ Core commit: `02f5fcdfab0649bbf20c6847bcc74f8414377d23`. The full contracts suit
 - Customer Panel full suite: 1321 PASS, 0 FAIL, 1 existing SKIP (1267 + 54 passing tests across its two official commands).
 - Focused archive contracts/data/HTTP/runtime/UI: 116 PASS; exact runner boundary: 7 PASS.
 - Independent integrated review: no Critical or Important findings. Actual repository/PostgreSQL evidence gap closed; per-target partial completion behavior documented. Minor future-maintenance note: active/archive SQL list projections must retain parity.
-- Full-suite logs: local `/tmp/orders-archive-validation-VOzQ3q/`; these contain isolated test evidence, not live certification. Affected typechecks/builds are still being verified.
+- Typecheck: contracts, data, Customer Panel, Owner and Storefront PASS. Admin FAIL: 111 diagnostics across 35 files, all byte-identical to canonical `455a4a538f4ff78915d38d37247956949aa2f15e`. Admin source/config/local type dependencies and lockfile have no diff; no changed SaaS contract/data imports were found there. This is source comparison, not an executed canonical baseline or proof of identical external dependencies. No unrelated fixes were made.
+- Customer Panel production build: PASS, exit 0. Generated archive list/archive/restore API routes are included. Full compilation and TypeScript phases completed; this is not a deployment or payment-build approval.
+- Full-suite logs: local `/tmp/orders-archive-validation-VOzQ3q/`; these contain isolated test evidence, not live certification. Remaining consumer builds and Owner/Storefront full suites are BLOCKED below the 5,000,000,000-byte disk gate. Owner's two previously reported baseline failures are historical separate-branch evidence, not a fresh archive-branch result.
+- Disk for the broad-validation phase fell from 7,546,105,856 bytes to 3,460,321,280 bytes. No worktree cleanup occurred; changes in available space are not attributed to another process without proof. The in-flight Panel build started above the threshold and was allowed to finish; no new heavy step was started below it.
+- After Panel build: 3,431,358,464 bytes available. System Git launcher began returning an Xcode license error; existing Command Line Tools Git was used without changing any system/license settings. Fresh Chrome staging read confirmed all four Auto Deploy and Preview Deployments settings OFF. GitHub PR-page control then timed out; no PR creation is claimed.
 - Parallel Mira validation is separate: recovered same-SHA tests/build passed except form 8/8, which could not reach assertions because its existing fixture hangs. No Mira file/process or PR #75 was changed here.
 
 ## Push safety checks
