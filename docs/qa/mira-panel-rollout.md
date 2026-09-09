@@ -1,6 +1,6 @@
 # Mira Customer Panel Rollout
 
-Status: IN PROGRESS — no live certification or deployment.
+Status: SOURCE VALIDATION PASS (one existing skip) — VISUAL/AUTHENTICATED ACCEPTANCE PARTIAL — PUSH ACCESS GATE BLOCKED. No live certification or deployment.
 
 Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f15e. Existing Orders PR75 and archive branches untouched.
 
@@ -17,9 +17,32 @@ Use existing Mira/Dashboard/Analytics primitives; user palette overrides older s
 | Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Initial focused116pass/1existing skip; fix-round37/37; rendered matrix partial, fresh combined types pending |
 | Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Initial76/76; tone fix44/44; fixturefix6/6; Panel typecheck exit0 onb3527dc2 and fixturetypes exit0 on95b645a5; visual/auth partial |
 | Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Focused63/63; Panel and fixturetypes exit0; post-fix visual matrix/full build/auth pending |
-| Remaining settings and content | Pending | Brief prepared; same approved scope, no further design approval needed |
+| Remaining settings and content | Source4631fa78; scoped round2 review clean | Final focused11/11 + policy client2/2; round1 affected47/47 + shipping3/3; both typechecks passed17da; final whole-branch visual/test/build gates pending |
+
+Whole-branch review on4631fa78 identified14 finding groups, addressed by the single consolidated fix wave at1dbfb7f5. Final scoped independent re-review verified all14 ADDRESSED at source/regression level, with no new Critical/Important issue. This is not rendered/authenticated certification. Historical initial full test on86812650 failed (1294pass/3fail/1existing skip in first stage only). That result is retained below, not used as the current final-source result; its timeout cause was not certified as baseline.
+
+Latest source `1dbfb7f553ce1415eb2b6190106e3e68f804f073` includes the single final fix wave for all14 review groups. Root actual full Panel script now passes on this exact source: first stage1361 tests/1360pass/0fail/1existing skip (125.22s); react-server second stage54/54pass/0fail/0skip (4.23s). Total1414pass/0fail/1skip. The unchanged actual Next catalog/inventory signed-out guard passed in114.11s. No timeout, skip or authority validation was loosened. Existing skip: `CELEBIX_PRICING_NEXT_GUARD` opt-in list/new/detail check. Experimental-transform and MODULE_TYPELESS warnings remain disclosed.
+
+Root Panel typecheck42196 and strict/import-compatible fixture typecheck72632 both exited0 on1db. Production build7536 exited0: compiled91s, TypeScript44s,80staticpages and final traces completed. Available bytes:11,362,082,816 before full tests;9,213,976,576 after/beforePaneltypes;9,223,495,680 beforefixturetypes;9,223,290,880 beforebuild;9,346,310,144 after build/before fixture restart. No cleanup or attribution of changes. Diff-check PASS. Package table above identifies historical package checkpoints; these combined-source results supersede its pending technical checks, not its visual/authenticated gaps.
+
+### Final rendered retakes — exact source1dbfb7f5, isolated fixture only
+
+- Actual advanced `/products/new`: stable1440/1024/390 views captured inline, page overflow0. At1024 summary width992px appears above the editor; rich editor width960px. At390 after layout settled/reopening, editor width332px and its own toolbar is horizontally scrollable (`overflow-x:auto`,576px content), without page overflow. An immediate viewport-switch sample briefly reported321px overflow/editor669px; subsequent stable measurement and fresh same-size navigation both returned0, so the transitional capture is not certified as the final layout.
+- Policy390 controlled PATCH409 followed by GET200: exact draft `# Korunan Mira taslağı\n\nKontrollü son QA.` remained. Persistent feedback y679.9–734.5 is visibly above save y780–828; overflow0. Footer overlap finding closed in this fixture. No successful live save or real record mutation.
+- Promotion390 template entry and step1→step2→step1: focused step heading y131.09 clears fixed header; `Mira son kontrol` remains visible in the name field; overflow0. Inline screenshot inspected. Current page limited error/warning read returned[]; this is not all-route console/network certification.
+- All screenshots are actual inline browser captures, not durable PNG files. No invented screenshot links. Full final-state matrix, loaded merchant design preview, physical barcode print, native confirmation Stay behavior and authenticated session evidence remain incomplete. Earlier fixture matrices remain attributed to their tested source.
+
+### Final review and delivery boundary
+
+Independent reviewer checked the35-file final fix package and actual consumers; all14 finding groups addressed, no new Critical/Important issue. Scoped code approval does not close the acceptance gaps above. No further source change after exact1db validation. This report-only update must not be presented as a newly tested application revision.
+
+Fresh authorized Coolify Auto Deploy proof is still unavailable. Historical OFF values and the non-deploy GitHub workflow are not sufficient proof; no push or PR has been performed. User action needed: open the existing authorized Coolify application overview/settings in Chrome for a read-only trigger check. No new credential, environment or infrastructure is required or authorized.
+
+Rulings I made, in creation order: (1) preserve committed internal reports and QA workspace despite skill cleanup defaults because the user prohibits cleanup; (2) narrow Orders exclusions to the exact PR75 files, allowing independently requested drafts/quicklinks/carts; (3) preserve actual shared open-canvas outer frames and restore CustomerList's genuine `.surface` consumer rather than weakening the excluded test or adding dummy CSS. Costs if wrong: extra artifact review for(1), bounded frontend conflict/layout rework for(2–3); no backend/PR75 scope expansion.
 
 No push/PR yet: fresh Auto Deploy read remains required. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
+
+Fresh read-only remote heads during final fixes: canonical remains455a4a538f4ff78915d38d37247956949aa2f15e; Orders remainsd6d94d6d3e527c5ca9295aa3189fb0ac2e8bcf98. No remote rollout branch returned. This check does not prove Coolify Auto Deploy settings; no push performed.
 
 Committed-scope check at a35bf118 against455a4a53: no differences in apps/admin, apps/owner, apps/storefront-shared, packages, .github, production Panel API routes or the named PR75 Orders/shipment presentation exclusions. Promotions working changes remain outside those paths. This is a source-scope check, not a fresh deployment-trigger settings check.
 
@@ -84,59 +107,59 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | Route | Presentation entry | Status |
 |---|---|---|
 | `/` | @/components/dashboard/PanelDashboardHomeView | REFERENCE — no redesign |
-| `/accounting` | Inspect route composition | PENDING |
-| `/accounting/invoicing-integration` | Inspect route composition | PENDING |
-| `/accounting/invoicing-integration/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/accounting/invoicing-integration/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
+| `/accounting` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/accounting/invoicing-integration` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/accounting/invoicing-integration/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/accounting/invoicing-integration/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/analytics` | @/components/analytics/CommerceAnalyticsWorkspace | REFERENCE — no redesign |
-| `/content` | @/components/merchant-admin/MerchantFamilyOverview, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/content/blog` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/content/blog/[recordId]/edit` | @/components/merchant-admin/MerchantRecordEditor | PENDING |
-| `/content/blog/new` | @/components/merchant-admin/MerchantRecordEditor | PENDING |
-| `/content/pages` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/content/pages/[recordId]/edit` | @/components/merchant-admin/MerchantRecordEditor | PENDING |
-| `/content/pages/new` | @/components/merchant-admin/MerchantRecordEditor | PENDING |
-| `/content/policies` | @/components/content/PolicyConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/content/policies/[policyKey]/edit` | @/components/content/PolicyConsole | PENDING |
-| `/content/policies/new` | Inspect route composition | PENDING |
+| `/content` | @/components/merchant-admin/MerchantFamilyOverview, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/blog` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/blog/[recordId]/edit` | @/components/merchant-admin/MerchantRecordEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/blog/new` | @/components/merchant-admin/MerchantRecordEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/pages` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/pages/[recordId]/edit` | @/components/merchant-admin/MerchantRecordEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/pages/new` | @/components/merchant-admin/MerchantRecordEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/policies` | @/components/content/PolicyConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/policies/[policyKey]/edit` | @/components/content/PolicyConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/content/policies/new` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers` | @/components/customers/CustomerListConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers/[customerId]` | @/components/customers/CustomerDetailConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers/[customerId]/edit` | @/components/customers/CustomerEditConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers/new` | @/components/customers/CustomerFormConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers/segments` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/customers/tags` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
-| `/discounts` | @/components/promotions/PromotionStudio | PENDING |
-| `/discounts/[promotionId]` | @/components/promotions/PromotionStudio | PENDING |
-| `/discounts/[promotionId]/analytics` | @/components/promotions/PromotionAnalytics | PENDING |
-| `/discounts/[promotionId]/codes` | @/components/promotions/PromotionCodes | PENDING |
-| `/discounts/[promotionId]/edit` | @/components/promotions/PromotionStudio | PENDING |
-| `/discounts/lucky-wheel` | Inspect route composition | PENDING |
-| `/discounts/lucky-wheel/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/discounts/lucky-wheel/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/discounts/new` | @/components/promotions/PromotionStudio | PENDING |
+| `/discounts` | @/components/promotions/PromotionStudio | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/[promotionId]` | @/components/promotions/PromotionStudio | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/[promotionId]/analytics` | @/components/promotions/PromotionAnalytics | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/[promotionId]/codes` | @/components/promotions/PromotionCodes | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/[promotionId]/edit` | @/components/promotions/PromotionStudio | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/lucky-wheel` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/lucky-wheel/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/lucky-wheel/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/discounts/new` | @/components/promotions/PromotionStudio | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/login` | Inspect route composition | AUTH BOUNDARY — presentation audit only |
-| `/marketing` | @/components/merchant-admin/MerchantMarketingOverview, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/marketing/email` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/marketing/email/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketing/email/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketing/phone` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/marketing/phone/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketing/phone/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketing/whatsapp` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/marketing/whatsapp/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketing/whatsapp/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketplaces` | Inspect route composition | PENDING |
-| `/marketplaces/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/marketplaces/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
+| `/marketing` | @/components/merchant-admin/MerchantMarketingOverview, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/email` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/email/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/email/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/phone` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/phone/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/phone/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/whatsapp` | @/components/merchant-admin/MerchantModuleConsole, @/components/panel/PanelWorkspaceShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/whatsapp/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketing/whatsapp/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketplaces` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketplaces/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/marketplaces/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/orders` | @/components/orders/OrderListConsole, @/components/panel/PanelShell | EXCLUDED — PR75 dependency |
 | `/orders/[orderId]` | @/components/orders/OrderDetailConsole, @/components/panel/PanelShell | EXCLUDED — PR75 dependency |
 | `/orders/[orderId]/print` | @/components/orders/OrderPrintView | EXCLUDED — PR75 dependency |
-| `/orders/abandoned-carts` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
-| `/orders/abandoned-carts/[cartId]` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
-| `/orders/drafts` | @/components/orders/OrderDraftListConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
-| `/orders/drafts/[draftId]` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
-| `/orders/drafts/new` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
-| `/orders/quick-links` | @/components/orders/QuickOrderLinksConsole, @/components/panel/PanelShell | IMPLEMENTED / REVIEW FIX ROUND1 / QA PARTIAL |
+| `/orders/abandoned-carts` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/orders/abandoned-carts/[cartId]` | @/components/orders/AbandonedCartConsole, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/orders/drafts` | @/components/orders/OrderDraftListConsole, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/orders/drafts/[draftId]` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/orders/drafts/new` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/orders/quick-links` | @/components/orders/QuickOrderLinksConsole, @/components/panel/PanelShell | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products` | @/components/catalog/ProductListConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/[productId]` | @/components/catalog/ProductDetailConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/products/[productId]/preview` | @/components/catalog/ProductStorefrontPreview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
@@ -178,55 +201,55 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/products/transfers` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/transfers/[transferId]` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
 | `/products/transfers/new` | @/components/inventory/InventoryTransferConsole | IMPLEMENTED — REVIEW CLEAN / QA PARTIAL |
-| `/seo` | Inspect route composition | PENDING |
-| `/seo/categories` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/categories/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/categories/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/code-integrations` | Inspect route composition | PENDING |
-| `/seo/code-integrations/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/code-integrations/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/content` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/content/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/content/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/fast-indexing` | Inspect route composition | PENDING |
-| `/seo/fast-indexing/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/fast-indexing/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/geo-optimization` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/geo-optimization/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/geo-optimization/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/internal-linking` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/internal-linking/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/internal-linking/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/pages` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/pages/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/pages/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/products` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/seo/products/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/products/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/seo/sitemap` | Inspect route composition | PENDING |
-| `/seo/social-preview` | Inspect route composition | PENDING |
-| `/settings` | @/components/merchant-admin/MerchantFamilyOverview | PENDING |
-| `/settings/administrators` | Inspect route composition | PENDING |
-| `/settings/administrators/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/settings/administrators/new` | @/components/merchant-admin/render-merchant-record-page | PENDING |
-| `/settings/analytics` | @/components/analytics/AnalyticsSettingsConsole | PENDING |
-| `/settings/artificial-intelligence` | @/components/toshi-settings/ArtificialIntelligenceSettings | PENDING |
-| `/settings/category-showcase` | Inspect route composition | PENDING |
-| `/settings/design` | @/components/settings/design/DesignWorkspace, @/components/settings/design/workspace-navigation-model | PENDING |
-| `/settings/domains` | @/components/settings/domains/StoreDomainSettings | PENDING |
-| `/settings/general` | Inspect route composition | PENDING |
-| `/settings/hero-banner` | Inspect route composition | PENDING |
-| `/settings/language` | Inspect route composition | PENDING |
-| `/settings/marquee` | Inspect route composition | PENDING |
-| `/settings/notifications` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
-| `/settings/payment` | @/components/settings/payment/PaymentSettingsConsole | PENDING |
-| `/settings/payment/[recordId]/edit` | Inspect route composition | PENDING |
-| `/settings/payment/new` | Inspect route composition | PENDING |
-| `/settings/promotion-banner` | Inspect route composition | PENDING |
-| `/settings/shipping` | @/components/shipping/ShippingSettingsConsole | PENDING |
-| `/settings/theme` | Inspect route composition | PENDING |
+| `/seo` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/categories` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/categories/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/categories/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/code-integrations` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/code-integrations/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/code-integrations/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/content` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/content/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/content/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/fast-indexing` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/fast-indexing/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/fast-indexing/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/geo-optimization` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/geo-optimization/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/geo-optimization/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/internal-linking` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/internal-linking/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/internal-linking/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/pages` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/pages/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/pages/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/products` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/products/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/products/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/sitemap` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/seo/social-preview` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings` | @/components/merchant-admin/MerchantFamilyOverview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/administrators` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/administrators/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/administrators/new` | @/components/merchant-admin/render-merchant-record-page | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/analytics` | @/components/analytics/AnalyticsSettingsConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/artificial-intelligence` | @/components/toshi-settings/ArtificialIntelligenceSettings | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/category-showcase` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/design` | @/components/settings/design/DesignWorkspace, @/components/settings/design/workspace-navigation-model | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/domains` | @/components/settings/domains/StoreDomainSettings | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/general` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/hero-banner` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/language` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/marquee` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/notifications` | @/components/merchant-admin/MerchantModuleConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/payment` | @/components/settings/payment/PaymentSettingsConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/payment/[recordId]/edit` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/payment/new` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/promotion-banner` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/shipping` | @/components/shipping/ShippingSettingsConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/settings/theme` | Inspect route composition | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/setup` | Inspect route composition | AUTH BOUNDARY — presentation audit only |
-| `/toshi` | @/components/toshi/ToshiWorkspace | PENDING |
+| `/toshi` | @/components/toshi/ToshiWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/unauthorized` | Inspect route composition | AUTH BOUNDARY — presentation audit only |
 
 ## Evidence
@@ -348,3 +371,45 @@ Task5 fix5229497744545181a064a29152904201052faaac: explicit primary colors,44px 
 Task5 final scoped review: all six findings addressed; no new Critical/Important defect. A minor test-transport Allow-header mismatch remains for final review: unrelatedPOST405 advertisesPATCH althoughnoPATCHexport exists. Root checked the prior genericPATCH handler: it onlysupports a catalogproduct, not avalidorderswriteflow. Bothserialtypechecks exited0 on52294977: Panel33245 and strict/import-compatiblefixture97486. Measurements9,655,001,088before→8,577,990,656between→8,574,840,832afterbytes. FullPaneltest/build/auth andpostfixvisualretakes remainpending.
 
 Only afterbothchecks completed, root restarted itslocalfixturedevserver as session66113 onport3517 (Ready1130ms). No source/config/secret change, cleanup, push or live deployment. Task6 can proceed underthesameapprovedscope afterthiscodegate; itsreportedPolicyconflictbehavior stillrequiresfailingreproduction.
+
+Post-fix browser verification is blocked on the existing tab's internal connection-error data URL: browser-control rejected both reload and normal HTTP navigation. Localfixture server remainsReady; no application code, browser policy/profile or network settings were changed to work around the refusal. A non-blocking user request asks to manuallyopen the localdraftsURL. Otherfixturetabs were not operated and theirpostrestartdraftcontents have not been reverified. This is browser-control evidence, not a live application incident; Task6 implementation continues independently.
+
+Later fresh inventory showedoldtab5gone andnewnormalHTTPtab6 available; selecting6worked withoutretryingtheinternaldataURL. Post-fixdraftlist522source retaken1440/1024/390, eachoverflow0 andonevisiblegraphite44pxNewaction. MobileOpenisnow44px. Residualaccessibilityfinding: ShiftTab/Open stillfocusesdraftNumberwithlegacyblue3px36%-opacityoutline (fixrulescoverrecordLinkinstead). Actualcarddtlabels10.24px#7A8494 on#FFFDFC calculate3.727:1. Botharepreservedinfinalreviewinput; noaccessibilityPASS.
+
+Quick-links522source loadedfixture captures:1440topform/summary,1024topandfocusedlowerform,390focusedlowerform, allmeasuredpageoverflow0. Notes→Tab reachesinternal-labelfieldwithvisiblegraphite/orangefocus. At1024 create/clear actionsy600.7–644.7;390 create569.5–613.5 andclear621.5–665.5, all44pxandclearofthefixeddock. Scopedstickyparentisreportedpositionsticky; thissampledoesnotcertifyeverypossiblecontentheight. ExistinglinkrowandpaymentmethodoptionloadedfromisolatedGETs. NoCreate,Copy,OpenPaymentPage,CancelorClear actionwasexecuted; no realprovider/customer mutation orsuccessfulsaveclaim.
+
+Visualconsistencyobservationforfinalreview: quick-linkdesktopsummary uses#201C19 with#FFFDFCtextandlightCreatebutton; at1024/390 itbecomes#FFFDFC withgraphiteprimary. Comparethisinverse desktopcardagainsttheapprovedsurface/primaryconvention; accessibilitycontrastisnotthesamequestionasvisualconsistency. No globalthemechangeproposed.
+
+Task5 cart list/detail loaded inline captures at1440/1024/390 each measure horizontal overflow0. List synthetic no-match search renders the matching empty state; Clear restores Ada QA. One-record fixture does not certify multipage/sort ordering or live business metrics. Detail note input is native25px high with inset border and inline label; recorded for final scoped form/44px correction. The full-width red abandoned-state pill also needs ordinary-state palette assessment. Keyboard reaches the note and onward to the bottom navigation. No contact/archive/recovery/note/provider mutation executed; no authenticated evidence or durable screenshot links claimed.
+
+Draft-edit522source: loaded1440/1024/390 captures and overflow0; tablet customer inputs467px each. Controlled rejected save disables fields while pending, then keeps exact note `Mira taslak korunumu QA`, re-enables fields/actions and displays version-conflict feedback. No conversion/archive performed. This is isolated409 evidence, not a successful or live save. Desktop inverse summary and solid#FAFBFC product row remain final palette-review observations. Fixture tab6 retains this unsaved note; preserve it when opening later QA screens.
+
+### Settings working-tree visual evidence — not final committed QA
+
+At6,602,190,848 available bytes, root opened separate fixture tab7; no cleanup. General settings and content-new actual components were inspected at1440/1024/390, each page overflow0. General mobile inputs326×48px; content checkbox uses brand accent and save remains above bottom navigation. Faint16%-orange focus was sent to the active implementer for correction. No general/content record save performed. Payment methods/providers unavailable states were inspected atallthree sizes; methods not loaded, provider catalog unavailable, no real provider request or activation. Existing unavailable counters0/0 are not proof of no integrations; review truthful unknown-state presentation. Provider filters40px at390/1024 were sent for44px correction. Initial policy fixtureHTTP200 failed strict parsing; implementer identified zero-based ordinal from Array.map, fixed fixture to1–7 and added real-client response test. Browser recheck loaded editor: controlled PATCH409 followedbyGET200 retains Markdown body and selectedpublishedstatus. Captures1440/1024/390 overflow0, but preview sizing/error clearance/close draft guard remain final checks. These working-tree captures do not certify final source, authenticated access, all dialogs or successful writes.
+
+Domains390 shows actual unavailable state andoverflow0; duplicate visible title and simultaneous unknown/empty wording sent to implementer. No domain write. Payment/catalog/domain/shipping GET400 results are deliberately unsupported existing local fixture routes, not live outages; no loaded provider/catalog/domain-success certification. Shipping captured loading only. Fast Refresh full-reload warning observed during editing, so no clean-console claim. Last gate3,227,869,184bytes; root stopped only own fixture server66113, exit0, to avoid further automatic compilation. No cleanup or other-process intervention. Heavy final tests/types/build and final visual retakes wait for5,000,000,000bytes; focused implementation/review continues.
+
+Task6 committed868126508587f306276c4fbca9c896a8f7464f90, report read; task-scoped independent review running. Final focused7+47+39=93passed. Fresh capacity9,650,380,800bytes permitted serialPaneltypecheck40941, which exited0 withoutdiagnostics. Postcheck9,646,141,440bytes; strict/import-compatiblefixturetypecheck48592 alsoexited0withoutdiagnostics. Afterfixture9,644,077,056bytes. No cleanup/space-sourceattribution. This is a package type gate, not final whole-branch test/build or visual/live certification.
+
+Rootfixture server restarted as35254, Ready; oldtab8 navigationblockedbybrowserURLpolicyonitsinternalconnection-errorpage. Manual normalHTTPtab request sent to user; nosecurity/profile workaround orproductcodechange. Finalsourcevisualretakesremainblockedexternally. Otherpriorunsavedfixturetabsnotreverifiedafterserverpause/HMR.
+
+Initial combined fullPaneltest on86812650 (session91313):9,730,969,600bytes before;8,668,143,616after. Exit1; firststage1298tests/1294pass/3fail/1existing skip,137.94s. Secondreact-serverstage didnotrun becausefirststagefailed. Failures: admin-open-canvas missingcustomer.surface standaloneCSSrule; samefiledraft.formSection disagreeswithopen-framecontract; catalog-page-guard actualNextsigned-outcheckfetch timedout90s. These are not baseline claims or proof of live outages. ExcludedPR75testfile unchanged; no assertion/timeout/skip relaxed. Afterfresh8,667,799,552bytegate, isolatedunchangedcatalogguard98214 passed1/1 in111.71s, all11realNextsigned-outredirects307/login. Noauthbugestablished; causeoffullrun-onlytimeoutnotproven. Postisolation8,316,502,016bytes. Otherstylingfindingsgo tofinalreview/fixwave. Existing skipisinstalledNextprice-listlist/new/detailopt-incheck.
+
+Task6review86812650Needsfixes: fourImportant (policyconflict-close draft loss, swallowedcanonicalrefreshfailure, incomplete44pxtargets, remainingcoolprovider/designchrome). NoCritical. Originalimplementerfixround1releasedafterguardtestcompleted; rootownsheavychecksandfinalretakes. Reviewerpaymentunknowncountercheckfounddashforunknownphases, so earlierfixture0/0isnotyetprovenfalsebusinessdata. ExpectedNodeexperimentalwarningdeferredwithoutnewskip/suppression/runnerreplacement.
+
+### Settings fix round 1 — 17da4a0a
+
+Round2 subsequently committed `4631fa78225b1718dae83ec61b4e267aede17d8f`: textarea is read-only while save/canonical refresh is pending; named RED2/2→GREEN2/2, full presentation11/11 and policy client2/2. Scoped independent re-review confirms the pending-input defect addressed with no new Critical/Important. Whole-branch review is running; this task code gate is not final QA certification.
+
+Further4631 rendered samples: shipping unavailable state inspected1440/1024/390, overflow0 in each; test connectionGET400, no connect/provider action. Payment provider-tab inspectedallthree widths, overflow0, tabletinput/select targets44px. Unlike the method-summary dashes, provider catalog still visibly says0/0 while unavailable; final reviewer confirmed this in the actual rendering source and included truthful unknown-state remediation. Toshi1440/1024/390 eachoverflow0; focusedinput48px and graphite2pxoutline, mobileinput676.9–724.9 above bottomdock. Initial tablet viewport required scrolling to input; no claim that the top screenshot shows the full form. No assistant request sent. Policy conflictalert390 is confirmed hidden under fixedfooter, while1024/1440 is visible; included in final fixes, so no mobile error-visibilityPASS.
+
+Product dirty-navigation browser attempt4631: typed controlled `Mira korunacak ürün QA`, clicked the actual Products-back link. Browser-control timed out dispatching the click; subsequent dialog read returnedundefined and next readable page was/products. No explicit Stay choice was observed or executed, so this does not close the Stay-evidence gap and is not sufficient to declare a broken guard or automatic acceptance cause. Existing guard tests/source remain separate evidence. Do not repeat this failed interaction or modify the guard solely to force browser QA.
+
+Committed `17da4a0a79bbbbc3dc928d0b1ef584c151934dc4`. Focused checks: 10/10 new presentation/form regressions, 47/47 existing affected settings checks, 3/3 shipping checks. Independent scoped review verified all four original Important findings addressed, but identified one new Important: typing while save/canonical refresh is pending can be lost when the captured request-start draft is reconciled. Original implementer owns round2 with pending-save/read regressions; the package is not marked complete yet.
+
+Root Panel typecheck and strict/import-compatible fixture typecheck both passed on17da. Available-space measurements: 9,436,532,736 before Panel; 7,206,477,824 before fixture; 7,209,811,968 after. No cleanup or attribution of space changes. Final combined full suite/build still pending.
+
+Browser access recovered after fresh inventory showed no remaining IAB tabs: normal new tab9 loaded the existing local fixture server. Initial navigation timed out during compilation, but the server returned200 and the tab was subsequently selectable normally; no URL-policy bypass. Domain unavailable-state captures at390/1440 are stable, overflow0, one compact shared heading and no simultaneous empty result. Immediate1024 capture was stale/cropped and is not accepted as final evidence. Domain GET400 is the deliberately unsupported test transport, not live service health.
+
+Policy17da real-component fixture: controlled PATCH409 followed by GET200 retained `# Mira korunacak taslak\n\nKontrollü QA metni.`; close button returned focus to the original Edit button; reopening the same policy retained the exact body. Stable390 screenshot shows overflow0 and two48px footer buttons at780–828 within844 viewport. No customer/provider data was mutated. Screenshots were inspected inline; no durable artifact links or authenticated certification claimed. Pending-request typing remains covered by the active round2, not this browser sequence.
