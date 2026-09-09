@@ -40,7 +40,7 @@
 .cancelButton,
 .archiveButton {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 7px;
@@ -55,7 +55,7 @@
 .primaryButton { border: 1px solid #fe6100; background: #fe6100; color: #fff; box-shadow: 0 1px 2px rgb(254 97 0 / 16%); }
 .primaryButton:hover { background: #e95700; }
 .primaryButton svg, .refreshButton svg, .archiveButton svg { width: 15px; height: 15px; }
-.refreshButton { width: 40px; border: 1px solid #d9dfe7; background: #fff; padding: 0; color: #5b6677; }
+.refreshButton { width: 44px; border: 1px solid #d9dfe7; background: #fff; padding: 0; color: #5b6677; }
 .cancelButton { border: 1px solid #d9dfe7; background: #fff; color: #3e495a; }
 .archiveButton { border: 0; background: transparent; color: #b42318; }
 .primaryButton:disabled, .refreshButton:disabled, .cancelButton:disabled, .archiveButton:disabled { cursor: not-allowed; opacity: .56; }
@@ -304,7 +304,7 @@
 .primaryButton:focus-visible,
 .refreshButton:focus-visible,
 .cancelButton:focus-visible,
-.archiveButton:focus-visible { outline: 3px solid rgba(254, 97, 0, 0.16); outline-offset: 2px; border-color: var(--catalog-accent); box-shadow: none; }
+.archiveButton:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; border-color: var(--catalog-accent); box-shadow: none; }
 .detailPlaceholder > span { background: rgba(254, 97, 0, 0.10); color: var(--catalog-accent); }
 
 @media (max-width: 1024px) {

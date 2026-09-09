@@ -38,12 +38,11 @@
 
 .panel {
   min-width: 0;
-  border-color: var(--mira-border);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: visible;
-  border: 1px solid var(--mira-border);
-  background: var(--mira-surface);
-  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .panelHeader {
@@ -93,7 +92,7 @@
   font-weight: 750;
   letter-spacing: 0;
   line-height: 1.35;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .panelHeader p {
@@ -107,7 +106,7 @@
   margin: 3px 0 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .panelIcon,
@@ -222,7 +221,7 @@
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .customerGrid label > span {
@@ -759,31 +758,31 @@
 }
 
 .summaryWorkspace .field > span svg {
-  color: #D4CEC8;
+  color: #6F655F;
 }
 
 .summaryWorkspace .expiryField svg {
-  color: #D4CEC8;
+  color: #6F655F;
 }
 
 .summaryWorkspace .summarySectionTitle > svg {
-  color: #D4CEC8;
+  color: #6F655F;
 }
 
 .summaryWorkspace .totals .grandTotal {
-  border-color: rgb(255 253 252 / 24%);
+  border-color: var(--mira-border);
 }
 
 .summaryWorkspace .primaryButton {
-  border-color: var(--mira-surface);
-  background: var(--mira-surface);
-  color: var(--mira-text);
+  border-color: var(--mira-text);
+  background: var(--mira-text);
+  color: var(--mira-surface);
 }
 
 .summaryActions .secondaryButton {
-  border-color: rgb(255 253 252 / 24%);
-  background: transparent;
-  color: var(--mira-surface);
+  border-color: var(--mira-border);
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .listState > svg {
@@ -1247,16 +1246,16 @@
 .summaryWorkspace {
   min-width: 0;
   overflow: visible;
-  border: 1px solid var(--mira-sidebar);
+  border: 1px solid var(--mira-border);
   border-radius: 12px;
-  background: var(--mira-sidebar);
-  color: var(--mira-surface);
-  box-shadow: 0 8px 24px rgb(32 28 25 / 12%);
+  background: var(--mira-surface);
+  color: var(--mira-text);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
 }
 
 .summaryHeader {
   justify-content: flex-start;
-  border-color: rgb(255 253 252 / 14%);
+  border-color: var(--mira-border);
 }
 
 .summarySection {
@@ -1264,7 +1263,7 @@
   gap: 13px;
   border-bottom: 1px solid #EDF0F4;
   padding: 15px 16px;
-  border-color: rgb(255 253 252 / 14%);
+  border-color: var(--mira-border);
 }
 
 .expiryField {
@@ -1280,7 +1279,7 @@
   gap: 7px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .expiryField svg {
@@ -1307,7 +1306,7 @@
   justify-content: space-between;
   gap: 16px;
   font-size: 12px;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .totals dt,
@@ -1317,7 +1316,7 @@
 
 .totals dd {
   font-weight: 700;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .totals .grandTotal {
@@ -1326,12 +1325,12 @@
   padding-top: 12px;
   font-size: 14px;
   font-weight: 750;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .grandTotal dd {
   font-size: 18px;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .amountGrid {
@@ -1356,14 +1355,14 @@
 .summarySectionTitle h3 {
   margin: 0;
   font-size: 12px;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .summarySectionTitle p {
   margin: 2px 0 0;
   font-size: 11px;
   line-height: 1.4;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .providerBody {
@@ -1429,7 +1428,7 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .summaryActions {
@@ -1441,7 +1440,9 @@
   bottom: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   border-top: 1px solid rgb(255 253 252 / 14%);
-  background: var(--mira-sidebar);
+  background: rgb(255 253 252 / 96%);
+  border-color: var(--mira-border);
+  box-shadow: 0 -8px 20px rgb(43 43 43 / 6%);
 }
 
 .primaryButton,
@@ -1820,6 +1821,7 @@
   .customerGrid {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .builderGrid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1830,96 +1832,6 @@
 
   .summaryWorkspace {
     display: block;
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
-    box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
-  }
-
-  .summaryHeader {
-    border-color: var(--mira-border);
-  }
-
-  .summarySection {
-    border-color: var(--mira-border);
-  }
-
-  .summaryHeader h2 {
-    color: var(--mira-text);
-  }
-
-  .summarySectionTitle h3 {
-    color: var(--mira-text);
-  }
-
-  .summaryHeader p {
-    color: var(--mira-text);
-  }
-
-  .summarySectionTitle p {
-    color: var(--mira-text);
-  }
-
-  .expiryField > span {
-    color: var(--mira-text);
-  }
-
-  .field > span {
-    color: var(--mira-text);
-  }
-
-  .helpText {
-    color: var(--mira-text);
-  }
-
-  .totals > div {
-    color: var(--mira-text);
-  }
-
-  .totals dd {
-    color: var(--mira-text);
-  }
-
-  .totals .grandTotal {
-    color: var(--mira-text);
-  }
-
-  .grandTotal dd {
-    color: var(--mira-text);
-  }
-
-  .summaryWorkspace .field > span svg {
-    color: #6F655F;
-  }
-
-  .summaryWorkspace .expiryField svg {
-    color: #6F655F;
-  }
-
-  .summaryWorkspace .summarySectionTitle > svg {
-    color: #6F655F;
-  }
-
-  .summaryWorkspace .totals .grandTotal {
-    border-color: var(--mira-border);
-  }
-
-  .summaryWorkspace .primaryButton {
-    border-color: var(--mira-text);
-    background: var(--mira-text);
-    color: var(--mira-surface);
-  }
-
-  .summaryActions {
-    border-color: var(--mira-border);
-    background: rgb(255 253 252 / 96%);
-    box-shadow: 0 -8px 20px rgb(43 43 43 / 6%);
-  }
-
-  .summaryActions .secondaryButton {
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
   }
 }
 

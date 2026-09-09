@@ -69,9 +69,7 @@ function tone(
 ): "neutral" | "success" | "warning" | "danger" {
   return status === "recovered"
     ? "success"
-    : status === "abandoned"
-      ? "danger"
-      : "neutral";
+    : "neutral";
 }
 function customer(cart: AbandonedCartListItem) {
   return (
@@ -741,11 +739,12 @@ export function AbandonedCartDetailPresentation(
               >
                 İletişim kuruldu
               </button>
-              <label>
+              <label className={styles.noteField}>
                 <span>Merchant notu</span>
                 <input
                   value={props.note}
                   maxLength={1000}
+                  readOnly={props.busy}
                   onChange={(event) => props.onNote(event.currentTarget.value)}
                 />
               </label>

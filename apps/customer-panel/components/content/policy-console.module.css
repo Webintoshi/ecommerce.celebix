@@ -33,13 +33,13 @@
 .editorHeader > div { display: grid; min-width: 0; gap: .22rem; }
 .editorHeader h2 { margin: 0; color: #2B2B2B; font-size: 1.35rem; }
 .editorHeader button { width: 48px; flex: 0 0 48px; border: 1px solid #E7E2DD; background: #F8F7F5; color: #2B2B2B; }
-.formBody { display: grid; flex: 1; gap: 1rem; overflow: auto; background: #F8F7F5; padding: 1.1rem 1.25rem; }
+.formBody { display: grid; min-height: 0; flex: 1; gap: 1rem; overflow: auto; background: #F8F7F5; padding: 1.1rem 1.25rem; }
 .statusField { display: grid; gap: .55rem; min-width: 0; margin: 0; border: 0; padding: 0; }
 .statusField legend { margin-bottom: .55rem; color: #2B2B2B; font-size: .78rem; font-weight: 800; }
 .statusOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
 .statusOptions button { display: grid; min-height: 64px; gap: .18rem; border: 1px solid #E7E2DD; border-radius: .82rem; background: #FFFDFC; padding: .65rem .8rem; color: #2B2B2B; text-align: left; cursor: pointer; }
 .statusOptions button span { font-weight: 800; }
-.statusOptions button small { color: #7a8495; font-size: .7rem; }
+.statusOptions button small { color: #6F655F; font-size: .7rem; }
 .statusOptions .statusActive { border-color: #fe6100; background: #fff5ee; box-shadow: 0 0 0 3px rgb(254 97 0 / 10%); }
 .editorColumns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .85rem; min-height: 28rem; }
 .bodyField, .preview { display: grid; min-width: 0; overflow: hidden; grid-template-rows: auto minmax(0, 1fr); align-content: start; border: 1px solid #E7E2DD; border-radius: .9rem; background: #FFFDFC; }
@@ -50,9 +50,12 @@
 .edit:focus-visible, .refresh:focus-visible, .secondary:focus-visible, .primary:focus-visible, .editorHeader button:focus-visible, .statusOptions button:focus-visible, .bodyField textarea:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
 .preview > :global(.product-description-preview) { overflow: auto; background: #FFFDFC; padding: 1rem; }
 .preview > :global(.product-description-preview) > strong { display: none; }
-.editorFooter { border-top: 1px solid #E7E2DD; }
+.editorFooter { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-top: 1px solid #E7E2DD; }
 .editorFooter > p { margin: 0; color: #667085; font-size: .72rem; }
 .editorFooter > div { display: flex; gap: .6rem; }
+.editorFooter .error, .editorFooter .success { grid-column: 1 / -1; margin: 0; }
+.editorFooter .error { color: #b42318; }
+.editorFooter .success { color: #147443; }
 .success { display: flex; align-items: center; gap: .45rem; margin: 0; border: 1px solid #b7e4cc; border-radius: .75rem; background: #effaf4; padding: .7rem .8rem; color: #147443; }
 .error { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; border: 1px solid #fecaca; border-radius: .8rem; background: #fff1f2; padding: .8rem; color: #b42318; }
 .error button { min-height: 44px; flex: 0 0 auto; border: 1px solid currentColor; border-radius: .65rem; background: #FFFDFC; padding: 0 .8rem; color: inherit; cursor: pointer; font: inherit; font-weight: 800; }
@@ -77,7 +80,7 @@
   .edit { grid-column: 1 / -1; grid-row: auto; width: 100%; }
   .statusOptions { grid-template-columns: 1fr; }
   .error { align-items: stretch; flex-direction: column; }
-  .editorFooter { align-items: stretch; flex-direction: column; }
+  .editorFooter { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .editorFooter > div { display: grid; grid-template-columns: 1fr 1.35fr; }
   .editorFooter button { width: 100%; }
 }

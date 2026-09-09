@@ -202,7 +202,7 @@
 .stickySummary dd { color: var(--catalog-text); }
 .header h2 { font-size: 24px; letter-spacing: -0.02em; }
 .eyebrow,
-.stickySummary > span { color: var(--catalog-accent); }
+.stickySummary > span { color: var(--catalog-text); }
 .icon,
 .createWorkspace .selected .kindIcon { background: rgba(254, 97, 0, 0.10); color: var(--catalog-accent); }
 .form { gap: 16px; padding: 20px 24px 24px; }
@@ -217,13 +217,12 @@
 .form select:focus,
 .sections :global(.onboarding-editor-grid input:focus),
 .sections :global(.onboarding-editor-grid select:focus),
-.sections :global(.onboarding-editor-grid textarea:focus) { outline: 3px solid rgba(254, 97, 0, 0.16); outline-offset: 1px; border-color: var(--catalog-accent); box-shadow: none; }
+.sections :global(.onboarding-editor-grid textarea:focus) { outline: 2px solid #2B2B2B; outline-offset: 1px; border-color: var(--catalog-accent); box-shadow: none; }
 .categoryChipActive,
 .productKind button.selected { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); color: var(--catalog-text); box-shadow: inset 3px 0 var(--catalog-accent); }
 .primary { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); box-shadow: none; }
 .primary:hover:not(:disabled) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
 .advanced { color: var(--catalog-text); }
-.createWorkspace .editorLayout { grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; }
 .createWorkspace .sections { gap: 12px; }
 .createWorkspace .sections :global(.onboarding-editor-section) { border-radius: 10px; }
 .createWorkspace .sections :global(.onboarding-editor-section > summary) { min-height: 56px; padding: 12px 16px; }
@@ -235,8 +234,6 @@
 @media (max-width: 1024px) {
   .createPage,
   .pageShell { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-  .createWorkspace .editorLayout { grid-template-columns: 1fr; }
-  .createWorkspace .stickySummary { position: static; order: -1; }
   .createPage .editorActions,
   .page .actions { bottom: 76px; }
 }
@@ -598,7 +595,7 @@
   box-shadow: 0 -4px 18px rgb(16 24 40 / 5%);
   backdrop-filter: none;
 }
-.createWorkspace .editorActions button { min-height: 40px; border-radius: 7px; padding: 0 13px; font-size: 11px; }
+.createWorkspace .editorActions button { min-height: 44px; border-radius: 7px; padding: 0 13px; font-size: 11px; }
 .createWorkspace .editorActions .advanced { margin-right: 0; color: #667085; }
 .createWorkspace .editorActions .primary { border-color: #fe6100; background: #fe6100; box-shadow: 0 2px 5px rgb(254 97 0 / 16%); }
 
@@ -610,7 +607,7 @@
   .createWorkspace .sections :global(.onboarding-continue-selling) { grid-column: 1; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .createPage { max-width: none; }
   .createWorkspace .editorLayout { grid-template-columns: 1fr; }
   .createWorkspace .stickySummary { position: static; order: -1; }
@@ -668,3 +665,4 @@
   .createWorkspace .editorActions,
   .page .actions { bottom: 76px; }
 }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

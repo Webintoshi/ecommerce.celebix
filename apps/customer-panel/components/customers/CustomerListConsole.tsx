@@ -177,7 +177,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           </article>
         </section>
       ) : null}
-      <section className={styles.customerSurface} aria-label="Müşteri çalışma alanı">
+      <section className={styles.surface} aria-label="Müşteri çalışma alanı">
         <form
           className={styles.customerToolbar}
           role="search"

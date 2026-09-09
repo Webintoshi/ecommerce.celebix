@@ -264,6 +264,8 @@ test("policy conflict preserves the merchant draft and version authority across 
     assert.equal(preservedTextarea.props.value, "Merchant tarafından korunacak taslak");
     assert.equal(preservedPublished.props["aria-checked"], true);
     assert.match(textOf(view), /sizden önce güncellendi/u);
+    const feedbackFooter = findElement(view, (element) => element.type === "footer");
+    findElement(feedbackFooter, (element) => element.props.role === "alert");
     const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
     (close.props.onClick as () => void)();
     view = await hooks.flush(render);
@@ -313,6 +315,8 @@ test("failed conflict refresh blocks resave until an explicit read retry succeed
 
     assert.equal(getCalls(), 1);
     assert.match(textOf(view), /güncel sürüm alınamadı/u);
+    const recoveryFooter = findElement(view, (element) => element.type === "footer");
+    findElement(recoveryFooter, (element) => element.type === "button" && textOf(element) === "Güncel sürümü al");
     const blockedSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
     assert.equal(blockedSave.props.disabled, true);
     const retryRead = findElement(view, (element) => element.type === "button" && textOf(element) === "Güncel sürümü al");
@@ -555,7 +559,7 @@ test("domain failure is not rendered as an empty domain collection or a duplicat
   const component = await panelSource("components/settings/domains/StoreDomainSettings.tsx");
 
   assert.match(component, /<PanelTopbarBridge title="Alan Adları" subtitle=/);
-  assert.match(component, /loading \? [\s\S]*: !error \? <>/);
+  assert.match(component, /loaded \? <>/);
   assert.doesNotMatch(component, /className=\{styles[.]intro\}/);
 });
 

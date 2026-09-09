@@ -5,6 +5,7 @@ import styles from "./toshi.module.css";
 export function ToshiWorkspace() {
   return (
     <PanelPageShell>
+      <h1 className={styles.srOnly}>Toshi</h1>
       <PanelPageHeader
         title="Toshi"
         description="Mağaza verilerinizi güvenli biçimde okuyup hızlı, doğrulanabilir yanıtlar verir."

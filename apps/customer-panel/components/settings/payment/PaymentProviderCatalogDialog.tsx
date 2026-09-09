@@ -88,7 +88,7 @@ function ProviderCatalogSurface(props: ProviderCatalogProps & Readonly<{
     <section className={styles.catalogResults} aria-labelledby={props.headingId}>
       <div className={styles.catalogResultsHeader}>
         <h3 id={props.headingId}>Ödeme sağlayıcıları</h3>
-        <span className={styles.catalogCount}>{props.cards.length} / {props.totalCount} entegrasyon</span>
+        <span className={styles.catalogCount}>{props.phase === "ready" ? `${props.cards.length} / ${props.totalCount} entegrasyon` : "Entegrasyon sayısı bilinmiyor"}</span>
       </div>
       <div className={styles.catalogResultsBody}>
         {props.phase === "loading" ? <p className={styles.dialogState} role="status">Ödeme altyapıları yükleniyor…</p> : null}

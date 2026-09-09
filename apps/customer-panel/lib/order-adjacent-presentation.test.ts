@@ -10,6 +10,13 @@ const REPOSITORY = new URL("../../../", import.meta.url);
 const panelSource = (path: string) => readFile(new URL(path, CUSTOMER_PANEL), "utf8");
 const repositorySource = (path: string) => readFile(new URL(path, REPOSITORY), "utf8");
 
+test("unrelated fixture POST advertises only the actually supported contextual method", async () => {
+  const route = await orderAdjacentRoute(async () => Response.json({ ok: true }));
+  const response = await route.POST(new Request("https://fixture.test/api/orders/example", { method: "POST", headers: { referer: "https://fixture.test/mira-promotions/list" } }), { params: Promise.resolve({ path: ["example"] }) });
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.get("allow"), "GET");
+});
+
 function declarations(css: string, selector: string) {
   const result: Record<string, string> = {};
   postcss.parse(css).walkRules((rule) => {
@@ -39,6 +46,7 @@ async function orderAdjacentRoute(fallbackGET: (request: Request, context: unkno
   );
   return module.exports as {
     GET(request: Request, context: { params: Promise<{ path?: string[] }> }): Promise<Response>;
+    POST(request: Request, context: { params: Promise<{ path?: string[] }> }): Promise<Response>;
   };
 }
 
@@ -74,7 +82,8 @@ test("ordinary order-adjacent states stay neutral while outcome states remain se
   assert.match(drafts, /status === "converted" \? "success" : "neutral"/);
   assert.doesNotMatch(editor, /record\.status === "draft" \? "warning"/);
   assert.match(quickLinks, /status === "paid"\) return "success";[\s\S]*status === "cancelled"\) return "danger";[\s\S]*return "neutral";/);
-  assert.match(carts, /status === "recovered"[\s\S]*\? "success"[\s\S]*status === "abandoned"[\s\S]*\? "danger"[\s\S]*: "neutral"/);
+  assert.match(carts, /status === "recovered"[\s\S]*\? "success"[\s\S]*: "neutral"/);
+  assert.doesNotMatch(carts, /status === "abandoned"\s*\? "danger"/);
   assert.equal(declarations(cartCss, ".metric-recovered > strong").color, "var(--mira-text)");
 });
 

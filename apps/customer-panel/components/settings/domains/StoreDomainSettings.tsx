@@ -80,6 +80,7 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
   const [adminDomains, setAdminDomains] = useState<readonly AdminDomainView[]>([]);
   const [hostname, setHostname] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -90,7 +91,7 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     if (!quiet) setLoading(true);
     try {
       const [storefrontItems, adminItems] = await Promise.all([storeDomainApi.list(), adminDomainApi.list()]);
-      if (mounted.current) { setDomains(storefrontItems.filter(({ status }) => status !== "disabled")); setAdminDomains(adminItems.filter(({ status }) => status !== "disabled")); setError(null); }
+      if (mounted.current) { setDomains(storefrontItems.filter(({ status }) => status !== "disabled")); setAdminDomains(adminItems.filter(({ status }) => status !== "disabled")); setLoaded(true); setError(null); }
     } catch (caught) {
       if (mounted.current && !quiet) setError(caught instanceof StoreDomainApiError ? caught.message : "Alan adları yüklenemedi.");
     } finally { if (mounted.current && !quiet) setLoading(false); }
@@ -153,7 +154,8 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     </form> : null}
     {error ? <p className={styles.error} role="alert">{error}<button type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
     <span className={styles.srOnly} aria-live="polite">{copied ? "DNS değeri kopyalandı" : ""}</span>
-    {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : !error ? <>
+    {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : null}
+    {loaded ? <>
       <div className={styles.list}>{customDomains.map((domain) => {
         const adminHostname = previewDomainBundle(domain.hostname)?.admin;
         const admin = adminDomains.find((candidate) => !candidate.fallback && candidate.hostname === adminHostname);

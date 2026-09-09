@@ -16,7 +16,7 @@
 .stepRail button small { overflow: hidden; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .stepRail button:hover { background: #f1f4f7; }
 .stepRail button.active { background: #FFFDFC; box-shadow: 0 1px 3px rgb(16 24 40 / 8%); }
-.stepRail button.active > span:first-child { border-color: #FE6100; background: #FE6100; color: #FFFDFC; }
+.stepRail button.active > span:first-child { border-color: #FE6100; background: #FE6100; color: #2B2B2B; }
 .stepRail button.active strong { color: #2B2B2B; }
 .inspector { min-width: 0; overflow-y: auto; border-right: 1px solid #E7E2DD; padding: 24px; }
 .stepIntro { display: grid; gap: 4px; border-bottom: 1px solid #E7E2DD; margin-bottom: 22px; padding-bottom: 18px; }

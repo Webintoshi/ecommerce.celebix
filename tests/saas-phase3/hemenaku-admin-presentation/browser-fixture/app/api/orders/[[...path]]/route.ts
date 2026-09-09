@@ -187,7 +187,7 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
 
 export async function POST(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   if (requestedState(request) === null) {
-    return Response.json({ code: "method_not_allowed" }, { status: 405, headers: { allow: "GET, PATCH" } });
+    return Response.json({ code: "method_not_allowed" }, { status: 405, headers: { allow: "GET" } });
   }
   const path = await pathOf(context);
   if (path === "drafts" || path.startsWith("drafts/") || path === "quick-links" || path.startsWith("quick-links/") || path.startsWith("abandoned-carts/")) {

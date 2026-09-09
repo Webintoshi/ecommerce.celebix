@@ -174,7 +174,7 @@
 }
 
 .tableContext small {
-  color: #7A8494;
+  color: #6F655F;
   font-size: .66rem;
 }
 
@@ -324,7 +324,7 @@
 
 .tableSurface .customerCell small {
   margin-top: .12rem;
-  color: #7A8494;
+  color: #6F655F;
   font-size: .66rem;
 }
 
@@ -437,7 +437,7 @@
 }
 
 .listSurface .cardFacts dt {
-  color: #7A8494;
+  color: #6F655F;
   font-size: .64rem;
   font-weight: 700;
 }
@@ -450,7 +450,7 @@
 
 .listSurface .cardFacts small {
   margin-top: .12rem;
-  color: #7A8494;
+  color: #6F655F;
   font-size: .65rem;
 }
 
@@ -522,7 +522,7 @@
 
 .emptyState p {
   max-width: 28rem;
-  color: #7A8494;
+  color: #6F655F;
   font-size: .73rem;
   line-height: 1.5;
 }
@@ -542,11 +542,11 @@
 .editorForm { display: grid; gap: 1rem; min-width: 0; }
 .formSection {
   min-width: 0;
-  border: 1px solid var(--mira-border);
-  border-radius: 12px;
-  background: var(--mira-surface);
-  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
-  overflow: hidden; }
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible; }
 .formSection > fieldset { margin: 0; border: 0; padding: 1.25rem; }
 .formSection fieldset:disabled { opacity: .72; }
 .fieldGrid,
@@ -659,7 +659,7 @@
 .fieldGrid .checkRow { padding: .25rem 0; }
 
 .lineRows { display: grid; gap: .75rem; margin-top: 1rem; }
-.lineRow { display: grid; grid-template-columns: minmax(170px, 1fr) 90px 155px auto; align-items: end; gap: .75rem; border: 1px solid #e6e9ee; background: #fafbfc; padding: .9rem;
+.lineRow { display: grid; grid-template-columns: minmax(170px, 1fr) 90px 155px auto; align-items: end; gap: .75rem; border: 1px solid #e6e9ee; background: #F8F7F5; padding: .9rem;
   border-color: var(--mira-border);
   border-radius: 8px; }
 .lineIdentity { align-self: center; min-width: 0; }
@@ -694,45 +694,45 @@
 .notice { border: 1px solid #b9e2ca; background: #f1fbf5; color: #17643a; }
 .readOnlyNotice { border: 1px solid #d9dee6; background: #f7f8fa; color: #576170; }
 
-.summaryCard { position: sticky; top: 92px; min-width: 0; border-left: 1px solid #e3e7ee;
+.summaryCard { position: sticky; top: 92px; min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--mira-sidebar);
+  border: 1px solid var(--mira-border);
   border-radius: 12px;
-  background: var(--mira-sidebar);
-  color: var(--mira-surface);
-  box-shadow: 0 8px 24px rgb(32 28 25 / 12%); }
+  background: var(--mira-surface);
+  color: var(--mira-text);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%); }
 .summaryHeading { border-bottom: 1px solid #edf0f4; padding: 1.15rem;
-  border-color: rgb(255 253 252 / 14%); }
+  border-color: var(--mira-border); }
 .summaryHeading > div span,
 .summaryHeading > div strong { display: block; }
 .summaryHeading > div span { font-size: .72rem; font-weight: 700;
-  color: #D4CEC8; }
+  color: var(--mira-text); }
 .summaryHeading > div strong { margin-top: .3rem; font-size: .95rem;
-  color: var(--mira-surface); }
+  color: var(--mira-text); }
 .summaryFacts { margin: 0; padding: .7rem 1.15rem;
-  color: #D4CEC8; }
+  color: var(--mira-text); }
 .summaryFacts div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; padding: .65rem 0; font-size: .8rem;
-  color: #D4CEC8; }
+  color: var(--mira-text); }
 .summaryFacts dd { margin: 0; font-weight: 750; text-align: right;
-  color: var(--mira-surface); }
+  color: var(--mira-text); }
 .summaryTotal { margin-top: .3rem; border-top: 1px solid #e5e8ed; padding-top: 1rem !important; font-size: .95rem !important; }
 .summaryHint { margin: 0 1.15rem 1rem; border-radius: 10px; padding: .8rem; font-size: .74rem; line-height: 1.5;
-  color: #D4CEC8;
-  background: rgb(255 253 252 / 8%); }
+  color: var(--mira-text);
+  background: var(--mira-canvas); }
 .primaryButton { width: calc(100% - 2.3rem); margin: 0 1.15rem 1rem; box-sizing: border-box; border: 0; font-weight: 800; cursor: pointer;
   min-height: 44px;
   border-radius: 8px;
-  background: var(--mira-surface);
-  color: var(--mira-text); }
+  background: var(--mira-text);
+  color: var(--mira-surface); }
 .summaryCard > .primaryLink { width: calc(100% - 2.3rem); margin: 0 1.15rem 1rem; box-sizing: border-box; border: 0; font-weight: 800; cursor: pointer;
   min-height: 44px;
   border-radius: 8px;
-  background: var(--mira-surface);
-  color: var(--mira-text); }
+  background: var(--mira-text);
+  color: var(--mira-surface); }
 .primaryButton:disabled,
 .secondaryButtons button:disabled { cursor: wait; opacity: .6; }
 .secondaryButtons { display: grid; grid-template-columns: 1fr; gap: .65rem; border-top: 1px solid #edf0f4; padding: 1rem 1.15rem;
-  border-color: rgb(255 253 252 / 14%); }
+  border-color: var(--mira-border); }
 .secondaryButtons .dangerButton,
 .confirmation .dangerButton { border-color: #ffd1ca; color: #a32819; }
 .confirmation { margin: 0 1.15rem 1.15rem; border: 1px solid #f2cfaa; padding: .9rem;
@@ -810,7 +810,8 @@
   box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
 }
 
-.recordLink:focus-visible {
+.recordLink:focus-visible,
+.draftNumber:focus-visible {
   border-color: var(--mira-accent);
   outline: 2px solid var(--mira-text);
   outline-offset: 2px;
@@ -832,18 +833,18 @@
 }
 
 .summaryFacts .summaryTotal {
-  border-color: rgb(255 253 252 / 14%);
+  border-color: var(--mira-border);
 }
 
 .summaryCard .secondaryButtons button {
-  border-color: rgb(255 253 252 / 20%);
-  background: transparent;
-  color: var(--mira-surface);
+  border-color: var(--mira-border);
+  background: var(--mira-surface);
+  color: var(--mira-text);
 }
 
 .summaryCard .secondaryButtons .dangerButton {
-  border-color: #F0B8B8;
-  color: #FFD6D6;
+  border-color: #E7B4B4;
+  color: #9F282D;
 }
 
 .editorLoading {
@@ -919,72 +920,17 @@
 
 @media (max-width: 1024px) {
   .desktopTable { display: none; }
+
   .mobileCards { display: block; }
+
   .editorWorkspace {
     grid-template-columns: 1fr; }
+
   .summaryCard {
     position: static;
-    order: 1;
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
-    box-shadow: 0 1px 2px rgb(43 43 43 / 4%); }
-  .summaryFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.5rem;
-    color: var(--mira-text); }
+    order: 1; }
 
-  .summaryHeading > div span {
-    color: var(--mira-text);
-  }
-
-  .summaryFacts div {
-    color: var(--mira-text);
-  }
-
-  .summaryHint {
-    color: var(--mira-text);
-    background: var(--mira-canvas);
-  }
-
-  .summaryHeading > div strong {
-    color: var(--mira-text);
-  }
-
-  .summaryFacts dd {
-    color: var(--mira-text);
-  }
-
-  .summaryHeading {
-    border-color: var(--mira-border);
-  }
-
-  .summaryFacts .summaryTotal {
-    border-color: var(--mira-border);
-  }
-
-  .secondaryButtons {
-    border-color: var(--mira-border);
-  }
-
-  .primaryButton {
-    background: var(--mira-text);
-    color: var(--mira-surface);
-  }
-
-  .summaryCard > .primaryLink {
-    background: var(--mira-text);
-    color: var(--mira-surface);
-  }
-
-  .summaryCard .secondaryButtons button {
-    border-color: var(--mira-border);
-    background: var(--mira-surface);
-    color: var(--mira-text);
-  }
-
-  .summaryCard .secondaryButtons .dangerButton {
-    border-color: #E7B4B4;
-    color: #9F282D;
-  }
+  .summaryFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.5rem; }
 }
 
 @media (max-width: 640px) {

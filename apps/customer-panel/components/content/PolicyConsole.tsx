@@ -330,13 +330,13 @@ export function PolicyConsole({
                   <ProductDescriptionPreview source={body} emptyMessage="Önizlemek için politika metni yazın." />
                 </div>
               </div>
+            </div>
+            <footer className={styles.editorFooter}>
               {message ? <p className={styles.success} role="status"><Check aria-hidden="true" /> {message}</p> : null}
               {error ? <p className={styles.error} role="alert">
                 <span>{error}</span>
                 {needsVersionRefresh ? <button type="button" onClick={() => void refreshVersion()} disabled={busy}>Güncel sürümü al</button> : null}
               </p> : null}
-            </div>
-            <footer className={styles.editorFooter}>
               <p>{selectedStatus === "published" ? "Kaydettiğinizde footer bağlantısı güncellenir." : "Taslaklar storefront'ta görünmez."}</p>
               <div>
                 <button type="button" className={styles.secondary} onClick={close} disabled={busy}>Kapat</button>

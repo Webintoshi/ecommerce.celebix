@@ -75,7 +75,7 @@
 }
 .barcode-steps button.active span {
   background: var(--barcode-accent);
-  color: var(--barcode-surface);
+  color: var(--barcode-text);
 }
 .barcode-notice,
 .hidden-selection {
@@ -593,7 +593,7 @@
 .barcode-studio button:focus-visible,
 .barcode-studio input:focus-visible,
 .barcode-studio select:focus-visible {
-  outline: 3px solid rgba(254, 97, 0, 0.16);
+  outline: 2px solid #2B2B2B;
   outline-offset: 2px;
 }
 .button:disabled,

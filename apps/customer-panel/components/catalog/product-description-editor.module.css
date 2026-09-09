@@ -148,7 +148,7 @@
 .toolbarButton:focus-visible,
 .blockSelect:focus-visible,
 .focusButton:focus-visible {
-  outline: 2px solid rgb(254 97 0 / 38%);
+  outline: 2px solid #2B2B2B;
   outline-offset: 1px;
 }
 

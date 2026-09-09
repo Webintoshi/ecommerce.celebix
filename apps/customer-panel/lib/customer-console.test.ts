@@ -240,7 +240,7 @@ test("customer detail presentation exposes linked orders navigation and truthful
   assert.match(markup, /aria-label="Müşteri özeti ve işlemleri"/);
   assert.match(markup, new RegExp(`/orders/${ORDER_ID}`));
   assert.match(markup, new RegExp(`/customers/${CUSTOMER_B}`));
-  assert.match(markup, /Son 50 sipariş/);
+  assert.match(markup, /Son 1 sipariş/);
   assert.match(markup, /İzin tarihi/);
   assert.match(markup, /Müşteriyi Arşivle/);
   assert.doesNotMatch(markup, /storeId|tenantId|customer_email/);

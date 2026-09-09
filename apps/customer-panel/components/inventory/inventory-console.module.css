@@ -289,8 +289,8 @@
 .locationCreate input:focus,
 .locationRenameDialog input:focus {
   border-color: #fe6100;
-  outline: 3px solid rgb(254 97 0 / 12%);
-  outline-offset: 0;
+  outline: 2px solid #2B2B2B;
+  outline-offset: 2px;
 }
 
 .srStatus {

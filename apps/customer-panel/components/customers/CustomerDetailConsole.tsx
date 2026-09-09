@@ -114,7 +114,7 @@ export function CustomerDetailPresentation({
             <div className={styles.heading}>
               <div>
                 <h2>Sipariş geçmişi</h2>
-                <p>{partialHistory ? `Son 50 sipariş · toplam ${data.orderCount}` : `${data.orderCount} sipariş`}</p>
+                <p>{partialHistory ? `Son ${workspace.orders.length} sipariş · toplam ${data.orderCount}` : `${data.orderCount} sipariş`}</p>
               </div>
             </div>
             {workspace.orders.length ? (
@@ -131,7 +131,7 @@ export function CustomerDetailPresentation({
                   </Link>
                 ))}
               </div>
-            ) : <p className={styles.inlineEmpty}>Bu müşteriye bağlı sipariş bulunmuyor.</p>}
+            ) : <p className={styles.inlineEmpty}>{data.orderCount > 0 ? "Sipariş geçmişi şu anda alınamadı. Kayıtlı sipariş toplamı müşteri özetinde gösteriliyor." : "Bu müşteriye bağlı sipariş bulunmuyor."}</p>}
           </section>
 
           <section className={styles.detail} aria-label="Müşteri adresleri">

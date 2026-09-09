@@ -1,4 +1,4 @@
-.customerSurface,
+.surface,
 .customerMetrics,
 .createCustomerWorkspace,
 .form,
@@ -15,14 +15,14 @@
   --customer-border: #e7e2dd;
   --customer-text: #2b2b2b;
   --customer-secondary: #667085;
-  --customer-muted: #8a827c;
+  --customer-muted: #6F655F;
   --customer-accent: #fe6100;
   --customer-accent-soft: rgba(254, 97, 0, 0.08);
   --customer-danger: #b42318;
   color: var(--customer-text);
 }
 
-.customerSurface,
+.surface,
 .createCustomerWorkspace,
 .form,
 .customerWorkspaceMain,
@@ -96,7 +96,7 @@
 }
 
 .workspacePrimaryAction :global(a:focus-visible) {
-  outline: 3px solid rgba(254, 97, 0, 0.24);
+  outline: 2px solid #2B2B2B;
   outline-offset: 2px;
 }
 
@@ -160,7 +160,7 @@
 .createCustomerConsent:focus-within,
 .defaultAddress:focus-within,
 .archiveConfirm summary:focus-visible {
-  outline: 3px solid rgba(254, 97, 0, 0.24);
+  outline: 2px solid #2B2B2B;
   outline-offset: 2px;
 }
 
@@ -227,11 +227,12 @@
   font-size: clamp(1.25rem, 1.8vw, 1.625rem);
 }
 
-.customerSurface {
-  background: var(--customer-surface);
-  border: 1px solid var(--customer-border);
-  border-radius: 12px;
-  overflow: hidden;
+.surface {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .customerToolbar {
@@ -530,6 +531,10 @@
 /* Create and edit forms */
 .createCustomerWorkspace,
 .form {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   display: grid;
   gap: 16px;
   margin: 0 auto;
@@ -1090,7 +1095,7 @@
 }
 
 .addressTitle span {
-  color: var(--customer-accent);
+  color: var(--customer-text);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -1135,6 +1140,8 @@
   display: grid;
   gap: 14px;
 }
+
+.summaryCard > span:nth-child(2) { justify-self: start; }
 
 .summaryCard > span:first-child {
   color: var(--customer-secondary);

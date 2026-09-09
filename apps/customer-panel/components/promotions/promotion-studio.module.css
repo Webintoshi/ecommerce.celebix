@@ -547,6 +547,8 @@
   min-width: 0;
 }
 
+.editorWorkspace { scroll-margin-top: 96px; }
+
 .editorFieldset {
   margin: 0;
   border: 0;
@@ -642,6 +644,7 @@
 .checkLabel input,
 .inlineChecks input,
 .pickerResults input {
+  accent-color: #FE6100;
   width: 20px !important;
   min-width: 20px !important;
   min-height: 20px !important;
