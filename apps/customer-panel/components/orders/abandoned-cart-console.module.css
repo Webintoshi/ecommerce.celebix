@@ -123,10 +123,6 @@
   font-size: 22px;
 }
 
-.metric-recovered > strong {
-  color: #256F3D;
-}
-
 .metric > small {
   overflow: hidden;
   color: #7A8495;
@@ -933,5 +929,283 @@
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
+  }
+}
+
+/* Mira order-adjacent rollout: canonical neutrals with outcome-only signals. */
+.surface,
+.panel,
+.metrics,
+.detailHero,
+.detailState,
+.detailLoading {
+  --mira-accent: #FE6100;
+  --mira-text: #2B2B2B;
+  --mira-sidebar: #201C19;
+  --mira-canvas: #F8F7F5;
+  --mira-surface: #FFFDFC;
+  --mira-border: #E7E2DD;
+}
+
+.surface,
+.panel,
+.metrics,
+.detailHero {
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+}
+
+.surface {
+  overflow: hidden;
+  border: 1px solid var(--mira-border);
+}
+
+.metric,
+.toolbar,
+.desktopTable th,
+.desktopTable td,
+.cartCard,
+.detailHero > div,
+.panel > header,
+.items article,
+.totals div:last-child,
+.customer div {
+  border-color: var(--mira-border);
+}
+
+.metric,
+.metric-neutral,
+.metric-recovered {
+  background: var(--mira-surface);
+}
+
+.metric-lost {
+  box-shadow: inset 0 2px var(--mira-accent);
+}
+
+.metric > strong,
+.metric-lost > strong,
+.metric-recovered > strong,
+.totalCell strong,
+.cardTotal,
+.detailHero strong,
+.totals dd {
+  color: var(--mira-text);
+}
+
+.metric-lost .metricLabel svg {
+  color: #A9362C;
+}
+
+.metric-recovered .metricLabel svg {
+  color: #287A46;
+}
+
+.toolbar,
+.desktopTable th,
+.listEmpty,
+.loadingRows i {
+  background: var(--mira-canvas);
+}
+
+.toolbar input,
+.toolbar select,
+.search button,
+.error button,
+.loadMore,
+.detailLink,
+.rowAction,
+.actions button,
+.clearFilters,
+.appliedFilters button {
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.search button,
+.actions button:first-child {
+  border-color: var(--mira-text);
+  background: var(--mira-text);
+  color: var(--mira-surface);
+}
+
+.search button:hover,
+.actions button:first-child:hover {
+  border-color: var(--mira-sidebar);
+  background: var(--mira-sidebar);
+}
+
+.toolbar input:focus-visible,
+.toolbar select:focus-visible,
+.toolbar button:focus-visible,
+.rowAction:focus-visible,
+.detailLink:focus-visible,
+.loadMore:focus-visible,
+.error button:focus-visible,
+.actions button:focus-visible,
+.clearFilters:focus-visible,
+.appliedFilters button:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.accountBadge {
+  border-color: var(--mira-border);
+  background: var(--mira-canvas);
+  color: #6F655F;
+}
+
+.detailHero svg,
+.customer dt svg {
+  color: #6F655F;
+}
+
+.appliedFilters {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #6F655F;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.appliedFilters button,
+.clearFilters {
+  padding: 0 12px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.clearFilters {
+  margin-top: 8px;
+}
+
+.loading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: stretch;
+  padding: 20px;
+}
+
+.loadingRows {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.loadingRows i {
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--mira-canvas), #EEEAE6, var(--mira-canvas));
+  background-size: 200% 100%;
+  animation: cart-loading 1.4s ease-in-out infinite;
+}
+
+.detailLoading {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.detailLoading > svg {
+  width: 20px;
+  animation: cart-spin .9s linear infinite;
+  color: var(--mira-accent);
+}
+
+.detailLoading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.detailLoading span {
+  color: #6F655F;
+  font-size: 12px;
+}
+
+@keyframes cart-loading {
+  to { background-position: -200% 0; }
+}
+
+@keyframes cart-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1024px) {
+  .metrics,
+  .detailHero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .desktopTable {
+    display: none;
+  }
+
+  .mobileCards {
+    display: grid;
+  }
+}
+
+@media (max-width: 640px) {
+  .metrics,
+  .detailHero,
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .surface,
+  .panel,
+  .metrics,
+  .detailHero,
+  .detailLoading {
+    border-radius: 8px;
+  }
+
+  .appliedFilters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .appliedFilters button,
+  .clearFilters {
+    width: 100%;
+  }
+
+  .items article {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .items article > span,
+  .items article > b {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingRows i,
+  .detailLoading > svg {
+    animation: none;
   }
 }

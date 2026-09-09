@@ -71,9 +71,7 @@ function tone(
     ? "success"
     : status === "abandoned"
       ? "danger"
-      : status === "active"
-        ? "warning"
-        : "neutral";
+      : "neutral";
 }
 function customer(cart: AbandonedCartListItem) {
   return (
@@ -216,6 +214,7 @@ export function AbandonedCartListPresentation(
     onStatus(value: AbandonedCartStatus | "all"): void;
     onSort(value: AbandonedCartSort): void;
     onLoadMore(): void;
+    onClear(): void;
   }>,
 ) {
   const hasFilters = props.search.trim() !== "" || props.status !== "all";
@@ -318,6 +317,7 @@ export function AbandonedCartListPresentation(
               <option value="lowest">Tutar: düşükten yükseğe</option>
             </select>
           </label>
+          {hasFilters ? <div className={styles.appliedFilters}><span>{(props.search.trim() ? 1 : 0) + (props.status !== "all" ? 1 : 0)} filtre etkin</span><button type="button" onClick={props.onClear}>Temizle</button></div> : null}
         </form>
 
         {props.state === "loading" ? (
@@ -327,6 +327,7 @@ export function AbandonedCartListPresentation(
               <strong>Sepetler yükleniyor</strong>
               <span>Gelir kurtarma kayıtları hazırlanıyor.</span>
             </div>
+            <div className={styles.loadingRows} aria-hidden="true"><i /><i /><i /></div>
           </div>
         ) : props.state === "error" ? (
           <div className={styles.error} role="alert">
@@ -353,6 +354,7 @@ export function AbandonedCartListPresentation(
                 ? "Arama veya durum filtresini değiştirerek yeniden deneyin."
                 : "Yeni bir alışveriş yarım kaldığında kayıt burada görünecek."}
             </p>
+            {hasFilters ? <button className={styles.clearFilters} type="button" onClick={props.onClear}>Filtreleri temizle</button> : null}
           </div>
         ) : (
           <>
@@ -505,6 +507,11 @@ export function AbandonedCartConsole() {
       onLoadMore={() => {
         if (nextCursor) void load(nextCursor);
       }}
+      onClear={() => {
+        setSearchInput("");
+        setSearch("");
+        setStatus("all");
+      }}
     />
   );
 }
@@ -530,9 +537,7 @@ export function AbandonedCartDetailPresentation(
 ) {
   if (props.state === "loading")
     return (
-      <div className={styles.loading} role="status">
-        Sepet ayrıntısı yükleniyor…
-      </div>
+      <div className={styles.detailLoading} role="status"><RefreshCcw aria-hidden="true" /><div><strong>Sepet ayrıntısı yükleniyor</strong><span>Ürün ve müşteri anlık görüntüsü hazırlanıyor.</span></div></div>
     );
   if (props.state === "error" || !props.detail)
     return (

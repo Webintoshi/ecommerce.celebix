@@ -1548,3 +1548,297 @@
     text-align: left;
   }
 }
+
+/* Mira order-adjacent rollout: neutral canvas with a graphite summary portal. */
+.console {
+  --mira-accent: #FE6100;
+  --mira-text: #2B2B2B;
+  --mira-sidebar: #201C19;
+  --mira-canvas: #F8F7F5;
+  --mira-surface: #FFFDFC;
+  --mira-border: #E7E2DD;
+  --accent: var(--mira-accent);
+  --accent-soft: rgb(254 97 0 / 10%);
+  --ink: var(--mira-text);
+  --border: var(--mira-border);
+  --surface-soft: var(--mira-canvas);
+}
+
+.panel,
+.selectedLines,
+.desktopTable,
+.linkCard,
+.searchResults,
+.customerResults,
+.customerSearchState,
+.productPicker > .pickerPopover > .inlineError,
+.customerPicker > .pickerPopover > .inlineError {
+  border-color: var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+}
+
+.panel {
+  overflow: visible;
+  border: 1px solid var(--mira-border);
+  background: var(--mira-surface);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+}
+
+.panelHeading h2[tabindex="-1"] {
+  scroll-margin-top: 96px;
+}
+
+.panelHeading h2[tabindex="-1"]:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--mira-text);
+  outline-offset: 4px;
+}
+
+.panelHeader,
+.linesHeader,
+.summaryHeader,
+.summarySection,
+.desktopTable th,
+.desktopTable td,
+.selectedLine,
+.customerResults li,
+.searchProduct,
+.billingBlock {
+  border-color: var(--mira-border);
+}
+
+.panelIcon {
+  border-left: 3px solid var(--mira-accent);
+  background: rgb(254 97 0 / 10%);
+  color: var(--mira-text);
+}
+
+.console input,
+.console select,
+.console textarea,
+.secondaryButton,
+.refreshButton,
+.loadMore,
+.listError button,
+.paginationError button,
+.linkActions button {
+  min-height: 44px;
+  border-color: var(--mira-border);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.console input:focus-visible,
+.console select:focus-visible,
+.console textarea:focus-visible,
+.console button:focus-visible,
+.refreshButton:focus-visible,
+.loadMore:focus-visible,
+.listError button:focus-visible,
+.paginationError button:focus-visible,
+.linksBody [tabindex="-1"]:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.primaryButton {
+  min-height: 44px;
+  border-color: var(--mira-text);
+  border-radius: 8px;
+  background: var(--mira-text);
+  color: var(--mira-surface);
+  box-shadow: none;
+}
+
+.primaryButton:hover:not(:disabled) {
+  border-color: var(--mira-sidebar);
+  background: var(--mira-sidebar);
+}
+
+.summaryWorkspace {
+  overflow: hidden;
+  border-color: var(--mira-sidebar);
+  border-radius: 12px;
+  background: var(--mira-sidebar);
+  color: var(--mira-surface);
+  box-shadow: 0 8px 24px rgb(32 28 25 / 12%);
+}
+
+.summaryHeader,
+.summarySection {
+  border-color: rgb(255 253 252 / 14%);
+}
+
+.summaryHeader h2,
+.summarySectionTitle h3,
+.summaryHeader p,
+.summarySectionTitle p,
+.expiryField > span,
+.field > span,
+.helpText,
+.totals > div,
+.totals dd,
+.totals .grandTotal,
+.grandTotal dd {
+  color: var(--mira-surface);
+}
+
+.summaryWorkspace .field > span svg,
+.summaryWorkspace .expiryField svg,
+.summaryWorkspace .summarySectionTitle > svg {
+  color: #D4CEC8;
+}
+
+.summaryWorkspace .totals .grandTotal {
+  border-color: rgb(255 253 252 / 24%);
+}
+
+.summaryWorkspace .primaryButton {
+  border-color: var(--mira-surface);
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.summaryActions {
+  position: sticky;
+  z-index: 4;
+  bottom: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-top: 1px solid rgb(255 253 252 / 14%);
+  background: var(--mira-sidebar);
+}
+
+.summaryActions .secondaryButton {
+  border-color: rgb(255 253 252 / 24%);
+  background: transparent;
+  color: var(--mira-surface);
+}
+
+.listState {
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: center;
+  gap: 12px;
+  border-color: var(--mira-border);
+  background: var(--mira-canvas);
+  color: var(--mira-text);
+  text-align: left;
+}
+
+.listState > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--mira-accent);
+}
+
+.listState > span {
+  display: grid;
+  gap: 4px;
+}
+
+.listState small {
+  color: #6F655F;
+  font-size: 12px;
+}
+
+.listState[role="status"] > svg {
+  animation: search-spin .9s linear infinite;
+}
+
+@media (max-width: 1024px) {
+  .builderGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summaryColumn {
+    position: static;
+  }
+
+  .summaryWorkspace {
+    display: block;
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+    box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+  }
+
+  .summaryHeader,
+  .summarySection {
+    border-color: var(--mira-border);
+  }
+
+  .summaryHeader h2,
+  .summarySectionTitle h3,
+  .summaryHeader p,
+  .summarySectionTitle p,
+  .expiryField > span,
+  .field > span,
+  .helpText,
+  .totals > div,
+  .totals dd,
+  .totals .grandTotal,
+  .grandTotal dd {
+    color: var(--mira-text);
+  }
+
+  .summaryWorkspace .field > span svg,
+  .summaryWorkspace .expiryField svg,
+  .summaryWorkspace .summarySectionTitle > svg {
+    color: #6F655F;
+  }
+
+  .summaryWorkspace .totals .grandTotal {
+    border-color: var(--mira-border);
+  }
+
+  .summaryWorkspace .primaryButton {
+    border-color: var(--mira-text);
+    background: var(--mira-text);
+    color: var(--mira-surface);
+  }
+
+  .summaryActions {
+    border-color: var(--mira-border);
+    background: rgb(255 253 252 / 96%);
+    box-shadow: 0 -8px 20px rgb(43 43 43 / 6%);
+  }
+
+  .summaryActions .secondaryButton {
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+  }
+}
+
+@media (max-width: 700px) {
+  .panel,
+  .summaryWorkspace,
+  .selectedLines,
+  .linkCard {
+    border-radius: 8px;
+  }
+
+  .summaryActions {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .linkActions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+  }
+
+  .linkActions button {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listState[role="status"] > svg {
+    animation: none;
+  }
+}

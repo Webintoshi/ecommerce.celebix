@@ -512,7 +512,7 @@
 .lineRow input:focus { border-color: #ff7a2e; box-shadow: 0 0 0 3px rgb(255 92 0 / 12%); }
 
 .checkRow { display: flex !important; min-height: 44px; align-items: center; gap: .65rem !important; padding: .15rem 1.25rem 1.1rem; color: #3f4855; font-size: .82rem; font-weight: 700; }
-.checkRow input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: #ff5c00; }
+.checkRow input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: #FE6100; }
 .fieldGrid .checkRow { padding: .25rem 0; }
 
 .lineRows { display: grid; gap: .75rem; margin-top: 1rem; }
@@ -585,4 +585,337 @@
 
 @media (prefers-reduced-motion: reduce) {
   .listSurface *, .editorWorkspace * { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Mira order-adjacent rollout: canonical surfaces and compact operational hierarchy. */
+.listSurface,
+.editorWorkspace {
+  --mira-accent: #FE6100;
+  --mira-text: #2B2B2B;
+  --mira-sidebar: #201C19;
+  --mira-canvas: #F8F7F5;
+  --mira-surface: #FFFDFC;
+  --mira-border: #E7E2DD;
+  color: var(--mira-text);
+}
+
+.primaryAction {
+  min-height: 44px;
+  border-color: var(--mira-text);
+  border-radius: 8px;
+  background: var(--mira-text);
+  color: var(--mira-surface);
+}
+
+.primaryAction:hover {
+  border-color: var(--mira-sidebar);
+  background: var(--mira-sidebar);
+}
+
+.tableSurface,
+.stateSurface,
+.emptyState,
+.formSection {
+  border: 1px solid var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+  box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+}
+
+.formSection {
+  overflow: hidden;
+}
+
+.tableContext,
+.sectionHeading,
+.summaryHeading,
+.desktopTable th,
+.desktopTable td,
+.draftCard,
+.addressFields + .addressFields,
+.secondaryButtons {
+  border-color: var(--mira-border);
+}
+
+.contextIcon,
+.emptyIcon,
+.sectionHeading > div:first-child > span {
+  border-color: rgb(254 97 0 / 16%);
+  background: rgb(254 97 0 / 10%);
+  color: var(--mira-text);
+}
+
+.sectionHeading > div:first-child > span {
+  border-left: 3px solid var(--mira-accent);
+}
+
+.tableSurface .desktopTable,
+.listSurface .mobileCards,
+.fieldGrid input,
+.fieldGrid select,
+.fieldGrid textarea,
+.addressFields input,
+.formSection fieldset > label select,
+.lineRow input,
+.lineRow button,
+.secondaryButtons button,
+.confirmation button,
+.recordLink,
+.secondaryAction {
+  background: var(--mira-surface);
+}
+
+.fieldGrid input,
+.fieldGrid select,
+.fieldGrid textarea,
+.addressFields input,
+.formSection fieldset > label select,
+.lineRow input,
+.lineRow,
+.lineCount,
+.inventoryPolicy,
+.inlineEmpty,
+.recordLink,
+.secondaryAction,
+.lineRow button,
+.secondaryButtons button {
+  border-color: var(--mira-border);
+  border-radius: 8px;
+}
+
+.fieldGrid input,
+.fieldGrid select,
+.addressFields input,
+.formSection fieldset > label select,
+.lineRow input,
+.lineRow button,
+.secondaryButtons button,
+.confirmation button,
+.secondaryAction,
+.recordLink,
+.loadMore,
+.error button {
+  min-height: 44px;
+}
+
+.fieldGrid input:focus-visible,
+.fieldGrid select:focus-visible,
+.fieldGrid textarea:focus-visible,
+.addressFields input:focus-visible,
+.formSection fieldset > label select:focus-visible,
+.lineRow input:focus-visible,
+.primaryAction:focus-visible,
+.primaryButton:focus-visible,
+.primaryLink:focus-visible,
+.secondaryAction:focus-visible,
+.recordLink:focus-visible,
+.loadMore:focus-visible,
+.error button:focus-visible {
+  border-color: var(--mira-accent);
+  outline: 2px solid var(--mira-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(254 97 0 / 16%);
+}
+
+.summaryCard {
+  overflow: hidden;
+  border: 1px solid var(--mira-sidebar);
+  border-radius: 12px;
+  background: var(--mira-sidebar);
+  color: var(--mira-surface);
+  box-shadow: 0 8px 24px rgb(32 28 25 / 12%);
+}
+
+.summaryHeading > div span,
+.summaryFacts,
+.summaryFacts div,
+.summaryHint {
+  color: #D4CEC8;
+}
+
+.summaryHeading > div strong,
+.summaryFacts dd {
+  color: var(--mira-surface);
+}
+
+.summaryHeading,
+.summaryFacts .summaryTotal,
+.secondaryButtons {
+  border-color: rgb(255 253 252 / 14%);
+}
+
+.summaryHint {
+  background: rgb(255 253 252 / 8%);
+}
+
+.primaryButton,
+.summaryCard > .primaryLink {
+  min-height: 44px;
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.summaryCard .secondaryButtons button {
+  border-color: rgb(255 253 252 / 20%);
+  background: transparent;
+  color: var(--mira-surface);
+}
+
+.summaryCard .secondaryButtons .dangerButton {
+  border-color: #F0B8B8;
+  color: #FFD6D6;
+}
+
+.confirmation {
+  border-color: rgb(254 97 0 / 30%);
+  border-radius: 8px;
+  background: var(--mira-surface);
+  color: var(--mira-text);
+}
+
+.confirmation strong,
+.confirmation p {
+  color: var(--mira-text);
+}
+
+.editorLoading,
+.loadingState {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  gap: 12px;
+  color: var(--mira-text);
+}
+
+.editorLoading {
+  position: relative;
+  min-height: 180px;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-surface);
+  padding: 24px;
+  text-align: center;
+}
+
+.editorLoading span,
+.loadingState small {
+  color: #6F655F;
+  font-size: 12px;
+}
+
+.editorLoading i,
+.loadingRows span {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--mira-canvas), #EEEAE6, var(--mira-canvas));
+  background-size: 200% 100%;
+  animation: draft-loading 1.4s ease-in-out infinite;
+}
+
+.editorLoading i {
+  width: min(100%, 320px);
+  height: 12px;
+}
+
+.loadingState {
+  padding: 16px;
+}
+
+.loadingState > div {
+  display: grid;
+  gap: 4px;
+}
+
+.loadingRows {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.loadingRows span {
+  height: 44px;
+}
+
+@keyframes draft-loading {
+  to { background-position: -200% 0; }
+}
+
+@media (max-width: 1024px) {
+  .editorWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryCard {
+    position: static;
+    order: 1;
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+    box-shadow: 0 1px 2px rgb(43 43 43 / 4%);
+  }
+
+  .summaryHeading > div span,
+  .summaryFacts,
+  .summaryFacts div,
+  .summaryHint,
+  .summaryHeading > div strong,
+  .summaryFacts dd {
+    color: var(--mira-text);
+  }
+
+  .summaryHeading,
+  .summaryFacts .summaryTotal,
+  .secondaryButtons {
+    border-color: var(--mira-border);
+  }
+
+  .summaryHint {
+    background: var(--mira-canvas);
+  }
+
+  .primaryButton,
+  .summaryCard > .primaryLink {
+    background: var(--mira-text);
+    color: var(--mira-surface);
+  }
+
+  .summaryCard .secondaryButtons button {
+    border-color: var(--mira-border);
+    background: var(--mira-surface);
+    color: var(--mira-text);
+  }
+
+  .summaryCard .secondaryButtons .dangerButton {
+    border-color: #E7B4B4;
+    color: #9F282D;
+  }
+}
+
+@media (max-width: 640px) {
+  .editorForm,
+  .editorWorkspace {
+    gap: 12px;
+  }
+
+  .formSection > fieldset,
+  .sectionHeading {
+    padding: 16px;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editorLoading i,
+  .loadingRows span {
+    animation: none;
+  }
 }

@@ -24,7 +24,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import type { FormEvent, KeyboardEvent, ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CustomerDetail,
@@ -140,27 +140,27 @@ function customerErrorMessage(error: unknown) {
   return error instanceof CustomerApiError ? error.message : "Müşteri araması tamamlanamadı.";
 }
 
-function tone(status: QuickOrderLinkStatus): "neutral" | "success" | "warning" | "danger" {
+function tone(status: QuickOrderLinkStatus): "neutral" | "success" | "danger" {
   if (status === "paid") return "success";
   if (status === "cancelled") return "danger";
-  if (status === "active" || status === "expired") return "warning";
   return "neutral";
 }
 
-function Panel({ title, description, icon, children, actions, id }: {
+function Panel({ title, description, icon, children, actions, id, headingRef }: {
   title: string;
   description?: string;
   icon?: ReactNode;
   children: ReactNode;
   actions?: ReactNode;
   id?: string;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
 }) {
   return (
     <section className={styles.panel} aria-labelledby={id}>
       <div className={styles.panelHeader}>
         <div className={styles.panelHeading}>
           {icon ? <span className={styles.panelIcon}>{icon}</span> : null}
-          <div><h2 id={id}>{title}</h2>{description ? <p>{description}</p> : null}</div>
+          <div><h2 ref={headingRef} id={id} tabIndex={headingRef ? -1 : undefined}>{title}</h2>{description ? <p>{description}</p> : null}</div>
         </div>
         {actions}
       </div>
@@ -1038,17 +1038,17 @@ export function QuickOrderLinksConsole() {
         description="Aktif ve geçmiş ödeme bağlantılarını tek yerden yönetin."
         icon={<Link2 aria-hidden="true" />}
         id="quick-order-links-title"
+        headingRef={listHeadingRef}
         actions={<button className={styles.refreshButton} type="button" onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button>}
       >
         <div className={styles.linksBody}>
-          <h3 ref={listHeadingRef} tabIndex={-1} className="sr-only">Hızlı sipariş linki sonuçları</h3>
           {listError && listState !== "error" ? <p className={styles.inlineError} role="alert">{listError}</p> : null}
           {listState === "loading" ? (
-            <div className={styles.listState} role="status" aria-live="polite">Linkler yükleniyor…</div>
+            <div className={styles.listState} role="status" aria-live="polite"><RefreshCw aria-hidden="true" /><span><strong>Linkler yükleniyor</strong><small>Aktif ve geçmiş bağlantılar hazırlanıyor.</small></span></div>
           ) : listState === "error" ? (
             <div className={styles.listError} role="alert"><div><strong>Linkler yüklenemedi</strong><p>{listError}</p></div><button type="button" onClick={() => { void loadLinks(); }}>Tekrar dene</button></div>
           ) : links.length === 0 ? (
-            <div className={styles.listState}>Henüz hızlı sipariş linki oluşturulmadı.</div>
+            <div className={styles.listState}><Link2 aria-hidden="true" /><span><strong>Henüz hızlı sipariş linki oluşturulmadı</strong><small>İlk bağlantıyı hazırlamak için yukarıdaki ürün ve müşteri adımlarını tamamlayın.</small></span></div>
           ) : (
             <>
               <div className={styles.desktopTable}>

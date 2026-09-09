@@ -338,7 +338,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
   return (
     <PanelPageShell>
       <PanelPageHeader title={title} description="Müşteri, ürün, teslimat ve stok kararını tek çalışma alanında yönetin." actions={<Link className={styles.secondaryAction} href="/orders/drafts">Taslaklara dön</Link>} />
-      {phase === "loading" ? <p className={styles.state} role="status">Taslak sipariş yükleniyor…</p> : null}
+      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Taslak sipariş yükleniyor</strong><span>Müşteri, ürün ve teslimat bilgileri korunarak hazırlanıyor.</span><i aria-hidden="true" /></div> : null}
       {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Taslak açılamadı</h2><p>{error}</p></div><button type="button" onClick={() => router.refresh()}>Sayfayı yenile</button></div> : null}
       {phase === "ready" ? (
         <div className={styles.editorWorkspace}>
@@ -390,7 +390,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
           </form>
 
           <aside className={styles.summaryCard} aria-label="Taslak sipariş özeti">
-            <div className={styles.summaryHeading}><div><span>Taslak özeti</span><strong>{record?.draftNumber ?? "Yeni kayıt"}</strong></div>{record ? <PanelStatusBadge tone={record.status === "draft" ? "warning" : record.status === "converted" ? "success" : "neutral"}>{record.status === "draft" ? "Taslak" : record.status === "converted" ? "Dönüştürüldü" : "Arşivlendi"}</PanelStatusBadge> : null}</div>
+            <div className={styles.summaryHeading}><div><span>Taslak özeti</span><strong>{record?.draftNumber ?? "Yeni kayıt"}</strong></div>{record ? <PanelStatusBadge tone={record.status === "converted" ? "success" : "neutral"}>{record.status === "draft" ? "Taslak" : record.status === "converted" ? "Dönüştürüldü" : "Arşivlendi"}</PanelStatusBadge> : null}</div>
             <dl className={styles.summaryFacts}>
               <div><dt>Ürün satırı</dt><dd>{lines.length.toLocaleString("tr-TR")}</dd></div>
               <div><dt>Kayıtlı ara toplam</dt><dd>{record ? money(record.subtotalCents) : "Kayıttan sonra hesaplanır"}</dd></div>
