@@ -49,6 +49,11 @@ export async function runOrdersQaArchive(options) {
     if (mode === 'apply' && eligibility.eligible && !eligibility.archived) {
       const result = await scope.orders.archiveOrder({ ...input, operationId: target.operationId, reason: REASON, evidenceReference });
       if (result?.id !== target.id || result.operationId !== target.operationId || result.archived !== true || typeof result.replayed !== 'boolean') fail('invalid_result');
+      // Replayed outcomes describe the original operation, not necessarily
+      // present state after a later restore. Never report historical success
+      // as current archive state without a fresh authorized read.
+      const current = await scope.orders.getArchiveEligibility({ ...input, now: new Date() });
+      if (current?.id !== target.id || current.archived !== true) fail('archive_state_not_confirmed');
       report.action = result.replayed ? 'replayed' : 'archived';
       report.archived = true;
       if (!result.replayed) archivedCount += 1;

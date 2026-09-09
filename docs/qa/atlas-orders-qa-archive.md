@@ -1,6 +1,6 @@
 # Orders QA archive — implementation evidence
 
-Status: IMPLEMENTATION IN PROGRESS. No live migration or archive has run.
+Status: IMPLEMENTED; broad build verification in progress. No live migration or archive has run.
 
 ## Authority and scope
 
@@ -30,6 +30,8 @@ These identifiers are not fresh live eligibility evidence. Existing records must
 
 Default mode is dry-run. Only the two constant IDs are considered; wrong store/database/slug, unresolved authority or caller-selected IDs fail closed. The runner never returns raw order payloads. Explicit apply additionally requires an evidence reference and uses stable archive operation IDs. This task has not invoked apply on live data.
 
+Each target is its own transaction. An error on target 2 can follow a committed archive of target 1; an exception does not mean the whole batch rolled back. After any error or uncertain response, inspect a fresh dry-run and the operation audit before retrying. Never manufacture a new operation ID to force an uncertain operation through. The two operation IDs are for this one-time cleanup; restoring an order is a separate audited operation, not deletion of the original archive operation.
+
 ```js
 // In the existing authenticated server host, with its trusted resolver:
 await runOrdersQaArchive({ resolveAuthorizedScope }); // read-only dry-run
@@ -44,11 +46,44 @@ await runOrdersQaArchive({
 Local command `node scripts/atlas-orders-qa-archive.mjs --dry-run` intentionally refuses to fabricate this runtime and exits 2 with `authorized server runtime required`. No environment values, credentials or browser cookies are read. An authenticated maintenance-host resolver is not yet verified in this task; live dry-run is BLOCKED, not PASS.
 
 Boundary test command: `node --test scripts/atlas-orders-qa-archive.test.mjs`.
-First run: 0 PASS / 5 FAIL because runner absent. A sixth test then failed because changed historical target evidence was not rejected. Current boundary result: 6 PASS / 0 FAIL. These use a controlled repository boundary and are not PostgreSQL or live certification.
+First run: 0 PASS / 5 FAIL because runner absent. A sixth test then failed because changed historical target evidence was not rejected. A seventh failed because a historical archive replay after restore was treated as current success; the runner now checks current state after the mutation/replay. Current boundary result: 7 PASS / 0 FAIL. These use a controlled repository boundary and are not PostgreSQL or live certification.
+
+## Disposable PostgreSQL 16 integration
+
+Command: `ARCHIVE_TOOL_INTEGRATION=1 node --experimental-transform-types tests/saas-phase3/orders-qa-archive/postgres-harness.mjs`.
+
+Latest integrated run: **17 PASS groups** (14 core groups plus 3 exact-allowlist groups), exit 0. PostgreSQL 16 uses its own temporary Unix socket and cluster, never an existing server. Actual repository migrations through 126 are applied, then additive 127; the tenant-specific pilot admin-domain seed is deliberately excluded. The exact historical fixtures are inserted before transactional-email migration 089, matching the targets' pre-migration history. No trigger is disabled and no notification is deleted to make them eligible.
+
+- Exact two-target dry-run: eligible 2, archived 0, deleted 0.
+- Actual repository archive/restore: both targets; all other orders remain unchanged.
+- A synthetic dependency committed after eligibility makes actual archive reject with `invalid_transition`; archive audit remains empty for those targets.
+- Whole-saas per-table physical row counts and ordered content digests remain identical before/after, excluding only the two new archive metadata/audit tables. Fixtures include items, events, draft lines, six immutable draft operations, order operations, catalog/inventory state, payment-status protected order and the protected QA/incident IDs.
+- Default list excludes the two archived records; authorized archive query returns them; restore returns both to the normal list. Small-page search/neighbors, replay, concurrent operations, tenant/manage denial and real pending notification rejection are covered by the core groups.
+- Old `orders_get` preserves its exact response contract; new code uses `orders_get_with_archive`. Existing immutable draft-operation triggers still reject UPDATE/DELETE.
+
+The first integrated fixture attempts exposed real inventory provenance enforcement and email-trigger timing. Setup was corrected to use normal catalog provenance and the real chronological migration order; neither production validation nor immutable triggers were weakened. A synthetic dependency table owner was aligned with the real migration owner so the test could exercise the intended dependency rejection instead of an unrelated permission failure.
+
+Last integrated disk before/after: **11,048,095,744 / 10,994,442,240 bytes**. No worktree cleanup occurred. Disposable cluster teardown removes only the cluster created by that test.
+
+These are isolated database/application evidence, not live staging certification or payment-provider certification.
 
 The obsolete simplified-schema cleanup harness now forwards to the actual-migration archive harness. Its old physical-delete assertions are retired, not represented as archive test evidence.
 
 ## Push safety
+
+## Full-suite and independent review
+
+Core commit: `02f5fcdfab0649bbf20c6847bcc74f8414377d23`. The full contracts suite detected the two newly exported archive parsers missing from its frozen export allowlist. Commit `52984ad216f48ef164f620da22bb3f5dac2a534f` adds only those exact expected names, preserving the strict equality assertion.
+
+- Contracts full suite: 332 PASS, 0 FAIL.
+- Data full suite: 614 PASS, 0 FAIL.
+- Customer Panel full suite: 1321 PASS, 0 FAIL, 1 existing SKIP (1267 + 54 passing tests across its two official commands).
+- Focused archive contracts/data/HTTP/runtime/UI: 116 PASS; exact runner boundary: 7 PASS.
+- Independent integrated review: no Critical or Important findings. Actual repository/PostgreSQL evidence gap closed; per-target partial completion behavior documented. Minor future-maintenance note: active/archive SQL list projections must retain parity.
+- Full-suite logs: local `/tmp/orders-archive-validation-VOzQ3q/`; these contain isolated test evidence, not live certification. Affected typechecks/builds are still being verified.
+- Parallel Mira validation is separate: recovered same-SHA tests/build passed except form 8/8, which could not reach assertions because its existing fixture hangs. No Mira file/process or PR #75 was changed here.
+
+## Push safety checks
 
 Read-only Coolify check on 2026-09-09: Customer Panel `yk1h6d97z7ex0h74ok3zrj5c`, Owner `bpsgdwfiswna06mooguu2mr3`, Analytics Worker `qn0gxpiog907c9kcjkurom5r`, Storefront `vtc2aah63jbqnmtxmvykn6jl`: Auto Deploy OFF, Preview Deployments OFF. No setting was changed. The checked repository workflow only targets a different branch for push and contains disposable DB rehearsal, not deployment. Recheck before delivery if state changes.
 

@@ -25,6 +25,7 @@ async function subject() {
 
 function adapter(overrides = {}) {
   const calls = [];
+  const archived = new Set();
   const scope = {
     databaseName: 'celebix_saas_staging_auth01', storeSlug: 'guzide-kuyumcu-4',
     tenantContext: {
@@ -40,8 +41,8 @@ function adapter(overrides = {}) {
     },
     orders: {
       async getOrder({orderId}) { return detail(orderId); },
-      async getArchiveEligibility(input) { calls.push(['read', input.orderId]); return { id: input.orderId, eligible: true, archived: false, blockers: [] }; },
-      async archiveOrder(input) { calls.push(['archive', input.orderId]); return { id: input.orderId, archived: true, operationId: input.operationId, changedAt: input.now.toISOString(), replayed: false }; },
+      async getArchiveEligibility(input) { calls.push(['read', input.orderId]); return { id: input.orderId, eligible: true, archived: archived.has(input.orderId), blockers: [] }; },
+      async archiveOrder(input) { calls.push(['archive', input.orderId]); archived.add(input.orderId); return { id: input.orderId, archived: true, operationId: input.operationId, changedAt: input.now.toISOString(), replayed: false }; },
     },
     ...overrides,
   };
@@ -57,6 +58,16 @@ test('default dry-run checks only both exact IDs without writing', async () => {
   assert.equal(result.mode, 'dry-run');
   assert.equal(result.archivedCount, 0);
   assert.equal(result.results.length, 2);
+});
+
+test('historical replay after restore cannot be reported as currently archived', async () => {
+  const { runOrdersQaArchive } = await subject();
+  const scope = adapter();
+  const resolveAuthorizedScope = async () => {
+    const resolved = await scope.resolveAuthorizedScope();
+    return { ...resolved, orders: { ...resolved.orders, archiveOrder: async input => ({ id: input.orderId, archived: true, operationId: input.operationId, changedAt: input.now.toISOString(), replayed: true }) } };
+  };
+  await assert.rejects(runOrdersQaArchive({ resolveAuthorizedScope, mode:'apply', evidenceReference:'qa/previous-reviewed-run' }), /archive_state_not_confirmed/);
 });
 
 test('wrong database or store fails closed before querying orders', async () => {
@@ -96,7 +107,7 @@ test('apply requires explicit mode and evidence; repository rechecks each target
   assert.deepEqual(scope.calls, []);
   const result = await runOrdersQaArchive({ resolveAuthorizedScope: scope.resolveAuthorizedScope, mode: 'apply', evidenceReference: 'docs/qa/atlas-orders-qa-archive.md#controlled-release' });
   assert.equal(result.archivedCount, 2);
-  assert.deepEqual(scope.calls, IDS.flatMap(id => [['read', id], ['archive', id]]));
+  assert.deepEqual(scope.calls, IDS.flatMap(id => [['read', id], ['archive', id], ['read', id]]));
 });
 
 test('changed target evidence is rejected before archive eligibility or apply', async () => {
