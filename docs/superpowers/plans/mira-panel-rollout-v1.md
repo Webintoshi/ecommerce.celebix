@@ -28,11 +28,15 @@ Use route inventory in docs/qa/mira-panel-rollout.md. Own components/inventory/*
 
 Task3 test-only fixture scope: reuse the existing browser-fixture app with isolated mira-stock views and scoped inventory/pricing GET transports plus corresponding stock/pricing/import/barcode page wrappers where needed. Preserve existing customer/catalog fixtures and fallback routes. Controlled records must satisfy current contracts; mutation requests must not persist or call real services. No production API/auth change. Root alone controls the existing3517 server/browser. Report unsupported fixture paths and pagination/save limits honestly; no additional server or environment.
 
+Task3 fixture compatibility addendum: the existing catalog fixture currently returns HTTP400 for /api/catalog/variant-choices, blocking loaded brand-directory and stock-choice consumers. A narrow test-only addition to the existing app/api/catalog/[[...path]]/route.ts is allowed for contract-valid variant choices derived from the same fixture product/variant; preserve unrelated fallback routes and production APIs.
+
 ### Task 4: Promotions
 
 Existing list/wizard/detail/codes/simulator/reports; no promotion calculation or API changes.
 
 Own components/promotions/** and directly related presentation tests. Preserve evaluator inputs, wizard step validation, persisted drafts, schedule/timezone, code generation/export controls, permission/status-based actions, simulator results and analytics unavailable states. No lib/promotion business logic, API/server/contract changes. Use established catalog/customer patterns and existing primitives, scoped modules only; retain keyboard/URL/tab/back-forward behavior and genuine green/red signals. Inspect actual PromotionStudio, PromotionCodes and PromotionAnalytics routes, including new/edit/detail. Record backend gaps without fake controls. Root coordinates heavy checks; focused meaningful regressions before behavior changes. No subagents/push/deploy.
+
+Task4 test-only fixture scope: add isolated mira-promotions views, matching discounts wrappers and a bounded promotions fixture transport to the existing browser-fixture app. Use actual production presentation components and contract-valid controlled records; preserve all earlier fixtures and fallback routes. Never call a provider or persist a mutation. Label unavailable reports honestly and distinguish fixture computations from real business data; do not alter the production evaluator to satisfy a fixture. Root retains sole port3517 server/browser ownership. Report supported routes and unverified behavior explicitly.
 
 ### Task 5: Remaining order-adjacent pages
 

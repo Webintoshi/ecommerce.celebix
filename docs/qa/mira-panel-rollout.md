@@ -8,6 +8,17 @@ Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f
 
 Use existing Mira/Dashboard/Analytics primitives; user palette overrides older skill canvas/border. No new theme/sidebar/global CSS. Preserve actions, authority and API behavior. Focused tests during changes; typecheck/visual QA per 2–3 modules; full Panel tests/typecheck/build at final delivery. Fixtures are not authenticated QA.
 
+## Current package status
+
+| Package | Code/review | Validation and next gate |
+|---|---|---|
+| Customers | Source8c6dd656, scoped review clean | Focused10/10; fixture18 viewport captures; broader accessibility/artifact/auth gates partial |
+| Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Focused77/77; final Panel typecheck at91097ad7 exit0; browser matrix partial, no authenticated evidence |
+| Stock / purchasing / transfers / price lists / barcode / import | In progress from1385e76c (QA-only commit following91097ad7) | Focused implementation/tests next; preserve print geometry and import safety |
+| Promotions / independent order-adjacent / remaining settings and content | Pending | Same approved scope; no further design approval needed |
+
+No push/PR yet: fresh Auto Deploy read remains required. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
+
 ## Customer task inventory
 
 Primary task: find a customer and maintain profile, addresses, consents and classification.
@@ -120,47 +131,47 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/orders/drafts/[draftId]` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | PENDING |
 | `/orders/drafts/new` | @/components/orders/OrderDraftEditor, @/components/panel/PanelShell | PENDING |
 | `/orders/quick-links` | @/components/orders/QuickOrderLinksConsole, @/components/panel/PanelShell | PENDING |
-| `/products` | @/components/catalog/ProductListConsole | PENDING |
-| `/products/[productId]` | @/components/catalog/ProductDetailConsole | PENDING |
-| `/products/[productId]/preview` | @/components/catalog/ProductStorefrontPreview | PENDING |
-| `/products/attributes` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/attributes/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/attributes/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/auto-import` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/products/barcode-labels` | @/components/catalog-admin/BarcodeLabelStudio | PENDING |
-| `/products/brands` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/brands/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/brands/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/bulk-upload` | @/components/catalog-admin/CatalogBulkImportConsole | PENDING |
-| `/products/categories` | @/components/catalog-onboarding/CategoryManager | PENDING |
-| `/products/collections` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/collections/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/collections/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/definitions` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/definitions/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/definitions/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/extras` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/extras/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/extras/[resourceId]/preview` | @/components/catalog-admin/CatalogExtraPreview | PENDING |
-| `/products/extras/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/inventory-counts` | @/components/inventory/InventoryCountConsole | PENDING |
-| `/products/inventory-counts/[countId]` | @/components/inventory/InventoryCountConsole | PENDING |
-| `/products/inventory-counts/new` | @/components/inventory/InventoryCountConsole | PENDING |
-| `/products/new` | @/components/catalog/ProductCreateForm | PENDING |
-| `/products/price-lists` | @/components/pricing/PriceListConsole | PENDING |
-| `/products/price-lists/[priceListId]` | @/components/pricing/PriceListConsole | PENDING |
-| `/products/price-lists/new` | @/components/pricing/PriceListConsole | PENDING |
-| `/products/purchasing` | @/components/inventory/PurchasingConsole | PENDING |
-| `/products/purchasing/[purchaseOrderId]` | @/components/inventory/PurchasingConsole | PENDING |
-| `/products/purchasing/new` | @/components/inventory/PurchasingConsole | PENDING |
-| `/products/reviews` | @/components/catalog-admin/ProductReviewConsole | PENDING |
-| `/products/shopify-converter` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | PENDING |
-| `/products/tags` | @/components/catalog-admin/CatalogResourceConsole | PENDING |
-| `/products/tags/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/tags/new` | @/components/catalog-admin/CatalogResourceEditor | PENDING |
-| `/products/transfers` | @/components/inventory/InventoryTransferConsole | PENDING |
-| `/products/transfers/[transferId]` | @/components/inventory/InventoryTransferConsole | PENDING |
-| `/products/transfers/new` | @/components/inventory/InventoryTransferConsole | PENDING |
+| `/products` | @/components/catalog/ProductListConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/[productId]` | @/components/catalog/ProductDetailConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/[productId]/preview` | @/components/catalog/ProductStorefrontPreview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/attributes` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/attributes/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/attributes/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/auto-import` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IN PROGRESS — TASK3 |
+| `/products/barcode-labels` | @/components/catalog-admin/BarcodeLabelStudio | IN PROGRESS — TASK3 |
+| `/products/brands` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/brands/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/brands/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/bulk-upload` | @/components/catalog-admin/CatalogBulkImportConsole | IN PROGRESS — TASK3 |
+| `/products/categories` | @/components/catalog-onboarding/CategoryManager | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/collections` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/collections/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/collections/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/definitions` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/definitions/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/definitions/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/extras` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/extras/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/extras/[resourceId]/preview` | @/components/catalog-admin/CatalogExtraPreview | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/extras/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/inventory-counts` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
+| `/products/inventory-counts/[countId]` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
+| `/products/inventory-counts/new` | @/components/inventory/InventoryCountConsole | IN PROGRESS — TASK3 |
+| `/products/new` | @/components/catalog/ProductCreateForm | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/price-lists` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
+| `/products/price-lists/[priceListId]` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
+| `/products/price-lists/new` | @/components/pricing/PriceListConsole | IN PROGRESS — TASK3 |
+| `/products/purchasing` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
+| `/products/purchasing/[purchaseOrderId]` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
+| `/products/purchasing/new` | @/components/inventory/PurchasingConsole | IN PROGRESS — TASK3 |
+| `/products/reviews` | @/components/catalog-admin/ProductReviewConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/shopify-converter` | @/components/catalog-admin/CatalogImportPreparationConsole, @/components/panel/PanelWorkspaceShell | IN PROGRESS — TASK3 |
+| `/products/tags` | @/components/catalog-admin/CatalogResourceConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/tags/[resourceId]/edit` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/tags/new` | @/components/catalog-admin/CatalogResourceEditor | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/products/transfers` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
+| `/products/transfers/[transferId]` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
+| `/products/transfers/new` | @/components/inventory/InventoryTransferConsole | IN PROGRESS — TASK3 |
 | `/seo` | Inspect route composition | PENDING |
 | `/seo/categories` | @/components/merchant-admin/MerchantModuleConsole | PENDING |
 | `/seo/categories/[recordId]/edit` | @/components/merchant-admin/render-merchant-record-page | PENDING |
@@ -232,8 +243,16 @@ Additional controlled-fixture mutation check, same source: edited product name t
 
 Root resolution of catalog review's cross-task questions: existing route imports confirm product/list/detail/new/preview and category routes use owned catalog/onboarding components; collection/brand/attribute/definition/tag/extra list/new/edit routes reuse CatalogResourceConsole/Editor, extra preview uses CatalogExtraPreview, reviews use ProductReviewConsole. This establishes source coverage, not per-route rendered QA. BarcodeLabelStudio does not import the changed catalog-admin module; print route delegates to an unchanged handler generating a self-contained HTML stylesheet with millimetre dimensions (`lib/barcode-label-http/handler.ts:564`), not Panel CSS. Import preparation/bulk consumers do reuse generic primary/list/status/actions styles; their operational layout and print/consumer regressions stay explicitly in Task3/final validation, not assumed PASS. Final combined typecheck/build remains pending by the user's package cadence.
 
+At reviewed source91097ad7: category action-access fix retested390/1024/1440, one visible create action per viewport, page overflow0. New-category390 opens focused on name and Escape restores create-button focus. Native inline screenshots inspected. Final Panel typecheck exit0 (12,136,062,976→11,076,182,016 available bytes; no cleanup). Collection list1440/1024/390 also captured and measured overflow0; existing create/edit/archive affordances remain visible. Brand loaded QA is still blocked by isolated fixture variant-choices HTTP400, not a production outage; Task3 will add that test transport without changing production APIs.
+
+New-product editor1440/1024/390 captured, page overflow0 at all three. Responsive FAIL at1024: summary occupies the wide left column while the form is squeezed into the narrow right column; final fix/review required.390 price/stock inputs are reachable with keyboard/pointer and save bar clears the dock. Duplicate shell/page creation heading remains a hierarchy finding. Attempted dirty-exit QA: filled a controlled draft title and clicked back; browser input operation timed out, subsequent dialog query returned undefined and route was `/products`. This does not establish successful “stay on page” protection; guard result UNKNOWN pending an isolated reproduction/controlled dialog retest, not automatically a product regression or PASS.
+
 Customer baseline15/15 and focused implementation/fix checks10/10 passed. Final customer source `8c6dd65674e278384d97c1fba7c447490d0cf8e6`; scoped round2 review APPROVE, no open Important/Critical customer code findings. QA/plan-only commit13bb5f0b follows it. Fixture helpers committed at `6149af662df292ea5f0f9d846e1913972a193a09`. The browser-fixture customer routes are isolated presentation evidence, no production auth changes. POST fixtures return controlled conflict and never persist. Catalog implementation in progress from13bb5f0b; no push or PR yet.
 
 Screenshots/viewport/overflow/keyboard: PARTIAL, see customer evidence above; inline captures are not durable screenshot links or a complete final matrix. Console/network: no all-route clean claim (development warning and intentional409 fixtures separately recorded). Authenticated preview: NOT VERIFIED.
+
+Extra-preview controlled fixture loaded at1024/390: inline captures inspected, page overflow0; fee and option cards retain neutral hierarchy. Small eyebrow text renders10.88px in#FE6100 on the light surface, insufficient normal-text contrast; final bounded correction/review pending. The screen's “Canlı müşteri görünümü” is its preview label, not evidence of live certification.
+
+Product-review fixture subsequently loaded:1440/1024/390 inline captures inspected and overflow0. Mobile actions stack; text/titles remain neutral and reply field has an accessible label. Entered a controlled reply draft without submitting; Tab reaches Publish and draft remains. Focus outline computes rgba(254,97,0,0.16) solid3px with no shadow, requiring final focus-contrast review rather than unconditional accessibility PASS. Current tab error/warning log query returned[]; this limited observation is not a whole-app console/network certification. No review moderation or real mutation executed.
 
 Commit/push/PR: pending implementation and trigger checks. Merge/deploy/real customer mutations: NONE.
