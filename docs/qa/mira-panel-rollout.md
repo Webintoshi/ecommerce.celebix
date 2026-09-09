@@ -25,9 +25,14 @@ No new server sorting/filter/count or restore endpoint is fabricated. Missing ca
 - Mobile QA found summary density and save-bar overlap with the fixed shell navigation. Implementer amended scoped styles; final retest pending. Temporary HMR errors during CSS replacement are development evidence, not a clean final console run.
 - Retest: canonical workspace list summary is 2×2/179 px high at390; scoped edit save button is y711–755 above the dock, submits the controlled409 and keeps `Deniz Korunan`. Tags409 preserves `Korunan QA etiketi`. Detail, edit, tags and segments mobile captures are visually inspected; list1024 and segments1440 also captured, each with measured overflow0. These are uncommitted working-source fixture checks, not complete matrix certification.
 - Full suite/typecheck/build, independent review, authenticated QA, push trigger verification and PR are pending. No deploy or cleanup performed.
-- Customer package source commit: `630ce77d30105292dc8f64f40b850828f52b4ef5`. `npm run typecheck --workspace @celebix/customer-panel` completed exit0 on this source. Full tests/build and task review remain pending. Source fixture helpers are still uncommitted and are not covered by the Panel tsconfig.
+- Customer package initial source commit: `630ce77d30105292dc8f64f40b850828f52b4ef5`. `npm run typecheck --workspace @celebix/customer-panel` completed exit0 on that source, not a later combined-head certification. Full tests/build remain pending. Fixture helpers were subsequently committed at `6149af66` and checked separately because they are not covered by the Panel tsconfig.
 - Fixture validation: default acceptance-app tsconfig check exited2 (strictfalse / missing `.ts` import option generated broad compiler diagnostics); no baseline reproduction is claimed. Rechecking the same app with `--strict --allowImportingTsExtensions` (matching the passing Panel compiler policy) completed exit0 with an empty log `/tmp/mira-rollout-fixture-typecheck.log`. No config or application validation was weakened.
 - Additional keyboard fixture check: Tab moved from first-name to last-name with visible focus ring at1440; current new-customer page console read returned no error/warning entries. This is not an all-route clean-console assertion. New/edit desktop captures inspected. Address add/remove in edit changed only local unsaved form controls; no customer save issued.
+- Fix-round working UI: detail1024 now collapses to one column and overflow0. Tags1440/1024 and segments1024 were captured inline. Mobile menu Escape closed the menu; DOM focus returned to `Panel menüsünü aç`. Detail console read contains one development Fast Refresh full-reload warning (06:39:33Z); no claim of console0 for the package.
+- At committed `9db64d28`, detail1024 DOM recheck: viewport1024×900, overflow0, visible action text `rgb(43,43,43)` on `rgb(255,253,252)` and primary action inverse. Calculated contrast for graphite/surface13.96:1; muted `#667085`/surface4.91:1; shell-muted `#6B7280`/surface4.77:1. These sampled pairs are not a whole-app accessibility certification.
+- Scoped review round1: original append-error, detail-tablet and raw-draft findings addressed. Two Important findings remain for round2: stale append response after search/status replacement and tablet save/dock overlap. Edit1024 screenshot captured inline; DOM save button y818.5–862.5 overlaps dock y839–900 despite overflow0. Not a responsive PASS.
+- New-customer390×844 retake at9db64d28: inline capture inspected, page overflow0, create action y711–755 above dock y783–844. This closes the earlier mobile create footer retake gap, not the1024 issue or whole matrix.
+- Round2 source `8c6dd65674e278384d97c1fba7c447490d0cf8e6`: deferred-query regressions and1024 clearance check RED7pass/2fail → final focused3-file run10pass/0fail (6.305s), exact staged diff-check clean. Browser retake of both new/edit1024×900: primary action y767–811 above dock y839–900, overflow0; screenshots inspected inline. Scoped round2 re-review pending; full combined suite/build and authenticated QA remain pending.
 - Push safety partial check: the sole tracked workflow `self-serve-db-migration-rehearsal.yml` targets `codex/self-serve-db-migration-dry-run` pushes and `main` PRs with unrelated paths; it is not a deployment workflow. Historical Orders checkpoint records all four staging Auto Deploy settings OFF, but that history is not a fresh settings check. No rollout push until current trigger configuration is verified.
 
 | Screen | Missing capability | User impact |
@@ -35,6 +40,8 @@ No new server sorting/filter/count or restore endpoint is fabricated. Missing ca
 | Customer archive | Current customer client has archive but no restore endpoint | No fabricated restore action added; backend capability must be supplied before a genuine restore action can be exposed. |
 
 ## Route inventory
+
+Catalog fixture preparation note: before catalog edits, the old acceptance fallback `/products` loaded its shell but `/api/catalog/onboarding/options` returned400 and product list parsing rendered an unavailable state despite HTTP200. This is incomplete/old fixture-contract evidence, not an authenticated product outage or a catalog regression. A compatible controlled catalog fixture is needed for loaded/editor visual checks.
 
 Single initial mapping includes non-menu new/edit/detail/preview. Navigation: lib/panel-ui/navigation.ts and workspace-navigation.ts.
 
@@ -188,8 +195,8 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 
 ## Evidence
 
-Customer baseline running. tests/.../browser-fixture/app/mira-customers routes are isolated presentation evidence, no production auth changes. POST fixtures return controlled conflict and never persist.
+Customer baseline15/15 and focused implementation/fix checks10/10 passed. Current source head `9db64d283c55f707a55c8fc741462b975263644f`; scoped fix re-review pending. Fixture helpers committed at `6149af662df292ea5f0f9d846e1913972a193a09`. The browser-fixture customer routes are isolated presentation evidence, no production auth changes. POST fixtures return controlled conflict and never persist.
 
-Screenshots/viewport/overflow/keyboard/console/network: NOT YET VERIFIED. Authenticated preview: NOT VERIFIED.
+Screenshots/viewport/overflow/keyboard: PARTIAL, see customer evidence above; inline captures are not durable screenshot links or a complete final matrix. Console/network: no all-route clean claim (development warning and intentional409 fixtures separately recorded). Authenticated preview: NOT VERIFIED.
 
 Commit/push/PR: pending implementation and trigger checks. Merge/deploy/real customer mutations: NONE.
