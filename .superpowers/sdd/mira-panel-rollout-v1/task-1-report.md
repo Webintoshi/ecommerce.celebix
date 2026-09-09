@@ -60,3 +60,27 @@ Existing customer contracts expose archive but no restore operation. No restore 
 - Fixture data is visual/interaction evidence only, not live certification.
 - The customer API has no restore endpoint or client method. A restore action cannot be implemented within this presentation-only scope.
 - No new unsaved-navigation guard was introduced. Existing back/cancel link behavior remains unchanged; this task verifies preservation after failures/conflicts and while note/taxonomy saves are pending.
+
+## Review fix round 1
+
+Changes:
+
+- Split initial list loading/error state from pagination loading/error state. A failed `Daha fazla yükle` request now keeps the loaded customer rows and cursor visible, reports the failure inline, and offers a distinct retry action.
+- Added an in-flight ref guard plus disabled/loading button state so repeated activation cannot start duplicate append requests.
+- Changed the 1024 px customer-detail layout from a squeezed two-column composition to a single column and removed sticky positioning from the summary rail at that breakpoint.
+- Changed note and tag/segment successful-save cleanup to compare the raw submitted draft with the raw current field values. Whitespace-only edits made while a request is pending are therefore treated as new draft input and are not reset, while normalized payloads remain unchanged.
+
+RED evidence:
+
+1. The covering route test failed at `list-prevents-duplicate-append-while-busy` with `2 !== 1` before the in-flight append guard.
+2. The taxonomy route test failed at `tags:preserves-new-draft-typed-during-save` with reset count `1 !== 0` when the pending edit only added whitespace.
+3. The initial 1024 px CSS assertion was tightened to require the one-column declaration within the 1024-only media block; the previous two-column rail declaration did not satisfy the corrected regression.
+4. After the append behavior was fixed, the retry fixture initially returned a false `503` because it called the local `customer(version, status)` helper with `(customerId, 1, "Grace")`; the second-customer constant was also missing. Correcting only that local fixture construction produced the intended real-handler `503` then `200` sequence; no handler or validation contract changed.
+
+Final covering evidence:
+
+- Command: `node --experimental-transform-types --test lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts lib/customer-ui/taxonomy-route-behavior.test.ts`
+- Result: 10 passed, 0 failed; duration 10.958 s.
+- Command: `git diff --check -- components/customers lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts lib/customer-ui/taxonomy-route-behavior.test.ts`
+- Result: clean.
+- Coordinated browser check: customer detail at 1024 × 900 rendered as one readable column with page-level horizontal overflow `0`. This is focused fix evidence, not a new full-matrix claim.

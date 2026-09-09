@@ -49,8 +49,10 @@ export function CustomerTaxonomyConsole({
     e.preventDefault();
     const form = e.currentTarget,
       f = new FormData(form),
-      name = String(f.get("name") ?? "").trim(),
-      secondary = String(f.get("secondary") ?? "").trim();
+      rawName = String(f.get("name") ?? ""),
+      rawSecondary = String(f.get("secondary") ?? ""),
+      name = rawName.trim(),
+      secondary = rawSecondary.trim();
     setError("");
     if (!name) {
       setNameError(kind === "tags" ? "Etiket adı gerekli." : "Segment adı gerekli.");
@@ -66,9 +68,9 @@ export function CustomerTaxonomyConsole({
             ...(secondary ? { description: secondary } : {}),
           });
       const current = new FormData(form),
-        currentName = String(current.get("name") ?? "").trim(),
-        currentSecondary = String(current.get("secondary") ?? "").trim();
-      if (currentName === name && currentSecondary === secondary) {
+        currentName = String(current.get("name") ?? ""),
+        currentSecondary = String(current.get("secondary") ?? "");
+      if (currentName === rawName && currentSecondary === rawSecondary) {
         form.reset();
         if (kind === "tags") {
           setTagName("");

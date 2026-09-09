@@ -383,7 +383,7 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
         currentTarget: { values, reset() { resetCount += 1; } },
       });
       await new Promise<void>((resolve) => setImmediate(resolve));
-      values.name = "Gönderim sırasında yazılan yeni taslak";
+      values.name = `${values.name} `;
       releaseMutation?.();
       await pendingMutation;
       mutationGate = undefined;

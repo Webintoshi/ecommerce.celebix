@@ -197,6 +197,15 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /position:\s*sticky/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/);
+  const compactCustomerStyles = styles.slice(
+    styles.indexOf("@media (max-width: 1024px)"),
+    styles.indexOf("@media (max-width: 760px)"),
+  );
+  assert.match(
+    compactCustomerStyles,
+    /[.]customerWorkspace\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/,
+    "customer detail must collapse before the 1024 px rail squeezes primary content",
+  );
   assert.match(
     styles,
     /@media\s*\(max-width:\s*760px\)[\s\S]*[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,

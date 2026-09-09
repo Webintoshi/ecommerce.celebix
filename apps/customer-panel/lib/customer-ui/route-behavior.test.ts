@@ -19,6 +19,7 @@ import { createCustomerApi, CustomerApiError } from "./client.ts";
 const ORIGIN = "https://panel.test";
 const NOW = "2026-07-22T15:00:00.000Z";
 const CUSTOMER_ID = "81000000-0000-4000-8000-000000000001";
+const CUSTOMER_B = "81000000-0000-4000-8000-000000000002";
 const ADDRESS_ID = "82000000-0000-4000-8000-000000000001";
 const NOTE_ID = "83000000-0000-4000-8000-000000000001";
 const TAG_ID = "84000000-0000-4000-8000-000000000001";
@@ -272,9 +273,12 @@ test("customer route matrix invokes actual list detail edit and new pages throug
   let replayed = false;
   let role: Role = "store_owner";
   const paths: string[] = [];
+  const listResponses: Array<{ status: number; body: string }> = [];
   const repositoryCalls: string[] = [];
   const saveInputs: SaveCustomerInput[] = [];
   let noteGate: Promise<void> | undefined;
+  let listAppendGate: Promise<void> | undefined;
+  let rejectListAppend = false;
   const mutation = (next: contracts.CustomerDetail, wasReplayed = false): contracts.CustomerMutationResult => ({
     id: next.id,
     version: next.version,
@@ -290,9 +294,14 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       repositoryCalls.push("summary");
       return { active: stored.status === "active" ? 1 : 0, archived: stored.status === "archived" ? 1 : 0, consentedEmail: 1, totalSpentCents: stored.totalSpentCents, currency: "TRY", asOf: NOW };
     },
-    async list() {
+    async list(input) {
       repositoryCalls.push("list");
-      return { items: [listItem(stored)] };
+      if (input.cursor) {
+        await listAppendGate;
+        if (rejectListAppend) throw new CustomerRepositoryError("unavailable");
+        return { items: [listItem({ ...customer(1), id: CUSTOMER_B, displayName: "Grace Lovelace", firstName: "Grace", email: "grace@example.com" })] };
+      }
+      return { items: [listItem(stored)], nextCursor: "cursor-2" };
     },
     async get(input) {
       repositoryCalls.push(`get:${input.customerId}`);
@@ -383,7 +392,11 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     if (path === "/api/customers/export") return handlers.export(request(path, init));
     if (path === "/api/customers/tags") return handlers.tags(request(path, init));
     if (path === "/api/customers/segments") return handlers.segments(request(path, init));
-    if (path.startsWith("/api/customers?")) return handlers.list(request(path, init));
+    if (path.startsWith("/api/customers?")) {
+      const response = await handlers.list(request(path, init));
+      listResponses.push({ status: response.status, body: await response.clone().text() });
+      return response;
+    }
     if (path === "/api/customers") return handlers.create(request(path, init));
     let match = /^\/api\/customers\/([^/]+)\/archive$/u.exec(path);
     if (match) return handlers.archive(request(path, init), match[1]!);
@@ -453,6 +466,38 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       "embedded-list-defers-create-action-to-workspace-header",
     );
     assert.ok(hrefs.includes(`/customers/${CUSTOMER_ID}`), "list-exact-detail-destination");
+
+    const loadMoreButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    let releaseListAppend: (() => void) | undefined;
+    listAppendGate = new Promise<void>((resolve) => { releaseListAppend = resolve; });
+    rejectListAppend = true;
+    (loadMoreButton.props.onClick as () => void)();
+    (loadMoreButton.props.onClick as () => void)();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-2")).length, 1, "list-prevents-duplicate-append-while-busy");
+    releaseListAppend?.();
+    listAppendGate = undefined;
+    for (let pass = 0; pass < 20; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+      if (/Müşteri hizmeti şu anda kullanılamıyor/u.test(textOf(listView))) break;
+    }
+    assert.match(textOf(listView), /Ada Lovelace/u, "append-failure-retains-loaded-rows");
+    assert.match(textOf(listView), /Müşteri hizmeti şu anda kullanılamıyor/u, "append-failure-is-visible-inline");
+    const retryAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yüklemeyi tekrar dene"));
+    rejectListAppend = false;
+    (retryAppendButton.props.onClick as () => void)();
+    for (let pass = 0; pass < 40; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+      if (/Grace Lovelace/u.test(textOf(listView))) break;
+    }
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-2")).length, 2, "append-retry-reuses-retained-cursor-once");
+    assert.equal(repositoryCalls.filter((call) => call === "list").length, 3, "append-retry-reaches-list-repository");
+    assert.deepEqual(listResponses.slice(-2).map(({ status }) => status), [503, 200], "append-failure-then-retry-response-statuses");
+    assert.match(textOf(listView), /Ada Lovelace/u);
+    assert.match(textOf(listView), /Grace Lovelace/u, "append-retry-keeps-cursor-and-adds-next-page-once");
+
     const exportButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("CSV Dışa Aktar"));
     (exportButton.props.onClick as () => void)();
     for (let pass = 0; pass < 3; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
@@ -676,7 +721,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       },
     });
     await new Promise<void>((resolve) => setImmediate(resolve));
-    noteValues.text = "Gönderim sırasında yazılan yeni taslak";
+    noteValues.text = "Kalıcı müşteri notu ";
     releaseNote?.();
     await pendingNote;
     noteGate = undefined;

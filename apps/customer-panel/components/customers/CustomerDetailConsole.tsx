@@ -256,14 +256,15 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
   async function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const text = String(new FormData(form).get("text") ?? "").trim();
+    const rawText = String(new FormData(form).get("text") ?? "");
+    const text = rawText.trim();
     if (!data || !text || busy) return;
     setBusy(true);
     setError("");
     try {
       await customerApi.addNote(customerId, text);
       const noteInput = form.elements.namedItem("text") as HTMLTextAreaElement | null;
-      if (!noteInput || noteInput.value.trim() === text) form.reset();
+      if (!noteInput || noteInput.value === rawText) form.reset();
       setNotice("Not kaydedildi.");
       await load(true);
     } catch (caught) { setError(message(caught)); }

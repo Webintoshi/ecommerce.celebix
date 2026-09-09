@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CustomerListItem,
   CustomerStatus,
@@ -47,11 +47,22 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     [search, setSearch] = useState(""),
     [status, setStatus] = useState<CustomerStatus | "all">("all"),
     [cursor, setCursor] = useState<string>(),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loadingMore, setLoadingMore] = useState(false),
+    [appendError, setAppendError] = useState("");
+  const appendInFlight = useRef(false);
   const load = useCallback(
     async (append = false) => {
-      setState("loading");
-      setError("");
+      if (append) {
+        if (appendInFlight.current || !cursor) return;
+        appendInFlight.current = true;
+        setLoadingMore(true);
+        setAppendError("");
+      } else {
+        setState("loading");
+        setError("");
+        setAppendError("");
+      }
       try {
         const [s, l] = await Promise.all([
           customerApi.summary(),
@@ -67,10 +78,18 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           append ? Object.freeze([...old, ...l.items]) : l.items,
         );
         setCursor(l.nextCursor);
-        setState("loaded");
+        if (!append) setState("loaded");
       } catch (e) {
-        setError(message(e));
-        setState("error");
+        if (append) setAppendError(message(e));
+        else {
+          setError(message(e));
+          setState("error");
+        }
+      } finally {
+        if (append) {
+          appendInFlight.current = false;
+          setLoadingMore(false);
+        }
       }
     },
     [cursor, search, status],
@@ -293,13 +312,17 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               ))}
             </div>
             {cursor ? (
-              <button
-                className={styles.customerLoadMore}
-                type="button"
-                onClick={() => void load(true)}
-              >
-                Daha fazla yükle
-              </button>
+              <div className={styles.customerPagination}>
+                {appendError ? <p className={styles.customerInlineError} role="alert">{appendError}</p> : null}
+                <button
+                  className={styles.customerLoadMore}
+                  type="button"
+                  disabled={loadingMore}
+                  onClick={() => void load(true)}
+                >
+                  {loadingMore ? "Daha fazla yükleniyor…" : appendError ? "Daha fazla yüklemeyi tekrar dene" : "Daha fazla yükle"}
+                </button>
+              </div>
             ) : null}
           </>
         )}
