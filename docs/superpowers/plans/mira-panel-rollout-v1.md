@@ -18,11 +18,15 @@ Own components/catalog/**, components/catalog-onboarding/**, and catalog-admin r
 
 Task2 fixture handoff: additionally own new isolated catalog routes/data under tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/mira-catalog and app/products, with a narrowly scoped app/api/catalog override if required. Reuse old fallback for unrelated routes; preserve all customer fixture files. This is test-only transport, never production API/auth. Existing product fallback is stale: list lacks required catalogTotal and onboarding/options returns400, so do not treat its error screen as loaded catalog QA. Use contract-valid controlled records, real presentation components and non-persisting conflict responses for draft tests. Root retains sole server/browser control at3517; no additional server. Include fixture files in exact-path commit/report and scoped type validation as coordinated by root.
 
+Fixture-only storefront-assets list override is allowed if needed by brand consumers; preserve existing fallback behavior and never upload a real asset or call remote storage. Incomplete fixture states remain labeled partial/unavailable, not successful authenticated save evidence.
+
 ### Task 3: Stock operations
 
 Inventory/purchasing/transfers/pricelists/barcode/import routes; preserve print dimensions and calculation semantics. Scoped presentation and regression checks.
 
 Use route inventory in docs/qa/mira-panel-rollout.md. Own components/inventory/**, components/pricing/**, and catalog-admin BarcodeLabelStudio / CatalogBulkImportConsole / CatalogImportPreparationConsole plus their scoped CSS and presentation tests. Coordinate shared catalog-admin CSS after Task2 review; do not overwrite product/resource changes. No service/client/repository/API changes. Preserve actual records and authority-bound create/edit/save/receive/complete/cancel actions, all URL/filter/cursor/version-conflict states, CSV/XML/Shopify preview and existing import safety checks. Barcode print styles, paper dimensions, barcode encodings and calibration stay identical; neutralize only operational controls outside print output. Lists/toolbars/dialogs/errors and forms should be compact, label-linked and keyboard usable at1440/1024/390. Preserve pending drafts on failed/conflicting requests and don't invent unavailable stock/financial totals. Focused tests only during editing, root coordinates typecheck/browser/full validation. Root owns testfixture runtime and QA docs. Commit exact owned files, no push/deploy/no subagents.
+
+Task3 test-only fixture scope: reuse the existing browser-fixture app with isolated mira-stock views and scoped inventory/pricing GET transports plus corresponding stock/pricing/import/barcode page wrappers where needed. Preserve existing customer/catalog fixtures and fallback routes. Controlled records must satisfy current contracts; mutation requests must not persist or call real services. No production API/auth change. Root alone controls the existing3517 server/browser. Report unsupported fixture paths and pagination/save limits honestly; no additional server or environment.
 
 ### Task 4: Promotions
 

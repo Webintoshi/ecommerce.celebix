@@ -33,6 +33,8 @@ No new server sorting/filter/count or restore endpoint is fabricated. Missing ca
 - Scoped review round1: original append-error, detail-tablet and raw-draft findings addressed. Two Important findings remain for round2: stale append response after search/status replacement and tablet save/dock overlap. Edit1024 screenshot captured inline; DOM save button y818.5–862.5 overlaps dock y839–900 despite overflow0. Not a responsive PASS.
 - New-customer390×844 retake at9db64d28: inline capture inspected, page overflow0, create action y711–755 above dock y783–844. This closes the earlier mobile create footer retake gap, not the1024 issue or whole matrix.
 - Round2 source `8c6dd65674e278384d97c1fba7c447490d0cf8e6`: deferred-query regressions and1024 clearance check RED7pass/2fail → final focused3-file run10pass/0fail (6.305s), exact staged diff-check clean. Browser retake of both new/edit1024×900: primary action y767–811 above dock y839–900, overflow0; screenshots inspected inline. Scoped round2 re-review pending; full combined suite/build and authenticated QA remain pending.
+- Final customer code review: both round2 findings ADDRESSED, no new scoped breakage. Edit1440×1000 and390×844 retakes on unchanged8c6dd656 customer source have overflow0. At390 keyboard End on the cancel link reaches the final consent fields and visible save/cancel controls above the dock; visible focus ring inspected. Inline evidence only, not a persistent screenshot artifact or live QA.
+- Final customer source8c6dd656 retakes: list1440/1024/390 and detail1440/1024/390 captured inline. DOM overflow0 measured for all list sizes and detail1440/1024; detail390 screenshot visually inspected (the immediately preceding390 measurement belonged to the still-transitioning edit page and is not counted as a new detail measurement). This distinction is preserved instead of assigning the wrong screenshot/DOM evidence to a route.
 - Push safety partial check: the sole tracked workflow `self-serve-db-migration-rehearsal.yml` targets `codex/self-serve-db-migration-dry-run` pushes and `main` PRs with unrelated paths; it is not a deployment workflow. Historical Orders checkpoint records all four staging Auto Deploy settings OFF, but that history is not a fresh settings check. No rollout push until current trigger configuration is verified.
 
 | Screen | Missing capability | User impact |
@@ -41,7 +43,24 @@ No new server sorting/filter/count or restore endpoint is fabricated. Missing ca
 
 ## Route inventory
 
+### Customer viewport matrix — isolated fixture, source8c6dd656
+
+| View | 1440×1000 | 1024×900 | 390×844 |
+|---|---|---|---|
+| List | Inline inspected; overflow0 | Inline inspected; overflow0 | Inline inspected; overflow0 |
+| New | Inline inspected; overflow0 | Inline inspected; overflow0; dock clear | Inline inspected; overflow0; dock clear |
+| Edit | Inline inspected; overflow0 | Inline inspected; overflow0; dock clear | Inline inspected; overflow0; End/focus check |
+| Detail | Inline inspected; overflow0 | Inline inspected; overflow0; one column | Inline inspected; overflow0; path+Ada heading verified |
+| Tags | Inline inspected; overflow0 | Inline inspected; overflow0 | Inline inspected; overflow0 |
+| Segments | Inline inspected; overflow0 | Inline inspected; overflow0 | Inline inspected; overflow0 |
+
+All18 are controlled-data viewport captures emitted in this task, not durable files or authenticated screenshots. Broad clipping/keyboard/contrast/console/network certification is still partial; sampled controls and observed warnings are recorded above. No invented screenshot links. Final whole-branch review must also triage partial-order-history empty wording and summary status-chip sizing.
+
 Catalog fixture preparation note: before catalog edits, the old acceptance fallback `/products` loaded its shell but `/api/catalog/onboarding/options` returned400 and product list parsing rendered an unavailable state despite HTTP200. This is incomplete/old fixture-contract evidence, not an authenticated product outage or a catalog regression. A compatible controlled catalog fixture is needed for loaded/editor visual checks.
+
+Catalog RED (implementer report, pending scoped review):74 focused tests,71 passed and3 new expected failures for named keyboard-focusable table region, scoped onboarding palette/dock clearance, catalog-admin palette/dock clearance. Implementation is in progress; this is not a passing catalog package.
+
+Catalog working evidence (uncommitted, not a final SHA): implementer reports75/75 focusedGREEN including advanced-editor pending-save lock/richdescription. Root loaded `/mira-catalog/list`1440 and actualfixture `/products`1024/390 with one contract-valid controlled product; pageoverflow0. Mobile uses readable cards and adjacentfilter/refresh. Desktophoisted primaryCTA stillorange anddisabledbulkbuttonstillpaleviolet were sent back for scopedfix. Fixtureunknownroutefallback/filter semantics/navigation are being checked; no authenticated, export, filter orpaginationPASS claimed from staticloadeddata. NewIABtab2 navigation initiallytimedout duringNextcompilation, thenloaded; HMRreloadsduringedits arenot productoutagecertification. FinalstableQA deferred untilimplementercommit.
 
 Single initial mapping includes non-menu new/edit/detail/preview. Navigation: lib/panel-ui/navigation.ts and workspace-navigation.ts.
 
@@ -63,12 +82,12 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 | `/content/policies` | @/components/content/PolicyConsole, @/components/panel/PanelWorkspaceShell | PENDING |
 | `/content/policies/[policyKey]/edit` | @/components/content/PolicyConsole | PENDING |
 | `/content/policies/new` | Inspect route composition | PENDING |
-| `/customers` | @/components/customers/CustomerListConsole, @/components/customers/CustomerWorkspace | IN PROGRESS |
-| `/customers/[customerId]` | @/components/customers/CustomerDetailConsole | IN PROGRESS |
-| `/customers/[customerId]/edit` | @/components/customers/CustomerEditConsole | IN PROGRESS |
-| `/customers/new` | @/components/customers/CustomerFormConsole | IN PROGRESS |
-| `/customers/segments` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IN PROGRESS |
-| `/customers/tags` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IN PROGRESS |
+| `/customers` | @/components/customers/CustomerListConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/customers/[customerId]` | @/components/customers/CustomerDetailConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/customers/[customerId]/edit` | @/components/customers/CustomerEditConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/customers/new` | @/components/customers/CustomerFormConsole | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/customers/segments` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
+| `/customers/tags` | @/components/customers/CustomerTaxonomyConsole, @/components/customers/CustomerWorkspace | IMPLEMENTED / CODE REVIEW PASS / QA PARTIAL |
 | `/discounts` | @/components/promotions/PromotionStudio | PENDING |
 | `/discounts/[promotionId]` | @/components/promotions/PromotionStudio | PENDING |
 | `/discounts/[promotionId]/analytics` | @/components/promotions/PromotionAnalytics | PENDING |
@@ -195,7 +214,25 @@ Single initial mapping includes non-menu new/edit/detail/preview. Navigation: li
 
 ## Evidence
 
-Customer baseline15/15 and focused implementation/fix checks10/10 passed. Current source head `9db64d283c55f707a55c8fc741462b975263644f`; scoped fix re-review pending. Fixture helpers committed at `6149af662df292ea5f0f9d846e1913972a193a09`. The browser-fixture customer routes are isolated presentation evidence, no production auth changes. POST fixtures return controlled conflict and never persist.
+### Catalog working-tree package checkpoint
+
+Serial checks on the settled catalog working tree after `13bb5f0b` (before the following browser-requested fixes): Customer Panel `npm run typecheck --workspace @celebix/customer-panel` exit0; fixture `tsc -p tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/tsconfig.json --noEmit --strict --allowImportingTsExtensions` exit0; `git diff --check` exit0. These are not final-source certification. Available space before/after:11,940,364,288 /10,779,361,280 bytes; no cleanup performed.
+
+Real components in the isolated catalog fixture at port3517: list1440/1024/390 captures inspected; latest1440/390 primary action graphite and disabled bulk action neutral. Product detail1440/1024/390 captured, page overflow0 at each size. At1024, however, the identity column is squeezed and breadcrumb overlaps actions: responsive FAIL pending bounded fix. Media lifecycle tabs render unstyled and empty-media surface needs neutralization. Quick-add390 opens with focus in product name and Escape closes, but focus returns to body instead of opener: keyboard FAIL pending fix. Implementer received all findings before committing.
+
+Fixture contains one controlled product and no next cursor; this does not prove multi-page navigation. Fixture mutations intentionally return409, without persistence or provider calls. Inline captures are not durable screenshot links. No authenticated or live catalog QA claim, no console/network-zero claim during development reloads.
+
+Category working-tree fixture loaded1440/1024/390, captures inspected; measured page overflow0 at1024/390. Mobile selected-category bottom sheet fits form/save controls, but initial AX focus remains on the underlying selected row. Subsequent Tab/Escape attempt timed out in browser-control `Emulation.setFocusEmulationEnabled`; result UNKNOWN, not application failure proof. Duplicate category shell/page heading and equal duplicate create actions were sent for hierarchy correction. Product detail1024 overlap, media tabs/empty surface and quick-add focus-return also remain pre-fix evidence until retested.
+
+Post-commit candidate `fd753440052f7e6aa0a237a7de22f3fe36125a88` (source `0ce402fc`): focused77/77, report read, independent catalog review underway. Browser connection recovered in a new fixture tab. Category390 focus now enters name; Escape closes and returns to selected row. Page overflow0 at390/1024. New regression: hoisted New category/refresh actions are hidden at both390/1024; New category DOM bounds0×0 and absent from AX. Reported to reviewer; action-access FAIL remains open. Earlier passing typechecks precede final focus/hierarchy edits and are not final candidate type certification.
+
+Same candidate: quick-create390 Escape restores focus to Ürün Ekle; detail1024 header now has760px title width, stacked actions and no overlap/overflow; media tabs44px and empty surface neutral. Variant inline form390 save button is reachable (bottom464 before dock783), page overflow0; however thick orange/peach outer decoration and pale-blue inner surface remain, sent to reviewer as an incomplete neutral-form presentation finding. No form submission or real mutation performed during these checks.
+
+Additional controlled-fixture mutation check, same source: edited product name to `Mira QA korunacak taslak`, submitted to the isolated409 transport. UI reports version conflict and explicitly offers server reload; AX confirms the exact draft name remains. This is conflict/draft-preservation evidence only, not successful save, authenticated QA or live mutation. Mobile editing layout page overflow0; normal draft not discarded by the failed response.
+
+Root resolution of catalog review's cross-task questions: existing route imports confirm product/list/detail/new/preview and category routes use owned catalog/onboarding components; collection/brand/attribute/definition/tag/extra list/new/edit routes reuse CatalogResourceConsole/Editor, extra preview uses CatalogExtraPreview, reviews use ProductReviewConsole. This establishes source coverage, not per-route rendered QA. BarcodeLabelStudio does not import the changed catalog-admin module; print route delegates to an unchanged handler generating a self-contained HTML stylesheet with millimetre dimensions (`lib/barcode-label-http/handler.ts:564`), not Panel CSS. Import preparation/bulk consumers do reuse generic primary/list/status/actions styles; their operational layout and print/consumer regressions stay explicitly in Task3/final validation, not assumed PASS. Final combined typecheck/build remains pending by the user's package cadence.
+
+Customer baseline15/15 and focused implementation/fix checks10/10 passed. Final customer source `8c6dd65674e278384d97c1fba7c447490d0cf8e6`; scoped round2 review APPROVE, no open Important/Critical customer code findings. QA/plan-only commit13bb5f0b follows it. Fixture helpers committed at `6149af662df292ea5f0f9d846e1913972a193a09`. The browser-fixture customer routes are isolated presentation evidence, no production auth changes. POST fixtures return controlled conflict and never persist. Catalog implementation in progress from13bb5f0b; no push or PR yet.
 
 Screenshots/viewport/overflow/keyboard: PARTIAL, see customer evidence above; inline captures are not durable screenshot links or a complete final matrix. Console/network: no all-route clean claim (development warning and intentional409 fixtures separately recorded). Authenticated preview: NOT VERIFIED.
 
