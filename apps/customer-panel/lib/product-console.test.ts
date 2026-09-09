@@ -704,6 +704,8 @@ test("catalog detail stacks its heading at the dock breakpoint and neutralizes m
   assert.match(css, /catalog-tabs[^}]*border-color:\s*var\(--catalog-border\)/s);
   assert.match(css, /catalog-tabs[^}]*button[^}]*min-height:\s*44px/s);
   assert.match(css, /empty-variants[^}]*background:\s*var\(--catalog-surface\)/s);
+  assert.match(css, /product-detail-variants > [.]inset-form[^}]*border-left-width:\s*1px[^}]*background:\s*var\(--catalog-surface\)/s);
+  assert.match(css, /catalog-form legend > span:first-child[^}]*background:\s*var\(--catalog-canvas\)/s);
 });
 
 test("product list request budget stays at zero detail calls for 1, 20, and 100 rows", async () => {

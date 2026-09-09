@@ -139,12 +139,19 @@ test("category manager presents hierarchy without exposing technical slugs", asy
   assert.doesNotMatch(manager, /\/\{category[.]slug\}/);
 });
 
-test("category manager uses the shell heading, one primary create action, and predictable drawer focus", async () => {
-  const manager = await source("components/catalog-onboarding/CategoryManager.tsx");
-  assert.match(manager, /<PanelTopbarBridge title="Kategoriler" actions=\{headerActions\}/);
+test("category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus", async () => {
+  const [manager, css] = await Promise.all([
+    source("components/catalog-onboarding/CategoryManager.tsx"),
+    source("components/catalog-onboarding/category-management.module.css"),
+  ]);
+  assert.match(manager, /function categoryCommands\(\)/);
+  assert.match(manager, /<PanelTopbarBridge title="Kategoriler" actions=\{categoryCommands\(\)\}/);
+  assert.match(manager, /<div className=\{styles[.]mobileHeaderActions\}>\{categoryCommands\(\)\}<\/div>/);
   assert.match(manager, /<h1 id="category-manager-title" className="sr-only">Kategoriler<\/h1>/);
   assert.doesNotMatch(manager, /<header className=\{styles[.]pageHeader\}>/);
   assert.doesNotMatch(manager, /className=\{styles[.]detailPlaceholder\}[^]*<button[^>]*>[^<]*<Plus[^>]*\/> Yeni kategori<\/button>/s);
+  assert.match(css, /[.]mobileHeaderActions\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /@media \(max-width:\s*1024px\)[^]*[.]mobileHeaderActions\s*\{[^}]*display:\s*flex/s);
   assert.match(manager, /editorReturnFocusRef/);
   assert.match(manager, /editorNameRef[.]current\?[.]focus/);
   assert.match(manager, /event[.]key === "Escape"/);

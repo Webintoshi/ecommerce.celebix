@@ -116,6 +116,19 @@
 .catalogRoot :global(.catalog-tabs > button[aria-selected="true"]) { border-bottom-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); color: var(--catalog-text); }
 .catalogRoot :global(.catalog-tabs > button:focus-visible) { outline: 3px solid rgba(254, 97, 0, 0.16); outline-offset: 2px; }
 .catalogRoot :global(.product-detail-media > .empty-variants) { border-color: var(--catalog-border); background: var(--catalog-surface); color: var(--catalog-text); }
+.catalogRoot :global(.product-detail-variants > .inset-form) {
+  border: 1px solid var(--catalog-border);
+  border-left-width: 1px;
+  border-radius: 10px;
+  background: var(--catalog-surface);
+  box-shadow: none;
+}
+.catalogRoot :global(.product-detail-variants > .inset-form > fieldset) { border-color: var(--catalog-border); background: var(--catalog-canvas); }
+.catalogRoot :global(.product-detail-variants > .inset-form.catalog-form legend > span:first-child) { border: 1px solid var(--catalog-border); background: var(--catalog-canvas); color: var(--catalog-text); }
+.catalogRoot :global(.product-detail-variants > .inset-form .field input),
+.catalogRoot :global(.product-detail-variants > .inset-form .field select),
+.catalogRoot :global(.product-detail-variants > .inset-form .field textarea),
+.catalogRoot :global(.product-detail-variants > .inset-form .check-field) { border-color: var(--catalog-border); background: var(--catalog-surface); color: var(--catalog-text); }
 .catalogRoot :global(.product-media-grid) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
 .previewRoot {

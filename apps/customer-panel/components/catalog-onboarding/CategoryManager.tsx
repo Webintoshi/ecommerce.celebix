@@ -398,18 +398,21 @@ export function CategoryManager() {
     </div>;
   }
 
-  const headerActions = <div className={styles.headerActions}>
-    <button type="button" className={styles.refreshButton} onClick={() => void load()} disabled={loading || busy} aria-label="Kategorileri yenile" title="Yenile">
-      <RefreshCw aria-hidden="true" />
-    </button>
-    <button type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
-      <Plus aria-hidden="true" /> Yeni kategori
-    </button>
-  </div>;
+  function categoryCommands() {
+    return <div className={styles.headerActions}>
+      <button type="button" className={styles.refreshButton} onClick={() => void load()} disabled={loading || busy} aria-label="Kategorileri yenile" title="Yenile">
+        <RefreshCw aria-hidden="true" />
+      </button>
+      <button type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
+        <Plus aria-hidden="true" /> Yeni kategori
+      </button>
+    </div>;
+  }
 
   return <section className={styles.categoryManager} aria-labelledby="category-manager-title">
-    <PanelTopbarBridge title="Kategoriler" actions={headerActions} />
+    <PanelTopbarBridge title="Kategoriler" actions={categoryCommands()} />
     <h1 id="category-manager-title" className="sr-only">Kategoriler</h1>
+    <div className={styles.mobileHeaderActions}>{categoryCommands()}</div>
 
     {error || !hierarchy.valid ? <div className={styles.error} role="alert">{error || "Kategori hizmetinden gelen hiyerarşi doğrulanamadı."}</div> : null}
 
