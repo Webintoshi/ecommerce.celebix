@@ -14,10 +14,13 @@ Use existing Mira/Dashboard/Analytics primitives; user palette overrides older s
 |---|---|---|
 | Customers | Source8c6dd656, scoped review clean | Focused10/10; fixture18 viewport captures; broader accessibility/artifact/auth gates partial |
 | Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Focused77/77; final Panel typecheck at91097ad7 exit0; browser matrix partial, no authenticated evidence |
-| Stock / purchasing / transfers / price lists / barcode / import | In progress from1385e76c (QA-only commit following91097ad7) | Focused implementation/tests next; preserve print geometry and import safety |
-| Promotions / independent order-adjacent / remaining settings and content | Pending | Same approved scope; no further design approval needed |
+| Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Initial focused116pass/1existing skip; fix-round37/37; rendered matrix partial, fresh combined types pending |
+| Promotions | Source032626f8, task review in progress | Focused76/76; final rendered matrix partial; combined typecheck NOT STARTED due disk preflight |
+| Independent order-adjacent / remaining settings and content | Pending | Briefs prepared; same approved scope, no further design approval needed |
 
 No push/PR yet: fresh Auto Deploy read remains required. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
+
+Committed-scope check at a35bf118 against455a4a53: no differences in apps/admin, apps/owner, apps/storefront-shared, packages, .github, production Panel API routes or the named PR75 Orders/shipment presentation exclusions. Promotions working changes remain outside those paths. This is a source-scope check, not a fresh deployment-trigger settings check.
 
 ## Customer task inventory
 
@@ -275,4 +278,28 @@ Price-list-new fixture later completed its choices load. Controlled save409 at39
 
 Count-new fixture1440/1024/390 captured with overflow0; mobile capture initially shows an explicit loading state. After choices loaded, location/variant selectors were enabled (3/2 options including placeholders), tablet Save598–646px clears the dock. Distinct “Sayım bilgileri” section title replaces duplicated page wording. No stock count mutation was submitted. Complete list/detail/new matrix and real-session evidence remain pending.
 
+Task3 fix round1 source `d27ab144ac3d6ac519332831d179609146b5a143`: scoped re-review clean, four findings addressed, no new Critical/Important breakage. Focused37/37 passing includes Happy DOM computed contrast/layout and the actual pricing client consuming the test route. Root390 browser confirms neutral#667085 eyebrow,328.8px single-column card and44px radio reserve, overflow0. Pricing fixture microsecond timestamp correction subsequently renders controlled base249900/effective229900 in browser; production calculation/parser unchanged. A partial browser-control select operation was safely completed before reading the result. Fresh fixture typecheck exit status remains UNKNOWN; final combined checks pending.
+
+Task4 Promotions implementation has begun at root QA/plan commit `a35bf1186facc18fad5337dc0145d44627bb4f94`; no source push or rollout PR yet. Available space measured around the last fixture type attempt:6,077,673,472 bytes; no cleanup and no attribution of free-space changes to this task.
+
+Transfer-new1440/1024/390 loading-state captures inspected: overflow0, desktop source/target side-by-side and tablet/mobile stacked, controls explicitly disabled during choices load; tablet save area remains above dock. This is loading-layout evidence only until choices complete; no transfer was created. Native captures remain inline, not durable PNG artifacts.
+
+Transfer-new completed-load recheck at1440/1024/390: enabled source/target selectors each3options and variant2options; page overflow0 at all three sizes. Tablet save684–732px, mobile711–759px remain above fixed dock; mobile visible variant selector298px and location selectors328px. Inline screenshots inspected; no transfer was submitted. This closes only the prior loading-state evidence gap, not authenticated or full navigation certification.
+
+Transfer-detail loaded fixture1440/1024/390 inline captures inspected, page overflow0. At390 the760px items table scrolls within356px container; Shift+Tab from “Teslim al” focuses that container and ArrowRight changes scrollLeft to31.5px with a visible native outline. Source/target identifiers wrap without page overflow, actions are48px high. No receive/cancel mutation called. This is actual in-app Chromium keyboard evidence, not a cross-browser or authenticated claim.
+
+Count-detail loaded fixture measured overflow0 at1440/1024/390. Mobile summary/table and scrolled edit form captured; tablet capture covers scrolled edit section, desktop capture covers summary plus form. Quantity7 input receives keyboard focus and remains unchanged; existing location/variant identities are intentionally read-only in edit mode. Mobile quantity field y398–446px is visible above save/dock. No complete/cancel/save mutation submitted. Devserver logs for this visit show GET variant-choices200 and locations200 after slow compilation; this is not a whole-session console/network-clean certification.
+
 Commit/push/PR: pending implementation and trigger checks. Merge/deploy/real customer mutations: NONE.
+
+### Promotions package working evidence
+
+Task4 fixture mounts actual PromotionStudio/Codes/Analytics components and controlled campaign93000000-0000-4000-8000-000000000001. List loaded after dev compilation: GET/api/promotions?limit=25 returned200; overview deliberately503 promotion_unavailable. UI keeps summary values as em dashes and displays the unavailable explanation while preserving the loaded row. This is intentional fixture evidence, not a live service incident or business metric.
+
+Initial1440 and390 captures inspected, page overflow0; compact header/primary-action alignment and mobile five-card summary density observations sent to implementer before commit. Final retakes pending source completion. GET fixture list ignores query and returns a single row/nextCursor:null, so it cannot certify filtering/search results or multi-page navigation. Mutations always409/nonpersistent. Narrow console read before responses was empty, not a final all-route clean claim. Native captures remain inline only; authenticated QA and durable artifacts pending.
+
+Working-tree mobile390 follow-up after header amendment: shared header now names Discounts, no visible duplicate hero, exactly one visible New campaign action137.2×44px with#2B2B2B/#FFFDFC, and summary cards use two columns. Overview503 explanation and allfive metric labels remain; page overflow0. Inline screenshot inspected, final committed-source retakes still pending.
+
+Task4 final commit032626f844992cad94da0afcf96aaf2eb5bd23fb: focused promotion-ui76/76, experimentaltransform warning disclosed; taskreview pending. Attempted serial combined Panel typecheck was stopped by the preliminary capacity gate:4,198,387,712bytes available, below5,000,000,000. The npm/typecheck process never started; no typecheck failure or PASS is claimed. No cleanup. Later code/review remains independent, heavy combined validation waits for adequate capacity.
+
+Committed032626f8 list1024/1440 captures inspected, overflow0 and exactly one visible graphite New action137.2×44px; desktop in sharedheader, tablet in fallback. A remaining inherited Taslak badge renders gold (#8A5A00 on#FFF4D6) via shared panel-shell status-warning; sent to task reviewer for scoped neutralization assessment, not a global/shared-shell change. Complete Promotions responsive/contrast verdict remains pending.
