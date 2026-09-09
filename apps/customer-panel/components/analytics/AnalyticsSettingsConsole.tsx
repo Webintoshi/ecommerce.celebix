@@ -4,7 +4,7 @@ import {
   PanelPageHeader,
   PanelPageShell,
 } from "@/components/panel/PanelPageShell";
-import styles from "./commerce-analytics-workspace.module.css";
+import styles from "./analytics-settings-console.module.css";
 type Connection = Readonly<{
   provider: "umami";
   status: "pending" | "active" | "disabled" | "failed";

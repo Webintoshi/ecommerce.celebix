@@ -143,9 +143,9 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     catch { setError("DNS değeri kopyalanamadı."); }
   };
 
-  return <section className={styles.page} data-panel-layout="open-canvas">
-    <PanelTopbarBridge title="Alan Adları" />
-    <header className={styles.intro}><h1>Alan adları</h1><p>Mağazanız ve yönetim paneliniz için alan adı bağlantılarını tek yerden yönetin.</p></header>
+  return <section className={styles.page} data-panel-layout="open-canvas" aria-labelledby="domain-settings-title">
+    <PanelTopbarBridge title="Alan Adları" subtitle="Mağazanız ve yönetim paneliniz için alan adı bağlantılarını tek yerden yönetin." />
+    <h1 className={styles.srOnly} id="domain-settings-title">Alan Adları</h1>
     {canManage ? <form className={styles.add} onSubmit={create}>
       <div><label htmlFor="custom-domain">Mağaza alan adınızı bağlayın</label><p>Alan adını yazın; yönetim paneli adresiniz otomatik hazırlanır.</p></div>
       <div className={styles.addControls}><input id="custom-domain" name="hostname" value={hostname} onChange={(event) => setHostname(event.target.value)} placeholder="magazaniz.com" autoCapitalize="none" autoCorrect="off" spellCheck={false} required /><button type="submit" disabled={busy !== null || !preview}>Alan adını bağla</button></div>
@@ -153,13 +153,13 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     </form> : null}
     {error ? <p className={styles.error} role="alert">{error}<button type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
     <span className={styles.srOnly} aria-live="polite">{copied ? "DNS değeri kopyalandı" : ""}</span>
-    {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : <>
+    {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : !error ? <>
       <div className={styles.list}>{customDomains.map((domain) => {
         const adminHostname = previewDomainBundle(domain.hostname)?.admin;
         const admin = adminDomains.find((candidate) => !candidate.fallback && candidate.hostname === adminHostname);
         return <BundleCard key={domain.id} storefront={domain} admin={admin} canManage={canManage} busy={busy === domain.id || busy === admin?.id} copied={copied} onCopy={copy} onStoreAction={(action) => void mutateStorefront(domain, action)} onAdminRecheck={() => void recheckAdmin(admin)} />;
       })}{customDomains.length === 0 ? <p className={styles.empty}>Henüz özel mağaza alan adı bağlanmadı.</p> : null}</div>
       <details className={styles.fallbacks}><summary>Teknik kurtarma adresleri</summary><div>{platformDomains.map((domain) => <p key={domain.id}><span><small>Mağaza yedek adresi</small><a href={`https://${domain.hostname}`} target="_blank" rel="noreferrer">{domain.hostname}</a></span><b>Teknik yedek</b></p>)}{platformAdminDomains.map((domain) => <p key={domain.id}><span><small>Yönetim paneli yedek adresi</small><a href={`https://${domain.hostname}`} target="_blank" rel="noreferrer">{domain.hostname}</a></span><b>Teknik yedek</b></p>)}</div></details>
-    </>}
+    </> : null}
   </section>;
 }

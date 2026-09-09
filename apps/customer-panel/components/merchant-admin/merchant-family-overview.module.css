@@ -25,7 +25,10 @@
 }
 
 .settingsRows {
-  border-top: 1px solid #e8edf4;
+  overflow: hidden;
+  border: 1px solid #E7E2DD;
+  border-radius: .625rem;
+  background: #FFFDFC;
 }
 
 .settingsRow {
@@ -34,18 +37,22 @@
   grid-template-columns: 40px minmax(0, 1fr) 20px;
   align-items: center;
   gap: .75rem;
-  border-bottom: 1px solid #e8edf4;
-  color: #171717;
+  border-bottom: 1px solid #E7E2DD;
+  background: #FFFDFC;
+  padding: 0 .875rem;
+  color: #2B2B2B;
   text-decoration: none;
 }
 
 .settingsRow:hover {
-  background: #fafafa;
+  background: #F8F7F5;
 }
 
+.settingsRow:last-child { border-bottom: 0; }
+
 .settingsRow:focus-visible {
-  outline: 3px solid rgb(255 90 0 / 28%);
-  outline-offset: -3px;
+  outline: 2px solid #2B2B2B;
+  outline-offset: -2px;
 }
 
 .settingsIcon {
@@ -55,7 +62,7 @@
   place-items: center;
   border-radius: 10px;
   background: #fff3ec;
-  color: #ff5a00;
+  color: #FE6100;
 }
 
 .settingsRow strong {
@@ -75,24 +82,24 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid #e3e7ee;
+  border: 1px solid #E7E2DD;
   border-radius: .625rem;
-  background: #fff;
+  background: #FFFDFC;
   padding: 1.25rem;
-  color: #1f2937;
+  color: #2B2B2B;
   text-decoration: none;
   box-shadow: 0 1px 2px rgb(18 25 38 / 3%);
   transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
 .card:hover {
-  border-color: rgb(254 97 0 / 42%);
+  border-color: rgba(254, 97, 0, 0.16);
   box-shadow: 0 10px 26px rgb(18 25 38 / 8%);
   transform: translateY(-1px);
 }
 
 .card:focus-visible {
-  outline: 3px solid rgb(254 97 0 / 30%);
+  outline: 2px solid #2B2B2B;
   outline-offset: 2px;
 }
 
@@ -116,9 +123,9 @@
 .card small {
   width: fit-content;
   border-radius: 999px;
-  background: #fff1e8;
+  background: #F8F7F5;
   padding: .35rem .65rem;
-  color: #b54708;
+  color: #667085;
   font-size: .75rem;
   font-weight: 800;
 }

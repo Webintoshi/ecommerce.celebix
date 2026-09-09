@@ -145,11 +145,11 @@ export function PolicyConsole({
           const fresh = await storePolicyApi.get(selected.key);
           setItems((current) => Object.freeze(current.map((page) => page.key === fresh.key ? fresh : page)));
           setSelected(fresh);
-          setBody(fresh.body);
-          setSelectedStatus(fresh.status);
         } catch {}
       }
-      setError(caught instanceof Error ? caught.message : "Politika kaydedilemedi.");
+      setError(caught instanceof StorePolicyApiError && caught.code === "version_conflict"
+        ? "Politika sizden önce güncellendi. Taslağınız korundu; yeniden kaydedin."
+        : caught instanceof Error ? caught.message : "Politika kaydedilemedi.");
     } finally {
       setBusy(false);
     }

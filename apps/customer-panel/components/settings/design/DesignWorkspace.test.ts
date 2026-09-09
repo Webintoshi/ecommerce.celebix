@@ -62,7 +62,7 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
   assert.match(inspector, /TypographyEditor/);
   assert.match(inspector, /design[.]typography/);
   assert.match(css, /min-height:\s*48px/);
-  assert.match(css, /\.workspace\s*\{[^}]*background:\s*#eef1f5/s);
+  assert.match(css, /\.workspace\s*\{[^}]*background:\s*#F8F7F5/s);
   assert.match(css, /\.canvasStage/);
   assert.match(css, /\.settingsModal/);
   assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
