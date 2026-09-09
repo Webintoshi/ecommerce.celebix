@@ -40,6 +40,14 @@ const FOCUSABLE = [
   "select:not([disabled])",
 ].join(",");
 
+const CONFLICT_REFRESH_ERROR = "Politika sizden önce güncellendi, ancak güncel sürüm alınamadı. Taslağınız korundu; yeniden kaydetmeden önce güncel sürümü alın.";
+
+type PolicyDraft = Readonly<{
+  body: string;
+  status: StorePolicyStatus;
+  needsVersionRefresh: boolean;
+}>;
+
 export function PolicyConsole({
   canManage,
   initialPolicyKey,
@@ -57,26 +65,31 @@ export function PolicyConsole({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [needsVersionRefresh, setNeedsVersionRefresh] = useState(false);
+  const draftsRef = useRef(new Map<StorefrontPolicyKey, PolicyDraft>());
   const triggerRefs = useRef(new Map<StorefrontPolicyKey, HTMLButtonElement>());
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const editorRef = useRef<HTMLElement | null>(null);
 
   const open = useCallback((page: StorePolicyAdminPage) => {
+    const draft = draftsRef.current.get(page.key);
     setSelected(page);
-    setBody(page.body);
-    setSelectedStatus(page.status);
+    setBody(draft?.body ?? page.body);
+    setSelectedStatus(draft?.status ?? page.status);
+    setNeedsVersionRefresh(draft?.needsVersionRefresh ?? false);
     setMessage("");
-    setError("");
+    setError(draft?.needsVersionRefresh ? CONFLICT_REFRESH_ERROR : "");
     queueMicrotask(() => closeButtonRef.current?.focus());
   }, []);
 
   const close = useCallback(() => {
+    if (busy) return;
     const key = selected?.key;
     setSelected(null);
     setMessage("");
     setError("");
     if (key) queueMicrotask(() => triggerRefs.current.get(key)?.focus());
-  }, [selected]);
+  }, [busy, selected]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,35 +134,74 @@ export function PolicyConsole({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [close, selected]);
 
-  async function save() {
-    if (!selected || !canManage || busy) return;
+  function rememberDraft(nextBody: string, nextStatus: StorePolicyStatus, refreshRequired = needsVersionRefresh) {
+    if (!selected) return;
+    draftsRef.current.set(selected.key, Object.freeze({
+      body: nextBody,
+      status: nextStatus,
+      needsVersionRefresh: refreshRequired,
+    }));
+  }
+
+  async function refreshVersion() {
+    if (!selected || !needsVersionRefresh || busy) return;
+    const key = selected.key;
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      const saved = await storePolicyApi.save(selected.key, {
+      const fresh = await storePolicyApi.get(key);
+      setItems((current) => Object.freeze(current.map((page) => page.key === fresh.key ? fresh : page)));
+      setSelected(fresh);
+      setNeedsVersionRefresh(false);
+      draftsRef.current.set(key, Object.freeze({ body, status: selectedStatus, needsVersionRefresh: false }));
+      setMessage("Güncel sürüm alındı. Taslağınızı yeniden kaydedebilirsiniz.");
+    } catch {
+      setError(CONFLICT_REFRESH_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    if (!selected || !canManage || busy || needsVersionRefresh) return;
+    const key = selected.key;
+    const pendingDraft = Object.freeze({ body, status: selectedStatus });
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const saved = await storePolicyApi.save(key, {
         expectedVersion: selected.version,
-        body,
-        status: selectedStatus,
+        body: pendingDraft.body,
+        status: pendingDraft.status,
       });
       setItems((current) => Object.freeze(current.map((page) => page.key === saved.key ? saved : page)));
       setSelected(saved);
       setBody(saved.body);
       setSelectedStatus(saved.status);
+      setNeedsVersionRefresh(false);
+      draftsRef.current.delete(saved.key);
       setMessage(saved.status === "published"
         ? "Politika kaydedildi ve mağaza footer'ında yayınlandı."
         : "Politika taslak olarak güvenle kaydedildi.");
     } catch (caught) {
       if (caught instanceof StorePolicyApiError && caught.code === "version_conflict") {
+        draftsRef.current.set(key, Object.freeze({ ...pendingDraft, needsVersionRefresh: true }));
         try {
-          const fresh = await storePolicyApi.get(selected.key);
+          const fresh = await storePolicyApi.get(key);
           setItems((current) => Object.freeze(current.map((page) => page.key === fresh.key ? fresh : page)));
           setSelected(fresh);
-        } catch {}
+          setNeedsVersionRefresh(false);
+          draftsRef.current.set(key, Object.freeze({ ...pendingDraft, needsVersionRefresh: false }));
+          setError("Politika sizden önce güncellendi. Taslağınız korundu; yeniden kaydedin.");
+        } catch {
+          setNeedsVersionRefresh(true);
+          setError(CONFLICT_REFRESH_ERROR);
+        }
+      } else {
+        setError(caught instanceof Error ? caught.message : "Politika kaydedilemedi.");
       }
-      setError(caught instanceof StorePolicyApiError && caught.code === "version_conflict"
-        ? "Politika sizden önce güncellendi. Taslağınız korundu; yeniden kaydedin."
-        : caught instanceof Error ? caught.message : "Politika kaydedilemedi.");
     } finally {
       setBusy(false);
     }
@@ -231,7 +283,7 @@ export function PolicyConsole({
                 <h2 id="policy-editor-title">{selected.label}</h2>
                 <code>{selected.route}</code>
               </div>
-              <button ref={closeButtonRef} type="button" onClick={close} aria-label="Politika düzenleyicisini kapat">
+              <button ref={closeButtonRef} type="button" onClick={close} disabled={busy} aria-label="Politika düzenleyicisini kapat">
                 <X aria-hidden="true" />
               </button>
             </header>
@@ -245,7 +297,7 @@ export function PolicyConsole({
                     aria-checked={selectedStatus === "draft"}
                     className={selectedStatus === "draft" ? styles.statusActive : undefined}
                     disabled={!canManage || busy}
-                    onClick={() => { setSelectedStatus("draft"); setMessage(""); }}
+                    onClick={() => { setSelectedStatus("draft"); rememberDraft(body, "draft"); setMessage(""); }}
                   >
                     <span>Taslak</span><small>Yalnız panelde görünür</small>
                   </button>
@@ -255,7 +307,7 @@ export function PolicyConsole({
                     aria-checked={selectedStatus === "published"}
                     className={selectedStatus === "published" ? styles.statusActive : undefined}
                     disabled={!canManage || busy}
-                    onClick={() => { setSelectedStatus("published"); setMessage(""); }}
+                    onClick={() => { setSelectedStatus("published"); rememberDraft(body, "published"); setMessage(""); }}
                   >
                     <span>Yayında</span><small>Footer'a otomatik eklenir</small>
                   </button>
@@ -269,7 +321,7 @@ export function PolicyConsole({
                     rows={22}
                     value={body}
                     readOnly={!canManage}
-                    onChange={(event) => { setBody(event.target.value); setMessage(""); }}
+                    onChange={(event) => { setBody(event.target.value); rememberDraft(event.target.value, selectedStatus); setMessage(""); }}
                     placeholder="# Başlık\n\nPolitika metninizi buraya yazın."
                   />
                 </label>
@@ -279,17 +331,20 @@ export function PolicyConsole({
                 </div>
               </div>
               {message ? <p className={styles.success} role="status"><Check aria-hidden="true" /> {message}</p> : null}
-              {error ? <p className={styles.error} role="alert">{error}</p> : null}
+              {error ? <p className={styles.error} role="alert">
+                <span>{error}</span>
+                {needsVersionRefresh ? <button type="button" onClick={() => void refreshVersion()} disabled={busy}>Güncel sürümü al</button> : null}
+              </p> : null}
             </div>
             <footer className={styles.editorFooter}>
               <p>{selectedStatus === "published" ? "Kaydettiğinizde footer bağlantısı güncellenir." : "Taslaklar storefront'ta görünmez."}</p>
               <div>
-                <button type="button" className={styles.secondary} onClick={close}>Kapat</button>
+                <button type="button" className={styles.secondary} onClick={close} disabled={busy}>Kapat</button>
                 {canManage ? (
                   <button
                     type="button"
                     className={styles.primary}
-                    disabled={busy || (selectedStatus === "published" && !body.trim())}
+                    disabled={busy || needsVersionRefresh || (selectedStatus === "published" && !body.trim())}
                     onClick={() => void save()}
                   >
                     {busy ? "Kaydediliyor…" : "Değişiklikleri kaydet"}

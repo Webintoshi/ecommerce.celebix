@@ -307,12 +307,12 @@
 .methodType { display: inline-flex; color: #475467; font-size: 0.72rem; font-weight: 750; }
 .emergencyReason { display: block; max-width: 13rem; margin-top: 0.35rem; overflow-wrap: anywhere; color: #9d242c; font-size: 0.65rem; line-height: 1.4; }
 .methodActions { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; }
-.methodActions > .secondaryButton { min-height: 36px; padding-inline: 0.75rem; white-space: nowrap; }
+.methodActions > .secondaryButton { min-width: 44px; min-height: 44px; padding-inline: 0.75rem; white-space: nowrap; }
 .methodActionMenu { position: relative; }
 .methodActionMenu > summary {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid #E7E2DD;
   border-radius: 0.55rem;
@@ -342,7 +342,8 @@
 }
 .methodActionMenu button {
   display: flex;
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   align-items: center;
   gap: 0.5rem;
   border: 0;
@@ -357,6 +358,7 @@
   text-align: left;
 }
 .methodActionMenu button:hover:not(:disabled) { background: #F8F7F5; }
+.methodActionMenu button:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
 .methodActionMenu button:disabled { cursor: not-allowed; opacity: 0.45; }
 .methodActionMenu button svg { width: 0.95rem; height: 0.95rem; }
 .methodActionMenu .destructiveAction { color: #a3262d; }
@@ -408,7 +410,8 @@
 
 .addFlowTabs button {
   display: inline-flex;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   align-items: center;
   gap: 0.45rem;
   border: 0;

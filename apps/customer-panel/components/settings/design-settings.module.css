@@ -193,18 +193,18 @@
 .homepageLibrary > div > button b { color: #1d2939; font-size: 12px; }
 .homepageLibrary > div > button small { color: #667085; font-size: 9px; line-height: 1.35; }
 .homepageInspectorBackdrop { position: fixed; z-index: 69; inset: 0; border: 0; background: rgb(15 23 42 / 46%); cursor: default; }
-.homepageSectionInspector { position: fixed; z-index: 70; top: 50%; left: 50%; display: grid; width: min(650px, calc(100vw - 64px)); max-height: min(760px, calc(100dvh - 64px)); overflow: hidden; grid-template-rows: auto minmax(0, 1fr) auto; border: 1px solid #dde3eb; border-radius: 20px; outline: none; background: #fff; box-shadow: 0 34px 100px rgb(16 24 40 / 32%); transform: translate(-50%, -50%); }
-.homepageSectionInspector > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e8edf4; padding: 20px 22px; }
+.homepageSectionInspector { position: fixed; z-index: 70; top: 50%; left: 50%; display: grid; width: min(650px, calc(100vw - 64px)); max-height: min(760px, calc(100dvh - 64px)); overflow: hidden; grid-template-rows: auto minmax(0, 1fr) auto; border: 1px solid #E7E2DD; border-radius: 20px; outline: none; background: #FFFDFC; box-shadow: 0 34px 100px rgb(16 24 40 / 32%); transform: translate(-50%, -50%); }
+.homepageSectionInspector > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #E7E2DD; padding: 20px 22px; }
 .homepageSectionInspector > header > div { display: grid; gap: 3px; }
-.homepageSectionInspector > header > button { width: 48px; height: 48px; border: 1px solid #e1e6ee; border-radius: 50%; background: #fff; cursor: pointer; font-size: 24px; }
+.homepageSectionInspector > header > button { width: 48px; height: 48px; border: 1px solid #E7E2DD; border-radius: 50%; background: #FFFDFC; color: #2B2B2B; cursor: pointer; font-size: 24px; }
 .homepageSectionInspector > footer { border-top: 1px solid #E7E2DD; padding: 12px 22px; text-align: right; }
-.homepageSectionInspector > footer button { min-width: 110px; min-height: 48px; border: 0; border-radius: 9px; background: #171717; color: #fff; cursor: pointer; font-weight: 800; }
+.homepageSectionInspector > footer button { min-width: 110px; min-height: 48px; border: 0; border-radius: 9px; background: #2B2B2B; color: #FFFDFC; cursor: pointer; font-weight: 800; }
 .homepageInspectorFields { display: grid; gap: 16px; overflow-y: auto; padding: 22px; }
-.homepageInspectorFields > label, .homepageInspectorFields fieldset > label { display: grid; gap: 6px; color: #344054; font-size: 11px; font-weight: 750; }
-.homepageInspectorFields input:not([type="radio"]):not([type="checkbox"]), .homepageInspectorFields select, .homepageInspectorFields textarea { width: 100%; min-height: 48px; border: 1px solid #d8dee8; border-radius: 10px; background: #fff; padding: 0 12px; color: #171717; }
+.homepageInspectorFields > label, .homepageInspectorFields fieldset > label { display: grid; gap: 6px; color: #2B2B2B; font-size: 11px; font-weight: 750; }
+.homepageInspectorFields input:not([type="radio"]):not([type="checkbox"]), .homepageInspectorFields select, .homepageInspectorFields textarea { width: 100%; min-height: 48px; border: 1px solid #E7E2DD; border-radius: 10px; background: #FFFDFC; padding: 0 12px; color: #2B2B2B; }
 .homepageInspectorFields textarea { min-height: 110px; padding-block: 10px; resize: vertical; }
-.homepageInspectorFields fieldset { display: grid; gap: 10px; border: 1px solid #e1e6ee; border-radius: 13px; padding: 14px; }
-.homepageInspectorFields legend { padding-inline: 6px; color: #344054; font-size: 11px; font-weight: 800; }
+.homepageInspectorFields fieldset { display: grid; gap: 10px; border: 1px solid #E7E2DD; border-radius: 13px; padding: 14px; }
+.homepageInspectorFields legend { padding-inline: 6px; color: #2B2B2B; font-size: 11px; font-weight: 800; }
 .homepageChoiceGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .homepageChoiceGrid label { display: block; cursor: pointer; }
 .homepageChoiceGrid input { position: absolute; opacity: 0; }
@@ -228,9 +228,9 @@
   max-height: min(780px, calc(100dvh - 48px));
   overflow: hidden;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  border: 1px solid #e1e6ee;
+  border: 1px solid #E7E2DD;
   border-radius: 22px;
-  background: #fff;
+  background: #FFFDFC;
   box-shadow: 0 30px 90px rgb(16 24 40 / 28%);
   transform: translate(-50%, -50%);
   animation: modal-pop-in .2s ease both;
@@ -238,14 +238,14 @@
 .modalHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid #E7E2DD; background: #FFFDFC; padding: 24px 28px; }
 .modalHeader > div { display: grid; gap: 4px; }
 .modalHeader span { color: #667085; font-size: 10px; font-weight: 850; letter-spacing: .08em; }
-.modalHeader h2 { margin: 0; color: #1d2939; font-size: 24px; letter-spacing: -.03em; }
+.modalHeader h2 { margin: 0; color: #2B2B2B; font-size: 24px; letter-spacing: -.03em; }
 .modalHeader p { margin: 0; color: #667085; font-size: 12px; line-height: 1.45; }
-.modalHeader > button { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; border: 1px solid #dde4ed; border-radius: 50%; background: #fff; color: #344054; cursor: pointer; }
+.modalHeader > button { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; border: 1px solid #E7E2DD; border-radius: 50%; background: #FFFDFC; color: #2B2B2B; cursor: pointer; }
 .modalHeader > button:focus-visible, .modalFooter button:focus-visible, .surfaceMenu summary:focus-visible, .surfaceMenu button:focus-visible, .areaSwitch button:focus-visible, .stepRail button:focus-visible, .uploadButton:focus-visible, .addBannerButton:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
 .modalBody { min-height: 0; overflow-y: auto; padding: 26px 28px; }
 .modalFooter { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 18px; border-top: 1px solid #E7E2DD; background: #F8F7F5; padding: 13px 28px; }
 .modalFooter p { margin: 0; color: #667085; font-size: 12px; }
-.modalFooter button { min-width: 120px; min-height: 48px; border: 0; border-radius: 10px; background: #171717; padding: 0 22px; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; }
+.modalFooter button { min-width: 120px; min-height: 48px; border: 0; border-radius: 10px; background: #2B2B2B; padding: 0 22px; color: #FFFDFC; cursor: pointer; font-size: 13px; font-weight: 800; }
 @keyframes modal-pop-in { from { opacity: 0; transform: translate(-50%, -48%) scale(.98); } }
 @keyframes modal-backdrop-in { from { opacity: 0; } }
 @media (max-width: 1280px) { .workspace { grid-template-columns: 190px 320px minmax(0, 1fr); } .preview { padding: 18px; } }

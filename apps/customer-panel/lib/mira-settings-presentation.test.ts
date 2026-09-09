@@ -26,6 +26,15 @@ function declarations(css: string, selector: string) {
   return result;
 }
 
+function rootDeclarations(css: string, selector: string) {
+  const result: Record<string, string> = {};
+  postcss.parse(css).walkRules((rule) => {
+    if (rule.parent?.type !== "root" || !rule.selectors.includes(selector)) return;
+    rule.walkDecls((declaration) => { result[declaration.prop] = declaration.value; });
+  });
+  return result;
+}
+
 function policy(body: string, status: "draft" | "published", version: number) {
   const definition = FIXED_STOREFRONT_POLICIES[0];
   return Object.freeze({
@@ -121,7 +130,10 @@ function textOf(node: ReactNode): string {
   return React.Children.toArray(node.props.children as ReactNode).map(textOf).join("");
 }
 
-async function compilePolicyConsole(react: typeof React) {
+async function compilePolicyConsole(
+  react: typeof React,
+  scenario: Readonly<{ getFailures?: number; getGate?: Promise<void> }> = {},
+) {
   const source = await readFile(
     new URL("components/content/PolicyConsole.tsx", CUSTOMER_PANEL),
     "utf8",
@@ -137,9 +149,15 @@ async function compilePolicyConsole(react: typeof React) {
   const initial = policy("Sunucudaki ilk metin", "draft", 3);
   const refreshed = policy("Başka oturumdaki metin", "draft", 4);
   const saves: Array<Readonly<{ expectedVersion: number; body: string; status: string }>> = [];
+  let getCalls = 0;
   const api = Object.freeze({
     async list() { return Object.freeze([initial]); },
-    async get() { return refreshed; },
+    async get() {
+      getCalls += 1;
+      if (scenario.getGate) await scenario.getGate;
+      if (getCalls <= (scenario.getFailures ?? 0)) throw new Error("controlled_policy_refresh_failure");
+      return refreshed;
+    },
     async save(_key: string, input: Readonly<{ expectedVersion: number; body: string; status: string }>) {
       saves.push(Object.freeze({ ...input }));
       throw new StorePolicyApiError("version_conflict", 409);
@@ -179,6 +197,7 @@ async function compilePolicyConsole(react: typeof React) {
       initialPolicyKey?: typeof FIXED_STOREFRONT_POLICIES[number]["key"];
     }>) => ReactNode,
     saves,
+    getCalls: () => getCalls,
   };
 }
 
@@ -208,7 +227,7 @@ async function settingsPolicyRoute(
   };
 }
 
-test("policy conflict refreshes version authority without replacing the merchant draft", async () => {
+test("policy conflict preserves the merchant draft and version authority across close and reopen", async () => {
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;
   Object.defineProperty(globalThis, "document", {
@@ -244,11 +263,138 @@ test("policy conflict refreshes version authority without replacing the merchant
     assert.equal(preservedTextarea.props.value, "Merchant tarafından korunacak taslak");
     assert.equal(preservedPublished.props["aria-checked"], true);
     assert.match(textOf(view), /sizden önce güncellendi/u);
+    const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
+    (close.props.onClick as () => void)();
+    view = await hooks.flush(render);
+    const reopen = findElement(view, (element) => element.type === "button" && textOf(element).includes("Düzenle"));
+    (reopen.props.onClick as () => void)();
+    view = await hooks.flush(render);
+    const reopenedTextarea = findElement(view, (element) => element.type === "textarea");
+    const reopenedPublished = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
+    assert.equal(reopenedTextarea.props.value, "Merchant tarafından korunacak taslak");
+    assert.equal(reopenedPublished.props["aria-checked"], true);
     const retry = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
     (retry.props.onClick as () => void)();
     await hooks.flush(render);
     assert.equal(saves[1]?.expectedVersion, 4);
   } finally {
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
+});
+
+test("failed conflict refresh blocks resave until an explicit read retry succeeds", async () => {
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { activeElement: null },
+  });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { addEventListener() {}, removeEventListener() {} },
+  });
+  try {
+    const hooks = createHookRuntime();
+    const { Console, saves, getCalls } = await compilePolicyConsole(hooks.runtime, { getFailures: 1 });
+    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
+    let view = await hooks.flush(render);
+    const textarea = findElement(view, (element) => element.type === "textarea");
+    const published = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
+    (textarea.props.onChange as (event: { target: { value: string } }) => void)({
+      target: { value: "Yenileme hatasında korunacak taslak" },
+    });
+    (published.props.onClick as () => void)();
+    view = await hooks.flush(render);
+    const firstSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
+    (firstSave.props.onClick as () => void)();
+    view = await hooks.flush(render);
+
+    assert.equal(getCalls(), 1);
+    assert.match(textOf(view), /güncel sürüm alınamadı/u);
+    const blockedSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
+    assert.equal(blockedSave.props.disabled, true);
+    const retryRead = findElement(view, (element) => element.type === "button" && textOf(element) === "Güncel sürümü al");
+    (retryRead.props.onClick as () => void)();
+    view = await hooks.flush(render);
+
+    assert.equal(getCalls(), 2);
+    const preservedTextarea = findElement(view, (element) => element.type === "textarea");
+    const preservedPublished = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
+    assert.equal(preservedTextarea.props.value, "Yenileme hatasında korunacak taslak");
+    assert.equal(preservedPublished.props["aria-checked"], true);
+    const enabledSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
+    assert.equal(enabledSave.props.disabled, false);
+    (enabledSave.props.onClick as () => void)();
+    await hooks.flush(render);
+    assert.deepEqual(saves[1], {
+      expectedVersion: 4,
+      body: "Yenileme hatasında korunacak taslak",
+      status: "published",
+    });
+  } finally {
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
+});
+
+test("pending conflict refresh keeps the editor open until the canonical read settles", async () => {
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  let keydownListener: ((event: KeyboardEvent) => void) | undefined;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { activeElement: null },
+  });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      addEventListener(type: string, listener: (event: KeyboardEvent) => void) {
+        if (type === "keydown") keydownListener = listener;
+      },
+      removeEventListener(type: string, listener: (event: KeyboardEvent) => void) {
+        if (type === "keydown" && keydownListener === listener) keydownListener = undefined;
+      },
+    },
+  });
+  let releaseRead = () => {};
+  const getGate = new Promise<void>((resolve) => { releaseRead = resolve; });
+  try {
+    const hooks = createHookRuntime();
+    const { Console } = await compilePolicyConsole(hooks.runtime, { getGate });
+    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
+    let view = await hooks.flush(render);
+    const save = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
+    (save.props.onClick as () => void)();
+    view = await hooks.flush(render);
+
+    const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
+    assert.equal(close.props.disabled, true);
+    (close.props.onClick as () => void)();
+    view = await hooks.flush(render);
+    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
+
+    const backdrop = findElement(view, (element) => element.props.role === "presentation");
+    const backdropTarget = {};
+    (backdrop.props.onMouseDown as (event: { target: object; currentTarget: object }) => void)({
+      target: backdropTarget,
+      currentTarget: backdropTarget,
+    });
+    view = await hooks.flush(render);
+    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
+
+    let escapePrevented = false;
+    assert.ok(keydownListener);
+    keydownListener({
+      key: "Escape",
+      preventDefault() { escapePrevented = true; },
+    } as KeyboardEvent);
+    view = await hooks.flush(render);
+    assert.equal(escapePrevented, true);
+    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
+  } finally {
+    releaseRead();
+    await new Promise<void>((resolve) => setImmediate(resolve));
     Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
     Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
   }
@@ -289,6 +435,50 @@ test("settings and remaining-route controls use the Mira palette without decorat
   assert.doesNotMatch(ai, /#4776e6|#8e54e9|#ef5da8/i);
   assert.equal(declarations(merchant, ".form input:focus-visible").outline, "2px solid #2B2B2B");
   assert.equal(declarations(payment, ".catalogFilters input")["min-height"], "44px");
+});
+
+test("secondary settings controls expose 44px targets, visible focus, and warm editor chrome", async () => {
+  const [domains, shipping, payment, ai, provider, design] = await Promise.all([
+    panelSource("components/settings/domains/store-domain-settings.module.css"),
+    panelSource("components/shipping/shipping-settings.module.css"),
+    panelSource("components/settings/payment/payment-settings.module.css"),
+    panelSource("components/toshi-settings/artificial-intelligence-settings.module.css"),
+    panelSource("components/merchant-admin/provider-connection-panel.module.css"),
+    panelSource("components/settings/design-settings.module.css"),
+  ]);
+
+  for (const [css, selector, properties] of [
+    [domains, ".dnsRow button", ["width", "height"]],
+    [shipping, ".actions .refresh", ["width"]],
+    [payment, ".methodActions > .secondaryButton", ["min-width", "min-height"]],
+    [payment, ".methodActionMenu > summary", ["width", "height"]],
+    [payment, ".methodActionMenu button", ["min-width", "min-height"]],
+    [payment, ".addFlowTabs button", ["min-width", "min-height"]],
+    [ai, ".connectionControls select", ["height"]],
+    [ai, ".secondaryAction", ["min-width", "min-height"]],
+    [ai, ".removeAction", ["width", "height"]],
+  ] as const) {
+    const control = declarations(css, selector);
+    for (const property of properties) {
+      assert.ok(Number.parseFloat(control[property] ?? "0") >= 44, `${selector} ${property}`);
+    }
+  }
+  assert.ok(Number.parseFloat(declarations(shipping, ".actions button")["min-height"] ?? "0") >= 44);
+  assert.equal(declarations(payment, ".methodActionMenu button:focus-visible").outline, "2px solid #2B2B2B");
+  assert.equal(declarations(ai, ".secondaryAction:focus-visible").outline, "2px solid #2B2B2B");
+
+  assert.deepEqual(declarations(provider, ".message"), {
+    padding: "12px 14px",
+    "border-radius": "8px",
+    border: "1px solid #E7E2DD",
+    background: "#F8F7F5",
+    color: "#2B2B2B",
+  });
+  assert.equal(rootDeclarations(design, ".homepageSectionInspector").border, "1px solid #E7E2DD");
+  assert.equal(rootDeclarations(design, ".homepageSectionInspector").background, "#FFFDFC");
+  assert.equal(declarations(design, ".homepageInspectorFields input:not([type=\"radio\"]):not([type=\"checkbox\"])").background, "#FFFDFC");
+  assert.equal(rootDeclarations(design, ".settingsModal").border, "1px solid #E7E2DD");
+  assert.equal(rootDeclarations(design, ".settingsModal").background, "#FFFDFC");
 });
 
 test("settings forms collapse at tablet width and analytics settings own isolated styles", async () => {

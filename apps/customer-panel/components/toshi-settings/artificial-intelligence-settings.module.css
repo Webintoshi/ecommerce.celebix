@@ -215,7 +215,7 @@
 
 .connectionControls select {
   width: 100%;
-  height: 38px;
+  height: 44px;
   border: 0;
   border-bottom: 1px solid #E7E2DD;
   outline: 0;
@@ -235,7 +235,8 @@
 
 .defaultStatus,
 .secondaryAction {
-  height: 34px;
+  min-width: 44px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -254,8 +255,8 @@
 }
 
 .removeAction {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

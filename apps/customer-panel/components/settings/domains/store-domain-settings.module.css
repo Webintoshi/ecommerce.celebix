@@ -45,12 +45,12 @@
 .dnsDetails, .fallbacks { margin-top: .8rem; border-top: 1px solid #edf0f4; padding-top: .7rem; }
 .dnsDetails summary, .fallbacks summary { width: fit-content; color: #475467; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .dnsList { display: grid; min-width: 0; margin-top: .55rem; }
-.dnsRow { display: grid; min-width: 0; grid-template-columns: 62px minmax(100px, .7fr) minmax(150px, 1.3fr) 34px; align-items: center; gap: .65rem; border-top: 1px solid #F8F7F5; padding: .65rem 0; }
+.dnsRow { display: grid; min-width: 0; grid-template-columns: 62px minmax(100px, .7fr) minmax(150px, 1.3fr) 44px; align-items: center; gap: .65rem; border-top: 1px solid #F8F7F5; padding: .65rem 0; }
 .dnsRow strong { color: #667085; font-size: .625rem; letter-spacing: .05em; }
 .dnsRow span { display: grid; min-width: 0; gap: .12rem; }
 .dnsRow small { color: #98a2b3; font-size: .575rem; font-weight: 700; text-transform: uppercase; }
 .dnsRow code { overflow: hidden; color: #2B2B2B; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.dnsRow button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 7px; background: #F8F7F5; color: #475467; cursor: pointer; }
+.dnsRow button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 7px; background: #F8F7F5; color: #475467; cursor: pointer; }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
 .actions button { background: #F8F7F5; color: #2B2B2B; padding: .5rem .7rem; }
 .actions .remove { background: transparent; color: #b42318; }
@@ -66,7 +66,7 @@
   .page { padding: 1rem; overflow-x: hidden; }
   .addControls, .preview, .endpoints { grid-template-columns: 1fr; }
   .add button { width: 100%; }
-  .dnsRow { grid-template-columns: 52px minmax(0, 1fr) 32px; }
+  .dnsRow { grid-template-columns: 52px minmax(0, 1fr) 44px; }
   .dnsRow > span:last-of-type { grid-column: 2 / 3; }
   .dnsRow button { grid-column: 3; grid-row: 1 / 3; }
   .fallbacks p { align-items: flex-start; flex-direction: column; }

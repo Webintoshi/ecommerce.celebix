@@ -16,7 +16,7 @@
 .actions button, .save, .tokenControl button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: .38rem; border: 0; border-radius: 8px; padding: .55rem .78rem; font: inherit; font-size: .78rem; font-weight: 750; cursor: pointer; }
 .actions button:disabled, .save:disabled, .tokenControl button:disabled { cursor: not-allowed; opacity: .45; }
 .actions button:focus-visible, .save:focus-visible, .tokenControl input:focus-visible, .tokenControl button:focus-visible, .resourceForm select:focus-visible, .toggle input:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
-.actions .refresh { width: 38px; padding: 0; background: #F8F7F5; color: #475467; }
+.actions .refresh { width: 44px; padding: 0; background: #F8F7F5; color: #475467; }
 .actions .secondary { background: #2B2B2B; color: #FFFDFC; }
 .actions .remove { background: transparent; color: #b42318; }
 .tokenForm { display: grid; width: min(100%, 760px); gap: .55rem; padding: 1.5rem 0; border-bottom: 1px solid #E7E2DD; }

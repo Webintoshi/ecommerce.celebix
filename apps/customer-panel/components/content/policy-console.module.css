@@ -24,7 +24,7 @@
 .edit, .refresh, .secondary { border: 1px solid #E7E2DD; background: #FFFDFC; color: #2B2B2B; padding: 0 .9rem; }
 .edit:hover, .refresh:hover, .secondary:hover { border-color: #b8c1ce; background: #F8F7F5; }
 .primary { border: 1px solid #2B2B2B; background: #2B2B2B; color: #FFFDFC; padding: 0 1.2rem; }
-.edit:disabled, .refresh:disabled, .primary:disabled, .statusOptions button:disabled { cursor: not-allowed; opacity: .52; }
+.edit:disabled, .refresh:disabled, .secondary:disabled, .primary:disabled, .statusOptions button:disabled, .editorHeader button:disabled, .error button:disabled { cursor: not-allowed; opacity: .52; }
 .state { padding: 2rem; text-align: center; color: #667085; }
 .backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; overflow: auto; background: rgb(15 23 42 / 52%); padding: 1rem; }
 .editor { display: flex; width: min(74rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); flex-direction: column; overflow: hidden; border-radius: 1.15rem; background: #FFFDFC; box-shadow: 0 30px 90px rgb(15 23 42 / 28%); }
@@ -54,7 +54,9 @@
 .editorFooter > p { margin: 0; color: #667085; font-size: .72rem; }
 .editorFooter > div { display: flex; gap: .6rem; }
 .success { display: flex; align-items: center; gap: .45rem; margin: 0; border: 1px solid #b7e4cc; border-radius: .75rem; background: #effaf4; padding: .7rem .8rem; color: #147443; }
-.error { margin: .75rem 0; border: 1px solid #fecaca; border-radius: .8rem; background: #fff1f2; padding: .8rem; color: #b42318; }
+.error { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; border: 1px solid #fecaca; border-radius: .8rem; background: #fff1f2; padding: .8rem; color: #b42318; }
+.error button { min-height: 44px; flex: 0 0 auto; border: 1px solid currentColor; border-radius: .65rem; background: #FFFDFC; padding: 0 .8rem; color: inherit; cursor: pointer; font: inherit; font-weight: 800; }
+.error button:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
 @media (max-width: 1024px) {
   .workspaceHeader { align-items: stretch; flex-direction: column; }
   .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -74,6 +76,7 @@
   .updated { grid-column: 2; white-space: normal; }
   .edit { grid-column: 1 / -1; grid-row: auto; width: 100%; }
   .statusOptions { grid-template-columns: 1fr; }
+  .error { align-items: stretch; flex-direction: column; }
   .editorFooter { align-items: stretch; flex-direction: column; }
   .editorFooter > div { display: grid; grid-template-columns: 1fr 1.35fr; }
   .editorFooter button { width: 100%; }
