@@ -50,15 +50,22 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     [error, setError] = useState(""),
     [loadingMore, setLoadingMore] = useState(false),
     [appendError, setAppendError] = useState("");
-  const appendInFlight = useRef(false);
+  const queryGeneration = useRef(0);
+  const appendInFlight = useRef<number | null>(null);
   const load = useCallback(
     async (append = false) => {
+      let generation: number;
       if (append) {
-        if (appendInFlight.current || !cursor) return;
-        appendInFlight.current = true;
+        generation = queryGeneration.current;
+        if (appendInFlight.current === generation || !cursor) return;
+        appendInFlight.current = generation;
         setLoadingMore(true);
         setAppendError("");
       } else {
+        generation = queryGeneration.current + 1;
+        queryGeneration.current = generation;
+        appendInFlight.current = null;
+        setLoadingMore(false);
         setState("loading");
         setError("");
         setAppendError("");
@@ -73,6 +80,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             ...(search ? { search } : {}),
           }),
         ]);
+        if (queryGeneration.current !== generation) return;
         setSummary(s);
         setItems((old) =>
           append ? Object.freeze([...old, ...l.items]) : l.items,
@@ -80,14 +88,19 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
         setCursor(l.nextCursor);
         if (!append) setState("loaded");
       } catch (e) {
+        if (queryGeneration.current !== generation) return;
         if (append) setAppendError(message(e));
         else {
           setError(message(e));
           setState("error");
         }
       } finally {
-        if (append) {
-          appendInFlight.current = false;
+        if (
+          append &&
+          queryGeneration.current === generation &&
+          appendInFlight.current === generation
+        ) {
+          appendInFlight.current = null;
           setLoadingMore(false);
         }
       }

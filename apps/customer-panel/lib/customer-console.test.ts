@@ -207,6 +207,11 @@ test("customer console exposes truthful loaded empty error export and responsive
     "customer detail must collapse before the 1024 px rail squeezes primary content",
   );
   assert.match(
+    compactCustomerStyles,
+    /[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,
+    "tablet customer save bars must clear the fixed shell navigation",
+  );
+  assert.match(
     styles,
     /@media\s*\(max-width:\s*760px\)[\s\S]*[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,
     "mobile customer save bars must clear the fixed shell navigation",

@@ -84,3 +84,24 @@ Final covering evidence:
 - Command: `git diff --check -- components/customers lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts lib/customer-ui/taxonomy-route-behavior.test.ts`
 - Result: clean.
 - Coordinated browser check: customer detail at 1024 × 900 rendered as one readable column with page-level horizontal overflow `0`. This is focused fix evidence, not a new full-matrix claim.
+
+## Review fix round 2
+
+Changes:
+
+- Associated every list request with a query generation. Starting a replacement search or status query now invalidates the prior generation, releases its append guard for the new cursor, and prevents stale success, failure, or `finally` work from changing the replacement list, cursor, loading state, or inline error.
+- Extended the scoped create/edit sticky action clearance to the shell's dock-active 1024 px breakpoint. The desktop offset remains unchanged, while the existing 760 px and 480 px layouts continue to inherit the 76 px dock clearance.
+
+RED evidence:
+
+1. Command: `node --experimental-transform-types --test lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts`
+2. Result: 7 passed, 2 failed. The route regression failed at `replacement-query-can-append-while-stale-request-remains-pending` (`0 !== 1`), showing that the old append flag blocked the replacement cursor. The presentation regression failed because the 1024-only media block had no 76 px save-bar clearance.
+
+GREEN evidence:
+
+- Command: `node --experimental-transform-types --test lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts`
+- Result: 9 passed, 0 failed; duration 9.112 s.
+- Final covering command: `node --experimental-transform-types --test lib/customer-console.test.ts lib/customer-ui/route-behavior.test.ts lib/customer-ui/taxonomy-route-behavior.test.ts`
+- Result: 10 passed, 0 failed; duration 6.305 s.
+- The deferred route coverage verifies an obsolete append success after search replacement, an obsolete append failure after status replacement, a current append still marked busy after stale cleanup, duplicate-current-append prevention, and preservation of the replacement cursor.
+- No backend, API, client-contract, auth, global CSS, or non-customer application files changed in this round.

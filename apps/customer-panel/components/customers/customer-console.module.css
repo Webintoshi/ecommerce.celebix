@@ -1497,6 +1497,8 @@
 }
 
 @media (max-width: 1024px) {
+  .createCustomerActions,
+  .actions { bottom: 76px; }
   .customerMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customerToolbar { grid-template-columns: minmax(14rem, 1fr) minmax(10rem, auto); }
   .customerExport { grid-column: 1 / -1; justify-self: end; }
@@ -1511,8 +1513,6 @@
 }
 
 @media (max-width: 760px) {
-  .createCustomerActions,
-  .actions { bottom: 76px; }
   .customerWorkspace,
   .contactGrid,
   .createCustomerGrid,
