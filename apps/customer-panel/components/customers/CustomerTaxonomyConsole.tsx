@@ -5,7 +5,7 @@ import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShe
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
 
-const DEFAULT_TAG_COLOR = "#7c3aed";
+const DEFAULT_TAG_COLOR = "#667085";
 
 export function CustomerTaxonomyConsole({
   kind,
@@ -65,10 +65,15 @@ export function CustomerTaxonomyConsole({
             name,
             ...(secondary ? { description: secondary } : {}),
           });
-      form.reset();
-      if (kind === "tags") {
-        setTagName("");
-        setTagColor(DEFAULT_TAG_COLOR);
+      const current = new FormData(form),
+        currentName = String(current.get("name") ?? "").trim(),
+        currentSecondary = String(current.get("secondary") ?? "").trim();
+      if (currentName === name && currentSecondary === secondary) {
+        form.reset();
+        if (kind === "tags") {
+          setTagName("");
+          setTagColor(DEFAULT_TAG_COLOR);
+        }
       }
       await load();
     } catch (x) {
@@ -163,7 +168,6 @@ export function CustomerTaxonomyConsole({
                   <span>Önizleme</span>
                   <span
                     className={styles.tagPreviewChip}
-                    style={{ backgroundColor: `${tagColor}14`, borderColor: `${tagColor}3d` }}
                   >
                     <i style={{ backgroundColor: tagColor }} aria-hidden="true" />
                     {tagName.trim() || "Etiket önizleme"}
@@ -227,7 +231,7 @@ export function CustomerTaxonomyConsole({
                 {items.map((item) => (
                   <article className={styles.tagRow} key={item.id}>
                     {"color" in item ? (
-                      <span className={styles.tagListChip} style={{ backgroundColor: `${item.color}14`, borderColor: `${item.color}3d` }}>
+                      <span className={styles.tagListChip}>
                         <i style={{ backgroundColor: item.color }} aria-hidden="true" />{item.name}
                       </span>
                     ) : null}

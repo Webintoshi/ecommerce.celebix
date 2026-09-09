@@ -274,6 +274,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
   const paths: string[] = [];
   const repositoryCalls: string[] = [];
   const saveInputs: SaveCustomerInput[] = [];
+  let noteGate: Promise<void> | undefined;
   const mutation = (next: contracts.CustomerDetail, wasReplayed = false): contracts.CustomerMutationResult => ({
     id: next.id,
     version: next.version,
@@ -333,6 +334,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     async addNote(input) {
       repositoryCalls.push("note");
       failMutation();
+      await noteGate;
       stored = { ...stored, notes: [...stored.notes, { id: NOTE_ID, text: input.text, createdAt: NOW }], version: stored.version + 1, updatedAt: NOW };
       return mutation(stored);
     },
@@ -437,6 +439,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     const listTree = await ListPage();
     const listElement = findElement(listTree, (element) => element.type === ListConsole);
     assert.equal(listElement.props.canManage, true, "owner-list-server-manage-authority");
+    assert.equal(listElement.props.embedded, true, "customer-list-is-embedded-in-workspace");
     const renderList = () => ListConsole(listElement.props);
     let listView = await listHooks.flush(renderList);
     assert.match(textOf(listView), /Ada Lovelace/u);
@@ -444,7 +447,11 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.ok(paths.some((path) => path.startsWith("/api/customers?pageSize=25")));
     const hrefs: string[] = [];
     visitElements(listView, (element) => { if (typeof element.props.href === "string") hrefs.push(element.props.href); });
-    assert.ok(hrefs.includes("/customers/new"), "list-create-destination");
+    assert.equal(
+      hrefs.includes("/customers/new"),
+      false,
+      "embedded-list-defers-create-action-to-workspace-header",
+    );
     assert.ok(hrefs.includes(`/customers/${CUSTOMER_ID}`), "list-exact-detail-destination");
     const exportButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("CSV Dışa Aktar"));
     (exportButton.props.onClick as () => void)();
@@ -452,6 +459,12 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     listView = await listHooks.flush(renderList);
     assert.ok(paths.includes("/api/customers/export"));
     assert.deepEqual(downloads, ["musteriler-2026-07-22.csv"]);
+
+    failure = "unavailable";
+    (exportButton.props.onClick as () => void)();
+    for (let pass = 0; pass < 3; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
+    listView = await listHooks.flush(renderList);
+    assert.match(textOf(listView), /Müşteri hizmeti şu anda kullanılamıyor/u, "export-failure-is-visible-without-discarding-loaded-list");
 
     role = "analyst";
     paths.length = 0;
@@ -650,13 +663,27 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.equal(repositoryCalls.includes("update"), false, "detail-does-not-own-profile-update");
 
     const noteForm = findElement(detailView, (element) => element.type === "form" && textOf(element).includes("Yeni dahili not"));
-    await (noteForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
+    let releaseNote: (() => void) | undefined;
+    noteGate = new Promise<void>((resolve) => { releaseNote = resolve; });
+    let noteResetCount = 0;
+    const noteValues: Record<string, string> = { text: "Kalıcı müşteri notu" };
+    const pendingNote = (noteForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; elements: { namedItem(name: string): { value: string } | null }; reset(): void } }) => Promise<void>)({
       preventDefault() {},
-      currentTarget: { values: { text: "Kalıcı müşteri notu" }, reset() {} },
+      currentTarget: {
+        values: noteValues,
+        elements: { namedItem: (name) => name === "text" ? { value: noteValues.text ?? "" } : null },
+        reset() { noteResetCount += 1; },
+      },
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    noteValues.text = "Gönderim sırasında yazılan yeni taslak";
+    releaseNote?.();
+    await pendingNote;
+    noteGate = undefined;
     detailView = await detailHooks.flush(renderDetail);
     assert.ok(repositoryCalls.includes("note"), "detail-note");
     assert.equal(stored.notes[0]?.text, "Kalıcı müşteri notu");
+    assert.equal(noteResetCount, 0, "detail-note-preserves-new-draft-typed-during-save");
 
     let taxonomyInputs: React.ReactElement<Record<string, unknown>>[] = [];
     visitElements(detailView, (element) => {

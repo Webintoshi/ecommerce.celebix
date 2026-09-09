@@ -51,6 +51,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
   const load = useCallback(
     async (append = false) => {
       setState("loading");
+      setError("");
       try {
         const [s, l] = await Promise.all([
           customerApi.summary(),
@@ -78,6 +79,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     void load(false);
   }, [search, status]);
   async function exportCsv() {
+    setError("");
     try {
       const x = await customerApi.export(),
         head = "Ad,Soyad,E-posta,Telefon,Durum,Sipariş,Toplam\n",
@@ -177,11 +179,6 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               <option value="archived">Arşiv</option>
             </select>
           </label>
-          {canManage ? (
-            <Link className={styles.customerPrimaryAction} href="/customers/new">
-              <UserPlus aria-hidden="true" />Yeni Müşteri
-            </Link>
-          ) : null}
           <button
             className={styles.customerExport}
             type="button"
@@ -190,6 +187,11 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             <Download aria-hidden="true" />CSV Dışa Aktar
           </button>
         </form>
+        {error && state !== "error" ? (
+          <p className={styles.customerInlineError} role="alert">
+            {error}
+          </p>
+        ) : null}
         {state === "loading" ? (
           <div className={styles.customerLoading} role="status">
             <RefreshCcw aria-hidden="true" />

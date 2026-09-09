@@ -262,7 +262,8 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
     setError("");
     try {
       await customerApi.addNote(customerId, text);
-      form.reset();
+      const noteInput = form.elements.namedItem("text") as HTMLTextAreaElement | null;
+      if (!noteInput || noteInput.value.trim() === text) form.reset();
       setNotice("Not kaydedildi.");
       await load(true);
     } catch (caught) { setError(message(caught)); }

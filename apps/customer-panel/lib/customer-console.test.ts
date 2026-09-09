@@ -170,6 +170,7 @@ test("customer browser UI uses only same-origin DTO APIs and no browser authorit
 
 test("customer console exposes truthful loaded empty error export and responsive states", async () => {
   const list = await source("components/customers/CustomerListConsole.tsx");
+  const workspace = await source("components/customers/CustomerWorkspace.tsx");
   const detail = await source("components/customers/CustomerDetailConsole.tsx");
   const taxonomy = await source(
     "components/customers/CustomerTaxonomyConsole.tsx",
@@ -180,6 +181,8 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(list, /Henüz müşteri yok/);
   assert.match(list, /Müşteriler yükleniyor/);
   assert.match(list, /CSV Dışa Aktar/);
+  assert.match(workspace, /href="\/customers\/new"/);
+  assert.match(workspace, /className=\{styles[.]workspacePrimaryAction\}/);
   assert.match(detail, /Dahili notlar/);
   assert.match(detail, /Müşteriyi Arşivle/);
   assert.match(detail, /customerApi[.]workspace\(customerId/);
@@ -187,10 +190,18 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.doesNotMatch(detail, /customerApi[.]update\(customerId/);
   assert.match(taxonomy, /müşteri/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
-  assert.match(styles, /min-height:\s*48px/);
+  assert.match(styles, /min-height:\s*44px/);
+  assert.match(styles, /--customer-canvas:\s*#f8f7f5/i);
+  assert.match(styles, /--customer-border:\s*#e7e2dd/i);
+  assert.match(styles, /[.]workspacePrimaryAction\s+:global\(a\)[\s\S]*background:\s*#2b2b2b/i);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /position:\s*sticky/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/);
+  assert.match(
+    styles,
+    /@media\s*\(max-width:\s*760px\)[\s\S]*[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,
+    "mobile customer save bars must clear the fixed shell navigation",
+  );
 });
 
 test("customer detail presentation exposes linked orders navigation and truthful operations", async () => {

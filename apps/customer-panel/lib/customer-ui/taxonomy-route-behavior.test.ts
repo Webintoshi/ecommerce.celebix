@@ -224,6 +224,7 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
   const paths: string[] = [];
   const seenOperations = new Set<string>();
   const replayedOperations: string[] = [];
+  let mutationGate: Promise<void> | undefined;
   const unexpected = async () => { throw new Error("unexpected_customer_repository_call"); };
   const repository: CustomerRepository = {
     getSummary: unexpected,
@@ -239,6 +240,7 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
     },
     async upsertTag(input) {
       if (scenario.failure === "customer_conflict") throw new CustomerRepositoryError("customer_conflict");
+      await mutationGate;
       const key = `tags:${input.operationId}`;
       if (seenOperations.has(key)) replayedOperations.push(key);
       else {
@@ -254,6 +256,7 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
     },
     async upsertSegment(input) {
       if (scenario.failure === "customer_conflict") throw new CustomerRepositoryError("customer_conflict");
+      await mutationGate;
       const key = `segments:${input.operationId}`;
       if (seenOperations.has(key)) replayedOperations.push(key);
       else {
@@ -334,7 +337,9 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
 
     const originalFormData = globalThis.FormData;
     class TestFormData {
+      constructor(private readonly target?: { values?: Readonly<Record<string, string>> }) {}
       get(name: string) {
+        if (this.target?.values && name in this.target.values) return this.target.values[name] ?? null;
         if (name === "name") return kind === "tags" ? "Sadık" : "Yeni segment";
         if (name === "secondary") return kind === "tags" ? "#2563eb" : "Kalıcı segment";
         return null;
@@ -363,7 +368,29 @@ test("customer taxonomy routes invoke actual pages, production consoles, clients
       assert.ok(replayedOperations.includes(`${kind}:${OPERATION_ID}`), `${kind}:replayed-handler`);
       assert.equal(kind === "tags" ? scenario.tags.length : scenario.segments.length, 1, `${kind}:replay-single-record`);
       assert.equal(paths.filter((path) => path === `/api/customers/${kind}`).length, 5, `${kind}:list-plus-two-posts-and-reloads`);
+
+      mounted = await mount(kind, { records: "empty" });
+      form = findElement(mounted.view, (element) => element.type === "form");
+      let releaseMutation: (() => void) | undefined;
+      mutationGate = new Promise<void>((resolve) => { releaseMutation = resolve; });
+      let resetCount = 0;
+      const values: Record<string, string> = {
+        name: kind === "tags" ? "Sadık" : "Yeni segment",
+        secondary: kind === "tags" ? "#2563eb" : "Kalıcı segment",
+      };
+      const pendingMutation = (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
+        preventDefault() {},
+        currentTarget: { values, reset() { resetCount += 1; } },
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      values.name = "Gönderim sırasında yazılan yeni taslak";
+      releaseMutation?.();
+      await pendingMutation;
+      mutationGate = undefined;
+      await mounted.hooks.flush(mounted.render);
+      assert.equal(resetCount, 0, `${kind}:preserves-new-draft-typed-during-save`);
     } finally {
+      mutationGate = undefined;
       Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
     }
   }
