@@ -132,7 +132,7 @@ function textOf(node: ReactNode): string {
 
 async function compilePolicyConsole(
   react: typeof React,
-  scenario: Readonly<{ getFailures?: number; getGate?: Promise<void> }> = {},
+  scenario: Readonly<{ getFailures?: number; getGate?: Promise<void>; saveGate?: Promise<void> }> = {},
 ) {
   const source = await readFile(
     new URL("components/content/PolicyConsole.tsx", CUSTOMER_PANEL),
@@ -160,6 +160,7 @@ async function compilePolicyConsole(
     },
     async save(_key: string, input: Readonly<{ expectedVersion: number; body: string; status: string }>) {
       saves.push(Object.freeze({ ...input }));
+      if (scenario.saveGate) await scenario.saveGate;
       throw new StorePolicyApiError("version_conflict", 409);
     },
   });
@@ -370,6 +371,7 @@ test("pending conflict refresh keeps the editor open until the canonical read se
 
     const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
     assert.equal(close.props.disabled, true);
+    assert.equal(findElement(view, (element) => element.type === "textarea").props.readOnly, true);
     (close.props.onClick as () => void)();
     view = await hooks.flush(render);
     assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
@@ -394,6 +396,45 @@ test("pending conflict refresh keeps the editor open until the canonical read se
     assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
   } finally {
     releaseRead();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
+});
+
+test("pending policy save makes the textarea read-only until response reconciliation", async () => {
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { activeElement: null },
+  });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { addEventListener() {}, removeEventListener() {} },
+  });
+  let releaseSave = () => {};
+  const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+  try {
+    const hooks = createHookRuntime();
+    const { Console } = await compilePolicyConsole(hooks.runtime, { saveGate });
+    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
+    let view = await hooks.flush(render);
+    const textarea = findElement(view, (element) => element.type === "textarea");
+    (textarea.props.onChange as (event: { target: { value: string } }) => void)({
+      target: { value: "Kaydetme isteğine alınan taslak" },
+    });
+    view = await hooks.flush(render);
+    const save = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
+    (save.props.onClick as () => void)();
+    view = await hooks.flush(render);
+
+    const pendingTextarea = findElement(view, (element) => element.type === "textarea");
+    assert.equal(pendingTextarea.props.value, "Kaydetme isteğine alınan taslak");
+    assert.equal(pendingTextarea.props.readOnly, true);
+  } finally {
+    releaseSave();
+    await new Promise<void>((resolve) => setImmediate(resolve));
     await new Promise<void>((resolve) => setImmediate(resolve));
     Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
     Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });

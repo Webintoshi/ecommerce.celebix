@@ -320,7 +320,7 @@ export function PolicyConsole({
                     maxLength={100_000}
                     rows={22}
                     value={body}
-                    readOnly={!canManage}
+                    readOnly={!canManage || busy}
                     onChange={(event) => { setBody(event.target.value); rememberDraft(event.target.value, selectedStatus); setMessage(""); }}
                     placeholder="# Başlık\n\nPolitika metninizi buraya yazın."
                   />
