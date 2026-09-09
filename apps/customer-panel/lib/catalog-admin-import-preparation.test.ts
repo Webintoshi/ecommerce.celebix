@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { CatalogImportPreview } from "@celebix/saas-contracts";
 
@@ -363,4 +364,20 @@ test("expired, consumed, and expiry-boundary previews deny commit", async () => 
     await subject.commit();
     assert.equal(commitCount, 0);
   }
+});
+
+test("Mira import consoles keep headings, previews and dock-safe actions within the neutral scope", async () => {
+  const root = new URL("../", import.meta.url);
+  const [preparation, bulk, css] = await Promise.all([
+    readFile(new URL("components/catalog-admin/CatalogImportPreparationConsole.tsx", root), "utf8"),
+    readFile(new URL("components/catalog-admin/CatalogBulkImportConsole.tsx", root), "utf8"),
+    readFile(new URL("components/catalog-admin/catalog-admin-console.module.css", root), "utf8"),
+  ]);
+  assert.match(preparation, /<h1 className=\{styles[.]srOnly\}>\{title\}<\/h1>/);
+  assert.match(bulk, /<h1 className=\{styles[.]srOnly\}>Toplu Ürün Aktarımı<\/h1>/);
+  assert.match(bulk, /requiresReselection = Boolean\(migrationManifestRef[.]current\)[\s\S]*if \(requiresReselection\)[\s\S]*setPreview\(null\)/);
+  assert.match(bulk, /Önizlemeniz korundu/);
+  assert.match(css, /--catalog-text:\s*#2B2B2B/);
+  assert.match(css, /\.importWorkspace[\s\S]*\.upload[\s\S]*border-color:\s*var\(--catalog-border\)/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.preview > \.actions[\s\S]*bottom:\s*76px/);
 });

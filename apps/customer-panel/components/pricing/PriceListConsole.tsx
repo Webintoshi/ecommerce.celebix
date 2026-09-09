@@ -14,7 +14,7 @@ const STATUS = Object.freeze({ draft: "Taslak", active: "Aktif", archived: "Arş
 const CHANNEL = Object.freeze({ storefront: "Mağaza", quick_order: "Hızlı sipariş" } as const);
 const money = (value: number) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(value / 100);
 const date = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-function tone(status: PriceList["status"]): "neutral" | "success" | "warning" { return status === "active" ? "success" : status === "archived" ? "neutral" : "warning"; }
+function tone(status: PriceList["status"]): "neutral" | "success" { return status === "active" ? "success" : "neutral"; }
 function target(rule: PriceListRule, tags: readonly CustomerTag[]) { return rule.customerTagId ? tags.find((tag) => tag.id === rule.customerTagId)?.name ?? `Etiket ${rule.customerTagId.slice(0, 8)}` : "Tüm müşteriler"; }
 function period(rule: PriceListRule) { return `${rule.startsAt ? date(rule.startsAt) : "Hemen"} – ${rule.endsAt ? date(rule.endsAt) : "Süresiz"}`; }
 function summaries(item: PriceList, tags: readonly CustomerTag[]) { return Object.freeze({ channels: [...new Set(item.rules.map((rule) => CHANNEL[rule.channel]))].join(", "), targets: [...new Set(item.rules.map((rule) => target(rule, tags)))].join(", "), periods: item.rules.map(period).join("; ") }); }
@@ -22,10 +22,10 @@ function summaries(item: PriceList, tags: readonly CustomerTag[]) { return Objec
 function TruthState(props: Readonly<{ phase: ViewPhase; list?: boolean; onRetry?(): void }>) {
   if (props.phase === "denied") return <div className={styles.denied} role="status">Bu fiyat listelerini görüntüleme yetkiniz yok.</div>;
   if (props.phase === "not_found") return <div className={styles.error} role="alert">Fiyat listesi bulunamadı.</div>;
-  if (props.phase === "verification_unavailable") return <div className={styles.conflict} role="alert">İşlem sonucu doğrulanamıyor. Yeni bir yazma isteği göndermeden önce sayfayı tamamen yenileyin.</div>;
-  if (props.phase === "unavailable") return <div className={styles.error} role="alert">Fiyatlandırma hizmeti kullanılamıyor.</div>;
-  if (props.phase === "conflict") return <div className={styles.conflict} role="alert">Fiyat listesi başka bir işlemle çakıştı.</div>;
-  if (props.phase === "error") return <div className={styles.error} role="alert">{props.list ? "Fiyat listeleri yüklenemedi." : "Fiyat listesi işlemi tamamlanamadı."}{props.onRetry ? <button type="button" onClick={props.onRetry}>Yeniden dene</button> : null}</div>;
+  if (props.phase === "verification_unavailable") return <div className={styles.conflict} role="alert">İşlem sonucu doğrulanamıyor. Taslağınız korunuyor; yeni bir yazma isteği göndermeden önce sayfayı tamamen yenileyin.</div>;
+  if (props.phase === "unavailable") return <div className={styles.error} role="alert">Fiyatlandırma hizmeti kullanılamıyor.{props.list ? "" : " Taslağınız korunuyor."}</div>;
+  if (props.phase === "conflict") return <div className={styles.conflict} role="alert">Fiyat listesi başka bir işlemle çakıştı. Taslağınız korunuyor.</div>;
+  if (props.phase === "error") return <div className={styles.error} role="alert">{props.list ? "Fiyat listeleri yüklenemedi." : "Fiyat listesi işlemi tamamlanamadı. Taslağınız korunuyor."}{props.onRetry ? <button type="button" onClick={props.onRetry}>Yeniden dene</button> : null}</div>;
   if (props.phase === "loading") return <div className={styles.state} role="status">{props.list ? "Fiyat listeleri yükleniyor…" : "Fiyat listesi yükleniyor…"}</div>;
   return null;
 }
@@ -87,7 +87,7 @@ function PriceListEditor(props: Readonly<{ resourceId?: string; canManage: boole
     finally { if (ticket.current()) setMutationPending(false); }
   }
   if (!props.canManage && !props.resourceId) return <div className={styles.denied} role="status">Fiyat listesi oluşturma yetkiniz yok.</div>;
-  if (phase !== "loaded" && !record) return <TruthState phase={phase} />;
+  if (props.resourceId && phase !== "loaded" && !record) return <TruthState phase={phase} />;
   return <div className={styles.editor}>
     {phase !== "loaded" ? <TruthState phase={phase} /> : message ? <p className={styles.notice} role="status">{message}</p> : null}
     {record ? <div className={styles.summary}><span>Durum <PanelStatusBadge tone={tone(record.status)}>{STATUS[record.status]}</PanelStatusBadge></span><span>Sürüm <strong>{record.version}</strong></span></div> : null}
@@ -106,5 +106,5 @@ export function PriceListConsole(props: Readonly<{ mode?: "list" | "new" | "deta
   useEffect(() => { if (mode !== "list" || !props.canRead || props.initialItems || props.initialPhase) return; const controller = new AbortController(), ticket = lifecycle.begin(); setPhase("loading"); void Promise.all([pricingApi.list(controller.signal), customerApi.tags()]).then(([next, safeTags]) => { if (ticket.current()) { setItems(next); setTags(safeTags); setPhase(next.length ? "loaded" : "empty"); } }).catch((error: unknown) => { if (ticket.current() && !(error instanceof DOMException && error.name === "AbortError")) setPhase(pricingErrorState(error)); }); return () => { controller.abort(); ticket.cancel(); }; }, [lifecycle, mode, nonce, props.canRead, props.initialItems, props.initialPhase]);
   if (mode !== "new" && !props.canRead) return <PanelPageShell><PanelPageHeader title="Fiyat listeleri" /><div className={styles.denied} role="status">Bu fiyat listelerini görüntüleme yetkiniz yok.</div></PanelPageShell>;
   const title = mode === "list" ? "Fiyat listeleri" : mode === "new" ? "Yeni fiyat listesi" : "Fiyat listesi";
-  return <PanelPageShell><PanelPageHeader title={title} description="Mağaza ve hızlı sipariş kanallarında kalıcı, sürümlü sabit fiyat kurallarını yönetin." actions={mode === "list" && props.canManage ? <PanelActionButton primary href="/products/price-lists/new">Yeni fiyat listesi</PanelActionButton> : undefined} />{mode === "list" ? <PriceListListPresentation phase={phase} items={items} tags={tags} canManage={props.canManage} onRetry={() => setNonce((value) => value + 1)} /> : <PriceListEditor resourceId={props.resourceId} canManage={props.canManage} />}</PanelPageShell>;
+  return <PanelPageShell><PanelPageHeader title={title} description="Mağaza ve hızlı sipariş kanallarında kalıcı, sürümlü sabit fiyat kurallarını yönetin." actions={mode === "list" && props.canManage ? <span className={styles.pageAction}><PanelActionButton primary href="/products/price-lists/new">Yeni fiyat listesi</PanelActionButton></span> : undefined} /><h1 className={styles.srOnly}>{title}</h1>{mode === "list" ? <PriceListListPresentation phase={phase} items={items} tags={tags} canManage={props.canManage} onRetry={() => setNonce((value) => value + 1)} /> : <PriceListEditor resourceId={props.resourceId} canManage={props.canManage} />}</PanelPageShell>;
 }

@@ -1,4 +1,5 @@
 import { CATEGORIES, EDITOR, EXTRA_ID, NOW, OPTIONS, PRODUCT, PRODUCT_ID, RESOURCES, VARIANT, VARIANT_ID } from "../../../mira-catalog/catalog-fixture";
+import { VARIANT_CHOICE } from "../../../mira-stock/stock-fixture";
 import { GET as fallbackGET, PATCH as fallbackPATCH } from "../../[...slug]/route";
 
 async function selectedPath(context: { params: Promise<{ path?: string[] }> }) {
@@ -11,7 +12,8 @@ function fallbackContext(path: string) {
 
 function fixtureMutationTarget(path: string) {
   return path === "products" || path === `products/${PRODUCT_ID}` || path.startsWith(`products/${PRODUCT_ID}/`) ||
-    path.startsWith("admin/resources/") || path === "admin/reviews";
+    path.startsWith("admin/resources/") || path === "admin/reviews" || path.startsWith("admin/import") ||
+    path.startsWith("barcode-") || path === "barcodes/internal";
 }
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
@@ -39,8 +41,12 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
   if (path === `products/${PRODUCT_ID}`) return Response.json({ product: PRODUCT, variants: [VARIANT] });
   if (path === `products/${PRODUCT_ID}/merchandising`) return Response.json(EDITOR);
   if (path === `products/${PRODUCT_ID}/media`) return Response.json({ media: [] });
+  if (path === "variant-choices") return Response.json({ items: [VARIANT_CHOICE] });
   if (path === "onboarding/options") return Response.json(OPTIONS);
   if (path === "onboarding/categories") return Response.json(CATEGORIES);
+  if (path === "admin/imports") return Response.json({ items: [] });
+  if (path === "barcode-labels") return Response.json({ items: [{ productId: PRODUCT_ID, productVersion: PRODUCT.version, variantId: VARIANT_ID, variantVersion: VARIANT.version, productTitle: PRODUCT.title, variantTitle: VARIANT.title, sku: VARIANT.sku, barcode: VARIANT.barcode, priceCents: VARIANT.priceCents, compareAtCents: VARIANT.compareAtCents, currency: PRODUCT.currency, stock: VARIANT.stockQuantity, trackInventory: VARIANT.stockTracking, category: { id: CATEGORIES[0].id, name: CATEGORIES[0].name }, brand: { id: RESOURCES.brand.id, name: RESOURCES.brand.name }, attributes: VARIANT.attributes, status: PRODUCT.status, updatedAt: VARIANT.updatedAt }], catalogTotal: 1, storeName: "mira-stock-fixture" });
+  if (path === "barcode-label-templates" || path === "barcode-print-jobs") return Response.json({ items: [] });
   if (path === "admin/reviews") return Response.json({ items: [{ id: "91000000-0000-4000-8000-000000000012", productId: PRODUCT_ID, productTitle: PRODUCT.title, reviewerName: "Ada Yılmaz", rating: 5, title: "Dokusu çok iyi", body: "Kesimi ve kumaşı beklediğim gibi.", status: "pending", version: 1, createdAt: NOW, updatedAt: NOW }] });
   const resourceMatch = /^admin\/resources\/(collection|brand|attribute|extra|definition|tag)(?:\/([0-9a-f-]+))?$/.exec(path);
   if (resourceMatch) {

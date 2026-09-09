@@ -156,9 +156,15 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
         await loadHistory();
       }
     } catch (caught) {
-      migrationManifestRef.current = null;
-      setPreview(null); setMigrationSummary(null);
-      setError(message(caught, "Aktarım güvenle durdu. Devam etmek için aynı WooCommerce dosyasını yeniden seçin."));
+      const requiresReselection = Boolean(migrationManifestRef.current);
+      if (requiresReselection) {
+        migrationManifestRef.current = null;
+        setPreview(null);
+        setMigrationSummary(null);
+      }
+      setError(message(caught, requiresReselection
+        ? "Aktarım güvenle durdu. Devam etmek için aynı WooCommerce dosyasını yeniden seçin."
+        : "Aktarım uygulanmadı. Önizlemeniz korundu; yeniden deneyebilirsiniz."));
     }
     finally { setBusy("idle"); }
   }
@@ -177,6 +183,7 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
 
   return <PanelPageShell>
     <PanelPageHeader title="Toplu Ürün Aktarımı" description="12 platformdan dosya veya güvenli HTTPS feed ile ürünlerinizi kalıcı kataloğa taşıyın." />
+    <h1 className={styles.srOnly}>Toplu Ürün Aktarımı</h1>
     <section className={styles.importWorkspace}>
       <ol className={styles.steps} aria-label="Aktarım adımları">
         {["Platform seçimi", "Kaynak seçimi", "Önizleme", "Aktarım"].map((label, index) => <li className={index + 1 <= step ? styles.stepActive : undefined} key={label} aria-current={index + 1 === step ? "step" : undefined}><span>{index + 1}</span>{label}</li>)}

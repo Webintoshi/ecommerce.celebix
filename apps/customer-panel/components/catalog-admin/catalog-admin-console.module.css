@@ -242,3 +242,96 @@
   .brandCardActions { grid-template-columns: 1fr 1fr; }
   .brandCardActions .status { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* Mira stock/import scope. Resource forms above keep their reviewed rules. */
+.importWorkspace,
+.upload,
+.upload ~ .preview,
+.importWorkspace + .surface {
+  --catalog-accent: #FE6100;
+  --catalog-text: #2B2B2B;
+  --catalog-sidebar: #201C19;
+  --catalog-canvas: #F8F7F5;
+  --catalog-surface: #FFFDFC;
+  --catalog-border: #E7E2DD;
+  color: var(--catalog-text);
+}
+
+.steps,
+.importSection,
+.upload,
+.importWorkspace + .surface {
+  border-color: var(--catalog-border);
+  background: var(--catalog-surface);
+  color: var(--catalog-text);
+  box-shadow: none;
+}
+
+.steps { border-radius: 10px; }
+.steps li,
+.sectionHeading,
+.historyHeading,
+.sourceTabs,
+.previewTableWrap,
+.migrationProgress { border-color: var(--catalog-border); }
+.steps li { color: #667085; }
+.steps .stepActive { color: var(--catalog-text); }
+.steps .stepActive span { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.10); color: var(--catalog-text); }
+
+.importSection { border-radius: 10px; }
+.sectionHeading h2,
+.historyHeading h2,
+.providerCard strong,
+.previewMetrics strong,
+.migrationProgress strong { color: var(--catalog-text); }
+.sectionHeading span,
+.historyHeading span { color: var(--catalog-accent); }
+
+.providerCard,
+.sourceForm input,
+.secondaryButton,
+.previewMetrics div,
+.upload input[type="file"] {
+  border-color: var(--catalog-border);
+  border-radius: 8px;
+  background: var(--catalog-surface);
+  color: var(--catalog-text);
+}
+.providerCard:hover { border-color: var(--catalog-text); }
+.providerSelected { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); box-shadow: inset 3px 0 var(--catalog-accent); }
+.sourceTabs .tabActive { border-bottom-color: var(--catalog-accent); color: var(--catalog-text); }
+.previewMetrics div { background: var(--catalog-canvas); }
+.previewTable th { background: var(--catalog-canvas); color: #667085; }
+.previewTable th,
+.previewTable td { border-color: var(--catalog-border); }
+.secondaryButton:hover:not(:disabled) { border-color: var(--catalog-text); background: var(--catalog-canvas); }
+
+.upload {
+  border: 1px solid var(--catalog-border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.fileField { color: var(--catalog-text); }
+.upload ~ .preview { border: 1px solid var(--catalog-border); border-radius: 10px; background: var(--catalog-canvas); }
+.upload ~ .preview .previewHeader,
+.upload ~ .preview .previewMeta { color: var(--catalog-text); }
+
+@media (max-width: 1024px) {
+  .providerGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sourceForm { grid-template-columns: 1fr; }
+  .upload { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .upload ~ .preview { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .upload ~ .preview > .actions {
+    position: sticky;
+    z-index: 3;
+    bottom: 76px;
+    border: 1px solid var(--catalog-border);
+    border-radius: 10px;
+    background: rgba(255, 253, 252, 0.96);
+    padding: 8px;
+  }
+}
+
+@media (max-width: 700px) {
+  .upload { padding-inline: 16px; }
+}
