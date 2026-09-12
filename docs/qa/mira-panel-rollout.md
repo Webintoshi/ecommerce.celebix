@@ -1,6 +1,6 @@
 # Mira Customer Panel Rollout
 
-Status: SOURCE VALIDATION PASS (one existing skip) — VISUAL/AUTHENTICATED ACCEPTANCE PARTIAL — PUSH ACCESS GATE BLOCKED. No live certification or deployment.
+Status: SOURCE VALIDATION PASS (one existing skip) — DURABLE PACKAGE-LEVEL VISUAL MATRIX PASS — AUTHENTICATED ACCEPTANCE BLOCKED ON SIGN-IN — PUSH TRIGGER GATE PASS. No live certification or deployment.
 
 Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f15e. Existing Orders PR75 and archive branches untouched.
 
@@ -12,12 +12,12 @@ Use existing Mira/Dashboard/Analytics primitives; user palette overrides older s
 
 | Package | Code/review | Validation and next gate |
 |---|---|---|
-| Customers | Source8c6dd656, scoped review clean | Focused10/10; fixture18 viewport captures; broader accessibility/artifact/auth gates partial |
-| Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Focused77/77; final Panel typecheck at91097ad7 exit0; browser matrix partial, no authenticated evidence |
-| Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Initial focused116pass/1existing skip; fix-round37/37; rendered matrix partial, fresh combined types pending |
-| Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Initial76/76; tone fix44/44; fixturefix6/6; Panel typecheck exit0 onb3527dc2 and fixturetypes exit0 on95b645a5; visual/auth partial |
-| Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Focused63/63; Panel and fixturetypes exit0; post-fix visual matrix/full build/auth pending |
-| Remaining settings and content | Source4631fa78; scoped round2 review clean | Final focused11/11 + policy client2/2; round1 affected47/47 + shipping3/3; both typechecks passed17da; final whole-branch visual/test/build gates pending |
+| Customers | Source8c6dd656, scoped review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
+| Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Final combined source validation passed; loaded durable1440/1024/390 representative capture complete; authenticated QA pending |
+| Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Final combined source validation passed; loaded barcode durable1440/1024/390 representative capture complete; physical print/auth pending |
+| Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
+| Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
+| Remaining settings and content | Source4631fa78; scoped round2 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
 
 Whole-branch review on4631fa78 identified14 finding groups, addressed by the single consolidated fix wave at1dbfb7f5. Final scoped independent re-review verified all14 ADDRESSED at source/regression level, with no new Critical/Important issue. This is not rendered/authenticated certification. Historical initial full test on86812650 failed (1294pass/3fail/1existing skip in first stage only). That result is retained below, not used as the current final-source result; its timeout cause was not certified as baseline.
 
@@ -25,22 +25,41 @@ Latest source `1dbfb7f553ce1415eb2b6190106e3e68f804f073` includes the single fin
 
 Root Panel typecheck42196 and strict/import-compatible fixture typecheck72632 both exited0 on1db. Production build7536 exited0: compiled91s, TypeScript44s,80staticpages and final traces completed. Available bytes:11,362,082,816 before full tests;9,213,976,576 after/beforePaneltypes;9,223,495,680 beforefixturetypes;9,223,290,880 beforebuild;9,346,310,144 after build/before fixture restart. No cleanup or attribution of changes. Diff-check PASS. Package table above identifies historical package checkpoints; these combined-source results supersede its pending technical checks, not its visual/authenticated gaps.
 
+Continuation verification on 2026-09-12 kept application source at exact `1dbfb7f5`; the only working-tree additions were this QA update and durable PNG artifacts. The full Customer Panel script exited0 again: first stage1361tests/1360pass/0fail/1existing skip in38.49s, including the actual Next signed-out catalog/inventory guard in34.19s; react-server stage54/54pass in1.81s. Total1414pass/0fail/1skip. Panel typecheck and strict/import-compatible fixture typecheck both exited0. The production build exited0: compiled14.5s, TypeScript18.6s,80/80static pages, traces and optimization complete. Existing ExperimentalTransform and MODULE_TYPELESS warnings remain disclosed; no assertion, timeout, skip, compiler setting or application source changed.
+
 ### Final rendered retakes — exact source1dbfb7f5, isolated fixture only
 
 - Actual advanced `/products/new`: stable1440/1024/390 views captured inline, page overflow0. At1024 summary width992px appears above the editor; rich editor width960px. At390 after layout settled/reopening, editor width332px and its own toolbar is horizontally scrollable (`overflow-x:auto`,576px content), without page overflow. An immediate viewport-switch sample briefly reported321px overflow/editor669px; subsequent stable measurement and fresh same-size navigation both returned0, so the transitional capture is not certified as the final layout.
 - Policy390 controlled PATCH409 followed by GET200: exact draft `# Korunan Mira taslağı\n\nKontrollü son QA.` remained. Persistent feedback y679.9–734.5 is visibly above save y780–828; overflow0. Footer overlap finding closed in this fixture. No successful live save or real record mutation.
 - Promotion390 template entry and step1→step2→step1: focused step heading y131.09 clears fixed header; `Mira son kontrol` remains visible in the name field; overflow0. Inline screenshot inspected. Current page limited error/warning read returned[]; this is not all-route console/network certification.
-- All screenshots are actual inline browser captures, not durable PNG files. No invented screenshot links. Full final-state matrix, loaded merchant design preview, physical barcode print, native confirmation Stay behavior and authenticated session evidence remain incomplete. Earlier fixture matrices remain attributed to their tested source.
+- Historical screenshots in the earlier chronology were inline-only. They are not retroactively attributed to another source. The durable final-source package matrix below supersedes only the missing package-level artifact link gap; loaded merchant design preview, physical barcode print, native confirmation Stay behavior and authenticated session evidence remain incomplete.
+
+### Durable package-level visual matrix — exact source1dbfb7f5
+
+On 2026-09-12 the isolated acceptance app rendered one representative surface from each of the six rollout packages at1440×900,1024×900 and390×844. All18 stable captures have measured page overflow0, no framework error overlay, and an empty current-page browser error/warning read. Catalog and barcode captures were retaken after their controlled dependencies finished loading. Catalog390 was opened fresh at the target width after a transient viewport-switch sample; the accepted capture measured `innerWidth=390`, editor width332px and overflow0.
+
+| Package / controlled fixture route | 1440 | 1024 | 390 |
+|---|---|---|---|
+| Customers — `/mira-customers/list` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/customers-list-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/customers-list-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/customers-list-390x844.png) |
+| Catalog — `/mira-catalog/new` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/catalog-new-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/catalog-new-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/catalog-new-390x844.png) |
+| Stock/barcode — `/mira-stock/barcode` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/stock-barcode-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/stock-barcode-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/stock-barcode-390x844.png) |
+| Promotions — `/mira-promotions/new` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/promotions-new-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/promotions-new-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/promotions-new-390x844.png) |
+| Order-adjacent — `/mira-order-adjacent/quick-links` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/order-quick-links-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/order-quick-links-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/order-quick-links-390x844.png) |
+| Settings/content — `/mira-settings/policy-edit` | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/settings-policy-edit-1440x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/settings-policy-edit-1024x900.png) | [PNG](artifacts/mira-panel-rollout/1dbfb7f5/settings-policy-edit-390x844.png) |
+
+Fresh interaction proof: at390 the customer search input was filled with `Ada` and submitted. `Ada QA` remained, `Deniz QA` was removed, the input retained `Ada`, and overflow remained0. [Durable interaction PNG](artifacts/mira-panel-rollout/1dbfb7f5/customers-search-390x844.png). Full artifact manifest: [README](artifacts/mira-panel-rollout/1dbfb7f5/README.md).
+
+This closes the durable link and six-package/three-breakpoint representative matrix gap. It remains isolated fixture evidence, not authenticated/live certification and not an every-route or physical-output claim.
 
 ### Final review and delivery boundary
 
 Independent reviewer checked the35-file final fix package and actual consumers; all14 finding groups addressed, no new Critical/Important issue. Scoped code approval does not close the acceptance gaps above. No further source change after exact1db validation. This report-only update must not be presented as a newly tested application revision.
 
-Fresh authorized Coolify Auto Deploy proof is still unavailable. Historical OFF values and the non-deploy GitHub workflow are not sufficient proof; no push or PR has been performed. User action needed: open the existing authorized Coolify application overview/settings in Chrome for a read-only trigger check. No new credential, environment or infrastructure is required or authorized.
+Fresh authorized Coolify read-only proof was obtained on 2026-09-12 from the existing Chrome session. The four running staging applications linked to `Webintoshi/ecommerce.celebix` — customer panel, owner, storefront and analytics worker — each show Auto Deploy OFF and Preview Deployments OFF; public PR deployment is disabled. No setting was changed. The push/draft-PR trigger gate therefore passes without a deployment action.
 
 Rulings I made, in creation order: (1) preserve committed internal reports and QA workspace despite skill cleanup defaults because the user prohibits cleanup; (2) narrow Orders exclusions to the exact PR75 files, allowing independently requested drafts/quicklinks/carts; (3) preserve actual shared open-canvas outer frames and restore CustomerList's genuine `.surface` consumer rather than weakening the excluded test or adding dummy CSS. Costs if wrong: extra artifact review for(1), bounded frontend conflict/layout rework for(2–3); no backend/PR75 scope expansion.
 
-No push/PR yet: fresh Auto Deploy read remains required. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
+No push/PR yet: the trigger gate is now satisfied, but authenticated panel QA remains blocked at the central sign-in screen. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
 
 Fresh read-only remote heads during final fixes: canonical remains455a4a538f4ff78915d38d37247956949aa2f15e; Orders remainsd6d94d6d3e527c5ca9295aa3189fb0ac2e8bcf98. No remote rollout branch returned. This check does not prove Coolify Auto Deploy settings; no push performed.
 
