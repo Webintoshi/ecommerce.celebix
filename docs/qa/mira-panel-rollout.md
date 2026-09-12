@@ -1,6 +1,6 @@
 # Mira Customer Panel Rollout
 
-Status: SOURCE VALIDATION PASS (one existing skip) — DURABLE PACKAGE-LEVEL VISUAL MATRIX PASS — AUTHENTICATED ACCEPTANCE BLOCKED ON SIGN-IN — PUSH TRIGGER GATE PASS. No live certification or deployment.
+Status: SOURCE VALIDATION PASS (one existing skip) — DURABLE PACKAGE-LEVEL VISUAL MATRIX PASS — DRAFT PR OPEN — AUTHENTICATED ACCEPTANCE BLOCKED ON EXACT-CANDIDATE RUNTIME. No live certification or deployment.
 
 Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f15e. Existing Orders PR75 and archive branches untouched.
 
@@ -59,7 +59,9 @@ Fresh authorized Coolify read-only proof was obtained on 2026-09-12 from the exi
 
 Rulings I made, in creation order: (1) preserve committed internal reports and QA workspace despite skill cleanup defaults because the user prohibits cleanup; (2) narrow Orders exclusions to the exact PR75 files, allowing independently requested drafts/quicklinks/carts; (3) preserve actual shared open-canvas outer frames and restore CustomerList's genuine `.surface` consumer rather than weakening the excluded test or adding dummy CSS. Costs if wrong: extra artifact review for(1), bounded frontend conflict/layout rework for(2–3); no backend/PR75 scope expansion.
 
-No push/PR yet: the trigger gate is now satisfied, but authenticated panel QA remains blocked at the central sign-in screen. No deployment, merge, real mutation or cleanup. Earlier entries below are chronological evidence, not superseding this current status.
+Normal push completed for `codex/mira-panel-rollout-v1` after the trigger gate passed. Draft PR [#77](https://github.com/Webintoshi/ecommerce.celebix/pull/77) targets `codex/design-tabs-save-fix-live` with status `FRONTEND IMPLEMENTED — AUTHENTICATED ACCEPTANCE PENDING`; its description pins all 18 matrix PNGs, the customer-search interaction PNG and this checkpoint to commit `8ca5128816c4675839aa7fa2ef7d421c438ab153`. No secret or real customer record was included.
+
+Authenticated rollout QA has not started: the last authorized Customer Panel staging runtime check reported `6a0d56a3d809df3dd35de0f13c9b703737b6099d`, not tested rollout application source `1dbfb7f553ce1415eb2b6190106e3e68f804f073`. The old staging runtime is not counted as rollout acceptance. The remaining gate is an explicitly approved temporary Customer Panel-only staging deployment of the exact candidate SHA, followed by user-owned sign-in and non-mutating authenticated checks. No deployment, merge, Auto Deploy change, real mutation or cleanup was performed. Earlier entries below are chronological evidence, not superseding this current status.
 
 Fresh read-only remote heads during final fixes: canonical remains455a4a538f4ff78915d38d37247956949aa2f15e; Orders remainsd6d94d6d3e527c5ca9295aa3189fb0ac2e8bcf98. No remote rollout branch returned. This check does not prove Coolify Auto Deploy settings; no push performed.
 
