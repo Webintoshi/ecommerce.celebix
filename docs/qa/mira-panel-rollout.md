@@ -1,6 +1,6 @@
 # Mira Customer Panel Rollout
 
-Status: SOURCE VALIDATION PASS (one existing skip) — DURABLE PACKAGE-LEVEL VISUAL MATRIX PASS — DRAFT PR OPEN — AUTHENTICATED ACCEPTANCE BLOCKED ON EXACT-CANDIDATE RUNTIME. No live certification or deployment.
+Status: SOURCE VALIDATION PASS (one existing skip) — DURABLE FIXTURE MATRIX PASS — EXACT-CANDIDATE STAGING DEPLOYMENT AND AUTHENTICATED REPRESENTATIVE QA PASS — DRAFT PR OPEN — USER VISUAL ACCEPTANCE PENDING. Not whole-panel LOCK GREEN.
 
 Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f15e. Existing Orders PR75 and archive branches untouched.
 
@@ -8,16 +8,58 @@ Branch: codex/mira-panel-rollout-v1. Base: 455a4a538f4ff78915d38d37247956949aa2f
 
 Use existing Mira/Dashboard/Analytics primitives; user palette overrides older skill canvas/border. No new theme/sidebar/global CSS. Preserve actions, authority and API behavior. Focused tests during changes; typecheck/visual QA per 2–3 modules; full Panel tests/typecheck/build at final delivery. Fixtures are not authenticated QA.
 
+## Exact-candidate staging deployment and authenticated acceptance — 2026-09-12
+
+ROLLOUT STAGING QA: PASS
+
+KULLANICI GÖRSEL KABULÜ: BEKLİYOR
+
+The user authorized one manual deployment to Coolify application `celebix-panel-staging-auth01`, URL `https://admin.guzidekuyumcu.com.tr`, for exact source `1541f873e70098fe46e2d0bd9f8847c39c2d1f22`. Deployment `oybegs8djzvx57yg0xy8rub9` finished successfully. Coolify reports the exact commit as Running; the active container is `yk1h6d97z7ex0h74ok3zrj5c-191817054688`; the rollback image list retains both exact candidate `1541f873e70098fe46e2d0bd9f8847c39c2d1f22` and the previous verified source `6a0d56a3d809df3dd35de0f13c9b703737b6099d`. The prior container `yk1h6d97z7ex0h74ok3zrj5c-074635508556` was replaced by the rolling update; its source image remains available for rollback. No rollback was required.
+
+Post-deployment health is HTTP 200 with `status=ok`, expected custom hostname and Redis `ready`. The protected application opened in the user's existing authorized browser session as store `guzide-kuyumcu-4`, role `Mağaza sahibi`; no password, token, cookie or profile transfer was requested or performed. Auto Deploy and Preview Deployments remain unchecked, and public PR deployments remain disabled. PR #77 remains draft and unmerged.
+
+The pre/post hooks were preserved. Deployment output reports `modular_homepage_migration=already_applied` and `order_address_migration=already_applied`; no new migration or backfill was applied. The release build generated the authorized exact-candidate metadata: PayTR TEST `sha256:f3e9696f260060e3fdf8e8938626ecf691dca9b76a894c5a333ec2605d2be0b4` and LIVE `sha256:295f7798d067686e799a49f32f8fa9f9ebabee520675f0bcde734ac7cc1e5093`. Existing modes remained `approved_test_sandbox` / `approved_live`; payment behavior, PayTR/Iyzico manifests and approval machinery have no diff from the previously running source. Iyzico production authority was not added. No payment, refund or provider call was made.
+
+Application source is unchanged after the previously tested `1dbfb7f553ce1415eb2b6190106e3e68f804f073`: every commit from `1dbfb7f5` through deployed `1541f873` changes only `docs/qa/**`. The retained full evidence therefore remains bound to application source `1dbfb7f5`: 1414 pass, 0 fail, 1 existing opt-in skip; Panel typecheck, strict fixture typecheck and production build pass. Per instruction, the full suite/build was not repeated for document/image-only commits.
+
+### Authenticated package results
+
+| Package | Representative authenticated routes and interactions | Result / boundary |
+|---|---|---|
+| Customers | `/customers`, `/customers/new`, one read-only customer detail; synthetic server search, active/archive filter control, cursor load-more, visible create/edit/archive authority; first-name → last-name Tab order; mobile menu Escape/focus return | PASS. Search produced the correct empty state; the search value is not encoded in the URL. No record write/archive/note action. |
+| Catalog | `/products`, `/products/new`, one read-only product detail; synthetic search, cursor next-page navigation, advanced editor toggle, media/variant/detail actions | PASS. Search produced `?q=...`; pagination produced a cursor URL. Filter button remains disabled by the current product-list implementation. No save/upload/bulk action. |
+| Stock / Barcode | `/products/barcode-labels`, `/products/purchasing`, `/products/purchasing/new`; one client-side barcode variant selection, editor and preview step; purchasing list/form loading and authority | PASS. No template save, barcode generation, print, PDF or ZPL action; physical output remains untested. |
+| Promotions | `/discounts`, `/discounts/new`; list filters, template chooser, custom campaign step 1 → step 2 → step 1 with mobile focus/overflow check | PASS. No draft save, publish, duplicate or archive action. List filter state remains on the route rather than being serialized into the URL. |
+| Order-adjacent | `/orders/quick-links`, `/orders/drafts`, `/orders/drafts/new`, `/orders/abandoned-carts`; empty quick-link form, drafts list/new form, synthetic abandoned-cart search | PASS for independent order-adjacent scope. No payment link/draft/order created. PR #75 Orders list/detail is intentionally excluded and was not accepted here. |
+| Settings / Content | `/content/policies`, inline policy editor, `/settings`, `/settings/general`; read-only list/form access, textarea → Close Tab order and permission-bound save controls | PASS. No content or settings save. |
+
+Across the six representative surfaces, explicit 1440×900, 1024×900 and 390×844 viewport checks measured page horizontal overflow 0; shared shell/compact headers remained usable. Live loading states were observed on the protected APIs, and safe empty states were verified on Customers, Catalog and abandoned carts. No live error was intentionally induced: controlled 409/draft-preservation evidence remains fixture-only and is not relabeled as live. The QA tab's accumulated browser console warning/error read returned 0 entries. Network evidence consists of protected API-backed pages settling without a user-visible error plus the independent health HTTP 200; no HAR or claim of every-route network coverage is made.
+
+### Authenticated live screenshot matrix — deployed source `1541f873`
+
+These 18 JPGs are separate from the earlier 18 fixture PNGs and use the real authorized staging session. The Customers images use a synthetic no-result query and contain no customer record. Full live manifest: [README](artifacts/mira-panel-rollout/1541f873-live/README.md).
+
+| Package / live route | 1440×900 | 1024×900 | 390×844 |
+|---|---|---|---|
+| Customers — `/customers` | [JPG](artifacts/mira-panel-rollout/1541f873-live/customers-search-empty-1440x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/customers-search-empty-1024x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/customers-search-empty-390x844.jpg) |
+| Catalog — `/products/new` | [JPG](artifacts/mira-panel-rollout/1541f873-live/catalog-new-1440x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/catalog-new-1024x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/catalog-new-390x844.jpg) |
+| Stock / Barcode — `/products/barcode-labels` | [JPG](artifacts/mira-panel-rollout/1541f873-live/stock-barcode-editor-1440-viewport.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/stock-barcode-editor-1024-viewport.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/stock-barcode-editor-390-viewport.jpg) |
+| Promotions — `/discounts/new` | [JPG](artifacts/mira-panel-rollout/1541f873-live/promotions-new-1440x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/promotions-new-1024x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/promotions-new-390x844.jpg) |
+| Order-adjacent — `/orders/quick-links` | [JPG](artifacts/mira-panel-rollout/1541f873-live/order-quick-links-1440x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/order-quick-links-1024x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/order-quick-links-390x844.jpg) |
+| Settings / Content — `/content/policies` | [JPG](artifacts/mira-panel-rollout/1541f873-live/settings-policy-edit-1440x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/settings-policy-edit-1024x900.jpg) | [JPG](artifacts/mira-panel-rollout/1541f873-live/settings-policy-edit-390x844.jpg) |
+
+The exact staging build remains available for user visual review. This representative acceptance does not certify every route, live mutation/error recovery, physical barcode output or PR #75 Orders presentation. Owner, Storefront, Worker, Umami and production were unchanged. Whole-panel LOCK GREEN is not declared.
+
 ## Current package status
 
 | Package | Code/review | Validation and next gate |
 |---|---|---|
-| Customers | Source8c6dd656, scoped review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
-| Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Final combined source validation passed; loaded durable1440/1024/390 representative capture complete; authenticated QA pending |
-| Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Final combined source validation passed; loaded barcode durable1440/1024/390 representative capture complete; physical print/auth pending |
-| Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
-| Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
-| Remaining settings and content | Source4631fa78; scoped round2 review clean | Final combined source validation passed; durable1440/1024/390 representative capture complete; authenticated QA pending |
+| Customers | Source8c6dd656, scoped review clean | Final combined source validation, durable fixture matrix and authenticated representative list/form/detail QA passed; user visual acceptance pending |
+| Catalog | Source91097ad7, scoped round1 review clean; fixturefd753440 | Final combined source validation, loaded durable fixture matrix and authenticated representative list/new/detail QA passed; user visual acceptance pending |
+| Stock / purchasing / transfers / price lists / barcode / import | Sourced27ab144, scoped round1 review clean | Final combined source validation and authenticated barcode/purchasing representative QA passed; physical print remains untested; user visual acceptance pending |
+| Promotions | Productionb3527dc2 / fixture95b645a5, scoped round2 review clean | Final combined source validation, durable fixture matrix and authenticated list/wizard QA passed; user visual acceptance pending |
+| Independent order-adjacent | Source/fixture52294977, scoped fix-round1 review clean | Final combined source validation and authenticated quick-link/drafts/abandoned-carts QA passed; PR75 Orders remains excluded; user visual acceptance pending |
+| Remaining settings and content | Source4631fa78; scoped round2 review clean | Final combined source validation and authenticated policy/settings representative QA passed without save; user visual acceptance pending |
 
 Whole-branch review on4631fa78 identified14 finding groups, addressed by the single consolidated fix wave at1dbfb7f5. Final scoped independent re-review verified all14 ADDRESSED at source/regression level, with no new Critical/Important issue. This is not rendered/authenticated certification. Historical initial full test on86812650 failed (1294pass/3fail/1existing skip in first stage only). That result is retained below, not used as the current final-source result; its timeout cause was not certified as baseline.
 
