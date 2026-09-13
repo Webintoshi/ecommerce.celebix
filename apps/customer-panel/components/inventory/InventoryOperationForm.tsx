@@ -88,6 +88,9 @@ function initialLines(mode: Mode, record?: RecordValue): readonly DraftLine[] {
 function label(mode: Mode) {
   return mode === "purchase" ? "Satın alma siparişi" : mode === "count" ? "Stok sayımı" : "Stok transferi";
 }
+function formTitle(mode: Mode) {
+  return mode === "purchase" ? "Sipariş bilgileri" : mode === "count" ? "Sayım bilgileri" : "Transfer bilgileri";
+}
 function variantLabel(choice: InventoryVariantChoice) {
   return `${choice.productTitle} — ${choice.variantTitle}${choice.sku ? ` (${choice.sku})` : ""} — ${choice.variantId}`;
 }
@@ -147,8 +150,8 @@ export function InventoryOperationForm(props: Props) {
   }
 
   if (!props.canManage) return <div className={styles.denied} role="status">{label(props.mode)} oluşturma veya düzenleme yetkiniz yok.</div>;
-  return <section className={styles.operationForm} aria-labelledby={`${props.mode}-form-title`}>
-    <header><h2 id={`${props.mode}-form-title`}>{props.record ? `${label(props.mode)} düzenle` : `Yeni ${label(props.mode).toLocaleLowerCase("tr-TR")}`}</h2><p>Seçenekler yalnız kalıcı etkin ürün, varyant ve konum kayıtlarından gelir.</p></header>
+  return <section className={`${styles.operationForm} ${props.record ? "" : styles.operationFormCreate}`} aria-labelledby={`${props.mode}-form-title`}>
+    <header><h2 id={`${props.mode}-form-title`}>{formTitle(props.mode)}</h2><p>Seçenekler yalnız kalıcı etkin ürün, varyant ve konum kayıtlarından gelir.</p></header>
     {choices.phase === "loading" ? <p className={styles.state} role="status">Etkin ürün ve konum seçenekleri yükleniyor…</p> : null}
     {unavailable ? <p className={styles.errorNotice} role="alert">Ürün veya konum seçenekleri güvenli biçimde yüklenemedi. Kısmi seçeneklerle işlem yapılamaz.</p> : null}
     {empty ? <p className={styles.state} role="status">İşlem için en az bir etkin konum ve etkin ürün varyantı gerekir.</p> : null}

@@ -105,6 +105,22 @@ test("price-list responsive controls preserve Hemenaku shell and 48px targets", 
   assert.doesNotMatch(component, /apps\/admin|\/api\/admin|supabase|localStorage|sessionStorage/i);
 });
 
+test("Mira price-list editor keeps failed drafts visible and tablet actions above the dock", async () => {
+  const component = await source("components/pricing/PriceListConsole.tsx");
+  const css = await source("components/pricing/price-list-console.module.css");
+  assert.match(component, /<h1 className=\{styles[.]srOnly\}>/);
+  assert.match(component, /props[.]resourceId && phase !== "loaded" && !record/);
+  assert.match(component, /Taslağınız korunuyor/);
+  assert.match(component, /className=\{styles[.]pageAction\}/);
+  assert.match(css, /--pricing-text:\s*#2B2B2B/);
+  assert.match(css, /--pricing-surface:\s*#FFFDFC/);
+  assert.match(css, /--pricing-border:\s*#E7E2DD/);
+  assert.match(css, /\.pageAction a[\s\S]{0,180}background:\s*var\(--pricing-text/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.ruleRow[\s\S]{0,120}grid-template-columns:\s*1fr/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*bottom:\s*76px/);
+  assert.doesNotMatch(css, /\.actions \.primary[\s\S]{0,160}background:\s*#fe6100/i);
+});
+
 test("installed Next server redirects signed-out price-list list new and detail routes to login", {
   skip: process.env.CELEBIX_PRICING_NEXT_GUARD !== "1",
   timeout: 120_000,

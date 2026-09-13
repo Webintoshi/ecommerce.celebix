@@ -1570,7 +1570,7 @@ export function BarcodeLabelStudio({
                   />
                 </label>
                 <button
-                  className="button button-primary"
+                  className="button"
                   type="button"
                   disabled={!canManage || busy === "template"}
                   onClick={() => void saveTemplate()}
@@ -1940,7 +1940,7 @@ export function BarcodeLabelStudio({
             )}
           </div>
           <button
-            className="button button-primary summary-next"
+            className={`button ${step === 3 ? "" : "button-primary"} summary-next`}
             type="button"
             disabled={selection.size === 0}
             onClick={() => setStep(step === 1 ? 2 : 3)}

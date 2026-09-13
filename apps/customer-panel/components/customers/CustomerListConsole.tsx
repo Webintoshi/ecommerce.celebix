@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CustomerListItem,
   CustomerStatus,
@@ -47,10 +47,29 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     [search, setSearch] = useState(""),
     [status, setStatus] = useState<CustomerStatus | "all">("all"),
     [cursor, setCursor] = useState<string>(),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loadingMore, setLoadingMore] = useState(false),
+    [appendError, setAppendError] = useState("");
+  const queryGeneration = useRef(0);
+  const appendInFlight = useRef<number | null>(null);
   const load = useCallback(
     async (append = false) => {
-      setState("loading");
+      let generation: number;
+      if (append) {
+        generation = queryGeneration.current;
+        if (appendInFlight.current === generation || !cursor) return;
+        appendInFlight.current = generation;
+        setLoadingMore(true);
+        setAppendError("");
+      } else {
+        generation = queryGeneration.current + 1;
+        queryGeneration.current = generation;
+        appendInFlight.current = null;
+        setLoadingMore(false);
+        setState("loading");
+        setError("");
+        setAppendError("");
+      }
       try {
         const [s, l] = await Promise.all([
           customerApi.summary(),
@@ -61,15 +80,29 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             ...(search ? { search } : {}),
           }),
         ]);
+        if (queryGeneration.current !== generation) return;
         setSummary(s);
         setItems((old) =>
           append ? Object.freeze([...old, ...l.items]) : l.items,
         );
         setCursor(l.nextCursor);
-        setState("loaded");
+        if (!append) setState("loaded");
       } catch (e) {
-        setError(message(e));
-        setState("error");
+        if (queryGeneration.current !== generation) return;
+        if (append) setAppendError(message(e));
+        else {
+          setError(message(e));
+          setState("error");
+        }
+      } finally {
+        if (
+          append &&
+          queryGeneration.current === generation &&
+          appendInFlight.current === generation
+        ) {
+          appendInFlight.current = null;
+          setLoadingMore(false);
+        }
       }
     },
     [cursor, search, status],
@@ -78,6 +111,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     void load(false);
   }, [search, status]);
   async function exportCsv() {
+    setError("");
     try {
       const x = await customerApi.export(),
         head = "Ad,Soyad,E-posta,Telefon,Durum,Sipariş,Toplam\n",
@@ -143,7 +177,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           </article>
         </section>
       ) : null}
-      <section className={styles.customerSurface} aria-label="Müşteri çalışma alanı">
+      <section className={styles.surface} aria-label="Müşteri çalışma alanı">
         <form
           className={styles.customerToolbar}
           role="search"
@@ -177,11 +211,6 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               <option value="archived">Arşiv</option>
             </select>
           </label>
-          {canManage ? (
-            <Link className={styles.customerPrimaryAction} href="/customers/new">
-              <UserPlus aria-hidden="true" />Yeni Müşteri
-            </Link>
-          ) : null}
           <button
             className={styles.customerExport}
             type="button"
@@ -190,6 +219,11 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             <Download aria-hidden="true" />CSV Dışa Aktar
           </button>
         </form>
+        {error && state !== "error" ? (
+          <p className={styles.customerInlineError} role="alert">
+            {error}
+          </p>
+        ) : null}
         {state === "loading" ? (
           <div className={styles.customerLoading} role="status">
             <RefreshCcw aria-hidden="true" />
@@ -291,13 +325,17 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               ))}
             </div>
             {cursor ? (
-              <button
-                className={styles.customerLoadMore}
-                type="button"
-                onClick={() => void load(true)}
-              >
-                Daha fazla yükle
-              </button>
+              <div className={styles.customerPagination}>
+                {appendError ? <p className={styles.customerInlineError} role="alert">{appendError}</p> : null}
+                <button
+                  className={styles.customerLoadMore}
+                  type="button"
+                  disabled={loadingMore}
+                  onClick={() => void load(true)}
+                >
+                  {loadingMore ? "Daha fazla yükleniyor…" : appendError ? "Daha fazla yüklemeyi tekrar dene" : "Daha fazla yükle"}
+                </button>
+              </div>
             ) : null}
           </>
         )}

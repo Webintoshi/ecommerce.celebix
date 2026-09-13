@@ -60,7 +60,7 @@ export function ProductCreateForm({ initialMode = "quick" }: Readonly<{ initialM
     <section data-presentation="hemenaku-product-create" className={`catalog-page ${styles.createPage}`} aria-labelledby="create-title">
       <Link className={`back-link ${styles.createBackLink}`} href="/products">← Ürünlere dön</Link>
       <header className={`catalog-heading product-create-heading ${styles.createHeading}`}>
-        <h1 id="create-title">Yeni ürün oluştur</h1>
+        <h1 className={styles.srOnly} id="create-title">Yeni ürün oluştur</h1>
         <p>Temel bilgileri girin; diğer ayrıntıları ihtiyacınız olduğunda tamamlayın.</p>
       </header>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Seçenekler yüklenemedi</strong><p>{error}</p></div></div> : null}

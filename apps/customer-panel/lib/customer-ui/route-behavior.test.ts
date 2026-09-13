@@ -19,6 +19,9 @@ import { createCustomerApi, CustomerApiError } from "./client.ts";
 const ORIGIN = "https://panel.test";
 const NOW = "2026-07-22T15:00:00.000Z";
 const CUSTOMER_ID = "81000000-0000-4000-8000-000000000001";
+const CUSTOMER_B = "81000000-0000-4000-8000-000000000002";
+const CUSTOMER_C = "81000000-0000-4000-8000-000000000003";
+const CUSTOMER_D = "81000000-0000-4000-8000-000000000004";
 const ADDRESS_ID = "82000000-0000-4000-8000-000000000001";
 const NOTE_ID = "83000000-0000-4000-8000-000000000001";
 const TAG_ID = "84000000-0000-4000-8000-000000000001";
@@ -272,8 +275,12 @@ test("customer route matrix invokes actual list detail edit and new pages throug
   let replayed = false;
   let role: Role = "store_owner";
   const paths: string[] = [];
+  const listResponses: Array<{ status: number; body: string }> = [];
   const repositoryCalls: string[] = [];
   const saveInputs: SaveCustomerInput[] = [];
+  let noteGate: Promise<void> | undefined;
+  const listAppendGates = new Map<string, Promise<void>>();
+  const rejectedListAppends = new Set<string>();
   const mutation = (next: contracts.CustomerDetail, wasReplayed = false): contracts.CustomerMutationResult => ({
     id: next.id,
     version: next.version,
@@ -289,9 +296,35 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       repositoryCalls.push("summary");
       return { active: stored.status === "active" ? 1 : 0, archived: stored.status === "archived" ? 1 : 0, consentedEmail: 1, totalSpentCents: stored.totalSpentCents, currency: "TRY", asOf: NOW };
     },
-    async list() {
+    async list(input) {
       repositoryCalls.push("list");
-      return { items: [listItem(stored)] };
+      if (input.cursor) {
+        await listAppendGates.get(input.cursor);
+        if (rejectedListAppends.has(input.cursor)) throw new CustomerRepositoryError("unavailable");
+        if (input.cursor === "cursor-search") {
+          return { items: [listItem({ ...customer(1), id: CUSTOMER_C, displayName: "Eski arama eki", firstName: "Eski", email: "old-search@example.com" })] };
+        }
+        if (input.cursor === "cursor-current") {
+          return { items: [listItem({ ...customer(1), id: CUSTOMER_C, displayName: "Güncel arama eki", firstName: "Güncel", email: "current-search@example.com" })], nextCursor: "cursor-current-next" };
+        }
+        if (input.cursor === "cursor-current-next") {
+          return { items: [listItem({ ...customer(1), id: CUSTOMER_D, displayName: "Eski durum eki", firstName: "Eski", email: "old-status@example.com" })] };
+        }
+        if (input.cursor === "cursor-archived") {
+          return { items: [listItem({ ...customer(1, "archived"), id: CUSTOMER_D, displayName: "Arşiv eki", firstName: "Arşiv", email: "archived-next@example.com" })] };
+        }
+        return { items: [listItem({ ...customer(1), id: CUSTOMER_B, displayName: "Grace Lovelace", firstName: "Grace", email: "grace@example.com" })] };
+      }
+      if (input.status === "archived") {
+        return { items: [listItem({ ...customer(1, "archived"), id: CUSTOMER_B, displayName: "Güncel arşiv sonucu", firstName: "Güncel", email: "archived@example.com" })], nextCursor: "cursor-archived" };
+      }
+      if (input.search === "Güncel") {
+        return { items: [listItem({ ...customer(1), id: CUSTOMER_B, displayName: "Güncel arama sonucu", firstName: "Güncel", email: "current@example.com" })], nextCursor: "cursor-current" };
+      }
+      if (input.search === "Eski") {
+        return { items: [listItem({ ...customer(1), id: CUSTOMER_B, displayName: "Eski arama sonucu", firstName: "Eski", email: "old@example.com" })], nextCursor: "cursor-search" };
+      }
+      return { items: [listItem(stored)], nextCursor: "cursor-2" };
     },
     async get(input) {
       repositoryCalls.push(`get:${input.customerId}`);
@@ -333,6 +366,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     async addNote(input) {
       repositoryCalls.push("note");
       failMutation();
+      await noteGate;
       stored = { ...stored, notes: [...stored.notes, { id: NOTE_ID, text: input.text, createdAt: NOW }], version: stored.version + 1, updatedAt: NOW };
       return mutation(stored);
     },
@@ -381,7 +415,11 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     if (path === "/api/customers/export") return handlers.export(request(path, init));
     if (path === "/api/customers/tags") return handlers.tags(request(path, init));
     if (path === "/api/customers/segments") return handlers.segments(request(path, init));
-    if (path.startsWith("/api/customers?")) return handlers.list(request(path, init));
+    if (path.startsWith("/api/customers?")) {
+      const response = await handlers.list(request(path, init));
+      listResponses.push({ status: response.status, body: await response.clone().text() });
+      return response;
+    }
     if (path === "/api/customers") return handlers.create(request(path, init));
     let match = /^\/api\/customers\/([^/]+)\/archive$/u.exec(path);
     if (match) return handlers.archive(request(path, init), match[1]!);
@@ -437,6 +475,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     const listTree = await ListPage();
     const listElement = findElement(listTree, (element) => element.type === ListConsole);
     assert.equal(listElement.props.canManage, true, "owner-list-server-manage-authority");
+    assert.equal(listElement.props.embedded, true, "customer-list-is-embedded-in-workspace");
     const renderList = () => ListConsole(listElement.props);
     let listView = await listHooks.flush(renderList);
     assert.match(textOf(listView), /Ada Lovelace/u);
@@ -444,14 +483,132 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.ok(paths.some((path) => path.startsWith("/api/customers?pageSize=25")));
     const hrefs: string[] = [];
     visitElements(listView, (element) => { if (typeof element.props.href === "string") hrefs.push(element.props.href); });
-    assert.ok(hrefs.includes("/customers/new"), "list-create-destination");
+    assert.equal(
+      hrefs.includes("/customers/new"),
+      false,
+      "embedded-list-defers-create-action-to-workspace-header",
+    );
     assert.ok(hrefs.includes(`/customers/${CUSTOMER_ID}`), "list-exact-detail-destination");
+
+    const loadMoreButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    let releaseListAppend: (() => void) | undefined;
+    listAppendGates.set("cursor-2", new Promise<void>((resolve) => { releaseListAppend = resolve; }));
+    rejectedListAppends.add("cursor-2");
+    (loadMoreButton.props.onClick as () => void)();
+    (loadMoreButton.props.onClick as () => void)();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-2")).length, 1, "list-prevents-duplicate-append-while-busy");
+    releaseListAppend?.();
+    listAppendGates.delete("cursor-2");
+    for (let pass = 0; pass < 20; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+      if (/Müşteri hizmeti şu anda kullanılamıyor/u.test(textOf(listView))) break;
+    }
+    assert.match(textOf(listView), /Ada Lovelace/u, "append-failure-retains-loaded-rows");
+    assert.match(textOf(listView), /Müşteri hizmeti şu anda kullanılamıyor/u, "append-failure-is-visible-inline");
+    const retryAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yüklemeyi tekrar dene"));
+    rejectedListAppends.delete("cursor-2");
+    (retryAppendButton.props.onClick as () => void)();
+    for (let pass = 0; pass < 40; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+      if (/Grace Lovelace/u.test(textOf(listView))) break;
+    }
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-2")).length, 2, "append-retry-reuses-retained-cursor-once");
+    assert.equal(repositoryCalls.filter((call) => call === "list").length, 3, "append-retry-reaches-list-repository");
+    assert.deepEqual(listResponses.slice(-2).map(({ status }) => status), [503, 200], "append-failure-then-retry-response-statuses");
+    assert.match(textOf(listView), /Ada Lovelace/u);
+    assert.match(textOf(listView), /Grace Lovelace/u, "append-retry-keeps-cursor-and-adds-next-page-once");
+
+    const changeSearch = async (value: string) => {
+      const searchInput = findElement(listView, (element) => element.type === "input" && element.props.placeholder === "Ad, e-posta veya telefon ara");
+      (searchInput.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
+      listView = await listHooks.flush(renderList);
+      const searchForm = findElement(listView, (element) => element.type === "form" && element.props.role === "search");
+      (searchForm.props.onSubmit as (event: { preventDefault(): void }) => void)({ preventDefault() {} });
+      listView = await listHooks.flush(renderList);
+    };
+
+    await changeSearch("Eski");
+    assert.match(textOf(listView), /Eski arama sonucu/u);
+    let releaseOldSearchAppend: (() => void) | undefined;
+    listAppendGates.set("cursor-search", new Promise<void>((resolve) => { releaseOldSearchAppend = resolve; }));
+    const oldSearchAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    (oldSearchAppendButton.props.onClick as () => void)();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    await changeSearch("Güncel");
+    assert.match(textOf(listView), /Güncel arama sonucu/u, "replacement-search-load-finishes-before-old-append");
+    let releaseCurrentAppend: (() => void) | undefined;
+    listAppendGates.set("cursor-current", new Promise<void>((resolve) => { releaseCurrentAppend = resolve; }));
+    let currentAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    (currentAppendButton.props.onClick as () => void)();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-current")).length, 1, "replacement-query-can-append-while-stale-request-remains-pending");
+
+    releaseOldSearchAppend?.();
+    listAppendGates.delete("cursor-search");
+    for (let pass = 0; pass < 5; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+    }
+    assert.match(textOf(listView), /Güncel arama sonucu/u, "stale-append-success-preserves-replacement-list");
+    assert.doesNotMatch(textOf(listView), /Eski arama eki/u, "stale-append-success-is-ignored");
+    currentAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükleniyor"));
+    assert.equal(currentAppendButton.props.disabled, true, "stale-finally-does-not-clear-current-loading-state");
+    (currentAppendButton.props.onClick as () => void)();
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-current")).length, 1, "stale-finally-does-not-enable-duplicate-current-append");
+
+    releaseCurrentAppend?.();
+    listAppendGates.delete("cursor-current");
+    for (let pass = 0; pass < 5; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+    }
+    assert.match(textOf(listView), /Güncel arama eki/u);
+
+    let releaseOldStatusAppend: (() => void) | undefined;
+    listAppendGates.set("cursor-current-next", new Promise<void>((resolve) => { releaseOldStatusAppend = resolve; }));
+    rejectedListAppends.add("cursor-current-next");
+    const oldStatusAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    (oldStatusAppendButton.props.onClick as () => void)();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const statusSelect = findElement(listView, (element) => element.type === "select");
+    (statusSelect.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "archived" } });
+    listView = await listHooks.flush(renderList);
+    assert.match(textOf(listView), /Güncel arşiv sonucu/u);
+
+    releaseOldStatusAppend?.();
+    listAppendGates.delete("cursor-current-next");
+    for (let pass = 0; pass < 5; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+    }
+    assert.match(textOf(listView), /Güncel arşiv sonucu/u, "stale-append-failure-preserves-replacement-list");
+    assert.doesNotMatch(textOf(listView), /Müşteri hizmeti şu anda kullanılamıyor/u, "stale-append-failure-is-suppressed");
+    const archivedAppendButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("Daha fazla yükle"));
+    (archivedAppendButton.props.onClick as () => void)();
+    for (let pass = 0; pass < 5; pass += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      listView = await listHooks.flush(renderList);
+    }
+    assert.equal(paths.filter((path) => path.includes("cursor=cursor-archived")).length, 1, "stale-failure-preserves-replacement-cursor");
+    assert.match(textOf(listView), /Arşiv eki/u);
+    rejectedListAppends.delete("cursor-current-next");
+
     const exportButton = findElement(listView, (element) => element.type === "button" && textOf(element).includes("CSV Dışa Aktar"));
     (exportButton.props.onClick as () => void)();
     for (let pass = 0; pass < 3; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
     listView = await listHooks.flush(renderList);
     assert.ok(paths.includes("/api/customers/export"));
     assert.deepEqual(downloads, ["musteriler-2026-07-22.csv"]);
+
+    failure = "unavailable";
+    (exportButton.props.onClick as () => void)();
+    for (let pass = 0; pass < 3; pass += 1) await new Promise<void>((resolve) => setImmediate(resolve));
+    listView = await listHooks.flush(renderList);
+    assert.match(textOf(listView), /Müşteri hizmeti şu anda kullanılamıyor/u, "export-failure-is-visible-without-discarding-loaded-list");
 
     role = "analyst";
     paths.length = 0;
@@ -650,13 +807,27 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     assert.equal(repositoryCalls.includes("update"), false, "detail-does-not-own-profile-update");
 
     const noteForm = findElement(detailView, (element) => element.type === "form" && textOf(element).includes("Yeni dahili not"));
-    await (noteForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
+    let releaseNote: (() => void) | undefined;
+    noteGate = new Promise<void>((resolve) => { releaseNote = resolve; });
+    let noteResetCount = 0;
+    const noteValues: Record<string, string> = { text: "Kalıcı müşteri notu" };
+    const pendingNote = (noteForm.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; elements: { namedItem(name: string): { value: string } | null }; reset(): void } }) => Promise<void>)({
       preventDefault() {},
-      currentTarget: { values: { text: "Kalıcı müşteri notu" }, reset() {} },
+      currentTarget: {
+        values: noteValues,
+        elements: { namedItem: (name) => name === "text" ? { value: noteValues.text ?? "" } : null },
+        reset() { noteResetCount += 1; },
+      },
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    noteValues.text = "Kalıcı müşteri notu ";
+    releaseNote?.();
+    await pendingNote;
+    noteGate = undefined;
     detailView = await detailHooks.flush(renderDetail);
     assert.ok(repositoryCalls.includes("note"), "detail-note");
     assert.equal(stored.notes[0]?.text, "Kalıcı müşteri notu");
+    assert.equal(noteResetCount, 0, "detail-note-preserves-new-draft-typed-during-save");
 
     let taxonomyInputs: React.ReactElement<Record<string, unknown>>[] = [];
     visitElements(detailView, (element) => {

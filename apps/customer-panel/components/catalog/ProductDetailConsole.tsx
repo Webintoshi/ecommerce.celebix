@@ -21,6 +21,7 @@ import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalo
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
+import catalogStyles from "./catalog-operations.module.css";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -338,7 +339,7 @@ export function ProductDetailConsole({
   }
 
   if (loading) return <div className="catalog-loading page-loading" role="status"><span className="spinner" aria-hidden="true" /> Ürün ayrıntıları yükleniyor…</div>;
-  if (detail === undefined) return <section className="catalog-page"><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
+  if (detail === undefined) return <section className={`catalog-page ${catalogStyles.catalogRoot}`}><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
   const { product, variants } = detail;
   const archived = product.status === "archived";
@@ -377,7 +378,7 @@ export function ProductDetailConsole({
     </section>
   ) : null;
   return (
-    <section data-presentation="hemenaku-product-detail" className="catalog-page product-detail-workspace" aria-labelledby="product-title">
+    <section data-presentation="hemenaku-product-detail" className={`catalog-page product-detail-workspace ${catalogStyles.catalogRoot}`} aria-labelledby="product-title">
       <header className="detail-heading-row hemenaku-detail-hero product-detail-header">
         <div className="catalog-heading product-detail-heading">
           <Link className="back-link product-detail-back" href="/products"><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>

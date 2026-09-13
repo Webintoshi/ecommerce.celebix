@@ -549,7 +549,7 @@ export function PaymentSettingsConsole(props: Readonly<{
   const manualMethodCount = methodsKnown
     ? view.methods.filter(({ kind }) => kind !== "provider").length
     : null;
-  const providerProfileCount = sources.profiles.phase === "ready"
+  const providerProfileCount = sources.catalog.phase === "ready" && sources.profiles.phase === "ready"
     ? sources.profiles.value.filter(({ status }) => status !== "revoked").length
     : null;
 

@@ -165,7 +165,15 @@ export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; can
     queueMicrotask(() => trigger?.focus());
   };
   return <InventoryLocationPresentation state={state} canManage={props.canManage} name={name} onName={setName}
-    onCreate={() => { const selected = name.trim(); if (selected) { void controller.current?.save({ name: selected }); setName(""); } }}
+    onCreate={() => {
+      const selected = name.trim();
+      if (!selected) return;
+      void (async () => {
+        await controller.current?.save({ name: selected });
+        const phase = controller.current?.getSnapshot().phase;
+        if (phase === "committed" || phase === "replayed") setName("");
+      })();
+    }}
     rename={rename}
     onEdit={(location, trigger) => {
       renameTrigger.current = trigger;
