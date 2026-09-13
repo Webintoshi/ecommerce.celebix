@@ -21,8 +21,8 @@ const STATUS_LABELS: Readonly<Record<OrderDraftStatus, string>> = Object.freeze(
   archived: "Arşivlendi",
 });
 
-function statusTone(status: OrderDraftStatus): "neutral" | "success" | "warning" {
-  return status === "converted" ? "success" : status === "draft" ? "warning" : "neutral";
+function statusTone(status: OrderDraftStatus): "neutral" | "success" {
+  return status === "converted" ? "success" : "neutral";
 }
 
 function money(cents: number) {
@@ -98,7 +98,7 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
         actions={canManage ? <Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" size={15} /><span>Yeni taslak sipariş</span></Link> : undefined}
       />
       <section className={styles.listSurface} aria-label="Taslak sipariş çalışma alanı" data-panel-surface="open">
-        {phase === "loading" ? <div className={styles.stateSurface}><p className={styles.state} role="status">Taslak siparişler yükleniyor…</p></div> : null}
+        {phase === "loading" ? <div className={styles.stateSurface}><div className={styles.loadingState} role="status"><span className={styles.contextIcon}><FileText aria-hidden="true" size={16} /></span><div><strong>Taslak siparişler yükleniyor</strong><small>Müşteri ve toplam bilgileri hazırlanıyor.</small></div></div><div className={styles.loadingRows} aria-hidden="true"><span /><span /><span /></div></div> : null}
         {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Taslaklar yüklenemedi</h2><p>{error}</p></div><button type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
         {phase === "loaded" && items.length === 0 ? (
           <div className={styles.emptyState}>

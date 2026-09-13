@@ -927,7 +927,8 @@ test("mounted payment catalog keeps two built-in methods before provider filters
   assert.ok(filters);
   assert.ok(providerResults);
   assert.ok(nodes.indexOf(builtInHeading) < nodes.indexOf(filters));
-  assert.match(tree.map(drawerText).join(""), /58 entegrasyon|58 \/ 58 entegrasyon/);
+  assert.match(tree.map(drawerText).join(""), /Entegrasyon sayısı bilinmiyor/);
+  assert.doesNotMatch(tree.map(drawerText).join(""), /58 entegrasyon|58 \/ 58 entegrasyon/);
   assert.match(tree.map(drawerText).join(""), /Etkin/);
 
   const builtInButtons = nodes.filter((node) =>

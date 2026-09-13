@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PriceList, PricingPreviewResult } from "@celebix/saas-contracts";
+import { POST as pricingFixturePreview } from "../../../../tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/api/pricing/[[...path]]/route.ts";
+import { VARIANT_ID as FIXTURE_VARIANT_ID } from "../../../../tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/mira-catalog/catalog-fixture.ts";
 import {
   buildPriceListIntent,
   canAddPricingRule,
@@ -66,6 +68,17 @@ test("pricing client preview is abortable read-only and contains no browser auth
     await assert.rejects(() => api.preview(invalid as never), /pricing_client_invalid/);
   }
   assert.equal(calls.length, 1);
+});
+
+test("Mira fixture preview satisfies the production client's correlated microsecond contract", async () => {
+  const api = createPricingApi(async (_input, init) => pricingFixturePreview(
+    new Request("https://fixture.example.test/api/pricing/preview", { method: "POST", headers: init?.headers, body: init?.body }),
+    { params: Promise.resolve({ path: ["preview"] }) },
+  ), () => OP);
+  const result = await api.preview({ channel: "storefront", variantIds: [FIXTURE_VARIANT_ID] });
+  assert.equal(result.asOf, "2026-09-09T10:00:00.000000Z");
+  assert.equal(result.entries[0]?.variantId, FIXTURE_VARIANT_ID);
+  assert.equal(result.entries[0]?.effectivePriceCents, 229_900);
 });
 
 test("pricing client rejects valid-shaped preview results not correlated to its request", async () => {

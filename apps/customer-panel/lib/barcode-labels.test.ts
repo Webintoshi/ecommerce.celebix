@@ -4,3 +4,4 @@ await import("./barcode-labels/document.test.ts");
 await import("./barcode-labels/outputs.test.ts");
 await import("./barcode-labels/preview-geometry.test.ts");
 await import("./barcode-labels/selection.test.ts");
+await import("./barcode-labels/presentation.test.ts");

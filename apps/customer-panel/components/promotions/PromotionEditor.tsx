@@ -191,7 +191,12 @@ export function PromotionEditor({ templateId = "custom", promotionId, timezone, 
 
   useEffect(() => () => checksController.current?.abort(), []);
 
-  useEffect(() => { stepFocusRef.current?.focus(); }, [draft.step]);
+  useEffect(() => {
+    const step = stepFocusRef.current;
+    if (!step) return;
+    step.focus({ preventScroll: true });
+    step.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [draft.step, loading]);
 
   useEffect(() => {
     const guard = createDirtyNavigationGuard({ isDirty: () => promotionDraftSnapshot(draftRef.current) !== savedSnapshot, confirm: () => window.confirm("Kaydedilmemiş kampanya değişiklikleriniz var. Ayrılmak istiyor musunuz?") });

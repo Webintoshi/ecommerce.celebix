@@ -87,6 +87,7 @@ export function CatalogImportPreparationConsole({ format, title, description, ca
   return (
     <PanelPageShell embedded={embedded}>
       <PanelPageHeader title={title} description={description} embedded={embedded} />
+      <h1 className={styles.srOnly}>{title}</h1>
       <section className={styles.surface}>
         {!canImport ? <p className={styles.warning} role="status" aria-live="polite">Bu işlem için katalog içe aktarma yetkiniz yok.</p> : (
           <form ref={formRef} className={styles.upload} onSubmit={prepare}>

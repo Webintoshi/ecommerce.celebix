@@ -55,12 +55,18 @@ test("launcher opens the quick dialog instead of navigating away", async () => {
 });
 
 test("dialog preserves focus, keyboard, duplicate-submit and close safety", async () => {
-  const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
+  const [dialog, list] = await Promise.all([
+    source("components/catalog-onboarding/ProductQuickCreateDialog.tsx"),
+    source("components/catalog/ProductListConsole.tsx"),
+  ]);
   assert.match(dialog, /event\.key === "Escape"/);
   assert.match(dialog, /event\.key !== "Tab"/);
   assert.match(dialog, /submittingRef\.current/);
   assert.match(dialog, /beforeunload/);
   assert.match(dialog, /returnFocusRef\.current\?\.focus/);
+  assert.match(dialog, /returnFocusTarget/);
+  assert.match(list, /quickCreateTriggerRef\.current = trigger/);
+  assert.match(list, /returnFocusTarget=\{quickCreateTriggerRef\.current\}/);
   assert.match(dialog, /onMouseDown=.*event\.target === event\.currentTarget/);
 });
 
@@ -81,6 +87,16 @@ test("quick surface is a mobile sheet with 48px targets and reduced motion", asy
   assert.match(css, /0\.01ms/);
 });
 
+test("catalog onboarding owns its Mira palette and clears the fixed mobile navigation dock", async () => {
+  const css = await source("components/catalog-onboarding/product-onboarding.module.css");
+  assert.match(css, /--catalog-accent:\s*#FE6100/i);
+  assert.match(css, /--catalog-text:\s*#2B2B2B/i);
+  assert.match(css, /--catalog-canvas:\s*#F8F7F5/i);
+  assert.match(css, /--catalog-surface:\s*#FFFDFC/i);
+  assert.match(css, /--catalog-border:\s*#E7E2DD/i);
+  assert.match(css, /@media \(max-width:\s*1024px\)[^]*padding-bottom:\s*calc\(76px/s);
+});
+
 test("advanced editor is one collapsible form, not a wizard", async () => {
   const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
   for (const label of ["Temel bilgiler", "Fiyat ve stok", "Varyantlar", "Medya", "Kategori, koleksiyon, marka ve etiket", "Kargo ve gümrük", "SEO", "Satış kanalları", "Nitelikler ve ekstralar"]) {
@@ -91,6 +107,14 @@ test("advanced editor is one collapsible form, not a wizard", async () => {
   assert.match(editor, /completeProductMedia/);
   assert.match(editor, /multiple accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(editor, /ProductDescriptionField/);
+});
+
+test("advanced editor locks native and rich fields while a versioned save is pending", async () => {
+  const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(editor, /aria-busy=\{busy\}/);
+  assert.match(editor, /<fieldset className=\{styles[.]editorFieldset\} disabled=\{busy\}>/);
+  assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy\}/s);
+  assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy \|\| editing\}/s);
 });
 
 test("variant matrix rejects duplicate attributes and bounds combinations", () => {
@@ -113,6 +137,24 @@ test("category manager presents hierarchy without exposing technical slugs", asy
 
   assert.match(manager, /normalizedQuery \? label : `Seviye \$\{depth\} · Görünüm sırası \$\{category[.]position\}`/);
   assert.doesNotMatch(manager, /\/\{category[.]slug\}/);
+});
+
+test("category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus", async () => {
+  const [manager, css] = await Promise.all([
+    source("components/catalog-onboarding/CategoryManager.tsx"),
+    source("components/catalog-onboarding/category-management.module.css"),
+  ]);
+  assert.match(manager, /function categoryCommands\(\)/);
+  assert.match(manager, /<PanelTopbarBridge title="Kategoriler" actions=\{categoryCommands\(\)\}/);
+  assert.match(manager, /<div className=\{styles[.]mobileHeaderActions\}>\{categoryCommands\(\)\}<\/div>/);
+  assert.match(manager, /<h1 id="category-manager-title" className="sr-only">Kategoriler<\/h1>/);
+  assert.doesNotMatch(manager, /<header className=\{styles[.]pageHeader\}>/);
+  assert.doesNotMatch(manager, /className=\{styles[.]detailPlaceholder\}[^]*<button[^>]*>[^<]*<Plus[^>]*\/> Yeni kategori<\/button>/s);
+  assert.match(css, /[.]mobileHeaderActions\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /@media \(max-width:\s*1024px\)[^]*[.]mobileHeaderActions\s*\{[^}]*display:\s*flex/s);
+  assert.match(manager, /editorReturnFocusRef/);
+  assert.match(manager, /editorNameRef[.]current\?[.]focus/);
+  assert.match(manager, /event[.]key === "Escape"/);
 });
 
 test("category accordion groups descendants under roots and toggles roots independently", () => {
