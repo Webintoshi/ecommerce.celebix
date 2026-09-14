@@ -111,6 +111,7 @@
 .canvasSectionItems li span { color: color-mix(in srgb, currentColor 64%, transparent); overflow-wrap: anywhere; }
 .canvasSectionSummary .canvasProductGrid, .canvasSectionSummary .canvasCategoryGrid[data-layout="grid"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .canvasSectionSummary .canvasCategoryGrid[data-layout="duo"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.previewViewport .canvasProductGrid article:nth-child(3) { display: grid; }
 .canvasProductSummary h2 { margin: 0; font-family: var(--store-heading-font), serif; font-size: clamp(26px, 3.2cqw, 44px); letter-spacing: -.035em; }
 .canvasProductDetailPreview { display: grid; min-height: 430px; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: clamp(24px, 4cqw, 64px); border-top: 1px solid #ece8e2; padding: clamp(28px, 5cqw, 72px); }
 .canvasProductGallery { display: grid; min-height: 320px; grid-template-columns: 1fr 1fr; gap: 8px; }

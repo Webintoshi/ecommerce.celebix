@@ -10,6 +10,7 @@ import {
   type StorefrontDesignDocument,
   type StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
+import { Window } from "happy-dom";
 import React, { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
@@ -203,6 +204,33 @@ test("product-row scaffolds render the exact count requested by each row contrac
     const end = markup.indexOf("</section>", start);
     const rowMarkup = markup.slice(start, end);
     assert.equal((rowMarkup.match(/<article/g) ?? []).length, expectedCount);
+  }
+});
+
+test("mobile canvas keeps the third product card visible at narrow and wide outer viewports", async () => {
+  const designCss = readFileSync(new URL("../design-settings.module.css", import.meta.url), "utf8");
+  const sharedPreviewCss = readFileSync(new URL("../starter-theme-preview.module.css", import.meta.url), "utf8");
+
+  for (const outerWidth of [390, 1440]) {
+    const window = new Window({ width: outerWidth, height: 844 });
+    try {
+      const style = window.document.createElement("style");
+      style.textContent = `${designCss}\n${sharedPreviewCss}`;
+      window.document.head.append(style);
+      const viewport = window.document.createElement("div");
+      viewport.className = "previewViewport";
+      viewport.dataset.mode = "mobile";
+      const grid = window.document.createElement("div");
+      grid.className = "previewProducts canvasProductGrid";
+      for (let index = 0; index < 4; index += 1) grid.append(window.document.createElement("article"));
+      viewport.append(grid);
+      window.document.body.append(viewport);
+
+      assert.equal(window.innerWidth, outerWidth);
+      assert.equal(window.getComputedStyle(grid.children[2]!).display, "grid", `outer ${outerWidth}, mobile 390 canvas`);
+    } finally {
+      await window.happyDOM.close();
+    }
   }
 });
 

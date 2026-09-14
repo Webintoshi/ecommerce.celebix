@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import * as nodeCrypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -1147,15 +1148,17 @@ test("legacy design routes authenticate and redirect into the unified workspace"
 test("design settings mounts the canonical unified workspace", async () => {
   const output = await compiledPageSource("/settings/design");
   const workspace = Object.freeze({ schemaVersion: 3, marker: "unified" });
+  const session = Object.freeze({ id: "fixture-design-session" });
   const DesignWorkspace = (props: Record<string, unknown>) => createElement("section", { ...props, "data-design-workspace": true });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "@celebix/saas-contracts") return contracts;
+    if (specifier === "node:crypto") return nodeCrypto;
     if (specifier === "next/navigation") return { redirect(value: string) { throw new Error(`unexpected_design_redirect:${value}`); } };
     if (specifier === "@/components/settings/design/DesignWorkspace") return { DesignWorkspace };
     if (specifier === "@/components/settings/design/workspace-navigation-model") return { resolveDesignWorkspaceLocation: (section?: string) => section === "theme" ? { area: "site", step: "style" } : { area: "site", step: "brand" } };
-    if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ tenantContext: tenant("store_owner") }) };
+    if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => ({ session, tenantContext: tenant("store_owner") }) };
     if (specifier === "@/lib/server-storefront-design/default") return { resolveDefaultServerStorefrontDesignRuntime: async () => ({ repository: { getWorkspace: async () => workspace } }) };
     throw new Error(`unexpected_unified_design_import:${specifier}`);
   };
@@ -1165,4 +1168,6 @@ test("design settings mounts the canonical unified workspace", async () => {
   assert.equal(mounted.props.workspace, workspace);
   assert.equal(mounted.props.canManage, true);
   assert.deepEqual(mounted.props.initialLocation, { area: "site", step: "style" });
+  assert.equal(mounted.props.recoveryScope, "55d45995d09039aab1c1270c9e3bd19cdaeeb1414055711abee49a92954d9108");
+  assert.equal(mounted.key, mounted.props.recoveryScope);
 });
