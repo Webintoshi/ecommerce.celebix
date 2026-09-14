@@ -1,0 +1,24 @@
+{
+  "applicationSource": "1badb864b64c3bcc8138f3b6157e6c4bc6c9f085",
+  "environment": "http://127.0.0.1:3427/design-settings-fix",
+  "data": "synthetic isolated-design-qa; no live credentials or customer data",
+  "toolbarMatrix": [
+    {"width":1440,"height":1000,"scrollWidth":1440,"toolbarTop":128,"toolbarBottom":184,"controlsVisible":4,"allCenterHits":true,"allTabIndexes":0,"controlHeight":48},
+    {"width":1024,"height":1000,"scrollWidth":1024,"toolbarTop":155,"toolbarBottom":211,"controlsVisible":4,"allCenterHits":true,"allTabIndexes":0,"controlHeight":48},
+    {"width":390,"height":844,"scrollWidth":390,"toolbarTop":205,"toolbarBottom":261,"controlsVisible":4,"allCenterHits":true,"allTabIndexes":0,"controlHeight":48},
+    {"width":390,"height":480,"scrollWidth":390,"toolbarTop":205,"toolbarBottom":261,"controlsVisible":4,"allCenterHits":true,"allTabIndexes":0,"controlHeight":48}
+  ],
+  "mobileControlWidths": {"Alanlar":95.3828125,"Masaüstü":48,"Mobil":48,"Yayınla":83.046875},
+  "mobileCanvas": {"outerWidth":1440,"canvasWidth":390,"mobilePressed":"true","navDisplay":["none"],"productColumns":[2,2]},
+  "categoryGrid": {"columns":2,"layout":"grid","syntheticSelectionSaved":true},
+  "categoryDuo": {"columns":1,"layout":"duo","survivedFullReload":true},
+  "productVisibility": {
+    "redSource":"8cf59075d9117b6ee16dfcbb4b581290c75144f8",
+    "red390":{"totalPerRow":4,"visiblePerRow":3,"thirdDisplay":"none"},
+    "green390":{"totalPerRow":4,"visiblePerRow":4,"rows":2},
+    "green1440MobileMode":{"totalPerRow":4,"visiblePerRow":4,"rows":2}
+  },
+  "focusReturn":{"tag":"SUMMARY","label":"Tasarım alanlarını aç","width":95.3828125,"height":48,"outlineStyle":"solid","outlineWidth":"2px","modalOpen":false},
+  "capturedConsoleErrorsOrWarnings":[],
+  "limitations":["Not authenticated live acceptance","Fixture banner intentionally unavailable","No exhaustive network trace","390x480 is viewport-height stress, not a physical soft-keyboard test","Cardinality and layout do not resolve the missing server-only catalog/media projection"]
+}

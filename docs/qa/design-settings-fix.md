@@ -1,6 +1,6 @@
 # Design settings fixes — A01–A07
 
-Status: implementation and isolated acceptance in progress. No live mutation, deployment or merge.
+Status: **FRONTEND FIXES VERIFIED — 6 CLOSED / A03 PARTIAL — LIVE ACCEPTANCE PENDING**. No live mutation, deployment or merge. Final application source: `1badb864b64c3bcc8138f3b6157e6c4bc6c9f085`. Later evidence-only commits do not change that application source.
 
 ## Source and protected evidence
 
@@ -49,11 +49,51 @@ Only the existing GitHub workflow was inspected. Its push branch is `codex/self-
 
 Fresh repeat at **2026-09-14 21:20 UTC / 2026-09-15 00:20 Türkiye**: all four actual Advanced-page Auto Deploy and Preview checkboxes remained0/OFF; latest deployment lists still showed the same completed runs and no active item. Owner latest deployment ID `i5cdnj4dadq4iqbcee342faz`; Worker `twxisohfg18kk3498dow9si1`. This was read-only HTTPS management UI inspection, not a global queue API audit. Remote canonical also remained `c09d59a…`; this branch had no existing remote PR.
 
+Before-push trigger repeat at **2026-09-14 21:51 UTC**: Customer Panel, Owner, Storefront and Analytics Worker Auto Deploy and Preview Deployments remained0/OFF on their actual Advanced pages. No setting was changed. Remote canonical was still `c09d59a…`; no task PR existed.
+
 ## Final acceptance
 
-Pending: remaining fixes, task reviews, final integrated tests/typechecks/build, after screenshots, final independent review, safe normal push and one PR. Live post-deployment acceptance is explicitly outside this authorization.
+Final Panel tests: **1422 PASS /0 FAIL /1 existing SKIP**. Relevant coverage: **148 PASS**, including all original119 tests and29 added regressions. Affected typechecks, final Panel production build, diff-check and independent reviews pass. Exact command/source mappings and the initially failed tests are retained below. Live post-deployment acceptance is explicitly outside this authorization.
 
-## Findings ledger (in progress)
+Final evidence destinations: [validation commands/results](evidence/design-settings-fix/validation.md), [independent review and follow-ups](evidence/design-settings-fix/final-review.md), [first final correction](evidence/design-settings-fix/final-fix-implementation.md).
+
+The full affected typechecks passed on `8cf59075d9117b6ee16dfcbb4b581290c75144f8`; the subsequent correction changes only scoped canvas CSS and two tests, both separately typechecked. Final production build on `1badb864b64c3bcc8138f3b6157e6c4bc6c9f085` passed, including Panel TypeScript. Persistence and lifecycle source remain unchanged, so their exact8cf59075/45af25dc evidence is explicitly reused instead of relabeled as a new live run.
+
+## Finding-by-finding delivery
+
+| ID / original severity | Root cause | Correction | Regression | Visual / functional result | Remaining dependency |
+|---|---|---|---|---|---|
+| A01 / P1 | V3 identities/version were lost in editor conversion and replacement. | Version-aware session; strict serialization; stable append/replacement IDs; field-level recoverable error. | Mounted real composer opens all panels, edits, appends and changes latest/sale while preserving literal IDs/order/untouched fields; invalid document does not write. | Isolated functional PASS; no opening/reset write. | Live read-only acceptance after an authorized Panel deployment. |
+| A02 / P1 | Shell hid its command slot at tablet/mobile widths. | Single workspace toolbar with existing permission/validation locks and focus restoration. | Mounted toolbar authority; actual Chrome1440/1024/390 and390×480 viewport checks. | Four controls visible, pointer-center reachable, at least48px high; no horizontal overflow; Enter/Escape focus returns with2px solid outline. | Physical mobile soft keyboard not exercised; reduced-height viewport is not an actual-device claim. |
+| A03 / P1 | Fixed order/first match omitted repeated rows and V3 footer. | Ordered enabled V3 rows, honest example rows, actual footer options and brand typography; empty remains empty; existing renderer/scaffolds reused. | Actual SSR order/empty/repeated rows/footer/typography/hero-owner/row limits; file and PostgreSQL publication/re-read. | PARTIAL: supported configuration now agrees; no fabricated resolved images, products or reviews. | Workspace lacks server-only CampaignHomeProjection/legacy-asset mapping. Requires a separately authorized narrow projection follow-up; no API/SQL/runtime change included here. |
+| A04 / P1 | Debounce cleanup lost unsent input on leaving. | Existing navigation guard plus identity-scoped, bounded in-memory recovery; restored input pauses writes until explicit comparison. | Mounted link/unload/history/back-forward/scope/discard; actual Chrome NextLink→Back→Forward; real page route fixture with opaque scope/key. | CLOSED in isolated acceptance: exact unsaved input recovered; no automatic publish/overwrite. | Volatile recovery does not survive browser process termination/full document reload. |
+| A05 / P1 | Conflict had no fresh-version comparison or recovery route. | Explicit read/field diff and deliberate conditional overwrite/discard; second conflict still denied. | Mounted409/reload failure/second409; real file-backed concurrent version change, compare/save/reload; PostgreSQL stale rejection. | Exact input retained and deliberate recovery persists; no blind version bump. | Live concurrent-user scenario not exercised. |
+| A06 / P2 | Pre-publish flush rejection escaped handled publish boundary. | Shared handled flush/publish path, clear retry state and synchronous publication lock. | Mounted publish-before-debounce failure/unhandled-rejection guard/explicit retry/permission rejection/queued changes; actual held PATCH with newer edit. | Retry is truthful; old save response does not erase newer edits; reload retains newest value. | Real provider or live publication was not exercised. |
+| A07 / P2 | Child responsive CSS followed outer window rather than canvas mode. | Scoped canvas breakpoints for nav/product/category grids; canvas-only override of legacy third-card hiding. | Actual desktop-window/mobile-canvas columns and category grid/duo; effective CSS cascade; Chrome card-visibility assertion. | CLOSED: RED3≠4→GREEN4/4 in both rows at outer390 and1440; product grids2, category grid2/duo1, desktop nav hidden in mobile mode. | No storefront runtime stylesheet change or actual physical-device certification. |
+
+Closure distribution: **A01, A02, A04, A05, A06, A07 closed within isolated frontend acceptance; A03 partial/open for the named server-projection dependency.** This is not seven-of-seven, a live deployment acceptance, or a whole-panel certification.
+
+## Permanent visual matrix
+
+All after images use final application source `1badb864b64c3bcc8138f3b6157e6c4bc6c9f085`; synthetic fixture only. The original ten live audit PNGs are separately preserved unchanged.
+
+| Viewport | Before | After |
+|---|---|---|
+| 1440×1000 | [Before](evidence/design-settings-fix/before-1440.png) | [After](evidence/design-settings-fix/after-1440.png) |
+| 1024×1000 | [Before](evidence/design-settings-fix/before-1024.png) | [After](evidence/design-settings-fix/after-1024.png) |
+| 390×844 | [Before](evidence/design-settings-fix/before-390.png) | [After](evidence/design-settings-fix/after-390.png), [viewport](evidence/design-settings-fix/after-390-viewport.png) |
+
+[Working Header editor at390](evidence/design-settings-fix/after-header-390.png), [conflict comparison](evidence/design-settings-fix/conflict-390.png), [history recovery](evidence/design-settings-fix/history-recovery-390.png), [final browser measurements](evidence/design-settings-fix/browser-layout-final.json). Full-page screenshots include the fixed mobile navigation at its viewport position; they are not stitched claims about scrolling behavior.
+
+Console capture on final fixture: no error/warn entries. Server logs show successful200 requests plus deliberately injected409/503 in their respective scenarios. The non-customer `fixture.invalid` banner intentionally does not load. Browser-control timeouts and a transient392.57px width during the existing200ms width animation were not treated as application failures; the driver now waits by bounded rendered-width observations before asserting390px. This is not an exhaustive clean-network claim.
+
+## Future release and live acceptance
+
+Only **Customer Panel** needs a future deployment to deliver this PR's frontend changes. Storefront, Owner and Worker are not release targets for this patch. No deployment is authorized or performed here. A03's future server projection is a separate scope, not a concealed part of this branch.
+
+The new and old domains, current staging session, payment bindings and database settings remain untouched. Live Güzide save/publish, media upload/delete, real concurrency, publication cache invalidation and published-storefront visual comparison were **not** tested. All mutations in this report use synthetic localhost or disposable PostgreSQL data.
+
+## Historical findings ledger (intermediate statuses; final table supersedes these)
 
 | ID / original severity | Root cause | Scoped correction / regression | Current acceptance boundary |
 |---|---|---|---|
@@ -76,8 +116,12 @@ Lifecycle browser evidence at `a20adfe4378a786f6a858e3b2bd678afe66f00db` (interm
 
 History follow-up at `45af25dc9287505392e64ad8b7cffcf7111b29f3`: three new mounted history cases RED→GREEN, full focused design-folder53/53 and Panel typecheck passed. Actual Chrome/Next acceptance used a synthetic local history landing route and NextLink navigation, then a rejected save. Browser Back left the workspace; Forward restored the exact unsaved heading with automatic writes paused and publication disabled. Explicit comparison showed the different file-persisted heading; explicit discard restored that saved value. [390px recovery](evidence/design-settings-fix/history-recovery-390.png). Captured console error/warn list empty. Recovery is bounded volatile memory, not durable browser storage or authenticated live acceptance. Scoped re-review pending.
 
+The scoped history re-review subsequently passed with no new breakage. On unchanged application source, actual browser queued-edit acceptance also passed: the first PATCH was held, a newer heading entered, then release allowed both serialized saves. The older response did not overwrite the newer heading, and a full reload retained the newest value. [Structured interaction evidence](evidence/design-settings-fix/browser-interactions.json). Fixture logs showed the intentionally injected503/409 and successful200 save/read responses; no exhaustive network-clean claim is made.
+
 ## Scope decisions
 
 1. A03 remains bounded to data already available in the frontend workspace; no server projection/API authority is added. Existing Panel example scaffolds and shared renderer are reused, with unresolved content labeled. Cost: the preview remains less complete until a narrowly approved server-projection follow-up.
 2. Independent A04–A07 work continues while that A03 dependency stays explicitly open, as requested. Cost: this PR cannot be represented as seven of seven fully closed.
 3. Narrow frontend propagation of a non-authoritative recovery scope from already-required session/principal/store context is permitted solely to partition bounded in-memory drafts. No authentication decision or API authority changes. Cost: the extra page prop/helper needs review; volatile recovery does not survive browser process termination and must not cross identity scope or silently save.
+4. Reuse an existing independent review seat after both attempts to obtain the highest-capability reviewer hit the tool's thread limit. The reviewer authored no implementation. Cost: less fresh context and lower reviewer capability could miss a cross-task defect; independent scoped re-review and integrated acceptance remain required.
+5. The subsequent full-suite/browser gate exposed two defects beyond the original final-review findings. Complete one additional narrowly bounded frontend/test correction under the user's explicit finish-fixes requirement, rather than park them solely because the process skill normally caps final fix waves. Cost: an extra correction/review cycle and validation time; scope must stay canvas CSS and the exact test fixture. No additional backend or live authority is inferred.

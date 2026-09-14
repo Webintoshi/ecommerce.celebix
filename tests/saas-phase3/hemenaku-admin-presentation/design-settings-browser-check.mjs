@@ -39,6 +39,7 @@ export async function checkViewport(browser, tab, width, height) {
   assert.equal(result.scrollWidth, width, "No document horizontal overflow");
   assert.ok(result.toolbar.width > 0);
   assert.ok(result.toolbar.left >= 0 && result.toolbar.right <= width);
+  assert.ok(result.toolbar.top >= 0 && result.toolbar.bottom <= height, "Toolbar stays inside the available viewport height");
   assert.equal(result.controls.length, 4);
   for (const control of result.controls) {
     assert.ok(control.visible, `${control.label} is visible at ${width}`);
@@ -54,6 +55,15 @@ export async function checkMobileCanvas(browser, tab) {
   await (await browser.capabilities.get("viewport")).set({ width: 1440, height: 1000 });
   await tab.playwright.getByRole("button", { name: "Mobil", exact: true }).press("Enter");
   await tab.playwright.domSnapshot();
+  // The real canvas animates its width for 200ms. Observe the rendered target,
+  // not an arbitrary delay or the transient width halfway through the animation.
+  let widthSettled = false;
+  for (let observation = 0; observation < 30; observation += 1) {
+    const width = await tab.playwright.evaluate(() => document.querySelector('[data-mode="mobile"]')?.getBoundingClientRect().width);
+    if (width === 390) { widthSettled = true; break; }
+    await tab.playwright.domSnapshot();
+  }
+  assert.ok(widthSettled, "Mobile canvas reaches its rendered target width");
   const result = await tab.playwright.evaluate(() => ({
     outerWidth: innerWidth,
     canvasWidth: document.querySelector('[data-mode="mobile"]')?.getBoundingClientRect().width,
@@ -70,6 +80,21 @@ export async function checkMobileCanvas(browser, tab) {
   // An empty category selection has no grid; it is reported, never called PASS.
   for (const category of result.categoryColumns) assert.equal(category.columns, category.layout === "duo" ? 1 : 2);
   return result;
+}
+
+export async function checkProductCardVisibility(browser, tab, outerWidth) {
+  await localFixture(tab);
+  assert.ok([390, 1440].includes(outerWidth));
+  await (await browser.capabilities.get("viewport")).set({ width: outerWidth, height: 844 });
+  await tab.playwright.getByRole("button", { name: "Mobil", exact: true }).press("Enter");
+  await tab.playwright.domSnapshot();
+  const rows = await tab.playwright.evaluate(() => [...document.querySelectorAll('[class*="canvasProductGrid"]')].map(grid => {
+    const cards = [...grid.querySelectorAll("article")];
+    return { total: cards.length, visible: cards.filter(card => getComputedStyle(card).display !== "none" && card.getBoundingClientRect().width > 0).length };
+  }));
+  assert.ok(rows.length >= 2);
+  for (const row of rows) assert.equal(row.visible, row.total, "Every configured example card stays visible independently of the outer viewport");
+  return { outerWidth, rows };
 }
 
 export async function checkModalFocus(browser, tab) {
