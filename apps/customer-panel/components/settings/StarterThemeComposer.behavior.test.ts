@@ -52,7 +52,7 @@ const V3_FIXTURE: StarterThemeCompositionConfigV3 = Object.freeze({
   announcement: Object.freeze({ enabled: true, items: Object.freeze(["Seçili duyuru"]), destination: "/favorites" }),
   navigation: Object.freeze({ rootCategoryIds: Object.freeze([CATEGORY]), featuredCategoryId: CATEGORY, featuredAssetId: ASSET }),
   sections: Object.freeze([
-    Object.freeze({ sectionId: "home_product_first", kind: "product_row", enabled: true, heading: "İlk ürünler", source: "category", categoryId: CATEGORY, limit: 4 }),
+    Object.freeze({ sectionId: "home_product_row_11111111_1111_4111_8111_111111111111", kind: "product_row", enabled: true, heading: "İlk ürünler", source: "category", categoryId: CATEGORY, limit: 4 }),
     Object.freeze({ sectionId: "home_story_second", kind: "brand_story", enabled: false, eyebrow: "Köken", heading: "Hikâyemiz", body: "Korunacak metin.", assetId: ASSET, destination: "/favorites" }),
     Object.freeze({ sectionId: "home_hero_third", kind: "hero", enabled: true, slides: Object.freeze([Object.freeze({ eyebrow: "Yeni", heading: "Seçili hero", body: "Korunacak hero metni.", desktopAssetId: ASSET, mobileAssetId: MOBILE_ASSET, destination: "/products", productId: PRODUCT })]) }),
   ]),
@@ -80,7 +80,7 @@ function compileComposer(): ComposerModule {
   const load = (id: string): unknown => {
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@/components/settings/StarterThemePreview") return { StarterThemePreview: () => null };
-    if (id === "@/components/settings/StarterFooterEditor") return { StarterFooterEditor: () => React.createElement("div", null, "Footer editor") };
+    if (id === "@/components/settings/StarterFooterEditor") return { StarterFooterEditor: () => React.createElement("fieldset", null, React.createElement("legend", null, "Footer ayarları")) };
     if (id === "@/components/settings/StarterRetailSectionEditors") return { StarterRetailSectionEditor: () => null };
     if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => [] } };
     if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => ({ items: [] }) } };
@@ -116,7 +116,15 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
   const changes: StarterThemeComposition[] = [];
 
   try {
-    for (const activePanel of ["visual", "navigation", "home", "product", "cart", "footer"] as const) {
+    const panelMarkers = Object.freeze({
+      visual: Object.freeze({ selector: "legend", text: "Görsel sistem" }),
+      navigation: Object.freeze({ selector: "legend", text: "Duyuru ve navigasyon" }),
+      home: Object.freeze({ selector: "#starter-sections-title", text: "Ana sayfa bölümleri" }),
+      product: Object.freeze({ selector: "legend", text: "Ürün detayı" }),
+      cart: Object.freeze({ selector: "legend", text: "Sepet deneyimi" }),
+      footer: Object.freeze({ selector: "legend", text: "Footer ayarları" }),
+    });
+    for (const activePanel of Object.keys(panelMarkers) as readonly (keyof typeof panelMarkers)[]) {
       await React.act(async () => {
         root.render(React.createElement(StarterThemeComposer, {
           activePanel,
@@ -127,7 +135,8 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
         }));
       });
       await settle();
-      assert.ok(container.querySelector(`[aria-label]`), `${activePanel} panel should render`);
+      const marker = panelMarkers[activePanel];
+      assert.equal(container.querySelector(marker.selector)?.textContent, marker.text, `${activePanel} panel should render its own control group`);
       assert.equal(changes.length, 0, `${activePanel} panel opening must not write`);
     }
 
@@ -152,7 +161,7 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
     const result = parseStarterThemeCompositionConfig(changes[0]);
     assert.equal(result.schemaVersion, 3);
     assert.deepEqual(result.sections.map((section) => "sectionId" in section ? section.sectionId : null), [
-      "home_product_first",
+      "home_product_row_11111111_1111_4111_8111_111111111111",
       "home_story_second",
       "home_hero_third",
     ]);
@@ -167,6 +176,73 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
     globalThis.window = previousWindow;
     globalThis.document = previousDocument;
     globalThis.fetch = previousFetch;
+  }
+});
+
+test("adding a product row to V3 emits a parseable payload with a new stable identity", async () => {
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  const previousCrypto = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  globalThis.fetch = async () => new Response(JSON.stringify({ assets: [] }), { status: 200 });
+  Object.defineProperty(globalThis, "crypto", {
+    configurable: true,
+    value: { randomUUID: () => "11111111-1111-4111-8111-111111111111" },
+  });
+
+  const { StarterThemeComposer } = compileComposer();
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const root: Root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const changes: StarterThemeComposition[] = [];
+
+  try {
+    await React.act(async () => {
+      root.render(React.createElement(StarterThemeComposer, {
+        activePanel: "home",
+        canManage: true,
+        showPreview: false,
+        value: V3_FIXTURE,
+        onChange: (value) => changes.push(value),
+      }));
+    });
+    await settle();
+    const add = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("Bölüm ekle"));
+    assert.ok(add);
+    await React.act(async () => add.dispatchEvent(new window.Event("click", { bubbles: true })));
+
+    assert.equal(changes.length, 1);
+    const result = parseStarterThemeCompositionConfig(changes[0]);
+    assert.equal(result.schemaVersion, 3);
+    assert.deepEqual(result.sections.slice(0, 3).map((section) => "sectionId" in section ? section.sectionId : null), [
+      "home_product_row_11111111_1111_4111_8111_111111111111",
+      "home_story_second",
+      "home_hero_third",
+    ]);
+    const sectionIds = result.sections.map((section) => "sectionId" in section ? section.sectionId : null);
+    assert.equal(new Set(sectionIds).size, 4);
+    assert.equal(sectionIds[3], "home_product_row_11111111_1111_4111_8111_111111111111_2");
+    assert.deepEqual(result.sections[3], {
+      kind: "product_row",
+      sectionId: sectionIds[3],
+      enabled: true,
+      heading: "Yeni ürünler",
+      source: "latest",
+      limit: 8,
+    });
+  } finally {
+    await React.act(async () => root.unmount());
+    await window.happyDOM.close();
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+    globalThis.fetch = previousFetch;
+    if (previousCrypto) Object.defineProperty(globalThis, "crypto", previousCrypto);
+    else Reflect.deleteProperty(globalThis, "crypto");
   }
 });
 

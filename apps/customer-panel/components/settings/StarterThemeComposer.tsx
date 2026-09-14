@@ -23,6 +23,7 @@ import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import {
   addStarterCampaignPanel,
   addStarterHeroSlide,
+  appendStarterThemeSection,
   buildStarterThemeCompositionFromSession,
   moveStarterSection,
   openStarterThemeEditorSession,
@@ -208,11 +209,12 @@ export function StarterThemeComposer({
   if (!session) return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
     <p className={styles.error} role="alert">Kayıtlı tema verisi açılamadı. Taslak değiştirilmedi; yeniden deneyin veya destek alın.</p>
   </section>;
-  const state = session.state;
+  const editorSession = session;
+  const state = editorSession.state;
   const disabled = !canManage;
   const patch = (patchValue: Partial<StarterThemeEditorState>) => {
     try {
-      onChange(buildStarterThemeCompositionFromSession(session, patchValue));
+      onChange(buildStarterThemeCompositionFromSession(editorSession, patchValue));
       setError("");
     } catch {
       setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
@@ -224,7 +226,12 @@ export function StarterThemeComposer({
     const section = makeSection(newSection, products, assets);
     if (!section) { setError("Bu bölüm için önce etkin kategori veya vitrin görseli ekleyin."); return; }
     if (newSection !== "product_row" && state.sections.some(({ kind }) => kind === newSection)) { setError("Bu bölüm türü yalnız bir kez eklenebilir."); return; }
-    patch({ sections: Object.freeze([...state.sections, section]) }); setError("");
+    try {
+      onChange(appendStarterThemeSection(editorSession, section));
+      setError("");
+    } catch {
+      setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+    }
   }
 
   return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>

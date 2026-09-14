@@ -1,5 +1,6 @@
 import {
   parseStarterThemeCompositionConfig,
+  type HomepageSectionId,
   type StarterCampaignPanelConfig,
   type StarterHeroSlideConfig,
   type StarterThemeComposition,
@@ -38,6 +39,29 @@ export function buildStarterThemeCompositionFromSession(
   });
   if (parsed.schemaVersion === 1) throw new Error("starter_theme_editor_version_invalid");
   return parsed;
+}
+
+export function appendStarterThemeSection(
+  session: StarterThemeEditorSession,
+  section: StarterThemeSectionConfigV2,
+  uuid: () => string = () => globalThis.crypto.randomUUID(),
+): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
+  if (session.schemaVersion === 2) {
+    return buildStarterThemeCompositionFromSession(session, {
+      sections: Object.freeze([...session.state.sections, section]),
+    });
+  }
+  const existingIds = new Set(session.state.sections.map(({ sectionId }) => sectionId));
+  const stem: HomepageSectionId = `home_${section.kind}_${uuid().replaceAll("-", "_")}`;
+  let sectionId: HomepageSectionId = stem;
+  let occurrence = 2;
+  while (existingIds.has(sectionId)) {
+    sectionId = `${stem}_${occurrence}`;
+    occurrence += 1;
+  }
+  return buildStarterThemeCompositionFromSession(session, {
+    sections: Object.freeze([...session.state.sections, Object.freeze({ ...section, sectionId })]),
+  });
 }
 
 function defaultFooter(): StarterThemeEditorState["footer"] {

@@ -71,7 +71,7 @@ Behavior proven by the new mounted tests:
 
 - A valid V3 fixture opens visual, navigation, home, product, cart, and footer panels with zero write callbacks.
 - One header-width edit produces a payload accepted by the unchanged strict parser.
-- The result remains schema V3 and has the literal section ID order `home_product_first`, `home_story_second`, `home_hero_third`.
+- The result remains schema V3 and has the literal section ID order `home_product_row_11111111_1111_4111_8111_111111111111`, `home_story_second`, `home_hero_third`.
 - The supplied non-default footer is deeply equal after the edit; full-document equality proves untouched navigation, product, cart, ordering, visibility, and hero desktop/mobile/product media references remain unchanged.
 - Valid default V3 round-trips exactly; V2 round-trips exactly; valid V1 uses the existing V2 upgrade.
 - Invalid composition shows an explicit error and invokes no callback.
@@ -109,3 +109,43 @@ Per controller instruction, the full Customer Panel test, package typecheck, and
 - The legacy V2 builder still forces unsupported shipping progress off when creating/normalizing V2 editor state. The new existing-document session deliberately does not apply that normalization during unrelated edits, because A01 requires a lossless stored-document round trip. The UI control remains disabled and storefront behavior is unchanged.
 - The component behavior harness uses real React + happy-dom and the real adapter/composer module, while catalog/assets/footer collaborators are isolated; it is not durable persistence or live-browser evidence.
 - No full Panel test/build or live screenshot was run in this task, by explicit controller scope.
+
+## Review fix round 1 — V3 section creation
+
+Reviewer reproduction showed that the legacy composer's `makeSection` returns a V2 section without `sectionId`; `addSection` appended it unchanged to a V3 session, and the strict V3 serializer rejected the result. Existing edits were lossless, but V3 creation was not version-aware.
+
+### RED
+
+Command:
+
+```text
+node --experimental-transform-types --test apps/customer-panel/components/settings/StarterThemeComposer.behavior.test.ts
+```
+
+Result before the review fix: exit 1; **2 pass / 1 fail**. Clicking the mounted V3 composer's `Bölüm ekle` control produced zero callbacks (`0 !== 1`) because the strict serializer rejected the identity-less appended product row.
+
+### Fix
+
+- Added a version-aware `appendStarterThemeSection` adapter operation.
+- V2 keeps its existing identity-less V2 section shape.
+- V3 generates an ID with the existing `home_<kind>_<uuid>` convention. It compares against all current V3 IDs and adds deterministic `_2`, `_3`, and later suffixes when the generated stem collides.
+- The append still passes through the unchanged strict parser before the callback.
+- The mounted collision regression fixes `randomUUID` to an existing ID stem and asserts the literal new ID `home_product_row_11111111_1111_4111_8111_111111111111_2`, unchanged prior ID order, four unique IDs, exact new section fields, and a parseable V3 callback payload.
+- The six panel-opening assertions now query each branch's own heading or fieldset legend (`Görsel sistem`, `Duyuru ve navigasyon`, `Ana sayfa bölümleri`, `Ürün detayı`, `Sepet deneyimi`, and `Footer ayarları`), rather than accepting the outer region's generic `aria-label`.
+
+### GREEN
+
+Command:
+
+```text
+node --experimental-transform-types --test apps/customer-panel/components/settings/StarterThemeComposer.behavior.test.ts
+```
+
+Result after the review fix: exit 0; **3 pass / 0 fail / 0 skipped**.
+
+The review fix changes only:
+
+- `apps/customer-panel/lib/starter-theme-composer-model.ts`
+- `apps/customer-panel/components/settings/StarterThemeComposer.tsx`
+- `apps/customer-panel/components/settings/StarterThemeComposer.behavior.test.ts`
+- this report
