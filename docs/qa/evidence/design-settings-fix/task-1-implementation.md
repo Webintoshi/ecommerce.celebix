@@ -1,5 +1,7 @@
 # Task 1 report — A01 lossless editor conversion and safe field opening
 
+Preserved implementation evidence, moved from task-local scratch after the scoped review completed.
+
 ## Status
 
 Implemented the frontend-only A01 fix in the isolated `codex/mira-design-settings-fix` worktree. No API, repository, SQL, auth, storefront runtime, deployment, live browser, or live store mutation was performed.

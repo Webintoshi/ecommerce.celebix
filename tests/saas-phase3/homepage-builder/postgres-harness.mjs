@@ -4,6 +4,9 @@ import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { parseStorefrontDesignDocument } from "@celebix/saas-contracts";
+import { openStarterThemeEditorSession, buildStarterThemeCompositionFromSession } from "../../../apps/customer-panel/lib/starter-theme-composer-model.ts";
+import { assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
@@ -20,7 +23,7 @@ const MEDIA = "41000000-0000-4000-8000-000000000100";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const HOST = "homepage-builder.example.test";
 const NOW = "2026-08-11T12:00:00.000Z";
-const TOTAL = 14;
+const TOTAL = 17;
 let completed = 0;
 
 function bin(name) {
@@ -148,6 +151,7 @@ function seedDesign(box) {
 }
 
 function main() {
+  assertSafeEnvironment();
   for (const file of [UP, DOWN, ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
   let box;
   try {
@@ -197,6 +201,32 @@ function main() {
     });
     scenario("runtime roles receive no direct table or helper authority", () => {
       assert.equal(psql(box, "SELECT has_table_privilege('celebix_saas_app','saas.storefront_designs','UPDATE') OR has_function_privilege('celebix_saas_app','saas.storefront_theme_composition_with_home_ids(jsonb)','EXECUTE');").stdout.trim(), "f");
+    });
+    const loaded = parseStorefrontDesignDocument(rpc(box, `saas.storefront_design_get(${authority()})`).result.draft);
+    const session = openStarterThemeEditorSession(loaded.composition);
+    const edited = parseStorefrontDesignDocument({ ...loaded, composition: buildStarterThemeCompositionFromSession(session, {
+      visual: { ...session.state.visual, headerWidth: "contained" },
+    }) });
+    const editorSaved = rpc(box, `saas.storefront_design_save_draft(${authority()},'70000000-0000-4000-8000-000000000101','${fingerprint("editor-adapter-draft")}',2,$editor$${JSON.stringify(edited)}$editor$::jsonb)`);
+    scenario("real editor adapter save and workspace re-read preserve the exact V3 document", () => {
+      assert.equal(editorSaved.outcome, "saved");
+      const reread = rpc(box, `saas.storefront_design_get(${authority()})`).result;
+      assert.equal(reread.draftVersion, 3);
+      assert.deepEqual(reread.draft, edited);
+      assert.deepEqual(edited.composition.footer, loaded.composition.footer);
+      assert.deepEqual(edited.composition.sections, loaded.composition.sections);
+    });
+    scenario("stale editor save is rejected without overwriting the persisted draft", () => {
+      const rejected = rpc(box, `saas.storefront_design_save_draft(${authority()},'70000000-0000-4000-8000-000000000102','${fingerprint("editor-stale")}',2,$editor$${JSON.stringify(loaded)}$editor$::jsonb)`);
+      assert.equal(rejected.outcome, "draft_version_conflict");
+      assert.deepEqual(rpc(box, `saas.storefront_design_get(${authority()})`).result.draft, edited);
+    });
+    scenario("editor payload publication preserves selected presentation in public re-read", () => {
+      assert.equal(rpc(box, `saas.storefront_design_publish(${authority()},'80000000-0000-4000-8000-000000000101','${fingerprint("editor-publish")}',3,2)`).outcome, "published");
+      assert.deepEqual(JSON.parse(psql(box, `SELECT published_config::text FROM saas.storefront_designs WHERE store_id='${STORE}';`).stdout.trim()), edited);
+      const publicStore = rpc(box, `saas.resolve_public_storefront('${HOST}','${NOW}')`, "celebix_saas_host_resolver");
+      assert.equal(publicStore.result.presentation.visual.headerWidth, "contained");
+      assert.deepEqual(publicStore.result.presentation.sections, []);
     });
     scenario("backup and restore preserve schema and exact section identity", () => {
       const archive = path.join(box.root, "homepage-builder.dump");
