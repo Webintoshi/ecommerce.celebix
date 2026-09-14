@@ -1,0 +1,14 @@
+{
+  "evidenceType": "Actual Chrome browser through cua_repl, synthetic localhost fixture",
+  "url": "http://127.0.0.1:3427/design-settings-fix",
+  "source": "7bdc8f18; intermediate, final source rerun pending",
+  "driver": "tests/saas-phase3/hemenaku-admin-presentation/design-settings-browser-check.mjs",
+  "viewports": [
+    {"width": 1440, "height": 1000, "scrollWidth": 1440, "toolbarVisible": true, "controlHeights": [48,48,48,48], "controlWidths": [95.3828125,106.6171875,81.1171875,83.046875], "enabledTabIndices": [0,0,0,0]},
+    {"width": 1024, "height": 1000, "scrollWidth": 1024, "toolbarVisible": true, "controlHeights": [48,48,48,48], "controlWidths": [95.3828125,106.6171875,81.1171875,83.046875], "enabledTabIndices": [0,0,0,0]},
+    {"width": 390, "height": 844, "scrollWidth": 390, "toolbarVisible": true, "controlHeights": [48,48,48,48], "controlWidths": [95.3828125,48,48,83.046875], "enabledTabIndices": [0,0,0,0]}
+  ],
+  "mobileCanvas": {"outerWidth":1440,"canvasWidth":390,"mobilePressed":"true","navDisplay":["none"],"productColumns":[2,2],"categoryColumns":[],"categoryScope":"No selected categories; category computed layout is NOT verified by this run"},
+  "keyboardModal": {"path":"Enter on Alanlar → Header menu item → Escape", "modalOpen":false,"focusTag":"SUMMARY","focusLabel":"Tasarım alanlarını aç","width":95.3828125,"height":48,"outlineStyle":"solid","outlineWidth":"2px"},
+  "result":"PASS for stated toolbar/product-grid/focus scope; no store data mutation"
+}
