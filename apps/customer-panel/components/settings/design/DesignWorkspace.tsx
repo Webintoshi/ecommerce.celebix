@@ -17,11 +17,28 @@ import {
   designCanvasSurface,
   designCanvasSurfaceForLocation,
   type DesignCanvasSurface,
+  type DesignCanvasTrigger,
 } from "./design-surface-model";
 import { applyDesignEdit, beginDesignSave, completeDesignSave, createDesignEditorState, type DesignSaveToken } from "./workspace-model";
 import styles from "../design-settings.module.css";
 
 const STATUS_LABEL = Object.freeze({ saved: "Taslak kaydedildi", dirty: "Yayınlanmamış değişiklik", saving: "Kaydediliyor", publishing: "Yayınlanıyor", error: "Kaydedilemedi", conflict: "Başka bir oturumda değişti" } as const);
+
+export function DesignWorkspaceToolbar({ selectedSurface, previewMode, publishDisabled, publishIssueLabel, onSelectSurface, onPreviewModeChange, onPublish }: Readonly<{
+  selectedSurface: DesignCanvasSurface;
+  previewMode: "desktop" | "mobile";
+  publishDisabled: boolean;
+  publishIssueLabel: string | null;
+  onSelectSurface: (surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => void;
+  onPreviewModeChange: (mode: "desktop" | "mobile") => void;
+  onPublish: () => void;
+}>) {
+  return <div className={styles.topbarActions} role="toolbar" aria-label="Tasarım önizleme araçları" data-design-toolbar="true">
+    <details className={styles.surfaceMenu}><summary tabIndex={0} aria-label="Tasarım alanlarını aç"><Layers3 size={17} aria-hidden="true" />Alanlar</summary><div>{DESIGN_CANVAS_SURFACES.map((surface) => <button type="button" key={surface.key} aria-current={surface.key === selectedSurface ? "true" : undefined} onClick={(event) => { const menu = event.currentTarget.closest("details"); const summary = menu?.querySelector<HTMLElement>("summary"); onSelectSurface(surface.key, summary ?? event.currentTarget); menu?.removeAttribute("open"); }}><strong>{surface.label}</strong><span>{surface.hint}</span></button>)}</div></details>
+    <div className={styles.previewSwitch} role="group" aria-label="Önizleme boyutu"><button type="button" className={previewMode === "desktop" ? styles.active : ""} aria-pressed={previewMode === "desktop"} onClick={() => onPreviewModeChange("desktop")}><Monitor size={17} aria-hidden="true" />Masaüstü</button><button type="button" className={previewMode === "mobile" ? styles.active : ""} aria-pressed={previewMode === "mobile"} onClick={() => onPreviewModeChange("mobile")}><Smartphone size={17} aria-hidden="true" />Mobil</button></div>
+    <button type="button" className={styles.publishButton} title={publishIssueLabel ?? undefined} disabled={publishDisabled} onClick={onPublish}>Yayınla</button>
+  </div>;
+}
 
 export function DesignWorkspace({ workspace, canManage, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialLocation?: DesignWorkspaceLocation }>) {
   const [editor, setEditor] = useState(() => createDesignEditorState(workspace));
@@ -38,7 +55,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const nowRef = useRef(new Date());
-  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<DesignCanvasTrigger | null>(null);
   editorRef.current = editor;
 
   useEffect(() => () => { mountedRef.current = false; if (timerRef.current) clearTimeout(timerRef.current); }, []);
@@ -93,7 +110,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const publishIssue = useMemo(() => getStorefrontDesignPublishIssue(editor.design), [editor.design]);
   const publishIssueLabel = publishIssue?.code === "hero_enabled_slide_missing" ? "En az bir bannerı açın" : publishIssue?.code === "hero_slide_headline_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner başlığı gerekli` : publishIssue?.code === "hero_slide_desktop_image_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner görseli gerekli` : null;
 
-  const selectSurface = useCallback((surface: DesignCanvasSurface, trigger?: HTMLButtonElement) => {
+  const selectSurface = useCallback((surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => {
     returnFocusRef.current = trigger ?? null;
     setSelectedSurface(surface);
     setLocation(designCanvasSurface(surface).location);
@@ -102,14 +119,11 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const closeModal = useCallback(() => setModalOpen(false), []);
   const selected = useMemo(() => designCanvasSurface(selectedSurface), [selectedSurface]);
 
-  const topbarActions = useMemo(() => <div className={styles.topbarActions}>
-    <details className={styles.surfaceMenu}><summary><Layers3 size={17} />Alanlar</summary><div>{DESIGN_CANVAS_SURFACES.map((surface) => <button type="button" key={surface.key} aria-current={surface.key === selectedSurface ? "true" : undefined} onClick={(event) => { selectSurface(surface.key, event.currentTarget); event.currentTarget.closest("details")?.removeAttribute("open"); }}><strong>{surface.label}</strong><span>{surface.hint}</span></button>)}</div></details>
-    <div className={styles.previewSwitch} role="group" aria-label="Önizleme boyutu"><button type="button" className={previewMode === "desktop" ? styles.active : ""} onClick={() => setPreviewMode("desktop")}><Monitor size={17} />Masaüstü</button><button type="button" className={previewMode === "mobile" ? styles.active : ""} onClick={() => setPreviewMode("mobile")}><Smartphone size={17} />Mobil</button></div>
-    <button type="button" className={styles.publishButton} title={publishIssueLabel ?? undefined} disabled={!canManage || publishIssue !== null || ["saving", "publishing", "conflict"].includes(editor.status)} onClick={() => void publish()}>Yayınla</button>
-  </div>, [canManage, editor.status, previewMode, publish, publishIssue, publishIssueLabel, selectSurface, selectedSurface]);
+  const publishDisabled = !canManage || publishIssue !== null || ["saving", "publishing", "conflict"].includes(editor.status);
 
   return <section className={styles.workspace} data-panel-layout="visual-storefront-canvas">
-    <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} actions={topbarActions} />
+    <PanelTopbarBridge title="Tasarım" subtitle={publishIssueLabel ?? STATUS_LABEL[editor.status]} />
+    <div className={styles.workspaceToolbar}><DesignWorkspaceToolbar selectedSurface={selectedSurface} previewMode={previewMode} publishDisabled={publishDisabled} publishIssueLabel={publishIssueLabel} onSelectSurface={selectSurface} onPreviewModeChange={setPreviewMode} onPublish={() => void publish()} /></div>
     <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={workspace.publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
     <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
   </section>;
