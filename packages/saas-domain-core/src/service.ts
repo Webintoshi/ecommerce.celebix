@@ -248,6 +248,7 @@ export function createStoreDomainService(input: Readonly<{
           storefront = (await repository.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === storefront.id) ?? storefront;
           admin = (await input.adminRepository!.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === admin.id) ?? admin;
         } catch (caught) { return persistenceError(caught); }
+        if (prepared.replacement.status !== "preparing") return prepared.replacement;
       }
       if (!prepared.replayed || storefront.version === prepared.storefront.version) {
         const snapshot = await recoverProvider(provider, normalized.hostname, !prepared.replayed);

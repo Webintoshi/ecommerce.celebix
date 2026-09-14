@@ -166,17 +166,23 @@ test("forwards versioned merchant actions only through persistence authority", a
 });
 
 test("prepares a replacement bundle idempotently and resumes partial provider provisioning", async () => {
-  let replayed = false, adminFinds = 0;
+  let replayed = false, adminFinds = 0, storefrontBinds = 0, adminBinds = 0;
+  let currentStorefront = VIEW, currentAdmin = ADMIN_VIEW;
   const prepared: unknown[] = [];
   const ids = [DOMAIN, ADMIN_DOMAIN, DOMAIN, ADMIN_DOMAIN];
   const repository = persistence({
+    async list() { return [currentStorefront]; },
+    async bindProvider(input) { storefrontBinds += 1; currentStorefront = Object.freeze({ ...VIEW, version: input.expectedVersion + 1 }); return currentStorefront; },
     async prepareBundle() { throw new Error("unused"); },
     async prepareReplacement(input) { prepared.push(input); const result = { replacement: REPLACEMENT, storefront: VIEW, admin: ADMIN_VIEW, replayed }; replayed = true; return result; },
     async listReplacements() { return [REPLACEMENT]; },
   });
   const service = createStoreDomainService({
     repository,
-    adminRepository: adminPersistence(),
+    adminRepository: adminPersistence({
+      async list() { return [currentAdmin]; },
+      async bindProvider(input) { adminBinds += 1; currentAdmin = Object.freeze({ ...ADMIN_VIEW, version: input.expectedVersion + 1 }); return currentAdmin; },
+    }),
     provider: { async create(hostname) { return { providerHostnameId: "cf-store", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async find(hostname) { return { providerHostnameId: "cf-store", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; } },
     adminProvider: { async create() { throw new CloudflareCustomHostnameError("unavailable", true); }, async find(hostname) { adminFinds += 1; return adminFinds === 1 ? null : { providerHostnameId: "cf-admin", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; } },
     hostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "shops.celebix.site" },
@@ -188,6 +194,40 @@ test("prepares a replacement bundle idempotently and resumes partial provider pr
   assert.equal(prepared.length, 2);
   assert.equal((prepared[0] as { sourceStorefrontDomainId: string }).sourceStorefrontDomainId, SOURCE_DOMAIN);
   assert.equal(adminFinds, 2);
+  assert.equal(storefrontBinds, 1);
+  assert.equal(adminBinds, 1);
+});
+
+test("a cancelled replacement replay never recreates either provider hostname", async () => {
+  let storefrontProviderCalls = 0, adminProviderCalls = 0;
+  const cancelled = Object.freeze({ ...REPLACEMENT, status: "cancelled" as const, version: 2 });
+  const disabledStorefront = Object.freeze({ ...VIEW, status: "disabled" as const });
+  const disabledAdmin = Object.freeze({ ...ADMIN_VIEW, status: "disabled" as const });
+  const service = createStoreDomainService({
+    repository: persistence({
+      async list() { return [disabledStorefront]; },
+      async prepareBundle() { throw new Error("unused"); },
+      async prepareReplacement() { return { replacement: cancelled, storefront: VIEW, admin: ADMIN_VIEW, replayed: true }; },
+    }),
+    adminRepository: adminPersistence({ async list() { return [disabledAdmin]; } }),
+    provider: {
+      async create() { storefrontProviderCalls += 1; throw new Error("provider must not be called"); },
+      async find() { storefrontProviderCalls += 1; throw new Error("provider must not be called"); },
+      async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; },
+    },
+    adminProvider: {
+      async create() { adminProviderCalls += 1; throw new Error("provider must not be called"); },
+      async find() { adminProviderCalls += 1; throw new Error("provider must not be called"); },
+      async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; },
+    },
+    hostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "shops.celebix.site" },
+    adminHostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "customers.celebix.site" },
+    generateId: (() => { const ids = [DOMAIN, ADMIN_DOMAIN]; return () => ids.shift() ?? "wrong"; })(),
+  });
+
+  assert.equal((await service.createReplacement({ tenantContext: TENANT, now: NOW, operationId: OPERATION, sourceStorefrontDomainId: SOURCE_DOMAIN, hostname: "example.com" })).status, "cancelled");
+  assert.equal(storefrontProviderCalls, 0);
+  assert.equal(adminProviderCalls, 0);
 });
 
 test("forwards replacement activation cancellation and rollback with exact version authority", async () => {

@@ -50,7 +50,8 @@ BEGIN
      OR NEW.version<>OLD.version+1
      OR (OLD.status='preparing' AND NEW.status NOT IN('activated','cancelled'))
      OR (OLD.status='activated' AND NEW.status<>'rolled_back')
-     OR OLD.status IN('cancelled','rolled_back') THEN
+     OR (OLD.status='rolled_back' AND NEW.status<>'activated')
+     OR OLD.status='cancelled' THEN
     RAISE EXCEPTION 'STORE_DOMAIN_REPLACEMENT_AUTHORITY_INVALID';
   END IF;
   RETURN NEW;
@@ -205,7 +206,7 @@ BEGIN
   SELECT * INTO selected FROM saas.store_domain_replacements WHERE replacement_id=p_replacement_id AND store_id=p_store_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'domain_not_found',NULL::jsonb; RETURN; END IF;
   IF selected.version<>p_expected_version THEN RETURN QUERY SELECT 'stale_version',NULL::jsonb; RETURN; END IF;
-  IF selected.status<>'preparing' OR NOT (saas.store_domain_replacement_projection(selected.replacement_id)->>'ready')::boolean THEN RETURN QUERY SELECT 'not_ready',NULL::jsonb; RETURN; END IF;
+  IF selected.status NOT IN('preparing','rolled_back') OR NOT (saas.store_domain_replacement_projection(selected.replacement_id)->>'ready')::boolean THEN RETURN QUERY SELECT 'not_ready',NULL::jsonb; RETURN; END IF;
   IF NOT EXISTS(SELECT 1 FROM saas.store_domains WHERE id=selected.source_storefront_domain_id AND store_id=p_store_id AND status='active' AND is_primary) THEN RETURN QUERY SELECT 'not_ready',NULL::jsonb; RETURN; END IF;
   UPDATE saas.store_domains SET is_primary=false,updated_at=p_now,version=version+1 WHERE store_id=p_store_id AND is_primary AND id<>selected.target_storefront_domain_id;
   UPDATE saas.store_domains SET is_primary=true,updated_at=p_now,version=version+1 WHERE id=selected.target_storefront_domain_id;
@@ -292,8 +293,11 @@ CREATE OR REPLACE FUNCTION saas.merchant_store_domain_bundle_make_primary(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_domain_id uuid,p_expected_version bigint
 ) RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE selected_outcome text; selected_payload jsonb; companion_id uuid;
+DECLARE authority_error text; selected_outcome text; selected_payload jsonb; companion_id uuid;
 BEGIN
+  authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'custom_domains','configuration.manage');
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  PERFORM 1 FROM saas.stores WHERE id=p_store_id FOR UPDATE;
   IF EXISTS(SELECT 1 FROM saas.store_domain_replacements WHERE store_id=p_store_id AND status='preparing') THEN RETURN QUERY SELECT 'not_ready',NULL::jsonb; RETURN; END IF;
   SELECT result.outcome,result.result_payload INTO selected_outcome,selected_payload FROM saas.merchant_store_domain_make_primary(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_domain_id,p_expected_version) result;
   IF selected_outcome='activated' THEN
@@ -310,8 +314,11 @@ CREATE OR REPLACE FUNCTION saas.merchant_store_domain_bundle_disable(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_domain_id uuid,p_expected_version bigint
 ) RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE selected_outcome text; selected_payload jsonb; companion_id uuid; companion_primary boolean; fallback_id uuid;
+DECLARE authority_error text; selected_outcome text; selected_payload jsonb; companion_id uuid; companion_primary boolean; fallback_id uuid;
 BEGIN
+  authority_error:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'custom_domains','configuration.manage');
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+  PERFORM 1 FROM saas.stores WHERE id=p_store_id FOR UPDATE;
   IF EXISTS(SELECT 1 FROM saas.store_domain_replacements WHERE store_id=p_store_id AND status='preparing' AND p_domain_id IN(source_storefront_domain_id,target_storefront_domain_id)) THEN RETURN QUERY SELECT 'not_ready',NULL::jsonb; RETURN; END IF;
   SELECT id,canonical INTO companion_id,companion_primary FROM saas.admin_domains WHERE store_id=p_store_id AND source_storefront_domain_id=p_domain_id AND management='system' FOR UPDATE;
   SELECT result.outcome,result.result_payload INTO selected_outcome,selected_payload FROM saas.merchant_store_domain_disable(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_domain_id,p_expected_version) result;

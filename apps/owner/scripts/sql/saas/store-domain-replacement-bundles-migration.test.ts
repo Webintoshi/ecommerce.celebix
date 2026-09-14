@@ -5,9 +5,9 @@ import test from "node:test";
 
 const directory = new URL("./", import.meta.url);
 const files = Object.freeze({
-  up: "202609140127_store_domain_replacement_bundles.up.sql",
-  down: "202609140127_store_domain_replacement_bundles.down.sql",
-  assertions: "202609140127_store_domain_replacement_bundles_assertions.sql",
+  up: "202609140128_store_domain_replacement_bundles.up.sql",
+  down: "202609140128_store_domain_replacement_bundles.down.sql",
+  assertions: "202609140128_store_domain_replacement_bundles_assertions.sql",
   manifest: "phase5k-store-domain-replacement-bundles-manifest.json",
 });
 const source = (name: keyof typeof files) => readFileSync(new URL(files[name], directory), "utf8");
@@ -33,6 +33,10 @@ test("activation is paired while cancel and rollback preserve the outgoing rows"
   assert.match(up, /merchant_store_domain_replacement_rollback/u);
   assert.doesNotMatch(up, /DELETE FROM saas\.(?:store|admin)_domains/u);
   assert.match(source("down"), /Domain rows are deliberately retained/u);
+  assert.match(up, /OLD\.status='rolled_back' AND NEW\.status<>'activated'/u);
+  assert.match(up, /selected\.status NOT IN\('preparing','rolled_back'\)/u);
+  assert.match(source("down"), /STORE_DOMAIN_REPLACEMENT_DOWN_HISTORY_CONFLICT/u);
+  assert.ok(source("down").indexOf("STORE_DOMAIN_REPLACEMENT_DOWN_HISTORY_CONFLICT") < source("down").indexOf("CREATE OR REPLACE FUNCTION"));
 });
 
 test("migration artifacts are pinned for disposable PostgreSQL 16 rehearsal", () => {

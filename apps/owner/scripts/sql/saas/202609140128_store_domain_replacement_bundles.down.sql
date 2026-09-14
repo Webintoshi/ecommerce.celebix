@@ -2,6 +2,15 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+DO $history_guard$
+BEGIN
+  IF EXISTS(SELECT 1 FROM saas.store_domain_replacements)
+     OR EXISTS(SELECT 1 FROM saas.store_domain_replacement_actions) THEN
+    RAISE EXCEPTION 'STORE_DOMAIN_REPLACEMENT_DOWN_HISTORY_CONFLICT';
+  END IF;
+END
+$history_guard$;
+
 CREATE OR REPLACE FUNCTION saas.merchant_admin_domain_make_primary(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_domain_id uuid,p_expected_version bigint
 ) RETURNS TABLE(outcome text,result_payload jsonb)
