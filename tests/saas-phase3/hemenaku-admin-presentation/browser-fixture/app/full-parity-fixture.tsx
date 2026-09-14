@@ -29,6 +29,8 @@ import {
 } from "@/components/inventory/PurchasingConsole";
 import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
 import { OrderPrintView } from "@/components/orders/OrderPrintView";
+import { OrderListConsole } from "@/components/orders/OrderListConsole";
+import { OrderDetailConsole } from "@/components/orders/OrderDetailConsole";
 import { PanelLayoutClient } from "@/components/panel/PanelLayoutClient";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { PriceListConsole } from "@/components/pricing/PriceListConsole";
@@ -307,7 +309,11 @@ function PricingTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
 }
 
 function TargetRouteSurface({ pathname, state }: Readonly<{ pathname: string; state: AcceptanceState }>) {
+  const orderMatch = /^\/orders\/([0-9a-f-]{36})(\/print)?$/.exec(pathname);
+  if (orderMatch) return orderMatch[2] ? <OrderPrintView orderId={orderMatch[1]} /> : <OrderDetailConsole key={orderMatch[1]} orderId={orderMatch[1]} capabilities={{ fulfill: state !== "denied", manage: state !== "denied", payment: state !== "denied", shipping: state !== "denied", note: state !== "denied" }} />;
   switch (pathname) {
+    case "/orders":
+      return <OrderListConsole />;
     case "/":
       return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" analyticsState="loaded" onRefresh={() => undefined} />;
     case "/analytics":

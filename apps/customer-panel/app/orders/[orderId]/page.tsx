@@ -19,7 +19,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   });
   return (
     <PanelShell model={createPanelChromeModel(access.tenantContext)}>
-      <OrderDetailConsole orderId={orderId} capabilities={capabilities} />
+      <OrderDetailConsole key={orderId} orderId={orderId} capabilities={capabilities} />
     </PanelShell>
   );
 }

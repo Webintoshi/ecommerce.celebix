@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { OrderListItem, OrderPaymentStatus, OrderSort, OrderStatus } from "@celebix/saas-contracts";
 
-import { PanelEmptyState, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelEmptyState, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import styles from "./order-console.module.css";
+import { OrderInspector } from "./OrderInspector";
+import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 
 type ListState = "loading" | "loaded" | "error";
 type OrderListPage = Awaited<ReturnType<typeof orderApi.listOrders>>;
@@ -28,7 +30,7 @@ const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
 const PAYMENT_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Object.freeze({
   pending: "Ödeme bekleniyor",
   processing: "İşleniyor",
-  completed: "Başarılı",
+  completed: "Ödendi",
   failed: "Başarısız",
   refunded: "İade edildi",
 });
@@ -59,10 +61,10 @@ const COLUMN_LABELS: Readonly<Record<OrderColumnKey, string>> = Object.freeze({
 const DEFAULT_VISIBLE_COLUMNS: OrderColumnVisibility = Object.freeze({
   date: true,
   customer: true,
-  status: true,
+  status: false,
   payment: true,
-  items: true,
-  source: true,
+  items: false,
+  source: false,
   total: true,
 });
 
@@ -75,9 +77,6 @@ function date(value: string) {
 }
 
 function tone(status: OrderStatus): "neutral" | "success" | "warning" | "danger" {
-  if (status === "delivered") return "success";
-  if (status === "cancelled" || status === "refunded") return "danger";
-  if (status === "pending" || status === "preparing") return "warning";
   return "neutral";
 }
 
@@ -192,6 +191,7 @@ export interface OrderListPresentationProps {
   readonly onExport: () => void;
   readonly onLoadMore: () => void;
   readonly onSearchSubmit?: () => void;
+  readonly onInspect?: (order: OrderListItem, trigger: HTMLButtonElement) => void;
 }
 
 function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleColumns: OrderColumnVisibility }) {
@@ -199,7 +199,7 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
     <article className={styles.orderCard}>
       <div className={styles.cardHeading}>
         <div className={styles.cardOrderIdentity}>
-          <Link href={`/orders/${order.id}`}>{order.orderNumber}</Link>
+          <Link href={`/orders/${order.id}`} title={order.orderNumber}>{order.orderNumber}</Link>
           <small>{fulfillmentLabel(order.status)}</small>
         </div>
         {visibleColumns.status ? <PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge> : null}
@@ -218,25 +218,26 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
 }
 
 export function OrderListPresentation(props: OrderListPresentationProps) {
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const content = props.state === "loading" ? (
-    <div className={styles.loading} role="status" aria-live="polite">Siparişler yükleniyor…</div>
+    <div className={styles.loading} role="status" aria-live="polite">Siparişler yükleniyor…<div className={styles.tableSkeleton} aria-hidden="true">{[0, 1, 2, 3].map((row) => <span key={row} />)}</div></div>
   ) : props.state === "error" ? (
     <div className={styles.errorState} role="alert">
       <div><h2>Siparişler yüklenemedi</h2><p>{props.error}</p></div>
       <button type="button" onClick={props.onRetry}>Tekrar dene</button>
     </div>
   ) : props.items.length === 0 ? (
-    props.loadedCount > 0
+    props.loadedCount > 0 || props.search.trim() !== "" || props.status !== "all"
       ? <PanelEmptyState title="Filtrelerle eşleşen sipariş yok" description="Tarih, ödeme veya teslimat filtresini değiştirin." />
       : <PanelEmptyState title="Henüz sipariş bulunmuyor" description="İlk gerçek sipariş oluştuğunda bu listede görünecek." />
   ) : (
     <>
       <div className={styles.desktopTable}>
         <table aria-label="Sipariş listesi">
-          <thead><tr><th className={styles.orderColumn}>Sipariş</th>{props.visibleColumns.date ? <th className={styles.dateColumn}>Tarih</th> : null}{props.visibleColumns.customer ? <th className={styles.customerColumn}>Müşteri</th> : null}{props.visibleColumns.status ? <th className={styles.statusColumn}>Durum</th> : null}{props.visibleColumns.payment ? <th className={styles.paymentColumn}>Ödeme</th> : null}{props.visibleColumns.items ? <th className={styles.itemsColumn}>Ürün</th> : null}{props.visibleColumns.source ? <th className={styles.sourceColumn}>Kanal</th> : null}{props.visibleColumns.total ? <th className={styles.totalColumn}>Toplam</th> : null}<th className={styles.actionColumn}>İşlem</th></tr></thead>
+          <thead><tr><th className={styles.orderColumn}>Sipariş</th>{props.visibleColumns.date ? <th className={styles.dateColumn}>Tarih</th> : null}{props.visibleColumns.customer ? <th className={styles.customerColumn}>Müşteri</th> : null}{props.visibleColumns.status ? <th className={styles.statusColumn}>Durum</th> : null}{props.visibleColumns.payment ? <th className={styles.paymentColumn}>Ödeme</th> : null}{props.visibleColumns.items ? <th className={styles.itemsColumn}>Ürün</th> : null}{props.visibleColumns.source ? <th className={styles.sourceColumn}>Kanal</th> : null}{props.visibleColumns.total ? <th className={styles.totalColumn}>Toplam</th> : null}<th>Teslimat</th><th className={styles.actionColumn}>İşlemler</th></tr></thead>
           <tbody>{props.items.map((order) => (
             <tr key={order.id}>
-              <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status)}</small></td>
+              <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`} title={order.orderNumber}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status)}</small></td>
               {props.visibleColumns.date ? <td className={styles.dateCell}>{date(order.createdAt)}</td> : null}
               {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName}</strong><small>{order.customerEmail}</small></td> : null}
               {props.visibleColumns.status ? <td className={styles.statusCell}><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td> : null}
@@ -244,28 +245,34 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
               {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
               {props.visibleColumns.source ? <td className={styles.sourceCell}><span className={styles.channelBadge}>{SOURCE_LABELS[order.source]}</span></td> : null}
               {props.visibleColumns.total ? <td className={styles.totalCell}><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
-              <td className={styles.actionCell}><Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detay</Link></td>
+              <td><span className={styles.fulfillmentText}>{fulfillmentLabel(order.status)}</span></td><td className={styles.actionCell}>{props.onInspect ? <button className={styles.rowDetailLink} type="button" onClick={(event) => props.onInspect?.(order, event.currentTarget)} aria-label={`${order.orderNumber} hızlı incele`}>Hızlı incele</button> : <Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detay</Link>}</td>
             </tr>
           ))}</tbody>
         </table>
       </div>
-      <div className={styles.mobileCards}>{props.items.map((order) => <OrderCard key={order.id} order={order} visibleColumns={props.visibleColumns} />)}</div>
+      <div className={styles.mobileCards}>{props.items.map((order) => <div key={order.id}><OrderCard order={order} visibleColumns={props.visibleColumns} />{props.onInspect ? <button className={styles.detailLink} type="button" onClick={(event) => props.onInspect?.(order, event.currentTarget)} aria-label={`${order.orderNumber} hızlı incele`}>Hızlı incele</button> : null}</div>)}</div>
     </>
   );
 
   return (
     <PanelPageShell>
-      <PanelPageHeader
+      <PanelTopbarBridge
         title="Siparişler"
-        description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin."
+        context={<span aria-hidden="true" />}
         actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
       />
+      <div className={styles.mobilePrimary}><Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link></div>
       <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
-        <div className={styles.filterPanel}>
+        <h1 className="sr-only">Siparişler</h1>
+        <nav className={styles.statusTabs} aria-label="Sipariş durumları">
+          {([['all', 'Tüm siparişler'], ...Object.entries(STATUS_LABELS)] as [OrderStatus | 'all', string][]).map(([value, label]) => <button key={value} type="button" aria-pressed={props.status === value} onClick={() => props.onStatusChange(value)}>{label}</button>)}
+        </nav>
+        <div className={styles.filterPanel} data-expanded={filtersExpanded}>
+          <button className={styles.mobileFilterToggle} type="button" aria-expanded={filtersExpanded} onClick={() => setFiltersExpanded((value) => !value)}>Filtreler ve görünüm</button>
           <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
             <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
-            <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
+            <label className={styles.secondaryFilter}><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className={styles.secondaryFilter}><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
           </form>
           <div className={styles.filterToolbar} aria-label="Yüklenen sipariş filtreleri">
             <label><span>Tarih aralığı</span><select value={props.dateRange} onChange={(event) => props.onDateRangeChange(event.target.value as OrderDateRange)}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label>
@@ -278,6 +285,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
             <button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={props.onExport}>CSV Dışa Aktar</button>
           </div>
         </div>
+        <p className={styles.scopeNote}>Tarih, ödeme, teslimat filtreleri ve CSV yalnız yüklenen siparişleri kapsar. Teslimat görünümü siparişin operasyon durumuna dayanır.</p>
         <div className={styles.dataSurface}>
           {content}
           {props.state === "loaded" && props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sipariş yükle"}</button> : null}
@@ -292,6 +300,8 @@ function message(error: unknown) {
 }
 
 export function OrderListConsole() {
+  const [inspected, setInspected] = useState<OrderListItem>();
+  const inspectTrigger = useRef<HTMLButtonElement | null>(null);
   const [state, setState] = useState<ListState>("loading");
   const [items, setItems] = useState<readonly OrderListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
@@ -349,5 +359,5 @@ export function OrderListConsole() {
     URL.revokeObjectURL(url);
   }
 
-  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
+  return <><OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} onInspect={(order, trigger) => { inspectTrigger.current = trigger; setInspected(order); }} />{inspected ? <OrderInspector selected={inspected} items={filteredItems} onSelect={setInspected} onClose={() => { setInspected(undefined); inspectTrigger.current?.focus({ preventScroll: true }); }} /> : null}</>;
 }
