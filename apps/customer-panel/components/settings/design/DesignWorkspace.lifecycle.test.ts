@@ -79,11 +79,25 @@ async function mount(canManage = true) {
     new Function("require", "module", "exports", output)(load, module, module.exports);
     return module.exports;
   }
-  const { DesignWorkspace } = compile(new URL("./DesignWorkspace.tsx", import.meta.url)) as { DesignWorkspace: (props: { workspace: StorefrontDesignWorkspace; canManage: boolean }) => ReactNode };
+  const { DesignWorkspace } = compile(new URL("./DesignWorkspace.tsx", import.meta.url)) as { DesignWorkspace: (props: { workspace: StorefrontDesignWorkspace; canManage: boolean; recoveryScope: string }) => ReactNode };
   const container = window.document.createElement("div");
   window.document.body.append(container);
   const root = createRoot(container as unknown as Element);
-  await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(DesignWorkspace, { workspace, canManage }))));
+  let recoveryScope = "synthetic-session-store-a";
+  window.history.replaceState({}, "", "/products");
+  window.history.pushState({}, "", "/settings/design");
+  // Minimal route host consumes real same-document popstate events. Navigation
+  // unmounts/remounts the real workspace, as the client router does.
+  function RouteHost() {
+    const [path, setPath] = React.useState(window.location.pathname);
+    React.useEffect(() => {
+      const changed = () => setPath(window.location.pathname);
+      window.addEventListener("popstate", changed);
+      return () => window.removeEventListener("popstate", changed);
+    }, []);
+    return path === "/settings/design" ? React.createElement(DesignWorkspace, { key: recoveryScope, workspace: persisted, canManage, recoveryScope }) : React.createElement("p", null, "Products route");
+  }
+  await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(RouteHost))));
   async function click(label: string) {
     const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent === label || item.querySelector("strong")?.textContent === label);
     assert.ok(button, `Missing button: ${label}; UI: ${container.textContent}`);
@@ -105,6 +119,8 @@ async function mount(canManage = true) {
     holdSave() { hold = new Promise<void>((resolve) => { release = resolve; }); },
     async releaseSave() { await React.act(async () => { release?.(); hold = undefined; }); },
     async debounce() { await React.act(async () => { await pause(760); }); },
+    async back() { await React.act(async () => { window.history.back(); await pause(30); }); },
+    async forward(scope = "synthetic-session-store-a") { recoveryScope = scope; await React.act(async () => { window.history.forward(); await pause(30); }); },
     unload() { const event = new window.Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; },
     async leave(allowed: boolean) {
       Object.assign(window, { confirm: () => allowed });
@@ -126,6 +142,54 @@ test("leaving before debounce warns, canceled navigation preserves input, delibe
     assert.equal(await app.leave(true), true);
     await app.debounce();
     assert.equal(app.persisted.draft.promotion.headline, "Original"); assert.equal(app.saves, 0);
+  } finally { await app.close(); }
+});
+
+test("same-document Back/Forward recovers a pre-debounce draft and requires comparison before any write", async () => {
+  const app = await mount();
+  try {
+    await app.edit("History pending"); await app.back();
+    assert.match(app.container.textContent ?? "", /Products route/);
+    await app.forward();
+    assert.equal(app.container.querySelector("output")?.textContent, "History pending");
+    assert.match(app.container.textContent ?? "", /geri getirildi/);
+    assert.doesNotMatch(app.container.querySelector('[role="status"]')?.textContent ?? "", /Başka bir oturumda/);
+    await app.debounce(); assert.equal(app.saves, 0); assert.equal(app.persisted.draft.promotion.headline, "Original");
+    await app.click("Güncel taslakla karşılaştır"); await app.click("Yerel değişikliklerle üzerine yaz");
+    assert.equal(app.persisted.draft.promotion.headline, "History pending");
+  } finally { await app.close(); }
+});
+
+test("same-document history retains failed input without silently overwriting a fresher remote draft", async () => {
+  const app = await mount();
+  try {
+    app.failSave(); await app.edit("History failed"); await app.debounce();
+    assert.match(app.container.textContent ?? "", /Kaydedilemedi/);
+    await app.back(); app.remoteEdit(); await app.forward();
+    assert.equal(app.container.querySelector("output")?.textContent, "History failed");
+    await app.debounce(); assert.equal(app.persisted.draft.promotion.headline, "Remote"); assert.equal(app.saves, 1);
+    await app.click("Güncel taslakla karşılaştır");
+    assert.match(app.container.querySelector("table")?.textContent ?? "", /History failed/);
+    assert.match(app.container.querySelector("table")?.textContent ?? "", /Remote/);
+    await app.click("Yerel değişiklikleri bırak, günceli kullan");
+    await app.back(); await app.forward();
+    assert.equal(app.container.querySelector("output")?.textContent, "Remote");
+    assert.doesNotMatch(app.container.textContent ?? "", /geri getirildi/);
+  } finally { await app.close(); }
+});
+
+test("history recovery is isolated by frontend scope and deliberate navigation discard clears it", async () => {
+  const app = await mount();
+  try {
+    await app.edit("Only scope A"); await app.back(); await app.forward("synthetic-session-store-b");
+    assert.equal(app.container.querySelector("output")?.textContent, "Original");
+    assert.doesNotMatch(app.container.textContent ?? "", /Only scope A/);
+    await app.back(); await app.forward();
+    assert.equal(app.container.querySelector("output")?.textContent, "Only scope A");
+    assert.equal(await app.leave(true), true);
+    await app.back(); await app.forward();
+    assert.equal(app.container.querySelector("output")?.textContent, "Original");
+    await app.debounce(); assert.equal(app.saves, 0);
   } finally { await app.close(); }
 });
 

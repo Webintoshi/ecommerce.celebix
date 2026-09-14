@@ -21,6 +21,7 @@ import {
   type DesignCanvasTrigger,
 } from "./design-surface-model";
 import { applyDesignEdit, beginDesignSave, compareDesignDrafts, completeDesignSave, createDesignEditorState, type DesignEditorState, type DesignSaveToken } from "./workspace-model";
+import { forgetNavigationDraft, readNavigationDraft, retainNavigationDraft } from "./draft-navigation-recovery.ts";
 import styles from "../design-settings.module.css";
 
 const STATUS_LABEL = Object.freeze({ saved: "Taslak kaydedildi", dirty: "Yayınlanmamış değişiklik", saving: "Kaydediliyor", publishing: "Yayınlanıyor", error: "Kaydedilemedi", conflict: "Başka bir oturumda değişti" } as const);
@@ -41,24 +42,30 @@ export function DesignWorkspaceToolbar({ selectedSurface, previewMode, publishDi
   </div>;
 }
 
-export function DesignWorkspace({ workspace, canManage, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; initialLocation?: DesignWorkspaceLocation }>) {
-  const [editor, setEditor] = useState(() => createDesignEditorState(workspace));
+export function DesignWorkspace({ workspace, canManage, recoveryScope, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; recoveryScope?: string; initialLocation?: DesignWorkspaceLocation }>) {
+  const [editor, setEditor] = useState<DesignEditorState>(() => {
+    const retained = canManage ? readNavigationDraft(recoveryScope) : undefined;
+    // Remounted server props may themselves be a client-router cache entry.
+    // Always require a fresh comparison before writing a recovered local draft.
+    return retained ? { ...retained, status: "conflict" } : createDesignEditorState(workspace);
+  });
   const [location, setLocation] = useState<DesignWorkspaceLocation>(initialLocation);
   const [selectedSurface, setSelectedSurface] = useState<DesignCanvasSurface>(() => designCanvasSurfaceForLocation(initialLocation).key);
   const [modalOpen, setModalOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
   const [recovery, setRecovery] = useState<StorefrontDesignWorkspace | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(editor.status === "conflict" ? "Kaydedilmemiş değişiklikleriniz geri getirildi. Kaydetmeden önce güncel taslakla karşılaştırın." : "");
+  const [navigationRecovered, setNavigationRecovered] = useState(editor.status === "conflict");
   const [busyPublishing, setBusyPublishing] = useState(false);
   const [readingLatest, setReadingLatest] = useState(false);
   const [publishedAt, setPublishedAt] = useState(workspace.publishedAt);
   const [publishedRevision, setPublishedRevision] = useState<number | null>(null);
   const [failedOperation, setFailedOperation] = useState<"save" | "publish">("save");
   const editorRef = useRef(editor);
-  const draftVersionRef = useRef(workspace.draftVersion);
+  const draftVersionRef = useRef(editor.draftVersion);
   const publishedVersionRef = useRef(workspace.publishedVersion);
-  const savedRevisionRef = useRef(0);
+  const savedRevisionRef = useRef(editor.savedRevision);
   const saveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -66,7 +73,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const returnFocusRef = useRef<DesignCanvasTrigger | null>(null);
   const epochRef = useRef(0);
   const abandonedRef = useRef(false);
-  const failureRef = useRef<"error" | "conflict" | null>(null);
+  const failureRef = useRef<"error" | "conflict" | null>(editor.status === "conflict" ? "conflict" : null);
   const publishLockRef = useRef(false);
   const readingRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
@@ -92,6 +99,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
         }
         if (!window.confirm("Kaydedilmemiş tasarım değişiklikleriniz var. Bu değişiklikleri bırakıp ayrılmak istiyor musunuz?")) return false;
         abandonedRef.current = true;
+        forgetNavigationDraft(recoveryScope);
         epochRef.current += 1;
         cancelTimer();
         return true;
@@ -100,16 +108,19 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
     const unload = guard.bindBeforeUnload(window);
     const navigation = guard.bindApplicationNavigation(document, () => window.location.href);
     return () => {
+      if (abandonedRef.current) forgetNavigationDraft(recoveryScope);
+      else retainNavigationDraft(recoveryScope, editorRef.current);
       mountedRef.current = false;
       epochRef.current += 1;
       cancelTimer(); requestRef.current?.abort();
       unload(); navigation();
     };
-  }, [cancelTimer]);
+  }, [cancelTimer, recoveryScope]);
 
   const fail = useCallback((error: unknown, operation: "save" | "publish" = "save") => {
     const status = error instanceof StorefrontDesignApiError && error.code === "version_conflict" ? "conflict" : "error";
     failureRef.current = status;
+    setNavigationRecovered(false);
     setFailedOperation(operation);
     cancelTimer();
     setRecovery(null);
@@ -132,6 +143,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
         draftVersionRef.current = result.draftVersion;
         savedRevisionRef.current = Math.max(savedRevisionRef.current, revision);
         update((current) => completeDesignSave(current, token, result));
+        if (editorRef.current.revision <= savedRevisionRef.current) forgetNavigationDraft(recoveryScope);
         setMessage("");
         return true;
       } catch (error) {
@@ -143,7 +155,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
     });
     saveChainRef.current = job;
     return job;
-  }, [fail, update]);
+  }, [fail, recoveryScope, update]);
 
   useEffect(() => {
     if (!canManage || abandonedRef.current || failureRef.current || publishLockRef.current || editor.revision <= savedRevisionRef.current) return;
@@ -219,6 +231,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
     epochRef.current += 1;
     failureRef.current = null;
     draftVersionRef.current = recovery.draftVersion;
+    setNavigationRecovered(false);
     publishedVersionRef.current = recovery.publishedVersion;
     setPublishedAt(recovery.publishedAt);
     setPublishedRevision(null);
@@ -230,11 +243,12 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
       update((current) => ({ ...current, revision: current.revision + 1, draftVersion: recovery.draftVersion, publishedVersion: recovery.publishedVersion, status: "dirty" }));
       await queueSave(editorRef.current.design, editorRef.current.revision);
     } else {
+      forgetNavigationDraft(recoveryScope);
       savedRevisionRef.current = 0;
       update(() => createDesignEditorState(recovery));
       saveChainRef.current = Promise.resolve(true);
     }
-  }, [cancelTimer, queueSave, recovery, update]);
+  }, [cancelTimer, queueSave, recovery, recoveryScope, update]);
 
   const publishIssue = useMemo(() => getStorefrontDesignPublishIssue(editor.design), [editor.design]);
   const publishIssueLabel = publishIssue?.code === "hero_enabled_slide_missing" ? "En az bir bannerı açın" : publishIssue?.code === "hero_slide_headline_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner başlığı gerekli` : publishIssue?.code === "hero_slide_desktop_image_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner görseli gerekli` : null;
@@ -249,7 +263,7 @@ export function DesignWorkspace({ workspace, canManage, initialLocation = Object
   const selected = useMemo(() => designCanvasSurface(selectedSurface), [selectedSurface]);
 
   const publishDisabled = !canManage || busyPublishing || publishIssue !== null || ["saving", "publishing", "conflict", "error"].includes(editor.status);
-  const statusLabel = editor.status === "error" && failedOperation === "publish" ? "Yayınlanamadı" : editor.status === "saved" && publishedRevision === editor.revision ? "Yayınlandı" : STATUS_LABEL[editor.status];
+  const statusLabel = editor.status === "conflict" && navigationRecovered ? "Kaydedilmemiş taslak geri getirildi" : editor.status === "error" && failedOperation === "publish" ? "Yayınlanamadı" : editor.status === "saved" && publishedRevision === editor.revision ? "Yayınlandı" : STATUS_LABEL[editor.status];
   const differences = useMemo(() => recovery ? compareDesignDrafts(editor.design, recovery.draft) : [], [editor.design, recovery]);
   const recoveryControls = <>
     {message && <p role="alert">{message}</p>}
