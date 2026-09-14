@@ -19,6 +19,7 @@ import {
   fingerprint,
   hostname,
   originHealth,
+  replacementView,
   safeError,
   safeId,
   uuid,
@@ -167,6 +168,46 @@ export class PostgresStoreDomainRepository extends PostgresStoreDomainBase imple
       replayed: result.outcome === "operation_replayed",
     });
   }
+
+  async listReplacements(input: Parameters<StoreDomainRepository["listReplacements"]>[0]) {
+    const parsed = exact(input, ["tenantContext", "now"]);
+    const result = await this.execute(
+      "SELECT outcome,result_payload FROM saas.merchant_store_domain_replacement_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+      [...this.authority(parsed as never)], true,
+    );
+    if (result.outcome !== "listed") throw failure(mappedOutcome(result.outcome));
+    const payload = exact(result.payload, ["items"], "unavailable");
+    if (!Array.isArray(payload.items) || payload.items.length > 8) throw failure("unavailable");
+    return Object.freeze(payload.items.map(replacementView));
+  }
+
+  async prepareReplacement(input: Parameters<StoreDomainRepository["prepareReplacement"]>[0]) {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "fingerprint", "sourceStorefrontDomainId", "domainId", "hostname", "provider", "cnameTarget", "adminDomainId", "adminHostname", "adminCnameTarget"]);
+    if (parsed.provider !== "cloudflare_for_saas") throw failure("invalid_input");
+    const result = await this.execute(
+      "SELECT outcome,result_payload FROM saas.merchant_store_domain_replacement_prepare($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::uuid,$12::text,$13::text,$14::text,$15::uuid,$16::text,$17::text)",
+      [...this.authority(parsed as never), uuid(parsed.operationId), fingerprint(parsed.fingerprint), uuid(parsed.sourceStorefrontDomainId), uuid(parsed.domainId), hostname(parsed.hostname), parsed.provider, hostname(parsed.cnameTarget), uuid(parsed.adminDomainId), hostname(parsed.adminHostname), hostname(parsed.adminCnameTarget)],
+      false,
+    );
+    if (result.outcome !== "prepared" && result.outcome !== "operation_replayed") throw failure(mappedOutcome(result.outcome));
+    const payload = exact(result.payload, ["replacement", "storefront", "admin"], "unavailable");
+    return Object.freeze({ replacement: replacementView(payload.replacement), storefront: domainView(payload.storefront), admin: adminDomainView(payload.admin), replayed: result.outcome === "operation_replayed" });
+  }
+
+  private async replacementVersioned(name: "activate" | "cancel" | "rollback", input: Parameters<StoreDomainRepository["activateReplacement"]>[0]) {
+    const parsed = exact(input, ["tenantContext", "now", "operationId", "fingerprint", "replacementId", "expectedVersion"]);
+    const result = await this.execute(
+      `SELECT outcome,result_payload FROM saas.merchant_store_domain_replacement_${name}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)`,
+      [...this.authority(parsed as never), uuid(parsed.operationId), fingerprint(parsed.fingerprint), uuid(parsed.replacementId), version(parsed.expectedVersion)], false,
+    );
+    const accepted = name === "activate" ? "activated" : name === "cancel" ? "cancelled" : "rolled_back";
+    if (result.outcome !== accepted && result.outcome !== "operation_replayed") throw failure(mappedOutcome(result.outcome));
+    return replacementView(result.payload);
+  }
+
+  activateReplacement(input: Parameters<StoreDomainRepository["activateReplacement"]>[0]) { return this.replacementVersioned("activate", input); }
+  cancelReplacement(input: Parameters<StoreDomainRepository["cancelReplacement"]>[0]) { return this.replacementVersioned("cancel", input); }
+  rollbackReplacement(input: Parameters<StoreDomainRepository["rollbackReplacement"]>[0]) { return this.replacementVersioned("rollback", input); }
 
   async bindProvider(input: Parameters<StoreDomainRepository["bindProvider"]>[0]) {
     const parsed = exact(input, ["tenantContext", "now", "domainId", "expectedVersion", "providerHostnameId", "ownershipValidation", "certificateValidation"]);

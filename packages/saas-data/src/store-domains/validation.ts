@@ -1,4 +1,4 @@
-import { STORE_DOMAIN_UI_STATUSES, type AdminDomainView, type StoreDomainDnsInstruction, type StoreDomainView, type TenantContext } from "@celebix/saas-contracts";
+import { STORE_DOMAIN_REPLACEMENT_STATUSES, STORE_DOMAIN_UI_STATUSES, type AdminDomainView, type StoreDomainDnsInstruction, type StoreDomainReplacementView, type StoreDomainView, type TenantContext } from "@celebix/saas-contracts";
 
 import { StoreDomainRepositoryError } from "./errors.ts";
 import type { StoreDomainOriginHealth, StoreDomainWorkflowClaim } from "./types.ts";
@@ -137,6 +137,25 @@ export function adminDomainView(value: unknown): AdminDomainView {
     dnsStatus: parsed.dnsStatus as AdminDomainView["dnsStatus"], originStatus: parsed.originStatus as AdminDomainView["originStatus"],
     uiStatus: parsed.uiStatus as AdminDomainView["uiStatus"], dnsInstructions: Object.freeze(parsed.dnsInstructions.map(instruction)),
     verifiedAt, lastCheckedAt, version: parsed.version as number, createdAt, updatedAt,
+  });
+}
+
+export function replacementView(value: unknown): StoreDomainReplacementView {
+  const parsed = exact(value, [
+    "schemaVersion", "id", "sourceStorefrontDomainId", "targetStorefrontDomainId", "targetAdminDomainId",
+    "status", "ready", "version", "createdAt", "updatedAt",
+  ], "unavailable");
+  if (parsed.schemaVersion !== 1 || !STORE_DOMAIN_REPLACEMENT_STATUSES.includes(parsed.status as never)
+      || typeof parsed.ready !== "boolean" || !Number.isSafeInteger(parsed.version) || (parsed.version as number) < 1) fail("unavailable");
+  const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt);
+  if (updatedAt < createdAt || (parsed.status === "cancelled" && parsed.ready)) fail("unavailable");
+  return Object.freeze({
+    schemaVersion: 1, id: uuid(parsed.id, "unavailable"),
+    sourceStorefrontDomainId: uuid(parsed.sourceStorefrontDomainId, "unavailable"),
+    targetStorefrontDomainId: uuid(parsed.targetStorefrontDomainId, "unavailable"),
+    targetAdminDomainId: uuid(parsed.targetAdminDomainId, "unavailable"),
+    status: parsed.status as StoreDomainReplacementView["status"], ready: parsed.ready,
+    version: parsed.version as number, createdAt, updatedAt,
   });
 }
 

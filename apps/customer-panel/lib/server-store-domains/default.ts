@@ -82,11 +82,16 @@ async function initialize(): Promise<ServerStoreDomainRuntime | null> {
         AND to_regprocedure('saas.merchant_admin_domain_bind_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,jsonb,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.merchant_store_domain_request_recheck(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.merchant_store_domain_bundle_make_primary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL
-        AND to_regprocedure('saas.merchant_store_domain_bundle_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL AS domain_lifecycle
+        AND to_regprocedure('saas.merchant_store_domain_bundle_disable(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)') IS NOT NULL AS domain_lifecycle,
+      to_regprocedure('saas.merchant_store_domain_replacement_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_replacement_prepare(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,uuid,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_replacement_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_replacement_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.merchant_store_domain_replacement_rollback(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL AS replacement_lifecycle
       FROM pg_roles AS role WHERE role.rolname=current_user`);
     const row = result.rows[0];
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16
-        || row.database_name !== auth.database.name || row.is_superuser !== false || row.app_member !== true || row.domain_lifecycle !== true) {
+        || row.database_name !== auth.database.name || row.is_superuser !== false || row.app_member !== true || row.domain_lifecycle !== true || row.replacement_lifecycle !== true) {
       throw new Error("server_store_domain_database_preflight_failed");
     }
     const repository = new PostgresStoreDomainRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS });

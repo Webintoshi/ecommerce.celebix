@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { StoreDomainView, TenantContext } from "@celebix/saas-contracts";
+import type { StoreDomainReplacementView, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
 import { StoreDomainServiceError, type StoreDomainService } from "@celebix/saas-domain-core";
 
 import { createStoreDomainHttpHandlers } from "./handler.ts";
@@ -15,12 +15,13 @@ const OPERATION = "79000000-0000-4000-8000-000000000088";
 const DOMAIN = "77000000-0000-4000-8000-000000000088";
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 1).toString("base64url")}`;
 const DOMAIN_VIEW: StoreDomainView = Object.freeze({ schemaVersion: 1, id: DOMAIN, hostname: "www.example.com", hostnameType: "custom_domain", status: "pending", primary: false, uiStatus: "dns_pending", dnsInstructions: Object.freeze([{ type: "CNAME" as const, name: "www.example.com", value: "shops.celebix.site" }]), verifiedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
+const REPLACEMENT: StoreDomainReplacementView = Object.freeze({ schemaVersion: 1, id: OPERATION, sourceStorefrontDomainId: DOMAIN, targetStorefrontDomainId: "76000000-0000-4000-8000-000000000088", targetAdminDomainId: "75000000-0000-4000-8000-000000000088", status: "preparing", ready: false, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
 
 function tenant(role: "store_owner" | "analyst" = "store_owner"): TenantContext {
   return { schemaVersion: 1, requestId: REQUEST, principal: { id: "10000000-0000-4000-8000-000000000088", issuer: "https://id.test", subject: "private" }, store: { id: "20000000-0000-4000-8000-000000000088", slug: "guzide-kuyumcu-4", status: "active" }, membership: { id: "30000000-0000-4000-8000-000000000088", role, status: "active" }, entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000088", planCode: "pilot", version: 1, status: "active", features: ["custom_domains"], limits: { products: 100, staff: 5, storageBytes: 100, customDomains: 1 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" };
 }
 function service(overrides: Partial<StoreDomainService> = {}): StoreDomainService {
-  return { async list() { return [DOMAIN_VIEW]; }, async create() { return DOMAIN_VIEW; }, async requestRecheck() { return DOMAIN_VIEW; }, async makePrimary() { return DOMAIN_VIEW; }, async disable() { return DOMAIN_VIEW; }, ...overrides };
+  return { async list() { return [DOMAIN_VIEW]; }, async create() { return DOMAIN_VIEW; }, async listReplacements() { return [REPLACEMENT]; }, async createReplacement() { return REPLACEMENT; }, async activateReplacement() { return REPLACEMENT; }, async cancelReplacement() { return REPLACEMENT; }, async rollbackReplacement() { return REPLACEMENT; }, async requestRecheck() { return DOMAIN_VIEW; }, async makePrimary() { return DOMAIN_VIEW; }, async disable() { return DOMAIN_VIEW; }, ...overrides };
 }
 function handlers(domains: StoreDomainService, role: "store_owner" | "analyst" = "store_owner") {
   return createStoreDomainHttpHandlers({
@@ -84,4 +85,29 @@ test("finite domain failures map without exposing provider details", async () =>
     const response = await selected.collection(request("/api/store-domains", "POST", { hostname: "www.example.com" }));
     assert.equal(response.status, status); assert.deepEqual(await response.json(), { code });
   }
+});
+
+test("replacement endpoints keep source authority server-derived and transitions versioned", async () => {
+  const calls: unknown[] = [];
+  const selected = handlers(service({
+    async listReplacements(input) { calls.push(["list", input]); return [REPLACEMENT]; },
+    async createReplacement(input) { calls.push(["create", input]); return REPLACEMENT; },
+    async activateReplacement(input) { calls.push(["activate", input]); return { ...REPLACEMENT, status: "activated", ready: true, version: 2 }; },
+    async cancelReplacement(input) { calls.push(["cancel", input]); return { ...REPLACEMENT, status: "cancelled", version: 2 }; },
+    async rollbackReplacement(input) { calls.push(["rollback", input]); return { ...REPLACEMENT, status: "rolled_back", version: 3 }; },
+  }));
+  assert.equal((await selected.replacements(request("/api/store-domain-replacements"))).status, 200);
+  assert.equal((await selected.replacements(request("/api/store-domain-replacements", "POST", { sourceStorefrontDomainId: DOMAIN, hostname: "example.com" }))).status, 202);
+  for (const action of ["activate", "cancel", "rollback"] as const) {
+    assert.equal((await selected.replacementAction(request(`/api/store-domain-replacements/${OPERATION}/${action}`, "POST", { expectedVersion: 1 }), OPERATION, action)).status, 200);
+  }
+  assert.deepEqual(calls.map((entry) => (entry as unknown[])[0]), ["list", "create", "activate", "cancel", "rollback"]);
+  assert.equal(JSON.stringify(calls).includes(CREDENTIAL), false);
+});
+
+test("replacement inputs and tenant origins fail closed", async () => {
+  const selected = handlers(service());
+  assert.equal((await selected.replacements(request("/api/store-domain-replacements", "POST", { sourceStorefrontDomainId: "bad", hostname: "example.com" }))).status, 400);
+  assert.equal((await selected.replacements(request("/api/store-domain-replacements", "POST", { sourceStorefrontDomainId: DOMAIN, hostname: "example.com" }, OTHER_TENANT_ADMIN_ORIGIN))).status, 403);
+  assert.equal((await selected.replacementAction(request(`/api/store-domain-replacements/${OPERATION}/activate`, "POST", { expectedVersion: 0 }), OPERATION, "activate")).status, 400);
 });

@@ -18,6 +18,7 @@ const DOMAIN = "77777777-7777-4777-8777-777777777777";
 const ADMIN_DOMAIN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OPERATION = "88888888-8888-4888-8888-888888888888";
 const LEASE = "99999999-9999-4999-8999-999999999999";
+const SOURCE_DOMAIN = "11111111-1111-4111-8111-111111111111";
 const NOW = new Date("2026-08-05T12:00:00.000Z");
 
 function tenant(): TenantContext {
@@ -88,6 +89,11 @@ const adminDomain = Object.freeze({
   primary: false, fallback: false, hostnameStatus: "pending", sslStatus: "pending", dnsStatus: "pending", originStatus: "pending",
   uiStatus: "dns_pending", dnsInstructions: [{ type: "CNAME", name: "admin.example.com", value: "customers.celebix.site" }],
   verifiedAt: null, lastCheckedAt: null, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+});
+const replacement = Object.freeze({
+  schemaVersion: 1, id: OPERATION, sourceStorefrontDomainId: SOURCE_DOMAIN, targetStorefrontDomainId: DOMAIN,
+  targetAdminDomainId: ADMIN_DOMAIN, status: "preparing", ready: false, version: 1,
+  createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
 });
 
 function merchant(pool: Pool) {
@@ -172,6 +178,45 @@ test("prepares both bundle intents in one database authority call", async () => 
     "www.example.com", "cloudflare_for_saas", "shops.celebix.site", ADMIN_DOMAIN,
     "admin.example.com", "customers.celebix.site",
   ]);
+});
+
+test("prepares and lists one tenant-bound replacement bundle", async () => {
+  const prepareClient = new Client((text) => text.includes("merchant_store_domain_replacement_prepare")
+    ? [{ outcome: "prepared", result_payload: { replacement, storefront: domain, admin: adminDomain } }]
+    : []);
+  const result = await merchant(new Pool([prepareClient])).prepareReplacement({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION, fingerprint: "c".repeat(64),
+    sourceStorefrontDomainId: SOURCE_DOMAIN, domainId: DOMAIN, hostname: "www.example.com",
+    provider: "cloudflare_for_saas", cnameTarget: "shops.celebix.site",
+    adminDomainId: ADMIN_DOMAIN, adminHostname: "admin.example.com", adminCnameTarget: "customers.celebix.site",
+  });
+  assert.deepEqual(result, { replacement, storefront: domain, admin: adminDomain, replayed: false });
+  assert.deepEqual(call(prepareClient, "merchant_store_domain_replacement_prepare").values, [
+    STORE, PRINCIPAL, MEMBERSHIP, PLAN, "pilot", 1, NOW, OPERATION, "c".repeat(64), SOURCE_DOMAIN,
+    DOMAIN, "www.example.com", "cloudflare_for_saas", "shops.celebix.site", ADMIN_DOMAIN,
+    "admin.example.com", "customers.celebix.site",
+  ]);
+
+  const listClient = new Client((text) => text.includes("merchant_store_domain_replacement_list")
+    ? [{ outcome: "listed", result_payload: { items: [replacement] } }]
+    : []);
+  assert.deepEqual(await merchant(new Pool([listClient])).listReplacements({ tenantContext: tenant(), now: NOW }), [replacement]);
+});
+
+test("uses versioned replacement transition functions and rejects malformed projections", async () => {
+  for (const [method, sqlName, outcome] of [
+    ["activateReplacement", "activate", "activated"], ["cancelReplacement", "cancel", "cancelled"], ["rollbackReplacement", "rollback", "rolled_back"],
+  ] as const) {
+    const client = new Client((text) => text.includes(`merchant_store_domain_replacement_${sqlName}`)
+      ? [{ outcome, result_payload: { ...replacement, status: outcome === "activated" ? "activated" : outcome === "cancelled" ? "cancelled" : "rolled_back", version: 2 } }]
+      : []);
+    await merchant(new Pool([client]))[method]({ tenantContext: tenant(), now: NOW, operationId: LEASE, fingerprint: "d".repeat(64), replacementId: OPERATION, expectedVersion: 1 });
+    assert.deepEqual(call(client, `merchant_store_domain_replacement_${sqlName}`).values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "pilot", 1, NOW, LEASE, "d".repeat(64), OPERATION, 1]);
+  }
+  const malformed = new Client((text) => text.includes("merchant_store_domain_replacement_list")
+    ? [{ outcome: "listed", result_payload: { items: [{ ...replacement, ready: "yes" }] } }]
+    : []);
+  await assert.rejects(() => merchant(new Pool([malformed])).listReplacements({ tenantContext: tenant(), now: NOW }), StoreDomainRepositoryError);
 });
 
 test("claims bounded reconciliation work with the workflow role", async () => {
