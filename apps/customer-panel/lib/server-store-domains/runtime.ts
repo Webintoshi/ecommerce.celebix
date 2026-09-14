@@ -6,7 +6,7 @@ type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{ readiness: Readonly<
 export type ServerStoreDomainRuntime = Readonly<{ access: ApprovedAccess; domains: StoreDomainService }>;
 
 const services = new WeakMap<ServerPanelAccessRuntime, StoreDomainService>();
-const METHODS = Object.freeze(["list", "create", "requestRecheck", "makePrimary", "disable"] as const);
+const METHODS = Object.freeze(["list", "create", "listReplacements", "createReplacement", "activateReplacement", "cancelReplacement", "rollbackReplacement", "requestRecheck", "makePrimary", "disable"] as const);
 function invalid(): never { throw new Error("server_store_domain_runtime_invalid"); }
 function facade(service: StoreDomainService): StoreDomainService {
   if (!service || typeof service !== "object" || METHODS.some((method) => typeof service[method] !== "function")) invalid();

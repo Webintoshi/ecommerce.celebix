@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { StoreDomainDnsInstruction, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
+import type { StoreDomainDnsInstruction, StoreDomainReplacementView, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
 
 import { CloudflareCustomHostnameError } from "./cloudflare.ts";
 import { deriveManagedAdminHostname, normalizeStorefrontHostname } from "./hostname.ts";
@@ -10,6 +10,7 @@ import type {
   ProviderHostnameSnapshot,
   ProviderValidationInstruction,
   StoreDomainPersistence,
+  StoreDomainReplacementVersionedServiceInput,
   StoreDomainServiceErrorCode,
   StoreDomainVersionedServiceInput,
   StorefrontHostnamePolicy,
@@ -54,6 +55,14 @@ function fingerprint(hostname: string, adminHostname?: string): string {
   return createHash("sha256").update(JSON.stringify({ hostname, provider: "cloudflare_for_saas", ...(adminHostname ? { adminHostname } : {}) })).digest("hex");
 }
 
+function replacementFingerprint(sourceStorefrontDomainId: string, hostname: string, adminHostname: string): string {
+  return createHash("sha256").update(JSON.stringify({ sourceStorefrontDomainId, hostname, provider: "cloudflare_for_saas", adminHostname })).digest("hex");
+}
+
+function replacementActionFingerprint(action: string, replacementId: string, expectedVersion: number): string {
+  return createHash("sha256").update(JSON.stringify({ action, replacementId, expectedVersion })).digest("hex");
+}
+
 async function recoverProvider(
   provider: CustomHostnameProvider,
   hostname: string,
@@ -86,6 +95,11 @@ async function recoverProvider(
 export type StoreDomainService = Readonly<{
   list(input: Readonly<{ tenantContext: TenantContext; now: Date }>): Promise<readonly StoreDomainView[]>;
   create(input: Readonly<{ tenantContext: TenantContext; now: Date; operationId: string; hostname: string }>): Promise<StoreDomainView>;
+  listReplacements(input: Readonly<{ tenantContext: TenantContext; now: Date }>): Promise<readonly StoreDomainReplacementView[]>;
+  createReplacement(input: Readonly<{ tenantContext: TenantContext; now: Date; operationId: string; sourceStorefrontDomainId: string; hostname: string }>): Promise<StoreDomainReplacementView>;
+  activateReplacement(input: StoreDomainReplacementVersionedServiceInput): Promise<StoreDomainReplacementView>;
+  cancelReplacement(input: StoreDomainReplacementVersionedServiceInput): Promise<StoreDomainReplacementView>;
+  rollbackReplacement(input: StoreDomainReplacementVersionedServiceInput): Promise<StoreDomainReplacementView>;
   requestRecheck(input: StoreDomainVersionedServiceInput): Promise<StoreDomainView>;
   makePrimary(input: StoreDomainVersionedServiceInput): Promise<StoreDomainView>;
   disable(input: StoreDomainVersionedServiceInput): Promise<StoreDomainView>;
@@ -107,6 +121,15 @@ export function createStoreDomainService(input: Readonly<{
 
   async function versioned(method: "requestRecheck" | "makePrimary" | "disable", selected: StoreDomainVersionedServiceInput) {
     try { return await repository[method](selected); } catch (caught) { return persistenceError(caught); }
+  }
+
+  async function replacementVersioned(method: "activateReplacement" | "cancelReplacement" | "rollbackReplacement", selected: StoreDomainReplacementVersionedServiceInput) {
+    const selectedMethod = repository[method];
+    if (typeof selectedMethod !== "function") throw failure("provider_unavailable");
+    if (!selected || !UUID.test(selected.operationId) || !UUID.test(selected.replacementId) || !Number.isSafeInteger(selected.expectedVersion) || selected.expectedVersion < 1) throw failure("invalid_input");
+    const action = method === "activateReplacement" ? "activate" : method === "cancelReplacement" ? "cancel" : "rollback";
+    try { return await selectedMethod.call(repository, { ...selected, fingerprint: replacementActionFingerprint(action, selected.replacementId, selected.expectedVersion) }); }
+    catch (caught) { return persistenceError(caught); }
   }
 
   return Object.freeze({
@@ -197,6 +220,62 @@ export function createStoreDomainService(input: Readonly<{
         });
       } catch (caught) { return persistenceError(caught); }
     },
+    async listReplacements(selected) {
+      if (typeof repository.listReplacements !== "function") throw failure("provider_unavailable");
+      try { return await repository.listReplacements(selected); } catch (caught) { return persistenceError(caught); }
+    },
+    async createReplacement(selected) {
+      if (!bundleEnabled || typeof repository.prepareReplacement !== "function" || !selected || !UUID.test(selected.operationId) || !UUID.test(selected.sourceStorefrontDomainId)) throw failure("invalid_input");
+      let normalized;
+      try { normalized = normalizeStorefrontHostname(selected.hostname, hostnamePolicy); }
+      catch { throw failure("invalid_input"); }
+      const adminHostname = deriveManagedAdminHostname(normalized.hostname, hostnamePolicy);
+      const domainId = generateId(), adminDomainId = generateId();
+      if (!UUID.test(domainId) || !UUID.test(adminDomainId)) throw failure("provider_unavailable");
+      let prepared;
+      try {
+        prepared = await repository.prepareReplacement({
+          tenantContext: selected.tenantContext, now: selected.now, operationId: selected.operationId,
+          fingerprint: replacementFingerprint(selected.sourceStorefrontDomainId, normalized.hostname, adminHostname),
+          sourceStorefrontDomainId: selected.sourceStorefrontDomainId, domainId, hostname: normalized.hostname,
+          provider: "cloudflare_for_saas", cnameTarget: hostnamePolicy.cnameTarget,
+          adminDomainId, adminHostname, adminCnameTarget: input.adminHostnamePolicy!.cnameTarget,
+        });
+      } catch (caught) { return persistenceError(caught); }
+      let storefront = prepared.storefront, admin = prepared.admin;
+      if (prepared.replayed) {
+        try {
+          storefront = (await repository.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === storefront.id) ?? storefront;
+          admin = (await input.adminRepository!.list({ tenantContext: selected.tenantContext, now: selected.now })).find((domain) => domain.id === admin.id) ?? admin;
+        } catch (caught) { return persistenceError(caught); }
+      }
+      if (!prepared.replayed || storefront.version === prepared.storefront.version) {
+        const snapshot = await recoverProvider(provider, normalized.hostname, !prepared.replayed);
+        if (snapshot.hostname !== normalized.hostname) throw failure("provider_unavailable");
+        try {
+          await repository.bindProvider({ tenantContext: selected.tenantContext, now: selected.now, domainId: storefront.id, expectedVersion: storefront.version,
+            providerHostnameId: snapshot.providerHostnameId, ownershipValidation: dnsInstruction(snapshot.ownershipValidation),
+            certificateValidation: dnsInstruction(snapshot.certificateValidation.find((item) => item.type !== "http") ?? null) });
+        } catch (caught) { return persistenceError(caught); }
+      }
+      if (!prepared.replayed || admin.version === prepared.admin.version) {
+        try {
+          const snapshot = await recoverProvider(input.adminProvider!, adminHostname, !prepared.replayed);
+          if (snapshot.hostname !== adminHostname) throw failure("provider_unavailable");
+          await input.adminRepository!.bindProvider({ tenantContext: selected.tenantContext, now: selected.now, domainId: admin.id, expectedVersion: admin.version,
+            providerHostnameId: snapshot.providerHostnameId, ownershipValidation: dnsInstruction(snapshot.ownershipValidation),
+            certificateValidation: dnsInstruction(snapshot.certificateValidation.find((item) => item.type !== "http") ?? null) });
+        } catch (caught) {
+          if (!(caught instanceof StoreDomainServiceError) || caught.code !== "provider_unavailable") {
+            try { persistenceError(caught); } catch { /* durable replacement remains resumable */ }
+          }
+        }
+      }
+      return prepared.replacement;
+    },
+    activateReplacement: (selected) => replacementVersioned("activateReplacement", selected),
+    cancelReplacement: (selected) => replacementVersioned("cancelReplacement", selected),
+    rollbackReplacement: (selected) => replacementVersioned("rollbackReplacement", selected),
     requestRecheck: (selected) => versioned("requestRecheck", selected),
     makePrimary: (selected) => versioned("makePrimary", selected),
     disable: (selected) => versioned("disable", selected),

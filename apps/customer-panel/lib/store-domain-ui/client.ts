@@ -1,4 +1,4 @@
-import type { StoreDomainDnsInstruction, StoreDomainUiStatus, StoreDomainView } from "@celebix/saas-contracts";
+import { STORE_DOMAIN_REPLACEMENT_STATUSES, type StoreDomainDnsInstruction, type StoreDomainReplacementView, type StoreDomainUiStatus, type StoreDomainView } from "@celebix/saas-contracts";
 import { previewDomainBundle } from "../domain-bundle-ui/preview.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -75,6 +75,18 @@ function parseDomain(value: unknown): StoreDomainView {
     updatedAt: timestamp(selected.updatedAt),
   }) as StoreDomainView;
 }
+function parseReplacement(value: unknown): StoreDomainReplacementView {
+  const selected = record(value, ["schemaVersion", "id", "sourceStorefrontDomainId", "targetStorefrontDomainId", "targetAdminDomainId", "status", "ready", "version", "createdAt", "updatedAt"]);
+  if (selected.schemaVersion !== 1 || !STORE_DOMAIN_REPLACEMENT_STATUSES.includes(selected.status as never)
+      || typeof selected.ready !== "boolean" || (selected.status === "cancelled" && selected.ready)) throw new StoreDomainApiError();
+  const createdAt = timestamp(selected.createdAt), updatedAt = timestamp(selected.updatedAt);
+  if (updatedAt < createdAt) throw new StoreDomainApiError();
+  return Object.freeze({
+    schemaVersion: 1, id: identifier(selected.id), sourceStorefrontDomainId: identifier(selected.sourceStorefrontDomainId),
+    targetStorefrontDomainId: identifier(selected.targetStorefrontDomainId), targetAdminDomainId: identifier(selected.targetAdminDomainId),
+    status: selected.status as StoreDomainReplacementView["status"], ready: selected.ready, version: positive(selected.version), createdAt, updatedAt,
+  });
+}
 async function responseJson(response: Response): Promise<unknown> {
   if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") throw new StoreDomainApiError("unavailable", response.status || 503);
   const declared = response.headers.get("content-length");
@@ -108,6 +120,12 @@ export function createStoreDomainApiClient(fetcher: typeof fetch = fetch, uuid: 
     return request(path, { method, headers: { "content-type": "application/json", "idempotency-key": operationId }, body: JSON.stringify(body) })
       .then((value) => parseDomain(record(value, ["domain"]).domain));
   }
+  function replacementMutation(path: string, body: unknown): Promise<StoreDomainReplacementView> {
+    const operationId = uuid();
+    if (!UUID.test(operationId)) throw new StoreDomainApiError("invalid_input", 400);
+    return request(path, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": operationId }, body: JSON.stringify(body) })
+      .then((value) => parseReplacement(record(value, ["replacement"]).replacement));
+  }
   function version(value: number): number {
     if (!Number.isSafeInteger(value) || value < 1) throw new StoreDomainApiError("invalid_input", 400);
     return value;
@@ -127,6 +145,19 @@ export function createStoreDomainApiClient(fetcher: typeof fetch = fetch, uuid: 
       if (!preview) throw new StoreDomainApiError("invalid_input", 400);
       return mutation("/api/store-domains", "POST", { hostname: preview.storefront });
     },
+    async listReplacements(): Promise<readonly StoreDomainReplacementView[]> {
+      const value = record(await request("/api/store-domain-replacements"), ["items"]);
+      if (!Array.isArray(value.items) || value.items.length > 8) throw new StoreDomainApiError();
+      return Object.freeze(value.items.map(parseReplacement));
+    },
+    createReplacement(sourceStorefrontDomainId: string, value: string) {
+      const preview = typeof value === "string" ? previewDomainBundle(value.trim()) : null;
+      if (!preview) throw new StoreDomainApiError("invalid_input", 400);
+      return replacementMutation("/api/store-domain-replacements", { sourceStorefrontDomainId: domainId(sourceStorefrontDomainId), hostname: preview.storefront });
+    },
+    activateReplacement(id: string, expectedVersion: number) { return replacementMutation(`/api/store-domain-replacements/${domainId(id)}/activate`, { expectedVersion: version(expectedVersion) }); },
+    cancelReplacement(id: string, expectedVersion: number) { return replacementMutation(`/api/store-domain-replacements/${domainId(id)}/cancel`, { expectedVersion: version(expectedVersion) }); },
+    rollbackReplacement(id: string, expectedVersion: number) { return replacementMutation(`/api/store-domain-replacements/${domainId(id)}/rollback`, { expectedVersion: version(expectedVersion) }); },
     recheck(id: string, expectedVersion: number) { return mutation(`/api/store-domains/${domainId(id)}/recheck`, "POST", { expectedVersion: version(expectedVersion) }); },
     makePrimary(id: string, expectedVersion: number) { return mutation(`/api/store-domains/${domainId(id)}/primary`, "POST", { expectedVersion: version(expectedVersion) }); },
     remove(id: string, expectedVersion: number) { return mutation(`/api/store-domains/${domainId(id)}`, "DELETE", { expectedVersion: version(expectedVersion) }); },

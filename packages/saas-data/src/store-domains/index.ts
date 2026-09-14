@@ -10,6 +10,7 @@ export type {
   StoreDomainMerchantInput,
   StoreDomainProvider,
   StoreDomainRepository,
+  StoreDomainReplacementVersionedInput,
   StoreDomainVersionedInput,
   StoreDomainWorkflowClaim,
   StoreDomainWorkflowRepository,

@@ -1,4 +1,4 @@
-import type { StoreDomainView } from "@celebix/saas-contracts";
+import type { StoreDomainReplacementView, StoreDomainView } from "@celebix/saas-contracts";
 
 export type StoreDomainStatusTone = "neutral" | "pending" | "warning" | "success";
 
@@ -20,4 +20,15 @@ export function getStoreDomainProgress(domain: StoreDomainView): 1 | 2 | 3 | 4 {
   if (domain.uiStatus === "ssl_pending" || domain.uiStatus === "origin_pending") return 3;
   if (domain.uiStatus === "action_required") return 2;
   return 1;
+}
+
+export function getStoreDomainReplacementPresentation(replacement: StoreDomainReplacementView): Readonly<{
+  label: string; tone: StoreDomainStatusTone; action: "activate" | "cancel" | "rollback" | null;
+}> {
+  if (replacement.status === "activated") return Object.freeze({ label: "Yeni adres birincil", tone: "success", action: "rollback" });
+  if (replacement.status === "cancelled") return Object.freeze({ label: "Geçiş iptal edildi", tone: "neutral", action: null });
+  if (replacement.status === "rolled_back") return Object.freeze({ label: "Eski adrese dönüldü", tone: "warning", action: null });
+  return replacement.ready
+    ? Object.freeze({ label: "Geçişe hazır", tone: "success", action: "activate" })
+    : Object.freeze({ label: "Yeni adres hazırlanıyor", tone: "pending", action: "cancel" });
 }

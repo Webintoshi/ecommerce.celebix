@@ -14,6 +14,7 @@ const STORE = "33333333-3333-4333-8333-333333333333";
 const DOMAIN = "77777777-7777-4777-8777-777777777777";
 const ADMIN_DOMAIN = "99999999-9999-4999-8999-999999999999";
 const OPERATION = "88888888-8888-4888-8888-888888888888";
+const SOURCE_DOMAIN = "11111111-1111-4111-8111-111111111111";
 const NOW = new Date("2026-08-05T12:00:00.000Z");
 const VIEW: StoreDomainView = Object.freeze({
   schemaVersion: 1, id: DOMAIN, hostname: "www.example.com", hostnameType: "custom_domain", status: "pending",
@@ -25,6 +26,11 @@ const ADMIN_VIEW: AdminDomainView = Object.freeze({
   primary: false, fallback: false, hostnameStatus: "pending", sslStatus: "pending", dnsStatus: "pending", originStatus: "pending",
   uiStatus: "dns_pending", dnsInstructions: Object.freeze([]), verifiedAt: null, lastCheckedAt: null, version: 1,
   createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+});
+const REPLACEMENT = Object.freeze({
+  schemaVersion: 1 as const, id: OPERATION, sourceStorefrontDomainId: SOURCE_DOMAIN,
+  targetStorefrontDomainId: DOMAIN, targetAdminDomainId: ADMIN_DOMAIN, status: "preparing" as const,
+  ready: false, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
 });
 
 const TENANT = {
@@ -157,4 +163,49 @@ test("forwards versioned merchant actions only through persistence authority", a
   });
   await service.makePrimary({ tenantContext: TENANT, now: NOW, domainId: DOMAIN, expectedVersion: 2 });
   assert.deepEqual(primary, { tenantContext: TENANT, now: NOW, domainId: DOMAIN, expectedVersion: 2 });
+});
+
+test("prepares a replacement bundle idempotently and resumes partial provider provisioning", async () => {
+  let replayed = false, adminFinds = 0;
+  const prepared: unknown[] = [];
+  const ids = [DOMAIN, ADMIN_DOMAIN, DOMAIN, ADMIN_DOMAIN];
+  const repository = persistence({
+    async prepareBundle() { throw new Error("unused"); },
+    async prepareReplacement(input) { prepared.push(input); const result = { replacement: REPLACEMENT, storefront: VIEW, admin: ADMIN_VIEW, replayed }; replayed = true; return result; },
+    async listReplacements() { return [REPLACEMENT]; },
+  });
+  const service = createStoreDomainService({
+    repository,
+    adminRepository: adminPersistence(),
+    provider: { async create(hostname) { return { providerHostnameId: "cf-store", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async find(hostname) { return { providerHostnameId: "cf-store", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; } },
+    adminProvider: { async create() { throw new CloudflareCustomHostnameError("unavailable", true); }, async find(hostname) { adminFinds += 1; return adminFinds === 1 ? null : { providerHostnameId: "cf-admin", hostname, hostnameStatus: "pending", sslStatus: "pending", ownershipValidation: null, certificateValidation: [] }; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; } },
+    hostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "shops.celebix.site" },
+    adminHostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "customers.celebix.site" },
+    generateId: () => ids.shift() ?? "wrong",
+  });
+  assert.equal((await service.createReplacement({ tenantContext: TENANT, now: NOW, operationId: OPERATION, sourceStorefrontDomainId: SOURCE_DOMAIN, hostname: "example.com" })).id, OPERATION);
+  assert.equal((await service.createReplacement({ tenantContext: TENANT, now: NOW, operationId: OPERATION, sourceStorefrontDomainId: SOURCE_DOMAIN, hostname: "example.com" })).id, OPERATION);
+  assert.equal(prepared.length, 2);
+  assert.equal((prepared[0] as { sourceStorefrontDomainId: string }).sourceStorefrontDomainId, SOURCE_DOMAIN);
+  assert.equal(adminFinds, 2);
+});
+
+test("forwards replacement activation cancellation and rollback with exact version authority", async () => {
+  const calls: unknown[] = [];
+  const service = createStoreDomainService({
+    repository: persistence({
+      async listReplacements() { return [REPLACEMENT]; },
+      async activateReplacement(input) { calls.push(["activate", input]); return { ...REPLACEMENT, status: "activated", ready: true, version: 2 }; },
+      async cancelReplacement(input) { calls.push(["cancel", input]); return { ...REPLACEMENT, status: "cancelled", version: 2 }; },
+      async rollbackReplacement(input) { calls.push(["rollback", input]); return { ...REPLACEMENT, status: "rolled_back", ready: true, version: 3 }; },
+    }),
+    provider: { async create() { throw new Error("unused"); }, async find() { return null; }, async get() { throw new Error("unused"); }, async remove() { return { deleted: true }; } },
+    hostnamePolicy: { reservedSuffixes: ["celebix.site"], cnameTarget: "shops.celebix.site" }, generateId: () => DOMAIN,
+  });
+  assert.deepEqual(await service.listReplacements({ tenantContext: TENANT, now: NOW }), [REPLACEMENT]);
+  await service.activateReplacement({ tenantContext: TENANT, now: NOW, operationId: "22222222-2222-4222-8222-222222222222", replacementId: OPERATION, expectedVersion: 1 });
+  await service.cancelReplacement({ tenantContext: TENANT, now: NOW, operationId: "33333333-3333-4333-8333-333333333333", replacementId: OPERATION, expectedVersion: 1 });
+  await service.rollbackReplacement({ tenantContext: TENANT, now: NOW, operationId: "44444444-4444-4444-8444-444444444444", replacementId: OPERATION, expectedVersion: 2 });
+  assert.deepEqual(calls.map((entry) => (entry as unknown[])[0]), ["activate", "cancel", "rollback"]);
+  assert.equal((calls[0] as [string, { fingerprint: string }])[1].fingerprint.length, 64);
 });

@@ -1,0 +1,11 @@
+{
+  "phase": "phase5k-store-domain-replacement-bundles",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "artifacts": [
+    { "file": "202609140127_store_domain_replacement_bundles.up.sql", "direction": "up", "sha256": "025ba15b92d4899797e0c755d77a68e33420b37cc8ebe4006dd3636c9af14f09" },
+    { "file": "202609140127_store_domain_replacement_bundles.down.sql", "direction": "down", "sha256": "e84e0755f1b672d2d7c69920a5bdd4c2a24564342af1ae262155446545201bc7" },
+    { "file": "202609140127_store_domain_replacement_bundles_assertions.sql", "direction": "verify", "sha256": "578fdf1e3d709b922f6c0e991f3e434d5388dc330a32219ac2e35045bb05c06f" }
+  ]
+}

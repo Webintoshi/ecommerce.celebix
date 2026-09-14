@@ -1,4 +1,4 @@
-import type { AdminDomainView, StoreDomainDnsInstruction, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
+import type { AdminDomainView, StoreDomainDnsInstruction, StoreDomainReplacementView, StoreDomainView, TenantContext } from "@celebix/saas-contracts";
 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
@@ -11,6 +11,13 @@ export type StoreDomainMerchantInput = Readonly<{
 
 export type StoreDomainVersionedInput = StoreDomainMerchantInput & Readonly<{
   domainId: string;
+  expectedVersion: number;
+}>;
+
+export type StoreDomainReplacementVersionedInput = StoreDomainMerchantInput & Readonly<{
+  operationId: string;
+  fingerprint: string;
+  replacementId: string;
   expectedVersion: number;
 }>;
 
@@ -35,6 +42,15 @@ export interface StoreDomainRepository {
     adminHostname: string;
     adminCnameTarget: string;
   }>): Promise<Readonly<{ storefront: StoreDomainView; admin: AdminDomainView; replayed: boolean }>>;
+  listReplacements(input: StoreDomainMerchantInput): Promise<readonly StoreDomainReplacementView[]>;
+  prepareReplacement(input: StoreDomainMerchantInput & Readonly<{
+    operationId: string; fingerprint: string; sourceStorefrontDomainId: string;
+    domainId: string; hostname: string; provider: StoreDomainProvider; cnameTarget: string;
+    adminDomainId: string; adminHostname: string; adminCnameTarget: string;
+  }>): Promise<Readonly<{ replacement: StoreDomainReplacementView; storefront: StoreDomainView; admin: AdminDomainView; replayed: boolean }>>;
+  activateReplacement(input: StoreDomainReplacementVersionedInput): Promise<StoreDomainReplacementView>;
+  cancelReplacement(input: StoreDomainReplacementVersionedInput): Promise<StoreDomainReplacementView>;
+  rollbackReplacement(input: StoreDomainReplacementVersionedInput): Promise<StoreDomainReplacementView>;
   bindProvider(input: StoreDomainVersionedInput & Readonly<{
     providerHostnameId: string;
     ownershipValidation: readonly StoreDomainDnsInstruction[];

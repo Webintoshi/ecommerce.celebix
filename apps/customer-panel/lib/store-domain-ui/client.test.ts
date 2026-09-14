@@ -11,6 +11,7 @@ const DOMAIN = Object.freeze({
   dnsInstructions: [{ type: "CNAME", name: "shop", value: "custom.saas-staging.celebix.site" }],
   verifiedAt: null, version: 2, createdAt: "2026-08-05T10:00:00.000Z", updatedAt: "2026-08-05T10:00:00.000Z",
 });
+const REPLACEMENT = Object.freeze({ schemaVersion: 1, id: OPERATION_ID, sourceStorefrontDomainId: DOMAIN_ID, targetStorefrontDomainId: "76000000-0000-4000-8000-000000000088", targetAdminDomainId: "75000000-0000-4000-8000-000000000088", status: "preparing", ready: false, version: 1, createdAt: "2026-08-05T10:00:00.000Z", updatedAt: "2026-08-05T10:00:00.000Z" });
 
 function fetcher(responses: unknown[]) {
   const calls: Array<{ path: string; init?: RequestInit }> = [];
@@ -53,4 +54,28 @@ test("malformed success responses and finite API errors fail closed", async () =
   await assert.rejects(() => createStoreDomainApiClient(malformed.fetch as typeof fetch).list(), (error: unknown) => error instanceof StoreDomainApiError && error.code === "unavailable");
   const denied = createStoreDomainApiClient(async () => Response.json({ code: "feature_not_enabled" }, { status: 403 }));
   await assert.rejects(() => denied.list(), (error: unknown) => error instanceof StoreDomainApiError && error.code === "feature_not_enabled" && error.status === 403);
+});
+
+test("replacement client uses strict list create and versioned transition requests", async () => {
+  const mock = fetcher([{ items: [REPLACEMENT] }, { replacement: REPLACEMENT }, { replacement: { ...REPLACEMENT, status: "activated", ready: true, version: 2 } }, { replacement: { ...REPLACEMENT, status: "cancelled", version: 2 } }, { replacement: { ...REPLACEMENT, status: "rolled_back", ready: true, version: 3 } }]);
+  const api = createStoreDomainApiClient(mock.fetch as typeof fetch, () => OPERATION_ID);
+  assert.deepEqual(await api.listReplacements(), [REPLACEMENT]);
+  await api.createReplacement(DOMAIN_ID, "example.com");
+  await api.activateReplacement(OPERATION_ID, 1);
+  await api.cancelReplacement(OPERATION_ID, 1);
+  await api.rollbackReplacement(OPERATION_ID, 2);
+  assert.deepEqual(mock.calls.map(({ path, init }) => [path, init?.method, init?.body]), [
+    ["/api/store-domain-replacements", undefined, undefined],
+    ["/api/store-domain-replacements", "POST", JSON.stringify({ sourceStorefrontDomainId: DOMAIN_ID, hostname: "example.com" })],
+    [`/api/store-domain-replacements/${OPERATION_ID}/activate`, "POST", JSON.stringify({ expectedVersion: 1 })],
+    [`/api/store-domain-replacements/${OPERATION_ID}/cancel`, "POST", JSON.stringify({ expectedVersion: 1 })],
+    [`/api/store-domain-replacements/${OPERATION_ID}/rollback`, "POST", JSON.stringify({ expectedVersion: 2 })],
+  ]);
+});
+
+test("replacement client rejects malformed readiness and unknown status", async () => {
+  for (const replacement of [{ ...REPLACEMENT, ready: "yes" }, { ...REPLACEMENT, status: "complete" }]) {
+    const mock = fetcher([{ items: [replacement] }]);
+    await assert.rejects(() => createStoreDomainApiClient(mock.fetch as typeof fetch).listReplacements(), StoreDomainApiError);
+  }
 });

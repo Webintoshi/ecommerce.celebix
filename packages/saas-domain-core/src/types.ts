@@ -68,6 +68,20 @@ export type StoreDomainPersistence = Readonly<{
     admin: import("@celebix/saas-contracts").AdminDomainView;
     replayed: boolean;
   }>>;
+  listReplacements?(input: Readonly<{ tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date }>): Promise<readonly import("@celebix/saas-contracts").StoreDomainReplacementView[]>;
+  prepareReplacement?(input: Readonly<{
+    tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; operationId: string; fingerprint: string;
+    sourceStorefrontDomainId: string; domainId: string; hostname: string; provider: "cloudflare_for_saas"; cnameTarget: string;
+    adminDomainId: string; adminHostname: string; adminCnameTarget: string;
+  }>): Promise<Readonly<{
+    replacement: import("@celebix/saas-contracts").StoreDomainReplacementView;
+    storefront: import("@celebix/saas-contracts").StoreDomainView;
+    admin: import("@celebix/saas-contracts").AdminDomainView;
+    replayed: boolean;
+  }>>;
+  activateReplacement?(input: StoreDomainReplacementVersionedServiceInput & Readonly<{ fingerprint: string }>): Promise<import("@celebix/saas-contracts").StoreDomainReplacementView>;
+  cancelReplacement?(input: StoreDomainReplacementVersionedServiceInput & Readonly<{ fingerprint: string }>): Promise<import("@celebix/saas-contracts").StoreDomainReplacementView>;
+  rollbackReplacement?(input: StoreDomainReplacementVersionedServiceInput & Readonly<{ fingerprint: string }>): Promise<import("@celebix/saas-contracts").StoreDomainReplacementView>;
   bindProvider(input: Readonly<{
     tenantContext: import("@celebix/saas-contracts").TenantContext; now: Date; domainId: string; expectedVersion: number;
     providerHostnameId: string; ownershipValidation: readonly import("@celebix/saas-contracts").StoreDomainDnsInstruction[];
@@ -76,6 +90,14 @@ export type StoreDomainPersistence = Readonly<{
   requestRecheck(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").StoreDomainView>;
   makePrimary(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").StoreDomainView>;
   disable(input: StoreDomainVersionedServiceInput): Promise<import("@celebix/saas-contracts").StoreDomainView>;
+}>;
+
+export type StoreDomainReplacementVersionedServiceInput = Readonly<{
+  tenantContext: import("@celebix/saas-contracts").TenantContext;
+  now: Date;
+  operationId: string;
+  replacementId: string;
+  expectedVersion: number;
 }>;
 
 export type StoreDomainVersionedServiceInput = Readonly<{

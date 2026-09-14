@@ -77,6 +77,13 @@ const requiredHarnesses = Object.freeze([
       /^PASS 13\/13 automatic admin domain bundles PostgreSQL 16 rehearsal complete$/m,
   }),
   Object.freeze({
+    file: "tests/saas-phase3/store-domain-replacement-bundles/postgres-harness.mjs",
+    total: 9,
+    line: /^PASS \d+ (?!store domain replacement PostgreSQL 16 rehearsal complete$).+$/gm,
+    completion:
+      /^PASS 9\/9 store domain replacement PostgreSQL 16 rehearsal complete$/m,
+  }),
+  Object.freeze({
     file: "tests/saas-phase3/inventory-locations/postgres-harness.mjs",
     total: 44,
     line: /^inventory location scenario \d+\/44: .+$/gm,

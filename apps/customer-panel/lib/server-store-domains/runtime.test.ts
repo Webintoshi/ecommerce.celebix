@@ -10,7 +10,7 @@ function access(mode: "approved_staging" | "disabled" = "approved_staging") {
   return { readiness: { mode }, panelOrigin: mode === "approved_staging" ? "https://panel.test" : null } as ServerPanelAccessRuntime;
 }
 function service(): StoreDomainService {
-  return { async list() { return []; }, async create() { throw new Error("unused"); }, async requestRecheck() { throw new Error("unused"); }, async makePrimary() { throw new Error("unused"); }, async disable() { throw new Error("unused"); } };
+  return { async list() { return []; }, async create() { throw new Error("unused"); }, async listReplacements() { return []; }, async createReplacement() { throw new Error("unused"); }, async activateReplacement() { throw new Error("unused"); }, async cancelReplacement() { throw new Error("unused"); }, async rollbackReplacement() { throw new Error("unused"); }, async requestRecheck() { throw new Error("unused"); }, async makePrimary() { throw new Error("unused"); }, async disable() { throw new Error("unused"); } };
 }
 
 test("approved runtime exposes only a frozen store-domain service facade", () => {
@@ -18,7 +18,7 @@ test("approved runtime exposes only a frozen store-domain service facade", () =>
   registerServerStoreDomainService(approved, service());
   const runtime = resolveServerStoreDomainRuntime(approved);
   assert.ok(runtime);
-  assert.deepEqual(Object.keys(runtime.domains), ["list", "create", "requestRecheck", "makePrimary", "disable"]);
+  assert.deepEqual(Object.keys(runtime.domains), ["list", "create", "listReplacements", "createReplacement", "activateReplacement", "cancelReplacement", "rollbackReplacement", "requestRecheck", "makePrimary", "disable"]);
   assert.equal(Object.isFrozen(runtime.domains), true);
   assert.equal(resolveServerStoreDomainRuntime(access("disabled")), null);
 });
