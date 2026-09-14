@@ -246,6 +246,67 @@ test("adding a product row to V3 emits a parseable payload with a new stable ide
   }
 });
 
+test("switching a V3 category product row source preserves its stable identity and order", async () => {
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  globalThis.fetch = async () => new Response(JSON.stringify({ assets: [] }), { status: 200 });
+
+  const { StarterThemeComposer } = compileComposer();
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const root: Root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const changes: StarterThemeComposition[] = [];
+  const originalSectionIds = V3_FIXTURE.sections.map((section) => section.sectionId);
+
+  try {
+    for (const source of ["latest", "sale"] as const) {
+      await React.act(async () => {
+        root.render(React.createElement(StarterThemeComposer, {
+          activePanel: "home",
+          canManage: true,
+          showPreview: false,
+          value: V3_FIXTURE,
+          onChange: (value) => changes.push(value),
+        }));
+      });
+      await settle();
+      changes.length = 0;
+
+      const sourceSelect = Array.from(container.querySelectorAll("label"))
+        .find((label) => label.firstChild?.textContent === "Kaynak")
+        ?.querySelector("select");
+      assert.ok(sourceSelect);
+      sourceSelect.value = source;
+      await React.act(async () => sourceSelect.dispatchEvent(new window.Event("change", { bubbles: true })));
+
+      assert.equal(changes.length, 1, `${source} should emit one valid composition`);
+      const result = parseStarterThemeCompositionConfig(changes[0]);
+      assert.equal(result.schemaVersion, 3);
+      assert.deepEqual(result.sections.map((section) => section.sectionId), originalSectionIds);
+      assert.deepEqual(result.sections[0], {
+        sectionId: V3_FIXTURE.sections[0].sectionId,
+        kind: "product_row",
+        enabled: true,
+        heading: "İlk ürünler",
+        source,
+        limit: 4,
+      });
+      assert.deepEqual(result.sections.slice(1), V3_FIXTURE.sections.slice(1));
+    }
+  } finally {
+    await React.act(async () => root.unmount());
+    await window.happyDOM.close();
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("invalid composition shows an explicit editor error without writing", () => {
   const { StarterThemeComposer } = compileComposer();
   const changes: StarterThemeComposition[] = [];

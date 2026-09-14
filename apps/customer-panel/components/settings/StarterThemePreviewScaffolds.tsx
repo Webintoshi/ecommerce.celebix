@@ -1,12 +1,15 @@
 import styles from "./starter-theme-preview.module.css";
 
-export function ProductCards({ contentLabel, gridClassName, heading, productTitles }: Readonly<{
+export function ProductCards({ contentLabel, count, gridClassName, heading, productTitles }: Readonly<{
   contentLabel: "Aktif katalog" | "Örnek içerik";
+  count: 3 | 4 | 8 | 12;
   gridClassName?: string;
   heading?: string;
   productTitles: readonly string[];
 }>) {
-  const visibleTitles = productTitles.length > 0 ? productTitles.slice(0, 4) : ["Örnek ürün 1", "Örnek ürün 2", "Örnek ürün 3", "Örnek ürün 4"];
+  const visibleTitles = productTitles.length > 0
+    ? productTitles.slice(0, count)
+    : Array.from({ length: count }, (_, index) => `Örnek ürün ${index + 1}`);
   return <section className={styles.productSection} aria-label="Ürün sırası önizlemesi" data-preview-content={contentLabel === "Örnek içerik" ? "example" : "catalog"}>
     {heading ? <div className={styles.sectionTitle}><h4>{heading}</h4><span>Tümünü gör</span></div> : null}
     <div className={`${styles.previewProducts} ${gridClassName ?? ""}`}>

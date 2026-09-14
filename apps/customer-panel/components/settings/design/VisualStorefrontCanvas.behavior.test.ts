@@ -16,6 +16,7 @@ import ts from "typescript";
 
 import { createPreviewStorefrontDesign, isStorefrontPromotionActive } from "../../../../../packages/storefront-design-ui/src/model.ts";
 import { createStorefrontTypographyResources } from "../../../../../packages/storefront-design-ui/src/typography.ts";
+import { starterThemeCategoryPlaceholderLabels } from "../../../lib/starter-theme-composer-model.ts";
 
 const require = createRequire(import.meta.url);
 const styles = new Proxy({}, { get: (_target, key) => String(key) });
@@ -56,6 +57,7 @@ const BASE_DESIGN: StorefrontDesignDocument = Object.freeze({
 });
 
 type CanvasModule = Readonly<{ VisualStorefrontCanvas: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
+type PreviewModule = Readonly<{ StarterThemePreview: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
 
 function compileRenderer(): Readonly<{ StorefrontDesignRenderer: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
   const filename = new URL("../../../../../packages/storefront-design-ui/src/StorefrontDesignRenderer.tsx", import.meta.url);
@@ -107,6 +109,22 @@ function compileCanvas(): CanvasModule {
   };
   new Function("require", "module", "exports", output)(load, module, module.exports);
   return module.exports as CanvasModule;
+}
+
+function compilePreview(): PreviewModule {
+  const filename = new URL("../StarterThemePreview.tsx", import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  const load = (id: string): unknown => {
+    if (id.endsWith(".css")) return { __esModule: true, default: styles };
+    if (id === "./StarterThemePreviewScaffolds") return compileScaffolds();
+    if (id === "@/lib/starter-theme-composer-model") return { starterThemeCategoryPlaceholderLabels };
+    return require(id);
+  };
+  new Function("require", "module", "exports", output)(load, module, module.exports);
+  return module.exports as PreviewModule;
 }
 
 function renderCanvas(
@@ -169,6 +187,51 @@ test("draft canvas renders every enabled homepage section in the configured orde
   assert.doesNotMatch(markup, /Katalog yer tutucusu|Aktif katalog/);
   assert.match(markup, /data-preview-content="example"/);
   assert.match(markup, /yayın vitrini katalog projeksiyonu/);
+});
+
+test("product-row scaffolds render the exact count requested by each row contract", () => {
+  const rows = Object.freeze([
+    Object.freeze({ sectionId: "home_products_four", kind: "product_row", enabled: true, heading: "FOUR_PRODUCTS", source: "latest", limit: 4 }),
+    Object.freeze({ sectionId: "home_products_eight", kind: "product_row", enabled: true, heading: "EIGHT_PRODUCTS", source: "sale", limit: 8 }),
+    Object.freeze({ sectionId: "home_products_twelve", kind: "product_row", enabled: true, heading: "TWELVE_PRODUCTS", source: "latest", limit: 12 }),
+  ] satisfies StarterThemeCompositionConfigV3["sections"]);
+  const markup = renderCanvas({ ...BASE_DESIGN, composition: composition(rows) });
+
+  for (const [index, expectedCount] of [4, 8, 12].entries()) {
+    const rowStart = markup.indexOf(`data-preview-section-id="${rows[index].sectionId}"`);
+    const start = markup.indexOf('aria-label="Ürün sırası önizlemesi"', rowStart);
+    const end = markup.indexOf("</section>", start);
+    const rowMarkup = markup.slice(start, end);
+    assert.equal((rowMarkup.match(/<article/g) ?? []).length, expectedCount);
+  }
+});
+
+test("legacy composer preview keeps its established three-card cap", () => {
+  const { StarterThemePreview } = compilePreview();
+  const productRow = Object.freeze({
+    sectionId: "home_legacy_preview_products",
+    kind: "product_row",
+    enabled: true,
+    heading: "LEGACY_PRODUCTS",
+    source: "latest",
+    limit: 12,
+  }) satisfies StarterThemeCompositionConfigV3["sections"][number];
+  for (const productTitles of [
+    Object.freeze(["PRODUCT_ONE", "PRODUCT_TWO", "PRODUCT_THREE", "PRODUCT_FOUR"]),
+    Object.freeze([]),
+  ]) {
+    const markup = renderToStaticMarkup(React.createElement(StarterThemePreview, {
+      composition: composition(Object.freeze([productRow])),
+      productTitles,
+      storefrontHostname: null,
+    }));
+    const start = markup.indexOf('aria-label="Ürün sırası önizlemesi"');
+    const end = markup.indexOf("</section>", start);
+    const productMarkup = markup.slice(start, end);
+
+    assert.equal((productMarkup.match(/<article/g) ?? []).length, 3);
+    assert.doesNotMatch(productMarkup, /PRODUCT_FOUR|Örnek ürün 4/);
+  }
 });
 
 test("an intentionally empty homepage stays empty instead of fabricating catalog sections", () => {

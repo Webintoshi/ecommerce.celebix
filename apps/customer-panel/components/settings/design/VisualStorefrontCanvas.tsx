@@ -98,7 +98,7 @@ function HomepageSectionConfiguration({ section, destinations }: Readonly<{
         : <p className={styles.canvasSectionMeta}>Bu bölüm için henüz kategori seçilmedi.</p>}</>;
     }
     case "product_row":
-      return <><p className={styles.canvasSectionMeta}>Kaynak: {section.source} · Ürün sınırı: {section.limit}</p><ProductCards contentLabel="Örnek içerik" gridClassName={styles.canvasProductGrid} productTitles={[]} /><p className={styles.canvasProjectionText}>Katalog ürünleri yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
+      return <><p className={styles.canvasSectionMeta}>Kaynak: {section.source} · Ürün sınırı: {section.limit}</p><ProductCards contentLabel="Örnek içerik" count={section.limit} gridClassName={styles.canvasProductGrid} productTitles={[]} /><p className={styles.canvasProjectionText}>Katalog ürünleri yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
     case "split_campaign":
       return <ul className={styles.canvasSectionItems}>{section.panels.map((panel, index) => <li key={`${panel.assetId}-${index}`}><strong>{panel.heading}</strong><span>Görsel kimliği: {panel.assetId}</span><span>Hedef: {panel.destination}</span></li>)}</ul>;
     case "brand_story":

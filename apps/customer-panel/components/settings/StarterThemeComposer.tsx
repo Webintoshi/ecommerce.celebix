@@ -220,7 +220,11 @@ export function StarterThemeComposer({
       setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
     }
   };
-  const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({ sections: Object.freeze(state.sections.map((entry, position) => position === index ? section : entry)) });
+  const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({
+    sections: Object.freeze(state.sections.map((entry, position) => position === index
+      ? Object.freeze({ ...section, ...("sectionId" in entry ? { sectionId: entry.sectionId } : {}) })
+      : entry)),
+  });
 
   function addSection() {
     const section = makeSection(newSection, products, assets);

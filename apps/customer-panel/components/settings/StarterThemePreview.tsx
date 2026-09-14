@@ -106,7 +106,7 @@ export function StarterThemePreview(props: PreviewProps) {
           </section> : null}
 
           {productRow?.kind === "product_row"
-            ? <ProductCards contentLabel={props.productTitles.length ? "Aktif katalog" : "Örnek içerik"} heading={productRow.heading} productTitles={props.productTitles} />
+            ? <ProductCards contentLabel={props.productTitles.length ? "Aktif katalog" : "Örnek içerik"} count={3} heading={productRow.heading} productTitles={props.productTitles} />
             : null}
 
           {previewCategoryPlaceholders}
@@ -176,7 +176,7 @@ export function StarterThemePreview(props: PreviewProps) {
         <header className={styles.previewNav}><strong>{presentation.displayName}</strong><nav aria-label="Mağaza menüsü"><span>Ürünler</span><span>Yeni</span></nav><span className={styles.previewCart}>Sepet · 0</span></header>
         {presentation.promotion ? <a className={styles.previewPromotion} href={presentation.promotion.destination}>{presentation.promotion.headline}</a> : null}
         {presentation.hero.enabled ? <section className={styles.previewHero}><div><small>Yeni sezon</small><h3>{presentation.hero.headline}</h3><p>{presentation.hero.body}</p><span>Ürünleri keşfet</span></div><div className={styles.previewMedia} aria-label="Örnek içerik görsel alanı"><i /><i /></div></section> : null}
-        <ProductCards contentLabel="Örnek içerik" heading="Yeni seçkiler" productTitles={["Örnek ürün", "Yeni seçki", "Mağaza favorisi"]} />
+        <ProductCards contentLabel="Örnek içerik" count={3} heading="Yeni seçkiler" productTitles={["Örnek ürün", "Yeni seçki", "Mağaza favorisi"]} />
       </div>
     </div>
     <p className={styles.previewNotice}>Bu alan tema yerleşimini örnek içerikle gösterir.</p>
