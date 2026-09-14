@@ -6,6 +6,7 @@ import {
   type StorefrontRendererSurface,
 } from "@celebix/storefront-design-ui";
 import type {
+  StarterFooterLinkConfig,
   StarterThemeSectionConfigV3,
   StorefrontDesignDestinationOption,
   StorefrontDesignDocument,
@@ -15,6 +16,8 @@ import { normalizeStarterThemeCompositionV3 } from "@celebix/saas-contracts";
 
 import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
 import styles from "../design-settings.module.css";
+import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
+import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
 
 interface VisualStorefrontCanvasProps {
   readonly design: StorefrontDesignDocument;
@@ -55,69 +58,89 @@ function SurfaceButton({ surface, label, selected, onSelect }: Readonly<{
   ><span>{label}</span></button>;
 }
 
-function SectionMedia({ media, assetId, label }: Readonly<{
-  media: readonly StorefrontDesignMediaOption[];
-  assetId?: string;
-  label: string;
-}>) {
-  const selected = assetId ? media.find(({ id }) => id === assetId) : undefined;
-  return selected
-    ? <img src={selected.url} alt={selected.altText || label} />
-    : <div className={styles.canvasExampleMedia} aria-label={`${label} için örnek görsel`}><i aria-hidden="true" /></div>;
+const SECTION_LABELS = Object.freeze({
+  hero: "Banner",
+  category_grid: "Kategori vitrini",
+  product_row: "Ürün satırı",
+  split_campaign: "Kampanya panelleri",
+  brand_story: "Marka hikâyesi",
+  value_propositions: "Değer önerileri",
+  testimonials: "Müşteri yorumları",
+} satisfies Readonly<Record<StarterThemeSectionConfigV3["kind"], string>>);
+
+function unresolvedResource(kind: string, id: string) {
+  return `${kind} kimliği: ${id} (yayın vitrininin sunucu tarafında çözümlenir)`;
 }
 
-function HomepagePreviewSection({ section, media, destinations }: Readonly<{
+function sectionHeading(section: StarterThemeSectionConfigV3): string {
+  if (section.kind === "hero") return section.slides[0]?.heading ?? SECTION_LABELS.hero;
+  if (section.kind === "split_campaign") return section.panels[0]?.heading ?? SECTION_LABELS.split_campaign;
+  if (section.kind === "value_propositions") return section.items[0]?.heading ?? SECTION_LABELS.value_propositions;
+  return section.heading;
+}
+
+function HomepageSectionConfiguration({ section, destinations }: Readonly<{
   section: StarterThemeSectionConfigV3;
-  media: readonly StorefrontDesignMediaOption[];
   destinations: readonly StorefrontDesignDestinationOption[];
 }>) {
-  const attributes = {
-    "data-preview-section-kind": section.kind,
-    "data-preview-section-id": section.sectionId,
-  } as const;
-
   switch (section.kind) {
     case "hero":
-      return <section className={styles.canvasCompositionHero} {...attributes}>
-        {section.slides.map((slide, index) => <article key={`${slide.desktopAssetId}-${index}`}>
-          <SectionMedia media={media} assetId={slide.desktopAssetId} label={`${index + 1}. banner`} />
-          <div>{slide.eyebrow ? <small>{slide.eyebrow}</small> : null}<h2>{slide.heading}</h2>{slide.body ? <p>{slide.body}</p> : null}</div>
-        </article>)}
-      </section>;
+      return <ul className={styles.canvasSectionItems}>{section.slides.map((slide, index) => <li key={`${slide.desktopAssetId}-${index}`}>
+        <strong>{slide.heading}</strong>
+        <span>Masaüstü görsel kimliği: {slide.desktopAssetId}</span>
+        <span>{slide.mobileAssetId ? `Mobil görsel kimliği: ${slide.mobileAssetId}` : "Mobil görsel: masaüstü görseli kullanılır"}</span>
+      </li>)}</ul>;
     case "category_grid": {
       const categories = new Map(destinations.filter(({ kind }) => kind === "collection").map((item) => [item.resourceId, item.label]));
-      return <section className={styles.canvasCategoryPreview} {...attributes}>
-        <header><small>KOLEKSİYONLAR</small><h2>{section.heading}</h2></header>
-        {section.categoryIds.length ? <div className={styles.canvasCategoryGrid} data-count={section.categoryIds.length}>
-          {section.categoryIds.map((categoryId, index) => <article key={categoryId}><div aria-hidden="true"><i /></div><strong>{categories.get(categoryId) ?? `Örnek kategori ${index + 1}`}</strong>{categories.has(categoryId) ? null : <small>Örnek gösterim</small>}</article>)}
-        </div> : <p className={styles.canvasCatalogNotice}>Bu bölüm için henüz kategori seçilmedi.</p>}
-      </section>;
+      const labels = section.categoryIds.map((categoryId) => categories.get(categoryId) ?? unresolvedResource("Kategori", categoryId));
+      return <><p className={styles.canvasSectionMeta}>Düzen: {section.layout === "duo" ? "İki büyük görsel" : "Düzenli ızgara"}</p>{labels.length
+        ? <CategoryPlaceholderCards gridClassName={styles.canvasCategoryGrid} labels={labels} layout={section.layout} />
+        : <p className={styles.canvasSectionMeta}>Bu bölüm için henüz kategori seçilmedi.</p>}</>;
     }
     case "product_row":
-      return <section className={styles.canvasProductPreview} {...attributes}>
-        <header><small>MAĞAZA</small><h2>{section.heading}</h2><span>Tümünü gör</span></header>
-        <div className={styles.canvasProductGrid}>
-          {Array.from({ length: Math.min(4, section.limit) }, (_, index) => <article key={`${section.sectionId}-example-${index}`}><div aria-hidden="true"><i /></div><strong>Örnek ürün {index + 1}</strong><small>Katalog yer tutucusu</small></article>)}
-        </div>
-      </section>;
+      return <><p className={styles.canvasSectionMeta}>Kaynak: {section.source} · Ürün sınırı: {section.limit}</p><ProductCards contentLabel="Örnek içerik" gridClassName={styles.canvasProductGrid} productTitles={[]} /><p className={styles.canvasProjectionText}>Katalog ürünleri yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
     case "split_campaign":
-      return <section className={styles.canvasCampaignPreview} {...attributes}>
-        {section.panels.map((panel, index) => <article key={`${panel.assetId}-${panel.destination}-${index}`}><SectionMedia media={media} assetId={panel.assetId} label={`${index + 1}. kampanya`} /><div>{panel.eyebrow ? <small>{panel.eyebrow}</small> : null}<h2>{panel.heading}</h2>{panel.body ? <p>{panel.body}</p> : null}</div></article>)}
-      </section>;
+      return <ul className={styles.canvasSectionItems}>{section.panels.map((panel, index) => <li key={`${panel.assetId}-${index}`}><strong>{panel.heading}</strong><span>Görsel kimliği: {panel.assetId}</span><span>Hedef: {panel.destination}</span></li>)}</ul>;
     case "brand_story":
-      return <section className={styles.canvasStoryPreview} {...attributes}>
-        <div>{section.eyebrow ? <small>{section.eyebrow}</small> : null}<h2>{section.heading}</h2><p>{section.body}</p></div>
-        {section.assetId ? <SectionMedia media={media} assetId={section.assetId} label="Marka hikâyesi" /> : null}
-      </section>;
+      return <><p className={styles.canvasProjectionText}>{section.body}</p>{section.assetId ? <p className={styles.canvasSectionMeta}>Görsel kimliği: {section.assetId}</p> : null}</>;
     case "value_propositions":
-      return <section className={styles.canvasValuesPreview} {...attributes}>
-        {section.items.map((item, index) => <article key={`${item.heading}-${index}`}><i aria-hidden="true">◇</i><strong>{item.heading}</strong><p>{item.body}</p></article>)}
-      </section>;
+      return <ul className={styles.canvasSectionItems}>{section.items.map((item, index) => <li key={`${item.heading}-${index}`}><strong>{item.heading}</strong><span>{item.body}</span></li>)}</ul>;
     case "testimonials":
-      return <section className={styles.canvasTestimonialsPreview} {...attributes}><small>ONAYLI YORUMLAR</small><h2>{section.heading}</h2><p>Mağazanıza ait uygun yorumlar yayınlanan vitrinde burada gösterilir.</p></section>;
+      return <><p className={styles.canvasSectionMeta}>En az {section.minimumRating} yıldız · En fazla {section.limit} yorum</p><p className={styles.canvasProjectionText}>Onaylı yorumlar yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
     default:
       return assertNever(section);
   }
+}
+
+function HomepagePreviewSection({ section, destinations }: Readonly<{
+  section: StarterThemeSectionConfigV3;
+  destinations: readonly StorefrontDesignDestinationOption[];
+}>) {
+  return <article
+    className={styles.canvasSectionSummary}
+    data-preview-section-kind={section.kind}
+    data-preview-section-id={section.sectionId}
+  >
+    <header><small>{SECTION_LABELS[section.kind]}</small><h2>{sectionHeading(section)}</h2></header>
+    <HomepageSectionConfiguration section={section} destinations={destinations} />
+  </article>;
+}
+
+function footerLink(link: StarterFooterLinkConfig, destinations: readonly StorefrontDesignDestinationOption[]) {
+  if (link.kind === "system") {
+    const label = STARTER_FOOTER_SYSTEM_LINKS.find(([destination]) => destination === link.destination)?.[1] ?? link.destination;
+    return { label, detail: link.destination };
+  }
+  if (link.kind === "fixed_policy") {
+    const label = STARTER_FOOTER_POLICIES.find(([key]) => key === link.policyKey)?.[1] ?? link.policyKey;
+    return { label, detail: `Politika: ${link.policyKey}` };
+  }
+  const resourceId = link.kind === "category" ? link.categoryId : link.pageId;
+  const destinationKind = link.kind === "category" ? "collection" : "page";
+  const resolved = destinations.find(({ kind, resourceId: candidate }) => kind === destinationKind && candidate === resourceId);
+  return resolved
+    ? { label: resolved.label, detail: resolved.path }
+    : { label: unresolvedResource(link.kind === "category" ? "Kategori" : "Sayfa", resourceId), detail: resourceId };
 }
 
 function assertNever(value: never): never {
@@ -133,7 +156,8 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
     destinations: props.destinations,
   });
   const composition = normalizeStarterThemeCompositionV3(props.design.composition);
-  const visibleSections = composition.sections.filter(({ enabled }) => enabled);
+  const designHeroActive = preview.hero.enabled && preview.hero.slides.length > 0;
+  const visibleSections = composition.sections.filter((section) => section.enabled && (!designHeroActive || section.kind !== "hero"));
 
   return <div className={styles.previewViewport} data-mode={props.mode} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`}>
     <div className={styles.previewNotice} role="note"><strong>Taslak önizlemesi</strong><span>Yayınlanmış mağazadan farklı olabilir.</span></div>
@@ -153,7 +177,7 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       </section> : null}
 
       <section className={`${styles.canvasSurface}`} data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
-        {visibleSections.length ? visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} media={props.media} destinations={props.destinations} />) : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
+        {visibleSections.length ? <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
         <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
 
@@ -165,9 +189,9 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
 
       <footer className={`${styles.canvasSurface} ${styles.canvasFooterPreview}`} data-design-surface="footer" data-tone={composition.footer.tone} aria-label="Footer önizlemesi">
         <div><strong>{props.storeName}</strong><small>Mağaza bilgileri</small></div>
-        <div className={styles.canvasFooterGroups}>{composition.footer.groups.map((group, index) => <section key={`${group.heading}-${index}`}><strong>{group.heading}</strong><small>{group.links.length} bağlantı</small></section>)}</div>
+        <div className={styles.canvasFooterGroups}>{composition.footer.groups.map((group, index) => <section key={`${group.heading}-${index}`}><strong>{group.heading}</strong><ul>{group.links.map((link, linkIndex) => { const resolved = footerLink(link, props.destinations); return <li key={`${link.kind}-${linkIndex}`}><span>{resolved.label}</span><small>{resolved.detail}</small></li>; })}</ul></section>)}</div>
         {composition.footer.newsletter.enabled ? <section className={styles.canvasFooterNewsletter}><strong>{composition.footer.newsletter.heading}</strong><p>{composition.footer.newsletter.body}</p><small>{composition.footer.newsletter.consentLabel}</small></section> : null}
-        {composition.footer.social.length ? <div className={styles.canvasFooterSocial} aria-label="Sosyal medya">{composition.footer.social.map(({ network }) => <span key={network}>{network}</span>)}</div> : null}
+        {composition.footer.social.length ? <div className={styles.canvasFooterSocial} aria-label="Sosyal medya">{composition.footer.social.map(({ network, url }) => <span key={network}><strong>{network}</strong><small>{url}</small></span>)}</div> : null}
         <small>© {props.now.getFullYear()} {props.storeName}</small>
         <SurfaceButton surface="footer" label="Footer" selected={props.selectedSurface === "footer"} onSelect={props.onSelectSurface} />
       </footer>

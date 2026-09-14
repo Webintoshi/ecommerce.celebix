@@ -93,42 +93,25 @@
 .canvasSurface:hover > .canvasSurfaceButton span, .canvasSurfaceButton:focus-visible span, .canvasSurfaceButton[aria-pressed="true"] span { opacity: 1; transform: translateY(0); }
 .canvasSurfaceButton:focus-visible { outline: 3px solid rgb(255 90 0 / 28%); outline-offset: 3px; }
 .canvasEmptyHero { display: grid; min-height: 260px; place-content: center; gap: 8px; padding: 40px; text-align: center; }
-.canvasEmptyHero small, .canvasCategoryPreview header small, .canvasProductPreview header small, .canvasProductSummary > small, .canvasAssetsPreview small, .canvasCompositionHero small, .canvasCampaignPreview small, .canvasStoryPreview small, .canvasTestimonialsPreview > small { font-size: 10px; font-weight: 850; letter-spacing: .18em; }
+.canvasEmptyHero small, .canvasProductSummary > small { font-size: 10px; font-weight: 850; letter-spacing: .18em; }
 .canvasEmptyHero strong { font-size: clamp(26px, 4cqw, 46px); }
-.canvasEmptyHero p, .canvasAssetsPreview p, .canvasCompositionHero p, .canvasCampaignPreview p, .canvasStoryPreview p, .canvasValuesPreview p, .canvasTestimonialsPreview p { margin: 0; color: color-mix(in srgb, currentColor 66%, transparent); font-size: 13px; line-height: 1.6; }
+.canvasEmptyHero p { margin: 0; color: color-mix(in srgb, currentColor 66%, transparent); font-size: 13px; line-height: 1.6; }
 .canvasEmptyHomepage { display: grid; min-height: 220px; place-content: center; gap: 7px; padding: 36px; text-align: center; }
 .canvasEmptyHomepage strong { font-family: var(--store-heading-font), serif; font-size: clamp(22px, 3cqw, 34px); }
-.canvasEmptyHomepage p, .canvasCatalogNotice { margin: 0; color: color-mix(in srgb, currentColor 66%, transparent); font-size: 12px; }
-.canvasCategoryPreview, .canvasProductPreview { display: grid; gap: 22px; padding: clamp(30px, 5cqw, 68px) clamp(18px, 4cqw, 58px); }
-.canvasCategoryPreview header, .canvasProductPreview header { display: grid; gap: 6px; }
-.canvasCategoryPreview h2, .canvasProductPreview h2, .canvasProductSummary h2, .canvasCompositionHero h2, .canvasCampaignPreview h2, .canvasStoryPreview h2, .canvasTestimonialsPreview h2 { margin: 0; font-family: var(--store-heading-font), serif; font-size: clamp(26px, 3.2cqw, 44px); letter-spacing: -.035em; }
-.canvasCategoryGrid, .canvasProductGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(10px, 1.6cqw, 22px); }
-.canvasCategoryGrid article, .canvasProductGrid article { display: grid; min-width: 0; gap: 10px; }
-.canvasCategoryGrid article > div { display: grid; aspect-ratio: 4 / 5; overflow: hidden; place-items: center; background: linear-gradient(145deg, #eeeae4, #faf8f5); }
-.canvasCategoryGrid article > div i, .canvasProductGrid article > div i { width: 32%; aspect-ratio: 1; border: 1px solid #d5cec5; border-radius: 50%; background: rgb(255 255 255 / 60%); }
-.canvasCategoryGrid strong, .canvasProductGrid strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.canvasCategoryGrid article > small { color: color-mix(in srgb, currentColor 58%, transparent); font-size: 10px; }
-.canvasProductPreview { border-top: 1px solid #ece8e2; }
-.canvasProductPreview header { grid-template-columns: 1fr auto; align-items: end; }
-.canvasProductPreview header small, .canvasProductPreview header h2 { grid-column: 1; }
-.canvasProductPreview header > span { grid-column: 2; grid-row: 1 / 3; align-self: end; font-size: 12px; text-decoration: underline; text-underline-offset: 5px; }
-.canvasProductGrid article > div { display: grid; aspect-ratio: 4 / 5; place-items: center; background: linear-gradient(145deg, #f1f1ef, #e2dfdb); }
-.canvasProductGrid article > div i { border-radius: 0; }
-.canvasProductGrid article small { color: #777; font-size: 11px; }
-.canvasCompositionHero, .canvasCampaignPreview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 2cqw, 24px); padding: clamp(30px, 5cqw, 68px) clamp(18px, 4cqw, 58px); }
-.canvasCompositionHero article, .canvasCampaignPreview article { position: relative; display: grid; min-height: 260px; overflow: hidden; align-items: end; background: #ece8e2; }
-.canvasCompositionHero article > div:last-child, .canvasCampaignPreview article > div:last-child { position: relative; z-index: 1; display: grid; gap: 6px; background: linear-gradient(transparent, rgb(0 0 0 / 70%)); padding: 70px 24px 24px; color: #fff; }
-.canvasCompositionHero h2, .canvasCampaignPreview h2 { font-size: clamp(24px, 3cqw, 38px); }
-.canvasExampleMedia, .canvasCompositionHero img, .canvasCampaignPreview img, .canvasStoryPreview img { width: 100%; height: 100%; min-height: 220px; object-fit: cover; }
-.canvasCompositionHero article > .canvasExampleMedia, .canvasCompositionHero article > img, .canvasCampaignPreview article > .canvasExampleMedia, .canvasCampaignPreview article > img { position: absolute; inset: 0; }
-.canvasExampleMedia { display: grid; place-items: center; background: linear-gradient(145deg, #eeeae4, #faf8f5); }
-.canvasExampleMedia i { width: 20%; aspect-ratio: 1; border: 1px solid #d5cec5; background: rgb(255 255 255 / 58%); }
-.canvasStoryPreview { display: grid; min-height: 300px; grid-template-columns: minmax(0, 1fr) minmax(240px, .8fr); align-items: center; gap: clamp(24px, 4cqw, 58px); padding: clamp(30px, 5cqw, 68px) clamp(18px, 4cqw, 58px); }
-.canvasStoryPreview > div:first-child { display: grid; gap: 10px; }
-.canvasValuesPreview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2cqw, 28px); padding: clamp(30px, 5cqw, 68px) clamp(18px, 4cqw, 58px); }
-.canvasValuesPreview article { display: grid; gap: 8px; }
-.canvasValuesPreview i { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-style: normal; }
-.canvasTestimonialsPreview { display: grid; min-height: 240px; place-content: center; gap: 8px; padding: clamp(30px, 5cqw, 68px) clamp(18px, 4cqw, 58px); text-align: center; }
+.canvasEmptyHomepage p { margin: 0; color: color-mix(in srgb, currentColor 66%, transparent); font-size: 12px; }
+.canvasProjectionNotice { margin: 0; border-block: 1px solid color-mix(in srgb, currentColor 12%, transparent); background: color-mix(in srgb, var(--store-accent, #ff6500) 8%, var(--store-background, #fff)); padding: 12px clamp(18px, 4cqw, 58px); color: color-mix(in srgb, currentColor 72%, transparent); font-size: 11px; line-height: 1.55; }
+.canvasSectionList { --preview-accent: var(--store-accent, #ff6500); --preview-bg: var(--store-background, #fff); --preview-surface: color-mix(in srgb, var(--store-background, #fff) 92%, var(--store-text, #171717)); --preview-ink: var(--store-text, #171717); --preview-muted: color-mix(in srgb, var(--store-text, #171717) 62%, transparent); display: grid; gap: 1px; background: color-mix(in srgb, var(--store-text, #171717) 10%, transparent); }
+.canvasSectionSummary { display: grid; min-width: 0; gap: 14px; background: var(--store-background, #fff); padding: clamp(24px, 4cqw, 52px) clamp(18px, 4cqw, 58px); }
+.canvasSectionSummary > header { display: grid; gap: 5px; }
+.canvasSectionSummary > header small { color: var(--store-accent, #ff6500); font-size: 10px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+.canvasSectionSummary > header h2 { margin: 0; font-family: var(--store-heading-font), serif; font-size: clamp(24px, 3cqw, 40px); letter-spacing: -.035em; }
+.canvasSectionMeta, .canvasProjectionText { margin: 0; color: color-mix(in srgb, currentColor 68%, transparent); font-size: 12px; line-height: 1.55; }
+.canvasSectionItems { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.canvasSectionItems li { display: grid; gap: 4px; border-left: 2px solid color-mix(in srgb, var(--store-accent, #ff6500) 45%, transparent); padding: 7px 10px; font-size: 12px; }
+.canvasSectionItems li span { color: color-mix(in srgb, currentColor 64%, transparent); overflow-wrap: anywhere; }
+.canvasSectionSummary .canvasProductGrid, .canvasSectionSummary .canvasCategoryGrid[data-layout="grid"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.canvasSectionSummary .canvasCategoryGrid[data-layout="duo"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.canvasProductSummary h2 { margin: 0; font-family: var(--store-heading-font), serif; font-size: clamp(26px, 3.2cqw, 44px); letter-spacing: -.035em; }
 .canvasProductDetailPreview { display: grid; min-height: 430px; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: clamp(24px, 4cqw, 64px); border-top: 1px solid #ece8e2; padding: clamp(28px, 5cqw, 72px); }
 .canvasProductGallery { display: grid; min-height: 320px; grid-template-columns: 1fr 1fr; gap: 8px; }
 .canvasProductGallery i { min-height: 150px; background: linear-gradient(135deg, #eeeae5, #faf9f7); }
@@ -138,10 +121,6 @@
 .canvasProductSummary > div { display: grid; grid-template-columns: 48px 48px 48px minmax(120px, 1fr); gap: 0; }
 .canvasProductSummary > div > span, .canvasProductSummary > div > b, .canvasProductSummary button { display: grid; min-height: 48px; place-items: center; border: 1px solid #171717; background: #fff; font-size: 13px; }
 .canvasProductSummary button { background: #171717; color: #fff; font-weight: 800; text-transform: uppercase; }
-.canvasAssetsPreview { display: flex; min-height: 150px; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid #ece8e2; padding: clamp(28px, 4vw, 52px); }
-.canvasAssetsPreview > div { display: grid; gap: 6px; }
-.canvasAssetsPreview strong { font-size: 22px; }
-.canvasAssetsPreview > span { display: grid; width: 54px; height: 54px; place-items: center; border: 1px solid #171717; border-radius: 50%; font-size: 25px; }
 .canvasFooterPreview { display: grid; min-height: 220px; grid-template-columns: minmax(160px, .8fr) minmax(0, 1.2fr); gap: 30px; background: #17191d; padding: clamp(34px, 5cqw, 68px); color: #fff; }
 .canvasFooterPreview[data-tone="light"] { background: #f3f0eb; color: #171717; }
 .canvasFooterPreview > div { display: grid; align-content: start; gap: 12px; }
@@ -149,10 +128,15 @@
 .canvasFooterPreview > div > small, .canvasFooterPreview > small, .canvasFooterNewsletter small { color: color-mix(in srgb, currentColor 68%, transparent); }
 .canvasFooterGroups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .canvasFooterGroups section { display: grid; gap: 6px; font-size: 12px; }
+.canvasFooterGroups ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.canvasFooterGroups li { display: grid; gap: 2px; min-width: 0; }
+.canvasFooterGroups li span { font-size: 12px; overflow-wrap: anywhere; }
+.canvasFooterGroups li small { color: color-mix(in srgb, currentColor 62%, transparent); font-size: 9px; overflow-wrap: anywhere; }
 .canvasFooterNewsletter { display: grid; grid-column: 1 / -1; gap: 5px; }
 .canvasFooterNewsletter p { max-width: 520px; margin: 0; font-size: 12px; line-height: 1.5; }
 .canvasFooterSocial { display: flex !important; grid-column: 1 / -1; flex-wrap: wrap; gap: 8px !important; }
-.canvasFooterSocial span { border: 1px solid currentColor; border-radius: 999px; padding: 5px 8px; font-size: 10px; }
+.canvasFooterSocial span { display: grid; gap: 2px; border: 1px solid currentColor; border-radius: 10px; padding: 6px 9px; font-size: 10px; }
+.canvasFooterSocial small { color: color-mix(in srgb, currentColor 68%, transparent); overflow-wrap: anywhere; }
 .canvasFooterPreview > small { grid-column: 1 / -1; align-self: end; border-top: 1px solid color-mix(in srgb, currentColor 28%, transparent); padding-top: 18px; }
 .topbarActions, .previewSwitch { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .topbarActions { max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
@@ -310,10 +294,11 @@
 @container design-preview (max-width: 640px) {
   .previewNotice { align-items: flex-start; flex-direction: column; justify-content: center; gap: 1px; }
   .canvasCategoryGrid, .canvasProductGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .canvasCompositionHero, .canvasCampaignPreview, .canvasStoryPreview, .canvasProductDetailPreview, .canvasFooterPreview { grid-template-columns: 1fr; }
-  .canvasValuesPreview { grid-template-columns: 1fr; }
+  .canvasProductDetailPreview, .canvasFooterPreview { grid-template-columns: 1fr; }
   .canvasProductSummary > div { grid-template-columns: 44px 44px 44px minmax(100px, 1fr); }
   .canvasFooterGroups { grid-template-columns: 1fr; }
+  .canvasSectionSummary .canvasProductGrid, .canvasSectionSummary .canvasCategoryGrid[data-layout="grid"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .canvasSectionSummary .canvasCategoryGrid[data-layout="duo"] { grid-template-columns: 1fr; }
 }
 @container design-preview (max-width: 720px) {
   .previewViewport :global(.celebix-store-header) { min-height: 64px; grid-template-columns: 1fr auto; padding-inline: 16px; }
@@ -327,9 +312,11 @@
 .previewViewport[data-mode="mobile"] :global(.celebix-store-hero-arrow) { width: 38px; height: 38px; }
 .previewViewport[data-mode="mobile"] :global(.celebix-store-promotion) { align-items: flex-start; flex-direction: column; }
 .previewViewport[data-mode="mobile"] .canvasCategoryGrid, .previewViewport[data-mode="mobile"] .canvasProductGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.previewViewport[data-mode="mobile"] .canvasCompositionHero, .previewViewport[data-mode="mobile"] .canvasCampaignPreview, .previewViewport[data-mode="mobile"] .canvasStoryPreview, .previewViewport[data-mode="mobile"] .canvasProductDetailPreview, .previewViewport[data-mode="mobile"] .canvasFooterPreview, .previewViewport[data-mode="mobile"] .canvasValuesPreview { grid-template-columns: 1fr; }
+.previewViewport[data-mode="mobile"] .canvasProductDetailPreview, .previewViewport[data-mode="mobile"] .canvasFooterPreview { grid-template-columns: 1fr; }
 .previewViewport[data-mode="mobile"] .canvasProductSummary > div { grid-template-columns: 44px 44px 44px minmax(100px, 1fr); }
 .previewViewport[data-mode="mobile"] .canvasFooterGroups { grid-template-columns: 1fr; }
+.previewViewport[data-mode="mobile"] .canvasSectionSummary .canvasProductGrid, .previewViewport[data-mode="mobile"] .canvasSectionSummary .canvasCategoryGrid[data-layout="grid"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.previewViewport[data-mode="mobile"] .canvasSectionSummary .canvasCategoryGrid[data-layout="duo"] { grid-template-columns: 1fr; }
 @keyframes modal-fullscreen-in { from { opacity: 0; transform: translateY(18px); } }
 @media (max-width: 390px) { .canvasStage { padding-inline: 8px; } .previewViewport { max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .previewViewport, .toggle span::after, .canvasSurfaceButton span, .settingsModal, .modalBackdrop { transition-duration: .01ms !important; animation-duration: .01ms !important; } }

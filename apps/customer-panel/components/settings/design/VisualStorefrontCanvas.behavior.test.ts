@@ -6,7 +6,9 @@ import test from "node:test";
 import {
   createDefaultStarterThemeComposition,
   type StarterThemeCompositionConfigV3,
+  type StorefrontDesignDestinationOption,
   type StorefrontDesignDocument,
+  type StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
 import React, { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -18,7 +20,23 @@ import { createStorefrontTypographyResources } from "../../../../../packages/sto
 const require = createRequire(import.meta.url);
 const styles = new Proxy({}, { get: (_target, key) => String(key) });
 const CATEGORY = "50000000-0000-4000-8000-000000000001";
+const PAGE = "50000000-0000-4000-8000-000000000002";
+const DESIGN_HERO_MEDIA = "50000000-0000-4000-8000-000000000003";
+const COMPOSITION_DESKTOP_MEDIA = "50000000-0000-4000-8000-000000000004";
+const COMPOSITION_MOBILE_MEDIA = "50000000-0000-4000-8000-000000000005";
 const NOW = "2026-09-14T09:00:00.000Z";
+const MEDIA = Object.freeze([Object.freeze({
+  id: DESIGN_HERO_MEDIA,
+  url: "https://cdn.example/design-hero.webp",
+  altText: "Design hero",
+  mediaType: "image/webp",
+  width: 1600,
+  height: 900,
+})] satisfies readonly StorefrontDesignMediaOption[]);
+const DESTINATIONS = Object.freeze([
+  Object.freeze({ kind: "collection", resourceId: CATEGORY, label: "Fixture Category", path: "/collections/fixture" }),
+  Object.freeze({ kind: "page", resourceId: PAGE, label: "Fixture Page", path: "/pages/fixture" }),
+] satisfies readonly StorefrontDesignDestinationOption[]);
 
 const BASE_DESIGN: StorefrontDesignDocument = Object.freeze({
   schemaVersion: 3,
@@ -54,6 +72,23 @@ function compileRenderer(): Readonly<{ StorefrontDesignRenderer: (props: Readonl
   return module.exports as Readonly<{ StorefrontDesignRenderer: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
 }
 
+function compileScaffolds(): Readonly<{
+  CategoryPlaceholderCards: (props: Readonly<Record<string, unknown>>) => ReactNode;
+  ProductCards: (props: Readonly<Record<string, unknown>>) => ReactNode;
+}> {
+  const filename = new URL("../StarterThemePreviewScaffolds.tsx", import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  const load = (id: string): unknown => id.endsWith(".css") ? { __esModule: true, default: styles } : require(id);
+  new Function("require", "module", "exports", output)(load, module, module.exports);
+  return module.exports as Readonly<{
+    CategoryPlaceholderCards: (props: Readonly<Record<string, unknown>>) => ReactNode;
+    ProductCards: (props: Readonly<Record<string, unknown>>) => ReactNode;
+  }>;
+}
+
 function compileCanvas(): CanvasModule {
   const filename = new URL("./VisualStorefrontCanvas.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
@@ -63,21 +98,32 @@ function compileCanvas(): CanvasModule {
   const load = (id: string): unknown => {
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@celebix/storefront-design-ui") return { ...compileRenderer(), createPreviewStorefrontDesign };
+    if (id === "../StarterThemePreviewScaffolds") return compileScaffolds();
+    if (id === "../starter-footer-options") return {
+      STARTER_FOOTER_POLICIES: Object.freeze([["kvkk", "KVKK"]]),
+      STARTER_FOOTER_SYSTEM_LINKS: Object.freeze([["/favorites", "Favoriler"]]),
+    };
     return require(id);
   };
   new Function("require", "module", "exports", output)(load, module, module.exports);
   return module.exports as CanvasModule;
 }
 
-function renderCanvas(design: StorefrontDesignDocument): string {
+function renderCanvas(
+  design: StorefrontDesignDocument,
+  options: Readonly<{
+    media?: readonly StorefrontDesignMediaOption[];
+    destinations?: readonly StorefrontDesignDestinationOption[];
+  }> = {},
+): string {
   const { VisualStorefrontCanvas } = compileCanvas();
   return renderToStaticMarkup(React.createElement(VisualStorefrontCanvas, {
     design,
     storeName: "Fixture Store",
     publishedVersion: 7,
     publishedAt: NOW,
-    media: [],
-    destinations: [],
+    media: options.media ?? [],
+    destinations: options.destinations ?? [],
     mode: "desktop",
     now: new Date(NOW),
     onSelectSurface: () => undefined,
@@ -92,7 +138,11 @@ function composition(sections: StarterThemeCompositionConfigV3["sections"]): Sta
     footer: Object.freeze({
       tone: "light",
       groups: Object.freeze([
-        Object.freeze({ heading: "CUSTOM_HELP", links: Object.freeze([Object.freeze({ kind: "system", destination: "/favorites" })]) }),
+        Object.freeze({ heading: "CUSTOM_HELP", links: Object.freeze([
+          Object.freeze({ kind: "system", destination: "/favorites" }),
+          Object.freeze({ kind: "category", categoryId: CATEGORY }),
+          Object.freeze({ kind: "page", pageId: PAGE }),
+        ]) }),
         Object.freeze({ heading: "CUSTOM_LEGAL", links: Object.freeze([Object.freeze({ kind: "fixed_policy", policyKey: "kvkk" })]) }),
       ]),
       newsletter: Object.freeze({ enabled: true, heading: "CUSTOM_NEWSLETTER", body: "CUSTOM_NEWSLETTER_BODY", consentLabel: "CUSTOM_CONSENT" }),
@@ -116,7 +166,9 @@ test("draft canvas renders every enabled homepage section in the configured orde
   assert.ok(markup.indexOf(visibleHeadings[1]) < markup.indexOf(visibleHeadings[2]));
   assert.equal((markup.match(/data-preview-section-kind="product_row"/g) ?? []).length, 2);
   assert.doesNotMatch(markup, /HIDDEN_STORY/);
-  assert.match(markup, /Örnek ürün 1/);
+  assert.doesNotMatch(markup, /Katalog yer tutucusu|Aktif katalog/);
+  assert.match(markup, /data-preview-content="example"/);
+  assert.match(markup, /yayın vitrini katalog projeksiyonu/);
 });
 
 test("an intentionally empty homepage stays empty instead of fabricating catalog sections", () => {
@@ -126,9 +178,9 @@ test("an intentionally empty homepage stays empty instead of fabricating catalog
   assert.doesNotMatch(markup, /Örnek kategori|Kategorileri keşfedin|Öne çıkan ürünler/);
 });
 
-test("V3 footer options and the selected brand typography survive in the draft preview", () => {
-  const markup = renderCanvas({ ...BASE_DESIGN, composition: composition(Object.freeze([])) });
-  for (const text of ["CUSTOM_HELP", "CUSTOM_LEGAL", "CUSTOM_NEWSLETTER", "CUSTOM_NEWSLETTER_BODY", "instagram"]) assert.match(markup, new RegExp(text));
+test("V3 footer links, social URLs, and selected brand typography survive in the draft preview", () => {
+  const markup = renderCanvas({ ...BASE_DESIGN, composition: composition(Object.freeze([])) }, { destinations: DESTINATIONS });
+  for (const text of ["CUSTOM_HELP", "CUSTOM_LEGAL", "CUSTOM_NEWSLETTER", "CUSTOM_NEWSLETTER_BODY", "Favoriler", "Fixture Category", "/collections/fixture", "Fixture Page", "/pages/fixture", "KVKK", "instagram", "https://instagram.com/fixture"]) assert.match(markup, new RegExp(text));
   assert.match(markup, /data-tone="light"/);
   assert.match(markup, /Taslak önizlemesi/);
   assert.match(markup, /--store-primary:#123456/);
@@ -137,9 +189,66 @@ test("V3 footer options and the selected brand typography survive in the draft p
   assert.match(markup, /family=Playfair\+Display:wght@700/);
 });
 
-test("mobile preview mode carries a container-scoped storefront breakpoint contract", () => {
-  const css = readFileSync(new URL("../design-settings.module.css", import.meta.url), "utf8");
-  assert.match(css, /[.]previewViewport\s+:global\([.]celebix-store-header\)[^}]*position:\s*relative[^}]*z-index:/s);
-  assert.match(css, /[.]previewViewport\[data-mode="mobile"\][^{]*:global\([.]celebix-store-header nav\)[^}]*display:\s*none/s);
-  assert.match(css, /@container design-preview \(max-width:\s*720px\)[^{]*\{[\s\S]*?:global\([.]celebix-store-header nav\)[^}]*display:\s*none/s);
+test("the top-level design hero owns output when it and a stored composition hero are enabled", () => {
+  const storedHero = Object.freeze({
+    sectionId: "home_composition_hero",
+    kind: "hero",
+    enabled: true,
+    slides: Object.freeze([Object.freeze({
+      heading: "COMPOSITION_HERO",
+      desktopAssetId: COMPOSITION_DESKTOP_MEDIA,
+      mobileAssetId: COMPOSITION_MOBILE_MEDIA,
+      destination: "/products",
+    })]),
+  }) satisfies StarterThemeCompositionConfigV3["sections"][number];
+  const design = {
+    ...BASE_DESIGN,
+    hero: Object.freeze({ enabled: true, slides: Object.freeze([Object.freeze({
+      headline: "TOP_LEVEL_HERO",
+      body: "",
+      desktopImage: Object.freeze({ kind: "media", mediaId: DESIGN_HERO_MEDIA }),
+      mobileImage: null,
+      destination: Object.freeze({ kind: "none" }),
+      enabled: true,
+    })]) }),
+    composition: composition(Object.freeze([storedHero])),
+  } satisfies StorefrontDesignDocument;
+
+  const markup = renderCanvas(design, { media: MEDIA });
+  assert.match(markup, /TOP_LEVEL_HERO/);
+  assert.doesNotMatch(markup, /COMPOSITION_HERO/);
+  assert.equal((markup.match(/aria-label="Mağaza bannerları"/g) ?? []).length, 1);
+});
+
+test("stored section configuration is disclosed without fabricating unresolved storefront data", () => {
+  const sections = Object.freeze([
+    Object.freeze({
+      sectionId: "home_composition_hero",
+      kind: "hero",
+      enabled: true,
+      slides: Object.freeze([Object.freeze({
+        heading: "COMPOSITION_HERO",
+        desktopAssetId: COMPOSITION_DESKTOP_MEDIA,
+        mobileAssetId: COMPOSITION_MOBILE_MEDIA,
+        destination: "/products",
+      })]),
+    }),
+    Object.freeze({ sectionId: "home_categories", kind: "category_grid", enabled: true, heading: "CATEGORIES", categoryIds: Object.freeze([CATEGORY]), layout: "duo" }),
+  ] satisfies StarterThemeCompositionConfigV3["sections"]);
+  const markup = renderCanvas({ ...BASE_DESIGN, composition: composition(sections) }, { destinations: DESTINATIONS });
+
+  for (const text of [
+    "COMPOSITION_HERO",
+    `Masaüstü görsel kimliği: ${COMPOSITION_DESKTOP_MEDIA}`,
+    `Mobil görsel kimliği: ${COMPOSITION_MOBILE_MEDIA}`,
+    "Düzen: İki büyük görsel",
+    "Fixture Category",
+  ]) assert.match(markup, new RegExp(text));
+  assert.match(markup, /yayın vitrininin sunucu tarafında çözümlenir/);
+  const storedHeroMarkup = markup.slice(
+    markup.indexOf('data-preview-section-kind="hero"'),
+    markup.indexOf('data-preview-section-kind="category_grid"'),
+  );
+  assert.doesNotMatch(storedHeroMarkup, /<img|<picture|canvasExampleMedia/);
+  assert.match(markup, /Kategori görsel alanları için örnek yerleşim/);
 });

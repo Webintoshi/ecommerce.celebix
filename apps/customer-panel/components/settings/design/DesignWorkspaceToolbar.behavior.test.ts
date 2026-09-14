@@ -90,7 +90,17 @@ test("the real design toolbar keeps all primary controls keyboard reachable and 
     const mobile = Array.from(toolbar.querySelectorAll("button")).find((button) => button.textContent?.includes("Mobil"));
     await React.act(async () => mobile?.dispatchEvent(new window.Event("click", { bubbles: true })));
     assert.deepEqual(modes, ["mobile"]);
-    assert.equal(mobile?.getAttribute("aria-pressed"), "false");
+    await React.act(async () => root.render(React.createElement(DesignWorkspaceToolbar, {
+      selectedSurface: "homepage",
+      previewMode: "mobile",
+      publishDisabled: true,
+      publishIssueLabel: "Fixture validation issue",
+      onSelectSurface: (surface: string, trigger: Element) => { selected.push(surface); selectionTriggers.push(trigger); },
+      onPreviewModeChange: (mode: string) => modes.push(mode),
+      onPublish: () => { publishCount += 1; },
+    })));
+    const updatedMobile = Array.from(toolbar.querySelectorAll("button")).find((button) => button.textContent?.includes("Mobil"));
+    assert.equal(updatedMobile?.getAttribute("aria-pressed"), "true");
     assert.deepEqual(selected, []);
 
     const fields = toolbar.querySelector("details");
