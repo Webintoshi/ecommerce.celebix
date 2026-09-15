@@ -1,6 +1,7 @@
 import { parseStorefrontDesignDocument } from "@celebix/saas-contracts";
 import { createPreviewStorefrontDesign } from "@celebix/storefront-design-ui";
 import { consumeFixtureFailure, readFixture, waitForFixtureSaveRelease, writeFixture } from "../../../design-settings-fix/fixture-store";
+import { designFixturePreviewResources } from "../../../design-settings-fix/preview-resources";
 
 export async function GET() { return Response.json({ code: "found", workspace: await readFixture() }); }
 export async function PATCH(request: Request) {
@@ -16,6 +17,7 @@ export async function PATCH(request: Request) {
 export async function POST(request: Request) {
   const input = await request.json();
   const current = await readFixture();
+  if (new URL(request.url).pathname === "/api/storefront-design/preview") return Response.json({ code: "ok", resources: await designFixturePreviewResources(current, input.composition) });
   if (input.expectedDraftVersion !== current.draftVersion || input.expectedPublishedVersion !== current.publishedVersion) return Response.json({ code: "version_conflict" }, { status: 409 });
   const publishedVersion = current.publishedVersion + 1, publishedAt = new Date().toISOString();
   const published = createPreviewStorefrontDesign({ ...current, publishedVersion, publishedAt });

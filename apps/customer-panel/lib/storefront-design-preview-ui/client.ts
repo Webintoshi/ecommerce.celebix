@@ -30,7 +30,7 @@ function asset(value: unknown): PublicStorefrontAsset {
 }
 function list(value: unknown, max: number): unknown[] { if (!Array.isArray(value) || value.length > max) throw new StorefrontDesignPreviewApiError(); return value; }
 
-function parseResources(value: unknown, expectedKey: string): StorefrontDesignPreviewResources {
+export function parseStorefrontDesignPreviewResources(value: unknown, expectedKey: string): StorefrontDesignPreviewResources {
   const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"]);
   if (root.schemaVersion !== 1 || root.dependencyKey !== expectedKey) throw new StorefrontDesignPreviewApiError();
   const sourceKeys = new Set<string>();
@@ -60,7 +60,7 @@ export function createStorefrontDesignPreviewApi(fetcher: typeof fetch = fetch) 
       catch (error) { if (error instanceof DOMException && error.name === "AbortError") throw error; throw new StorefrontDesignPreviewApiError(); }
       const value = await responseJson(response); if (!response.ok) throw new StorefrontDesignPreviewApiError();
       const envelope = record(value, ["code", "resources"]); if (envelope.code !== "ok") throw new StorefrontDesignPreviewApiError();
-      return parseResources(envelope.resources, dependencyKey);
+      return parseStorefrontDesignPreviewResources(envelope.resources, dependencyKey);
     },
   });
 }
