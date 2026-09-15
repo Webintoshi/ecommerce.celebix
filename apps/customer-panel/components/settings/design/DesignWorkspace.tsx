@@ -7,6 +7,8 @@ import { getStorefrontDesignPublishIssue, type StorefrontDesignDocument, type St
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import { createDirtyNavigationGuard } from "../../../lib/catalog-ui/dirty-navigation.ts";
 import { StorefrontDesignApiError, storefrontDesignApi } from "@/lib/storefront-design-ui/client";
+import type { StorefrontDesignPreviewResources } from "@/lib/storefront-design-preview-model";
+import { useStorefrontDesignPreviewResources } from "@/lib/storefront-design-preview-ui/use-preview-resources";
 import { DesignPreview } from "./DesignPreview";
 import { DesignSettingsModal } from "./DesignSettingsDrawer";
 import { DesignStepEditor } from "./DesignStepEditor";
@@ -42,7 +44,7 @@ export function DesignWorkspaceToolbar({ selectedSurface, previewMode, publishDi
   </div>;
 }
 
-export function DesignWorkspace({ workspace, canManage, recoveryScope, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; canManage: boolean; recoveryScope?: string; initialLocation?: DesignWorkspaceLocation }>) {
+export function DesignWorkspace({ workspace, initialPreviewResources, canManage, recoveryScope, initialLocation = Object.freeze({ area: "site", step: "brand" }) }: Readonly<{ workspace: StorefrontDesignWorkspace; initialPreviewResources: StorefrontDesignPreviewResources; canManage: boolean; recoveryScope?: string; initialLocation?: DesignWorkspaceLocation }>) {
   const [editor, setEditor] = useState<DesignEditorState>(() => {
     const retained = canManage ? readNavigationDraft(recoveryScope) : undefined;
     // Remounted server props may themselves be a client-router cache entry.
@@ -62,6 +64,7 @@ export function DesignWorkspace({ workspace, canManage, recoveryScope, initialLo
   const [publishedAt, setPublishedAt] = useState(workspace.publishedAt);
   const [publishedRevision, setPublishedRevision] = useState<number | null>(null);
   const [failedOperation, setFailedOperation] = useState<"save" | "publish">("save");
+  const previewResources = useStorefrontDesignPreviewResources(editor.design.composition, initialPreviewResources);
   const editorRef = useRef(editor);
   const draftVersionRef = useRef(editor.draftVersion);
   const publishedVersionRef = useRef(workspace.publishedVersion);
@@ -286,7 +289,7 @@ export function DesignWorkspace({ workspace, canManage, recoveryScope, initialLo
     <PanelTopbarBridge title="Tasarım" subtitle={statusLabel} />
     <div className={styles.workspaceToolbar}><DesignWorkspaceToolbar selectedSurface={selectedSurface} previewMode={previewMode} publishDisabled={publishDisabled} publishIssueLabel={publishIssueLabel} onSelectSurface={selectSurface} onPreviewModeChange={setPreviewMode} onPublish={() => void publish()} /></div>
     {!modalOpen && <div className={styles.saveRecovery}>{recoveryControls}</div>}
-    <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={workspace.destinations} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
+    <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={workspace.destinations} previewResources={previewResources} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
     <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><div className={styles.saveRecovery}><p role="status">{statusLabel}</p>{recoveryControls}</div><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage && !busyPublishing} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
   </section>;
 }

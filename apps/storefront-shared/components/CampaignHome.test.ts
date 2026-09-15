@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (name: string) => readFile(new URL(name, import.meta.url), "utf8");
 
-test("home exhaustively renders the finite public retail section union", async () => { const source = await read("CampaignHome.tsx"); for (const kind of ["hero", "category_grid", "product_row", "split_campaign", "brand_story", "value_propositions", "testimonials"]) assert.match(source, new RegExp(`case [\"']${kind}[\"']`)); assert.match(source, /CampaignValuePropositions/); assert.match(source, /CampaignTestimonials/); assert.match(source, /assertNever/); });
+test("home exhaustively renders the finite public retail section union through its shared pure section presenter", async () => { const [home, source] = await Promise.all([read("CampaignHome.tsx"), read("CampaignSectionContent.tsx")]); assert.match(home, /CampaignSectionContent/); for (const kind of ["hero", "category_grid", "product_row", "split_campaign", "brand_story", "value_propositions", "testimonials"]) assert.match(source, new RegExp(`case [\"']${kind}[\"']`)); assert.match(source, /CampaignValuePropositions/); assert.match(source, /CampaignTestimonials/); assert.match(source, /assertNever/); });
 test("empty optional sections do not create blank storefront bands", async () => { const module = await import("./campaign-home-sections.ts"); const presentation = { schemaVersion: 3, sections: [{ kind: "hero", slides: [{ heading: "Hero", destination: "/products" }] }, { kind: "category_grid", heading: "Kategoriler", layout: "grid", items: [] }, { kind: "product_row", key: "empty", heading: "Boş", source: "latest", limit: 4 }, { kind: "split_campaign", panels: [] }, { kind: "value_propositions", items: [] }, { kind: "testimonials", heading: "Yorumlar", items: [] }] }; assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [{ key: "empty", items: [] }] } as never), ["hero"]); });
 test("homepage product rows only render available products from the selected merchant source", async () => {
   const module = await import("./campaign-home-sections.ts");
@@ -13,9 +13,10 @@ test("homepage product rows only render available products from the selected mer
   const unavailable = Object.freeze({ id: "sold-out", available: false });
   assert.deepEqual(module.homepageAvailableProducts([unavailable, available] as never).map(({ id }) => id), ["available"]);
   assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [{ key: "category-kolyeler", items: [unavailable] }] } as never), []);
-  const home = await read("CampaignHome.tsx");
-  assert.match(home, /homepageAvailableProducts/u);
+  const section = await read("CampaignSectionContent.tsx");
+  assert.match(section, /homepageAvailableProducts/u);
 });
+test("pure campaign and product presenters allow preview consumers to disable link prefetch", async () => { const sources = await Promise.all([read("CampaignSectionContent.tsx"), read("CampaignHero.tsx"), read("CampaignPanels.tsx"), read("ProductCardContent.tsx")]); for (const source of sources) assert.match(source, /prefetch/); });
 test("an intentionally empty homepage exposes no visible campaign sections", async () => {
   const module = await import("./campaign-home-sections.ts");
   const presentation = { schemaVersion: 3, sections: [] };

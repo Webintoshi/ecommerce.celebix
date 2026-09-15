@@ -92,6 +92,41 @@ function compileScaffolds(): Readonly<{
   }>;
 }
 
+function compileSharedProductCardContent(): Readonly<{ ProductCardContent: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
+  const filename = new URL("../../../../storefront-shared/components/ProductCardContent.tsx", import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  const load = (id: string): unknown => {
+    if (id === "../lib/format.ts") return { formatTry: (value: number) => `${value} TRY` };
+    if (id === "../lib/storefront-routes.ts") return { productPath: (_locale: string, slug: string) => `/products/${slug}` };
+    if (id === "./product-card-model") return { productBadge: (product: { compareAtCents?: number; priceCents: number; available: boolean }) => !product.available ? "sold_out" : product.compareAtCents && product.compareAtCents > product.priceCents ? "sale" : null };
+    return require(id);
+  };
+  new Function("require", "module", "exports", output)(load, module, module.exports);
+  return module.exports as Readonly<{ ProductCardContent: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
+}
+
+function compileSharedCampaignSectionContent(): Readonly<{ CampaignSectionContent: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
+  const filename = new URL("../../../../storefront-shared/components/CampaignSectionContent.tsx", import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  const empty = () => null;
+  const load = (id: string): unknown => {
+    if (id === "./CampaignHero") return { CampaignHero: empty };
+    if (id === "./CampaignPanels") return { CampaignCategories: empty, CampaignPanels: empty, CampaignStory: empty };
+    if (id === "./CampaignTestimonials") return { CampaignTestimonials: empty };
+    if (id === "./CampaignValuePropositions") return { CampaignValuePropositions: empty };
+    if (id === "./campaign-home-sections") return { homepageAvailableProducts: (products: readonly { available: boolean }[] = []) => Object.freeze(products.filter(({ available }) => available)) };
+    return require(id);
+  };
+  new Function("require", "module", "exports", output)(load, module, module.exports);
+  return module.exports as Readonly<{ CampaignSectionContent: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
+}
+
 function compileCanvas(): CanvasModule {
   const filename = new URL("./VisualStorefrontCanvas.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
@@ -102,6 +137,10 @@ function compileCanvas(): CanvasModule {
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@celebix/storefront-design-ui") return { ...compileRenderer(), createPreviewStorefrontDesign };
     if (id === "../StarterThemePreviewScaffolds") return compileScaffolds();
+    if (id.endsWith("storefront-shared/components/CampaignSectionContent")) return compileSharedCampaignSectionContent();
+    if (id.endsWith("storefront-shared/components/ProductCardContent")) return compileSharedProductCardContent();
+    if (id.endsWith("storefront-shared/components/campaign-home-sections")) return require("../../../../storefront-shared/components/campaign-home-sections.ts");
+    if (id === "../../../lib/storefront-design-preview-model") return require("../../../lib/storefront-design-preview-model.ts");
     if (id === "../starter-footer-options") return {
       STARTER_FOOTER_POLICIES: Object.freeze([["kvkk", "KVKK"]]),
       STARTER_FOOTER_SYSTEM_LINKS: Object.freeze([["/favorites", "Favoriler"]]),
@@ -133,6 +172,7 @@ function renderCanvas(
   options: Readonly<{
     media?: readonly StorefrontDesignMediaOption[];
     destinations?: readonly StorefrontDesignDestinationOption[];
+    previewResources?: unknown;
   }> = {},
 ): string {
   const { VisualStorefrontCanvas } = compileCanvas();
@@ -143,11 +183,54 @@ function renderCanvas(
     publishedAt: NOW,
     media: options.media ?? [],
     destinations: options.destinations ?? [],
+    previewResources: options.previewResources,
     mode: "desktop",
     now: new Date(NOW),
     onSelectSurface: () => undefined,
   }));
 }
+
+test("draft canvas renders real bounded product projection instead of sample cards", () => {
+  const productId = "50000000-0000-4000-8000-000000000090";
+  const mediaId = "50000000-0000-4000-8000-000000000091";
+  const product = Object.freeze({
+    id: productId,
+    slug: "gercek-kolye",
+    title: "GERÇEK PROJEKSİYON KOLYESİ",
+    currency: "TRY",
+    status: "active",
+    priceCents: 129900,
+    compareAtCents: 149900,
+    available: true,
+    variants: Object.freeze([]),
+    media: Object.freeze([Object.freeze({
+      id: mediaId,
+      productId,
+      url: `https://media.saas-staging.celebix.site/stores/50000000-0000-4000-8000-000000000099/products/${productId}/${mediaId}.webp`,
+      mediaType: "image/webp",
+      altText: "Gerçek kolye",
+      width: 800,
+      height: 1000,
+      sortOrder: 0,
+    })]),
+  });
+  const section = Object.freeze({ sectionId: "home_real_products", kind: "product_row", enabled: true, heading: "GERÇEK ÜRÜNLER", source: "latest", limit: 4 }) satisfies StarterThemeCompositionConfigV3["sections"][number];
+  const design = Object.freeze({ ...BASE_DESIGN, composition: composition(Object.freeze([section])) });
+
+  const markup = renderCanvas(design, {
+    previewResources: Object.freeze({
+      schemaVersion: 1,
+      dependencyKey: "latest:4",
+      productSources: Object.freeze([Object.freeze({ key: "latest", status: "ready", items: Object.freeze([product]) })]),
+      assets: Object.freeze([]),
+      hotspots: Object.freeze([]),
+      categoryShowcase: Object.freeze({ status: "missing" }),
+    }),
+  });
+
+  assert.match(markup, /GERÇEK PROJEKSİYON KOLYESİ/);
+  assert.doesNotMatch(markup, /Örnek içerik/);
+});
 
 function composition(sections: StarterThemeCompositionConfigV3["sections"]): StarterThemeCompositionConfigV3 {
   const defaults = createDefaultStarterThemeComposition();

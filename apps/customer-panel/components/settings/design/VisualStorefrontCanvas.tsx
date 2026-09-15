@@ -6,6 +6,10 @@ import {
   type StorefrontRendererSurface,
 } from "@celebix/storefront-design-ui";
 import type {
+  PublicProduct,
+  PublicStarterHomeSection,
+  PublicStarterThemePresentationV2,
+  PublicStarterThemePresentationV3,
   StarterFooterLinkConfig,
   StarterThemeSectionConfigV3,
   StorefrontDesignDestinationOption,
@@ -13,8 +17,12 @@ import type {
   StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
 import { normalizeStarterThemeCompositionV3 } from "@celebix/saas-contracts";
+import { CampaignSectionContent } from "../../../../storefront-shared/components/CampaignSectionContent";
+import { ProductCardContent } from "../../../../storefront-shared/components/ProductCardContent";
+import { composeCampaignHomeSections } from "../../../../storefront-shared/components/campaign-home-sections";
 
 import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
+import { composeDraftCampaignProjection, type StorefrontDesignPreviewResources } from "../../../lib/storefront-design-preview-model";
 import styles from "../design-settings.module.css";
 import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
 import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
@@ -26,6 +34,7 @@ interface VisualStorefrontCanvasProps {
   readonly publishedAt: string;
   readonly media: readonly StorefrontDesignMediaOption[];
   readonly destinations: readonly StorefrontDesignDestinationOption[];
+  readonly previewResources?: StorefrontDesignPreviewResources;
   readonly mode: "desktop" | "mobile";
   readonly now: Date;
   readonly selectedSurface?: DesignCanvasSurface;
@@ -126,6 +135,25 @@ function HomepagePreviewSection({ section, destinations }: Readonly<{
   </article>;
 }
 
+function PreviewProductRow({ section, products, presentation, locale }: Readonly<{
+  section: Extract<PublicStarterHomeSection, { kind: "product_row" }>;
+  products: readonly PublicProduct[];
+  presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+  locale: string;
+}>) {
+  return <section className={styles.canvasResolvedProductRow} data-campaign-product-row="true" aria-labelledby={`preview-row-${section.key}`}>
+    <header><small>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : "YENİ GELENLER"}</small><h2 id={`preview-row-${section.key}`}>{section.heading}</h2></header>
+    <div className={styles.canvasResolvedProducts}>{products.map((product) => <article className={`product-card card-${presentation.visual.productCardStyle} image-${presentation.visual.productImageRatio}`} data-preview-product-card="true" key={product.id}><ProductCardContent product={product} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} prefetch={false} /></article>)}</div>
+  </section>;
+}
+
+const PREVIEW_RESOURCE_LABELS = Object.freeze({
+  partial: "Bazı seçili kaynaklar veya görseller kullanılamıyor.",
+  empty: "Bu kaynakta gösterilebilecek içerik bulunamadı.",
+  missing: "Seçilen kaynak veya görsel artık bulunamıyor.",
+  unavailable: "Bu kaynak önizleme için kullanılamıyor.",
+} as const);
+
 function footerLink(link: StarterFooterLinkConfig, destinations: readonly StorefrontDesignDestinationOption[]) {
   if (link.kind === "system") {
     const label = STARTER_FOOTER_SYSTEM_LINKS.find(([destination]) => destination === link.destination)?.[1] ?? link.destination;
@@ -158,6 +186,9 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
   const composition = normalizeStarterThemeCompositionV3(props.design.composition);
   const designHeroActive = preview.hero.enabled && preview.hero.slides.length > 0;
   const visibleSections = composition.sections.filter((section) => section.enabled && (!designHeroActive || section.kind !== "hero"));
+  const resolved = props.previewResources ? composeDraftCampaignProjection({ composition, storeName: props.storeName, destinations: props.destinations, resources: props.previewResources }) : null;
+  const resolvedSections = resolved ? composeCampaignHomeSections(resolved.projection.presentation, designHeroActive) : [];
+  const resolvedStates = new Map(resolved?.sectionStates.map((state) => [state.sectionId, state.status]) ?? []);
 
   return <div className={styles.previewViewport} data-mode={props.mode} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`}>
     <div className={styles.previewNotice} role="note"><strong>Taslak önizlemesi</strong><span>Yayınlanmış mağazadan farklı olabilir.</span></div>
@@ -177,7 +208,12 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       </section> : null}
 
       <section className={`${styles.canvasSurface}`} data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
-        {visibleSections.length ? <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
+        {visibleSections.length ? resolved ? <div className={styles.canvasResolvedSections} onClick={(event) => event.preventDefault()}>{resolvedSections.map((section, index) => {
+          const sectionId = section.sectionId ?? `home_preview_${index + 1}`;
+          const status = resolvedStates.get(sectionId) ?? "unavailable";
+          const content = <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale="tr" prefetch={false} renderProductRow={(input) => <PreviewProductRow {...input} />} />;
+          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{content}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
+        })}</div> : <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
         <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
 

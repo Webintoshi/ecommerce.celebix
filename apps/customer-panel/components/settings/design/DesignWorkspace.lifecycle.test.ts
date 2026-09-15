@@ -70,6 +70,7 @@ async function mount(canManage = true) {
       if (id.endsWith(".css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
       if (id === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: ({ subtitle }: { subtitle: string }) => React.createElement("p", { role: "status" }, subtitle) };
       if (id.endsWith("storefront-design-ui/client")) return { StorefrontDesignApiError, storefrontDesignApi: api };
+      if (id.endsWith("storefront-design-preview-ui/use-preview-resources")) return { useStorefrontDesignPreviewResources: (_composition: unknown, initial: unknown) => initial };
       if (id === "./DesignPreview") return { DesignPreview: ({ design, mode }: { design: StorefrontDesignDocument; mode: string }) => React.createElement("output", { "data-mode": mode }, design.promotion.headline) };
       if (id === "./DesignStepEditor") return { DesignStepEditor: ({ design, onChange, canManage }: { design: StorefrontDesignDocument; onChange: (design: StorefrontDesignDocument) => void; canManage: boolean }) => React.createElement("input", { "aria-label": "Fixture headline", value: design.promotion.headline, disabled: !canManage, onInput: (event: React.FormEvent<HTMLInputElement>) => onChange({ ...design, promotion: { ...design.promotion, headline: event.currentTarget.value } }) }) };
       if (id.startsWith("@/")) return compile(new URL(`../../../${id.slice(2)}.ts`, import.meta.url));
