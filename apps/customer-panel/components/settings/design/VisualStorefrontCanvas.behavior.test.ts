@@ -251,7 +251,56 @@ test("draft canvas keeps a missing category section visible with a truthful stat
 
   assert.match(markup, /data-preview-section-id="home_missing_categories"/);
   assert.match(markup, /data-preview-resource-status="missing"/);
+  assert.match(markup, /EKSİK KATEGORİLER/);
   assert.match(markup, /Seçilen kaynak veya görsel artık bulunamıyor/);
+});
+
+test("resolved canvas preserves ordered empty and unavailable sections around partial usable content", () => {
+  const productId = "50000000-0000-4000-8000-000000000092";
+  const product = Object.freeze({
+    id: productId,
+    slug: "kismi-kolye",
+    title: "KISMİ KAYNAK KOLYESİ",
+    currency: "TRY",
+    status: "active",
+    priceCents: 119900,
+    available: true,
+    variants: Object.freeze([]),
+    media: Object.freeze([]),
+  });
+  const unavailableProduct = Object.freeze({ ...product, id: "50000000-0000-4000-8000-000000000093", slug: "stokta-yok", title: "STOKTA OLMAYAN ÜRÜN", available: false });
+  const sections = Object.freeze([
+    Object.freeze({ sectionId: "home_first_empty", kind: "product_row", enabled: true, heading: "İLK BOŞ SATIR", source: "latest", limit: 4 }),
+    Object.freeze({ sectionId: "home_partial_products", kind: "product_row", enabled: true, heading: "KISMİ ÜRÜNLER", source: "sale", limit: 4 }),
+    Object.freeze({ sectionId: "home_reviews_unavailable", kind: "testimonials", enabled: true, heading: "ULAŞILAMAYAN YORUMLAR", source: "approved_product_reviews", limit: 3, minimumRating: 4 }),
+  ] satisfies StarterThemeCompositionConfigV3["sections"]);
+  const design = Object.freeze({ ...BASE_DESIGN, composition: composition(sections) });
+
+  const markup = renderCanvas(design, {
+    previewResources: Object.freeze({
+      schemaVersion: 1,
+      dependencyKey: "ordered-fallbacks",
+      productSources: Object.freeze([
+        Object.freeze({ key: "latest", status: "ready", items: Object.freeze([unavailableProduct]) }),
+        Object.freeze({ key: "sale", status: "partial", items: Object.freeze([product]) }),
+      ]),
+      assets: Object.freeze([]),
+      hotspots: Object.freeze([]),
+      categoryShowcase: Object.freeze({ status: "missing" }),
+    }),
+  });
+
+  const orderedSectionIds = sections.map(({ sectionId }) => `data-preview-section-id="${sectionId}"`);
+  assert.ok(markup.indexOf(orderedSectionIds[0]) < markup.indexOf(orderedSectionIds[1]));
+  assert.ok(markup.indexOf(orderedSectionIds[1]) < markup.indexOf(orderedSectionIds[2]));
+  for (const heading of ["İLK BOŞ SATIR", "KISMİ ÜRÜNLER", "ULAŞILAMAYAN YORUMLAR", "KISMİ KAYNAK KOLYESİ"]) {
+    assert.match(markup, new RegExp(heading));
+  }
+  assert.match(markup, /data-preview-resource-status="empty"/);
+  assert.match(markup, /data-preview-resource-status="partial"/);
+  assert.match(markup, /data-preview-resource-status="unavailable"/);
+  assert.equal((markup.match(/data-preview-product-card="true"/g) ?? []).length, 1);
+  assert.doesNotMatch(markup, /STOKTA OLMAYAN ÜRÜN|Örnek içerik|Örnek ürün [0-9]/);
 });
 
 test("draft canvas prevents product navigation before the injected link action runs", async () => {

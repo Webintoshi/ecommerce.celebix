@@ -146,6 +146,22 @@ function PreviewProductRow({ section, products, presentation, locale }: Readonly
   </section>;
 }
 
+function hasPreviewSectionContent(
+  section: PublicStarterHomeSection,
+  productRows: readonly Readonly<{ key: string; items: readonly StorefrontDesignPreviewProduct[] }>[],
+): boolean {
+  switch (section.kind) {
+    case "hero": return section.slides.length > 0;
+    case "category_grid": return section.items.length > 0;
+    case "product_row": return productRows.find((row) => row.key === section.key)?.items.some(({ available }) => available) ?? false;
+    case "split_campaign": return section.panels.length > 0;
+    case "brand_story": return true;
+    case "value_propositions": return section.items.length > 0;
+    case "testimonials": return section.items.length > 0;
+    default: return assertNever(section);
+  }
+}
+
 const PREVIEW_RESOURCE_LABELS = Object.freeze({
   loading: "Seçili kaynaklar ve görseller yükleniyor.",
   partial: "Bazı seçili kaynaklar veya görseller kullanılamıyor.",
@@ -214,8 +230,9 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
         {visibleSections.length ? resolved ? <div className={styles.canvasResolvedSections} onClickCapture={(event) => event.preventDefault()}>{resolvedSections.map(({ config, section }, index) => {
           const sectionId = section.sectionId ?? `home_preview_${index + 1}`;
           const status = resolvedStates.get(sectionId) ?? "unavailable";
+          const hasContent = hasPreviewSectionContent(section, resolved.projection.productRows);
           const content = <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale="tr" prefetch={false} renderProductRow={(input) => <PreviewProductRow {...input} />} />;
-          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{content ?? <section className={styles.canvasSectionSummary}><header><small>{SECTION_LABELS[config.kind]}</small><h2>{sectionHeading(config)}</h2></header></section>}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
+          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{hasContent ? content : <section className={styles.canvasSectionSummary}><header><small>{SECTION_LABELS[config.kind]}</small><h2>{sectionHeading(config)}</h2></header></section>}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
         })}</div> : <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
         <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
