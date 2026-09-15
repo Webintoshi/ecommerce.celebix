@@ -1,6 +1,5 @@
 import {
   normalizeStarterThemeCompositionV3,
-  type PublicProduct,
   type PublicStarterHomeSection,
   type PublicStarterThemePresentationV3,
   type PublicStorefrontAsset,
@@ -8,9 +7,19 @@ import {
   type StarterThemeCompositionConfigV3,
   type StorefrontDesignDestinationOption,
 } from "@celebix/saas-contracts";
-import type { CampaignHomeProjection } from "@celebix/saas-data";
+export type StorefrontDesignPreviewResourceStatus = "loading" | "ready" | "partial" | "empty" | "missing" | "unavailable";
 
-export type StorefrontDesignPreviewResourceStatus = "ready" | "partial" | "empty" | "missing" | "unavailable";
+export type StorefrontDesignPreviewProduct = Readonly<{
+  id: string;
+  slug: string;
+  title: string;
+  currency: "TRY";
+  priceCents: number;
+  compareAtCents?: number;
+  available: boolean;
+  brand?: Readonly<{ name: string }>;
+  media: readonly Readonly<{ url: string; altText: string; width?: number; height?: number }>[];
+}>;
 
 export type StorefrontDesignPreviewResources = Readonly<{
   schemaVersion: 1;
@@ -18,7 +27,7 @@ export type StorefrontDesignPreviewResources = Readonly<{
   productSources: readonly Readonly<{
     key: string;
     status: StorefrontDesignPreviewResourceStatus;
-    items: readonly PublicProduct[];
+    items: readonly StorefrontDesignPreviewProduct[];
     categorySlug?: string;
   }>[];
   assets: readonly Readonly<{
@@ -43,7 +52,7 @@ export type DraftCampaignSectionState = Readonly<{
 }>;
 
 export type DraftCampaignProjection = Readonly<{
-  projection: Readonly<{ presentation: PublicStarterThemePresentationV3; productRows: CampaignHomeProjection["productRows"] }>;
+  projection: Readonly<{ presentation: PublicStarterThemePresentationV3; productRows: readonly Readonly<{ key: string; items: readonly StorefrontDesignPreviewProduct[] }>[] }>;
   sectionStates: readonly DraftCampaignSectionState[];
 }>;
 
@@ -81,7 +90,7 @@ export function storefrontDesignPreviewDependencyKey(compositionInput: StarterTh
   });
 }
 
-export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition): StorefrontDesignPreviewResources {
+function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, selectedStatus: "loading" | "unavailable"): StorefrontDesignPreviewResources {
   const composition = normalizeStarterThemeCompositionV3(compositionInput);
   const sources = new Set<string>(), assets = new Set<string>(), hotspots = new Set<string>(); let needsCategories = false;
   for (const section of composition.sections) {
@@ -92,7 +101,15 @@ export function unavailableStorefrontDesignPreviewResources(compositionInput: St
     else if (section.kind === "brand_story" && section.assetId) assets.add(section.assetId);
     else if (section.kind === "category_grid") needsCategories = true;
   }
-  return Object.freeze({ schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: "unavailable" as const, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: "unavailable" as const }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: "unavailable" as const }))), categoryShowcase: Object.freeze({ status: needsCategories ? "unavailable" as const : "missing" as const }) });
+  return Object.freeze({ schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: selectedStatus, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: selectedStatus }))), categoryShowcase: Object.freeze({ status: needsCategories ? selectedStatus : "missing" as const }) });
+}
+
+export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "unavailable");
+}
+
+export function loadingStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "loading");
 }
 
 function publicFooter(composition: StarterThemeCompositionConfigV3, destinations: readonly StorefrontDesignDestinationOption[]): PublicStarterThemePresentationV3["footer"] {
@@ -133,6 +150,7 @@ function aggregateRequestedStatuses(statuses: readonly StorefrontDesignPreviewRe
   const ready = statuses.filter((status) => status === "ready").length;
   if (ready === statuses.length) return "ready";
   if (ready > 0) return "partial";
+  if (statuses.includes("loading")) return "loading";
   if (statuses.includes("unavailable")) return "unavailable";
   if (statuses.includes("partial")) return "partial";
   return "missing";
@@ -149,7 +167,7 @@ export function composeDraftCampaignProjection(input: Readonly<{
   const assetMap = new Map(input.resources.assets.map((asset) => [asset.id, asset]));
   const hotspotMap = new Map(input.resources.hotspots.map((hotspot) => [hotspot.productId, hotspot]));
   const sections: PublicStarterHomeSection[] = [];
-  const rows: CampaignHomeProjection["productRows"][number][] = [];
+  const rows: Array<Readonly<{ key: string; items: readonly StorefrontDesignPreviewProduct[] }>> = [];
   const states: DraftCampaignSectionState[] = [];
 
   for (const section of composition.sections) {

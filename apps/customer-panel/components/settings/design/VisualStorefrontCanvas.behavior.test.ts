@@ -12,6 +12,7 @@ import {
 } from "@celebix/saas-contracts";
 import { Window } from "happy-dom";
 import React, { type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
@@ -92,13 +93,14 @@ function compileScaffolds(): Readonly<{
   }>;
 }
 
-function compileSharedProductCardContent(): Readonly<{ ProductCardContent: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
+function compileSharedProductCardContent(navigate: () => void = () => undefined): Readonly<{ ProductCardContent: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
   const filename = new URL("../../../../storefront-shared/components/ProductCardContent.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const module = { exports: {} };
   const load = (id: string): unknown => {
+    if (id === "next/link") return { __esModule: true, default: ({ href, children, prefetch: _prefetch, ...props }: Readonly<{ href: string; children: ReactNode; prefetch?: boolean }>) => React.createElement("a", { ...props, href, onClick: (event: React.MouseEvent) => { if (!event.defaultPrevented) navigate(); } }, children) };
     if (id === "../lib/format.ts") return { formatTry: (value: number) => `${value} TRY` };
     if (id === "../lib/storefront-routes.ts") return { productPath: (_locale: string, slug: string) => `/products/${slug}` };
     if (id === "./product-card-model") return { productBadge: (product: { compareAtCents?: number; priceCents: number; available: boolean }) => !product.available ? "sold_out" : product.compareAtCents && product.compareAtCents > product.priceCents ? "sale" : null };
@@ -127,7 +129,7 @@ function compileSharedCampaignSectionContent(): Readonly<{ CampaignSectionConten
   return module.exports as Readonly<{ CampaignSectionContent: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
 }
 
-function compileCanvas(): CanvasModule {
+function compileCanvas(navigate: () => void = () => undefined): CanvasModule {
   const filename = new URL("./VisualStorefrontCanvas.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -138,7 +140,7 @@ function compileCanvas(): CanvasModule {
     if (id === "@celebix/storefront-design-ui") return { ...compileRenderer(), createPreviewStorefrontDesign };
     if (id === "../StarterThemePreviewScaffolds") return compileScaffolds();
     if (id.endsWith("storefront-shared/components/CampaignSectionContent")) return compileSharedCampaignSectionContent();
-    if (id.endsWith("storefront-shared/components/ProductCardContent")) return compileSharedProductCardContent();
+    if (id.endsWith("storefront-shared/components/ProductCardContent")) return compileSharedProductCardContent(navigate);
     if (id.endsWith("storefront-shared/components/campaign-home-sections")) return require("../../../../storefront-shared/components/campaign-home-sections.ts");
     if (id === "../../../lib/storefront-design-preview-model") return require("../../../lib/storefront-design-preview-model.ts");
     if (id === "../starter-footer-options") return {
@@ -230,6 +232,57 @@ test("draft canvas renders real bounded product projection instead of sample car
 
   assert.match(markup, /GERÇEK PROJEKSİYON KOLYESİ/);
   assert.doesNotMatch(markup, /Örnek içerik/);
+});
+
+test("draft canvas keeps a missing category section visible with a truthful state", () => {
+  const section = Object.freeze({ sectionId: "home_missing_categories", kind: "category_grid", enabled: true, heading: "EKSİK KATEGORİLER", categoryIds: Object.freeze([]), layout: "grid" }) satisfies StarterThemeCompositionConfigV3["sections"][number];
+  const design = Object.freeze({ ...BASE_DESIGN, composition: composition(Object.freeze([section])) });
+
+  const markup = renderCanvas(design, {
+    previewResources: Object.freeze({
+      schemaVersion: 1,
+      dependencyKey: "missing-category",
+      productSources: Object.freeze([]),
+      assets: Object.freeze([]),
+      hotspots: Object.freeze([]),
+      categoryShowcase: Object.freeze({ status: "missing" }),
+    }),
+  });
+
+  assert.match(markup, /data-preview-section-id="home_missing_categories"/);
+  assert.match(markup, /data-preview-resource-status="missing"/);
+  assert.match(markup, /Seçilen kaynak veya görsel artık bulunamıyor/);
+});
+
+test("draft canvas prevents product navigation before the injected link action runs", async () => {
+  const productId = "50000000-0000-4000-8000-000000000090";
+  const product = Object.freeze({ id: productId, slug: "gercek-kolye", title: "GERÇEK ÜRÜN", currency: "TRY", status: "active", priceCents: 129900, available: true, variants: Object.freeze([]), media: Object.freeze([]) });
+  const section = Object.freeze({ sectionId: "home_real_products", kind: "product_row", enabled: true, heading: "GERÇEK ÜRÜNLER", source: "latest", limit: 4 }) satisfies StarterThemeCompositionConfigV3["sections"][number];
+  const design = Object.freeze({ ...BASE_DESIGN, composition: composition(Object.freeze([section])) });
+  const resources = Object.freeze({ schemaVersion: 1, dependencyKey: "latest:4", productSources: Object.freeze([Object.freeze({ key: "latest", status: "ready", items: Object.freeze([product]) })]), assets: Object.freeze([]), hotspots: Object.freeze([]), categoryShowcase: Object.freeze({ status: "missing" }) });
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  let navigations = 0;
+  const { VisualStorefrontCanvas } = compileCanvas(() => { navigations += 1; });
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    await React.act(async () => root.render(React.createElement(VisualStorefrontCanvas, { design, storeName: "Fixture Store", publishedVersion: 7, publishedAt: NOW, media: [], destinations: [], previewResources: resources, mode: "desktop", now: new Date(NOW), onSelectSurface: () => undefined })));
+    const link = container.querySelector('[data-product-card-content="true"]');
+    assert.ok(link);
+    await React.act(async () => link.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true })));
+    assert.equal(navigations, 0);
+  } finally {
+    await React.act(async () => root.unmount());
+    await window.happyDOM.close();
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+  }
 });
 
 function composition(sections: StarterThemeCompositionConfigV3["sections"]): StarterThemeCompositionConfigV3 {

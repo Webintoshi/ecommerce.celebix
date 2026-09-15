@@ -12,6 +12,7 @@ import type { PublicStorefrontRepository, StorefrontAssetRepository } from "@cel
 import {
   previewProductSourceKey,
   storefrontDesignPreviewDependencyKey,
+  type StorefrontDesignPreviewProduct,
   type StorefrontDesignPreviewResourceStatus,
   type StorefrontDesignPreviewResources,
 } from "../storefront-design-preview-model.ts";
@@ -56,8 +57,27 @@ function productSlug(workspace: StorefrontDesignWorkspace, productId: string): s
   return SLUG.test(slug) ? slug : null;
 }
 
+function previewProduct(product: PublicProduct): StorefrontDesignPreviewProduct {
+  return Object.freeze({
+    id: product.id,
+    slug: product.slug,
+    title: product.title,
+    currency: product.currency,
+    priceCents: product.priceCents,
+    ...(product.compareAtCents !== undefined ? { compareAtCents: product.compareAtCents } : {}),
+    available: product.available,
+    ...(product.brand ? { brand: Object.freeze({ name: product.brand.name }) } : {}),
+    media: Object.freeze(product.media.slice(0, 2).map((media) => Object.freeze({
+      url: media.url,
+      altText: media.altText,
+      ...(media.width !== undefined ? { width: media.width } : {}),
+      ...(media.height !== undefined ? { height: media.height } : {}),
+    }))),
+  });
+}
+
 function sourceResult(key: string, status: StorefrontDesignPreviewResourceStatus, items: readonly PublicProduct[] = [], categorySlug?: string) {
-  return Object.freeze({ key, status, items: Object.freeze(items), ...(categorySlug ? { categorySlug } : {}) });
+  return Object.freeze({ key, status, items: Object.freeze(items.map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) });
 }
 
 function safeAssetImage(asset: Awaited<ReturnType<StorefrontAssetRepository["listAssets"]>>[number]) {

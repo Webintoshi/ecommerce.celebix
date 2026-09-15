@@ -36,3 +36,38 @@ test("preview client preserves AbortError for versioned request cancellation", a
   const controller = new AbortController(); const pending = api.preview(createDefaultStarterThemeComposition(), controller.signal); controller.abort();
   await assert.rejects(pending, (error) => error instanceof DOMException && error.name === "AbortError");
 });
+
+test("preview client accepts a free public product hotspot", async () => {
+  const composition = createDefaultStarterThemeComposition();
+  const resources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: [], assets: [], hotspots: [{ productId: "71000000-0000-4000-8000-000000000001", status: "ready", value: { productSlug: "ucretsiz-urun", title: "Ücretsiz ürün", priceCents: 0, currency: "TRY" } }], categoryShowcase: { status: "missing" } };
+  const api = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources }));
+
+  assert.equal((await api.preview(composition)).hotspots[0]?.value?.priceCents, 0);
+});
+
+test("preview client accepts only the bounded card product projection", async () => {
+  const composition = createDefaultStarterThemeComposition();
+  const key = storefrontDesignPreviewDependencyKey(composition);
+  const product = { id: "71000000-0000-4000-8000-000000000010", slug: "dar-urun", title: "Dar ürün", currency: "TRY", priceCents: 100, available: true, media: [] };
+  const resources = { schemaVersion: 1, dependencyKey: key, productSources: [{ key: "latest", status: "ready", items: [product] }], assets: [], hotspots: [], categoryShowcase: { status: "missing" } };
+  const api = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources }));
+  assert.equal((await api.preview(composition)).productSources[0]?.items[0]?.title, "Dar ürün");
+
+  const broad = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources: { ...resources, productSources: [{ ...resources.productSources[0], items: [{ ...product, description: "unused" }] }] } }));
+  await assert.rejects(broad.preview(composition), StorefrontDesignPreviewApiError);
+});
+
+test("preview client stops reading a response body as soon as the byte cap is exceeded", async () => {
+  let readPastBound = false;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(new Uint8Array(1_048_577)); },
+    pull() { readPastBound = true; throw new Error("read_past_bound"); },
+    cancel() { cancelled = true; },
+  }, { highWaterMark: 0 });
+  const api = createStorefrontDesignPreviewApi(async () => new Response(body, { headers: { "content-type": "application/json" } }));
+
+  await assert.rejects(api.preview(createDefaultStarterThemeComposition()), StorefrontDesignPreviewApiError);
+  assert.equal(readPastBound, false);
+  assert.equal(cancelled, true);
+});

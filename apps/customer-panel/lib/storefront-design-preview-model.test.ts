@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createDefaultStarterThemeComposition, type PublicProduct, type StarterThemeCompositionConfigV3 } from "@celebix/saas-contracts";
 
-import { composeDraftCampaignProjection, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "./storefront-design-preview-model.ts";
+import { composeDraftCampaignProjection, loadingStorefrontDesignPreviewResources, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "./storefront-design-preview-model.ts";
 
 const ASSET_A = "51000000-0000-4000-8000-000000000001";
 const ASSET_B = "51000000-0000-4000-8000-000000000002";
@@ -49,4 +49,16 @@ test("hero and split sections report partial when only some requested media reso
   const image = Object.freeze({ url: "https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/storefront/hero/51000000-0000-4000-8000-000000000001.webp", mediaType: "image/webp", altText: "Hero", width: 1600, height: 900 });
   const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: Object.freeze([]), resources: resources({ assets: Object.freeze([{ id: ASSET_A, status: "ready", image }, { id: ASSET_B, status: "missing" }]) }) });
   assert.deepEqual(result.sectionStates, [{ sectionId: "home_hero_partial", status: "partial" }, { sectionId: "home_split_partial", status: "partial" }, { sectionId: "home_reviews_unavailable", status: "unavailable" }]);
+});
+
+test("changed selected resources have a loading state distinct from unavailable", () => {
+  const draft = composition(Object.freeze([
+    { sectionId: "home_loading", kind: "product_row", enabled: true, heading: "Loading", source: "latest", limit: 4 },
+    { sectionId: "home_categories_loading", kind: "category_grid", enabled: true, heading: "Categories", categoryIds: Object.freeze([]), layout: "grid" },
+  ]));
+
+  const result = loadingStorefrontDesignPreviewResources(draft);
+
+  assert.equal(result.productSources[0]?.status, "loading");
+  assert.equal(result.categoryShowcase.status, "loading");
 });

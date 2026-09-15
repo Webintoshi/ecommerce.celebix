@@ -26,6 +26,7 @@ function compileToolbar(): ToolbarModule {
     if (id === "@celebix/saas-contracts") return { getStorefrontDesignPublishIssue: () => null };
     if (id === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (id === "@/lib/storefront-design-ui/client") return { StorefrontDesignApiError: class extends Error {}, storefrontDesignApi: {} };
+    if (id === "@/lib/storefront-design-preview-ui/use-preview-resources") return { useStorefrontDesignPreviewResources: (_composition: unknown, initial: unknown) => initial };
     if (id === "./DesignPreview") return { DesignPreview: () => null };
     if (id === "./DesignSettingsDrawer") return { DesignSettingsModal: () => null };
     if (id === "./DesignStepEditor") return { DesignStepEditor: () => null };

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { CampaignHomeProjection } from "@celebix/saas-data";
 import type { PublicProduct, PublicStarterHomeSection, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "@celebix/saas-contracts";
 
 import { CampaignHero } from "./CampaignHero";
@@ -10,18 +9,19 @@ import { homepageAvailableProducts } from "./campaign-home-sections";
 
 type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
 type ProductRow = Extract<PublicStarterHomeSection, { kind: "product_row" }>;
+type CampaignCardProduct = Readonly<{ available: boolean }>;
 
 function assertNever(value: never): never {
   throw new TypeError(`campaign_section_unreachable:${String(value)}`);
 }
 
-export function CampaignSectionContent({ section, presentation, productRows, locale, renderProductRow, prefetch }: Readonly<{
+export function CampaignSectionContent<Product extends CampaignCardProduct = PublicProduct>({ section, presentation, productRows, locale, renderProductRow, prefetch }: Readonly<{
   section: PublicStarterHomeSection;
   presentation: CampaignPresentation;
-  productRows: CampaignHomeProjection["productRows"];
+  productRows: readonly Readonly<{ key: string; items: readonly Product[] }>[];
   locale: string;
   prefetch?: boolean;
-  renderProductRow: (input: Readonly<{ section: ProductRow; products: readonly PublicProduct[]; presentation: CampaignPresentation; locale: string }>) => ReactNode;
+  renderProductRow: (input: Readonly<{ section: ProductRow; products: readonly Product[]; presentation: CampaignPresentation; locale: string }>) => ReactNode;
 }>) {
   switch (section.kind) {
     case "hero": return section.slides.length ? <CampaignHero section={section} locale={locale} prefetch={prefetch} /> : null;

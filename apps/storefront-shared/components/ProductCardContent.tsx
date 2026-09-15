@@ -5,8 +5,13 @@ import { formatTry } from "../lib/format.ts";
 import { productPath } from "../lib/storefront-routes.ts";
 import { productBadge } from "./product-card-model";
 
+export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "title" | "currency" | "priceCents" | "compareAtCents" | "available"> & Readonly<{
+  brand?: Readonly<{ name: string }>;
+  media: readonly Readonly<{ url: string; altText: string; width?: number; height?: number }>[];
+}>;
+
 export function ProductCardContent({ product, locale, cardStyle, imageRatio, prefetch }: Readonly<{
-  product: PublicProduct;
+  product: ProductCardContentProduct;
   locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];

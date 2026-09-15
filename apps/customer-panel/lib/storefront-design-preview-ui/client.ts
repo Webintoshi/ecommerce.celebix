@@ -1,10 +1,11 @@
-import { normalizeStarterThemeCompositionV3, parsePublicProduct, type PublicStorefrontAsset, type StarterThemeComposition } from "@celebix/saas-contracts";
+import { normalizeStarterThemeCompositionV3, type PublicStorefrontAsset, type StarterThemeComposition } from "@celebix/saas-contracts";
 
 import { storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResourceStatus, type StorefrontDesignPreviewResources } from "../storefront-design-preview-model.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ASSET_PATH = /^\/stores\/[0-9a-f-]{36}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
+const PRODUCT_MEDIA_PATH = /^\/stores\/[0-9a-f-]{36}\/products\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
 const MAX_RESPONSE_BYTES = 1_048_576;
 const STATUSES = Object.freeze(["ready", "partial", "empty", "missing", "unavailable"] as const);
 
@@ -20,6 +21,24 @@ function record(value: unknown, required: readonly string[], optional: readonly 
 function status(value: unknown): StorefrontDesignPreviewResourceStatus { if (!STATUSES.includes(value as never)) throw new StorefrontDesignPreviewApiError(); return value as StorefrontDesignPreviewResourceStatus; }
 function text(value: unknown, max: number): string { if (typeof value !== "string" || value.length < 1 || value.length > max || value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) throw new StorefrontDesignPreviewApiError(); return value; }
 function integer(value: unknown, max: number): number { if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > max) throw new StorefrontDesignPreviewApiError(); return value as number; }
+function nonnegativeInteger(value: unknown, max: number): number { if (!Number.isSafeInteger(value) || (value as number) < 0 || (value as number) > max) throw new StorefrontDesignPreviewApiError(); return value as number; }
+function optionalDimension(value: unknown): number | undefined { return value === undefined ? undefined : integer(value, 8192); }
+function safeProductMedia(value: unknown) {
+  const parsed = record(value, ["url", "altText"], ["width", "height"]);
+  let url: URL; try { url = new URL(text(parsed.url, 2048)); } catch { throw new StorefrontDesignPreviewApiError(); }
+  if (url.protocol !== "https:" || !["media.celebix.site", "media.saas-staging.celebix.site"].includes(url.hostname) || url.username || url.password || url.port || url.search || url.hash || !PRODUCT_MEDIA_PATH.test(url.pathname)) throw new StorefrontDesignPreviewApiError();
+  const altText = typeof parsed.altText === "string" && parsed.altText.length <= 500 && !/[\u0000-\u001f\u007f]/.test(parsed.altText) ? parsed.altText : (() => { throw new StorefrontDesignPreviewApiError(); })();
+  const width = optionalDimension(parsed.width), height = optionalDimension(parsed.height);
+  return Object.freeze({ url: url.toString(), altText, ...(width !== undefined ? { width } : {}), ...(height !== undefined ? { height } : {}) });
+}
+function previewProduct(value: unknown) {
+  const parsed = record(value, ["id", "slug", "title", "currency", "priceCents", "available", "media"], ["compareAtCents", "brand"]);
+  const id = text(parsed.id, 36), slug = text(parsed.slug, 100);
+  if (!UUID.test(id) || !SLUG.test(slug) || parsed.currency !== "TRY" || typeof parsed.available !== "boolean") throw new StorefrontDesignPreviewApiError();
+  const compareAtCents = parsed.compareAtCents === undefined ? undefined : nonnegativeInteger(parsed.compareAtCents, Number.MAX_SAFE_INTEGER);
+  let brand; if (parsed.brand !== undefined) { const selected = record(parsed.brand, ["name"]); brand = Object.freeze({ name: text(selected.name, 160) }); }
+  return Object.freeze({ id, slug, title: text(parsed.title, 160), currency: "TRY" as const, priceCents: nonnegativeInteger(parsed.priceCents, Number.MAX_SAFE_INTEGER), ...(compareAtCents !== undefined ? { compareAtCents } : {}), available: parsed.available, ...(brand ? { brand } : {}), media: Object.freeze(list(parsed.media, 2).map(safeProductMedia)) });
+}
 function asset(value: unknown): PublicStorefrontAsset {
   const parsed = record(value, ["url", "mediaType", "altText", "width", "height"]); const mediaType = parsed.mediaType;
   if (!UUID.test(String(parsed.url).split("/").at(-1)?.split(".")[0] ?? "") || !["image/jpeg", "image/png", "image/webp"].includes(mediaType as string)) throw new StorefrontDesignPreviewApiError();
@@ -34,11 +53,11 @@ export function parseStorefrontDesignPreviewResources(value: unknown, expectedKe
   const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"]);
   if (root.schemaVersion !== 1 || root.dependencyKey !== expectedKey) throw new StorefrontDesignPreviewApiError();
   const sourceKeys = new Set<string>();
-  const productSources = list(root.productSources, 12).map((entry) => { const parsed = record(entry, ["key", "status", "items"], ["categorySlug"]); const key = text(parsed.key, 96); if (sourceKeys.has(key) || (key !== "latest" && key !== "sale" && !/^category:[0-9a-f-]{36}$/.test(key))) throw new StorefrontDesignPreviewApiError(); sourceKeys.add(key); const categorySlug = parsed.categorySlug === undefined ? undefined : text(parsed.categorySlug, 100); if (categorySlug && !SLUG.test(categorySlug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ key, status: status(parsed.status), items: Object.freeze(list(parsed.items, 48).map(parsePublicProduct)), ...(categorySlug ? { categorySlug } : {}) }); });
+  const productSources = list(root.productSources, 12).map((entry) => { const parsed = record(entry, ["key", "status", "items"], ["categorySlug"]); const key = text(parsed.key, 96); if (sourceKeys.has(key) || (key !== "latest" && key !== "sale" && !/^category:[0-9a-f-]{36}$/.test(key))) throw new StorefrontDesignPreviewApiError(); sourceKeys.add(key); const categorySlug = parsed.categorySlug === undefined ? undefined : text(parsed.categorySlug, 100); if (categorySlug && !SLUG.test(categorySlug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ key, status: status(parsed.status), items: Object.freeze(list(parsed.items, 48).map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) }); });
   const assetIds = new Set<string>();
   const assets = list(root.assets, 24).map((entry) => { const parsed = record(entry, ["id", "status"], ["image"]); const id = text(parsed.id, 36); if (!UUID.test(id) || assetIds.has(id)) throw new StorefrontDesignPreviewApiError(); assetIds.add(id); const selectedStatus = status(parsed.status); const image = parsed.image === undefined ? undefined : asset(parsed.image); if ((selectedStatus === "ready") !== Boolean(image)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ id, status: selectedStatus, ...(image ? { image } : {}) }); });
   const hotspotIds = new Set<string>();
-  const hotspots = list(root.hotspots, 12).map((entry) => { const parsed = record(entry, ["productId", "status"], ["value"]); const productId = text(parsed.productId, 36); if (!UUID.test(productId) || hotspotIds.has(productId)) throw new StorefrontDesignPreviewApiError(); hotspotIds.add(productId); const selectedStatus = status(parsed.status); let selected; if (parsed.value !== undefined) { const value = record(parsed.value, ["productSlug", "title", "priceCents", "currency"]); if (value.currency !== "TRY" || !SLUG.test(text(value.productSlug, 100))) throw new StorefrontDesignPreviewApiError(); selected = Object.freeze({ productSlug: value.productSlug as string, title: text(value.title, 160), priceCents: integer(value.priceCents, Number.MAX_SAFE_INTEGER), currency: "TRY" as const }); } if ((selectedStatus === "ready") !== Boolean(selected)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ productId, status: selectedStatus, ...(selected ? { value: selected } : {}) }); });
+  const hotspots = list(root.hotspots, 12).map((entry) => { const parsed = record(entry, ["productId", "status"], ["value"]); const productId = text(parsed.productId, 36); if (!UUID.test(productId) || hotspotIds.has(productId)) throw new StorefrontDesignPreviewApiError(); hotspotIds.add(productId); const selectedStatus = status(parsed.status); let selected; if (parsed.value !== undefined) { const value = record(parsed.value, ["productSlug", "title", "priceCents", "currency"]); if (value.currency !== "TRY" || !SLUG.test(text(value.productSlug, 100))) throw new StorefrontDesignPreviewApiError(); selected = Object.freeze({ productSlug: value.productSlug as string, title: text(value.title, 160), priceCents: nonnegativeInteger(value.priceCents, Number.MAX_SAFE_INTEGER), currency: "TRY" as const }); } if ((selectedStatus === "ready") !== Boolean(selected)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ productId, status: selectedStatus, ...(selected ? { value: selected } : {}) }); });
   const category = record(root.categoryShowcase, ["status"], ["value"]); const categoryStatus = status(category.status); let categoryValue;
   if (category.value !== undefined) { const selected = record(category.value, ["heading", "layout", "items"]); if (!['duo','grid'].includes(selected.layout as string)) throw new StorefrontDesignPreviewApiError(); categoryValue = Object.freeze({ heading: text(selected.heading, 160), layout: selected.layout as "duo" | "grid", items: Object.freeze(list(selected.items, 8).map((entry) => { const item = record(entry, ["id", "name", "slug", "image"]); const id = text(item.id, 36), slug = text(item.slug, 100); if (!UUID.test(id) || !SLUG.test(slug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ id, name: text(item.name, 160), slug, image: asset(item.image) }); })) }); }
   if ((categoryStatus === "ready") !== Boolean(categoryValue)) throw new StorefrontDesignPreviewApiError();
@@ -48,7 +67,21 @@ export function parseStorefrontDesignPreviewResources(value: unknown, expectedKe
 async function responseJson(response: Response): Promise<unknown> {
   if (!(response.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) throw new StorefrontDesignPreviewApiError();
   const length = response.headers.get("content-length"); if (length && (!/^\d+$/.test(length) || Number(length) > MAX_RESPONSE_BYTES)) throw new StorefrontDesignPreviewApiError();
-  const bytes = new Uint8Array(await response.arrayBuffer()); if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new StorefrontDesignPreviewApiError();
+  if (!response.body) throw new StorefrontDesignPreviewApiError();
+  const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let total = 0;
+  try {
+    while (true) {
+      const selected = await reader.read(); if (selected.done) break;
+      total += selected.value.byteLength;
+      if (total > MAX_RESPONSE_BYTES) { await reader.cancel(); throw new StorefrontDesignPreviewApiError(); }
+      chunks.push(selected.value);
+    }
+  } catch (error) {
+    try { await reader.cancel(); } catch { /* response is already closed */ }
+    if (error instanceof StorefrontDesignPreviewApiError) throw error;
+    throw new StorefrontDesignPreviewApiError();
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(total); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new StorefrontDesignPreviewApiError(); } finally { bytes.fill(0); }
 }
 

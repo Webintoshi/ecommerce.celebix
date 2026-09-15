@@ -9,11 +9,9 @@
       "slug": "gercek-kolye",
       "title": "Gerçek Kolye",
       "currency": "TRY",
-      "status": "active",
       "priceCents": 12500,
       "available": true,
-      "variants": [{ "id": "43000000-0000-4000-8000-000000000100", "title": "Standart", "sku": "GERCEK-1", "priceCents": 12500, "stockTracking": false, "stockQuantity": 0, "available": true, "attributes": {} }],
-      "media": [{ "id": "44000000-0000-4000-8000-000000000100", "productId": "42000000-0000-4000-8000-000000000100", "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp", "mediaType": "image/webp", "altText": "Gerçek kolye", "width": 800, "height": 1000, "sortOrder": 0 }]
+      "media": [{ "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp", "altText": "Gerçek kolye", "width": 800, "height": 1000 }]
     }]
   }],
   "assets": [],

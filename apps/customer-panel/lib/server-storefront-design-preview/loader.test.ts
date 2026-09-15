@@ -36,12 +36,13 @@ function product(index: number, input: Readonly<{ available?: boolean; sale?: bo
     id: `42000000-0000-4000-8000-${suffix}`,
     slug: `urun-${index}`,
     title: `Ürün ${index}`,
+    description: `Taşınmaması gereken açıklama ${index}`,
     currency: "TRY",
     status: "active",
     priceCents: 10_000 + index,
     ...(input.sale ? { compareAtCents: 20_000 + index } : {}),
     available: input.available ?? true,
-    variants: Object.freeze([]),
+    variants: Object.freeze([{ id: `43000000-0000-4000-8000-${suffix}`, title: "Standart", priceCents: 10_000 + index, stockTracking: false, stockQuantity: 0, available: true, attributes: Object.freeze({ color: "secretly-unused" }) }]),
     media: Object.freeze([]),
   });
 }
@@ -98,6 +99,9 @@ test("loader deduplicates draft sources and follows migration 113 row limits and
     ["latest", [product(1).id, product(2).id, product(3).id, product(4).id, product(5).id, product(6).id, product(7).id, product(8).id]],
     ["sale", [product(11).id, product(13).id, product(14).id, product(15).id]],
   ]);
+  for (const source of result.productSources) for (const item of source.items) {
+    for (const unused of ["description", "variants", "attributes", "reviews", "categoryPath", "merchandising", "status"]) assert.equal(Object.hasOwn(item, unused), false, unused);
+  }
 });
 
 test("loader reuses a source product for a matching hotspot without a product-detail query", async () => {

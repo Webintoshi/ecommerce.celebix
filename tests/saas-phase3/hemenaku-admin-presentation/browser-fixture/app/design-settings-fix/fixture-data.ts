@@ -7,7 +7,7 @@ export function initialDesignFixture(): StorefrontDesignWorkspace {
     schemaVersion: 4,
     brand: { logo: null, favicon: null, primaryColor: "#846346", accentColor: "#312A25", backgroundColor: "#FFFDFC", textColor: "#312A25", fontFamily: "manrope" },
     typography: { headingFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "700"], source: "google" }, bodyFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "700"], source: "google" }, headingWeight: "700", bodyWeight: "400", headingSizePx: 40, bodySizePx: 16 },
-    hero: { enabled: true, slides: [{ headline: "İzole Tasarım Mağazası", body: "Yalnız test verisi · canlı mağazaya bağlı değildir", desktopImage: { kind: "media", mediaId: "71000000-0000-4000-8000-000000000001" }, mobileImage: null, destination: { kind: "none" }, enabled: true }] },
+    hero: { enabled: false, slides: [{ headline: "İzole Tasarım Mağazası", body: "Yalnız test verisi · canlı mağazaya bağlı değildir", desktopImage: null, mobileImage: null, destination: { kind: "none" }, enabled: true }] },
     promotion: { headline: "Örnek koleksiyon", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false },
     announcement: { items: ["İzole QA · gerçek müşteri verisi yok"], icon: "none", speed: "normal", direction: "left", animation: "continuous", enabled: true },
     composition: { ...composition, sections: [
@@ -17,7 +17,7 @@ export function initialDesignFixture(): StorefrontDesignWorkspace {
     ], footer: { ...composition.footer, groups: [{ heading: "QA Bilgi", links: [{ kind: "system", destination: "/products" }] }, composition.footer.groups[1]] } },
   });
   const publishedAt = "2026-09-14T00:00:00.000Z";
-  const media = [{ id: "71000000-0000-4000-8000-000000000001", url: "https://fixture.invalid/qa-banner.png", altText: "İzole QA banner", mediaType: "image/png" as const, width: 1200, height: 600 }];
+  const media = [];
   const destinations: readonly StorefrontDesignDestinationOption[] = [
     { kind: "collection", resourceId: "91000000-0000-4000-8000-000000000004", label: "Giyim · izole QA", path: "/collections/giyim" },
   ];

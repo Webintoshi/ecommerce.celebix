@@ -6,7 +6,6 @@ import {
   type StorefrontRendererSurface,
 } from "@celebix/storefront-design-ui";
 import type {
-  PublicProduct,
   PublicStarterHomeSection,
   PublicStarterThemePresentationV2,
   PublicStarterThemePresentationV3,
@@ -22,7 +21,7 @@ import { ProductCardContent } from "../../../../storefront-shared/components/Pro
 import { composeCampaignHomeSections } from "../../../../storefront-shared/components/campaign-home-sections";
 
 import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
-import { composeDraftCampaignProjection, type StorefrontDesignPreviewResources } from "../../../lib/storefront-design-preview-model";
+import { composeDraftCampaignProjection, type StorefrontDesignPreviewProduct, type StorefrontDesignPreviewResources } from "../../../lib/storefront-design-preview-model";
 import styles from "../design-settings.module.css";
 import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
 import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
@@ -137,7 +136,7 @@ function HomepagePreviewSection({ section, destinations }: Readonly<{
 
 function PreviewProductRow({ section, products, presentation, locale }: Readonly<{
   section: Extract<PublicStarterHomeSection, { kind: "product_row" }>;
-  products: readonly PublicProduct[];
+  products: readonly StorefrontDesignPreviewProduct[];
   presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
   locale: string;
 }>) {
@@ -148,6 +147,7 @@ function PreviewProductRow({ section, products, presentation, locale }: Readonly
 }
 
 const PREVIEW_RESOURCE_LABELS = Object.freeze({
+  loading: "Seçili kaynaklar ve görseller yükleniyor.",
   partial: "Bazı seçili kaynaklar veya görseller kullanılamıyor.",
   empty: "Bu kaynakta gösterilebilecek içerik bulunamadı.",
   missing: "Seçilen kaynak veya görsel artık bulunamıyor.",
@@ -187,7 +187,10 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
   const designHeroActive = preview.hero.enabled && preview.hero.slides.length > 0;
   const visibleSections = composition.sections.filter((section) => section.enabled && (!designHeroActive || section.kind !== "hero"));
   const resolved = props.previewResources ? composeDraftCampaignProjection({ composition, storeName: props.storeName, destinations: props.destinations, resources: props.previewResources }) : null;
-  const resolvedSections = resolved ? composeCampaignHomeSections(resolved.projection.presentation, designHeroActive) : [];
+  const campaignSections = resolved ? composeCampaignHomeSections(resolved.projection.presentation, designHeroActive) : [];
+  const campaignById = new Map(campaignSections.flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
+  const projectedById = new Map((resolved?.projection.presentation.sections ?? []).flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
+  const resolvedSections = resolved ? visibleSections.flatMap((config) => { const section = campaignById.get(config.sectionId) ?? projectedById.get(config.sectionId); return section ? [{ config, section }] : []; }) : [];
   const resolvedStates = new Map(resolved?.sectionStates.map((state) => [state.sectionId, state.status]) ?? []);
 
   return <div className={styles.previewViewport} data-mode={props.mode} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`}>
@@ -208,11 +211,11 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       </section> : null}
 
       <section className={`${styles.canvasSurface}`} data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
-        {visibleSections.length ? resolved ? <div className={styles.canvasResolvedSections} onClick={(event) => event.preventDefault()}>{resolvedSections.map((section, index) => {
+        {visibleSections.length ? resolved ? <div className={styles.canvasResolvedSections} onClickCapture={(event) => event.preventDefault()}>{resolvedSections.map(({ config, section }, index) => {
           const sectionId = section.sectionId ?? `home_preview_${index + 1}`;
           const status = resolvedStates.get(sectionId) ?? "unavailable";
           const content = <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale="tr" prefetch={false} renderProductRow={(input) => <PreviewProductRow {...input} />} />;
-          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{content}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
+          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{content ?? <section className={styles.canvasSectionSummary}><header><small>{SECTION_LABELS[config.kind]}</small><h2>{sectionHeading(config)}</h2></header></section>}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
         })}</div> : <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
         <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
