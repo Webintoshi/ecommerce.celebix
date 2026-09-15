@@ -1,0 +1,16 @@
+{
+  "source": "e241ee7911dbff31d2c384184577ffabb3cfc7fd",
+  "kind": "isolated PostgreSQL snapshot fixture; not live tenant acceptance",
+  "url": "http://127.0.0.1:3427/design-settings-fix",
+  "matrix": [
+    {"width":1440,"height":1000,"scrollWidth":1440,"canvasWidth":1099,"rowWidths":[1049,1049],"missingHeading":true,"controlHeights":[48,48,48,48],"allControlsVisibleAndCenterHit":true},
+    {"width":1024,"height":1000,"scrollWidth":1024,"canvasWidth":951.046875,"rowWidths":[901.046875,901.046875],"missingHeading":true,"controlHeights":[48,48,48,48],"allControlsVisibleAndCenterHit":true},
+    {"width":390,"height":844,"scrollWidth":390,"canvasWidth":342,"rowWidths":[312,312],"missingHeading":true,"controlHeights":[48,48,48,48],"allControlsVisibleAndCenterHit":true}
+  ],
+  "sectionTextOrder":["01 · İlk ürün satırı","02 · Kategoriler","Seçilen kaynak veya görsel artık bulunamıyor.","03 · İkinci ürün satırı"],
+  "rows":{"count":2,"cardsPerRow":1,"productTitle":"Gerçek Kolye","price":"₺125,00"},
+  "images":{"countPerViewport":2,"complete":true,"loaded":false,"naturalWidth":0,"note":"Synthetic CDN URLs do not deliver image bytes; not loaded-media certification."},
+  "focusAfterEscape":{"tag":"SUMMARY","label":"Tasarım alanlarını aç","modalOpen":false,"outlineStyle":"solid","outlineWidth":"2px","height":48},
+  "console":{"observedErrors":[],"observedWarnings":[],"exhaustiveNetworkCertification":false},
+  "liveAcceptance":"pending user login; no live mutation"
+}
