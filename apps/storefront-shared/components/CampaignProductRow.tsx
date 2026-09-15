@@ -1,7 +1,7 @@
 import type { PublicProduct, PublicStarterHomeSection, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "@celebix/saas-contracts";
 import Link from "next/link";
 
-import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
+import { categoryPath, productIndexPath } from "../lib/storefront-routes.ts";
 import { ProductGrid } from "./ProductGrid";
 import styles from "./campaign-home.module.css";
 

@@ -1,0 +1,371 @@
+{
+  "390": {
+    "toolbar": {
+      "controls": [
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Alanlar",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 95.3828125
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Masaüstü",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 48
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Mobil",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 48
+        },
+        {
+          "centerHit": true,
+          "disabled": true,
+          "height": 48,
+          "label": "Yayınla",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 83.046875
+        }
+      ],
+      "height": 844,
+      "scrollWidth": 390,
+      "toolbar": {
+        "bottom": 261,
+        "height": 56,
+        "left": 24,
+        "right": 366,
+        "top": 205,
+        "width": 342,
+        "x": 24,
+        "y": 205
+      },
+      "width": 390
+    },
+    "preview": {
+      "canvasWidth": 342,
+      "height": 844,
+      "media": [
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        },
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        }
+      ],
+      "rows": [
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 244.796875
+            }
+          ],
+          "heading": "01 · İlk ürün satırı",
+          "width": 312
+        },
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 244.796875
+            }
+          ],
+          "heading": "03 · İkinci ürün satırı",
+          "width": 312
+        }
+      ],
+      "scrollWidth": 390,
+      "text": "YENİ GELENLER01 · İlk ürün satırıGerçek Kolye₺125,00Seçilen kaynak veya görsel artık bulunamıyor.YENİ GELENLER03 · İkinci ürün satırıGerçek Kolye₺125,00Ana sayfayı düzenle",
+      "width": 390
+    }
+  },
+  "1024": {
+    "toolbar": {
+      "controls": [
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Alanlar",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 95.3828125
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Masaüstü",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 106.6171875
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Mobil",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 81.1171875
+        },
+        {
+          "centerHit": true,
+          "disabled": true,
+          "height": 48,
+          "label": "Yayınla",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 83.046875
+        }
+      ],
+      "height": 1000,
+      "scrollWidth": 1024,
+      "toolbar": {
+        "bottom": 211,
+        "height": 56,
+        "left": 595.359375,
+        "right": 987.5234375,
+        "top": 155,
+        "width": 392.1640625,
+        "x": 595.359375,
+        "y": 155
+      },
+      "width": 1024
+    },
+    "preview": {
+      "canvasWidth": 951.046875,
+      "height": 1000,
+      "media": [
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        },
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        }
+      ],
+      "rows": [
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 214.7578125
+            }
+          ],
+          "heading": "01 · İlk ürün satırı",
+          "width": 901.046875
+        },
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 214.7578125
+            }
+          ],
+          "heading": "03 · İkinci ürün satırı",
+          "width": 901.046875
+        }
+      ],
+      "scrollWidth": 1024,
+      "text": "YENİ GELENLER01 · İlk ürün satırıGerçek Kolye₺125,00Seçilen kaynak veya görsel artık bulunamıyor.YENİ GELENLER03 · İkinci ürün satırıGerçek Kolye₺125,00Ana sayfayı düzenle",
+      "width": 1024
+    }
+  },
+  "1440": {
+    "toolbar": {
+      "controls": [
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Alanlar",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 95.3828125
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Masaüstü",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 106.6171875
+        },
+        {
+          "centerHit": true,
+          "disabled": false,
+          "height": 48,
+          "label": "Mobil",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 81.1171875
+        },
+        {
+          "centerHit": true,
+          "disabled": true,
+          "height": 48,
+          "label": "Yayınla",
+          "tabIndex": 0,
+          "visible": true,
+          "width": 83.046875
+        }
+      ],
+      "height": 1000,
+      "scrollWidth": 1440,
+      "toolbar": {
+        "bottom": 184,
+        "height": 56,
+        "left": 999.8359375,
+        "right": 1392,
+        "top": 128,
+        "width": 392.1640625,
+        "x": 999.8359375,
+        "y": 128
+      },
+      "width": 1440
+    },
+    "preview": {
+      "canvasWidth": 1099,
+      "height": 1000,
+      "media": [
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        },
+        {
+          "alt": "Gerçek kolye",
+          "complete": true,
+          "loaded": false,
+          "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+        }
+      ],
+      "rows": [
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 251.75
+            }
+          ],
+          "heading": "01 · İlk ürün satırı",
+          "width": 1049
+        },
+        {
+          "cards": [
+            {
+              "display": "grid",
+              "title": "Gerçek Kolye",
+              "width": 251.75
+            }
+          ],
+          "heading": "03 · İkinci ürün satırı",
+          "width": 1049
+        }
+      ],
+      "scrollWidth": 1440,
+      "text": "YENİ GELENLER01 · İlk ürün satırıGerçek Kolye₺125,00Seçilen kaynak veya görsel artık bulunamıyor.YENİ GELENLER03 · İkinci ürün satırıGerçek Kolye₺125,00Ana sayfayı düzenle",
+      "width": 1440
+    }
+  },
+  "source": "d5df7e5aec43bff28ce6d12a3c0a91f1d3ab9b91",
+  "kind": "isolated PG snapshot UI; no live session or CDN-byte acceptance",
+  "focus": {
+    "label": "Tasarım alanlarını aç",
+    "modalOpen": false,
+    "outlineStyle": "solid",
+    "outlineWidth": "2px",
+    "rect": {
+      "bottom": 257,
+      "height": 48,
+      "left": 24,
+      "right": 119.3828125,
+      "top": 209,
+      "width": 95.3828125,
+      "x": 24,
+      "y": 209
+    },
+    "tag": "SUMMARY"
+  },
+  "mobileCanvas": {
+    "canvasWidth": 390,
+    "height": 1000,
+    "media": [
+      {
+        "alt": "Gerçek kolye",
+        "complete": true,
+        "loaded": false,
+        "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+      },
+      {
+        "alt": "Gerçek kolye",
+        "complete": true,
+        "loaded": false,
+        "url": "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000100/products/42000000-0000-4000-8000-000000000100/44000000-0000-4000-8000-000000000100.webp"
+      }
+    ],
+    "rows": [
+      {
+        "cards": [
+          {
+            "display": "grid",
+            "title": "Gerçek Kolye",
+            "width": 279.359375
+          }
+        ],
+        "heading": "01 · İlk ürün satırı",
+        "width": 360
+      },
+      {
+        "cards": [
+          {
+            "display": "grid",
+            "title": "Gerçek Kolye",
+            "width": 279.359375
+          }
+        ],
+        "heading": "03 · İkinci ürün satırı",
+        "width": 360
+      }
+    ],
+    "scrollWidth": 1440,
+    "text": "YENİ GELENLER01 · İlk ürün satırıGerçek Kolye₺125,00Seçilen kaynak veya görsel artık bulunamıyor.YENİ GELENLER03 · İkinci ürün satırıGerçek Kolye₺125,00Ana sayfayı düzenle",
+    "width": 1440
+  },
+  "navigation": {
+    "before": "http://127.0.0.1:3427/design-settings-fix",
+    "after": "http://127.0.0.1:3427/design-settings-fix"
+  },
+  "console": []
+}

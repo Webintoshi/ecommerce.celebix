@@ -4,12 +4,19 @@ import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { parseStorefrontDesignDocument } from "@celebix/saas-contracts";
+import { PostgresPublicStorefrontRepository, PostgresStorefrontAssetRepository, PostgresStorefrontDesignRepository } from "@celebix/saas-data";
+import pg from "pg";
+import { createServerStorefrontDesignPreviewLoader } from "../../../apps/customer-panel/lib/server-storefront-design-preview/loader-core.ts";
+import { openStarterThemeEditorSession, buildStarterThemeCompositionFromSession } from "../../../apps/customer-panel/lib/starter-theme-composer-model.ts";
+import { assertSafeEnvironment } from "../../saas-phase2/postgres/disposable-harness.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const UP = "202608110100_modular_homepage_builder.up.sql";
 const DOWN = "202608110100_modular_homepage_builder.down.sql";
 const ASSERTIONS = "202608110100_modular_homepage_builder_assertions.sql";
+const PREVIEW_SNAPSHOT = path.join(ROOT, "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/design-settings-fix/postgres-preview-snapshot.json");
 const DB = `homepage_builder_${randomBytes(5).toString("hex")}`;
 const RESTORE_DB = `${DB}_restore`;
 const STORE = "10000000-0000-4000-8000-000000000100";
@@ -17,10 +24,13 @@ const PRINCIPAL = "20000000-0000-4000-8000-000000000100";
 const MEMBERSHIP = "30000000-0000-4000-8000-000000000100";
 const RECORD = "40000000-0000-4000-8000-000000000100";
 const MEDIA = "41000000-0000-4000-8000-000000000100";
+const PRODUCT = "42000000-0000-4000-8000-000000000100";
+const VARIANT = "43000000-0000-4000-8000-000000000100";
+const PRODUCT_MEDIA = "44000000-0000-4000-8000-000000000100";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const HOST = "homepage-builder.example.test";
 const NOW = "2026-08-11T12:00:00.000Z";
-const TOTAL = 14;
+const TOTAL = 18;
 let completed = 0;
 
 function bin(name) {
@@ -134,6 +144,13 @@ function seedAuthority(box) {
 
 function seedDesign(box) {
   psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+    SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',true),pg_catalog.set_config('saas.inventory.source_id','${VARIANT}',true),pg_catalog.set_config('saas.inventory.source_time','2026-01-02T00:00:00Z',true);
+    INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at)
+    VALUES('${PRODUCT}','${STORE}','gercek-kolye','Gerçek Kolye','active','TRY',1,'2026-01-02','2026-01-02');
+    INSERT INTO saas.product_variants(id,product_id,store_id,title,sku,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at)
+    VALUES('${VARIANT}','${PRODUCT}','${STORE}','Standart','GERCEK-1',12500,false,0,'active','{}',1,'2026-01-02','2026-01-02');
+    INSERT INTO saas.product_media(id,store_id,product_id,variant_id,object_key,public_url,media_type,alt_text,width,height,byte_size,sort_order,status,created_at,updated_at,version)
+    VALUES('${PRODUCT_MEDIA}','${STORE}','${PRODUCT}',NULL,'stores/${STORE}/products/${PRODUCT}/${PRODUCT_MEDIA}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/products/${PRODUCT}/${PRODUCT_MEDIA}.webp','image/webp','Gerçek kolye',800,1000,2048,0,'active','2026-01-02','2026-01-02',1);
     INSERT INTO saas.storefront_design_media(id,store_id,object_key,public_url,media_type,alt_text,width,height,content_length,content_sha256,status,created_at,updated_at)
     VALUES('${MEDIA}','${STORE}','stores/${STORE}/design/${MEDIA}.webp','https://media.saas-staging.celebix.site/stores/${STORE}/design/${MEDIA}.webp','image/webp','Ana banner',1600,900,4096,'${fingerprint("homepage-builder-hero")}', 'active','2026-01-01','2026-01-01');
     INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at)
@@ -147,7 +164,8 @@ function seedDesign(box) {
     COMMIT;`);
 }
 
-function main() {
+async function main() {
+  assertSafeEnvironment();
   for (const file of [UP, DOWN, ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
   let box;
   try {
@@ -198,6 +216,59 @@ function main() {
     scenario("runtime roles receive no direct table or helper authority", () => {
       assert.equal(psql(box, "SELECT has_table_privilege('celebix_saas_app','saas.storefront_designs','UPDATE') OR has_function_privilege('celebix_saas_app','saas.storefront_theme_composition_with_home_ids(jsonb)','EXECUTE');").stdout.trim(), "f");
     });
+    const loaded = parseStorefrontDesignDocument(rpc(box, `saas.storefront_design_get(${authority()})`).result.draft);
+    const session = openStarterThemeEditorSession(loaded.composition);
+    const edited = parseStorefrontDesignDocument({ ...loaded, composition: buildStarterThemeCompositionFromSession(session, {
+      visual: { ...session.state.visual, headerWidth: "contained" },
+    }) });
+    const editorSaved = rpc(box, `saas.storefront_design_save_draft(${authority()},'70000000-0000-4000-8000-000000000101','${fingerprint("editor-adapter-draft")}',2,$editor$${JSON.stringify(edited)}$editor$::jsonb)`);
+    scenario("real editor adapter save and workspace re-read preserve the exact V3 document", () => {
+      assert.equal(editorSaved.outcome, "saved");
+      const reread = rpc(box, `saas.storefront_design_get(${authority()})`).result;
+      assert.equal(reread.draftVersion, 3);
+      assert.deepEqual(reread.draft, edited);
+      assert.deepEqual(edited.composition.footer, loaded.composition.footer);
+      assert.deepEqual(edited.composition.sections, loaded.composition.sections);
+    });
+    scenario("stale editor save is rejected without overwriting the persisted draft", () => {
+      const rejected = rpc(box, `saas.storefront_design_save_draft(${authority()},'70000000-0000-4000-8000-000000000102','${fingerprint("editor-stale")}',2,$editor$${JSON.stringify(loaded)}$editor$::jsonb)`);
+      assert.equal(rejected.outcome, "draft_version_conflict");
+      assert.deepEqual(rpc(box, `saas.storefront_design_get(${authority()})`).result.draft, edited);
+    });
+    scenario("editor payload publication preserves selected presentation in public re-read", () => {
+      assert.equal(rpc(box, `saas.storefront_design_publish(${authority()},'80000000-0000-4000-8000-000000000101','${fingerprint("editor-publish")}',3,2)`).outcome, "published");
+      assert.deepEqual(JSON.parse(psql(box, `SELECT published_config::text FROM saas.storefront_designs WHERE store_id='${STORE}';`).stdout.trim()), edited);
+      const publicStore = rpc(box, `saas.resolve_public_storefront('${HOST}','${NOW}')`, "celebix_saas_host_resolver");
+      assert.equal(publicStore.result.presentation.visual.headerWidth, "contained");
+      assert.deepEqual(publicStore.result.presentation.sections, []);
+    });
+    {
+      const pool = new pg.Pool({ host: box.socket, port: box.port, database: DB, user: "postgres", max: 2 });
+      try {
+        const timeouts = { poolCheckoutMs: 1_000, statementMs: 5_000, lockMs: 5_000, idleTransactionMs: 5_000 };
+        const tenantContext = { schemaVersion: 1, requestId: "45000000-0000-4000-8000-000000000100", principal: { id: PRINCIPAL, issuer: "https://identity.example.test/oidc", subject: "homepage-builder-owner" }, store: { id: STORE, slug: "homepage-builder", status: "active" }, membership: { id: MEMBERSHIP, role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: PLAN, planCode: "free_starter", version: 1, status: "active", features: ["catalog", "media"], limits: { products: 100, staff: 5, storageBytes: 1_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" }, resolvedHost: { schemaVersion: 1, hostname: HOST, domainId: "60000000-0000-4000-8000-000000000100", domainType: "custom", storeId: STORE, storeSlug: "homepage-builder", canonicalHostname: HOST, status: "active", cacheVersion: 1 }, locale: "tr-TR" };
+        const design = new PostgresStorefrontDesignRepository({ pool, role: "celebix_saas_app", timeouts, audit() {} });
+        const publicStorefront = new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts });
+        const assets = new PostgresStorefrontAssetRepository({ pool, role: "celebix_saas_app", publicMediaOrigin: "https://media.saas-staging.celebix.site", timeouts, audit() {} });
+        const workspace = await design.getWorkspace({ tenantContext, now: new Date(NOW) });
+        const composition = { ...workspace.draft.composition, sections: [{ sectionId: "home_product_real", kind: "product_row", enabled: true, heading: "Gerçek ürünler", source: "latest", limit: 4 }] };
+        const setupDraft = await design.saveDraft({ tenantContext, now: new Date(NOW), operationId: "46000000-0000-4000-8000-000000000100", expectedDraftVersion: workspace.draftVersion, design: { ...workspace.draft, composition } });
+        const setupPublished = await design.publish({ tenantContext, now: new Date(NOW), operationId: "47000000-0000-4000-8000-000000000100", expectedDraftVersion: setupDraft.draftVersion, expectedPublishedVersion: workspace.publishedVersion });
+        const unpublishedComposition = { ...composition, sections: [{ ...composition.sections[0], heading: "Yayınlanmamış gerçek ürünler" }] };
+        await design.saveDraft({ tenantContext, now: new Date(NOW), operationId: "48000000-0000-4000-8000-000000000100", expectedDraftVersion: setupPublished.draftVersion, design: { ...workspace.draft, composition: unpublishedComposition } });
+        const workspaceBefore = await design.getWorkspace({ tenantContext, now: new Date(NOW) });
+        const result = await createServerStorefrontDesignPreviewLoader({ publicStorefront, assets }).load({ tenantContext, now: new Date(NOW), workspace: workspaceBefore, composition: unpublishedComposition });
+        const workspaceAfter = await design.getWorkspace({ tenantContext, now: new Date(NOW) });
+        const expected = JSON.parse(readFileSync(PREVIEW_SNAPSHOT, "utf8"));
+        const resolvedStorefront = await publicStorefront.getPublicStorefront({ hostname: HOST, now: new Date(NOW) });
+        const publishedProjection = await publicStorefront.resolveCampaignHome({ storefront: resolvedStorefront, now: new Date(NOW) });
+        assert.deepEqual(result, expected);
+        assert.deepEqual(workspaceAfter, workspaceBefore);
+        assert.equal(publishedProjection.productRows[0].items[0].title, result.productSources[0].items[0].title);
+        assert.equal(publishedProjection.productRows[0].items[0].media[0].url, result.productSources[0].items[0].media[0].url);
+        completed += 1; process.stdout.write(`PASS ${completed}/${TOTAL} real Postgres public repository feeds bounded draft products and media\n`);
+      } finally { await pool.end(); }
+    }
     scenario("backup and restore preserve schema and exact section identity", () => {
       const archive = path.join(box.root, "homepage-builder.dump");
       command(box.tools.pg_dump, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-d", DB, "-Fc", "-f", archive]);
@@ -228,4 +299,4 @@ function main() {
   }
 }
 
-main();
+await main();
