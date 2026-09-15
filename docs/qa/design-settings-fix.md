@@ -1,5 +1,7 @@
 # Design settings fixes — A01–A07
 
+September15 continuation: the narrowly authorized read-only A03 implementation, newer source/test evidence and remaining limits are recorded in [A03 closeout](design-a03-closeout.md). The following report remains the historical frontend-only acceptance record, not the current A03 scope or source identity.
+
 Status: **FRONTEND FIXES VERIFIED — 6 CLOSED / A03 PARTIAL — LIVE ACCEPTANCE PENDING**. No live mutation, deployment or merge. Final application source: `1badb864b64c3bcc8138f3b6157e6c4bc6c9f085`. Later evidence-only commits do not change that application source.
 
 ## Source and protected evidence
