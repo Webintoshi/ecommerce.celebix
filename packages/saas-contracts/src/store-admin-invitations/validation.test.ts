@@ -51,6 +51,10 @@ test("canonical email is shared with acceptance without rewriting mailbox aliase
     "x@-example.com",
     "x@example-.com",
     "x@example..com",
+    "\u00a0recipient@example.com\u00a0",
+    "\ufeffrecipient@example.com\ufeff",
+    "\trecipient@example.com\t",
+    "\nrecipient@example.com\n",
     null,
   ]) rejectsInvalid(() => normalizeStoreAdminInvitationEmail(invalid));
 });
@@ -95,6 +99,7 @@ test("public invitation projection rejects malformed identifiers, enums, text, t
     ["status", "active"],
     ["deliveryStatus", "sent"],
     ["displayName", ""],
+    ["displayName", " Pilot Recipient "],
     ["displayName", "unsafe<script>"],
     ["displayName", "line\nbreak"],
     ["displayName", "x".repeat(161)],

@@ -75,7 +75,7 @@ function enumValue<T extends string>(value: unknown, allowed: readonly T[]): T {
 export function normalizeStoreAdminInvitationEmail(value: unknown): string {
   return guarded(() => {
     if (typeof value !== "string") invalid();
-    const normalized = value.trim().toLowerCase();
+    const normalized = value.replace(/^ +| +$/g, "").toLowerCase();
     if (normalized.length < 3 || normalized.length > 254 || CONTROL.test(normalized) || /[^\x20-\x7e]/.test(normalized)) invalid();
     const parts = normalized.split("@");
     if (parts.length !== 2) invalid();
