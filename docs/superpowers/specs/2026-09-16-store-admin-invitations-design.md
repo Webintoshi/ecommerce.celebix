@@ -1,6 +1,6 @@
 # Store administrator invitations — approved scope, implementation design
 
-Status: design review; implementation and live delivery NOT completed.
+Status: user approved the written design on 2026-09-16; implementation and live delivery NOT completed.
 
 ## Problem and evidence
 
