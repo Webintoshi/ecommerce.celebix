@@ -187,6 +187,8 @@ export function openInvitationDeliveryPayload(
   keyring: InvitationPayloadKeyring,
 ): InvitationDeliveryPayload {
   let bytes: Buffer | undefined;
+  let updatedPlaintext: Buffer | undefined;
+  let finalPlaintext: Buffer | undefined;
   let plaintext: Buffer | undefined;
   let key: Buffer | undefined;
   try {
@@ -205,13 +207,17 @@ export function openInvitationDeliveryPayload(
     const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(3, 3 + IV_BYTES), { authTagLength: TAG_BYTES });
     decipher.setAAD(aad(keyId, parsedContext));
     decipher.setAuthTag(bytes.subarray(3 + IV_BYTES, PREFIX_BYTES));
-    plaintext = Buffer.concat([decipher.update(bytes.subarray(PREFIX_BYTES)), decipher.final()]);
+    updatedPlaintext = decipher.update(bytes.subarray(PREFIX_BYTES));
+    finalPlaintext = decipher.final();
+    plaintext = Buffer.concat([updatedPlaintext, finalPlaintext]);
     if (plaintext.length > MAX_PLAINTEXT_BYTES) invalid();
     return parsePayload(JSON.parse(plaintext.toString("utf8")));
   } catch {
     return invalid();
   } finally {
     plaintext?.fill(0);
+    finalPlaintext?.fill(0);
+    updatedPlaintext?.fill(0);
     key?.fill(0);
     bytes?.fill(0);
   }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -44,6 +45,69 @@ function digest(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function assertDecryptUpdateBuffersWiped(mode: "success" | "tampered-tag"): void {
+  const sealUrl = new URL("./seal.ts", import.meta.url).href;
+  const cryptoWrapper = `
+    import { createCipheriv, createDecipheriv as realCreateDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
+    globalThis.__invitationDecryptUpdateBuffers = [];
+    export { createCipheriv, createHash, randomBytes, timingSafeEqual };
+    export function createDecipheriv(...arguments_) {
+      const decipher = realCreateDecipheriv(...arguments_);
+      return new Proxy(decipher, {
+        get(target, property) {
+          if (property === "update") {
+            return (...updateArguments) => {
+              const output = target.update(...updateArguments);
+              globalThis.__invitationDecryptUpdateBuffers.push(output);
+              return output;
+            };
+          }
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        }
+      });
+    }
+  `;
+  const child = `
+    import assert from "node:assert/strict";
+    import { createHash } from "node:crypto";
+    import { registerHooks } from "node:module";
+    const wrapperUrl = ${JSON.stringify(`data:text/javascript,${encodeURIComponent(cryptoWrapper)}`)};
+    registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier === "node:crypto" && context.parentURL === ${JSON.stringify(sealUrl)}) {
+          return { shortCircuit: true, url: wrapperUrl };
+        }
+        return nextResolve(specifier, context);
+      }
+    });
+    const { openInvitationDeliveryPayload, sealInvitationDeliveryPayload } = await import(${JSON.stringify(sealUrl)});
+    const token = Buffer.alloc(32, 5).toString("base64url");
+    const payload = { token, recipient: "recipient@example.com", sender: "sender@example.com", displayName: "Sadık Ahmet", storeName: "Güzide Kuyumcu", role: "admin", expiresAt: "2020-01-01T00:00:00.000Z", acceptanceOrigin: "https://accounts.celebix.co" };
+    const context = { invitationId: "123e4567-e89b-42d3-a456-426614174000", generation: 2 };
+    const keyring = { activeKeyId: "invite_key_02", keys: { invite_key_02: Buffer.alloc(32, 2) } };
+    const sealed = sealInvitationDeliveryPayload(payload, context, keyring);
+    if (${JSON.stringify(mode)} === "tampered-tag") {
+      const bytes = Buffer.from(sealed.bytes);
+      bytes[15] ^= 1;
+      const tampered = { ...sealed, bytes, digest: createHash("sha256").update(bytes).digest("hex") };
+      const bytesBefore = Buffer.from(bytes);
+      const keyBefore = Buffer.from(keyring.keys.invite_key_02);
+      assert.throws(() => openInvitationDeliveryPayload(tampered, context, keyring), error => error instanceof Error && error.message === "store_admin_invitation_seal_invalid");
+      assert.deepEqual(bytes, bytesBefore);
+      assert.deepEqual(keyring.keys.invite_key_02, keyBefore);
+    } else {
+      assert.deepEqual(openInvitationDeliveryPayload(sealed, context, keyring), payload);
+    }
+    assert.ok(globalThis.__invitationDecryptUpdateBuffers.length > 0);
+    assert.equal(globalThis.__invitationDecryptUpdateBuffers.every(buffer => buffer.every(byte => byte === 0)), true, "decrypt update plaintext buffer was not wiped");
+  `;
+  const result = spawnSync(process.execPath, ["--experimental-strip-types", "--input-type=module", "--eval", child], {
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+}
+
 test("delivery payload round trips opaquely with random authenticated envelopes", () => {
   const selected = keyring();
   const keysBefore = Object.fromEntries(Object.entries(selected.keys).map(([id, key]) => [id, Buffer.from(key)]));
@@ -85,6 +149,14 @@ test("context, rotation key, metadata, digest, tag, ciphertext, and truncation a
     () => openInvitationDeliveryPayload(mutated(3 + 12), context, selected),
     () => openInvitationDeliveryPayload(mutated(sealed.bytes.length - 1), context, selected),
   ]) rejectsInvalid(operation);
+});
+
+test("successful decryption wipes the real crypto update plaintext buffer", () => {
+  assertDecryptUpdateBuffersWiped("success");
+});
+
+test("failed tag authentication wipes the real crypto update plaintext buffer", () => {
+  assertDecryptUpdateBuffersWiped("tampered-tag");
 });
 
 test("payload validation rejects extra, missing, malformed, oversized, and noncanonical fields", () => {
@@ -131,7 +203,7 @@ test("exact context, envelope, and keyring boundaries fail closed without mutati
   ]) rejectsInvalid(operation);
 });
 
-test("plaintext and encrypted envelopes are bounded while past expiry remains decryptable", () => {
+test("oversized payload fields and encrypted envelopes fail while past expiry remains decryptable", () => {
   const baseSize = Buffer.byteLength(JSON.stringify(payload), "utf8");
   const room = 8192 - baseSize;
   const boundary = { ...payload, storeName: "x".repeat(payload.storeName.length + room) };
