@@ -55,6 +55,8 @@ test("canonical email is shared with acceptance without rewriting mailbox aliase
     "\ufeffrecipient@example.com\ufeff",
     "\trecipient@example.com\t",
     "\nrecipient@example.com\n",
+    "\u212a@example.com",
+    "recipient@e\u212ample.com",
     null,
   ]) rejectsInvalid(() => normalizeStoreAdminInvitationEmail(invalid));
 });
