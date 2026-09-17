@@ -43,3 +43,34 @@ Result: exit 0; 37 tests passed, 0 failed, 0 skipped. Node emitted only its exis
 - The form intentionally exposes no technical operation, target, or evidence identifiers.
 - Focused actual-render coverage uses the repository's existing React static-render harness; no local browser/server or heavy build was run under the low-disk constraint.
 - Required independent scoped review remains controller-owned.
+
+## Review fix round 1 — completed-intent retirement
+
+The scoped review found that the cached archive operation ID survived a confirmed success. After a restore in the same mounted console, a same-reason archive could therefore replay the completed operation instead of representing a new intent.
+
+### RED
+
+Command:
+
+```text
+node --experimental-transform-types --test apps/customer-panel/lib/order-console.test.ts
+```
+
+Result: exit 1; 38 tests, 37 passed and 1 failed. The new archive-success → restore → same-reason archive regression observed identical operation IDs, while the existing uncertain retry reuse behavior remained green.
+
+### GREEN
+
+Command:
+
+```text
+node --experimental-transform-types --test apps/customer-panel/lib/order-console.test.ts
+```
+
+Result: exit 0; 38 tests passed, 0 failed, 0 skipped. Node emitted only its existing experimental transform-types warning.
+
+### Fix
+
+- The matching cached archive intent is now cleared only after the shared mutation path reports `success`, which means both the archive call and its refresh completed.
+- Failed or uncertain attempts retain the operation ID for a safe same-intent retry.
+- A later post-restore archive, even with the same order and reason, receives a new operation ID.
+- No archive transport, eligibility, permission, SQL, guard, or restore behavior changed.

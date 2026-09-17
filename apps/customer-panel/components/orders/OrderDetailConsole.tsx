@@ -460,7 +460,9 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
       const eligibility = await orderApi.getArchiveEligibility(orderId);
       if (eligibility.id !== orderId || !eligibility.eligible || eligibility.archived) throw new ArchiveEligibilityError();
       return orderApi.archiveOrder(orderId, { operationId, reason, evidenceReference: ARCHIVE_EVIDENCE_REFERENCE });
-    }, "Sipariş arşivlendi.");
+    }, "Sipariş arşivlendi.").then((outcome) => {
+      if (outcome.state === "success" && archiveIntent.current?.operationId === operationId) archiveIntent.current = undefined;
+    });
   }
 
   async function retryNotification(deliveryId: string) {
