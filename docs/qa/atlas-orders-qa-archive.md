@@ -1,6 +1,39 @@
 # Orders QA archive — implementation evidence
 
-Status: IMPLEMENTED; VALIDATION PARTIAL — remaining consumer checks blocked by disk capacity. No live migration or archive has run.
+## 2026-09-17 controlled closeout (supersedes historical status below)
+
+Current candidate: `69ee87990a53909968d64e4bc9f51d6be9e5f253`, branch `codex/atlas-orders-qa-cleanup`. Normal merge preserves running source `2f239495f4358c25f85a4f7fb2938ce547a0905a`, including compact administrators, discount cards, design and domain changes. No canonical merge.
+
+The user's repeated explicit instructions to archive the nine screenshot-selected test orders and publish the bounded Panel update supersede the historical preparation-only approval. This does not authorize bypassing eligibility, changing dependency records, or payment/provider operations. Only two exact targets pass the existing guards; seven remain blocked. The runner allowlist was not expanded.
+
+Validation:
+
+- Full Panel first test group on `afc84260`: 1378 PASS, 1 FAIL, 1 SKIP (1380 total). Failure is `merchant-admin-ui/route-behavior.test.ts`, missing expected inline-create element. The exact same failure was reproduced on the running `2f239495` source; affected merchant UI files are unchanged by this archive release. It is a known baseline failure, not counted as PASS.
+- Final `69ee8799` archive console/client regression: 38 PASS, including uncertain retry and success/restore/new-archive operation identity. Remaining official react-server group: 54 PASS.
+- Contracts: 332 PASS; data: 616 PASS; both typechecks PASS. Panel typecheck/build PASS on final candidate in a network-isolated Node 24.11.1 validation container.
+- Actual disposable PostgreSQL 16.14: 17 groups PASS in original order and 17 groups PASS with migration 128 preceding 127. These are fixtures, not live archive acceptance.
+- Storefront-shared build PASS. `apps/admin` build attempted but blocked by Google Fonts Lora fetch in network-none validation; not counted as PASS. No disk cleanup or local heavy build.
+- Independent readiness and archive UI reviews approved after fixing readiness coverage and completed-intent retirement.
+- Official PayTR/Iyzico generator and check methods PASS for exact candidate. Existing PayTR test/live modes and authority scope retained; adapter source digest unchanged. Iyzico remains unauthorized. New candidate binding is associated with the user's current bounded release approval, not automatic inheritance of an old approval. No provider call.
+
+Release: migration 127 applied atomically with assertions to `celebix_saas_staging_auth01` (`isolated_staging`), after backing up existing function definitions/ACLs and confirming they remained unchanged. Archive tables were empty after migration; no existing order row was mutated. Manual Panel deployment `52da5a4a-6afc-4107-9cd8-8946b21a7c60` finished successfully.
+
+### Live acceptance — PARTIAL, 2 of 9 archived
+
+- Actual running container `5190ae938569`, image `sha256:ad9b09ef039fca003fb945b2185af94ff994a6b530bfe8446de89ebff46eebdc`, SOURCE_COMMIT `69ee87990a53909968d64e4bc9f51d6be9e5f253`, Next build ID `HAcGsRVjrsowUjisPv8HT`. Checked key application source hashes against candidate, and both generated payment metadata files against the officially validated output. Direct runtime generator execution is not claimed. HTTPS `/api/health`: 200.
+- Existing Chrome Sadık Ahmet profile, authenticated `guzide-kuyumcu-4` / Mağaza sahibi. No cookie/token extraction, new login, logout or fabricated authority. Used the deployed archive form, one explicit submit per exact target, with reason `Kullanıcı tarafından onaylanan test siparişi arşivleme`.
+- `0e8bca85-e87c-5a82-8a4e-d615b6d4df29`: displayed “Sipariş arşivlendi.” Operation `4d049bfd-420a-4e22-ab68-46a942affde5`.
+- `af1982e0-c3f2-5f39-8509-8e0250394b13`: displayed “Sipariş arşivlendi.” Operation `6b9be36d-3709-4304-942b-f02404c2d866`.
+- Returned to the unfiltered normal Orders list; both IDs absent, the other seven selected IDs still present. Session left open on Orders. Read-only database verification confirms exactly two archive states and two append-only archive operations in this store.
+- All nine physical order rows, 12 order items, 14 events and five order operations retain identical ordered-content digests compared with the pre-release backup. No physical deletion, status/payment change, refund, inventory mutation or notification change.
+- Seven blocked IDs remain unchanged: `a5de1e47-404a-5e90-89c2-2fa9da177a4f` (analytics outbox/email); `3f8fb0cc-3d25-4bea-aca7-569bc01f9cd6`, `bf0a44a8-8e80-4c35-ab73-0bf4a0f530ed`, `07f5215a-a751-4d84-9476-45e78a6f5531`, `4e53def8-4276-4ad8-8bab-4247922dce6a`, `0c4f337b-bc1c-446a-adc9-b64af8e6d1b2` (cart, receipt, checkout-operation and email dependencies); `a53947fb-e99f-4be5-8d05-5c5cf4eeeb4e` (payment state, receipt, checkout operation, email and hosted checkout session). These facts do not assert that a real payment occurred; they are the existing archive policy's observed blockers.
+- No blanket panel certification. No full browser console/network audit or responsive matrix was performed in this bounded archive execution. Fixture tests above are separate from these actual authenticated archive results.
+
+Rollback: previous image `sha256:bca8dd5c125d6e3f0bdd69c89eac45b488bea3e598c8c3fdabbed672a6d06aa2` retained with matching source/settings in a private server backup. Pre/post hooks unchanged; all four app Auto Deploy/Preview switches OFF. Owner, Storefront and Worker unchanged. Preserve archive metadata/audit on rollback; old direct-ID detail ABI lacks the new archived-detail permission rule and must not be represented as equivalent access enforcement.
+
+## Historical preparation evidence
+
+The following sections describe the earlier preparation state, not the current release status.
 
 ## Authority and scope
 
