@@ -7,11 +7,14 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { assertSafeEnvironment } from '../../saas-phase2/postgres/disposable-harness.mjs';
 import { parseStoreAdminInvitationView } from '../../../packages/saas-contracts/src/store-admin-invitations/validation.ts';
+import pg from 'pg';
+import { runInvitationMigrations } from '../../../apps/owner/scripts/apply-staging-invitation-migrations.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const SQL = path.join(ROOT, 'apps/owner/scripts/sql/saas');
 const PREFIX = '202609170129_store_admin_invitations';
 const SESSION_PREFIX = '202609170130_invitation_member_panel_sessions';
+const MANAGER_PREFIX = '202609170131_store_admin_invitation_manager';
 const NOW = '2026-09-17T12:00:00.000Z';
 const LATER = '2026-09-17T12:02:00.000Z';
 const PLAN = '00000000-0000-4000-8000-000000000001';
@@ -120,12 +123,22 @@ try {
   const excluded = ['202607310072_storefront_cart_checkout_assertions.sql','202607300073_seed_guzide_pilot_admin_domain.up.sql','202607300073_seed_guzide_pilot_admin_domain_assertions.sql'];
   for (const file of files) if(!excluded.includes(file)) apply(file);
   process.stdout.write(`BASELINE ${files.length-excluded.length} migration files through 128 applied; excluded optional legacy assertion and live-only pilot seed\n`);
+  await test('T8 migration runner applies all invitation SQL atomically, recognizes complete state and rejects partial state', async () => {
+    sql('CREATE DATABASE celebix_saas_staging_auth01 TEMPLATE invitations;', 'postgres');
+    sql('CREATE ROLE invitation_migration_fixture LOGIN; GRANT celebix_saas_owner TO invitation_migration_fixture;', 'postgres');
+    const run = () => runInvitationMigrations({ client: new pg.Client({ host: box.socket, port: box.port, user: 'invitation_migration_fixture', database: 'celebix_saas_staging_auth01' }), readSql: name => readFileSync(path.join(SQL,name),'utf8'), write() {} });
+    assert.equal(await run(), 'applied');
+    assert.equal(await run(), 'already_complete');
+    sql('DROP FUNCTION saas.store_admin_invitation_manager(text,text,text,timestamptz);', 'celebix_saas_staging_auth01');
+    await assert.rejects(run, /invitation_migration_failed/);
+  });
   if (existsSync(path.join(SQL, `${PREFIX}.up.sql`))) apply(`${PREFIX}.up.sql`);
   await test('persistence migration exposes identity-only issue boundary', () => {
     assert.equal(value("SELECT to_regprocedure('saas.store_admin_invitation_issue(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,jsonb)') IS NOT NULL;"), 't');
   });
   apply(`${PREFIX}_assertions.sql`);
   if (existsSync(path.join(SQL, `${SESSION_PREFIX}.up.sql`))) { apply(`${SESSION_PREFIX}.up.sql`); apply(`${SESSION_PREFIX}_assertions.sql`); }
+  if (existsSync(path.join(SQL, `${MANAGER_PREFIX}.up.sql`))) { apply(`${MANAGER_PREFIX}.up.sql`); apply(`${MANAGER_PREFIX}_assertions.sql`); }
   sql('CREATE DATABASE invitations_empty TEMPLATE invitations;', 'postgres');
   sql(`INSERT INTO saas.principals VALUES(${q(OWNER)},'https://identity.example.test/oidc','inviter','owner@example.test',true,'2026-01-01','2026-01-01');
     INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES (${q(STORE)},'Test Store','invite-test','active','tr','TRY','hemenaku','2026-01-01','2026-01-01'),(${q(OTHER)},'Other Store','invite-other','active','tr','TRY','hemenaku','2026-01-01','2026-01-01');
@@ -139,6 +152,24 @@ try {
     const list = call(`saas.store_admin_invitation_list(${authority()})`, 'app');
     assert.equal(list.outcome, 'listed'); list.result.items.forEach(parseStoreAdminInvitationView);
     assert.equal(value(`SELECT count(*) FROM saas.merchant_admin_records WHERE id=${q(item.s.id)};`), '1');
+  });
+  await test('T8 identity manager resolver requires durable owner session and verified same-store host', () => {
+    const digest = hash(randomUUID());
+    const current = value("SELECT saas.merchant_admin_timestamp(clock_timestamp());");
+    const issued = value(`BEGIN; SET LOCAL ROLE celebix_saas_identity; SELECT outcome FROM saas.issue_panel_session(${q(randomUUID())},${q(randomUUID())},${q(randomUUID())},'manager_key',${q(digest)},${q(OWNER)},${q(STORE)},${q(current)},${q(current)}::timestamptz+interval '1 hour'); COMMIT;`);
+    assert.equal(issued, 'issued');
+    const expression = host => `saas.store_admin_invitation_manager('manager_key',${q(digest)},${q(host)},clock_timestamp())`;
+    assert.deepEqual(call(expression('invite-test.admin.example.test')).result, { storeId: STORE, principalId: OWNER, membershipId: MEMBER, planId: PLAN, planCode: 'free_starter', planVersion: 1 });
+    for (const host of ['foreign.admin.example.test','panel.example.test','INVITE-TEST.admin.example.test']) assert.equal(call(expression(host)).outcome, 'membership_denied');
+    for (const change of ["role='admin'", "status='revoked'"]) {
+      sql(`UPDATE saas.memberships SET ${change} WHERE id=${q(MEMBER)};`);
+      assert.equal(call(expression('invite-test.admin.example.test')).outcome, 'membership_denied');
+      sql(`UPDATE saas.memberships SET role='store_owner',status='active' WHERE id=${q(MEMBER)};`);
+    }
+    sql(`UPDATE saas.admin_domains SET verified_at=NULL,status='pending_verification',canonical=false WHERE store_id=${q(STORE)};`);
+    assert.equal(call(expression('invite-test.admin.example.test')).outcome, 'membership_denied');
+    sql(`UPDATE saas.admin_domains SET verified_at='2026-01-01',status='active',canonical=true WHERE store_id=${q(STORE)};`);
+    for (const role of ['app','workflow']) assert.notEqual(sql(statement(expression('invite-test.admin.example.test'),role),'invitations',true).status,0);
   });
   await test('tenant, nonowner and revoked inviter cannot issue or list', () => {
     const s = source(), c = candidate();
@@ -155,6 +186,14 @@ try {
     assert.equal(issued({email:'  INVITE@EXAMPLE.TEST  '}).result.result.email,'invite@example.test');
     const s=source(); sql(`UPDATE saas.merchant_admin_records SET version=2 WHERE id=${q(s.id)};`);
     assert.equal(call(issueExpression(s,candidate())).outcome,'version_conflict');
+  });
+  await test('source reader rejects relative and noncanonical expiry before rendering or issue', () => {
+    for (const expiresAt of ['tomorrow', 'infinity', '09/24/2026', '2026-09-24', '2026-09-24T12:00:00+00:00', '2026-09-24T12:00:00.1Z', '2026-02-30T12:00:00.000Z']) {
+      const s = source({ expiresAt });
+      assert.equal(call(`saas.store_admin_invitation_source(${authority()},${q(s.id)},1)`).outcome, 'invalid_source', expiresAt);
+      assert.equal(call(issueExpression(s, candidate())).outcome, 'invalid_source', expiresAt);
+    }
+    for (const expiresAt of ['2026-09-24T12:00:00Z', '2026-09-24T12:00:00.123Z']) assert.equal(issued({ expiresAt }).result.outcome, 'issued');
   });
   await test('concurrent identical issue and recovery create one invitation and immutable operation', async () => {
     const s=source(), c=candidate(), op=randomUUID(), fp=hash(op), expr=issueExpression(s,c,op,fp);

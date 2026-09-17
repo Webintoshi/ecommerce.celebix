@@ -1,1 +1,6 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function SettingsAdministratorsPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="administrator_invite" canManage={isMerchantActionAllowed(tenantContext.membership.role,"configuration.manage")}/>}
+import { StoreAdminInvitationsConsole } from "@/components/store-admin-invitations/StoreAdminInvitationsConsole";
+import { requireServerPanelAccess } from "@/lib/server-access";
+export default async function SettingsAdministratorsPage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return <StoreAdminInvitationsConsole canManage={tenantContext.membership.role === "store_owner"} />;
+}

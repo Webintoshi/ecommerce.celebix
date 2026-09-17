@@ -11,6 +11,7 @@ import {
 import { canonicalPanelBrowserBindingCredential } from "../panel-browser-binding/credential-codec.ts";
 import { assertPanelBrowserBindingBootstrapApproval } from "./activation.ts";
 import { parseInvitationRequest, parseInvitationResponse, type InvitationRequest } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
+import { parseInvitationManagementRequest, parseInvitationManagementResponse, type InvitationManagementRequest } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
 
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -251,7 +252,7 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
   const maximumResponseBytes = options.maximumResponseBytes;
   const audit = options.audit;
 
-  async function exchange(body: string): Promise<{ raw: string; status: number }> {
+  async function exchange(body: string, responseLimit = maximumResponseBytes): Promise<{ raw: string; status: number }> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
     try {
@@ -286,7 +287,7 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
       if (response.headers.get("x-celebix-browser-bootstrap-response-key-id") !== keyId ||
           response.headers.get("x-celebix-browser-bootstrap-response-timestamp") !== requestTimestamp) invalid();
       const responseSignature = canonicalSignature(response.headers.get("x-celebix-browser-bootstrap-response-signature"));
-      const rawBytes = await boundedBytes(response, maximumResponseBytes, controller.signal);
+      const rawBytes = await boundedBytes(response, responseLimit, controller.signal);
       const responseBodyDigest = createHash("sha256").update(rawBytes).digest("hex");
       const preimage = [
         PANEL_BROWSER_BOOTSTRAP_RESPONSE_SIGNATURE_DOMAIN,
@@ -315,6 +316,11 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
     return parseInvitationResponse(response.raw, response.status, panelCallbackAuthority, trustedNow(clock), operation);
   }
   return Object.freeze({
+    async manageInvitation(input: InvitationManagementRequest) {
+      const body = JSON.stringify(input), parsed = parseInvitationManagementRequest(body);
+      const response = await exchange(body, 262_144);
+      return parseInvitationManagementResponse(response.raw, response.status, parsed.action);
+    },
     startInvitation(input: { token: string; browserBindingCredential: string }) { return invitation(input, 4, "invitation_start"); },
     previewInvitation(input: { grantCredential: string; browserBindingCredential: string }) { return invitation(input, 5, "invitation_preview"); },
     acceptInvitation(input: { grantCredential: string; browserBindingCredential: string; operationId: string }) { return invitation(input, 6, "invitation_accept"); },

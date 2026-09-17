@@ -1,3 +1,5 @@
+import { parseStoreAdminInvitationActionIntent, parseStoreAdminInvitationSendIntent, parseStoreAdminInvitationView } from "./store-admin-invitations/validation.ts";
+import type { StoreAdminInvitationActionIntent, StoreAdminInvitationSendIntent, StoreAdminInvitationView } from "./store-admin-invitations/types.ts";
 /** Credential-bearing INTERNAL wire shapes. Never return these from a public browser endpoint. */
 export type InvitationRequest =
   | { schemaVersion: 4; operation: "invitation_start"; browserBindingCredential: string; token: string }
@@ -98,4 +100,51 @@ export function parseInvitationResponse(raw: string, status: number, callbackAut
   }
   if (b.schemaVersion !== 3 || invitationResponseStatus(b as InvitationResponse) !== status) invalid();
   return Object.freeze(b) as InvitationResponse;
+}
+
+export type InvitationManagementRequest = Readonly<{ schemaVersion: 7; operation: "invitation_management"; sessionCredential: string; requestHostname: string } & (
+  | { action: "list" }
+  | { action: "send"; intent: StoreAdminInvitationSendIntent }
+  | { action: "resend" | "revoke"; intent: StoreAdminInvitationActionIntent }
+)>;
+export const INVITATION_MANAGEMENT_CODES = ["invalid_input", "membership_denied", "store_inactive", "durable_authority_invalid", "feature_not_enabled", "invalid_source", "version_conflict", "invitation_unavailable", "operation_conflict", "already_converted", "rate_limited", "configuration_unavailable", "unavailable", "commit_unknown"] as const;
+export type InvitationManagementResponse = Readonly<
+  | { schemaVersion: 4; kind: "invitation_listed"; items: readonly StoreAdminInvitationView[]; hasMore: boolean }
+  | { schemaVersion: 4; kind: "invitation_mutated"; item: StoreAdminInvitationView; replayed: boolean }
+  | { schemaVersion: 4; kind: "invitation_management_rejected"; code: typeof INVITATION_MANAGEMENT_CODES[number]; retryable: boolean }
+>;
+export function parseInvitationManagementRequest(raw: string): InvitationManagementRequest {
+  const p = JSON.parse(raw);
+  const b = exact(raw, ["schemaVersion", "operation", "sessionCredential", "requestHostname", "action", ...(p?.action === "list" ? [] : ["intent"])]);
+  if (b.schemaVersion !== 7 || b.operation !== "invitation_management") invalid();
+  const c = text(b.sessionCredential, 128), split = c.length - 44, key = c.slice(3, split);
+  if (!c.startsWith("v1.") || c[split] !== "." || !/^[A-Za-z0-9._-]{1,64}$/.test(key) || key.startsWith(".") || key.endsWith(".") || key.includes("..")) invalid();
+  canonicalInvitationOpaque(c.slice(split + 1));
+  const host = text(b.requestHostname, 253);
+  if (host !== host.toLowerCase() || host.split(".").length < 2 || host.split(".").some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) invalid();
+  if (b.action === "send") b.intent = parseStoreAdminInvitationSendIntent(b.intent);
+  else if (b.action === "resend" || b.action === "revoke") b.intent = parseStoreAdminInvitationActionIntent(b.intent);
+  else if (b.action !== "list") invalid();
+  if (JSON.stringify(b) !== raw) invalid();
+  return Object.freeze(b) as InvitationManagementRequest;
+}
+export function invitationManagementResponseStatus(body: InvitationManagementResponse): 200 | 409 | 503 {
+  return body.kind === "invitation_management_rejected" ? body.retryable ? 503 : 409 : 200;
+}
+export function parseInvitationManagementResponse(raw: string, status: number, action: InvitationManagementRequest["action"]): InvitationManagementResponse {
+  const p = JSON.parse(raw); let b: Record<string, unknown>;
+  if (p?.kind === "invitation_listed") {
+    b = exact(raw, ["schemaVersion", "kind", "items", "hasMore"]);
+    if (action !== "list" || !Array.isArray(b.items) || b.items.length > 200 || typeof b.hasMore !== "boolean") invalid();
+    b.items = Object.freeze(b.items.map(parseStoreAdminInvitationView));
+  } else if (p?.kind === "invitation_mutated") {
+    b = exact(raw, ["schemaVersion", "kind", "item", "replayed"]);
+    if (action === "list" || typeof b.replayed !== "boolean") invalid();
+    b.item = parseStoreAdminInvitationView(b.item);
+  } else {
+    b = exact(raw, ["schemaVersion", "kind", "code", "retryable"]);
+    if (b.kind !== "invitation_management_rejected" || typeof b.code !== "string" || !INVITATION_MANAGEMENT_CODES.includes(b.code as never) || b.retryable !== ["unavailable", "configuration_unavailable", "commit_unknown"].includes(b.code)) invalid();
+  }
+  if (b.schemaVersion !== 4 || JSON.stringify(b) !== raw || invitationManagementResponseStatus(b as InvitationManagementResponse) !== status) invalid();
+  return Object.freeze(b) as InvitationManagementResponse;
 }

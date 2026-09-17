@@ -14,6 +14,7 @@ import { createPanelSessionHandoffApproval } from "../panel-session-handoff/acti
 import { createPostgresPanelSessionHandoffRedeemer } from "../panel-session-handoff/postgres-handoff-redeemer.ts";
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
+import { invitationPanelGate } from "../store-admin-invitations/management-runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -124,6 +125,7 @@ export async function initializeCustomerPanelStagingAuthRouteSet(
       handlerAudit: () => undefined,
     },
     handoffRedeemer: redeemer,
+    ...(invitationPanelGate(process.env, config) ? { invitations: { acceptanceOrigin: config.authority.panelOrigin, randomUuid: randomUUID } } : {}),
     crossHostHandoff: {
       repository: crossHostHandoff,
       randomUuid: () => randomUUID(),

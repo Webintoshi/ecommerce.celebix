@@ -28,6 +28,8 @@ import { createOwnerTenantCoreAdapter } from "../saas-tenant-core/adapter.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../self-serve-http/runtime.ts";
 import { createPersistentRegistrationCompletionService } from "../self-serve-registration-completion.ts";
 import { createOwnerStagingCallbackAudit, createOwnerStagingOidcAudit } from "./staging-callback-audit.ts";
+import { initializeInvitationRuntime } from "../store-admin-invitations/runtime.ts";
+import { createStoreAdminInvitationAuthService } from "../store-admin-invitations/auth-service.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -205,6 +207,15 @@ export async function initializeOwnerStagingAuthRouteSet(
     clock,
   });
   const callbackAudit = createOwnerStagingCallbackAudit();
+  const invitationRuntime = await initializeInvitationRuntime(process.env, config);
+  const invitations = invitationRuntime.state === "ready" ? createStoreAdminInvitationAuthService({
+    repository: invitationRuntime.repository, provider, transactionStore: oidcStore,
+    browserBindingCodec: browserCodec, sessionIssuer: returningSessionIssuer,
+    callbackAuthority: config.authority.panelCallbackUrl, panelOrigin: config.authority.panelOrigin,
+    acceptanceOrigin: invitationRuntime.config.delivery.acceptanceOrigin,
+    expectedIssuer: config.logto.issuer, expectedAudience: config.logto.clientId,
+    expectedAuthorizationOrigin: new URL(config.logto.issuer).origin, clock,
+  }) : undefined;
   const composition = createDisabledOwnerSelfServeAuthComposition({
     activationApproval: createOwnerSelfServeAuthCompositionApproval("approved_staging"),
     runtime,
@@ -213,6 +224,8 @@ export async function initializeOwnerStagingAuthRouteSet(
     browserBindingCredentialCodec: browserCodec,
     browserBindingRepository: browserRepository,
     returningLogin,
+    ...(invitations ? { invitations } : {}),
+    ...(invitationRuntime.state === "ready" ? { invitationManagement: invitationRuntime.management } : {}),
     ownerInternalOrigin: config.authority.ownerOrigin,
     browserBindingInternalKeys: new Map([[config.keys.browserInternalKeyId, config.keys.browserInternal]]),
     sessionCompletionInternalKeys: new Map([[config.keys.callbackInternalKeyId, config.keys.callbackInternal]]),

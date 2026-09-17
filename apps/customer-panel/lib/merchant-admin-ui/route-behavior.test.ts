@@ -555,6 +555,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   }
 
   const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
+    "administrator_invite",
     "ai_setting",
     "discount",
     "payment_setting",

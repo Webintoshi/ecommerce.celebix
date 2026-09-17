@@ -185,7 +185,10 @@ BEGIN
  IF NOT FOUND OR r.record_kind<>'administrator_invite' OR r.status<>'active' THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
  IF p_expected_record_version IS DISTINCT FROM r.version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
  email:=saas.store_admin_invitation_email(r.config->>'email');
+ -- Relative/date-style-dependent PostgreSQL inputs must never reach rendering.
+ IF r.config->>'expiresAt' IS NULL OR (r.config->>'expiresAt') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{3})?Z$' THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
  BEGIN expiry:=(r.config->>'expiresAt')::timestamptz; EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN expiry:=NULL; END;
+ IF expiry IS NOT NULL AND saas.merchant_admin_timestamp(expiry) IS DISTINCT FROM (CASE WHEN length(r.config->>'expiresAt')=20 THEN replace(r.config->>'expiresAt','Z','.000Z') ELSE r.config->>'expiresAt' END) THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
  IF email IS NULL OR r.config->>'role' IS NULL OR r.config->>'role' NOT IN('admin','editor','analyst') OR expiry IS NULL OR NOT isfinite(expiry) OR expiry<=p_now OR NOT saas.store_admin_invitation_name_valid(r.name) THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
  RETURN QUERY SELECT 'source',jsonb_build_object('sourceRecordId',r.id,'sourceRecordVersion',r.version,'storeId',p_store_id,'storeName',(SELECT name FROM saas.stores WHERE id=p_store_id),'email',email,'displayName',r.name,'role',r.config->>'role','expiresAt',saas.merchant_admin_timestamp(expiry));
 END $f$;

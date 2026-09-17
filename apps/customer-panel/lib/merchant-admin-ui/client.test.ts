@@ -82,3 +82,10 @@ test("merchant family client executes exact CRUD for every finite kind and every
  }
  assert.equal(calls.every(({init})=>init?.credentials==="same-origin"&&init.cache==="no-store"),true);
 });
+test("invitation source retries preserve an explicit operation identity",async()=>{
+  const keys:string[]=[]; const api=createMerchantAdminApi((async(_input,init)=>{keys.push(new Headers(init?.headers).get("idempotency-key")!);throw new Error("lost response");})as typeof fetch,()=>{throw new Error("must not regenerate");});
+  const value={name:"Recipient",config:{email:"recipient@example.test",role:"admin",expiresAt:NOW},status:"draft" as const};
+  await assert.rejects(api.save("administrator_invite",value,OP));
+  await assert.rejects(api.save("administrator_invite",value,OP));
+  assert.deepEqual(keys,[OP,OP]);
+});

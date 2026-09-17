@@ -131,11 +131,15 @@ export function MerchantRecordEditor({
   recordId,
   returnTo,
   canManage,
+  saveLabel = "Kaydet",
+  preserveOnError = false,
 }: {
   kind: MerchantAdminRecordKind;
   recordId?: string;
   returnTo: string;
   canManage: boolean;
+  saveLabel?: string;
+  preserveOnError?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const router = useRouter();
@@ -146,11 +150,13 @@ export function MerchantRecordEditor({
   const requestSequence = useRef(0);
   const activeSubmission = useRef<number | undefined>(undefined);
   const submissionSequence = useRef(0);
+  const pendingSave = useRef<{ operationId: string; value: Parameters<typeof merchantAdminApi.save>[1] } | undefined>(undefined);
 
   const load = useCallback(async () => {
     const sequence = requestSequence.current + 1;
     requestSequence.current = sequence;
     activeSubmission.current = undefined;
+    pendingSave.current = undefined;
     setLoading(true);
     setBusy(false);
     setError("");
@@ -183,18 +189,22 @@ export function MerchantRecordEditor({
     setBusy(true);
     setError("");
     try {
-      await merchantAdminApi.save(kind, {
+      const value = pendingSave.current?.value ?? {
         ...(record ? { recordId: record.id, expectedVersion: record.version } : {}),
         name: String(data.get("name") ?? "").trim(),
         config: parseFormConfig(definition.fields, data, record),
-        status: data.get("status") === "active" ? "active" : "draft",
-      });
+        status: data.get("status") === "active" ? "active" as const : "draft" as const,
+      };
+      if (kind === "administrator_invite" && !pendingSave.current) pendingSave.current = { operationId: crypto.randomUUID(), value };
+      await merchantAdminApi.save(kind, value, pendingSave.current?.operationId);
+      pendingSave.current = undefined;
       if (requestSequence.current === sequence) {
         router.push(returnTo);
         router.refresh();
       }
     } catch (caught) {
-      if (requestSequence.current === sequence) setError(safeError(caught));
+      if (caught instanceof MerchantAdminApiError && caught.code !== "unavailable" && caught.status < 500) pendingSave.current = undefined;
+      if (requestSequence.current === sequence) setError(pendingSave.current ? "Kaydın sonucu belirsiz. Aynı kaydı tekrar kontrol edin; bilgiler korunuyor." : safeError(caught));
     } finally {
       if (activeSubmission.current === submission) {
         activeSubmission.current = undefined;
@@ -212,9 +222,10 @@ export function MerchantRecordEditor({
     {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!loading && !error && definition.execution === "provider_required" ? <p className={styles.notice}>{definition.notice} Bu ekranda yalnız güvenli yapılandırma kaydedilir; harici çalıştırma başlatılmaz.</p> : null}
-    {!loading && !error ? <form className={styles.form} onSubmit={submit}>
+    {!loading && (!error || preserveOnError && (recordId === undefined || record !== undefined)) ? <form className={styles.form} onSubmit={submit}>
+      <fieldset style={{ display: "contents" }} disabled={busy || pendingSave.current !== undefined}>
       <label>Ad<input name="name" required maxLength={160} defaultValue={record?.name ?? ""} /></label>
-      <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+      <label>{kind === "administrator_invite" ? "Kayıt durumu (göndermez)" : definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{kind === "administrator_invite" ? "Göndermeye hazır kayıt" : definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
       {definition.fields.map((field) => field.type === "enum-list" ? (
         <fieldset className={styles.wide} key={field.key}>
           <legend>{field.label}</legend>
@@ -237,11 +248,12 @@ export function MerchantRecordEditor({
           ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
             <select name={field.key} required={field.required} defaultValue={inputValue(record, field.key)}><option value="">Seçin</option>{field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select>
           ) : (
-            <input name={field.key} required={field.required} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} />
+            <input name={field.key} required={field.required} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : field.type === "datetime" && kind === "administrator_invite" ? "0.001" : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={kind === "administrator_invite" && field.type === "datetime" ? dateTimeInputValue(record, field.key) : inputValue(record, field.key)} />
           )}
         </label>
       ))}
-      <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div>
+      </fieldset>
+      <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : pendingSave.current ? "Aynı kaydı tekrar kontrol et" : saveLabel}</button></div>
     </form> : null}
   </section></PanelPageShell>;
 }

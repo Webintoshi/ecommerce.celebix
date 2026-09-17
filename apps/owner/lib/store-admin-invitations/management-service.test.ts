@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createHmac } from "node:crypto";
+import { createInvitationManagementService } from "./management-service.ts";
+import { createPanelSessionCredentialCodec } from "../../../customer-panel/lib/panel-session-persistence/credential-codec.ts";
+const id = "10000000-0000-4000-8000-000000000001", now = new Date("2026-09-17T12:00:00.000Z"), key = Buffer.alloc(32, 3);
+const credential = `v1.test.${Buffer.alloc(32, 1).toString("base64url")}`;
+const input = { schemaVersion: 7, operation: "invitation_management", sessionCredential: credential, requestHostname: "store.admin.example.test", action: "list" } as const;
+test("management resolves current owner authority with Panel-compatible credential digest and own clock", async () => {
+  const a = { storeId: id, principalId: id, membershipId: id, planId: id, planCode: "growth", planVersion: 2 }, calls: unknown[] = [];
+  let revoked = false;
+  const service = createInvitationManagementService({ panelOrigin: "https://panel.example.test", sessionKeys: new Map([["test", key]]), clock: () => now, resolver: { async resolve(proof: unknown) { calls.push(proof); return revoked ? { kind: "membership_denied" } : { kind: "manager", value: a }; } }, service: { async list(authority: unknown) { assert.deepEqual(authority, a); return { kind: "listed", value: { items: [], hasMore: false } }; } } as never });
+  assert.deepEqual(await service.manage(input), { schemaVersion: 4, kind: "invitation_listed", items: [], hasMore: false });
+  const digest = createPanelSessionCredentialCodec({ activeKeyId: "test", keys: new Map([["test", key]]), randomBytes: n => Buffer.alloc(n) }).digestCredential(credential);
+  assert.deepEqual(calls, [{ ...digest, hostname: input.requestHostname, now }]);
+  assert.equal(digest.tokenDigest, createHmac("sha256", key).update(`celebix-panel-session-v1\n${credential}`).digest("hex"));
+  revoked = true;
+  assert.deepEqual(await service.manage(input), { schemaVersion: 4, kind: "invitation_management_rejected", code: "membership_denied", retryable: false });
+  assert.equal((await service.manage({ ...input, requestHostname: "panel.example.test" })).kind, "invitation_management_rejected");
+  assert.equal(calls.length, 2);
+});

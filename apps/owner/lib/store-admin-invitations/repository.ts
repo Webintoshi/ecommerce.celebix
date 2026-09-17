@@ -147,6 +147,15 @@ export function createInvitationIdentityRepository(d: Dependencies): InvitationI
     recoverAcceptance: i => call("recover_acceptance", [i.grantDigest, i.browserKeyId, i.browserDigest, i.operationId, i.fingerprint, i.now], ["operation_replayed"], acceptance),
   } satisfies InvitationIdentityRepository);
 }
+export function createInvitationManagerResolver(d: Dependencies) {
+  const call = executor(d, "celebix_saas_identity");
+  return Object.freeze({ resolve(i: { tokenKeyId: string; tokenDigest: string; hostname: string; now: Date }) {
+    return call("manager", [i.tokenKeyId, i.tokenDigest, i.hostname, i.now], ["manager"], v => {
+      const r = exact(v, ["storeId", "principalId", "membershipId", "planId", "planCode", "planVersion"]);
+      return Object.freeze({ storeId: uuid(r.storeId), principalId: uuid(r.principalId), membershipId: uuid(r.membershipId), planId: uuid(r.planId), planCode: str(r.planCode, 80), planVersion: positive(r.planVersion) });
+    });
+  } });
+}
 export function createInvitationWorkflowRepository(d: Dependencies & { scope: { allowedStoreId: string; allowedRecipient: string } }): InvitationWorkflowRepository {
   const call = executor(d, "celebix_saas_workflow");
   // Trusted runtime configuration only; claim callers cannot select another scope.
