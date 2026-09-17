@@ -148,6 +148,11 @@
 .warning { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; }
 .readOnly { border: 1px solid #E7E2DD; background: #F8F7F5; color: #596273; }
 
+.adminIdentity { display: grid; gap: .25rem; overflow-wrap: anywhere; }
+.adminIdentity small { color: #69635e; }
+.adminRoleHelp { margin-top: 1rem; }
+.adminRoleHelp > summary { cursor: pointer; width: fit-content; color: #69635e; font-size: .875rem; }
+.adminRoleHelp > summary:focus-visible { outline: 2px solid #fe6100; outline-offset: 4px; }
 .roleGuide {
   display: grid;
   gap: 1rem;

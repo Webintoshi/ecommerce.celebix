@@ -192,6 +192,7 @@ function eventLabel(event: MerchantAdminEvent) {
 
 function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
   const definition = getMerchantModuleDefinition(record.kind);
+  if (record.kind === "administrator_invite") return <div className={styles.adminIdentity}><span>{String(record.config.email ?? "—")}</span><small>{getAdministratorRoleDefinitions().find(role => role.role === record.config.role)?.label ?? "—"}</small></div>;
   const values = formatMerchantAdminConfig(definition, record.config).slice(0, 3);
   return values.length ? (
     <dl className={styles.configSummary}>
@@ -279,6 +280,7 @@ export function MerchantModuleConsole({
   embedded?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
+  const compactAdministrators = kind === "administrator_invite";
   const singleton = definition.cardinality === "singleton";
   const providerRecordKind = toProviderRecordKind(kind);
   const providerCapability = providerRecordKind ? capabilityForProviderKind(providerRecordKind) : null;
@@ -564,7 +566,7 @@ export function MerchantModuleConsole({
     <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title={definition.title}
-        description={definition.description}
+        description={compactAdministrators ? undefined : definition.description}
         embedded={embedded}
         actions={(
           <div className={styles.headerActions}>
@@ -573,7 +575,7 @@ export function MerchantModuleConsole({
             </button>
             {canManage && !singleton ? createRoute ? (
               <Link href={createRoute} className={styles.primary}>
-                <Plus aria-hidden="true" /> Yeni kayıt
+                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : "Yeni kayıt"}
               </Link>
             ) : singletonEditorRecord ? (
               <button type="button" className={styles.primary} onClick={(event) => openEdit(singletonEditorRecord, event)}>
@@ -581,14 +583,14 @@ export function MerchantModuleConsole({
               </button>
             ) : (
               <button type="button" className={styles.primary} onClick={openCreate}>
-                <Plus aria-hidden="true" /> {singletonModule ? "Ayar oluştur" : "Yeni kayıt"}
+                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : singletonModule ? "Ayar oluştur" : "Yeni kayıt"}
               </button>
             ) : null}
           </div>
         )}
       />
 
-      {!singleton ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
+      {!singleton && !compactAdministrators ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
         <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
@@ -603,9 +605,7 @@ export function MerchantModuleConsole({
             <p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p>
           </div>
         </aside>
-      ) : definition.notice ? <p className={styles.notice}>{definition.notice}</p> : null}
-
-      {kind === "administrator_invite" ? <AdministratorRoleGuide /> : null}
+      ) : definition.notice && !compactAdministrators ? <p className={styles.notice}>{definition.notice}</p> : null}
 
       {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
 
@@ -718,7 +718,7 @@ export function MerchantModuleConsole({
                     const editRoute = editRouteFor(definition.kind, record.id);
                     return (
                       <tr key={record.id}>
-                        <td><strong>{record.name}</strong><small>v{record.version}</small></td>
+                        <td><strong>{record.name}</strong>{!compactAdministrators ? <small>v{record.version}</small> : null}</td>
                         <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</td>
                         <td><ConfigSummary record={record} />{providerControls(record)}</td>
                         <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
@@ -760,6 +760,7 @@ export function MerchantModuleConsole({
           </>
         )}</>}
 
+        {compactAdministrators ? <details className={styles.adminRoleHelp}><summary>Rol bilgisi</summary><AdministratorRoleGuide /></details> : null}
         <details className={styles.audit}>
           <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({events.length})</summary>
           {events.length ? (
