@@ -1,11 +1,18 @@
 .desktopTable,
 .lineTable,
-.desktopFormTable {
+.desktopFormTable,
+.mobileCards {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   overflow-x: auto;
-  border: 1px solid #e1e6ef;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  border: 1px solid var(--inventory-border);
+  border-radius: 10px;
+  background: var(--inventory-surface);
+  box-shadow: none;
 }
 
 .desktopTable table,
@@ -25,7 +32,7 @@
 .desktopFormTable th,
 .desktopFormTable td {
   padding: 12px 14px;
-  border-bottom: 1px solid #e8edf4;
+  border-bottom: 1px solid var(--inventory-border);
   text-align: left;
   vertical-align: middle;
 }
@@ -37,7 +44,7 @@
 .desktopTable th,
 .lineTable th,
 .desktopFormTable th {
-  background: #f8fafc;
+  background: var(--inventory-canvas);
   color: #667085;
   font-size: 12px;
   font-weight: 700;
@@ -49,13 +56,13 @@
   min-width: 48px;
   min-height: 48px;
   align-items: center;
-  color: #c94e00;
+  color: var(--inventory-text);
   font-weight: 750;
   text-decoration: none;
 }
 
 .desktopTable a:hover,
-.cardHeading a:hover { color: #fe6100; }
+.cardHeading a:hover { color: var(--inventory-accent); }
 
 .mobileRecordLink {
   display: inline-flex;
@@ -84,6 +91,12 @@
 .mobileFormCards { display: none; }
 
 .detailSummary {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
@@ -97,15 +110,21 @@
   justify-content: center;
   gap: 6px;
   padding: 12px 14px;
-  border: 1px solid #e1e6ef;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--inventory-border);
+  border-radius: 10px;
+  background: var(--inventory-surface);
 }
 
 .detailSummary span { color: #667085; font-size: 13px; }
-.detailSummary strong { color: #172033; }
+.detailSummary strong { color: var(--inventory-text); }
 
 .actions {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -121,10 +140,10 @@
   min-width: 48px;
   min-height: 48px;
   padding: 0 14px;
-  border: 1px solid #d6dce7;
-  border-radius: 7px;
-  background: #fff;
-  color: #263247;
+  border: 1px solid var(--inventory-border);
+  border-radius: 8px;
+  background: var(--inventory-surface);
+  color: var(--inventory-text);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -136,21 +155,21 @@
 .mobileFormCards button:hover:not(:disabled),
 .receiptForm button:hover:not(:disabled),
 .secondaryAction:hover:not(:disabled) {
-  border-color: #b8c1d1;
-  background: #f8fafc;
+  border-color: var(--inventory-text);
+  background: var(--inventory-canvas);
 }
 
 .actions .primary,
 .receiptForm .primary {
-  border-color: #fe6100;
-  background: #fe6100;
-  color: #fff;
+  border-color: var(--inventory-text);
+  background: var(--inventory-text);
+  color: var(--inventory-surface);
 }
 
 .actions .primary:hover:not(:disabled),
 .receiptForm .primary:hover:not(:disabled) {
-  border-color: #e95700;
-  background: #e95700;
+  border-color: var(--inventory-sidebar);
+  background: var(--inventory-sidebar);
 }
 
 .actions button:disabled,
@@ -184,12 +203,20 @@
 
 .operationForm,
 .receiptForm {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   display: grid;
   gap: 16px;
   margin-top: 22px;
   padding-top: 18px;
-  border-top: 1px solid #e8edf4;
+  border-top: 1px solid var(--inventory-border);
 }
+
+.operationFormCreate { margin-top: 0; }
 
 .operationForm header h2,
 .operationForm header p { margin: 0; }
@@ -207,15 +234,15 @@
 .receiptForm fieldset {
   margin: 0;
   padding: 16px;
-  border: 1px solid #e1e6ef;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--inventory-border);
+  border-radius: 10px;
+  background: var(--inventory-surface);
 }
 
 .operationForm legend,
 .receiptForm legend {
   padding: 0 8px;
-  color: #263247;
+  color: var(--inventory-text);
   font-weight: 800;
 }
 
@@ -230,7 +257,7 @@
 .receiptForm label {
   display: grid;
   gap: 7px;
-  color: #344054;
+  color: var(--inventory-text);
   font-weight: 700;
 }
 
@@ -245,10 +272,10 @@
   min-width: 0;
   min-height: 48px;
   padding: 0 12px;
-  border: 1px solid #d6dce7;
-  border-radius: 7px;
-  background: #fff;
-  color: #172033;
+  border: 1px solid var(--inventory-border);
+  border-radius: 8px;
+  background: var(--inventory-surface);
+  color: var(--inventory-text);
   font: inherit;
 }
 
@@ -262,8 +289,8 @@
 .locationCreate input:focus,
 .locationRenameDialog input:focus {
   border-color: #fe6100;
-  outline: 3px solid rgb(254 97 0 / 12%);
-  outline-offset: 0;
+  outline: 2px solid #2B2B2B;
+  outline-offset: 2px;
 }
 
 .srStatus {
@@ -277,16 +304,22 @@
 }
 
 .locationManager {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   display: grid;
   gap: 16px;
   margin-bottom: 22px;
   padding: 18px;
-  border: 1px solid #e1e6ef;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--inventory-border);
+  border-radius: 10px;
+  background: var(--inventory-canvas);
 }
 
-.locationManager h2 { margin: 0; color: #172033; font-size: 18px; }
+.locationManager h2 { margin: 0; color: var(--inventory-text); font-size: 18px; }
 .locationManager header p { margin: 5px 0 0; color: #667085; }
 
 .locationCreate {
@@ -298,7 +331,7 @@
 
 .locationCreate label {
   grid-column: 1 / -1;
-  color: #344054;
+  color: var(--inventory-text);
   font-weight: 700;
 }
 
@@ -307,13 +340,13 @@
 .locationActions button {
   min-height: 48px;
   padding: 0 14px;
-  border: 1px solid #d6dce7;
-  border-radius: 7px;
+  border: 1px solid var(--inventory-border);
+  border-radius: 8px;
   font: inherit;
 }
 
-.locationCreate input { min-height: 48px; background: #fff; color: #172033; }
-.locationCreate button { border-color: #fe6100; background: #fe6100; color: #fff; font-weight: 750; }
+.locationCreate input { min-height: 48px; background: var(--inventory-surface); color: var(--inventory-text); }
+.locationCreate button { border-color: var(--inventory-text); background: var(--inventory-text); color: var(--inventory-surface); font-weight: 750; }
 
 .locationGrid {
   display: grid;
@@ -325,9 +358,9 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #e1e6ef;
-  border-radius: 7px;
-  background: #fff;
+  border: 1px solid var(--inventory-border);
+  border-radius: 10px;
+  background: var(--inventory-surface);
 }
 
 .locationCard > div:first-child {
@@ -346,7 +379,7 @@
   gap: 8px;
 }
 
-.locationActions button { background: #fff; color: #263247; font-weight: 700; }
+.locationActions button { background: var(--inventory-surface); color: var(--inventory-text); font-weight: 700; }
 .locationActions button:disabled,
 .locationCreate button:disabled { cursor: not-allowed; opacity: .6; }
 
@@ -361,11 +394,17 @@
 }
 
 .locationRenameDialog {
+  --inventory-accent: #FE6100;
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-canvas: #F8F7F5;
+  --inventory-surface: #FFFDFC;
+  --inventory-border: #E7E2DD;
   width: min(100%, 520px);
   padding: 20px;
-  border: 1px solid #d6dce7;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--inventory-border);
+  border-radius: 12px;
+  background: var(--inventory-surface);
   box-shadow: 0 20px 48px rgb(15 23 42 / 18%);
 }
 
@@ -379,9 +418,9 @@
 .locationRenameDialog input {
   min-height: 48px;
   padding: 0 12px;
-  border: 1px solid #d6dce7;
-  border-radius: 7px;
-  color: #172033;
+  border: 1px solid var(--inventory-border);
+  border-radius: 8px;
+  color: var(--inventory-text);
   font: inherit;
 }
 
@@ -395,15 +434,15 @@
   min-width: 48px;
   min-height: 48px;
   padding: 0 14px;
-  border: 1px solid #d6dce7;
-  border-radius: 7px;
-  background: #fff;
-  color: #263247;
+  border: 1px solid var(--inventory-border);
+  border-radius: 8px;
+  background: var(--inventory-surface);
+  color: var(--inventory-text);
   font: inherit;
   font-weight: 750;
 }
 
-.locationRenameActions button[type="submit"] { border-color: #fe6100; background: #fe6100; color: #fff; }
+.locationRenameActions button[type="submit"] { border-color: var(--inventory-text); background: var(--inventory-text); color: var(--inventory-surface); }
 .locationRenameActions button:disabled { cursor: wait; opacity: .62; }
 
 .state,
@@ -417,8 +456,8 @@
   border-radius: 7px;
 }
 
-.state { border: 1px solid #e1e6ef; background: #f8fafc; color: #475467; }
-.denied { border: 1px solid #d6dce7; background: #f8fafc; color: #344054; }
+.state { border: 1px solid #E7E2DD; background: #F8F7F5; color: #667085; }
+.denied { border: 1px solid #E7E2DD; background: #F8F7F5; color: #2B2B2B; }
 .error,
 .errorNotice { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
 .notice { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
@@ -430,12 +469,12 @@
   .mobileCards {
     display: grid;
     gap: 0;
-    border-top: 1px solid #e8edf4;
+    border-top: 1px solid #E7E2DD;
   }
 
   .mobileCard {
     padding: 14px 0;
-    border-bottom: 1px solid #e8edf4;
+    border-bottom: 1px solid #E7E2DD;
     background: transparent;
   }
 
@@ -473,9 +512,9 @@
     display: grid;
     gap: 12px;
     padding: 14px;
-    border: 1px solid #e1e6ef;
-    border-radius: 7px;
-    background: #f8fafc;
+    border: 1px solid #E7E2DD;
+    border-radius: 10px;
+    background: #FFFDFC;
   }
 
   .operationForm,
@@ -484,4 +523,46 @@
   .receiptForm fieldset,
   .locationManager { padding: 14px; }
   .operationFields { grid-template-columns: 1fr; }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pageAction {
+  --inventory-text: #2B2B2B;
+  --inventory-sidebar: #201C19;
+  --inventory-surface: #FFFDFC;
+}
+
+.pageAction a {
+  border-color: var(--inventory-text);
+  background: var(--inventory-text);
+  color: var(--inventory-surface);
+}
+
+.pageAction a:hover {
+  border-color: var(--inventory-sidebar);
+  background: var(--inventory-sidebar);
+}
+
+@media (max-width: 1024px) {
+  .operationFields { grid-template-columns: 1fr; }
+  .operationForm { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .operationForm form > .actions {
+    position: sticky;
+    z-index: 3;
+    bottom: 76px;
+    border: 1px solid var(--inventory-border);
+    border-radius: 10px;
+    background: rgba(255, 253, 252, 0.96);
+    padding: 8px;
+  }
 }

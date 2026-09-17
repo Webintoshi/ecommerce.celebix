@@ -9,8 +9,8 @@ test("PromotionStudio renders exactly twelve template cards, five primary steps,
   const studio = await source("components/promotions/PromotionStudio.tsx");
   const editor = await source("components/promotions/PromotionEditor.tsx");
   const stylesheet = await source("components/promotions/promotion-studio.module.css");
-  assert.match(studio, /PROMOTION_TEMPLATES[.]map/);
-  assert.match(studio, /PROMOTION_TEMPLATES[.]length === 12/);
+  // Actual twelve-card rendering and exact callbacks are exercised by template-picker.test.ts.
+  assert.match(studio, /<PromotionTemplatePicker templates=\{PROMOTION_TEMPLATES\} onSelect=\{setTemplate\}/);
   assert.match(editor, /WIZARD_STEPS[.]map/);
   assert.match(editor, /WIZARD_STEPS[.]length === 5/);
   assert.match(editor, /<details open=\{draft[.]advancedOpen\}/);

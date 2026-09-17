@@ -1,20 +1,32 @@
-.surface { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.surface,
+.primary,
+.button,
+.danger {
+  --catalog-accent: #FE6100;
+  --catalog-text: #2B2B2B;
+  --catalog-sidebar: #201C19;
+  --catalog-canvas: #F8F7F5;
+  --catalog-surface: #FFFDFC;
+  --catalog-border: #E7E2DD;
+}
+
+.surface { overflow: visible; border: 0; border-radius: 0; background: transparent; color: var(--catalog-text); box-shadow: none; }
 .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; background: #fff; padding: 1.25rem; }
 .form label { display: grid; gap: .4rem; color: #4b5563; font-size: .78rem; font-weight: 700; }
 .form input,.form textarea,.form select { width: 100%; min-height: 44px; border: 1px solid #d8dee8; border-radius: 7px; background: #fff; padding: .7rem .85rem; color: #1f2937; font: inherit; font-size: .82rem; }
 .form textarea { min-height: 96px; resize: vertical; }
 .wide { grid-column: 1 / -1; }
-.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; max-height: 32rem; overflow: auto; border: 1px solid #e1e6ef; border-radius: 8px; background: #fbfcfd; padding: 1rem; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; max-height: 32rem; overflow: auto; border: 1px solid #E7E2DD; border-radius: 8px; background: #F8F7F5; padding: 1rem; }
 .checks legend { padding: 0 .55rem; color: #202734; font-size: .9rem; font-weight: 850; }
 .checks legend span { margin-left: .45rem; border-radius: 999px; background: #fff1e8; padding: .22rem .5rem; color: #a94300; font-size: .68rem; }
 .productSearch { grid-column: 1 / -1; }
 .productSearch input { background: #fff; }
 .check { display: flex !important; min-height: 60px; align-items: center; gap: .75rem; border: 1px solid #e7ebf1; border-radius: 7px; background: #fff; padding: .7rem .8rem; cursor: pointer; }
 .check:hover { border-color: #ffc49b; background: #fffaf6; }
-.check input { width: 1.15rem; min-height: 1.15rem; }
+.check input { width: 1.15rem; min-height: 1.15rem; accent-color: #FE6100; }
 .check span { display: grid; min-width: 0; gap: .18rem; }
 .check strong { overflow: hidden; color: #202734; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
-.check small { overflow: hidden; color: #7b8494; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.check small { overflow: hidden; color: #6F655F; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .brandEditorIntro { border-bottom: 1px solid #edf0f4; padding-bottom: 1.25rem; }
 .brandLogoPanel { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 1.25rem; border: 1px solid #e1e6ef; border-radius: 8px; background: #fcfcfd; padding: 1.25rem; }
 .brandLogoPreview { display: grid; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid #e3e7ed; border-radius: 8px; background: #fff; color: #c64e00; font-size: 3rem; font-weight: 850; }
@@ -95,7 +107,7 @@
 .previewOptionGrid strong { min-width: 0; font-size: .8rem; overflow-wrap: anywhere; }
 .previewEmpty { border: 1px dashed #d8dee8; border-radius: 8px; padding: 1rem; color: #667085; font-size: .8rem; text-align: center; }
 .previewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.previewHeader h2:focus,.error:focus { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 4px; }
+.previewHeader h2:focus,.error:focus { outline: 2px solid #2B2B2B; outline-offset: 4px; }
 .previewMeta { color: #6b7280; font-size: .78rem; }
 .tableScroll { overflow-x: auto; }
 .fileField { display: grid; gap: .4rem; color: #4b5563; font-size: .78rem; font-weight: 700; }
@@ -154,7 +166,7 @@
 .importActions .primary { gap: .5rem; white-space: nowrap; }
 .historyHeading { border-bottom: 1px solid #e8edf4; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; clip: rect(0,0,0,0); white-space: nowrap; }
-.providerCard:focus-within,.sourceTabs button:focus-visible,.sourceForm input:focus-visible,.primary:focus-visible,.secondaryButton:focus-visible { outline: 3px solid rgb(255 106 0 / 30%); outline-offset: 2px; }
+.providerCard:focus-within,.sourceTabs button:focus-visible,.sourceForm input:focus-visible,.primary:focus-visible,.secondaryButton:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
 @media (max-width: 900px) { .brandCard { grid-template-columns: 80px minmax(0, 1fr); } .brandCardLogo { width: 80px; } .brandCardActions { grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid #edf0f4; padding-top: .8rem; } }
 @media (max-width: 700px) { .form,.checks { grid-template-columns: 1fr; } .wide { grid-column: auto; } .form { padding: 1rem; } .item { align-items: stretch; flex-direction: column; padding: 1rem; } .actions,.actions > * { width: 100%; } .previewHero { align-items: stretch; flex-direction: column; } .previewPrice { width: 100%; } .previewOptionGrid { grid-template-columns: 1fr; } .brandLogoPanel { grid-template-columns: 1fr; } .brandLogoPreview { width: min(10rem, 100%); } .brandList { padding: .75rem; } .brandCard { grid-template-columns: 64px minmax(0,1fr); padding: .8rem; } .brandCardLogo { width: 64px; border-radius: 7px; } .brandCardTitle { align-items: flex-start; flex-direction: column; gap: .45rem; } .brandCardActions { display: grid; grid-template-columns: auto 1fr 1fr; } .brandCardActions .button,.brandCardActions .danger { width: 100%; } .brandProducts li span { max-width: 11rem; } }
 @media (max-width: 1024px) { .providerGrid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
@@ -162,3 +174,169 @@
 @media (max-width: 360px) { .providerGrid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .surface * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
 @media (prefers-reduced-motion: reduce) { .importWorkspace * { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Mira resource/editor scope. Import and barcode consumers retain their specialized layout rules. */
+.form,
+.list,
+.item,
+.brandSearch,
+.brandCard,
+.brandLogoPanel,
+.brandLogoPreview,
+.previewHero,
+.previewOptions,
+.review {
+  border-color: var(--catalog-border);
+  background: var(--catalog-surface);
+  color: var(--catalog-text);
+  box-shadow: none;
+}
+.form { gap: 16px; border: 1px solid var(--catalog-border); border-radius: 10px; padding: 20px; }
+.form label { color: var(--catalog-text); }
+.form input,
+.form textarea,
+.form select,
+.review textarea { border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); color: var(--catalog-text); }
+.form input:focus-visible,
+.form textarea:focus-visible,
+.form select:focus-visible,
+.review textarea:focus-visible,
+.button:focus-visible,
+.primary:focus-visible,
+.danger:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
+.primary { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); box-shadow: none; }
+.primary:hover:not(:disabled) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
+.button { border-color: var(--catalog-border); color: var(--catalog-text); }
+.button:hover:not(:disabled) { border-color: var(--catalog-text); background: var(--catalog-canvas); }
+.item { min-height: 64px; border-bottom-color: var(--catalog-border); }
+.item h2,
+.brandCardTitle h2,
+.brandProducts > strong,
+.previewHero h2,
+.previewSectionHeading h3,
+.previewPrice output { color: var(--catalog-text); }
+.brandList,
+.preview { background: var(--catalog-canvas); }
+.brandCard { border-radius: 10px; }
+.brandCardLogo { border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-canvas); color: var(--catalog-text); }
+.brandCardTitle > span,
+.status,
+.previewSectionHeading span { background: var(--catalog-canvas); color: #667085; }
+.previewEyebrow { color: var(--catalog-text); }
+.previewPrice { border-color: var(--catalog-border); background: var(--catalog-canvas); color: var(--catalog-text); }
+.previewOptionGrid li { border-color: var(--catalog-border); background: var(--catalog-surface); }
+.previewOptionGrid li > span { background: rgba(254, 97, 0, 0.10); color: var(--catalog-text); }
+
+@media (max-width: 1024px) {
+  .form { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .form > .actions:last-child { position: sticky; z-index: 3; bottom: 76px; border: 1px solid var(--catalog-border); border-radius: 10px; background: rgba(255, 253, 252, 0.96); padding: 8px; }
+}
+
+@media (max-width: 700px) {
+  .form { grid-template-columns: 1fr; padding-inline: 16px; }
+  .checks { grid-template-columns: 1fr; }
+  .actions { display: grid; grid-template-columns: 1fr; }
+  .actions > * { width: 100%; }
+  .brandList { padding: 8px; }
+  .brandCard { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
+  .brandCardActions { grid-template-columns: 1fr 1fr; }
+  .brandCardActions .status { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* Mira stock/import scope. Resource forms above keep their reviewed rules. */
+.importWorkspace,
+.upload,
+.upload ~ .preview,
+.importWorkspace + .surface {
+  --catalog-accent: #FE6100;
+  --catalog-text: #2B2B2B;
+  --catalog-sidebar: #201C19;
+  --catalog-canvas: #F8F7F5;
+  --catalog-surface: #FFFDFC;
+  --catalog-border: #E7E2DD;
+  color: var(--catalog-text);
+}
+
+.steps,
+.importSection,
+.upload,
+.importWorkspace + .surface {
+  border-color: var(--catalog-border);
+  background: var(--catalog-surface);
+  color: var(--catalog-text);
+  box-shadow: none;
+}
+
+.steps { border-radius: 10px; }
+.steps li,
+.sectionHeading,
+.historyHeading,
+.sourceTabs,
+.previewTableWrap,
+.migrationProgress { border-color: var(--catalog-border); }
+.steps li { color: #667085; }
+.steps .stepActive { color: var(--catalog-text); }
+.steps .stepActive span { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.10); color: var(--catalog-text); }
+
+.importSection { border-radius: 10px; }
+.sectionHeading h2,
+.historyHeading h2,
+.providerCard strong,
+.previewMetrics strong,
+.migrationProgress strong { color: var(--catalog-text); }
+.sectionHeading span,
+.historyHeading span { color: #667085; }
+
+.providerCard,
+.sourceForm input,
+.secondaryButton,
+.previewMetrics div,
+.upload input[type="file"] {
+  border-color: var(--catalog-border);
+  border-radius: 8px;
+  background: var(--catalog-surface);
+  color: var(--catalog-text);
+}
+.providerCard:hover { border-color: var(--catalog-text); }
+.importWorkspace .providerCard { padding-right: 44px; }
+.providerSelected { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); box-shadow: inset 3px 0 var(--catalog-accent); }
+.sourceTabs .tabActive { border-bottom-color: var(--catalog-accent); color: var(--catalog-text); }
+.previewMetrics div { background: var(--catalog-canvas); }
+.previewTable th { background: var(--catalog-canvas); color: #667085; }
+.previewTable th,
+.previewTable td { border-color: var(--catalog-border); }
+.secondaryButton:hover:not(:disabled) { border-color: var(--catalog-text); background: var(--catalog-canvas); }
+
+.upload {
+  border: 1px solid var(--catalog-border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.fileField { color: var(--catalog-text); }
+.upload ~ .preview { border: 1px solid var(--catalog-border); border-radius: 10px; background: var(--catalog-canvas); }
+.upload ~ .preview .previewHeader,
+.upload ~ .preview .previewMeta { color: var(--catalog-text); }
+
+@media (max-width: 1024px) {
+  .providerGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sourceForm { grid-template-columns: 1fr; }
+  .upload { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .upload ~ .preview { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .upload ~ .preview > .actions {
+    position: sticky;
+    z-index: 3;
+    bottom: 76px;
+    border: 1px solid var(--catalog-border);
+    border-radius: 10px;
+    background: rgba(255, 253, 252, 0.96);
+    padding: 8px;
+  }
+}
+
+@media (max-width: 700px) {
+  .upload { padding-inline: 16px; }
+}
+
+@media (max-width: 480px) {
+  .importWorkspace .providerGrid { grid-template-columns: 1fr; }
+}

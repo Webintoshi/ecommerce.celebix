@@ -62,7 +62,7 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
   assert.match(inspector, /TypographyEditor/);
   assert.match(inspector, /design[.]typography/);
   assert.match(css, /min-height:\s*48px/);
-  assert.match(css, /\.workspace\s*\{[^}]*background:\s*#eef1f5/s);
+  assert.match(css, /\.workspace\s*\{[^}]*background:\s*#F8F7F5/s);
   assert.match(css, /\.canvasStage/);
   assert.match(css, /\.settingsModal/);
   assert.doesNotMatch(`${workspace}\n${stepEditor}\n${inspector}\n${preview}`, /localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
@@ -162,7 +162,10 @@ test("design page loads durable workspace server-side and legacy appearance page
   const page = await readFile(new URL("../../../app/settings/design/page.tsx", import.meta.url), "utf8");
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /resolveDefaultServerStorefrontDesignRuntime/);
+  assert.match(page, /resolveDefaultServerStorefrontDesignPreviewRuntime/);
   assert.match(page, /repository[.]getWorkspace/);
+  assert.match(page, /previewRuntime[.]loader[.]load/);
+  assert.match(page, /initialPreviewResources=/);
   assert.match(page, /<DesignWorkspace/);
   assert.match(page, /resolveDesignWorkspaceLocation/);
   assert.doesNotMatch(page, /storeId=|tenantContext=|localStorage|sessionStorage/);

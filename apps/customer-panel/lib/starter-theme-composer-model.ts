@@ -1,13 +1,19 @@
 import {
   parseStarterThemeCompositionConfig,
+  type HomepageSectionId,
   type StarterCampaignPanelConfig,
   type StarterHeroSlideConfig,
   type StarterThemeComposition,
   type StarterThemeCompositionConfigV2,
+  type StarterThemeCompositionConfigV3,
   type StarterThemeSectionConfigV2,
 } from "@celebix/saas-contracts";
 
 export type StarterThemeEditorState = Omit<StarterThemeCompositionConfigV2, "schemaVersion">;
+type StarterThemeEditorStateV3 = Omit<StarterThemeCompositionConfigV3, "schemaVersion">;
+export type StarterThemeEditorSession =
+  | Readonly<{ schemaVersion: 2; state: StarterThemeEditorState }>
+  | Readonly<{ schemaVersion: 3; state: StarterThemeEditorStateV3 }>;
 type HeroSection = Extract<StarterThemeSectionConfigV2, { kind: "hero" }>;
 type SplitCampaignSection = Extract<StarterThemeSectionConfigV2, { kind: "split_campaign" }>;
 type ValueSection = Extract<StarterThemeSectionConfigV2, { kind: "value_propositions" }>;
@@ -19,6 +25,43 @@ export function buildStarterThemeComposition(input: StarterThemeEditorState): St
     ...input,
     cart: { ...input.cart, showShippingProgress: false },
   }) as StarterThemeCompositionConfigV2;
+}
+
+export function buildStarterThemeCompositionFromSession(
+  session: StarterThemeEditorSession,
+  patch: Partial<StarterThemeEditorState> = {},
+): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
+  const parsed = parseStarterThemeCompositionConfig({
+    ...session.state,
+    ...patch,
+    cart: { ...session.state.cart, ...patch.cart },
+    schemaVersion: session.schemaVersion,
+  });
+  if (parsed.schemaVersion === 1) throw new Error("starter_theme_editor_version_invalid");
+  return parsed;
+}
+
+export function appendStarterThemeSection(
+  session: StarterThemeEditorSession,
+  section: StarterThemeSectionConfigV2,
+  uuid: () => string = () => globalThis.crypto.randomUUID(),
+): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
+  if (session.schemaVersion === 2) {
+    return buildStarterThemeCompositionFromSession(session, {
+      sections: Object.freeze([...session.state.sections, section]),
+    });
+  }
+  const existingIds = new Set(session.state.sections.map(({ sectionId }) => sectionId));
+  const stem: HomepageSectionId = `home_${section.kind}_${uuid().replaceAll("-", "_")}`;
+  let sectionId: HomepageSectionId = stem;
+  let occurrence = 2;
+  while (existingIds.has(sectionId)) {
+    sectionId = `${stem}_${occurrence}`;
+    occurrence += 1;
+  }
+  return buildStarterThemeCompositionFromSession(session, {
+    sections: Object.freeze([...session.state.sections, Object.freeze({ ...section, sectionId })]),
+  });
 }
 
 function defaultFooter(): StarterThemeEditorState["footer"] {
@@ -38,14 +81,11 @@ function defaultFooter(): StarterThemeEditorState["footer"] {
   });
 }
 
-export function upgradeStarterThemeComposition(input: StarterThemeComposition): StarterThemeCompositionConfigV2 {
+export function upgradeStarterThemeComposition(
+  input: StarterThemeComposition,
+): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
   if (input.schemaVersion === 2) return input;
-  if (input.schemaVersion === 3) {
-    return buildStarterThemeComposition({
-      ...input,
-      sections: Object.freeze(input.sections.map(({ sectionId: _sectionId, ...section }) => Object.freeze(section) as StarterThemeSectionConfigV2)),
-    });
-  }
+  if (input.schemaVersion === 3) return input;
   return buildStarterThemeComposition({
     visual: Object.freeze({ ...input.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" }),
     announcement: input.announcement,
@@ -63,6 +103,16 @@ export function upgradeStarterThemeComposition(input: StarterThemeComposition): 
     cart: Object.freeze({ ...input.cart, showQuantitySelector: true }),
     footer: defaultFooter(),
   });
+}
+
+export function openStarterThemeEditorSession(input: StarterThemeComposition): StarterThemeEditorSession {
+  const composition = upgradeStarterThemeComposition(parseStarterThemeCompositionConfig(input));
+  if (composition.schemaVersion === 3) {
+    const { schemaVersion, ...state } = composition;
+    return Object.freeze({ schemaVersion, state: Object.freeze(state) });
+  }
+  const { schemaVersion, ...state } = composition;
+  return Object.freeze({ schemaVersion, state: Object.freeze(state) });
 }
 
 export function moveStarterSection(

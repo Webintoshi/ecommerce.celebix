@@ -26,9 +26,9 @@
   width: min(27rem, calc(100vw - 1rem));
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #E3E7EE;
+  border: 1px solid #E7E2DD;
   border-radius: 1.25rem;
-  background: #FFFFFF;
+  background: #FFFDFC;
   box-shadow: 0 28px 90px rgb(17 24 39 / 24%);
   transition: transform 180ms ease, opacity 180ms ease;
 }
@@ -61,14 +61,14 @@
 }
 
 .drawerHeader h2 {
-  color: #1D2939;
+  color: #2B2B2B;
   font-size: 1rem;
   line-height: 1.25;
 }
 
 .drawerHeader h2:focus-visible {
   border-radius: 0.25rem;
-  outline: 2px solid #FF6A00;
+  outline: 2px solid #2B2B2B;
   outline-offset: 3px;
 }
 
@@ -91,7 +91,7 @@
   justify-content: center;
   gap: 0.35rem;
   border-radius: 0.75rem;
-  color: #A34100;
+  color: #2B2B2B;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -111,7 +111,7 @@
 }
 
 .closeButton {
-  background: #F2F4F7;
+  background: #F8F7F5;
   color: #475467;
 }
 
@@ -126,7 +126,7 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  background: #F9FAFB;
+  background: #F8F7F5;
 }
 
 .conversation {
@@ -141,12 +141,12 @@
   gap: 0.75rem;
   border: 1px solid #EAECF0;
   border-radius: 1rem;
-  background: #FFFFFF;
+  background: #FFFDFC;
   padding: 1rem;
 }
 
 .welcome h3 {
-  color: #1D2939;
+  color: #2B2B2B;
   font-size: 1rem;
 }
 
@@ -161,7 +161,7 @@
   gap: 0.4rem;
   margin: 0;
   padding-left: 1.25rem;
-  color: #344054;
+  color: #2B2B2B;
   font-size: 0.8125rem;
   line-height: 1.45;
 }
@@ -190,15 +190,15 @@
 
 .merchantMessage {
   justify-self: end;
-  background: #FF6A00;
-  color: #FFFFFF;
+  background: #2B2B2B;
+  color: #FFFDFC;
 }
 
 .toshiMessage {
   justify-self: start;
   border: 1px solid #EAECF0;
-  background: #FFFFFF;
-  color: #1D2939;
+  background: #FFFDFC;
+  color: #2B2B2B;
 }
 
 .merchantMessage strong,
@@ -227,9 +227,9 @@
   align-items: center;
   gap: 0.35rem;
   border-radius: 0.75rem;
-  background: #FFF1E8;
+  background: #F8F7F5;
   padding: 0 0.75rem;
-  color: #A34100;
+  color: #2B2B2B;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -249,12 +249,12 @@
   display: grid;
   gap: 0.4rem;
   border-top: 1px solid #EAECF0;
-  background: #FFFFFF;
+  background: #FFFDFC;
   padding: 0.875rem;
 }
 
 .composer label {
-  color: #344054;
+  color: #2B2B2B;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -270,9 +270,9 @@
   min-height: 48px;
   border: 1px solid #D0D5DD;
   border-radius: 0.875rem;
-  background: #FFFFFF;
+  background: #FFFDFC;
   padding: 0 0.875rem;
-  color: #1D2939;
+  color: #2B2B2B;
   font: inherit;
 }
 
@@ -280,13 +280,13 @@
 .workspaceLink:focus-visible,
 .closeButton:focus-visible,
 .composer button:focus-visible {
-  outline: 3px solid rgb(255 106 0 / 30%);
+  outline: 2px solid #2B2B2B;
   outline-offset: 2px;
 }
 
 .composer button {
-  background: #FF6A00;
-  color: #FFFFFF;
+  background: #2B2B2B;
+  color: #FFFDFC;
 }
 
 .composer button:disabled,
@@ -298,11 +298,11 @@
 .workspace {
   display: grid;
   min-height: calc(100dvh - 10rem);
-  grid-template-rows: auto minmax(32rem, 1fr);
-  overflow: hidden;
-  border: 1px solid #E3E7EE;
-  border-radius: 1.25rem;
-  background: #FFFFFF;
+  grid-template-rows: minmax(32rem, 1fr);
+  overflow: visible;
+  border: 1px solid #E7E2DD;
+  border-radius: .75rem;
+  background: #FFFDFC;
   box-shadow: 0 12px 36px rgb(17 24 39 / 8%);
 }
 
@@ -315,7 +315,7 @@
 }
 
 .workspaceHeader h1 {
-  color: #1D2939;
+  color: #2B2B2B;
   font-size: 1.5rem;
   letter-spacing: -0.03em;
 }
@@ -370,3 +370,4 @@
     transition-duration: 0.01ms;
   }
 }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

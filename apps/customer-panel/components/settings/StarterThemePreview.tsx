@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { starterThemeCategoryPlaceholderLabels } from "@/lib/starter-theme-composer-model";
 import styles from "./starter-theme-preview.module.css";
+import { CategoryPlaceholderCards, ProductCards } from "./StarterThemePreviewScaffolds";
 
 type PreviewMode = "desktop" | "mobile";
 type CategorySection = Extract<StarterThemeComposition["sections"][number], { kind: "category_grid" }>;
@@ -53,23 +54,6 @@ function PreviewModePicker({ mode, setMode }: Readonly<{
   </div>;
 }
 
-function ProductCards({ heading, productTitles }: Readonly<{
-  heading: string;
-  productTitles: readonly string[];
-}>) {
-  const visibleTitles = productTitles.length > 0 ? productTitles.slice(0, 3) : ["Katalog ürünü"];
-  return <section className={styles.productSection} aria-label="Ürün sırası önizlemesi">
-    <div className={styles.sectionTitle}><h4>{heading}</h4><span>Tümünü gör</span></div>
-    <div className={styles.previewProducts}>
-      {visibleTitles.map((title, index) => <article key={`${title}-${index}`}>
-        <div className={styles.previewProductMedia} aria-hidden="true"><span>{index + 1}</span></div>
-        <strong>{title}</strong>
-        <small>Aktif katalog</small>
-      </article>)}
-    </div>
-  </section>;
-}
-
 export function StarterThemePreview(props: PreviewProps) {
   const [mode, setMode] = useState<PreviewMode>("desktop");
 
@@ -83,6 +67,9 @@ export function StarterThemePreview(props: PreviewProps) {
     const categoryPlaceholders = starterThemeCategoryPlaceholderLabels(composition);
     const categoryLayout = categorySection && "layout" in categorySection ? categorySection.layout : "grid";
     const announcementContent = <span className={styles.previewMarqueeTrack}>{composition.announcement.items.join(" · ")}</span>;
+    const previewCategoryPlaceholders = categoryPlaceholders.length
+      ? <CategoryPlaceholderCards labels={categoryPlaceholders} layout={categoryLayout} />
+      : null;
 
     return <section className={styles.previewSection} aria-labelledby="starter-composition-preview-title">
       <div className={styles.previewHeading}>
@@ -119,15 +106,10 @@ export function StarterThemePreview(props: PreviewProps) {
           </section> : null}
 
           {productRow?.kind === "product_row"
-            ? <ProductCards heading={productRow.heading} productTitles={props.productTitles} />
+            ? <ProductCards contentLabel={props.productTitles.length ? "Aktif katalog" : "Örnek içerik"} count={3} heading={productRow.heading} productTitles={props.productTitles} />
             : null}
 
-          {categoryPlaceholders.length ? <section className={`${styles.previewCategoryPlaceholders} ${categoryLayout === "duo" ? styles.categoryLayoutDuo : styles.categoryLayoutGrid}`} aria-label="Kategori görsel alanları">
-            {categoryPlaceholders.slice(0, 4).map((label, index) => <article key={label}>
-              <div aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span></div>
-              <strong>{label}</strong>
-            </article>)}
-          </section> : null}
+          {previewCategoryPlaceholders}
 
           {values?.kind === "value_propositions" && values.enabled ? <section className={styles.previewValues} aria-label="Değer önerileri önizlemesi">
             {values.items.map((item) => <article key={item.heading}><i aria-hidden="true" /><div><strong>{item.heading}</strong><small>{item.body}</small></div></article>)}
@@ -194,7 +176,7 @@ export function StarterThemePreview(props: PreviewProps) {
         <header className={styles.previewNav}><strong>{presentation.displayName}</strong><nav aria-label="Mağaza menüsü"><span>Ürünler</span><span>Yeni</span></nav><span className={styles.previewCart}>Sepet · 0</span></header>
         {presentation.promotion ? <a className={styles.previewPromotion} href={presentation.promotion.destination}>{presentation.promotion.headline}</a> : null}
         {presentation.hero.enabled ? <section className={styles.previewHero}><div><small>Yeni sezon</small><h3>{presentation.hero.headline}</h3><p>{presentation.hero.body}</p><span>Ürünleri keşfet</span></div><div className={styles.previewMedia} aria-label="Örnek içerik görsel alanı"><i /><i /></div></section> : null}
-        <ProductCards heading="Yeni seçkiler" productTitles={["Örnek ürün", "Yeni seçki", "Mağaza favorisi"]} />
+        <ProductCards contentLabel="Örnek içerik" count={3} heading="Yeni seçkiler" productTitles={["Örnek ürün", "Yeni seçki", "Mağaza favorisi"]} />
       </div>
     </div>
     <p className={styles.previewNotice}>Bu alan tema yerleşimini örnek içerikle gösterir.</p>

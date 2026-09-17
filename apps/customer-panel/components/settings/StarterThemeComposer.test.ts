@@ -8,7 +8,7 @@ test("composer source contains no raw store or tenant authority", async () => { 
 test("composer is controlled by the unified storefront design document", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.match(value, /value:\s*StarterThemeComposition/);
-  assert.match(value, /onChange:\s*\(value:\s*StarterThemeCompositionConfigV2\)\s*=>\s*void/);
+  assert.match(value, /onChange:\s*\(value:\s*StarterThemeCompositionConfigV2\s*\|\s*StarterThemeCompositionConfigV3\)\s*=>\s*void/);
   assert.doesNotMatch(value, /merchantAdminApi[.]records\("starter_theme_composition"\)/);
   assert.doesNotMatch(value, /merchantAdminApi[.]save\("starter_theme_composition"/);
 });

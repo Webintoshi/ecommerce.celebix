@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { StarterThemeCompositionConfig, StarterThemeSectionConfigV2 } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, type StarterThemeCompositionConfig, type StarterThemeSectionConfigV2 } from "@celebix/saas-contracts";
 import {
   addStarterCampaignPanel,
   addStarterHeroSlide,
   addStarterValueProposition,
   buildStarterThemeComposition,
+  buildStarterThemeCompositionFromSession,
   createStarterThemeEditorState,
   isStarterValuePropositionDraftPublishable,
   moveStarterSection,
+  openStarterThemeEditorSession,
   removeStarterSection,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
@@ -256,15 +258,17 @@ test("editor preview has no invented category slots when no category authority i
 
 test("v1 editor state upgrades to v2 without inventing testimonials or social profiles", () => {
   const current = state();
-  const legacy = {
+  const legacy: StarterThemeCompositionConfig = {
     schemaVersion: 1,
     visual: { colorScheme: current.visual.colorScheme, headingStyle: current.visual.headingStyle, cornerStyle: current.visual.cornerStyle, headerStyle: current.visual.headerStyle, productCardStyle: current.visual.productCardStyle, productImageRatio: current.visual.productImageRatio },
     announcement: current.announcement,
     navigation: current.navigation,
-    sections: current.sections,
+    sections: current.sections.map((section) => section.kind === "category_grid"
+      ? { kind: section.kind, enabled: section.enabled, heading: section.heading, categoryIds: section.categoryIds }
+      : section),
     productDetail: { galleryStyle: current.productDetail.galleryStyle, showSku: current.productDetail.showSku, showBrand: current.productDetail.showBrand, showRelatedProducts: current.productDetail.showRelatedProducts, mobileStickyPurchase: current.productDetail.mobileStickyPurchase },
     cart: current.cart,
-  } as StarterThemeCompositionConfig;
+  };
   const upgraded = upgradeStarterThemeComposition(legacy);
   assert.equal(upgraded.schemaVersion, 2);
   assert.equal(upgraded.cart.showQuantitySelector, true);
@@ -273,4 +277,30 @@ test("v1 editor state upgrades to v2 without inventing testimonials or social pr
   assert.equal(upgraded.footer.newsletter.enabled, false);
   const upgradedCategory = upgraded.sections.find((section): section is Extract<StarterThemeSectionConfigV2, { kind: "category_grid" }> => section.kind === "category_grid");
   assert.equal(upgradedCategory?.layout, "grid");
+});
+
+test("editor sessions retain supported source versions without changing valid stored values", () => {
+  const current = state();
+  const v2 = buildStarterThemeComposition(current);
+  const v3 = createDefaultStarterThemeComposition();
+  const v1: StarterThemeCompositionConfig = {
+    schemaVersion: 1,
+    visual: { colorScheme: current.visual.colorScheme, headingStyle: current.visual.headingStyle, cornerStyle: current.visual.cornerStyle, headerStyle: current.visual.headerStyle, productCardStyle: current.visual.productCardStyle, productImageRatio: current.visual.productImageRatio },
+    announcement: current.announcement,
+    navigation: current.navigation,
+    sections: current.sections.map((section) => section.kind === "category_grid"
+      ? { kind: section.kind, enabled: section.enabled, heading: section.heading, categoryIds: section.categoryIds }
+      : section),
+    productDetail: { galleryStyle: current.productDetail.galleryStyle, showSku: current.productDetail.showSku, showBrand: current.productDetail.showBrand, showRelatedProducts: current.productDetail.showRelatedProducts, mobileStickyPurchase: current.productDetail.mobileStickyPurchase },
+    cart: { showCheckoutReadiness: current.cart.showCheckoutReadiness, showShippingProgress: false, trustMessage: current.cart.trustMessage },
+  };
+
+  const legacyResult = buildStarterThemeCompositionFromSession(openStarterThemeEditorSession(v1));
+  const v2Result = buildStarterThemeCompositionFromSession(openStarterThemeEditorSession(v2));
+  const v3Result = buildStarterThemeCompositionFromSession(openStarterThemeEditorSession(v3));
+
+  assert.equal(legacyResult.schemaVersion, 2);
+  assert.deepEqual(v2Result, v2);
+  assert.deepEqual(v3Result, v3);
+  assert.deepEqual(v3Result.sections.map((section) => "sectionId" in section ? section.sectionId : null), ["home_product_row_1"]);
 });

@@ -230,6 +230,7 @@ async function createMountedProductConsole(
     if (specifier === "@/lib/catalog-ui/client") {
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
+    if (specifier === "./catalog-operations.module.css") return { __esModule: true, default: { catalogRoot: "catalogRoot", primaryAction: "primaryAction", bulkActionButton: "bulkActionButton" } };
     throw new Error(`unexpected_product_console_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -680,6 +681,31 @@ test("mounted product rows keep technical slugs out of merchant presentation", a
   const renderedText = (await mounted.render()).map(mountedText).join(" ");
   assert.match(renderedText, /Gizli teknik slug/);
   assert.doesNotMatch(renderedText, /gizli-teknik-slug/);
+});
+
+test("mounted product comparison stays in a named keyboard-focusable scroll region", async () => {
+  const product = productFixture("12111111-1111-4111-8111-111111111111", "active", 1);
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product], catalogTotal: 1 }; },
+    async getDashboardSummary() { return catalogSummary; },
+  });
+
+  const region = mountedNodes(await mounted.render()).find((node) =>
+    node.props.role === "region" && node.props["aria-label"] === "Ürün karşılaştırma tablosu",
+  );
+  assert.ok(region);
+  assert.equal(region.props.tabIndex, 0);
+  assert.ok(region.children.some((child) => typeof child !== "string" && child.type === "table"));
+});
+
+test("catalog detail stacks its heading at the dock breakpoint and neutralizes media lifecycle chrome", async () => {
+  const css = await source("components/catalog/catalog-operations.module.css");
+  assert.match(css, /@media \(max-width:\s*1024px\)[^]*product-detail-header[^}]*flex-direction:\s*column/s);
+  assert.match(css, /catalog-tabs[^}]*border-color:\s*var\(--catalog-border\)/s);
+  assert.match(css, /catalog-tabs[^}]*button[^}]*min-height:\s*44px/s);
+  assert.match(css, /empty-variants[^}]*background:\s*var\(--catalog-surface\)/s);
+  assert.match(css, /product-detail-variants > [.]inset-form[^}]*border-left-width:\s*1px[^}]*background:\s*var\(--catalog-surface\)/s);
+  assert.match(css, /catalog-form legend > span:first-child[^}]*background:\s*var\(--catalog-canvas\)/s);
 });
 
 test("product list request budget stays at zero detail calls for 1, 20, and 100 rows", async () => {

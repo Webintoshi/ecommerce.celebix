@@ -111,6 +111,22 @@ export type StoreDomainMutationResult = Readonly<{
   replayed: boolean;
 }>;
 
+export const STORE_DOMAIN_REPLACEMENT_STATUSES = ["preparing", "activated", "cancelled", "rolled_back"] as const;
+export type StoreDomainReplacementStatus = (typeof STORE_DOMAIN_REPLACEMENT_STATUSES)[number];
+
+export type StoreDomainReplacementView = Readonly<{
+  schemaVersion: 1;
+  id: OperationId;
+  sourceStorefrontDomainId: DomainId;
+  targetStorefrontDomainId: DomainId;
+  targetAdminDomainId: DomainId;
+  status: StoreDomainReplacementStatus;
+  ready: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
 export const ADMIN_DOMAIN_KINDS = ["platform_subdomain", "custom_alias"] as const;
 export type AdminDomainKind = (typeof ADMIN_DOMAIN_KINDS)[number];
 

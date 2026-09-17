@@ -5,6 +5,7 @@ import type {
   StorefrontDesignDocument,
   StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
+import { Component, type ReactNode } from "react";
 
 import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
 import { StorefrontAssetManager } from "@/components/settings/StorefrontAssetManager";
@@ -15,6 +16,29 @@ import styles from "../design-settings.module.css";
 
 const HOMEPAGE_ASSET_KINDS = Object.freeze(["hero", "category"] as const);
 const BRAND_ASSET_KINDS = Object.freeze(["logo", "favicon", "social"] as const);
+
+class ThemeEditorErrorBoundary extends Component<
+  Readonly<{ children: ReactNode; resetKey: StorefrontDesignDocument["composition"] }>,
+  Readonly<{ failed: boolean }>
+> {
+  state = Object.freeze({ failed: false });
+
+  static getDerivedStateFromError(): Readonly<{ failed: boolean }> {
+    return Object.freeze({ failed: true });
+  }
+
+  componentDidUpdate(previous: Readonly<{ resetKey: StorefrontDesignDocument["composition"] }>): void {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({ failed: false });
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <section role="alert" className={styles.editorGroup}>
+      <header><h3>Tema düzenleyicisi açılamadı</h3><p>Kayıtlı taslak değiştirilmedi. Alanı yeniden açmayı deneyin.</p></header>
+      <button type="button" onClick={() => this.setState({ failed: false })}>Yeniden dene</button>
+    </section>;
+  }
+}
 
 interface DesignStepEditorProps {
   readonly step: DesignWorkspaceStep;
@@ -52,13 +76,15 @@ export function DesignStepEditor({
     onChange={onChange}
     onUpload={onUpload}
   />;
-  const composer = (activePanel: "visual" | "navigation" | "product" | "cart" | "footer") => <StarterThemeComposer
-    activePanel={activePanel}
-    canManage={canManage}
-    showPreview={false}
-    value={design.composition}
-    onChange={(value) => onChange({ ...design, composition: value })}
-  />;
+  const composer = (activePanel: "visual" | "navigation" | "product" | "cart" | "footer") => <ThemeEditorErrorBoundary resetKey={design.composition}>
+    <StarterThemeComposer
+      activePanel={activePanel}
+      canManage={canManage}
+      showPreview={false}
+      value={design.composition}
+      onChange={(value) => onChange({ ...design, composition: value })}
+    />
+  </ThemeEditorErrorBoundary>;
 
   if (step === "brand") return <div className={styles.editorStack}>
     <section className={styles.editorGroup} aria-labelledby="design-brand-heading">

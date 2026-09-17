@@ -93,6 +93,26 @@ export function createStoreDomainHttpHandlers(dependencies: Dependencies) {
       try { return json({ domain: await authority.runtime.domains.create({ tenantContext: authority.tenantContext, now: authority.now, operationId: operation, hostname: parsed.hostname }) }, 202); }
       catch (caught) { return serviceFailure(caught); }
     },
+    async replacements(request: Request): Promise<Response> {
+      if (request.method === "GET") {
+        const authority = await authorize(dependencies, request, "GET", "/api/store-domain-replacements"); if (isResponse(authority)) return authority;
+        try { return json({ items: await authority.runtime.domains.listReplacements({ tenantContext: authority.tenantContext, now: authority.now }) }); } catch (caught) { return serviceFailure(caught); }
+      }
+      const authority = await authorize(dependencies, request, "POST", "/api/store-domain-replacements"); if (isResponse(authority)) return authority;
+      const operation = operationId(request); const parsed = exact(await body(request), ["sourceStorefrontDomainId", "hostname"]);
+      if (!operation || !parsed || typeof parsed.hostname !== "string" || typeof parsed.sourceStorefrontDomainId !== "string" || !UUID.test(parsed.sourceStorefrontDomainId)) return failure("invalid_input", 400);
+      try { return json({ replacement: await authority.runtime.domains.createReplacement({ tenantContext: authority.tenantContext, now: authority.now, operationId: operation, sourceStorefrontDomainId: parsed.sourceStorefrontDomainId, hostname: parsed.hostname }) }, 202); }
+      catch (caught) { return serviceFailure(caught); }
+    },
+    replacementAction(request: Request, replacementId: string, action: "activate" | "cancel" | "rollback") {
+      if (!UUID.test(replacementId) || !["activate", "cancel", "rollback"].includes(action)) return Promise.resolve(failure("invalid_input", 400));
+      return mutation(dependencies, request, "POST", `/api/store-domain-replacements/${replacementId}/${action}`, (authority, expectedVersion) => {
+        const input = { tenantContext: authority.tenantContext, now: authority.now, operationId: operationId(request)!, replacementId, expectedVersion: expectedVersion! };
+        return action === "activate" ? authority.runtime.domains.activateReplacement(input)
+          : action === "cancel" ? authority.runtime.domains.cancelReplacement(input)
+          : authority.runtime.domains.rollbackReplacement(input);
+      });
+    },
     recheck(request: Request, domainId: string) {
       if (!UUID.test(domainId)) return Promise.resolve(failure("invalid_input", 400));
       return mutation(dependencies, request, "POST", `/api/store-domains/${domainId}/recheck`, (authority, expectedVersion) => authority.runtime.domains.requestRecheck({ tenantContext: authority.tenantContext, now: authority.now, domainId, expectedVersion: expectedVersion! }));

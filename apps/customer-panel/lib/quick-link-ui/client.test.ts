@@ -1075,9 +1075,9 @@ test("mounted cancel conflict refreshes authoritative rows and moves focus to re
 
 test("responsive table/cards, 48px targets, and visible focus stay in the accepted panel tokens", async () => {
   const styles = await source("components/orders/quick-order-links.module.css");
-  assert.match(styles, /#F9F9F9/i);
-  assert.match(styles, /#FF6A00/i);
-  assert.match(styles, /#E1E6EF/i);
+  assert.match(styles, /#F8F7F5/i);
+  assert.match(styles, /#FE6100/i);
+  assert.match(styles, /#E7E2DD/i);
   assert.match(styles, /min-height:\s*48px/);
   assert.match(styles, /:focus-visible/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)[^]*\.desktopTable\s*\{\s*display:\s*none/s);

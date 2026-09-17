@@ -94,3 +94,38 @@ test("new line identities are submit-owned and never randomize server/client ini
   assert.doesNotMatch(component, /crypto[.]randomUUID/);
   assert.match(component, /submitInventoryOperationForm\(/);
 });
+
+test("Mira inventory presentation keeps one responsive create action and dock-safe form controls", async () => {
+  const [purchase, count, transfer, location, operationForm, css] = await Promise.all([
+    source("components/inventory/PurchasingConsole.tsx"),
+    source("components/inventory/InventoryCountConsole.tsx"),
+    source("components/inventory/InventoryTransferConsole.tsx"),
+    source("components/inventory/InventoryLocationConsole.tsx"),
+    source("components/inventory/InventoryOperationForm.tsx"),
+    source("components/inventory/inventory-console.module.css"),
+  ]);
+  for (const [component, title] of [
+    [purchase, "Satın alma"],
+    [count, "Stok sayımları"],
+    [transfer, "Stok transferleri"],
+  ]) {
+    assert.match(component, /PanelActionButton/);
+    assert.match(component, /className=\{styles[.]pageAction\}/);
+    assert.match(component, /<h1 className=\{styles[.]srOnly\}>/);
+    assert.doesNotMatch(component, /\?\s*"warning"/);
+    assert.equal(component.match(/href="\/products\/[^\"]+\/new"/g)?.length, 1, title);
+  }
+  assert.match(location, /phase === "committed" \|\| phase === "replayed"/);
+  assert.match(operationForm, /Sipariş bilgileri/);
+  assert.match(operationForm, /Sayım bilgileri/);
+  assert.match(operationForm, /Transfer bilgileri/);
+  assert.match(operationForm, /operationFormCreate/);
+  assert.match(css, /--inventory-text:\s*#2B2B2B/);
+  assert.match(css, /--inventory-surface:\s*#FFFDFC/);
+  assert.match(css, /--inventory-border:\s*#E7E2DD/);
+  assert.match(css, /\.pageAction a[\s\S]{0,180}background:\s*var\(--inventory-text\)/);
+  assert.match(css, /\.operationFormCreate\s*\{\s*margin-top:\s*0/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.operationFields\s*\{\s*grid-template-columns:\s*1fr/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*bottom:\s*76px/);
+  assert.doesNotMatch(css, /\.actions \.primary[\s\S]{0,160}background:\s*#fe6100/i);
+});

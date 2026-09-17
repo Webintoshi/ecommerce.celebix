@@ -143,12 +143,17 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
       <PanelPageHeader title="Müşteriyi Düzenle" description="İletişim, izin ve adres defterini güvenli kayıt sürümüyle güncelleyin." />
       <form className={styles.form} onSubmit={submit}>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
-        <div className={styles.grid}>
-          <label>Ad<input name="firstName" defaultValue={customer.firstName} required maxLength={100} /></label>
-          <label>Soyad<input name="lastName" defaultValue={customer.lastName} required maxLength={100} /></label>
-          <label>E-posta<input name="email" type="email" defaultValue={customer.email ?? ""} maxLength={320} /></label>
-          <label>Telefon<input name="phone" type="tel" defaultValue={customer.phone ?? ""} maxLength={16} /></label>
-        </div>
+        <section className={styles.section} aria-labelledby="customer-edit-contact-title">
+          <div className={styles.sectionHeader}>
+            <div><h2 id="customer-edit-contact-title">Müşteri bilgileri</h2><p>Kimlik ve iletişim bilgilerini güncelleyin.</p></div>
+          </div>
+          <div className={styles.grid}>
+            <label>Ad<input name="firstName" autoComplete="given-name" defaultValue={customer.firstName} required maxLength={100} /></label>
+            <label>Soyad<input name="lastName" autoComplete="family-name" defaultValue={customer.lastName} required maxLength={100} /></label>
+            <label>E-posta<input name="email" type="email" autoComplete="email" defaultValue={customer.email ?? ""} maxLength={320} /></label>
+            <label>Telefon<input name="phone" type="tel" autoComplete="tel" defaultValue={customer.phone ?? ""} maxLength={16} /></label>
+          </div>
+        </section>
 
         <section className={styles.section} aria-label="Adres defteri">
           <div className={styles.sectionHeader}>
@@ -176,11 +181,11 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
           ))}</div> : <p className={styles.inlineEmpty}>Adres kaydı yok. İsterseniz adres ekleyebilirsiniz.</p>}
         </section>
 
-        <section className={styles.section}>
-          <div><h2>İletişim izinleri</h2><p>Kanal izinleri açık ve kalıcı kayıtla güncellenir.</p></div>
+        <section className={styles.section} aria-labelledby="customer-edit-consent-title">
+          <div className={styles.sectionHeader}><div><h2 id="customer-edit-consent-title">İletişim izinleri</h2><p>Kanal izinleri açık ve kalıcı kayıtla güncellenir.</p></div></div>
           <div className={styles.checks}>{(["email", "phone", "whatsapp"] as const).map((channel) => <label className={styles.check} key={channel}><input name={`${channel}Consent`} type="checkbox" defaultChecked={customer.consents.some((consent) => consent.channel === channel && consent.status === "granted")} />{channel === "email" ? "E-posta" : channel === "phone" ? "Telefon" : "WhatsApp"}</label>)}</div>
         </section>
-        <div className={styles.actions}><Link className={styles.button} href={`/customers/${encodeURIComponent(customer.id)}`}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}</button></div>
+        <footer className={styles.actions}><Link className={styles.button} href={`/customers/${encodeURIComponent(customer.id)}`}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}</button></footer>
       </form>
     </PanelPageShell>
   );

@@ -17,6 +17,7 @@ export type {
   ProviderHostnameStatus,
   ProviderValidationInstruction,
   StoreDomainPersistence,
+  StoreDomainReplacementVersionedServiceInput,
   StoreDomainServiceErrorCode,
   StoreDomainVersionedServiceInput,
   StoreDomainWorkflowClaim,

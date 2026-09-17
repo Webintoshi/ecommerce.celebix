@@ -1,26 +1,18 @@
-import Image from "next/image";
-
+import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { ToshiAssistant } from "./ToshiAssistant";
 import styles from "./toshi.module.css";
 
 export function ToshiWorkspace() {
   return (
-    <section className={styles.workspace} aria-labelledby="toshi-workspace-title">
-      <header className={styles.workspaceHeader}>
-        <Image
-          src="/toshi/toshi-profile.webp"
-          width={72}
-          height={72}
-          alt="Toshi yapay zekâ mağaza asistanı"
-          priority
-          unoptimized
-        />
-        <div>
-          <h1 id="toshi-workspace-title">Toshi</h1>
-          <p>Mağaza verilerinizi güvenli biçimde okuyup hızlı, doğrulanabilir yanıtlar verir.</p>
-        </div>
-      </header>
-      <ToshiAssistant mode="page" />
-    </section>
+    <PanelPageShell>
+      <h1 className={styles.srOnly}>Toshi</h1>
+      <PanelPageHeader
+        title="Toshi"
+        description="Mağaza verilerinizi güvenli biçimde okuyup hızlı, doğrulanabilir yanıtlar verir."
+      />
+      <section className={styles.workspace} aria-label="Toshi çalışma alanı">
+        <ToshiAssistant mode="page" />
+      </section>
+    </PanelPageShell>
   );
 }

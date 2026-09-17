@@ -114,7 +114,7 @@ export function CustomerDetailPresentation({
             <div className={styles.heading}>
               <div>
                 <h2>Sipariş geçmişi</h2>
-                <p>{partialHistory ? `Son 50 sipariş · toplam ${data.orderCount}` : `${data.orderCount} sipariş`}</p>
+                <p>{partialHistory ? `Son ${workspace.orders.length} sipariş · toplam ${data.orderCount}` : `${data.orderCount} sipariş`}</p>
               </div>
             </div>
             {workspace.orders.length ? (
@@ -131,7 +131,7 @@ export function CustomerDetailPresentation({
                   </Link>
                 ))}
               </div>
-            ) : <p className={styles.inlineEmpty}>Bu müşteriye bağlı sipariş bulunmuyor.</p>}
+            ) : <p className={styles.inlineEmpty}>{data.orderCount > 0 ? "Sipariş geçmişi şu anda alınamadı. Kayıtlı sipariş toplamı müşteri özetinde gösteriliyor." : "Bu müşteriye bağlı sipariş bulunmuyor."}</p>}
           </section>
 
           <section className={styles.detail} aria-label="Müşteri adresleri">
@@ -256,13 +256,15 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
   async function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const text = String(new FormData(form).get("text") ?? "").trim();
+    const rawText = String(new FormData(form).get("text") ?? "");
+    const text = rawText.trim();
     if (!data || !text || busy) return;
     setBusy(true);
     setError("");
     try {
       await customerApi.addNote(customerId, text);
-      form.reset();
+      const noteInput = form.elements.namedItem("text") as HTMLTextAreaElement | null;
+      if (!noteInput || noteInput.value === rawText) form.reset();
       setNotice("Not kaydedildi.");
       await load(true);
     } catch (caught) { setError(message(caught)); }

@@ -7,6 +7,7 @@ import {
   type Product,
   type StarterThemeComposition,
   type StarterThemeCompositionConfigV2,
+  type StarterThemeCompositionConfigV3,
   type StarterThemeSectionConfigV2,
   type StorefrontAsset,
 } from "@celebix/saas-contracts";
@@ -22,15 +23,16 @@ import { merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import {
   addStarterCampaignPanel,
   addStarterHeroSlide,
-  buildStarterThemeComposition,
+  appendStarterThemeSection,
+  buildStarterThemeCompositionFromSession,
   moveStarterSection,
+  openStarterThemeEditorSession,
   removeStarterCampaignPanel,
   removeStarterHeroSlide,
   removeStarterSection,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
   updateStarterNavigationRoots,
-  upgradeStarterThemeComposition,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
 import { type ThemePanelKey } from "./starter-theme-subnavigation-model";
@@ -66,11 +68,6 @@ const PANEL_LABELS: Readonly<Record<ThemePanelKey, string>> = Object.freeze({
   cart: "Sepet",
   footer: "Footer",
 });
-
-function editorState(config: StarterThemeCompositionConfigV2): StarterThemeEditorState {
-  const { schemaVersion: _schemaVersion, ...state } = config;
-  return state;
-}
 
 function makeSection(kind: EditableSectionKind, products: readonly Product[], assets: readonly StorefrontAsset[]): StarterThemeSectionConfigV2 | null {
   const product = products[0], image = assets.find((asset) => asset.kind === "hero") ?? assets.find((asset) => asset.kind === "category");
@@ -165,7 +162,7 @@ export function StarterThemeComposer({
   canManage: boolean;
   showPreview?: boolean;
   value: StarterThemeComposition;
-  onChange: (value: StarterThemeCompositionConfigV2) => void;
+  onChange: (value: StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3) => void;
 }>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
@@ -195,27 +192,50 @@ export function StarterThemeComposer({
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  const session = useMemo(() => {
+    try { return openStarterThemeEditorSession(value); }
+    catch { return null; }
+  }, [value]);
+  const canLoadResources = session !== null;
 
-  const state = useMemo(() => editorState(upgradeStarterThemeComposition(value)), [value]);
-  const preview = useMemo(() => { try { return buildStarterThemeComposition(state); } catch { return null; } }, [state]);
+  useEffect(() => { if (canLoadResources) void load(); }, [canLoadResources, load]);
+
+  const preview = useMemo(() => {
+    if (!session) return null;
+    try { return buildStarterThemeCompositionFromSession(session); }
+    catch { return null; }
+  }, [session]);
   const productTitles = useMemo(() => Object.freeze(products.slice(0, 3).map(({ title }) => title)), [products]);
+  if (!session) return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
+    <p className={styles.error} role="alert">Kayıtlı tema verisi açılamadı. Taslak değiştirilmedi; yeniden deneyin veya destek alın.</p>
+  </section>;
+  const editorSession = session;
+  const state = editorSession.state;
   const disabled = !canManage;
   const patch = (patchValue: Partial<StarterThemeEditorState>) => {
     try {
-      onChange(buildStarterThemeComposition({ ...state, ...patchValue }));
+      onChange(buildStarterThemeCompositionFromSession(editorSession, patchValue));
       setError("");
     } catch {
       setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
     }
   };
-  const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({ sections: Object.freeze(state.sections.map((entry, position) => position === index ? section : entry)) });
+  const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({
+    sections: Object.freeze(state.sections.map((entry, position) => position === index
+      ? Object.freeze({ ...section, ...("sectionId" in entry ? { sectionId: entry.sectionId } : {}) })
+      : entry)),
+  });
 
   function addSection() {
     const section = makeSection(newSection, products, assets);
     if (!section) { setError("Bu bölüm için önce etkin kategori veya vitrin görseli ekleyin."); return; }
     if (newSection !== "product_row" && state.sections.some(({ kind }) => kind === newSection)) { setError("Bu bölüm türü yalnız bir kez eklenebilir."); return; }
-    patch({ sections: Object.freeze([...state.sections, section]) }); setError("");
+    try {
+      onChange(appendStarterThemeSection(editorSession, section));
+      setError("");
+    } catch {
+      setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+    }
   }
 
   return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
