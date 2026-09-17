@@ -2,11 +2,19 @@
 
 Status: user approved the written design on 2026-09-16; implementation and live delivery NOT completed.
 
+2026-09-17 recipient update: user explicitly requested a new recipient
+(identity retained in private operational context) as full store administrator and reiterated completing
+the real invitation/access integration. The matching generic record was created
+and re-read in Güzide with role `admin`, expiration `2026-09-24T16:00:00.000Z`.
+This record is NOT a delivered invitation or an active membership. Initial
+live sending for the resumed closeout targets this latest recipient only;
+preserve the earlier recipient record without sending it again.
+
 ## Problem and evidence
 
 Customer Panel currently saves `administrator_invite` through the generic merchant-admin record API. The API calls the repository save operation, which writes a record, event and idempotency result; it does not enqueue email or grant membership. The visible Active status therefore describes the saved configuration, not delivery or usable access.
 
-The existing Güzide test record must be preserved: Sadık Ahmet, previous-recipient@example.test, admin role, expiration 2026-09-23T19:00:00Z. Do not create another generic record or silently grant access.
+The earlier Güzide test record must be preserved: recipient identity retained privately, admin role, expiration 2026-09-23T19:00:00Z. Do not create another generic record or silently grant access.
 
 Source baseline: 4fffd63c0391dc2ab7d5ef265188ca725d997b12 in existing codex/mira-design-settings-fix worktree. Unrelated dirty order/category visibility and reservation-repair files are excluded.
 

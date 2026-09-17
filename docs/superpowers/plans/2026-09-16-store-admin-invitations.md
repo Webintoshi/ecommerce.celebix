@@ -168,3 +168,402 @@ Provider contract checked against official Resend send-email and idempotency doc
 Task 1 defines only public contracts, not working email delivery. Later integrations remain mandatory and uncompleted until separately executed and verified. The ASCII normalization policy fails closed on internationalized email rather than silently mapping a different recipient. Existing approved ASCII Gmail recipient is unaffected. Source-of-truth identity mapping is documented in the read-only integration map; owner-only session guards are not loosened as a shortcut.
 
 Task 1 review clarification: displayName must already be trimmed (ordinary U+0020 outer spaces rejected), consistent with the source merchant record's `name=btrim(name)` constraint. Email normalization trims only ordinary U+0020 outer spaces; NBSP, BOM, tabs/newlines and all other non-ASCII/control whitespace are rejected, not silently stripped.
+
+### Task 4: Durable invitation lifecycle and least-privilege acceptance
+
+Implement the persistence boundary only. Read the approved spec and the focused
+`.superpowers/sdd/2026-09-16-store-admin-invitations/persistence-map.md` if present.
+This is ordinary project-managed PostgreSQL16, not a Supabase migration system.
+The migration sequence currently ends128; re-list and reserve129 if still free.
+
+**Files:** Add up/down/assertions SQL under `apps/owner/scripts/sql/saas/` using
+the existing numbered migration convention, and a dedicated executable harness
+under `tests/saas-phase3/store-admin-invitations/`. Add a narrowly-scoped Owner
+repository under `apps/owner/lib/store-admin-invitations/` with behavioral tests
+if needed to establish the typed SQL interface. No route/UI/runtime wiring yet.
+Do not edit existing migrations, payment modules or unrelated dirty files.
+
+**Authority and storage requirements:**
+- Central identity role alone creates/resends/revokes invitations and records
+  verified grants/acceptance. Workflow alone claims/settles mail jobs. App role
+  may list safe projections with the authenticated merchant tuple only. Owner
+  checks repeat inside functions using current active membership, principal,
+  store, subscription and plan. Browser-supplied identities are never trusted.
+- Tables: store-scoped invitations (one-to-one source generic record), immutable
+  operations and audit, generation-bound encrypted outbox, short-lived verified
+  acceptance grants. Enable/FORCE RLS, revoke PUBLIC execution and direct table
+  access, grant exact function signatures only to intended roles. Functions use
+  a fixed safe search_path; no dynamic caller-controlled identifiers.
+- Issue atomically snapshots source name/email/role/expiry at expected version,
+  validates ASCII canonical email and allowed roles admin/editor/analyst, active
+  source and future expiry, inserts invitation+outbox+operation+audit. Source is
+  not deleted. No membership is created at issue. Freeze edits to converted
+  source fields so an unrelated generic edit cannot mutate invitation intent.
+- Persist digest only in invitation. Outbox accepts opaque bounded encrypted
+  payload+key ID+digest, stable idempotency key
+  `store-admin-invitation/v1/<invitation UUID>/<generation>` and rendering version.
+  No plaintext token or provider raw body in operations/audit/projections.
+- Replay is bound to exact operation intent and owner/store; concurrent duplicate
+  issue yields exactly one invitation+job. Recovering unknown commit must be safe.
+- Resend only pending/unexpired, once/minute and max5/hour, increments generation,
+  rotates digest, invalidates old jobs/grants, and creates a new durable payload.
+  Revoke invalidates generation authority. Expired/accepted/revoked invitations
+  cannot be sent or accepted. Operations use expectedVersion and operationId.
+- Grant creation is identity-role-only from server-verified issuer/subject/email,
+  emailVerified must be true, canonical email must match, and grant is bound to
+  invitation+generation+browser digest. It never grants membership by itself.
+- Explicit acceptance consumes a matching unexpired grant+browser proof once,
+  locking/rechecking pending invitation, digest/generation, expiry, current inviter
+  owner authority, active store/plan. Create or validate principal by issuer+subject;
+  membership unique principal/store. Preserve higher existing active role (rank
+  owner>admin>editor>analyst), never reactivate revoked/inactive membership, and
+  never transfer ownership. Atomic accepted state+membership+grant+audit; concurrent
+  same-intent acceptance cannot create duplicates; replay returns prior result.
+- Canonical admin destination comes from active verified admin_domains centrally,
+  canonical first, never request returnTo. Acceptance result does not itself issue
+  a panel session; the next task adds safe session issuance for accepted roles.
+- Claim bounded batch via SKIP LOCKED, fenced lease token/attempt, no stale worker
+  completion, current-generation/current authority recheck. Preserve first attempt
+  timestamp and exact encrypted payload. Stop retries before24h replay horizon
+  (include a safety margin) and classify unknown outcome rather than duplicate send.
+  Provider accepted != delivered. No delivered transition from ordinary settlement.
+  Dedicated verified-event ingestion must be idempotent and not broaden worker role.
+- Use safe constant outcome codes and separate invitation and delivery states.
+  Public projections conform to Task1 StoreAdminInvitationView exactly.
+
+**TDD and verification:** Write executable PostgreSQL assertions/harness first,
+record RED before migration exists, then implement. Use the socket-only isolated
+PostgreSQL16 harness pattern from `tests/saas-phase3/order-transactional-email/`;
+apply the required real migration chain, never a live database. Verify successful
+issue/list/accept; wrong tenant, role and revoked inviter; unverified/wrong email;
+expired/revoked/rotated token/grant; existing higher and revoked membership; duplicate
+operations, concurrent issue/accept; rollback atomicity; source freeze; immutable
+audit; app cannot issue/accept/write memberships/read secrets; workflow cannot
+grant membership; stale lease; bounded retries; outbox payload stability; down/up
+on empty disposable schema. Do not substitute SQL substring assertions for execution.
+Document exact commands/counts/warnings and affected files. Commit only task files
+after green, then independent review. No real migration, deploy, email or membership
+write. Full task remains incomplete until auth, UI, release and real acceptance gates.
+
+### Task 5: Exact-request encryption and durable invitation dispatch
+
+Execution amendment: the original global claim can perform terminal housekeeping
+on unrelated jobs not returned to the caller. Therefore the minimal rollback-only
+option below is superseded: Task5 updates the NEW/unreleased migration129 claim
+with required trusted store+recipient scope before candidate locks/housekeeping,
+plus assertions/down/grants and real-PG harness. Repository captures validated
+scope at construction; per-call input cannot override it. Keep decrypted-request
+allowlist validation too. Unrelated expired/exhausted/cross-store rows must remain
+identical, and old/missing/noncanonical scope must fail closed.
+Runtime consumes existing validated Owner database/CA configuration and fixed
+identity/workflow roles; no new database credential variables or NOLOGIN username
+requirement. Exact database and role capabilities are preflighted in Task8.
+
+**Files:** `apps/owner/lib/store-admin-invitations/request-seal.ts`,
+`request-seal.test.ts`, `service.ts`, `service.test.ts`, `worker.ts`,
+`worker.test.ts`, `runtime-config.ts`, `runtime-config.test.ts`, and narrow
+repository adaptations only if Task4 interface needs them. Runtime startup and
+HTTP routes belong to the subsequent combined wiring task. No live sending.
+
+Task4 establishes SQL signatures but need not create a TypeScript repository.
+If absent, add `repository.ts` and `repository.test.ts` here using existing
+PostgresPoolLike: explicit SET LOCAL identity/workflow roles, transaction deadlines,
+strict result parsing, rollback/discard on unknown COMMIT and fresh-connection
+operation recovery. Never return raw SQL errors or let caller choose SQL roles.
+Include narrow grant/accept/recovery methods needed by Task6; no generic SQL escape.
+Task4 list includes `{items,hasMore}`: preserve completeness metadata through all
+layers. Missing lifecycle row when hasMore=true is unknown, not 'unsent'. Use
+`resend_source` for immutable snapshot/storeName, `grant_preview` only server-side
+(issuer/subject must not reach browser), and fenced `delivery_authorize` immediately
+before dispatch. Consume actual reviewed SQL shapes, not outdated map guesses.
+Some logically read-only source/authority functions deliberately acquire row locks;
+do not wrap them in PostgreSQL BEGIN READ ONLY, which forbids those locks. Use
+bounded normal role transactions without introducing any state write beyond the
+called reviewed function. Accepted effective role may preserve existing store_owner;
+requested invitation role remains only admin/editor/analyst.
+
+Consume Task4's reviewed SQL/repository, Task1 intents/projections, Task2 token,
+Task3 renderer/transport. Preserve `ai1` payload decoder unchanged. Add `ar1`
+AES256GCM seal for EXACT validated `{from,to,subject,html,text}` request serialized
+once before issue. Separate AAD/purpose, same invitation+generation binding,
+dedicated keyring only; maximum64KiB encrypted bytes, strict exact fields,
+32-byte key,12-byteIV,16-bytetag, SHA256 digest; wipe transient plaintext and key
+buffers on all paths including tag failure. Do not log secret content or provider
+errors. Request equality survives decrypt/retry; no re-render in worker.
+
+Service receives authenticated merchant authority separately from parsed public
+intent. Read source, enforce configured store+recipient allowlist, generate token
+and candidate IDs centrally, render+seal exact request, issue atomically through
+Task4; existing converted source is not recreated. Same operation replays original
+job despite fresh random candidates; unknown commit uses recovery and does not
+blindly send again. Resend uses persisted snapshot and next generation with rate
+limits repeated inDB. Revoke never revokes accepted memberships. Service public
+results contain only safe projections and codes, never tokens/seals/provider IDs.
+
+Worker uses a separate workflow connection/role, bounded single run/batch/leases,
+decryption context and trusted clock refreshed before send/settlement. Recheck
+allowlisted store+recipient+sender, generation, expiry and dispatch eligibility
+immediately before send; do not send if state changed or lease expired. Send via
+Task3 adapter under persisted key; accepted->provider_accepted, never delivered.
+Bound8attempts and conservative replay deadline before24h (5min margin); retry
+with identical key/body; after ambiguity horizon record outcome_unknown. Stale
+worker cannot settle; no implicit reactivation. Surface persistence failures
+without uncaught secret-bearing error messages. In-flight revoke cannot unsend
+email; link acceptance must still fail and report delivery truthfully.
+Claim currently has no allowlist SQL parameters. Do not claim then terminally fail
+unrelated jobs or consume their attempts merely because this worker is scoped.
+Minimal initial-release option: inspect claimed immutable store/request under its
+still-open bounded claim transaction, commit only if every item matches configured
+allowlist; otherwise rollback the entire claim and report worker configuration
+blocked without sending. A blocked mixed queue is truthful and safe; do not silently
+drop/rewrite recipients. If a scoped SQL claim is needed instead, report the narrow
+interface change before adding it. Test nonallowlisted claim leaves persisted state
+and attempts unchanged; never hold DB transaction over provider network calls.
+
+Runtime config disabled by default, explicitly approved_staging+tierstaging only;
+require dedicated provider config, dedicated payload keyring, exact database
+name/role connection and bounded worker ID. Never fallback to another app's key,
+enable production, or install runtime secrets in this implementation task.
+
+TDD first: real crypto tamper/context/cleanup tests; exact repeat body/key; wrong
+store/recipient causes zero provider calls; stale/expired/revoked job cannot send;
+timeouts/maxattempts/horizon/commit-unknown; deterministic replay; provideraccepted
+distinct from delivery; stable service operations. Mock only network/DB boundary,
+exercise actual service/worker/crypto. Run focused new tests and existing invitation
+token/seal/transport plus order-email regression and Owner typecheck. Commit only
+task files after green; independent review. Full build remains final combined gate.
+
+### Task 6: Purpose-bound invitation identity and member login
+
+Consume the reviewed Task4 repository and the inspected auth proposal in this
+plan's SDD workspace. Implement Owner identity/service and additive session SQL
+only; wire signed HTTP and Panel routes in Task7. No live operation.
+
+**Files:** Owner `lib/self-serve-oidc.ts`,
+`lib/saas-persistence/postgres-oidc-transaction-store.ts` and existing tests;
+`lib/store-admin-invitations/auth-service.ts` and focused tests; narrow Task4
+repository extensions; a new additive numbered session migration/assertions/down
+and disposable invitation harness tests. Do not edit historical SQL or generalize
+owner-only operations. Reserve the next free migration number after Task4.
+
+Invitation acceptance runs at configured central `authority.panelOrigin`: OIDC
+callback and host-only pre-auth proof already reside there. Enforce delivery
+acceptanceOrigin equality at runtime before enabling; never hardcode/infer host.
+Add exclusive encrypted OIDC payload schema3, `pinvite_` state, literal returnTo
+`/invitations/confirm`, existing fixed redirectUri and PKCE/nonce/issuer/audience
+checks. Preserve existing schema1 registration/schema2 returning login unchanged.
+Invitation context contains server-created invitationId, generation, tokenDigest,
+browser-binding keyId/digest, grantId and opaque grant credential. It must exclude
+panelLoginBinding and panelLoginDestinationHostname. Never store raw invite token.
+Grant credential is `ig1.<canonical32-byte-base64url>` with separate digest purpose;
+only its encrypted OIDC copy supports lost-callback recovery. DB stores digest.
+
+Add invitation binding inspection on active schema3; state prefix alone is never
+authority. Malformed schema/prefix/context fails closed. Completion independently
+verifies same browser proof against consumed transaction and yields trusted
+invitation context plus verified identity. Prompt login for explicit identity
+selection; verified normalized email equality remains authoritative. Provider
+error rejection and replay stay purpose-bound and must never create a tenant.
+
+Auth service start resolves token digest and pins immutable intent. Successful
+callback only creates the short-lived verified grant, not membership/session.
+Recover consumed schema3 only by matching browser proof plus a real durable grant;
+never infer identity verification from consumed status, rerun code exchange, extend
+expiry or recreate a grant from caller identity. Confirmation preview is read-only.
+Explicit accept uses stable operation ID, safe commit recovery, DB-owned role and
+destination, then issues the normal session using server-resolved verified identity.
+If acceptance commits but session fails, return truthful accepted/access-retry
+state recoverably, not a false unaccepted result. No session before confirmed commit.
+
+Additive SQL replaces only exact-host returning session issue/recover membership
+predicate with active store_owner/admin/editor/analyst. Preserve issuer/subject,
+verified email, store, active verified exact admin domain, plan/subscription,
+expiry/locking/recovery guards. Normal subsequent login must work, not merely
+first acceptance. Existing owner-only writes/invitation issuance stay owner-only.
+Existing cross-host handoff120/custom redemption125 must work under real admin
+role without broadening authorization elsewhere.
+
+TDD first: schema1/2 regression; schema3 roundtrip/AAD, mismatched prefix/context,
+wrong/missing proof, wrong issuer/audience/nonce/unverified or mismatched email,
+callback replay only with committed grant, provider errors never registration;
+explicit accept recovery and no session before commit; revoked/stale grant denied.
+Real disposable PG tests active admin/editor/analyst normal login+recovery, denied
+revoked/invited membership, preserved owner-only writes, exact-host handoff120/125.
+Run focused OIDC/persistence/returning-login/invitation tests and Owner typecheck.
+Commit explicit task files, independently review. No release or real email.
+
+### Task 7: Signed invitation flow and explicit browser acceptance
+
+Routing refinement: implement public accept/confirm as route-handler HTML surfaces
+with escaped safe markup and a small first-party fragment client/restrictive CSP.
+Next cannot mount page.tsx and route.ts at one path, and GET must issue CSRF cookie.
+Preserve scanner-safe GET + explicit POST /invitations/accept, not a conflicting
+page/route pair or Server Component cookie writes. No third-party assets/redesign.
+
+Implement against Task6 actual interfaces and existing signed gateways, not an
+unsigned identity shortcut. Read the detailed auth proposal in the SDD workspace.
+Files: Owner panel-browser-binding/internal-gateway and tests;
+panel-session-handoff internal-response/internal-gateway/internal-callback-handler
+and tests; Panel panel-browser-binding-bootstrap transport and tests,
+panel-session-completion transport/completion and tests; new Panel
+lib/store-admin-invitations auth-handler/cookie/client and app/invitations pages
+and routes; narrowly related auth composition/runtime/mount and readiness tests.
+
+Add exact signed browser gateway requests4 invitation_start(token, browser proof),
+5 invitation_preview(grant credential, browser proof),6 invitation_accept(grant,
+browser proof, operationId). Browser never supplies role/store/identity/return URL.
+Preserve HMAC domains, exact keys/canonical bytes/body limits, timestamp/deadline,
+request-bound response verification, private-header rejection. New response3 kinds
+login_ready, confirmation safe projection, session_ready, allowlisted rejection;
+strict discriminated parsers, no arbitrary pass-through. Callback request2 stays
+byte compatible. Add signed callback response2 invitation_confirmation_ready with
+grant credential, expiry and literal `/invitations/confirm` continuation only.
+Dispatch invitation before both returning login and registration, including errors;
+recognized invitation failure never falls through to registration/tenant creation.
+
+Public landing `/invitations/accept#token=...` is scanner-safe GET, no-store,
+no-referrer, no analytics/third-party assets. First-party client reads fragment,
+immediately removes it with replaceState, keeps token in memory only until user
+Continue. Same-origin CSRF POST `/invitations/start` creates browser proof and OIDC
+redirect; no query/storage/token-bearing DOM links. Callback preserves pre-auth
+cookie and creates separate short-lived `__Host-celebix_invitation_grant` cookie
+Secure/HttpOnly/SameSite=Lax/Path=/, expiry bounded by grant+proof, no Domain.
+It redirects to confirmation without panel session or membership. Confirmation
+GET resolves safe store/role/email projection and renders explicit Accept. POST
+accept validates exact external origin, bounded body and host-only random CSRF
+cookie/hidden nonce with timing-safe comparison; reject duplicate/ambiguous cookies.
+Stable operation ID survives uncertain retries. No GET can consume an invitation.
+Keep the acceptance operation ID stable across confirmation refresh as well as
+duplicate clicks (for example a separate short-lived host-only HttpOnly operation
+cookie associated with the current grant, rotated only for a genuinely new grant).
+An opaque operation UUID is deduplication, not authority. Do not put raw token/grant
+in browser storage or mint a new acceptance intent after an uncertain commit.
+Test lost acceptance response followed by refresh and retry; it must recover the
+same committed acceptance without duplicate membership or a misleading failure.
+
+Extract narrowly typed existing trusted session presenter from completion.ts so
+accepted signed session result reuses exact-host handoff; never fabricate callback
+code, expose session credential as public JSON/HTML or copy cookies across hosts.
+Clear invitation cookies after completed handoff/final invalidation, retain safe
+recovery state on transport uncertainty. Preserve old callback cookie semantics.
+Runtime disabled by default and approved-staging only; origin equality mandatory.
+
+TDD: signed tamper/time/schema/extra authority rejection, purpose isolation/no tenant
+creation, pre-auth preservation, fixed redirect/cookie flags, GET no accept, bad
+Origin/CSRF/cookies, fragment hygiene, stable acceptance retry, post-commit session
+failure, exact-host handoff. Existing registration/returning login regressions.
+Browser fixture flow includes fake IdP, keyboard/focus/narrow viewport; never real
+recipient impersonation. Run focused tests plus both app typechecks, commit explicit
+files, independent review. Combined builds/security/release remain later gates.
+
+### Task 8: Owner-authorized management UI and gated runtime startup
+
+Integration refinements: preserve200-view/hasMore list contract with separately
+bounded management-response limit at most256KiB, retaining existing16KiB auth
+limits and all stream/deadline/signature checks. Test worst-sized valid list and
+oversize rejection. Source-save server validation must require absolute ISO UTC
+expiry, canonical email and allowed role for administrator_invite only. New129
+source reader also rejects relative/date-style expiry before source/render/issue
+can disagree. Add HTTP and real-PG coverage, no live correction/backfill.
+
+Read the management-ui-runtime proposal in this plan's SDD workspace and consume
+reviewed Tasks4–7. No existing merchant Panel-to-Owner transport exists; ordinary
+merchant HTTP calls the app-role repository locally. Do not pretend generic record
+saving sends mail or grants authority. Add one narrow signed schema7 management
+variant to the existing Owner browser-binding gateway, not arbitrary RPC:
+sessionCredential + validated actual requestHostname + action(list/send/resend/
+revoke) + exact Task1 intent where needed. Never transmit caller authority tuples
+as sufficient proof. Owner independently resolves durable session, active verified
+same-store admin domain, current owner/plan using its own clock. Add narrow identity-
+only SQL resolver if existing roles lack host lookup; no runtime role grants.
+Safe signed response schema4 returns exact invitation views, replay bit or safe
+rejection only. Preserve cryptographic/protocol checks and all prior schemas.
+
+Files: narrow Owner gateway/runtime/composition updates; new invitation
+management-service/runtime/default/worker-runtime/worker-default and tests; Panel
+invitation management-http/default/client/presentation and tests, four API routes
+under `/api/store-admin-invitations`, dedicated StoreAdminInvitationsConsole,
+administrators list/new/edit page guards, scoped CSS and route tests. Add numbered
+resolver migration and disposable tests if required. No unrelated module redesign.
+
+Public APIs GET list and POST send/resend/revoke reuse strict method/path/body,
+same-origin+CSRF, cookie/private-header protections and durable Panel host/session
+resolution; require explicit store_owner locally and centrally. Never accept store,
+actor, role, email or plan from action JSON. Retry uses same operation ID and exact
+intent/version, including ambiguous transport outcomes. No duplicate source save
+or silently regenerated operation. Unknown lifecycle read displays unknown, not
+unsent. Join successful lifecycle list to source records by sourceRecordId only.
+
+Replace only administrators list with dedicated invitation statuses. Unconverted
+generic Active record reads 'Henüz gönderilmedi'; pending 'Kabul bekliyor', accepted
+'Davet kabul edildi', revoked 'İptal edildi', expired 'Süresi doldu'. Delivery states
+are separate: queued/sending/provider accepted/delivered/failed/outcome unknown.
+Provider accepted never means inbox received; accepted invite never proves current
+membership remains active. Show Send only valid unconverted record; Resend only
+eligible pending; Revoke only pending, never imply membership deletion. Preserve
+both source records and select only the explicitly requested recipient at release.
+Converted snapshot is immutable/read-only. Owner-only new/edit source forms retain
+existing allowed roles (no owner), label save 'Kaydet (göndermez)', preserve errors.
+No bulk conversion, automatic send, unsupported active-manager count or fake success.
+Owner-only source-form policy must be enforced at its server handler too, not just
+page/button visibility. If reusing generic merchant source endpoints, apply the
+narrow administrator_invite-kind owner check there with forged-admin tests; leave
+all unrelated generic kinds and configuration permissions unchanged.
+
+Compose existing verified-TLS Owner DB config (CA + rejectUnauthorized) and separate
+explicit identity/workflow transactions; no connectionString-only TLS shortcut.
+Runtime disabled by default, exact approved staging DB/tier, configured acceptance
+origin equals central panelOrigin, dedicated payload keyring/provider config and
+store/recipient allowlist. Preflight exact signatures/roles/schema, never perform
+runtime GRANT. Missing invitation readiness must not disable ordinary auth/catalog.
+Independent worker instrumentation entry, singleton/no overlapping ticks, delayed
+retry, graceful drain/close and owned-buffer wipe. Disabled means no pool or network.
+Verify fresh state before send; nonallowlisted jobs must not be silently claimed
+and dropped. Existing order/provider/domain workers and their keys remain unchanged.
+
+TDD: forged/nonowner/wrong-session-host/Origin/CSRF denial; schema7 crossover and
+signature checks; central authority revocation; client stable retry/version conflict;
+legacy unknown vs unsent; lifecycle/delivery labels; admin forbidden owner actions;
+input preservation, keyboard/narrow UI; disabled no-op, real TLS config, capability
+preflight and isolated worker failure. Update intentional generic-route expectations
+only. Both apps typecheck, focused regressions and independent review. No live send.
+Register new Panel invitation tests in its existing explicit test command with the
+appropriate react-server conditions; Owner already discovers tests recursively.
+Do not change dependencies or unrelated test selection. Final combined verification
+also runs existing auth/session suites not covered by Panel's merchant-focused glob.
+Add a narrowly named invitation staging migration runner and focused injected-client
+tests under apps/owner/scripts, not a rewrite of the existing runner hardcoded088.
+Allowlist exact final invitation SQL/assertions only; approved staging tier/database,
+verified TLS, migration-owner capability, predecessor/PG16 checks, bounded locks,
+complete-state idempotency and fail-closed partial-state checks. No ambient arbitrary
+SQL filename. Secret-free outputs. Runner is local code here; never execute it
+against real DB in Task8. Existing100/112 hooks remain untouched.
+
+### Task 9: Combined verification and controlled staging acceptance
+
+Whole-feature independent security review across approved baseline to exact candidate.
+Run both app test/typecheck/build plus shared contracts/data and focused isolated PG
+auth/session/handoff/invitation regressions on combined source. Preserve baseline
+warnings/skips and unrelated dirty files. No cleanup, resets or broad staging.
+Browser fixture verifies recipient landing/explicit acceptance and owner management;
+label it isolated, not actual mailbox/login evidence. Fix only task findings.
+
+Then record fresh exact app pins/images/running metadata, four automatic trigger
+settings and queue, existing hooks and a staging DB rollback/backup plan. Preserve
+previous images and matched config. Use only approved additive migrations on exact
+staging DB after readiness+backup, no down with material invitation/audit data.
+Controlled Owner+Panel release only, no other apps/production/payment-policy/DNS/
+merge/auto-deploy change. Existing release safety generators remain required; do
+not bypass checks or silently transfer a separate exact-SHA authorization.
+
+Configure dedicated invitation runtime only within approved staging scope, preserving
+secret confidentiality. Verify exact source/build/runtime identity, HTTP health,
+normal owner login/session and worker/readiness before conversion. Resolve matching
+requested recipient's source ID/version read-only (identity kept privately). Send that single existing record exactly
+once through dedicated UI/service, verify durable operation/job/provider response.
+Provider acceptance, delivery and user acceptance are separate evidence. Recipient
+must personally open mailbox/verified IdP and explicitly accept; no impersonation,
+password/code requests or cookie transfer. Only then verify correct admin membership
+and protected Güzide page. Preserve previous recipient record without sending.
+If recipient interaction is necessary, request only that concrete step with safe
+screen/link; never claim entire completion before actual acceptance/access evidence.
