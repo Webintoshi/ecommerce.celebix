@@ -31,6 +31,7 @@ function fixture(options: {
   audit?: (event: unknown) => void | Promise<void>;
   claimKind?: "browser_callback_claimed" | "callback_replayed" | "operation_mismatch" | "expired" | "unauthenticated" | "durable_authority_invalid" | "commit_unknown" | "unavailable";
   returningLogin?: "session_ready" | "callback_not_granted";
+  invitation?: "ready" | "rejected" | "throw";
 } = {}) {
   const order: string[] = [];
   const edgeBoundary = createVerifiedEdgeTrustBoundary();
@@ -152,6 +153,16 @@ function fixture(options: {
   const handler = createOwnerPanelSessionInitialCallbackHandler({
     runtime, edgeTrustBoundary: edgeBoundary, initialCallbackGrantBoundary: grantBoundary, issuer,
     browserBindingRepository,
+    ...(options.invitation ? { invitations: {
+      async tryComplete() {
+        order.push("invitation");
+        if (options.invitation === "throw") throw new Error("unavailable");
+        return options.invitation === "ready"
+          ? { kind: "invitation_confirmation_ready" as const, grantCredential: `ig1.${Buffer.alloc(32, 8).toString("base64url")}`, grantExpiresAt: new Date(NOW.getTime() + 240000).toISOString(), continuationPath: "/invitations/confirm" as const }
+          : { kind: "invitation_rejected" as const, code: "invitation_unavailable" as const, retryable: false };
+      },
+      async tryRejectProvider() { order.push("invitation_error"); return { kind: "invitation_rejected" as const, code: "invitation_unavailable" as const, retryable: false }; },
+    } } : {}),
     ...(options.returningLogin ? { returningLogin: {
       async tryComplete() {
         order.push("returning_login");
@@ -180,6 +191,20 @@ async function invoke(current: ReturnType<typeof fixture>, query = `state=${STAT
     new Request(`${CALLBACK}?${query}`), context, binding,
   ));
 }
+
+test("invitation success, denial, provider error and unavailable never dispatch returning login or registration", async () => {
+  for (const invitation of ["ready", "rejected", "throw"] as const) {
+    const f = fixture({ invitation, returningLogin: "session_ready" });
+    const result = await invoke(f);
+    assert.equal(result.body.kind, invitation === "ready" ? "invitation_confirmation_ready" : "fresh_login_required");
+    assert.deepEqual(f.order, ["invitation"]);
+    assert.equal(f.claimCalls + f.providerCalls + f.issueCalls, 0);
+  }
+  const f = fixture({ invitation: "ready", returningLogin: "session_ready" });
+  assert.equal((await invoke(f, `state=${STATE}&error=access_denied`)).body.kind, "fresh_login_required");
+  assert.deepEqual(f.order, ["invitation_error"]);
+  assert.equal(f.claimCalls + f.providerCalls + f.issueCalls, 0);
+});
 
 test("exact active edge context executes one genuine initial callback and returns one canonical handoff", async () => {
   const current = fixture();

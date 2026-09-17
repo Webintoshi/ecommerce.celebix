@@ -8,6 +8,8 @@ import { PANEL_BROWSER_BINDING_DELETION_COOKIE } from "../panel-browser-binding/
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import { assertPanelSessionCompletionApproval } from "./activation.ts";
 import { serializePersistentPanelSessionCookie } from "./cookie.ts";
+import { parseInvitationConfirmationReady } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
+import { INVITATION_GRANT_COOKIE, INVITATION_OPERATION_COOKIE, readInvitationCookie, invitationCallbackRequest, serializeInvitationGrantCookie } from "../store-admin-invitations/cookie.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -43,7 +45,7 @@ function now(clock: () => Date): Date {
   return new Date(value);
 }
 
-function failure(code: PublicFailureCode, status: 400 | 409 | 503): Response {
+function failure(code: PublicFailureCode, status: 400 | 409 | 503, preserveContinuation = false): Response {
   return new Response(JSON.stringify({ code, retryable: false, freshLoginRequired: true }), {
     status,
     headers: {
@@ -51,7 +53,7 @@ function failure(code: PublicFailureCode, status: 400 | 409 | 503): Response {
       "cache-control": "no-store",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
-      "set-cookie": PANEL_BROWSER_BINDING_DELETION_COOKIE,
+      ...(preserveContinuation ? {} : { "set-cookie": PANEL_BROWSER_BINDING_DELETION_COOKIE }),
     },
   });
 }
@@ -153,6 +155,7 @@ function successfulCrossHostIssue(
 function internalResult(value: unknown, clock: () => Date): Record<string, unknown> {
   if (!value || typeof value !== "object" || !Object.isFrozen(value)) invalid();
   const row = value as Record<string, unknown>;
+  if (row.kind === "invitation_confirmation_ready") return parseInvitationConfirmationReady(JSON.stringify(row), now(clock));
   if (row.schemaVersion !== 1) invalid();
   if (row.kind === "session_handoff_ready") {
     exact(row, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
@@ -180,6 +183,39 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
   exact(row, ["schemaVersion", "kind", "code", "retryable"]);
   if (row.kind !== "fresh_login_required" || row.retryable !== false || typeof row.code !== "string") invalid();
   return row;
+}
+
+export type TrustedPanelSessionReady = Readonly<{ schemaVersion: 1; kind: "session_ready"; sessionCredential: string; sessionIssuedAt: string; sessionExpiresAt: string; destinationStoreId: string; destinationOrigin: string; redirectPath: "/" }>;
+export type PanelCrossHostTransfer = {
+  issueHandoff(input: { currentCredential: string; operationId: string; destinationStoreId: string; destinationHostname: string; now: Date }): Promise<unknown>;
+  recoverIssuedHandoff(input: { operationId: string; credential: string; destinationHostname: string; now: Date }): Promise<unknown>;
+  randomUuid(): string;
+  randomBytes(size: number): Uint8Array;
+};
+
+async function transferTrustedSession(crossHostTransfer: PanelCrossHostTransfer, currentCredential: string, activeStoreId: string, destinationOrigin: string, trustedNow: Date): Promise<Response> {
+  const destinationStoreId = canonicalUuid(activeStoreId);
+  const canonicalDestinationOrigin = canonicalAdminOrigin(destinationOrigin);
+  const destinationHostname = new URL(canonicalDestinationOrigin).hostname;
+  const operationId = canonicalUuid(crossHostTransfer.randomUuid());
+  let transferred = await crossHostTransfer.issueHandoff({ currentCredential: credential(currentCredential), operationId, destinationStoreId, destinationHostname, now: trustedNow });
+  if (transferred && typeof transferred === "object" && (transferred as Record<string, unknown>).kind === "commit_unknown") {
+    const unknown = exact(transferred, ["kind", "credential"]);
+    transferred = await crossHostTransfer.recoverIssuedHandoff({ operationId, credential: credential(unknown.credential), destinationHostname, now: trustedNow });
+  }
+  const transfer = successfulCrossHostIssue(transferred, canonicalDestinationOrigin, trustedNow);
+  const response = createCrossHostHandoffAutoPostResponse({ destinationOrigin: transfer.destinationOrigin, handoffCredential: transfer.credential, randomBytes: crossHostTransfer.randomBytes });
+  response.headers.append("set-cookie", PANEL_BROWSER_BINDING_DELETION_COOKIE);
+  return response;
+}
+
+/** Only authenticated internal session results enter here. No callback synthesis or public credential output. */
+export function createTrustedPanelSessionPresenter(options: { crossHostTransfer: PanelCrossHostTransfer; clock(): Date }) {
+  return async (session: TrustedPanelSessionReady): Promise<Response> => {
+    const row = internalResult(session, options.clock);
+    if (row.kind !== "session_ready") invalid();
+    return transferTrustedSession(options.crossHostTransfer, session.sessionCredential, session.destinationStoreId, session.destinationOrigin, now(options.clock));
+  };
 }
 
 export function createPanelSessionCompletionHandler(options: {
@@ -250,39 +286,17 @@ export function createPanelSessionCompletionHandler(options: {
     trustedNow: Date,
   ): Promise<Response> {
     if (!crossHostTransfer) invalid();
-    const destinationStoreId = canonicalUuid(activeStoreId);
-    const canonicalDestinationOrigin = canonicalAdminOrigin(destinationOrigin);
-    const destinationHostname = new URL(canonicalDestinationOrigin).hostname;
-    const operationId = canonicalUuid(crossHostTransfer.randomUuid());
-    let transferred = await crossHostTransfer.issueHandoff({
-      currentCredential: credential(currentCredential),
-      operationId,
-      destinationStoreId,
-      destinationHostname,
-      now: trustedNow,
-    });
-    if (transferred && typeof transferred === "object" && (transferred as Record<string, unknown>).kind === "commit_unknown") {
-      const unknown = exact(transferred, ["kind", "credential"]);
-      transferred = await crossHostTransfer.recoverIssuedHandoff({
-        operationId,
-        credential: credential(unknown.credential),
-        destinationHostname,
-        now: trustedNow,
-      });
-    }
-    const transfer = successfulCrossHostIssue(transferred, canonicalDestinationOrigin, trustedNow);
-    const response = createCrossHostHandoffAutoPostResponse({
-      destinationOrigin: transfer.destinationOrigin,
-      handoffCredential: transfer.credential,
-      randomBytes: crossHostTransfer.randomBytes,
-    });
-    response.headers.append("set-cookie", PANEL_BROWSER_BINDING_DELETION_COOKIE);
-    return response;
+    return transferTrustedSession(crossHostTransfer, currentCredential, activeStoreId, destinationOrigin, trustedNow);
   }
 
   return async function panelSessionCompletionHandler(request: Request): Promise<Response> {
     let callback;
-    try { callback = validateBrowserBoundPanelCompletionRequest(request, authority, maximumQueryBytes); }
+    let hasContinuation = false;
+    try {
+      const continuation = invitationCallbackRequest(request);
+      hasContinuation = continuation.hasContinuation;
+      callback = validateBrowserBoundPanelCompletionRequest(continuation.request, authority, maximumQueryBytes);
+    }
     catch {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });
       return failure("panel_session_callback_invalid", 400);
@@ -297,8 +311,26 @@ export function createPanelSessionCompletionHandler(options: {
     }
     catch {
       auditSafely(audit, { stage: "transport", outcome: "unavailable" });
-      return failure("panel_session_transport_unavailable", 503);
+      // The untrusted prefix is only a retention hint after callback/proof validation.
+      // It grants no purpose/identity authority and never renews the original cookie.
+      return failure("panel_session_transport_unavailable", 503, hasContinuation || callback.state.startsWith("pinvite_"));
     }
+    if (result.kind === "invitation_confirmation_ready") {
+      const headers = new Headers({ location: "/invitations/confirm", "cache-control": "no-store", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff" });
+      headers.append("set-cookie", serializeInvitationGrantCookie(String(result.grantCredential), String(result.grantExpiresAt), now(clock)));
+      if (readInvitationCookie(request.headers.get("cookie"), INVITATION_GRANT_COOKIE) !== result.grantCredential) {
+        headers.append("set-cookie", `${INVITATION_OPERATION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`);
+      }
+      return new Response(null, { status: 303, headers });
+    }
+    // A signed transient result can follow a committed invitation grant. Retain
+    // only the existing proof (never reset its expiry); the prefix is a retention
+    // hint, not authority to authenticate, select a purpose, or create a grant.
+    if (result.kind === "fresh_login_required" && result.code === "callback_unavailable" && (hasContinuation || callback.state.startsWith("pinvite_"))) {
+      auditSafely(audit, { stage: "transport", outcome: "unavailable" });
+      return failure("panel_session_transport_unavailable", 503, true);
+    }
+    if (hasContinuation && result.kind === "fresh_login_required") return new Response(null, { status: 303, headers: { location: "/invitations/confirm", "cache-control": "no-store", "referrer-policy": "no-referrer" } });
     if (callback.kind === "provider_error") {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });
       return failure("panel_session_provider_rejected", 400);

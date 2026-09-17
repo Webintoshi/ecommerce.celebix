@@ -1,0 +1,16 @@
+.workspace { padding: 1rem; color: #213429; font: inherit; min-width: 0; }
+.workspace header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.workspace h1 { margin: 0; font-size: 1.65rem; }
+.workspace p { line-height: 1.6; }
+.note { color: #526359; max-width: 85ch; }
+.workspace dialog { max-width: min(32rem, calc(100vw - 3rem)); border: 1px solid #9bad9f; border-radius: .7rem; color: inherit; overflow-wrap: anywhere; }
+.workspace dialog::backdrop { background: rgb(0 0 0 / 35%); }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.workspace button, .workspace a { font: inherit; border: 1px solid #9bad9f; border-radius: .5rem; padding: .6rem .75rem; background: white; color: #234c34; text-decoration: none; cursor: pointer; }
+.workspace button:disabled { opacity: .55; cursor: wait; }
+.workspace :focus-visible { outline: 3px solid #316e48; outline-offset: 3px; }
+.tableScroll { overflow-x: auto; margin-top: 1rem; border: 1px solid #d9e3dc; border-radius: .7rem; }
+.workspace table { width: 100%; border-collapse: collapse; }
+.workspace th, .workspace td { padding: .85rem; border-bottom: 1px solid #e1e8e3; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.workspace td > span, .workspace td > small { display: block; margin-top: .3rem; }
+@media (max-width: 600px) { .workspace { padding: .6rem; } .workspace table, .workspace tbody, .workspace tr, .workspace td { display: block; } .workspace thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } .workspace tr { padding: .5rem; border-bottom: 2px solid #d9e3dc; } .workspace td { padding: .5rem; border: 0; } }

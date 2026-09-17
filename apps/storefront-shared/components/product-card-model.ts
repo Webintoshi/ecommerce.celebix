@@ -1,6 +1,6 @@
 import type { PublicProduct } from "@celebix/saas-contracts";
 
-export function productBadge(product: PublicProduct): "sale" | "unavailable" | null {
+export function productBadge(product: Pick<PublicProduct, "available" | "compareAtCents" | "priceCents">): "sale" | "unavailable" | null {
   if (!product.available) return "unavailable";
   return product.compareAtCents !== undefined && product.compareAtCents > product.priceCents ? "sale" : null;
 }

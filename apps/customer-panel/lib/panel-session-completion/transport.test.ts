@@ -85,6 +85,18 @@ function fixture(fetch: (request: Request) => Promise<Response>, options: { dead
   });
 }
 
+test("callback request2 remains unchanged while signed invitation response2 validates grant deadline and fixed continuation", async () => {
+  const body = { schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: `ig1.${Buffer.alloc(32, 3).toString("base64url")}`, grantExpiresAt: new Date(NOW.getTime() + 240000).toISOString(), continuationPath: "/invitations/confirm" };
+  const transport = fixture(async req => {
+    assert.equal(await req.clone().text(), JSON.stringify({ schemaVersion: 2, callbackUrl: CALLBACK, browserBindingCredential: BINDING }));
+    return signedResponse(req, { body: JSON.stringify(body) });
+  });
+  assert.deepEqual(await transport.complete(CALLBACK, BINDING), body);
+  for (const mutation of [{ continuationPath: "https://evil.example" }, { grantExpiresAt: EXPIRES }, { subject: "injected" }, { grantCredential: `${body.grantCredential}=` }]) {
+    await assert.rejects(() => fixture(req => signedResponse(req, { body: JSON.stringify({ ...body, ...mutation }) })).complete(CALLBACK, BINDING));
+  }
+});
+
 test("verifies the exact signed success before returning one frozen internal projection", async () => {
   let calls = 0;
   let captured: Request | undefined;

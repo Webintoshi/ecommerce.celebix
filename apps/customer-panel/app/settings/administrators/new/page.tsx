@@ -1,2 +1,6 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default function NewAdministratorInvitePage() { return renderMerchantRecordPage({ kind: "administrator_invite", permission: "configuration.manage", returnTo: "/settings/administrators" }); }
+import { StoreAdminInvitationSource } from "@/components/store-admin-invitations/StoreAdminInvitationSource";
+import { requireServerPanelAccess } from "@/lib/server-access";
+export default async function NewAdministratorInvitePage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return <StoreAdminInvitationSource canManage={tenantContext.membership.role === "store_owner"} />;
+}

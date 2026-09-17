@@ -20,6 +20,49 @@ const NOW = new Date("2026-07-10T12:00:00.000Z");
 const EXPECTED_ISSUER = "https://identity.example.test/oidc";
 const EXPECTED_AUDIENCE = "customer-panel";
 const REDIRECT_URI = "https://panel.celebix.site/auth/callback";
+const invitationContext = {
+  invitationId: "10000000-0000-4000-8000-000000000001", generation: 1, tokenDigest: "a".repeat(64),
+  browserBinding: { keyId: "browser1", digest: "b".repeat(64) },
+  grantId: "10000000-0000-4000-8000-000000000002", grantCredential: `ig1.${Buffer.alloc(32, 3).toString("base64url")}`,
+};
+
+test("invitation purpose pins prompt/path/context and requires its independent browser proof", async () => {
+  for (const proof of [undefined, { keyId: "browser1", digest: "c".repeat(64) }, invitationContext.browserBinding]) {
+    const provider = new FakeProvider(), store = new oidc.InMemoryOidcTransactionStore();
+    const begun = await oidc.beginOidcAuthorization({ provider, transactionStore: store, redirectUri: REDIRECT_URI,
+      returnTo: "/invitations/confirm", invitationContext, expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => NOW });
+    assert.match(begun.state, /^pinvite_/); assert.equal(begun.returnTo, "/invitations/confirm");
+    assert.equal(provider.lastAuthorizationRequest!.prompt, "login");
+    provider.identities.set("invite", verifiedIdentity({ nonce: provider.lastAuthorizationRequest!.nonce }));
+    const completing = oidc.completeOidcCallback({ provider, transactionStore: store, callback: { state: begun.state, code: "invite" }, invitationBinding: proof, now: () => NOW });
+    if (proof === invitationContext.browserBinding) {
+      const completed = await completing;
+      assert.deepEqual(completed.invitationContext, invitationContext);
+      assert.equal(completed.invitationBrowserBindingExpiresAt, "2026-07-10T12:10:00.000Z");
+    }
+    else { await assert.rejects(completing, /binding/i); assert.equal(provider.lastCallbackInput, null); }
+  }
+});
+
+test("invitation context cannot cross registration or returning-login purposes", async () => {
+  for (const extra of [{ returnTo: "/kayit" }, { returnTo: "/login" }, { panelLoginBinding: invitationContext.browserBinding, panelLoginDestinationHostname: "admin.example.test" }, { invitationContext: { ...invitationContext, generation: 0 } }, { invitationContext: { ...invitationContext, token: "raw-secret" } }]) {
+    await assert.rejects(oidc.beginOidcAuthorization({ provider: new FakeProvider(), transactionStore: new oidc.InMemoryOidcTransactionStore(), redirectUri: REDIRECT_URI,
+      returnTo: "/invitations/confirm", invitationContext, expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => NOW, ...extra }), /invalid/i);
+  }
+});
+
+test("invitation provider exchange cannot outlive its consumed transaction deadline", async () => {
+  const provider = new FakeProvider(), store = new oidc.InMemoryOidcTransactionStore();
+  let clock = new Date(NOW);
+  const begun = await oidc.beginOidcAuthorization({ provider, transactionStore: store, redirectUri: REDIRECT_URI,
+    returnTo: "/invitations/confirm", invitationContext, expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => clock });
+  provider.verifyCallback = async input => {
+    clock = new Date("2026-07-10T12:10:00.000Z");
+    return verifiedIdentity({ nonce: input.expectedNonce });
+  };
+  clock = new Date("2026-07-10T12:09:59.000Z");
+  await assert.rejects(oidc.completeOidcCallback({ provider, transactionStore: store, callback: { state: begun.state, code: "invite" }, invitationBinding: invitationContext.browserBinding, now: () => clock }), { name: "OidcFlowError", code: "oidc_state_expired" });
+});
 
 class FakeProvider implements OidcProviderPort {
   readonly identities = new Map<string, OidcVerifiedIdentity>();

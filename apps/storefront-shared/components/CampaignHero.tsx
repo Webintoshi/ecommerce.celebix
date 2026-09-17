@@ -1,14 +1,14 @@
 import type { PublicStarterHomeSection } from "@celebix/saas-contracts";
 import Link from "next/link";
 
-import { formatTry } from "@/lib/format.ts";
-import { localizeStorefrontPath, productPath } from "@/lib/storefront-routes.ts";
+import { formatTry } from "../lib/format.ts";
+import { localizeStorefrontPath, productPath } from "../lib/storefront-routes.ts";
 import { CampaignHeroClient } from "./CampaignHeroClient";
 import styles from "./campaign-home.module.css";
 
 type HeroSection = Extract<PublicStarterHomeSection, { kind: "hero" }>;
 
-export function CampaignHero({ section, locale }: Readonly<{ section: HeroSection; locale: string }>) {
+export function CampaignHero({ section, locale, prefetch }: Readonly<{ section: HeroSection; locale: string; prefetch?: boolean }>) {
   return (
     <CampaignHeroClient count={section.slides.length}>
       {section.slides.map((slide, index) => (
@@ -25,10 +25,10 @@ export function CampaignHero({ section, locale }: Readonly<{ section: HeroSectio
             {slide.eyebrow ? <span>{slide.eyebrow}</span> : null}
             <h1>{slide.heading}</h1>
             {slide.body ? <p>{slide.body}</p> : null}
-            <Link className={styles.heroAction} href={localizeStorefrontPath(slide.destination, locale)}>Koleksiyonu keşfet</Link>
+            <Link className={styles.heroAction} href={localizeStorefrontPath(slide.destination, locale)} prefetch={prefetch}>Koleksiyonu keşfet</Link>
           </div>
           {slide.hotspot ? (
-            <Link className={styles.hotspot} href={productPath(locale, slide.hotspot.productSlug)} aria-label={`${slide.hotspot.title} ürününü incele`}>
+            <Link className={styles.hotspot} href={productPath(locale, slide.hotspot.productSlug)} prefetch={prefetch} aria-label={`${slide.hotspot.title} ürününü incele`}>
               <span aria-hidden="true">+</span><strong>{slide.hotspot.title}</strong><small>{formatTry(slide.hotspot.priceCents)}</small>
             </Link>
           ) : null}

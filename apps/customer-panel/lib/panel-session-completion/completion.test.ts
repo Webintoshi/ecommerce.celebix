@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import { createPanelSessionCompletionApproval } from "./activation.ts";
 import { createPanelSessionCompletionHandler } from "./completion.ts";
+import { createAuthenticatedPanelSessionCompletionTransport, panelSessionHandoffResponseSignaturePreimage } from "./transport.ts";
 
 const CALLBACK = "https://panel.celebix.site/auth/callback";
 const STATE = "state_0123456789abcdefghijklmnop";
@@ -62,6 +64,8 @@ function sessionReady(overrides: Record<string, unknown> = {}) {
 function fixture(options: {
   transportResult?: object;
   transportError?: boolean;
+  transport?: { complete(callbackUrl: string, browserBindingCredential: string): Promise<object> };
+  clock?: () => Date;
   redeemResult?: object;
   recoverResult?: object;
   crossHostTransfer?: boolean;
@@ -84,6 +88,7 @@ function fixture(options: {
       async complete(callbackUrl: string, browserBindingCredential: string) {
         transportCalls += 1;
         completions.push([callbackUrl, browserBindingCredential]);
+        if (options.transport) return options.transport.complete(callbackUrl, browserBindingCredential);
         if (options.transportError) throw new Error(`private ${HANDOFF}`);
         return options.transportResult ?? ready();
       },
@@ -122,7 +127,7 @@ function fixture(options: {
         randomBytes: (size: number) => new Uint8Array(size).fill(0x52),
       },
     } : {}),
-    clock: () => new Date(NOW),
+    clock: options.clock ?? (() => new Date(NOW)),
     audit: options.audit ?? (() => undefined),
   });
   return {
@@ -136,6 +141,110 @@ function fixture(options: {
     completions,
   };
 }
+
+test("invitation callback preserves pre-auth without renewal and sets only bounded grant plus fixed confirmation redirect", async () => {
+  const grant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;
+  const f = fixture({ transportResult: Object.freeze({ schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: grant, grantExpiresAt: new Date(NOW.getTime() + 90000).toISOString(), continuationPath: "/invitations/confirm" }) });
+  const response = await f.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: PRE_AUTH_COOKIE } }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/invitations/confirm");
+  const cookies = response.headers.getSetCookie();
+  assert.ok(cookies.some(c => c === `__Host-celebix_invitation_grant=${grant}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=90`));
+  assert.ok(cookies.every(c => !c.includes("celebix_panel_pre_auth") && !c.includes("celebix_panel_session") && !c.includes("Domain=")));
+  assert.equal(f.redeemCalls + f.issueCalls, 0);
+  assert.equal(await response.text(), "");
+});
+test("callback transport uncertainty never erases an existing invitation continuation", async () => {
+  const f = fixture({ transportError: true });
+  const response = await f.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: `${PRE_AUTH_COOKIE}; __Host-celebix_invitation_grant=ig1.${Buffer.alloc(32, 3).toString("base64url")}` } }));
+  assert.equal(response.status, 503); assert.deepEqual(response.headers.getSetCookie(), []);
+});
+test("first lost signed invitation callback response retains original proof for same-grant recovery on refresh", async () => {
+  const grant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;
+  const body = JSON.stringify({ schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: grant, grantExpiresAt: new Date(NOW.getTime() + 90000).toISOString(), continuationPath: "/invitations/confirm" });
+  const secret = new Uint8Array(32).fill(0x35);
+  const callbackUrl = `${CALLBACK}?state=pinvite_${STATE}&code=verified`;
+  let currentTime = new Date(NOW), responses = 0;
+  const transport = createAuthenticatedPanelSessionCompletionTransport({
+    activationApproval: createPanelSessionCompletionApproval("disposable_test"),
+    ownerInternalOrigin: "https://owner-internal.example.test",
+    activeKeyId: "active", activeSecret: secret, clock: () => currentTime,
+    deadlineMs: 500, maximumResponseBytes: 4096, audit: () => undefined,
+    async fetch(request) {
+      const requestBody = await request.clone().text();
+      assert.equal(requestBody, JSON.stringify({ schemaVersion: 2, callbackUrl, browserBindingCredential: BINDING }));
+      const timestamp = request.headers.get("x-celebix-callback-timestamp")!;
+      const signature = createHmac("sha256", secret).update(panelSessionHandoffResponseSignaturePreimage({
+        requestTimestamp: timestamp,
+        requestBodyDigest: createHash("sha256").update(requestBody).digest("hex"),
+        status: 200, responseBodyDigest: createHash("sha256").update(body).digest("hex"),
+      })).digest("base64url");
+      // Simulated durable Owner result: both responses contain the identical grant/deadline.
+      const response = new Response(body, { headers: {
+        "content-type": "application/json; charset=utf-8", "cache-control": "no-store",
+        "x-celebix-session-response-key-id": "active", "x-celebix-session-response-timestamp": timestamp,
+        "x-celebix-session-response-signature": signature,
+      } });
+      Object.defineProperty(response, "url", { value: request.url });
+      if (++responses === 1) throw new Error("response lost after grant commit");
+      return response;
+    },
+  });
+  const f = fixture({ transport, clock: () => currentTime });
+  let proofCookie = PRE_AUTH_COOKIE;
+  const first = await f.handler(new Request(callbackUrl, { headers: { cookie: proofCookie } }));
+  assert.equal(first.status, 503);
+  assert.equal(first.headers.has("location"), false);
+  // Apply deletion exactly as a browser would; no grant cookie has ever arrived.
+  if (first.headers.getSetCookie().includes(PRE_AUTH_DELETION)) proofCookie = "";
+  currentTime = new Date(NOW.getTime() + 30000);
+  const recovered = await f.handler(new Request(callbackUrl, { headers: { cookie: proofCookie } }));
+  assert.equal(recovered.status, 303);
+  assert.equal(recovered.headers.get("location"), "/invitations/confirm");
+  assert.deepEqual(first.headers.getSetCookie(), []);
+  assert.ok(recovered.headers.getSetCookie().includes(`__Host-celebix_invitation_grant=${grant}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=60`));
+  assert.ok(recovered.headers.getSetCookie().every(cookie => !cookie.includes("celebix_panel_pre_auth") && !cookie.includes("celebix_panel_session")));
+  assert.equal(f.transportCalls, 2);
+  assert.equal(f.redeemCalls + f.issueCalls, 0);
+});
+test("invitation retention hint cannot grant authority, bypass proof validation, or alter terminal rejection", async () => {
+  const url = `${CALLBACK}?state=pinvite_${STATE}&code=untrusted`;
+  const unavailable = fixture({ transportError: true });
+  const missingProof = await unavailable.handler(new Request(url));
+  assert.equal(missingProof.status, 400);
+  assert.equal(unavailable.transportCalls, 0);
+  const rejected = fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_not_granted", retryable: false }) });
+  const response = await rejected.handler(new Request(url, { headers: { cookie: PRE_AUTH_COOKIE } }));
+  assert.equal(response.status, 409);
+  assert.equal(response.headers.has("location"), false);
+  assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  assert.equal(rejected.transportCalls, 1);
+  assert.equal(rejected.redeemCalls + rejected.issueCalls, 0);
+});
+test("registration and returning-login uncertainty still delete the original pre-auth proof", async () => {
+  for (const state of [STATE, `plogin_${STATE}`]) {
+    const f = fixture({ transportError: true });
+    const response = await f.handler(new Request(`${CALLBACK}?state=${state}&code=verified`, { headers: { cookie: PRE_AUTH_COOKIE } }));
+    assert.equal(response.status, 503);
+    assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  }
+  for (const state of [STATE, `plogin_${STATE}`]) {
+    const f = fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_unavailable", retryable: false }) });
+    const response = await f.handler(new Request(`${CALLBACK}?state=${state}&code=verified`, { headers: { cookie: PRE_AUTH_COOKIE } }));
+    assert.equal(response.status, 409); assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  }
+});
+test("replayed provider-error callback cannot downgrade an existing grant, and new grants discard only old operation association", async () => {
+  const oldGrant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;
+  const cookies = `${PRE_AUTH_COOKIE}; __Host-celebix_invitation_grant=${oldGrant}`;
+  const f = fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_not_granted", retryable: false }) });
+  const replay = await f.handler(new Request(`${CALLBACK}?state=${STATE}&error=access_denied`, { headers: { cookie: cookies } }));
+  assert.equal(replay.status, 303); assert.equal(replay.headers.get("location"), "/invitations/confirm"); assert.deepEqual(replay.headers.getSetCookie(), []);
+  const next = fixture({ transportResult: Object.freeze({ schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: `ig1.${Buffer.alloc(32, 4).toString("base64url")}`, grantExpiresAt: new Date(NOW.getTime() + 90000).toISOString(), continuationPath: "/invitations/confirm" }) });
+  const replaced = await next.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: cookies } }));
+  assert.ok(replaced.headers.getSetCookie().some(c => c.startsWith("__Host-celebix_invitation_operation=;") && c.endsWith("Max-Age=0")));
+  assert.ok(replaced.headers.getSetCookie().every(c => !c.includes("celebix_panel_pre_auth")));
+});
 
 test("registration completion transfers the session to the canonical store host with one body-only POST", async () => {
   const current = fixture({ crossHostTransfer: true });

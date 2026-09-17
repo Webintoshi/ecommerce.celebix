@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { parseInvitationConfirmationReady, type InvitationConfirmationReady } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
 
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
@@ -38,6 +39,7 @@ export type PanelSessionCompletionFreshLoginCode =
   | "handoff_unavailable";
 
 export type PanelSessionCompletionInternalResult = Readonly<
+  | InvitationConfirmationReady
   | {
       schemaVersion: 1;
       kind: "session_handoff_ready";
@@ -129,7 +131,7 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) invalid();
 }
 
-function parseCanonicalResult(raw: string, status: number): PanelSessionCompletionInternalResult {
+function parseCanonicalResult(raw: string, status: number, now: Date): PanelSessionCompletionInternalResult {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); }
   catch { return invalid(); }
@@ -137,6 +139,7 @@ function parseCanonicalResult(raw: string, status: number): PanelSessionCompleti
   const body = parsed as Record<string, unknown>;
   let result: PanelSessionCompletionInternalResult;
   if (status === 200) {
+    if (body.kind === "invitation_confirmation_ready") return parseInvitationConfirmationReady(raw, now);
     if (body.kind === "session_ready") {
       exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
@@ -334,7 +337,7 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
         if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
         auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
         const raw = new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
-        const result = parseCanonicalResult(raw, response.status);
+        const result = parseCanonicalResult(raw, response.status, clock());
         auditSafely(audit, { stage: "response_projection", outcome: "completed" });
         return result;
       } catch {

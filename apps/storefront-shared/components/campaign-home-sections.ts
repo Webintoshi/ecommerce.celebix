@@ -52,7 +52,7 @@ export function campaignHomeSectionKey(section: PublicStarterHomeSection, index:
   return section.sectionId ?? (section.kind === "product_row" ? `home_${section.key}` : `home_${section.kind}_${index + 1}`);
 }
 
-export function homepageAvailableProducts(products?: ProductRowItems): ProductRowItems {
+export function homepageAvailableProducts<Product extends Readonly<{ available: boolean }> = ProductRowItems[number]>(products?: readonly Product[]): readonly Product[] {
   return Object.freeze((products ?? []).filter((product) => product.available));
 }
 

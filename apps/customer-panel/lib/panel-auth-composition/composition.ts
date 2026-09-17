@@ -9,7 +9,8 @@ import { createPanelBrowserBindingBootstrapHandler } from "../panel-browser-bind
 import { createAuthenticatedPanelBrowserBindingTransport } from "../panel-browser-binding-bootstrap/transport.ts";
 import { createPanelReturningLoginHandler } from "../panel-returning-login/handler.ts";
 import { createPanelSessionCompletionApproval } from "../panel-session-completion/activation.ts";
-import { createPanelSessionCompletionHandler } from "../panel-session-completion/completion.ts";
+import { createPanelSessionCompletionHandler, createTrustedPanelSessionPresenter } from "../panel-session-completion/completion.ts";
+import { createStoreAdminInvitationHandlers } from "../store-admin-invitations/auth-handler.ts";
 import { createAuthenticatedPanelSessionCompletionTransport } from "../panel-session-completion/transport.ts";
 import {
   assertCustomerPanelAuthCompositionApproval,
@@ -40,6 +41,7 @@ export type DisabledCustomerPanelAuthComposition = Readonly<{
   browserBootstrapHandler: ReturnType<typeof createPanelBrowserBindingBootstrapHandler>;
   panelSessionCompletionHandler: ReturnType<typeof createPanelSessionCompletionHandler>;
   panelReturningLoginHandler: ReturnType<typeof createPanelReturningLoginHandler>;
+  invitationHandlers?: ReturnType<typeof createStoreAdminInvitationHandlers>;
   readiness: CustomerPanelAuthReadiness;
 }>;
 
@@ -89,6 +91,7 @@ export function assertDisabledCustomerPanelAuthComposition(
 export function createDisabledCustomerPanelAuthComposition(options: {
   activationApproval: unknown;
   authorityProfile?: SaaSAuthAuthorityProfile;
+  invitations?: { acceptanceOrigin: string; randomUuid(): string };
   ownerInternalOrigin: string;
   randomBytes(size: number): Uint8Array;
   clock(): Date;
@@ -224,11 +227,18 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     clock,
     audit: options.sessionCompletion.handlerAudit,
   });
+  if (options.invitations && (!crossHostTransfer || options.invitations.acceptanceOrigin !== authority.panelOrigin)) invalid();
+  const invitationHandlers = options.invitations && crossHostTransfer ? createStoreAdminInvitationHandlers({
+    panelOrigin: authority.panelOrigin, acceptanceOrigin: options.invitations.acceptanceOrigin, environment,
+    transport: browserTransport, presentSession: createTrustedPanelSessionPresenter({ crossHostTransfer, clock }),
+    clock, randomBytes, randomUuid: options.invitations.randomUuid,
+  }) : undefined;
 
   const composition: DisabledCustomerPanelAuthComposition = {
     browserBootstrapHandler,
     panelSessionCompletionHandler,
     panelReturningLoginHandler,
+    ...(invitationHandlers ? { invitationHandlers } : {}),
     readiness: readiness(),
   };
   compositions.add(composition);

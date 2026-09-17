@@ -162,7 +162,10 @@ test("design page loads durable workspace server-side and legacy appearance page
   const page = await readFile(new URL("../../../app/settings/design/page.tsx", import.meta.url), "utf8");
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /resolveDefaultServerStorefrontDesignRuntime/);
+  assert.match(page, /resolveDefaultServerStorefrontDesignPreviewRuntime/);
   assert.match(page, /repository[.]getWorkspace/);
+  assert.match(page, /previewRuntime[.]loader[.]load/);
+  assert.match(page, /initialPreviewResources=/);
   assert.match(page, /<DesignWorkspace/);
   assert.match(page, /resolveDesignWorkspaceLocation/);
   assert.doesNotMatch(page, /storeId=|tenantContext=|localStorage|sessionStorage/);

@@ -34,6 +34,40 @@ class FakeClient implements IdentityPostgresClient {
 const now = new Date("2026-07-12T10:00:00.000Z");
 const registrationState = "registration-secret-state";
 const oidcState = "oidc-secret-state";
+const invitation = { invitationId: "10000000-0000-4000-8000-000000000001", generation: 2, tokenDigest: "a".repeat(64),
+  browserBinding: { keyId: "browser1", digest: "b".repeat(64) }, grantId: "10000000-0000-4000-8000-000000000002", grantCredential: `ig1.${Buffer.alloc(32, 4).toString("base64url")}` };
+
+test("schema3 encrypts invitation proof and recovers context only from consumed same-browser unexpired rows", async () => {
+  const writer = new FakeClient(), options = dependencies(writer);
+  const tx = { ...oidcTransaction(), state: "pinvite_opaque-invitation-state", returnTo: "/invitations/confirm", invitationContext: invitation };
+  await new PostgresOidcTransactionStore(options).save(tx);
+  const insert = writer.calls[5]; assert.equal(insert.values[4], 3);
+  assert.equal(JSON.stringify(insert.values).includes(invitation.grantCredential), false);
+  const row = { state_digest: insert.values[0], payload_ciphertext: insert.values[1], payload_iv: insert.values[2], encryption_key_id: insert.values[3], payload_schema_version: 3, status: "active", created_at: tx.createdAt, expires_at: tx.expiresAt };
+  async function store(changes = {}) {
+    const reader = new FakeClient(); reader.queued.push([], [], [], [], [], [{ ...row, ...changes }]);
+    return new PostgresOidcTransactionStore({ ...options, pool: { connect: async () => reader } });
+  }
+  assert.deepEqual(await (await store()).inspectInvitationBinding(tx.state, [invitation.browserBinding], now), { kind: "approved", context: invitation, browserBindingExpiresAt: "2026-07-12T10:10:00.000Z" });
+  assert.equal(await (await store()).inspectPanelLoginBinding(tx.state, [invitation.browserBinding], now), "not_panel_login");
+  assert.equal(await (await store()).recoverInvitationContext(tx.state, [invitation.browserBinding], now), null);
+  assert.deepEqual(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [invitation.browserBinding], now), { context: invitation, browserBindingExpiresAt: "2026-07-12T10:10:00.000Z" });
+  assert.equal(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [{ keyId: "browser1", digest: "c".repeat(64) }], now), null);
+  assert.equal(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [invitation.browserBinding], new Date(tx.expiresAt)), null);
+  await assert.rejects((await store()).inspectInvitationBinding(tx.state, [], now));
+  await assert.rejects((await store({ payload_schema_version: 4 })).inspectInvitationBinding(tx.state, [invitation.browserBinding], now));
+  await assert.rejects((await store({ payload_schema_version: 2 })).inspectInvitationBinding(tx.state, [invitation.browserBinding], now));
+  await assert.rejects((await store()).inspectInvitationBinding("plogin_wrong-purpose", [invitation.browserBinding], now));
+  const consumer = new FakeClient();
+  consumer.queued.push([], [], [], [], [], [row], [{ status: "consumed" }]);
+  assert.deepEqual(await new PostgresOidcTransactionStore({ ...options, pool: { connect: async () => consumer } }).consume(tx.state, now), tx);
+  const { state: _state, ...registrationPayload } = oidcTransaction();
+  const wrongPurpose = options.payloadCipher.encrypt({ binding: { purpose: "saas.oidc_transactions", stateDigest: String(row.state_digest), schemaVersion: 1 }, payload: registrationPayload });
+  await assert.rejects((await store({ payload_schema_version: 1, payload_ciphertext: wrongPurpose.ciphertext, payload_iv: wrongPurpose.iv, encryption_key_id: wrongPurpose.keyId })).inspectInvitationBinding(tx.state, [invitation.browserBinding], now));
+  for (const change of [{ state: oidcState }, { returnTo: "/kayit" }, { panelLoginBinding: invitation.browserBinding }, { invitationContext: { ...invitation, extra: true } }]) {
+    await assert.rejects(new PostgresOidcTransactionStore(options).save({ ...tx, ...change }));
+  }
+});
 
 function dependencies(client: FakeClient) {
   const hmac = randomBytes(32);

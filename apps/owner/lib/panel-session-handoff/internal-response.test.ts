@@ -88,6 +88,15 @@ test("returning login signs only the exact durable session projection", async ()
   assert.equal(response.headers.has("location"), false);
   assert.throws(() => createSessionReadyResult("v1.bad", NOW.toISOString(), SESSION_EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN), /owner_panel_session_handoff_response_invalid/);
 });
+test("invitation confirmation uses the existing request-bound signature and only schema2 credential continuation", async () => {
+  const authenticated = await authority();
+  const body = Object.freeze({ schemaVersion: 2 as const, kind: "invitation_confirmation_ready" as const, grantCredential: `ig1.${Buffer.alloc(32, 3).toString("base64url")}`, grantExpiresAt: new Date(NOW.getTime() + 240000).toISOString(), continuationPath: "/invitations/confirm" as const });
+  const response = createSignedOwnerPanelSessionHandoffResponse({ status: 200, body }, authenticated);
+  assert.equal(await response.text(), JSON.stringify(body));
+  assert.ok(response.headers.has("x-celebix-session-response-signature"));
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.throws(() => canonicalOwnerPanelSessionHandoffResult({ status: 200, body: { ...body, subject: "injected" } } as never));
+});
 
 test("fresh-login results use only the exact canonical status/code matrix", async () => {
   const expected = [

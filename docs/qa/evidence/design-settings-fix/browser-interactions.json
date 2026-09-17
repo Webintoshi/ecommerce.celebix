@@ -1,0 +1,22 @@
+{
+  "applicationSource": "45af25dc9287505392e64ad8b7cffcf7111b29f3",
+  "fixtureSource": "508eb54260c9fbbec55d36b03177b59b9ca2ad19",
+  "environment": "http://127.0.0.1:3427/design-settings-fix",
+  "identity": "synthetic isolated-design-qa; no live session",
+  "persistence": "validated local temporary JSON file across requests and full reload; not production repository",
+  "cases": {
+    "failedSaveRetry": "503 injected by fixture; exact local heading retained; explicit retry saved; full reload retained heading",
+    "conflict": "second synthetic session advanced draftVersion; local save returned409; explicit read showed local/remote differences; deliberate conditional overwrite saved; full reload retained selected local heading",
+    "history": "NextLink landing/workspace then failed save; real browser Back to landing and Forward to workspace restored exact unsaved heading with publication disabled; compare showed different file-persisted heading; explicit discard restored persisted value",
+    "queuedEdit": "first PATCH held; a newer heading entered while response pending; release allowed serialized saves; older response did not replace newer heading; full reload retained newest heading"
+  },
+  "historyViewport": { "width": 390, "height": 844 },
+  "conflictViewport": { "width": 390, "height": 844, "documentScrollWidth": 390, "recoveryButtonHeight": 48 },
+  "capturedConsoleErrorsOrWarnings": [],
+  "networkScope": "fixture server logs observed expected503 and409 plus successful200 saves/reads; not an exhaustive browser network trace",
+  "limitations": [
+    "fixture.invalid banner intentionally does not resolve; not a live asset availability failure",
+    "history recovery is browser-lifetime memory, not recovery after a full document reload or process termination",
+    "no live Güzide save/publish, upload, customer data mutation, or session copying"
+  ]
+}

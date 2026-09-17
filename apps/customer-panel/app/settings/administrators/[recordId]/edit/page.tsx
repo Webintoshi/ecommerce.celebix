@@ -1,2 +1,6 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default async function EditAdministratorInvitePage({ params }: { params: Promise<{ recordId: string }> }) { const { recordId } = await params; return renderMerchantRecordPage({ kind: "administrator_invite", permission: "configuration.manage", recordId, returnTo: "/settings/administrators" }); }
+import { StoreAdminInvitationSource } from "@/components/store-admin-invitations/StoreAdminInvitationSource";
+import { requireServerPanelAccess } from "@/lib/server-access";
+export default async function EditAdministratorInvitePage({ params }: { params: Promise<{ recordId: string }> }) {
+  const [{ recordId }, { tenantContext }] = await Promise.all([params, requireServerPanelAccess()]);
+  return <StoreAdminInvitationSource recordId={recordId} canManage={tenantContext.membership.role === "store_owner"} />;
+}

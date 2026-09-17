@@ -150,13 +150,14 @@ test("disabled customer route set is exact, genuine, frozen, and always the defa
   } = await import(CUSTOMER_MODULE);
 
   const routeSet = createDisabledCustomerPanelAuthRouteSet();
-  assert.deepEqual(Object.keys(routeSet), ["browserBootstrap", "browserCallback", "browserLogin", "readiness"]);
+  assert.deepEqual(Object.keys(routeSet), ["invitationAccept", "invitationStart", "invitationConfirm", "browserBootstrap", "browserCallback", "browserLogin", "readiness"]);
   assert.equal(Object.isFrozen(routeSet), true);
   assert.equal(Object.isSealed(routeSet), true);
   assert.deepEqual(routeSet.readiness, {
     schemaVersion: 1,
     phase: "2B2B2C1",
     mode: "disabled",
+    invitationState: "mounted_disabled",
     productionActivation: "forbidden",
     requiredNextGate: "staging_runtime_provider_and_e2e",
     endpoints: {

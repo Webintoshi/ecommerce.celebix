@@ -2,6 +2,8 @@ import {
   assertPersistentSelfServeRuntime,
   type PersistentSelfServeRuntime,
 } from "../self-serve-http/runtime.ts";
+import type { createStoreAdminInvitationAuthService } from "../store-admin-invitations/auth-service.ts";
+import { parseInvitationConfirmationReady } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
 import {
   classifyReconstructedOwnerCallbackRequest,
 } from "../self-serve-http/internal-callback-gateway.ts";
@@ -85,6 +87,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   initialCallbackGrantBoundary: InitialVerifiedCallbackGrantBoundary;
   issuer: PostgresPanelSessionHandoffIssuer;
   browserBindingRepository: Pick<PostgresPanelBrowserBindingRepository, "claimCallback">;
+  invitations?: Pick<ReturnType<typeof createStoreAdminInvitationAuthService>, "tryComplete" | "tryRejectProvider">;
   returningLogin?: Readonly<{
     tryComplete(
       callback: Readonly<{ state: string; code: string; responseIssuer?: string }>,
@@ -124,6 +127,10 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   const returningLogin = input.returningLogin && Object.freeze({
     tryComplete: input.returningLogin.tryComplete.bind(input.returningLogin),
     tryRejectProvider: input.returningLogin.tryRejectProvider.bind(input.returningLogin),
+  });
+  const invitations = input.invitations && Object.freeze({
+    tryComplete: input.invitations.tryComplete.bind(input.invitations),
+    tryRejectProvider: input.invitations.tryRejectProvider.bind(input.invitations),
   });
   const executor = createInitialCallbackPanelSessionHandoffExecutor({
     runtime,
@@ -166,6 +173,16 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       catch {
         auditSafely(audit, { stage: "browser_claim", outcome: "rejected" });
         return createFreshLoginRequiredResult("callback_not_granted");
+      }
+
+      if (invitations) {
+        try {
+          const invitation = callback.kind === "provider_error"
+            ? await invitations.tryRejectProvider(callback.state, callback.responseIssuer, browserCredential)
+            : await invitations.tryComplete({ state: callback.state, code: callback.code, ...(callback.responseIssuer ? { responseIssuer: callback.responseIssuer } : {}) }, browserCredential);
+          if (invitation.kind === "invitation_confirmation_ready") return Object.freeze({ status: 200, body: parseInvitationConfirmationReady(JSON.stringify({ schemaVersion: 2, ...invitation }), trustedNow(clock)) });
+          if (invitation.kind !== "not_invitation") return createFreshLoginRequiredResult(invitation.retryable ? "callback_unavailable" : "callback_not_granted");
+        } catch { return createFreshLoginRequiredResult("callback_unavailable"); }
       }
 
       if (returningLogin) {

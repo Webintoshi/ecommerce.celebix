@@ -10,6 +10,8 @@ import {
 } from "../../../../packages/platform-config/src/saas.ts";
 import { createInternalHmacRequestAuthorityValidator } from "../self-serve-auth-authority/internal-request-authority.ts";
 import type { PostgresPanelBrowserBindingRepository } from "./postgres-repository.ts";
+import { parseInvitationRequest, parseInvitationResponse, invitationResponseStatus, type InvitationRequest, type InvitationResponse, parseInvitationManagementRequest, parseInvitationManagementResponse, invitationManagementResponseStatus, type InvitationManagementRequest, type InvitationManagementResponse } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
+import type { createStoreAdminInvitationAuthService } from "../store-admin-invitations/auth-service.ts";
 
 const approvals = new WeakSet<object>();
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -163,12 +165,14 @@ function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
   browserBindingCredential: string;
-} | { schemaVersion: 3; browserBindingCredential: string; destinationHostname: string } {
+} | { schemaVersion: 3; browserBindingCredential: string; destinationHostname: string } | Readonly<InvitationRequest> | InvitationManagementRequest {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const parsed = JSON.parse(raw) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
   const body = parsed as Record<string, unknown>;
   const keys = Object.keys(body);
+  if (body.schemaVersion === 7) return parseInvitationManagementRequest(raw);
+  if ([4, 5, 6].includes(Number(body.schemaVersion))) return parseInvitationRequest(raw);
   if (keys.join(",") === "schemaVersion,browserBindingCredential,destinationHostname" && body.schemaVersion === 3) {
     if (typeof body.destinationHostname !== "string") invalid();
     let destinationHostname: string;
@@ -252,6 +256,8 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
   clock(): Date;
   maximumBodyBytes: number;
   repository: Pick<PostgresPanelBrowserBindingRepository, "bindBrowserCredential">;
+  invitations?: Pick<ReturnType<typeof createStoreAdminInvitationAuthService>, "start" | "preview" | "accept">;
+  invitationManagement?: { manage(input: InvitationManagementRequest): Promise<InvitationManagementResponse> };
   returningLogin?: { start(browserBindingCredential: string, destinationHostname: string): Promise<Readonly<
     | { kind: "panel_login_ready"; providerAuthorizationUrl: string; browserBindingExpiresAt: string }
     | { kind: "panel_login_unavailable"; retryable: false }
@@ -330,6 +336,35 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
         body: { schemaVersion: 1, kind: "browser_binding_rejected", code: "browser_binding_request_invalid", retryable: false },
         keyId, timestamp, requestBodyDigest, secret,
       });
+    }
+
+    if (envelope.schemaVersion === 7) {
+      let body: InvitationManagementResponse;
+      try {
+        if (!options.invitationManagement) throw Error("disabled");
+        const result = await options.invitationManagement.manage(envelope);
+        body = parseInvitationManagementResponse(JSON.stringify(result), invitationManagementResponseStatus(result), envelope.action);
+        if (Buffer.byteLength(JSON.stringify(body)) > 262_144) throw Error("oversized");
+      } catch { body = { schemaVersion: 4, kind: "invitation_management_rejected", code: "unavailable", retryable: true }; }
+      return signedResponse({ status: invitationManagementResponseStatus(body), body, keyId, timestamp, requestBodyDigest, secret });
+    }
+    if ("operation" in envelope) {
+      let body: InvitationResponse;
+      try {
+        if (!options.invitations) throw new Error("disabled");
+        const result = envelope.operation === "invitation_start"
+          ? await options.invitations.start(envelope.token, envelope.browserBindingCredential)
+          : envelope.operation === "invitation_preview"
+            ? await options.invitations.preview(envelope.grantCredential, envelope.browserBindingCredential)
+            : await options.invitations.accept(envelope.grantCredential, envelope.browserBindingCredential, envelope.operationId);
+        const mapped = result.kind === "invitation_session_ready"
+          ? { schemaVersion: 3 as const, kind: result.kind, sessionCredential: result.credential, sessionIssuedAt: result.issuedAt, sessionExpiresAt: result.expiresAt, destinationStoreId: result.activeStoreId, destinationOrigin: result.destinationOrigin, redirectPath: "/" as const }
+          : { schemaVersion: 3 as const, ...result };
+        body = parseInvitationResponse(JSON.stringify(mapped), invitationResponseStatus(mapped), panelCallbackAuthority, trustedNow(clock), envelope.operation);
+      } catch {
+        body = { schemaVersion: 3, kind: "invitation_rejected", code: "callback_unavailable", retryable: true };
+      }
+      return signedResponse({ status: invitationResponseStatus(body), body, keyId, timestamp, requestBodyDigest, secret });
     }
 
     if (envelope.schemaVersion === 3) {

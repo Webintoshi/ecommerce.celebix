@@ -81,6 +81,52 @@ export interface OidcAuthorizationTransaction {
   expiresAt: string;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   panelLoginDestinationHostname?: string;
+  invitationContext?: OidcInvitationContext;
+}
+
+export interface OidcInvitationContext {
+  invitationId: string;
+  generation: number;
+  tokenDigest: string;
+  browserBinding: Readonly<{ keyId: string; digest: string }>;
+  grantId: string;
+  grantCredential: string;
+}
+
+/** Expiry comes from the authenticated transaction, never from callback input. */
+export interface OidcInvitationContinuation {
+  context: OidcInvitationContext;
+  browserBindingExpiresAt: string;
+}
+
+export function exactOidcInvitationContext(value: unknown): Readonly<OidcInvitationContext> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new OidcFlowError("oidc_invalid_state", "OIDC invitation context is invalid.");
+  const r = value as Record<string, unknown>;
+  const keys = ["invitationId", "generation", "tokenDigest", "browserBinding", "grantId", "grantCredential"];
+  if (Object.keys(r).length !== keys.length || keys.some(k => !Object.hasOwn(r, k)) ||
+      typeof r.invitationId !== "string" || !uuid.test(r.invitationId) || typeof r.grantId !== "string" || !uuid.test(r.grantId) ||
+      !Number.isSafeInteger(r.generation) || (r.generation as number) < 1 || typeof r.tokenDigest !== "string" || !DIGEST.test(r.tokenDigest) ||
+      typeof r.grantCredential !== "string" || !/^ig1\.[A-Za-z0-9_-]{43}$/.test(r.grantCredential) ||
+      Buffer.from(r.grantCredential.slice(4), "base64url").toString("base64url") !== r.grantCredential.slice(4)) {
+    throw new OidcFlowError("oidc_invalid_state", "OIDC invitation context is invalid.");
+  }
+  return Object.freeze({ invitationId: r.invitationId, generation: r.generation as number, tokenDigest: r.tokenDigest,
+    browserBinding: exactPanelLoginBinding(r.browserBinding), grantId: r.grantId, grantCredential: r.grantCredential });
+}
+
+/** Validate persisted purpose again at the consume boundary, including in-memory stores. */
+function assertInvitationPurpose(transaction: OidcAuthorizationTransaction, proof?: Readonly<{ keyId: string; digest: string }>) {
+  const context = transaction.invitationContext === undefined ? undefined : exactOidcInvitationContext(transaction.invitationContext);
+  if (!!context !== transaction.state.startsWith("pinvite_") ||
+      (context && (transaction.panelLoginBinding !== undefined || transaction.panelLoginDestinationHostname !== undefined || transaction.returnTo !== "/invitations/confirm")) ||
+      (!context && (proof !== undefined || transaction.returnTo === "/invitations/confirm"))) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC invitation binding is invalid.");
+  }
+  if (context) {
+    const binding = exactPanelLoginBinding(proof);
+    if (binding.keyId !== context.browserBinding.keyId || binding.digest !== context.browserBinding.digest) throw new OidcFlowError("oidc_invalid_callback", "OIDC invitation binding is invalid.");
+  }
 }
 
 export interface OidcTransactionStore {
@@ -103,6 +149,7 @@ export interface BeginOidcAuthorizationInput {
   allowLocalTestCallback?: boolean;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   panelLoginDestinationHostname?: string;
+  invitationContext?: OidcInvitationContext;
   now?: () => Date;
 }
 
@@ -111,6 +158,7 @@ export interface CompleteOidcCallbackInput {
   transactionStore: OidcTransactionStore;
   callback: OidcCallbackInput;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
+  invitationBinding?: Readonly<{ keyId: string; digest: string }>;
   now?: () => Date;
 }
 
@@ -118,6 +166,7 @@ export interface RejectOidcProviderCallbackInput {
   transactionStore: OidcTransactionStore;
   state: string;
   responseIssuer?: string;
+  invitationBinding?: Readonly<{ keyId: string; digest: string }>;
   now?: () => Date;
 }
 
@@ -325,6 +374,11 @@ function assertAuthorizationUrl(input: {
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
   assertCallbackUrl(input.redirectUri, input.expectedCallbackAuthority, input.allowLocalTestCallback);
   const now = input.now?.() ?? new Date();
+  const invitationContext = input.invitationContext === undefined ? undefined : exactOidcInvitationContext(input.invitationContext);
+  if ((invitationContext !== undefined) !== (input.returnTo === "/invitations/confirm") ||
+      (invitationContext && (input.panelLoginBinding !== undefined || input.panelLoginDestinationHostname !== undefined))) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC invitation binding is invalid.");
+  }
   const panelLoginBinding = input.panelLoginBinding === undefined
     ? undefined
     : exactPanelLoginBinding(input.panelLoginBinding);
@@ -337,11 +391,11 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
   ) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
   }
-  const state = randomOpaqueValue(32, panelLoginBinding ? "plogin_" : "");
+  const state = randomOpaqueValue(32, invitationContext ? "pinvite_" : panelLoginBinding ? "plogin_" : "");
   const nonce = randomOpaqueValue(32);
   const codeVerifier = randomOpaqueValue(64);
   const codeChallenge = await createS256Challenge(codeVerifier);
-  const returnTo = sanitizeOidcReturnTo(input.returnTo, input.returnOrigin);
+  const returnTo = invitationContext ? "/invitations/confirm" : sanitizeOidcReturnTo(input.returnTo, input.returnOrigin);
   const transaction: OidcAuthorizationTransaction = {
     state,
     nonce,
@@ -354,6 +408,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     expiresAt: new Date(now.getTime() + OIDC_TRANSACTION_LIFETIME_MS).toISOString(),
     ...(panelLoginBinding ? { panelLoginBinding } : {}),
     ...(panelLoginDestinationHostname ? { panelLoginDestinationHostname } : {}),
+    ...(invitationContext ? { invitationContext } : {}),
   };
 
   await input.transactionStore.save(transaction);
@@ -363,7 +418,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     codeChallenge,
     codeChallengeMethod: "S256",
     redirectUri: input.redirectUri,
-    ...(panelLoginBinding ? { prompt: "login" as const } : {}),
+    ...(panelLoginBinding || invitationContext ? { prompt: "login" as const } : {}),
   };
   let authorizationUrl: URL;
   try {
@@ -451,6 +506,7 @@ export async function rejectOidcProviderCallback(input: RejectOidcProviderCallba
   if (!state) throw new OidcFlowError("oidc_invalid_callback", "OIDC callback state is required.");
   const responseIssuer = exactResponseIssuer(input.responseIssuer);
   const transaction = await input.transactionStore.consume(state, now);
+  assertInvitationPurpose(transaction, input.invitationBinding);
   assertResponseIssuer(responseIssuer, transaction);
 }
 
@@ -463,6 +519,7 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   }
   const responseIssuer = exactResponseIssuer(input.callback.responseIssuer);
   const transaction = await input.transactionStore.consume(state, now);
+  assertInvitationPurpose(transaction, input.invitationBinding);
   if (transaction.panelLoginBinding) {
     const proof = exactPanelLoginBinding(input.panelLoginBinding);
     if (
@@ -494,10 +551,17 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   }
 
   assertVerifiedIdentity(identity, transaction);
+  if (transaction.invitationContext) {
+    const completedAt = input.now?.() ?? new Date();
+    if (!Number.isFinite(completedAt.getTime()) || Date.parse(transaction.expiresAt) <= completedAt.getTime()) {
+      throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
+    }
+  }
 
   return {
     identity,
     returnTo: transaction.returnTo,
     ...(transaction.panelLoginDestinationHostname ? { panelLoginDestinationHostname: transaction.panelLoginDestinationHostname } : {}),
+    ...(transaction.invitationContext ? { invitationContext: exactOidcInvitationContext(transaction.invitationContext), invitationBrowserBindingExpiresAt: transaction.expiresAt } : {}),
   };
 }
