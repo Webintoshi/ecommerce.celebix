@@ -259,7 +259,46 @@ not automatically inherited from these old SHAs.
 
 Resend's official idempotency documentation was checked on 2026-09-16: keys are retained for 24 hours. The dedicated worker must stop unsafe replay rather than retry after that horizon. Source: https://resend.com/docs/dashboard/emails/idempotency-keys
 
-## Prospective privacy-safe release candidate — NOT CREATED OR AUTHORIZED
+## Privacy-safe candidate — historical proposal, subsequently authorized
+
+Update: the user's subsequent explicit approval authorizes private backup and
+recipient-content anonymization of unpublished history, plus new exact-candidate
+bindings for `9406c3fa9420b1bbb72e761d9c4eab730260c32d`. This is a new approval,
+not automatic inheritance from a previous source. Owner remains PayTR TEST-only;
+Panel remains PayTR TEST+LIVE; compiled Iyzico remains null. Credentials, provider
+activation states and payment behavior are unchanged.
+
+The approved rewrite is complete: 22 unpublished commits were privately backed
+up, their exact old/new mapping verified, and only recipient-document content and
+dependent parent links changed. Final HEAD tree and all user work/index were
+preserved. Normal non-force push advanced the remote branch from `4fffd63c` to
+`4d197f86c96987cb533e0a50e35df550f65b2421`. No merge occurred. The application
+candidate is the approved `9406c3fa` ancestor, not the documentation HEAD.
+
+Fresh four-app Auto Deploy/Preview settings remain OFF and deployment queue was
+empty. Prior Owner/Panel images have rollback tags; encrypted management config,
+actual container settings and the exact staging database dump are retained only
+in a protected server backup. The dump manifest was checked (4,149 entries), not
+restored into a rehearsal database. CA-verified read-only readiness confirmed
+PG16.14, exact isolated staging database, three exact predecessor function hashes,
+absent invitation schema and ready existing migrations100/112 with no backfill.
+
+Owner's exact-candidate official build completed successfully in339228ms; both
+official generator checks passed. Panel local build was not started because
+available temporary disk was below the2GiB preflight. A separate network-disabled,
+portless, unmounted container based on the previous Panel image is validating the
+same candidate; all5,171 tracked files and official locally generated Panel
+metadata were verified before its build. Its Node20 runtime does NOT execute the
+metadata generators: byte verification and local generator-check evidence remain
+separate. Final remote build/release/invitation acceptance results remain pending.
+
+With exact authorized Panel metadata, the five affected payment test files pass
+54/54, covering all seven previous null-authority failures. Original full-suite
+results, unrelated timing failures and existing skip are preserved above. No
+full-suite PASS is claimed. Full branch diff-check reports two nonfunctional
+trailing-blank-line warnings in migration130 up/down; exact candidate retained.
+
+The following paragraphs retain the pre-authorization proposal for chronology:
 
 The repository is public. Read-only Git-object calculation found recipient
 content in one unpublished document: the invitation design spec. No recipient
