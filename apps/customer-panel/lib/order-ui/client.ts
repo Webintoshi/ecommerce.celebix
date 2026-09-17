@@ -335,6 +335,20 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       const result = await request(`/api/orders/${order}/archive`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => parseOrderArchiveEligibility(result));
     },
+    async archiveOrder(orderId: string, input: Readonly<{ operationId: string; reason: string; evidenceReference: string }>) {
+      const order = local(() => id(orderId));
+      const operationId = local(() => id(input.operationId));
+      const result = await request(`/api/orders/${order}/archive`, {
+        method: "POST", credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": operationId },
+        body: JSON.stringify({ reason: input.reason, evidenceReference: input.evidenceReference }),
+      });
+      return safeParse(() => {
+        const parsed = parseOrderArchiveResult(result);
+        if (parsed.id !== order || parsed.operationId !== operationId || !parsed.archived) throw new TypeError("order_response_invalid");
+        return parsed;
+      });
+    },
     async restoreOrder(orderId: string, input: Readonly<{ operationId: string; reason: string; evidenceReference: string }>) {
       const order = local(() => id(orderId));
       const operationId = local(() => id(input.operationId));

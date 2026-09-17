@@ -18,7 +18,7 @@ import {
   Truck,
   UserRound,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
   type OrderDetail,
@@ -79,6 +79,7 @@ const EMAIL_STATUS_LABELS: Readonly<Record<OrderEmailDeliveryStatus, string>> = 
   complained: "İstenmeyen olarak işaretlendi",
   suppressed: "Gönderim engellendi",
 });
+const ARCHIVE_EVIDENCE_REFERENCE = "merchant-panel/orders/archive";
 
 export function getAuthorizedOrderStatusOptions(
   current: OrderStatus,
@@ -206,6 +207,7 @@ export interface OrderDetailPresentationProps {
   readonly notificationBusy?: string;
   readonly capabilities: OrderUiCapabilities;
   readonly onRetry: () => void;
+  readonly onArchiveSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onRestoreSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onNotificationRetry?: (deliveryId: string) => void;
   readonly onStatusChange: (status: OrderStatus) => void;
@@ -241,6 +243,13 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       </header>
       {props.error ? <div className={styles.inlineError} role="alert">{props.error}</div> : null}
       {props.notice ? <div className={styles.notice} role="status">{props.notice}</div> : null}
+      {!order.archive?.archived && props.capabilities.manage && props.onArchiveSubmit ? <details className={styles.orderInfoCard}>
+        <summary>Siparişi arşivle</summary>
+        <form onSubmit={props.onArchiveSubmit}>
+          <label>Arşivleme nedeni<input name="reason" required maxLength={500} /></label>
+          <button type="submit" disabled={Boolean(props.busy)}>Arşivle</button>
+        </form>
+      </details> : null}
       {order.archive?.archived && props.capabilities.manage && props.onRestoreSubmit ? <form className={styles.orderInfoCard} onSubmit={props.onRestoreSubmit}>
         <label>Geri alma nedeni<input name="reason" required maxLength={500} /></label>
         <label>QA kanıt referansı<input name="evidenceReference" required maxLength={500} /></label>
@@ -354,7 +363,10 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   );
 }
 
+class ArchiveEligibilityError extends Error {}
+
 function safeMessage(error: unknown) {
+  if (error instanceof ArchiveEligibilityError) return "Bu sipariş şu anda arşivlenemez.";
   return error instanceof OrderApiError ? error.message : "İşlem tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
@@ -367,6 +379,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [notificationBusy, setNotificationBusy] = useState("");
+  const archiveIntent = useRef<Readonly<{ orderId: string; reason: string; operationId: string }> | undefined>(undefined);
 
   const load = useCallback(async (conflict = false) => {
     setError("");
@@ -434,6 +447,22 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     void mutation(`note-${noteId}`, () => orderApi.archiveNote(orderId, noteId), "Dahili not arşivlendi.");
   }
 
+  function archiveOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail || detail.archive?.archived || !capabilities.manage || busy) return;
+    const reason = field(new FormData(event.currentTarget), "reason");
+    if (!reason) return;
+    const operationId = archiveIntent.current?.orderId === orderId && archiveIntent.current.reason === reason
+      ? archiveIntent.current.operationId
+      : crypto.randomUUID();
+    archiveIntent.current = Object.freeze({ orderId, reason, operationId });
+    void mutation("archive", async () => {
+      const eligibility = await orderApi.getArchiveEligibility(orderId);
+      if (eligibility.id !== orderId || !eligibility.eligible || eligibility.archived) throw new ArchiveEligibilityError();
+      return orderApi.archiveOrder(orderId, { operationId, reason, evidenceReference: ARCHIVE_EVIDENCE_REFERENCE });
+    }, "Sipariş arşivlendi.");
+  }
+
   async function retryNotification(deliveryId: string) {
     setNotificationBusy(deliveryId);
     setError("");
@@ -449,7 +478,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     }
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onRestoreSubmit={(event)=>{
+  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onArchiveSubmit={archiveOrder} onRestoreSubmit={(event)=>{
     event.preventDefault();
     const data=new FormData(event.currentTarget);
     const operationId=event.currentTarget.dataset.operationId ?? crypto.randomUUID();
