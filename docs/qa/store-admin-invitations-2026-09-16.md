@@ -298,6 +298,40 @@ results, unrelated timing failures and existing skip are preserved above. No
 full-suite PASS is claimed. Full branch diff-check reports two nonfunctional
 trailing-blank-line warnings in migration130 up/down; exact candidate retained.
 
+### Release gate outcome: limited migration login missing
+
+The isolated remote Panel build completed successfully (exit0,147490ms), including
+Next compilation, TypeScript and83 static page outputs. This is build evidence,
+not a deployed runtime or authenticated acceptance. Owner and Panel builds now
+both have successful exact-candidate evidence. Local disk limitation was resolved
+for validation by an isolated network-none container, not by deleting user files.
+
+One attempt to run the exact approved migration runner failed with
+`invitation_migration_failed` before its BEGIN/DDL phase. Subsequent read-only
+diagnosis identifies the precise gate: the existing migration connection is a
+PostgreSQL superuser, while the runner explicitly requires `is_superuser=false`.
+The existing Owner runtime login is non-superuser but has no owner-role membership.
+A role-membership-only query found no existing non-superuser LOGIN with the
+required `celebix_saas_owner` membership. All six invitation tables remain absent.
+No security check was disabled, no role or credential was changed, and no SQL
+write was retried. Earlier successful environment/predecessor probes were not a
+complete migration-authority check; full readiness is BLOCKED at this gate.
+
+Both applications remain on their previous running images/sources. SOURCE_COMMIT,
+normal/preview payment configuration and deployment hooks are unchanged. The new
+candidate bindings have been generated and checked in verification environments,
+but have NOT been installed into live Coolify configuration. The configuration
+helper is prepared, not executed. No deployment, invitation send or membership
+grant occurred. Real acceptance and protected-page access remain unverified.
+
+Required next authority: create a temporary non-superuser migration login for the
+approved129–131 staging operation, with only the necessary owner-role membership;
+generate its credential on the trusted server without displaying it, run the
+unchanged exact-candidate safety checks against the exact staging database, then
+remove that temporary login after the migration. Do not elevate the normal
+runtime user, weaken the superuser rejection, modify other applications or
+silently add this role-management operation to the prior exact-binding approval.
+
 The following paragraphs retain the pre-authorization proposal for chronology:
 
 The repository is public. Read-only Git-object calculation found recipient
