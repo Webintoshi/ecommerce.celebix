@@ -232,7 +232,7 @@ try {
   await test('outbox lease fences stale workers, preserves payload and stops beyond replay horizon', () => {
     sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed';");
     const item=issued(),lease1=randomUUID(),lease2=randomUUID();
-    const claim=(lease,now,end)=>call(`saas.store_admin_invitation_delivery_claim('worker',${q(lease)},${q(now)},${q(end)},1)`,'workflow');
+    const claim=(lease,now,end)=>call(`saas.store_admin_invitation_delivery_claim('worker',${q(lease)},${q(now)},${q(end)},1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
     const first=claim(lease1,NOW,'2026-09-17T12:01:00Z').result.items[0];
     const second=claim(lease2,LATER,'2026-09-17T12:03:00Z').result.items[0];
     assert.equal(first.deliveryId,item.c.deliveryId); assert.equal(second.deliveryId,first.deliveryId);
@@ -247,7 +247,7 @@ try {
   });
   await test('provider acceptance is not delivered; identity verified-event ingestion deduplicates', () => {
     const item=issued(),lease=randomUUID();
-    const claim=call(`saas.store_admin_invitation_delivery_claim('events',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    const claim=call(`saas.store_admin_invitation_delivery_claim('events',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
     assert.equal(claim.result.items[0].deliveryId,item.c.deliveryId);
     assert.equal(call(`saas.store_admin_invitation_delivery_settle(${[item.c.deliveryId,lease,'events',NOW,'provider_accepted','provider-event-129',null,null].map(q).join(',')})`,'workflow').outcome,'settled');
     assert.equal(value(`SELECT status FROM saas.store_admin_invitation_deliveries WHERE id=${q(item.c.deliveryId)};`),'provider_accepted');
@@ -270,7 +270,7 @@ try {
   await test('pre-send authority is freshly rechecked and lease tokens cannot be reused', () => {
     sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
     const item=issued(),lease=randomUUID();
-    const claim=(now,end)=>`saas.store_admin_invitation_delivery_claim('dispatch',${q(lease)},${q(now)},${q(end)},1)`;
+    const claim=(now,end)=>`saas.store_admin_invitation_delivery_claim('dispatch',${q(lease)},${q(now)},${q(end)},1,${q(STORE)},${q(item.s.config.email)})`;
     assert.equal(call(claim(NOW,'2026-09-17T12:01:00Z'),'workflow').result.items[0].deliveryId,item.c.deliveryId);
     const check=`saas.store_admin_invitation_delivery_authorize(${[item.c.deliveryId,lease,'dispatch',NOW].map(q).join(',')})`;
     assert.equal(call(check,'workflow').outcome,'authorized');
@@ -287,14 +287,14 @@ try {
       const lease=randomUUID(),minute=(attempt-1)*3;
       now=`2026-09-17T12:${String(minute).padStart(2,'0')}:00Z`;
       const end=`2026-09-17T12:${String(minute+1).padStart(2,'0')}:00Z`,next=`2026-09-17T12:${String(minute+2).padStart(2,'0')}:00Z`;
-      const result=call(`saas.store_admin_invitation_delivery_claim('bounded',${q(lease)},${q(now)},${q(end)},1)`,'workflow');
+      const result=call(`saas.store_admin_invitation_delivery_claim('bounded',${q(lease)},${q(now)},${q(end)},1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
       assert.equal(result.result.items[0].attemptCount,attempt);
       const settle=`saas.store_admin_invitation_delivery_settle(${[item.c.deliveryId,lease,'bounded',now,'retry',null,'provider_timeout',next].map(q).join(',')})`;
       assert.equal(call(settle,'workflow').outcome,'settled');
       assert.equal(call(settle,'workflow').outcome,'operation_replayed');
     }
     assert.equal(value(`SELECT status FROM saas.store_admin_invitation_deliveries WHERE id=${q(item.c.deliveryId)};`),'outcome_unknown');
-    assert.equal(call(`saas.store_admin_invitation_delivery_claim('bounded',${q(randomUUID())},'2026-09-17T12:30:00Z','2026-09-17T12:31:00Z',1)`,'workflow').result.items.length,0);
+    assert.equal(call(`saas.store_admin_invitation_delivery_claim('bounded',${q(randomUUID())},'2026-09-17T12:30:00Z','2026-09-17T12:31:00Z',1,${q(STORE)},${q(item.s.config.email)})`,'workflow').result.items.length,0);
   });
   await test('mid-transaction outbox failure rolls back invitation and audit', () => {
     const item=issued(),s=source(),c={...candidate(),deliveryId:item.c.deliveryId};
@@ -331,7 +331,7 @@ try {
   await test('settlement rejects raw provider bodies even on retry outcomes', () => {
     sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
     const item=issued(),lease=randomUUID();
-    call(`saas.store_admin_invitation_delivery_claim('raw',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    call(`saas.store_admin_invitation_delivery_claim('raw',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
     assert.equal(call(`saas.store_admin_invitation_delivery_settle(${[item.c.deliveryId,lease,'raw',NOW,'retry','{"secret":"provider body"}',null,'2026-09-17T12:02:00Z'].map(q).join(',')})`,'workflow').outcome,'invalid_input');
   });
   await test('acceptance rollback preserves pending grant and creates no principal or membership', () => {
@@ -380,7 +380,7 @@ try {
   await test('I2 verified provider event racing settlement commit is reconciled and duplicate replay repairs retained evidence', async () => {
     sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
     const item=issued(),lease=randomUUID(),messageId='provider-race-129';
-    call(`saas.store_admin_invitation_delivery_claim('race',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    call(`saas.store_admin_invitation_delivery_claim('race',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
     const settler=session('invitation-settler'),eventer=session('invitation-eventer');
     const event=`saas.store_admin_invitation_delivery_event('verified-race-129',${q(messageId)},'delivered','2026-09-17T12:00:30Z')`;
     try {
@@ -408,7 +408,7 @@ try {
   await test('I2 reverse event-before-settlement commit ordering also reconciles without a reverse lock cycle', async () => {
     sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
     const item=issued(),lease=randomUUID(),messageId='provider-reverse-129';
-    call(`saas.store_admin_invitation_delivery_claim('reverse',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    call(`saas.store_admin_invitation_delivery_claim('reverse',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1,${q(STORE)},${q(item.s.config.email)})`,'workflow');
     const eventer=session('invitation-event-first'),settler=session('invitation-settle-second');
     try {
       eventer.send(`BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.store_admin_invitation_delivery_event('verified-reverse-129',${q(messageId)},'delivered','2026-09-17T12:00:30Z');SELECT 'EVENT_UNCOMMITTED';`);
@@ -437,6 +437,31 @@ try {
       const s=source(),c=candidate();sql(`UPDATE saas.merchant_admin_records SET name=${q(name)} WHERE id=${q(s.id)};`);
       const result=call(issueExpression(s,c));assert.equal(result.outcome,'issued');assert.equal(parseStoreAdminInvitationView(result.result).displayName,name);
     }
+  });
+  await test('T5 scoped claim never changes unrelated expired exhausted or cross-store jobs', () => {
+    sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
+    const expired=issued({expiresAt:'2026-09-17T12:01:00.000Z'}),exhausted=issued(),eligible=issued();
+    sql(`UPDATE saas.store_admin_invitation_deliveries SET attempt_count=8 WHERE id=${q(exhausted.c.deliveryId)};`);
+    const foreignSource=source({email:eligible.s.config.email}),foreignCandidate=candidate(),foreignMember=randomUUID();
+    sql(`UPDATE saas.merchant_admin_records SET store_id=${q(OTHER)} WHERE id=${q(foreignSource.id)};
+      INSERT INTO saas.memberships VALUES(${q(foreignMember)},${q(OWNER)},${q(OTHER)},'store_owner','active','2026-01-01','2026-01-01');
+      INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at) VALUES(${q(randomUUID())},${q(OTHER)},${q(PLAN)},'free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01');`);
+    const foreignAuthority=[OTHER,OWNER,foreignMember,PLAN,'free_starter',1,NOW].map(q).join(',');
+    assert.equal(call(issueExpression(foreignSource,foreignCandidate,randomUUID(),hash('foreign-scope'),foreignAuthority)).outcome,'issued');
+    const ids=[expired.c.deliveryId,exhausted.c.deliveryId,foreignCandidate.deliveryId].map(q).join(',');
+    const snapshot=()=>value(`SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM saas.store_admin_invitation_deliveries d WHERE id IN(${ids});`);
+    const before=snapshot();
+    const result=call(`saas.store_admin_invitation_delivery_claim('scoped',${q(randomUUID())},${q(LATER)},'2026-09-17T12:03:00Z',20,${q(STORE)},${q(eligible.s.config.email)})`,'workflow');
+    assert.equal(hash(snapshot()),hash(before),'unrelated delivery rows must remain byte-identical');
+    assert.deepEqual(result.result.items.map(item=>item.deliveryId),[eligible.c.deliveryId]);
+    assert.equal(value(`SELECT attempt_count FROM saas.store_admin_invitation_deliveries WHERE id=${q(eligible.c.deliveryId)};`),'1');
+    const queueSnapshot=()=>value('SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM saas.store_admin_invitation_deliveries d;');
+    const invalidBefore=hash(queueSnapshot());
+    for(const [store,recipient] of [[null,eligible.s.config.email],[STORE,null],[STORE,'Recipient@EXAMPLE.TEST'],[STORE,' recipient@example.test '],[STORE,'invalid']]) {
+      assert.equal(call(`saas.store_admin_invitation_delivery_claim('bad-scope',${q(randomUUID())},${q(LATER)},'2026-09-17T12:03:00Z',20,${q(store)},${q(recipient)})`,'workflow').outcome,'invalid_input');
+    }
+    assert.equal(hash(queueSnapshot()),invalidBefore);
+    assert.notEqual(sql(statement(`saas.store_admin_invitation_delivery_claim('unscoped',${q(randomUUID())},${q(LATER)},'2026-09-17T12:03:00Z',20)`,'workflow'),'invitations',true).status,0);
   });
   await test('down refuses retained evidence; empty down/up is reversible', () => {
     const down=readFileSync(path.join(SQL,`${PREFIX}.down.sql`),'utf8');

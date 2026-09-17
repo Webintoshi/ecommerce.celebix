@@ -389,16 +389,17 @@ RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql SECURITY DEFINER S
  SELECT * FROM saas.store_admin_invitation_accept(p_grant_digest,p_browser_key_id,p_browser_digest,p_operation_id,p_fingerprint,NULL,NULL,p_now)
 $f$;
 
-CREATE FUNCTION saas.store_admin_invitation_delivery_claim(p_worker_id text,p_lease_id uuid,p_now timestamptz,p_lease_expires_at timestamptz,p_limit integer)
+CREATE FUNCTION saas.store_admin_invitation_delivery_claim(p_worker_id text,p_lease_id uuid,p_now timestamptz,p_lease_expires_at timestamptz,p_limit integer,p_allowed_store_id uuid,p_allowed_recipient text)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE d saas.store_admin_invitation_deliveries%ROWTYPE; i saas.store_admin_invitations%ROWTYPE; items jsonb:='[]';
 BEGIN
- IF p_worker_id IS NULL OR p_worker_id!~'^[A-Za-z0-9_-]{1,80}$' OR p_lease_id IS NULL OR p_now IS NULL OR p_lease_expires_at IS NULL OR p_lease_expires_at<=p_now OR p_lease_expires_at>p_now+interval '5 minutes' OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 20 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF p_worker_id IS NULL OR p_worker_id!~'^[A-Za-z0-9_-]{1,80}$' OR p_lease_id IS NULL OR p_now IS NULL OR p_lease_expires_at IS NULL OR p_lease_expires_at<=p_now OR p_lease_expires_at>p_now+interval '5 minutes' OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 20 OR p_allowed_store_id IS NULL OR p_allowed_recipient IS NULL OR saas.store_admin_invitation_email(p_allowed_recipient) IS NULL OR saas.store_admin_invitation_email(p_allowed_recipient) IS DISTINCT FROM p_allowed_recipient THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  -- A lease UUID identifies exactly one claim call, including its bounded batch.
  PERFORM pg_advisory_xact_lock(hashtextextended('invitation-lease/'||p_lease_id::text,0));
  IF EXISTS(SELECT 1 FROM saas.store_admin_invitation_deliveries WHERE p_lease_id=ANY(lease_history)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ -- Scope BEFORE row locks and housekeeping: unrelated queues must remain untouched.
  -- Lock invitation before delivery throughout lifecycle to prevent revoke/claim deadlocks.
- FOR i IN SELECT inv.* FROM saas.store_admin_invitations inv WHERE EXISTS(SELECT 1 FROM saas.store_admin_invitation_deliveries job WHERE job.invitation_id=inv.id AND job.status IN('queued','sending') AND job.next_attempt_at<=p_now AND (job.lease_expires_at IS NULL OR job.lease_expires_at<=p_now)) ORDER BY inv.created_at,inv.id FOR UPDATE SKIP LOCKED LIMIT 100 LOOP
+ FOR i IN SELECT inv.* FROM saas.store_admin_invitations inv WHERE inv.store_id=p_allowed_store_id AND inv.email=p_allowed_recipient AND EXISTS(SELECT 1 FROM saas.store_admin_invitation_deliveries job WHERE job.invitation_id=inv.id AND job.status IN('queued','sending') AND job.next_attempt_at<=p_now AND (job.lease_expires_at IS NULL OR job.lease_expires_at<=p_now)) ORDER BY inv.created_at,inv.id FOR UPDATE SKIP LOCKED LIMIT 100 LOOP
   FOR d IN SELECT * FROM saas.store_admin_invitation_deliveries WHERE invitation_id=i.id AND status IN('queued','sending') AND next_attempt_at<=p_now AND (lease_expires_at IS NULL OR lease_expires_at<=p_now) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LOOP
    IF d.generation<>i.generation OR i.status<>'pending' OR i.expires_at<=p_now OR saas.store_admin_invitation_authority(i.store_id,i.inviter_principal_id,i.inviter_membership_id,i.plan_id,i.plan_code,i.plan_version,p_now) IS NOT NULL THEN
     UPDATE saas.store_admin_invitation_deliveries SET status=CASE WHEN attempt_count>0 THEN 'outcome_unknown' ELSE 'failed' END,safe_error_code='invitation_unavailable',lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=p_now WHERE id=d.id; CONTINUE;
@@ -507,7 +508,7 @@ GRANT EXECUTE ON FUNCTION
  saas.store_admin_invitation_recover_acceptance(text,text,text,uuid,text,timestamptz),
  saas.store_admin_invitation_delivery_event(text,text,text,timestamptz)
  TO celebix_saas_identity;
-GRANT EXECUTE ON FUNCTION saas.store_admin_invitation_delivery_claim(text,uuid,timestamptz,timestamptz,integer),
+GRANT EXECUTE ON FUNCTION saas.store_admin_invitation_delivery_claim(text,uuid,timestamptz,timestamptz,integer,uuid,text),
  saas.store_admin_invitation_delivery_authorize(uuid,uuid,text,timestamptz),
  saas.store_admin_invitation_delivery_settle(uuid,uuid,text,timestamptz,text,text,text,timestamptz) TO celebix_saas_workflow;
 COMMIT;

@@ -7,6 +7,7 @@ DO $f$ BEGIN
  THEN RAISE EXCEPTION 'INVITATION_DOWN_BLOCKED'; END IF;
 END $f$;
 DROP TRIGGER store_admin_invitation_source_frozen ON saas.merchant_admin_records;
+DROP FUNCTION saas.store_admin_invitation_delivery_claim(text,uuid,timestamptz,timestamptz,integer,uuid,text);
 DROP TABLE saas.store_admin_invitation_acceptance_grants;
 DROP TABLE saas.store_admin_invitation_operations;
 DROP TABLE saas.store_admin_invitation_events;
