@@ -14,6 +14,10 @@ export type ServerOrdersRuntime = Readonly<{
 
 const repositories = new WeakMap<ServerPanelAccessRuntime, OrderRepository>();
 const METHODS = Object.freeze([
+  "getArchiveEligibility",
+  "listArchivedOrders",
+  "archiveOrder",
+  "restoreOrder",
   "getDashboardSummary",
   "listOrders",
   "getOrder",
@@ -40,9 +44,7 @@ function invalid(): never {
 function facade(repository: OrderRepository): OrderRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-    const archiveMethods = (["getArchiveEligibility","listArchivedOrders","archiveOrder","restoreOrder"] as const)
-      .filter(method=>typeof repository[method]==="function");
-    const methods = Object.fromEntries([...METHODS,...archiveMethods].map((method) => [method, repository[method].bind(repository)])) as unknown as OrderRepository;
+    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as OrderRepository;
     return Object.freeze(methods);
   } catch { return invalid(); }
 }
