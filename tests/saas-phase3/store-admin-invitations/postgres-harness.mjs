@@ -11,6 +11,7 @@ import { parseStoreAdminInvitationView } from '../../../packages/saas-contracts/
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const SQL = path.join(ROOT, 'apps/owner/scripts/sql/saas');
 const PREFIX = '202609170129_store_admin_invitations';
+const SESSION_PREFIX = '202609170130_invitation_member_panel_sessions';
 const NOW = '2026-09-17T12:00:00.000Z';
 const LATER = '2026-09-17T12:02:00.000Z';
 const PLAN = '00000000-0000-4000-8000-000000000001';
@@ -124,6 +125,7 @@ try {
     assert.equal(value("SELECT to_regprocedure('saas.store_admin_invitation_issue(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,jsonb)') IS NOT NULL;"), 't');
   });
   apply(`${PREFIX}_assertions.sql`);
+  if (existsSync(path.join(SQL, `${SESSION_PREFIX}.up.sql`))) { apply(`${SESSION_PREFIX}.up.sql`); apply(`${SESSION_PREFIX}_assertions.sql`); }
   sql('CREATE DATABASE invitations_empty TEMPLATE invitations;', 'postgres');
   sql(`INSERT INTO saas.principals VALUES(${q(OWNER)},'https://identity.example.test/oidc','inviter','owner@example.test',true,'2026-01-01','2026-01-01');
     INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES (${q(STORE)},'Test Store','invite-test','active','tr','TRY','hemenaku','2026-01-01','2026-01-01'),(${q(OTHER)},'Other Store','invite-other','active','tr','TRY','hemenaku','2026-01-01','2026-01-01');
@@ -465,6 +467,46 @@ try {
     }
     assert.equal(hash(queueSnapshot()),invalidBefore);
     assert.notEqual(sql(statement(`saas.store_admin_invitation_delivery_claim('unscoped',${q(randomUUID())},${q(LATER)},'2026-09-17T12:03:00Z',20)`,'workflow'),'invitations',true).status,0);
+  });
+  await test('T6 active admin editor analyst normal exact-host login and recovery preserve owner-only writes', () => {
+    for (const role of ['admin','editor','analyst']) {
+      const item=issued({role}),g=granted(item),member=call(acceptExpression(g)).result;
+      const operation=randomUUID(),session=randomUUID(),family=randomUUID(),digest=hash(operation);
+      const identityCall=expression=>value(`BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM ${expression};COMMIT;`);
+      const issue=()=>identityCall(`saas.issue_returning_panel_session_for_admin_host(${[g.issuer,g.subject,'invite-test.admin.example.test',session,family,operation,'session1',digest].map(q).join(',')},transaction_timestamp(),transaction_timestamp()+interval '1 hour')`);
+      const recover=()=>identityCall(`saas.recover_returning_panel_session_for_admin_host(${[g.issuer,g.subject,'invite-test.admin.example.test',operation,'session1',digest].map(q).join(',')})`);
+      assert.equal(issue(),'issued',role); assert.equal(recover(),'operation_replayed',role);
+      const memberAuthority=[STORE,member.principalId,member.membershipId,PLAN,'free_starter',1,NOW].map(q).join(',');
+      assert.equal(call(`saas.store_admin_invitation_list(${memberAuthority})`,'app').outcome,'membership_denied');
+      assert.equal(call(issueExpression(source(),candidate(),randomUUID(),hash('member-cannot-invite'),memberAuthority)).outcome,'membership_denied');
+      for(const status of ['revoked','invited']) {
+        sql(`UPDATE saas.memberships SET status=${q(status)} WHERE id=${q(member.membershipId)};`);
+        assert.equal(issue(),'membership_denied');assert.equal(recover(),'unavailable');
+      }
+      sql(`UPDATE saas.memberships SET status='active' WHERE id=${q(member.membershipId)};`);
+      assert.equal(identityCall(`saas.recover_returning_panel_session_for_admin_host(${[g.issuer,g.subject,'wrong.admin.example.test',operation,'session1',digest].map(q).join(',')})`),'unavailable');
+      assert.notEqual(sql(`UPDATE saas.principals SET email_verified=false WHERE id=${q(member.principalId)};`,'invitations',true).status,0,'durable principals cannot lose verified-email invariant');
+      assert.equal(recover(),'operation_replayed');
+    }
+  });
+  await test('T6 actual admin cross-host handoff120 and exact custom alias redemption125', () => {
+    const item=issued(),g=granted(item),member=call(acceptExpression(g)).result;
+    sql(`INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,version,created_at,updated_at,management,provider,cname_target) VALUES(${q(randomUUID())},${q(STORE)},'admin.custom.example.test','custom_alias','active',false,'2026-01-01',1,'2026-01-01','2026-01-01','merchant','cloudflare_for_saas','target.example.test');`);
+    const sessionDigest=hash(randomUUID()),handoffDigest=hash(randomUUID());
+    const identityCall=expression=>value(`BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM ${expression};COMMIT;`);
+    assert.equal(identityCall(`saas.issue_returning_panel_session_for_admin_host(${[g.issuer,g.subject,'admin.custom.example.test',randomUUID(),randomUUID(),randomUUID(),'session1',sessionDigest].map(q).join(',')},transaction_timestamp(),transaction_timestamp()+interval '1 hour')`),'issued');
+    assert.equal(identityCall(`saas.issue_cross_host_panel_handoff(${['session1',sessionDigest,randomUUID(),randomUUID(),'handoff1',handoffDigest,STORE,'admin.custom.example.test'].map(q).join(',')},transaction_timestamp(),transaction_timestamp()+interval '2 minutes')`),'handoff_issued');
+    const redemption=[randomUUID(),randomUUID(),randomUUID(),'session1',hash(randomUUID())].map(q).join(',');
+    assert.equal(identityCall(`saas.redeem_cross_host_panel_handoff('handoff1',${q(handoffDigest)},'wrong.example.test',${redemption},transaction_timestamp(),transaction_timestamp()+interval '1 hour')`),'unauthenticated');
+    assert.equal(identityCall(`saas.redeem_cross_host_panel_handoff('handoff1',${q(handoffDigest)},'admin.custom.example.test',${redemption},transaction_timestamp(),transaction_timestamp()+interval '1 hour')`),'redeemed');
+    assert.equal(value(`SELECT role FROM saas.memberships WHERE id=${q(member.membershipId)};`),'admin');
+  });
+  await test('T6 session down restores exact owner-only120 functions and can be reapplied', () => {
+    if (!existsSync(path.join(SQL,`${SESSION_PREFIX}.down.sql`))) assert.fail('session migration missing');
+    apply(`${SESSION_PREFIX}.down.sql`);
+    const item=issued(),g=granted(item);call(acceptExpression(g));
+    assert.equal(value(`BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.issue_returning_panel_session_for_admin_host(${[g.issuer,g.subject,'invite-test.admin.example.test',randomUUID(),randomUUID(),randomUUID(),'session1',hash(randomUUID())].map(q).join(',')},transaction_timestamp(),transaction_timestamp()+interval '1 hour');COMMIT;`),'membership_denied');
+    apply(`${SESSION_PREFIX}.up.sql`);apply(`${SESSION_PREFIX}_assertions.sql`);
   });
   await test('down refuses retained evidence; empty down/up is reversible', () => {
     const down=readFileSync(path.join(SQL,`${PREFIX}.down.sql`),'utf8');

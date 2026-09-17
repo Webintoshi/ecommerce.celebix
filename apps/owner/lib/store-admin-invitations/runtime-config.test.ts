@@ -17,10 +17,16 @@ const env = {
   CELEBIX_ADMIN_INVITATIONS_PAYLOAD_KEYRING: JSON.stringify({ invite_01: Buffer.alloc(32, 7).toString("base64") }),
 };
 const database = { name: "celebix_saas_staging_invitations", url: "postgresql://existing_owner_login:fixture@db.internal/celebix_saas_staging_invitations?sslmode=verify-full", ca: rootCertificates[0]! };
+const authority = { panelOrigin: "https://accounts.example.com" };
+test("enabled invitation delivery requires equality with configured central panel authority", () => {
+  assert.throws(() => parseInvitationRuntimeConfig(env, database));
+  assert.throws(() => parseInvitationRuntimeConfig(env, database, { panelOrigin: "https://other.example.com" }));
+  assert.ok(parseInvitationRuntimeConfig(env, database, authority));
+});
 test("runtime is disabled by default and accepts only explicit approved staging with dedicated config", () => {
   assert.equal(parseInvitationRuntimeConfig({}), null);
   assert.equal(parseInvitationRuntimeConfig({ ...env, CELEBIX_ADMIN_INVITATIONS_ENABLED: "false" }), null);
-  const config = parseInvitationRuntimeConfig(env, database)!;
+  const config = parseInvitationRuntimeConfig(env, database, authority)!;
   assert.equal(config.workerId, "invitation_worker"); assert.equal(config.delivery.allowedRecipient, "recipient@example.com");
   assert.deepEqual(config.keyring.keys.invite_01, Buffer.alloc(32, 7));
 });
@@ -32,11 +38,11 @@ test("production, ambient secret fallback, unsafe DB target and malformed keys f
     { CELEBIX_ADMIN_INVITATIONS_PAYLOAD_KEYRING: JSON.stringify({ invite_01: Buffer.alloc(31).toString("base64") }) },
     { CELEBIX_ADMIN_INVITATIONS_PAYLOAD_KEYRING: undefined, CELEBIX_ORDER_EMAIL_PAYLOAD_KEYRING: env.CELEBIX_ADMIN_INVITATIONS_PAYLOAD_KEYRING },
     { CELEBIX_ADMIN_INVITATIONS_RESEND_API_KEY: undefined, RESEND_API_KEY: "re_secret" },
-  ]) assert.throws(() => parseInvitationRuntimeConfig({ ...env, ...override }, database), /^Error: store_admin_invitation_runtime_config_invalid$/);
+  ]) assert.throws(() => parseInvitationRuntimeConfig({ ...env, ...override }, database, authority), /^Error: store_admin_invitation_runtime_config_invalid$/);
   for (const db of [undefined, { ...database, name: "celebix_saas_production" }, { ...database, url: database.url.replace("verify-full", "disable") }, { ...database, ca: "invalid" }, { ...database, url: database.url.replace("staging_invitations?", "staging_other?") }]) {
-    assert.throws(() => parseInvitationRuntimeConfig(env, db), /^Error: store_admin_invitation_runtime_config_invalid$/);
+    assert.throws(() => parseInvitationRuntimeConfig(env, db, authority), /^Error: store_admin_invitation_runtime_config_invalid$/);
   }
-  const config = parseInvitationRuntimeConfig(env, database)!;
+  const config = parseInvitationRuntimeConfig(env, database, authority)!;
   assert.equal(config.database.name, database.name); assert.equal(config.poolConfig.ssl.rejectUnauthorized, true);
   assert.equal(new URL(config.poolConfig.connectionString).search, "");
 });

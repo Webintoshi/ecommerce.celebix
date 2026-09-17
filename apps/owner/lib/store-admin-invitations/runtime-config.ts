@@ -19,13 +19,13 @@ function required(env: Environment, name: string, maximum = 8192): string {
 }
 /** Pure parsing only. Reuse Owner's validated existing LOGIN and CA; startup must
  * preflight current_database and the two fixed SET LOCAL role capabilities. */
-export function parseInvitationRuntimeConfig(env: Environment, ownerDatabase?: OwnerStagingAuthConfig["database"]): Readonly<InvitationRuntimeConfig> | null {
+export function parseInvitationRuntimeConfig(env: Environment, ownerDatabase?: OwnerStagingAuthConfig["database"], authority?: Pick<OwnerStagingAuthConfig["authority"], "panelOrigin">): Readonly<InvitationRuntimeConfig> | null {
   const decoded: Buffer[] = [];
   try {
     if (env.CELEBIX_ADMIN_INVITATIONS_ENABLED === undefined || env.CELEBIX_ADMIN_INVITATIONS_ENABLED === "false") return null;
     if (env.CELEBIX_ADMIN_INVITATIONS_MODE !== "approved_staging" || env.CELEBIX_DEPLOYMENT_TIER !== "staging") invalid();
     const delivery = parseInvitationDeliveryConfig(env);
-    if (!delivery || !ownerDatabase) invalid();
+    if (!delivery || !ownerDatabase || !authority || delivery.acceptanceOrigin !== authority.panelOrigin) invalid();
     const database = Object.freeze({ ...ownerDatabase });
     if (!/^celebix_saas_staging_[a-z0-9][a-z0-9_]{1,47}$/u.test(database.name)) invalid();
     const url = new URL(database.url);
