@@ -311,7 +311,9 @@ export function createPanelSessionCompletionHandler(options: {
     }
     catch {
       auditSafely(audit, { stage: "transport", outcome: "unavailable" });
-      return failure("panel_session_transport_unavailable", 503, hasContinuation);
+      // The untrusted prefix is only a retention hint after callback/proof validation.
+      // It grants no purpose/identity authority and never renews the original cookie.
+      return failure("panel_session_transport_unavailable", 503, hasContinuation || callback.state.startsWith("pinvite_"));
     }
     if (result.kind === "invitation_confirmation_ready") {
       const headers = new Headers({ location: "/invitations/confirm", "cache-control": "no-store", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff" });

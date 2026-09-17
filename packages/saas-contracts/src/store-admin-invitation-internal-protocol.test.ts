@@ -17,6 +17,22 @@ test("accepted-access-retry is exact and cannot become a generic rejection or a 
   for (const mutation of [{ accepted: false }, { retryable: false }, { credential: `v1.test.${token}` }]) assert.throws(() => parseInvitationResponse(JSON.stringify({ ...good, ...mutation }), 503, callback, now, "invitation_accept"));
   assert.throws(() => parseInvitationResponse(JSON.stringify(good), 200, callback, now, "invitation_accept"));
 });
+test("confirmation role rejects arrays and objects instead of coercing them to allowed strings", () => {
+  for (const role of [["admin"], ["editor"], ["analyst"], { value: "admin" }, { toString: "admin" }]) {
+    const body = { schemaVersion: 3, kind: "invitation_confirmation", storeName: "Store", email: "recipient@example.test", role, expiresAt: expiry };
+    assert.throws(() => parseInvitationResponse(JSON.stringify(body), 200, callback, now, "invitation_preview"));
+  }
+});
+test("rejection code rejects arrays and objects including acceptance-only arrays on start and preview", () => {
+  for (const operation of ["invitation_start", "invitation_preview", "invitation_accept"] as const) {
+    for (const code of [["callback_unavailable"], ["acceptance_unknown"], { value: "callback_unavailable" }, { toString: "acceptance_unknown" }]) {
+      const body = { schemaVersion: 3, kind: "invitation_rejected", code, retryable: true };
+      assert.throws(() => parseInvitationResponse(JSON.stringify(body), 503, callback, now, operation));
+    }
+    const unavailable = { schemaVersion: 3, kind: "invitation_rejected", code: ["invitation_unavailable"], retryable: false };
+    assert.throws(() => parseInvitationResponse(JSON.stringify(unavailable), 409, callback, now, operation));
+  }
+});
 test("callback continuation has literal path, canonical grant, no identity and original bounded deadline", () => {
   const good = { schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: `ig1.${token}`, grantExpiresAt: expiry, continuationPath: "/invitations/confirm" };
   assert.deepEqual(parseInvitationConfirmationReady(JSON.stringify(good), now), good);

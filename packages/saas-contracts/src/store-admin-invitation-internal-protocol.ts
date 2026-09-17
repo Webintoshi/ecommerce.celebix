@@ -72,7 +72,7 @@ export function parseInvitationResponse(raw: string, status: number, callbackAut
     }
     case "invitation_confirmation":
       b = exact(raw, [...common, "storeName", "email", "role", "expiresAt"]);
-      if (operation !== "invitation_preview" || !["admin", "editor", "analyst"].includes(String(b.role))) invalid();
+      if (operation !== "invitation_preview" || typeof b.role !== "string" || !["admin", "editor", "analyst"].includes(b.role)) invalid();
       text(b.storeName, 512); text(b.email, 320); expiry(b.expiresAt, now, 300_000); break;
     case "invitation_session_ready": {
       b = exact(raw, [...common, "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
@@ -91,7 +91,7 @@ export function parseInvitationResponse(raw: string, status: number, callbackAut
       if (operation !== "invitation_accept" || b.accepted !== true || b.retryable !== true) invalid(); break;
     case "invitation_rejected":
       b = exact(raw, [...common, "code", "retryable"]);
-      if (!["invitation_unavailable", "callback_unavailable", "acceptance_unknown"].includes(String(b.code)) || typeof b.retryable !== "boolean") invalid();
+      if (typeof b.code !== "string" || !["invitation_unavailable", "callback_unavailable", "acceptance_unknown"].includes(b.code) || typeof b.retryable !== "boolean") invalid();
       if (b.code === "invitation_unavailable" ? b.retryable : !b.retryable) invalid();
       if (b.code === "acceptance_unknown" && operation !== "invitation_accept") invalid(); break;
     default: return invalid();
