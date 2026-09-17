@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { normalizeStoreAdminInvitationEmail, type StoreAdminInvitationRole } from "@celebix/saas-contracts";
 import type { PanelBrowserBindingAuthorityCodec, PanelBrowserCredentialDigest } from "../panel-browser-binding/credential-codec.ts";
 import type { ReturningPanelSessionIssuerResult } from "../panel-returning-login/postgres-session-issuer.ts";
-import { beginOidcAuthorization, completeOidcCallback, rejectOidcProviderCallback, type OidcCallbackInput, type OidcInvitationContext, type OidcProviderPort, type OidcTransactionStore } from "../self-serve-oidc.ts";
+import { beginOidcAuthorization, completeOidcCallback, rejectOidcProviderCallback, type OidcCallbackInput, type OidcInvitationContext, type OidcInvitationContinuation, type OidcProviderPort, type OidcTransactionStore } from "../self-serve-oidc.ts";
 import type { InvitationAcceptance, InvitationGrantPreview, InvitationIdentityRepository, InvitationProof } from "./repository.ts";
 import { digestStoreAdminInvitationToken } from "./token.ts";
 
@@ -12,10 +12,10 @@ export type InvitationAuthCompletion = Rejected | ConfirmationReady | Readonly<{
 export type InvitationAuthAcceptance = Rejected | Readonly<{ kind: "invitation_accepted_access_retry"; accepted: true; retryable: true }> | Readonly<{
   kind: "invitation_session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string;
 }>;
-type Inspection = "not_invitation" | "denied" | Readonly<{ kind: "approved"; context: OidcInvitationContext }>;
+type Inspection = "not_invitation" | "denied" | Readonly<{ kind: "approved" } & OidcInvitationContinuation>;
 interface InvitationOidcStore extends OidcTransactionStore {
   inspectInvitationBinding(state: string, candidates: readonly PanelBrowserCredentialDigest[], now: Date): Promise<Inspection>;
-  recoverInvitationContext(state: string, candidates: readonly PanelBrowserCredentialDigest[], now: Date): Promise<OidcInvitationContext | null>;
+  recoverInvitationContext(state: string, candidates: readonly PanelBrowserCredentialDigest[], now: Date): Promise<Readonly<OidcInvitationContinuation> | null>;
 }
 interface Options {
   provider: OidcProviderPort;
@@ -55,17 +55,20 @@ export function createStoreAdminInvitationAuthService(options: Options) {
   function proof(credential: string, binding: PanelBrowserCredentialDigest): InvitationProof {
     return { grantDigest: digestInvitationGrantCredential(credential), browserKeyId: binding.keyId, browserDigest: binding.digest, now: now() };
   }
-  function confirmation(context: OidcInvitationContext, grant: InvitationGrantPreview): ConfirmationReady {
-    return Object.freeze({ kind: "invitation_confirmation_ready", grantCredential: context.grantCredential, grantExpiresAt: grant.expiresAt, continuationPath: "/invitations/confirm" });
+  function confirmation(context: OidcInvitationContext, grant: InvitationGrantPreview, browserBindingExpiresAt: string): ConfirmationReady | Rejected {
+    const expiresAt = Math.min(Date.parse(grant.expiresAt), Date.parse(browserBindingExpiresAt));
+    if (!Number.isFinite(expiresAt) || expiresAt <= now().getTime()) return rejected();
+    return Object.freeze({ kind: "invitation_confirmation_ready", grantCredential: context.grantCredential, grantExpiresAt: new Date(expiresAt).toISOString(), continuationPath: "/invitations/confirm" });
   }
   async function recoverInvitationCompletion(state: string, browserCredential: string): Promise<InvitationAuthCompletion> {
     try {
-      const context = await options.transactionStore.recoverInvitationContext(state, candidates(browserCredential), now());
-      if (!context) return rejected();
+      const continuation = await options.transactionStore.recoverInvitationContext(state, candidates(browserCredential), now());
+      if (!continuation) return rejected();
+      const { context, browserBindingExpiresAt } = continuation;
       const grant = await options.repository.grantPreview(proof(context.grantCredential, context.browserBinding));
       if (grant.kind === "unavailable" || grant.kind === "commit_unknown") return rejected("callback_unavailable", true);
       if (grant.kind !== "grant_available" || grant.value.grantId !== context.grantId || grant.value.invitationId !== context.invitationId || grant.value.generation !== context.generation) return rejected();
-      return confirmation(context, grant.value);
+      return confirmation(context, grant.value, browserBindingExpiresAt);
     } catch (error) { return error instanceof InvalidInvitationInput ? rejected() : rejected("callback_unavailable", true); }
   }
   async function previewInternal(grantCredential: string, browserCredential: string) {
@@ -110,11 +113,12 @@ export function createStoreAdminInvitationAuthService(options: Options) {
         if (inspected === "denied") return recoverInvitationCompletion(callback.state, browserCredential);
         const completed = await completeOidcCallback({ provider: options.provider, transactionStore: options.transactionStore, callback, invitationBinding: inspected.context.browserBinding, now });
         const context = completed.invitationContext;
-        if (!context || completed.returnTo !== "/invitations/confirm") return rejected();
+        if (!context || !completed.invitationBrowserBindingExpiresAt || completed.returnTo !== "/invitations/confirm") return rejected();
         const resolved = await options.repository.resolve(context.tokenDigest, now());
         const email = normalizeStoreAdminInvitationEmail(completed.identity.email);
         if (resolved.kind !== "resolved" || resolved.value.invitationId !== context.invitationId || resolved.value.generation !== context.generation || resolved.value.email !== email) return rejected();
-        const instant = now(), expiresAt = new Date(Math.min(instant.getTime() + 300_000, Date.parse(resolved.value.expiresAt)));
+        const instant = now(), expiresAt = new Date(Math.min(instant.getTime() + 300_000, Date.parse(resolved.value.expiresAt), Date.parse(completed.invitationBrowserBindingExpiresAt)));
+        if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= instant.getTime()) return rejected();
         const grantDigest = digestInvitationGrantCredential(context.grantCredential);
         const grant = await options.repository.grant({ invitationId: context.invitationId, generation: context.generation, tokenDigest: context.tokenDigest,
           browserKeyId: context.browserBinding.keyId, browserDigest: context.browserBinding.digest, issuer: completed.identity.issuer, subject: completed.identity.subject,

@@ -48,10 +48,10 @@ test("schema3 encrypts invitation proof and recovers context only from consumed 
     const reader = new FakeClient(); reader.queued.push([], [], [], [], [], [{ ...row, ...changes }]);
     return new PostgresOidcTransactionStore({ ...options, pool: { connect: async () => reader } });
   }
-  assert.deepEqual(await (await store()).inspectInvitationBinding(tx.state, [invitation.browserBinding], now), { kind: "approved", context: invitation });
+  assert.deepEqual(await (await store()).inspectInvitationBinding(tx.state, [invitation.browserBinding], now), { kind: "approved", context: invitation, browserBindingExpiresAt: "2026-07-12T10:10:00.000Z" });
   assert.equal(await (await store()).inspectPanelLoginBinding(tx.state, [invitation.browserBinding], now), "not_panel_login");
   assert.equal(await (await store()).recoverInvitationContext(tx.state, [invitation.browserBinding], now), null);
-  assert.deepEqual(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [invitation.browserBinding], now), invitation);
+  assert.deepEqual(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [invitation.browserBinding], now), { context: invitation, browserBindingExpiresAt: "2026-07-12T10:10:00.000Z" });
   assert.equal(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [{ keyId: "browser1", digest: "c".repeat(64) }], now), null);
   assert.equal(await (await store({ status: "consumed" })).recoverInvitationContext(tx.state, [invitation.browserBinding], new Date(tx.expiresAt)), null);
   await assert.rejects((await store()).inspectInvitationBinding(tx.state, [], now));

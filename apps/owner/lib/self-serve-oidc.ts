@@ -93,6 +93,12 @@ export interface OidcInvitationContext {
   grantCredential: string;
 }
 
+/** Expiry comes from the authenticated transaction, never from callback input. */
+export interface OidcInvitationContinuation {
+  context: OidcInvitationContext;
+  browserBindingExpiresAt: string;
+}
+
 export function exactOidcInvitationContext(value: unknown): Readonly<OidcInvitationContext> {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new OidcFlowError("oidc_invalid_state", "OIDC invitation context is invalid.");
@@ -545,11 +551,17 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   }
 
   assertVerifiedIdentity(identity, transaction);
+  if (transaction.invitationContext) {
+    const completedAt = input.now?.() ?? new Date();
+    if (!Number.isFinite(completedAt.getTime()) || Date.parse(transaction.expiresAt) <= completedAt.getTime()) {
+      throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
+    }
+  }
 
   return {
     identity,
     returnTo: transaction.returnTo,
     ...(transaction.panelLoginDestinationHostname ? { panelLoginDestinationHostname: transaction.panelLoginDestinationHostname } : {}),
-    ...(transaction.invitationContext ? { invitationContext: exactOidcInvitationContext(transaction.invitationContext) } : {}),
+    ...(transaction.invitationContext ? { invitationContext: exactOidcInvitationContext(transaction.invitationContext), invitationBrowserBindingExpiresAt: transaction.expiresAt } : {}),
   };
 }

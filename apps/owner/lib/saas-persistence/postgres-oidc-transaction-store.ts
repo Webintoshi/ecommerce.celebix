@@ -3,7 +3,7 @@ import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import {
   OidcFlowError,
   exactOidcInvitationContext,
-  type OidcInvitationContext,
+  type OidcInvitationContinuation,
   type OidcAuthorizationTransaction,
   type OidcTransactionStore,
 } from "../self-serve-oidc.ts";
@@ -279,7 +279,7 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
 
   private async inspectInvitation(
     rawState: string, candidates: readonly Readonly<{ keyId: string; digest: string }>[], now: Date, requiredStatus: "active" | "consumed",
-  ): Promise<"not_invitation" | "denied" | Readonly<{ kind: "approved"; context: OidcInvitationContext }>> {
+  ): Promise<"not_invitation" | "denied" | Readonly<{ kind: "approved" } & OidcInvitationContinuation>> {
     if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !Array.isArray(candidates) || candidates.length < 1 || candidates.length > 16 ||
         candidates.some(p => !p || typeof p.keyId !== "string" || !KEY_ID.test(p.keyId) || p.keyId.includes("..") || typeof p.digest !== "string" || !DIGEST.test(p.digest))) throw new IdentityPersistenceError();
     const digest = this.options.stateDigester.digest(rawState);
@@ -294,7 +294,7 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
       if (status(row.status) !== requiredStatus || persistedTimestamp(row.created_at) !== stored.createdAt || persistedTimestamp(row.expires_at) !== stored.expiresAt ||
           Date.parse(stored.createdAt) > now.getTime() || Date.parse(stored.expiresAt) <= now.getTime() ||
           !candidates.some(p => p.keyId === stored.invitationContext!.browserBinding.keyId && p.digest === stored.invitationContext!.browserBinding.digest)) return "denied";
-      return Object.freeze({ kind: "approved", context: stored.invitationContext });
+      return Object.freeze({ kind: "approved", context: stored.invitationContext, browserBindingExpiresAt: stored.expiresAt });
     });
   }
 
@@ -303,9 +303,9 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
   }
 
   /** Context alone is NOT identity verification. Caller must verify the durable grant. */
-  async recoverInvitationContext(rawState: string, candidates: readonly Readonly<{ keyId: string; digest: string }>[], now: Date): Promise<OidcInvitationContext | null> {
+  async recoverInvitationContext(rawState: string, candidates: readonly Readonly<{ keyId: string; digest: string }>[], now: Date): Promise<Readonly<OidcInvitationContinuation> | null> {
     const inspected = await this.inspectInvitation(rawState, candidates, now, "consumed");
-    return typeof inspected === "object" ? inspected.context : null;
+    return typeof inspected === "object" ? Object.freeze({ context: inspected.context, browserBindingExpiresAt: inspected.browserBindingExpiresAt }) : null;
   }
 
   async discard(rawState: string): Promise<void> {

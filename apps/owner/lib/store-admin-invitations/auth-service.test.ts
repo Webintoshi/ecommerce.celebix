@@ -10,18 +10,19 @@ const id = "10000000-0000-4000-8000-000000000001", storeId = "10000000-0000-4000
 const token = Buffer.alloc(32, 7).toString("base64url");
 const binding = { keyId: "browser1", digest: "b".repeat(64) };
 function fixture() {
+  let clockTime = new Date(now), providerAdvanceMs = 0, previewAdvanceMs = 0;
   const transactions = new Map<string, OidcAuthorizationTransaction>(), consumed = new Set<string>();
   const memory = new InMemoryOidcTransactionStore();
   const transactionStore = {
     async save(tx: OidcAuthorizationTransaction) { transactions.set(tx.state, tx); await memory.save(tx); },
     async consume(state: string, date: Date) { const tx = await memory.consume(state, date); consumed.add(state); return tx; },
     discard: (state: string) => memory.discard(state),
-    async inspectInvitationBinding(state: string, candidates: readonly typeof binding[]) {
+    async inspectInvitationBinding(state: string, candidates: readonly typeof binding[], date: Date) {
       const context = transactions.get(state)?.invitationContext;
       if (!context) return state.startsWith("pinvite_") ? "denied" as const : "not_invitation" as const;
-      return !consumed.has(state) && candidates.some(p => p.digest === binding.digest) ? { kind: "approved" as const, context } : "denied" as const;
+      return !consumed.has(state) && Date.parse(transactions.get(state)!.expiresAt) > date.getTime() && candidates.some(p => p.digest === binding.digest) ? { kind: "approved" as const, context, browserBindingExpiresAt: transactions.get(state)!.expiresAt } : "denied" as const;
     },
-    async recoverInvitationContext(state: string, candidates: readonly typeof binding[]) { return consumed.has(state) && candidates.some(p => p.digest === binding.digest) ? transactions.get(state)!.invitationContext! : null; },
+    async recoverInvitationContext(state: string, candidates: readonly typeof binding[], date: Date) { return consumed.has(state) && Date.parse(transactions.get(state)!.expiresAt) > date.getTime() && candidates.some(p => p.digest === binding.digest) ? { context: transactions.get(state)!.invitationContext!, browserBindingExpiresAt: transactions.get(state)!.expiresAt } : null; },
   };
   let grant: InvitationGrantPreview | undefined, grantDigest: string | undefined, accepted = false;
   let exchanges = 0, sessions = 0, accepts = 0, grantCalls = 0;
@@ -29,7 +30,7 @@ function fixture() {
   let identityChanges: Record<string, unknown> = {};
   const provider: OidcProviderPort = {
     buildAuthorizationUrl(input) { const url = new URL("https://identity.example.test/authorize"); for (const [key, value] of Object.entries({ state: input.state, nonce: input.nonce, code_challenge: input.codeChallenge, code_challenge_method: input.codeChallengeMethod, redirect_uri: input.redirectUri, response_type: "code", response_mode: "query", prompt: input.prompt! })) url.searchParams.set(key, value); return url; },
-    async verifyCallback(input) { exchanges++; return { issuer: input.expectedIssuer, subject: "recipient", audience: [input.expectedAudience], nonce: input.expectedNonce, email: "Recipient@Example.test", emailVerified: true, ...identityChanges }; },
+    async verifyCallback(input) { exchanges++; clockTime = new Date(clockTime.getTime() + providerAdvanceMs); return { issuer: input.expectedIssuer, subject: "recipient", audience: [input.expectedAudience], nonce: input.expectedNonce, email: "Recipient@Example.test", emailVerified: true, ...identityChanges }; },
   };
   const acceptedValue = { invitationId: id, storeId, principalId: id, membershipId: id, role: "admin" as const, adminHostname: "admin.example.test" };
   const repository: Pick<InvitationIdentityRepository, "resolve" | "grant" | "grantPreview" | "accept" | "recoverAcceptance"> = {
@@ -37,16 +38,17 @@ function fixture() {
     async grant(input) { grantCalls++; if (denyGrant) return { kind: "invitation_unavailable" }; grantDigest = input.grantDigest;
       grant = { grantId: input.grantId, invitationId: input.invitationId, generation: input.generation, storeId, storeName: "Test Store", email: input.email, displayName: "Recipient", role: "admin", expiresAt: input.expiresAt.toISOString(), issuer: input.issuer, subject: input.subject, accepted: false };
       return unknownGrant ? { kind: "commit_unknown" } : { kind: "granted", value: grant }; },
-    async grantPreview(proof) { return previewFails ? { kind: "unavailable" } : grant && proof.grantDigest === grantDigest && proof.browserDigest === binding.digest ? { kind: "grant_available", value: { ...grant, accepted } } : { kind: "invitation_unavailable" }; },
+    async grantPreview(proof) { clockTime = new Date(clockTime.getTime() + previewAdvanceMs); return previewFails ? { kind: "unavailable" } : grant && proof.grantDigest === grantDigest && proof.browserDigest === binding.digest ? { kind: "grant_available", value: { ...grant, accepted } } : { kind: "invitation_unavailable" }; },
     async accept(proof) { accepts++; assert.equal(proof.operationId, operationId); assert.equal(proof.browserDigest, binding.digest); accepted = true; return unknownAccept ? { kind: "commit_unknown" } : { kind: "accepted", value: acceptedValue }; },
     async recoverAcceptance(proof) { assert.equal(proof.operationId, operationId); return accepted && recoverAccept ? { kind: "operation_replayed", value: acceptedValue } : { kind: "operation_not_found" }; },
   };
   const service = api.createStoreAdminInvitationAuthService({ provider, transactionStore, repository,
     browserBindingCodec: { digestBrowserBindingCredential: (c: string) => { if (c !== "browser") throw Error("invalid"); return binding; }, digestBrowserBindingCredentialCandidates: (c: string) => { if (!c) throw Error("invalid"); return [{ ...binding, digest: c === "browser" ? binding.digest : "c".repeat(64) }]; } },
     sessionIssuer: { async issue(identity, hostname) { sessions++; assert.equal(accepted, true, "no session before commit"); assert.deepEqual(identity, { issuer: "https://identity.example.test", subject: "recipient" }); assert.equal(hostname, "admin.example.test"); return sessionFails ? { kind: "membership_denied" as const } : { kind: "session_issued" as const, credential: "session", activeStoreId: storeId, issuedAt: now.toISOString(), expiresAt: expiry }; } },
-    callbackAuthority: "https://panel.example.test/auth/callback", panelOrigin: "https://panel.example.test", acceptanceOrigin: "https://panel.example.test", expectedIssuer: "https://identity.example.test", expectedAudience: "panel", expectedAuthorizationOrigin: "https://identity.example.test", clock: () => now,
+    callbackAuthority: "https://panel.example.test/auth/callback", panelOrigin: "https://panel.example.test", acceptanceOrigin: "https://panel.example.test", expectedIssuer: "https://identity.example.test", expectedAudience: "panel", expectedAuthorizationOrigin: "https://identity.example.test", clock: () => new Date(clockTime),
   });
   return { service, transactions, get counts() { return { exchanges, sessions, accepts, grantCalls }; }, revoke() { grant = undefined; },
+    advance(ms: number) { clockTime = new Date(clockTime.getTime() + ms); }, providerDelay(ms: number) { providerAdvanceMs = ms; }, previewDelay(ms: number) { previewAdvanceMs = ms; },
     change(options: { denyGrant?: boolean; unknownGrant?: boolean; unknownAccept?: boolean; recoverAccept?: boolean; sessionFails?: boolean; previewFails?: boolean; identity?: Record<string, unknown> }) { denyGrant = options.denyGrant ?? denyGrant; unknownGrant = options.unknownGrant ?? unknownGrant; unknownAccept = options.unknownAccept ?? unknownAccept; recoverAccept = options.recoverAccept ?? recoverAccept; sessionFails = options.sessionFails ?? sessionFails; previewFails = options.previewFails ?? previewFails; identityChanges = options.identity ?? identityChanges; },
   };
 }
@@ -131,4 +133,39 @@ test("durable grant lookup outage preserves a retryable verified continuation", 
   assert.deepEqual(uncertain, { kind: "invitation_rejected", code: "callback_unavailable", retryable: true });
   f.change({ previewFails: false }); assert.deepEqual(await f.service.tryComplete(callback, "browser"), confirmed);
   assert.equal(f.counts.exchanges, 1); assert.equal(f.counts.grantCalls, 1);
+});
+
+test("slow login caps confirmation and durable grant to original preauth deadline", async () => {
+  const f = fixture(), callback = await start(f);
+  f.advance(9 * 60_000);
+  const result = await f.service.tryComplete(callback, "browser");
+  assert.equal(result.kind, "invitation_confirmation_ready"); if (result.kind !== "invitation_confirmation_ready") throw Error();
+  assert.equal(result.grantExpiresAt, "2026-09-17T12:10:00.000Z");
+  const preview = await f.service.preview(result.grantCredential, "browser");
+  assert.equal(preview.kind, "invitation_confirmation"); if (preview.kind !== "invitation_confirmation") throw Error();
+  assert.equal(preview.expiresAt, "2026-09-17T12:10:00.000Z");
+});
+
+test("lost callback near original deadline recovers unchanged grant expiry and never past it", async () => {
+  const f = fixture(), callback = await start(f); f.change({ unknownGrant: true }); f.advance(9 * 60_000);
+  const result = await f.service.tryComplete(callback, "browser");
+  assert.equal(result.kind, "invitation_confirmation_ready"); if (result.kind !== "invitation_confirmation_ready") throw Error();
+  assert.equal(result.grantExpiresAt, "2026-09-17T12:10:00.000Z");
+  f.advance(59_999); assert.deepEqual(await f.service.tryComplete(callback, "browser"), result);
+  f.advance(1); assert.equal((await f.service.tryComplete(callback, "browser")).kind, "invitation_rejected");
+  assert.deepEqual(f.counts, { exchanges: 1, sessions: 0, accepts: 0, grantCalls: 1 });
+});
+
+test("provider completion crossing original preauth deadline cannot create a grant", async () => {
+  const f = fixture(), callback = await start(f); f.advance(9 * 60_000); f.providerDelay(60_000);
+  assert.equal((await f.service.tryComplete(callback, "browser")).kind, "invitation_rejected");
+  assert.deepEqual(f.counts, { exchanges: 1, sessions: 0, accepts: 0, grantCalls: 0 });
+});
+
+test("durable lookup crossing original deadline cannot return a recovered continuation", async () => {
+  const f = fixture(), callback = await start(f); f.advance(9 * 60_000);
+  assert.equal((await f.service.tryComplete(callback, "browser")).kind, "invitation_confirmation_ready");
+  f.advance(59_000); f.previewDelay(1_000);
+  assert.equal((await f.service.recoverInvitationCompletion(callback.state, "browser")).kind, "invitation_rejected");
+  assert.deepEqual(f.counts, { exchanges: 1, sessions: 0, accepts: 0, grantCalls: 1 });
 });

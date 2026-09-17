@@ -35,7 +35,11 @@ test("invitation purpose pins prompt/path/context and requires its independent b
     assert.equal(provider.lastAuthorizationRequest!.prompt, "login");
     provider.identities.set("invite", verifiedIdentity({ nonce: provider.lastAuthorizationRequest!.nonce }));
     const completing = oidc.completeOidcCallback({ provider, transactionStore: store, callback: { state: begun.state, code: "invite" }, invitationBinding: proof, now: () => NOW });
-    if (proof === invitationContext.browserBinding) assert.deepEqual((await completing).invitationContext, invitationContext);
+    if (proof === invitationContext.browserBinding) {
+      const completed = await completing;
+      assert.deepEqual(completed.invitationContext, invitationContext);
+      assert.equal(completed.invitationBrowserBindingExpiresAt, "2026-07-10T12:10:00.000Z");
+    }
     else { await assert.rejects(completing, /binding/i); assert.equal(provider.lastCallbackInput, null); }
   }
 });
@@ -45,6 +49,19 @@ test("invitation context cannot cross registration or returning-login purposes",
     await assert.rejects(oidc.beginOidcAuthorization({ provider: new FakeProvider(), transactionStore: new oidc.InMemoryOidcTransactionStore(), redirectUri: REDIRECT_URI,
       returnTo: "/invitations/confirm", invitationContext, expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => NOW, ...extra }), /invalid/i);
   }
+});
+
+test("invitation provider exchange cannot outlive its consumed transaction deadline", async () => {
+  const provider = new FakeProvider(), store = new oidc.InMemoryOidcTransactionStore();
+  let clock = new Date(NOW);
+  const begun = await oidc.beginOidcAuthorization({ provider, transactionStore: store, redirectUri: REDIRECT_URI,
+    returnTo: "/invitations/confirm", invitationContext, expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => clock });
+  provider.verifyCallback = async input => {
+    clock = new Date("2026-07-10T12:10:00.000Z");
+    return verifiedIdentity({ nonce: input.expectedNonce });
+  };
+  clock = new Date("2026-07-10T12:09:59.000Z");
+  await assert.rejects(oidc.completeOidcCallback({ provider, transactionStore: store, callback: { state: begun.state, code: "invite" }, invitationBinding: invitationContext.browserBinding, now: () => clock }), { name: "OidcFlowError", code: "oidc_state_expired" });
 });
 
 class FakeProvider implements OidcProviderPort {
