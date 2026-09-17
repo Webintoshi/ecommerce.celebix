@@ -8,6 +8,7 @@ const ROOT = path.resolve(import.meta.dirname, '../../..');
 const SQL = path.join(ROOT, 'apps/owner/scripts/sql/saas');
 const BIN = process.env.POSTGRES_BIN ?? path.join(homedir(), '.codex/tmp/postgresql-16.14-install/bin');
 const UP = '202609090127_orders_qa_archive.up.sql';
+const rehearseAfter128 = process.env.ARCHIVE_REHEARSE_AFTER_128 === '1';
 const store = '10000000-0000-4000-8000-000000000089';
 const other = '10000000-0000-4000-8000-000000000090';
 const principal = '20000000-0000-4000-8000-000000000089';
@@ -50,7 +51,7 @@ try {
  command('initdb',['-D',data,'--auth=trust','--username=postgres','--no-locale','--encoding=UTF8']);
  command('pg_ctl',['-D',data,'-o',`-k ${socket} -p ${port} -h ''`,'-l',path.join(root,'log'),'start']);
  assert.match(sql('SHOW server_version;').stdout,/^16\./);
- const files = readdirSync(SQL).filter(f=> /^\d{12}/.test(f) && !f.includes('.down.') && Number(f.slice(8,12))<=126 && /(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12)) || a.localeCompare(b));
+ const files = readdirSync(SQL).filter(f=> /^\d{12}/.test(f) && !f.includes('.down.') && f !== UP && Number(f.slice(8,12)) <= (rehearseAfter128 ? 128 : 126) && /(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12)) || a.localeCompare(b));
  for(const f of files.filter(f=>!f.includes('seed_guzide_pilot_admin_domain'))) {
    if(process.env.ARCHIVE_TOOL_INTEGRATION==='1' && f==='202608050089_order_transactional_email.up.sql') {
      const { seedExactAllowlistBeforeEmailMigration }=await import('../../../scripts/atlas-orders-qa-archive-postgres-fixture.mjs');
