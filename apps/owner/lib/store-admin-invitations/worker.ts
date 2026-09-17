@@ -69,7 +69,7 @@ export function createInvitationWorker(d: Dependencies) {
               continue;
             }
             const fence = authorized.value, beforeSend = now();
-            if (fence.deliveryId !== job.deliveryId || fence.invitationId !== job.invitationId || fence.storeId !== job.storeId || fence.generation !== job.generation || fence.attemptCount !== job.attemptCount || beforeSend.getTime() < at.getTime() || beforeSend.getTime() + timeoutMs >= Math.min(Date.parse(fence.leaseExpiresAt), leaseExpiresAt.getTime(), Date.parse(job.replayDeadline), stopAt) || Date.now() + timeoutMs >= wallStop) { report.skipped++; continue; }
+            if (fence.deliveryId !== job.deliveryId || fence.invitationId !== job.invitationId || fence.storeId !== job.storeId || fence.generation !== job.generation || fence.attemptCount !== job.attemptCount || beforeSend.getTime() < at.getTime() || beforeSend.getTime() + timeoutMs >= Math.min(Date.parse(fence.expiresAt), Date.parse(fence.leaseExpiresAt), leaseExpiresAt.getTime(), Date.parse(job.replayDeadline), stopAt) || Date.now() + timeoutMs >= wallStop) { report.skipped++; continue; }
             const response = await sendInvitationEmail(request, { apiKey: config.apiKey, idempotencyKey: job.idempotencyKey, timeoutMs, ...(d.fetch ? { fetch: d.fetch } : {}) });
             report.sent++;
             const settledAt = now();

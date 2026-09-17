@@ -273,7 +273,10 @@ try {
     const claim=(now,end)=>`saas.store_admin_invitation_delivery_claim('dispatch',${q(lease)},${q(now)},${q(end)},1,${q(STORE)},${q(item.s.config.email)})`;
     assert.equal(call(claim(NOW,'2026-09-17T12:01:00Z'),'workflow').result.items[0].deliveryId,item.c.deliveryId);
     const check=`saas.store_admin_invitation_delivery_authorize(${[item.c.deliveryId,lease,'dispatch',NOW].map(q).join(',')})`;
-    assert.equal(call(check,'workflow').outcome,'authorized');
+    const authorized=call(check,'workflow');
+    assert.equal(authorized.outcome,'authorized');
+    assert.equal(authorized.result.expiresAt,item.s.config.expiresAt);
+    assert.equal(authorized.result.leaseExpiresAt,'2026-09-17T12:01:00.000Z');
     assert.equal(call(claim(LATER,'2026-09-17T12:03:00Z'),'workflow').outcome,'invalid_input');
     sql(`UPDATE saas.memberships SET status='revoked' WHERE id=${q(MEMBER)};`);
     assert.equal(call(check,'workflow').outcome,'invitation_unavailable');

@@ -93,3 +93,15 @@ test("pool checkout and query deadlines are bounded and late connections are dis
   assert.deepEqual(await createInvitationIdentityRepository({ pool: hanging, timeouts: { ...timeouts, statementMs: 1 } }).list(authority, at), { kind: "unavailable" });
   assert.equal(release, true);
 });
+
+test("authorization strictly preserves authoritative invitation expiry and rejects missing or malformed timestamps", async () => {
+  const authorized = { deliveryId: id, invitationId: id, storeId: id, generation: 1, attemptCount: 1, leaseExpiresAt: "2026-09-17T00:02:00.000Z", expiresAt: "2026-09-17T00:00:01.000Z" };
+  for (const expiresAt of [authorized.expiresAt, undefined, "not-a-date", "2026-09-17T00:00:01+00:00"]) {
+    const value = { ...authorized, expiresAt };
+    if (expiresAt === undefined) delete (value as { expiresAt?: string }).expiresAt;
+    const h = harness(sql => sql.includes("delivery_authorize(") ? { outcome: "authorized", result_payload: value } : undefined);
+    const repository = createInvitationWorkflowRepository({ pool: h.pool, timeouts, scope: { allowedStoreId: id, allowedRecipient: "recipient@example.com" } });
+    const result = await repository.authorize({ deliveryId: id, leaseId: id, workerId: "worker", now: at });
+    assert.deepEqual(result, expiresAt === authorized.expiresAt ? { kind: "authorized", value: authorized } : { kind: "unavailable" });
+  }
+});

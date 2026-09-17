@@ -8,7 +8,7 @@ const id = "123e4567-e89b-42d3-a456-426614174000", other = "223e4567-e89b-42d3-a
 const start = Date.parse("2026-09-17T00:00:00.000Z");
 const config = { apiKey: "re_fake123", sender: "sender@example.com", acceptanceOrigin: "https://accounts.example.com", allowedStoreId: id, allowedRecipient: "recipient@example.com" };
 const keyring = { activeKeyId: "invite_01", keys: { invite_01: Buffer.alloc(32, 7) } };
-function setup(options: { job?: Partial<InvitationDeliveryJob>; request?: Record<string, string>; deny?: boolean; authorizeGeneration?: number; advanceAtAuthorize?: number; advanceAtSend?: number; commitUnknown?: boolean; settleFailure?: "throw" | "stale"; response?: () => Promise<Response> } = {}) {
+function setup(options: { job?: Partial<InvitationDeliveryJob>; request?: Record<string, string>; deny?: boolean; authorizeGeneration?: number; expiresAt?: string; advanceAtAuthorize?: number; advanceAtSend?: number; commitUnknown?: boolean; settleFailure?: "throw" | "stale"; response?: () => Promise<Response> } = {}) {
   let current = start, inTransaction = false, attempted = 0;
   const calls: { body: unknown; key: unknown }[] = [], settlements: InvitationSettlement[] = [];
   const request = { from: config.sender, to: config.allowedRecipient, subject: "Original subject", html: "<p>Original bytes</p>", text: "Original bytes", ...options.request };
@@ -16,7 +16,7 @@ function setup(options: { job?: Partial<InvitationDeliveryJob>; request?: Record
   const job: InvitationDeliveryJob = { deliveryId: id, invitationId: id, storeId: id, generation: 1, sealVersion: "ar1", keyId: seal.keyId, ciphertext: seal.bytes.toString("hex"), ciphertextDigest: seal.digest, rendererVersion: 1, idempotencyKey: `store-admin-invitation/v1/${id}/1`, attemptCount: 1, firstAttemptAt: new Date(start).toISOString(), replayDeadline: new Date(start + 86_100_000).toISOString(), ...options.job };
   const repository: InvitationWorkflowRepository = {
     async claim(_i, allow) { inTransaction = true; attempted++; const accepted = allow(job); inTransaction = false; if (!accepted) { attempted--; return { kind: "configuration_blocked" }; } return { kind: "claimed", value: { items: [job] } }; },
-    async authorize(i) { assert.equal(i.now.getTime(), current); current += options.advanceAtAuthorize ?? 0; return options.deny ? { kind: "invitation_unavailable" } : { kind: "authorized", value: { deliveryId: id, invitationId: id, storeId: id, generation: options.authorizeGeneration ?? 1, attemptCount: job.attemptCount, leaseExpiresAt: new Date(start + 120_000).toISOString() } }; },
+    async authorize(i) { assert.equal(i.now.getTime(), current); current += options.advanceAtAuthorize ?? 0; return options.deny ? { kind: "invitation_unavailable" } : { kind: "authorized", value: { deliveryId: id, invitationId: id, storeId: id, generation: options.authorizeGeneration ?? 1, attemptCount: job.attemptCount, leaseExpiresAt: new Date(start + 120_000).toISOString(), expiresAt: options.expiresAt ?? new Date(start + 86_400_000).toISOString() } }; },
     async settle(i) { assert.equal(inTransaction, false); assert.equal(i.now.getTime(), current); settlements.push(i); if (options.settleFailure === "throw") throw new Error("SECRET DB ERROR"); if (options.settleFailure === "stale") return { kind: "stale_lease" }; if (options.commitUnknown && settlements.length === 1) return { kind: "commit_unknown" }; return { kind: "settled", value: { deliveryId: id, deliveryStatus: i.resultKind === "retry" ? "queued" : i.resultKind } }; },
   };
   const worker = createInvitationWorker({ repository, config, keyring, workerId: "invitation_worker", clock: () => new Date(current), timeoutMs: 20, fetch: async (_url, init) => { assert.equal(inTransaction, false); calls.push({ body: init?.body, key: (init?.headers as Record<string, string>)["idempotency-key"] }); current += options.advanceAtSend ?? 0; return options.response ? options.response() : new Response('{"id":"provider_123"}', { status: 200 }); } });
@@ -40,6 +40,16 @@ test("revoked expired or stale authorization and elapsed lease cannot send", asy
   for (const options of [{ deny: true }, { authorizeGeneration: 2 }, { advanceAtAuthorize: 120_001 }]) {
     const h = setup(options); await h.worker.runOnce(); assert.equal(h.calls.length, 0);
   }
+});
+test("invitation expiry crossed during authorization blocks dispatch despite valid lease replay and run deadlines", async () => {
+  for (const remaining of [1_000, 2_010, 2_020]) {
+    const h = setup({ expiresAt: new Date(start + remaining).toISOString(), advanceAtAuthorize: 2_000 });
+    const result = await h.worker.runOnce();
+    assert.equal(h.calls.length, 0, "expiry must cover fresh clock plus the complete send timeout");
+    assert.equal(h.settlements.length, 0); assert.equal(result.skipped, 1);
+  }
+  const valid = setup({ expiresAt: new Date(start + 2_021).toISOString(), advanceAtAuthorize: 2_000 });
+  await valid.worker.runOnce(); assert.equal(valid.calls.length, 1);
 });
 test("timeout retries safely, attempt eight becomes unknown, horizon never dispatches", async () => {
   const timeout = setup({ response: () => new Promise<Response>(() => undefined) }); await timeout.worker.runOnce();

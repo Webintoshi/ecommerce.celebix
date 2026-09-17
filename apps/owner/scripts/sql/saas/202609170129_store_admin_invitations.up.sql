@@ -424,7 +424,7 @@ BEGIN
  SELECT * INTO d FROM saas.store_admin_invitation_deliveries WHERE id=p_delivery_id FOR SHARE;
  IF NOT FOUND OR p_now IS NULL OR d.status<>'sending' OR d.lease_id IS DISTINCT FROM p_lease_id OR d.lease_owner IS DISTINCT FROM p_worker_id OR d.lease_expires_at<=p_now OR d.updated_at>p_now OR d.replay_deadline<=p_now OR i.status<>'pending' OR i.generation<>d.generation OR i.expires_at<=p_now THEN RETURN QUERY SELECT 'invitation_unavailable',NULL::jsonb; RETURN; END IF;
  IF saas.store_admin_invitation_authority(i.store_id,i.inviter_principal_id,i.inviter_membership_id,i.plan_id,i.plan_code,i.plan_version,p_now) IS NOT NULL THEN RETURN QUERY SELECT 'invitation_unavailable',NULL::jsonb; RETURN; END IF;
- RETURN QUERY SELECT 'authorized',jsonb_build_object('deliveryId',d.id,'invitationId',i.id,'storeId',i.store_id,'generation',i.generation,'attemptCount',d.attempt_count,'leaseExpiresAt',saas.merchant_admin_timestamp(d.lease_expires_at));
+ RETURN QUERY SELECT 'authorized',jsonb_build_object('deliveryId',d.id,'invitationId',i.id,'storeId',i.store_id,'generation',i.generation,'attemptCount',d.attempt_count,'leaseExpiresAt',saas.merchant_admin_timestamp(d.lease_expires_at),'expiresAt',saas.merchant_admin_timestamp(i.expires_at));
 END $f$;
 CREATE FUNCTION saas.store_admin_invitation_delivery_settle(p_delivery_id uuid,p_lease_id uuid,p_worker_id text,p_now timestamptz,p_result_kind text,p_provider_message_id text,p_safe_error_code text,p_next_attempt_at timestamptz)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
