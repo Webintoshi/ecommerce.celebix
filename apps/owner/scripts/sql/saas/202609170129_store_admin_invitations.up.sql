@@ -111,6 +111,16 @@ BEGIN
  RETURN e;
 END $f$;
 
+-- Match the public JavaScript parser, not PostgreSQL's ASCII-only default btrim
+-- or Unicode-codepoint char_length: JS trim uses this whitespace set and JS
+-- string.length counts a non-BMP codepoint as two UTF-16 units.
+CREATE FUNCTION saas.store_admin_invitation_name_valid(p_name text) RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
+ SELECT p_name=btrim(p_name,U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF')
+ AND p_name COLLATE "C" !~ '[<>[:cntrl:]]'
+ AND (SELECT COALESCE(sum(CASE WHEN ascii(codepoint)>65535 THEN 2 ELSE 1 END),0)
+      FROM regexp_split_to_table(p_name,'') AS characters(codepoint)) BETWEEN 1 AND 160
+$f$;
+
 -- All mutation paths acquire and recheck current authority; caller tuple comes from server session.
 CREATE FUNCTION saas.store_admin_invitation_authority(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
@@ -176,7 +186,7 @@ BEGIN
  IF p_expected_record_version IS DISTINCT FROM r.version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
  email:=saas.store_admin_invitation_email(r.config->>'email');
  BEGIN expiry:=(r.config->>'expiresAt')::timestamptz; EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN expiry:=NULL; END;
- IF email IS NULL OR r.config->>'role' IS NULL OR r.config->>'role' NOT IN('admin','editor','analyst') OR expiry IS NULL OR NOT isfinite(expiry) OR expiry<=p_now OR r.name~'[<>[:cntrl:]]' THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
+ IF email IS NULL OR r.config->>'role' IS NULL OR r.config->>'role' NOT IN('admin','editor','analyst') OR expiry IS NULL OR NOT isfinite(expiry) OR expiry<=p_now OR NOT saas.store_admin_invitation_name_valid(r.name) THEN RETURN QUERY SELECT 'invalid_source',NULL::jsonb; RETURN; END IF;
  RETURN QUERY SELECT 'source',jsonb_build_object('sourceRecordId',r.id,'sourceRecordVersion',r.version,'storeId',p_store_id,'storeName',(SELECT name FROM saas.stores WHERE id=p_store_id),'email',email,'displayName',r.name,'role',r.config->>'role','expiresAt',saas.merchant_admin_timestamp(expiry));
 END $f$;
 CREATE FUNCTION saas.store_admin_invitation_resend_source(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_invitation_id uuid,p_expected_version bigint)
@@ -338,23 +348,32 @@ BEGIN
   IF op.kind<>'accept' OR op.fingerprint<>p_fingerprint OR op.intent<>intent OR g.consumed_operation_id IS DISTINCT FROM p_operation_id THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN;
  END IF;
  IF g.consumed_at IS NOT NULL OR g.invalidated_at IS NOT NULL OR g.expires_at<=p_now OR g.created_at>p_now OR i.status<>'pending' OR i.expires_at<=p_now OR i.generation<>g.generation OR i.token_digest<>g.token_digest OR i.email<>g.email THEN RETURN QUERY SELECT 'invitation_unavailable',NULL::jsonb; RETURN; END IF;
+ -- Serialize recipient acceptance BEFORE acquiring any inviter authority locks.
+ -- In particular, two self-invites must not retain owner SHARE locks while one
+ -- waits for the other's identity serialization lock.
+ PERFORM pg_advisory_xact_lock(hashtextextended('invitation-identity/'||jsonb_build_array(g.issuer,g.subject)::text,0));
  IF saas.store_admin_invitation_authority(i.store_id,i.inviter_principal_id,i.inviter_membership_id,i.plan_id,i.plan_code,i.plan_version,p_now) IS NOT NULL THEN RETURN QUERY SELECT 'invitation_unavailable',NULL::jsonb; RETURN; END IF;
  SELECT hostname INTO admin_host FROM saas.admin_domains WHERE store_id=i.store_id AND status='active' AND verified_at IS NOT NULL ORDER BY canonical DESC,created_at,id LIMIT 1 FOR SHARE;
  IF admin_host IS NULL THEN RETURN QUERY SELECT 'configuration_unavailable',NULL::jsonb; RETURN; END IF;
  IF p_principal_id IS NULL OR p_membership_id IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
- PERFORM pg_advisory_xact_lock(hashtextextended('invitation-identity/'||jsonb_build_array(g.issuer,g.subject)::text,0));
- SELECT * INTO principal FROM saas.principals WHERE issuer=g.issuer AND subject=g.subject FOR UPDATE;
+ -- Existing principals are validated, never mutated by acceptance. Shared reads
+ -- also avoid cross-inviter principal lock upgrades for two existing owners.
+ SELECT * INTO principal FROM saas.principals WHERE issuer=g.issuer AND subject=g.subject FOR SHARE;
  IF NOT FOUND THEN
   INSERT INTO saas.principals VALUES(p_principal_id,g.issuer,g.subject,g.email,true,p_now,p_now) RETURNING * INTO principal;
  END IF;
  IF NOT principal.email_verified OR principal.email<>g.email THEN RETURN QUERY SELECT 'email_mismatch',NULL::jsonb; RETURN; END IF;
- SELECT * INTO membership FROM saas.memberships WHERE principal_id=principal.id AND store_id=i.store_id FOR UPDATE;
+ SELECT * INTO membership FROM saas.memberships WHERE principal_id=principal.id AND store_id=i.store_id FOR SHARE;
  IF FOUND AND membership.status<>'active' THEN RETURN QUERY SELECT 'revoked_membership',NULL::jsonb; RETURN; END IF;
  IF membership.id IS NULL THEN
   INSERT INTO saas.memberships VALUES(p_membership_id,principal.id,i.store_id,i.role,'active',p_now,p_now) RETURNING * INTO membership;
  ELSE
   effective_role:=CASE WHEN array_position(ARRAY['analyst','editor','admin','store_owner'],membership.role)>=array_position(ARRAY['analyst','editor','admin','store_owner'],i.role) THEN membership.role ELSE i.role END;
-  UPDATE saas.memberships SET role=effective_role,updated_at=p_now WHERE id=membership.id RETURNING * INTO membership;
+  -- Only an actual non-owner promotion requires a write. An owner can never be
+  -- promoted by an invitation, so inviter-owner authority locks are not upgraded.
+  IF effective_role<>membership.role THEN
+   UPDATE saas.memberships SET role=effective_role,updated_at=p_now WHERE id=membership.id RETURNING * INTO membership;
+  END IF;
  END IF;
  UPDATE saas.store_admin_invitations SET status='accepted',accepted_principal_id=principal.id,accepted_membership_id=membership.id,accepted_at=p_now,updated_at=p_now,version=version+1 WHERE id=i.id;
  UPDATE saas.store_admin_invitation_deliveries SET status=CASE WHEN status='sending' THEN 'outcome_unknown' ELSE 'failed' END,safe_error_code='invitation_unavailable',lease_id=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=p_now WHERE invitation_id=i.id AND status IN('queued','sending');
@@ -411,6 +430,12 @@ RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFIN
 DECLARE d saas.store_admin_invitation_deliveries%ROWTYPE; i saas.store_admin_invitations%ROWTYPE; new_status text; intent jsonb; result jsonb;
 BEGIN
  IF p_result_kind IS NULL OR p_result_kind NOT IN('provider_accepted','retry','failed','outcome_unknown') OR p_now IS NULL OR (p_safe_error_code IS NOT NULL AND p_safe_error_code NOT IN('provider_rejected','provider_timeout','provider_rate_limited','provider_unavailable','configuration_unavailable','invalid_response')) OR (p_provider_message_id IS NOT NULL AND p_provider_message_id!~'^[A-Za-z0-9_-]{1,200}$') OR (p_result_kind='provider_accepted' AND p_provider_message_id IS NULL) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ -- Event ingestion takes this SAME message lock before any row locks. Holding
+ -- it until commit closes the gap between reconciliation and message visibility.
+ -- Never move it after invitation/delivery locks: that would invert event order.
+ IF p_result_kind='provider_accepted' THEN
+  PERFORM pg_advisory_xact_lock(hashtextextended('invitation-provider-message/'||p_provider_message_id,0));
+ END IF;
  SELECT inv.* INTO i FROM saas.store_admin_invitations inv JOIN saas.store_admin_invitation_deliveries job ON job.invitation_id=inv.id WHERE job.id=p_delivery_id FOR UPDATE OF inv;
  SELECT * INTO d FROM saas.store_admin_invitation_deliveries WHERE id=p_delivery_id FOR UPDATE;
  intent:=jsonb_build_array(p_result_kind,p_provider_message_id,p_safe_error_code,saas.merchant_admin_timestamp(p_next_attempt_at));
@@ -437,17 +462,24 @@ END $f$;
 -- Only identity executes this function after authenticating provider event signatures.
 CREATE FUNCTION saas.store_admin_invitation_delivery_event(p_provider_event_id text,p_provider_message_id text,p_event_kind text,p_occurred_at timestamptz)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE ev saas.store_admin_invitation_provider_events%ROWTYPE;
+DECLARE ev saas.store_admin_invitation_provider_events%ROWTYPE; replayed boolean:=false;
 BEGIN
  IF p_provider_event_id IS NULL OR length(p_provider_event_id) NOT BETWEEN 1 AND 200 OR p_provider_message_id IS NULL OR p_provider_message_id!~'^[A-Za-z0-9_-]{1,200}$' OR p_event_kind IS NULL OR p_event_kind NOT IN('delivered','failed') OR p_occurred_at IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ -- Global order: provider message -> provider event -> delivery row. Settlement
+ -- uses provider message -> invitation -> delivery; no row-held message wait.
+ PERFORM pg_advisory_xact_lock(hashtextextended('invitation-provider-message/'||p_provider_message_id,0));
  PERFORM pg_advisory_xact_lock(hashtextextended('invitation-provider-event/'||p_provider_event_id,0));
  SELECT * INTO ev FROM saas.store_admin_invitation_provider_events WHERE event_id=p_provider_event_id;
  IF FOUND THEN
-  IF (ev.provider_message_id,ev.kind,ev.occurred_at) IS DISTINCT FROM (p_provider_message_id,p_event_kind,p_occurred_at) THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed','{}'::jsonb; END IF; RETURN;
+  IF (ev.provider_message_id,ev.kind,ev.occurred_at) IS DISTINCT FROM (p_provider_message_id,p_event_kind,p_occurred_at) THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb; RETURN; END IF;
+  replayed:=true;
+ ELSE
+  INSERT INTO saas.store_admin_invitation_provider_events VALUES(p_provider_event_id,p_provider_message_id,p_event_kind,p_occurred_at);
  END IF;
- INSERT INTO saas.store_admin_invitation_provider_events VALUES(p_provider_event_id,p_provider_message_id,p_event_kind,p_occurred_at);
+ -- Exact duplicate events still reconcile retained evidence (including rows
+ -- created by an older racing integration); idempotency must not skip repair.
  UPDATE saas.store_admin_invitation_deliveries SET status=p_event_kind WHERE provider_message_id=p_provider_message_id AND status='provider_accepted';
- RETURN QUERY SELECT 'recorded','{}'::jsonb;
+ RETURN QUERY SELECT CASE WHEN replayed THEN 'operation_replayed' ELSE 'recorded' END,'{}'::jsonb;
 END $f$;
 
 DO $f$ DECLARE n text; fn regprocedure; BEGIN

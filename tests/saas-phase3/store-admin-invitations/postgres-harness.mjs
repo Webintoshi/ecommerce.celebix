@@ -39,6 +39,38 @@ function asynchronous(text) {
     child.on('error', reject); child.on('close', code => code === 0 ? resolve(out.trim()) : reject(new Error(err))); child.stdin.end(text);
   });
 }
+// Interactive sessions provide explicit transaction barriers without timing sleeps.
+// Production functions are called unchanged; pg_stat_activity proves the interleaving.
+function session(name) {
+  const child=spawn(box.psql,pgArgs(),{env:{...process.env,LC_ALL:'C'}});
+  let output='',errors='',closed=false;
+  const waiters=[];
+  child.stdout.on('data',chunk=>{output+=chunk; for(const wake of waiters.splice(0)) wake();});
+  child.stderr.on('data',chunk=>{errors+=chunk;});
+  const done=new Promise(resolve=>child.on('close',code=>{closed=true;for(const wake of waiters.splice(0)) wake();resolve({code,output,errors});}));
+  child.stdin.write(`SET application_name=${q(name)}; SET statement_timeout='15s'; SET deadlock_timeout='100ms';\n`);
+  return {
+    send(text){child.stdin.write(text+'\n');},
+    async marker(mark){
+      const deadline=Date.now()+16000;
+      while(!output.split('\n').includes(mark)) {
+        if(closed) throw new Error(errors||`session ended before ${mark}`);
+        if(Date.now()>deadline) throw new Error(`missing session marker ${mark}`);
+        await new Promise(resolve=>{const timer=setTimeout(resolve,100);waiters.push(()=>{clearTimeout(timer);resolve();});});
+      }
+    },
+    async end(){child.stdin.end();return done;},
+    get closed(){return closed;},
+    done,
+  };
+}
+async function waitForDatabase(predicate,description) {
+  const deadline=Date.now()+10000;
+  while(value(`SELECT (${predicate});`)!=='t') {
+    assert.ok(Date.now()<deadline,`database barrier timeout: ${description}`);
+    await new Promise(resolve=>setTimeout(resolve,20));
+  }
+}
 function statement(expression, role = 'identity', finish = 'COMMIT') { return `BEGIN;SET LOCAL ROLE celebix_saas_${role};SELECT jsonb_build_object('outcome',outcome,'result',result_payload) FROM ${expression};${finish};`; }
 function call(expression, role = 'identity') { return JSON.parse(value(statement(expression, role))); }
 function authority(now = NOW, store = STORE) { return [store, OWNER, MEMBER, PLAN, 'free_starter', 1, now].map(q).join(','); }
@@ -320,6 +352,91 @@ try {
       sql(`UPDATE saas.${table} SET status='active' WHERE ${where};`);
     }
     assert.equal(call(issueExpression(source(),candidate(),randomUUID(),hash('wrong-plan'),authority().replace(PLAN,randomUUID()))).outcome,'durable_authority_invalid');
+  });
+  await test('I1 distinct invitations for the existing inviter accept concurrently without lock upgrades deadlocking', async () => {
+    const first=issued({email:'owner@example.test'}),second=issued({email:'owner@example.test'});
+    const grants=[granted(first,{subject:'inviter'}),granted(second,{subject:'inviter'})];
+    const barrier=session('invitation-owner-barrier'),a=session('invitation-owner-a'),b=session('invitation-owner-b');
+    let released=false;
+    try {
+      barrier.send("BEGIN; LOCK TABLE saas.admin_domains IN ACCESS EXCLUSIVE MODE; SELECT 'OWNER_BARRIER';");
+      await barrier.marker('OWNER_BARRIER');
+      a.send(statement(acceptExpression(grants[0]))); b.send(statement(acceptExpression(grants[1])));
+      // Old code: both hold owner SHARE and wait on admin_domains. Fixed code:
+      // the second waits on identity before acquiring owner authority locks.
+      await waitForDatabase("(SELECT count(*) FROM pg_stat_activity WHERE application_name IN('invitation-owner-a','invitation-owner-b') AND wait_event_type='Lock')=2",'both acceptance calls reached the controlled lock barrier');
+      barrier.send('COMMIT;');released=true;
+      const results=await Promise.all([a.end(),b.end()]);
+      for(const result of results) {
+        assert.equal(result.code,0,result.errors);
+        const accepted=JSON.parse(result.output.trim());
+        assert.equal(accepted.outcome,'accepted'); assert.equal(accepted.result.principalId,OWNER); assert.equal(accepted.result.membershipId,MEMBER); assert.equal(accepted.result.role,'store_owner');
+      }
+      assert.equal(value(`SELECT count(*) FROM saas.memberships WHERE principal_id=${q(OWNER)} AND store_id=${q(STORE)};`),'1');
+    } finally {
+      if(!released) barrier.send('ROLLBACK;');await barrier.end();await Promise.all([a.end(),b.end()]);
+    }
+  });
+  await test('I2 verified provider event racing settlement commit is reconciled and duplicate replay repairs retained evidence', async () => {
+    sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
+    const item=issued(),lease=randomUUID(),messageId='provider-race-129';
+    call(`saas.store_admin_invitation_delivery_claim('race',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    const settler=session('invitation-settler'),eventer=session('invitation-eventer');
+    const event=`saas.store_admin_invitation_delivery_event('verified-race-129',${q(messageId)},'delivered','2026-09-17T12:00:30Z')`;
+    try {
+      settler.send(`BEGIN; SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.store_admin_invitation_delivery_settle(${[item.c.deliveryId,lease,'race',NOW,'provider_accepted',messageId,null,null].map(q).join(',')}); SELECT 'SETTLED_UNCOMMITTED';`);
+      await settler.marker('SETTLED_UNCOMMITTED');
+      eventer.send(statement(event));
+      // Existing code finishes while messageId is invisible. Fixed code waits on
+      // the provider-message advisory lock until settlement commits.
+      await waitForDatabase("EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='invitation-eventer' AND (wait_event_type='Lock' OR (state='idle' AND query LIKE '%COMMIT%')))",'event completed or waits on uncommitted settlement');
+      settler.send('COMMIT;');
+      const results=await Promise.all([settler.end(),eventer.end()]);
+      for(const result of results) assert.equal(result.code,0,result.errors);
+      const raced=value(`SELECT status FROM saas.store_admin_invitation_deliveries WHERE id=${q(item.c.deliveryId)};`);
+      // Model evidence retained from a prior interrupted/racy integration; retry
+      // of the same verified event must reconcile rather than return too early.
+      sql(`UPDATE saas.store_admin_invitation_deliveries SET status='provider_accepted' WHERE id=${q(item.c.deliveryId)};`);
+      assert.equal(call(event).outcome,'operation_replayed');
+      const repaired=value(`SELECT status FROM saas.store_admin_invitation_deliveries WHERE id=${q(item.c.deliveryId)};`);
+      assert.deepEqual([raced,repaired],['delivered','delivered']);
+      assert.equal(value("SELECT count(*) FROM saas.store_admin_invitation_provider_events WHERE event_id='verified-race-129';"),'1');
+    } finally {
+      if(!settler.closed) settler.send('ROLLBACK;');await settler.end();await eventer.end();
+    }
+  });
+  await test('I2 reverse event-before-settlement commit ordering also reconciles without a reverse lock cycle', async () => {
+    sql("UPDATE saas.store_admin_invitation_deliveries SET status='failed' WHERE status IN('queued','sending');");
+    const item=issued(),lease=randomUUID(),messageId='provider-reverse-129';
+    call(`saas.store_admin_invitation_delivery_claim('reverse',${q(lease)},${q(NOW)},'2026-09-17T12:01:00Z',1)`,'workflow');
+    const eventer=session('invitation-event-first'),settler=session('invitation-settle-second');
+    try {
+      eventer.send(`BEGIN;SET LOCAL ROLE celebix_saas_identity;SELECT outcome FROM saas.store_admin_invitation_delivery_event('verified-reverse-129',${q(messageId)},'delivered','2026-09-17T12:00:30Z');SELECT 'EVENT_UNCOMMITTED';`);
+      await eventer.marker('EVENT_UNCOMMITTED');
+      settler.send(`BEGIN;SET LOCAL ROLE celebix_saas_workflow;SELECT outcome FROM saas.store_admin_invitation_delivery_settle(${[item.c.deliveryId,lease,'reverse',NOW,'provider_accepted',messageId,null,null].map(q).join(',')});SELECT 'REVERSE_SETTLED';`);
+      await waitForDatabase("EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='invitation-settle-second' AND (wait_event_type='Lock' OR (state='idle in transaction' AND query LIKE '%REVERSE_SETTLED%')))",'settlement finished or waits on earlier event');
+      eventer.send('COMMIT;');
+      await settler.marker('REVERSE_SETTLED');settler.send('COMMIT;');
+      for(const result of await Promise.all([eventer.end(),settler.end()])) assert.equal(result.code,0,result.errors);
+      assert.equal(value(`SELECT status FROM saas.store_admin_invitation_deliveries WHERE id=${q(item.c.deliveryId)};`),'delivered');
+    } finally {
+      if(!eventer.closed) eventer.send('ROLLBACK;');await eventer.end();
+      if(!settler.closed) settler.send('ROLLBACK;');await settler.end();
+    }
+  });
+  await test('I3 source names obey JavaScript trim and 160 UTF16-unit public-view contract before issue', () => {
+    const rejected=[];
+    for(const name of ['\u00a0Recipient','Recipient\u00a0','😀'.repeat(81)]) {
+      const s=source(),c=candidate();sql(`UPDATE saas.merchant_admin_records SET name=${q(name)} WHERE id=${q(s.id)};`);
+      rejected.push(call(`saas.store_admin_invitation_source(${authority()},${q(s.id)},1)`).outcome);
+      rejected.push(call(issueExpression(s,c)).outcome);
+      rejected.push(value(`SELECT count(*) FROM saas.store_admin_invitations WHERE source_record_id=${q(s.id)};`));
+    }
+    assert.deepEqual(rejected,['invalid_source','invalid_source','0','invalid_source','invalid_source','0','invalid_source','invalid_source','0']);
+    for(const name of ['😀'.repeat(80),'x'.repeat(160),'Recipient\u00a0Inside']) {
+      const s=source(),c=candidate();sql(`UPDATE saas.merchant_admin_records SET name=${q(name)} WHERE id=${q(s.id)};`);
+      const result=call(issueExpression(s,c));assert.equal(result.outcome,'issued');assert.equal(parseStoreAdminInvitationView(result.result).displayName,name);
+    }
   });
   await test('down refuses retained evidence; empty down/up is reversible', () => {
     const down=readFileSync(path.join(SQL,`${PREFIX}.down.sql`),'utf8');
