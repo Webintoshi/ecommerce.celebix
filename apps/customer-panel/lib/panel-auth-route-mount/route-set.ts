@@ -16,6 +16,7 @@ export type CustomerPanelAuthRouteReadiness = Readonly<{
   schemaVersion: 1;
   phase: "2B2B2C1";
   mode: "disabled" | "approved_staging_injected";
+  invitationState: "mounted_disabled" | "mounted_approved_staging";
   productionActivation: "forbidden";
   requiredNextGate: "staging_runtime_provider_and_e2e";
   endpoints: Readonly<{
@@ -41,6 +42,9 @@ export type CustomerPanelAuthRouteSet = Readonly<{
   browserBootstrap: RouteHandler;
   browserCallback: RouteHandler;
   browserLogin: RouteHandler;
+  invitationAccept: RouteHandler;
+  invitationStart: RouteHandler;
+  invitationConfirm: RouteHandler;
   readiness: CustomerPanelAuthRouteReadiness;
 }>;
 
@@ -60,6 +64,11 @@ function secure(response: Response): Response {
 function controlled(code: string, status: 405 | 503): Response {
   return secure(Response.json({ code, retryable: false }, { status }));
 }
+const disabledInvitations = Object.freeze({
+  invitationAccept: async (_request: Request) => controlled("panel_invitation_disabled", 503),
+  invitationStart: async (_request: Request) => controlled("panel_invitation_disabled", 503),
+  invitationConfirm: async (_request: Request) => controlled("panel_invitation_disabled", 503),
+});
 
 function safeDelegate(handler: RouteHandler): RouteHandler {
   return async function approvedStagingCustomerRoute(request: Request): Promise<Response> {
@@ -93,13 +102,14 @@ function readiness(): CustomerPanelAuthRouteReadiness {
     schemaVersion: 1 as const,
     phase: "2B2B2C1" as const,
     mode: "disabled" as const,
+    invitationState: "mounted_disabled" as const,
     productionActivation: "forbidden" as const,
     requiredNextGate: "staging_runtime_provider_and_e2e" as const,
     endpoints,
   });
 }
 
-function approvedStagingReadiness(): CustomerPanelAuthRouteReadiness {
+function approvedStagingReadiness(invitations = false): CustomerPanelAuthRouteReadiness {
   const endpoints = Object.freeze({
     browserBootstrap: Object.freeze({
       method: "POST" as const,
@@ -121,6 +131,7 @@ function approvedStagingReadiness(): CustomerPanelAuthRouteReadiness {
     schemaVersion: 1 as const,
     phase: "2B2B2C1" as const,
     mode: "approved_staging_injected" as const,
+    invitationState: invitations ? "mounted_approved_staging" as const : "mounted_disabled" as const,
     productionActivation: "forbidden" as const,
     requiredNextGate: "staging_runtime_provider_and_e2e" as const,
     endpoints,
@@ -139,6 +150,7 @@ export function assertCustomerPanelAuthRouteSet(
 export function createDisabledCustomerPanelAuthRouteSet(): CustomerPanelAuthRouteSet {
   const disabledCallback = createDisabledCustomerPanelSelfServeCallbackEdge();
   const routeSet: CustomerPanelAuthRouteSet = {
+    ...disabledInvitations,
     browserBootstrap: async (request) => request.method === "POST"
       ? controlled("panel_browser_bootstrap_disabled", 503)
       : controlled("panel_browser_bootstrap_method_not_allowed", 405),
@@ -156,6 +168,7 @@ export function createDisabledCustomerPanelAuthRouteSet(): CustomerPanelAuthRout
 
 export function createUnavailableCustomerPanelStagingAuthRouteSet(): CustomerPanelAuthRouteSet {
   const routeSet: CustomerPanelAuthRouteSet = {
+    ...disabledInvitations,
     browserBootstrap: async (request) => request.method === "POST"
       ? controlled("panel_auth_route_unavailable", 503)
       : controlled("panel_browser_bootstrap_method_not_allowed", 405),
@@ -180,10 +193,15 @@ export function createApprovedStagingCustomerPanelAuthRouteSet(options: {
   if (options.environment !== "approved_staging") invalid();
   assertDisabledCustomerPanelAuthComposition(options.composition);
   const routeSet: CustomerPanelAuthRouteSet = {
+    ...(options.composition.invitationHandlers ? {
+      invitationAccept: safeDelegate(options.composition.invitationHandlers.accept),
+      invitationStart: safeDelegate(options.composition.invitationHandlers.start),
+      invitationConfirm: safeDelegate(options.composition.invitationHandlers.confirm),
+    } : disabledInvitations),
     browserBootstrap: safeDelegate(options.composition.browserBootstrapHandler),
     browserCallback: safeDelegate(options.composition.panelSessionCompletionHandler),
     browserLogin: safeDelegate(options.composition.panelReturningLoginHandler),
-    readiness: approvedStagingReadiness(),
+    readiness: approvedStagingReadiness(Boolean(options.composition.invitationHandlers)),
   };
   routeSets.add(routeSet);
   return Object.freeze(routeSet);
@@ -193,6 +211,9 @@ const defaultRouteSet: CustomerPanelAuthRouteSet = (() => {
   const resolve = async () => (await import("../panel-auth-route-runtime/default.ts"))
     .resolveDefaultCustomerPanelStagingAuthRouteSet();
   const routeSet: CustomerPanelAuthRouteSet = {
+    invitationAccept: async (request) => (await resolve()).invitationAccept(request),
+    invitationStart: async (request) => (await resolve()).invitationStart(request),
+    invitationConfirm: async (request) => (await resolve()).invitationConfirm(request),
     browserBootstrap: async (request) => (await resolve()).browserBootstrap(request),
     browserCallback: async (request) => (await resolve()).browserCallback(request),
     browserLogin: async (request) => (await resolve()).browserLogin(request),

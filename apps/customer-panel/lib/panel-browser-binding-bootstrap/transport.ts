@@ -10,6 +10,7 @@ import {
 } from "../../../../packages/platform-config/src/saas.ts";
 import { canonicalPanelBrowserBindingCredential } from "../panel-browser-binding/credential-codec.ts";
 import { assertPanelBrowserBindingBootstrapApproval } from "./activation.ts";
+import { parseInvitationRequest, parseInvitationResponse, type InvitationRequest } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
 
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -304,7 +305,19 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
     } finally { if (timer !== undefined) clearTimeout(timer); }
   }
 
+  async function invitation(input: Record<string, unknown>, schemaVersion: 4 | 5 | 6, operation: InvitationRequest["operation"]) {
+    const expected = ["browserBindingCredential", schemaVersion === 4 ? "token" : "grantCredential", ...(schemaVersion === 6 ? ["operationId"] : [])];
+    if (!input || Object.keys(input).length !== expected.length || Object.keys(input).some(k => !expected.includes(k))) invalid();
+    const body = JSON.stringify({ schemaVersion, operation, browserBindingCredential: input.browserBindingCredential,
+      ...(schemaVersion === 4 ? { token: input.token } : { grantCredential: input.grantCredential }), ...(schemaVersion === 6 ? { operationId: input.operationId } : {}) });
+    parseInvitationRequest(body);
+    const response = await exchange(body);
+    return parseInvitationResponse(response.raw, response.status, panelCallbackAuthority, trustedNow(clock), operation);
+  }
   return Object.freeze({
+    startInvitation(input: { token: string; browserBindingCredential: string }) { return invitation(input, 4, "invitation_start"); },
+    previewInvitation(input: { grantCredential: string; browserBindingCredential: string }) { return invitation(input, 5, "invitation_preview"); },
+    acceptInvitation(input: { grantCredential: string; browserBindingCredential: string; operationId: string }) { return invitation(input, 6, "invitation_accept"); },
     async bind(input: {
       bootstrapCredential: string;
       providerAuthorizationUrl: string;

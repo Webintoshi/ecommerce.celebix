@@ -60,6 +60,7 @@ function fixture() {
   const composition = createDisabledCustomerPanelAuthComposition(options);
   return {
     composition,
+    options,
     replaceFetch() {
       options.fetch = async () => {
         replacementFetchCalls += 1;
@@ -100,6 +101,17 @@ test("customer composition returns only genuine frozen unmounted handlers and ex
   assert.equal(Object.isFrozen(composition.readiness), true);
   assert.equal(Object.isFrozen(composition.readiness.endpoints), true);
   assert.equal(JSON.stringify(composition).includes("key"), false);
+});
+
+test("invitation composition requires matching central acceptance origin and exact-host handoff, and remains opt-in", async () => {
+  const { options, composition } = fixture();
+  assert.equal(composition.invitationHandlers, undefined);
+  const invitations = { acceptanceOrigin: "https://panel.celebix.site", randomUuid: () => "11111111-1111-4111-8111-111111111111" };
+  assert.throws(() => createDisabledCustomerPanelAuthComposition({ ...options, invitations }));
+  const crossHostHandoff = { repository: { async issueHandoff() { throw new Error("unused"); }, async recoverIssuedHandoff() { throw new Error("unused"); } }, randomUuid: invitations.randomUuid };
+  assert.throws(() => createDisabledCustomerPanelAuthComposition({ ...options, crossHostHandoff, invitations: { ...invitations, acceptanceOrigin: "https://tenant.example.test" } }));
+  const enabled = createDisabledCustomerPanelAuthComposition({ ...options, crossHostHandoff, invitations });
+  assert.equal((await enabled.invitationHandlers!.accept(new Request("https://panel.celebix.site/invitations/accept"))).status, 200);
 });
 
 test("customer composition captures fetch and defensively copies internal key bytes", async () => {

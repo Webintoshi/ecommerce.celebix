@@ -137,6 +137,35 @@ function fixture(options: {
   };
 }
 
+test("invitation callback preserves pre-auth without renewal and sets only bounded grant plus fixed confirmation redirect", async () => {
+  const grant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;
+  const f = fixture({ transportResult: Object.freeze({ schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: grant, grantExpiresAt: new Date(NOW.getTime() + 90000).toISOString(), continuationPath: "/invitations/confirm" }) });
+  const response = await f.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: PRE_AUTH_COOKIE } }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/invitations/confirm");
+  const cookies = response.headers.getSetCookie();
+  assert.ok(cookies.some(c => c === `__Host-celebix_invitation_grant=${grant}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=90`));
+  assert.ok(cookies.every(c => !c.includes("celebix_panel_pre_auth") && !c.includes("celebix_panel_session") && !c.includes("Domain=")));
+  assert.equal(f.redeemCalls + f.issueCalls, 0);
+  assert.equal(await response.text(), "");
+});
+test("callback transport uncertainty never erases an existing invitation continuation", async () => {
+  const f = fixture({ transportError: true });
+  const response = await f.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: `${PRE_AUTH_COOKIE}; __Host-celebix_invitation_grant=ig1.${Buffer.alloc(32, 3).toString("base64url")}` } }));
+  assert.equal(response.status, 503); assert.deepEqual(response.headers.getSetCookie(), []);
+});
+test("replayed provider-error callback cannot downgrade an existing grant, and new grants discard only old operation association", async () => {
+  const oldGrant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;
+  const cookies = `${PRE_AUTH_COOKIE}; __Host-celebix_invitation_grant=${oldGrant}`;
+  const f = fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_not_granted", retryable: false }) });
+  const replay = await f.handler(new Request(`${CALLBACK}?state=${STATE}&error=access_denied`, { headers: { cookie: cookies } }));
+  assert.equal(replay.status, 303); assert.equal(replay.headers.get("location"), "/invitations/confirm"); assert.deepEqual(replay.headers.getSetCookie(), []);
+  const next = fixture({ transportResult: Object.freeze({ schemaVersion: 2, kind: "invitation_confirmation_ready", grantCredential: `ig1.${Buffer.alloc(32, 4).toString("base64url")}`, grantExpiresAt: new Date(NOW.getTime() + 90000).toISOString(), continuationPath: "/invitations/confirm" }) });
+  const replaced = await next.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified`, { headers: { cookie: cookies } }));
+  assert.ok(replaced.headers.getSetCookie().some(c => c.startsWith("__Host-celebix_invitation_operation=;") && c.endsWith("Max-Age=0")));
+  assert.ok(replaced.headers.getSetCookie().every(c => !c.includes("celebix_panel_pre_auth")));
+});
+
 test("registration completion transfers the session to the canonical store host with one body-only POST", async () => {
   const current = fixture({ crossHostTransfer: true });
   const response = await current.handler(callback());

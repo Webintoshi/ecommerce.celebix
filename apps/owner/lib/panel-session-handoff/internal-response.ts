@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseInvitationConfirmationReady, type InvitationConfirmationReady } from "../../../../packages/saas-contracts/src/store-admin-invitation-internal-protocol.ts";
 
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
@@ -33,6 +34,7 @@ export type OwnerPanelSessionFreshLoginCode =
   | "handoff_unavailable";
 
 export type OwnerPanelSessionHandoffInternalResult = Readonly<
+  | { status: 200; body: InvitationConfirmationReady }
   | {
       status: 200;
       body: Readonly<{
@@ -182,7 +184,11 @@ export function canonicalOwnerPanelSessionHandoffResult(
   const body = result.body as unknown as Record<string, unknown>;
   let canonical: string;
   if (result.status === 200) {
-    if (body.kind === "session_ready") {
+    if (body.kind === "invitation_confirmation_ready") {
+      // Deadline is checked against the trusted clock by the handler and receiver.
+      const raw = JSON.stringify(body);
+      canonical = JSON.stringify(parseInvitationConfirmationReady(raw, new Date(Date.parse(String(body.grantExpiresAt)) - 1)));
+    } else if (body.kind === "session_ready") {
       exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
       canonical = JSON.stringify({
