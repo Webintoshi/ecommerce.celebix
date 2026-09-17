@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
+import { createFreshLoginRequiredResult } from "../panel-session-handoff/internal-response.ts";
+import { createPanelSessionCompletionApproval } from "../../../customer-panel/lib/panel-session-completion/activation.ts";
+import { createPanelSessionCompletionHandler } from "../../../customer-panel/lib/panel-session-completion/completion.ts";
+import { createAuthenticatedPanelSessionCompletionTransport, panelSessionHandoffResponseSignaturePreimage } from "../../../customer-panel/lib/panel-session-completion/transport.ts";
 import { InMemoryOidcTransactionStore, type OidcAuthorizationTransaction, type OidcProviderPort } from "../self-serve-oidc.ts";
 import type { InvitationGrantPreview, InvitationIdentityRepository } from "./repository.ts";
 
@@ -53,6 +57,49 @@ function fixture() {
   };
 }
 async function start(f: ReturnType<typeof fixture>) { const result = await f.service.start(token, "browser"); assert.equal(result.kind, "invitation_login_ready"); if (result.kind !== "invitation_login_ready") throw Error(); const state = new URL(result.providerAuthorizationUrl).searchParams.get("state")!; return { state, code: "verified-code" }; }
+
+test("first signed callback_unavailable retains original proof and recovers committed grant without another provider exchange", async () => {
+  const f = fixture(), callback = await start(f), original = f.transactions.get(callback.state)!;
+  const credential = `pb1.${Buffer.alloc(32, 6).toString("base64url")}`, secret = new Uint8Array(32).fill(53);
+  let currentTime = new Date(Date.parse(original.expiresAt) - 90000);
+  f.advance(+currentTime - +now);
+  f.change({ unknownGrant: true, previewFails: true });
+  const transport = createAuthenticatedPanelSessionCompletionTransport({
+    activationApproval: createPanelSessionCompletionApproval("disposable_test"), ownerInternalOrigin: "https://owner-internal.example.test", panelCallbackAuthority: "https://panel.example.test/auth/callback",
+    activeKeyId: "active", activeSecret: secret, clock: () => currentTime, deadlineMs: 500, maximumResponseBytes: 4096, audit() {},
+    async fetch(request) {
+      const requestBody = await request.clone().text(), input = JSON.parse(requestBody);
+      assert.equal(input.browserBindingCredential, credential);
+      const url = new URL(input.callbackUrl);
+      const result = await f.service.tryComplete({ state: url.searchParams.get("state")!, code: url.searchParams.get("code")! }, "browser");
+      const mapped = result.kind === "invitation_confirmation_ready" ? { status: 200, body: { schemaVersion: 2, ...result } }
+        : createFreshLoginRequiredResult(result.kind === "invitation_rejected" && result.retryable ? "callback_unavailable" : "callback_not_granted");
+      const body = JSON.stringify(mapped.body), timestamp = request.headers.get("x-celebix-callback-timestamp")!;
+      const signature = createHmac("sha256", secret).update(panelSessionHandoffResponseSignaturePreimage({ requestTimestamp: timestamp, requestBodyDigest: createHash("sha256").update(requestBody).digest("hex"), status: mapped.status, responseBodyDigest: createHash("sha256").update(body).digest("hex") })).digest("base64url");
+      const response = new Response(body, { status: mapped.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-celebix-session-response-key-id": "active", "x-celebix-session-response-timestamp": timestamp, "x-celebix-session-response-signature": signature } });
+      Object.defineProperty(response, "url", { value: request.url }); return response;
+    },
+  });
+  const handler = createPanelSessionCompletionHandler({ activationApproval: createPanelSessionCompletionApproval("disposable_test"), publicCallbackAuthority: "https://panel.example.test/auth/callback", panelHomeAuthority: "https://panel.example.test/", maximumQueryBytes: 2048, transport, clock: () => currentTime, audit() {}, redeemer: { async redeemHandoff() { throw Error("no session before acceptance"); }, async recoverRedemption() { throw Error("no session before acceptance"); } } });
+  let cookie = `__Host-celebix_panel_pre_auth=${credential}`;
+  const request = () => new Request(`https://panel.example.test/auth/callback?state=${callback.state}&code=${callback.code}`, { headers: { cookie } });
+  const first = await handler(request());
+  if (first.headers.getSetCookie().some(value => value.startsWith("__Host-celebix_panel_pre_auth=;"))) cookie = "";
+  assert.equal(first.status, 503); assert.deepEqual(first.headers.getSetCookie(), []);
+  assert.deepEqual(f.counts, { exchanges: 1, sessions: 0, accepts: 0, grantCalls: 1 });
+  f.change({ previewFails: false }); f.advance(30000); currentTime = new Date(+currentTime + 30000);
+  const recovered = await handler(request()), remaining = 60;
+  assert.equal(recovered.status, 303);
+  assert.equal(recovered.headers.get("location"), "/invitations/confirm");
+  assert.ok(recovered.headers.getSetCookie().includes(`__Host-celebix_invitation_grant=${original.invitationContext!.grantCredential}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${remaining}`));
+  assert.ok(recovered.headers.getSetCookie().every(value => !value.includes("panel_pre_auth")));
+  f.advance(30000); currentTime = new Date(+currentTime + 30000);
+  assert.ok((await handler(request())).headers.getSetCookie().some(value => value.endsWith(`Max-Age=${remaining - 30}`)));
+  assert.deepEqual(f.counts, { exchanges: 1, sessions: 0, accepts: 0, grantCalls: 1 });
+  f.advance(Date.parse(original.expiresAt) - +currentTime + 1); currentTime = new Date(Date.parse(original.expiresAt) + 1);
+  assert.equal((await handler(request())).status, 409);
+  assert.equal(f.counts.exchanges, 1);
+});
 
 test("invitation callback grants only; confirmation projects identity away; explicit acceptance issues normal session", async () => {
   assert.equal(typeof api.createStoreAdminInvitationAuthService, "function");

@@ -145,6 +145,33 @@ try {
     INSERT INTO saas.memberships VALUES(${q(MEMBER)},${q(OWNER)},${q(STORE)},'store_owner','active','2026-01-01','2026-01-01');
     INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at) VALUES(${q(randomUUID())},${q(STORE)},${q(PLAN)},'free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01');
     INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,version,created_at,updated_at,management) VALUES(${q(randomUUID())},${q(STORE)},'invite-test.admin.example.test','platform_subdomain','active',true,'2026-01-01',1,'2026-01-01','2026-01-01','platform');`);
+  await test('archive legacy signature denies persisted invitation for admin without mutation', () => {
+    const s=source(), op=randomUUID();
+    sql(`UPDATE saas.memberships SET role='admin' WHERE id=${q(MEMBER)};`);
+    try {
+      assert.equal(call(`saas.merchant_admin_archive(${authority()},${q(op)},${q(hash(op))},${q(s.id)},1)`,'app').outcome,'membership_denied');
+      assert.equal(value(`SELECT status||':'||version FROM saas.merchant_admin_records WHERE id=${q(s.id)};`),'active:1');
+      assert.equal(value(`SELECT count(*) FROM saas.merchant_admin_operations WHERE operation_id=${q(op)};`),'0');
+    } finally { sql(`UPDATE saas.memberships SET role='store_owner' WHERE id=${q(MEMBER)};`); }
+  });
+  await test('archive path-kind binding rejects alternate-kind admin and owner; owner and unrelated-kind positives replay', () => {
+    const s=source(), other=randomUUID();
+    sql(`INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at) VALUES(${q(other)},${q(STORE)},'general_setting','Setting','{}','active',1,${q(NOW)},${q(NOW)});`);
+    const archive=(id,kind,op=randomUUID())=>`saas.merchant_admin_archive(${authority()},${q(op)},${q(hash(op))},${q(id)},1,${q(kind)})`;
+    for(const role of ['admin','store_owner']) {
+      sql(`UPDATE saas.memberships SET role=${q(role)} WHERE id=${q(MEMBER)};`);
+      try {
+        assert.equal(call(archive(s.id,'general_setting'),'app').outcome,'record_not_found');
+        assert.equal(value(`SELECT status||':'||version FROM saas.merchant_admin_records WHERE id=${q(s.id)};`),'active:1');
+        if(role==='admin') { assert.equal(call(archive(s.id,'administrator_invite'),'app').outcome,'membership_denied'); assert.equal(call(archive(other,'general_setting'),'app').outcome,'archived'); }
+      } finally { sql(`UPDATE saas.memberships SET role='store_owner' WHERE id=${q(MEMBER)};`); }
+    }
+    const op=randomUUID(); assert.equal(call(archive(s.id,'administrator_invite',op),'app').outcome,'archived');
+    assert.equal(call(archive(s.id,'administrator_invite',op),'app').outcome,'operation_replayed');
+    assert.equal(call(archive(s.id,'general_setting',op),'app').outcome,'record_not_found');
+    const legacy=source(), legacyOp=randomUUID();
+    assert.equal(call(`saas.merchant_admin_archive(${authority()},${q(legacyOp)},${q(hash(legacyOp))},${q(legacy.id)},1)`,'app').outcome,'archived');
+  });
   await test('issue snapshots source, queues ciphertext, creates no membership, and list matches exact public parser', () => {
     const item = issued();
     assert.deepEqual(parseStoreAdminInvitationView(item.result.result), item.result.result);
@@ -152,6 +179,22 @@ try {
     const list = call(`saas.store_admin_invitation_list(${authority()})`, 'app');
     assert.equal(list.outcome, 'listed'); list.result.items.forEach(parseStoreAdminInvitationView);
     assert.equal(value(`SELECT count(*) FROM saas.merchant_admin_records WHERE id=${q(item.s.id)};`), '1');
+  });
+  await test('archive kind is rechecked after a concurrent persisted-kind change under the row lock', async () => {
+    const s=source(),op=randomUUID(),writer=session('invitation-archive-writer'),reader=session('invitation-archive-reader');
+    sql(`UPDATE saas.merchant_admin_records SET record_kind='general_setting',config='{}' WHERE id=${q(s.id)};`);
+    let released=false;
+    try {
+      writer.send(`BEGIN; UPDATE saas.merchant_admin_records SET record_kind='administrator_invite',config=${q(JSON.stringify(s.config))} WHERE id=${q(s.id)}; SELECT 'ARCHIVE_LOCKED';`);
+      await writer.marker('ARCHIVE_LOCKED');
+      reader.send(statement(`saas.merchant_admin_archive(${authority()},${q(op)},${q(hash(op))},${q(s.id)},1,'general_setting')`,'app'));
+      await waitForDatabase("EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='invitation-archive-reader' AND wait_event_type='Lock')",'archive waits on the exact persisted row');
+      writer.send('COMMIT;'); released=true;
+      const result=await reader.end(); assert.equal(result.code,0,result.errors);
+      assert.equal(JSON.parse(result.output.trim()).outcome,'record_not_found');
+      assert.equal(value(`SELECT status||':'||version FROM saas.merchant_admin_records WHERE id=${q(s.id)};`),'active:1');
+      assert.equal(value(`SELECT count(*) FROM saas.merchant_admin_operations WHERE operation_id=${q(op)};`),'0');
+    } finally { if(!released) writer.send('ROLLBACK;'); await writer.end(); await reader.end(); }
   });
   await test('T8 identity manager resolver requires durable owner session and verified same-store host', () => {
     const digest = hash(randomUUID());
@@ -551,6 +594,14 @@ try {
     const down=readFileSync(path.join(SQL,`${PREFIX}.down.sql`),'utf8');
     const blocked=sql(down,'invitations',true); assert.notEqual(blocked.status,0); assert.match(blocked.stderr,/INVITATION_DOWN_BLOCKED/);
     sql(down,'invitations_empty'); apply(`${PREFIX}.up.sql`,'invitations_empty'); apply(`${PREFIX}_assertions.sql`,'invitations_empty');
+  });
+  await test('manager down restores exact legacy archive and removes kind overload; up restores guarded signatures', () => {
+    apply(`${MANAGER_PREFIX}.down.sql`);
+    const prior=readFileSync(path.join(SQL,`${MANAGER_PREFIX}.down.sql`),'utf8').match(/CREATE OR REPLACE FUNCTION saas.merchant_admin_archive[\s\S]*?AS \$f\$([\s\S]*?)\$f\$;/)[1];
+    const restored=sql("SELECT md5(prosrc) FROM pg_proc WHERE oid='saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint)'::regprocedure;").stdout.trim();
+    assert.equal(restored,createHash('md5').update(prior).digest('hex'));
+    assert.equal(sql("SELECT to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text)') IS NULL;").stdout.trim(),'t');
+    apply(`${MANAGER_PREFIX}.up.sql`); apply(`${MANAGER_PREFIX}_assertions.sql`);
   });
   assert.equal(failures.length,0,failures.map(x=>`${x.name}: ${x.error.message}`).join('\n'));
   process.stdout.write(`${count}/${count} PASS PostgreSQL 16 invitation lifecycle; PostgreSQL warnings=${warningCount}, notices=${noticeCount}\n`);

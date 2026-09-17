@@ -228,6 +228,11 @@ test("registration and returning-login uncertainty still delete the original pre
     assert.equal(response.status, 503);
     assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
   }
+  for (const state of [STATE, `plogin_${STATE}`]) {
+    const f = fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_unavailable", retryable: false }) });
+    const response = await f.handler(new Request(`${CALLBACK}?state=${state}&code=verified`, { headers: { cookie: PRE_AUTH_COOKIE } }));
+    assert.equal(response.status, 409); assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  }
 });
 test("replayed provider-error callback cannot downgrade an existing grant, and new grants discard only old operation association", async () => {
   const oldGrant = `ig1.${Buffer.alloc(32, 3).toString("base64url")}`;

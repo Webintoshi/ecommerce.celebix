@@ -323,6 +323,13 @@ export function createPanelSessionCompletionHandler(options: {
       }
       return new Response(null, { status: 303, headers });
     }
+    // A signed transient result can follow a committed invitation grant. Retain
+    // only the existing proof (never reset its expiry); the prefix is a retention
+    // hint, not authority to authenticate, select a purpose, or create a grant.
+    if (result.kind === "fresh_login_required" && result.code === "callback_unavailable" && (hasContinuation || callback.state.startsWith("pinvite_"))) {
+      auditSafely(audit, { stage: "transport", outcome: "unavailable" });
+      return failure("panel_session_transport_unavailable", 503, true);
+    }
     if (hasContinuation && result.kind === "fresh_login_required") return new Response(null, { status: 303, headers: { location: "/invitations/confirm", "cache-control": "no-store", "referrer-policy": "no-referrer" } });
     if (callback.kind === "provider_error") {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });

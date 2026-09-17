@@ -28,13 +28,14 @@ test("actual administrator list/new/edit pages use explicit owner policy, not br
     const module = { exports: {} as any }, Component = () => null;
     Function("require", "module", "exports", output)((name: string) => {
       if (name === "react/jsx-runtime") return jsx;
-      if (name.endsWith("server-access")) return { requireServerPanelAccess: async () => ({ tenantContext: { membership: { role } } }) };
+      if (name.endsWith("server-access")) return { requireServerPanelAccess: async () => ({ tenantContext: { membership: { role }, store: { slug: "fixture-store" } } }) };
       if (name.includes("StoreAdminInvitationsConsole")) return { StoreAdminInvitationsConsole: Component };
       if (name.includes("StoreAdminInvitationSource")) return { StoreAdminInvitationSource: Component };
       throw Error(name);
     }, module, module.exports);
     const result = await module.exports.default({ params: Promise.resolve({ recordId: "10000000-0000-4000-8000-000000000001" }) });
     assert.equal(result.props.canManage, role === "store_owner");
+    if (path === "page.tsx") assert.equal(result.props.storeName, "fixture-store");
     if (path.startsWith("[")) assert.equal(result.props.recordId, "10000000-0000-4000-8000-000000000001");
   }
 });

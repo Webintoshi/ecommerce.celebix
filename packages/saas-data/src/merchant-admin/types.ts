@@ -6,7 +6,7 @@ export interface ListMerchantAdminInput extends MerchantAdminAuthorityInput {rea
 export interface GetMerchantAdminInput extends ListMerchantAdminInput {readonly recordId:string}
 export interface ListMerchantAdminProviderJobsInput extends MerchantAdminAuthorityInput {readonly kind:MerchantAdminProviderRecordKind}
 export interface SaveMerchantAdminInput extends ListMerchantAdminInput {readonly operationId:string;readonly recordId?:string;readonly expectedVersion?:number;readonly name:string;readonly config:Readonly<Record<string,MerchantAdminJson>>;readonly status:Exclude<MerchantAdminRecordStatus,"archived">}
-export interface ArchiveMerchantAdminInput extends MerchantAdminAuthorityInput {readonly operationId:string;readonly recordId:string;readonly expectedVersion:number}
+export interface ArchiveMerchantAdminInput extends MerchantAdminAuthorityInput {readonly kind?:MerchantAdminRecordKind;readonly operationId:string;readonly recordId:string;readonly expectedVersion:number}
 export interface PrepareMerchantAdminProviderJobInput extends ListMerchantAdminProviderJobsInput {readonly operationId:string;readonly recordId:string;readonly expectedRecordVersion:number}
 export interface QueueMerchantAdminProviderJobInput extends ListMerchantAdminProviderJobsInput {readonly operationId:string;readonly jobId:string;readonly expectedJobVersion:number;readonly profileId:string;readonly expectedProfileVersion:number}
 export interface CancelMerchantAdminProviderJobInput extends ListMerchantAdminProviderJobsInput {readonly operationId:string;readonly jobId:string;readonly expectedVersion:number}

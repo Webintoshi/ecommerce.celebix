@@ -2,5 +2,5 @@ import { StoreAdminInvitationsConsole } from "@/components/store-admin-invitatio
 import { requireServerPanelAccess } from "@/lib/server-access";
 export default async function SettingsAdministratorsPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <StoreAdminInvitationsConsole canManage={tenantContext.membership.role === "store_owner"} />;
+  return <StoreAdminInvitationsConsole canManage={tenantContext.membership.role === "store_owner"} storeName={tenantContext.store.slug} />;
 }

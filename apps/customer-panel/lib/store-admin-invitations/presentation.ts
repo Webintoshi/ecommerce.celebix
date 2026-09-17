@@ -12,9 +12,11 @@ function validSource(record: MerchantAdminRecord, now: Date) {
 }
 export function invitationRows(records: readonly MerchantAdminRecord[], list: InvitationList | null, now: Date) {
   const bySource = new Map(list?.items.map(item => [item.sourceRecordId, item]));
-  return records.map(source => {
-    const invitation = bySource.get(source.id), knownUnsent = list !== null && !list.hasMore && !invitation;
+  const sources = new Map(records.filter(record => record.kind === "administrator_invite").map(source => [source.id, source]));
+  const ids = new Set([...sources.keys(), ...bySource.keys()]);
+  return [...ids].map(sourceRecordId => {
+    const source = sources.get(sourceRecordId), invitation = bySource.get(sourceRecordId), knownUnsent = list !== null && !list.hasMore && !invitation;
     const livePending = invitation?.status === "pending" && Date.parse(invitation.expiresAt) > +now;
-    return { source, invitation, name: invitation?.displayName ?? source.name, email: invitation?.email ?? String(source.config.email ?? ""), role: invitation?.role ?? String(source.config.role ?? ""), label: invitation ? lifecycle[invitation.status === "pending" && !livePending ? "expired" : invitation.status] : knownUnsent ? "Henüz gönderilmedi" : "Durum doğrulanamadı", canSend: knownUnsent && validSource(source, now), canEdit: knownUnsent, canResend: Boolean(livePending && invitation && invitation.deliveryStatus !== "sending" && +now - Date.parse(invitation.updatedAt) >= 60000), canRevoke: Boolean(livePending) };
+    return { sourceRecordId, source, invitation, name: invitation?.displayName ?? source?.name ?? "", email: invitation?.email ?? String(source?.config.email ?? ""), role: invitation?.role ?? String(source?.config.role ?? ""), label: invitation ? lifecycle[invitation.status === "pending" && !livePending ? "expired" : invitation.status] : knownUnsent ? "Henüz gönderilmedi" : "Durum doğrulanamadı", canSend: Boolean(knownUnsent && source && validSource(source, now)), canEdit: Boolean(knownUnsent && source && source.status !== "archived"), canResend: Boolean(livePending && invitation && invitation.deliveryStatus !== "sending" && +now - Date.parse(invitation.updatedAt) >= 60000), canRevoke: Boolean(livePending) };
   });
 }

@@ -60,6 +60,16 @@ test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("archive binds URL kind in SQL and operation fingerprint while retaining legacy callers", async () => {
+ const archive=new Client((text)=>text.includes("merchant_admin_archive")?[{outcome:"archived",result_payload:{...mutation("archived"),version:2}}]:[]);
+ const result=await repository(new Pool([archive])).archive({tenantContext:tenant(),now:NOW,operationId:OP,recordId:RECORD,expectedVersion:1,kind:"discount"});
+ assert.equal(result.status,"archived"); assert.equal(call(archive,"merchant_admin_archive").values.at(-1),"discount");
+ assert.equal(call(archive,"merchant_admin_archive").values.length,12);
+ const legacy=new Client(archive.responder);
+ await repository(new Pool([legacy])).archive({tenantContext:tenant(),now:NOW,operationId:OP,recordId:RECORD,expectedVersion:1});
+ assert.notEqual(call(archive,"merchant_admin_archive").values[8],call(legacy,"merchant_admin_archive").values[8]);
+});
+
 test("administrator invites require canonical email fixed role and expiration before SQL",async()=>{
  const valid={email:"manager@example.test",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"};
  assert.deepEqual(merchantAdminConfig("administrator_invite",valid),valid);

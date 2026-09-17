@@ -3,6 +3,8 @@
 .workspace h1 { margin: 0; font-size: 1.65rem; }
 .workspace p { line-height: 1.6; }
 .note { color: #526359; max-width: 85ch; }
+.workspace dialog { max-width: min(32rem, calc(100vw - 3rem)); border: 1px solid #9bad9f; border-radius: .7rem; color: inherit; overflow-wrap: anywhere; }
+.workspace dialog::backdrop { background: rgb(0 0 0 / 35%); }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .workspace button, .workspace a { font: inherit; border: 1px solid #9bad9f; border-radius: .5rem; padding: .6rem .75rem; background: white; color: #234c34; text-decoration: none; cursor: pointer; }
 .workspace button:disabled { opacity: .55; cursor: wait; }

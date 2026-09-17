@@ -30,3 +30,14 @@ test("administrator snapshot requires canonical email, non-owner role and absolu
   for (const expiresAt of ["2026-09-24T12:00:00.000Z", "2026-09-24T12:00:00Z"]) assert.equal((await f.handlers.save(request({ ...valid, expiresAt }), "administrator_invite")).status, 200);
   assert.equal(f.writes(), 2);
 });
+
+test("alternate archive URL forwards its exact kind to persistence instead of dropping it", async () => {
+  let received: unknown;
+  const handlers = createMerchantAdminHttpHandlers({
+    async resolveRuntime() { return { access: { panelOrigin: "https://panel.saas-staging.celebix.site", async resolveCredential() { return { kind: "authenticated", tenantContext: { membership: { role: "admin" }, store: { slug: "store" } } }; } }, merchantAdmin: { async archive(input: unknown) { received = input; throw new Error("persistence unavailable"); } } } as never; },
+    now: () => NOW, requestId: () => ID,
+  });
+  const req = new Request(`https://store.admin.saas-staging.celebix.site/api/merchant-admin/records/general_setting/${ID}/archive`, { method: "POST", headers: request(valid).headers, body: JSON.stringify({ expectedVersion: 1 }) });
+  assert.equal((await handlers.archive(req, "general_setting", ID)).status, 503);
+  assert.equal((received as { kind: string }).kind, "general_setting");
+});

@@ -31,8 +31,8 @@ export async function runInvitationMigrations({client,readSql,write=()=>{}}) {
     const scripts=await Promise.all(FILES.map(async name=>({name,sql:await readSql(name)})));
     const manifest=scripts.filter(x=>x.name.endsWith('.up.sql')).flatMap(x=>functions(x.sql));
     if(manifest.length<20) throw Error('manifest');
-    const prior=functions(await readSql(`${PREFIXES[1]}.down.sql`));
-    if(prior.length!==2) throw Error('predecessor_manifest');
+    const prior=[...functions(await readSql(`${PREFIXES[1]}.down.sql`)),...functions(await readSql(`${PREFIXES[2]}.down.sql`))];
+    if(prior.length!==3) throw Error('predecessor_manifest');
     await client.connect();
     const preflight=await client.query(`/* invitation_migration_preflight */ SELECT current_database() database_name,current_setting('server_version_num')::integer version_num,r.rolsuper is_superuser,pg_has_role(current_user,'celebix_saas_owner','MEMBER') owner_member,to_regclass('saas.store_domain_replacements') IS NOT NULL AND to_regprocedure('saas.resolve_panel_session(text,text,timestamptz)') IS NOT NULL AS predecessor FROM pg_roles r WHERE r.rolname=current_user`);
     const p=preflight.rows[0];
@@ -41,7 +41,7 @@ export async function runInvitationMigrations({client,readSql,write=()=>{}}) {
     await client.query("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='120s'; SET LOCAL idle_in_transaction_session_timeout='30s'; SET LOCAL ROLE celebix_saas_owner");
     await client.query("SELECT pg_advisory_xact_lock(129,131)");
     const state=async()=>{
-      const result=await client.query(`/* invitation_migration_state */ WITH expected AS (SELECT * FROM unnest($1::text[],$2::text[]) AS e(signature,hash)), old AS (SELECT * FROM unnest($3::text[],$4::text[]) AS e(signature,hash)), installed AS (SELECT count(*) total,count(*) FILTER(WHERE md5(p.prosrc)=e.hash) matches FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)), tables AS (SELECT count(*) n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='saas' AND c.relname IN('store_admin_invitations','store_admin_invitation_deliveries','store_admin_invitation_operations','store_admin_invitation_acceptance_grants','store_admin_invitation_events','store_admin_invitation_provider_events')) SELECT CASE WHEN (SELECT n FROM tables)=6 AND (SELECT matches=total FROM installed) THEN 'complete' WHEN (SELECT n FROM tables)=0 AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='saas' AND p.proname LIKE 'store_admin_invitation%') AND (SELECT count(*) FROM old e JOIN pg_proc p ON p.oid=to_regprocedure(e.signature) AND md5(p.prosrc)=e.hash)=2 THEN 'absent' ELSE 'partial' END AS state`,[manifest.map(x=>x.signature),manifest.map(x=>x.hash),prior.map(x=>x.signature),prior.map(x=>x.hash)]);
+      const result=await client.query(`/* invitation_migration_state */ WITH expected AS (SELECT * FROM unnest($1::text[],$2::text[]) AS e(signature,hash)), old AS (SELECT * FROM unnest($3::text[],$4::text[]) AS e(signature,hash)), installed AS (SELECT count(*) total,count(*) FILTER(WHERE md5(p.prosrc)=e.hash) matches FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)), tables AS (SELECT count(*) n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='saas' AND c.relname IN('store_admin_invitations','store_admin_invitation_deliveries','store_admin_invitation_operations','store_admin_invitation_acceptance_grants','store_admin_invitation_events','store_admin_invitation_provider_events')) SELECT CASE WHEN (SELECT n FROM tables)=6 AND (SELECT matches=total FROM installed) THEN 'complete' WHEN (SELECT n FROM tables)=0 AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='saas' AND p.proname LIKE 'store_admin_invitation%') AND (SELECT count(*) FROM old e JOIN pg_proc p ON p.oid=to_regprocedure(e.signature) AND md5(p.prosrc)=e.hash)=3 AND to_regprocedure('saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text)') IS NULL THEN 'absent' ELSE 'partial' END AS state`,[manifest.map(x=>x.signature),manifest.map(x=>x.hash),prior.map(x=>x.signature),prior.map(x=>x.hash)]);
       if(result.rows.length!==1) throw Error('state'); return result.rows[0].state;
     };
     const before=await state(); if(!['absent','complete'].includes(before)) throw Error('partial');
@@ -56,6 +56,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
   try {
     if(process.argv.length!==2) throw Error('arguments');
     const config=resolveInvitationMigrationConfiguration();
-    await runInvitationMigrations({client:new pg.Client(config),readSql:async name=>{if(!FILES.includes(name)&&name!==`${PREFIXES[1]}.down.sql`) throw Error('file');return readFile(new URL(`./sql/saas/${name}`,import.meta.url),'utf8');},write:line=>process.stdout.write(`${line}\n`)});
+    await runInvitationMigrations({client:new pg.Client(config),readSql:async name=>{if(!FILES.includes(name)&&![`${PREFIXES[1]}.down.sql`,`${PREFIXES[2]}.down.sql`].includes(name)) throw Error('file');return readFile(new URL(`./sql/saas/${name}`,import.meta.url),'utf8');},write:line=>process.stdout.write(`${line}\n`)});
   } catch { process.stderr.write('invitation_migration_failed\n'); process.exitCode=1; }
 }
