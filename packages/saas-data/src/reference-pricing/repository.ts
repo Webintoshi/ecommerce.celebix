@@ -8,7 +8,7 @@ import type {
 } from "./types.ts";
 import {
   authorityInput, decimal, digest, exact, integer, label, parseActivated,
-  parseDefinitionsList, parseList, parsePolicy, parsePreview, parseSavedSet, parseSet, policy, setValues, uuid,
+  parseDefinitionsList, parseList, parsePolicy, parsePolicyPreview, parsePreview, parseSavedSet, parseSet, policy, setValues, uuid,
 } from "./validation.ts";
 
 const SQL = Object.freeze({
@@ -16,11 +16,12 @@ const SQL = Object.freeze({
   list: "SELECT outcome,result_payload FROM saas.pricing_reference_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer,$9::bigint)",
   get: "SELECT outcome,result_payload FROM saas.pricing_reference_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   getPolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+  previewPolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb,$10::text)",
   preview: "SELECT outcome,result_payload FROM saas.pricing_reference_set_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::integer,$11::uuid)",
   define: "SELECT outcome,result_payload FROM saas.pricing_reference_define($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::text)",
   saveSet: "SELECT outcome,result_payload FROM saas.pricing_reference_set_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::jsonb)",
   activate: "SELECT outcome,result_payload FROM saas.pricing_reference_set_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)",
-  savePolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::jsonb)",
+  savePolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_save_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::jsonb,$14::text)",
   recover: "SELECT outcome,result_payload FROM saas.pricing_reference_operation_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
 });
 
@@ -188,6 +189,17 @@ export class PostgresReferencePricingRepository implements ReferencePricingRepos
       return result;
     });
   }
+  async previewPolicy(input: Parameters<ReferencePricingRepository["previewPolicy"]>[0]) {
+    const { parsed, authority } = authorityInput(input, ["variantId", "channel", "policy"]);
+    const variantId = uuid(parsed.variantId);
+    if (parsed.channel !== "storefront") throw failure("invalid_input");
+    const selectedPolicy = policy(parsed.policy);
+    return this.read(SQL.previewPolicy, [...authorityValues(authority), variantId, JSON.stringify(selectedPolicy), parsed.channel], "previewed", (value) => {
+      const result = parsePolicyPreview(value);
+      if (result.variantId !== variantId || result.method !== selectedPolicy.method) return unavailable();
+      return result;
+    });
+  }
   async preview(input: Parameters<ReferencePricingRepository["preview"]>[0]) {
     const { parsed, authority } = authorityInput(input, ["setId", "channel", "pageSize"], ["afterVariantId"]);
     const setId = uuid(parsed.setId);
@@ -246,13 +258,14 @@ export class PostgresReferencePricingRepository implements ReferencePricingRepos
       });
   }
   async savePolicy(input: Parameters<ReferencePricingRepository["savePolicy"]>[0]) {
-    const { parsed, authority } = authorityInput(input, ["operationId", "variantId", "expectedVariantVersion", "expectedPolicyVersion", "policy"]);
+    const { parsed, authority } = authorityInput(input, ["operationId", "variantId", "expectedVariantVersion", "expectedPolicyVersion", "policy", "expectedScopeDigest"]);
     const operationId = uuid(parsed.operationId), variantId = uuid(parsed.variantId);
     const variantVersion = integer(parsed.expectedVariantVersion, 1), expected = integer(parsed.expectedPolicyVersion, 0);
     const selectedPolicy = policy(parsed.policy);
-    const hash = fingerprint("policy_save", authority.storeId, { variantId, variantVersion, expected, policy: selectedPolicy });
+    const scope = digest(parsed.expectedScopeDigest);
+    const hash = fingerprint("policy_save", authority.storeId, { variantId, variantVersion, expected, policy: selectedPolicy, scope });
     return this.mutate(authority, operationId, "policy_save", "policy_saved", SQL.savePolicy,
-      [...authorityValues(authority), operationId, hash, variantId, variantVersion, expected, JSON.stringify(selectedPolicy)],
+      [...authorityValues(authority), operationId, hash, variantId, variantVersion, expected, JSON.stringify(selectedPolicy), scope],
       (value) => {
         const result = parsePolicy(value);
         if (result.variantId !== variantId || result.version !== expected + 1) return unavailable();

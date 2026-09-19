@@ -245,7 +245,7 @@ function trustedRequestTarget(request: Request, hostname: string, pathname: stri
 
 function checkoutFailure(error: unknown): Response {
   if (error instanceof CheckoutPaymentRepositoryError && error.code === "attempt_in_progress") return routeText(409, "Checkout already in progress");
-  if (error instanceof CheckoutPaymentRepositoryError && (error.code === "catalog_item_unavailable" || error.code === "stock_unavailable")) return routeText(409, "Checkout unavailable");
+  if (error instanceof CheckoutPaymentRepositoryError && (error.code === "catalog_item_unavailable" || error.code === "stock_unavailable" || error.code === "price_changed")) return routeText(409, "Checkout unavailable");
   return routeText(503, "Checkout unavailable");
 }
 

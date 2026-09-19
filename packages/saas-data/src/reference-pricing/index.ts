@@ -5,5 +5,5 @@ export type {
   ActivatedReferenceSet, PostgresReferencePricingRepositoryOptions, ReferenceDefinitionList, ReferenceImpactEntry,
   ReferenceImpactPreview, ReferencePricingAuditEvent, ReferencePricingAuthorityInput,
   ReferencePricingRepository, ReferenceSetDetail, ReferenceSetList, ReferenceSetValue,
-  ReferenceSetValueDetail, SavedReferenceSet, VariantPolicyProjection,
+  ReferenceSetValueDetail, SavedReferenceSet, VariantPolicyProjection, VariantPolicyPreview,
 } from "./types.ts";

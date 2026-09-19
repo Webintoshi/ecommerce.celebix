@@ -61,3 +61,18 @@ test("public category reads reject hostile inputs and projections", async () => 
   await assert.rejects(fixture.value.listPublicProductsByCategory({ storefront, now: new Date(), slug: "../bileklikler", limit: 48 }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "invalid_input");
   await assert.rejects(fixture.value.listPublicProductsByCategory({ storefront, now: new Date(), slug: "bileklikler", limit: 48 }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
 });
+
+test("global catalog query uses one hostname-authorized SQL page and canonical effective prices", async () => {
+  const fixture = repository("found", { items: [product], total: 51, nextOffset: 24 });
+  const selected = await fixture.value.queryPublicCatalog({ storefront, now: new Date("2026-09-20T10:00:00.000Z"), categorySlug: null, query: "yüzük", filter: "discounted", order: "price-asc", limit: 24, offset: 0 });
+  assert.deepEqual(selected, { items: [product], total: 51, nextOffset: 24 });
+  assert.equal(fixture.queries.filter((sql) => sql.includes("public_catalog_query_v2")).length, 1);
+  assert.equal(Object.isFrozen(selected.items), true);
+});
+
+test("global catalog query rejects invalid bounds and private projection fields", async () => {
+  const fixture = repository("found", { items: [{ ...product, referenceId: PRODUCT_ID }], total: 1, nextOffset: null });
+  const base = { storefront, now: new Date(), categorySlug: null, query: "", filter: "all", order: "featured", limit: 24, offset: 0 } as const;
+  await assert.rejects(fixture.value.queryPublicCatalog({ ...base, offset: 10_001 }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "invalid_input");
+  await assert.rejects(fixture.value.queryPublicCatalog(base), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
+});

@@ -2,7 +2,7 @@ import { parsePublicProduct, parsePublicProductMedia, parsePublicStarterThemePre
 import { parsePublicStorefrontDesign, type PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { PublicStorefrontRepositoryError } from "./errors.ts";
-import type { CampaignHomeProjection, PostgresPublicStorefrontRepositoryOptions, PublicStorefrontCategoryProductList, PublicStorefrontRepository } from "./types.ts";
+import type { CampaignHomeProjection, PostgresPublicStorefrontRepositoryOptions, PublicStorefrontCategoryProductList, PublicStorefrontRepository, PublicCatalogQuery, PublicCatalogPage } from "./types.ts";
 
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -105,6 +105,27 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const payload = this.projection(result);
     if (!Array.isArray(payload)) throw failure("unavailable");
     try { return Object.freeze({ items: Object.freeze(payload.map(parsePublicProduct)) }); } catch { throw failure("unavailable"); }
+  }
+  async queryPublicCatalog(input: PublicCatalogQuery): Promise<PublicCatalogPage> {
+    const parsed = exact(input, ["storefront", "now", "categorySlug", "query", "filter", "order", "limit", "offset"]);
+    const store = context({ storefront: parsed.storefront });
+    if (parsed.categorySlug !== null) categorySlug(parsed.categorySlug);
+    if (typeof parsed.query !== "string" || parsed.query !== parsed.query.trim() || CONTROL.test(parsed.query) || Buffer.byteLength(parsed.query, "utf8") > 100
+      || !(["all", "available", "discounted"] as unknown[]).includes(parsed.filter)
+      || !(["featured", "title-asc", "price-asc", "price-desc"] as unknown[]).includes(parsed.order)
+      || !Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48
+      || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 10_000) throw failure("invalid_input");
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_catalog_query_v2($1::text,$2::timestamptz,$3::text,$4::text,$5::text,$6::text,$7::integer,$8::integer)",
+      [store.hostname, date(parsed.now), parsed.categorySlug, parsed.query, parsed.filter, parsed.order, parsed.limit, parsed.offset]);
+    const payload = this.projection(result);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+      || Object.keys(payload).sort().join(",") !== "items,nextOffset,total") throw failure("unavailable");
+    const page = payload as { items: unknown; total: unknown; nextOffset: unknown };
+    if (!Array.isArray(page.items) || page.items.length > parsed.limit
+      || !Number.isSafeInteger(page.total) || (page.total as number) < page.items.length
+      || (page.nextOffset !== null && (!Number.isSafeInteger(page.nextOffset) || (page.nextOffset as number) <= parsed.offset || (page.nextOffset as number) > 10_000))) throw failure("unavailable");
+    try { return Object.freeze({ items: Object.freeze(page.items.map(parsePublicProduct)), total: page.total as number, nextOffset: page.nextOffset as number | null }); }
+    catch { throw failure("unavailable"); }
   }
   async listPublicProductsByCategory(input: Parameters<PublicStorefrontRepository["listPublicProductsByCategory"]>[0]): Promise<PublicStorefrontCategoryProductList> {
     const parsed = exact(input, ["storefront", "now", "slug", "limit"]); const store = context({ storefront: parsed.storefront });

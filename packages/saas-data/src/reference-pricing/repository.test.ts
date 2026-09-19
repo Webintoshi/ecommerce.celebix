@@ -133,6 +133,20 @@ test("policy get accepts the strict policy JSON without a browser-computed TRY a
     "SELECT outcome,result_payload FROM saas.pricing_variant_policy_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)");
 });
 
+test("candidate policy preview is a single read-only authorized database calculation", async () => {
+  const policy = { method: "usd" as const, referenceId: REFERENCE, sourceAmount: "125.00000000" };
+  const projection = { variantId: VARIANT, oldPriceCents: 10000, newPriceCents: 500000, sourceKind: "base",
+    priceListId: null, activeSetId: SET, activeSetVersion: 2, referenceId: REFERENCE,
+    referenceRateTry: "40.00000000", method: "usd", metalComponentTry: "5000.00000000", laborTry: "0.00000000",
+    policyVersion: 0, variantVersion: 2, scopeDigest: "a".repeat(64) };
+  const client = new Client({ outcome: "previewed", result_payload: projection });
+  assert.deepEqual(await repository(client).previewPolicy({ ...authority(), variantId: VARIANT, channel: "storefront", policy }), projection);
+  assert.equal(client.queries[0]?.text, "BEGIN READ ONLY");
+  assert.equal(client.queries[5]?.text,
+    "SELECT outcome,result_payload FROM saas.pricing_variant_policy_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb,$10::text)");
+  assert.deepEqual(client.queries[5]?.values?.slice(7), [VARIANT, JSON.stringify(policy), "storefront"]);
+});
+
 test("set save, activation, and policy save send expected versions through one write each", async () => {
   const values = [{ referenceId: REFERENCE, rateTry: "40.00000000", active: true }];
   const saved = { setId: SET, version: 1, stateVersion: 0, isActive: false, values: [{ ...values[0], kind: "usd", label: "USD satış" }], createdAt: "2026-09-20T12:00:00.000000Z" };
@@ -153,8 +167,8 @@ test("set save, activation, and policy save send expected versions through one w
   const policy = { method: "usd", referenceId: REFERENCE, sourceAmount: "125.00000000" };
   const projection = { variantId: VARIANT, version: 1, variantVersion: 2, policy, updatedAt: "2026-09-20T12:00:00.000000Z" };
   const policyClient = new Client({ outcome: "policy_saved", result_payload: projection });
-  assert.deepEqual(await repository(policyClient).savePolicy({ ...authority(), operationId: OPERATION, variantId: VARIANT, expectedVariantVersion: 2, expectedPolicyVersion: 0, policy }), projection);
+  assert.deepEqual(await repository(policyClient).savePolicy({ ...authority(), operationId: OPERATION, variantId: VARIANT, expectedVariantVersion: 2, expectedPolicyVersion: 0, expectedScopeDigest: "a".repeat(64), policy }), projection);
   assert.equal(policyClient.queries[5]?.text,
-    "SELECT outcome,result_payload FROM saas.pricing_variant_policy_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::jsonb)");
-  assert.deepEqual(policyClient.queries[5]?.values?.slice(9, 12), [VARIANT, 2, 0]);
+    "SELECT outcome,result_payload FROM saas.pricing_variant_policy_save_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::jsonb,$14::text)");
+  assert.deepEqual(policyClient.queries[5]?.values?.slice(9), [VARIANT, 2, 0, JSON.stringify(policy), "a".repeat(64)]);
 });

@@ -156,7 +156,7 @@ test("begin calls only the host-bound specialized function and recovers exact co
 });
 
 test("durable cross-authority and stock failures are typed before provider I/O", async () => {
-  for (const outcome of ["durable_authority_invalid", "attempt_in_progress", "stock_unavailable"] as const) {
+  for (const outcome of ["durable_authority_invalid", "attempt_in_progress", "stock_unavailable", "price_changed"] as const) {
     const client = db("quick_order_hosted_payment_begin", outcome, null);
     const repository = new PostgresQuickOrderHostedPaymentRepository(options(new Pool([client])));
     await assert.rejects(repository.begin({

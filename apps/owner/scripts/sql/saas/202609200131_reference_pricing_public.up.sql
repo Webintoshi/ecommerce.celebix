@@ -145,7 +145,8 @@ BEGIN
   INTO items,total_count,page_count;
   RETURN QUERY SELECT 'found',pg_catalog.jsonb_build_object(
     'items',items,'total',total_count,
-    'nextOffset',CASE WHEN p_offset+page_count<total_count THEN p_offset+page_count ELSE NULL::bigint END);
+    'nextOffset',CASE WHEN p_offset+page_count<total_count AND p_offset+page_count<=10000
+      THEN p_offset+page_count ELSE NULL::bigint END);
 END $fn$;
 
 -- An existing quick link is an immutable quote, not a perpetual right to sell

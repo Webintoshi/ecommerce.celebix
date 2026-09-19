@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 
 import { ProductExplorer } from "@/components/ProductExplorer";
+import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -29,17 +30,24 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export async function renderProductsPage(routeVariant: StorefrontRouteVariant) {
+export async function renderProductsPage(routeVariant: StorefrontRouteVariant, searchParams: Promise<Readonly<Record<string,string | string[] | undefined>>> = Promise.resolve({})) {
   const { runtime, storefront, design } = requireStorefrontPage(
     await resolveStorefrontPage(),
   );
   if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
     permanentRedirect(productIndexPath(storefront.locale));
   }
-  const products = await runtime.repository.listPublicProducts({
+  const selection = parseProductCatalogQuery(await searchParams);
+  if (!runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
+  const products = await runtime.repository.queryPublicCatalog({
     storefront,
     now: new Date(),
-    limit: 48,
+    categorySlug: null,
+    query: selection.query,
+    filter: selection.filter,
+    order: selection.order,
+    offset: selection.offset,
+    limit: PRODUCT_CATALOG_PAGE_SIZE,
   });
   return (
     <StorefrontFrame storefront={storefront} design={design}>
@@ -47,6 +55,10 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant) {
         <h1 className="sr-only">Ürünler</h1>
         <ProductExplorer
           products={products.items}
+          selection={selection}
+          total={products.total}
+          nextOffset={products.nextOffset}
+          path={productIndexPath(storefront.locale)}
           locale={storefront.locale}
           cardStyle={storefront.presentation.theme.productCardStyle}
           imageRatio={storefront.presentation.theme.productImageRatio}
@@ -56,6 +68,6 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant) {
   );
 }
 
-export default function ProductsPage() {
-  return renderProductsPage("legacy");
+export default function ProductsPage({ searchParams }: Readonly<{ searchParams: Promise<Readonly<Record<string,string | string[] | undefined>>> }>) {
+  return renderProductsPage("legacy",searchParams);
 }

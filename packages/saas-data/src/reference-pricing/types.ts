@@ -38,16 +38,26 @@ export type VariantPolicyProjection = Readonly<{
   variantId: string; variantVersion: number; version: number;
   policy: VariantPricingPolicy; updatedAt: string;
 }>;
+export type VariantPolicyPreview = Readonly<{
+  variantId: string; oldPriceCents: number | null; newPriceCents: number | null;
+  sourceKind: "base" | "price_list" | null; priceListId: string | null;
+  activeSetId: string | null; activeSetVersion: number | null;
+  referenceId: string | null; referenceRateTry: string | null;
+  method: "fixed_try" | "usd" | "eur" | "gold_gram";
+  metalComponentTry: string | null; laborTry: string | null;
+  policyVersion: number; variantVersion: number; scopeDigest: string;
+}>;
 export interface ReferencePricingRepository {
   listDefinitions(input: ReferencePricingAuthorityInput): Promise<ReferenceDefinitionList>;
   list(input: ReferencePricingAuthorityInput & Readonly<{ pageSize: number; afterSetVersion?: number }>): Promise<ReferenceSetList>;
   get(input: ReferencePricingAuthorityInput & Readonly<{ setId?: string }>): Promise<ReferenceSetDetail>;
   getPolicy(input: ReferencePricingAuthorityInput & Readonly<{ variantId: string }>): Promise<VariantPolicyProjection>;
+  previewPolicy(input: ReferencePricingAuthorityInput & Readonly<{ variantId: string; channel: "storefront"; policy: VariantPricingPolicy }>): Promise<VariantPolicyPreview>;
   preview(input: ReferencePricingAuthorityInput & Readonly<{ setId: string; channel: "storefront" | "quick_order"; pageSize: number; afterVariantId?: string }>): Promise<ReferenceImpactPreview>;
   define(input: ReferencePricingAuthorityInput & Readonly<{ operationId: string; referenceId: string; kind: "usd" | "eur" | "gold_gram"; label: string; referencePurity?: string }>): Promise<ReferenceIdentity>;
   saveSet(input: ReferencePricingAuthorityInput & Readonly<{ operationId: string; setId: string; expectedStateVersion: number; values: readonly ReferenceSetValue[] }>): Promise<SavedReferenceSet>;
   activate(input: ReferencePricingAuthorityInput & Readonly<{ operationId: string; setId: string; expectedStateVersion: number; expectedScopeDigest: string }>): Promise<ActivatedReferenceSet>;
-  savePolicy(input: ReferencePricingAuthorityInput & Readonly<{ operationId: string; variantId: string; expectedVariantVersion: number; expectedPolicyVersion: number; policy: VariantPricingPolicy }>): Promise<VariantPolicyProjection>;
+  savePolicy(input: ReferencePricingAuthorityInput & Readonly<{ operationId: string; variantId: string; expectedVariantVersion: number; expectedPolicyVersion: number; expectedScopeDigest: string; policy: VariantPricingPolicy }>): Promise<VariantPolicyProjection>;
 }
 export type ReferencePricingAuditEvent = Readonly<{ type: "reference_pricing_commit_unknown" }>;
 export interface PostgresReferencePricingRepositoryOptions {

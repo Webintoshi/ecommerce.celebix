@@ -328,4 +328,9 @@ function main() {
   } finally { stop(box); }
 }
 
-main();
+export { SQL, DB, NOW, STORE, OWNER, MEMBERSHIP, PLAN, USD, SET_1, USD_VARIANT,
+  command, start, stop, psql, scalar, sqlString, jsonb, fingerprint, authority,
+  operation, call, define, saveSet, preview, activate, policySave, effective,
+  migrationsThrough128, apply, seed };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) main();

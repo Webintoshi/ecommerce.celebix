@@ -5,7 +5,7 @@ import type { ValidatedOrderAuthority } from "../orders/validation.ts";
 import { failure, type ReferencePricingErrorCode } from "./errors.ts";
 import type {
   ActivatedReferenceSet, ReferenceDefinitionList, ReferenceImpactPreview, ReferenceSetDetail, ReferenceSetList,
-  ReferenceSetValue, SavedReferenceSet, VariantPolicyProjection,
+  ReferenceSetValue, SavedReferenceSet, VariantPolicyProjection, VariantPolicyPreview,
 } from "./types.ts";
 
 const HEX = /^[a-f0-9]{64}$/;
@@ -128,6 +128,25 @@ export function parseActivated(value: unknown): ActivatedReferenceSet {
 export function parsePolicy(value: unknown): VariantPolicyProjection {
   const raw = exact(value, ["variantId", "variantVersion", "version", "policy", "updatedAt"], [], true);
   return Object.freeze({ variantId: uuid(raw.variantId, true), variantVersion: integer(raw.variantVersion, 1, Number.MAX_SAFE_INTEGER, true), version: integer(raw.version, 1, Number.MAX_SAFE_INTEGER, true), policy: policy(raw.policy, true), updatedAt: timestamp(raw.updatedAt) });
+}
+export function parsePolicyPreview(value: unknown): VariantPolicyPreview {
+  const raw = exact(value, ["variantId", "oldPriceCents", "newPriceCents", "sourceKind", "priceListId", "activeSetId", "activeSetVersion", "referenceId", "referenceRateTry", "method", "metalComponentTry", "laborTry", "policyVersion", "variantVersion", "scopeDigest"], [], true);
+  if (raw.sourceKind !== null && raw.sourceKind !== "base" && raw.sourceKind !== "price_list") return unavailable();
+  if (raw.method !== "fixed_try" && raw.method !== "usd" && raw.method !== "eur" && raw.method !== "gold_gram") return unavailable();
+  const cents = (entry: unknown) => entry === null ? null : integer(entry, 0, 8_000_000_000, true);
+  const optionalId = (entry: unknown) => entry === null ? null : uuid(entry, true);
+  const amount = (entry: unknown) => entry === null ? null : decimal(entry, 8, false, MAX_RATE, true);
+  const parsed: VariantPolicyPreview = Object.freeze({
+    variantId: uuid(raw.variantId, true), oldPriceCents: cents(raw.oldPriceCents), newPriceCents: cents(raw.newPriceCents),
+    sourceKind: raw.sourceKind, priceListId: optionalId(raw.priceListId),
+    activeSetId: optionalId(raw.activeSetId), activeSetVersion: raw.activeSetVersion === null ? null : integer(raw.activeSetVersion, 0, Number.MAX_SAFE_INTEGER, true),
+    referenceId: optionalId(raw.referenceId), referenceRateTry: amount(raw.referenceRateTry), method: raw.method,
+    metalComponentTry: amount(raw.metalComponentTry), laborTry: amount(raw.laborTry),
+    policyVersion: integer(raw.policyVersion, 0, Number.MAX_SAFE_INTEGER, true), variantVersion: integer(raw.variantVersion, 1, Number.MAX_SAFE_INTEGER, true), scopeDigest: digest(raw.scopeDigest, true),
+  });
+  if ((parsed.sourceKind === "price_list") !== (parsed.priceListId !== null)) return unavailable();
+  if (parsed.method === "fixed_try" && (parsed.referenceId !== null || parsed.referenceRateTry !== null || parsed.metalComponentTry !== null || parsed.laborTry !== null)) return unavailable();
+  return parsed;
 }
 export function parsePreview(value: unknown): ReferenceImpactPreview {
   const raw = exact(value, ["setId", "scopeDigest", "affectedProducts", "affectedVariants", "fixedOverrideVariants", "unavailableVariants", "entries", "nextCursor"], [], true);

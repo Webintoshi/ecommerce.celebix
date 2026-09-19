@@ -6,6 +6,13 @@ import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.
 export type TrustedStorefrontContext = Readonly<{ storefront: PublicStorefront }>;
 export type PublicStorefrontCategory = Readonly<{ id: string; name: string; slug: string }>;
 export type PublicStorefrontCategoryProductList = Readonly<{ category: PublicStorefrontCategory; items: readonly PublicProduct[] }>;
+export type PublicCatalogQuery = TrustedStorefrontContext & Readonly<{
+  now: Date; categorySlug: string | null; query: string;
+  filter: "all" | "available" | "discounted";
+  order: "featured" | "title-asc" | "price-asc" | "price-desc";
+  limit: number; offset: number;
+}>;
+export type PublicCatalogPage = Readonly<{ items: readonly PublicProduct[]; total: number; nextOffset: number | null }>;
 export type CampaignHomeProjection = Readonly<{
   presentation: PublicStarterThemePresentation;
   productRows: readonly Readonly<{ key: string; items: readonly PublicProduct[] }>[];
@@ -32,6 +39,7 @@ export type PostgresNewsletterRepositoryOptions = Readonly<{
 export interface PublicStorefrontRepository {
   getPublicStorefront(input: Readonly<{ hostname: string; now: Date }>): Promise<PublicStorefront>;
   listPublicProducts(input: TrustedStorefrontContext & Readonly<{ now: Date; limit: number }>): Promise<PublicProductList>;
+  queryPublicCatalog?(input: PublicCatalogQuery): Promise<PublicCatalogPage>;
   listPublicProductsByCategory(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string; limit: number }>): Promise<PublicStorefrontCategoryProductList>;
   getPublicProductBySlug(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProduct>;
   listPublicProductMedia(input: TrustedStorefrontContext & Readonly<{ now: Date; productId: string }>): Promise<readonly PublicProductMedia[]>;
