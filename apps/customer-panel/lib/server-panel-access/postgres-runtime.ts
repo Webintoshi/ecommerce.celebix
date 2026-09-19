@@ -19,6 +19,7 @@ import {
   PostgresInventoryRepository,
   PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresPricingRepository,
+  PostgresReferencePricingRepository,
   PostgresPromotionRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
@@ -59,6 +60,7 @@ import { registerServerCustomerRepository } from "../server-customers/runtime.ts
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
+import { registerServerReferencePricingRepository } from "../server-reference-pricing/runtime.ts";
 import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
@@ -876,6 +878,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const referencePricingRepository = new PostgresReferencePricingRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const promotionRepository = new PostgresPromotionRepository({
       pool,
       role: "celebix_saas_app",
@@ -960,6 +968,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }));
     registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
       save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
+    }));
+    registerServerReferencePricingRepository(access, createPostCommitInvalidatingRepository(referencePricingRepository, {
+      activate: ["catalog"], savePolicy: ["catalog"],
     }));
     registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository, {
       create: ["promotions"],

@@ -45,6 +45,7 @@ export type PanelNavigationHref =
   | "/settings/general"
   | "/settings/language"
   | "/settings/payment"
+  | "/settings/pricing"
   | "/settings/shipping"
   | "/settings/administrators"
   | "/settings/notifications"
@@ -197,6 +198,7 @@ const SETTINGS_CHILDREN = Object.freeze([
   item("language-settings", "Dil", "/settings/language", "language"),
   item("administrators", "Yöneticiler", "/settings/administrators", "administrators"),
   item("payment-settings", "Ödeme", "/settings/payment", "payment"),
+  item("pricing-settings", "Fiyatlandırma", "/settings/pricing", "price-lists"),
   item("shipping-settings", "Kargo", "/settings/shipping", "shipping"),
   item("notifications", "Bildirimler", "/settings/notifications", "email"),
   item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "settings"),
@@ -305,6 +307,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/general": presentation("Genel Ayarlar"),
   "/settings/language": presentation("Dil Ayarları"),
   "/settings/payment": presentation("Ödeme Ayarları"),
+  "/settings/pricing": presentation("Kur ve Altın Referansları"),
   "/settings/shipping": presentation("Kargo Ayarları"),
   "/settings/administrators": presentation("Yöneticiler"),
   "/settings/notifications": presentation("Bildirimler"),

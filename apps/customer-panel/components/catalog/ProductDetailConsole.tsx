@@ -21,6 +21,7 @@ import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalo
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
+import { VariantPricingPolicyControl } from "@/components/reference-pricing/VariantPricingPolicyControl";
 import catalogStyles from "./catalog-operations.module.css";
 
 function value(data: FormData, key: string) {
@@ -64,7 +65,9 @@ export function ProductDetailConsole({
   productId,
   canManage = false,
   canArchive = false,
-}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean }>) {
+  canReadPricing = false,
+  canManagePricing = false,
+}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canReadPricing?: boolean; canManagePricing?: boolean }>) {
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [merchandisingState, setMerchandisingState] = useState<"loading" | "ready" | "error">("loading");
@@ -78,6 +81,7 @@ export function ProductDetailConsole({
   const [editingMerchandising, setEditingMerchandising] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [editingVariant, setEditingVariant] = useState<string>();
+  const [pricingVariantId, setPricingVariantId] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
@@ -164,6 +168,7 @@ export function ProductDetailConsole({
     setEditingMerchandising(false);
     setCreatingVariant(false);
     setEditingVariant(undefined);
+    setPricingVariantId(undefined);
   }
 
   function openExclusiveEditor(editor: "product" | "variant-create" | "variant-edit" | "sales", variantId?: string) {
@@ -477,9 +482,10 @@ export function ProductDetailConsole({
                   <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                   <span><small>Stok</small><strong>{variant.stockTracking ? `${variant.stockQuantity} adet` : "Takip dışı"}</strong></span>
                 </div>
-                <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)}>Düzenle</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>
+                <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)}>Düzenle</button> : null}{canReadPricing && !archived ? <button className="button button-secondary" type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>
               </>
             )}
+            {pricingVariantId === variant.id && canReadPricing && !archived ? <VariantPricingPolicyControl variantId={variant.id} variantVersion={variant.version} fixedPriceCents={variant.priceCents} canManage={canManagePricing} onSaved={() => void load()} onClose={() => setPricingVariantId(undefined)} /> : null}
           </article>
         ))}
       </div>
