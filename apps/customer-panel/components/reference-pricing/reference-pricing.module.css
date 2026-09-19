@@ -124,6 +124,17 @@
 .policyFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .policyHelp { color: var(--rp-secondary); font-size: 13px; }
 .policyActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.policyPreview { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--rp-border); border-radius: 10px; background: var(--rp-canvas); }
+.policyPreview h4 { margin: 0 0 4px; font-size: 14px; }
+.policyPreview > div:first-child p { color: var(--rp-secondary); font-size: 13px; }
+.priceComparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.priceComparison > div { display: grid; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--rp-border); border-radius: 8px; background: var(--rp-surface); }
+.priceComparison span { color: var(--rp-secondary); font-size: 12px; }
+.priceComparison strong { overflow-wrap: anywhere; font-size: 20px; line-height: 1.3; }
+.policyTrace { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0; }
+.policyTrace > div { display: flex; justify-content: space-between; gap: 12px; min-width: 0; border-bottom: 1px solid var(--rp-border); padding-bottom: 8px; font-size: 13px; }
+.policyTrace dt { color: var(--rp-secondary); }
+.policyTrace dd { margin: 0; overflow-wrap: anywhere; text-align: right; }
 
 @media (max-width: 1024px) {
   .definitionForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -140,7 +151,9 @@
   .sectionHeading { flex-direction: column; }
   .rateRow,
   .definitionForm,
-  .policyFields { grid-template-columns: minmax(0, 1fr); }
+  .policyFields,
+  .priceComparison,
+  .policyTrace { grid-template-columns: minmax(0, 1fr); }
   .rateControls { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .rateControls > label:first-child,
   .rateControls > small,

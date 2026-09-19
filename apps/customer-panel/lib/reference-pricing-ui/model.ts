@@ -1,5 +1,5 @@
 import { parseVariantPricingPolicy, type ReferenceIdentity, type VariantPricingPolicy } from "@celebix/saas-contracts";
-import type { ReferenceImpactPreview, ReferenceSetValue } from "@celebix/saas-data";
+import type { ReferenceImpactPreview, ReferenceSetValue, VariantPolicyPreview } from "@celebix/saas-data";
 
 import { parseTurkishPricingDecimal } from "./decimal.ts";
 
@@ -95,4 +95,23 @@ export function buildVariantPricingPolicy(draft: VariantPolicyDraft): VariantPri
     }
   } catch { invalid(); }
   return invalid();
+}
+
+export function canSaveVariantPolicy(input: Readonly<{
+  variantId: string;
+  expectedVariantVersion: number;
+  expectedPolicyVersion: number;
+  previewedPolicy: VariantPricingPolicy | null;
+  candidatePolicy: VariantPricingPolicy;
+  preview: VariantPolicyPreview | null;
+}>): boolean {
+  const selected = input.preview;
+  if (!selected || !input.previewedPolicy || selected.newPriceCents === null
+    || selected.variantId !== input.variantId
+    || selected.variantVersion !== input.expectedVariantVersion
+    || selected.policyVersion !== input.expectedPolicyVersion
+    || selected.method !== input.candidatePolicy.method
+    || !/^[a-f0-9]{64}$/.test(selected.scopeDigest)) return false;
+  try { return JSON.stringify(input.previewedPolicy) === JSON.stringify(input.candidatePolicy); }
+  catch { return false; }
 }

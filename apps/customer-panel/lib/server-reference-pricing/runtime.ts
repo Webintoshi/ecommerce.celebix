@@ -12,7 +12,7 @@ export type ServerReferencePricingRuntime = Readonly<{
 }>;
 
 const METHODS = Object.freeze([
-  "listDefinitions", "list", "get", "getPolicy", "preview",
+  "listDefinitions", "list", "get", "getPolicy", "previewPolicy", "preview",
   "define", "saveSet", "activate", "savePolicy",
 ] as const);
 const repositories = new WeakMap<ServerPanelAccessRuntime, ReferencePricingRepository>();

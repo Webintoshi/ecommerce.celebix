@@ -11,6 +11,7 @@ import type {
   ReferenceSetDetail,
   ReferenceSetList,
   ReferenceSetValue,
+  VariantPolicyPreview,
   VariantPolicyProjection,
 } from "@celebix/saas-data";
 
@@ -200,4 +201,31 @@ export function policyOutput(value: unknown): VariantPolicyProjection {
     variantId: id(raw.variantId), variantVersion: integer(raw.variantVersion, 1),
     version: integer(raw.version, 1), policy: policy(raw.policy), updatedAt: microsecondUtc(raw.updatedAt),
   });
+}
+
+export function policyPreviewOutput(value: unknown): VariantPolicyPreview {
+  const raw = exact(value, [
+    "variantId", "oldPriceCents", "newPriceCents", "sourceKind", "priceListId",
+    "activeSetId", "activeSetVersion", "referenceId", "referenceRateTry", "method",
+    "metalComponentTry", "laborTry", "policyVersion", "variantVersion", "scopeDigest",
+  ]);
+  if (raw.sourceKind !== null && raw.sourceKind !== "base" && raw.sourceKind !== "price_list") invalid();
+  if (raw.method !== "fixed_try" && raw.method !== "usd" && raw.method !== "eur" && raw.method !== "gold_gram") invalid();
+  const cents = (entry: unknown) => entry === null ? null : integer(entry, 0, 8_000_000_000);
+  const optionalId = (entry: unknown) => entry === null ? null : id(entry);
+  const amount = (entry: unknown) => entry === null ? null : decimal(entry, 8, false);
+  const output: VariantPolicyPreview = Object.freeze({
+    variantId: id(raw.variantId), oldPriceCents: cents(raw.oldPriceCents), newPriceCents: cents(raw.newPriceCents),
+    sourceKind: raw.sourceKind, priceListId: optionalId(raw.priceListId),
+    activeSetId: optionalId(raw.activeSetId), activeSetVersion: raw.activeSetVersion === null ? null : integer(raw.activeSetVersion, 0),
+    referenceId: optionalId(raw.referenceId), referenceRateTry: amount(raw.referenceRateTry), method: raw.method,
+    metalComponentTry: amount(raw.metalComponentTry), laborTry: amount(raw.laborTry),
+    policyVersion: integer(raw.policyVersion, 0), variantVersion: integer(raw.variantVersion, 1), scopeDigest: digest(raw.scopeDigest),
+  });
+  if ((output.sourceKind === "price_list") !== (output.priceListId !== null)
+    || (output.activeSetId === null) !== (output.activeSetVersion === null)) invalid();
+  if (output.method === "fixed_try" && (output.referenceId !== null || output.referenceRateTry !== null
+    || output.metalComponentTry !== null || output.laborTry !== null || output.activeSetId !== null)) invalid();
+  if (output.method !== "fixed_try" && output.referenceId === null) invalid();
+  return output;
 }

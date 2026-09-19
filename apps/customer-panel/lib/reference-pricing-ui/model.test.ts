@@ -46,3 +46,15 @@ test("variant policy drafts preserve server fixed TRY price and canonicalize sou
   });
   assert.throws(() => buildVariantPricingPolicy({ method: "gold_gram", referenceId: GOLD, gramsText: "5.000", purityMode: "direct", laborMode: "none", upliftText: "0", allowFullDiscount: false }), /reference_pricing_draft_invalid/);
 });
+
+test("candidate policy save is gated by matching preview, exact candidate and current versions", async () => {
+  const { canSaveVariantPolicy } = await import("./model.ts");
+  const policy = { method: "fixed_try" as const, fixedPriceCents: 12_345 };
+  const preview = { variantId: USD, oldPriceCents: 10_000, newPriceCents: 12_345, sourceKind: "base" as const, priceListId: null, activeSetId: null, activeSetVersion: null, referenceId: null, referenceRateTry: null, method: "fixed_try" as const, metalComponentTry: null, laborTry: null, policyVersion: 0, variantVersion: 4, scopeDigest: "a".repeat(64) };
+  const input = { variantId: USD, expectedVariantVersion: 4, expectedPolicyVersion: 0, previewedPolicy: policy, candidatePolicy: policy, preview };
+  assert.equal(canSaveVariantPolicy(input), true);
+  assert.equal(canSaveVariantPolicy({ ...input, candidatePolicy: { method: "fixed_try", fixedPriceCents: 12_346 } }), false);
+  assert.equal(canSaveVariantPolicy({ ...input, expectedVariantVersion: 5 }), false);
+  assert.equal(canSaveVariantPolicy({ ...input, preview: { ...preview, newPriceCents: null } }), false);
+  assert.equal(canSaveVariantPolicy({ ...input, preview: { ...preview, scopeDigest: "bad" } }), false);
+});

@@ -7,7 +7,7 @@ import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerReferencePricingRuntime } from "../server-reference-pricing/runtime.ts";
 import {
   activatedOutput, decimal, definitionsOutput, digest, exact, id, integer,
-  label, listOutput, policy, policyOutput, previewOutput, referenceIdentity, setOutput, setValues,
+  label, listOutput, policy, policyOutput, policyPreviewOutput, previewOutput, referenceIdentity, setOutput, setValues,
 } from "./validation.ts";
 
 const BASE = "/api/reference-pricing";
@@ -21,7 +21,7 @@ type Dependencies = Readonly<{
   now(): Date;
   requestId(): string;
 }>;
-type RouteKind = "definitions" | "list" | "get" | "getPolicy" | "preview" | "define" | "saveSet" | "activate" | "savePolicy";
+type RouteKind = "definitions" | "list" | "get" | "getPolicy" | "preview" | "previewPolicy" | "define" | "saveSet" | "activate" | "savePolicy";
 type Route = Readonly<{
   kind: RouteKind;
   method: "GET" | "POST";
@@ -77,10 +77,12 @@ function classify(request: Request): Route | Response {
     const set = /^\/api\/reference-pricing\/sets\/([0-9a-f-]{36})$/.exec(path);
     const activation = /^\/api\/reference-pricing\/sets\/([0-9a-f-]{36})\/activate$/.exec(path);
     const policyRoute = /^\/api\/reference-pricing\/policies\/([0-9a-f-]{36})$/.exec(path);
-    if (!definitions && !sets && !current && !preview && !set && !activation && !policyRoute) return error("not_found", 404);
+    const policyPreviewRoute = /^\/api\/reference-pricing\/policies\/([0-9a-f-]{36})\/preview$/.exec(path);
+    if (!definitions && !sets && !current && !preview && !set && !activation && !policyRoute && !policyPreviewRoute) return error("not_found", 404);
     if (set && !id(set[1])) return error("not_found", 404);
     if (activation && !id(activation[1])) return error("not_found", 404);
     if (policyRoute && !id(policyRoute[1])) return error("not_found", 404);
+    if (policyPreviewRoute && !id(policyPreviewRoute[1])) return error("not_found", 404);
     if (!sets && url.search !== "") return error("invalid_input", 400);
     if (definitions && request.method === "GET") return { kind: "definitions", method: "GET" };
     if (definitions && request.method === "POST") return { kind: "define", method: "POST" };
@@ -94,6 +96,7 @@ function classify(request: Request): Route | Response {
     if (activation && request.method === "POST") return { kind: "activate", method: "POST", id: id(activation[1]) };
     if (policyRoute && request.method === "GET") return { kind: "getPolicy", method: "GET", id: id(policyRoute[1]) };
     if (policyRoute && request.method === "POST") return { kind: "savePolicy", method: "POST", id: id(policyRoute[1]) };
+    if (policyPreviewRoute && request.method === "POST") return { kind: "previewPolicy", method: "POST", id: id(policyPreviewRoute[1]) };
     if (preview && request.method === "POST") return { kind: "preview", method: "POST" };
     return error("method_not_allowed", 405, { allow: definitions || sets || policyRoute ? "GET, POST" : current || set ? "GET" : "POST" });
   } catch { return error("invalid_input", 400); }
@@ -152,10 +155,15 @@ function mutationInput(value: unknown, route: Route): Readonly<Record<string, un
     });
   }
   if (route.kind === "savePolicy") {
-    const raw = exact(value, ["operationId", "expectedVariantVersion", "expectedPolicyVersion", "policy"]);
+    const raw = exact(value, ["operationId", "expectedVariantVersion", "expectedPolicyVersion", "expectedScopeDigest", "policy"]);
     return Object.freeze({ operationId: id(raw.operationId), expectedVariantVersion: integer(raw.expectedVariantVersion, 1),
-      expectedPolicyVersion: integer(raw.expectedPolicyVersion, 0), policy: policy(raw.policy),
+      expectedPolicyVersion: integer(raw.expectedPolicyVersion, 0), expectedScopeDigest: digest(raw.expectedScopeDigest), policy: policy(raw.policy),
     });
+  }
+  if (route.kind === "previewPolicy") {
+    const raw = exact(value, ["policy", "channel"]);
+    if (raw.channel !== "storefront") throw new TypeError("invalid_policy_preview_channel");
+    return Object.freeze({ policy: policy(raw.policy), channel: raw.channel });
   }
   throw new TypeError("invalid_mutation_route");
 }
@@ -183,7 +191,7 @@ async function authorize(dependencies: Dependencies, request: Request, route: Ro
   if (access.kind === "unauthorized") return error("forbidden", 403);
   if (access.kind !== "authenticated") return error("unavailable", 503);
   if (route.method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, access.tenantContext.store.slug)) return error("forbidden", 403);
-  const action = route.method === "GET" || route.kind === "preview" ? "pricing.read" : "pricing.manage";
+  const action = route.method === "GET" || route.kind === "preview" || route.kind === "previewPolicy" ? "pricing.read" : "pricing.manage";
   if (!isMerchantActionAllowed(access.tenantContext.membership.role, action)) return error("forbidden", 403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
@@ -223,6 +231,13 @@ export function createReferencePricingHttpHandler(dependencies: Dependencies) {
         const safe = input as Parameters<ReferencePricingRepository["preview"]>[0];
         const result = previewOutput(await pricing.preview({ ...authority, ...safe }));
         return result.setId === safe.setId && result.entries.length <= safe.pageSize ? response(result) : error("unavailable", 503);
+      }
+      if (route.kind === "previewPolicy") {
+        const safe = input as Parameters<ReferencePricingRepository["previewPolicy"]>[0];
+        const result = policyPreviewOutput(await pricing.previewPolicy({ ...authority, ...safe, variantId: route.id! }));
+        return result.variantId === route.id && result.method === safe.policy.method
+          && (safe.policy.method === "fixed_try" || result.referenceId === safe.policy.referenceId)
+          ? response(result) : error("unavailable", 503);
       }
       if (route.kind === "define") {
         const safe = input as Parameters<ReferencePricingRepository["define"]>[0];

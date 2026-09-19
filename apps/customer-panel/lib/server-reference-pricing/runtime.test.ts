@@ -4,7 +4,7 @@ import test from "node:test";
 import type { ReferencePricingRepository } from "@celebix/saas-data";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 
-const METHODS = ["listDefinitions", "list", "get", "getPolicy", "preview", "define", "saveSet", "activate", "savePolicy"] as const;
+const METHODS = ["listDefinitions", "list", "get", "getPolicy", "previewPolicy", "preview", "define", "saveSet", "activate", "savePolicy"] as const;
 
 function access(mode: "approved_staging" | "disabled" = "approved_staging"): ServerPanelAccessRuntime {
   return Object.freeze({ readiness: Object.freeze({ mode }), panelOrigin: mode === "approved_staging" ? "https://panel.test" : null }) as ServerPanelAccessRuntime;

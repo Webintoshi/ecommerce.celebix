@@ -1,12 +1,12 @@
 import type { VariantPricingPolicy } from "@celebix/saas-contracts";
 import type {
   ActivatedReferenceSet, ReferenceDefinitionList, ReferenceImpactPreview, ReferenceSetDetail,
-  ReferenceSetList, ReferenceSetValue, VariantPolicyProjection,
+  ReferenceSetList, ReferenceSetValue, VariantPolicyPreview, VariantPolicyProjection,
 } from "@celebix/saas-data";
 
 import {
   activatedOutput, decimal, definitionsOutput, digest, exact, id, integer, label,
-  listOutput, policy, policyOutput, previewOutput, referenceIdentity, setOutput, setValues,
+  listOutput, policy, policyOutput, policyPreviewOutput, previewOutput, referenceIdentity, setOutput, setValues,
 } from "../reference-pricing-http/validation.ts";
 
 type ServerCode = "invalid_input" | "conflict" | "forbidden" | "not_found" | "unauthenticated" | "method_not_allowed" | "unavailable";
@@ -149,6 +149,19 @@ export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => 
         return result;
       }, undefined, signal);
     },
+    async previewPolicy(selection: Readonly<{ variantId: string; policy: VariantPricingPolicy; channel: "storefront" }>, signal?: AbortSignal): Promise<VariantPolicyPreview> {
+      const safe = safeInput(() => {
+        const raw = exact(selection, ["variantId", "policy", "channel"]);
+        if (raw.channel !== "storefront") invalid();
+        return Object.freeze({ variantId: id(raw.variantId), policy: policy(raw.policy), channel: raw.channel });
+      });
+      return request(`${BASE}/policies/${safe.variantId}/preview`, (value) => {
+        const result = policyPreviewOutput(value);
+        if (result.variantId !== safe.variantId || result.method !== safe.policy.method
+          || (safe.policy.method !== "fixed_try" && result.referenceId !== safe.policy.referenceId)) invalid();
+        return result;
+      }, { policy: safe.policy, channel: safe.channel }, signal);
+    },
     async preview(selection: Readonly<{ setId: string; channel: "storefront" | "quick_order"; pageSize: number; afterVariantId?: string }>, signal?: AbortSignal): Promise<ReferenceImpactPreview> {
       const safe = safeInput(() => {
         const raw = exact(selection, ["setId", "channel", "pageSize"], ["afterVariantId"]);
@@ -200,18 +213,18 @@ export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => 
         return result;
       }, { operationId: safe.operationId, expectedStateVersion: safe.expectedStateVersion, expectedScopeDigest: safe.expectedScopeDigest }, undefined, true);
     },
-    async savePolicy(intent: Readonly<{ variantId: string; expectedVariantVersion: number; expectedPolicyVersion: number; policy: VariantPricingPolicy }>): Promise<VariantPolicyProjection> {
+    async savePolicy(intent: Readonly<{ variantId: string; expectedVariantVersion: number; expectedPolicyVersion: number; expectedScopeDigest: string; policy: VariantPricingPolicy }>): Promise<VariantPolicyProjection> {
       const safe = safeInput(() => {
-        const raw = exact(intent, ["variantId", "expectedVariantVersion", "expectedPolicyVersion", "policy"]);
+        const raw = exact(intent, ["variantId", "expectedVariantVersion", "expectedPolicyVersion", "expectedScopeDigest", "policy"]);
         return Object.freeze({ variantId: id(raw.variantId), operationId: operationId(), expectedVariantVersion: integer(raw.expectedVariantVersion, 1),
-          expectedPolicyVersion: integer(raw.expectedPolicyVersion, 0), policy: policy(raw.policy),
+          expectedPolicyVersion: integer(raw.expectedPolicyVersion, 0), expectedScopeDigest: digest(raw.expectedScopeDigest), policy: policy(raw.policy),
         });
       });
       return request(`${BASE}/policies/${safe.variantId}`, (value) => {
         const result = policyOutput(value);
         if (result.variantId !== safe.variantId) invalid();
         return result;
-      }, { operationId: safe.operationId, expectedVariantVersion: safe.expectedVariantVersion, expectedPolicyVersion: safe.expectedPolicyVersion, policy: safe.policy }, undefined, true);
+      }, { operationId: safe.operationId, expectedVariantVersion: safe.expectedVariantVersion, expectedPolicyVersion: safe.expectedPolicyVersion, expectedScopeDigest: safe.expectedScopeDigest, policy: safe.policy }, undefined, true);
     },
   });
 }

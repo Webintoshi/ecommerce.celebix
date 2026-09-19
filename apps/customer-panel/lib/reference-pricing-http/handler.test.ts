@@ -26,7 +26,7 @@ function tenant(role: "store_owner" | "editor" = "store_owner"): TenantContext {
 
 function repository(overrides: Partial<ReferencePricingRepository> = {}): ReferencePricingRepository {
   const unexpected = async (): Promise<never> => { throw new Error("unexpected repository call"); };
-  return { listDefinitions: unexpected, list: unexpected, get: unexpected, getPolicy: unexpected, preview: unexpected, define: unexpected, saveSet: unexpected, activate: unexpected, savePolicy: unexpected, ...overrides };
+  return { listDefinitions: unexpected, list: unexpected, get: unexpected, getPolicy: unexpected, preview: unexpected, previewPolicy: unexpected, define: unexpected, saveSet: unexpected, activate: unexpected, savePolicy: unexpected, ...overrides };
 }
 
 function request(path: string, options: { method?: string; body?: unknown; origin?: string | null; cookie?: string | null; headers?: HeadersInit } = {}): Request {
@@ -63,12 +63,14 @@ test("finite read and write routes pass only parsed input with server tenant aut
   const policy: VariantPricingPolicy = { method: "fixed_try", fixedPriceCents: 12_000 };
   const policyProjection = { variantId: VARIANT, variantVersion: 4, version: 1, policy, updatedAt: UTC };
   const preview = { setId: SET, scopeDigest: DIGEST, affectedProducts: 1, affectedVariants: 1, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [{ variantId: VARIANT, productId: PRODUCT, oldPriceCents: 10_000, newPriceCents: 12_000, overriddenByPriceList: false }], nextCursor: null };
+  const candidate = { variantId: VARIANT, oldPriceCents: 10_000, newPriceCents: 12_000, sourceKind: "base" as const, priceListId: null, activeSetId: null, activeSetVersion: null, referenceId: null, referenceRateTry: null, method: "fixed_try" as const, metalComponentTry: null, laborTry: null, policyVersion: 1, variantVersion: 4, scopeDigest: DIGEST };
   const pricing = repository({
     listDefinitions: observe("listDefinitions", { items: [identity] }) as ReferencePricingRepository["listDefinitions"],
     list: observe("list", { activeSetId: null, stateVersion: 3, items: [{ setId: SET, version: 2, createdAt: UTC, isActive: false }], nextCursor: null }) as ReferencePricingRepository["list"],
     get: observe("get", set) as ReferencePricingRepository["get"],
     getPolicy: observe("getPolicy", policyProjection) as ReferencePricingRepository["getPolicy"],
     preview: observe("preview", preview) as ReferencePricingRepository["preview"],
+    previewPolicy: observe("previewPolicy", candidate) as ReferencePricingRepository["previewPolicy"],
     define: observe("define", identity) as ReferencePricingRepository["define"],
     saveSet: observe("saveSet", set) as ReferencePricingRepository["saveSet"],
     activate: observe("activate", { setId: SET, version: 2, stateVersion: 4, activatedAt: UTC }) as ReferencePricingRepository["activate"],
@@ -82,13 +84,14 @@ test("finite read and write routes pass only parsed input with server tenant aut
     ["GET", `/api/reference-pricing/sets/${SET}`, undefined],
     ["GET", `/api/reference-pricing/policies/${VARIANT}`, undefined],
     ["POST", "/api/reference-pricing/preview", { setId: SET, channel: "storefront", pageSize: 50 }],
+    ["POST", `/api/reference-pricing/policies/${VARIANT}/preview`, { policy, channel: "storefront" }],
     ["POST", "/api/reference-pricing/definitions", { operationId: OP, referenceId: REFERENCE, kind: "usd", label: "USD satış" }],
     ["POST", "/api/reference-pricing/sets", { operationId: OP, setId: SET, expectedStateVersion: 3, values: [{ referenceId: REFERENCE, rateTry: "40", active: true }] }],
     ["POST", `/api/reference-pricing/sets/${SET}/activate`, { operationId: OP, expectedStateVersion: 3, expectedScopeDigest: DIGEST }],
-    ["POST", `/api/reference-pricing/policies/${VARIANT}`, { operationId: OP, expectedVariantVersion: 4, expectedPolicyVersion: 0, policy }],
+    ["POST", `/api/reference-pricing/policies/${VARIANT}`, { operationId: OP, expectedVariantVersion: 4, expectedPolicyVersion: 0, expectedScopeDigest: DIGEST, policy }],
   ] as const;
   for (const [method, path, body] of cases) assert.equal((await handle(request(path, { method, body }))).status, 200, path);
-  assert.deepEqual(calls.map(([name]) => name), ["listDefinitions", "list", "get", "get", "getPolicy", "preview", "define", "saveSet", "activate", "savePolicy"]);
+  assert.deepEqual(calls.map(([name]) => name), ["listDefinitions", "list", "get", "get", "getPolicy", "preview", "previewPolicy", "define", "saveSet", "activate", "savePolicy"]);
   for (const [, input] of calls) {
     assert.deepEqual(input.tenantContext, tenant());
     assert.deepEqual(input.now, NOW);
@@ -96,7 +99,18 @@ test("finite read and write routes pass only parsed input with server tenant aut
   }
   assert.deepEqual(calls[1]![1], { tenantContext: tenant(), now: NOW, pageSize: 20, afterSetVersion: 2 });
   assert.deepEqual(calls[5]![1], { tenantContext: tenant(), now: NOW, setId: SET, channel: "storefront", pageSize: 50 });
-  assert.deepEqual(calls[9]![1], { tenantContext: tenant(), now: NOW, operationId: OP, variantId: VARIANT, expectedVariantVersion: 4, expectedPolicyVersion: 0, policy });
+  assert.deepEqual(calls[6]![1], { tenantContext: tenant(), now: NOW, variantId: VARIANT, policy, channel: "storefront" });
+  assert.deepEqual(calls[10]![1], { tenantContext: tenant(), now: NOW, operationId: OP, variantId: VARIANT, expectedVariantVersion: 4, expectedPolicyVersion: 0, expectedScopeDigest: DIGEST, policy });
+});
+
+test("policy candidate preview is read-only for pricing readers and rejects browser authority before repository", async () => {
+  let calls = 0;
+  const candidate = { variantId: VARIANT, oldPriceCents: 10_000, newPriceCents: 12_000, sourceKind: "base" as const, priceListId: null, activeSetId: null, activeSetVersion: null, referenceId: null, referenceRateTry: null, method: "fixed_try" as const, metalComponentTry: null, laborTry: null, policyVersion: 0, variantVersion: 4, scopeDigest: DIGEST };
+  const { handle } = await handler(repository({ async previewPolicy() { calls += 1; return candidate; } }), "editor");
+  assert.equal((await handle(request(`/api/reference-pricing/policies/${VARIANT}/preview`, { method: "POST", body: { policy: { method: "fixed_try", fixedPriceCents: 12_000 }, channel: "storefront" } }))).status, 200);
+  assert.equal((await handle(request(`/api/reference-pricing/policies/${VARIANT}/preview`, { method: "POST", body: { policy: { method: "fixed_try", fixedPriceCents: 12_000 }, channel: "storefront", operationId: OP } }))).status, 400);
+  assert.equal((await handle(request(`/api/reference-pricing/policies/${VARIANT}/preview`, { method: "POST", body: { policy: { method: "fixed_try", fixedPriceCents: 12_000 }, channel: "storefront", storeId: STORE } }))).status, 400);
+  assert.equal(calls, 1);
 });
 
 test("missing session, read-only role, and cross-tenant origin deny mutation before repository", async () => {
@@ -125,6 +139,8 @@ test("unexpected routes, query fields, private headers, and malformed bodies fai
     ["POST", "/api/reference-pricing/sets", { body: { operationId: OP, setId: SET, expectedStateVersion: 0, values: [{ referenceId: REFERENCE, rateTry: "40", active: true }], storeId: STORE } }, 400],
     ["POST", "/api/reference-pricing/sets", { body: { operationId: OP, setId: SET, expectedStateVersion: 0, values: [{ referenceId: REFERENCE, rateTry: "0", active: true }] } }, 400],
     ["POST", "/api/reference-pricing/preview", { body: { setId: SET, channel: "browser", pageSize: 50 } }, 400],
+    ["POST", `/api/reference-pricing/policies/${VARIANT}/preview`, { body: { policy: { method: "fixed_try", fixedPriceCents: 12_000 }, channel: "quick_order" } }, 400],
+    ["POST", `/api/reference-pricing/policies/${VARIANT}`, { body: { operationId: OP, expectedVariantVersion: 4, expectedPolicyVersion: 0, policy: { method: "fixed_try", fixedPriceCents: 12_000 } } }, 400],
     ["DELETE", `/api/reference-pricing/sets/${SET}`, {}, 405],
   ] as const) assert.equal((await handle(request(path, { method, ...options }))).status, status, `${method} ${path}`);
   assert.equal(calls, 0);

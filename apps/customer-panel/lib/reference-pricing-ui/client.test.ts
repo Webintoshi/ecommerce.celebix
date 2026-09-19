@@ -16,6 +16,7 @@ const set = { setId: SET, version: 1, stateVersion: 2, isActive: false, createdA
 const policy: VariantPricingPolicy = { method: "fixed_try", fixedPriceCents: 12_000 };
 const projection = { variantId: VARIANT, variantVersion: 4, version: 1, policy, updatedAt: UTC };
 const preview = { setId: SET, scopeDigest: DIGEST, affectedProducts: 1, affectedVariants: 1, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [{ variantId: VARIANT, productId: PRODUCT, oldPriceCents: 10_000, newPriceCents: 12_000, overriddenByPriceList: false }], nextCursor: null };
+const candidate = { variantId: VARIANT, oldPriceCents: 10_000, newPriceCents: 12_000, sourceKind: "base" as const, priceListId: null, activeSetId: null, activeSetVersion: null, referenceId: null, referenceRateTry: null, method: "fixed_try" as const, metalComponentTry: null, laborTry: null, policyVersion: 1, variantVersion: 4, scopeDigest: DIGEST };
 
 async function clientModule() { return import("./client.ts"); }
 
@@ -26,6 +27,7 @@ test("reference-pricing browser client uses finite same-origin routes and server
     const path = String(input);
     calls.push([path, init]);
     if (path.endsWith("/definitions")) return Response.json(init?.method === "POST" ? identity : { items: [identity] });
+    if (path.endsWith(`/policies/${VARIANT}/preview`)) return Response.json(candidate);
     if (path.endsWith("/preview")) return Response.json(preview);
     if (path.endsWith("/activate")) return Response.json({ setId: SET, version: 1, stateVersion: 3, activatedAt: UTC });
     if (path.endsWith(`/policies/${VARIANT}`)) return Response.json(projection);
@@ -38,14 +40,16 @@ test("reference-pricing browser client uses finite same-origin routes and server
   await api.getSet(SET);
   await api.getPolicy(VARIANT);
   await api.preview({ setId: SET, channel: "storefront", pageSize: 50 });
+  await api.previewPolicy({ variantId: VARIANT, policy, channel: "storefront" });
   await api.define({ referenceId: REFERENCE, kind: "usd", label: "USD satış" });
   await api.saveSet({ setId: SET, expectedStateVersion: 2, values: [{ referenceId: REFERENCE, rateTry: "40.5", active: true }] });
   await api.activate({ setId: SET, expectedStateVersion: 2, expectedScopeDigest: DIGEST });
-  await api.savePolicy({ variantId: VARIANT, expectedVariantVersion: 4, expectedPolicyVersion: 1, policy });
+  await api.savePolicy({ variantId: VARIANT, expectedVariantVersion: 4, expectedPolicyVersion: 1, expectedScopeDigest: DIGEST, policy });
   assert.deepEqual(calls.map(([path]) => path), [
     "/api/reference-pricing/definitions", "/api/reference-pricing/sets?pageSize=20&afterSetVersion=2",
     "/api/reference-pricing/sets/current", `/api/reference-pricing/sets/${SET}`,
     `/api/reference-pricing/policies/${VARIANT}`, "/api/reference-pricing/preview",
+    `/api/reference-pricing/policies/${VARIANT}/preview`,
     "/api/reference-pricing/definitions", "/api/reference-pricing/sets",
     `/api/reference-pricing/sets/${SET}/activate`, `/api/reference-pricing/policies/${VARIANT}`,
   ]);
@@ -58,8 +62,33 @@ test("reference-pricing browser client uses finite same-origin routes and server
       assert.equal(Object.hasOwn(body, "operationId"), !Object.hasOwn(body, "channel"));
     }
   }
-  assert.equal(JSON.parse(String(calls[6]?.[1]?.body)).operationId, OP);
+  assert.equal(JSON.parse(String(calls[7]?.[1]?.body)).operationId, OP);
   assert.deepEqual(JSON.parse(String(calls[5]?.[1]?.body)), { setId: SET, channel: "storefront", pageSize: 50 });
+  assert.deepEqual(JSON.parse(String(calls[6]?.[1]?.body)), { policy, channel: "storefront" });
+});
+
+test("policy preview rejects uncorrelated or malformed server traces and stays read-only over POST", async () => {
+  const { createReferencePricingApi, ReferencePricingApiError } = await clientModule();
+  for (const hostile of [
+    { ...candidate, variantId: PRODUCT },
+    { ...candidate, method: "usd" },
+    { ...candidate, scopeDigest: "bad" },
+    { ...candidate, referenceRateTry: "40", referenceId: REFERENCE },
+    { ...candidate, tenantId: PRODUCT },
+  ]) {
+    const api = createReferencePricingApi(async () => Response.json(hostile), () => OP);
+    await assert.rejects(() => api.previewPolicy({ variantId: VARIANT, policy, channel: "storefront" }), (error: unknown) => error instanceof ReferencePricingApiError && error.code === "unavailable");
+  }
+  let calls = 0;
+  const api = createReferencePricingApi(async (_path, init) => { calls += 1; assert.equal(init?.method, "POST"); return Response.json(candidate); }, () => OP);
+  assert.deepEqual(await api.previewPolicy({ variantId: VARIANT, policy, channel: "storefront" }), candidate);
+  assert.equal(calls, 1);
+  const unresolvedOld = { ...candidate, oldPriceCents: null, sourceKind: null };
+  const unresolvedOldApi = createReferencePricingApi(async () => Response.json(unresolvedOld), () => OP);
+  assert.deepEqual(await unresolvedOldApi.previewPolicy({ variantId: VARIANT, policy, channel: "storefront" }), unresolvedOld);
+  await assert.rejects(() => api.previewPolicy({ variantId: VARIANT, policy, channel: "quick_order" as never }), /reference_pricing_client_invalid/);
+  await assert.rejects(() => api.savePolicy({ variantId: VARIANT, expectedVariantVersion: 4, expectedPolicyVersion: 1, policy } as never), /reference_pricing_client_invalid/);
+  assert.equal(calls, 1);
 });
 
 test("reference-pricing client rejects unapproved inputs before fetch and unexpected outputs after fetch", async () => {
