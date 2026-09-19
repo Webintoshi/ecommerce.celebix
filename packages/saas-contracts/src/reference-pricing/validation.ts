@@ -2,6 +2,7 @@ import type {
   FxPricingPolicy,
   GoldPricingPolicy,
   ReferenceDefinition,
+  ReferenceIdentity,
   VariantPricingPolicy,
 } from "./types.ts";
 
@@ -10,6 +11,7 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const DECIMAL = /^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/;
 const MAX_PRICE_CENTS = 8_000_000_000;
 const MAX_INTEGER_PART = BigInt(Number.MAX_SAFE_INTEGER);
+const UTC_MICROS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 type InputRecord = Readonly<Record<string, unknown>>;
 
@@ -82,6 +84,14 @@ function fixedCents(value: unknown): number {
   return value as number;
 }
 
+function timestamp(value: unknown): string {
+  if (typeof value !== "string" || !UTC_MICROS.test(value)) invalid();
+  const parsed = new Date(value);
+  const millis = value.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== millis) invalid();
+  return value;
+}
+
 function labor(parsed: InputRecord, gold: false): Readonly<{
   laborMode?: "none" | "per_item_try";
   laborAmount?: string;
@@ -124,6 +134,22 @@ export function parseReferenceDefinition(value: unknown): ReferenceDefinition {
       ...(Object.hasOwn(parsed, "referencePurity") ? { referencePurity: purity(parsed.referencePurity) } : {}),
     };
     return Object.freeze(definition);
+  });
+}
+
+export function parseReferenceIdentity(value: unknown): ReferenceIdentity {
+  return guarded(() => {
+    const parsed = exact(value, ["id", "kind", "label", "createdAt"], ["referencePurity"]);
+    if (parsed.kind !== "usd" && parsed.kind !== "eur" && parsed.kind !== "gold_gram") invalid();
+    if (parsed.kind !== "gold_gram" && Object.hasOwn(parsed, "referencePurity")) invalid();
+    const identity: ReferenceIdentity = {
+      id: uuid(parsed.id),
+      kind: parsed.kind,
+      label: text(parsed.label, 1, 120),
+      ...(Object.hasOwn(parsed, "referencePurity") ? { referencePurity: purity(parsed.referencePurity) } : {}),
+      createdAt: timestamp(parsed.createdAt),
+    };
+    return Object.freeze(identity);
   });
 }
 

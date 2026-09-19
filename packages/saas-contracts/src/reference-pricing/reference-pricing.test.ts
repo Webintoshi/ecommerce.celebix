@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   parseReferenceDefinition,
+  parseReferenceIdentity,
   parseVariantPricingPolicy,
 } from "./index.ts";
 
@@ -23,6 +24,21 @@ function goldReference() {
     referencePurity: "0.916667",
   };
 }
+
+test("immutable reference identity is separate from versioned rate values", () => {
+  const identity = parseReferenceIdentity({
+    id: GOLD_REFERENCE,
+    kind: "gold_gram",
+    label: "22 ayar gram satış",
+    referencePurity: "0.916667",
+    createdAt: "2026-09-20T12:00:00.000000Z",
+  });
+  assert.equal(identity.id, GOLD_REFERENCE);
+  assert.equal(identity.referencePurity, "0.916667");
+  assert.equal(Object.hasOwn(identity, "rateTry"), false);
+  assert.equal(Object.isFrozen(identity), true);
+  assert.throws(() => parseReferenceIdentity({ ...identity, rateTry: "5000.00000000" }));
+});
 
 function usdPolicy() {
   return { method: "usd", referenceId: USD_REFERENCE, sourceAmount: "125.00000000" };

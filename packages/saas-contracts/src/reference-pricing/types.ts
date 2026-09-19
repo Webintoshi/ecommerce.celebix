@@ -11,6 +11,14 @@ export type ReferenceDefinition = Readonly<{
   referencePurity?: string;
 }>;
 
+export type ReferenceIdentity = Readonly<{
+  id: string;
+  kind: ReferenceKind;
+  label: string;
+  referencePurity?: string;
+  createdAt: string;
+}>;
+
 export type FixedTryPricingPolicy = Readonly<{
   method: "fixed_try";
   fixedPriceCents: number;
