@@ -71,6 +71,7 @@ export * from "./analytics/index.ts";
 export * from "./inventory/index.ts";
 export * from "./iyzico-sandbox-evidence/index.ts";
 export * from "./pricing/index.ts";
+export * from "./reference-pricing/index.ts";
 export * from "./provider-execution/index.ts";
 export * from "./toshi-providers/index.ts";
 export * from "./payment-methods/index.ts";
