@@ -9,6 +9,7 @@ import { parseCommerceAttribution } from "../analytics/attribution.ts";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const QUOTE_DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+90[1-9][0-9]{9}$/;
@@ -484,7 +485,7 @@ export async function readCheckoutRequest(
       "shippingMethod",
       "paymentKind",
     ],
-    ["note", "normalizedCodes"],
+    ["note", "normalizedCodes", "expectedQuoteDigest"],
     checkoutInvalid,
   );
   if (
@@ -510,6 +511,9 @@ export async function readCheckoutRequest(
     paymentKind: row.paymentKind,
     ...(Object.hasOwn(row, "normalizedCodes")
       ? { normalizedCodes: promotionCodes(row.normalizedCodes) }
+      : {}),
+    ...(Object.hasOwn(row, "expectedQuoteDigest")
+      ? { expectedQuoteDigest: typeof row.expectedQuoteDigest === "string" && QUOTE_DIGEST.test(row.expectedQuoteDigest) ? row.expectedQuoteDigest : checkoutInvalid() }
       : {}),
     ...(Object.hasOwn(row, "note")
       ? { note: text(row.note, 1, 500, checkoutInvalid) }

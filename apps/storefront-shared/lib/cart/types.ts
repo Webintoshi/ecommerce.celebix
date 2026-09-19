@@ -72,6 +72,7 @@ export type CheckoutRequest =
       shippingMethod: "standard";
       paymentKind: "bank_transfer" | "cash_on_delivery";
       normalizedCodes?: readonly string[];
+      expectedQuoteDigest?: string;
       note?: string;
     }>
   | HostedCheckoutStartRequest;

@@ -90,6 +90,32 @@ test("checkout parser preserves an explicitly present canonical promotion code s
   assert.equal(Object.isFrozen(complete.normalizedCodes), true);
 });
 
+test("offline checkout carries only the opaque digest of the quote the customer reviewed", async () => {
+  const expectedQuoteDigest = "a".repeat(64);
+  assert.deepEqual(
+    await readCheckoutRequest(request("/api/checkout/complete", {
+      ...COMPLETE,
+      normalizedCodes: [],
+      expectedQuoteDigest,
+    }), ORIGIN),
+    { kind: "complete", ...COMPLETE, normalizedCodes: [], expectedQuoteDigest },
+  );
+  for (const value of ["", "A".repeat(64), "a".repeat(63), "a".repeat(65), "not-a-digest", null, 1]) {
+    await assert.rejects(
+      readCheckoutRequest(request("/api/checkout/complete", {
+        ...COMPLETE,
+        normalizedCodes: [],
+        expectedQuoteDigest: value,
+      }), ORIGIN),
+      /storefront_checkout_request_invalid/u,
+    );
+  }
+  await assert.rejects(
+    readCheckoutRequest(request("/api/checkout/quote", { intentKind: "cart", expectedQuoteDigest }), ORIGIN),
+    /storefront_checkout_request_invalid/u,
+  );
+});
+
 test("checkout parser rejects malformed duplicate and non-canonical promotion codes", async () => {
   for (const normalizedCodes of [
     ["VIP", "VIP"],
