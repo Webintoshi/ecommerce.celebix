@@ -50,6 +50,7 @@ export function CheckoutForm({
   const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
   const [quote, setQuote] = useState<PublicCheckoutQuote | PublicCheckoutQuoteV2 | null>(null);
+  const [quoteDigest, setQuoteDigest] = useState<string | null>(null);
   const [quoteSettled, setQuoteSettled] = useState(false);
   const [draft, setDraft] = useState<CheckoutFormDraft>(() =>
     Object.freeze({ ...EMPTY, ...initialDraft }),
@@ -79,20 +80,22 @@ export function CheckoutForm({
   useEffect(() => {
     let active = true;
     setQuote(null);
+    setQuoteDigest(null);
     setQuoteSettled(false);
     setStatus("Sipariş özeti yükleniyor.");
-    const quoted = storefrontCartClient.quotePromotions(intentKind, appliedCodes);
+    const quoted = storefrontCartClient.quotePromotionsWithDigest(intentKind, appliedCodes);
     void quoted
       .then((selected) => {
         if (!active) return;
-        setQuote(selected);
-        if ("promotionStatus" in selected) {
+        setQuote(selected.quote);
+        setQuoteDigest(selected.quoteDigest);
+        if ("promotionStatus" in selected.quote) {
           const rejected = new Set(
-            selected.rejectedPromotions.map((promotion) => promotion.normalizedCode),
+            selected.quote.rejectedPromotions.map((promotion) => promotion.normalizedCode),
           );
           setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
         }
-        for (const line of selected.cart.items)
+        for (const line of selected.quote.cart.items)
           emitStorefrontCommerceEvent({
             name: "begin_checkout",
             data: {
@@ -100,16 +103,16 @@ export function CheckoutForm({
               variantId: line.variantId,
               ...(line.categoryId ? { categoryId: line.categoryId } : {}),
               quantity: line.quantity,
-              currency: selected.cart.currency,
+              currency: selected.quote.cart.currency,
               valueMinor: line.lineTotalCents,
             },
           });
         setQuoteSettled(true);
-        setPaymentKind(selected.paymentMethods[0]?.kind ?? "");
+        setPaymentKind(selected.quote.paymentMethods[0]?.kind ?? "");
         setStatus(
-          selected.cart.checkoutReady
+          selected.quote.cart.checkoutReady
             ? "Sipariş özeti güncel."
-            : (checkoutBlockerMessage(selected.cart.checkoutBlocker) ??
+            : (checkoutBlockerMessage(selected.quote.cart.checkoutBlocker) ??
                 "Sepet ödeme için hazır değil."),
         );
       })
@@ -171,6 +174,27 @@ export function CheckoutForm({
     );
   };
 
+  const refreshAfterPriceChange = async () => {
+    setQuote(null);
+    setQuoteDigest(null);
+    setQuoteSettled(false);
+    operation.current = null;
+    try {
+      const current = await storefrontCartClient.quotePromotionsWithDigest(intentKind, appliedCodes);
+      setQuote(current.quote);
+      setQuoteDigest(current.quoteDigest);
+      const rejected = new Set(current.quote.rejectedPromotions.map((promotion) => promotion.normalizedCode));
+      setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
+      setPaymentKind(current.quote.paymentMethods[0]?.kind ?? "");
+      setStatus("Fiyat güncellendi. Lütfen yeni toplamı kontrol edip yeniden onaylayın.");
+    } catch {
+      setStatus("Güncel fiyat alınamadı. Lütfen yeniden deneyin.");
+    } finally {
+      setQuoteSettled(true);
+      setPending(false);
+    }
+  };
+
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
@@ -187,7 +211,7 @@ export function CheckoutForm({
     const selectedMethod = quote?.paymentMethods.find(
       ({ kind }) => kind === paymentKind,
     );
-    if (!quote?.cart.checkoutReady || !selectedMethod) {
+    if (!quote?.cart.checkoutReady || !selectedMethod || !quoteDigest) {
       setStatus(
         checkoutBlockerMessage(quote?.cart.checkoutBlocker ?? null) ??
           "Sipariş şu anda tamamlanamıyor.",
@@ -237,7 +261,9 @@ export function CheckoutForm({
     );
     try {
       if (selectedMethod.kind === "hosted_card") {
+        operation.current ??= crypto.randomUUID();
         const result = await storefrontCartClient.startHosted({
+          operationId: operation.current,
           cartVersion: quote.cart.version,
           intentKind,
           contact: delivery.contact,
@@ -245,6 +271,7 @@ export function CheckoutForm({
           shippingMethod: "standard",
           paymentMethodId: selectedMethod.id,
           normalizedCodes: appliedCodes,
+          expectedQuoteDigest: quoteDigest,
           ...(identityRequired ? { identityNumber } : {}),
           ...(delivery.note ? { note: delivery.note } : {}),
         });
@@ -266,9 +293,18 @@ export function CheckoutForm({
           shippingMethod: "standard",
           paymentKind: selectedMethod.kind,
           normalizedCodes: appliedCodes,
+          expectedQuoteDigest: quoteDigest,
           ...(delivery.note ? { note: delivery.note } : {}),
         }),
       });
+      if (response.status === 409) {
+        const body: unknown = await response.json().catch(() => null);
+        if (typeof body === "object" && body !== null && !Array.isArray(body)
+          && Object.keys(body).length === 1 && (body as { code?: unknown }).code === "price_changed") {
+          await refreshAfterPriceChange();
+          return;
+        }
+      }
       const destination = new URL(response.url, window.location.href);
       if (
         !response.ok ||
@@ -281,6 +317,10 @@ export function CheckoutForm({
         throw new Error("checkout_failed");
       window.location.assign("/checkout/success");
     } catch (error: unknown) {
+      if (error instanceof StorefrontCartClientError && error.code === "price_changed") {
+        await refreshAfterPriceChange();
+        return;
+      }
       setStatus(
         error instanceof StorefrontCartClientError
           ? checkoutFailureMessage(error.code)

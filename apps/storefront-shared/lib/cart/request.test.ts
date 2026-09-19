@@ -191,6 +191,18 @@ test("hosted start accepts only the exact server-priced checkout command", async
   ]) await assert.rejects(readCheckoutRequest(request("/api/checkout/payment/start", injected), ORIGIN), /storefront_checkout_request_invalid/u);
 });
 
+test("hosted start accepts only an opaque 64-hex browser quote confirmation", async () => {
+  const expectedQuoteDigest = "b".repeat(64);
+  assert.deepEqual(await readCheckoutRequest(request("/api/checkout/payment/start", {
+    ...HOSTED_START, expectedQuoteDigest,
+  }), ORIGIN), { kind: "hosted_start", ...HOSTED_START, expectedQuoteDigest });
+  for (const value of ["B".repeat(64), "b".repeat(63), null, 1]) {
+    await assert.rejects(readCheckoutRequest(request("/api/checkout/payment/start", {
+      ...HOSTED_START, expectedQuoteDigest: value,
+    }), ORIGIN), /storefront_checkout_request_invalid/u);
+  }
+});
+
 test("hosted start preserves only an explicitly present canonical promotion code set", async () => {
   const absent = await readCheckoutRequest(
     request("/api/checkout/payment/start", HOSTED_START),

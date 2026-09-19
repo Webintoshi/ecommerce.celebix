@@ -8,7 +8,7 @@ import {
   openQuickLinkSecret,
   sealQuickLinkSecret,
   StorefrontHostedCheckoutRepositoryError,
-  type HostedCheckoutAuthorityV2,
+  type HostedCheckoutAuthorityV3,
   type PaymentAttemptRepository,
   type QuickLinkKeyring,
   type StorefrontHostedCheckoutRepository,
@@ -126,10 +126,6 @@ function derivedV2Uuid(kind: string, hostname: string, operationId: string): str
   } finally { bytes.fill(0); }
 }
 
-function generatedUuid(dependencies: Dependencies): string {
-  const value = dependencies.randomUuid();
-  return UUID.test(value) ? value : unavailable();
-}
 
 function promotionCodes(request: HostedCheckoutStartRequest): readonly string[] | null {
   if (!Object.hasOwn(request,"normalizedCodes")) return null;
@@ -274,77 +270,6 @@ function openedPersistedPresentation(
   return exactPresentation(state.providerCode, record.environment, record.presentation as HostedPaymentPresentation);
 }
 
-function scopedAttempts(input: Readonly<{
-  base: PaymentAttemptRepository;
-  repository: StorefrontHostedCheckoutRepository;
-  hostname: string;
-  sourceCandidates: ReturnType<typeof sourceCandidates>;
-  request: HostedCheckoutStartRequest;
-  authority: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authority"]>>;
-  paymentSession: ReturnType<typeof createStorefrontOperationCredential>;
-  receipt: ReturnType<typeof createStorefrontOperationCredential>;
-  customer: ReturnType<typeof createStorefrontOperationCredential>;
-  sessionId: string;
-  generated: Readonly<{ orderId: string; customerId: string; addressId: string; eventId: string; receiptId: string; customerCredentialId: string }>;
-  delivery: ReturnType<typeof delivery>;
-  recordPersistence(value: Readonly<{ paymentSessionKeyId: string; receiptKeyId: string; customerKeyId: string }>): void;
-  recordPersistenceFailure(code: StorefrontHostedCheckoutErrorCode): void;
-  recordBeginOutcome(value: "created" | "replayed"): void;
-}>): PaymentAttemptRepository {
-  const scoped: PaymentAttemptRepository = {
-    begin: async (payment) => {
-      if (payment.authority.storeId !== input.authority.storeId
-        || payment.operationId !== input.request.operationId
-        || payment.paymentMethodId !== input.authority.paymentMethodId
-        || payment.orderReference !== input.authority.orderReference
-        || payment.amountMinor !== input.authority.totalMinor
-        || payment.currency !== input.authority.currency
-        || !DIGEST.test(payment.fingerprint)
-        || !DIGEST.test(payment.callbackBindingDigest)) return unavailable();
-      let begun;
-      try {
-        begun = await input.repository.begin({
-          hostname: input.hostname,
-          now: new Date(payment.authority.now),
-          intentKind: input.request.intentKind,
-          candidates: input.sourceCandidates,
-          cartVersion: input.request.cartVersion,
-          delivery: input.delivery,
-          paymentMethodId: input.request.paymentMethodId,
-          expectedAuthorityDigest: input.authority.authorityDigest,
-          operationId: input.request.operationId,
-          fingerprint: payment.fingerprint,
-          sessionId: input.sessionId,
-          callbackBindingDigest: payment.callbackBindingDigest,
-          ...input.generated,
-          paymentSession: Object.freeze({ keyId: input.paymentSession.keyId, digest: input.paymentSession.digest }),
-          receipt: Object.freeze({ keyId: input.receipt.keyId, digest: input.receipt.digest }),
-          customer: Object.freeze({ keyId: input.customer.keyId, digest: input.customer.digest }),
-        });
-      } catch (error) {
-        if (error instanceof StorefrontHostedCheckoutRepositoryError) input.recordPersistenceFailure(error.code);
-        throw error;
-      }
-      input.recordPersistence(Object.freeze({
-        paymentSessionKeyId: begun.paymentSessionKeyId,
-        receiptKeyId: begun.receiptKeyId,
-        customerKeyId: begun.customerKeyId,
-      }));
-      input.recordBeginOutcome(begun.outcome);
-      return begun;
-    },
-    markInitialized: (value) => input.base.markInitialized(value),
-    markUnknown: (value) => input.base.markUnknown(value),
-    getCallbackAuthority: (value) => input.base.getCallbackAuthority(value),
-    getReconciliationAuthority: (value) => input.base.getReconciliationAuthority(value),
-    settleCallback: (value) => input.base.settleCallback(value),
-    applyHostedCallback: (value) => input.base.applyHostedCallback(value),
-    claimReconciliation: (value) => input.base.claimReconciliation(value),
-    finalizeReconciliation: (value) => input.base.finalizeReconciliation(value),
-  };
-  return Object.freeze(scoped);
-}
-
 function scopedAttemptsV2(input: Readonly<{
   base: PaymentAttemptRepository;
   repository: StorefrontHostedCheckoutRepository;
@@ -353,7 +278,7 @@ function scopedAttemptsV2(input: Readonly<{
   customerCandidates: readonly Readonly<{ keyId: string; digest: string }>[];
   normalizedCodes: readonly string[];
   request: HostedCheckoutStartRequest;
-  authority: HostedCheckoutAuthorityV2;
+  authority: HostedCheckoutAuthorityV3;
   paymentSession: ReturnType<typeof createStorefrontOperationCredential>;
   receipt: ReturnType<typeof createStorefrontOperationCredential>;
   customer: ReturnType<typeof createStorefrontOperationCredential>;
@@ -377,14 +302,15 @@ function scopedAttemptsV2(input: Readonly<{
       let begun;
       try {
         const promotionBoundFingerprint = digest(
-          "begin:v2",
-          2,
+          "begin:v3",
+          3,
           payment.fingerprint,
           input.normalizedCodes,
           input.authority.authorityDigest,
           input.authority.evaluatorAuthorityDigest,
+          input.authority.pricingDigest,
         );
-        begun = await input.repository.beginV2({
+        begun = await input.repository.beginV3({
           hostname: input.hostname,
           now: new Date(payment.authority.now),
           intentKind: input.request.intentKind,
@@ -404,12 +330,14 @@ function scopedAttemptsV2(input: Readonly<{
           customerCandidates: input.customerCandidates,
           normalizedCodes: input.normalizedCodes,
           expectedEvaluatorAuthorityDigest: input.authority.evaluatorAuthorityDigest,
+          expectedPricingDigest: input.authority.pricingDigest,
         });
       } catch (error) {
         if (error instanceof StorefrontHostedCheckoutRepositoryError) input.recordPersistenceFailure(error.code);
         throw error;
       }
-      if (!isDeepStrictEqual(begun.authority, input.authority)
+      const { pricingDigest: _pricingDigest, requiresQuoteConfirmation: _requiresQuoteConfirmation, ...durableAuthority } = input.authority;
+      if (!isDeepStrictEqual(begun.authority, durableAuthority)
         || begun.amountMinor !== input.authority.totalMinor
         || begun.currency !== input.authority.currency) return unavailable();
       const promotionFactsPresent = input.authority.appliedPromotions.length > 0
@@ -450,48 +378,37 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const selectedNow = now(dependencies);
       const candidates = sourceCandidates(input.request, input.cookieHeader, dependencies.commerceKeyring);
       const selectedDelivery = delivery(input.request);
-      const normalizedCodes = promotionCodes(input.request);
-      let selectedAuthority:
-        | Readonly<{ version: 1; authority: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authority"]>> }>
-        | Readonly<{
-          version: 2;
-          authority: HostedCheckoutAuthorityV2;
-          customerCandidates: readonly Readonly<{ keyId: string; digest: string }>[];
-          normalizedCodes: readonly string[];
-        }>;
+      const normalizedCodes = promotionCodes(input.request) ?? Object.freeze([]);
+      let selectedAuthority: Readonly<{
+        authority: HostedCheckoutAuthorityV3;
+        customerCandidates: readonly Readonly<{ keyId: string; digest: string }>[];
+        normalizedCodes: readonly string[];
+      }>;
       try {
-        if (normalizedCodes === null) {
-          selectedAuthority = Object.freeze({
-            version: 1 as const,
-            authority: await dependencies.repository.authority({
-              hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
-              candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
-              paymentMethodId: input.request.paymentMethodId,
-            }),
-          });
-        } else {
-          const selectedCustomerCandidates = customerCandidates(input.cookieHeader, dependencies.commerceKeyring);
-          const preparedOrderId = derivedV2Uuid("order", input.hostname, input.request.operationId);
-          const authority = await dependencies.repository.authorityV2({
-            hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
-            candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
-            paymentMethodId: input.request.paymentMethodId,
-            operationId: input.request.operationId,
-            customerCandidates: selectedCustomerCandidates,
-            normalizedCodes,
-            orderId: preparedOrderId,
-            prospectiveCustomerId: derivedV2Uuid("prospective-customer", input.hostname, input.request.operationId),
-          });
-          if (authority.orderId !== preparedOrderId || !UUID.test(authority.customerId)
-            || !DIGEST.test(authority.authorityDigest) || !DIGEST.test(authority.evaluatorAuthorityDigest)
-            || !exactV2Basket(authority as unknown as Readonly<Record<string, unknown>>)) return unavailable();
-          selectedAuthority = Object.freeze({
-            version: 2 as const,
-            authority,
-            customerCandidates: selectedCustomerCandidates,
-            normalizedCodes,
-          });
-        }
+        const selectedCustomerCandidates = customerCandidates(input.cookieHeader, dependencies.commerceKeyring);
+        const preparedOrderId = derivedV2Uuid("order", input.hostname, input.request.operationId);
+        const authority = await dependencies.repository.authorityV3({
+          hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
+          candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
+          paymentMethodId: input.request.paymentMethodId,
+          operationId: input.request.operationId,
+          customerCandidates: selectedCustomerCandidates,
+          normalizedCodes,
+          orderId: preparedOrderId,
+          prospectiveCustomerId: derivedV2Uuid("prospective-customer", input.hostname, input.request.operationId),
+        });
+        if (authority.orderId !== preparedOrderId || !UUID.test(authority.customerId)
+          || !DIGEST.test(authority.authorityDigest) || !DIGEST.test(authority.evaluatorAuthorityDigest)
+          || !DIGEST.test(authority.pricingDigest) || typeof authority.requiresQuoteConfirmation !== "boolean"
+          || !exactV2Basket(authority as unknown as Readonly<Record<string, unknown>>)) return unavailable();
+        const expected = input.request.expectedQuoteDigest;
+        if (expected !== undefined && !DIGEST.test(expected)) return invalid();
+        if ((authority.requiresQuoteConfirmation && expected === undefined)
+          || (expected !== undefined && expected !== authority.pricingDigest))
+          throw new StorefrontHostedCheckoutRepositoryError("price_changed");
+        selectedAuthority = Object.freeze({
+          authority, customerCandidates: selectedCustomerCandidates, normalizedCodes,
+        });
       } catch (error) {
         audit(dependencies, "authority_failure", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : undefined);
         throw error;
@@ -516,21 +433,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const recordPersistence = (value: Readonly<{ paymentSessionKeyId: string; receiptKeyId: string; customerKeyId: string }>) => { persistedKeys = value; };
       const recordPersistenceFailure = (code: StorefrontHostedCheckoutErrorCode) => { persistenceFailureCode = code; };
       const recordBeginOutcome = (value: "created" | "replayed") => { beginOutcome = value; };
-      const scoped = selectedAuthority.version === 1
-        ? scopedAttempts({
-          base: execution.attempts, repository: dependencies.repository, hostname: input.hostname,
-          sourceCandidates: candidates, request: input.request, authority: selectedAuthority.authority,
-          paymentSession, receipt, customer, sessionId, delivery: selectedDelivery,
-          generated: Object.freeze({
-            orderId: generatedUuid(dependencies), customerId: generatedUuid(dependencies),
-            addressId: generatedUuid(dependencies), eventId: generatedUuid(dependencies),
-            receiptId: generatedUuid(dependencies), customerCredentialId: generatedUuid(dependencies),
-          }),
-          recordPersistence,
-          recordPersistenceFailure,
-          recordBeginOutcome,
-        })
-        : scopedAttemptsV2({
+      const scoped = scopedAttemptsV2({
           base: execution.attempts, repository: dependencies.repository, hostname: input.hostname,
           sourceCandidates: candidates, customerCandidates: selectedAuthority.customerCandidates,
           normalizedCodes: selectedAuthority.normalizedCodes, request: input.request,
@@ -570,7 +473,12 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         audit(dependencies, "provider_initialization_failed", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : undefined);
         throw error;
       }
-      if (persistedKeys === undefined) { audit(dependencies, "credential_persistence_missing", persistenceFailureCode); return unavailable(); }
+      if (persistedKeys === undefined) {
+        if (persistenceFailureCode === "price_changed")
+          throw new StorefrontHostedCheckoutRepositoryError("price_changed");
+        audit(dependencies, "credential_persistence_missing", persistenceFailureCode);
+        return unavailable();
+      }
       if (providerPresentation.kind === "rejected") { audit(dependencies, "provider_rejected"); return unavailable(); }
       let persistedPaymentSession: ReturnType<typeof createStorefrontOperationCredential>;
       let browserCookies: readonly string[];

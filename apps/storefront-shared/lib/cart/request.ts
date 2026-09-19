@@ -441,7 +441,7 @@ export async function readCheckoutRequest(
         "shippingMethod",
         "paymentMethodId",
       ],
-      ["identityNumber", "note", "normalizedCodes"],
+      ["identityNumber", "note", "normalizedCodes", "expectedQuoteDigest"],
       checkoutInvalid,
     );
     if (
@@ -465,6 +465,9 @@ export async function readCheckoutRequest(
       paymentMethodId: uuid(row.paymentMethodId, checkoutInvalid),
       ...(Object.hasOwn(row, "normalizedCodes")
         ? { normalizedCodes: promotionCodes(row.normalizedCodes) }
+        : {}),
+      ...(Object.hasOwn(row, "expectedQuoteDigest")
+        ? { expectedQuoteDigest: typeof row.expectedQuoteDigest === "string" && QUOTE_DIGEST.test(row.expectedQuoteDigest) ? row.expectedQuoteDigest : checkoutInvalid() }
         : {}),
       ...(Object.hasOwn(row, "identityNumber")
         ? { identityNumber: identityNumber(row.identityNumber) }

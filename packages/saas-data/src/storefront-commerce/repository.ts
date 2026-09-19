@@ -651,6 +651,43 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
     }
   }
 
+  async quoteV3(input: Parameters<StorefrontCommerceRepository["quoteV3"]>[0]) {
+    try {
+      const parsed = exactCommerceInput(input,
+        ["hostname", "now", "intentKind", "candidates", "customerCandidates", "normalizedCodes"],
+        ["attribution"]);
+      if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now")
+        throw failure("invalid_input");
+      const hasAttribution = Object.hasOwn(parsed, "attribution");
+      return await this.read(
+        "SELECT outcome,result_payload FROM saas.public_checkout_quote_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::text[],$7::jsonb)",
+        [
+          commerceHostname(parsed.hostname), commerceDate(parsed.now), parsed.intentKind,
+          JSON.stringify(commerceCandidates(parsed.candidates)),
+          JSON.stringify(commerceCandidates(parsed.customerCandidates, true)),
+          [...commercePromotionCodes(parsed.normalizedCodes)],
+          JSON.stringify(hasAttribution ? commerceAttribution(parsed.attribution) : Object.freeze({
+            firstTouch: Object.freeze({ source: "unknown", medium: "unknown" }),
+            lastTouch: Object.freeze({ source: "unknown", medium: "unknown" }),
+            landingPathGroup: "/unknown", deviceGroup: "unknown" as const,
+          })),
+        ],
+        "quoted",
+        (value) => {
+          const selected = exactResult(value, ["quote", "authorityDigest", "quoteDigest"]);
+          return Object.freeze({
+            quote: parsePublicCheckoutQuoteV2(selected.quote),
+            authorityDigest: commerceDigest(selected.authorityDigest),
+            quoteDigest: commerceDigest(selected.quoteDigest),
+          });
+        },
+      );
+    } catch (error) {
+      if (error instanceof StorefrontCommerceRepositoryError) throw error;
+      throw failure("invalid_input");
+    }
+  }
+
   private async recover<TReceipt>(
     hostname: string,
     now: Date,
@@ -850,8 +887,9 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
     }
   }
 
-  async completeV2(
-    input: Parameters<StorefrontCommerceRepository["completeV2"]>[0],
+  private async completeVersioned(
+    input: Parameters<StorefrontCommerceRepository["completeV3"]>[0],
+    version: 2 | 3,
   ) {
     let validated: Readonly<{
       hostname: string;
@@ -870,6 +908,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       receipt: ReturnType<typeof commerceGeneratedCredential>;
       customer: ReturnType<typeof commerceGeneratedCredential>;
       normalizedCodes: ReturnType<typeof commercePromotionCodes>;
+      expectedQuoteDigest: string | null;
       operationFingerprint: string;
     }>;
     try {
@@ -885,7 +924,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
         "paymentKind",
         "generated",
         "normalizedCodes",
-      ]);
+      ], version === 3 ? ["expectedQuoteDigest"] : []);
       if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now")
         throw failure("invalid_input");
       if (
@@ -921,8 +960,10 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
         customerCredentialId: customer.id,
       });
       const normalizedCodes = commercePromotionCodes(parsed.normalizedCodes);
+      const expectedQuoteDigest = version === 3 && Object.hasOwn(parsed, "expectedQuoteDigest")
+        ? commerceDigest(parsed.expectedQuoteDigest) : null;
       const operationFingerprint = fingerprint([
-        "storefront-checkout/v4",
+        version === 3 ? "storefront-checkout/v5" : "storefront-checkout/v4",
         parsed.intentKind,
         candidates,
         customerCandidates,
@@ -932,6 +973,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
         parsed.paymentKind,
         generatedIds,
         normalizedCodes,
+        ...(version === 3 ? [expectedQuoteDigest] : []),
       ]);
       validated = Object.freeze({
         hostname: commerceHostname(parsed.hostname),
@@ -950,6 +992,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
         receipt,
         customer,
         normalizedCodes,
+        expectedQuoteDigest,
         operationFingerprint,
       });
     } catch (error) {
@@ -969,7 +1012,9 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       await this.configure(client);
       const selected = envelope(
         await client.query(
-          "SELECT outcome,result_payload FROM saas.public_checkout_complete_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz,$23::text[])",
+          version === 3
+            ? "SELECT outcome,result_payload FROM saas.public_checkout_complete_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz,$23::text[],$24::text)"
+            : "SELECT outcome,result_payload FROM saas.public_checkout_complete_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz,$23::text[])",
           [
             validated.hostname,
             validated.now,
@@ -994,6 +1039,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
             validated.customer.digest,
             validated.customer.expiresAt,
             [...validated.normalizedCodes],
+            ...(version === 3 ? [validated.expectedQuoteDigest] : []),
           ],
         ),
       );
@@ -1037,6 +1083,14 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       if (error instanceof StorefrontCommerceRepositoryError) throw error;
       throw failure();
     }
+  }
+
+  async completeV2(input: Parameters<StorefrontCommerceRepository["completeV2"]>[0]) {
+    return this.completeVersioned(input, 2);
+  }
+
+  async completeV3(input: Parameters<StorefrontCommerceRepository["completeV3"]>[0]) {
+    return this.completeVersioned(input, 3);
   }
 
   async getReceipt(

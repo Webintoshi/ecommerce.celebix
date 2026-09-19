@@ -25,7 +25,7 @@ import {
 } from "../payment-attempts/validation.ts";
 import type { HostedCheckoutBeginResult, HostedCheckoutBeginV2Result, HostedCheckoutPromotionReservation } from "./types.ts";
 import { commerceCandidates, commerceDate, commerceDelivery, commerceHostname, commerceVersion } from "../storefront-commerce/validation.ts";
-import type { HostedCheckoutAuthority, HostedCheckoutAuthorityV2, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutSessionStatus } from "./types.ts";
+import type { HostedCheckoutAuthority, HostedCheckoutAuthorityV2, HostedCheckoutAuthorityV3, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutSessionStatus } from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 const KEY_ID = /^[A-Za-z0-9._-]{1,128}$/u;
@@ -36,6 +36,14 @@ const HOSTED_BEGIN_RESULT_FIELDS = Object.freeze([
   "methodConfig", "publicConfig", "sealedCredentials", "sessionId", "sessionStatus", "sessionVersion",
   "paymentSessionExpiresAt", "receiptExpiresAt", "customerExpiresAt",
   "paymentSessionKeyId", "receiptKeyId", "customerKeyId",
+] as const);
+const HOSTED_AUTHORITY_V2_FIELDS = Object.freeze([
+  "authorityDigest", "storeId", "sourceKind", "sourceId", "sourceVersion", "paymentMethodId", "methodVersion",
+  "profileId", "profileVersion", "providerCode", "environment", "credentialVersion", "executionAdapterVersion",
+  "executionEvidenceDigest", "orderReference", "orderId", "customerId", "evaluatorAuthorityDigest", "currency",
+  "subtotalMinor", "shippingMinor", "lineDiscountMinor", "shippingDiscountMinor", "discountMinor", "totalMinor",
+  "delivery", "items", "promotionStatus", "appliedPromotions", "gifts", "presentation", "requiredCustomerFields",
+  "customerName", "customerEmail", "customerPhone", "customerAddress", "city", "country", "postalCode", "basket",
 ] as const);
 
 function invalid(): never { throw new TypeError("invalid_input"); }
@@ -213,14 +221,7 @@ export function parseHostedAuthority(value: unknown): HostedCheckoutAuthority {
 }
 
 export function parseHostedAuthorityV2(value: unknown): HostedCheckoutAuthorityV2 {
-  const parsed = hostedExact(value, [
-    "authorityDigest", "storeId", "sourceKind", "sourceId", "sourceVersion", "paymentMethodId", "methodVersion",
-    "profileId", "profileVersion", "providerCode", "environment", "credentialVersion", "executionAdapterVersion",
-    "executionEvidenceDigest", "orderReference", "orderId", "customerId", "evaluatorAuthorityDigest", "currency",
-    "subtotalMinor", "shippingMinor", "lineDiscountMinor", "shippingDiscountMinor", "discountMinor", "totalMinor",
-    "delivery", "items", "promotionStatus", "appliedPromotions", "gifts", "presentation", "requiredCustomerFields",
-    "customerName", "customerEmail", "customerPhone", "customerAddress", "city", "country", "postalCode", "basket",
-  ]);
+  const parsed = hostedExact(value, HOSTED_AUTHORITY_V2_FIELDS);
   if (parsed.sourceKind !== "cart" && parsed.sourceKind !== "buy_now") invalid();
   const providerCode = provider(parsed.providerCode);
   const sourceVersion = paymentAttemptInteger(parsed.sourceVersion);
@@ -355,6 +356,18 @@ export function parseHostedAuthorityV2(value: unknown): HostedCheckoutAuthorityV
     country: parsed.country === "TR" ? "TR" : invalid(),
     ...(postalCode ? { postalCode } : {}),
     basket: safeBasket,
+  });
+}
+
+export function parseHostedAuthorityV3(value: unknown): HostedCheckoutAuthorityV3 {
+  const parsed = hostedExact(value, [...HOSTED_AUTHORITY_V2_FIELDS, "pricingDigest", "requiresQuoteConfirmation"]);
+  if (typeof parsed.requiresQuoteConfirmation !== "boolean") invalid();
+  const base: Record<string, unknown> = {};
+  for (const field of HOSTED_AUTHORITY_V2_FIELDS) base[field] = parsed[field];
+  return Object.freeze({
+    ...parseHostedAuthorityV2(base),
+    pricingDigest: paymentAttemptDigest(parsed.pricingDigest),
+    requiresQuoteConfirmation: parsed.requiresQuoteConfirmation,
   });
 }
 

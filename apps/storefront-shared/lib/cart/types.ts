@@ -1,6 +1,5 @@
 import type {
   PublicCart,
-  PublicCheckoutQuote,
   PublicCheckoutQuoteV2,
 } from "@celebix/saas-contracts";
 import type { CommerceAttribution } from "../analytics/attribution.ts";
@@ -87,6 +86,7 @@ export type HostedCheckoutStartRequest = Readonly<{
   shippingMethod: "standard";
   paymentMethodId: string;
   normalizedCodes?: readonly string[];
+  expectedQuoteDigest?: string;
   identityNumber?: string;
   note?: string;
 }>;
@@ -94,7 +94,7 @@ export type HostedCheckoutStartRequest = Readonly<{
 export type HostedCheckoutStartClientInput = Omit<
   HostedCheckoutStartRequest,
   "kind" | "operationId"
->;
+> & Readonly<{ operationId?: string }>;
 
 export type StorefrontCartClient = Readonly<{
   resolve(): Promise<PublicCart>;
@@ -119,11 +119,15 @@ export type StorefrontCartClient = Readonly<{
   buyNow(
     input: Readonly<{ productId: string; variantId: string; quantity: number }>,
   ): Promise<Readonly<{ destination: "/checkout?intent=buy-now" }>>;
-  quote(intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuote>;
+  quote(intentKind: CheckoutIntentKind): Promise<PublicCheckoutQuoteV2>;
   quotePromotions(
     intentKind: CheckoutIntentKind,
     normalizedCodes: readonly string[],
   ): Promise<PublicCheckoutQuoteV2>;
+  quotePromotionsWithDigest(
+    intentKind: CheckoutIntentKind,
+    normalizedCodes: readonly string[],
+  ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
   startHosted(
     input: HostedCheckoutStartClientInput,
   ): Promise<Readonly<{ destination: "/checkout/payment" }>>;

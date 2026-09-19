@@ -44,6 +44,8 @@ const FEATURE_OFF_QUOTE_V2 = parsePublicCheckoutQuoteV2({
   gifts: [],
   progressMessages: [],
 });
+const QUOTE_DIGEST = "b".repeat(64);
+const quoted = (quote: typeof FEATURE_OFF_QUOTE_V2) => ({ quote, authorityDigest: "a".repeat(64), quoteDigest: QUOTE_DIGEST });
 const LIMITED_LINES = Object.freeze(Array.from({ length: 21 }, (_, index) => {
   const suffix = String(index + 1).padStart(12, "0");
   return Object.freeze({
@@ -112,13 +114,51 @@ function fake(overrides: Partial<StorefrontCommerceRepository> = {}): Storefront
     createBuyNow: async () => undefined,
     quote: async () => ({ cart: CART, paymentMethods: [] }),
     quoteV2: async () => { throw new Error("unused"); },
+    quoteV3: async () => { throw new Error("unused"); },
     complete: async () => { throw new Error("unused"); },
     completeV2: async () => { throw new Error("unused"); },
+    completeV3: async () => { throw new Error("unused"); },
     getReceipt: async () => { throw new Error("unused"); },
     listAccountOrders: async () => [],
     ...overrides,
   };
 }
+
+test("all checkout quotes use V3 and expose only the opaque customer confirmation digest", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  const observed: Parameters<StorefrontCommerceRepository["quoteV3"]>[0][] = [];
+  const selected = runtime(fake({
+    quote: async () => { throw new Error("legacy_quote_called"); },
+    quoteV2: async () => { throw new Error("legacy_quote_v2_called"); },
+    quoteV3: async (input) => {
+      observed.push(input);
+      return { quote: FEATURE_OFF_QUOTE_V2, authorityDigest: "a".repeat(64), quoteDigest: "b".repeat(64) };
+    },
+  }));
+  const response = await selected.quote(HOST, `__Host-celebix_cart=${cartCredential.value}`, "cart");
+  assert.deepEqual(response, { quote: FEATURE_OFF_QUOTE_V2, quoteDigest: "b".repeat(64) });
+  assert.deepEqual(observed[0]?.normalizedCodes, []);
+  assert.equal(JSON.stringify(response).includes("authorityDigest"), false);
+});
+
+test("all offline completions use V3 with the browser-confirmed digest, including no-code checkout", async () => {
+  const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
+  const observed: Parameters<StorefrontCommerceRepository["completeV3"]>[0][] = [];
+  const selected = runtime(fake({
+    complete: async () => { throw new Error("legacy_complete_called"); },
+    completeV2: async () => { throw new Error("legacy_complete_v2_called"); },
+    completeV3: async (input) => {
+      observed.push(input);
+      return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED };
+    },
+  }));
+  const result = await selected.complete(HOST, `__Host-celebix_cart=${cartCredential.value}`,
+    { ...COMPLETE_REQUEST, expectedQuoteDigest: "b".repeat(64) });
+  assert.deepEqual(result.receipt, RECEIPT_V2);
+  assert.equal(observed.length, 1);
+  assert.deepEqual(observed[0]?.normalizedCodes, []);
+  assert.equal(observed[0]?.expectedQuoteDigest, "b".repeat(64));
+});
 
 test("recovery token is hashed before storage access and returns a fresh HttpOnly cart credential", async () => {
   let observed: Parameters<StorefrontCommerceRepository["restoreCart"]>[0] | undefined;
@@ -137,17 +177,19 @@ function runtime(repository: StorefrontCommerceRepository, selectedKeyring = key
 }
 
 test("quote exposes hosted card only while approved execution is available", async () => {
-  const onlyHosted = fake({ quote: async () => ({ cart: CART, paymentMethods: [HOSTED] }) });
-  assert.deepEqual(await runtime(onlyHosted, keyring, async () => true).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart"), { cart: CART, paymentMethods: [HOSTED] });
+  const hostedQuote = Object.freeze({ ...FEATURE_OFF_QUOTE_V2, paymentMethods: Object.freeze([HOSTED]) });
+  const onlyHosted = fake({ quoteV3: async () => quoted(hostedQuote) });
+  assert.deepEqual(await runtime(onlyHosted, keyring, async () => true).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart"), { quote: hostedQuote, quoteDigest: QUOTE_DIGEST });
   const unavailable = await runtime(onlyHosted, keyring, async () => false).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart");
-  assert.deepEqual(unavailable.paymentMethods, []);
-  assert.equal(unavailable.cart.checkoutReady, false);
-  assert.equal(unavailable.cart.checkoutBlocker, "payment_unavailable");
-  const offlineFallback = await runtime(fake({ quote: async () => ({ cart: CART, paymentMethods: [HOSTED, BANK] }) }), keyring, async () => false).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart");
-  assert.deepEqual(offlineFallback, { cart: CART, paymentMethods: [BANK] });
+  assert.deepEqual(unavailable.quote.paymentMethods, []);
+  assert.equal(unavailable.quote.cart.checkoutReady, false);
+  assert.equal(unavailable.quote.cart.checkoutBlocker, "payment_unavailable");
+  const offlineFallback = await runtime(fake({ quoteV3: async () => quoted(Object.freeze({ ...FEATURE_OFF_QUOTE_V2, paymentMethods: Object.freeze([HOSTED, BANK]) })) }), keyring, async () => false).quote(HOST, `__Host-celebix_cart=${createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4)).value}`, "cart");
+  assert.deepEqual(offlineFallback.quote.paymentMethods, [BANK]);
+  assert.equal(offlineFallback.quoteDigest, QUOTE_DIGEST);
 });
 
-test("an absent promotion code field keeps the exact V1 quote repository method and shape", async () => {
+test("an absent promotion code field uses V3 with an empty promotion set", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
   const attribution = Object.freeze({
     firstTouch: Object.freeze({ source: "atlas-qa", medium: "test" }),
@@ -155,50 +197,47 @@ test("an absent promotion code field keeps the exact V1 quote repository method 
     landingPathGroup: "/cart",
     deviceGroup: "desktop" as const,
   });
-  let observed: Parameters<StorefrontCommerceRepository["quote"]>[0] | undefined;
-  let v2Calls = 0;
+  let observed: Parameters<StorefrontCommerceRepository["quoteV3"]>[0] | undefined;
   const selected = runtime(fake({
-    quote: async (input) => { observed = input; return { cart: CART, paymentMethods: [BANK] }; },
-    quoteV2: async () => { v2Calls += 1; throw new Error("unexpected_v2"); },
+    quote: async () => { throw new Error("unexpected_v1"); },
+    quoteV2: async () => { throw new Error("unexpected_v2"); },
+    quoteV3: async (input) => { observed = input; return quoted(FEATURE_OFF_QUOTE_V2); },
   }));
 
   assert.deepEqual(
     await selected.quote(HOST, `__Host-celebix_cart=${cartCredential.value}`, "cart", attribution),
-    { cart: CART, paymentMethods: [BANK] },
+    { quote: FEATURE_OFF_QUOTE_V2, quoteDigest: QUOTE_DIGEST },
   );
   assert.deepEqual(observed, {
     hostname: HOST,
     now: NOW,
     intentKind: "cart",
     candidates: [{ keyId: cartCredential.keyId, digest: cartCredential.digest }],
+    customerCandidates: [],
+    normalizedCodes: [],
     attribution,
   });
-  assert.equal(v2Calls, 0);
-  assert.equal(Object.hasOwn(observed ?? {}, "customerCandidates"), false);
-  assert.equal(Object.hasOwn(observed ?? {}, "normalizedCodes"), false);
 });
 
-test("an explicitly present code set uses quoteV2 and keeps strict feature-off and line-limit projections public", async () => {
+test("an explicitly present code set uses quoteV3 and keeps strict feature-off and line-limit projections public", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
   const customerCredential = createStorefrontCredential("customer", keyring, (size) => new Uint8Array(size).fill(5));
   const cookie = `__Host-celebix_cart=${cartCredential.value}; __Host-celebix_customer=${customerCredential.value}`;
-  const observed: Parameters<StorefrontCommerceRepository["quoteV2"]>[0][] = [];
+  const observed: Parameters<StorefrontCommerceRepository["quoteV3"]>[0][] = [];
   let v1Calls = 0;
   const projections = [FEATURE_OFF_QUOTE_V2, LIMITED_QUOTE_V2];
   const selected = runtime(fake({
     quote: async () => { v1Calls += 1; throw new Error("unexpected_v1"); },
-    quoteV2: async (input) => ({
-      quote: projections[observed.push(input) - 1]!,
-      authorityDigest: "a".repeat(64),
-    }),
+    quoteV2: async () => { throw new Error("unexpected_v2"); },
+    quoteV3: async (input) => quoted(projections[observed.push(input) - 1]!),
   }));
 
   const featureOff = await selected.quote(HOST, cookie, "cart", undefined, ["VIP", "YUZDE10"]);
   const limited = await selected.quote(HOST, cookie, "cart", undefined, []);
 
-  assert.deepEqual(featureOff, FEATURE_OFF_QUOTE_V2);
-  assert.deepEqual(limited, LIMITED_QUOTE_V2);
-  assert.equal(limited.promotionStatus.kind, "not_evaluated");
+  assert.deepEqual(featureOff, { quote: FEATURE_OFF_QUOTE_V2, quoteDigest: QUOTE_DIGEST });
+  assert.deepEqual(limited, { quote: LIMITED_QUOTE_V2, quoteDigest: QUOTE_DIGEST });
+  assert.equal(limited.quote.promotionStatus.kind, "not_evaluated");
   assert.equal(Object.hasOwn(featureOff, "authorityDigest"), false);
   assert.equal(v1Calls, 0);
   assert.deepEqual(observed, [
@@ -221,12 +260,13 @@ test("an explicitly present code set uses quoteV2 and keeps strict feature-off a
   ]);
 });
 
-test("runtime rejects malformed V2 code sets before either quote repository method", async () => {
+test("runtime rejects malformed code sets before any quote repository method", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
   let calls = 0;
   const selected = runtime(fake({
     quote: async () => { calls += 1; throw new Error("unexpected_v1"); },
     quoteV2: async () => { calls += 1; throw new Error("unexpected_v2"); },
+    quoteV3: async () => { calls += 1; throw new Error("unexpected_v3"); },
   }));
   for (const codes of [["VIP", "VIP"], ["vip"], ["BIR", "IKI", "UC", "DORT", "BES", "ALTI"]]) {
     await assert.rejects(
@@ -304,54 +344,38 @@ test("buy now persists a purpose-isolated intent and returns only the fixed dest
   assert.equal(readStorefrontCredentialCookie("cart", result.setCookie ?? "").kind, "missing");
 });
 
-test("an absent promotion code field keeps the exact V1 complete repository method and generated shape", async () => {
+test("an absent promotion code field uses atomic V3 completion with deterministic identities", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
-  let observed: Parameters<StorefrontCommerceRepository["complete"]>[0] | undefined;
-  let v2Calls = 0;
+  let observed: Parameters<StorefrontCommerceRepository["completeV3"]>[0] | undefined;
   const selected = runtime(fake({
-    complete: async (input) => { observed = input; return { receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED }; },
-    completeV2: async () => { v2Calls += 1; throw new Error("unexpected_v2"); },
+    complete: async () => { throw new Error("unexpected_v1"); },
+    completeV2: async () => { throw new Error("unexpected_v2"); },
+    completeV3: async (input) => { observed = input; return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED }; },
   }));
 
   await selected.complete(HOST, `__Host-celebix_cart=${cartCredential.value}`, COMPLETE_REQUEST);
 
-  assert.equal(v2Calls, 0);
   assert.deepEqual(Object.keys(observed ?? {}), [
     "hostname", "now", "intentKind", "candidates", "customerCandidates",
-    "operationId", "cartVersion", "delivery", "paymentKind", "generated",
+    "operationId", "cartVersion", "delivery", "paymentKind", "generated", "normalizedCodes",
   ]);
-  assert.deepEqual(observed?.generated, {
-    orderId: "40000000-0000-4000-8000-000000000003",
-    customerId: "40000000-0000-4000-8000-000000000004",
-    addressId: "40000000-0000-4000-8000-000000000005",
-    eventId: "40000000-0000-4000-8000-000000000006",
-    receipt: {
-      id: "40000000-0000-4000-8000-000000000001",
-      keyId: "current_01",
-      digest: createStorefrontOperationCredential("receipt", OPERATION, keyring).digest,
-      expiresAt: new Date("2026-07-31T12:15:00.000Z"),
-    },
-    customer: {
-      id: "40000000-0000-4000-8000-000000000002",
-      keyId: "current_01",
-      digest: createStorefrontOperationCredential("customer", OPERATION, keyring).digest,
-      expiresAt: new Date("2026-08-30T12:00:00.000Z"),
-    },
-  });
-  assert.equal(Object.hasOwn(observed ?? {}, "normalizedCodes"), false);
+  assert.deepEqual(observed?.normalizedCodes, []);
+  assert.match(observed?.generated.orderId ?? "", /^[a-f0-9-]{36}$/u);
+  assert.equal(Object.hasOwn(observed ?? {}, "expectedQuoteDigest"), false);
 });
 
-test("present promotion codes select one atomic completeV2 call with deterministic identities", async () => {
+test("present promotion codes select one atomic completeV3 call with deterministic identities", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
   const customerCredential = createStorefrontCredential("customer", keyring, (size) => new Uint8Array(size).fill(5));
   const cookie = `__Host-celebix_cart=${cartCredential.value}; __Host-celebix_customer=${customerCredential.value}`;
-  const observed: Parameters<StorefrontCommerceRepository["completeV2"]>[0][] = [];
+  const observed: Parameters<StorefrontCommerceRepository["completeV3"]>[0][] = [];
   let v1Calls = 0;
   let randomUuidCalls = 0;
   const selected = createStorefrontCommerceRuntime({
     repository: fake({
       complete: async () => { v1Calls += 1; throw new Error("unexpected_v1"); },
-      completeV2: async (input) => {
+      completeV2: async () => { throw new Error("unexpected_v2"); },
+      completeV3: async (input) => {
         observed.push(input);
         return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED };
       },
@@ -415,12 +439,13 @@ test("present promotion codes select one atomic completeV2 call with determinist
   assert.doesNotMatch(JSON.stringify(observed), /authorityDigest|subtotalCents|totalCents|storeId/u);
 });
 
-test("runtime rejects malformed completeV2 code sets before either completion method", async () => {
+test("runtime rejects malformed code sets before any completion method", async () => {
   const cartCredential = createStorefrontCredential("cart", keyring, (size) => new Uint8Array(size).fill(4));
   let calls = 0;
   const selected = runtime(fake({
     complete: async () => { calls += 1; throw new Error("unexpected_v1"); },
     completeV2: async () => { calls += 1; throw new Error("unexpected_v2"); },
+    completeV3: async () => { calls += 1; throw new Error("unexpected_v3"); },
   }));
   await assert.rejects(
     selected.complete(HOST, `__Host-celebix_cart=${cartCredential.value}`, {
@@ -436,7 +461,7 @@ test("receipt and mixed-version account reads require their isolated HttpOnly cr
   const observations: unknown[] = [];
   const selected = runtime(fake({
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
-    complete: async () => ({ receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED }),
+    completeV3: async () => ({ receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED }),
     getReceipt: async (input) => { observations.push(input); return RECEIPT_V2; },
     listAccountOrders: async (input) => { observations.push(input); return [RECEIPT, RECEIPT_V2]; },
   }));
@@ -451,10 +476,10 @@ test("receipt and mixed-version account reads require their isolated HttpOnly cr
 });
 
 test("checkout replay restores deterministic persisted credentials", async () => {
-  const selected = runtime(fake({ mutateCart: async () => ({ credentialCreated: true, cart: CART }), complete: async () => ({ receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED }) }));
+  const selected = runtime(fake({ mutateCart: async () => ({ credentialCreated: true, cart: CART }), completeV3: async () => ({ receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED }) }));
   const cart = await selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
   const completed = await selected.complete(HOST, cart.setCookie ?? null, { kind: "complete", operationId: OPERATION, cartVersion: 1, intentKind: "cart", contact: { name: "Güzide Elif", email: "info@example.com", phone: "+905551112233" }, shippingAddress: { addressLine1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy" }, shippingMethod: "standard", paymentKind: "bank_transfer" });
-  assert.deepEqual(completed.receipt, RECEIPT);
+  assert.deepEqual(completed.receipt, RECEIPT_V2);
   assert.equal(completed.setCookies.length, 2);
   assert.match(completed.setCookies.join(";"), /__Host-celebix_customer=u1[.]current_01/u);
   assert.match(completed.setCookies.join(";"), /__Host-celebix_receipt=r1[.]current_01/u);
@@ -465,7 +490,7 @@ test("checkout replay reproduces persisted cookies after the active key rotates"
   let generatedKey = "";
   const selected = runtime(fake({
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
-    complete: async (input) => {
+    completeV3: async (input) => {
       generatedKey = input.generated.receipt.keyId;
       return { receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED };
     },
@@ -483,7 +508,7 @@ test("a later checkout reuses the existing customer credential and rotates only 
   let observedCustomerCandidates = 0;
   const selected = runtime(fake({
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
-    complete: async (input) => {
+    completeV3: async (input) => {
       observedCustomerCandidates = input.customerCandidates.length;
       return { receipt: RECEIPT, credentialPersistence: PERSISTED_REUSED };
     },

@@ -33,6 +33,7 @@ const GIFT_PRODUCT = "30000000-0000-4000-8000-000000000194";
 const GIFT_VARIANT = "40000000-0000-4000-8000-000000000194";
 const DIGEST = "a".repeat(64);
 const EVALUATOR_AUTHORITY_DIGEST = "2".repeat(64);
+const PRICING_DIGEST = "6".repeat(64);
 const EVALUATOR_FINGERPRINT = "3".repeat(64);
 const EVIDENCE = `sha256:${"b".repeat(64)}`;
 const CANDIDATES = Object.freeze([Object.freeze({ keyId: "cart-key", digest: DIGEST })]);
@@ -513,6 +514,35 @@ test("beginV2 binds normalized codes and the evaluator authority digest to the n
   assert.equal(result.outcome, "created");
   assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("V3 hosted authority includes only the opaque pricing proof and uses the named V3 read", async () => {
+  const prepared = { ...authorityV2(), pricingDigest: PRICING_DIGEST, requiresQuoteConfirmation: true };
+  const client = new Client((text) => text.includes("public_storefront_hosted_checkout_authority_v3")
+    ? row("found", prepared) : []);
+  const result = await repository(new Pool([client])).authorityV3({ ...authorityV2Input(), normalizedCodes: [] });
+  const { postalCode: _nullablePostalCode, ...normalized } = prepared;
+  assert.deepEqual(result, normalized);
+  const call = client.calls.find(({ text }) => text.includes("public_storefront_hosted_checkout_authority_v3"));
+  assert.equal(call?.text,
+    "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid)");
+  assert.deepEqual(call?.values?.[8], JSON.stringify([]));
+});
+
+test("V3 hosted begin binds the authority proof at final argument while preserving the V2 durable result shape", async () => {
+  const payload = { ...beginPayload(), amountMinor: 13_700, authority: authorityV2(), promotionReservation: promotionReservation() };
+  const client = new Client((text) => text.includes("public_storefront_hosted_checkout_begin_v3")
+    ? row("created", payload) : []);
+  const result = await repository(new Pool([client])).beginV3({
+    ...beginV2Input(), expectedPricingDigest: PRICING_DIGEST,
+  });
+  assert.equal(result.amountMinor, 13_700);
+  assert.equal(Object.hasOwn(result.authority, "pricingDigest"), false);
+  const call = client.calls.find(({ text }) => text.includes("public_storefront_hosted_checkout_begin_v3"));
+  assert.equal(call?.text,
+    "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text,$28::text)");
+  assert.equal(call?.values?.[27], PRICING_DIGEST);
+  assert.equal(call?.values?.length, 28);
 });
 
 test("beginV2 admits an exact null reservation for a gross no-campaign authority", async () => {

@@ -8,6 +8,7 @@ import {
   hostedPromotionCodes,
   parseHostedAuthority,
   parseHostedAuthorityV2,
+  parseHostedAuthorityV3,
   parseHostedBegin,
   parseHostedBeginV2,
   parseHostedPresentation,
@@ -19,6 +20,7 @@ import type {
   HostedCheckoutAuthorityV2Input,
   HostedCheckoutBeginInput,
   HostedCheckoutBeginV2Input,
+  HostedCheckoutBeginV3Input,
   HostedCheckoutPresentationInput,
   HostedCheckoutPresentationSaveInput,
   HostedCheckoutPresentationState,
@@ -33,7 +35,7 @@ export const STOREFRONT_HOSTED_CHECKOUT_ERROR_CODES = Object.freeze([
   "payment_method_not_found", "payment_method_inactive", "profile_not_found", "profile_not_active",
   "provider_disabled", "environment_invalid", "credential_version_mismatch", "version_conflict",
   "invalid_transition", "session_expired", "presentation_unavailable", "not_found",
-  "unavailable", "commit_unknown",
+  "unavailable", "commit_unknown", "price_changed",
 ] as const);
 export type StorefrontHostedCheckoutErrorCode = (typeof STOREFRONT_HOSTED_CHECKOUT_ERROR_CODES)[number];
 const ERROR_CODES = new Set<string>(STOREFRONT_HOSTED_CHECKOUT_ERROR_CODES);
@@ -222,6 +224,48 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
+  async authorityV3(input: HostedCheckoutAuthorityV2Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
+    try {
+      const parsed = hostedExact(input, [
+        "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
+        "customerCandidates", "normalizedCodes", "orderId", "prospectiveCustomerId", "operationId",
+      ]);
+      const base = this.authorityValues({
+        hostname: parsed.hostname as string, now: parsed.now as Date,
+        intentKind: parsed.intentKind as "cart" | "buy_now",
+        candidates: parsed.candidates as HostedCheckoutAuthorityV2Input["candidates"],
+        cartVersion: parsed.cartVersion as number,
+        delivery: parsed.delivery as HostedCheckoutAuthorityV2Input["delivery"],
+        paymentMethodId: parsed.paymentMethodId as string,
+      });
+      const orderId = hostedInput.uuid(parsed.orderId);
+      const values = [
+        ...base.values,
+        JSON.stringify(hostedInput.candidates(parsed.customerCandidates, true)),
+        JSON.stringify(hostedPromotionCodes(parsed.normalizedCodes)),
+        orderId, hostedInput.uuid(parsed.prospectiveCustomerId), hostedInput.uuid(parsed.operationId),
+      ];
+      const text = "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid)";
+      const client = await this.acquire(); let began = false; let terminal = false;
+      try {
+        await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);
+        const selectedResult = selected(await client.query(text, values));
+        if (selectedResult.outcome !== "found") return mapOutcome(selectedResult.outcome);
+        let observed: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>>;
+        try {
+          observed = parseHostedAuthorityV3(selectedResult.result);
+          if (observed.orderId !== orderId || observed.paymentMethodId !== base.paymentMethodId
+            || observed.sourceKind !== base.intentKind || observed.sourceVersion !== base.cartVersion) unavailable();
+        } catch { return unavailable(); }
+        try { await client.query("COMMIT"); terminal = true; release(client); return observed; }
+        catch { terminal = true; release(client, true); return unavailable(); }
+      } catch (error) {
+        if (began && !terminal) await rollback(client); else if (!terminal) release(client, true);
+        if (isTrusted(error)) throw error; return unavailable();
+      }
+    } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
+  }
+
   async begin(input: HostedCheckoutBeginInput): ReturnType<StorefrontHostedCheckoutRepository["begin"]> {
     try {
       const parsed = hostedExact(input, [
@@ -270,7 +314,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
-  async beginV2(input: HostedCheckoutBeginV2Input): ReturnType<StorefrontHostedCheckoutRepository["beginV2"]> {
+  private async beginVersioned(input: HostedCheckoutBeginV2Input | HostedCheckoutBeginV3Input, version: 2 | 3): ReturnType<StorefrontHostedCheckoutRepository["beginV2"]> {
     try {
       const parsed = hostedExact(input, [
         "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
@@ -278,6 +322,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         "orderId", "customerId", "addressId", "eventId", "receiptId", "customerCredentialId",
         "paymentSession", "receipt", "customer", "customerCandidates", "normalizedCodes",
         "expectedEvaluatorAuthorityDigest",
+        ...(version === 3 ? ["expectedPricingDigest"] : []),
       ]);
       const base = this.authorityValues({
         hostname: parsed.hostname as string,
@@ -299,6 +344,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
       const customerCandidates = hostedInput.candidates(parsed.customerCandidates, true);
       const normalizedCodes = hostedPromotionCodes(parsed.normalizedCodes);
       const expectedEvaluatorAuthorityDigest = hostedInput.digest(parsed.expectedEvaluatorAuthorityDigest);
+      const expectedPricingDigest = version === 3 ? hostedInput.digest(parsed.expectedPricingDigest) : undefined;
       const values = [
         ...base.values,
         expectedAuthorityDigest,
@@ -321,8 +367,11 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         JSON.stringify(customerCandidates),
         JSON.stringify(normalizedCodes),
         expectedEvaluatorAuthorityDigest,
+        ...(version === 3 ? [expectedPricingDigest] : []),
       ];
-      const text = "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text)";
+      const text = version === 3
+        ? "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text,$28::text)"
+        : "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text)";
       const client = await this.acquire(); let began = false; let terminal = false;
       try {
         await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);
@@ -354,6 +403,14 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         if (isTrusted(error)) throw error; return unavailable();
       }
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
+  }
+
+  async beginV2(input: HostedCheckoutBeginV2Input): ReturnType<StorefrontHostedCheckoutRepository["beginV2"]> {
+    return this.beginVersioned(input, 2);
+  }
+
+  async beginV3(input: HostedCheckoutBeginV3Input): ReturnType<StorefrontHostedCheckoutRepository["beginV3"]> {
+    return this.beginVersioned(input, 3);
   }
 
   async savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState> {

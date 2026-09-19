@@ -132,6 +132,9 @@ export interface StorefrontCommerceRepository {
       attribution?: StorefrontCommerceAttribution;
     }>,
   ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; authorityDigest: string }>>;
+  quoteV3(
+    input: Parameters<StorefrontCommerceRepository["quoteV2"]>[0],
+  ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; authorityDigest: string; quoteDigest: string }>>;
   complete(
     input: Readonly<{
       hostname: string;
@@ -185,6 +188,9 @@ export interface StorefrontCommerceRepository {
       credentialPersistence: StorefrontCheckoutCredentialPersistence;
     }>
   >;
+  completeV3(
+    input: Parameters<StorefrontCommerceRepository["completeV2"]>[0] & Readonly<{ expectedQuoteDigest?: string }>,
+  ): ReturnType<StorefrontCommerceRepository["completeV2"]>;
   getReceipt(
     input: Readonly<{
       hostname: string;
