@@ -14,6 +14,10 @@ export type ServerOrdersRuntime = Readonly<{
 
 const repositories = new WeakMap<ServerPanelAccessRuntime, OrderRepository>();
 const METHODS = Object.freeze([
+  "getArchiveEligibility",
+  "listArchivedOrders",
+  "archiveOrder",
+  "restoreOrder",
   "getDashboardSummary",
   "listOrders",
   "getOrder",

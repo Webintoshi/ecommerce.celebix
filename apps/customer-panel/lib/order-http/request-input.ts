@@ -246,6 +246,17 @@ export function readOrderPathId(value: unknown): string | null {
   return typeof value === "string" && UUID.test(value) ? value : null;
 }
 
+export async function readOrderArchiveInput(request: Request) {
+  const operationId=request.headers.get("idempotency-key");
+  if(operationId===null || !UUID.test(operationId)) return INVALID;
+  const parsed=exact(await boundedJson(request),["reason","evidenceReference"]);
+  if(parsed===null) return INVALID;
+  for(const value of [parsed.reason,parsed.evidenceReference]) {
+    if(typeof value!=="string"||value.length<1||value.length>500||value!==value.trim()||CONTROL.test(value)) return INVALID;
+  }
+  return Object.freeze({kind:"valid" as const,operationId,reason:parsed.reason as string,evidenceReference:parsed.evidenceReference as string});
+}
+
 export type OrderDraftMutationKind = "create" | "update" | "archive" | "convert";
 export type OrderDraftMutationValue<K extends OrderDraftMutationKind> =
   K extends "create" | "update" ? Readonly<OrderDraftSaveIntent> : Readonly<{ expectedVersion: number }>;

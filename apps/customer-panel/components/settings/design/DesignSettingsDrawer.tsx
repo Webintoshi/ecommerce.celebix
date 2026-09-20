@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 
-import type { DesignCanvasSurfaceItem } from "./design-surface-model";
+import type { DesignCanvasSurfaceItem, DesignCanvasTrigger } from "./design-surface-model";
 import styles from "../design-settings.module.css";
 
 interface DesignSettingsModalProps {
@@ -11,7 +11,7 @@ interface DesignSettingsModalProps {
   readonly surface: DesignCanvasSurfaceItem;
   readonly children: ReactNode;
   readonly onClose: () => void;
-  readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
+  readonly returnFocusRef: RefObject<DesignCanvasTrigger | null>;
 }
 
 export function DesignSettingsModal({ open, surface, children, onClose, returnFocusRef }: Readonly<DesignSettingsModalProps>) {

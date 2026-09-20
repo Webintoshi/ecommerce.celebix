@@ -37,6 +37,8 @@ export type {
 } from "./types.ts";
 export {
   parseOrderDashboardSummary,
+  parseOrderArchiveResult,
+  parseOrderArchiveEligibility,
   parseOrderDetail,
   parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,

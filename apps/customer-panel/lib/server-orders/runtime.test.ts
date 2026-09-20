@@ -33,6 +33,10 @@ function disabledAccess(): ServerPanelAccessRuntime {
 function orders(): OrderRepository {
   const reject = async () => { throw new Error("unused"); };
   return {
+    getArchiveEligibility: reject,
+    listArchivedOrders: reject,
+    archiveOrder: reject,
+    restoreOrder: reject,
     getDashboardSummary: reject,
     listOrders: reject,
     getOrder: reject,
@@ -65,7 +69,8 @@ test("approved access resolves an immutable order-only repository facade", () =>
     "addNote", "archiveDraft", "archiveNote", "convertDraft", "createDraft", "getDashboardSummary",
     "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listEmailDeliveries", "listOrders",
     "retryEmailDelivery", "transitionPayment", "transitionStatus", "updateDraft", "updateShipping",
-  ]);
+    "archiveOrder", "getArchiveEligibility", "listArchivedOrders", "restoreOrder",
+  ].sort());
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
     assert.equal(forbidden in runtime.orders, false);
   }
@@ -80,6 +85,11 @@ test("disabled access, invalid repositories, and duplicate registration fail clo
   const access = approvedAccess();
   assert.throws(
     () => registerServerOrderRepository(access, {} as OrderRepository),
+    /server_orders_runtime_invalid/,
+  );
+  const missingArchiveMethod = { ...orders(), archiveOrder: undefined } as unknown as OrderRepository;
+  assert.throws(
+    () => registerServerOrderRepository(approvedAccess(), missingArchiveMethod),
     /server_orders_runtime_invalid/,
   );
   registerServerOrderRepository(access, orders());
@@ -100,6 +110,9 @@ test("approved staging preflight gates one shared pool on exact order tables and
     assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
   }
   for (const table of ["order_drafts", "order_draft_lines", "order_draft_operations", "manual_order_inventory_commitments"]) {
+    assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
+  }
+  for (const table of ["order_archive_operations", "order_archive_state"]) {
     assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
   }
   for (const signature of [
@@ -125,4 +138,15 @@ test("approved staging preflight gates one shared pool on exact order tables and
   ]) {
     assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true);
   }
+  for (const signature of [
+    "orders_get_with_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "orders_archive_eligibility(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "orders_list_archived(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
+    "orders_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)",
+    "orders_restore(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)",
+  ]) {
+    assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true);
+    assert.equal(source.includes(`has_function_privilege('celebix_saas_app','saas.${signature}','EXECUTE')`), true);
+  }
+  assert.match(source, /row\.order_archive_repository !== true/u);
 });

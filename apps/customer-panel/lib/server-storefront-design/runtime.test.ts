@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import type { StorefrontDesignRepository } from "@celebix/saas-data";
 
@@ -35,4 +36,14 @@ test("storefront design runtime rejects disabled access and incomplete dependenc
   assert.throws(() => createServerStorefrontDesignRuntime({ access: createDisabledServerPanelAccessRuntime(), repository: repository(), storage: storage() as never }), /server_storefront_design_runtime_invalid/);
   const access = createApprovedStagingServerPanelAccessRuntime(authority(), "https://panel.saas-staging.celebix.site");
   assert.throws(() => createServerStorefrontDesignRuntime({ access, repository: {} as never, storage: storage() as never }), /server_storefront_design_runtime_invalid/);
+});
+
+test("optional preview readiness cannot disable the existing design runtime", async () => {
+  const source = await readFile(new URL("./default.ts", import.meta.url), "utf8");
+  const runtime = source.indexOf("const runtime = createServerStorefrontDesignRuntime");
+  const optionalPreview = source.indexOf("const previewResult", runtime);
+  const returned = source.indexOf("return runtime", optionalPreview);
+  assert.ok(runtime >= 0 && optionalPreview > runtime && returned > optionalPreview);
+  assert.match(source.slice(optionalPreview, returned), /catch \{ \/\* Preview remains explicitly unavailable/);
+  assert.match(source.slice(optionalPreview, returned), /public_starter_product_detail/);
 });

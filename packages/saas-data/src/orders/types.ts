@@ -66,6 +66,26 @@ export interface OrderOperationInput extends GetOrderInput {
   readonly operationId: string;
 }
 
+export interface ArchiveOrderInput extends OrderOperationInput {
+  readonly reason: string;
+  readonly evidenceReference: string;
+}
+
+export interface OrderArchiveEligibility {
+  readonly id: string;
+  readonly eligible: boolean;
+  readonly archived: boolean;
+  readonly blockers: readonly string[];
+}
+
+export interface OrderArchiveResult {
+  readonly id: string;
+  readonly archived: boolean;
+  readonly operationId: string;
+  readonly changedAt: string;
+  readonly replayed: boolean;
+}
+
 export interface TransitionOrderStatusInput extends OrderOperationInput {
   readonly expectedVersion: number;
   readonly nextStatus: OrderStatus;
@@ -110,6 +130,10 @@ export interface ListOrderDraftsResult {
 }
 
 export interface OrderRepository {
+  getArchiveEligibility(input: GetOrderInput): Promise<OrderArchiveEligibility>;
+  listArchivedOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
+  archiveOrder(input: ArchiveOrderInput): Promise<OrderArchiveResult>;
+  restoreOrder(input: ArchiveOrderInput): Promise<OrderArchiveResult>;
   getDashboardSummary(input: OrderAuthorityInput): Promise<OrderDashboardSummary>;
   listOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
   getOrder(input: GetOrderInput): Promise<OrderDetail>;

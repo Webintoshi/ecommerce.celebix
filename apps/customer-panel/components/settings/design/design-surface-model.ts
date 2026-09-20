@@ -10,6 +10,8 @@ export type DesignCanvasSurface =
   | "cart"
   | "footer";
 
+export type DesignCanvasTrigger = HTMLElement;
+
 export interface DesignCanvasSurfaceItem {
   readonly key: DesignCanvasSurface;
   readonly label: string;

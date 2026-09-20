@@ -100,6 +100,7 @@ export interface OrderListItem {
 }
 
 export interface OrderDetail extends OrderListItem {
+  readonly archive?: Readonly<{ archived: boolean; changedAt: string }>;
   readonly customerPhone?: string;
   readonly subtotalCents: number;
   readonly shippingCents: number;

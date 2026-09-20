@@ -1,4 +1,124 @@
 import assert from "node:assert/strict";
+test('archived detail shows its real history and management restore form',async()=>{
+ const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
+ const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,archive:{archived:true,changedAt:NOW}},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false},onRestoreSubmit(){},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
+ assert.match(html,/Arşivlenmiş sipariş/); assert.match(html,/Arşivden çıkar/); assert.match(html,/Keten Gömlek/);
+});
+test('restore client binds exact order and explicit operation for safe retry',async()=>{
+ const {createOrderApiClient}=await import('./order-ui/client.ts');
+ const requests:unknown[]=[];
+ const api=createOrderApiClient({fetch:async(url,init)=>{requests.push([url,init]);return json({id:ORDER_ID,archived:false,operationId:OPERATION_ID,changedAt:NOW,replayed:false});}});
+ await api.restoreOrder(ORDER_ID,{operationId:OPERATION_ID,reason:'qa fixture',evidenceReference:'qa/evidence'});
+ const [url,init]=requests[0] as [string,RequestInit]; assert.equal(url,`/api/orders/${ORDER_ID}/restore`);
+ assert.equal(new Headers(init.headers).get('idempotency-key'),OPERATION_ID);
+ assert.deepEqual(JSON.parse(init.body as string),{reason:'qa fixture',evidenceReference:'qa/evidence'});
+});
+test('archive client binds the explicit operation and rejects mismatched archive responses',async()=>{
+ const {createOrderApiClient,OrderApiError}=await import('./order-ui/client.ts');
+ const requests:Array<[RequestInfo|URL,RequestInit|undefined]>=[];
+ const accepted={id:ORDER_ID,archived:true,operationId:OPERATION_ID,changedAt:NOW,replayed:false};
+ const api=createOrderApiClient({fetch:async(url,init)=>{requests.push([url,init]);return json(accepted);}});
+ const result=await api.archiveOrder(ORDER_ID,{operationId:OPERATION_ID,reason:'Eski QA siparişi',evidenceReference:'merchant-panel/orders/archive'});
+ assert.deepEqual(result,accepted); assert.equal(Object.isFrozen(result),true);
+ const [url,init]=requests[0]??[]; assert.equal(url,`/api/orders/${ORDER_ID}/archive`);
+ assert.equal(init?.method,'POST'); assert.equal(init?.credentials,'same-origin');
+ assert.equal(new Headers(init?.headers).get('idempotency-key'),OPERATION_ID);
+ assert.deepEqual(JSON.parse(String(init?.body)),{reason:'Eski QA siparişi',evidenceReference:'merchant-panel/orders/archive'});
+ for(const response of [
+  {...accepted,id:ITEM_ID},
+  {...accepted,operationId:EVENT_ID},
+  {...accepted,archived:false},
+ ]){
+  const rejecting=createOrderApiClient({fetch:async()=>json(response)});
+  await assert.rejects(rejecting.archiveOrder(ORDER_ID,{operationId:OPERATION_ID,reason:'Eski QA siparişi',evidenceReference:'merchant-panel/orders/archive'}),error=>error instanceof OrderApiError&&error.code==='unavailable'&&error.status===503);
+ }
+});
+test('active archive action renders only for managers and never replaces archived restore',async()=>{
+ const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
+ const common={detail,state:'loaded',error:'',notice:'',busy:'',onRetry(){},onArchiveSubmit(){},onRestoreSubmit(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}};
+ const active=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
+ assert.match(active,/<details class="orderInfoCard"><summary>Siparişi arşivle<\/summary>/u);
+ assert.match(active,/<input[^>]*name="reason"/u);
+ assert.match(active,/<input[^>]*required=""/u);
+ assert.match(active,/<input[^>]*maxLength="500"/u); assert.match(active,/>Arşivle<\/button>/u);
+ assert.doesNotMatch(active,/merchant-panel\/orders\/archive|evidenceReference/u);
+ const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{fulfill:false,manage:false,payment:false,shipping:false,note:false}}));
+ assert.doesNotMatch(readOnly,/Siparişi arşivle|>Arşivle<|Arşivden çıkar/u);
+ const archived=renderToStaticMarkup(createElement(Presentation,{...common,detail:{...detail,archive:{archived:true,changedAt:NOW}},capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
+ assert.doesNotMatch(archived,/Siparişi arşivle|>Arşivle</u); assert.match(archived,/Arşivden çıkar/u);
+});
+test('uncertain archive retry reuses one operation ID until success',async()=>{
+ const hooks=createHookRuntime(); let current:OrderDetail=detail; const archiveInputs:Record<string,unknown>[]=[]; let attempts=0;
+ const {exports}=await compileOrderModule('components/orders/OrderDetailConsole.tsx',{react:hooks.runtime,orderApi:{
+  async getOrder(){return current;},async getOrderNeighbors(){return {};},async getOrderNotifications(){return [];},
+  async getArchiveEligibility(){return {id:ORDER_ID,eligible:true,archived:false,blockers:[]};},
+  async archiveOrder(_orderId:string,input:Record<string,unknown>){archiveInputs.push(input);attempts+=1;if(attempts===1)throw new Error('retry fixture');current={...detail,archive:{archived:true,changedAt:NOW}};return {id:ORDER_ID,archived:true,operationId:input.operationId,changedAt:NOW,replayed:false};},
+ }});
+ const Console=exports.OrderDetailConsole as (props:Record<string,unknown>)=>ReactNode;
+ const NativeFormData=globalThis.FormData;
+ globalThis.FormData=class { value:string; constructor(form:unknown){this.value=(form as {reason:string}).reason;} get(name:string){return name==='reason'?this.value:null;} } as unknown as typeof FormData;
+ try{
+  let view=await hooks.flush(()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}})) as React.ReactElement<Record<string,unknown>>;
+  assert.equal(archiveInputs.length,0);
+  const form={reason:'Eski QA siparişi'};
+  const submit=()=> (view.props.onArchiveSubmit as (event:unknown)=>void)({preventDefault(){},currentTarget:form});
+  submit(); view=await hooks.flush(()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}})) as React.ReactElement<Record<string,unknown>>;
+  submit(); view=await hooks.flush(()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}})) as React.ReactElement<Record<string,unknown>>;
+  assert.equal(archiveInputs.length,2); assert.equal(archiveInputs[0]?.operationId,archiveInputs[1]?.operationId);
+  assert.deepEqual(archiveInputs.map(({reason,evidenceReference})=>({reason,evidenceReference})),[
+   {reason:'Eski QA siparişi',evidenceReference:'merchant-panel/orders/archive'},
+   {reason:'Eski QA siparişi',evidenceReference:'merchant-panel/orders/archive'},
+  ]);
+  assert.match(renderToStaticMarkup(view),/Arşivlenmiş sipariş|Arşivden çıkar/u);
+ }finally{globalThis.FormData=NativeFormData;}
+});
+test('completed archive intent is retired before same-reason post-restore archive',async()=>{
+ const hooks=createHookRuntime(); let current:OrderDetail=detail; const archiveOperationIds:unknown[]=[];
+ const {exports}=await compileOrderModule('components/orders/OrderDetailConsole.tsx',{react:hooks.runtime,orderApi:{
+  async getOrder(){return current;},async getOrderNeighbors(){return {};},async getOrderNotifications(){return [];},
+  async getArchiveEligibility(){return {id:ORDER_ID,eligible:true,archived:false,blockers:[]};},
+  async archiveOrder(_orderId:string,input:Record<string,unknown>){archiveOperationIds.push(input.operationId);current={...detail,archive:{archived:true,changedAt:NOW}};return {id:ORDER_ID,archived:true,operationId:input.operationId,changedAt:NOW,replayed:false};},
+  async restoreOrder(_orderId:string,input:Record<string,unknown>){current=detail;return {id:ORDER_ID,archived:false,operationId:input.operationId,changedAt:NOW,replayed:false};},
+ }});
+ const Console=exports.OrderDetailConsole as (props:Record<string,unknown>)=>ReactNode;
+ const NativeFormData=globalThis.FormData;
+ globalThis.FormData=class { form:Record<string,unknown>; constructor(form:unknown){this.form=form as Record<string,unknown>;} get(name:string){return this.form[name]??null;} } as unknown as typeof FormData;
+ try{
+  const render=()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}});
+  let view=await hooks.flush(render) as React.ReactElement<Record<string,unknown>>;
+  const archiveForm={reason:'Eski QA siparişi'};
+  (view.props.onArchiveSubmit as (event:unknown)=>void)({preventDefault(){},currentTarget:archiveForm});
+  view=await hooks.flush(render) as React.ReactElement<Record<string,unknown>>;
+  assert.match(renderToStaticMarkup(view),/Arşivden çıkar/u);
+  const restoreForm={reason:'Yanlış arşiv',evidenceReference:'qa/restore',dataset:{}};
+  (view.props.onRestoreSubmit as (event:unknown)=>void)({preventDefault(){},currentTarget:restoreForm});
+  view=await hooks.flush(render) as React.ReactElement<Record<string,unknown>>;
+  assert.match(renderToStaticMarkup(view),/Siparişi arşivle/u);
+  (view.props.onArchiveSubmit as (event:unknown)=>void)({preventDefault(){},currentTarget:archiveForm});
+  await hooks.flush(render);
+  assert.equal(archiveOperationIds.length,2);
+  assert.notEqual(archiveOperationIds[0],archiveOperationIds[1]);
+ }finally{globalThis.FormData=NativeFormData;}
+});
+test('ineligible explicit archive submit shows a concise error without mutation',async()=>{
+ const hooks=createHookRuntime(); let eligibilityReads=0; let archiveWrites=0;
+ const {exports}=await compileOrderModule('components/orders/OrderDetailConsole.tsx',{react:hooks.runtime,orderApi:{
+  async getOrder(){return detail;},async getOrderNeighbors(){return {};},async getOrderNotifications(){return [];},
+  async getArchiveEligibility(){eligibilityReads+=1;return {id:ORDER_ID,eligible:false,archived:false,blockers:['payment_dependency']};},
+  async archiveOrder(){archiveWrites+=1;},
+ }});
+ const Console=exports.OrderDetailConsole as (props:Record<string,unknown>)=>ReactNode;
+ const NativeFormData=globalThis.FormData;
+ globalThis.FormData=class { get(name:string){return name==='reason'?'Bağımlı sipariş':null;} } as unknown as typeof FormData;
+ try{
+  let view=await hooks.flush(()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}})) as React.ReactElement<Record<string,unknown>>;
+  assert.equal(eligibilityReads,0); assert.equal(archiveWrites,0);
+  (view.props.onArchiveSubmit as (event:unknown)=>void)({preventDefault(){},currentTarget:{}});
+  view=await hooks.flush(()=>Console({orderId:ORDER_ID,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}})) as React.ReactElement<Record<string,unknown>>;
+  assert.equal(eligibilityReads,1); assert.equal(archiveWrites,0);
+  assert.match(renderToStaticMarkup(view),/Bu sipariş şu anda arşivlenemez[.]/u);
+ }finally{globalThis.FormData=NativeFormData;}
+});
 test("legacy delivery client retry uses unchanged ID; real HTTP and parse failures remain distinct", async () => {
   const {createOrderApiClient,OrderApiError}=await import("./order-ui/client.ts");
   const legacy="af7fb97c-bcb3-7d86-ec85-fd4f0c49d91f";

@@ -1,0 +1,16 @@
+{
+  "evidenceType":"Actual Chrome through cua_repl; synthetic localhost; no store data mutation",
+  "url":"http://127.0.0.1:3427/design-settings-fix",
+  "applicationSource":"edb32df67d1807b1ab23dc25a8334fe90286bd5c",
+  "stage":"Task 2 fix round 1; integrated final source rerun pending",
+  "driver":"tests/saas-phase3/hemenaku-admin-presentation/design-settings-browser-check.mjs",
+  "viewports":[
+    {"width":1440,"height":1000,"overflow":0,"toolbarControlSizes":[[95.3828125,48],[106.6171875,48],[81.1171875,48],[83.046875,48]],"centerHits":[true,true,true,true]},
+    {"width":1024,"height":1000,"overflow":0,"toolbarControlSizes":[[95.3828125,48],[106.6171875,48],[81.1171875,48],[83.046875,48]],"centerHits":[true,true,true,true]},
+    {"width":390,"height":844,"overflow":0,"toolbarControlSizes":[[95.3828125,48],[48,48],[48,48],[83.046875,48]],"centerHits":[true,true,true,true]}
+  ],
+  "mobileCanvas":{"outerWidth":1440,"canvasWidth":390,"mobilePressed":"true","navDisplay":["none"],"productColumns":[2,2],"categoryColumns":[]},
+  "focus":{"modalOpen":false,"tag":"SUMMARY","label":"Tasarım alanlarını aç","width":95.3828125,"height":48,"outlineStyle":"solid","outlineWidth":"2px"},
+  "scopeLimits":["Empty categories: category computed grid not yet verified","No live session or published-store fidelity acceptance","Driver uses keyboard activation after viewport state check and separately verifies pointer center hit targets"],
+  "result":"PASS for stated layout and focus scope"
+}

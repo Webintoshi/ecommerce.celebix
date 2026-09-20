@@ -6,13 +6,25 @@ import {
   type StorefrontRendererSurface,
 } from "@celebix/storefront-design-ui";
 import type {
+  PublicStarterHomeSection,
+  PublicStarterThemePresentationV2,
+  PublicStarterThemePresentationV3,
+  StarterFooterLinkConfig,
+  StarterThemeSectionConfigV3,
   StorefrontDesignDestinationOption,
   StorefrontDesignDocument,
   StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
+import { normalizeStarterThemeCompositionV3 } from "@celebix/saas-contracts";
+import { CampaignSectionContent } from "../../../../storefront-shared/components/CampaignSectionContent";
+import { ProductCardContent } from "../../../../storefront-shared/components/ProductCardContent";
+import { composeCampaignHomeSections } from "../../../../storefront-shared/components/campaign-home-sections";
 
-import type { DesignCanvasSurface } from "./design-surface-model";
+import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
+import { composeDraftCampaignProjection, type StorefrontDesignPreviewProduct, type StorefrontDesignPreviewResources } from "../../../lib/storefront-design-preview-model";
 import styles from "../design-settings.module.css";
+import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
+import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
 
 interface VisualStorefrontCanvasProps {
   readonly design: StorefrontDesignDocument;
@@ -21,10 +33,11 @@ interface VisualStorefrontCanvasProps {
   readonly publishedAt: string;
   readonly media: readonly StorefrontDesignMediaOption[];
   readonly destinations: readonly StorefrontDesignDestinationOption[];
+  readonly previewResources?: StorefrontDesignPreviewResources;
   readonly mode: "desktop" | "mobile";
   readonly now: Date;
   readonly selectedSurface?: DesignCanvasSurface;
-  readonly onSelectSurface: (surface: DesignCanvasSurface, trigger?: HTMLButtonElement) => void;
+  readonly onSelectSurface: (surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => void;
 }
 
 const RENDERER_SURFACES = new Set<DesignCanvasSurface>(["announcement", "brand", "navigation", "cart"]);
@@ -41,7 +54,7 @@ function SurfaceButton({ surface, label, selected, onSelect }: Readonly<{
   surface: DesignCanvasSurface;
   label: string;
   selected: boolean;
-  onSelect: (surface: DesignCanvasSurface, trigger?: HTMLButtonElement) => void;
+  onSelect: (surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => void;
 }>) {
   return <button
     type="button"
@@ -53,6 +66,131 @@ function SurfaceButton({ surface, label, selected, onSelect }: Readonly<{
   ><span>{label}</span></button>;
 }
 
+const SECTION_LABELS = Object.freeze({
+  hero: "Banner",
+  category_grid: "Kategori vitrini",
+  product_row: "Ürün satırı",
+  split_campaign: "Kampanya panelleri",
+  brand_story: "Marka hikâyesi",
+  value_propositions: "Değer önerileri",
+  testimonials: "Müşteri yorumları",
+} satisfies Readonly<Record<StarterThemeSectionConfigV3["kind"], string>>);
+
+function unresolvedResource(kind: string, id: string) {
+  return `${kind} kimliği: ${id} (yayın vitrininin sunucu tarafında çözümlenir)`;
+}
+
+function sectionHeading(section: StarterThemeSectionConfigV3): string {
+  if (section.kind === "hero") return section.slides[0]?.heading ?? SECTION_LABELS.hero;
+  if (section.kind === "split_campaign") return section.panels[0]?.heading ?? SECTION_LABELS.split_campaign;
+  if (section.kind === "value_propositions") return section.items[0]?.heading ?? SECTION_LABELS.value_propositions;
+  return section.heading;
+}
+
+function HomepageSectionConfiguration({ section, destinations }: Readonly<{
+  section: StarterThemeSectionConfigV3;
+  destinations: readonly StorefrontDesignDestinationOption[];
+}>) {
+  switch (section.kind) {
+    case "hero":
+      return <ul className={styles.canvasSectionItems}>{section.slides.map((slide, index) => <li key={`${slide.desktopAssetId}-${index}`}>
+        <strong>{slide.heading}</strong>
+        <span>Masaüstü görsel kimliği: {slide.desktopAssetId}</span>
+        <span>{slide.mobileAssetId ? `Mobil görsel kimliği: ${slide.mobileAssetId}` : "Mobil görsel: masaüstü görseli kullanılır"}</span>
+      </li>)}</ul>;
+    case "category_grid": {
+      const categories = new Map(destinations.filter(({ kind }) => kind === "collection").map((item) => [item.resourceId, item.label]));
+      const labels = section.categoryIds.map((categoryId) => categories.get(categoryId) ?? unresolvedResource("Kategori", categoryId));
+      return <><p className={styles.canvasSectionMeta}>Düzen: {section.layout === "duo" ? "İki büyük görsel" : "Düzenli ızgara"}</p>{labels.length
+        ? <CategoryPlaceholderCards gridClassName={styles.canvasCategoryGrid} labels={labels} layout={section.layout} />
+        : <p className={styles.canvasSectionMeta}>Bu bölüm için henüz kategori seçilmedi.</p>}</>;
+    }
+    case "product_row":
+      return <><p className={styles.canvasSectionMeta}>Kaynak: {section.source} · Ürün sınırı: {section.limit}</p><ProductCards contentLabel="Örnek içerik" count={section.limit} gridClassName={styles.canvasProductGrid} productTitles={[]} /><p className={styles.canvasProjectionText}>Katalog ürünleri yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
+    case "split_campaign":
+      return <ul className={styles.canvasSectionItems}>{section.panels.map((panel, index) => <li key={`${panel.assetId}-${index}`}><strong>{panel.heading}</strong><span>Görsel kimliği: {panel.assetId}</span><span>Hedef: {panel.destination}</span></li>)}</ul>;
+    case "brand_story":
+      return <><p className={styles.canvasProjectionText}>{section.body}</p>{section.assetId ? <p className={styles.canvasSectionMeta}>Görsel kimliği: {section.assetId}</p> : null}</>;
+    case "value_propositions":
+      return <ul className={styles.canvasSectionItems}>{section.items.map((item, index) => <li key={`${item.heading}-${index}`}><strong>{item.heading}</strong><span>{item.body}</span></li>)}</ul>;
+    case "testimonials":
+      return <><p className={styles.canvasSectionMeta}>En az {section.minimumRating} yıldız · En fazla {section.limit} yorum</p><p className={styles.canvasProjectionText}>Onaylı yorumlar yayın vitrini katalog projeksiyonu ile gösterilir.</p></>;
+    default:
+      return assertNever(section);
+  }
+}
+
+function HomepagePreviewSection({ section, destinations }: Readonly<{
+  section: StarterThemeSectionConfigV3;
+  destinations: readonly StorefrontDesignDestinationOption[];
+}>) {
+  return <article
+    className={styles.canvasSectionSummary}
+    data-preview-section-kind={section.kind}
+    data-preview-section-id={section.sectionId}
+  >
+    <header><small>{SECTION_LABELS[section.kind]}</small><h2>{sectionHeading(section)}</h2></header>
+    <HomepageSectionConfiguration section={section} destinations={destinations} />
+  </article>;
+}
+
+function PreviewProductRow({ section, products, presentation, locale }: Readonly<{
+  section: Extract<PublicStarterHomeSection, { kind: "product_row" }>;
+  products: readonly StorefrontDesignPreviewProduct[];
+  presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+  locale: string;
+}>) {
+  return <section className={styles.canvasResolvedProductRow} data-campaign-product-row="true" aria-labelledby={`preview-row-${section.key}`}>
+    <header><small>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : "YENİ GELENLER"}</small><h2 id={`preview-row-${section.key}`}>{section.heading}</h2></header>
+    <div className={styles.canvasResolvedProducts}>{products.map((product) => <article className={`product-card card-${presentation.visual.productCardStyle} image-${presentation.visual.productImageRatio}`} data-preview-product-card="true" key={product.id}><ProductCardContent product={product} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} prefetch={false} /></article>)}</div>
+  </section>;
+}
+
+function hasPreviewSectionContent(
+  section: PublicStarterHomeSection,
+  productRows: readonly Readonly<{ key: string; items: readonly StorefrontDesignPreviewProduct[] }>[],
+): boolean {
+  switch (section.kind) {
+    case "hero": return section.slides.length > 0;
+    case "category_grid": return section.items.length > 0;
+    case "product_row": return productRows.find((row) => row.key === section.key)?.items.some(({ available }) => available) ?? false;
+    case "split_campaign": return section.panels.length > 0;
+    case "brand_story": return true;
+    case "value_propositions": return section.items.length > 0;
+    case "testimonials": return section.items.length > 0;
+    default: return assertNever(section);
+  }
+}
+
+const PREVIEW_RESOURCE_LABELS = Object.freeze({
+  loading: "Seçili kaynaklar ve görseller yükleniyor.",
+  partial: "Bazı seçili kaynaklar veya görseller kullanılamıyor.",
+  empty: "Bu kaynakta gösterilebilecek içerik bulunamadı.",
+  missing: "Seçilen kaynak veya görsel artık bulunamıyor.",
+  unavailable: "Bu kaynak önizleme için kullanılamıyor.",
+} as const);
+
+function footerLink(link: StarterFooterLinkConfig, destinations: readonly StorefrontDesignDestinationOption[]) {
+  if (link.kind === "system") {
+    const label = STARTER_FOOTER_SYSTEM_LINKS.find(([destination]) => destination === link.destination)?.[1] ?? link.destination;
+    return { label, detail: link.destination };
+  }
+  if (link.kind === "fixed_policy") {
+    const label = STARTER_FOOTER_POLICIES.find(([key]) => key === link.policyKey)?.[1] ?? link.policyKey;
+    return { label, detail: `Politika: ${link.policyKey}` };
+  }
+  const resourceId = link.kind === "category" ? link.categoryId : link.pageId;
+  const destinationKind = link.kind === "category" ? "collection" : "page";
+  const resolved = destinations.find(({ kind, resourceId: candidate }) => kind === destinationKind && candidate === resourceId);
+  return resolved
+    ? { label: resolved.label, detail: resolved.path }
+    : { label: unresolvedResource(link.kind === "category" ? "Kategori" : "Sayfa", resourceId), detail: resourceId };
+}
+
+function assertNever(value: never): never {
+  throw new TypeError(`design_preview_section_unreachable:${String(value)}`);
+}
+
 export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasProps>) {
   const preview = createPreviewStorefrontDesign({
     draft: props.design,
@@ -61,14 +199,18 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
     media: props.media,
     destinations: props.destinations,
   });
-  const composition = props.design.composition;
-  const categorySection = composition.sections.find((section) => section.kind === "category_grid" && section.enabled);
-  const productSection = composition.sections.find((section) => section.kind === "product_row" && section.enabled);
-  const categoryCount = categorySection?.kind === "category_grid" ? Math.min(4, categorySection.categoryIds.length || 4) : 4;
-  const productCount = productSection?.kind === "product_row" ? Math.min(4, Math.max(2, productSection.limit)) : 4;
-  const footerGroups = composition.schemaVersion === 2 ? composition.footer.groups.map(({ heading }) => heading) : [];
+  const composition = normalizeStarterThemeCompositionV3(props.design.composition);
+  const designHeroActive = preview.hero.enabled && preview.hero.slides.length > 0;
+  const visibleSections = composition.sections.filter((section) => section.enabled && (!designHeroActive || section.kind !== "hero"));
+  const resolved = props.previewResources ? composeDraftCampaignProjection({ composition, storeName: props.storeName, destinations: props.destinations, resources: props.previewResources }) : null;
+  const campaignSections = resolved ? composeCampaignHomeSections(resolved.projection.presentation, designHeroActive) : [];
+  const campaignById = new Map(campaignSections.flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
+  const projectedById = new Map((resolved?.projection.presentation.sections ?? []).flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
+  const resolvedSections = resolved ? visibleSections.flatMap((config) => { const section = campaignById.get(config.sectionId) ?? projectedById.get(config.sectionId); return section ? [{ config, section }] : []; }) : [];
+  const resolvedStates = new Map(resolved?.sectionStates.map((state) => [state.sectionId, state.status]) ?? []);
 
   return <div className={styles.previewViewport} data-mode={props.mode} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`}>
+    <div className={styles.previewNotice} role="note"><strong>Taslak önizlemesi</strong><span>Yayınlanmış mağazadan farklı olabilir.</span></div>
     <StorefrontDesignRenderer
       design={preview}
       storeName={props.storeName}
@@ -85,30 +227,27 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       </section> : null}
 
       <section className={`${styles.canvasSurface}`} data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
-        <div className={styles.canvasCategoryPreview}>
-          <header><small>KOLEKSİYONLAR</small><h2>{categorySection?.kind === "category_grid" ? categorySection.heading : "Kategorileri keşfedin"}</h2></header>
-          <div className={styles.canvasCategoryGrid} data-count={categoryCount}>
-            {Array.from({ length: categoryCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Kategori {index + 1}</strong></article>)}
-          </div>
-        </div>
-        <div className={styles.canvasProductPreview}>
-          <header><small>MAĞAZA</small><h2>{productSection?.kind === "product_row" ? productSection.heading : "Öne çıkan ürünler"}</h2><span>Tümünü gör</span></header>
-          <div className={styles.canvasProductGrid}>
-            {Array.from({ length: productCount }, (_, index) => <article key={index}><div aria-hidden="true"><i /></div><strong>Ürün {index + 1}</strong><small>Ürün bilgisi</small></article>)}
-          </div>
-        </div>
+        {visibleSections.length ? resolved ? <div className={styles.canvasResolvedSections} onClickCapture={(event) => event.preventDefault()}>{resolvedSections.map(({ config, section }, index) => {
+          const sectionId = section.sectionId ?? `home_preview_${index + 1}`;
+          const status = resolvedStates.get(sectionId) ?? "unavailable";
+          const hasContent = hasPreviewSectionContent(section, resolved.projection.productRows);
+          const content = <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale="tr" prefetch={false} renderProductRow={(input) => <PreviewProductRow {...input} />} />;
+          return <div key={sectionId} data-preview-section-kind={section.kind} data-preview-section-id={sectionId} data-preview-resource-status={status}>{hasContent ? content : <section className={styles.canvasSectionSummary}><header><small>{SECTION_LABELS[config.kind]}</small><h2>{sectionHeading(config)}</h2></header></section>}{status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}</div>;
+        })}</div> : <><p className={styles.canvasProjectionNotice} role="note">Ana sayfa görselleri, katalog kayıtları ve yorumlar yayın vitrininin sunucu tarafında çözümlenir. Burada taslak sırası ve kayıtlı ayarlar gösterilir.</p><div className={styles.canvasSectionList}>{visibleSections.map((section) => <HomepagePreviewSection key={section.sectionId} section={section} destinations={props.destinations} />)}</div></> : <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız şu anda boş</strong><p>Bölüm eklediğinizde taslak önizlemesi burada görünür.</p></div>}
         <SurfaceButton surface="homepage" label="Ana sayfayı düzenle" selected={props.selectedSurface === "homepage"} onSelect={props.onSelectSurface} />
       </section>
 
       <section className={`${styles.canvasSurface} ${styles.canvasProductDetailPreview}`} data-design-surface="product" aria-label="Ürün sayfası önizlemesi">
         <div className={styles.canvasProductGallery} aria-hidden="true"><i /><i /><i /></div>
-        <div className={styles.canvasProductSummary}><small>ÜRÜN SAYFASI</small><h2>Ürün adı</h2><p>Ürün bilgileri, seçenekleri ve satın alma alanı burada görünür.</p><div><span>−</span><b>1</b><span>+</span><button type="button" tabIndex={-1}>Sepete ekle</button></div></div>
+        <div className={styles.canvasProductSummary}><small>ÖRNEK ÜRÜN SAYFASI</small><h2>Örnek ürün adı</h2><p>Katalog verisi bağlandığında ürün bilgileri, seçenekleri ve satın alma alanı burada görünür.</p><div><span>−</span><b>1</b><span>+</span><button type="button" tabIndex={-1}>Sepete ekle</button></div></div>
         <SurfaceButton surface="product" label="Ürün sayfası" selected={props.selectedSurface === "product"} onSelect={props.onSelectSurface} />
       </section>
 
-      <footer className={`${styles.canvasSurface} ${styles.canvasFooterPreview}`} data-design-surface="footer" aria-label="Footer önizlemesi">
+      <footer className={`${styles.canvasSurface} ${styles.canvasFooterPreview}`} data-design-surface="footer" data-tone={composition.footer.tone} aria-label="Footer önizlemesi">
         <div><strong>{props.storeName}</strong><small>Mağaza bilgileri</small></div>
-        <div>{footerGroups.length ? footerGroups.map((heading) => <span key={heading}>{heading}</span>) : <><span>Mağaza</span><span>Yardım</span><span>Hesabım</span></>}</div>
+        <div className={styles.canvasFooterGroups}>{composition.footer.groups.map((group, index) => <section key={`${group.heading}-${index}`}><strong>{group.heading}</strong><ul>{group.links.map((link, linkIndex) => { const resolved = footerLink(link, props.destinations); return <li key={`${link.kind}-${linkIndex}`}><span>{resolved.label}</span><small>{resolved.detail}</small></li>; })}</ul></section>)}</div>
+        {composition.footer.newsletter.enabled ? <section className={styles.canvasFooterNewsletter}><strong>{composition.footer.newsletter.heading}</strong><p>{composition.footer.newsletter.body}</p><small>{composition.footer.newsletter.consentLabel}</small></section> : null}
+        {composition.footer.social.length ? <div className={styles.canvasFooterSocial} aria-label="Sosyal medya">{composition.footer.social.map(({ network, url }) => <span key={network}><strong>{network}</strong><small>{url}</small></span>)}</div> : null}
         <small>© {props.now.getFullYear()} {props.storeName}</small>
         <SurfaceButton surface="footer" label="Footer" selected={props.selectedSurface === "footer"} onSelect={props.onSelectSurface} />
       </footer>
