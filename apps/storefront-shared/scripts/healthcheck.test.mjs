@@ -44,18 +44,25 @@ test("fails closed on status, payload, transport, and configuration errors", asy
 
 test("aborts a health request at the configured deadline", async () => {
   let observedSignal;
-  const healthy = await verifyStorefrontHealth({
-    timeoutMs: 10,
-    fetchImpl: async (_url, { signal }) => {
-      observedSignal = signal;
-      await new Promise((resolve, reject) => {
-        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
-      });
-    },
-  });
+  // The healthcheck intentionally unrefs its deadline; the test must keep
+  // the event loop alive while its mocked request waits for that abort.
+  const keepAlive = setTimeout(() => {}, 1_000);
+  try {
+    const healthy = await verifyStorefrontHealth({
+      timeoutMs: 10,
+      fetchImpl: async (_url, { signal }) => {
+        observedSignal = signal;
+        await new Promise((resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        });
+      },
+    });
 
-  assert.equal(healthy, false);
-  assert.equal(observedSignal.aborted, true);
+    assert.equal(healthy, false);
+    assert.equal(observedSignal.aborted, true);
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test("dedicated storefront image builds and healthchecks without apt mirror authority", async () => {
