@@ -129,6 +129,11 @@ DROP FUNCTION saas.pricing_reference_definition_projection(uuid,uuid),
   saas.pricing_decimal_valid(text,integer,boolean,numeric),
   saas.pricing_variant_policy_valid(jsonb);
 DROP TRIGGER product_variants_pricing_policy_guard ON saas.product_variants;
+DROP TRIGGER products_pricing_dynamic_visibility ON saas.products;
+DROP TRIGGER product_variants_pricing_dynamic_visibility ON saas.product_variants;
+DROP TABLE saas.pricing_dynamic_activation;
+DROP FUNCTION saas.pricing_dynamic_activation_lock(),
+  saas.pricing_dynamic_visibility_guard();
 DROP TABLE saas.pricing_reference_operations,saas.pricing_variant_policy_state,
   saas.pricing_variant_policy_versions,saas.pricing_reference_state,
   saas.pricing_reference_set_values,saas.pricing_reference_sets,

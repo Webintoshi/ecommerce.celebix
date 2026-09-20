@@ -169,8 +169,42 @@ function isResponse(value: unknown): value is Response {
   return value instanceof Response;
 }
 
-async function execute<T>(operation: () => Promise<T>, success: (value: T) => Response): Promise<Response> {
-  try { return success(await operation()); }
+async function legacyList(
+  result: Awaited<ReturnType<CatalogRepository["listProducts"]>>,
+  resolveDetails: (productId: string) => Promise<Awaited<ReturnType<CatalogRepository["getProductDetails"]>>>,
+): Promise<Response> {
+  if (!result.variantSummaries) return json(result, 200);
+  const summaries: Record<string, unknown> = {};
+  for (const [productId, summary] of Object.entries(result.variantSummaries)) {
+    const archivedProduct = result.items.some((product) => product.id === productId && product.status === "archived");
+    let effective: number | null = summary.effectivePriceCents ?? summary.priceCents;
+    if (summary.effectivePriceCents === null && !archivedProduct && summary.pricingMethod !== "fixed_try") {
+      const details = await resolveDetails(productId);
+      effective = details.variants.some((variant) => variant.id === summary.variantId && variant.status === "archived")
+        ? summary.priceCents : null;
+    }
+    if (effective === null) return error("unavailable", 503);
+    const { effectivePriceCents: _effective, pricingMethod: _method, compareAtCents, ...oldSummary } = summary;
+    summaries[productId] = {
+      ...oldSummary,
+      priceCents: effective,
+      ...(compareAtCents !== undefined && compareAtCents > effective ? { compareAtCents } : {}),
+    };
+  }
+  return json({ ...result, variantSummaries: summaries }, 200);
+}
+
+function legacyDetail(result: Awaited<ReturnType<CatalogRepository["getProductDetails"]>>): Response {
+  if (result.product.status === "active" && result.variants.some((variant) => variant.status === "active" &&
+    (variant.effectivePriceCents === null ||
+      (variant.effectivePriceCents !== undefined && variant.effectivePriceCents !== variant.priceCents)))) {
+    return error("unavailable", 503);
+  }
+  return json({ ...result, variants: result.variants.map(({ effectivePriceCents: _effective, ...variant }) => variant) }, 200);
+}
+
+async function execute<T>(operation: () => Promise<T>, success: (value: T) => Response | Promise<Response>): Promise<Response> {
+  try { return await success(await operation()); }
   catch (caught) { return repositoryError(caught); }
 }
 
@@ -217,9 +251,9 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       );
     },
 
-    async listProducts(request: Request): Promise<Response> {
+    async listProducts(request: Request, version: "v1" | "v2" = "v1"): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
-        method: "GET", pathname: PRODUCTS_PATH, query: "allowed",
+        method: "GET", pathname: version === "v2" ? `${PRODUCTS_PATH}/v2` : PRODUCTS_PATH, query: "allowed",
       }, "read");
       if (isResponse(authorized)) return authorized;
       const input = readCatalogListInput(request);
@@ -230,7 +264,11 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
           now: authorized.now,
           ...input.value,
         }),
-        (result) => json(result, 200),
+        (result) => version === "v2" ? json(result, 200) : legacyList(result, (productId) =>
+          authorized.runtime.catalog.getProductDetails({
+            tenantContext: authorized.tenantContext, now: authorized.now,
+            productId, includeArchivedVariants: true,
+          })),
       );
     },
 
@@ -266,11 +304,11 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       );
     },
 
-    async getProduct(request: Request, rawProductId: unknown): Promise<Response> {
+    async getProduct(request: Request, rawProductId: unknown, version: "v1" | "v2" = "v1"): Promise<Response> {
       const productId = exactId(rawProductId);
       if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, {
-        method: "GET", pathname: `${PRODUCTS_PATH}/${productId}`, query: "forbidden",
+        method: "GET", pathname: `${PRODUCTS_PATH}/${version === "v2" ? "v2/" : ""}${productId}`, query: "forbidden",
       }, "read");
       if (isResponse(authorized)) return authorized;
       return execute(
@@ -280,7 +318,7 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
           productId,
           includeArchivedVariants: true,
         }),
-        (result) => json(result, 200),
+        (result) => version === "v2" ? json(result, 200) : legacyDetail(result),
       );
     },
 

@@ -305,7 +305,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       if (parsedQuery.collectionId !== undefined) query.set("collection", parsedQuery.collectionId);
       if (input.sort !== undefined) query.set("sort", parsedQuery.sort);
       if (input.cursor !== undefined) query.set("cursor", input.cursor);
-      const body = record(await request(`/api/catalog/products?${query}`, {
+      const body = record(await request(`/api/catalog/products/v2?${query}`, {
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",
@@ -353,7 +353,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
     },
 
     async getProduct(id: string, signal?: AbortSignal): Promise<ProductDetailResult> {
-      const body = record(await request(`/api/catalog/products/${productId(id)}`, {
+      const body = record(await request(`/api/catalog/products/v2/${productId(id)}`, {
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",

@@ -14,6 +14,7 @@ import {
 import { createBarcodeLabelHttpHandlers } from "./handler.ts";
 import type { ServerBarcodeLabelRuntime } from "../server-barcode-labels/runtime.ts";
 import { getSystemBarcodeLabelTemplate } from "../barcode-labels/system-templates.ts";
+import { registerServerBarcodeLabelRepository, resolveServerBarcodeLabelRuntime } from "../server-barcode-labels/runtime.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const REQUEST_ID = "88888888-8888-4888-8888-888888888888";
@@ -115,10 +116,20 @@ function repository(
     generateInternal: reject,
     listJobs: reject,
     createJob: reject,
+    createJobLegacy: reject,
     getJob: reject,
     ...overrides,
   }) as BarcodeLabelRepository;
 }
+
+test("registered barcode runtime retains the legacy fixed-print writer", () => {
+  const authority = access();
+  registerServerBarcodeLabelRepository(authority, repository({
+    async createJobLegacy() { return printJob("pdf"); },
+  }));
+  const selected = resolveServerBarcodeLabelRuntime(authority);
+  assert.equal(typeof selected?.barcodeLabels.createJobLegacy, "function");
+});
 
 function access(
   role: StoreMembershipRole = "store_owner",
@@ -213,6 +224,57 @@ test("list forwards one server-bound global query without browser tenant authori
     JSON.stringify(await response.json()),
     /storeId|principalId|membershipId/i,
   );
+});
+
+test("old browser list keeps the exact V1 row while V2 receives price lineage", async () => {
+  const row = {
+    ...printJob("pdf").items[0]!.snapshot,
+    priceContext: {
+      channel: "storefront" as const,
+      pricedAt: "2026-09-02T12:00:00.000Z",
+      sourceKind: "base" as const,
+      policyVersion: 1,
+      activeSetId: "40000000-0000-4000-8000-000000000001",
+      activeSetVersion: 1,
+    },
+  };
+  const selected = handlers(repository({
+    async list() { return { items: [row], catalogTotal: 1, storeName: "Mağaza" }; },
+  }));
+  const oldResponse = await selected.list(request("/api/catalog/barcode-labels"));
+  const newResponse = await selected.list(request("/api/catalog/barcode-labels/v2"));
+  assert.equal(oldResponse.status, 200);
+  assert.equal(newResponse.status, 200);
+  const oldItem = (await oldResponse.json()).items[0];
+  const newItem = (await newResponse.json()).items[0];
+  assert.equal(oldItem.priceCents, 12_345);
+  assert.equal(Object.hasOwn(oldItem, "priceContext"), false);
+  assert.equal(newItem.priceContext.activeSetVersion, 1);
+});
+
+test("old print HTTP route uses registered legacy writer and reads/replays a fixed job", async () => {
+  const calls: string[] = [];
+  const authority = access();
+  registerServerBarcodeLabelRepository(authority, repository({
+    async createJob() { calls.push("v2"); return printJob("pdf"); },
+    async createJobLegacy() { calls.push("legacy"); return printJob("pdf"); },
+    async getJob() { calls.push("read"); return printJob("pdf"); },
+  }));
+  const selected = createBarcodeLabelHttpHandlers({
+    async resolveRuntime() { return resolveServerBarcodeLabelRuntime(authority); },
+    now: () => new Date(NOW), requestId: () => REQUEST_ID,
+  });
+  const createBody = { template: { kind: "system", key: "retail-50x30" },
+    templateConfig: TEMPLATE.config, targets: [{ variantId: printJob("pdf").items[0]!.variantId,
+      expectedVersion: 1, quantity: 1 }], outputType: "pdf", printerProfile: "thermal", startCell: 0 };
+  const first = await selected.jobs(request("/api/catalog/barcode-print-jobs", { method: "POST", body: createBody }));
+  const replay = await selected.jobs(request("/api/catalog/barcode-print-jobs", { method: "POST", body: createBody }));
+  const read = await selected.job(request(`/api/catalog/barcode-print-jobs/${JOB_ID}`), JOB_ID);
+  assert.equal(first.status, 201);
+  assert.equal(replay.status, 201);
+  assert.equal(read.status, 200);
+  assert.deepEqual(calls, ["legacy", "legacy", "read"]);
+  assert.equal((await read.json()).items[0].snapshot.priceCents, 12_345);
 });
 
 test("private authority, cross-origin mutation and analyst output fail before repository access", async () => {

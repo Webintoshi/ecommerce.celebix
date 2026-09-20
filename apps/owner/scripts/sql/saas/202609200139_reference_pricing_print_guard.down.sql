@@ -12,6 +12,23 @@ BEGIN
     RAISE EXCEPTION 'REFERENCE_PRINT_GUARD_ROLLBACK_UNSAFE';
   END IF;
 END $guard$;
+REVOKE ALL ON FUNCTION saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,
+  bigint,timestamptz,uuid) FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,
+  timestamptz,uuid);
+REVOKE ALL ON FUNCTION saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,
+  text,bigint,timestamptz,uuid) FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,
+  timestamptz,uuid);
+ALTER FUNCTION saas.barcode_print_job_get_unadapted_v1(uuid,uuid,uuid,uuid,
+  text,bigint,timestamptz,uuid) RENAME TO barcode_print_job_get;
+GRANT EXECUTE ON FUNCTION saas.barcode_print_job_get(uuid,uuid,uuid,uuid,
+  text,bigint,timestamptz,uuid) TO celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,
+  text,bigint,timestamptz,uuid,uuid,uuid,bigint,text,jsonb,text,text,
+  integer,jsonb) FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,
+  bigint,timestamptz,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb);
 REVOKE ALL ON FUNCTION saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,
   bigint,timestamptz,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)
   FROM PUBLIC,celebix_saas_app;
@@ -23,4 +40,7 @@ ALTER FUNCTION saas.barcode_print_job_create_without_price_guard(uuid,uuid,uuid,
 GRANT EXECUTE ON FUNCTION saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,
   bigint,timestamptz,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)
   TO celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.barcode_print_job_legacy_projection(jsonb)
+  FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_print_job_legacy_projection(jsonb);
 COMMIT;

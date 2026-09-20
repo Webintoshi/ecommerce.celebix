@@ -20,12 +20,22 @@ REVOKE ALL ON FUNCTION saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,
   integer,uuid) FROM PUBLIC,celebix_saas_app;
 DROP FUNCTION saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,
   text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid);
+REVOKE ALL ON FUNCTION saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,
+  bigint,timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,
+  integer,text,integer,uuid) FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,
+  timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,
+  text,integer,uuid);
 ALTER FUNCTION saas.barcode_label_list_unpriced_v1(uuid,uuid,uuid,uuid,text,bigint,
   timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,
   integer,uuid) RENAME TO barcode_label_list;
 GRANT EXECUTE ON FUNCTION saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,
   timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,
   integer,uuid) TO celebix_saas_app;
+
+REVOKE ALL ON FUNCTION saas.barcode_label_variant_projection_v2(uuid,uuid)
+  FROM PUBLIC,celebix_saas_app;
+DROP FUNCTION saas.barcode_label_variant_projection_v2(uuid,uuid);
 
 CREATE OR REPLACE FUNCTION saas.barcode_label_variant_projection(p_store_id uuid,p_variant_id uuid) RETURNS jsonb
 LANGUAGE sql STABLE STRICT SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$

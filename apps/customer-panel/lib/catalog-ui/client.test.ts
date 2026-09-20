@@ -60,7 +60,7 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   });
   const result = await client.listProducts({ status: "draft", cursor: "safe_cursor-1" });
   assert.equal(result.items.length, 1);
-  assert.equal(calls[0]?.[0], "/api/catalog/products?limit=20&status=draft&cursor=safe_cursor-1");
+  assert.equal(calls[0]?.[0], "/api/catalog/products/v2?limit=20&status=draft&cursor=safe_cursor-1");
   assert.deepEqual(calls[0]?.[1], { method: "GET", credentials: "same-origin", cache: "no-store" });
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
 });
@@ -83,7 +83,7 @@ test("global product query serializes every canonical server dimension and parse
     sort: "title-asc",
   });
   assert.equal(result.catalogTotal, 1_631);
-  assert.deepEqual(calls, [`/api/catalog/products?limit=20&q=Son+SKU&status=active&stock=in-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-asc`]);
+  assert.deepEqual(calls, [`/api/catalog/products/v2?limit=20&q=Son+SKU&status=active&stock=in-stock&category=${PRODUCT_ID}&brand=${VARIANT_ID}&collection=${PRODUCT_ID}&sort=title-asc`]);
   await assert.rejects(() => client.listProducts({ search: "unsafe\u0000query" }), /catalog_client_invalid/);
   await assert.rejects(() => client.listProducts({ sort: "price-asc" as "title-asc" }), /catalog_client_invalid/);
 });
@@ -101,7 +101,7 @@ test("list page size and bulk mutation use one exact request", async () => {
   });
   await client.listProducts({ pageSize: 50 });
   const result = await client.bulkMutateProducts({ action: "active", targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }] });
-  assert.equal(calls[0]?.[0], "/api/catalog/products?limit=50");
+  assert.equal(calls[0]?.[0], "/api/catalog/products/v2?limit=50");
   assert.equal(calls[1]?.[0], "/api/catalog/products/bulk");
   assert.equal(calls[1]?.[1].method, "POST");
   assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), { action: "active", targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }] });
@@ -139,7 +139,7 @@ test("archived filter and restore use the exact lifecycle endpoints", async () =
   const result = await client.restoreProduct(PRODUCT_ID, 4);
   assert.equal(result.product.status, "draft");
   assert.deepEqual(calls.map(([path]) => path), [
-    "/api/catalog/products?limit=20&status=archived",
+    "/api/catalog/products/v2?limit=20&status=archived",
     `/api/catalog/products/${PRODUCT_ID}/restore`,
   ]);
   assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), { expectedVersion: 4 });

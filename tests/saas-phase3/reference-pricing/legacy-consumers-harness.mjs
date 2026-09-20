@@ -23,12 +23,20 @@ const LABEL_CONFIG = {
   ],
 };
 
-function printJob(box, index, variantId = USD_VARIANT, expectedVersion = 2) {
-  return call(box, "barcode_print_job_create", [
+function printJob(box, index, variantId = USD_VARIANT, expectedVersion = 2,
+  rpc = "barcode_print_job_create_v2") {
+  return call(box, rpc, [
     `'${operation(index)}'::uuid`, `'${operation(index + 100)}'::uuid`,
     "NULL::uuid", "NULL::bigint", "'Fiyat etiketi'", jsonb(LABEL_CONFIG),
     "'pdf'", "'thermal'", "0", jsonb([{ variantId, expectedVersion, quantity: 1 }]),
   ].join(","));
+}
+
+function catalogCall(box, name, argumentsSql) {
+  return JSON.parse(scalar(box, `SET ROLE celebix_saas_app;
+    SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+    FROM saas.${name}('${STORE}'::uuid,'${OWNER}'::uuid,'${MEMBERSHIP}'::uuid,
+      '${PLAN}'::uuid,'free_starter',1,100,'${NOW}'::timestamptz,${argumentsSql});`));
 }
 
 function main() {
@@ -60,7 +68,55 @@ function main() {
       apply(box, file);
     }
 
-    const label = JSON.parse(scalar(box, `SELECT saas.barcode_label_variant_projection('${STORE}'::uuid,'${USD_VARIANT}'::uuid)::text;`));
+    const oldFixedList = call(box, "barcode_label_list", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
+    assert.equal(oldFixedList.outcome, "unavailable", "legacy mixed page must not display a dynamic stored base price");
+    const newPricedList = call(box, "barcode_label_list_v2", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
+    assert.equal(newPricedList.outcome, "listed");
+    assert.equal(newPricedList.result.items.find((item) => item.variantId === USD_VARIANT)?.priceCents, 500_000);
+    assert.equal(newPricedList.result.items.find((item) => item.variantId === FIXED)?.priceCents, 12345);
+
+    const oldSummary = catalogCall(box, "catalog_list_products_v3", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,'updated-desc',20::integer,NULL::timestamptz,NULL::text,NULL::uuid`);
+    assert.equal(oldSummary.outcome, "listed");
+    assert.equal(oldSummary.result.variantSummaries[oldSummary.result.items[0].id].priceCents, 12345,
+      "legacy fixed-price summary remains unchanged");
+    const dynamicSummary = JSON.parse(scalar(box, `BEGIN;
+      UPDATE saas.product_variants SET status='archived', archived_at='${NOW}'::timestamptz, updated_at='${NOW}'::timestamptz WHERE store_id='${STORE}'::uuid AND id='${FIXED}'::uuid;
+      UPDATE saas.product_variants SET created_at='2025-01-01' WHERE store_id='${STORE}'::uuid AND id='${USD_VARIANT}'::uuid;
+      UPDATE saas.product_variants SET compare_at_cents=500000 WHERE store_id='${STORE}'::uuid AND id='${USD_VARIANT}'::uuid;
+      SET LOCAL ROLE celebix_saas_app;
+      SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+      FROM saas.catalog_list_products_v3('${STORE}'::uuid,'${OWNER}'::uuid,
+        '${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter',1,100,
+        '${NOW}'::timestamptz,NULL,NULL,NULL,NULL,NULL,NULL,'updated-desc',20,
+        NULL::timestamptz,NULL::text,NULL::uuid);
+      ROLLBACK;`));
+    assert.equal(dynamicSummary.outcome, "listed");
+    assert.equal(dynamicSummary.result.variantSummaries[oldSummary.result.items[0].id].priceCents, 500_000);
+    assert.equal(Object.hasOwn(dynamicSummary.result.variantSummaries[oldSummary.result.items[0].id], "effectivePriceCents"), false);
+    assert.equal(Object.hasOwn(dynamicSummary.result.variantSummaries[oldSummary.result.items[0].id], "compareAtCents"), false,
+      "equal strike-through amount must not present a fake discount");
+    const archivedDynamicSummary = JSON.parse(scalar(box, `BEGIN;
+      UPDATE saas.product_variants SET status='archived',archived_at='${NOW}'::timestamptz,
+        updated_at='${NOW}'::timestamptz WHERE store_id='${STORE}'::uuid;
+      UPDATE saas.product_variants SET created_at='2025-01-01' WHERE store_id='${STORE}'::uuid AND id='${USD_VARIANT}'::uuid;
+      SET LOCAL ROLE celebix_saas_app;
+      SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+      FROM saas.catalog_list_products_v3('${STORE}'::uuid,'${OWNER}'::uuid,
+        '${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter',1,100,
+        '${NOW}'::timestamptz,NULL,NULL,NULL,NULL,NULL,NULL,'updated-desc',20,
+        NULL::timestamptz,NULL::text,NULL::uuid);
+      ROLLBACK;`));
+    assert.equal(archivedDynamicSummary.outcome, "listed",
+      "unsellable archived dynamic variants must not hide an otherwise readable page");
+    assert.equal(archivedDynamicSummary.result.variantSummaries[oldSummary.result.items[0].id].variantId, USD_VARIANT);
+    const oldDetail = catalogCall(box, "catalog_get_product_details", `'50000000-0000-4000-8000-000000000130'::uuid,true`);
+    assert.equal(oldDetail.outcome, "found");
+    assert.equal(oldDetail.result.variants.find((item) => item.id === USD_VARIANT).priceCents, 500_000);
+    const oldPreview = catalogCall(box, "catalog_get_product_preview", `'50000000-0000-4000-8000-000000000130'::uuid`);
+    assert.equal(oldPreview.outcome, "found");
+    assert.equal(oldPreview.result.variants.find((item) => item.title === "USD").priceCents, 500_000);
+
+    const label = JSON.parse(scalar(box, `SELECT saas.barcode_label_variant_projection_v2('${STORE}'::uuid,'${USD_VARIANT}'::uuid)::text;`));
     assert.equal(label.priceCents, 500_000, "a barcode preview must not show the cached base TRY price");
     assert.equal(label.priceContext?.channel, "storefront");
     assert.equal(label.priceContext?.activeSetId, SET_1);
@@ -68,7 +124,7 @@ function main() {
     assert.equal(label.priceContext?.policyVersion, 1);
     process.stdout.write("PASS barcode preview uses the active reference price\n");
     assert.equal(scalar(box, `BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_app;
-      SELECT item.value->>'priceCents' FROM saas.barcode_label_list(
+      SELECT item.value->>'priceCents' FROM saas.barcode_label_list_v2(
         '${STORE}'::uuid,'${OWNER}'::uuid,'${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,
         'free_starter',1,'${NOW}'::timestamptz,NULL::text,NULL::text,NULL::text,
         NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,
@@ -77,7 +133,7 @@ function main() {
       WHERE item.value->>'variantId'='${USD_VARIANT}';COMMIT;`), "500000",
       "the panel's permitted read-only list must resolve the live label amount");
 
-    const listed = call(box, "barcode_label_list", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
+    const listed = call(box, "barcode_label_list_v2", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
     assert.equal(listed.outcome, "listed");
     assert.equal(listed.result.items.find((item) => item.variantId === USD_VARIANT)?.priceCents,
       500_000, "the label list must not surface the cached base price");
@@ -136,8 +192,8 @@ function main() {
       VALUES('${DRAFT_VARIANT}','${DRAFT_PRODUCT}','${STORE}','Draft',45678,'PRICING-DRAFT',
         false,0,'active','{}',1,'2026-01-01','2026-01-01');
       ALTER TABLE saas.product_variants ENABLE TRIGGER product_variants_inventory_reconcile; COMMIT;`);
-    assert.equal(JSON.parse(scalar(box, `SELECT saas.barcode_label_variant_projection('${STORE}'::uuid,'${DRAFT_VARIANT}'::uuid)::text;`)).priceCents,45678);
-    assert.equal(call(box, "barcode_label_list", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`)
+    assert.equal(JSON.parse(scalar(box, `SELECT saas.barcode_label_variant_projection_v2('${STORE}'::uuid,'${DRAFT_VARIANT}'::uuid)::text;`)).priceCents,45678);
+    assert.equal(call(box, "barcode_label_list_v2", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`)
       .result.items.find((item) => item.variantId === DRAFT_VARIANT)?.priceCents,45678);
     const draftCatalog = JSON.parse(scalar(box, `SET ROLE celebix_saas_app;
       SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
@@ -150,7 +206,10 @@ function main() {
     assert.equal(draftDetail.result.variants[0].effectivePriceCents,45678);
     const draftPreview = JSON.parse(scalar(box, previewSql.replaceAll('50000000-0000-4000-8000-000000000130',DRAFT_PRODUCT)));
     assert.equal(draftPreview.result.variants[0].priceCents,45678);
-    assert.equal(printJob(box, 209, DRAFT_VARIANT, 1).result.items[0].snapshot.priceCents,45678);
+    const legacyFixedPrint = printJob(box, 209, DRAFT_VARIANT, 1, "barcode_print_job_create");
+    assert.equal(legacyFixedPrint.result.items[0].snapshot.priceCents,45678);
+    assert.equal(Object.hasOwn(legacyFixedPrint.result.items[0].snapshot,"priceContext"),false,
+      "an old fixed-product print result must retain the strict V1 snapshot shape");
     process.stdout.write("PASS fixed draft remains previewable and printable without being a live sale\n");
 
     assert.equal(saveSet(box, SET_2, 1, [{ referenceId: USD, rateTry: null, active: false }], operation(205)).outcome, "saved");
@@ -161,7 +220,7 @@ function main() {
       "activated", "the merchant must be able to stop new dynamic sales by deactivating a reference");
     assert.equal(effective(box, USD_VARIANT).outcome, "unavailable");
     assert.equal(effective(box, FIXED).price_cents, 12345);
-    const inactiveList = call(box, "barcode_label_list", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
+    const inactiveList = call(box, "barcode_label_list_v2", `NULL::text,NULL::text,NULL::text,NULL::uuid,NULL::uuid,NULL::uuid,NULL::boolean,'name-asc',20,NULL::integer,NULL::text,NULL::integer,NULL::uuid`);
     assert.equal(inactiveList.outcome, "listed");
     assert.equal(inactiveList.result.items.find((item) => item.variantId === USD_VARIANT)?.priceCents, null);
     assert.equal(inactiveList.result.items.find((item) => item.variantId === USD_VARIANT)?.priceUnavailable, true);
@@ -184,6 +243,13 @@ function main() {
     assert.equal(oldPrint.outcome, "found");
     assert.equal(oldPrint.result.items[0].snapshot.priceCents, 500_000,
       "a historical print job must retain its original amount");
+    assert.equal(Object.hasOwn(oldPrint.result.items[0].snapshot,"priceContext"),false,
+      "old job detail must be parseable without erasing persisted price audit");
+    const newPrint = call(box, "barcode_print_job_get_v2", `'${printed.result.id}'::uuid`);
+    assert.equal(newPrint.result.items[0].snapshot.priceContext.activeSetId, SET_1);
+    const legacyReplay = printJob(box, 207, USD_VARIANT, 2, "barcode_print_job_create");
+    assert.equal(legacyReplay.outcome,"operation_replayed");
+    assert.equal(Object.hasOwn(legacyReplay.result.items[0].snapshot,"priceContext"),false);
     const replay = printJob(box, 207);
     assert.equal(replay.outcome, "operation_replayed");
     assert.equal(replay.result.items[0].snapshot.priceCents, 500_000);

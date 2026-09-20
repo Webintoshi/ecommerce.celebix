@@ -105,6 +105,64 @@ CREATE TABLE saas.pricing_variant_policy_state (
     REFERENCES saas.pricing_variant_policy_versions(store_id,variant_id,version) ON DELETE RESTRICT
 );
 
+-- No merchant receives dynamic selling capability merely by migrating.
+-- Only a separately authorized owner-side rollout can add an enabled row.
+CREATE TABLE saas.pricing_dynamic_activation (
+  store_id uuid PRIMARY KEY REFERENCES saas.stores(id) ON DELETE RESTRICT,
+  enabled boolean NOT NULL DEFAULT false
+);
+CREATE FUNCTION saas.pricing_dynamic_activation_lock()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE v_store_id uuid;
+BEGIN
+  IF TG_OP='DELETE' THEN v_store_id:=OLD.store_id;
+  ELSE v_store_id:=NEW.store_id; END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.catalog.store:'||v_store_id::text,0));
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END $fn$;
+CREATE TRIGGER pricing_dynamic_activation_lock BEFORE INSERT OR UPDATE OR DELETE
+  ON saas.pricing_dynamic_activation FOR EACH ROW
+  EXECUTE FUNCTION saas.pricing_dynamic_activation_lock();
+
+CREATE FUNCTION saas.pricing_dynamic_visibility_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE dynamic_exists boolean;
+BEGIN
+  IF NEW.status<>'active' OR OLD.status='active' THEN RETURN NEW; END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.catalog.store:'||NEW.store_id::text,0));
+  IF TG_TABLE_NAME='products' THEN
+    SELECT EXISTS (SELECT 1 FROM saas.product_variants variant
+      JOIN saas.pricing_variant_policy_state state
+        ON state.store_id=variant.store_id AND state.variant_id=variant.id
+      JOIN saas.pricing_variant_policy_versions policy
+        ON policy.store_id=state.store_id AND policy.variant_id=state.variant_id
+          AND policy.version=state.current_version
+      WHERE variant.store_id=NEW.store_id AND variant.product_id=NEW.id
+        AND variant.status='active' AND policy.method<>'fixed_try') INTO dynamic_exists;
+  ELSE
+    SELECT EXISTS (SELECT 1 FROM saas.products product
+      JOIN saas.pricing_variant_policy_state state
+        ON state.store_id=NEW.store_id AND state.variant_id=NEW.id
+      JOIN saas.pricing_variant_policy_versions policy
+        ON policy.store_id=state.store_id AND policy.variant_id=state.variant_id
+          AND policy.version=state.current_version
+      WHERE product.store_id=NEW.store_id AND product.id=NEW.product_id
+        AND product.status='active' AND policy.method<>'fixed_try') INTO dynamic_exists;
+  END IF;
+  IF dynamic_exists AND NOT EXISTS (SELECT 1 FROM saas.pricing_dynamic_activation
+    WHERE store_id=NEW.store_id AND enabled) THEN
+    RAISE EXCEPTION 'PRICING_DYNAMIC_ACTIVATION_REQUIRED';
+  END IF;
+  RETURN NEW;
+END $fn$;
+CREATE TRIGGER products_pricing_dynamic_visibility BEFORE UPDATE OF status
+  ON saas.products FOR EACH ROW EXECUTE FUNCTION saas.pricing_dynamic_visibility_guard();
+CREATE TRIGGER product_variants_pricing_dynamic_visibility BEFORE UPDATE OF status
+  ON saas.product_variants FOR EACH ROW EXECUTE FUNCTION saas.pricing_dynamic_visibility_guard();
+
 CREATE TABLE saas.pricing_reference_operations (
   operation_id uuid PRIMARY KEY,
   store_id uuid NOT NULL REFERENCES saas.stores(id) ON DELETE RESTRICT,
@@ -138,6 +196,8 @@ ALTER TABLE saas.pricing_reference_sets FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_reference_set_values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_reference_set_values FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_reference_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.pricing_dynamic_activation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.pricing_dynamic_activation FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_reference_state FORCE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_variant_policy_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_variant_policy_versions FORCE ROW LEVEL SECURITY;
@@ -147,6 +207,7 @@ ALTER TABLE saas.pricing_reference_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.pricing_reference_operations FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.pricing_reference_definitions,saas.pricing_reference_sets,
   saas.pricing_reference_set_values,saas.pricing_reference_state,
+  saas.pricing_dynamic_activation,
   saas.pricing_variant_policy_versions,saas.pricing_variant_policy_state,
   saas.pricing_reference_operations
 FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
@@ -588,6 +649,11 @@ BEGIN
     RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
   END IF;
   method:=p_policy->>'method'; selected_labor:=COALESCE(p_policy->>'laborMode','none');
+  IF method<>'fixed_try' AND NOT EXISTS (
+    SELECT 1 FROM saas.pricing_dynamic_activation
+    WHERE store_id=p_store_id AND enabled) THEN
+    RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
+  END IF;
   IF method<>'fixed_try' THEN
     SELECT definition.* INTO selected_reference FROM saas.pricing_reference_definitions definition
     WHERE definition.store_id=p_store_id AND definition.id=(p_policy->>'referenceId')::uuid;
@@ -745,6 +811,12 @@ BEGIN
   SELECT * INTO selected_set FROM saas.pricing_reference_sets selected
   WHERE selected.store_id=p_store_id AND selected.id=p_set_id;
   IF NOT FOUND THEN RETURN QUERY SELECT 'resource_not_found',NULL::jsonb; RETURN; END IF;
+  IF EXISTS (SELECT 1 FROM saas.pricing_reference_set_values value
+      WHERE value.store_id=p_store_id AND value.set_id=p_set_id AND value.active)
+    AND NOT EXISTS (SELECT 1 FROM saas.pricing_dynamic_activation
+      WHERE store_id=p_store_id AND enabled) THEN
+    RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
+  END IF;
   IF saas.pricing_reference_scope_digest(p_store_id,p_set_id,p_now) IS DISTINCT FROM p_expected_scope_digest THEN
     RETURN QUERY SELECT 'scope_conflict',NULL::jsonb; RETURN;
   END IF;

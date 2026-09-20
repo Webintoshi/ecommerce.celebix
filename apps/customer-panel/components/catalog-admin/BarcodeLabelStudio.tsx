@@ -320,7 +320,7 @@ export function BarcodeLabelStudio({
         if (activeCursor) query.set("cursor", activeCursor);
         const value = parseBarcodeLabelListResult(
           await json(
-            fetch(`/api/catalog/barcode-labels?${query}`, {
+            fetch(`/api/catalog/barcode-labels/v2?${query}`, {
               credentials: "same-origin",
               cache: "no-store",
             }),
@@ -338,7 +338,7 @@ export function BarcodeLabelStudio({
           query.set("cursor", preselectionCursor);
           const page = parseBarcodeLabelListResult(
             await json(
-              fetch(`/api/catalog/barcode-labels?${query}`, {
+              fetch(`/api/catalog/barcode-labels/v2?${query}`, {
                 credentials: "same-origin",
                 cache: "no-store",
               }),
@@ -616,7 +616,7 @@ export function BarcodeLabelStudio({
       outputType === "browser" ? reservePrintWindow() : null;
     setBusy(outputType);
     try {
-      const job = await mutation("/api/catalog/barcode-print-jobs", "POST", {
+      const job = await mutation("/api/catalog/barcode-print-jobs/v2", "POST", {
         template: activeCustomTemplate
           ? {
               kind: "custom",
@@ -919,7 +919,7 @@ export function BarcodeLabelStudio({
     try {
       const job: BarcodePrintJob = parseBarcodePrintJob(
         await json(
-          fetch(`/api/catalog/barcode-print-jobs/${summary.id}`, {
+          fetch(`/api/catalog/barcode-print-jobs/v2/${summary.id}`, {
             credentials: "same-origin",
             cache: "no-store",
           }),

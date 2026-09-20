@@ -6,6 +6,8 @@ import {
   parseBarcodeLabelTemplateSaveIntent,
   parseBarcodePrintJobCreateIntent,
   isMerchantActionAllowed,
+  type BarcodeLabelVariantRow,
+  type BarcodePrintJob,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -59,6 +61,27 @@ function response(value: unknown, status = 200, headers?: HeadersInit) {
 }
 function failure(code: string, status: number, headers?: HeadersInit) {
   return response({ code }, status, headers);
+}
+
+function v2Request(request: Request): boolean {
+  const pathname = new URL(request.url).pathname;
+  return pathname === "/api/catalog/barcode-labels/v2" ||
+    pathname === "/api/catalog/barcode-print-jobs/v2" ||
+    pathname.startsWith("/api/catalog/barcode-print-jobs/v2/");
+}
+
+function legacyLabel(row: BarcodeLabelVariantRow) {
+  if (row.priceCents === null) return null;
+  const { priceContext: _context, priceUnavailable: _unavailable, ...legacy } = row;
+  return legacy;
+}
+
+function legacyJob(job: BarcodePrintJob) {
+  const items = job.items.map((item) => {
+    const snapshot = legacyLabel(item.snapshot);
+    return snapshot === null ? null : { ...item, snapshot };
+  });
+  return items.some((item) => item === null) ? null : { ...job, items };
 }
 function repositoryFailure(error: unknown): Response {
   if (!(error instanceof BarcodeLabelRepositoryError))
@@ -264,7 +287,13 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
             now: authorized.now,
             ...parsed,
           }),
-        (value) => response(value),
+        (value) => {
+          if (v2Request(request)) return response(value);
+          const items = value.items.map(legacyLabel);
+          return items.some((item) => item === null)
+            ? failure("unavailable", 503)
+            : response({ ...value, items });
+        },
       );
     },
     async templates(request: Request) {
@@ -409,15 +438,24 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
           // succeed after the source template is later renamed or archived.
           templateName = "Mağaza şablonu";
         }
+        if (!v2Request(request) && !authorized.runtime.barcodeLabels.createJobLegacy) {
+          return failure("unavailable", 503);
+        }
         return run(
           () =>
-            authorized.runtime.barcodeLabels.createJob({
+            (v2Request(request) ? authorized.runtime.barcodeLabels.createJob
+              : authorized.runtime.barcodeLabels.createJobLegacy!)({
               ...authority,
               ...intent,
               operationId: operation,
               templateName,
             }),
-          (job) => response(job, 201),
+          (job) => {
+            if (v2Request(request)) return response(job, 201);
+            const adapted = legacyJob(job);
+            return adapted === null ? failure("unavailable", 503)
+              : response(adapted, 201);
+          },
         );
       } catch (error) {
         return repositoryFailure(
@@ -440,7 +478,12 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
             now: authorized.now,
             jobId,
           }),
-        (job) => response(job),
+        (job) => {
+          if (v2Request(request)) return response(job);
+          const adapted = legacyJob(job);
+          return adapted === null ? failure("unavailable", 503)
+            : response(adapted);
+        },
       );
     },
     async output(request: Request, jobId: string, kind: "pdf" | "zpl") {

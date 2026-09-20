@@ -129,7 +129,7 @@ function migrationsThrough128() {
 
 function apply(box, file) { psql(box, readFileSync(path.join(SQL, file), "utf8")); }
 
-function seed(box) {
+function seed(box, { dynamicPricingEnabled = true } = {}) {
   psql(box, `BEGIN; SET LOCAL ROLE celebix_saas_owner;
     INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at) VALUES
       ('${OWNER}','https://id.test/oidc','pricing-owner','pricing-owner@test.invalid',true,'2026-01-01','2026-01-01'),
@@ -155,6 +155,9 @@ function seed(box) {
       ('${GOLD_VARIANT_2}','${PRODUCT}','${STORE}','Gold 2',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01');
     ALTER TABLE saas.product_variants ENABLE TRIGGER product_variants_inventory_reconcile;
   COMMIT;`);
+  if (dynamicPricingEnabled) psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+    INSERT INTO saas.pricing_dynamic_activation(store_id,enabled)
+    VALUES('${STORE}'::uuid,true);COMMIT;`);
 }
 
 let passed = 0;
@@ -328,7 +331,7 @@ function main() {
   } finally { stop(box); }
 }
 
-export { SQL, DB, NOW, STORE, OWNER, MEMBERSHIP, PLAN, USD, SET_1, USD_VARIANT,
+export { SQL, DB, NOW, STORE, OWNER, MEMBERSHIP, PLAN, USD, SET_1, USD_VARIANT, FIXED,
   command, start, stop, psql, scalar, sqlString, jsonb, fingerprint, authority,
   operation, call, define, saveSet, preview, activate, policySave, effective,
   migrationsThrough128, apply, seed };

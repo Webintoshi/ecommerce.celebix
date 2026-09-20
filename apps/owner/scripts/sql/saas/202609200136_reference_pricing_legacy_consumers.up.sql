@@ -5,7 +5,7 @@ SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 
-CREATE OR REPLACE FUNCTION saas.barcode_label_variant_projection(p_store_id uuid,p_variant_id uuid)
+CREATE FUNCTION saas.barcode_label_variant_projection_v2(p_store_id uuid,p_variant_id uuid)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE STRICT SECURITY DEFINER
 SET search_path=pg_catalog,saas AS $fn$
 DECLARE
@@ -33,7 +33,7 @@ BEGIN
       AND definition.variant_id=state.variant_id
       AND definition.version=state.current_version
   WHERE state.store_id=p_store_id AND state.variant_id=p_variant_id;
-  IF NOT FOUND OR v_price.outcome IS DISTINCT FROM 'found'
+  IF v_price.outcome IS DISTINCT FROM 'found'
     OR v_price.price_cents IS NULL THEN
     SELECT variant.price_cents INTO v_draft_fixed_price
     FROM saas.product_variants variant JOIN saas.products product
@@ -89,6 +89,16 @@ BEGIN
   RETURN v_projection;
 END $fn$;
 
+-- The unversioned helper is also used by the canonical print writer. It must
+-- keep the old exact snapshot shape; V2 jobs add lineage after insertion.
+CREATE OR REPLACE FUNCTION saas.barcode_label_variant_projection(
+  p_store_id uuid,p_variant_id uuid) RETURNS jsonb
+LANGUAGE sql VOLATILE STRICT SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+  SELECT saas.barcode_label_variant_projection_v2(p_store_id,p_variant_id)-'priceContext'
+$fn$;
+REVOKE ALL ON FUNCTION saas.barcode_label_variant_projection_v2(uuid,uuid)
+  FROM PUBLIC,celebix_saas_app;
+
 -- Preserve the proven filter/keyset machinery but replace only its legacy
 -- price projection. One set-based statement prices the entire page against
 -- one MVCC snapshot; unavailable rows remain visible without a fake 0 TRY.
@@ -99,7 +109,7 @@ REVOKE ALL ON FUNCTION saas.barcode_label_list_unpriced_v1(uuid,uuid,uuid,uuid,
   text,bigint,timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,
   integer,text,integer,uuid) FROM PUBLIC,celebix_saas_app;
 
-CREATE FUNCTION saas.barcode_label_list(
+CREATE FUNCTION saas.barcode_label_list_v2(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
   p_plan_code text,p_plan_version bigint,p_now timestamptz,
   p_query text,p_status text,p_stock_state text,p_category_id uuid,p_brand_id uuid,
@@ -178,6 +188,54 @@ EXCEPTION WHEN OTHERS THEN
   RETURN QUERY SELECT 'unavailable',NULL::jsonb;
 END $fn$;
 
+REVOKE ALL ON FUNCTION saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,
+  timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,
+  integer,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,
+  timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,
+  integer,uuid) TO celebix_saas_app;
+
+-- Existing panel binaries parse an exact V1 row. Keep its endpoint and shape;
+-- fail the complete page rather than silently omit a dynamic or unavailable row.
+CREATE FUNCTION saas.barcode_label_list(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_now timestamptz,
+  p_query text,p_status text,p_stock_state text,p_category_id uuid,p_brand_id uuid,
+  p_product_id uuid,p_has_barcode boolean,p_sort text,p_page_size integer,
+  p_anchor_null_rank integer,p_anchor_sort_text text,p_anchor_sort_number integer,
+  p_anchor_variant_id uuid
+) RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE v_outcome text; v_payload jsonb; v_items jsonb;
+BEGIN
+  SELECT listed.outcome,listed.result_payload INTO v_outcome,v_payload
+  FROM saas.barcode_label_list_v2(p_store_id,p_principal_id,p_membership_id,
+    p_plan_id,p_plan_code,p_plan_version,p_now,p_query,p_status,p_stock_state,
+    p_category_id,p_brand_id,p_product_id,p_has_barcode,p_sort,p_page_size,
+    p_anchor_null_rank,p_anchor_sort_text,p_anchor_sort_number,p_anchor_variant_id) listed;
+  IF v_outcome IS DISTINCT FROM 'listed' THEN
+    RETURN QUERY SELECT COALESCE(v_outcome,'unavailable'),v_payload; RETURN;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.jsonb_array_elements(v_payload->'items') item(value)
+    LEFT JOIN saas.pricing_variant_policy_state state
+      ON state.store_id=p_store_id AND state.variant_id=(item.value->>'variantId')::uuid
+    LEFT JOIN saas.pricing_variant_policy_versions policy
+      ON policy.store_id=state.store_id AND policy.variant_id=state.variant_id
+        AND policy.version=state.current_version
+    WHERE item.value->>'priceCents' IS NULL
+      OR COALESCE(policy.method,'fixed_try')<>'fixed_try'
+  ) THEN
+    RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
+  END IF;
+  SELECT COALESCE(pg_catalog.jsonb_agg(item.value-'priceContext'-'priceUnavailable'
+    ORDER BY item.ordinality),'[]'::jsonb) INTO v_items
+  FROM pg_catalog.jsonb_array_elements(v_payload->'items')
+    WITH ORDINALITY item(value,ordinality);
+  RETURN QUERY SELECT 'listed',pg_catalog.jsonb_set(v_payload,'{items}',v_items);
+EXCEPTION WHEN OTHERS THEN
+  RETURN QUERY SELECT 'unavailable',NULL::jsonb;
+END $fn$;
 REVOKE ALL ON FUNCTION saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,
   timestamptz,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,
   integer,uuid) FROM PUBLIC;

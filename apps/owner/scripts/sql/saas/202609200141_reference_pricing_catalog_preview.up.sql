@@ -5,6 +5,11 @@ SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 
+ALTER FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,text,bigint,
+  bigint,timestamptz,uuid) RENAME TO catalog_get_product_preview_unpriced_v1;
+REVOKE ALL ON FUNCTION saas.catalog_get_product_preview_unpriced_v1(uuid,uuid,
+  uuid,uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC,celebix_saas_app;
+
 CREATE FUNCTION saas.catalog_get_product_preview_v2(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
   p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
@@ -14,7 +19,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
 DECLARE v_outcome text; v_payload jsonb; v_variants jsonb;
 BEGIN
   SELECT preview.outcome,preview.result_payload INTO v_outcome,v_payload
-  FROM saas.catalog_get_product_preview(p_store_id,p_principal_id,p_membership_id,
+  FROM saas.catalog_get_product_preview_unpriced_v1(p_store_id,p_principal_id,p_membership_id,
     p_plan_id,p_plan_code,p_plan_version,p_products_limit,p_now,p_product_id) preview;
   IF v_outcome IS DISTINCT FROM 'found' THEN
     RETURN QUERY SELECT COALESCE(v_outcome,'unavailable'),v_payload; RETURN;
@@ -55,4 +60,31 @@ REVOKE ALL ON FUNCTION saas.catalog_get_product_preview_v2(uuid,uuid,uuid,
   uuid,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION saas.catalog_get_product_preview_v2(uuid,uuid,uuid,
   uuid,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
+
+CREATE FUNCTION saas.catalog_get_product_preview(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_products_limit bigint,p_now timestamptz,
+  p_product_id uuid
+) RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE v_outcome text; v_payload jsonb;
+BEGIN
+  SELECT preview.outcome,preview.result_payload INTO v_outcome,v_payload
+  FROM saas.catalog_get_product_preview_v2(p_store_id,p_principal_id,
+    p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_products_limit,
+    p_now,p_product_id) preview;
+  IF v_outcome IS DISTINCT FROM 'found' THEN
+    RETURN QUERY SELECT COALESCE(v_outcome,'unavailable'),v_payload; RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(v_payload->'variants') item(value)
+    WHERE item.value->>'priceCents' IS NULL) THEN
+    RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
+  END IF;
+  RETURN QUERY SELECT 'found',v_payload;
+EXCEPTION WHEN OTHERS THEN RETURN QUERY SELECT 'unavailable',NULL::jsonb;
+END $fn$;
+REVOKE ALL ON FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,
+  text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION saas.catalog_get_product_preview(uuid,uuid,uuid,uuid,
+  text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
 COMMIT;

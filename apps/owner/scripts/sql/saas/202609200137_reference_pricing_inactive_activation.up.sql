@@ -42,6 +42,12 @@ BEGIN
   SELECT * INTO selected_set FROM saas.pricing_reference_sets selected
   WHERE selected.store_id=p_store_id AND selected.id=p_set_id;
   IF NOT FOUND THEN RETURN QUERY SELECT 'resource_not_found',NULL::jsonb; RETURN; END IF;
+  IF EXISTS (SELECT 1 FROM saas.pricing_reference_set_values value
+      WHERE value.store_id=p_store_id AND value.set_id=p_set_id AND value.active)
+    AND NOT EXISTS (SELECT 1 FROM saas.pricing_dynamic_activation
+      WHERE store_id=p_store_id AND enabled) THEN
+    RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
+  END IF;
   IF saas.pricing_reference_scope_digest(p_store_id,p_set_id,p_now) IS DISTINCT FROM p_expected_scope_digest THEN
     RETURN QUERY SELECT 'scope_conflict',NULL::jsonb; RETURN;
   END IF;
