@@ -189,6 +189,8 @@ test("parses and deeply freezes exact product and variant projections", () => {
   assert.equal(Object.isFrozen(parsedProduct), true);
   assert.equal(Object.isFrozen(parsedVariant), true);
   assert.equal(Object.isFrozen(parsedVariant.attributes), true);
+  assert.equal(parseProductVariant(variant({ effectivePriceCents: 500_000 })).effectivePriceCents, 500_000);
+  assert.equal(parseProductVariant(variant({ effectivePriceCents: null })).effectivePriceCents, null);
 });
 
 test("rejects extra keys, noncanonical identifiers, text, currency, and timestamps", () => {
@@ -211,6 +213,7 @@ test("rejects unsafe money, stock, SKU, barcode, and attribute values", () => {
     variant({ barcode: " 8690000000001" }),
     variant({ priceCents: -1 }),
     variant({ priceCents: 1.2 }),
+    variant({ effectivePriceCents: -1 }),
     variant({ compareAtCents: 12_499 }),
     variant({ stockQuantity: -1 }),
     variant({ attributes: [] }),
@@ -265,6 +268,12 @@ test("parses and freezes the exact product-list variant summary projection", () 
   assert.deepEqual(parsed, summary);
   assert.equal(Object.isFrozen(parsed), true);
   assert.deepEqual(parseCatalogProductListVariantSummary({
+    ...summary, effectivePriceCents: 500_000, pricingMethod: "usd",
+  }), { ...summary, effectivePriceCents: 500_000, pricingMethod: "usd" });
+  assert.deepEqual(parseCatalogProductListVariantSummary({
+    ...summary, effectivePriceCents: null, pricingMethod: "usd",
+  }), { ...summary, effectivePriceCents: null, pricingMethod: "usd" });
+  assert.deepEqual(parseCatalogProductListVariantSummary({
     variantId: VARIANT_ID,
     priceCents: 0,
     stockTracking: false,
@@ -291,6 +300,8 @@ test("product-list variant summary rejects extra keys and unsafe list values", (
     { ...valid, variantId: "not-a-uuid" },
     { ...valid, sku: "atlas-mug-1" },
     { ...valid, priceCents: Number.MAX_SAFE_INTEGER + 1 },
+    { ...valid, effectivePriceCents: -1 },
+    { ...valid, pricingMethod: "unsafe" },
     { ...valid, compareAtCents: 12_499 },
     { ...valid, stockQuantity: -1 },
     { ...valid, stockTracking: "true" },

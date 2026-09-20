@@ -377,14 +377,39 @@ export function parseBarcodeLabelVariantRow(
       "status",
       "updatedAt",
     ],
-    ["sku", "barcode", "compareAtCents", "category", "brand"],
+    ["sku", "barcode", "compareAtCents", "category", "brand", "priceContext", "priceUnavailable"],
   );
-  const priceCents = integer(parsed.priceCents);
+  const priceUnavailable = parsed.priceUnavailable === true;
+  if (parsed.priceUnavailable !== undefined && !priceUnavailable) invalid();
+  const priceCents = priceUnavailable
+    ? (parsed.priceCents === null ? null : invalid())
+    : integer(parsed.priceCents);
   const compareAtCents =
     parsed.compareAtCents === undefined
       ? undefined
       : integer(parsed.compareAtCents);
-  if (compareAtCents !== undefined && compareAtCents < priceCents) invalid();
+  if (priceUnavailable && (compareAtCents !== undefined || parsed.priceContext !== undefined)) invalid();
+  if (compareAtCents !== undefined && priceCents !== null && compareAtCents < priceCents) invalid();
+  let priceContext: BarcodeLabelVariantRow["priceContext"];
+  if (parsed.priceContext !== undefined) {
+    const context = exact(parsed.priceContext,
+      ["channel", "pricedAt", "sourceKind"],
+      ["priceListId", "policyVersion", "activeSetId", "activeSetVersion"]);
+    if (context.channel !== "storefront" ||
+      (context.sourceKind !== "base" && context.sourceKind !== "price_list") ||
+      (context.sourceKind === "price_list") !== (context.priceListId !== undefined) ||
+      (context.activeSetId === undefined) !== (context.activeSetVersion === undefined) ||
+      (context.activeSetId !== undefined && context.sourceKind !== "base")) invalid();
+    priceContext = Object.freeze({
+      channel: "storefront",
+      pricedAt: timestamp(context.pricedAt),
+      sourceKind: context.sourceKind,
+      ...(context.priceListId === undefined ? {} : { priceListId: uuid(context.priceListId) }),
+      ...(context.policyVersion === undefined ? {} : { policyVersion: integer(context.policyVersion, 1) }),
+      ...(context.activeSetId === undefined ? {} : { activeSetId: uuid(context.activeSetId) }),
+      ...(context.activeSetVersion === undefined ? {} : { activeSetVersion: integer(context.activeSetVersion, 1) }),
+    });
+  }
   if (parsed.trackInventory !== true && parsed.trackInventory !== false)
     invalid();
   if (parsed.status !== "active" && parsed.status !== "draft") invalid();
@@ -402,6 +427,8 @@ export function parseBarcodeLabelVariantRow(
       ? {}
       : { barcode: text(parsed.barcode, 1, 128) }),
     priceCents,
+    ...(priceUnavailable ? { priceUnavailable: true as const } : {}),
+    ...(priceContext === undefined ? {} : { priceContext }),
     ...(compareAtCents === undefined ? {} : { compareAtCents }),
     currency: text(parsed.currency, 3, 3, /^[A-Z]{3}$/),
     stock: integer(parsed.stock),

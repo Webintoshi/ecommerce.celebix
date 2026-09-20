@@ -164,7 +164,7 @@ test("set save, activation, and policy save send expected versions through one w
     "SELECT outcome,result_payload FROM saas.pricing_reference_set_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)");
   assert.deepEqual(activeClient.queries[5]?.values?.slice(9), [SET, 0, "a".repeat(64)]);
 
-  const policy = { method: "usd", referenceId: REFERENCE, sourceAmount: "125.00000000" };
+  const policy = { method: "usd" as const, referenceId: REFERENCE, sourceAmount: "125.00000000" };
   const projection = { variantId: VARIANT, version: 1, variantVersion: 2, policy, updatedAt: "2026-09-20T12:00:00.000000Z" };
   const policyClient = new Client({ outcome: "policy_saved", result_payload: projection });
   assert.deepEqual(await repository(policyClient).savePolicy({ ...authority(), operationId: OPERATION, variantId: VARIANT, expectedVariantVersion: 2, expectedPolicyVersion: 0, expectedScopeDigest: "a".repeat(64), policy }), projection);

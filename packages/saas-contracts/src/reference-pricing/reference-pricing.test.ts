@@ -99,6 +99,7 @@ test("USD and EUR policies keep source amounts and reference identity, not preco
   const usd = parseVariantPricingPolicy(usdPolicy());
   const eur = parseVariantPricingPolicy({ method: "eur", referenceId: EUR_REFERENCE, sourceAmount: "100" });
   assert.deepEqual(usd, usdPolicy());
+  if (eur.method !== "eur") throw new Error("Expected EUR policy");
   assert.equal(eur.sourceAmount, "100");
   assert.equal(Object.isFrozen(usd), true);
   assert.throws(() => parseVariantPricingPolicy({ ...usdPolicy(), fixedPriceCents: 500000 }));
@@ -120,6 +121,7 @@ test("FX uplift applies to the reference component and accepts one fixed TRY lab
     upliftPercent: "0",
     laborMode: "none",
   });
+  if (usd.method !== "usd" || eur.method !== "eur") throw new Error("Expected FX policies");
   assert.equal(usd.upliftPercent, "5.00000000");
   assert.equal(usd.laborAmount, "750.00");
   assert.equal(eur.laborMode, "none");
@@ -134,7 +136,9 @@ test("dynamic source amounts reject noncanonical, negative, and unsafe decimal v
   for (const sourceAmount of ["-1", "+1", "1e2", "NaN", "Infinity", "1,25", "1.000000001", "9007199254740992", 125]) {
     assert.throws(() => parseVariantPricingPolicy({ ...usdPolicy(), sourceAmount }), String(sourceAmount));
   }
-  assert.equal(parseVariantPricingPolicy({ ...usdPolicy(), sourceAmount: "0" }).sourceAmount, "0");
+  const zeroSource = parseVariantPricingPolicy({ ...usdPolicy(), sourceAmount: "0" });
+  if (zeroSource.method !== "usd") throw new Error("Expected USD policy");
+  assert.equal(zeroSource.sourceAmount, "0");
 });
 
 test("direct gold pricing uses the selected tariff without implicit purity conversion", () => {
@@ -148,6 +152,7 @@ test("direct gold pricing uses the selected tariff without implicit purity conve
 
 test("ratio gold pricing requires explicit product purity and excludes tariff purity from policy", () => {
   const ratio = parseVariantPricingPolicy({ ...goldPolicy(), purityMode: "ratio", productPurity: "0.750000" });
+  if (ratio.method !== "gold_gram") throw new Error("Expected gold policy");
   assert.equal(ratio.productPurity, "0.750000");
   assert.throws(() => parseVariantPricingPolicy({ ...goldPolicy(), purityMode: "ratio" }));
   assert.throws(() => parseVariantPricingPolicy({ ...goldPolicy(), purityMode: "ratio", productPurity: "0" }));
@@ -164,15 +169,21 @@ test("gold gram and labor parameters have one selected labor mode and bounded de
   assert.throws(() => parseVariantPricingPolicy({ ...goldPolicy(), laborMode: "none", laborAmount: "750" }));
   const { laborAmount: _omitted, ...withoutLaborAmount } = goldPolicy();
   const noLabor = parseVariantPricingPolicy({ ...withoutLaborAmount, laborMode: "none" });
+  if (noLabor.method !== "gold_gram") throw new Error("Expected gold policy");
   assert.equal(noLabor.laborMode, "none");
   assert.equal(Object.hasOwn(noLabor, "laborAmount"), false);
-  assert.equal(parseVariantPricingPolicy({ ...goldPolicy(), laborMode: "per_gram_try", laborAmount: "125.50" }).laborMode, "per_gram_try");
+  const perGram = parseVariantPricingPolicy({ ...goldPolicy(), laborMode: "per_gram_try", laborAmount: "125.50" });
+  if (perGram.method !== "gold_gram") throw new Error("Expected gold policy");
+  assert.equal(perGram.laborMode, "per_gram_try");
 });
 
 test("gold full-discount permission defaults closed and uplift cannot be executable input", () => {
   const { allowFullDiscount: _omitted, ...withoutPermission } = goldPolicy();
-  assert.equal(parseVariantPricingPolicy(withoutPermission).allowFullDiscount, false);
-  assert.equal(parseVariantPricingPolicy({ ...goldPolicy(), allowFullDiscount: true }).allowFullDiscount, true);
+  const defaultPolicy = parseVariantPricingPolicy(withoutPermission);
+  const allowedPolicy = parseVariantPricingPolicy({ ...goldPolicy(), allowFullDiscount: true });
+  if (defaultPolicy.method !== "gold_gram" || allowedPolicy.method !== "gold_gram") throw new Error("Expected gold policies");
+  assert.equal(defaultPolicy.allowFullDiscount, false);
+  assert.equal(allowedPolicy.allowFullDiscount, true);
   for (const upliftPercent of ["-1", "1e2", "NaN", "Infinity", "10/2", "1.000000001", 5]) {
     assert.throws(() => parseVariantPricingPolicy({ ...goldPolicy(), upliftPercent }), String(upliftPercent));
   }

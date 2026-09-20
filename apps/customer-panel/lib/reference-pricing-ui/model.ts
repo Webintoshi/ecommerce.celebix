@@ -62,7 +62,7 @@ export function canActivateReferenceSet(input: Readonly<{
 }>): boolean {
   const preview = input.preview;
   return Boolean(input.savedSetId && preview && !input.dirty && preview.setId === input.savedSetId
-    && /^[a-f0-9]{64}$/.test(preview.scopeDigest) && preview.unavailableVariants === 0);
+    && /^[a-f0-9]{64}$/.test(preview.scopeDigest));
 }
 
 export function buildVariantPricingPolicy(draft: VariantPolicyDraft): VariantPricingPolicy {

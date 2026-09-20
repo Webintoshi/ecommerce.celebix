@@ -35,6 +35,25 @@ const row = Object.freeze({
   updatedAt: NOW,
 });
 
+test("a label document rejects a reference-unavailable row instead of printing a zero price", () => {
+  assert.throws(() => buildLabelDocument({
+    templateName: "Test",
+    template: SYSTEM_BARCODE_LABEL_TEMPLATES[2]!.config,
+    printerProfile: "thermal",
+    startCell: 0,
+    items: [{ row: { ...row, priceCents: null, priceUnavailable: true, compareAtCents: undefined }, quantity: 1 }],
+  }), /label_document_price_unavailable/);
+});
+
+test("changed server print-job price blocks output until a new preview is shown", async () => {
+  const module = await import("./document.ts") as Record<string, unknown>;
+  assert.equal(typeof module.assertLabelPricesMatchPreview, "function");
+  const check = module.assertLabelPricesMatchPreview as (before: readonly typeof row[], after: readonly (typeof row | { priceCents: number })[]) => void;
+  assert.throws(() => check(
+    [row], [{ ...row, priceCents: 900000 }]), /label_price_changed/);
+  assert.doesNotThrow(() => check([row], [row]));
+});
+
 test("barcode document core and system template registry are available", async () => {
   const documentModule = await import("./document.ts").catch(() => null);
   const templateModule = await import("./system-templates.ts").catch(

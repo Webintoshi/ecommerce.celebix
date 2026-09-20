@@ -11,7 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test src/*.test.ts src/**/*.test.ts"
+    "test": "node --experimental-transform-types --test src/*.test.ts src/**/*.test.ts"
   },
   "dependencies": {
     "@celebix/saas-contracts": "0.1.0",

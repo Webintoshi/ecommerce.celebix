@@ -70,6 +70,28 @@ type BuildInput = Readonly<{
   items: readonly Readonly<{ row: BarcodeLabelVariantRow; quantity: number }>[];
 }>;
 
+export function assertLabelPricesMatchPreview(
+  preview: readonly BarcodeLabelVariantRow[],
+  job: readonly BarcodeLabelVariantRow[],
+): void {
+  if (preview.length !== job.length) throw new TypeError("label_price_changed");
+  const confirmed = new Map(job.map((row) => [row.variantId, row]));
+  if (confirmed.size !== job.length) throw new TypeError("label_price_changed");
+  for (const row of preview) {
+    const snapshot = confirmed.get(row.variantId);
+    if (!snapshot || row.priceCents === null || snapshot.priceCents === null ||
+      row.priceCents !== snapshot.priceCents ||
+      (row.priceContext !== undefined && (
+        snapshot.priceContext === undefined ||
+        row.priceContext.sourceKind !== snapshot.priceContext.sourceKind ||
+        row.priceContext.priceListId !== snapshot.priceContext.priceListId ||
+        row.priceContext.policyVersion !== snapshot.priceContext.policyVersion ||
+        row.priceContext.activeSetId !== snapshot.priceContext.activeSetId ||
+        row.priceContext.activeSetVersion !== snapshot.priceContext.activeSetVersion
+      ))) throw new TypeError("label_price_changed");
+  }
+}
+
 const ERROR_MESSAGES = Object.freeze({
   barcode_missing: "Bu varyantta barkod veya SKU bulunmuyor.",
   code128_invalid:
@@ -167,8 +189,10 @@ function fieldValue(
   if (key === "barcodeSymbol")
     return barcodeValue === undefined ? undefined : "__BARCODE__";
   if (key === "barcodeValue") return barcodeValue;
-  if (key === "price")
+  if (key === "price") {
+    if (row.priceCents === null) throw new TypeError("label_document_price_unavailable");
     return money(row.priceCents, row.currency, template.currencyDisplay);
+  }
   if (key === "compareAtPrice")
     return row.compareAtCents === undefined
       ? undefined
@@ -335,6 +359,7 @@ export function buildLabelDocument(value: unknown): LabelDocument {
   const items = Object.freeze(
     input.items.flatMap((entry) => {
       const row = parseBarcodeLabelVariantRow(entry.row);
+      if (row.priceCents === null) throw new TypeError("label_document_price_unavailable");
       if (
         seen.has(row.variantId) ||
         !Number.isSafeInteger(entry.quantity) ||

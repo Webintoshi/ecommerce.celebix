@@ -97,7 +97,6 @@ export type CatalogSearchVariant = Readonly<{
   variantId: string;
   title: string;
   sku?: string;
-  priceCents: number;
   availableQuantity?: number;
 }>;
 export type CatalogSearchProduct = Readonly<{
@@ -514,7 +513,6 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
                 variantId: variant.id,
                 title: variant.title,
                 ...(variant.sku === undefined ? {} : { sku: variant.sku }),
-                priceCents: variant.priceCents,
                 ...(variant.stockTracking ? { availableQuantity: variant.stockQuantity } : {}),
               })];
             });

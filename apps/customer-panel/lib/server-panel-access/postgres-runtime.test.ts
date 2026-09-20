@@ -58,9 +58,13 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
             /to_regprocedure\('saas\.catalog_list_products_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid\)'\) IS NOT NULL/,
           );
           assertAppRoleFunctionPrivilege(sql, productListV2);
-          const productListV3 = "saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)";
-          assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v3\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
-          assertAppRoleFunctionPrivilege(sql, productListV3);
+          const productListV4 = "saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)";
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v4\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, productListV4);
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_get_product_details_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, "saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)");
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_get_product_preview_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, "saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)");
           for (const signature of [
             "saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)",
             "saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",

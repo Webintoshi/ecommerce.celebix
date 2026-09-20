@@ -324,7 +324,7 @@ test("store-bound cursors fail closed in another TenantContext", async () => {
 });
 
 test("global list cursors bind search filters and sort before pool checkout", async () => {
-  const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+  const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
     ? [{ outcome: "listed", result_payload: {
       items: [product()],
       hasMore: true,
@@ -362,7 +362,7 @@ test("global list cursors bind search filters and sort before pool checkout", as
     collectionId: SECOND_PRODUCT_ID,
     sort: "title-asc" as const,
   };
-  const equivalentClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+  const equivalentClient = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
     ? [{ outcome: "listed", result_payload: {
       items: [], hasMore: false, catalogTotal: 1_631, featuredImages: {}, variantSummaries: {}, cursorAnchor: null,
     } }]
@@ -370,7 +370,7 @@ test("global list cursors bind search filters and sort before pool checkout", as
   const equivalentPool = new FakePool(equivalentClient);
   await repository(equivalentPool).listProducts(base);
   assert.equal(equivalentPool.connects, 1);
-  assert.equal(equivalentClient.calls.find((call) => call.text.includes("catalog_list_products_v3"))?.values[8], "last sku");
+  assert.equal(equivalentClient.calls.find((call) => call.text.includes("catalog_list_products_v4"))?.values[8], "last sku");
   const mismatches = [
     { ...base, search: "Other" },
     { ...base, status: "draft" as const },
@@ -393,7 +393,7 @@ test("global list cursors bind search filters and sort before pool checkout", as
 test("every valid maximum-length query produces a cursor accepted by the shared 2048-byte boundary", async () => {
   const longSearch = "ᾀ".repeat(200);
   const longTitle = "界".repeat(200);
-  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
     ? [{ outcome: "listed", result_payload: {
       items: [product({ title: longTitle })],
       hasMore: true,
@@ -451,7 +451,7 @@ test("listProducts uses one v3 SQL read and returns a frozen safe variant summar
     altText: "Ürün kapağı",
   });
   const rawSummary = listVariantSummary();
-  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+  const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
     ? [{ outcome: "listed", result_payload: {
       items: [product()],
       hasMore: false,
@@ -481,7 +481,7 @@ test("listProducts uses one v3 SQL read and returns a frozen safe variant summar
   assert.deepEqual(result.featuredImages, { [PRODUCT_ID]: featuredImage });
   const listCalls = client.calls.filter((call) => call.text.includes("catalog_list_products"));
   assert.equal(listCalls.length, 1);
-  assert.match(listCalls[0]!.text, /catalog_list_products_v3/);
+  assert.match(listCalls[0]!.text, /catalog_list_products_v4/);
   assert.deepEqual(listCalls[0]!.values.slice(8), [
     null, "draft", null, null, null, null, "updated-desc", 20, null, null, null,
   ]);
@@ -490,7 +490,7 @@ test("listProducts uses one v3 SQL read and returns a frozen safe variant summar
 
 test("listProducts requires the v3 catalog total to be a safe non-negative integer", async () => {
   for (const catalogTotal of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
       ? [{ outcome: "listed", result_payload: {
         items: [],
         hasMore: false,
@@ -530,7 +530,7 @@ test("listProducts v3 fails closed on unknown, cross-tenant, duplicate, and unsa
   ];
 
   for (const variantSummaries of hostileMaps) {
-    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+    const client = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
       ? [{ outcome: "listed", result_payload: {
         items: [product(), secondProduct],
         hasMore: false,
@@ -546,7 +546,7 @@ test("listProducts v3 fails closed on unknown, cross-tenant, duplicate, and unsa
     );
   }
 
-  const valid = new FakeClient((text) => text.includes("saas.catalog_list_products_v3")
+  const valid = new FakeClient((text) => text.includes("saas.catalog_list_products_v4")
     ? [{ outcome: "listed", result_payload: {
       items: [product(), secondProduct],
       hasMore: false,
@@ -628,6 +628,22 @@ test("getProductDetails accepts an archived product projection for panel lifecyc
   });
   assert.equal(result.product.status, "archived");
   assert.deepEqual(result.variants, []);
+});
+
+test("storefront product preview preserves an unavailable selling price instead of falling back to base cents", async () => {
+  const client = new FakeClient((text) => text.includes("saas.catalog_get_product_preview_v2")
+    ? [{ outcome: "found", result_payload: {
+      canonicalStorefrontUrl: "https://pricing-isolated.test/products/atlas-mug",
+      product: { id: PRODUCT_ID, slug: "atlas-mug", title: "Atlas Mug", status: "active", currency: "TRY", version: 1 },
+      variants: [{ title: "Default", priceCents: null, stockTracking: false, stockQuantity: 0, attributes: {} }],
+      media: [], merchandising: {},
+    } }]
+    : []);
+  const result = await repository(new FakePool(client)).getProductPreview({
+    tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID,
+  });
+  assert.equal(result.variants[0]?.priceCents, null);
+  assert.ok(client.calls.some((call) => call.text.includes("catalog_get_product_preview_v2")));
 });
 
 test("repository enforces product operation roles before checking out a SQL client", async () => {

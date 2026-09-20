@@ -25,13 +25,13 @@ test("reference set draft converts merchant comma input to canonical exact rates
   assert.deepEqual(buildReferenceSetValues([definitions[0]!], [{ referenceId: USD, rateText: "", active: false }]), [{ referenceId: USD, rateTry: null, active: false }]);
 });
 
-test("activation readiness requires saved, unchanged draft and matching server preview with no unavailable variants", async () => {
+test("activation readiness requires saved, unchanged draft and matching server preview, including deliberate deactivation", async () => {
   const { canActivateReferenceSet } = await import("./model.ts");
   const preview = { setId: SET, scopeDigest: "a".repeat(64), affectedProducts: 2, affectedVariants: 2, fixedOverrideVariants: 1, unavailableVariants: 0, entries: [], nextCursor: OTHER };
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview, dirty: false }), true);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, setId: OTHER }, dirty: false }), false);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview, dirty: true }), false);
-  assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, unavailableVariants: 1 }, dirty: false }), false);
+  assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, unavailableVariants: 1 }, dirty: false }), true);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: null, dirty: false }), false);
 });
 

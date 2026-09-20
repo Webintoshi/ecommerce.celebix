@@ -492,7 +492,7 @@ test("checkout replay reproduces persisted cookies after the active key rotates"
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
     completeV3: async (input) => {
       generatedKey = input.generated.receipt.keyId;
-      return { receipt: RECEIPT, credentialPersistence: PERSISTED_CREATED };
+      return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED };
     },
   }), rotated);
   const cart = await selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
@@ -510,7 +510,7 @@ test("a later checkout reuses the existing customer credential and rotates only 
     mutateCart: async () => ({ credentialCreated: true, cart: CART }),
     completeV3: async (input) => {
       observedCustomerCandidates = input.customerCandidates.length;
-      return { receipt: RECEIPT, credentialPersistence: PERSISTED_REUSED };
+      return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_REUSED };
     },
   }));
   const customerCookie = "__Host-celebix_customer=u1.current_01.CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk";

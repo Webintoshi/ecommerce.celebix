@@ -43,6 +43,8 @@ export interface ProductVariant {
   readonly sku?: string;
   readonly barcode?: string;
   readonly priceCents: number;
+  /** Anonymous storefront amount; null means a dynamic reference is unavailable. */
+  readonly effectivePriceCents?: number | null;
   readonly compareAtCents?: number;
   readonly costCents?: number;
   readonly stockTracking: boolean;
@@ -57,7 +59,10 @@ export interface ProductVariant {
 export type CatalogProductListVariantSummary = Readonly<{
   readonly variantId: ProductVariantId;
   readonly sku?: string;
+  /** Persisted fixed-price edit value; never use as a dynamic selling price. */
   readonly priceCents: number;
+  readonly effectivePriceCents?: number | null;
+  readonly pricingMethod?: "fixed_try" | "usd" | "eur" | "gold_gram";
   readonly compareAtCents?: number;
   readonly stockTracking: boolean;
   readonly stockQuantity: number;

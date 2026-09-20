@@ -182,6 +182,34 @@ test("variant rows expose exact safe label data and deeply freeze attributes", (
   );
 });
 
+test("priced label snapshots preserve the anonymous channel and exact reference lineage", () => {
+  const priceContext = {
+    channel: "storefront",
+    pricedAt: NOW,
+    sourceKind: "base",
+    policyVersion: 1,
+    activeSetId: "41000000-0000-4000-8000-000000000130",
+    activeSetVersion: 1,
+  };
+  const priced = contracts.parseBarcodeLabelVariantRow({ ...variantRow, priceContext });
+  assert.deepEqual(priced.priceContext, priceContext);
+  assert.equal(Object.isFrozen(priced.priceContext), true);
+  assert.throws(() => contracts.parseBarcodeLabelVariantRow({ ...variantRow,
+    priceContext: { ...priceContext, channel: "quick_order" },
+  }));
+});
+
+test("an unavailable reference never becomes a zero-price printable label", () => {
+  const row = contracts.parseBarcodeLabelVariantRow({ ...variantRow,
+    priceCents: null, priceUnavailable: true, compareAtCents: undefined,
+  });
+  assert.equal(row.priceCents, null);
+  assert.equal(row.priceUnavailable, true);
+  assert.throws(() => contracts.parseBarcodeLabelVariantRow({ ...variantRow,
+    priceCents: 0, priceUnavailable: true,
+  }));
+});
+
 test("list result is bounded exact and rejects duplicate variants", () => {
   const parsed = contracts.parseBarcodeLabelListResult({
     items: [variantRow],

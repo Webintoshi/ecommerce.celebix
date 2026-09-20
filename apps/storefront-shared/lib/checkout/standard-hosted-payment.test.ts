@@ -134,6 +134,7 @@ function fixture(
   const providerCode = options.providerCode ?? "iyzico_iframe";
   const selectedAuthority = Object.freeze({ ...authority, providerCode });
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
+  let beginV3Input: Parameters<StorefrontHostedCheckoutRepository["beginV3"]>[0] | undefined;
   let preparedV3: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>> | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
@@ -191,6 +192,7 @@ function fixture(
     beginV3: async (input) => {
       if (options.beginError) throw options.beginError;
       beginInput = input;
+      beginV3Input = input;
       if (!preparedV3) throw new Error("prepare_missing");
       const { pricingDigest: _pricingDigest, requiresQuoteConfirmation: _requiresConfirmation, ...durableAuthority } = preparedV3;
       return Object.freeze({ ...begun, authority: Object.freeze(durableAuthority), promotionReservation: null });
@@ -236,7 +238,7 @@ function fixture(
     ...(options.audit ? { audit: options.audit } : {}),
   };
   const runtime = createStandardHostedCheckoutRuntime(dependencies);
-  return { runtime, getBegin: () => beginInput, getSaved: () => savedInput };
+  return { runtime, getBegin: () => beginV3Input, getSaved: () => savedInput };
 }
 
 type PreparedAuthority = Omit<HostedCheckoutAuthority, "items" | "basket"> & Readonly<{

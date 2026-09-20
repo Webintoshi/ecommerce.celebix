@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import {
   DB, NOW, STORE, USD, SET_1, USD_VARIANT, command, start, stop, psql,
@@ -11,6 +12,7 @@ const CART_KEY = "pricing-cart-v3";
 const CART_DIGEST = "a".repeat(64);
 const CANDIDATES = [{ keyId: CART_KEY, digest: CART_DIGEST }];
 const SET_2 = "41000000-0000-4000-8000-000000000132";
+const SET_3 = "41000000-0000-4000-8000-000000000133";
 const HOST = "pricing-a.saas-staging.celebix.site";
 const HOSTED_METHOD = "66000000-0000-4000-8000-000000000132";
 const HOSTED_CART="6c000000-0000-4000-8000-000000000132";
@@ -83,7 +85,37 @@ function hostedBegin(box,authority,quoteDigest) {
   return JSON.parse(result.stdout.trim().split("\n").find((line)=>line.startsWith("{")));
 }
 
-function main() {
+function holdPublicQuote(box) {
+  const child = spawn(box.tools.psql, [
+    "-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+    "-U", "postgres", "-d", DB,
+  ], { stdio: ["pipe", "pipe", "pipe"] });
+  let output = "";
+  let error = "";
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    output += chunk;
+    if (output.includes("QUOTE_LOCKED\n")) resolveReady();
+  });
+  child.stderr.on("data", (chunk) => { error += chunk; });
+  const finished = new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(output) : reject(new Error(`concurrent quote failed: ${error}`)));
+  });
+  child.stdin.end(`BEGIN TRANSACTION READ ONLY; SET LOCAL ROLE celebix_saas_host_resolver;
+    SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+    FROM saas.public_checkout_quote_v3('${HOST}','${NOW}'::timestamptz,'cart',
+      ${jsonb(CANDIDATES)},'[]'::jsonb,ARRAY[]::text[],${jsonb(ATTRIBUTION)});
+    SELECT 'QUOTE_LOCKED'; SELECT pg_catalog.pg_sleep(2); COMMIT;`);
+  const timer = setTimeout(() => rejectReady(new Error("concurrent quote lock timeout")), 10_000);
+  return { ready: ready.finally(() => clearTimeout(timer)), finished, child };
+}
+
+async function main() {
   let box;
   try {
     box = start();
@@ -231,6 +263,20 @@ function main() {
     assert.equal(context(box, [{ keyId: CART_KEY, digest: "b".repeat(64) }]), null);
     assert.equal(scalar(box, `SELECT pg_catalog.count(*) FROM saas.storefront_checkout_operations WHERE store_id='${STORE}'`), "1");
     process.stdout.write("PASS wrong credential reveals no cart and digest reads create no additional operations\n");
+    assert.equal(saveSet(box, SET_3, 2, [{ referenceId: USD, rateTry: "41", active: true }], operation(107)).outcome, "saved");
+    const thirdPreview = preview(box, SET_3);
+    assert.equal(thirdPreview.outcome, "previewed");
+    const heldQuote = holdPublicQuote(box);
+    try {
+      await heldQuote.ready;
+      const started = process.hrtime.bigint();
+      assert.equal(activate(box, SET_3, 2, thirdPreview.result.scopeDigest, operation(108)).outcome, "activated");
+      const blockedMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+      assert.ok(blockedMs >= 1_000, `reference activation bypassed the independent quote transaction (${blockedMs} ms)`);
+      assert.match(await heldQuote.finished, /QUOTE_LOCKED/);
+      assert.equal(scalar(box, `SELECT price_cents FROM saas.resolve_effective_variant_price('${STORE}','${USD_VARIANT}','storefront','${NOW}',NULL);`), "1025000");
+      process.stdout.write("PASS independent PostgreSQL quote and activation transactions serialize on one store version\n");
+    } finally { if (heldQuote.child.exitCode === null) heldQuote.child.kill(); }
     const rollback = psql(box, readFileSync("apps/owner/scripts/sql/saas/202609200132_reference_pricing_checkout.down.sql","utf8"), true);
     assert.notEqual(rollback.status,0,"rollback must fail once historical amount bindings exist");
     assert.match(rollback.stderr,/REFERENCE_PRICING_CHECKOUT_ROLLBACK_REQUIRES_NO_BINDINGS/);
@@ -239,4 +285,4 @@ function main() {
   } finally { stop(box); }
 }
 
-main();
+await main();

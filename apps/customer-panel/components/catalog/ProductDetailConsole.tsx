@@ -46,6 +46,15 @@ function safeMessage(error: unknown) {
   return error instanceof CatalogApiError || error instanceof CatalogOnboardingApiError ? error.message : "İşlem tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
+function currentVariantPrice(variant: ProductVariant): number | null {
+  return variant.effectivePriceCents === undefined ? variant.priceCents : variant.effectivePriceCents;
+}
+
+function displayVariantPrice(variant: ProductVariant, currency: string): string {
+  const current = currentVariantPrice(variant);
+  return current === null ? "Fiyat güncelleniyor" : formatTurkishMoney(current, currency);
+}
+
 function VariantFields({ variant }: { variant?: ProductVariant }) {
   return (
     <div className="form-grid compact-form-grid">
@@ -349,10 +358,17 @@ export function ProductDetailConsole({
   const { product, variants } = detail;
   const archived = product.status === "archived";
   const statusLabel = product.status === "active" ? "Aktif" : archived ? "Arşivlenmiş" : "Taslak";
-  const priceValues = variants.map((variant) => variant.priceCents);
-  const compareAtValues = variants.flatMap((variant) => variant.compareAtCents === undefined ? [] : [variant.compareAtCents]);
+  const priceValues = variants.flatMap((variant) => {
+    const current = currentVariantPrice(variant);
+    return current === null ? [] : [current];
+  });
+  const compareAtValues = variants.flatMap((variant) => {
+    const current = currentVariantPrice(variant);
+    return variant.compareAtCents === undefined || current === null || variant.compareAtCents <= current
+      ? [] : [variant.compareAtCents];
+  });
   const trackedVariants = variants.filter((variant) => variant.stockTracking);
-  const salePrice = priceValues.length === 0 ? "—" : formatTurkishMoney(Math.min(...priceValues), product.currency);
+  const salePrice = priceValues.length === 0 ? variants.length ? "Fiyat güncelleniyor" : "—" : formatTurkishMoney(Math.min(...priceValues), product.currency);
   const compareAtPrice = compareAtValues.length === 0 ? "—" : formatTurkishMoney(Math.min(...compareAtValues), product.currency);
   const stockValue = variants.length === 0
     ? "—"
@@ -478,8 +494,8 @@ export function ProductDetailConsole({
             ) : (
               <>
                 <div className="variant-metrics">
-                  <span><small>Satış fiyatı</small><strong>{formatTurkishMoney(variant.priceCents, product.currency)}</strong></span>
-                  <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
+                  <span><small>Satış fiyatı</small><strong>{displayVariantPrice(variant, product.currency)}</strong></span>
+                  <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined || currentVariantPrice(variant) === null || variant.compareAtCents <= currentVariantPrice(variant)! ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                   <span><small>Stok</small><strong>{variant.stockTracking ? `${variant.stockQuantity} adet` : "Takip dışı"}</strong></span>
                 </div>
                 <div className="variant-actions">{canManage && !archived ? <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)}>Düzenle</button> : null}{canReadPricing && !archived ? <button className="button button-secondary" type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}{canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}</div>

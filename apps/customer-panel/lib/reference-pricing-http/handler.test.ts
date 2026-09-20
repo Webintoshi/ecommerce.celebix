@@ -57,7 +57,11 @@ async function handler(pricing: ReferencePricingRepository, role: "store_owner" 
 
 test("finite read and write routes pass only parsed input with server tenant authority", async () => {
   const calls: Array<[string, Record<string, unknown>]> = [];
-  const observe = <K extends keyof ReferencePricingRepository>(name: K, result: Awaited<ReturnType<ReferencePricingRepository[K]>>) => async (input: Record<string, unknown>) => { calls.push([name, input]); return result; };
+  const observe = <K extends keyof ReferencePricingRepository>(name: K, result: Awaited<ReturnType<ReferencePricingRepository[K]>>): ReferencePricingRepository[K] =>
+    (async (input: Parameters<ReferencePricingRepository[K]>[0]) => {
+      calls.push([name, input as unknown as Record<string, unknown>]);
+      return result;
+    }) as ReferencePricingRepository[K];
   const set = { setId: SET, version: 2, stateVersion: 3, isActive: false, createdAt: UTC, values: [{ referenceId: REFERENCE, kind: "usd" as const, label: "USD satış", rateTry: "40", active: true }] };
   const identity = { id: REFERENCE, kind: "usd" as const, label: "USD satış", createdAt: UTC };
   const policy: VariantPricingPolicy = { method: "fixed_try", fixedPriceCents: 12_000 };

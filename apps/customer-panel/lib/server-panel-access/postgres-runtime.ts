@@ -165,13 +165,17 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
         WHERE n.nspname='saas' AND proname='recover_panel_session_operation'
       ) AS session_recovery,
-      to_regprocedure('saas.catalog_get_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS catalog_reader,
+      to_regprocedure('saas.catalog_get_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)','EXECUTE')
+        AND to_regprocedure('saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE') AS catalog_reader,
       to_regprocedure('saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)','EXECUTE') AS catalog_lister,
       to_regprocedure('saas.catalog_list_products_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)','EXECUTE')
-        AND to_regprocedure('saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)') IS NOT NULL
-        AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)','EXECUTE') AS catalog_list_projection,
+        AND to_regprocedure('saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)','EXECUTE') AS catalog_list_projection,
       to_regprocedure('saas.catalog_list_variant_choices(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL AS catalog_variant_choice_lister,
       to_regprocedure('saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)','EXECUTE') AS catalog_creator,

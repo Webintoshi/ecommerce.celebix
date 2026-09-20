@@ -114,7 +114,17 @@ export interface BarcodeLabelVariantRow {
   readonly variantTitle: string;
   readonly sku?: string;
   readonly barcode?: string;
-  readonly priceCents: number;
+  readonly priceCents: number | null;
+  readonly priceUnavailable?: true;
+  readonly priceContext?: Readonly<{
+    channel: "storefront";
+    pricedAt: string;
+    sourceKind: "base" | "price_list";
+    priceListId?: string;
+    policyVersion?: number;
+    activeSetId?: string;
+    activeSetVersion?: number;
+  }>;
   readonly compareAtCents?: number;
   readonly currency: string;
   readonly stock: number;

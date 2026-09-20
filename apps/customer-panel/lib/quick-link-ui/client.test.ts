@@ -491,7 +491,6 @@ test("catalog search uses real active products and exposes only selectable varia
       variantId: VARIANT_ID,
       title: "Turuncu",
       sku: "ATLAS-TR",
-      priceCents: 7_000,
       availableQuantity: 4,
     })]),
   })]);
@@ -921,13 +920,13 @@ test("mounted builder caps distinct catalog lines at one hundred with an item-lo
   assert.equal(selected.props["aria-describedby"], "quick-order-items-error");
 });
 
-test("mounted builder rejects an excessive discount at the discount field without masking total", async () => {
+test("mounted builder leaves customer-context discount validation to the authoritative server", async () => {
   let createCalls = 0;
   const console = await createMountedQuickOrderConsole({
     newCreateOperationId() { return OPERATION_ID; },
     async listLinks() { return Object.freeze({ items: Object.freeze([]) }); },
     async searchProducts() { return Object.freeze([Object.freeze({ title: "Atlas Kupa", variants: Object.freeze([Object.freeze({ variantId: VARIANT_ID, title: "Standart", priceCents: 7_000 })]) })]); },
-    async createLink() { createCalls += 1; return Object.freeze({ url: SHARE_URL, expiresAt: EXPIRES_AT }); },
+    async createLink() { createCalls += 1; throw new Error("Fiyat bağlamındaki indirim geçersiz"); },
   });
   let tree = await fillMountedQuickOrderForm(console);
   let nodes = mountedNodes(tree);
@@ -935,17 +934,17 @@ test("mounted builder rejects an excessive discount at the discount field withou
   assert.equal(amountInputs.length, 2);
   (amountInputs[1]!.props.onChange as (event: unknown) => void)({ target: { value: "100" } });
   tree = await console.render();
-  assert.doesNotMatch(tree.map(mountedText).join(""), /Toplam₺0,00/, "negative total is not silently clamped to zero");
+  assert.match(tree.map(mountedText).join(""), /Bağlantıda kesinleşir/);
+  assert.doesNotMatch(tree.map(mountedText).join(""), /Toplam₺0,00/, "a cached base price must not masquerade as a customer quote");
   const form = mountedNodes(tree).find((node) => node.type === "form")!;
   await (form.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault() {} });
   tree = await console.render();
   nodes = mountedNodes(tree);
   const discount = nodes.filter((node) => node.type === "input" && node.props.inputMode === "decimal")[1]!;
 
-  assert.equal(createCalls, 0);
-  assert.equal(discount.props["aria-invalid"], true);
-  assert.equal(discount.props["aria-describedby"], "quick-order-discount-error");
-  assert.match(tree.map(mountedText).join(""), /İndirim, ara toplam ile kargo toplamını aşamaz/);
+  assert.equal(createCalls, 1);
+  assert.equal(discount.props["aria-invalid"], undefined);
+  assert.match(tree.map(mountedText).join(""), /Hızlı sipariş linki oluşturulamadı/);
 });
 
 test("mounted next-page failure preserves loaded rows and cursor with an inline retry", async () => {
