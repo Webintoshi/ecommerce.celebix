@@ -28,7 +28,7 @@ At the baseline checkpoint, hosted scenarios used a synthetic disposable databas
 
 ## Open gates before a release or pilot
 
-1. Exercise 1440/1024/390 and keyboard/focus in an isolated browser fixture, then obtain separate authenticated merchant acceptance. Keep evidence bound to the final candidate SHA.
+1. The isolated 1440/1024/390 and basic keyboard/focus fixture matrix is below. Obtain separate authenticated merchant acceptance and retain evidence bound to the actual deployed SHA.
 2. Confirm search/feed indexing delay and import/export policy behavior. Barcode dynamic-price support is now implemented in the closeout candidate; it was absent at this baseline source.
 3. A shipping-only free-shipping promotion can still benefit a cart containing protected gold; the exclusion implemented here guards the gold **item price**, direct gift, bundle and item discounts. If the commercial rule should prohibit every benefit on a gold-only cart, define that rule and add corresponding tests before a pilot.
 4. Confirm gold purity/tariff definitions and tax/invoicing policy with the merchant; none is inferred from the supplied illustrative reference values. No automatic reference seed is installed, and all existing variants remain fixed until an authorized policy change.
@@ -49,7 +49,7 @@ The closeout edits after `2bac6e60` were committed as application source `d21e64
 | Missing/inactive reference unavailable; old fixed product remains fixed | SQL 130/137/138/140/141 | PG fixed/draft/inactive cases | Mixed old/new fleet unsafe; see publication gate. |
 | Barcode anonymous storefront context and frozen print batch | SQL 136/139; barcode contracts, document renderer | PG label/print cases; document tests | No physical printer test; printed paper cannot change. |
 | Legacy write does not erase policy | SQL 130 write guard, SQL 134 manual-order guard | PG write/manual-order tests | Existing fixed-only CSV/provider imports cannot carry dynamic policy. |
-| Mira presentation via server authority | Panel reference-pricing components, model and HTTP | Panel tests and production build | 1440/1024/390 browser/keyboard evidence pending. |
+| Mira presentation via server authority | Panel reference-pricing components, model and HTTP | Panel tests, production build and isolated browser matrix below | Authenticated merchant acceptance pending. |
 
 | Consumer | Current or historical? | Closeout behavior | Evidence |
 | --- | --- | --- | --- |
@@ -95,4 +95,15 @@ Read-only Coolify pre-push check on 2026-09-20: `celebix-panel-staging-auth01`, 
 
 Before a pilot, separately confirm staging domain/tenant, tax-inclusive/exclusive display contract, jewellery tax/invoice treatment, merchant gold/purity conventions, search/feed delay and shipping-only promotion policy. No production rate or new tax rule was invented here. The required deployment set is **database migrations + Panel + Storefront/checkout**, not Panel only; canonical Mira/domain improvements must remain in the future merge base.
 
-The browser-control skill is available but its Browser plugin is not; the closeout has **no persistent 1440/1024/390 screenshot matrix yet**. Component/model tests and builds are not browser QA. Keyboard/focus, Turkish numeric input, stale responses and overflow remain fixture-browser acceptance. No authenticated Güzide test or physical label test was done. Until these and the mixed-version gate are resolved, the Draft PR status is **PARTIAL / VALIDATION_PENDING**, not release approval.
+The actual Panel components were mounted in the existing isolated browser fixture with synthetic USD/EUR/22-ayar values and a synthetic variant. No Güzide account, rate, product or customer data entered this fixture. The local browser reached the disposable remote fixture only through a loopback SSH tunnel. All observed fixture GETs returned HTTP 200; browser console error log was empty. Images are **viewport captures, not live merchant screenshots**:
+
+The fixture additions and PNGs are test/QA-only changes after application source `d21e64af2ab30e7b999213967d65a82717eb544d`; no application component or production SQL was changed by this browser pass. Its Next development server compiled the tested routes and responses. A broad standalone fixture `tsc` exits 2 on many existing fixture/parent import-extension and unrelated typing errors; none of its diagnostics named the new `mira-reference-pricing` or `api/reference-pricing` files. This is not substituted for the passing production Panel typecheck/build.
+
+| Surface | 1440 × 900 | 1024 × 768 | 390 × 844 |
+| --- | --- | --- | --- |
+| Manual references | [PNG](artifacts/reference-pricing-v1/references-1440.png) | [PNG](artifacts/reference-pricing-v1/references-1024.png) | [PNG](artifacts/reference-pricing-v1/references-390.png) |
+| Variant gold method | [PNG](artifacts/reference-pricing-v1/variant-gold-1440.png) | [PNG](artifacts/reference-pricing-v1/variant-gold-1024.png) | [PNG](artifacts/reference-pricing-v1/variant-gold-390.png) |
+
+Additional fixture captures: [explicit purity ratio + per-gram labour, 390](artifacts/reference-pricing-v1/variant-ratio-390.png), [reference read-only, 390](artifacts/reference-pricing-v1/references-readonly-390.png), [variant read-only, 390](artifacts/reference-pricing-v1/variant-readonly-390.png). Document root `scrollWidth` equalled viewport width at 1440, 1024 and 390 for both editable surfaces; no horizontal overflow was measured. Four method selections showed their distinct fields (fixed TRY, USD amount, EUR amount, gram/purity), and ratio mode exposed product purity separately from the direct tariff. Per-gram labour exposed its amount field. Tab moved focus to the next select; Escape left a stable focus target. Read-only variants had zero editable inputs and no save action. No actual value was saved or activated.
+
+Limits: viewport captures show above-the-fold content; full-page stitching was not used for acceptance. This fixture did not verify server-calculated impact counts, a real quote, stale response, conflict/save persistence, live accessibility assistive technology or physical keyboard hardware. Component/model tests cover some error-state behavior, not a live merchant workflow. Browser-plugin skill/runtime was unavailable, so the existing computer/browser control and its Playwright read-only inspection were used. No authenticated Güzide test or physical label test was done. Until live acceptance and the mixed-version gate are resolved, the Draft PR status is **PARTIAL / VALIDATION_PENDING**, not release approval.
