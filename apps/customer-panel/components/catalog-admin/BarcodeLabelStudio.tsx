@@ -35,7 +35,7 @@ import {
   upsertSelection,
   type BarcodeSelection,
 } from "@/lib/barcode-labels/selection.ts";
-import { buildLabelDocument } from "@/lib/barcode-labels/document.ts";
+import { assertLabelPricesMatchPreview, buildLabelDocument } from "@/lib/barcode-labels/document.ts";
 import { validateBarcodeValue } from "@/lib/barcode-labels/barcodes.ts";
 import { normalizePaperTypeChange } from "@/lib/barcode-labels/preview-geometry.ts";
 import { idempotentJsonMutation } from "@/lib/barcode-labels/idempotent-mutation.ts";
@@ -285,8 +285,10 @@ export function BarcodeLabelStudio({
           config.paperType === "a4" ? startCell : 0,
         ),
       };
-    } catch {
-      return { error: "Şablon ölçüleri veya alan ayarları geçersiz." };
+    } catch (caught) {
+      return { error: caught instanceof Error && caught.message === "label_document_price_unavailable"
+        ? "Referans fiyatı kullanılamıyor; bu varyant için etiket hazırlanamaz."
+        : "Şablon ölçüleri veya alan ayarları geçersiz." };
     }
   }, [activeTemplateName, config, displayStoreName, selectedRows, selection, startCell]);
   const document = documentState.document;
@@ -318,7 +320,7 @@ export function BarcodeLabelStudio({
         if (activeCursor) query.set("cursor", activeCursor);
         const value = parseBarcodeLabelListResult(
           await json(
-            fetch(`/api/catalog/barcode-labels?${query}`, {
+            fetch(`/api/catalog/barcode-labels/v2?${query}`, {
               credentials: "same-origin",
               cache: "no-store",
             }),
@@ -336,7 +338,7 @@ export function BarcodeLabelStudio({
           query.set("cursor", preselectionCursor);
           const page = parseBarcodeLabelListResult(
             await json(
-              fetch(`/api/catalog/barcode-labels?${query}`, {
+              fetch(`/api/catalog/barcode-labels/v2?${query}`, {
                 credentials: "same-origin",
                 cache: "no-store",
               }),
@@ -359,7 +361,7 @@ export function BarcodeLabelStudio({
           preselectionApplied.current = true;
           setSelection((current) => {
             let next = current;
-            for (const row of preselected)
+            for (const row of preselected.filter((candidate) => candidate.priceCents !== null))
               next = upsertSelection(next, row, current.get(row.variantId)?.quantity ?? 1);
             return next;
           });
@@ -493,6 +495,10 @@ export function BarcodeLabelStudio({
     });
   }
   function selected(row: BarcodeLabelVariantRow, checked: boolean) {
+    if (checked && row.priceCents === null) {
+      setNotice("Referans fiyatı kullanılamıyor; bu varyant için etiket hazırlanamaz.");
+      return;
+    }
     try {
       setSelection(
         checked
@@ -511,7 +517,8 @@ export function BarcodeLabelStudio({
   }
   function selectPage(checked: boolean) {
     try {
-      setSelection(togglePageSelection(selection, displayedRows, checked));
+      setSelection(togglePageSelection(selection,
+        displayedRows.filter((row) => row.priceCents !== null), checked));
       setSnapshots((current) => {
         const next = new Map(current);
         for (const row of displayedRows) next.set(row.variantId, row);
@@ -522,6 +529,10 @@ export function BarcodeLabelStudio({
     }
   }
   function setQuantity(row: BarcodeLabelVariantRow, value: number) {
+    if (row.priceCents === null) {
+      setNotice("Referans fiyatı kullanılamıyor; bu varyant için etiket hazırlanamaz.");
+      return;
+    }
     if (!Number.isSafeInteger(value) || value < 0 || value > 10_000) {
       setNotice("Etiket adedi 0 ile 10.000 arasında tam sayı olmalıdır.");
       return;
@@ -605,7 +616,7 @@ export function BarcodeLabelStudio({
       outputType === "browser" ? reservePrintWindow() : null;
     setBusy(outputType);
     try {
-      const job = await mutation("/api/catalog/barcode-print-jobs", "POST", {
+      const job = await mutation("/api/catalog/barcode-print-jobs/v2", "POST", {
         template: activeCustomTemplate
           ? {
               kind: "custom",
@@ -625,6 +636,22 @@ export function BarcodeLabelStudio({
         printerProfile: profile,
         startCell,
       }, parseBarcodePrintJob);
+      try {
+        assertLabelPricesMatchPreview(
+          targetDocument.items.map((item) => item.source),
+          job.items.map((item) => item.snapshot),
+        );
+      } catch {
+        if (outputType === "browser") cancelPrintWindow(printWindow);
+        setSnapshots((current) => {
+          const next = new Map(current);
+          for (const item of job.items) next.set(item.variantId, item.snapshot);
+          return next;
+        });
+        setNotice("Etiket fiyatı değişti. Güncel önizlemeyi kontrol edip yeniden hazırlayın; çıktı açılmadı.");
+        await refreshLibrary();
+        return;
+      }
       if (outputType === "browser")
         completePrintWindow(
           printWindow,
@@ -892,7 +919,7 @@ export function BarcodeLabelStudio({
     try {
       const job: BarcodePrintJob = parseBarcodePrintJob(
         await json(
-          fetch(`/api/catalog/barcode-print-jobs/${summary.id}`, {
+          fetch(`/api/catalog/barcode-print-jobs/v2/${summary.id}`, {
             credentials: "same-origin",
             cache: "no-store",
           }),
@@ -1171,7 +1198,7 @@ export function BarcodeLabelStudio({
                         <input
                           type="checkbox"
                           aria-label="Sayfadaki tüm varyantları seç"
-                          checked={displayedRows.every((row) =>
+                          checked={displayedRows.some((row) => row.priceCents !== null) && displayedRows.filter((row) => row.priceCents !== null).every((row) =>
                             selection.has(row.variantId),
                           )}
                           onChange={(event) =>
@@ -1202,6 +1229,7 @@ export function BarcodeLabelStudio({
                             type="checkbox"
                             aria-label={`${row.productTitle} ${row.variantTitle} seç`}
                             checked={selection.has(row.variantId)}
+                            disabled={row.priceCents === null}
                             onChange={(event) =>
                               selected(row, event.currentTarget.checked)
                             }
@@ -1220,7 +1248,7 @@ export function BarcodeLabelStudio({
                         <td>
                           <BarcodeCell row={row} config={config} />
                         </td>
-                        <td>{money(row.priceCents, row.currency)}</td>
+                        <td>{row.priceCents === null ? <span role="status">Fiyat güncelleniyor</span> : money(row.priceCents, row.currency)}</td>
                         <td>{row.trackInventory ? row.stock : "Takip dışı"}</td>
                         <td>
                           <input
@@ -1231,6 +1259,7 @@ export function BarcodeLabelStudio({
                             step="1"
                             value={selection.get(row.variantId)?.quantity ?? 0}
                             aria-label={`${row.productTitle} etiket adedi`}
+                            disabled={row.priceCents === null}
                             onFocus={() => {
                               if (!selection.has(row.variantId))
                                 selected(row, true);
@@ -1249,6 +1278,7 @@ export function BarcodeLabelStudio({
                             type="button"
                             title="Bir etiket hazırla"
                             aria-label={`${row.productTitle} için bir etiket hazırla`}
+                            disabled={row.priceCents === null}
                             onClick={() => {
                               selected(row, true);
                               setQuantity(row, 1);

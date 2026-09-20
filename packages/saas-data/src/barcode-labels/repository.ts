@@ -29,7 +29,7 @@ import type {
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SQL = Object.freeze({
-  list: "SELECT outcome,result_payload FROM saas.barcode_label_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::text,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::boolean,$15::text,$16::integer,$17::integer,$18::text,$19::integer,$20::uuid)",
+  list: "SELECT outcome,result_payload FROM saas.barcode_label_list_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::text,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::boolean,$15::text,$16::integer,$17::integer,$18::text,$19::integer,$20::uuid)",
   listTemplates:
     "SELECT outcome,result_payload FROM saas.barcode_label_template_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   saveTemplate:
@@ -41,9 +41,11 @@ const SQL = Object.freeze({
   listJobs:
     "SELECT outcome,result_payload FROM saas.barcode_print_job_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   createJob:
+    "SELECT outcome,result_payload FROM saas.barcode_print_job_create_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::uuid,$11::bigint,$12::text,$13::jsonb,$14::text,$15::text,$16::integer,$17::jsonb)",
+  createJobLegacy:
     "SELECT outcome,result_payload FROM saas.barcode_print_job_create($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::uuid,$11::bigint,$12::text,$13::jsonb,$14::text,$15::text,$16::integer,$17::jsonb)",
   getJob:
-    "SELECT outcome,result_payload FROM saas.barcode_print_job_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+    "SELECT outcome,result_payload FROM saas.barcode_print_job_get_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
 });
 
 const unavailable = (): BarcodeLabelRepositoryError =>
@@ -359,9 +361,15 @@ export class PostgresBarcodeLabelRepository implements BarcodeLabelRepository {
     return parseBarcodePrintJobList(result.payload);
   }
   async createJob(input: Parameters<BarcodeLabelRepository["createJob"]>[0]) {
+    return this.writePrintJob(input, SQL.createJob);
+  }
+  async createJobLegacy(input: Parameters<BarcodeLabelRepository["createJob"]>[0]) {
+    return this.writePrintJob(input, SQL.createJobLegacy);
+  }
+  private async writePrintJob(input: Parameters<BarcodeLabelRepository["createJob"]>[0], statement: string) {
     const id = input.operationId;
     const result = await this.run(
-      SQL.createJob,
+      statement,
       [
         ...authority(input.tenantContext, input.now),
         input.operationId,

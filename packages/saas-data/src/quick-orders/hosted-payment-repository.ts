@@ -22,6 +22,7 @@ import type { SealedEnvelope } from "./token-crypto.ts";
 export const QUICK_ORDER_HOSTED_PAYMENT_ERROR_CODES = Object.freeze([
   "invalid_input", "quick_link_not_found", "durable_authority_invalid",
   "attempt_in_progress", "stock_unavailable", "operation_mismatch",
+  "price_changed",
   "callback_binding_conflict", "store_inactive", "payment_method_not_found",
   "payment_method_inactive", "profile_not_found", "profile_not_active",
   "provider_disabled", "environment_invalid", "unavailable", "commit_unknown",

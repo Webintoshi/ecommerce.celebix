@@ -14,6 +14,7 @@ const VARIANT = "50000000-0000-4000-8000-000000000081";
 const OPERATION = "70000000-0000-4000-8000-000000000081";
 const DIGEST = "a".repeat(64);
 const AUTHORITY_DIGEST = "d".repeat(64);
+const QUOTE_DIGEST = "e".repeat(64);
 const CANDIDATES = Object.freeze([
   Object.freeze({ keyId: "current_01", digest: DIGEST }),
 ]);
@@ -645,6 +646,37 @@ test("V2 quote rejects private authority embedded in the public projection", asy
       error.code === "unavailable",
   );
   assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+});
+
+test("V3 quote returns an opaque confirmation digest without exposing private authority in the public quote", async () => {
+  const client = new Client(responder("quoted", {
+    quote: QUOTE_V2, authorityDigest: AUTHORITY_DIGEST, quoteDigest: QUOTE_DIGEST,
+  }));
+  const result = await repository(new Pool([client])).quoteV3({
+    hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES,
+    customerCandidates: [], normalizedCodes: [],
+  });
+  assert.deepEqual(result, { quote: QUOTE_V2, authorityDigest: AUTHORITY_DIGEST, quoteDigest: QUOTE_DIGEST });
+  assert.equal(Object.hasOwn(result.quote, "authorityDigest"), false);
+  assert.equal(Object.hasOwn(result.quote, "quoteDigest"), false);
+  const selected = client.calls.find(({ text }) => text.includes("saas.public_checkout_quote_v3"));
+  assert.equal(selected?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_quote_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::text[],$7::jsonb)");
+  assert.deepEqual(selected?.values?.[5], []);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+});
+
+test("V3 completion carries the customer-confirmed digest as final SQL argument", async () => {
+  const client = new Client(responder("committed", { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_REUSED }));
+  const input = { ...completeV2Input(), normalizedCodes: [], expectedQuoteDigest: QUOTE_DIGEST };
+  assert.deepEqual(await repository(new Pool([client])).completeV3(input), {
+    receipt: RECEIPT_V2, credentialPersistence: PERSISTED_REUSED,
+  });
+  const selected = client.calls.find(({ text }) => text.includes("saas.public_checkout_complete_v3"));
+  assert.equal(selected?.text,
+    "SELECT outcome,result_payload FROM saas.public_checkout_complete_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::bigint,$9::jsonb,$10::text,$11::uuid,$12::uuid,$13::uuid,$14::uuid,$15::uuid,$16::text,$17::text,$18::timestamptz,$19::uuid,$20::text,$21::text,$22::timestamptz,$23::text[],$24::text)");
+  assert.equal(selected?.values?.[23], QUOTE_DIGEST);
+  assert.deepEqual(selected?.values?.[22], []);
 });
 
 test("V2 complete binds the semantic code set and server-generated identities in its additive fingerprint", async () => {

@@ -173,6 +173,8 @@ function listVariantSummary(
     "stockQuantity",
     ...(Object.hasOwn(candidate, "sku") ? ["sku"] : []),
     ...(Object.hasOwn(candidate, "compareAtCents") ? ["compareAtCents"] : []),
+    ...(Object.hasOwn(candidate, "effectivePriceCents") ? ["effectivePriceCents"] : []),
+    ...(Object.hasOwn(candidate, "pricingMethod") ? ["pricingMethod"] : []),
   ]);
   if (parsed.productId !== expectedProductId || parsed.storeId !== expectedStoreId) throw unavailable();
   try {
@@ -180,6 +182,8 @@ function listVariantSummary(
       variantId: parsed.variantId,
       ...(Object.hasOwn(parsed, "sku") ? { sku: parsed.sku } : {}),
       priceCents: parsed.priceCents,
+      ...(Object.hasOwn(parsed, "effectivePriceCents") ? { effectivePriceCents: parsed.effectivePriceCents } : {}),
+      ...(Object.hasOwn(parsed, "pricingMethod") ? { pricingMethod: parsed.pricingMethod } : {}),
       ...(Object.hasOwn(parsed, "compareAtCents") ? { compareAtCents: parsed.compareAtCents } : {}),
       stockTracking: parsed.stockTracking,
       stockQuantity: parsed.stockQuantity,
@@ -266,7 +270,7 @@ function productPreview(value: unknown, productId: string): CatalogProductPrevie
   if(product.id!==productId||typeof root.canonicalStorefrontUrl!=="string"||!Array.isArray(root.variants)||!Array.isArray(root.media)||typeof root.merchandising!=="object"||root.merchandising===null)throw unavailable();
   let url:URL;try{url=new URL(root.canonicalStorefrontUrl);}catch{throw unavailable();}if(url.protocol!=="https:"||url.username||url.password||url.search||url.hash||url.toString()!==root.canonicalStorefrontUrl)throw unavailable();
   const status=product.status;if(status!=="active"&&status!=="draft"&&status!=="archived")throw unavailable();
-  const variants=Object.freeze(root.variants.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["attributes","priceCents","stockQuantity","stockTracking","title",...(candidate?.compareAtCents===undefined?[]:["compareAtCents"])]);if(!Number.isSafeInteger(parsed.priceCents)||(parsed.priceCents as number)<0||!Number.isSafeInteger(parsed.stockQuantity)||(parsed.stockQuantity as number)<0||typeof parsed.stockTracking!=="boolean"||typeof parsed.attributes!=="object"||parsed.attributes===null||Array.isArray(parsed.attributes))throw unavailable();return Object.freeze({title:previewText(parsed.title,200),priceCents:parsed.priceCents as number,...(parsed.compareAtCents===undefined?{}:{compareAtCents:count(parsed.compareAtCents)}),stockTracking:parsed.stockTracking,stockQuantity:parsed.stockQuantity as number,attributes:Object.freeze({...parsed.attributes as Record<string,string>})});}));
+  const variants=Object.freeze(root.variants.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["attributes","priceCents","stockQuantity","stockTracking","title",...(candidate?.compareAtCents===undefined?[]:["compareAtCents"])]);if((parsed.priceCents!==null&&(!Number.isSafeInteger(parsed.priceCents)||(parsed.priceCents as number)<0))||!Number.isSafeInteger(parsed.stockQuantity)||(parsed.stockQuantity as number)<0||typeof parsed.stockTracking!=="boolean"||typeof parsed.attributes!=="object"||parsed.attributes===null||Array.isArray(parsed.attributes))throw unavailable();const compareAt=parsed.compareAtCents===undefined?undefined:count(parsed.compareAtCents);if(compareAt!==undefined&&(parsed.priceCents===null||compareAt<=(parsed.priceCents as number)))throw unavailable();return Object.freeze({title:previewText(parsed.title,200),priceCents:parsed.priceCents as number|null,...(compareAt===undefined?{}:{compareAtCents:compareAt}),stockTracking:parsed.stockTracking,stockQuantity:parsed.stockQuantity as number,attributes:Object.freeze({...parsed.attributes as Record<string,string>})});}));
   const media=Object.freeze(root.media.map((entry)=>{const candidate=entry as any;const parsed=payload(entry,["altText","publicUrl",...(candidate?.width===undefined?[]:["width"]),...(candidate?.height===undefined?[]:["height"])]);if(typeof parsed.publicUrl!=="string"||typeof parsed.altText!=="string")throw unavailable();return Object.freeze({publicUrl:parsed.publicUrl,altText:parsed.altText,...(parsed.width===undefined?{}:{width:count(parsed.width)}),...(parsed.height===undefined?{}:{height:count(parsed.height)})});}));
   const merchandising=payload(root.merchandising,[...(typeof (root.merchandising as any)?.seoTitle==="string"?["seoTitle"]:[]),...(typeof (root.merchandising as any)?.seoDescription==="string"?["seoDescription"]:[])]);
   return Object.freeze({canonicalStorefrontUrl:root.canonicalStorefrontUrl,product:Object.freeze({id:productId,slug:previewText(product.slug,100),title:previewText(product.title,200),...(product.description===undefined?{}:{description:previewText(product.description,10000)}),status,currency:previewText(product.currency,3),version:count(product.version)}),variants,media,merchandising:Object.freeze({...merchandising as {seoTitle?:string;seoDescription?:string}})});
@@ -515,7 +519,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
 
   async getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection> {
     const exact=exactInput(input,["tenantContext","now","productId"]);const authority=catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"],exact.now as Date);authorizeOperation(authority,"read");const productId=catalogUuid(exact.productId);
-    const result=await this.read(authority,{text:`SELECT outcome,result_payload FROM saas.catalog_get_product_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`,values:[...authorityValues(authority),productId]});const expected=this.expectedError(result.outcome);if(expected)throw expected;if(result.outcome!=="found")throw unavailable();return productPreview(result.resultPayload,productId);
+    const result=await this.read(authority,{text:`SELECT outcome,result_payload FROM saas.catalog_get_product_preview_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)`,values:[...authorityValues(authority),productId]});const expected=this.expectedError(result.outcome);if(expected)throw expected;if(result.outcome!=="found")throw unavailable();return productPreview(result.resultPayload,productId);
   }
 
   async getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult> {
@@ -526,7 +530,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const includeArchivedVariants = exact.includeArchivedVariants ?? false;
     if (typeof includeArchivedVariants !== "boolean") throw new CatalogRepositoryError("invalid_input");
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_get_product_details(
+      text: `SELECT outcome, result_payload FROM saas.catalog_get_product_details_v2(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::boolean
       )`,
@@ -593,7 +597,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
     const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, query);
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v3(
+      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v4(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::text,$10::text,$11::text,$12::uuid,$13::uuid,$14::uuid,$15::text,$16::integer,
         $17::timestamptz,$18::text,$19::uuid

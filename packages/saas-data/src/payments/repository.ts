@@ -52,6 +52,7 @@ const DIRECT = new Set<CheckoutPaymentErrorCode>([
   "provider_not_ready",
   "catalog_item_unavailable",
   "stock_unavailable",
+  "price_changed",
   "invalid_transition",
   "operation_mismatch",
   "invalid_lease",

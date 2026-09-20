@@ -37,7 +37,7 @@ export function ProductStorefrontPreview({ productId, token }: { productId: stri
       <span className="eyebrow">MAĞAZA ÖNİZLEMESİ</span>
       <h1>{preview.merchandising.seoTitle || preview.product.title}</h1>
       {preview.product.description ? <p>{preview.product.description}</p> : null}
-      <strong>{first ? new Intl.NumberFormat("tr-TR", { style: "currency", currency: preview.product.currency }).format(first.priceCents / 100) : "Fiyat henüz eklenmedi"}</strong>
+      <strong>{first ? first.priceCents === null ? "Fiyat güncelleniyor" : new Intl.NumberFormat("tr-TR", { style: "currency", currency: preview.product.currency }).format(first.priceCents / 100) : "Fiyat henüz eklenmedi"}</strong>
       {preview.variants.length ? <ul>{preview.variants.map((variant, index) => <li key={`${variant.title}-${index}`}>{variant.title} · {variant.stockTracking ? `${variant.stockQuantity} adet` : "Stok takibi yok"}</li>)}</ul> : <p>Satış seçeneği eklenmemiş.</p>}
     </article>
   );

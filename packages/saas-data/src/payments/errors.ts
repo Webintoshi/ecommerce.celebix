@@ -7,6 +7,7 @@ export const CHECKOUT_PAYMENT_ERROR_CODES = Object.freeze([
   "provider_not_ready",
   "catalog_item_unavailable",
   "stock_unavailable",
+  "price_changed",
   "invalid_transition",
   "operation_mismatch",
   "invalid_lease",

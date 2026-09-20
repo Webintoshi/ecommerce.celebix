@@ -7,6 +7,7 @@ import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 const HOST = "shop.example.test";
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
+const PRICING_DIGEST = "a".repeat(64);
 
 function quote(applied: boolean) {
   return parsePublicCheckoutQuoteV2({
@@ -52,6 +53,10 @@ function quote(applied: boolean) {
   });
 }
 
+function sealedQuote(applied: boolean) {
+  return { quote: quote(applied), quoteDigest: PRICING_DIGEST };
+}
+
 const modulePromise = import("./share-route.ts").catch(() => null);
 
 test("share route binds hostname authority, normalizes through V2 and strips the query", async () => {
@@ -63,7 +68,7 @@ test("share route binds hostname authority, normalizes through V2 and strips the
     resolveRuntime: async () => ({
       quote: async (...input: readonly unknown[]) => {
         observed = input;
-        return quote(true);
+        return sealedQuote(true);
       },
     }),
   });
@@ -81,7 +86,7 @@ test("invalid archived and cross-tenant share candidates converge on one query-f
   const module = await modulePromise;
   assert.ok(module, "share route must exist");
   const outcomes = [
-    async () => quote(false),
+    async () => sealedQuote(false),
     async () => { throw new Error("archived promotion 60000000-0000-4000-8000-000000000001"); },
     async () => { throw new Error("cross tenant store 70000000-0000-4000-8000-000000000001"); },
   ];
@@ -113,10 +118,10 @@ test("a rejected malformed or unavailable share candidate cannot erase existing 
   assert.ok(module, "share route must exist");
   const requests: ReadonlyArray<Readonly<{
     url: string;
-    resolveQuote: () => Promise<ReturnType<typeof quote>>;
+    resolveQuote: () => Promise<ReturnType<typeof sealedQuote>>;
   }>> = [
-    { url: "http://internal:3450/cart/coupon?coupon=indirim", resolveQuote: async () => quote(false) },
-    { url: "http://internal:3450/cart/coupon?coupon=bad%20code", resolveQuote: async () => quote(true) },
+    { url: "http://internal:3450/cart/coupon?coupon=indirim", resolveQuote: async () => sealedQuote(false) },
+    { url: "http://internal:3450/cart/coupon?coupon=bad%20code", resolveQuote: async () => sealedQuote(true) },
     { url: "http://internal:3450/cart/coupon?coupon=indirim", resolveQuote: async () => { throw new Error("unavailable"); } },
   ];
   for (const selected of requests) {
@@ -179,7 +184,7 @@ test("share route rejects ambiguous query and untrusted host without runtime or 
     selectAuthority: () => ({ kind: "invalid_forwarded_host" }),
     resolveRuntime: async () => {
       resolutions += 1;
-      return { quote: async () => quote(true) };
+      return { quote: async () => sealedQuote(true) };
     },
   });
   for (const url of [
@@ -203,7 +208,7 @@ test("share route rejects body and private authority envelopes plus oversized ra
     selectAuthority: () => ({ kind: "trusted", hostname: HOST }),
     resolveRuntime: async () => {
       resolutions += 1;
-      return { quote: async () => quote(true) };
+      return { quote: async () => sealedQuote(true) };
     },
   });
   const denied = [
@@ -236,7 +241,7 @@ test("share route preserves a server-unrejected payment-deferred candidate witho
   });
   const handler = module.createCouponShareRoute({
     selectAuthority: () => ({ kind: "trusted", hostname: HOST }),
-    resolveRuntime: async () => ({ quote: async () => deferred }),
+    resolveRuntime: async () => ({ quote: async () => ({ quote: deferred, quoteDigest: PRICING_DIGEST }) }),
   });
   const response = await handler(new Request("http://internal:3450/cart/coupon?coupon=indirim"));
   assert.equal(response.status, 303);

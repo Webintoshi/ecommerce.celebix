@@ -75,7 +75,7 @@ test("list executes one projection statement and binds tenant query and page siz
     text.startsWith("SELECT outcome"),
   );
   assert.equal(domainQueries.length, 1);
-  assert.match(domainQueries[0]!.text, /saas\.barcode_label_list/);
+  assert.match(domainQueries[0]!.text, /saas\.barcode_label_list_v2\(/);
   assert.equal(domainQueries[0]!.values?.[0], tenantContext.store.id);
   assert.equal(domainQueries[0]!.values?.includes("altın"), true);
   assert.equal(domainQueries[0]!.values?.includes(50), true);

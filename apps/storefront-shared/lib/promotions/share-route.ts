@@ -100,15 +100,14 @@ export function createCouponShareRoute(dependencies: Dependencies) {
       candidate,
     ].slice(-5));
     try {
-      const quote = parsePublicCheckoutQuoteV2(
-        await selectedRuntime.quote(
-          authority.hostname,
-          request.headers.get("cookie"),
-          "cart",
-          undefined,
-          candidates,
-        ),
+      const sealed = await selectedRuntime.quote(
+        authority.hostname,
+        request.headers.get("cookie"),
+        "cart",
+        undefined,
+        candidates,
       );
+      const quote = parsePublicCheckoutQuoteV2(sealed.quote);
       const retained = candidates.filter((code) =>
         !quote.rejectedPromotions.some(
           (promotion) => promotion.normalizedCode === code,

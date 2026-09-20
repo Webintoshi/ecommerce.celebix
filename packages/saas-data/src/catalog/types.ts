@@ -105,7 +105,7 @@ export type RemoveProductResult = Readonly<{ productId: string; removed: true; r
 export type CatalogProductPreviewProjection = Readonly<{
   canonicalStorefrontUrl: string;
   product: Readonly<{ id: string; slug: string; title: string; description?: string; status: ProductStatus; currency: string; version: number }>;
-  variants: readonly Readonly<{ title: string; priceCents: number; compareAtCents?: number; stockTracking: boolean; stockQuantity: number; attributes: Readonly<Record<string,string>> }>[];
+  variants: readonly Readonly<{ title: string; priceCents: number | null; compareAtCents?: number; stockTracking: boolean; stockQuantity: number; attributes: Readonly<Record<string,string>> }>[];
   media: readonly Readonly<{ publicUrl: string; altText: string; width?: number; height?: number }>[];
   merchandising: Readonly<{ seoTitle?: string; seoDescription?: string }>;
 }>;

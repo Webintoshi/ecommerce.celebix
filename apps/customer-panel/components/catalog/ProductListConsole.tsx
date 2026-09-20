@@ -79,13 +79,25 @@ function safeMessage(error: unknown) {
   return error instanceof CatalogApiError ? error.message : "Ürünler yüklenemedi. Lütfen yeniden deneyin.";
 }
 
-function money(cents: number | undefined, currency: string) {
+function money(cents: number | null | undefined, currency: string) {
+  if (cents === null) return "Fiyat güncelleniyor";
   if (cents === undefined) return "—";
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(cents / 100);
+}
+
+function sellingPrice(variant: CatalogProductListVariantSummary | undefined): number | null | undefined {
+  if (!variant) return undefined;
+  return variant.effectivePriceCents === undefined ? variant.priceCents : variant.effectivePriceCents;
+}
+
+function compareAtPrice(variant: CatalogProductListVariantSummary | undefined): number | undefined {
+  const current = sellingPrice(variant);
+  return variant?.compareAtCents !== undefined && current !== null && current !== undefined
+    && variant.compareAtCents > current ? variant.compareAtCents : undefined;
 }
 
 function productStockClass(variant: CatalogProductListVariantSummary | undefined) {
@@ -673,6 +685,15 @@ export function ProductListConsole({
   }
 
   function exportVisibleRows() {
+    if (visibleRows.some(({ variant }) => variant && (
+      variant.pricingMethod && variant.pricingMethod !== "fixed_try" ||
+      variant.effectivePriceCents === null ||
+      variant.effectivePriceCents !== undefined && variant.effectivePriceCents !== variant.priceCents
+    ))) {
+      setError("Dinamik veya fiyat listesiyle değişen ürünler eski sabit fiyat CSV biçimine güvenle aktarılamaz. Bu ürünleri dışa aktarmak için fiyat politikası destekli aktarım gerekir.");
+      return;
+    }
+    setError("");
     const output = [
       ["Ürün", "SKU", "Fiyat", "Stok", "Durum"],
       ...visibleRows.map(({ product, variant }) => [
@@ -815,7 +836,7 @@ export function ProductListConsole({
                   <td data-label="Seç"><label className="catalog-checkbox-hit"><input type="checkbox" disabled={busy || product.status === "archived"} checked={selected.includes(product.id)} onChange={(event) => setSelected((current) => event.target.checked ? Object.freeze([...current, product.id]) : Object.freeze(current.filter((id) => id !== product.id)))} aria-label={`${product.title} ürününü seç`} /></label></td>
                   <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong></span></Link></td>
                   <td data-label="SKU"><span className="mono-value">{variant?.sku ?? "—"}</span></td>
-                  <td data-label="Fiyat">{variant?.compareAtCents ? <del>{money(variant.compareAtCents, product.currency)}</del> : null}<span className="product-price">{money(variant?.priceCents, product.currency)}</span></td>
+                  <td data-label="Fiyat">{compareAtPrice(variant) !== undefined ? <del>{money(compareAtPrice(variant), product.currency)}</del> : null}<span className="product-price">{money(sellingPrice(variant), product.currency)}</span></td>
                   <td data-label="Stok"><span className={productStockClass(variant)}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
                   <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>

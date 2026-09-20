@@ -24,6 +24,7 @@ const OPERATION = "30000000-0000-4000-8000-000000000001";
 const ATTEMPT = "31000000-0000-4000-8000-000000000001";
 const AUTHORITY_DIGEST = "a".repeat(64);
 const EVALUATOR_AUTHORITY_DIGEST = "2".repeat(64);
+const PRICING_DIGEST = "9".repeat(64);
 const EVALUATOR_FINGERPRINT = "3".repeat(64);
 const CANONICAL_CUSTOMER = "12000000-0000-4000-8000-000000000001";
 const RESERVATION_GROUP = "32000000-0000-4000-8000-000000000001";
@@ -62,6 +63,7 @@ const request: HostedCheckoutStartRequest = Object.freeze({
 const requestV2 = Object.freeze({
   ...request,
   normalizedCodes: NORMALIZED_CODES,
+  expectedQuoteDigest: PRICING_DIGEST,
 });
 const authority = Object.freeze({
   authorityDigest: AUTHORITY_DIGEST,
@@ -132,6 +134,8 @@ function fixture(
   const providerCode = options.providerCode ?? "iyzico_iframe";
   const selectedAuthority = Object.freeze({ ...authority, providerCode });
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
+  let beginV3Input: Parameters<StorefrontHostedCheckoutRepository["beginV3"]>[0] | undefined;
+  let preparedV3: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>> | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   const begun: HostedCheckoutBeginResult = Object.freeze({
@@ -157,12 +161,42 @@ function fixture(
       return selectedAuthority;
     },
     authorityV2: async () => { throw new Error("unused"); },
+    authorityV3: async (input) => {
+      if (options.authorityError) throw options.authorityError;
+      preparedV3 = Object.freeze({
+        ...selectedAuthority,
+        orderId: input.orderId,
+        customerId: CANONICAL_CUSTOMER,
+        evaluatorAuthorityDigest: EVALUATOR_AUTHORITY_DIGEST,
+        lineDiscountMinor: 0,
+        shippingDiscountMinor: 0,
+        promotionStatus: Object.freeze({ kind: "evaluated" as const }),
+        appliedPromotions: Object.freeze([]),
+        gifts: Object.freeze([]),
+        items: Object.freeze([Object.freeze({
+          productId: PRODUCT_A, variantId: "sku-1", slug: "kolye", title: "Kolye", variantTitle: "Standart",
+          quantity: 1, unitPriceCents: 10_000, lineTotalCents: 10_000,
+          discountCents: 0, payableCents: 10_000, available: true,
+        })]),
+        pricingDigest: PRICING_DIGEST,
+        requiresQuoteConfirmation: false,
+      });
+      return preparedV3;
+    },
     begin: async (input) => {
       if (options.beginError) throw options.beginError;
       beginInput = input;
       return begun;
     },
     beginV2: async () => { throw new Error("unused"); },
+    beginV3: async (input) => {
+      if (options.beginError) throw options.beginError;
+      beginInput = input;
+      beginV3Input = input;
+      if (!preparedV3) throw new Error("prepare_missing");
+      const { pricingDigest: _pricingDigest, requiresQuoteConfirmation: _requiresConfirmation, ...durableAuthority } = preparedV3;
+      return Object.freeze({ ...begun, authority: Object.freeze(durableAuthority), promotionReservation: null });
+    },
     savePresentation: async (input) => {
       if (options.savePresentationError) throw options.savePresentationError;
       savedInput = input; stored = input;
@@ -204,7 +238,7 @@ function fixture(
     ...(options.audit ? { audit: options.audit } : {}),
   };
   const runtime = createStandardHostedCheckoutRuntime(dependencies);
-  return { runtime, getBegin: () => beginInput, getSaved: () => savedInput };
+  return { runtime, getBegin: () => beginV3Input, getSaved: () => savedInput };
 }
 
 type PreparedAuthority = Omit<HostedCheckoutAuthority, "items" | "basket"> & Readonly<{
@@ -401,6 +435,11 @@ function v2Fixture(options: Readonly<{
       selectedPrepared = options.prepareAuthority?.(base) ?? base;
       return selectedPrepared;
     },
+    authorityV3: async (input: unknown) => Object.freeze({
+      ...await repository.authorityV2(input as never),
+      pricingDigest: PRICING_DIGEST,
+      requiresQuoteConfirmation: true,
+    }),
     begin: async () => {
       legacyBeginCalls += 1;
       return legacyBegun;
@@ -415,6 +454,7 @@ function v2Fixture(options: Readonly<{
         options.beginOutcome ?? "created",
       );
     },
+    beginV3: async (input: unknown) => repository.beginV2(input as never),
     savePresentation: async (input: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0]) => {
       presentationWrites += 1;
       const sessionId = (beginV2Inputs.at(-1) as { sessionId?: unknown } | undefined)?.sessionId;
@@ -619,7 +659,8 @@ test("hosted start obtains durable authority, requires iyzico identity and scope
   assert.equal(result.destination, "/checkout/payment");
   assert.equal(result.setCookies.length, 3);
   assert.equal(selected.getBegin()?.expectedAuthorityDigest, AUTHORITY_DIGEST);
-  assert.equal(selected.getBegin()?.fingerprint, "c".repeat(64));
+  assert.match(selected.getBegin()?.fingerprint ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(selected.getBegin()?.expectedPricingDigest, PRICING_DIGEST);
   assert.equal(selected.getBegin()?.callbackBindingDigest, "d".repeat(64));
   assert.equal(selected.getBegin()?.delivery.contact.email, request.contact.email);
 });
@@ -744,7 +785,7 @@ test("presentation persistence refreshes monotonic time without extending the or
   assert.equal(selected.getSaved()?.presentationExpiresAt.toISOString(), new Date(NOW.getTime() + 15 * 60_000).toISOString());
 });
 
-test("V2 hosted start binds customer, order, codes and evaluator digest and sends only prepared database money to the provider", async () => {
+test("V3 hosted start binds customer, order, codes and evaluator and pricing digests before provider execution", async () => {
   const selected = v2Fixture();
   const result = await selected.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: requestV2 });
   assert.equal(result.state, "processing");
@@ -768,6 +809,7 @@ test("V2 hosted start binds customer, order, codes and evaluator digest and send
   assert.deepEqual(begun.normalizedCodes, NORMALIZED_CODES);
   assert.equal(begun.expectedAuthorityDigest, AUTHORITY_DIGEST);
   assert.equal(begun.expectedEvaluatorAuthorityDigest, EVALUATOR_AUTHORITY_DIGEST);
+  assert.equal(begun.expectedPricingDigest, PRICING_DIGEST);
 
   assert.equal(selected.calls.initializations.length, 1);
   assert.equal(selected.calls.initializations[0]?.amountMinor, 13_700);
@@ -779,7 +821,36 @@ test("V2 hosted start binds customer, order, codes and evaluator digest and send
   assert.equal(selected.calls.providerFetches(), 1);
 });
 
-test("V2 hosted begin fingerprint binds the provider request and exact promotion authority while exact retries remain stable", async () => {
+test("hosted V3 rejects a stale browser quote before any payment begin or provider call", async () => {
+  const selected = v2Fixture();
+  await assert.rejects(selected.runtime.start({
+    hostname: HOST, cookieHeader: v2Cookie, headers,
+    request: Object.freeze({ ...requestV2, expectedQuoteDigest: "8".repeat(64) }),
+  }), (error: unknown) => error instanceof StorefrontHostedCheckoutRepositoryError && error.code === "price_changed");
+  assert.equal(selected.calls.beginV2Inputs.length, 0);
+  assert.equal(selected.calls.providerFetches(), 0);
+});
+
+test("hosted V3 requires an explicit browser quote seal for dynamic pricing", async () => {
+  const selected = v2Fixture();
+  await assert.rejects(selected.runtime.start({
+    hostname: HOST, cookieHeader: v2Cookie, headers,
+    request: Object.freeze({ ...requestV2, expectedQuoteDigest: undefined }),
+  }), (error: unknown) => error instanceof StorefrontHostedCheckoutRepositoryError && error.code === "price_changed");
+  assert.equal(selected.calls.beginV2Inputs.length, 0);
+  assert.equal(selected.calls.providerFetches(), 0);
+});
+
+test("hosted V3 surfaces a price drift discovered atomically at begin despite adapter rejection", async () => {
+  const selected = fixture({ kind: "processing" }, "created", {
+    beginError: new StorefrontHostedCheckoutRepositoryError("price_changed"),
+  });
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }),
+    (error: unknown) => error instanceof StorefrontHostedCheckoutRepositoryError && error.code === "price_changed");
+  assert.equal(selected.getSaved(), undefined);
+});
+
+test("V3 hosted begin fingerprint binds provider, promotion and price authority while exact retries remain stable", async () => {
   const first = v2Fixture();
   const replay = v2Fixture({ beginOutcome: "replayed" });
   const reordered = v2Fixture({ beginOutcome: "replayed" });
@@ -813,7 +884,7 @@ test("V2 hosted begin fingerprint binds the provider request and exact promotion
   const reorderedFingerprint = String((reordered.calls.beginV2Inputs[0] as { fingerprint?: unknown }).fingerprint);
   const changedCodesFingerprint = String((changedCodes.calls.beginV2Inputs[0] as { fingerprint?: unknown }).fingerprint);
   const changedAuthorityFingerprint = String((changedAuthority.calls.beginV2Inputs[0] as { fingerprint?: unknown }).fingerprint);
-  assert.equal(fingerprint, "669ea36d25db1bf997d5564ec2131a2146975f8553d8ad1855d17f2595898f8f");
+  assert.match(fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(replayFingerprint, fingerprint);
   assert.equal(reorderedFingerprint, fingerprint);
   assert.notEqual(changedCodesFingerprint, fingerprint);

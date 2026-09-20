@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { StorefrontHostedCheckoutRepositoryError } from "@celebix/saas-data";
+import type { PublicCheckoutQuoteV2 } from "@celebix/saas-contracts";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import { StandardHostedCheckoutRuntimeError } from "../checkout/standard-hosted-payment.ts";
@@ -88,6 +89,8 @@ const CODE_QUOTE_V2 = Object.freeze({
     Object.freeze({ name: "Yüzde on", benefitKind: "gift" as const, normalizedCode: "YUZDE10", lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0 }),
   ]),
 });
+const QUOTE_DIGEST = "f".repeat(64);
+const quoteResponse = (quote: PublicCheckoutQuoteV2) => Object.freeze({ quote, quoteDigest: QUOTE_DIGEST });
 const trusted = (): TrustedStorefrontHostAuthority => ({
   kind: "trusted",
   hostname: HOST,
@@ -95,7 +98,7 @@ const trusted = (): TrustedStorefrontHostAuthority => ({
 const baseRuntime = {
   resolveCart: async () => ({ cart: CART }),
   mutateCart: async () => ({ cart: CART }),
-  quote: async () => ({ cart: CART, paymentMethods: [] }),
+  quote: async () => quoteResponse(QUOTE_V2),
   complete: async () => {
     throw new Error("unused");
   },
@@ -250,7 +253,7 @@ test("quote route forwards only canonical promotion codes and exposes no authori
       ...baseRuntime,
       quote: async (...input: readonly unknown[]) => {
         observed = input;
-        return QUOTE_V2;
+        return quoteResponse(QUOTE_V2);
       },
     }),
   });
@@ -263,7 +266,7 @@ test("quote route forwards only canonical promotion codes and exposes no authori
   assert.equal(response.status, 200);
   assert.equal(warmed, HOST);
   assert.deepEqual(observed, [HOST, null, "cart", undefined, ["VIP", "YUZDE10"]]);
-  assert.deepEqual(await response.json(), { quote: QUOTE_V2 });
+  assert.deepEqual(await response.json(), { quote: QUOTE_V2, quoteDigest: QUOTE_DIGEST });
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
@@ -295,7 +298,7 @@ test("quote route persists server-validated stacked candidates and removal prese
       ...baseRuntime,
       quote: async (_host, _cookie, _intent, _attribution, codes) => {
         observed.push([...(codes ?? [])]);
-        return codes?.length ? CODE_QUOTE_V2 : QUOTE_V2;
+        return quoteResponse(codes?.length ? CODE_QUOTE_V2 : QUOTE_V2);
       },
     }),
   });
@@ -320,7 +323,7 @@ test("payment-deferred candidate survives re-quote while rejected candidates are
     selectAuthority: trusted,
     resolveRuntime: async () => ({
       ...baseRuntime,
-      quote: async (_host, _cookie, _intent, _attribution, codes) => ({
+      quote: async (_host, _cookie, _intent, _attribution, codes) => quoteResponse({
         ...QUOTE_V2,
         progressMessages: Object.freeze(["Ödeme yöntemi seçildiğinde tekrar değerlendirilecek."]),
         rejectedPromotions: Object.freeze((codes ?? [])
@@ -341,7 +344,7 @@ test("payment-deferred candidate survives re-quote while rejected candidates are
   assert.equal(response.headers.get("set-cookie"), "__Host-celebix_coupon=ODEMEDE; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax");
 });
 
-test("an absent code property remains exact V1 despite an ambient coupon cookie", async () => {
+test("an absent code property remains an empty promotion set despite an ambient coupon cookie", async () => {
   const observed: Array<readonly unknown[]> = [];
   const handler = createCheckoutQuoteRoute({
     selectAuthority: trusted,
@@ -349,7 +352,7 @@ test("an absent code property remains exact V1 despite an ambient coupon cookie"
       ...baseRuntime,
       quote: async (...input: readonly unknown[]) => {
         observed.push(input);
-        return input[4] === undefined ? { cart: CART, paymentMethods: [] } : CODE_QUOTE_V2;
+        return quoteResponse(input[4] === undefined ? QUOTE_V2 : CODE_QUOTE_V2);
       },
     }),
   });
@@ -365,8 +368,8 @@ test("an absent code property remains exact V1 despite an ambient coupon cookie"
   }));
 
   assert.deepEqual(observed.map((input) => input[4]), [undefined, undefined]);
-  assert.deepEqual(await stored.json(), { quote: { cart: CART, paymentMethods: [] } });
-  assert.deepEqual(await absent.json(), { quote: { cart: CART, paymentMethods: [] } });
+  assert.deepEqual(await stored.json(), { quote: QUOTE_V2, quoteDigest: QUOTE_DIGEST });
+  assert.deepEqual(await absent.json(), { quote: QUOTE_V2, quoteDigest: QUOTE_DIGEST });
   assert.equal(stored.headers.has("set-cookie"), false);
   assert.equal(absent.headers.has("set-cookie"), false);
 });

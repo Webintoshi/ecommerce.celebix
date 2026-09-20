@@ -2,10 +2,7 @@ import {
   StorefrontCommerceRepositoryError,
   StorefrontHostedCheckoutRepositoryError,
 } from "@celebix/saas-data";
-import {
-  parsePublicCheckoutQuote,
-  parsePublicCheckoutQuoteV2,
-} from "@celebix/saas-contracts";
+import { parsePublicCheckoutQuoteV2 } from "@celebix/saas-contracts";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import {
@@ -286,9 +283,11 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
         input.attribution,
         selectedCodes,
       );
+      if (typeof projected.quoteDigest !== "string" || !/^[a-f0-9]{64}$/.test(projected.quoteDigest))
+        throw new StorefrontCommerceRuntimeError("unavailable");
+      const quote = parsePublicCheckoutQuoteV2(projected.quote);
       if (selectedCodes === undefined)
-        return json({ quote: parsePublicCheckoutQuote(projected) }, 200);
-      const quote = parsePublicCheckoutQuoteV2(projected);
+        return json({ quote, quoteDigest: projected.quoteDigest }, 200);
       const rejected = new Set(
         quote.rejectedPromotions.map((promotion) => promotion.normalizedCode),
       );
@@ -296,7 +295,7 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
       const persist = retained.length > 0
         ? serializeCouponCandidateCookie(retained)
         : clearCouponCandidateCookie();
-      return json({ quote }, 200, { "set-cookie": persist });
+      return json({ quote, quoteDigest: projected.quoteDigest }, 200, { "set-cookie": persist });
     } catch (error) {
       return failure(error);
     }

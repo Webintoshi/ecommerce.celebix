@@ -23,6 +23,7 @@ const METHODS = Object.freeze([
   "generateInternal",
   "listJobs",
   "createJob",
+  "createJobLegacy",
   "getJob",
 ] as const);
 function invalid(): never {

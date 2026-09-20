@@ -129,6 +129,7 @@ function scopedAttempts(input: Readonly<{
   hostname: string;
   redemptionDigest: string;
   authority: QuickOrderHostedPaymentAuthority;
+  onPriceChanged: () => void;
 }>): PaymentAttemptRepository {
   const authority = input.authority;
   const scoped: PaymentAttemptRepository = {
@@ -137,8 +138,12 @@ function scopedAttempts(input: Readonly<{
         || payment.operationId.length !== 36 || payment.paymentMethodId !== authority.paymentMethodId
         || payment.orderReference !== authority.orderReference || payment.amountMinor !== authority.amountMinor
         || payment.currency !== authority.currency) throw new QuickOrderHostedPaymentRepositoryError("durable_authority_invalid");
-      return input.hosted.begin({ hostname: input.hostname, redemptionDigest: input.redemptionDigest,
-        expectedAuthorityDigest: authority.authorityDigest, payment });
+      try { return await input.hosted.begin({ hostname: input.hostname, redemptionDigest: input.redemptionDigest,
+        expectedAuthorityDigest: authority.authorityDigest, payment }); }
+      catch (error) {
+        if (error instanceof QuickOrderHostedPaymentRepositoryError && error.code === "price_changed") input.onPriceChanged();
+        throw error;
+      }
     },
     markInitialized: (value) => input.base.markInitialized(value),
     markUnknown: (value) => input.base.markUnknown(value),
@@ -192,8 +197,10 @@ export function createQuickOrderHostedPaymentBridgeRoute(dependencies: Dependenc
       if (parsed === null) return text(503, "Checkout unavailable");
       buyerIdentity = parsed;
     } catch { return text(503, "Checkout unavailable"); }
+    let priceChanged = false;
     const attempts = scopedAttempts({ base: execution.attempts, hosted: runtime.hostedPayments,
-      hostname: selectedHost.hostname, redemptionDigest, authority });
+      hostname: selectedHost.hostname, redemptionDigest, authority,
+      onPriceChanged: () => { priceChanged = true; } });
     const hosted = execution.createRuntime(attempts);
     if (hosted === null) return text(503, "Checkout unavailable");
     let presentation: HostedPaymentPresentation;
@@ -208,7 +215,8 @@ export function createQuickOrderHostedPaymentBridgeRoute(dependencies: Dependenc
           ...(authority.postalCode === undefined ? {} : { postalCode: authority.postalCode }) }),
         basket: authority.basket,
       });
-    } catch { return text(503, "Checkout unavailable"); }
+    } catch { return text(priceChanged ? 409 : 503, priceChanged ? "Price changed; open a new checkout link" : "Checkout unavailable"); }
+    if (priceChanged) return text(409, "Price changed; open a new checkout link");
     if (presentation.kind === "processing") return text(202, "Payment is processing");
     if (presentation.kind === "rejected") return text(503, "Checkout unavailable");
     const redirect = exactIyzicoUrl(presentation, authority.environment);

@@ -1088,6 +1088,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
         "/settings/language",
         "/settings/administrators",
         "/settings/payment",
+        "/settings/pricing",
         "/settings/shipping",
         "/settings/notifications",
         "/settings/artificial-intelligence",

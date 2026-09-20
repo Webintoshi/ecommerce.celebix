@@ -58,18 +58,22 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
             /to_regprocedure\('saas\.catalog_list_products_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid\)'\) IS NOT NULL/,
           );
           assertAppRoleFunctionPrivilege(sql, productListV2);
-          const productListV3 = "saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)";
-          assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v3\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
-          assertAppRoleFunctionPrivilege(sql, productListV3);
+          const productListV4 = "saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)";
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_list_products_v4\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, productListV4);
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_get_product_details_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, "saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)");
+          assert.match(sql, /to_regprocedure\('saas[.]catalog_get_product_preview_v2\(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid\)'\) IS NOT NULL/);
+          assertAppRoleFunctionPrivilege(sql, "saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)");
           for (const signature of [
-            "saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)",
+            "saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)",
             "saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
             "saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)",
             "saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)",
             "saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)",
             "saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
-            "saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)",
-            "saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+            "saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)",
+            "saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
           ]) {
             assert.match(sql, new RegExp(`to_regprocedure\\('${signature.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\'\\) IS NOT NULL`));
             assertAppRoleFunctionPrivilege(sql, signature);

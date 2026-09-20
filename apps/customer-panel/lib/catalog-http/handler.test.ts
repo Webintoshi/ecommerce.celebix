@@ -272,6 +272,69 @@ test("authenticated list and detail remain store-scoped and detail includes arch
   ]);
 });
 
+test("old catalog list sees effective prices without new keys; V2 retains lineage; old dynamic detail fails closed", async () => {
+  const dynamicSummary = Object.freeze({ variantId: VARIANT_ID, priceCents: 12_500, effectivePriceCents: 27_500, pricingMethod: "usd", compareAtCents: 15_000, stockTracking: true, stockQuantity: 10 });
+  const listResult = Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1, variantSummaries: Object.freeze({ [PRODUCT_ID]: dynamicSummary }) });
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async listProducts() { return listResult as Awaited<ReturnType<CatalogRepository["listProducts"]>>; },
+    async getProductDetails() { return Object.freeze({ product: product({ status: "active" }), variants: Object.freeze([variant({ effectivePriceCents: 27_500 })]) }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
+  })));
+  const oldList = await handlers?.listProducts(request(PRODUCTS));
+  assert.equal(oldList?.status, 200);
+  assert.deepEqual((await oldList?.json()).variantSummaries[PRODUCT_ID], { variantId: VARIANT_ID, priceCents: 27_500, stockTracking: true, stockQuantity: 10 });
+  const newList = await handlers?.listProducts(request(`${PRODUCTS}/v2`), "v2");
+  assert.equal(newList?.status, 200);
+  assert.deepEqual((await newList?.json()).variantSummaries[PRODUCT_ID], dynamicSummary);
+  const oldDetail = await handlers?.getProduct(request(`${PRODUCTS}/${PRODUCT_ID}`), PRODUCT_ID);
+  assert.equal(oldDetail?.status, 503);
+  const newDetail = await handlers?.getProduct(request(`${PRODUCTS}/v2/${PRODUCT_ID}`), PRODUCT_ID, "v2");
+  assert.equal(newDetail?.status, 200);
+});
+
+test("old catalog list refuses an unavailable dynamic price", async () => {
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async listProducts() { return Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1, variantSummaries: Object.freeze({ [PRODUCT_ID]: Object.freeze({ variantId: VARIANT_ID, priceCents: 12_500, effectivePriceCents: null, pricingMethod: "usd", stockTracking: true, stockQuantity: 10 }) }) }) as Awaited<ReturnType<CatalogRepository["listProducts"]>>; },
+  })));
+  const response = await handlers?.listProducts(request(PRODUCTS));
+  assert.equal(response?.status, 503);
+});
+
+test("old catalog keeps fixed archived summaries and active products with archived variants readable", async () => {
+  const archived = product({ status: "archived" });
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async listProducts() { return Object.freeze({ items: Object.freeze([archived]), catalogTotal: 1,
+      variantSummaries: Object.freeze({ [PRODUCT_ID]: Object.freeze({ variantId: VARIANT_ID, priceCents: 12_500,
+        effectivePriceCents: null, pricingMethod: "fixed_try", stockTracking: true, stockQuantity: 10 }) })
+    }) as Awaited<ReturnType<CatalogRepository["listProducts"]>>; },
+    async getProductDetails() { return Object.freeze({ product: product(), variants: Object.freeze([
+      variant(), variant({ id: SECOND_VARIANT_ID, status: "archived", effectivePriceCents: null }),
+    ]) }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
+  })));
+  const oldList = await handlers?.listProducts(request(`${PRODUCTS}?status=archived`));
+  assert.equal(oldList?.status, 200);
+  assert.equal((await oldList?.json()).variantSummaries[PRODUCT_ID].priceCents, 12_500);
+  const oldDetail = await handlers?.getProduct(request(`${PRODUCTS}/${PRODUCT_ID}`), PRODUCT_ID);
+  assert.equal(oldDetail?.status, 200);
+  assert.equal((await oldDetail?.json()).variants[1].priceCents, 12_500);
+});
+
+test("old list verifies a selected archived dynamic variant before showing its non-sale base amount", async () => {
+  let detailReads = 0;
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async listProducts() { return Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1,
+      variantSummaries: Object.freeze({ [PRODUCT_ID]: Object.freeze({ variantId: VARIANT_ID, priceCents: 12_500,
+        effectivePriceCents: null, pricingMethod: "usd", stockTracking: true, stockQuantity: 10 }) })
+    }) as Awaited<ReturnType<CatalogRepository["listProducts"]>>; },
+    async getProductDetails() { detailReads += 1; return Object.freeze({ product: product(),
+      variants: Object.freeze([variant({ status: "archived", effectivePriceCents: null })])
+    }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
+  })));
+  const response = await handlers?.listProducts(request(PRODUCTS));
+  assert.equal(response?.status, 200);
+  assert.equal((await response?.json()).variantSummaries[PRODUCT_ID].priceCents, 12_500);
+  assert.equal(detailReads, 1);
+});
+
 test("variant choices GET returns the exact authenticated store projection", async () => {
   const calls: unknown[] = [];
   const items = Object.freeze([Object.freeze({

@@ -88,6 +88,30 @@ test("hosted checkout start sends the exact same-origin command and accepts only
   });
 });
 
+test("hosted retry preserves the caller's operation and original opaque quote seal", async () => {
+  const calls: unknown[] = [];
+  const client = createStorefrontCartClient(async (_input, init) => {
+    calls.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({ destination: "/checkout/payment" }), {
+      status: 200, headers: { "content-type": "application/json" },
+    });
+  }, () => { throw new Error("new_operation_for_retry"); });
+  const input = {
+    operationId: OPERATION,
+    cartVersion: 3,
+    intentKind: "cart" as const,
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard" as const,
+    paymentMethodId: PAYMENT_METHOD,
+    expectedQuoteDigest: "b".repeat(64),
+  };
+  await client.startHosted(input);
+  await client.startHosted(input);
+  assert.deepEqual(calls[0], calls[1]);
+  assert.deepEqual(calls[0], input);
+});
+
 test("hosted checkout start rejects external destinations and non-exact responses", async () => {
   for (const response of [
     new Response(JSON.stringify({ destination: "https://provider.example/pay" }), { status: 200, headers: { "content-type": "application/json" } }),
@@ -140,7 +164,7 @@ test("cart client deeply validates cart lines and checkout quote payment methods
   await assert.rejects(quoteClient.quote("cart"), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response");
 });
 
-test("promotion quote always posts V2 intent and canonical candidates while legacy quote stays byte-for-byte V1", async () => {
+test("promotion and no-code quotes both consume the V3 public seal wrapper", async () => {
   const calls: Array<Readonly<{ input: string; body: unknown }>> = [];
   const quoteV2 = {
     cart: {
@@ -167,9 +191,9 @@ test("promotion quote always posts V2 intent and canonical candidates while lega
   const client = createStorefrontCartClient(async (input, init) => {
     calls.push({ input: String(input), body: JSON.parse(String(init?.body)) });
     return new Response(JSON.stringify({ quote: calls.length === 1 ? quoteV2 : {
-      cart: { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 1_000, shippingCents: 0, totalCents: 1_000, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 1_000, lineTotalCents: 1_000, available: true }] },
-      paymentMethods: [],
-    } }), { status: 200, headers: { "content-type": "application/json" } });
+      cart: { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 1_000, shippingCents: 0, lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0, totalCents: 1_000, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 1_000, lineTotalCents: 1_000, discountCents: 0, payableCents: 1_000, available: true }] },
+      paymentMethods: [], promotionStatus: { kind: "evaluated" }, appliedPromotions: [], rejectedPromotions: [], gifts: [], progressMessages: [],
+    }, quoteDigest: "b".repeat(64) }), { status: 200, headers: { "content-type": "application/json" } });
   }, () => OPERATION);
 
   assert.deepEqual((await client.quotePromotions("cart", ["INDIRIM"])).appliedPromotions[0]?.normalizedCode, "INDIRIM");

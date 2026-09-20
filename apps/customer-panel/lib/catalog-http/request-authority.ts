@@ -6,7 +6,7 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 export const CATALOG_SUMMARY_PATH = "/api/catalog/summary";
 export const CATALOG_VARIANT_CHOICES_PATH = "/api/catalog/variant-choices";
 const CATALOG_PATH = new RegExp(
-  `^(?:/api/catalog/(?:summary|variant-choices)|/api/catalog/products(?:/bulk|/${UUID}(?:/(?:archive|restore|remove|removal-eligibility)|/variants(?:/${UUID}(?:/archive)?)?)?)?)$`,
+  `^(?:/api/catalog/(?:summary|variant-choices)|/api/catalog/products(?:/v2(?:/${UUID})?|/bulk|/${UUID}(?:/(?:archive|restore|remove|removal-eligibility)|/variants(?:/${UUID}(?:/archive)?)?)?)?)$`,
 );
 
 export type CatalogRequestAuthorityDecision =
@@ -47,7 +47,7 @@ function expectation(value: CatalogRequestExpectation): CatalogRequestExpectatio
     !["GET", "POST", "PATCH"].includes(value.method) ||
     !CATALOG_PATH.test(value.pathname) ||
     (value.query !== "allowed" && value.query !== "forbidden") ||
-    (value.query === "allowed" && (value.method !== "GET" || value.pathname !== "/api/catalog/products"))
+    (value.query === "allowed" && (value.method !== "GET" || !["/api/catalog/products", "/api/catalog/products/v2"].includes(value.pathname)))
   ) invalid();
   return value;
 }

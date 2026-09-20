@@ -19,6 +19,7 @@ import {
   PostgresInventoryRepository,
   PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresPricingRepository,
+  PostgresReferencePricingRepository,
   PostgresPromotionRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
@@ -59,6 +60,7 @@ import { registerServerCustomerRepository } from "../server-customers/runtime.ts
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
+import { registerServerReferencePricingRepository } from "../server-reference-pricing/runtime.ts";
 import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
@@ -163,13 +165,17 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
         WHERE n.nspname='saas' AND proname='recover_panel_session_operation'
       ) AS session_recovery,
-      to_regprocedure('saas.catalog_get_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS catalog_reader,
+      to_regprocedure('saas.catalog_get_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_product_details_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)','EXECUTE')
+        AND to_regprocedure('saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_product_preview_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE') AS catalog_reader,
       to_regprocedure('saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_list_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)','EXECUTE') AS catalog_lister,
       to_regprocedure('saas.catalog_list_products_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,integer,timestamp with time zone,uuid)','EXECUTE')
-        AND to_regprocedure('saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)') IS NOT NULL
-        AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)','EXECUTE') AS catalog_list_projection,
+        AND to_regprocedure('saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_list_products_v4(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)','EXECUTE') AS catalog_list_projection,
       to_regprocedure('saas.catalog_list_variant_choices(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL AS catalog_variant_choice_lister,
       to_regprocedure('saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)','EXECUTE') AS catalog_creator,
@@ -569,22 +575,22 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.barcode_print_job_items') IS NOT NULL
         AND to_regclass('saas.barcode_label_operations') IS NOT NULL
         AND to_regclass('saas.barcode_label_sequences') IS NOT NULL
-        AND to_regprocedure('saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
-        AND to_regprocedure('saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)') IS NOT NULL
-        AND to_regprocedure('saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
-        AND has_function_privilege('celebix_saas_app','saas.barcode_label_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)','EXECUTE')
+        AND to_regprocedure('saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,boolean,text,integer,integer,text,integer,uuid)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
-        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)','EXECUTE')
-        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE') AS barcode_label_repository
+        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE') AS barcode_label_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -876,6 +882,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const referencePricingRepository = new PostgresReferencePricingRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const promotionRepository = new PostgresPromotionRepository({
       pool,
       role: "celebix_saas_app",
@@ -960,6 +972,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }));
     registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
       save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
+    }));
+    registerServerReferencePricingRepository(access, createPostCommitInvalidatingRepository(referencePricingRepository, {
+      activate: ["catalog"], savePolicy: ["catalog"],
     }));
     registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository, {
       create: ["promotions"],

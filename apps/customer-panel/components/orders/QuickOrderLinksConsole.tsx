@@ -25,7 +25,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent, ReactNode, RefObject } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CustomerDetail,
   CustomerListItem,
@@ -67,7 +67,6 @@ type SelectedLine = Readonly<{
   productName: string;
   variantName: string;
   sku?: string;
-  unitPriceCents: number;
   availableQuantity?: number;
   quantity: number;
   itemType?: "PHYSICAL" | "VIRTUAL";
@@ -217,7 +216,7 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
                 <span><strong>{variant.title}</strong><small>{variant.sku ?? "SKU yok"}</small></span>
                 <span className={styles.variantMeta}>
                   {variant.availableQuantity === undefined ? null : <small>{variant.availableQuantity.toLocaleString("tr-TR")} stok</small>}
-                  <b>{money(variant.priceCents)}</b>
+                  <b>Siparişte hesaplanır</b>
                   <span className={styles.addVariantIcon}><Plus aria-hidden="true" /></span>
                 </span>
               </button>
@@ -318,11 +317,6 @@ export function QuickOrderLinksConsole() {
 
   const shippingCents = cents(shippingInput) ?? 0;
   const discountCents = cents(discountInput) ?? 0;
-  const subtotalCents = useMemo(
-    () => selectedLines.reduce((total, line) => total + line.unitPriceCents * line.quantity, 0),
-    [selectedLines],
-  );
-  const totalCents = subtotalCents + shippingCents - discountCents;
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === selectedPaymentMethodId);
   const hostedPickerAvailable = typeof quickLinkUi.listPaymentMethods === "function";
 
@@ -534,7 +528,6 @@ export function QuickOrderLinksConsole() {
         productName: product.title,
         variantName: variant.title,
         ...(variant.sku === undefined ? {} : { sku: variant.sku }),
-        unitPriceCents: variant.priceCents,
         ...(variant.availableQuantity === undefined ? {} : { availableQuantity: variant.availableQuantity }),
         quantity: 1,
       }), ...current]);
@@ -671,9 +664,6 @@ export function QuickOrderLinksConsole() {
     }
     if (parsedShipping === null) nextFieldErrors.shipping = "Kargo tutarını en fazla iki ondalık basamakla girin.";
     if (parsedDiscount === null) nextFieldErrors.discount = "İndirim tutarını en fazla iki ondalık basamakla girin.";
-    if (parsedShipping !== null && parsedDiscount !== null && parsedDiscount > subtotalCents + parsedShipping) {
-      nextFieldErrors.discount = "İndirim, ara toplam ile kargo toplamını aşamaz.";
-    }
     if (hostedPickerAvailable && selectedPaymentMethod === undefined) {
       nextFieldErrors.paymentMethod = "Aktif bir ödeme yöntemi seçin.";
     }
@@ -898,7 +888,7 @@ export function QuickOrderLinksConsole() {
                         </div>
                       </div>
                       {selectedPaymentMethod?.requiresItemType ? <label><span>Ürün tipi</span><select aria-label={`${line.productName} ürün tipi`} value={line.itemType ?? ""} onChange={(event) => updateItemType(line.variantId, event.target.value)} required><option value="">Seçin</option><option value="PHYSICAL">Fiziksel</option><option value="VIRTUAL">Dijital</option></select></label> : null}
-                      <div className={styles.linePrice}><span>{money(line.unitPriceCents)} / adet</span><strong>{money(line.unitPriceCents * line.quantity)}</strong></div>
+                      <div className={styles.linePrice}><span>Satış fiyatı</span><strong>Siparişte hesaplanır</strong></div>
                       <button type="button" className={styles.removeLine} onClick={() => removeLine(line.variantId)} aria-label={`${line.productName} satırını kaldır`}><Trash2 aria-hidden="true" /></button>
                     </article>
                   ))}
@@ -990,11 +980,12 @@ export function QuickOrderLinksConsole() {
 
               <div className={styles.summarySection}>
                 <dl className={styles.totals}>
-                  <div><dt>Ara toplam</dt><dd>{money(subtotalCents)}</dd></div>
+                  <div><dt>Ara toplam</dt><dd>Bağlantıda kesinleşir</dd></div>
                   <div><dt>Kargo</dt><dd>{money(shippingCents)}</dd></div>
                   <div><dt>İndirim</dt><dd>− {money(discountCents)}</dd></div>
-                  <div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(totalCents)}</dd></div>
+                  <div className={styles.grandTotal}><dt>Toplam</dt><dd>Bağlantıda kesinleşir</dd></div>
                 </dl>
+                <p className={styles.helpText}>Kesin ürün fiyatı, seçilen müşteri ve hızlı sipariş fiyat listesiyle bağlantı oluşturulurken sunucuda hesaplanır. Geçersiz indirim veya eksik referans bağlantı oluşturmayı engeller.</p>
                 <div className={styles.amountGrid}>
                   <label className={styles.field}><span><Truck aria-hidden="true" />Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => { setShippingInput(event.target.value); setFieldErrors((current) => { const { shipping: _shipping, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.shipping ? true : undefined} aria-describedby={fieldErrors.shipping ? "quick-order-shipping-error" : undefined} />{fieldErrors.shipping ? <small id="quick-order-shipping-error" className={styles.fieldError} role="alert">{fieldErrors.shipping}</small> : null}</label>
                   <label className={styles.field}><span><Percent aria-hidden="true" />İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setFieldErrors((current) => { const { discount: _discount, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.discount ? true : undefined} aria-describedby={fieldErrors.discount ? "quick-order-discount-error" : undefined} />{fieldErrors.discount ? <small id="quick-order-discount-error" className={styles.fieldError} role="alert">{fieldErrors.discount}</small> : null}</label>

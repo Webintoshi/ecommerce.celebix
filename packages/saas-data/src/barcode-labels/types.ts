@@ -56,6 +56,7 @@ export interface BarcodeLabelRepository {
   ): Promise<BarcodeInternalCreateResult>;
   listJobs(input: BarcodeLabelAuthority): Promise<readonly BarcodePrintJobSummary[]>;
   createJob(input: CreateBarcodePrintJobInput): Promise<BarcodePrintJob>;
+  createJobLegacy(input: CreateBarcodePrintJobInput): Promise<BarcodePrintJob>;
   getJob(
     input: BarcodeLabelAuthority & Readonly<{ jobId: string }>,
   ): Promise<BarcodePrintJob>;

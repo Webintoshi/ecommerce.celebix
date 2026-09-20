@@ -19,7 +19,8 @@ type VariantRouteContext = Readonly<{
   params: Promise<Readonly<{ productId: string; variantId: string }>>;
 }>;
 
-export const handleDefaultCatalogListProducts = handlers.listProducts;
+export const handleDefaultCatalogListProducts = (request: Request) => handlers.listProducts(request);
+export const handleDefaultCatalogListProductsV2 = (request: Request) => handlers.listProducts(request, "v2");
 export const handleDefaultCatalogBulkProducts = handlers.bulkProducts;
 export const handleDefaultCatalogListVariantChoices = handlers.listVariantChoices;
 export const handleDefaultCatalogCreateProduct = handlers.createProduct;
@@ -31,6 +32,11 @@ export async function handleDefaultCatalogGetProduct(
 ) {
   const { productId } = await context.params;
   return handlers.getProduct(request, productId);
+}
+
+export async function handleDefaultCatalogGetProductV2(request: Request, context: ProductRouteContext) {
+  const { productId } = await context.params;
+  return handlers.getProduct(request, productId, "v2");
 }
 
 export async function handleDefaultCatalogUpdateProduct(

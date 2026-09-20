@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 
 import type {
   PublicCart,
-  PublicCheckoutQuote,
   PublicCheckoutQuoteV2,
   PublicCheckoutReceipt,
   PublicCheckoutReceiptV2,
@@ -84,7 +83,7 @@ export type StorefrontCommerceRuntime = Readonly<{
     intentKind: CheckoutIntentKind,
     attribution?: Extract<CheckoutRequest, { kind: "quote" }>["attribution"],
     normalizedCodes?: readonly string[],
-  ): Promise<PublicCheckoutQuote | PublicCheckoutQuoteV2>;
+  ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
   complete(
     hostname: string,
     cookieHeader: string | null,
@@ -153,28 +152,6 @@ function generated(
     selectedPurpose,
     dependencies.keyring,
     dependencies.randomBytes,
-  );
-  return Object.freeze({
-    raw: credential.value,
-    persisted: Object.freeze({
-      id: dependencies.randomUuid(),
-      keyId: credential.keyId,
-      digest: credential.digest,
-      expiresAt: new Date(now.getTime() + lifetimeMs),
-    }),
-  });
-}
-function operationGenerated(
-  dependencies: Dependencies,
-  selectedPurpose: "receipt" | "customer",
-  operationId: string,
-  now: Date,
-  lifetimeMs: number,
-) {
-  const credential = createStorefrontOperationCredential(
-    selectedPurpose,
-    operationId,
-    dependencies.keyring,
   );
   return Object.freeze({
     raw: credential.value,
@@ -542,59 +519,8 @@ export function createStorefrontCommerceRuntime(
       attribution,
       normalizedCodes,
     ) {
-      if (normalizedCodes !== undefined) {
-        const selectedCodes = promotionCodes(normalizedCodes);
-        const quoted = (
-          await dependencies.repository.quoteV2({
-            hostname,
-            now: date(dependencies),
-            intentKind,
-            candidates: candidates(
-              purpose(intentKind),
-              cookieHeader,
-              dependencies.keyring,
-            ),
-            customerCandidates: optionalCandidates(
-              "customer",
-              cookieHeader,
-              dependencies.keyring,
-            ),
-            normalizedCodes: selectedCodes,
-            ...(attribution ? { attribution } : {}),
-          })
-        ).quote;
-        const methods = [] as PublicPaymentMethod[];
-        for (const method of quoted.paymentMethods) {
-          if (method.kind !== "hosted_card") {
-            methods.push(method);
-            continue;
-          }
-          let available = false;
-          try {
-            available =
-              (await dependencies.hostedPaymentAvailable?.(method)) === true;
-          } catch {
-            available = false;
-          }
-          if (available) methods.push(method);
-        }
-        if (methods.length === quoted.paymentMethods.length) return quoted;
-        const paymentUnavailable =
-          methods.length === 0 && quoted.cart.checkoutBlocker === null;
-        const cart = paymentUnavailable
-          ? Object.freeze({
-              ...quoted.cart,
-              checkoutReady: false,
-              checkoutBlocker: "payment_unavailable" as const,
-            })
-          : quoted.cart;
-        return Object.freeze({
-          ...quoted,
-          cart,
-          paymentMethods: Object.freeze(methods),
-        });
-      }
-      const quoted = await dependencies.repository.quote({
+      const selectedCodes = promotionCodes(normalizedCodes ?? []);
+      const selected = await dependencies.repository.quoteV3({
         hostname,
         now: date(dependencies),
         intentKind,
@@ -603,9 +529,16 @@ export function createStorefrontCommerceRuntime(
           cookieHeader,
           dependencies.keyring,
         ),
+        customerCandidates: optionalCandidates(
+          "customer",
+          cookieHeader,
+          dependencies.keyring,
+        ),
+        normalizedCodes: selectedCodes,
         ...(attribution ? { attribution } : {}),
       });
-      const methods = [] as PublicCheckoutQuote["paymentMethods"][number][];
+      const quoted = selected.quote;
+      const methods = [] as PublicPaymentMethod[];
       for (const method of quoted.paymentMethods) {
         if (method.kind !== "hosted_card") {
           methods.push(method);
@@ -620,7 +553,8 @@ export function createStorefrontCommerceRuntime(
         }
         if (available) methods.push(method);
       }
-      if (methods.length === quoted.paymentMethods.length) return quoted;
+      if (methods.length === quoted.paymentMethods.length)
+        return Object.freeze({ quote: quoted, quoteDigest: selected.quoteDigest });
       const paymentUnavailable =
         methods.length === 0 && quoted.cart.checkoutBlocker === null;
       const cart = paymentUnavailable
@@ -631,57 +565,28 @@ export function createStorefrontCommerceRuntime(
           })
         : quoted.cart;
       return Object.freeze({
-        cart,
-        paymentMethods: Object.freeze(methods),
-        ...(quoted.estimatedDays === undefined
-          ? {}
-          : { estimatedDays: quoted.estimatedDays }),
+        quote: Object.freeze({
+          ...quoted,
+          cart,
+          paymentMethods: Object.freeze(methods),
+        }),
+        quoteDigest: selected.quoteDigest,
       });
     },
     async complete(hostname, cookieHeader, request) {
-      const selectedCodes = Object.hasOwn(request, "normalizedCodes")
-        ? promotionCodes(request.normalizedCodes)
-        : null;
+      const selectedCodes = promotionCodes(request.normalizedCodes ?? []);
       const now = date(dependencies);
       const intentCandidates = candidates(
         purpose(request.intentKind),
         cookieHeader,
         dependencies.keyring,
       );
-      const receipt = selectedCodes === null
-        ? operationGenerated(
-            dependencies,
-            "receipt",
-            request.operationId,
-            now,
-            15 * 60_000,
-          )
-        : operationGeneratedV2(
-            dependencies,
-            "receipt",
-            "receipt",
-            hostname,
-            request.operationId,
-            now,
-            15 * 60_000,
-          );
-      const customer = selectedCodes === null
-        ? operationGenerated(
-            dependencies,
-            "customer",
-            request.operationId,
-            now,
-            30 * 86_400_000,
-          )
-        : operationGeneratedV2(
-            dependencies,
-            "customer",
-            "customer-credential",
-            hostname,
-            request.operationId,
-            now,
-            30 * 86_400_000,
-          );
+      const receipt = operationGeneratedV2(
+        dependencies, "receipt", "receipt", hostname, request.operationId, now, 15 * 60_000,
+      );
+      const customer = operationGeneratedV2(
+        dependencies, "customer", "customer-credential", hostname, request.operationId, now, 30 * 86_400_000,
+      );
       const customerCandidates = optionalCandidates(
         "customer",
         cookieHeader,
@@ -698,38 +603,19 @@ export function createStorefrontCommerceRuntime(
         delivery: delivery(request),
         paymentKind: request.paymentKind,
       });
-      const result = selectedCodes === null
-        ? await dependencies.repository.complete({
-            ...common,
-            generated: Object.freeze({
-              orderId: dependencies.randomUuid(),
-              customerId: dependencies.randomUuid(),
-              addressId: dependencies.randomUuid(),
-              eventId: dependencies.randomUuid(),
-              receipt: receipt.persisted,
-              customer: customer.persisted,
-            }),
-          })
-        : await dependencies.repository.completeV2({
-            ...common,
-            generated: Object.freeze({
-              orderId: derivedV2Uuid("order", hostname, request.operationId),
-              customerId: derivedV2Uuid(
-                "customer",
-                hostname,
-                request.operationId,
-              ),
-              addressId: derivedV2Uuid(
-                "address",
-                hostname,
-                request.operationId,
-              ),
-              eventId: derivedV2Uuid("event", hostname, request.operationId),
-              receipt: receipt.persisted,
-              customer: customer.persisted,
-            }),
-            normalizedCodes: selectedCodes,
-          });
+      const result = await dependencies.repository.completeV3({
+        ...common,
+        generated: Object.freeze({
+          orderId: derivedV2Uuid("order", hostname, request.operationId),
+          customerId: derivedV2Uuid("customer", hostname, request.operationId),
+          addressId: derivedV2Uuid("address", hostname, request.operationId),
+          eventId: derivedV2Uuid("event", hostname, request.operationId),
+          receipt: receipt.persisted,
+          customer: customer.persisted,
+        }),
+        normalizedCodes: selectedCodes,
+        ...(request.expectedQuoteDigest === undefined ? {} : { expectedQuoteDigest: request.expectedQuoteDigest }),
+      });
       const persistedReceipt = createStorefrontOperationCredential(
         "receipt",
         request.operationId,

@@ -8,6 +8,7 @@ import {
   type QuickOrderHostedPaymentAuthority,
   type QuickOrderHostedPaymentBeginInput,
   type QuickOrderHostedPaymentRepository,
+  QuickOrderHostedPaymentRepositoryError,
 } from "@celebix/saas-data";
 
 import type {
@@ -199,6 +200,37 @@ test("hosted checkout sends only database authority plus operation and trusted I
     },
     basket: [{ reference: "sku-1", name: "Örnek ürün", quantity: 2, unitAmountMinor: 1_800, itemType: "PHYSICAL" }],
   });
+});
+
+test("quick-link price drift at atomic begin returns a new-link instruction without provider handoff", async () => {
+  let providerCalls = 0;
+  const handler = createQuickOrderHostedPaymentBridgeRoute({
+    selectAuthority: () => ({ kind: "trusted", hostname: HOSTNAME }),
+    now: () => new Date(NOW),
+    fallback: async () => { throw new Error("no legacy fallback"); },
+    resolveRuntime: async () => ({
+      hostedPayments: {
+        async getAuthority() { return { kind: "found" as const, authority: authority() }; },
+        async begin() { throw new QuickOrderHostedPaymentRepositoryError("price_changed"); },
+      },
+      resolveExecution: async () => ({
+        attempts: unusedAttempts(), keyring,
+        createRuntime: (attempts) => runtimeWithInitialize(async (input) => {
+          try {
+            await attempts.begin({ authority: { storeId: input.storeId, now: new Date(NOW) }, operationId: input.operationId,
+              fingerprint: "c".repeat(64), paymentMethodId: input.paymentMethodId, orderReference: input.orderReference,
+              amountMinor: input.amountMinor, currency: input.currency, callbackBindingDigest: "d".repeat(64) });
+          } catch { return { kind: "rejected" as const }; }
+          providerCalls += 1;
+          return { kind: "processing" as const };
+        }),
+      }),
+    }),
+  });
+  const response = await handler(request());
+  assert.equal(response.status,409);
+  assert.equal(providerCalls,0);
+  assert.match(await response.text(),/new checkout link/);
 });
 
 test("hosted request rejects extra browser facts before execution or provider initialization", async () => {

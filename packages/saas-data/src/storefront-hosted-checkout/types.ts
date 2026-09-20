@@ -84,6 +84,10 @@ export type HostedCheckoutAuthorityV2 = Omit<HostedCheckoutAuthority, "items"> &
   gifts: readonly PublicPromotionGift[];
   items: readonly PublicCartLineV2[];
 }>;
+export type HostedCheckoutAuthorityV3 = HostedCheckoutAuthorityV2 & Readonly<{
+  pricingDigest: string;
+  requiresQuoteConfirmation: boolean;
+}>;
 
 export type HostedCheckoutBeginInput = HostedCheckoutAuthorityInput & Readonly<{
   expectedAuthorityDigest: string;
@@ -106,6 +110,9 @@ export type HostedCheckoutBeginV2Input = HostedCheckoutBeginInput & Readonly<{
   customerCandidates: readonly StorefrontCredentialCandidate[];
   normalizedCodes: readonly string[];
   expectedEvaluatorAuthorityDigest: string;
+}>;
+export type HostedCheckoutBeginV3Input = HostedCheckoutBeginV2Input & Readonly<{
+  expectedPricingDigest: string;
 }>;
 
 export type HostedCheckoutPromotionReservation = Readonly<{
@@ -162,8 +169,10 @@ export type HostedCheckoutPublicStatus = Readonly<{
 export interface StorefrontHostedCheckoutRepository {
   authority(input: HostedCheckoutAuthorityInput): Promise<HostedCheckoutAuthority>;
   authorityV2(input: HostedCheckoutAuthorityV2Input): Promise<HostedCheckoutAuthorityV2>;
+  authorityV3(input: HostedCheckoutAuthorityV2Input): Promise<HostedCheckoutAuthorityV3>;
   begin(input: HostedCheckoutBeginInput): Promise<HostedCheckoutBeginResult>;
   beginV2(input: HostedCheckoutBeginV2Input): Promise<HostedCheckoutBeginV2Result>;
+  beginV3(input: HostedCheckoutBeginV3Input): Promise<HostedCheckoutBeginV2Result>;
   savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState>;
   presentation(input: HostedCheckoutPresentationInput): Promise<HostedCheckoutPresentationState>;
   status(input: HostedCheckoutStatusInput): Promise<HostedCheckoutPublicStatus>;

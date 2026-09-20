@@ -1,9 +1,7 @@
 "use client";
 
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
-import { useMemo, useState } from "react";
-
-import { selectProducts, type ProductExplorerFilter, type ProductExplorerOrder } from "@/lib/product-explorer.ts";
+import { catalogHref, type ProductCatalogSelection } from "@/lib/product-catalog-query.ts";
 import { ProductGrid } from "./ProductGrid";
 
 const FILTERS = Object.freeze([
@@ -17,27 +15,39 @@ export function ProductExplorer({
   locale,
   cardStyle,
   imageRatio,
+  selection,
+  total,
+  nextOffset,
+  path,
 }: Readonly<{
   products: readonly PublicProduct[];
   locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
+  selection: ProductCatalogSelection;
+  total: number;
+  nextOffset: number | null;
+  path: string;
 }>) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ProductExplorerFilter>("all");
-  const [order, setOrder] = useState<ProductExplorerOrder>("featured");
-  const visible = useMemo(() => selectProducts(products, { query, filter, order }), [products, query, filter, order]);
   return <div className="product-explorer">
-    <div className="explorer-toolbar">
-      <label className="explorer-search"><span>Ürün ara</span><input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Ürün adına göre ara" type="search" /></label>
-      <div className="explorer-filters" aria-label="Ürün filtresi">
-        {FILTERS.map(([value, label]) => <button aria-pressed={filter === value} key={value} onClick={() => setFilter(value)} type="button">{label}</button>)}
-      </div>
-      <label className="explorer-order"><span>Sıralama</span><select value={order} onChange={(event) => setOrder(event.currentTarget.value as ProductExplorerOrder)}>
+    <form action={path} className="explorer-toolbar" method="get">
+      <label className="explorer-search"><span>Ürün ara</span><input defaultValue={selection.query} maxLength={100} name="q" placeholder="Ürün adına göre ara" type="search" /></label>
+      <input name="filter" type="hidden" value={selection.filter} />
+      <label className="explorer-order"><span>Sıralama</span><select defaultValue={selection.order} name="sort">
         <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option>
       </select></label>
-    </div>
-    <p className="explorer-count" aria-live="polite">{visible.length} ürün gösteriliyor</p>
-    <ProductGrid products={visible} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage={products.length ? "Aramanızla eşleşen ürün bulunamadı." : undefined} />
+      <button type="submit">Uygula</button>
+    </form>
+    <form action={path} className="explorer-filters" method="get" aria-label="Ürün filtresi">
+      <input name="q" type="hidden" value={selection.query} />
+      <input name="sort" type="hidden" value={selection.order} />
+      {FILTERS.map(([value, label]) => <button aria-pressed={selection.filter === value} key={value} name="filter" type="submit" value={value}>{label}</button>)}
+    </form>
+    <p className="explorer-count" aria-live="polite">{total} ürün bulundu</p>
+    <ProductGrid products={products} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
+    {selection.offset > 0 || nextOffset !== null ? <nav aria-label="Ürün sayfaları" className="explorer-pagination">
+      {selection.offset > 0 ? <a href={catalogHref(path,selection,Math.max(0,selection.offset-24))}>Önceki</a> : null}
+      {nextOffset !== null ? <a href={catalogHref(path,selection,nextOffset)}>Sonraki</a> : null}
+    </nav> : null}
   </div>;
 }

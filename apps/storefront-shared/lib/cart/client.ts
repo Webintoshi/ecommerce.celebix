@@ -2,10 +2,8 @@
 
 import {
   parsePublicCart,
-  parsePublicCheckoutQuote,
   parsePublicCheckoutQuoteV2,
   type PublicCart,
-  type PublicCheckoutQuote,
   type PublicCheckoutQuoteV2,
 } from "@celebix/saas-contracts";
 import type { StorefrontCartClient } from "./types.ts";
@@ -62,19 +60,18 @@ function cart(value: unknown): PublicCart {
     throw new StorefrontCartClientError("invalid_response");
   }
 }
-function quote(value: unknown): PublicCheckoutQuote {
-  try {
-    return parsePublicCheckoutQuote(value);
-  } catch {
-    throw new StorefrontCartClientError("invalid_response");
-  }
-}
 function promotionQuote(value: unknown): PublicCheckoutQuoteV2 {
   try {
     return parsePublicCheckoutQuoteV2(value);
   } catch {
     throw new StorefrontCartClientError("invalid_response");
   }
+}
+function confirmedQuote(value: unknown): Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }> {
+  const root = exact(value, ["quote", "quoteDigest"]);
+  if (!root || typeof root.quoteDigest !== "string" || !/^[a-f0-9]{64}$/.test(root.quoteDigest))
+    throw new StorefrontCartClientError("invalid_response");
+  return Object.freeze({ quote: promotionQuote(root.quote), quoteDigest: root.quoteDigest });
 }
 function publicFailure(value: unknown): PublicCartClientFailure | null {
   const row = exact(value, ["code"]);
@@ -202,33 +199,36 @@ export function createStorefrontCartClient(
       });
     },
     async quote(intentKind) {
-      const root = exact(
+      return confirmedQuote(
         await call("/api/checkout/quote", {
           intentKind,
           attribution: readCommerceAttribution(),
         }),
-        ["quote"],
-      );
-      if (!root) throw new StorefrontCartClientError("invalid_response");
-      return quote(root.quote);
+      ).quote;
     },
     async quotePromotions(intentKind, normalizedCodes) {
-      const root = exact(
+      return confirmedQuote(
         await call("/api/checkout/quote", {
           intentKind,
           normalizedCodes,
           attribution: readCommerceAttribution(),
         }),
-        ["quote"],
+      ).quote;
+    },
+    async quotePromotionsWithDigest(intentKind, normalizedCodes) {
+      return confirmedQuote(
+        await call("/api/checkout/quote", {
+          intentKind,
+          normalizedCodes,
+          attribution: readCommerceAttribution(),
+        }),
       );
-      if (!root) throw new StorefrontCartClientError("invalid_response");
-      return promotionQuote(root.quote);
     },
     async startHosted(input) {
       const root = exact(
         await call("/api/checkout/payment/start", {
-          operationId: uuid(),
           ...input,
+          operationId: input.operationId ?? uuid(),
         }),
         ["destination"],
       );

@@ -33,32 +33,41 @@ function fixture(overrides: Partial<PublicStorefrontRepository> = {}) {
   return { calls, repository: createCachedPublicStorefrontRepository(repository, cache, { catalogSeconds: 45, settingsSeconds: 120 }) };
 }
 
-test("hostname authority always bypasses Redis while trusted public product projections are cached", async () => {
+test("hostname and price-bearing product projections always resolve live authority", async () => {
   const selected = fixture();
   await selected.repository.getPublicStorefront({ hostname: STOREFRONT.hostname, now: NOW });
   await selected.repository.getPublicStorefront({ hostname: STOREFRONT.hostname, now: NOW });
   await selected.repository.listPublicProducts({ storefront: STOREFRONT, now: NOW, limit: 12 });
   await selected.repository.listPublicProducts({ storefront: STOREFRONT, now: new Date(NOW.getTime() + 1_000), limit: 12 });
   assert.equal(selected.calls.host, 2);
-  assert.equal(selected.calls.products, 1);
+  assert.equal(selected.calls.products, 2);
 });
 
-test("query inputs alter cache identity but request time does not", async () => {
+test("price-bearing category projection does not survive a reference activation in cache", async () => {
   const selected = fixture();
   await selected.repository.listPublicProductsByCategory({ storefront: STOREFRONT, now: NOW, slug: "rings", limit: 12 });
   await selected.repository.listPublicProductsByCategory({ storefront: STOREFRONT, now: new Date(), slug: "rings", limit: 12 });
   await selected.repository.listPublicProductsByCategory({ storefront: STOREFRONT, now: NOW, slug: "necklaces", limit: 12 });
-  assert.equal(selected.calls.category, 2);
+  assert.equal(selected.calls.category, 3);
 });
 
-test("not-found projections use negative caching and preserve repository error semantics", async () => {
+test("global catalog pagination never retains a stale effective selling price", async () => {
+  let reads = 0;
+  const selected = fixture({ async queryPublicCatalog() { reads += 1; return { items: [], total: 0, nextOffset: null }; } });
+  const input = { storefront: STOREFRONT, now: NOW, categorySlug: null, query: "", filter: "all" as const, order: "price-asc" as const, limit: 24, offset: 0 };
+  await selected.repository.queryPublicCatalog!(input);
+  await selected.repository.queryPublicCatalog!({ ...input, now: new Date(NOW.getTime() + 1_000) });
+  assert.equal(reads, 2);
+});
+
+test("not-found price-bearing projections stay live and preserve repository error semantics", async () => {
   let calls = 0;
   const selected = fixture({ async getPublicProductBySlug() { calls += 1; throw new PublicStorefrontRepositoryError("not_found"); } });
   for (let index = 0; index < 2; index += 1) await assert.rejects(
     () => selected.repository.getPublicProductBySlug({ storefront: STOREFRONT, now: NOW, slug: "missing" }),
     (error) => error instanceof PublicStorefrontRepositoryError && error.code === "not_found",
   );
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test("cache outage fails open to PostgreSQL", async () => {

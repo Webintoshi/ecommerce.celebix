@@ -78,6 +78,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/settings/language",
       "/settings/administrators",
       "/settings/payment",
+      "/settings/pricing",
       "/settings/shipping",
       "/settings/notifications",
       "/settings/artificial-intelligence",

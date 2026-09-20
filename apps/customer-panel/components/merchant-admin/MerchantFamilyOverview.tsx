@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Building2, ChevronRight, CreditCard, Globe2, Languages, Palette, Sparkles, Truck, Users, type LucideIcon } from "lucide-react";
+import { Bell, Building2, ChevronRight, CreditCard, Globe2, Languages, Palette, Sparkles, Tags, Truck, Users, type LucideIcon } from "lucide-react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import {
@@ -33,6 +33,7 @@ const SETTINGS_GROUPS: readonly Readonly<{
   ]) }),
   Object.freeze({ title: "Satış ve teslimat", items: Object.freeze([
     Object.freeze({ href: "/settings/payment", label: "Ödeme", icon: CreditCard }),
+    Object.freeze({ href: "/settings/pricing", label: "Fiyatlandırma", icon: Tags }),
     Object.freeze({ href: "/settings/shipping", label: "Kargo", icon: Truck }),
   ]) }),
   Object.freeze({ title: "İletişim ve otomasyon", items: Object.freeze([

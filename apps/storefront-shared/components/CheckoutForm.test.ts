@@ -36,6 +36,16 @@ test("checkout submission contains only the exact server-owned contract and fixe
   assert.doesNotMatch(form, /priceCents\s*:|shippingCents\s*:|iban\s*:|storeId|tenantId|customerId|orderId|credential(?:Id|Value|Cookie)/u);
 });
 
+test("checkout carries the opaque quote seal and requires a fresh customer submit after price drift", () => {
+  assert.match(form, /quotePromotionsWithDigest/u);
+  assert.match(form, /expectedQuoteDigest: quoteDigest/u);
+  assert.match(form, /response[.]status === 409/u);
+  assert.match(form, /price_changed/u);
+  assert.match(form, /refreshAfterPriceChange/u);
+  assert.match(form, /Fiyat güncellendi[.] Lütfen yeni toplamı kontrol edip yeniden onaylayın/u);
+  assert.doesNotMatch(form, /authorityDigest|evaluatorAuthorityDigest|pricingTrace|referencePurity/u);
+});
+
 test("hosted card uses the fixed start route and renders only provider-required identity", () => {
   for (const proof of ["hosted_card", "requiredCustomerFields", "identityNumber", "startHosted", "Güvenli ödemeye geç"]) {
     assert.match(form, new RegExp(proof, "u"));
