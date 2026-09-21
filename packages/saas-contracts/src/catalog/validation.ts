@@ -158,11 +158,14 @@ export function parseProductVariant(value: unknown): ProductVariant {
       "id", "productId", "storeId", "title", "priceCents", "stockTracking",
       "stockQuantity", "status", "attributes", "createdAt", "updatedAt", "version",
     ],
-    ["sku", "barcode", "compareAtCents", "costCents", "effectivePriceCents"],
+    ["sku", "barcode", "compareAtCents", "costCents", "effectivePriceCents", "pricingMethod"],
   );
   const priceCents = safeInteger(parsed.priceCents, 0);
   const effectivePriceCents = Object.hasOwn(parsed, "effectivePriceCents")
     ? parsed.effectivePriceCents === null ? null : safeInteger(parsed.effectivePriceCents, 0)
+    : undefined;
+  const pricingMethod = Object.hasOwn(parsed, "pricingMethod")
+    ? (["fixed_try", "usd", "eur", "gold_gram"] as const).find((method) => method === parsed.pricingMethod) ?? invalid()
     : undefined;
   const compareAtCents = Object.hasOwn(parsed, "compareAtCents")
     ? safeInteger(parsed.compareAtCents, 0)
@@ -177,6 +180,7 @@ export function parseProductVariant(value: unknown): ProductVariant {
     ...(Object.hasOwn(parsed, "barcode") ? { barcode: optionalString(parsed, "barcode", 1, 128)! } : {}),
     priceCents,
     ...(effectivePriceCents === undefined ? {} : { effectivePriceCents }),
+    ...(pricingMethod === undefined ? {} : { pricingMethod }),
     ...(compareAtCents === undefined ? {} : { compareAtCents }),
     ...(Object.hasOwn(parsed, "costCents") ? { costCents: safeInteger(parsed.costCents, 0) } : {}),
     stockTracking: parsed.stockTracking === true

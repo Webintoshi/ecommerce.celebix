@@ -39,6 +39,14 @@ function quote(box,candidates=CANDIDATES) {
   return JSON.parse(result.stdout.trim().split("\n").find((line) => line.startsWith("{")));
 }
 
+function legacyQuote(box,candidates=CANDIDATES) {
+  return psql(box, `BEGIN TRANSACTION READ ONLY; SET LOCAL ROLE celebix_saas_host_resolver;
+    SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)
+    FROM saas.public_checkout_quote_v2('${HOST}','${NOW}'::timestamptz,'cart',
+      ${jsonb(candidates)},'[]'::jsonb,ARRAY[]::text[],${jsonb(ATTRIBUTION)});
+    COMMIT;`, true);
+}
+
 function complete(box, expectedDigest) {
   const next = (tail) => `67000000-0000-4000-8000-${String(tail).padStart(12,"0")}`;
   const sql = `BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;
@@ -124,7 +132,7 @@ async function main() {
     apply(box, "202609200130_reference_pricing.up.sql");
     apply(box, "202609200132_reference_pricing_checkout.up.sql");
     apply(box, "202609200132_reference_pricing_checkout_assertions.sql");
-    seed(box);
+    seed(box, { dynamicPricingEnabled: false });
     psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
       INSERT INTO saas.storefront_carts(id,store_id,status,version,expires_at,created_at,updated_at)
       VALUES('${CART}','${STORE}','active',1,'2026-10-20','${NOW}','${NOW}');
@@ -164,6 +172,24 @@ async function main() {
     assert.equal(fixed.requires_quote_confirmation, false);
     assert.match(fixed.digest, /^[a-f0-9]{64}$/);
     process.stdout.write("PASS fixed TRY cart has an opaque source digest\n");
+    const oldQuote = legacyQuote(box);
+    assert.equal(oldQuote.status, 0, oldQuote.stderr || "old fixed cart quote must remain executable during mixed deployment");
+    assert.equal(JSON.parse(oldQuote.stdout.trim().split("\n").find((line) => line.startsWith("{"))).outcome, "quoted");
+    const oldCheckoutGrants = scalar(box, `SELECT pg_catalog.bool_and(
+      pg_catalog.has_function_privilege('celebix_saas_host_resolver',
+        pg_catalog.to_regprocedure('saas.'||signature),'EXECUTE'))
+      FROM (VALUES
+        ('public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb)'),
+        ('public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[])'),
+        ('public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid)'),
+        ('public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)')
+      ) AS old_checkout(signature);`);
+    assert.equal(oldCheckoutGrants, "t", "the running old Storefront needs all four V2 entrypoints");
+    const prematureGate = psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+      INSERT INTO saas.pricing_dynamic_activation(store_id,enabled) VALUES('${STORE}'::uuid,true);COMMIT;`, true);
+    assert.notEqual(prematureGate.status, 0, "dynamic activation must wait until old checkout entrypoints are retired");
+    assert.match(prematureGate.stderr, /PRICING_LEGACY_CHECKOUT_STILL_EXECUTABLE/);
+    process.stdout.write("PASS old fixed checkout stays executable while activation gate remains closed\n");
     const fixedQuote = quote(box);
     assert.equal(fixedQuote.outcome, "quoted", JSON.stringify(fixedQuote));
     assert.match(fixedQuote.result.quoteDigest, /^[a-f0-9]{64}$/);
@@ -189,6 +215,17 @@ async function main() {
       UPDATE saas.merchant_admin_records SET config=jsonb_set(config,'{shippingPriceCents}','40'::jsonb)
       WHERE store_id='${STORE}' AND record_kind='shipping_setting';COMMIT;`);
     process.stdout.write("PASS same-price shipping drift requires new confirmation without an order\n");
+
+    psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+      REVOKE EXECUTE ON FUNCTION
+        saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb),
+        saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[]),
+        saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid),
+        saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)
+      FROM celebix_saas_host_resolver;
+      INSERT INTO saas.pricing_dynamic_activation(store_id,enabled) VALUES('${STORE}'::uuid,true);COMMIT;`);
+    assert.notEqual(legacyQuote(box).status, 0, "old V2 route cannot remain callable after dynamic activation is allowed");
+    process.stdout.write("PASS simulated old-replica drain retires V2 before dynamic activation\n");
 
     assert.equal(define(box, USD, "usd", "USD satış", null, operation(101)).outcome, "defined");
     assert.equal(saveSet(box, SET_1, 0, [{ referenceId: USD, rateTry: "40", active: true }], operation(102)).outcome, "saved");

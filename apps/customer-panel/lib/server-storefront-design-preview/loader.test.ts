@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition, type PublicProduct, type StarterThemeCompositionConfigV3, type StorefrontDesignWorkspace, type TenantContext } from "@celebix/saas-contracts";
-import type { PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
+import { createDefaultStarterThemeComposition, type MerchantAdminRecord, type PublicProduct, type StarterThemeCompositionConfigV3, type StorefrontDesignWorkspace, type TenantContext } from "@celebix/saas-contracts";
+import type { MerchantAdminRepository, PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
 
 import { createServerStorefrontDesignPreviewLoader, StorefrontDesignPreviewLoaderError } from "./loader-core.ts";
+import { composeDraftCampaignProjection } from "../storefront-design-preview-model.ts";
 
 const STORE = "41000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "41000000-0000-4000-8000-000000000002";
@@ -12,7 +13,10 @@ const MEMBERSHIP = "41000000-0000-4000-8000-000000000003";
 const PLAN = "41000000-0000-4000-8000-000000000004";
 const DOMAIN = "41000000-0000-4000-8000-000000000005";
 const CATEGORY = "41000000-0000-4000-8000-000000000006";
+const CATEGORY_B = "41000000-0000-4000-8000-000000000011";
 const ASSET = "41000000-0000-4000-8000-000000000007";
+const CATEGORY_ASSET = "41000000-0000-4000-8000-000000000009";
+const CATEGORY_ASSET_B = "41000000-0000-4000-8000-000000000012";
 const HOST = "atlas.saas-staging.celebix.site";
 const NOW = new Date("2026-09-15T09:00:00.000Z");
 
@@ -57,7 +61,7 @@ function workspace(extraDestinations: StorefrontDesignWorkspace["destinations"] 
   return { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft, published: { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW.toISOString(), brand: { logo: null, favicon: null, primaryColor: "#111111", accentColor: "#222222", backgroundColor: "#ffffff", textColor: "#111111", fontFamily: "inter" }, hero: { enabled: false, slides: [] }, promotion: { headline: "Kampanya", body: "", destination: null, startsAt: null, endsAt: null, enabled: false }, announcement: draft.announcement, typography: draft.typography }, store: { name: "Atlas", timezone: "Europe/Istanbul" }, media: [], destinations: [{ kind: "collection", resourceId: CATEGORY, label: "Kolyeler", path: "/collections/kolyeler" }, ...extraDestinations] };
 }
 
-function fixture(overrides: Readonly<{ storefront?: Record<string, unknown> }> = {}) {
+function fixture(overrides: Readonly<{ storefront?: Record<string, unknown>; showcaseEnabled?: boolean; merchantRecords?: readonly MerchantAdminRecord[] }> = {}) {
   const calls: Array<{ method: string; input: unknown }> = [];
   const latest = [product(1), product(2, { available: false }), product(3), product(4), product(5), product(6), product(7), product(8), product(9)];
   const sale = [product(11, { sale: true }), product(12), product(13, { sale: true, available: false }), product(14, { sale: true }), product(15, { sale: true }), product(16, { sale: true })];
@@ -70,18 +74,27 @@ function fixture(overrides: Readonly<{ storefront?: Record<string, unknown> }> =
   const publicStorefront: PublicStorefrontRepository = {
     async getPublicStorefront(input) { calls.push({ method: "storefront", input }); return storefront; },
     async listPublicProducts(input) { calls.push({ method: `products:${input.limit}`, input }); return { items: [...latest, ...sale].slice(0, input.limit) }; },
-    async listPublicProductsByCategory(input) { calls.push({ method: "category", input }); return { category: { id: CATEGORY, name: "Kolyeler", slug: "kolyeler" }, items: category.slice(0, input.limit) }; },
+    async listPublicProductsByCategory(input) { calls.push({ method: "category", input }); return { category: input.slug === "yuzukler" ? { id: CATEGORY_B, name: "Yüzükler", slug: "yuzukler" } : { id: CATEGORY, name: "Kolyeler", slug: "kolyeler" }, items: category.slice(0, input.limit) }; },
     async getPublicProductBySlug() { throw new Error("unexpected"); },
     async listPublicProductMedia() { throw new Error("unexpected"); },
     async getPublicStorefrontDesign() { throw new Error("unexpected"); },
   };
   const assets: StorefrontAssetRepository = {
-    async listAssets(input) { calls.push({ method: "assets", input }); return [{ id: ASSET, storeId: STORE, kind: "hero", objectKey: `stores/${STORE}/storefront/hero/${ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/hero/${ASSET}.webp`, mediaType: "image/webp", altText: "Hero", width: 1600, height: 900, byteSize: 1_000, status: "active", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), version: 1 }]; },
+    async listAssets(input) { calls.push({ method: "assets", input }); return [
+      { id: ASSET, storeId: STORE, kind: "hero", objectKey: `stores/${STORE}/storefront/hero/${ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/hero/${ASSET}.webp`, mediaType: "image/webp", altText: "Hero", width: 1600, height: 900, byteSize: 1_000, status: "active", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), version: 1 },
+      { id: CATEGORY_ASSET, storeId: STORE, kind: "category", objectKey: `stores/${STORE}/storefront/category/${CATEGORY_ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET}.webp`, mediaType: "image/webp", altText: "Kolye", width: 800, height: 800, byteSize: 1_000, status: "active", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), version: 1 },
+      { id: CATEGORY_ASSET_B, storeId: STORE, kind: "category", objectKey: `stores/${STORE}/storefront/category/${CATEGORY_ASSET_B}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET_B}.webp`, mediaType: "image/webp", altText: "Yüzük", width: 800, height: 800, byteSize: 1_000, status: "active", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), version: 1 },
+    ]; },
     async createAsset() { throw new Error("mutation_must_not_run"); },
     async archiveAsset() { throw new Error("mutation_must_not_run"); },
     async recoverOperation() { throw new Error("mutation_must_not_run"); },
   };
-  return { calls, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets }) };
+  const merchantAdmin: Pick<MerchantAdminRepository, "list"> = { async list(input) { calls.push({ method: "category-config", input }); return overrides.merchantRecords ?? [{
+    id: "41000000-0000-4000-8000-000000000010", kind: "category_showcase", name: "Kategoriler",
+    config: { heading: "Ayrı vitrin", enabled: overrides.showcaseEnabled ?? false, layout: "grid", items: [{ categoryId: CATEGORY, assetId: CATEGORY_ASSET }] },
+    status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+  }]; } };
+  return { calls, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin }) };
 }
 
 test("loader deduplicates draft sources and follows migration 113 row limits and availability order", async () => {
@@ -102,6 +115,54 @@ test("loader deduplicates draft sources and follows migration 113 row limits and
   for (const source of result.productSources) for (const item of source.items) {
     for (const unused of ["description", "variants", "attributes", "reviews", "categoryPath", "merchandising", "status"]) assert.equal(Object.hasOwn(item, unused), false, unused);
   }
+});
+
+test("category preview resolves published V3 grid when the separate legacy showcase toggle is off", async () => {
+  const image = { url: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET}.webp`, mediaType: "image/webp", altText: "Kolye", width: 800, height: 800 };
+  const selected = fixture({ storefront: { presentation: { schemaVersion: 3, sections: [
+    { kind: "category_grid", sectionId: "home_category_grid_1", heading: "Yayındaki başlık", layout: "grid", items: [{ name: "Kolyeler", slug: "kolyeler", image }] },
+  ] } } });
+  const draft = composition(Object.freeze([
+    { sectionId: "home_category_grid_1", kind: "category_grid", enabled: true, heading: "Taslak başlık", categoryIds: [CATEGORY], layout: "duo" },
+  ]));
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.equal(result.categoryShowcase.status, "ready");
+  assert.deepEqual(result.categoryShowcase.value?.items.map(({ id }) => id), [CATEGORY]);
+  const projection = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: workspace().destinations, resources: result });
+  assert.equal(projection.sectionStates[0]?.status, "ready");
+  assert.equal(projection.projection.presentation.categoryShowcase?.heading, "Taslak başlık");
+});
+
+test("draft-only category resolves active mapping despite disabled legacy showcase and absent published grid", async () => {
+  const selected = fixture({ storefront: { presentation: { schemaVersion: 3, sections: [] } }, showcaseEnabled: false });
+  const draft = composition(Object.freeze([
+    { sectionId: "home_category_grid_new", kind: "category_grid", enabled: true, heading: "Yeni taslak", categoryIds: [CATEGORY], layout: "duo" },
+  ]));
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.equal(result.categoryShowcase.status, "ready");
+  assert.deepEqual(result.categoryShowcase.value?.items.map(({ id, slug }) => [id, slug]), [[CATEGORY, "kolyeler"]]);
+  const projection = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: workspace().destinations, resources: result });
+  assert.equal(projection.sectionStates[0]?.status, "ready");
+  assert.equal(projection.projection.presentation.sections[0]?.kind, "category_grid");
+});
+
+test("draft category grid combines per-category mappings from separate active showcase records", async () => {
+  const record = (id: string, categoryId: string, assetId: string, updatedAt: string): MerchantAdminRecord => ({
+    id, kind: "category_showcase", name: "Kategoriler", config: { enabled: false, heading: "Ayrı vitrin", layout: "grid", items: [{ categoryId, assetId }] },
+    status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt,
+  });
+  const selected = fixture({ storefront: { presentation: { schemaVersion: 3, sections: [] } }, merchantRecords: [
+    record("41000000-0000-4000-8000-000000000014", CATEGORY_B, CATEGORY_ASSET_B, "2026-09-16T09:00:00.000Z"),
+    record("41000000-0000-4000-8000-000000000013", CATEGORY, CATEGORY_ASSET, "2026-09-15T09:00:00.000Z"),
+  ] });
+  const draft = composition(Object.freeze([
+    { sectionId: "home_category_grid_two", kind: "category_grid", enabled: true, heading: "İki kategori", categoryIds: [CATEGORY, CATEGORY_B], layout: "duo" },
+  ]));
+  const selectedWorkspace = workspace([{ kind: "collection", resourceId: CATEGORY_B, label: "Yüzükler", path: "/collections/yuzukler" }]);
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: selectedWorkspace, composition: draft });
+  assert.deepEqual(result.categoryShowcase.value?.items.map(({ id }) => id), [CATEGORY, CATEGORY_B]);
+  const projection = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: selectedWorkspace.destinations, resources: result });
+  assert.equal(projection.sectionStates[0]?.status, "ready");
 });
 
 test("loader reuses a source product for a matching hotspot without a product-detail query", async () => {

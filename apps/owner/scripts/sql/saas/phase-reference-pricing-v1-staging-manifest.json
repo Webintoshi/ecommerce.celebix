@@ -1,0 +1,20 @@
+{
+  "phase": "reference-pricing-v1-staging",
+  "postgresqlMajor": 16,
+  "deploymentTier": "staging",
+  "dynamicActivation": "off",
+  "migrations": [
+    { "number": 130, "file": "202609200130_reference_pricing.up.sql", "sha256": "e6405f2e48dbbceb7c45f49b5794e713d9cb18de2a65f6d4804b706ad7f1cf59", "assertions": "202609200130_reference_pricing_assertions.sql", "assertionsSha256": "73e3f2506b0f66ae3545f8d44726c81c2c30ad03eccef51b059c0520661c5024" },
+    { "number": 131, "file": "202609200131_reference_pricing_public.up.sql", "sha256": "0429966e3b54ea5cc37710dfbae0c1ea312146aebd6471b1c0c811aa882f33c0", "assertions": "202609200131_reference_pricing_public_assertions.sql", "assertionsSha256": "450abe5a8e7d8c1244c3a0c02a0a4f06b5fe6b31716372478555b09e50ecb9c4" },
+    { "number": 132, "file": "202609200132_reference_pricing_checkout.up.sql", "sha256": "d2960b6124884634d0e2d1b485850cd4e78b00c8d5d7b4a9695f194bf710ed57", "assertions": "202609200132_reference_pricing_checkout_assertions.sql", "assertionsSha256": "fc783e7cb503a3cdc964177ec7dcef660ef42ebe708c0b376c8b09efa9e9ea7f" },
+    { "number": 133, "file": "202609200133_reference_pricing_policy_preview.up.sql", "sha256": "68400684f2b60eb06c8094237e773ab22bf618d08fa68bd5ddaac9f39b656c02", "assertions": "202609200133_reference_pricing_policy_preview_assertions.sql", "assertionsSha256": "0c7894790973bcf1af8ef3def482e63248dedd3dc99a89ee9915a60d44ea95b3" },
+    { "number": 134, "file": "202609200134_reference_pricing_manual_order_guards.up.sql", "sha256": "4888b0c0708775ccbc7daf805e85d9c914d7563bdc69197208ad661d2213fe0c" },
+    { "number": 135, "file": "202609200135_reference_pricing_promotion_guard.up.sql", "sha256": "2dbe61e8e29e66a4a4b66cc48f914e1807d54cf92ffe4acd03abcbaf074ff7cd" },
+    { "number": 136, "file": "202609200136_reference_pricing_legacy_consumers.up.sql", "sha256": "2e76726ef27dafc35c024488d8c299712b5ceadca29d730e13d016c639d6434e" },
+    { "number": 137, "file": "202609200137_reference_pricing_inactive_activation.up.sql", "sha256": "1bd13393a9294c31ff813dac290d14b6ec36680cf59347e3eb7e2f8231bf3f66" },
+    { "number": 138, "file": "202609200138_reference_pricing_catalog_summary.up.sql", "sha256": "12548a908aec8f9cbcd11fa313e909b406f1672c59c139dcddf3aa2a0dc3ddc8" },
+    { "number": 139, "file": "202609200139_reference_pricing_print_guard.up.sql", "sha256": "0e2d93493b31ebff56aa73691127df2b350964dab0f3b9a4170176599bf618eb" },
+    { "number": 140, "file": "202609200140_reference_pricing_catalog_detail.up.sql", "sha256": "c72333bf1bbc3d52eb71ceb56e7583c9c7dba6829950ecf4e9b65686a4f6958a" },
+    { "number": 141, "file": "202609200141_reference_pricing_catalog_preview.up.sql", "sha256": "843f3b5ff8013c079084dfd8ffd9e9b11753b4f15080ff5b3d5b124ed367b86f" }
+  ]
+}

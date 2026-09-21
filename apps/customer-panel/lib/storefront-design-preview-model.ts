@@ -169,6 +169,7 @@ export function composeDraftCampaignProjection(input: Readonly<{
   const sections: PublicStarterHomeSection[] = [];
   const rows: Array<Readonly<{ key: string; items: readonly StorefrontDesignPreviewProduct[] }>> = [];
   const states: DraftCampaignSectionState[] = [];
+  let draftCategoryShowcase: NonNullable<PublicStarterThemePresentationV3["categoryShowcase"]> | undefined;
 
   for (const section of composition.sections) {
     if (!section.enabled) continue;
@@ -195,8 +196,19 @@ export function composeDraftCampaignProjection(input: Readonly<{
       sections.push(Object.freeze({ kind: "hero", sectionId: section.sectionId, slides: Object.freeze(slides) }));
       states.push(Object.freeze({ sectionId: section.sectionId, status: aggregateRequestedStatuses(requestedStatuses) }));
     } else if (section.kind === "category_grid") {
-      sections.push(Object.freeze({ kind: "category_grid", sectionId: section.sectionId, heading: section.heading, layout: section.layout, items: Object.freeze([]) }));
-      states.push(Object.freeze({ sectionId: section.sectionId, status: input.resources.categoryShowcase.status }));
+      const available = new Map(input.resources.categoryShowcase.value?.items.map((item) => [item.id, item]));
+      const selected = Object.freeze(section.categoryIds.flatMap((id) => {
+        const item = available.get(id);
+        return item ? [item] : [];
+      }));
+      const categoryStatus = input.resources.categoryShowcase.status === "ready"
+        ? selected.length === section.categoryIds.length ? (selected.length ? "ready" : "empty")
+          : selected.length ? "partial" : "missing"
+        : input.resources.categoryShowcase.status;
+      if (!draftCategoryShowcase) draftCategoryShowcase = Object.freeze({ heading: section.heading, layout: section.layout, items: selected });
+      sections.push(Object.freeze({ kind: "category_grid", sectionId: section.sectionId, heading: section.heading, layout: section.layout,
+        items: Object.freeze(selected.map(({ name, slug, image }) => Object.freeze({ name, slug, image }))) }));
+      states.push(Object.freeze({ sectionId: section.sectionId, status: categoryStatus }));
     } else if (section.kind === "product_row") {
       const source = sourceMap.get(previewProductSourceKey(section));
       const items = Object.freeze((source?.items ?? []).slice(0, section.limit).filter(({ available }) => available));
@@ -267,7 +279,7 @@ export function composeDraftCampaignProjection(input: Readonly<{
     productDetail: composition.productDetail,
     cart: composition.cart,
     footer: publicFooter(composition, input.destinations),
-    ...(input.resources.categoryShowcase.status === "ready" && input.resources.categoryShowcase.value ? { categoryShowcase: input.resources.categoryShowcase.value } : {}),
+    ...(draftCategoryShowcase ? { categoryShowcase: draftCategoryShowcase } : {}),
     seo: Object.freeze({ allowIndex: false }),
   });
   return Object.freeze({ projection: Object.freeze({ presentation, productRows: Object.freeze(rows) }), sectionStates: Object.freeze(states) });

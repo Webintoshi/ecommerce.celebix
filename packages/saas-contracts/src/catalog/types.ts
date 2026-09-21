@@ -45,6 +45,8 @@ export interface ProductVariant {
   readonly priceCents: number;
   /** Anonymous storefront amount; null means a dynamic reference is unavailable. */
   readonly effectivePriceCents?: number | null;
+  /** Policy lineage distinguishes a dynamic edit lock from a fixed price-list override. */
+  readonly pricingMethod?: "fixed_try" | "usd" | "eur" | "gold_gram";
   readonly compareAtCents?: number;
   readonly costCents?: number;
   readonly stockTracking: boolean;

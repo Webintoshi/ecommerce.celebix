@@ -43,6 +43,7 @@ BEGIN
         AND policy.version=state.current_version
   )
   SELECT COALESCE(pg_catalog.jsonb_agg(priced.variant||pg_catalog.jsonb_build_object(
+    'pricingMethod',priced.pricing_method,
     'effectivePriceCents',CASE WHEN priced.variant->>'status'='active'
       AND priced.price_outcome='found' THEN priced.price_cents
       WHEN priced.variant->>'status'='active'
@@ -77,18 +78,12 @@ BEGIN
     RETURN QUERY SELECT COALESCE(v_outcome,'unavailable'),v_payload; RETURN;
   END IF;
   IF v_payload->'product'->>'status'='active' AND EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(v_payload->'variants') item(value)
-    WHERE item.value->>'status'='active' AND item.value->>'effectivePriceCents' IS NULL) THEN
+    WHERE item.value->>'status'='active' AND (item.value->>'effectivePriceCents' IS NULL
+      OR item.value->>'pricingMethod' IS DISTINCT FROM 'fixed_try')) THEN
     RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
   END IF;
   SELECT COALESCE(pg_catalog.jsonb_agg(
-    (item.value-'effectivePriceCents'
-      - CASE WHEN item.value ? 'compareAtCents' AND item.value->>'status'='active'
-          AND v_payload->'product'->>'status'='active'
-          AND (item.value->>'compareAtCents')::bigint <= (item.value->>'effectivePriceCents')::bigint
-          THEN 'compareAtCents' ELSE '' END)||pg_catalog.jsonb_build_object('priceCents',
-      CASE WHEN item.value->>'status'='active' AND v_payload->'product'->>'status'='active'
-        THEN (item.value->>'effectivePriceCents')::bigint
-        ELSE (item.value->>'priceCents')::bigint END)
+    item.value-'effectivePriceCents'-'pricingMethod'
     ORDER BY item.ordinality),'[]'::jsonb) INTO v_variants
   FROM pg_catalog.jsonb_array_elements(v_payload->'variants')
     WITH ORDINALITY item(value,ordinality);

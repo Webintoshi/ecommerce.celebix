@@ -10,9 +10,11 @@ const CAMPAIGN_SOURCES = Object.freeze([
   "apps/storefront-shared/components/CampaignHeaderClient.tsx",
   "apps/storefront-shared/components/CampaignHero.tsx",
   "apps/storefront-shared/components/CampaignHome.tsx",
+  "apps/storefront-shared/components/CampaignSectionContent.tsx",
   "apps/storefront-shared/components/CampaignPanels.tsx",
   "apps/storefront-shared/components/CampaignProductRow.tsx",
   "apps/storefront-shared/components/ProductCard.tsx",
+  "apps/storefront-shared/components/ProductCardContent.tsx",
   "apps/storefront-shared/components/ProductQuickView.tsx",
   "apps/storefront-shared/components/ProductDetailExperience.tsx",
   "apps/storefront-shared/components/SideCartDrawer.tsx",
@@ -57,15 +59,15 @@ test("campaign browser sources contain no private tenant or donor authority", as
 });
 
 test("empty sections and missing media resolve to truthful bounded fallbacks", async () => {
-  const [home, row, card, quickView] = await Promise.all([
-    read("apps/storefront-shared/components/CampaignHome.tsx"),
+  const [sections, row, card, quickView] = await Promise.all([
+    read("apps/storefront-shared/components/CampaignSectionContent.tsx"),
     read("apps/storefront-shared/components/CampaignProductRow.tsx"),
-    read("apps/storefront-shared/components/ProductCard.tsx"),
+    read("apps/storefront-shared/components/ProductCardContent.tsx"),
     read("apps/storefront-shared/components/ProductQuickView.tsx"),
   ]);
-  assert.match(home, /section[.]slides[.]length\s*\?[^:]+:\s*null/u);
-  assert.match(home, /section[.]items[.]length\s*\?[^:]+:\s*null/u);
-  assert.match(home, /section[.]panels[.]length\s*\?[^:]+:\s*null/u);
+  assert.match(sections, /section[.]slides[.]length\s*\?[^:]+:\s*null/u);
+  assert.match(sections, /section[.]items[.]length\s*\?[^:]+:\s*null/u);
+  assert.match(sections, /section[.]panels[.]length\s*\?[^:]+:\s*null/u);
   assert.match(row, /if\s*\(!products[.]length\)\s*return null/u);
   assert.match(card, /Görsel yakında/u);
   assert.match(quickView, /Görsel yakında/u);

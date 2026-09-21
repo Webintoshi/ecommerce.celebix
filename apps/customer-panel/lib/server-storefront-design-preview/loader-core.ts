@@ -7,7 +7,7 @@ import {
   type StorefrontDesignWorkspace,
   type TenantContext,
 } from "@celebix/saas-contracts";
-import type { PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
+import type { MerchantAdminRepository, PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
 
 import {
   previewProductSourceKey,
@@ -18,6 +18,7 @@ import {
 } from "../storefront-design-preview-model.ts";
 
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
@@ -91,8 +92,9 @@ function safeAssetImage(asset: Awaited<ReturnType<StorefrontAssetRepository["lis
 export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly<{
   publicStorefront: PublicStorefrontRepository;
   assets: StorefrontAssetRepository;
+  merchantAdmin: Pick<MerchantAdminRepository, "list">;
 }>) {
-  if (!dependencies || typeof dependencies.publicStorefront?.getPublicStorefront !== "function" || typeof dependencies.assets?.listAssets !== "function") throw failure("invalid_input");
+  if (!dependencies || typeof dependencies.publicStorefront?.getPublicStorefront !== "function" || typeof dependencies.assets?.listAssets !== "function" || typeof dependencies.merchantAdmin?.list !== "function") throw failure("invalid_input");
   return Object.freeze({
     async load(input: Readonly<{
       tenantContext: TenantContext;
@@ -119,6 +121,8 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       const sourceLimits = new Map<string, number>();
       const assetIds = new Set<string>();
       const hotspotIds = new Set<string>();
+      const selectedCategoryIds = [...new Set(composition.sections.flatMap((section) =>
+        section.enabled && section.kind === "category_grid" ? section.categoryIds : []))].slice(0, 8);
       for (const section of composition.sections) {
         if (!section.enabled) continue;
         if (section.kind === "product_row") {
@@ -133,6 +137,30 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         } else if (section.kind === "split_campaign") {
           for (const panel of section.panels) assetIds.add(panel.assetId);
         } else if (section.kind === "brand_story" && section.assetId) assetIds.add(section.assetId);
+      }
+
+      const categoryAssets = new Map<string, string>();
+      let categoryReadUnavailable = false;
+      if (selectedCategoryIds.length) {
+        try {
+          const records = await dependencies.merchantAdmin.list({ tenantContext, now, kind: "category_showcase" });
+          const active = records.filter((record) => record.kind === "category_showcase" && record.status === "active")
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id));
+          for (const record of active) {
+            const items = record.config.items;
+            if (!Array.isArray(items) || items.length > 8) throw failure();
+            for (const item of items) {
+              if (!item || typeof item !== "object" || Array.isArray(item) ||
+                typeof item.categoryId !== "string" || !UUID.test(item.categoryId) ||
+                typeof item.assetId !== "string" || !UUID.test(item.assetId)) throw failure();
+              if (!categoryAssets.has(item.categoryId)) categoryAssets.set(item.categoryId, item.assetId);
+            }
+          }
+          for (const id of selectedCategoryIds) {
+            const assetId = categoryAssets.get(id);
+            if (assetId) assetIds.add(assetId);
+          }
+        } catch { categoryReadUnavailable = true; }
       }
 
       const productSources: Awaited<ReturnType<typeof sourceResult>>[] = [];
@@ -166,10 +194,12 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       }
 
       const assets = new Map<string, StorefrontDesignPreviewResources["assets"][number]>();
+      const selectedAssets = new Map<string, Awaited<ReturnType<StorefrontAssetRepository["listAssets"]>>[number]>();
       if (assetIds.size) {
         try {
           const listed = await dependencies.assets.listAssets({ tenantContext, now, includeArchived: false });
           const selected = new Map(listed.filter((asset) => asset.status === "active" && asset.storeId === tenantContext.store.id && assetIds.has(asset.id)).map((asset) => [asset.id, asset]));
+          for (const [id, asset] of selected) selectedAssets.set(id, asset);
           for (const id of [...assetIds].sort()) {
             const asset = selected.get(id);
             const image = asset ? safeAssetImage(asset) : undefined;
@@ -194,9 +224,25 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         } catch { hotspots.push(Object.freeze({ productId, status: "unavailable" })); }
       }
 
-      const categoryShowcase = storefront.presentation.schemaVersion === 3 && storefront.presentation.categoryShowcase
-        ? Object.freeze({ status: "ready" as const, value: storefront.presentation.categoryShowcase })
-        : Object.freeze({ status: "missing" as const });
+      const categoryItems = await Promise.all(selectedCategoryIds.map(async (id) => {
+        const slug = collectionSlug(workspace, id);
+        const asset = selectedAssets.get(categoryAssets.get(id) ?? "");
+        const image = asset?.kind === "category" ? safeAssetImage(asset) : undefined;
+        if (!slug || !image) return null;
+        try {
+          const result = await dependencies.publicStorefront.listPublicProductsByCategory({ storefront, now, slug, limit: 1 });
+          return result.category.id === id && result.category.slug === slug
+            ? Object.freeze({ id, name: result.category.name, slug, image }) : null;
+        } catch { return null; }
+      }));
+      const resolvedCategories = Object.freeze(categoryItems.filter((item): item is NonNullable<typeof item> => item !== null));
+      const firstCategorySection = composition.sections.find((section) => section.enabled && section.kind === "category_grid");
+      const categoryShowcase = firstCategorySection?.kind === "category_grid" && resolvedCategories.length
+        ? Object.freeze({ status: "ready" as const, value: Object.freeze({
+          heading: firstCategorySection.heading, layout: firstCategorySection.layout,
+          items: resolvedCategories,
+        }) })
+        : Object.freeze({ status: categoryReadUnavailable ? "unavailable" as const : "missing" as const });
       return Object.freeze({
         schemaVersion: 1,
         dependencyKey: storefrontDesignPreviewDependencyKey(composition),

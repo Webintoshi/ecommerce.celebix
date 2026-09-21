@@ -7,6 +7,8 @@ import { composeDraftCampaignProjection, loadingStorefrontDesignPreviewResources
 
 const ASSET_A = "51000000-0000-4000-8000-000000000001";
 const ASSET_B = "51000000-0000-4000-8000-000000000002";
+const CATEGORY_A = "51000000-0000-4000-8000-000000000011";
+const CATEGORY_B = "51000000-0000-4000-8000-000000000012";
 
 function product(index: number, available = true): PublicProduct {
   return Object.freeze({ id: `52000000-0000-4000-8000-${String(index).padStart(12, "0")}`, slug: `urun-${index}`, title: `Ürün ${index}`, currency: "TRY", status: "active", priceCents: 1_000 + index, available, variants: Object.freeze([]), media: Object.freeze([]) });
@@ -19,6 +21,26 @@ function composition(sections: StarterThemeCompositionConfigV3["sections"]): Sta
 function resources(input: Partial<StorefrontDesignPreviewResources> = {}): StorefrontDesignPreviewResources {
   return Object.freeze({ schemaVersion: 1, dependencyKey: "test", productSources: Object.freeze([]), assets: Object.freeze([]), hotspots: Object.freeze([]), categoryShowcase: Object.freeze({ status: "missing" }), ...input });
 }
+
+test("draft category selection keeps draft heading, layout and order instead of published showcase", () => {
+  const draft = composition(Object.freeze([
+    { sectionId: "home_categories_draft", kind: "category_grid", enabled: true, heading: "Taslak seçimi", categoryIds: [CATEGORY_B, CATEGORY_A], layout: "duo" },
+  ]));
+  const image = Object.freeze({ url: `https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/storefront/category/${ASSET_A}.webp`, mediaType: "image/webp" as const, altText: "Kategori", width: 800, height: 800 });
+  const a = Object.freeze({ id: CATEGORY_A, name: "Kolyeler", slug: "kolyeler", image });
+  const b = Object.freeze({ id: CATEGORY_B, name: "Yüzükler", slug: "yuzukler", image });
+  const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: Object.freeze([]), resources: resources({
+    categoryShowcase: Object.freeze({ status: "ready", value: Object.freeze({ heading: "Yayındaki başlık", layout: "grid", items: Object.freeze([a, b]) }) }),
+  }) });
+  const section = result.projection.presentation.sections[0];
+  assert.equal(section?.kind, "category_grid");
+  if (section?.kind !== "category_grid") return;
+  assert.equal(section.heading, "Taslak seçimi");
+  assert.equal(section.layout, "duo");
+  assert.deepEqual(section.items.map(({ slug }) => slug), ["yuzukler", "kolyeler"]);
+  assert.equal(result.projection.presentation.categoryShowcase?.heading, "Taslak seçimi");
+  assert.deepEqual(result.sectionStates, [{ sectionId: "home_categories_draft", status: "ready" }]);
+});
 
 test("row projection applies the section limit before availability and keeps current IDs, order, and labels", () => {
   const draft = composition(Object.freeze([

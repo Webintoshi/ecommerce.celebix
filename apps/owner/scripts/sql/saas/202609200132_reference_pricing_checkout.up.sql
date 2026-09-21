@@ -451,15 +451,43 @@ EXCEPTION WHEN OTHERS THEN
   RETURN QUERY SELECT 'unavailable',NULL::jsonb;
 END $fn$;
 
--- Route new sales through the version-sealed endpoints. Keep old definitions
--- for historical recovery/internal calls, but not as direct public-role bypasses.
+-- Old Storefront replicas still use V2 while the additive schema is installed.
+-- Keep their fixed-price checkout available with the activation gate closed.
+-- A later, separately authorized cutover must revoke all four V2 grants before
+-- the owner can enable dynamic pricing for any store.
+CREATE OR REPLACE FUNCTION saas.pricing_dynamic_activation_lock()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE v_store_id uuid;
+BEGIN
+  IF TG_OP='DELETE' THEN v_store_id:=OLD.store_id;
+  ELSE v_store_id:=NEW.store_id; END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'saas.catalog.store:'||v_store_id::text,0));
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  IF NEW.enabled AND (
+    pg_catalog.has_function_privilege('celebix_saas_host_resolver',
+      'saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb)','EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',
+      'saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[])','EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',
+      'saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid)','EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_host_resolver',
+      'saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)','EXECUTE')
+  ) THEN RAISE EXCEPTION 'PRICING_LEGACY_CHECKOUT_STILL_EXECUTABLE'; END IF;
+  RETURN NEW;
+END $fn$;
+
+DO $preflight$ BEGIN
+  IF EXISTS (SELECT 1 FROM saas.pricing_dynamic_activation WHERE enabled) THEN
+    RAISE EXCEPTION 'PRICING_LEGACY_CHECKOUT_STILL_EXECUTABLE';
+  END IF;
+END $preflight$;
+
+-- Route new consumers through V3. Unversioned entrypoints remain retired;
+-- V2 retains only its existing host-resolver grant for the closed-gate overlap.
 REVOKE ALL ON FUNCTION
   saas.public_checkout_complete(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz),
-  saas.public_checkout_complete_v2(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[]),
-  saas.public_storefront_hosted_checkout_begin(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text),
-  saas.public_storefront_hosted_checkout_begin_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text),
-  saas.public_checkout_quote_v2(text,timestamptz,text,jsonb,jsonb,text[],jsonb),
-  saas.public_storefront_hosted_checkout_authority_v2(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid)
+  saas.public_storefront_hosted_checkout_begin(text,timestamptz,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)
 FROM celebix_saas_host_resolver;
 REVOKE ALL ON FUNCTION
   saas.public_checkout_complete_v3(text,timestamptz,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,uuid,text,text,timestamptz,text[],text),

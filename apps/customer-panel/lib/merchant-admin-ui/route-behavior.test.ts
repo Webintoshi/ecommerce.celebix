@@ -627,11 +627,16 @@ test("merchant route matrix invokes every actual page, production console, clien
     save: Scenario["save"],
   ) {
     const mounted = await mount(definition, { records: action === "create" ? "empty" : "loaded", save });
-    const trigger = definition.cardinality === "collection" ? findElement(mounted.view, (element) => element.type === "button" && (
+    const trigger = definition.cardinality === "collection" ? (() => {
+      try { return findElement(mounted.view, (element) => element.type === "button" && (
       action === "create"
-        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
+        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur")
+          || (definition.kind === "administrator_invite" && textOf(element).includes("Yönetici ekle"))
+          || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
         : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
-    )) : undefined;
+      )); }
+      catch { assert.fail(`${definition.kind}:${action}:${save}: expected inline trigger`); }
+    })() : undefined;
     const originalDocument = globalThis.document;
     const originalWindow = globalThis.window;
     const originalFormData = globalThis.FormData;
@@ -660,7 +665,10 @@ test("merchant route matrix invokes every actual page, production console, clien
         (trigger.props.onClick as (event: { currentTarget: { focus(): void } }) => void)({ currentTarget: { focus() {} } });
         mounted.view = await mounted.hooks.flush(mounted.render);
       }
-      const form = findElement(mounted.view, (element) => element.type === "form");
+      const form = (() => {
+        try { return findElement(mounted.view, (element) => element.type === "form"); }
+        catch { assert.fail(`${definition.kind}:${action}:${save}: expected inline form`); }
+      })();
       const values: Record<string, string | readonly string[]> = {
         name: `${definition.kind} ${action} persisted`,
         status: "active",

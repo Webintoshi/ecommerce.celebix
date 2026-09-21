@@ -110,8 +110,42 @@ function main() {
       "unsellable archived dynamic variants must not hide an otherwise readable page");
     assert.equal(archivedDynamicSummary.result.variantSummaries[oldSummary.result.items[0].id].variantId, USD_VARIANT);
     const oldDetail = catalogCall(box, "catalog_get_product_details", `'50000000-0000-4000-8000-000000000130'::uuid,true`);
-    assert.equal(oldDetail.outcome, "found");
-    assert.equal(oldDetail.result.variants.find((item) => item.id === USD_VARIANT).priceCents, 500_000);
+    assert.equal(oldDetail.outcome, "unavailable", "an old editor cannot persist a calculated dynamic price as base TRY");
+    const fixedDetailWithOverride = JSON.parse(scalar(box, `BEGIN;
+      UPDATE saas.product_variants SET status='archived',archived_at='${NOW}'::timestamptz,
+        updated_at='${NOW}'::timestamptz WHERE store_id='${STORE}'::uuid AND id='${USD_VARIANT}'::uuid;
+      INSERT INTO saas.price_lists(id,store_id,name,status,version,activated_at,created_at,updated_at)
+        VALUES('60000000-0000-4000-8000-000000000140','${STORE}'::uuid,
+          'Fixed override','active',1,'2026-01-01'::timestamptz,
+          '2026-01-01'::timestamptz,'2026-01-01'::timestamptz);
+      INSERT INTO saas.price_list_items(store_id,price_list_id,variant_id,price_cents,created_at)
+        VALUES('${STORE}'::uuid,'60000000-0000-4000-8000-000000000140'::uuid,
+          '${FIXED}'::uuid,9999,'2026-01-01'::timestamptz);
+      INSERT INTO saas.price_list_rules(id,store_id,price_list_id,channel,starts_at,priority,created_at)
+        VALUES('61000000-0000-4000-8000-000000000140'::uuid,'${STORE}'::uuid,
+          '60000000-0000-4000-8000-000000000140'::uuid,'storefront',
+          '2026-01-01'::timestamptz,50,'2026-01-01'::timestamptz);
+      SET LOCAL ROLE celebix_saas_app;
+      SELECT pg_catalog.jsonb_build_object(
+        'old',pg_catalog.jsonb_build_object('outcome',old_detail.outcome,'result',old_detail.result_payload),
+        'new',pg_catalog.jsonb_build_object('outcome',new_detail.outcome,'result',new_detail.result_payload))
+      FROM saas.catalog_get_product_details('${STORE}'::uuid,'${OWNER}'::uuid,
+        '${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter',1,100,
+        '${NOW}'::timestamptz,'50000000-0000-4000-8000-000000000130'::uuid,true) old_detail,
+      saas.catalog_get_product_details_v2('${STORE}'::uuid,'${OWNER}'::uuid,
+        '${MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter',1,100,
+        '${NOW}'::timestamptz,'50000000-0000-4000-8000-000000000130'::uuid,true) new_detail;
+      ROLLBACK;`));
+    const fixedOldDetail = fixedDetailWithOverride.old;
+    const fixedNewDetail = fixedDetailWithOverride.new;
+    assert.equal(fixedOldDetail.outcome, "found");
+    assert.equal(fixedNewDetail.outcome, "found");
+    assert.equal(fixedOldDetail.result.variants.find((item) => item.id === FIXED).priceCents, 12345);
+    assert.equal(fixedNewDetail.result.variants.find((item) => item.id === FIXED).priceCents, 12345);
+    assert.equal(fixedNewDetail.result.variants.find((item) => item.id === FIXED).effectivePriceCents, 9999,
+      "the V2 detail exposes the active storefront override separately from the persisted edit amount");
+    assert.equal(Object.hasOwn(fixedOldDetail.result.variants.find((item) => item.id === FIXED), "pricingMethod"), false,
+      "the old editor receives only the persisted base amount");
     const oldPreview = catalogCall(box, "catalog_get_product_preview", `'50000000-0000-4000-8000-000000000130'::uuid`);
     assert.equal(oldPreview.outcome, "found");
     assert.equal(oldPreview.result.variants.find((item) => item.title === "USD").priceCents, 500_000);
@@ -162,6 +196,7 @@ function main() {
     assert.equal(detail.outcome, "found");
     assert.equal(detail.result.variants.find((variant) => variant.id === USD_VARIANT).priceCents, 10_000);
     assert.equal(detail.result.variants.find((variant) => variant.id === USD_VARIANT).effectivePriceCents, 500_000);
+    assert.equal(detail.result.variants.find((variant) => variant.id === USD_VARIANT).pricingMethod, "usd");
     process.stdout.write("PASS detail separates edit and selling prices\n");
 
     const previewSql = `SET ROLE celebix_saas_app;

@@ -277,7 +277,7 @@ test("old catalog list sees effective prices without new keys; V2 retains lineag
   const listResult = Object.freeze({ items: Object.freeze([product()]), catalogTotal: 1, variantSummaries: Object.freeze({ [PRODUCT_ID]: dynamicSummary }) });
   const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
     async listProducts() { return listResult as Awaited<ReturnType<CatalogRepository["listProducts"]>>; },
-    async getProductDetails() { return Object.freeze({ product: product({ status: "active" }), variants: Object.freeze([variant({ effectivePriceCents: 27_500 })]) }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
+    async getProductDetails() { return Object.freeze({ product: product({ status: "active" }), variants: Object.freeze([variant({ effectivePriceCents: 27_500, pricingMethod: "usd" })]) }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
   })));
   const oldList = await handlers?.listProducts(request(PRODUCTS));
   assert.equal(oldList?.status, 200);
@@ -289,6 +289,17 @@ test("old catalog list sees effective prices without new keys; V2 retains lineag
   assert.equal(oldDetail?.status, 503);
   const newDetail = await handlers?.getProduct(request(`${PRODUCTS}/v2/${PRODUCT_ID}`), PRODUCT_ID, "v2");
   assert.equal(newDetail?.status, 200);
+});
+
+test("old catalog detail remains editable with an ordinary fixed-price list override", async () => {
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async getProductDetails() { return Object.freeze({ product: product({ status: "active" }), variants: Object.freeze([
+      variant({ effectivePriceCents: 10_000, pricingMethod: "fixed_try" }),
+    ]) }) as Awaited<ReturnType<CatalogRepository["getProductDetails"]>>; },
+  })));
+  const oldDetail = await handlers?.getProduct(request(`${PRODUCTS}/${PRODUCT_ID}`), PRODUCT_ID);
+  assert.equal(oldDetail?.status, 200);
+  assert.deepEqual((await oldDetail?.json()).variants, [variant()]);
 });
 
 test("old catalog list refuses an unavailable dynamic price", async () => {

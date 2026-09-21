@@ -106,9 +106,9 @@ try {
     "canonical strict parser must reject the new V2 shape even for fixed labels");
   await assert.rejects(() => labels.list({ tenantContext, now, query: { sort: "name-asc", pageSize: 20 } }),
     (error) => error?.code === "unavailable", "old mixed list must fail closed");
-  const oldDetail = await catalog.getProductDetails({ tenantContext, now,
-    productId: "50000000-0000-4000-8000-000000000130", includeArchivedVariants: true });
-  assert.equal(oldDetail.variants.find((item) => item.id === USD_VARIANT)?.priceCents, 500000);
+  await assert.rejects(() => catalog.getProductDetails({ tenantContext, now,
+    productId: "50000000-0000-4000-8000-000000000130", includeArchivedVariants: true }),
+  (error) => error?.code === "unavailable", "old detail must not expose dynamic selling prices as editable base prices");
   await assert.rejects(() => labels.createJob({ ...printInput, operationId: operation(327),
     targets: [{ variantId: USD_VARIANT, expectedVersion: 1, quantity: 1 }] }),
     (error) => error?.code === "unavailable", "old dynamic print must be denied before write");

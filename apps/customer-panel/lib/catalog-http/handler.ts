@@ -197,10 +197,12 @@ async function legacyList(
 function legacyDetail(result: Awaited<ReturnType<CatalogRepository["getProductDetails"]>>): Response {
   if (result.product.status === "active" && result.variants.some((variant) => variant.status === "active" &&
     (variant.effectivePriceCents === null ||
-      (variant.effectivePriceCents !== undefined && variant.effectivePriceCents !== variant.priceCents)))) {
+      (variant.pricingMethod !== "fixed_try" &&
+        (variant.pricingMethod !== undefined ||
+          (variant.effectivePriceCents !== undefined && variant.effectivePriceCents !== variant.priceCents)))))) {
     return error("unavailable", 503);
   }
-  return json({ ...result, variants: result.variants.map(({ effectivePriceCents: _effective, ...variant }) => variant) }, 200);
+  return json({ ...result, variants: result.variants.map(({ effectivePriceCents: _effective, pricingMethod: _method, ...variant }) => variant) }, 200);
 }
 
 async function execute<T>(operation: () => Promise<T>, success: (value: T) => Response | Promise<Response>): Promise<Response> {

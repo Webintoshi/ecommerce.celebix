@@ -57,6 +57,15 @@ test("preview client accepts only the bounded card product projection", async ()
   await assert.rejects(broad.preview(composition), StorefrontDesignPreviewApiError);
 });
 
+test("preview accepts the full validated public product title length", async () => {
+  const composition = createDefaultStarterThemeComposition();
+  const title = "Ü".repeat(200);
+  const product = { id: "71000000-0000-4000-8000-000000000010", slug: "uzun-urun", title, currency: "TRY", priceCents: 100, available: true, media: [] };
+  const resources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: [{ key: "latest", status: "ready", items: [product] }], assets: [], hotspots: [], categoryShowcase: { status: "missing" } };
+  const api = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources }));
+  assert.equal((await api.preview(composition)).productSources[0]?.items[0]?.title, title);
+});
+
 test("preview client stops reading a response body as soon as the byte cap is exceeded", async () => {
   let readPastBound = false;
   let cancelled = false;
