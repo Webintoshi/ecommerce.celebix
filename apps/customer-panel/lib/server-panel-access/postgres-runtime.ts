@@ -20,6 +20,7 @@ import {
   PostgresIyzicoSandboxEvidenceAppRepository,
   PostgresPricingRepository,
   PostgresReferencePricingRepository,
+  PostgresCatalogWeightRepository,
   PostgresPromotionRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
@@ -61,6 +62,7 @@ import { registerServerInventoryRepository } from "../server-inventory/runtime.t
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
 import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import { registerServerReferencePricingRepository } from "../server-reference-pricing/runtime.ts";
+import { registerServerCatalogWeightRepository } from "../server-catalog-weight/runtime.ts";
 import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
@@ -582,6 +584,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])') IS NOT NULL AS pricing_repository
        ,to_regprocedure('saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)') IS NOT NULL AS pricing_resolver
+      ,to_regclass('saas.catalog_weight_store_profiles') IS NOT NULL
+        AND to_regclass('saas.catalog_weight_declarations') IS NOT NULL
+        AND to_regclass('saas.catalog_weight_operations') IS NOT NULL
+        AND to_regprocedure('saas.catalog_weight_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_weight_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE')
+        AND to_regprocedure('saas.catalog_weight_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,uuid,bigint,bigint,bigint,bigint,text,text,boolean,integer)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_weight_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,uuid,bigint,bigint,bigint,bigint,text,text,boolean,integer)','EXECUTE') AS catalog_weight_repository
       ,to_regclass('saas.barcode_label_templates') IS NOT NULL
         AND to_regclass('saas.barcode_print_jobs') IS NOT NULL
         AND to_regclass('saas.barcode_print_job_items') IS NOT NULL
@@ -641,7 +650,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.promotion_repository !== true ||
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
       row.inventory_repository !== true ||
-      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true ||
+      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true || row.catalog_weight_repository !== true ||
       row.barcode_label_repository !== true
     ) {
       const failedContracts = Object.entries(row)
@@ -901,6 +910,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const catalogWeightRepository = new PostgresCatalogWeightRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const promotionRepository = new PostgresPromotionRepository({
       pool,
       role: "celebix_saas_app",
@@ -988,6 +1003,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }));
     registerServerReferencePricingRepository(access, createPostCommitInvalidatingRepository(referencePricingRepository, {
       activate: ["catalog"], savePolicy: ["catalog"],
+    }));
+    registerServerCatalogWeightRepository(access, createPostCommitInvalidatingRepository(catalogWeightRepository, {
+      save: ["catalog"],
     }));
     registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository, {
       create: ["promotions"],

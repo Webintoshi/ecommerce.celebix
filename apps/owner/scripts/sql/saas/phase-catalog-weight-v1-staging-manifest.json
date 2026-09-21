@@ -1,0 +1,26 @@
+{
+  "phase": "catalog-weight-v1-staging",
+  "inventorySourceHead": "96764834f99a24f8c32ebd1d1ba246742d02740e",
+  "migration": {
+    "file": "202609210142_catalog_weight.up.sql",
+    "sha256": "15eec515c7e54dd3cdf7257e6895d1c457646c4519ccb1d8437d247818a7eade",
+    "assertions": "202609210142_catalog_weight_assertions.sql",
+    "assertionsSha256": "7cc4070d110af754cbeadd916b85141482e95fbbdcdc2b4661825f6464e9c82e",
+    "down": "202609210142_catalog_weight.down.sql",
+    "downSha256": "b712a62e9245f1a8db344b5ac1001f165ee4b3ddcc4f63daef974122dfe27123"
+  },
+  "backfillManifest": {
+    "file": "docs/qa/artifacts/catalog-weight-v1/guzide-weight-manifest-96764834.json",
+    "sha256": "869f534cd6b22e7a21d023e3222cc94970e612e7aaa9ad706f2908c8092f88e2",
+    "storeId": "a828862c-4cc1-475a-89cc-5fbee31eb43f",
+    "tenantSlug": "guzide-kuyumcu-4",
+    "eligibleWrites": 1
+  },
+  "requires": [
+    "disposable-postgresql-16-rehearsal",
+    "exact-candidate-build-and-generator-checks",
+    "approved-staging-migration-window",
+    "manual-deploy-auto-deploy-off",
+    "post-deploy-read-only-panel-and-storefront-acceptance"
+  ]
+}

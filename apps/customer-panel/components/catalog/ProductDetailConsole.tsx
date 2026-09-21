@@ -22,6 +22,7 @@ import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/cat
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 import { VariantPricingPolicyControl } from "@/components/reference-pricing/VariantPricingPolicyControl";
+import { CatalogWeightEditor } from "./CatalogWeightEditor";
 import catalogStyles from "./catalog-operations.module.css";
 
 function value(data: FormData, key: string) {
@@ -465,6 +466,8 @@ export function ProductDetailConsole({
         /></section> : readOnlySalesSettings : null}
 
       <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} />
+
+      <CatalogWeightEditor productId={productId} variants={variants} canManage={canManage} archived={archived} />
 
       <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">

@@ -264,6 +264,31 @@ export async function GET(
     product: currentProduct(),
     variants: [PRODUCT_VARIANT],
   });
+  if (slug === `catalog/products/v2/${RESOURCE_ID}`) return Response.json({
+    product: currentProduct(),
+    variants: [PRODUCT_VARIANT],
+  });
+  if (slug === `catalog-weight/products/${RESOURCE_ID}`) return Response.json({
+    profileMode: "jewelry",
+    productVersion,
+    declarations: [{
+      id: "91919191-9191-4919-8919-919191919191",
+      productId: RESOURCE_ID,
+      variantId: PRODUCT_VARIANT.id,
+      gramsMilli: 3250,
+      scope: "net_metal",
+      salesUnit: "single",
+      approximate: true,
+      toleranceBasisPoints: 1000,
+      source: "description",
+      sourceExcerpt: "Net altın ağırlığı: 3,25 gr",
+      sourceDigest: "a".repeat(64),
+      sourceProductVersion: 3,
+      pricingVerified: false,
+      version: 1,
+      updatedAt: NOW,
+    }],
+  });
   if (slug === "catalog/products") {
     if (search.get("limit") === "20" && search.size === 2) {
       if (search.get("status") === "active") return Response.json({ items: [TOSHI_TEST_PRODUCT] });
