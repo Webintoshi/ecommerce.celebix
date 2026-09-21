@@ -1,0 +1,38 @@
+{
+  "route": "/products/fixture",
+  "viewports": [
+    {
+      "width": 1440,
+      "profile": true,
+      "source": true,
+      "unverified": true,
+      "focusOpened": true,
+      "escapeClosed": true,
+      "horizontalOverflow": 0,
+      "sectionWidth": 1155
+    },
+    {
+      "width": 1024,
+      "profile": true,
+      "source": true,
+      "unverified": true,
+      "focusOpened": true,
+      "escapeClosed": true,
+      "horizontalOverflow": 0,
+      "sectionWidth": 992
+    },
+    {
+      "width": 390,
+      "profile": true,
+      "source": true,
+      "unverified": true,
+      "focusOpened": true,
+      "escapeClosed": true,
+      "horizontalOverflow": 0,
+      "sectionWidth": 358
+    }
+  ],
+  "consoleErrors": [],
+  "exceptions": [],
+  "networkScope": "local-fixture-only"
+}
