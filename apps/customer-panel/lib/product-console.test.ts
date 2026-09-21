@@ -462,7 +462,8 @@ test("product list follows the approved dense donor toolbar and table contract",
   assert.match(list, /catalogApi[.]getDashboardSummary/);
   assert.match(list, /result[.]variantSummaries/);
   assert.doesNotMatch(list, /catalogApi[.]getProduct/);
-  assert.match(list, /catalogApi[.]updateProduct/);
+  assert.match(list, /catalogApi[.]setProductStatus/);
+  assert.doesNotMatch(list, /catalogApi[.]updateProduct/);
   assert.match(list, /URL[.]createObjectURL/);
   assert.match(list, /aria-label="Ürün tablosunda ara"/);
   assert.match(list, /<input value={search} disabled={busy}/);
@@ -554,6 +555,42 @@ test("bulk executor sends one atomic request with exact persisted versions and n
   assert.deepEqual(failedResult, { completed: 0, failed: 2 });
 });
 
+test("single-row publish switch uses the same narrow versioned status command as bulk actions", async () => {
+  const active = productFixture("11111111-1111-4111-8111-111111111111", "active", 7, "Canlı ürün");
+  const draft = productFixture(active.id, "draft", 8, active.title);
+  const requests: unknown[] = [];
+  let listCalls = 0;
+  let broadUpdates = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      listCalls += 1;
+      return { items: [listCalls === 1 ? active : draft], catalogTotal: 1 };
+    },
+    async getDashboardSummary() {
+      return { ...catalogSummary, totalProducts: 1, activeProducts: listCalls === 1 ? 1 : 0, draftProducts: listCalls === 1 ? 0 : 1 };
+    },
+    async updateProduct() {
+      broadUpdates += 1;
+      throw new Error("broad product rewrite forbidden");
+    },
+    async setProductStatus(productId: string, expectedVersion: number, status: "active" | "draft") {
+      requests.push({ productId, expectedVersion, status });
+      return { product: draft, replayed: false };
+    },
+  });
+
+  let tree = await mounted.render();
+  const toggle = mountedNodes(tree).find((node) => node.props.role === "switch");
+  assert.ok(toggle);
+  (toggle.props.onClick as () => void)();
+  tree = await mounted.render();
+
+  assert.equal(broadUpdates, 0);
+  assert.deepEqual(requests, [{ productId: active.id, expectedVersion: 7, status: "draft" }]);
+  assert.equal(listCalls, 2, "successful status mutation must reconcile from the canonical list");
+  assert.match(tree.map(mountedText).join(" "), /Taslak/);
+});
+
 test("bulk archive is count-aware and requires confirmation before the destructive executor", async () => {
   const production = await productionProductListModule() as {
     bulkArchiveConfirmationMessage: (count: number) => string;
@@ -598,6 +635,39 @@ test("product summary exposes four honest fixed metrics", async () => {
   );
   assert.ok(summaryMetrics("loading").every(({ value }) => value === "—"));
   assert.ok(summaryMetrics("unavailable").every(({ accessibleValue }) => /kullanılamıyor/.test(accessibleValue)));
+});
+
+test("product summary cards apply canonical status and stock filters", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "active", 1);
+  const listCalls: unknown[] = [];
+  const mounted = await createMountedProductConsole({
+    async listProducts(input: unknown) {
+      listCalls.push(input);
+      return { items: [product], catalogTotal: 1 };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product, variants: [] }; },
+  });
+
+  let tree = await mounted.render();
+  let buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  assert.deepEqual(buttons.map(mountedText), ["Toplam2", "Aktif1", "Taslak1", "Stoksuz0"]);
+  assert.deepEqual(buttons.map((node) => node.props["aria-pressed"]), [true, false, false, false]);
+
+  (buttons.find((node) => node.props["data-summary-filter"] === "active")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { status: "active", sort: "updated-desc", pageSize: 20 });
+  buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  assert.equal(buttons.find((node) => node.props["data-summary-filter"] === "active")?.props["aria-pressed"], true);
+
+  (buttons.find((node) => node.props["data-summary-filter"] === "out-of-stock")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { stock: "out-of-stock", sort: "updated-desc", pageSize: 20 });
+
+  buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  (buttons.find((node) => node.props["data-summary-filter"] === "total")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { sort: "updated-desc", pageSize: 20 });
 });
 
 test("dense product controls expose a 48px hit area without enlarging their visual glyphs", async () => {
@@ -850,8 +920,9 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   let tree = await mounted.render();
   let text = tree.map(mountedText).join(" ");
   let nodes = mountedNodes(tree);
-  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
-  assert.equal(nodes.filter((node) => node.type === "dd").length, 4);
+  assert.equal(nodes.filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string").length, 4);
+  assert.equal(nodes.filter((node) => node.props.className === "product-stat-label").length, 4);
+  assert.equal(nodes.filter((node) => node.props.className === "product-stat-value").length, 4);
   assert.match(text, /Toplam—Aktif—Taslak—Stoksuz—/);
   assert.doesNotMatch(text, /görüntüleniyor|Mağaza toplamı yükleniyor/);
   assert.match(text, /0 - 0 \/ — sonuç/);
@@ -859,8 +930,8 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   tree = await mounted.render();
   text = tree.map(mountedText).join(" ");
   nodes = mountedNodes(tree);
-  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
-  assert.ok(nodes.filter((node) => node.type === "dd").every((node) => mountedText(node) === "—"));
+  assert.equal(nodes.filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string").length, 4);
+  assert.ok(nodes.filter((node) => node.props.className === "product-stat-value").every((node) => mountedText(node) === "—"));
   assert.match(text, /Ürün 11111111/);
   assert.match(text, /1 - 1 \/ — sonuç/);
   assert.doesNotMatch(text, /görüntüleniyor|yüklendi|1 mağazada taslak|0 mağazada aktif/);
@@ -1252,6 +1323,14 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
+  assert.match(detail, /setProductStatus\(productId, detail\.product\.version, status\)/);
+  assert.doesNotMatch(detail, /name="status"/);
+  assert.match(detail, /Satıştan kaldır/);
+  assert.match(detail, /Satışa aç/);
+  assert.match(detail, /if \(mutationLockedRef\.current\) return;/);
+  assert.match(detail, /mutationLockedRef\.current = true/);
+  assert.match(detail, /mutationLockedRef\.current = false/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("product-status"/);
   assert.match(detail, /createVariant\(productId, parsed\.value\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);

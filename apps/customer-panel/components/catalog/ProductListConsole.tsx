@@ -187,16 +187,6 @@ export function createProductOperationCoordinator() {
   });
 }
 
-function productFields(product: Product, status: "draft" | "active") {
-  return Object.freeze({
-    title: product.title,
-    slug: product.slug,
-    ...(product.description === undefined ? {} : { description: product.description }),
-    status,
-    currency: product.currency,
-  });
-}
-
 export async function executeBulkProductAction(
   targets: readonly ProductRow[],
   action: Exclude<BulkAction, "">,
@@ -485,6 +475,21 @@ export function ProductListConsole({
     setStockFilter(value);
   }
 
+  function applySummaryFilter(key: ProductSummaryMetric["key"]) {
+    const nextStatus: Filter = key === "active" || key === "draft" ? key : "all";
+    const nextStock: StockFilter = key === "out-of-stock" ? "out-of-stock" : "all";
+    if (nextStatus === filter && nextStock === stockFilter) return;
+    invalidateGlobalQuery();
+    setFilter(nextStatus);
+    setStockFilter(nextStock);
+  }
+
+  function summaryFilterIsActive(key: ProductSummaryMetric["key"]): boolean {
+    if (key === "total") return filter === "all" && stockFilter === "all";
+    if (key === "out-of-stock") return filter === "all" && stockFilter === "out-of-stock";
+    return filter === key && stockFilter === "all";
+  }
+
   function updateCategory(value: string) {
     if (value === categoryId) return;
     invalidateGlobalQuery();
@@ -623,10 +628,7 @@ export function ProductListConsole({
     setBulkOutcome(undefined);
     let mutationCompleted = false;
     try {
-      const result = await catalogApi.updateProduct(product.id, {
-        expectedVersion: product.version,
-        product: productFields(product, status),
-      });
+      const result = await catalogApi.setProductStatus(product.id, product.version, status);
       mutationCompleted = true;
       setRows((current) => Object.freeze(current.map((row) => (
         row.product.id === product.id ? Object.freeze({ ...row, product: result.product }) : row
@@ -773,14 +775,23 @@ export function ProductListConsole({
       <div className="product-mobile-commandbar">{productCommands()}</div>
 
       <div className="hemenaku-product-filters product-operations-toolbar">
-        <dl className="product-stat-grid" aria-label="Ürün özeti">
+        <div className="product-stat-grid" role="group" aria-label="Ürün özeti filtreleri">
           {summaryMetrics.map((metric) => (
-            <div key={metric.key} aria-label={metric.accessibleValue}>
-              <dt>{metric.label}</dt>
-              <dd>{metric.value}</dd>
-            </div>
+            <button
+              key={metric.key}
+              type="button"
+              className={summaryFilterIsActive(metric.key) ? "is-active" : ""}
+              data-summary-filter={metric.key}
+              aria-label={`${metric.accessibleValue}; filtreyi uygula`}
+              aria-pressed={summaryFilterIsActive(metric.key)}
+              disabled={busy || loading || loadingMore}
+              onClick={() => applySummaryFilter(metric.key)}
+            >
+              <span className="product-stat-label">{metric.label}</span>
+              <span className="product-stat-value">{metric.value}</span>
+            </button>
           ))}
-        </dl>
+        </div>
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın; tüm katalogda ürün, slug, SKU veya barkod arayın</span><input value={search} disabled={busy} onChange={(event) => updateSearch(event.target.value)} placeholder="Ürün, slug, SKU veya barkod ara" aria-label="Ürün tablosunda ara" /></label>
         <button className={`command-button ${filterOpen || filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== "" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== ""} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
         <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
