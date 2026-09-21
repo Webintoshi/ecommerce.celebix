@@ -9,9 +9,13 @@ function single(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+export function isValidProductCatalogSearch(value: string): boolean {
+  return !/[\u0000-\u001f\u007f]/u.test(value) && new TextEncoder().encode(value.trim()).length <= 100;
+}
+
 export function parseProductCatalogQuery(input: Readonly<Record<string, string | string[] | undefined>>): ProductCatalogSelection {
   const rawQuery = single(input.q)?.trim() ?? "";
-  const query = !/[\u0000-\u001f\u007f]/u.test(rawQuery) && new TextEncoder().encode(rawQuery).length <= 100 ? rawQuery : "";
+  const query = isValidProductCatalogSearch(rawQuery) ? rawQuery : "";
   const filterValue = single(input.filter);
   const orderValue = single(input.sort);
   const offsetValue = single(input.offset);
