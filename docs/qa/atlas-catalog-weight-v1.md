@@ -33,7 +33,8 @@ The sole exact eligible candidate is product `a4ec8ad7-fe92-4dd0-8ce3-f6526851cf
 
 ## Verification
 
-- Focused catalog-weight contracts, repository, manifest, migration checksum and static security: 20/20 PASS.
+- Focused catalog-weight contracts, repository, manifest, migration checksum and static security: 21/21 PASS.
+- Three independent synthetic store authorities retained only their own `null`, `general` or `jewelry` profile projection; no shared repository/cache state was used.
 - `@celebix/saas-contracts` full package: 359/359 PASS.
 - `@celebix/saas-data` full package: 633/634 in the concurrent run; the unrelated hosted-checkout 1-second child-process timeout passed 23/23 when isolated immediately afterward.
 - Customer Panel: 1,441 tests total, 1,440 PASS / 1 existing SKIP.
