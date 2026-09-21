@@ -12,12 +12,16 @@ import {
 const cases = [
   ["store_owner", "orders.read", true],
   ["store_owner", "orders.manage", true],
+  ["store_owner", "orders.delete", true],
   ["admin", "orders.manage", true],
+  ["admin", "orders.delete", true],
   ["editor", "orders.read", true],
   ["editor", "orders.fulfill", true],
   ["editor", "orders.payment", false],
+  ["editor", "orders.delete", false],
   ["analyst", "orders.read", true],
   ["analyst", "orders.note", false],
+  ["analyst", "orders.delete", false],
   ["store_owner", "shipping.manage", true],
   ["admin", "shipping.manage", true],
   ["editor", "shipping.read", true],
@@ -41,9 +45,12 @@ const cases = [
   ["analyst", "customers.read", true],
   ["analyst", "customers.manage", false],
   ["store_owner", "catalog_admin.import", true],
+  ["store_owner", "catalog_admin.delete", true],
   ["admin", "catalog_admin.moderate", true],
+  ["admin", "catalog_admin.delete", true],
   ["editor", "catalog_admin.manage", true],
   ["editor", "catalog_admin.archive", false],
+  ["editor", "catalog_admin.delete", false],
   ["analyst", "catalog_admin.read", true],
   ["editor", "content.manage", true],
   ["editor", "configuration.manage", false],
@@ -75,7 +82,7 @@ test("enforces the exact merchant order action matrix", () => {
 
 test("denies unknown merchant actions", () => {
   assert.equal(
-    isMerchantActionAllowed("store_owner", "orders.delete" as never),
+    isMerchantActionAllowed("store_owner", "orders.purge" as never),
     false,
   );
 });
@@ -88,6 +95,7 @@ test("exports the exact immutable merchant action list", () => {
     "orders.fulfill",
     "orders.payment",
     "orders.note",
+    "orders.delete",
     "shipping.read",
     "shipping.manage",
     "quick_links.read",
@@ -100,6 +108,7 @@ test("exports the exact immutable merchant action list", () => {
     "catalog_admin.read",
     "catalog_admin.manage",
     "catalog_admin.archive",
+    "catalog_admin.delete",
     "catalog_admin.import",
     "catalog_admin.moderate",
     "promotions.read",
@@ -163,6 +172,7 @@ test("maps every product operation to one immutable merchant action", () => {
   ]);
   assert.equal(Object.isFrozen(CATALOG_PRODUCT_OPERATIONS), true);
   assert.equal(catalogProductAction("read"), "catalog_admin.read");
+  assert.equal(catalogProductAction("remove"), "catalog_admin.delete");
   for (const operation of [
     "create",
     "update",
@@ -175,7 +185,7 @@ test("maps every product operation to one immutable merchant action", () => {
   ] as const) {
     assert.equal(catalogProductAction(operation), "catalog_admin.manage");
   }
-  for (const operation of ["archive", "restore", "archive_variant", "archive_media", "restore_media", "cleanup_media", "remove", "bulk_archive"] as const) {
+  for (const operation of ["archive", "restore", "archive_variant", "archive_media", "restore_media", "cleanup_media", "bulk_archive"] as const) {
     assert.equal(catalogProductAction(operation), "catalog_admin.archive");
   }
 });
