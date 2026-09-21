@@ -462,7 +462,8 @@ test("product list follows the approved dense donor toolbar and table contract",
   assert.match(list, /catalogApi[.]getDashboardSummary/);
   assert.match(list, /result[.]variantSummaries/);
   assert.doesNotMatch(list, /catalogApi[.]getProduct/);
-  assert.match(list, /catalogApi[.]updateProduct/);
+  assert.match(list, /catalogApi[.]setProductStatus/);
+  assert.doesNotMatch(list, /catalogApi[.]updateProduct/);
   assert.match(list, /URL[.]createObjectURL/);
   assert.match(list, /aria-label="Ürün tablosunda ara"/);
   assert.match(list, /<input value={search} disabled={busy}/);
@@ -552,6 +553,42 @@ test("bulk executor sends one atomic request with exact persisted versions and n
     bulkMutateProducts: async () => { throw new Error("atomic rejection"); },
   });
   assert.deepEqual(failedResult, { completed: 0, failed: 2 });
+});
+
+test("single-row publish switch uses the same narrow versioned status command as bulk actions", async () => {
+  const active = productFixture("11111111-1111-4111-8111-111111111111", "active", 7, "Canlı ürün");
+  const draft = productFixture(active.id, "draft", 8, active.title);
+  const requests: unknown[] = [];
+  let listCalls = 0;
+  let broadUpdates = 0;
+  const mounted = await createMountedProductConsole({
+    async listProducts() {
+      listCalls += 1;
+      return { items: [listCalls === 1 ? active : draft], catalogTotal: 1 };
+    },
+    async getDashboardSummary() {
+      return { ...catalogSummary, totalProducts: 1, activeProducts: listCalls === 1 ? 1 : 0, draftProducts: listCalls === 1 ? 0 : 1 };
+    },
+    async updateProduct() {
+      broadUpdates += 1;
+      throw new Error("broad product rewrite forbidden");
+    },
+    async setProductStatus(productId: string, expectedVersion: number, status: "active" | "draft") {
+      requests.push({ productId, expectedVersion, status });
+      return { product: draft, replayed: false };
+    },
+  });
+
+  let tree = await mounted.render();
+  const toggle = mountedNodes(tree).find((node) => node.props.role === "switch");
+  assert.ok(toggle);
+  (toggle.props.onClick as () => void)();
+  tree = await mounted.render();
+
+  assert.equal(broadUpdates, 0);
+  assert.deepEqual(requests, [{ productId: active.id, expectedVersion: 7, status: "draft" }]);
+  assert.equal(listCalls, 2, "successful status mutation must reconcile from the canonical list");
+  assert.match(tree.map(mountedText).join(" "), /Taslak/);
 });
 
 test("bulk archive is count-aware and requires confirmation before the destructive executor", async () => {
@@ -1252,6 +1289,14 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
   assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
+  assert.match(detail, /setProductStatus\(productId, detail\.product\.version, status\)/);
+  assert.doesNotMatch(detail, /name="status"/);
+  assert.match(detail, /Satıştan kaldır/);
+  assert.match(detail, /Satışa aç/);
+  assert.match(detail, /if \(mutationLockedRef\.current\) return;/);
+  assert.match(detail, /mutationLockedRef\.current = true/);
+  assert.match(detail, /mutationLockedRef\.current = false/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("product-status"/);
   assert.match(detail, /createVariant\(productId, parsed\.value\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);

@@ -109,6 +109,66 @@ test("list page size and bulk mutation use one exact request", async () => {
   await assert.rejects(() => client.listProducts({ pageSize: 40 as 20 }), /catalog_contract_invalid|catalog_client_invalid/);
 });
 
+test("single product status uses the bulk lifecycle endpoint and rejects a mismatched server product", async () => {
+  const calls: Array<[string, RequestInit]> = [];
+  const client = createCatalogApiClient({
+    randomUUID: () => OPERATION_ID,
+    fetch: async (input, init) => {
+      calls.push([String(input), init ?? {}]);
+      return jsonResponse({ products: [{ ...PRODUCT, status: "active", version: 4 }], replayed: false });
+    },
+  });
+
+  const result = await client.setProductStatus(PRODUCT_ID, 3, "active");
+
+  assert.equal(result.product.id, PRODUCT_ID);
+  assert.equal(result.product.status, "active");
+  assert.equal(calls[0]?.[0], "/api/catalog/products/bulk");
+  assert.deepEqual(JSON.parse(String(calls[0]?.[1].body)), {
+    action: "active",
+    targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }],
+  });
+
+  const wrongId = createCatalogApiClient({
+    randomUUID: () => OPERATION_ID,
+    fetch: async () => jsonResponse({
+      products: [{ ...PRODUCT, id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", status: "active", version: 4 }],
+      replayed: false,
+    }),
+  });
+  await assert.rejects(() => wrongId.setProductStatus(PRODUCT_ID, 3, "active"), /unavailable|catalog/i);
+
+  for (const [action, returnedStatus] of [
+    ["active", "draft"],
+    ["draft", "active"],
+    ["archive", "active"],
+  ] as const) {
+    const wrongStatus = createCatalogApiClient({
+      randomUUID: () => OPERATION_ID,
+      fetch: async () => jsonResponse({
+        products: [{ ...PRODUCT, status: returnedStatus, version: 4 }],
+        replayed: false,
+      }),
+    });
+    await assert.rejects(() => wrongStatus.bulkMutateProducts({
+      action,
+      targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }],
+    }), /unavailable|catalog/i);
+  }
+
+  const archived = createCatalogApiClient({
+    randomUUID: () => OPERATION_ID,
+    fetch: async () => jsonResponse({
+      products: [{ ...PRODUCT, status: "archived", version: 4 }],
+      replayed: false,
+    }),
+  });
+  assert.equal((await archived.bulkMutateProducts({
+    action: "archive",
+    targets: [{ productId: PRODUCT_ID, expectedVersion: 3 }],
+  })).products[0]?.status, "archived");
+});
+
 test("v3 product lists require a safe non-negative integer catalog total", async () => {
   for (const catalogTotal of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     const hostile = createCatalogApiClient({
@@ -371,6 +431,21 @@ test("finite API errors become safe Turkish messages and retain conflict identit
       assert.equal(error instanceof CatalogApiError, true);
       assert.equal((error as CatalogApiError).code, "version_conflict");
       assert.match((error as Error).message, /başka bir işlem/i);
+      assert.doesNotMatch((error as Error).message, /driver|secret/i);
+      return true;
+    },
+  );
+
+  const dynamicClient = createCatalogApiClient({
+    fetch: async () => jsonResponse({ code: "dynamic_price_unavailable", driver: "secret" }, 409),
+    randomUUID: () => OPERATION_ID,
+  });
+  await assert.rejects(
+    () => dynamicClient.setProductStatus(PRODUCT_ID, 3, "active"),
+    (error: unknown) => {
+      assert.equal(error instanceof CatalogApiError, true);
+      assert.equal((error as CatalogApiError).code, "dynamic_price_unavailable");
+      assert.match((error as Error).message, /güncel referans değeri/i);
       assert.doesNotMatch((error as Error).message, /driver|secret/i);
       return true;
     },

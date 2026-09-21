@@ -526,7 +526,7 @@ test("finite repository errors map to safe statuses and never expose driver deta
     ["invalid_input", 400], ["membership_denied", 403], ["store_inactive", 403],
     ["feature_not_enabled", 403], ["product_not_found", 404], ["variant_not_found", 404],
     ["product_limit_reached", 409], ["slug_conflict", 409], ["sku_conflict", 409],
-    ["version_conflict", 409], ["operation_mismatch", 409], ["durable_authority_invalid", 409],
+    ["version_conflict", 409], ["dynamic_pricing_not_ready", 409], ["dynamic_price_unavailable", 409], ["operation_mismatch", 409], ["durable_authority_invalid", 409],
     ["unavailable", 503],
   ] as const) {
     const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({

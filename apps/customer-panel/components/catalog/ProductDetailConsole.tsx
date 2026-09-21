@@ -94,6 +94,7 @@ export function ProductDetailConsole({
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
+  const mutationLockedRef = useRef(false);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -234,6 +235,8 @@ export function ProductDetailConsole({
   }
 
   async function mutation(name: string, action: () => Promise<void>) {
+    if (mutationLockedRef.current) return;
+    mutationLockedRef.current = true;
     setBusy(name);
     setError("");
     setNotice("");
@@ -243,7 +246,10 @@ export function ProductDetailConsole({
         setConflict(true);
         setError("Bu ürün sunucuda değişti. Yerel alanlarınız korunuyor; sunucu sürümünü yalnız siz seçerseniz yükleyeceğiz.");
       } else setError(safeMessage(failure));
-    } finally { setBusy(""); }
+    } finally {
+      mutationLockedRef.current = false;
+      setBusy("");
+    }
   }
 
   async function loadServerSnapshot() {
@@ -265,7 +271,7 @@ export function ProductDetailConsole({
     const data = new FormData(event.currentTarget);
     const parsed = buildProductUpdatePayload({
       title: value(data, "title"), slug: detail.product.slug, description: value(data, "description"),
-      status: value(data, "status"), currency: value(data, "currency"),
+      status: detail.product.status, currency: value(data, "currency"),
     }, detail.product.version);
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("product", async () => {
@@ -274,6 +280,17 @@ export function ProductDetailConsole({
       dirtyEditorsRef.current.clear("product");
       setEditingProduct(false);
       setNotice("Ürün bilgileri güncellendi.");
+    });
+  }
+
+  async function setProductStatus(status: "active" | "draft") {
+    if (detail === undefined || !canManage || detail.product.status === "archived" || detail.product.status === status) return;
+    if (!canDiscardDetailChanges()) return;
+    closeDetailEditors();
+    await mutation("product-status", async () => {
+      const result = await catalogApi.setProductStatus(productId, detail.product.version, status);
+      setDetail((current) => current && Object.freeze({ ...current, product: result.product }));
+      setNotice(status === "active" ? "Ürün satışa açıldı." : "Ürün satıştan kaldırıldı.");
     });
   }
 
@@ -408,6 +425,7 @@ export function ProductDetailConsole({
           <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
         </div>
         <div className="heading-actions product-detail-actions">
+          {!archived && canManage ? <button className={product.status === "active" ? "button button-secondary" : "button button-primary"} type="button" onClick={() => void setProductStatus(product.status === "active" ? "draft" : "active")} disabled={busy !== ""}>{busy === "product-status" ? "Güncelleniyor…" : product.status === "active" ? "Satıştan kaldır" : "Satışa aç"}</button> : null}
           {!archived ? <Link className="button button-secondary" href={`/products/barcode-labels?productId=${product.id}`}><Tag aria-hidden="true" /> Barkod etiketi yazdır</Link> : null}
           {!archived ? <button className="button button-secondary" type="button" onClick={() => void openStorefrontPreview()} disabled={busy!==""}><Eye aria-hidden="true"/> {busy==="preview"?"Önizleme hazırlanıyor…":"Mağazada önizle"}</button>:null}
           {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
@@ -442,7 +460,6 @@ export function ProductDetailConsole({
             <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
               <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
-              <label className="field"><span>Durum <b>*</b></span><select name="status" defaultValue={product.status}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>
               <label className="field"><span>Para birimi</span><select name="currency" defaultValue={product.currency}><option value="TRY">TRY — Türk lirası</option></select></label>
               <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} onValueChange={() => markDetailDirty("product")} />
             </div>

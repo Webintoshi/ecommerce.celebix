@@ -58,6 +58,8 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   removal_not_eligible: 409,
   operation_replayed: 409,
   operation_mismatch: 409,
+  dynamic_pricing_not_ready: 409,
+  dynamic_price_unavailable: 409,
   durable_authority_invalid: 409,
   unavailable: 503,
 });

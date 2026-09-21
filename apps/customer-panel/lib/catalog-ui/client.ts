@@ -20,7 +20,7 @@ const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "product_limit_reached",
   "product_not_found", "variant_not_found", "slug_conflict", "sku_conflict",
-  "version_conflict", "operation_mismatch", "unavailable",
+  "version_conflict", "dynamic_pricing_not_ready", "dynamic_price_unavailable", "operation_mismatch", "unavailable",
   "removal_not_eligible",
 ] as const);
 export type CatalogApiErrorCode = (typeof API_CODES)[number];
@@ -35,6 +35,8 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   slug_conflict: "Bu URL anahtarı başka bir üründe kullanılıyor.",
   sku_conflict: "Bu SKU mağazada başka bir varyantta kullanılıyor.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",
+  dynamic_pricing_not_ready: "Ürün satışa açılamadı: dinamik fiyatlandırma bu mağazada henüz etkin değil. Fiyat yöntemini Sabit TL olarak ayarlayın.",
+  dynamic_price_unavailable: "Ürün satışa açılamadı: dinamik fiyat için gerekli güncel referans değeri bulunamadı. Referans ve fiyat politikasını kontrol edin.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi. Yeni bir deneme başlatın.",
   removal_not_eligible: "Ürün kalıcı kaldırma koşullarını karşılamıyor. Engelleri temizleyip yeniden deneyin.",
   unavailable: "Ürün hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
@@ -273,6 +275,28 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
     });
   }
 
+  async function bulkProductMutation(input: CatalogBulkProductIntent): Promise<Readonly<{ products: readonly Product[]; replayed: boolean }>> {
+    let intent: CatalogBulkProductIntent;
+    try { intent = parseCatalogBulkProductIntent(input); }
+    catch { throw new TypeError("catalog_client_invalid"); }
+    const body = record(await mutation("/api/catalog/products/bulk", "POST", intent));
+    if (body === null || Object.keys(body).sort().join(",") !== "products,replayed" || !Array.isArray(body.products)) {
+      throw new CatalogApiError("unavailable", 503);
+    }
+    const products = Object.freeze(body.products.map(parseProduct));
+    const expectedIds = [...intent.targets.map(({ productId }) => productId)].sort();
+    const receivedIds = [...products.map(({ id }) => id)].sort();
+    const expectedStatus = intent.action === "archive" ? "archived" : intent.action;
+    if (
+      products.length !== intent.targets.length
+      || receivedIds.some((id, index) => id !== expectedIds[index])
+      || products.some(({ status }) => status !== expectedStatus)
+    ) {
+      throw new CatalogApiError("unavailable", 503);
+    }
+    return Object.freeze({ products, replayed: replayed(body.replayed) });
+  }
+
   return Object.freeze({
     async getDashboardSummary(): Promise<CatalogDashboardSummary> {
       return parseCatalogDashboardSummary(await request("/api/catalog/summary", {
@@ -378,6 +402,20 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
     },
 
+    async setProductStatus(id: string, expectedVersion: number, status: "active" | "draft"): Promise<ProductMutationResult> {
+      const selectedId = productId(id);
+      if (status !== "active" && status !== "draft") throw new TypeError("catalog_client_invalid");
+      const result = await bulkProductMutation({
+        action: status,
+        targets: Object.freeze([{ productId: selectedId, expectedVersion: version(expectedVersion) }]),
+      });
+      const product = result.products[0];
+      if (product === undefined || product.id !== selectedId || product.status !== status) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      return Object.freeze({ product, replayed: result.replayed });
+    },
+
     async archiveProduct(id: string, expectedVersion: number): Promise<ProductMutationResult> {
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/archive`, "POST", { expectedVersion: version(expectedVersion) }));
       if (body === null) throw new CatalogApiError("unavailable", 503);
@@ -403,18 +441,7 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
     },
 
     async bulkMutateProducts(input: CatalogBulkProductIntent): Promise<Readonly<{ products: readonly Product[]; replayed: boolean }>> {
-      let intent: CatalogBulkProductIntent;
-      try { intent = parseCatalogBulkProductIntent(input); }
-      catch { throw new TypeError("catalog_client_invalid"); }
-      const body = record(await mutation("/api/catalog/products/bulk", "POST", intent));
-      if (body === null || Object.keys(body).sort().join(",") !== "products,replayed" || !Array.isArray(body.products)) {
-        throw new CatalogApiError("unavailable", 503);
-      }
-      const products = Object.freeze(body.products.map(parseProduct));
-      if (products.length !== intent.targets.length || new Set(products.map(({ id }) => id)).size !== products.length) {
-        throw new CatalogApiError("unavailable", 503);
-      }
-      return Object.freeze({ products, replayed: replayed(body.replayed) });
+      return bulkProductMutation(input);
     },
 
     async createVariant(id: string, input: Readonly<{ variant: CatalogVariantFields }>): Promise<VariantMutationResult> {

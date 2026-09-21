@@ -72,7 +72,7 @@ function listVariantSummary(overrides: Record<string, unknown> = {}) {
   return summary;
 }
 
-function variant() {
+function variant(overrides: Record<string, unknown> = {}) {
   return {
     id: VARIANT_ID,
     productId: PRODUCT_ID,
@@ -90,6 +90,7 @@ function variant() {
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),
     version: 1,
+    ...overrides,
   };
 }
 
@@ -193,9 +194,33 @@ test("createProduct derives store authority from TenantContext and creates an in
 
 test("bulkMutateProducts sends one deterministic target set through one transaction", async () => {
   const second = product({ id: SECOND_PRODUCT_ID, title: "Atlas Ring", slug: "atlas-ring", status: "active", version: 5 });
-  const client = new FakeClient((text) => text.includes("saas.catalog_bulk_mutate_products")
-    ? [{ outcome: "committed", result_payload: { products: [product({ status: "active", version: 2 }), second] } }]
-    : []);
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_bulk_mutate_products")) {
+      return [{ outcome: "committed", result_payload: { products: [product({ status: "active", version: 2 }), second] } }];
+    }
+    if (text.includes("saas.catalog_get_product_details_v2")) return [
+      {
+        product_id: PRODUCT_ID,
+        outcome: "found",
+        result_payload: {
+          product: product({ status: "active", version: 2 }),
+          variants: [variant({ pricingMethod: "usd", effectivePriceCents: 12_500 })],
+        },
+      },
+      {
+        product_id: SECOND_PRODUCT_ID,
+        outcome: "found",
+        result_payload: {
+          product: second,
+          variants: [variant({
+            id: SECOND_VARIANT_ID, productId: SECOND_PRODUCT_ID,
+            pricingMethod: "fixed_try", effectivePriceCents: 15_000,
+          })],
+        },
+      },
+    ];
+    return [];
+  });
   const result = await repository(new FakePool(client)).bulkMutateProducts({
     tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, action: "active",
     targets: [
@@ -213,6 +238,72 @@ test("bulkMutateProducts sends one deterministic target set through one transact
     { productId: SECOND_PRODUCT_ID, expectedVersion: 4 },
   ]));
   assert.equal(client.calls.filter(({ text }) => text.startsWith("BEGIN ISOLATION")).length, 1);
+  const priceCheck = client.calls.find(({ text }) => text.includes("saas.catalog_get_product_details_v2"));
+  assert.ok(priceCheck);
+  assert.deepEqual(priceCheck.values, [
+    STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "free_starter", 1, 10, NOW,
+    [PRODUCT_ID, SECOND_PRODUCT_ID],
+  ]);
+});
+
+test("bulk activation rolls back when an enabled dynamic policy has no current price", async () => {
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_bulk_mutate_products")) {
+      return [{ outcome: "committed", result_payload: { products: [product({ status: "active", version: 2 })] } }];
+    }
+    if (text.includes("saas.catalog_get_product_details_v2")) return [{
+      product_id: PRODUCT_ID,
+      outcome: "found",
+      result_payload: {
+        product: product({ status: "active", version: 2 }),
+        variants: [variant({ pricingMethod: "gold_gram", effectivePriceCents: null })],
+      },
+    }];
+    return [];
+  });
+
+  await assert.rejects(() => repository(new FakePool(client)).bulkMutateProducts({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, action: "active",
+    targets: [{ productId: PRODUCT_ID, expectedVersion: 1 }],
+  }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "dynamic_price_unavailable");
+
+  assert.equal(client.calls.some(({ text }) => text === "ROLLBACK"), true);
+  assert.deepEqual(client.releases, [undefined]);
+});
+
+test("bulk activation replay returns its durable result without reevaluating current prices", async () => {
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_bulk_mutate_products")) {
+      return [{ outcome: "operation_replayed", result_payload: { products: [product({ status: "active", version: 2 })] } }];
+    }
+    if (text.includes("saas.catalog_get_product_details_v2")) throw new Error("replay must not revalidate");
+    return [];
+  });
+
+  const result = await repository(new FakePool(client)).bulkMutateProducts({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, action: "active",
+    targets: [{ productId: PRODUCT_ID, expectedVersion: 1 }],
+  });
+
+  assert.equal(result.replayed, true);
+  assert.equal(client.calls.some(({ text }) => text.includes("saas.catalog_get_product_details_v2")), false);
+});
+
+test("bulk activation maps the transactional dynamic-pricing gate to one finite catalog error", async () => {
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_bulk_mutate_products")) {
+      throw new Error("PRICING_DYNAMIC_ACTIVATION_REQUIRED");
+    }
+    return [];
+  });
+
+  await assert.rejects(() => repository(new FakePool(client)).bulkMutateProducts({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, action: "active",
+    targets: [{ productId: PRODUCT_ID, expectedVersion: 1 }],
+  }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "dynamic_pricing_not_ready");
+
+  assert.equal(client.calls.some(({ text }) => text === "ROLLBACK"), true);
+  assert.deepEqual(client.releases, [undefined]);
 });
 
 test("bulkMutateProducts denies editor archive and analyst writes before pool checkout", async () => {

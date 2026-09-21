@@ -64,6 +64,15 @@ const ERROR_CODES = new Set<string>(CATALOG_ERROR_CODES);
 
 function unavailable(): CatalogRepositoryError { return new CatalogRepositoryError("unavailable"); }
 
+function mutationError(value: unknown): CatalogRepositoryError {
+  if (value instanceof CatalogRepositoryError) return value;
+  if (
+    typeof value === "object" && value !== null && "message" in value
+    && value.message === "PRICING_DYNAMIC_ACTIVATION_REQUIRED"
+  ) return new CatalogRepositoryError("dynamic_pricing_not_ready");
+  return unavailable();
+}
+
 function authorizeOperation(
   authority: ValidatedCatalogAuthority,
   operation: CatalogProductOperation,
@@ -381,8 +390,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
       else if (!began && !terminal) client.release(true);
-      if (error instanceof CatalogRepositoryError) throw error;
-      throw unavailable();
+      throw mutationError(error);
     }
   }
 
@@ -393,6 +401,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     spec: QuerySpec,
     acceptedOutcomes: readonly string[],
     parser: MutationParser<T>,
+    verifyBeforeCommit?: (client: PostgresClientLike) => Promise<void>,
   ): Promise<T> {
     let client: PostgresClientLike;
     try { client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); }
@@ -409,6 +418,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
       if (expected) throw expected;
       if (!acceptedOutcomes.includes(mutation.outcome) && mutation.outcome !== "operation_replayed") throw unavailable();
       const parsed = parser(mutation.resultPayload, mutation.outcome === "operation_replayed");
+      if (verifyBeforeCommit && mutation.outcome !== "operation_replayed") await verifyBeforeCommit(client);
       try {
         await client.query("COMMIT");
         terminal = true;
@@ -423,8 +433,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
       else if (!began && !terminal) client.release(true);
-      if (error instanceof CatalogRepositoryError) throw error;
-      throw unavailable();
+      throw mutationError(error);
     }
   }
 
@@ -746,7 +755,44 @@ export class PostgresCatalogRepository implements CatalogRepository {
         $9::uuid,$10::text,$11::text,$12::jsonb
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, intent.action, JSON.stringify(targets)],
-    }, ["committed"], bulkProductResult);
+    }, ["committed"], bulkProductResult, intent.action === "active" ? async (client) => {
+      const targetIds = targets.map((target) => target.productId);
+      const check = await client.query(
+        `SELECT target.product_id,detail.outcome,detail.result_payload
+         FROM pg_catalog.unnest($9::uuid[]) AS target(product_id)
+         CROSS JOIN LATERAL saas.catalog_get_product_details_v2(
+           $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+           target.product_id,false
+         ) AS detail
+         ORDER BY target.product_id`,
+        [...authorityValues(authority), targetIds],
+      );
+      if (check.rows.length !== targetIds.length) throw unavailable();
+      const returnedIds = new Set<string>();
+      for (const row of check.rows) {
+        if (typeof row.product_id !== "string" || !targetIds.includes(row.product_id) || returnedIds.has(row.product_id)) {
+          throw unavailable();
+        }
+        returnedIds.add(row.product_id);
+        if (row.outcome !== "found") throw unavailable();
+        const envelope = payload(row.result_payload, ["product", "variants"]);
+        const checkedProduct = parseProduct(envelope.product);
+        if (
+          checkedProduct.id !== row.product_id || checkedProduct.storeId !== authority.storeId ||
+          checkedProduct.status !== "active" || !Array.isArray(envelope.variants)
+        ) throw unavailable();
+        const checkedVariants = envelope.variants.map((value) => parseProductVariant(value));
+        if (checkedVariants.some((variant) => (
+          variant.storeId !== authority.storeId || variant.productId !== checkedProduct.id ||
+          (variant.status === "active" && (
+            variant.pricingMethod === undefined || variant.effectivePriceCents === undefined ||
+            variant.effectivePriceCents === null
+          ))
+        ))) {
+          throw new CatalogRepositoryError("dynamic_price_unavailable");
+        }
+      }
+    } : undefined);
   }
 
   async createVariant(input: CreateVariantInput): Promise<VariantMutationResult> {

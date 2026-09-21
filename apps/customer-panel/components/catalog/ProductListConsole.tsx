@@ -187,16 +187,6 @@ export function createProductOperationCoordinator() {
   });
 }
 
-function productFields(product: Product, status: "draft" | "active") {
-  return Object.freeze({
-    title: product.title,
-    slug: product.slug,
-    ...(product.description === undefined ? {} : { description: product.description }),
-    status,
-    currency: product.currency,
-  });
-}
-
 export async function executeBulkProductAction(
   targets: readonly ProductRow[],
   action: Exclude<BulkAction, "">,
@@ -623,10 +613,7 @@ export function ProductListConsole({
     setBulkOutcome(undefined);
     let mutationCompleted = false;
     try {
-      const result = await catalogApi.updateProduct(product.id, {
-        expectedVersion: product.version,
-        product: productFields(product, status),
-      });
+      const result = await catalogApi.setProductStatus(product.id, product.version, status);
       mutationCompleted = true;
       setRows((current) => Object.freeze(current.map((row) => (
         row.product.id === product.id ? Object.freeze({ ...row, product: result.product }) : row
