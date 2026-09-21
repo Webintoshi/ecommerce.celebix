@@ -11,7 +11,7 @@
   color: var(--catalog-text);
 }
 
-.catalogRoot :global(.product-stat-grid > div),
+.catalogRoot :global(.product-stat-grid > button),
 .catalogRoot :global(.catalog-table-shell),
 .catalogRoot :global(.product-detail-header),
 .catalogRoot :global(.product-detail-section),
@@ -24,14 +24,14 @@
   box-shadow: none;
 }
 
-.catalogRoot :global(.product-stat-grid > div:first-child) { box-shadow: inset 0 2px var(--catalog-accent); }
-.catalogRoot :global(.product-stat-grid dt),
+.catalogRoot :global(.product-stat-grid > button.is-active) { box-shadow: inset 0 2px var(--catalog-accent); }
+.catalogRoot :global(.product-stat-label),
 .catalogRoot :global(.product-selected-count),
 .catalogRoot :global(.product-range),
 .catalogRoot :global(.catalog-table th),
 .catalogRoot :global(.product-detail-section-header p),
 .catalogRoot :global(.variant-card small) { color: #667085; }
-.catalogRoot :global(.product-stat-grid dd),
+.catalogRoot :global(.product-stat-value),
 .catalogRoot :global(.product-link strong),
 .catalogRoot :global(.product-price),
 .catalogRoot :global(.catalog-table td),

@@ -637,6 +637,39 @@ test("product summary exposes four honest fixed metrics", async () => {
   assert.ok(summaryMetrics("unavailable").every(({ accessibleValue }) => /kullanılamıyor/.test(accessibleValue)));
 });
 
+test("product summary cards apply canonical status and stock filters", async () => {
+  const product = productFixture("11111111-1111-4111-8111-111111111111", "active", 1);
+  const listCalls: unknown[] = [];
+  const mounted = await createMountedProductConsole({
+    async listProducts(input: unknown) {
+      listCalls.push(input);
+      return { items: [product], catalogTotal: 1 };
+    },
+    async getDashboardSummary() { return catalogSummary; },
+    async getProduct() { return { product, variants: [] }; },
+  });
+
+  let tree = await mounted.render();
+  let buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  assert.deepEqual(buttons.map(mountedText), ["Toplam2", "Aktif1", "Taslak1", "Stoksuz0"]);
+  assert.deepEqual(buttons.map((node) => node.props["aria-pressed"]), [true, false, false, false]);
+
+  (buttons.find((node) => node.props["data-summary-filter"] === "active")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { status: "active", sort: "updated-desc", pageSize: 20 });
+  buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  assert.equal(buttons.find((node) => node.props["data-summary-filter"] === "active")?.props["aria-pressed"], true);
+
+  (buttons.find((node) => node.props["data-summary-filter"] === "out-of-stock")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { stock: "out-of-stock", sort: "updated-desc", pageSize: 20 });
+
+  buttons = mountedNodes(tree).filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string");
+  (buttons.find((node) => node.props["data-summary-filter"] === "total")?.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.deepEqual(listCalls.at(-1), { sort: "updated-desc", pageSize: 20 });
+});
+
 test("dense product controls expose a 48px hit area without enlarging their visual glyphs", async () => {
   const styles = await source("app/globals.css");
   assert.match(styles, /[.]product-filter-panel button\s*\{[^}]*min-height:\s*48px/s);
@@ -887,8 +920,9 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   let tree = await mounted.render();
   let text = tree.map(mountedText).join(" ");
   let nodes = mountedNodes(tree);
-  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
-  assert.equal(nodes.filter((node) => node.type === "dd").length, 4);
+  assert.equal(nodes.filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string").length, 4);
+  assert.equal(nodes.filter((node) => node.props.className === "product-stat-label").length, 4);
+  assert.equal(nodes.filter((node) => node.props.className === "product-stat-value").length, 4);
   assert.match(text, /Toplam—Aktif—Taslak—Stoksuz—/);
   assert.doesNotMatch(text, /görüntüleniyor|Mağaza toplamı yükleniyor/);
   assert.match(text, /0 - 0 \/ — sonuç/);
@@ -896,8 +930,8 @@ test("mounted store-wide metrics stay semantic and never duplicate loaded-row co
   tree = await mounted.render();
   text = tree.map(mountedText).join(" ");
   nodes = mountedNodes(tree);
-  assert.equal(nodes.filter((node) => node.type === "dt").length, 4);
-  assert.ok(nodes.filter((node) => node.type === "dd").every((node) => mountedText(node) === "—"));
+  assert.equal(nodes.filter((node) => node.type === "button" && typeof node.props["data-summary-filter"] === "string").length, 4);
+  assert.ok(nodes.filter((node) => node.props.className === "product-stat-value").every((node) => mountedText(node) === "—"));
   assert.match(text, /Ürün 11111111/);
   assert.match(text, /1 - 1 \/ — sonuç/);
   assert.doesNotMatch(text, /görüntüleniyor|yüklendi|1 mağazada taslak|0 mağazada aktif/);
