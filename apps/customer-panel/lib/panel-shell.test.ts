@@ -708,6 +708,28 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
 });
 
+test("empty topbar context keeps page actions and utilities in the rightmost column", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  const window = new Window();
+  window.happyDOM.setViewport({ width: 1440, height: 900 });
+  window.document.head.innerHTML = `<style>${css}</style>`;
+  window.document.body.innerHTML = `
+    <header class="desktopTopbar">
+      <div class="desktopTopbarHeading">Siparişler</div>
+      <div class="desktopTopbarContext"></div>
+      <div class="desktopTopbarCommands">Komutlar</div>
+    </header>
+  `;
+
+  const context = window.document.querySelector(".desktopTopbarContext");
+  const commands = window.document.querySelector(".desktopTopbarCommands");
+  assert.ok(context instanceof window.HTMLElement);
+  assert.ok(commands instanceof window.HTMLElement);
+  assert.equal(window.getComputedStyle(context).display, "none");
+  assert.equal(window.getComputedStyle(commands).gridColumn, "3");
+  assert.equal(window.getComputedStyle(commands).justifySelf, "end");
+});
+
 test("compact topbar keeps the Toshi launcher accessible without clipping its label", async () => {
   const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
   const styles = await source("components/panel/panel-shell.module.css");

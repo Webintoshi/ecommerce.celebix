@@ -95,6 +95,7 @@
 }
 
 .desktopTopbarContext {
+  grid-column: 2;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -113,11 +114,17 @@
 }
 
 .desktopTopbarRight .desktopTopbarContext {
+  grid-column: 1;
   justify-self: end;
+}
+
+.desktopTopbarRight .desktopTopbarCommands {
+  grid-column: 2;
 }
 
 .desktopTopbarHeading {
   display: grid;
+  grid-column: 1;
   min-width: 0;
   gap: 0.125rem;
 }
@@ -163,6 +170,8 @@
 }
 
 .desktopTopbarCommands {
+  grid-column: 3;
+  justify-self: end;
   gap: 0.75rem;
 }
 
@@ -763,6 +772,10 @@
 
   .desktopTopbarCommands > div:first-child {
     display: none;
+  }
+
+  .desktopTopbarCommands {
+    grid-column: 2;
   }
 
   .desktopTopbarUtilities {
