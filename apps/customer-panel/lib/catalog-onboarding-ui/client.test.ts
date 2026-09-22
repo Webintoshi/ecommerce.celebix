@@ -113,3 +113,35 @@ test("category client sends exact CRUD paths and never browser store authority",
   ]);
   assert.equal(calls.some(({ init }) => String(init?.body).includes("storeId") || String(init?.body).includes("tenantId")), false);
 });
+
+test("category permanent deletion reads exact impact and sends one caller-bound confirmed command", async () => {
+  const categoryId = "73000000-0000-4000-8000-000000000001";
+  const impact = {
+    resourceKind: "category", resourceId: categoryId, confirmationLabel: "Kupalar", expectedVersion: 4,
+    effects: [{ kind: "product_links", count: 3, disposition: "detach" }],
+  } as const;
+  const deleted = {
+    resourceKind: "category", resourceId: categoryId, deleted: true, auditId: OPERATION, replayed: false,
+  } as const;
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => { throw new Error("delete must use caller operation"); },
+    async fetch(input, init) {
+      calls.push({ input, init });
+      return Response.json(calls.length === 1 ? impact : deleted);
+    },
+  });
+
+  assert.deepEqual(await client.getCategoryDeletionImpact(categoryId), impact);
+  assert.deepEqual(await client.deleteCategory(categoryId, {
+    operationId: OPERATION,
+    expectedVersion: 4,
+    confirmation: "Kupalar",
+  }), deleted);
+  assert.deepEqual(calls.map(({ input }) => input), [
+    `/api/catalog/onboarding/categories/${categoryId}/deletion-impact`,
+    `/api/catalog/onboarding/categories/${categoryId}/delete`,
+  ]);
+  assert.equal(calls[0]?.init?.cache, "no-store");
+  assert.equal(new Headers(calls[1]?.init?.headers).get("idempotency-key"), OPERATION);
+});

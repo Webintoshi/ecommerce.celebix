@@ -15,6 +15,8 @@ export const CATALOG_ONBOARDING_ERROR_CODES = Object.freeze([
   "media_incomplete",
   "operation_mismatch",
   "operation_not_found",
+  "invalid_confirmation",
+  "cleanup_failed",
   "unavailable",
 ] as const);
 

@@ -27,6 +27,7 @@ import {
   readCatalogCategoryCreateInput,
   readCatalogCategoryUpdateInput,
   readCatalogCategoryArchiveInput,
+  readCatalogCategoryDeletionInput,
 } from "./request-input.ts";
 
 export const CATALOG_ONBOARDING_OPTIONS_PATH = "/api/catalog/onboarding/options";
@@ -49,6 +50,8 @@ type AuthorizedRequest = Readonly<{
 
 const ERROR_STATUS: Readonly<Record<CatalogOnboardingErrorCode, number>> = Object.freeze({
   invalid_input: 400,
+  invalid_confirmation: 409,
+  cleanup_failed: 409,
   unauthenticated: 401,
   membership_denied: 403,
   store_inactive: 403,
@@ -289,6 +292,27 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const input = await readCatalogCategoryArchiveInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
       return execute(() => authorized.runtime.onboarding.archiveCategory({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, categoryId, expectedVersion: input.expectedVersion }));
+    },
+
+    async getCategoryDeletionImpact(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = productId(rawCategoryId);
+      if (isResponse(categoryId)) return categoryId;
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/deletion-impact` }, "catalog_admin.delete");
+      if (isResponse(authorized)) return authorized;
+      return execute(() => authorized.runtime.onboarding.getCategoryDeletionImpact({ tenantContext: authorized.tenantContext, now: authorized.now, categoryId }));
+    },
+
+    async deleteCategory(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = productId(rawCategoryId);
+      if (isResponse(categoryId)) return categoryId;
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/delete` }, "catalog_admin.delete");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryDeletionInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.deleteCategory({
+        tenantContext: authorized.tenantContext, now: authorized.now, categoryId,
+        operationId: input.operationId, expectedVersion: input.expectedVersion, confirmation: input.confirmation,
+      }));
     },
   });
 }

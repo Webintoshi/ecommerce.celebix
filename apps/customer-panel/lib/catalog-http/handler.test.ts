@@ -128,6 +128,8 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
     createProduct: unavailable,
     getDashboardSummary: unavailable,
     getProduct: unavailable,
+    getProductDeletionImpact: unavailable,
+    deleteProduct: unavailable,
     getProductDetails: unavailable,
     listProducts: unavailable,
     listVariantChoices: unavailable,
@@ -429,6 +431,42 @@ test("all update and archive handlers pass path IDs versions and operation IDs e
     assert.equal((value as { tenantContext: TenantContext }).tenantContext.store.id, STORE_ID);
     assert.equal((value as { operationId: string }).operationId, OPERATION_ID);
   }
+});
+
+test("product permanent deletion exposes impact and one exact confirmed command", async () => {
+  const impact = { resourceKind: "product", resourceId: PRODUCT_ID, expectedVersion: 2, confirmationLabel: "Atlas Mug", effects: [] } as const;
+  const deleted = { resourceKind: "product", resourceId: PRODUCT_ID, deleted: true, auditId: OPERATION_ID, replayed: false } as const;
+  const calls: Array<[string, unknown]> = [];
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async getProductDeletionImpact(input) { calls.push(["impact", input]); return impact; },
+    async deleteProduct(input) { calls.push(["delete", input]); return deleted; },
+  })));
+  const impactResponse = await handlers?.getDeletionImpact(request(`${PRODUCTS}/${PRODUCT_ID}/deletion-impact`), PRODUCT_ID);
+  const deleteResponse = await handlers?.deleteProduct(request(`${PRODUCTS}/${PRODUCT_ID}/delete`, {
+    method: "POST", body: { expectedVersion: 2, confirmation: "Atlas Mug" },
+  }), PRODUCT_ID);
+  assert.equal(impactResponse?.status, 200);
+  assert.equal(deleteResponse?.status, 200);
+  assert.deepEqual(await impactResponse?.json(), impact);
+  assert.deepEqual(await deleteResponse?.json(), deleted);
+  assert.equal(impactResponse?.headers.get("cache-control"), "no-store");
+  assert.deepEqual(calls, [
+    ["impact", { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID }],
+    ["delete", { tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID, operationId: OPERATION_ID, expectedVersion: 2, confirmation: "Atlas Mug" }],
+  ]);
+});
+
+test("editor cannot load or commit product permanent deletion", async () => {
+  let touched = false;
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async getProductDeletionImpact() { touched = true; throw new Error("must not run"); },
+    async deleteProduct() { touched = true; throw new Error("must not run"); },
+  }), access("authenticated", "editor")));
+  assert.equal((await handlers?.getDeletionImpact(request(`${PRODUCTS}/${PRODUCT_ID}/deletion-impact`), PRODUCT_ID))?.status, 403);
+  assert.equal((await handlers?.deleteProduct(request(`${PRODUCTS}/${PRODUCT_ID}/delete`, {
+    method: "POST", body: { expectedVersion: 2, confirmation: "Atlas Mug" },
+  }), PRODUCT_ID))?.status, 403);
+  assert.equal(touched, false);
 });
 
 test("HTTP authorization enforces owner admin editor analyst product lifecycle roles", async () => {

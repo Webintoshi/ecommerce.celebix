@@ -3,6 +3,9 @@ import {
   parseCatalogBulkProductIntent,
   parseCatalogProductPageSize,
   parseCatalogProductListVariantSummary,
+  parsePermanentDeletionCommand,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   parseProduct,
   parseProductVariant,
   type CatalogProductListVariantSummary,
@@ -11,6 +14,9 @@ import {
   type CatalogProductPageSize,
   type Product,
   type ProductVariant,
+  type PermanentDeletionCommand,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
 } from "@celebix/saas-contracts";
 
 import type { CatalogProductFields, CatalogVariantFields } from "./forms.ts";
@@ -22,6 +28,7 @@ const API_CODES = Object.freeze([
   "product_not_found", "variant_not_found", "slug_conflict", "sku_conflict",
   "version_conflict", "dynamic_pricing_not_ready", "dynamic_price_unavailable", "operation_mismatch", "unavailable",
   "removal_not_eligible",
+  "invalid_confirmation", "cleanup_pending", "cleanup_failed",
 ] as const);
 export type CatalogApiErrorCode = (typeof API_CODES)[number];
 
@@ -39,6 +46,9 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   dynamic_price_unavailable: "Ürün satışa açılamadı: dinamik fiyat için gerekli güncel referans değeri bulunamadı. Referans ve fiyat politikasını kontrol edin.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi. Yeni bir deneme başlatın.",
   removal_not_eligible: "Ürün kalıcı kaldırma koşullarını karşılamıyor. Engelleri temizleyip yeniden deneyin.",
+  invalid_confirmation: "Kalıcı silme onayı ürün adıyla eşleşmiyor.",
+  cleanup_pending: "Ürüne bağlı görsellerin güvenli temizliği henüz tamamlanmadı.",
+  cleanup_failed: "Ürünün bağlı kayıtları güvenli biçimde ayrılamadığı için kalıcı silme tamamlanamadı.",
   unavailable: "Ürün hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
 
@@ -420,6 +430,38 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/archive`, "POST", { expectedVersion: version(expectedVersion) }));
       if (body === null) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), replayed: replayed(body.replayed) });
+    },
+
+    async getProductDeletionImpact(id: string): Promise<Readonly<PermanentDeletionImpact>> {
+      const selectedId = productId(id);
+      const parsed = parsePermanentDeletionImpact(await request(`/api/catalog/products/${selectedId}/deletion-impact`, {
+        method: "GET", credentials: "same-origin", cache: "no-store",
+      }));
+      if (parsed.resourceKind !== "product" || parsed.resourceId !== selectedId) {
+        throw new CatalogApiError("unavailable", 503);
+      }
+      return parsed;
+    },
+
+    async deleteProduct(id: string, command: Readonly<PermanentDeletionCommand>): Promise<Readonly<PermanentDeletionResult>> {
+      const selectedId = productId(id);
+      let parsedCommand: PermanentDeletionCommand;
+      try { parsedCommand = parsePermanentDeletionCommand(command); }
+      catch { throw new TypeError("catalog_client_invalid"); }
+      const parsed = parsePermanentDeletionResult(await request(`/api/catalog/products/${selectedId}/delete`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": parsedCommand.operationId },
+        body: JSON.stringify({
+          expectedVersion: parsedCommand.expectedVersion,
+          confirmation: parsedCommand.confirmation,
+        }),
+      }));
+      if (
+        parsed.resourceKind !== "product" || parsed.resourceId !== selectedId ||
+        parsed.auditId !== parsedCommand.operationId
+      ) throw new CatalogApiError("unavailable", 503);
+      return parsed;
     },
 
     async restoreProduct(id: string, expectedVersion: number): Promise<ProductMutationResult> {

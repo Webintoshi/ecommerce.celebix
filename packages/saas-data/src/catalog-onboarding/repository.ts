@@ -6,11 +6,16 @@ import {
   parseCatalogProductEditorProjection,
   parseCatalogCategoryList,
   parseCatalogCategoryMutationResult,
+  parsePermanentDeletionCommand,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   type CatalogCategory,
   type CatalogCategoryMutationResult,
   type CatalogOnboardingOptions,
   type CatalogOnboardingResult,
   type CatalogProductEditorProjection,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
@@ -32,6 +37,8 @@ import type {
   CreateCatalogCategoryInput,
   UpdateCatalogCategoryInput,
   ArchiveCatalogCategoryInput,
+  DeleteCatalogCategoryInput,
+  GetCatalogCategoryInput,
 } from "./types.ts";
 import {
   catalogMerchandisingPayload,
@@ -46,6 +53,7 @@ import {
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
+type CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation" | "delete_category_recover";
 const ERROR_CODES = new Set<string>(CATALOG_ONBOARDING_ERROR_CODES);
 
 function unavailable(): CatalogOnboardingRepositoryError {
@@ -63,7 +71,7 @@ function authorizeProduct(
 
 function authorizeCategory(
   authority: ValidatedCatalogAuthority,
-  action: "catalog_admin.read" | "catalog_admin.manage" | "catalog_admin.archive",
+  action: "catalog_admin.read" | "catalog_admin.manage" | "catalog_admin.archive" | "catalog_admin.delete",
 ): void {
   if (!isMerchantActionAllowed(authority.role, action)) {
     throw new CatalogOnboardingRepositoryError("membership_denied");
@@ -216,9 +224,10 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     fingerprint: string,
     observed: T,
     parser: MutationParser<T>,
+    recoveryFunction: CatalogOnboardingRecoveryFunction,
   ): Promise<T> {
     const recovered = await this.read({
-      text: "SELECT outcome,result_payload FROM saas.catalog_recover_onboarding_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text)",
+      text: `SELECT outcome,result_payload FROM saas.${recoveryFunction}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text)`,
       values: [...authorityValues(authority), operationId, fingerprint],
     }, "operation_replayed", (value) => parser(value, true));
     if (!equalReplayable(observed, recovered)) throw unavailable();
@@ -232,6 +241,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     expected: string,
     spec: QuerySpec,
     parser: MutationParser<T>,
+    recoveryFunction: CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation",
   ): Promise<T> {
     const client = await this.acquire();
     let began = false;
@@ -254,7 +264,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
         terminal = true;
         release(client, true);
         this.emitCommitUnknown();
-        return await this.recover(authority, operationId, fingerprint, parsed, parser);
+        return await this.recover(authority, operationId, fingerprint, parsed, parser, recoveryFunction);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -399,5 +409,62 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
       text: "SELECT outcome,result_payload FROM saas.catalog_archive_category($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint)",
       values: [...authorityValues(authority), operationId, fingerprint, categoryId, expectedVersion],
     }, parseCategoryResult);
+  }
+
+  async getCategoryDeletionImpact(input: GetCatalogCategoryInput): Promise<PermanentDeletionImpact> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "categoryId"]);
+    authorizeCategory(authority, "catalog_admin.delete");
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    return this.read({
+      text: "SELECT outcome,result_payload FROM saas.catalog_category_deletion_impact($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
+      values: [...authorityValues(authority), categoryId],
+    }, "found", (value) => {
+      try {
+        const result = parsePermanentDeletionImpact(value);
+        if (result.resourceKind !== "category" || result.resourceId !== categoryId) throw unavailable();
+        return result;
+      } catch (error) {
+        if (error instanceof CatalogOnboardingRepositoryError) throw error;
+        throw unavailable();
+      }
+    });
+  }
+
+  async deleteCategory(input: DeleteCatalogCategoryInput): Promise<PermanentDeletionResult> {
+    const { parsed, authority } = this.authority(input, [
+      "tenantContext", "now", "categoryId", "operationId", "expectedVersion", "confirmation",
+    ]);
+    authorizeCategory(authority, "catalog_admin.delete");
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    let command;
+    try {
+      command = parsePermanentDeletionCommand({
+        operationId: parsed.operationId,
+        expectedVersion: parsed.expectedVersion,
+        confirmation: parsed.confirmation,
+      });
+    } catch { throw new CatalogOnboardingRepositoryError("invalid_input"); }
+    const fingerprint = catalogOnboardingFingerprint("delete_category", authority.storeId, {
+      categoryId, expectedVersion: command.expectedVersion, confirmation: command.confirmation,
+    });
+    return this.mutate(authority, command.operationId, fingerprint, "deleted", {
+      text: "SELECT outcome,result_payload FROM saas.delete_category($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::text)",
+      values: [
+        ...authorityValues(authority), command.operationId, fingerprint, categoryId,
+        command.expectedVersion, command.confirmation,
+      ],
+    }, (value, replayed) => {
+      try {
+        const result = parsePermanentDeletionResult(value);
+        if (
+          result.resourceKind !== "category" || result.resourceId !== categoryId ||
+          result.auditId !== command.operationId || result.replayed !== replayed
+        ) throw unavailable();
+        return result;
+      } catch (error) {
+        if (error instanceof CatalogOnboardingRepositoryError) throw error;
+        throw unavailable();
+      }
+    }, "delete_category_recover");
   }
 }

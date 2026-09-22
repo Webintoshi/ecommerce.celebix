@@ -15,6 +15,9 @@ import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerCatalogRuntime } from "../server-catalog/runtime.ts";
+import { createProductDeletionService } from "../server-catalog/product-deletion-service.ts";
+import type { ServerMediaRuntime } from "../server-media/runtime.ts";
+import type { Cache } from "@celebix/saas-cache";
 import {
   CATALOG_SUMMARY_PATH,
   CATALOG_VARIANT_CHOICES_PATH,
@@ -33,6 +36,8 @@ const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 type AuthenticatedAccess = Extract<ServerPanelAccessResult, { kind: "authenticated" }>;
 type Dependencies = Readonly<{
   resolveRuntime(): Promise<ServerCatalogRuntime | null>;
+  resolveMediaRuntime?(): Promise<ServerMediaRuntime | null>;
+  cache?: Cache | null;
   now(): Date;
   requestId(): string;
 }>;
@@ -56,6 +61,9 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   sku_conflict: 409,
   version_conflict: 409,
   removal_not_eligible: 409,
+  invalid_confirmation: 409,
+  cleanup_pending: 409,
+  cleanup_failed: 409,
   operation_replayed: 409,
   operation_mismatch: 409,
   dynamic_pricing_not_ready: 409,
@@ -215,6 +223,7 @@ async function execute<T>(operation: () => Promise<T>, success: (value: T) => Re
 export function createCatalogHttpHandlers(dependencies: Dependencies) {
   if (
     !dependencies || typeof dependencies.resolveRuntime !== "function" ||
+    (dependencies.resolveMediaRuntime !== undefined && typeof dependencies.resolveMediaRuntime !== "function") ||
     typeof dependencies.now !== "function" || typeof dependencies.requestId !== "function"
   ) throw new Error("catalog_http_handler_invalid");
 
@@ -393,6 +402,38 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       const productId = exactId(rawProductId); if (isResponse(productId)) return productId;
       const authorized = await authorize(dependencies, request, { method: "GET", pathname: `${PRODUCTS_PATH}/${productId}/removal-eligibility`, query: "forbidden" }, "remove"); if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.catalog.getProductRemovalEligibility({ tenantContext: authorized.tenantContext, now: authorized.now, productId }), (result) => json(result, 200));
+    },
+
+    async getDeletionImpact(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId); if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname: `${PRODUCTS_PATH}/${productId}/deletion-impact`, query: "forbidden" }, "remove");
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.catalog.getProductDeletionImpact({ tenantContext: authorized.tenantContext, now: authorized.now, productId }),
+        (result) => json(result, 200),
+      );
+    },
+
+    async deleteProduct(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId); if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/delete`, query: "forbidden" }, "remove");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogMutationInput(request, "delete_product");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      const command = {
+          tenantContext: authorized.tenantContext, now: authorized.now, productId,
+          operationId: input.operationId, ...input.value,
+        };
+      return execute(
+        () => dependencies.resolveMediaRuntime === undefined
+          ? authorized.runtime.catalog.deleteProduct(command)
+          : createProductDeletionService({
+              catalog: authorized.runtime.catalog,
+              resolveMediaRuntime: dependencies.resolveMediaRuntime,
+              cache: dependencies.cache,
+            }).delete(command),
+        (result) => json(result, 200),
+      );
     },
 
     async removeProduct(request: Request, rawProductId: unknown): Promise<Response> {

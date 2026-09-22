@@ -247,3 +247,67 @@ test("category reads and mutations use exact authority and one SQL boundary", as
   assert.equal(call.values[10], CATEGORY);
   assert.deepEqual(JSON.parse(String(call.values[11])), { name: "Kupalar", position: 0 });
 });
+
+test("category permanent deletion binds impact and exact confirmed command", async () => {
+  const impact = {
+    resourceKind: "category",
+    resourceId: CATEGORY,
+    expectedVersion: 3,
+    confirmationLabel: "Kupalar",
+    effects: [
+      { kind: "product_links", count: 2, disposition: "detach" },
+      { kind: "child_categories", count: 1, disposition: "detach" },
+      { kind: "design_references", count: 0, disposition: "detach" },
+    ],
+  } as const;
+  const reader = new Client((text) => text.includes("saas.catalog_category_deletion_impact")
+    ? [{ outcome: "found", result_payload: impact }]
+    : []);
+  assert.deepEqual(await repository(new Pool([reader])).getCategoryDeletionImpact({ tenantContext: tenant(), now: NOW, categoryId: CATEGORY }), impact);
+  assert.deepEqual(sqlCall(reader, "catalog_category_deletion_impact").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW, CATEGORY]);
+
+  const result = { resourceKind: "category", resourceId: CATEGORY, deleted: true, auditId: OPERATION, replayed: false } as const;
+  const writer = new Client((text) => text.includes("saas.delete_category")
+    ? [{ outcome: "deleted", result_payload: result }]
+    : []);
+  assert.deepEqual(await repository(new Pool([writer])).deleteCategory({
+    tenantContext: tenant(), now: NOW, categoryId: CATEGORY,
+    operationId: OPERATION, expectedVersion: 3, confirmation: "Kupalar",
+  }), result);
+  const call = sqlCall(writer, "delete_category");
+  assert.equal(call.values[8], OPERATION);
+  assert.equal(call.values[10], CATEGORY);
+  assert.equal(call.values[11], 3);
+  assert.equal(call.values[12], "Kupalar");
+});
+
+test("category permanent deletion is denied to editor before SQL", async () => {
+  await assert.rejects(
+    repository(new Pool([])).deleteCategory({
+      tenantContext: tenant("editor"), now: NOW, categoryId: CATEGORY,
+      operationId: OPERATION, expectedVersion: 1, confirmation: "Kupalar",
+    }),
+    (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "membership_denied",
+  );
+});
+
+test("unknown category deletion COMMIT recovers only from the immutable deletion ledger", async () => {
+  const committed = { resourceKind: "category", resourceId: CATEGORY, deleted: true, auditId: OPERATION, replayed: false } as const;
+  const replayed = { ...committed, replayed: true } as const;
+  const writer = new Client((text) => {
+    if (text.includes("saas.delete_category(")) return [{ outcome: "deleted", result_payload: committed }];
+    if (text === "COMMIT") throw new Error("commit response lost");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("saas.delete_category_recover")
+    ? [{ outcome: "operation_replayed", result_payload: replayed }]
+    : []);
+
+  assert.deepEqual(await repository(new Pool([writer, recovery])).deleteCategory({
+    tenantContext: tenant(), now: NOW, categoryId: CATEGORY,
+    operationId: OPERATION, expectedVersion: 3, confirmation: "Kupalar",
+  }), replayed);
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("delete_category_recover")).length, 1);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("catalog_recover_onboarding_operation")), false);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("saas.delete_category(")), false);
+});

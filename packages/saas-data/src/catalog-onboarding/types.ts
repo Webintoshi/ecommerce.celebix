@@ -8,6 +8,9 @@ import type {
   CatalogOnboardingResult,
   CatalogProductEditorProjection,
   CatalogProductMerchandisingFields,
+  PermanentDeletionCommand,
+  PermanentDeletionImpact,
+  PermanentDeletionResult,
   TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -57,7 +60,15 @@ export interface CatalogOnboardingRepository {
   createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
   updateCategory(input: UpdateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
   archiveCategory(input: ArchiveCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
+  getCategoryDeletionImpact(input: GetCatalogCategoryInput): Promise<PermanentDeletionImpact>;
+  deleteCategory(input: DeleteCatalogCategoryInput): Promise<PermanentDeletionResult>;
 }
+
+export interface GetCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
+  readonly categoryId: string;
+}
+
+export interface DeleteCatalogCategoryInput extends GetCatalogCategoryInput, PermanentDeletionCommand {}
 
 export interface CreateCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
   readonly operationId: string;

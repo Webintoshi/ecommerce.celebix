@@ -800,6 +800,93 @@ test("owner and admin archive while editor cannot, using the secured SQL boundar
   }
 });
 
+test("product permanent deletion binds impact, exact confirmation, version, and operation id", async () => {
+  const impact = {
+    resourceKind: "product",
+    resourceId: PRODUCT_ID,
+    expectedVersion: 4,
+    confirmationLabel: "Atlas Mug",
+    effects: [
+      { kind: "variants", count: 1, disposition: "delete" },
+      { kind: "order_line_snapshots", count: 2, disposition: "retain_snapshot" },
+    ],
+  } as const;
+  const reader = new FakeClient((text) => text.includes("saas.catalog_product_deletion_impact")
+    ? [{ outcome: "found", result_payload: impact }]
+    : []);
+  assert.deepEqual(await repository(new FakePool(reader)).getProductDeletionImpact({
+    tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID,
+  }), impact);
+  const impactCall = reader.calls.find(({ text }) => text.includes("saas.catalog_product_deletion_impact"));
+  assert.ok(impactCall);
+  assert.deepEqual(impactCall.values.slice(0, 9), [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "free_starter", 1, 10, NOW, PRODUCT_ID]);
+
+  const result = { resourceKind: "product", resourceId: PRODUCT_ID, deleted: true, auditId: OPERATION_ID, replayed: false } as const;
+  const writer = new FakeClient((text) => text.includes("saas.delete_product")
+    ? [{ outcome: "deleted", result_payload: result }]
+    : []);
+  assert.deepEqual(await repository(new FakePool(writer)).deleteProduct({
+    tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID,
+    operationId: OPERATION_ID, expectedVersion: 4, confirmation: "Atlas Mug",
+  }), result);
+  const deleteCall = writer.calls.find(({ text }) => text.includes("saas.delete_product"));
+  assert.ok(deleteCall);
+  assert.equal(deleteCall.values[8], OPERATION_ID);
+  assert.equal(deleteCall.values[10], PRODUCT_ID);
+  assert.equal(deleteCall.values[11], 4);
+  assert.equal(deleteCall.values[12], "Atlas Mug");
+});
+
+test("product permanent deletion is denied to editor before SQL", async () => {
+  const pool = new FakePool();
+  await assert.rejects(
+    repository(pool).deleteProduct({
+      tenantContext: tenantContext({ membership: { id: MEMBERSHIP_ID, role: "editor", status: "active" } }),
+      now: NOW, productId: PRODUCT_ID, operationId: OPERATION_ID, expectedVersion: 1, confirmation: "Atlas Mug",
+    }),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "membership_denied",
+  );
+  assert.equal(pool.connects, 0);
+});
+
+test("product media cleanup preparation commits before cleanup_pending is returned", async () => {
+  const writer = new FakeClient((text) => text.includes("saas.delete_product(")
+    ? [{ outcome: "cleanup_pending", result_payload: null }]
+    : []);
+
+  await assert.rejects(
+    repository(new FakePool(writer)).deleteProduct({
+      tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID,
+      operationId: OPERATION_ID, expectedVersion: 4, confirmation: "Atlas Mug",
+    }),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "cleanup_pending",
+  );
+  assert.equal(writer.calls.some(({ text }) => text === "COMMIT"), true);
+  assert.equal(writer.calls.some(({ text }) => text === "ROLLBACK"), false);
+  assert.deepEqual(writer.releases, [undefined]);
+});
+
+test("unknown product deletion COMMIT recovers only from the immutable deletion ledger", async () => {
+  const committed = { resourceKind: "product", resourceId: PRODUCT_ID, deleted: true, auditId: OPERATION_ID, replayed: false } as const;
+  const replayed = { ...committed, replayed: true } as const;
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.delete_product(")) return [{ outcome: "deleted", result_payload: committed }];
+    if (text === "COMMIT") throw new Error("commit response lost");
+    return [];
+  });
+  const recovery = new FakeClient((text) => text.includes("saas.delete_product_recover")
+    ? [{ outcome: "operation_replayed", result_payload: replayed }]
+    : []);
+
+  assert.deepEqual(await repository(new FakePool(writer, recovery)).deleteProduct({
+    tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID,
+    operationId: OPERATION_ID, expectedVersion: 4, confirmation: "Atlas Mug",
+  }), replayed);
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("delete_product_recover")).length, 1);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("catalog_recover_operation")), false);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("saas.delete_product(")), false);
+});
+
 test("restoreProduct returns draft and preserves idempotent replay semantics", async () => {
   const restored = { ...product(), status: "draft", version: 3 };
   for (const [outcome, replayed] of [["restored", false], ["operation_replayed", true]] as const) {

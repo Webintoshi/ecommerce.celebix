@@ -7,6 +7,9 @@ import type {
   Product,
   ProductStatus,
   ProductVariant,
+  PermanentDeletionCommand,
+  PermanentDeletionImpact,
+  PermanentDeletionResult,
   TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -48,6 +51,8 @@ export interface CreateProductInput extends CatalogAuthorityInput {
 export interface GetProductInput extends CatalogAuthorityInput {
   readonly productId: string;
 }
+
+export interface DeleteProductInput extends GetProductInput, PermanentDeletionCommand {}
 
 export interface GetProductDetailsInput extends CatalogAuthorityInput {
   readonly productId: string;
@@ -189,6 +194,8 @@ export interface CatalogRepository {
   createProduct(input: CreateProductInput): Promise<CreateProductResult>;
   getDashboardSummary(input: GetCatalogDashboardSummaryInput): Promise<CatalogDashboardSummary>;
   getProduct(input: GetProductInput): Promise<Product>;
+  getProductDeletionImpact(input: GetProductInput): Promise<PermanentDeletionImpact>;
+  deleteProduct(input: DeleteProductInput): Promise<PermanentDeletionResult>;
   getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult>;
   listProducts(input: ListProductsInput): Promise<ListProductsResult>;
   listVariantChoices(input: ListCatalogVariantChoicesInput): Promise<readonly CatalogVariantChoice[]>;

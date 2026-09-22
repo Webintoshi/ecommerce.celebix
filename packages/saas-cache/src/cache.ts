@@ -29,6 +29,13 @@ export type ReadThroughInput<T> = Readonly<{
 
 export type Cache = Readonly<{
   readThrough<T>(input: ReadThroughInput<T>): Promise<T>;
+  invalidateEntry(input: Readonly<{
+    storeId: string;
+    dataClass: CacheDataClass;
+    schemaVersion: string;
+    scope: string;
+    input: unknown;
+  }>): Promise<void>;
   rotateNamespace(storeId: string, dataClass: CacheDataClass): Promise<void>;
   ping(): Promise<"healthy" | "degraded">;
   close(): Promise<void>;
@@ -135,6 +142,13 @@ export function createCache(options: Readonly<{
 
   return Object.freeze({
     readThrough,
+    async invalidateEntry(input) {
+      try {
+        const token = await ensureNamespaceToken(input.storeId, input.dataClass);
+        await options.backend.delete(buildCacheEntryKey({ ...input, namespace: options.namespace, namespaceToken: token }));
+        bump("invalidation");
+      } catch (error) { backendError(error, input.scope); }
+    },
     async rotateNamespace(storeId: string, dataClass: CacheDataClass) {
       try {
         await options.backend.set(buildNamespaceKey(options.namespace, storeId, dataClass), randomToken(), namespaceTtl);

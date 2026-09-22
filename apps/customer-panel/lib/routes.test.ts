@@ -159,6 +159,22 @@ test("exports only the exact authenticated order route methods", async () => {
   }
 });
 
+test("exports only the exact authenticated product and category deletion route methods", async () => {
+  const routes = [
+    ["../app/api/catalog/products/[productId]/deletion-impact/route.ts", "GET", "handleDefaultCatalogGetDeletionImpact"],
+    ["../app/api/catalog/products/[productId]/delete/route.ts", "POST", "handleDefaultCatalogDeleteProduct"],
+    ["../app/api/catalog/onboarding/categories/[categoryId]/deletion-impact/route.ts", "GET", "handleDefaultCatalogOnboardingGetCategoryDeletionImpact"],
+    ["../app/api/catalog/onboarding/categories/[categoryId]/delete/route.ts", "POST", "handleDefaultCatalogOnboardingDeleteCategory"],
+  ] as const;
+  for (const [path, method, handler] of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, new RegExp(`export const ${method} = ${handler};`));
+    for (const denied of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((candidate) => candidate !== method)) {
+      assert.doesNotMatch(source, new RegExp(`export const ${denied}`));
+    }
+  }
+});
+
 test("exports only the exact authenticated abandoned-cart route methods", async () => {
   const routes = [
     ["../app/api/orders/abandoned-carts/summary/route.ts", "GET", "handleDefaultAbandonedCartSummary"],

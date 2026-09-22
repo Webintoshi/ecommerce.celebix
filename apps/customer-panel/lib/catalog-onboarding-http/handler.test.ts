@@ -44,7 +44,7 @@ function result(): CatalogOnboardingResult {
 
 function repository(overrides: Partial<CatalogOnboardingRepository> = {}): CatalogOnboardingRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
-  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, ...overrides } as CatalogOnboardingRepository;
+  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject, ...overrides } as CatalogOnboardingRepository;
 }
 
 function runtime(onboarding: CatalogOnboardingRepository, role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): ServerCatalogOnboardingRuntime {
@@ -206,4 +206,26 @@ test("category CRUD binds session authority and exact category paths", async () 
   assert.equal((await api.updateCategory(request(`/api/catalog/onboarding/categories/${PRODUCT}`, "PATCH", { expectedVersion: 1, fields: { name: "Fincanlar", position: 1 } }), PRODUCT)).status, 200);
   assert.equal((await api.archiveCategory(request(`/api/catalog/onboarding/categories/${PRODUCT}/archive`, "POST", { expectedVersion: 1 }), PRODUCT)).status, 200);
   assert.deepEqual(calls.map(([name]) => name), ["list", "create", "update", "archive"]);
+});
+
+test("category permanent deletion exposes impact and one exact confirmed command", async () => {
+  const impact = { resourceKind: "category", resourceId: CATEGORY, expectedVersion: 2, confirmationLabel: "Kupalar", effects: [] } as const;
+  const deleted = { resourceKind: "category", resourceId: CATEGORY, deleted: true, auditId: OPERATION, replayed: false } as const;
+  const calls: Array<[string, unknown]> = [];
+  const api = handlers(repository({
+    async getCategoryDeletionImpact(input) { calls.push(["impact", input]); return impact; },
+    async deleteCategory(input) { calls.push(["delete", input]); return deleted; },
+  }));
+  const impactResponse = await api.getCategoryDeletionImpact(request(`/api/catalog/onboarding/categories/${CATEGORY}/deletion-impact`), CATEGORY);
+  const deleteResponse = await api.deleteCategory(request(`/api/catalog/onboarding/categories/${CATEGORY}/delete`, "POST", {
+    expectedVersion: 2, confirmation: "Kupalar",
+  }), CATEGORY);
+  assert.equal(impactResponse.status, 200);
+  assert.equal(deleteResponse.status, 200);
+  assert.deepEqual(await impactResponse.json(), impact);
+  assert.deepEqual(await deleteResponse.json(), deleted);
+  assert.deepEqual(calls, [
+    ["impact", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY }],
+    ["delete", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY, operationId: OPERATION, expectedVersion: 2, confirmation: "Kupalar" }],
+  ]);
 });

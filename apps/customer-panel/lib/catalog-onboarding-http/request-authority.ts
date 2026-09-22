@@ -2,7 +2,7 @@ import "server-only";
 import { hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-const PATH = new RegExp(`^(?:/api/catalog/onboarding/(?:options|products|categories(?:/${UUID}(?:/archive)?)?)|/api/catalog/products/${UUID}/(?:merchandising|publish-after-media))$`);
+const PATH = new RegExp(`^(?:/api/catalog/onboarding/(?:options|products|categories(?:/${UUID}(?:/(?:archive|deletion-impact|delete))?)?)|/api/catalog/products/${UUID}/(?:merchandising|publish-after-media))$`);
 
 export type CatalogOnboardingRequestExpectation = Readonly<{
   method: "GET" | "POST" | "PATCH";

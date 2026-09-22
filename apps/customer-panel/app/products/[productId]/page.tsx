@@ -11,6 +11,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       productId={productId}
       canManage={isCatalogProductOperationAllowed(role, "update")}
       canArchive={isCatalogProductOperationAllowed(role, "archive")}
+      canDelete={isMerchantActionAllowed(role, "catalog_admin.delete")}
       canReadPricing={isMerchantActionAllowed(role, "pricing.read")}
       canManagePricing={isMerchantActionAllowed(role, "pricing.manage")}
     />

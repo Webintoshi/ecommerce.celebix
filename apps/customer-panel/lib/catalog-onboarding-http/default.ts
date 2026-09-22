@@ -37,3 +37,11 @@ export async function handleDefaultCatalogOnboardingUpdateCategory(request: Requ
 export async function handleDefaultCatalogOnboardingArchiveCategory(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
   return handlers.archiveCategory(request, (await context.params).categoryId);
 }
+
+export async function handleDefaultCatalogOnboardingGetCategoryDeletionImpact(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
+  return handlers.getCategoryDeletionImpact(request, (await context.params).categoryId);
+}
+
+export async function handleDefaultCatalogOnboardingDeleteCategory(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
+  return handlers.deleteCategory(request, (await context.params).categoryId);
+}

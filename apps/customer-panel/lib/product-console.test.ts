@@ -1366,7 +1366,7 @@ test("product detail and merchandising loading have independent recovery states"
   assert.match(detail, /const current = await catalogApi\.getProduct\(productId\);\s*setDetail\(current\);\s*return true;\s*\} catch/);
 });
 
-test("functional launch exposes read-only sales settings and disables permanent product removal", async () => {
+test("functional launch keeps the legacy removal route disabled while confirmed permanent deletion stays separate", async () => {
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const removeRoute = await source("app/api/catalog/products/[productId]/remove/route.ts");
 
@@ -1382,6 +1382,8 @@ test("functional launch exposes read-only sales settings and disables permanent 
   assert.doesNotMatch(detail, /ProductRemovalEligibility|inspectRemoval|permanentlyRemoveProduct|Kalıcı kaldır/);
   assert.doesNotMatch(removeRoute, /handleDefaultCatalogRemoveProduct/);
   assert.match(removeRoute, /status:\s*404/);
+  assert.match(detail, /PermanentDeleteDialog/);
+  assert.match(detail, /Kalıcı sil/);
 });
 
 test("basic variant and sales editors guard dirty browser and close navigation", async () => {

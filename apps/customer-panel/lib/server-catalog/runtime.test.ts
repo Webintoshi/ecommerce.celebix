@@ -32,6 +32,8 @@ function catalog(): CatalogRepository {
     getProductDetails: reject,
     listProducts: reject,
     listVariantChoices: reject,
+    getProductDeletionImpact: reject,
+    deleteProduct: reject,
     updateProduct: reject,
     archiveProduct: reject,
     restoreProduct: reject,
@@ -56,8 +58,8 @@ test("approved access runtime resolves a frozen catalog facade without exposing 
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.catalog), true);
   assert.deepEqual(Object.keys(runtime.catalog).sort(), [
-    "archiveProduct", "archiveVariant", "bulkMutateProducts", "createProduct", "createVariant", "getDashboardSummary", "getProduct",
-    "getProductDetails", "listProducts", "listVariantChoices", "restoreProduct", "updateProduct", "updateVariant",
+    "archiveProduct", "archiveVariant", "bulkMutateProducts", "createProduct", "createVariant", "deleteProduct", "getDashboardSummary", "getProduct",
+    "getProductDeletionImpact", "getProductDetails", "getProductPreview", "getProductRemovalEligibility", "listProducts", "listVariantChoices", "removeProduct", "restoreProduct", "updateProduct", "updateVariant",
   ]);
   for (const forbidden of ["pool", "options", "database", "keys", "connectionString"]) {
     assert.equal(forbidden in runtime.catalog, false);

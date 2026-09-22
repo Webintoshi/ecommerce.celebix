@@ -7,6 +7,7 @@ import {
   parseProductVariant,
   type CatalogProductListQuery,
   type CatalogBulkProductIntent,
+  parsePermanentDeletionCommand,
 } from "@celebix/saas-contracts";
 import type {
   CatalogProductFields,
@@ -28,6 +29,7 @@ export type CatalogMutationKind =
   | "archive_product"
   | "restore_product"
   | "remove_product"
+  | "delete_product"
   | "create_variant"
   | "update_variant"
   | "archive_variant"
@@ -39,6 +41,7 @@ export type CatalogMutationBodies = Readonly<{
   archive_product: Readonly<{ expectedVersion: number }>;
   restore_product: Readonly<{ expectedVersion: number }>;
   remove_product: Readonly<{ expectedVersion: number }>;
+  delete_product: Readonly<{ expectedVersion: number; confirmation: string }>;
   create_variant: Readonly<{ variant: CatalogVariantFields }>;
   update_variant: Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>;
   archive_variant: Readonly<{ expectedVersion: number }>;
@@ -151,6 +154,18 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
     return parsed && expectedVersion !== null
       ? Object.freeze({ expectedVersion }) as CatalogMutationBodies[K]
       : null;
+  }
+  if (kind === "delete_product") {
+    const parsed = exact(value, ["expectedVersion", "confirmation"]);
+    if (parsed === null) return null;
+    try {
+      const command = parsePermanentDeletionCommand({
+        operationId: SYNTHETIC_PRODUCT_ID,
+        expectedVersion: parsed.expectedVersion,
+        confirmation: parsed.confirmation,
+      });
+      return Object.freeze({ expectedVersion: command.expectedVersion, confirmation: command.confirmation }) as CatalogMutationBodies[K];
+    } catch { return null; }
   }
   if (kind === "create_variant") {
     const parsed = exact(value, ["variant"]);

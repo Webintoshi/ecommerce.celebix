@@ -17,6 +17,14 @@ function analyticsOutboxFix(kind: "up" | "down" | "assertions"): string {
   );
 }
 
+function catalogDeletion(kind: "up" | "down" | "assertions"): string {
+  const suffix = kind === "assertions" ? "_assertions.sql" : `.${kind}.sql`;
+  return readFileSync(
+    new URL(`202609220144_permanent_catalog_deletion${suffix}`, base),
+    "utf8",
+  );
+}
+
 function ledgerDefinition(sql: string): string {
   const match = sql.match(/CREATE TABLE saas[.]record_deletion_operations\s*[(]([\s\S]*?)[)][;]\s/iu);
   assert.ok(match, "record_deletion_operations definition must exist");
@@ -128,4 +136,46 @@ test("143 patches the exact analytics outbox blocker without widening deletion a
   assert.match(assertions, /analytics_delivery_outbox/iu);
   assert.match(assertions, /has_function_privilege/iu);
   assert.match(down, /PERMANENT_RECORD_DELETION_ANALYTICS_OUTBOX_FIX_ROLLBACK_BLOCKED/u);
+});
+
+test("144 adds owner-admin-only product and category deletion through the immutable ledger", () => {
+  const up = catalogDeletion("up");
+  assert.match(up, /CREATE FUNCTION saas[.]catalog_product_deletion_impact\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_product\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_product_recover\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]catalog_category_deletion_impact\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_category\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_category_recover\s*[(]/u);
+  assert.match(up, /'catalog_admin[.]delete'/u);
+  assert.match(up, /INSERT INTO saas[.]record_deletion_operations/u);
+  assert.match(up, /'product'\s*,\s*p_product_id/iu);
+  assert.match(up, /'category'\s*,\s*p_category_id/iu);
+  assert.match(up, /UPDATE saas[.]order_items[\s\S]*product_id=NULL[\s\S]*variant_id=NULL/iu);
+  assert.match(up, /FOR descendant_id IN[\s\S]*ORDER BY category[.]depth,category[.]position,category[.]id[\s\S]*UPDATE saas[.]catalog_categories AS category[\s\S]*parent_id=CASE WHEN category[.]parent_id=p_category_id THEN selected[.]parent_id/iu);
+  assert.match(up, /CREATE TABLE saas[.]product_deletion_preparations/iu);
+  assert.match(up, /celebix[.]catalog_delete_media/iu);
+  assert.match(up, /OLD[.]status='pending' AND NEW[.]status='active'[\s\S]*NEW[.]cleanup_state='active'/iu);
+  assert.match(up, /DELETE FROM saas[.]pricing_variant_policy_versions/iu);
+  assert.match(up, /DELETE FROM saas[.]barcode_print_job_items/iu);
+  assert.equal(up.indexOf("FOR dependency IN") < up.indexOf("UPDATE saas.order_items SET product_id=NULL"), true);
+  assert.match(up, /CREATE FUNCTION saas[.]catalog_detach_category_reference/iu);
+  assert.match(up, /UPDATE saas[.]storefront_designs/iu);
+  assert.match(up, /UPDATE saas[.]merchant_admin_records/iu);
+  assert.doesNotMatch(up, /paytr|iyzico|provider_call|refund|void_payment/iu);
+});
+
+test("144 grants only reviewed RPCs and supplies guarded rollback artifacts", () => {
+  const up = catalogDeletion("up");
+  const down = catalogDeletion("down");
+  const assertions = catalogDeletion("assertions");
+  for (const name of [
+    "catalog_product_deletion_impact", "delete_product", "delete_product_recover",
+    "catalog_category_deletion_impact", "delete_category", "delete_category_recover",
+  ]) {
+    assert.match(up, new RegExp(`GRANT EXECUTE ON FUNCTION saas[.]${name}`));
+    assert.match(assertions, new RegExp(name));
+  }
+  assert.match(down, /resource_kind IN\s*[(]\s*'product'\s*,\s*'category'/iu);
+  assert.match(down, /DROP FUNCTION saas[.]delete_product/u);
+  assert.match(down, /DROP FUNCTION saas[.]delete_category/u);
 });

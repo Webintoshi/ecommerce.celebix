@@ -2,6 +2,9 @@ import {
   isCatalogProductOperationAllowed,
   parseCatalogProductListVariantSummary,
   parseCatalogBulkProductIntent,
+  parsePermanentDeletionCommand,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   parseProduct,
   parseProductVariant,
   type CatalogProductOperation,
@@ -9,6 +12,8 @@ import {
   type Product,
   type ProductStatus,
   type ProductVariant,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
@@ -28,6 +33,7 @@ import type {
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
+  DeleteProductInput,
   GetProductDetailsInput,
   GetProductInput,
   GetProductRemovalEligibilityInput,
@@ -59,6 +65,7 @@ import {
 } from "./validation.ts";
 
 type MutationParser<T> = (payload: unknown, replayed: boolean) => T;
+type CatalogRecoveryFunction = "catalog_recover_operation" | "delete_product_recover";
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 const ERROR_CODES = new Set<string>(CATALOG_ERROR_CODES);
 
@@ -354,6 +361,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     operationId: string,
     fingerprint: string,
     parser: MutationParser<T>,
+    recoveryFunction: CatalogRecoveryFunction,
   ): Promise<T> {
     let client: PostgresClientLike;
     try { client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); }
@@ -366,7 +374,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
       await this.configure(client);
       const result = await client.query(
         `SELECT outcome, result_payload
-         FROM saas.catalog_recover_operation(
+         FROM saas.${recoveryFunction}(
            $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
            $9::uuid,$10::text
          )`,
@@ -402,6 +410,8 @@ export class PostgresCatalogRepository implements CatalogRepository {
     acceptedOutcomes: readonly string[],
     parser: MutationParser<T>,
     verifyBeforeCommit?: (client: PostgresClientLike) => Promise<void>,
+    recoveryFunction: CatalogRecoveryFunction = "catalog_recover_operation",
+    committedErrorOutcomes: readonly CatalogErrorCode[] = [],
   ): Promise<T> {
     let client: PostgresClientLike;
     try { client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); }
@@ -415,7 +425,20 @@ export class PostgresCatalogRepository implements CatalogRepository {
       const result = await client.query(spec.text, spec.values);
       const mutation = single(result.rows);
       const expected = this.expectedError(mutation.outcome);
-      if (expected) throw expected;
+      if (expected) {
+        if (!committedErrorOutcomes.includes(expected.code)) throw expected;
+        try {
+          await client.query("COMMIT");
+          terminal = true;
+          client.release();
+        } catch {
+          terminal = true;
+          client.release(true);
+          this.emitUnknownCommitAudit();
+          throw unavailable();
+        }
+        throw expected;
+      }
       if (!acceptedOutcomes.includes(mutation.outcome) && mutation.outcome !== "operation_replayed") throw unavailable();
       const parsed = parser(mutation.resultPayload, mutation.outcome === "operation_replayed");
       if (verifyBeforeCommit && mutation.outcome !== "operation_replayed") await verifyBeforeCommit(client);
@@ -428,7 +451,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
         terminal = true;
         client.release(true);
         this.emitUnknownCommitAudit();
-        return await this.recover(authority, operationId, fingerprint, parser);
+        return await this.recover(authority, operationId, fingerprint, parser, recoveryFunction);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -524,6 +547,70 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
     if (result.outcome !== "found") throw unavailable();
     return parseProduct(payload(result.resultPayload, ["product"]).product);
+  }
+
+  async getProductDeletionImpact(input: GetProductInput): Promise<PermanentDeletionImpact> {
+    const exact = exactInput(input, ["tenantContext", "now", "productId"]);
+    const authority = catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "remove");
+    const productId = catalogUuid(exact.productId);
+    const selected = await this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_product_deletion_impact(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid
+      )`,
+      values: [...authorityValues(authority), productId],
+    });
+    if (selected.outcome !== "found") throw unavailable();
+    try {
+      const result = parsePermanentDeletionImpact(selected.resultPayload);
+      if (result.resourceKind !== "product" || result.resourceId !== productId) throw unavailable();
+      return result;
+    } catch (error) {
+      if (error instanceof CatalogRepositoryError) throw error;
+      throw unavailable();
+    }
+  }
+
+  async deleteProduct(input: DeleteProductInput): Promise<PermanentDeletionResult> {
+    const exact = exactInput(input, [
+      "tenantContext", "now", "productId", "operationId", "expectedVersion", "confirmation",
+    ]);
+    const authority = catalogAuthority(exact.tenantContext as DeleteProductInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "remove");
+    const productId = catalogUuid(exact.productId);
+    let command;
+    try {
+      command = parsePermanentDeletionCommand({
+        operationId: exact.operationId,
+        expectedVersion: exact.expectedVersion,
+        confirmation: exact.confirmation,
+      });
+    } catch { throw new CatalogRepositoryError("invalid_input"); }
+    const fingerprint = catalogFingerprint("delete_product", authority.storeId, {
+      productId, expectedVersion: command.expectedVersion, confirmation: command.confirmation,
+    });
+    return this.mutate(authority, command.operationId, fingerprint, {
+      text: `SELECT outcome, result_payload FROM saas.delete_product(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+        $9::uuid,$10::text,$11::uuid,$12::bigint,$13::text
+      )`,
+      values: [
+        ...authorityValues(authority), command.operationId, fingerprint, productId,
+        command.expectedVersion, command.confirmation,
+      ],
+    }, ["deleted"], (value, replayed) => {
+      try {
+        const result = parsePermanentDeletionResult(value);
+        if (
+          result.resourceKind !== "product" || result.resourceId !== productId ||
+          result.auditId !== command.operationId || result.replayed !== replayed
+        ) throw unavailable();
+        return result;
+      } catch (error) {
+        if (error instanceof CatalogRepositoryError) throw error;
+        throw unavailable();
+      }
+    }, undefined, "delete_product_recover", ["cleanup_pending"]);
   }
 
   async getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection> {

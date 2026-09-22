@@ -70,6 +70,23 @@ test("negative entries use the short TTL and namespace rotation makes prior entr
   assert.equal(loads, 1);
 });
 
+test("exact-entry invalidation deletes only the matching tenant scope and normalized input", async () => {
+  const backend = new MemoryBackend();
+  const cache = createCache({ backend, ...options, random: () => 0.5, randomToken: () => "token" });
+  await cache.readThrough({ ...input, parser: (value) => value as { id: string }, load: async () => ({ id: "ring" }) });
+  const before = [...backend.values.keys()].filter((key) => !key.endsWith(":namespace"));
+  assert.equal(before.length, 1);
+  await cache.invalidateEntry({
+    storeId: input.storeId,
+    dataClass: input.dataClass,
+    schemaVersion: input.schemaVersion,
+    scope: input.scope,
+    input: input.input,
+  });
+  assert.equal(backend.values.has(before[0]!), false);
+  assert.equal(backend.values.has(`celebix:staging:store:${input.storeId}:catalog:namespace`), true);
+});
+
 test("typed not-found envelopes can opt into the negative TTL", async () => {
   const backend = new MemoryBackend();
   const cache = createCache({ backend, ...options, random: () => 0.5, randomToken: () => "token" });

@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -22,7 +23,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import type { CatalogCategory } from "@celebix/saas-contracts";
+import type { CatalogCategory, PermanentDeletionImpact } from "@celebix/saas-contracts";
 
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
@@ -31,6 +32,7 @@ import {
   type CatalogCategoryTreeRow,
 } from "@/lib/catalog-onboarding-ui/category-tree";
 import styles from "./category-management.module.css";
+import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
 
 type EditorMode = Readonly<
   | { kind: "create"; parentId?: string }
@@ -145,7 +147,7 @@ function CategoryParentPicker({
   </div>;
 }
 
-export function CategoryManager() {
+export function CategoryManager({ canDelete = false }: Readonly<{ canDelete?: boolean }>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [editor, setEditor] = useState<EditorMode>();
   const [loading, setLoading] = useState(true);
@@ -157,8 +159,13 @@ export function CategoryManager() {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [menuId, setMenuId] = useState<string>();
   const [highlightedId, setHighlightedId] = useState<string>();
+  const [deleteTarget, setDeleteTarget] = useState<CatalogCategory>();
+  const [deletionImpact, setDeletionImpact] = useState<PermanentDeletionImpact>();
+  const deletionIntentRef = useRef<Readonly<{ categoryId: string; expectedVersion: number; confirmation: string; operationId: string }> | undefined>(undefined);
   const editorNameRef = useRef<HTMLInputElement>(null);
   const editorReturnFocusRef = useRef<HTMLElement | null>(null);
+  const deleteReturnFocusIdRef = useRef<string | undefined>(undefined);
+  const newCategoryButtonRef = useRef<HTMLButtonElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -174,6 +181,13 @@ export function CategoryManager() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (editor) editorNameRef.current?.focus(); }, [editor]);
+  useEffect(() => {
+    if (loading || !deleteReturnFocusIdRef.current) return;
+    const categoryId = deleteReturnFocusIdRef.current;
+    deleteReturnFocusIdRef.current = undefined;
+    const target = document.querySelector<HTMLElement>(`[data-category-id="${categoryId}"] [data-category-primary-action]`);
+    window.requestAnimationFrame(() => (target?.isConnected ? target : newCategoryButtonRef.current)?.focus());
+  }, [categories, loading]);
 
   const hierarchy = buildCatalogCategoryHierarchy(categories);
   const rowsById = useMemo(
@@ -310,6 +324,48 @@ export function CategoryManager() {
     }
   }
 
+  async function openDelete(category: CatalogCategory) {
+    if (!canDelete || busy) return;
+    setMenuId(undefined);
+    const selectedIndex = hierarchy.rows.findIndex((row) => row.category.id === category.id);
+    deleteReturnFocusIdRef.current = hierarchy.rows[selectedIndex + 1]?.category.id
+      ?? hierarchy.rows[selectedIndex - 1]?.category.id;
+    setDeleteTarget(category);
+    setDeletionImpact(undefined);
+    setBusy(true);
+    setError("");
+    try {
+      const impact = await catalogOnboardingClient.getCategoryDeletionImpact(category.id);
+      if (impact.resourceKind !== "category" || impact.resourceId !== category.id) throw new Error("invalid deletion impact");
+      setDeletionImpact(impact);
+      deletionIntentRef.current = undefined;
+    } catch (failure) {
+      setDeleteTarget(undefined);
+      setError(message(failure));
+    } finally { setBusy(false); }
+  }
+
+  function deleteCategory(confirmation: string) {
+    if (!canDelete || !deleteTarget || !deletionImpact || busy) return;
+    const current = deletionIntentRef.current;
+    const operationId = current?.categoryId === deleteTarget.id
+      && current.expectedVersion === deletionImpact.expectedVersion
+      && current.confirmation === confirmation
+      ? current.operationId : crypto.randomUUID();
+    deletionIntentRef.current = Object.freeze({
+      categoryId: deleteTarget.id, expectedVersion: deletionImpact.expectedVersion, confirmation, operationId,
+    });
+    setBusy(true); setError("");
+    void catalogOnboardingClient.deleteCategory(deleteTarget.id, {
+      operationId, expectedVersion: deletionImpact.expectedVersion, confirmation,
+    }).then(async (result) => {
+      if (!result.deleted || result.resourceId !== deleteTarget.id || result.auditId !== operationId) throw new Error("invalid deletion result");
+      if (editor?.kind === "edit" && editor.categoryId === deleteTarget.id) clearEditor();
+      setDeleteTarget(undefined); setDeletionImpact(undefined);
+      await load();
+    }).catch((failure) => setError(message(failure))).finally(() => setBusy(false));
+  }
+
   function toggle(categoryId: string) {
     setExpandedIds((current) => {
       const next = new Set(current);
@@ -346,6 +402,7 @@ export function CategoryManager() {
     const selected = editor?.kind === "edit" && editor.categoryId === category.id;
     return <div
       key={category.id}
+      data-category-id={category.id}
       className={styles.categoryRow}
       data-selected={selected || undefined}
       data-highlighted={highlightedId === category.id || undefined}
@@ -362,6 +419,7 @@ export function CategoryManager() {
       >{expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}</button> : <span className={styles.rowChevronPlaceholder} />}
       <button
         type="button"
+        data-category-primary-action
         className={styles.rowMain}
         onClick={() => openEdit(category.id)}
         disabled={busy || category.status !== "active"}
@@ -380,7 +438,7 @@ export function CategoryManager() {
         aria-label={`${category.name} altında alt kategori ekle`}
         title="Alt kategori ekle"
       ><Plus aria-hidden="true" /></button> : <span />}
-      {category.status === "active" ? <div className={styles.moreMenuWrap}>
+      <div className={styles.moreMenuWrap}>
         <button
           type="button"
           className={styles.rowMoreAction}
@@ -390,11 +448,12 @@ export function CategoryManager() {
           onClick={() => setMenuId((current) => current === category.id ? undefined : category.id)}
         ><MoreHorizontal aria-hidden="true" /></button>
         {menuId === category.id ? <div className={styles.moreMenu} role="menu">
-          <button type="button" role="menuitem" onClick={() => openEdit(category.id)}>Düzenle</button>
-          {depth < 8 ? <button type="button" role="menuitem" onClick={() => openCreate(category.id)}>Alt kategori ekle</button> : null}
-          <button type="button" role="menuitem" className={styles.destructiveMenuItem} onClick={() => void archive(category)}>Arşivle</button>
+          {category.status === "active" ? <button type="button" role="menuitem" onClick={() => openEdit(category.id)}>Düzenle</button> : null}
+          {category.status === "active" && depth < 8 ? <button type="button" role="menuitem" onClick={() => openCreate(category.id)}>Alt kategori ekle</button> : null}
+          {category.status === "active" ? <button type="button" role="menuitem" className={styles.destructiveMenuItem} onClick={() => void archive(category)}>Arşivle</button> : null}
+          {canDelete ? <button type="button" role="menuitem" className={styles.destructiveMenuItem} onClick={() => void openDelete(category)}><Trash2 aria-hidden="true" /> Kalıcı sil</button> : null}
         </div> : null}
-      </div> : <span />}
+      </div>
     </div>;
   }
 
@@ -403,7 +462,7 @@ export function CategoryManager() {
       <button type="button" className={styles.refreshButton} onClick={() => void load()} disabled={loading || busy} aria-label="Kategorileri yenile" title="Yenile">
         <RefreshCw aria-hidden="true" />
       </button>
-      <button type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
+      <button ref={newCategoryButtonRef} type="button" className={styles.primaryButton} onClick={() => openCreate()} disabled={busy}>
         <Plus aria-hidden="true" /> Yeni kategori
       </button>
     </div>;
@@ -516,7 +575,7 @@ export function CategoryManager() {
           </div>
 
           <footer className={styles.editorFooter}>
-            {selectedCategory?.status === "active" ? <button type="button" className={styles.archiveButton} onClick={() => void archive(selectedCategory)} disabled={busy}><Archive aria-hidden="true" /> Arşivle</button> : <span />}
+            <div>{selectedCategory?.status === "active" ? <button type="button" className={styles.archiveButton} onClick={() => void archive(selectedCategory)} disabled={busy}><Archive aria-hidden="true" /> Arşivle</button> : null}{selectedCategory && canDelete ? <button type="button" className={styles.archiveButton} onClick={() => void openDelete(selectedCategory)} disabled={busy}><Trash2 aria-hidden="true" /> Kalıcı sil</button> : null}</div>
             <div>
               <button type="button" className={styles.cancelButton} onClick={clearEditor} disabled={busy}>Vazgeç</button>
               <button type="submit" className={styles.primaryButton} disabled={busy || (editor.kind === "edit" && !selectedCategory)}>
@@ -531,5 +590,12 @@ export function CategoryManager() {
         </div>}
       </aside>
     </div> : null}
+    {deleteTarget && canDelete ? <PermanentDeleteDialog
+      impact={deletionImpact}
+      resourceLabel="Kategori"
+      busy={busy && deletionImpact !== undefined}
+      onCancel={() => { if (!busy) { setDeleteTarget(undefined); setDeletionImpact(undefined); } }}
+      onConfirm={deleteCategory}
+    /> : null}
   </section>;
 }

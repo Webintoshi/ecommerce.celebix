@@ -36,6 +36,7 @@ export type {
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
+  DeleteProductInput,
   GetProductDetailsInput,
   GetProductInput,
   ListProductsInput,

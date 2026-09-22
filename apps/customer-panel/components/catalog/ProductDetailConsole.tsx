@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { CatalogOnboardingOptions, CatalogProductEditorProjection, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Tag } from "lucide-react";
+import type { CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, Product, ProductVariant } from "@celebix/saas-contracts";
+import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Tag, Trash2 } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -22,6 +22,7 @@ import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/cat
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 import { VariantPricingPolicyControl } from "@/components/reference-pricing/VariantPricingPolicyControl";
+import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
 import catalogStyles from "./catalog-operations.module.css";
 
 function value(data: FormData, key: string) {
@@ -74,9 +75,10 @@ export function ProductDetailConsole({
   productId,
   canManage = false,
   canArchive = false,
+  canDelete = false,
   canReadPricing = false,
   canManagePricing = false,
-}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canReadPricing?: boolean; canManagePricing?: boolean }>) {
+}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canDelete?: boolean; canReadPricing?: boolean; canManagePricing?: boolean }>) {
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [merchandisingState, setMerchandisingState] = useState<"loading" | "ready" | "error">("loading");
@@ -93,6 +95,9 @@ export function ProductDetailConsole({
   const [pricingVariantId, setPricingVariantId] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletionImpact, setDeletionImpact] = useState<PermanentDeletionImpact>();
+  const deletionIntentRef = useRef<Readonly<{ productId: string; expectedVersion: number; confirmation: string; operationId: string }> | undefined>(undefined);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const mutationLockedRef = useRef(false);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -361,6 +366,44 @@ export function ProductDetailConsole({
     });
   }
 
+  async function openDeleteDialog() {
+    if (detail === undefined || !canDelete || busy !== "") return;
+    if (!canDiscardDetailChanges()) return;
+    closeDetailEditors();
+    setDeleteDialogOpen(true);
+    setDeletionImpact(undefined);
+    setError("");
+    setBusy("deletion-impact");
+    try {
+      const impact = await catalogApi.getProductDeletionImpact(productId);
+      if (impact.resourceKind !== "product" || impact.resourceId !== productId) throw new Error("invalid deletion impact");
+      setDeletionImpact(impact);
+      deletionIntentRef.current = undefined;
+    } catch (failure) {
+      setDeleteDialogOpen(false);
+      setError(safeMessage(failure));
+    } finally { setBusy(""); }
+  }
+
+  function deleteProduct(confirmation: string) {
+    if (!canDelete || !deletionImpact || busy !== "") return;
+    const current = deletionIntentRef.current;
+    const operationId = current?.productId === productId
+      && current.expectedVersion === deletionImpact.expectedVersion
+      && current.confirmation === confirmation
+      ? current.operationId : crypto.randomUUID();
+    deletionIntentRef.current = Object.freeze({
+      productId, expectedVersion: deletionImpact.expectedVersion, confirmation, operationId,
+    });
+    void mutation("delete-product", async () => {
+      const result = await catalogApi.deleteProduct(productId, {
+        operationId, expectedVersion: deletionImpact.expectedVersion, confirmation,
+      });
+      if (!result.deleted || result.resourceId !== productId || result.auditId !== operationId) throw new Error("invalid deletion result");
+      location.assign("/products");
+    });
+  }
+
   async function openStorefrontPreview() {
     const target=window.open("about:blank","_blank");if(target)target.opener=null;
     setBusy("preview");setError("");
@@ -432,6 +475,7 @@ export function ProductDetailConsole({
           {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => { if (editingProduct) { if (canDiscardDetailChanges("product")) setEditingProduct(false); } else openExclusiveEditor("product"); }}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
           {!archived ? <button className="button button-secondary" type="button" onClick={() => { if (merchandisingState === "error") void reloadMerchandising(); else if (merchandisingState === "ready") { if (canManage) openExclusiveEditor("sales"); else setEditingMerchandising(true); } }} disabled={merchandisingState === "loading"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Yükleniyor…" : "Satış ayarları"}</button> : null}
           {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
+          {canDelete ? <button className="button button-quiet-danger" type="button" onClick={() => void openDeleteDialog()} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı sil</button> : null}
         </div>
       </header>
 
@@ -532,6 +576,13 @@ export function ProductDetailConsole({
           </div>
         </div>
       ) : null}
+      {deleteDialogOpen && canDelete ? <PermanentDeleteDialog
+        impact={deletionImpact}
+        resourceLabel="Ürün"
+        busy={busy === "delete-product"}
+        onCancel={() => { if (busy !== "delete-product") { setDeleteDialogOpen(false); setDeletionImpact(undefined); } }}
+        onConfirm={deleteProduct}
+      /> : null}
     </section>
   );
 }

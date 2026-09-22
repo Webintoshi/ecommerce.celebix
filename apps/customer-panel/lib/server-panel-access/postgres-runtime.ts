@@ -211,6 +211,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)','EXECUTE') AS variant_archiver,
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
+      to_regclass('saas.record_deletion_operations') IS NOT NULL
+        AND to_regprocedure('saas.catalog_product_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_product_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE')
+        AND to_regprocedure('saas.delete_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)','EXECUTE')
+        AND to_regprocedure('saas.delete_product_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_product_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)','EXECUTE') AS catalog_product_deletion_repository,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
       to_regclass('saas.catalog_product_profiles') IS NOT NULL
         AND to_regclass('saas.catalog_categories') IS NOT NULL
@@ -238,6 +245,12 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app','saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)','EXECUTE')
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS catalog_category_repository,
+      to_regprocedure('saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE')
+        AND to_regprocedure('saas.delete_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)','EXECUTE')
+        AND to_regprocedure('saas.delete_category_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_category_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)','EXECUTE') AS catalog_category_deletion_repository,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
       to_regclass('saas.shipping_provider_profiles') IS NOT NULL
         AND to_regclass('saas.shipping_provider_resources') IS NOT NULL
@@ -628,8 +641,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_lister !== true || row.catalog_list_projection !== true || row.catalog_variant_choice_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.catalog_restorer !== true || row.variant_creator !== true || row.variant_updater !== true ||
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
+      row.catalog_product_deletion_repository !== true ||
       row.catalog_onboarding_repository !== true ||
       row.catalog_category_repository !== true ||
+      row.catalog_category_deletion_repository !== true ||
       row.merchant_action_authority !== true || row.shipping_repository !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
@@ -940,13 +955,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       },
     });
     registerServerCatalogRepository(access, createPostCommitInvalidatingRepository(catalogRepository, {
-      createProduct: ["catalog"], updateProduct: ["catalog"], archiveProduct: ["catalog"], restoreProduct: ["catalog"],
+      createProduct: ["catalog"], updateProduct: ["catalog"], archiveProduct: ["catalog"], restoreProduct: ["catalog"], deleteProduct: [],
       removeProduct: ["catalog"], bulkMutateProducts: ["catalog"], createVariant: ["catalog"], updateVariant: ["catalog"], archiveVariant: ["catalog"],
     }));
     registerServerBarcodeLabelRepository(access, barcodeLabelRepository);
     registerServerCatalogOnboardingRepository(access, createPostCommitInvalidatingRepository(catalogOnboardingRepository, {
       createProduct: ["catalog"], updateMerchandising: ["catalog"], publishAfterMedia: ["catalog"],
-      createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"],
+      createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"], deleteCategory: ["settings"],
     }));
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);

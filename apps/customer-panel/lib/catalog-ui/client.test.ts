@@ -407,6 +407,42 @@ test("every mutation uses an exact UUID idempotency key and JSON without store a
   assert.deepEqual(JSON.parse(String(calls[6]?.[1].body)), { expectedVersion: 4 });
 });
 
+test("product permanent deletion reads exact impact and sends one caller-bound confirmed command", async () => {
+  const impact = {
+    resourceKind: "product", resourceId: PRODUCT_ID, confirmationLabel: "Atlas Kupa", expectedVersion: 3,
+    effects: [{ kind: "media", count: 2, disposition: "delete" }],
+  } as const;
+  const deleted = {
+    resourceKind: "product", resourceId: PRODUCT_ID, deleted: true, auditId: OPERATION_ID, replayed: false,
+  } as const;
+  const calls: Array<[string, RequestInit]> = [];
+  const client = createCatalogApiClient({
+    randomUUID: () => { throw new Error("delete must use caller operation"); },
+    async fetch(input, init) {
+      calls.push([String(input), init ?? {}]);
+      return Response.json(calls.length === 1 ? impact : deleted);
+    },
+  });
+
+  assert.deepEqual(await client.getProductDeletionImpact(PRODUCT_ID), impact);
+  assert.deepEqual(await client.deleteProduct(PRODUCT_ID, {
+    operationId: OPERATION_ID,
+    expectedVersion: 3,
+    confirmation: "Atlas Kupa",
+  }), deleted);
+  assert.deepEqual(calls.map(([path]) => path), [
+    `/api/catalog/products/${PRODUCT_ID}/deletion-impact`,
+    `/api/catalog/products/${PRODUCT_ID}/delete`,
+  ]);
+  assert.equal(calls[0]?.[1].method, "GET");
+  assert.equal(calls[0]?.[1].cache, "no-store");
+  assert.equal(new Headers(calls[1]?.[1].headers).get("idempotency-key"), OPERATION_ID);
+  assert.deepEqual(JSON.parse(String(calls[1]?.[1].body)), {
+    expectedVersion: 3,
+    confirmation: "Atlas Kupa",
+  });
+});
+
 test("non-canonical generated operation IDs fail before fetch", async () => {
   let calls = 0;
   const client = createCatalogApiClient({

@@ -96,6 +96,12 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
             "saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,jsonb)",
             "saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
             "saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+            "saas.catalog_product_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)",
+            "saas.delete_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+            "saas.delete_product_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)",
+            "saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)",
+            "saas.delete_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+            "saas.delete_category_recover(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)",
           ]) assertAppRoleFunctionPrivilege(sql, signature);
 
           return {

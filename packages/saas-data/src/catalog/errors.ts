@@ -15,6 +15,9 @@ export const CATALOG_ERROR_CODES = Object.freeze([
   "removal_not_eligible",
   "operation_replayed",
   "operation_mismatch",
+  "invalid_confirmation",
+  "cleanup_pending",
+  "cleanup_failed",
   "durable_authority_invalid",
   "unavailable",
 ] as const);

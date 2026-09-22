@@ -21,24 +21,27 @@ test("permanent deletion migration applies once and always verifies assertions",
     async end() { calls.push("end"); },
     async query(sql) {
       calls.push(sql);
-      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: false, analytics_outbox_fix_ready: false }] };
+      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: false, analytics_outbox_fix_ready: false, catalog_deletion_ready: false }] };
       return { rowCount: null, rows: [] };
     },
   };
   const writes = [];
   await runPermanentDeletionMigration({
     client,
-    readSql: (name) => name.includes("143")
+    readSql: (name) => name.includes("144")
+      ? (name.includes("assertions") ? "CATALOG_ASSERTIONS_SQL" : "CATALOG_UP_SQL")
+      : name.includes("143")
       ? (name.includes("assertions") ? "FIX_ASSERTIONS_SQL" : "FIX_UP_SQL")
       : (name.includes("assertions") ? "ASSERTIONS_SQL" : "UP_SQL"),
     write: (line) => writes.push(line),
   });
-  assert.deepEqual(calls, ["connect", calls[1], "UP_SQL", "FIX_UP_SQL", "ASSERTIONS_SQL", "FIX_ASSERTIONS_SQL", "end"]);
+  assert.deepEqual(calls, ["connect", calls[1], "UP_SQL", "FIX_UP_SQL", "CATALOG_UP_SQL", "ASSERTIONS_SQL", "FIX_ASSERTIONS_SQL", "CATALOG_ASSERTIONS_SQL", "end"]);
   assert.match(calls[1], /record_deletion_operations/);
   assert.match(calls[1], /analytics_delivery_outbox/);
   assert.deepEqual(writes, [
     "permanent_record_deletion_migration=applied",
     "permanent_record_deletion_analytics_outbox_fix=applied",
+    "permanent_catalog_deletion=applied",
   ]);
 });
 
@@ -49,7 +52,7 @@ test("permanent deletion migration skips DDL only when the complete RPC boundary
     async end() { calls.push("end"); },
     async query(sql) {
       calls.push(sql);
-      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, analytics_outbox_fix_ready: true }] };
+      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, analytics_outbox_fix_ready: true, catalog_deletion_ready: true }] };
       return { rowCount: null, rows: [] };
     },
   };
@@ -65,7 +68,7 @@ test("permanent deletion migration patches an already-applied base without repla
     async end() { calls.push("end"); },
     async query(sql) {
       calls.push(sql);
-      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, analytics_outbox_fix_ready: false }] };
+      if (sql.includes("pg_has_role")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, analytics_outbox_fix_ready: false, catalog_deletion_ready: true }] };
       return { rowCount: null, rows: [] };
     },
   };
@@ -82,5 +85,6 @@ test("permanent deletion migration patches an already-applied base without repla
   assert.deepEqual(writes, [
     "permanent_record_deletion_migration=already_applied",
     "permanent_record_deletion_analytics_outbox_fix=applied",
+    "permanent_catalog_deletion=already_applied",
   ]);
 });

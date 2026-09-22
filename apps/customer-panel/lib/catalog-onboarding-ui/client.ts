@@ -6,6 +6,9 @@ import {
   parseCatalogCategoryFields,
   parseCatalogCategoryList,
   parseCatalogCategoryMutationResult,
+  parsePermanentDeletionCommand,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   type CatalogCategory,
   type CatalogCategoryFields,
   type CatalogCategoryMutationResult,
@@ -15,6 +18,9 @@ import {
   type CatalogOnboardingResult,
   type CatalogProductEditorProjection,
   type CatalogProductMerchandisingFields,
+  type PermanentDeletionCommand,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
 } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -24,6 +30,7 @@ const API_CODES = Object.freeze([
   "category_not_found", "category_in_use",
   "version_conflict", "invalid_transition", "media_incomplete", "operation_mismatch", "operation_not_found",
   "origin_denied", "method_not_allowed",
+  "invalid_confirmation",
   "unavailable",
 ] as const);
 export type CatalogOnboardingApiErrorCode = (typeof API_CODES)[number];
@@ -47,6 +54,7 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   operation_not_found: "İşlem sonucu doğrulanamadı. Ürünü yenileyerek kontrol edin.",
   origin_denied: "Bu panel adresinden ürün işlemi doğrulanamadı. Sayfayı yenileyip tekrar deneyin.",
   method_not_allowed: "Bu ürün işlemi desteklenmiyor.",
+  invalid_confirmation: "Kalıcı silme onayı kategori adıyla eşleşmiyor.",
   unavailable: "Ürün hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
 
@@ -210,6 +218,50 @@ export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch
       });
       try { return parseCatalogCategoryMutationResult(body); }
       catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+    },
+
+    async getCategoryDeletionImpact(categoryId: string): Promise<Readonly<PermanentDeletionImpact>> {
+      const selectedCategoryId = selectedId(categoryId);
+      let parsed: PermanentDeletionImpact;
+      try {
+        parsed = parsePermanentDeletionImpact(await request(`/api/catalog/onboarding/categories/${selectedCategoryId}/deletion-impact`, {
+          method: "GET", credentials: "same-origin", cache: "no-store",
+        }));
+      } catch (error) {
+        if (error instanceof CatalogOnboardingApiError) throw error;
+        throw new CatalogOnboardingApiError("unavailable", 503);
+      }
+      if (parsed.resourceKind !== "category" || parsed.resourceId !== selectedCategoryId) {
+        throw new CatalogOnboardingApiError("unavailable", 503);
+      }
+      return parsed;
+    },
+
+    async deleteCategory(categoryId: string, command: Readonly<PermanentDeletionCommand>): Promise<Readonly<PermanentDeletionResult>> {
+      const selectedCategoryId = selectedId(categoryId);
+      let parsedCommand: PermanentDeletionCommand;
+      try { parsedCommand = parsePermanentDeletionCommand(command); }
+      catch { throw new TypeError("catalog_onboarding_client_invalid"); }
+      let parsed: PermanentDeletionResult;
+      try {
+        parsed = parsePermanentDeletionResult(await request(`/api/catalog/onboarding/categories/${selectedCategoryId}/delete`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json", "idempotency-key": parsedCommand.operationId },
+          body: JSON.stringify({
+            expectedVersion: parsedCommand.expectedVersion,
+            confirmation: parsedCommand.confirmation,
+          }),
+        }));
+      } catch (error) {
+        if (error instanceof CatalogOnboardingApiError) throw error;
+        throw new CatalogOnboardingApiError("unavailable", 503);
+      }
+      if (
+        parsed.resourceKind !== "category" || parsed.resourceId !== selectedCategoryId ||
+        parsed.auditId !== parsedCommand.operationId
+      ) throw new CatalogOnboardingApiError("unavailable", 503);
+      return parsed;
     },
   });
 }

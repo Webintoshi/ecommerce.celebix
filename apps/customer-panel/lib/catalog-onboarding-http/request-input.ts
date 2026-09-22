@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCatalogCategoryFields, parseCatalogOnboardingIntent, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
+import { parseCatalogCategoryFields, parseCatalogOnboardingIntent, parsePermanentDeletionCommand, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BODY_LIMIT = 131_072;
@@ -117,4 +117,16 @@ export async function readCatalogCategoryArchiveInput(request: Request) {
   const parsed = exact(await json(request), ["expectedVersion"]);
   if (operationId === null || parsed === null || !Number.isSafeInteger(parsed.expectedVersion) || (parsed.expectedVersion as number) < 1) return INVALID;
   return Object.freeze({ kind: "valid" as const, operationId, expectedVersion: parsed.expectedVersion as number });
+}
+
+export async function readCatalogCategoryDeletionInput(request: Request) {
+  const operationId = operation(request);
+  const parsed = exact(await json(request), ["expectedVersion", "confirmation"]);
+  if (operationId === null || parsed === null) return INVALID;
+  try {
+    const command = parsePermanentDeletionCommand({
+      operationId, expectedVersion: parsed.expectedVersion, confirmation: parsed.confirmation,
+    });
+    return Object.freeze({ kind: "valid" as const, ...command });
+  } catch { return INVALID; }
 }

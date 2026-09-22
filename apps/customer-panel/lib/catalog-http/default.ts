@@ -1,12 +1,16 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { resolveDefaultCacheRuntime } from "@celebix/saas-cache";
 
 import { resolveDefaultServerCatalogRuntime } from "../server-catalog/default.ts";
+import { resolveDefaultServerMediaRuntime } from "../server-media/default.ts";
 import { createCatalogHttpHandlers } from "./handler.ts";
 
 const handlers = createCatalogHttpHandlers({
   resolveRuntime: resolveDefaultServerCatalogRuntime,
+  resolveMediaRuntime: resolveDefaultServerMediaRuntime,
+  cache: resolveDefaultCacheRuntime().cache,
   now: () => new Date(),
   requestId: randomUUID,
 });
@@ -65,6 +69,8 @@ export async function handleDefaultCatalogRestoreProduct(
 
 export async function handleDefaultCatalogRemovalEligibility(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removalEligibility(request, productId); }
 export async function handleDefaultCatalogRemoveProduct(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.removeProduct(request, productId); }
+export async function handleDefaultCatalogGetDeletionImpact(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.getDeletionImpact(request, productId); }
+export async function handleDefaultCatalogDeleteProduct(request: Request, context: ProductRouteContext) { const { productId } = await context.params; return handlers.deleteProduct(request, productId); }
 
 export async function handleDefaultCatalogCreateVariant(
   request: Request,
