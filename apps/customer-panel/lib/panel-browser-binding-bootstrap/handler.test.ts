@@ -187,7 +187,16 @@ test("success sets only the pre-auth cookie and redirects 303 to the exact Owner
   assert.equal(response.headers.get("location")?.includes(PB), false);
 });
 
-test("method, fields, duplicates, size, encoding, cookies, and private headers fail before transport", async () => {
+test("existing panel cookies cannot block the Owner bootstrap or become binding authority", async () => {
+  const current = fixture();
+  const response = await current.handler(request(undefined, { cookie: "__Host-celebix_panel_pre_auth=stale; other=old" }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), PROVIDER);
+  assert.equal(response.headers.get("set-cookie"), `__Host-celebix_panel_pre_auth=${PB}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
+  assert.deepEqual(current.calls, [{ bootstrapCredential: BS, providerAuthorizationUrl: PROVIDER, browserBindingCredential: PB }]);
+});
+
+test("method, fields, duplicates, size, encoding, and private headers fail before transport", async () => {
   const cases = [
     new Request(PANEL_BROWSER_BOOTSTRAP_URL),
     request(`bootstrapCredential=${encodeURIComponent(BS)}`),
@@ -195,7 +204,6 @@ test("method, fields, duplicates, size, encoding, cookies, and private headers f
     request(`${new URLSearchParams({ bootstrapCredential: BS, providerAuthorizationUrl: PROVIDER })}&extra=1`),
     request(`bootstrapCredential=%&providerAuthorizationUrl=${encodeURIComponent(PROVIDER)}`),
     request("x".repeat(16_385)),
-    request(undefined, { cookie: "other=1" }),
     request(undefined, { authorization: "private" }),
     request(undefined, { "x-celebix-callback-signature": "private" }),
   ];

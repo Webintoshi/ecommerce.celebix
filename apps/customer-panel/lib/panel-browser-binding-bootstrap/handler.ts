@@ -124,7 +124,9 @@ export function createPanelBrowserBindingBootstrapHandler(options: {
     if (authorityDecision === "method_not_allowed") return failure("panel_browser_binding_method_not_allowed", 405);
     if (authorityDecision !== "approved") return failure("panel_browser_binding_request_invalid", 400);
     if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return failure("panel_browser_binding_content_type_invalid", 415);
-    if (request.headers.has("cookie") || request.headers.has("authorization")) return failure("panel_browser_binding_request_invalid", 400);
+    // A same-site Owner form POST may carry existing Panel cookies. They are never
+    // read or forwarded: only the one-time bootstrap credential authorizes binding.
+    if (request.headers.has("authorization")) return failure("panel_browser_binding_request_invalid", 400);
     for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) return failure("panel_browser_binding_request_invalid", 400);
 
     let form: ReturnType<typeof parseForm>;
