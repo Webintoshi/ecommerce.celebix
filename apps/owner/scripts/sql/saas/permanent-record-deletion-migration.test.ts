@@ -25,6 +25,14 @@ function catalogDeletion(kind: "up" | "down" | "assertions"): string {
   );
 }
 
+function checkoutOperationDetach(kind: "up" | "down" | "assertions"): string {
+  const suffix = kind === "assertions" ? "_assertions.sql" : `.${kind}.sql`;
+  return readFileSync(
+    new URL(`202609220145_permanent_order_delete_checkout_operation_fix${suffix}`, base),
+    "utf8",
+  );
+}
+
 function ledgerDefinition(sql: string): string {
   const match = sql.match(/CREATE TABLE saas[.]record_deletion_operations\s*[(]([\s\S]*?)[)][;]\s/iu);
   assert.ok(match, "record_deletion_operations definition must exist");
@@ -180,4 +188,25 @@ test("144 grants only reviewed RPCs and supplies guarded rollback artifacts", ()
   assert.match(down, /resource_kind IN\s*[(]\s*'product'\s*,\s*'category'/iu);
   assert.match(down, /DROP FUNCTION saas[.]delete_product/u);
   assert.match(down, /DROP FUNCTION saas[.]delete_category/u);
+});
+
+test("145 preserves immutable checkout audit while detaching only the deleted order link", () => {
+  const up = checkoutOperationDetach("up");
+  const assertions = checkoutOperationDetach("assertions");
+  const down = checkoutOperationDetach("down");
+
+  assert.match(up, /ALTER COLUMN order_id DROP NOT NULL/iu);
+  assert.match(up, /CREATE FUNCTION saas[.]guard_storefront_checkout_operation_order_detach\s*[(]/iu);
+  assert.match(up, /TG_OP='UPDATE'/iu);
+  assert.match(up, /OLD[.]order_id IS NOT NULL AND NEW[.]order_id IS NULL/iu);
+  assert.match(up, /permanent_order_deletion_context\s*[(]\s*OLD[.]store_id\s*,\s*OLD[.]order_id\s*[)]/iu);
+  assert.match(up, /NEW[.]result_payload IS NOT DISTINCT FROM OLD[.]result_payload/iu);
+  assert.match(up, /UPDATE saas[.]storefront_checkout_operations\s+SET order_id=NULL\s+WHERE store_id=p_store_id AND order_id=p_order_id/iu);
+  assert.match(up, /DELETE FROM saas[.]orders/iu);
+  assert.doesNotMatch(up, /DELETE FROM saas[.]storefront_checkout_operations/iu);
+  assert.doesNotMatch(up, /(?:paytr|iyzico|provider_(?:cancel|refund|void)|http_post|net[.]http)/iu);
+  assert.match(assertions, /storefront_checkout_operations_immutable/iu);
+  assert.match(assertions, /guard_storefront_checkout_operation_order_detach/iu);
+  assert.match(assertions, /confdeltype='r'/iu);
+  assert.match(down, /PERMANENT_ORDER_DELETE_CHECKOUT_OPERATION_FIX_ROLLBACK_BLOCKED/iu);
 });

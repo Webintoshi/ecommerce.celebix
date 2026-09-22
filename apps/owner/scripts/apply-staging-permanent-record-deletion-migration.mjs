@@ -14,6 +14,8 @@ const ANALYTICS_OUTBOX_FIX_UP_FILE = "202609220143_permanent_record_deletion_ana
 const ANALYTICS_OUTBOX_FIX_ASSERTIONS_FILE = "202609220143_permanent_record_deletion_analytics_outbox_fix_assertions.sql";
 const CATALOG_DELETION_UP_FILE = "202609220144_permanent_catalog_deletion.up.sql";
 const CATALOG_DELETION_ASSERTIONS_FILE = "202609220144_permanent_catalog_deletion_assertions.sql";
+const CHECKOUT_OPERATION_FIX_UP_FILE = "202609220145_permanent_order_delete_checkout_operation_fix.up.sql";
+const CHECKOUT_OPERATION_FIX_ASSERTIONS_FILE = "202609220145_permanent_order_delete_checkout_operation_fix_assertions.sql";
 
 export function resolvePermanentDeletionMigrationConfiguration(source = process.env) {
   if (
@@ -58,18 +60,28 @@ export async function runPermanentDeletionMigration({ client, readSql, write }) 
           AND pg_catalog.to_regprocedure('saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
           AND pg_catalog.to_regprocedure('saas.delete_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
           AS catalog_deletion_ready
+        ,COALESCE(
+          pg_catalog.pg_get_functiondef(
+            pg_catalog.to_regprocedure('saas.delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)')
+          ) ~ 'UPDATE saas.storefront_checkout_operations',
+          false
+        ) AND pg_catalog.to_regprocedure('saas.guard_storefront_checkout_operation_order_detach()') IS NOT NULL
+          AS checkout_operation_fix_ready
     `);
     const row = preflight.rowCount === 1 ? preflight.rows[0] : null;
     if (row?.owner_member !== true) throw new Error("staging_permanent_deletion_migration_authority_invalid");
     if (row.migration_ready !== true) await client.query(readSql(UP_FILE));
     if (row.analytics_outbox_fix_ready !== true) await client.query(readSql(ANALYTICS_OUTBOX_FIX_UP_FILE));
     if (row.catalog_deletion_ready !== true) await client.query(readSql(CATALOG_DELETION_UP_FILE));
+    if (row.checkout_operation_fix_ready !== true) await client.query(readSql(CHECKOUT_OPERATION_FIX_UP_FILE));
     await client.query(readSql(ASSERTIONS_FILE));
     await client.query(readSql(ANALYTICS_OUTBOX_FIX_ASSERTIONS_FILE));
     await client.query(readSql(CATALOG_DELETION_ASSERTIONS_FILE));
+    await client.query(readSql(CHECKOUT_OPERATION_FIX_ASSERTIONS_FILE));
     write(`permanent_record_deletion_migration=${row.migration_ready === true ? "already_applied" : "applied"}`);
     write(`permanent_record_deletion_analytics_outbox_fix=${row.analytics_outbox_fix_ready === true ? "already_applied" : "applied"}`);
     write(`permanent_catalog_deletion=${row.catalog_deletion_ready === true ? "already_applied" : "applied"}`);
+    write(`permanent_order_delete_checkout_operation_fix=${row.checkout_operation_fix_ready === true ? "already_applied" : "applied"}`);
   } finally {
     await client.end();
   }
