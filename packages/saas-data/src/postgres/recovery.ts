@@ -36,7 +36,7 @@ export class PostgresTenantOperationRecovery {
     this.options = options;
     try { this.panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
     catch { throw new SaaSDataPersistenceError(); }
-    if (options.adminOriginEnvironment !== undefined && options.adminOriginEnvironment !== "production" && options.adminOriginEnvironment !== "staging") {
+    if (options.adminOriginEnvironment !== undefined && options.adminOriginEnvironment !== "production" && options.adminOriginEnvironment !== "staging" && options.adminOriginEnvironment !== "staging_net") {
       throw new SaaSDataPersistenceError();
     }
     this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";

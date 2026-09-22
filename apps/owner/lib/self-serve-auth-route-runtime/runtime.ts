@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import pg from "pg";
-import { PostgresSaaSDataRepository, PostgresTenantOperationRecovery } from "@celebix/saas-data";
+import { adminOriginEnvironmentFromPanelOrigin, PostgresSaaSDataRepository, PostgresTenantOperationRecovery } from "@celebix/saas-data";
 import { createStarterTenantService } from "@celebix/saas-tenant-core";
 
 import { createOwnerSelfServeAuthCompositionApproval } from "../self-serve-auth-composition/activation.ts";
@@ -113,6 +113,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     identityDependencies("oidc-transaction-state"),
     { callbackAuthority: config.authority.panelCallbackUrl },
   );
+  const adminOriginEnvironment = adminOriginEnvironmentFromPanelOrigin(config.authority.panelOrigin);
   const repositoryOptions = {
     pool,
     generateId: () => randomUUID(),
@@ -120,7 +121,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     timeouts: TIMEOUTS,
     bootstrapRole: "celebix_saas_bootstrap" as const,
     panelOrigin: config.authority.panelOrigin,
-    adminOriginEnvironment: "staging" as const,
+    adminOriginEnvironment,
   };
   const tenantRepository = new PostgresSaaSDataRepository(repositoryOptions);
   const completion = createPersistentRegistrationCompletionService({
@@ -129,7 +130,7 @@ export async function initializeOwnerStagingAuthRouteSet(
       repository: tenantRepository,
       platformDomainSuffix: config.authority.platformDomainSuffix,
       panelBaseUrl: config.authority.panelOrigin,
-      adminOriginEnvironment: "staging",
+      adminOriginEnvironment,
     })),
     recovery: new PostgresTenantOperationRecovery(repositoryOptions),
     panelOrigin: config.authority.panelOrigin,

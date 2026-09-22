@@ -35,6 +35,39 @@ test("resolves the exact public store brand and central login authority server-s
   assert.equal(Object.isFrozen(model), true);
 });
 
+test("celebix.net staging admin resolves its own central login without crossing to celebix.site", async () => {
+  const host = "butik-siora.admin.saas-staging.celebix.net";
+  const panel = "https://panel.saas-staging.celebix.net";
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: host,
+    clock: () => new Date("2026-09-22T10:00:00.000Z"),
+    async resolveRuntime() { return {
+      access: { panelOrigin: panel },
+      adminDomains: { async resolvePublicBrand() { return { kind: "resolved", brand: {
+        storeSlug: "butik-siora", displayName: "Butik Siora", logoUrl: null,
+        accentColor: "#ff6500", canonicalAdminOrigin: `https://${host}`,
+      } }; } },
+    }; },
+  });
+  assert.equal(model.kind, "tenant");
+  assert.equal(model.loginHref, `${panel}/auth/login?destination=${host}`);
+});
+
+test("a staging platform admin brand cannot claim another store slug", async () => {
+  const model = await resolveTenantAdminLoginModel({
+    hostHeader: HOSTNAME,
+    clock: () => new Date("2026-09-22T10:00:00.000Z"),
+    async resolveRuntime() { return {
+      access: { panelOrigin: PANEL },
+      adminDomains: { async resolvePublicBrand() { return { kind: "resolved", brand: {
+        storeSlug: "another-store", displayName: "Wrong Store", logoUrl: null,
+        accentColor: "#ff6500", canonicalAdminOrigin: ORIGIN,
+      } }; } },
+    }; },
+  });
+  assert.equal(model.kind, "generic");
+});
+
 test("starts central login for an exact resolved custom admin hostname", async () => {
   const hostname = "admin.guzidekuyumcu.com.tr";
   const origin = `https://${hostname}`;

@@ -209,7 +209,8 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
     if (
       options.adminOriginEnvironment !== undefined &&
       options.adminOriginEnvironment !== "production" &&
-      options.adminOriginEnvironment !== "staging"
+      options.adminOriginEnvironment !== "staging" &&
+      options.adminOriginEnvironment !== "staging_net"
     ) throw new Error("invalid_exact_https_origin");
     this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";
   }

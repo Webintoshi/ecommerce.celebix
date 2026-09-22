@@ -90,9 +90,12 @@ function validate(value: unknown, status: number): Record<string, unknown> {
     const staging = safeText(body.storeSlug, 63) &&
       exactHttps(body.storefrontUrl, `${body.storeSlug}.saas-staging.celebix.site`) &&
       exactHttps(body.panelUrl, `${body.storeSlug}.admin.saas-staging.celebix.site`);
+    const stagingNet = safeText(body.storeSlug, 63) &&
+      exactHttps(body.storefrontUrl, `${body.storeSlug}.saas-staging.celebix.net`) &&
+      exactHttps(body.panelUrl, `${body.storeSlug}.admin.saas-staging.celebix.net`);
     if (
       !safeText(body.storeSlug, 63) || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(body.storeSlug) ||
-      (!production && !staging) ||
+      (!production && !staging && !stagingNet) ||
       body.provisioningStatus !== "ready" || body.session !== "pending"
     ) throw new Error("internal_callback_response_invalid");
     return {

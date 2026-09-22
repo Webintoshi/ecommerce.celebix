@@ -178,7 +178,8 @@ class InMemoryTransaction implements SaaSDataTransaction {
         const store = this.state.stores.find((entry) => entry.id === record.storeId && entry.status === "active");
         const validHostname = store && (
           record.hostname === `${store.slug}.admin.celebix.site` ||
-          record.hostname === `${store.slug}.admin.saas-staging.celebix.site`
+          record.hostname === `${store.slug}.admin.saas-staging.celebix.site` ||
+          record.hostname === `${store.slug}.admin.saas-staging.celebix.net`
         );
         if (
           !validHostname ||

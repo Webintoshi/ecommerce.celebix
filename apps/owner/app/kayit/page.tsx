@@ -23,7 +23,10 @@ export default function KayitPage() {
       </section>
 
       <section className="self-serve-register-form-wrap" aria-label="Mağaza kayıt durumu" data-state={registrationState}>
-        <SelfServeDirectRegistrationForm enabled={registrationEnabled} />
+        <SelfServeDirectRegistrationForm
+          enabled={registrationEnabled}
+          domainSuffix={registrationEnabled ? process.env.CELEBIX_PLATFORM_DOMAIN_SUFFIX : undefined}
+        />
         <section className="self-serve-register-disabled">
           <h2 id="self-serve-registration-state">Kayıt altyapısı hazırlanıyor.</h2>
           <p>

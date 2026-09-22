@@ -42,6 +42,10 @@ test("creates exact production and staging tenant admin origins", () => {
     createCanonicalAdminOrigin("guzide-kuyumcu-4", "staging"),
     "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
   );
+  assert.equal(
+    createCanonicalAdminOrigin("butik-siora", "staging_net"),
+    "https://butik-siora.admin.saas-staging.celebix.net",
+  );
 });
 
 test("derives only the approved production or staging admin environment from the panel origin", () => {
@@ -52,6 +56,10 @@ test("derives only the approved production or staging admin environment from the
   assert.equal(
     createCanonicalAdminOriginFromPanelOrigin("https://panel.saas-staging.celebix.site/", "guzide-kuyumcu-4"),
     "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+  );
+  assert.equal(
+    createCanonicalAdminOriginFromPanelOrigin("https://panel.saas-staging.celebix.net", "butik-siora"),
+    "https://butik-siora.admin.saas-staging.celebix.net",
   );
   for (const origin of [
     "https://panel.example.test",
@@ -99,6 +107,8 @@ test("rejects canonical admin origins from the other panel environment", () => {
     ["https://guzide-kuyumcu-4.admin.saas-staging.celebix.site", "https://panel.celebix.site"],
     ["https://admin.hemenaku.com", "https://panel.saas-staging.celebix.site"],
     ["https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/", "https://panel.saas-staging.celebix.site"],
+    ["https://butik-siora.admin.saas-staging.celebix.net", "https://panel.saas-staging.celebix.site"],
+    ["https://guzide-kuyumcu-4.admin.saas-staging.celebix.site", "https://panel.saas-staging.celebix.net"],
   ] as const) {
     assert.throws(
       () => parseCanonicalAdminOriginFromPanelOrigin(canonicalAdminOrigin, panelOrigin),
@@ -116,6 +126,10 @@ test("parses only exact canonical tenant admin hostnames", () => {
   assert.equal(
     parseCanonicalAdminHostname("guzide-kuyumcu-4.admin.saas-staging.celebix.site", "staging"),
     "guzide-kuyumcu-4",
+  );
+  assert.equal(
+    parseCanonicalAdminHostname("butik-siora.admin.saas-staging.celebix.net", "staging_net"),
+    "butik-siora",
   );
 });
 

@@ -16,6 +16,7 @@ export {
   parseCanonicalAdminOriginFromPanelOrigin,
   parseCanonicalAdminHostname,
 } from "./panel-origin.ts";
+export { adminOriginEnvironmentFromPanelOrigin } from "./panel-origin.ts";
 export type { AdminOriginEnvironment } from "./panel-origin.ts";
 export {
   CATALOG_ERROR_CODES,

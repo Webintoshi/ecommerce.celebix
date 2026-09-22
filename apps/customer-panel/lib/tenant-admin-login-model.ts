@@ -20,6 +20,7 @@ const GENERIC: TenantAdminLoginModel = Object.freeze({
 
 const PANEL_ORIGINS = Object.freeze([
   "https://panel.saas-staging.celebix.site",
+  "https://panel.saas-staging.celebix.net",
   "https://panel.celebix.site",
 ] as const);
 
@@ -81,7 +82,11 @@ export async function resolveTenantAdminLoginModel(options: Readonly<{
     } catch {
       return GENERIC;
     }
-    if (canonicalAdmin.hostname.endsWith(".admin.celebix.site")) {
+    if (
+      canonicalAdmin.hostname.endsWith(".admin.celebix.site") ||
+      canonicalAdmin.hostname.endsWith(".admin.saas-staging.celebix.site") ||
+      canonicalAdmin.hostname.endsWith(".admin.saas-staging.celebix.net")
+    ) {
       try {
         const platformAdmin = parseCanonicalAdminOriginFromPanelOrigin(canonicalAdmin.origin, panelOrigin);
         if (platformAdmin.storeSlug !== result.brand.storeSlug) return GENERIC;

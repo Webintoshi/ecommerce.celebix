@@ -2,6 +2,7 @@ const NORMALIZED_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ADMIN_HOST_SUFFIXES = Object.freeze({
   production: ".admin.celebix.site",
   staging: ".admin.saas-staging.celebix.site",
+  staging_net: ".admin.saas-staging.celebix.net",
 } as const);
 
 export type AdminOriginEnvironment = keyof typeof ADMIN_HOST_SUFFIXES;
@@ -58,14 +59,15 @@ function normalizedAdminSlug(value: unknown): string {
 }
 
 function adminHostSuffix(environment: unknown): string {
-  if (environment !== "production" && environment !== "staging") invalidOrigin();
+  if (environment !== "production" && environment !== "staging" && environment !== "staging_net") invalidOrigin();
   return ADMIN_HOST_SUFFIXES[environment];
 }
 
-function adminOriginEnvironmentFromPanelOrigin(panelOrigin: unknown): AdminOriginEnvironment {
+export function adminOriginEnvironmentFromPanelOrigin(panelOrigin: unknown): AdminOriginEnvironment {
   const origin = normalizeExactHttpsOrigin(panelOrigin);
   if (origin === "https://panel.celebix.site") return "production";
   if (origin === "https://panel.saas-staging.celebix.site") return "staging";
+  if (origin === "https://panel.saas-staging.celebix.net") return "staging_net";
   invalidOrigin();
 }
 
@@ -153,7 +155,10 @@ export function parseExactAdminHttpsOrigin(value: unknown): Readonly<{ origin: s
     try { parseCanonicalAdminHostname(parsed.hostname, "production"); }
     catch {
       try { parseCanonicalAdminHostname(parsed.hostname, "staging"); }
-      catch { invalidOrigin(); }
+      catch {
+        try { parseCanonicalAdminHostname(parsed.hostname, "staging_net"); }
+        catch { invalidOrigin(); }
+      }
     }
   }
   return Object.freeze({ origin, hostname: parsed.hostname });

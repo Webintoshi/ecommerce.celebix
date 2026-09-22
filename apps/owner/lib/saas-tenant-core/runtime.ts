@@ -1,4 +1,5 @@
 import {
+  adminOriginEnvironmentFromPanelOrigin,
   PostgresSaaSDataRepository,
   PostgresTenantOperationRecovery,
   assertNormalizedExactHostname,
@@ -151,7 +152,7 @@ export function createPostgresOwnerSaaSTenantRuntime(
   }
   assertValidRuntimeBounds(options);
   const adminOriginEnvironment = options.activationApproval.environment === "approved_staging"
-    ? "staging" as const
+    ? adminOriginEnvironmentFromPanelOrigin(options.panelOrigin)
     : "production" as const;
 
   const repository = new PostgresSaaSDataRepository({

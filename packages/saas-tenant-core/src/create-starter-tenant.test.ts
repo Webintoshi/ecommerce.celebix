@@ -499,6 +499,19 @@ test("staging tenant creation provisions the exact staging admin hostname", asyn
   assert.equal(repository.inspectState().adminDomains[0]?.hostname, "ornek-magaza.admin.saas-staging.celebix.site");
 });
 
+test("celebix.net staging tenant creation preserves an isolated storefront and admin hostname", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const value = requireSuccess(await createStarterTenantService({
+    repository,
+    platformDomainSuffix: "saas-staging.celebix.net",
+    panelBaseUrl: "https://panel.saas-staging.celebix.net",
+    adminOriginEnvironment: "staging_net",
+  }).execute({ ...baseInput, store: { ...baseInput.store, name: "Butik Siora", slug: "butik-siora" } }));
+  assert.equal(value.storefrontUrl, "https://butik-siora.saas-staging.celebix.net");
+  assert.equal(value.panelUrl, "https://butik-siora.admin.saas-staging.celebix.net");
+  assert.equal(repository.inspectState().adminDomains[0]?.hostname, "butik-siora.admin.saas-staging.celebix.net");
+});
+
 test("unknown COMMIT outcome is non-retryable and never triggers rollback", async () => {
   const backing = createInMemorySaaSDataRepository();
   let rollbackCalls = 0;

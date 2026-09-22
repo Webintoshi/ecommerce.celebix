@@ -136,6 +136,17 @@ test("Owner projector accepts an aligned staging storefront and tenant admin ori
   assert.deepEqual(await response.json(), expected);
 });
 
+test("Owner projector accepts an aligned celebix.net staging storefront and tenant admin origin", async () => {
+  const expected = {
+    ...successBody(),
+    storefrontUrl: "https://butik-siora.saas-staging.celebix.net",
+    panelUrl: "https://butik-siora.admin.saas-staging.celebix.net",
+    storeSlug: "butik-siora",
+  };
+  const response = await projectOwnerInternalCallbackResponse(upstream(expected, 200), 4_096);
+  assert.deepEqual(await response.json(), expected);
+});
+
 test("Owner projector rejects arbitrary, PII, callback-secret, token, SQL, identifier, URL, and stack messages", async () => {
   const fixture = errorFixtures.find((entry) => entry.code === "self_serve_callback_untrusted")!;
   for (const message of [
