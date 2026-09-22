@@ -1021,13 +1021,15 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       duplicate: ["promotions"],
       archive: ["promotions"],
     }));
-    registerServerQuickLinksRuntime(access, {
-      links: quickLinkRepository,
-      privateLinks: quickLinkPrivateRepository,
-      methods: paymentMethodRepository,
-      keyring: quickLinksConfig.keyring,
-      paytrConfiguration: quickLinksConfig.paytrConfiguration,
-    });
+    if (quickLinksConfig !== null) {
+      registerServerQuickLinksRuntime(access, {
+        links: quickLinkRepository,
+        privateLinks: quickLinkPrivateRepository,
+        methods: paymentMethodRepository,
+        keyring: quickLinksConfig.keyring,
+        paytrConfiguration: quickLinksConfig.paytrConfiguration,
+      });
+    }
     return access;
   } catch (error) {
     await pool.end().catch(() => undefined);

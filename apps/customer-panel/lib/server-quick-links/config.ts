@@ -23,6 +23,7 @@ export const QUICK_LINK_SERVER_ENVIRONMENT_FIELDS = Object.freeze([
   "CELEBIX_PAYTR_STAGING_CALLBACK_URL",
   "CELEBIX_PAYTR_STAGING_TEST_MODE",
 ] as const);
+const QUICK_LINK_ACCOUNT_FIELDS = QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.slice(2);
 
 export type QuickLinkServerConfig = Readonly<{
   keyring: QuickLinkKeyring;
@@ -97,7 +98,7 @@ export function resolveQuickLinkServerMode(source: Environment): "disabled" | "a
   } catch { return "disabled"; }
 }
 
-export function parseQuickLinkServerConfig(source: Environment): QuickLinkServerConfig {
+export function parseQuickLinkServerConfig(source: Environment): QuickLinkServerConfig | null {
   try {
     if (!source || typeof source !== "object" || Array.isArray(source)) invalid();
     const keys = Object.keys(source);
@@ -106,6 +107,7 @@ export function parseQuickLinkServerConfig(source: Environment): QuickLinkServer
       keys.some((key) => !QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.includes(key as never)) ||
       resolveQuickLinkServerMode(source) !== "approved_staging"
     ) invalid();
+    if (QUICK_LINK_ACCOUNT_FIELDS.every((field) => source[field] === undefined)) return null;
     return Object.freeze({
       keyring: parseKeyring(source),
       paytrConfiguration: parsePaytrConfiguration(source),

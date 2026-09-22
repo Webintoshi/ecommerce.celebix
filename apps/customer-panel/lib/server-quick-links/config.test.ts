@@ -35,7 +35,7 @@ test("quick-link server mode is enabled only for approved staging", () => {
 });
 
 test("parses the exact server-only keyring and canonical PayTR staging configuration", () => {
-  const config = parseQuickLinkServerConfig(environment());
+  const config = parseQuickLinkServerConfig(environment())!;
   assert.equal(config.keyring.activeKeyId, "quick.current");
   assert.deepEqual(config.keyring.keys.map(({ keyId }) => keyId), ["quick.current", "quick.retired"]);
   assert.deepEqual(config.paytrConfiguration, {
@@ -48,6 +48,24 @@ test("parses the exact server-only keyring and canonical PayTR staging configura
   });
   assert.equal(Object.isFrozen(config), true);
   assert.equal(Object.isFrozen(config.keyring.keys), true);
+});
+
+test("a new tenant panel starts without a shared PayTR quick-link account", () => {
+  const source = environment({
+    CELEBIX_QUICK_ORDER_ACTIVE_KEY_ID: undefined,
+    CELEBIX_QUICK_ORDER_KEYS: undefined,
+    CELEBIX_PAYTR_STAGING_MERCHANT_ID: undefined,
+    CELEBIX_PAYTR_STAGING_MERCHANT_KEY: undefined,
+    CELEBIX_PAYTR_STAGING_MERCHANT_SALT: undefined,
+    CELEBIX_PAYTR_STAGING_CALLBACK_URL: undefined,
+    CELEBIX_PAYTR_STAGING_TEST_MODE: undefined,
+  });
+  assert.equal(parseQuickLinkServerConfig(source), null);
+  assert.throws(
+    () => parseQuickLinkServerConfig({ ...source, CELEBIX_PAYTR_STAGING_MERCHANT_ID: "other-store" }),
+    /quick_link_server_config_invalid/,
+  );
+  assert.equal(parseQuickLinkServerConfig(environment())?.paytrConfiguration.merchantId, "merchant-id");
 });
 
 test("rejects missing extra and non-staging provider fields", () => {
