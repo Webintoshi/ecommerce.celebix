@@ -30,3 +30,21 @@ test("public runtime remains reachable when legacy Owner Supabase authority is a
     }
   }
 });
+
+test("health remains reachable when legacy Owner Supabase authority is absent", async () => {
+  const previous = new Map(OWNER_SUPABASE_ENVIRONMENT.map((name) => [name, process.env[name]]));
+  for (const name of OWNER_SUPABASE_ENVIRONMENT) delete process.env[name];
+
+  try {
+    const response = await middleware(new NextRequest("https://owner.saas-staging.celebix.net/api/health"));
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-middleware-next"), "1");
+    assert.equal(response.headers.has("location"), false);
+  } finally {
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});

@@ -44,6 +44,8 @@ test(".net migration checks authority, applies once, and runs postconditions", a
     write(line) { lines.push(line); },
   });
   assert.equal(calls[0], "connect");
+  assert.match(calls[1], /pg_catalog\.strpos\s*\(/);
+  assert.doesNotMatch(calls[1], /pg_catalog\.position\s*\(/);
   assert.ok(calls.some((call) => call === "SQL:202609220146_celebix_net_staging_admin_domain.up.sql"));
   assert.ok(calls.some((call) => call === "SQL:202609220146_celebix_net_staging_admin_domain_assertions.sql"));
   assert.equal(calls.at(-1), "end");

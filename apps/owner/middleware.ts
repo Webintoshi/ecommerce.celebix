@@ -27,6 +27,7 @@ import {
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
+const OWNER_PUBLIC_HEALTH_API_PATH = "/api/health";
 const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
 const OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH = "/api/webhooks/resend/order-email";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
@@ -140,7 +141,7 @@ export async function middleware(request: NextRequest) {
     return withSecurity(request, nextResponse(request));
   }
 
-  if (pathname === OWNER_PUBLIC_RUNTIME_API_PATH) {
+  if (pathname === OWNER_PUBLIC_RUNTIME_API_PATH || pathname === OWNER_PUBLIC_HEALTH_API_PATH) {
     return withSecurity(request, nextResponse(request));
   }
 

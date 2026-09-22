@@ -38,10 +38,11 @@ export async function runCelebixNetDomainsMigration({ client, readSql, write }) 
     const preflight = await client.query(`
       SELECT
         pg_catalog.pg_has_role(current_user, 'celebix_saas_owner', 'MEMBER') AS owner_member,
-        COALESCE(pg_catalog.position(
-          '.admin.saas-staging.celebix.net' IN pg_catalog.pg_get_functiondef(
+        COALESCE(pg_catalog.strpos(
+          pg_catalog.pg_get_functiondef(
             pg_catalog.to_regprocedure('saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)')
-          )
+          ),
+          '.admin.saas-staging.celebix.net'
         ) > 0, false) AS migration_ready
     `);
     const row = preflight.rowCount === 1 ? preflight.rows[0] : null;
