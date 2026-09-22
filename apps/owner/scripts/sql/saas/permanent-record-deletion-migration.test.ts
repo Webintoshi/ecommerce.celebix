@@ -9,6 +9,14 @@ function source(kind: "up" | "down" | "assertions"): string {
   return readFileSync(new URL(`202609220142_permanent_record_deletion${suffix}`, base), "utf8");
 }
 
+function analyticsOutboxFix(kind: "up" | "down" | "assertions"): string {
+  const suffix = kind === "assertions" ? "_assertions.sql" : `.${kind}.sql`;
+  return readFileSync(
+    new URL(`202609220143_permanent_record_deletion_analytics_outbox_fix${suffix}`, base),
+    "utf8",
+  );
+}
+
 function ledgerDefinition(sql: string): string {
   const match = sql.match(/CREATE TABLE saas[.]record_deletion_operations\s*[(]([\s\S]*?)[)][;]\s/iu);
   assert.ok(match, "record_deletion_operations definition must exist");
@@ -84,6 +92,8 @@ test("142 implements owner-admin-only order impact deletion and recovery without
   assert.match(up, /CREATE FUNCTION saas[.]delete_order_recover\s*[(]/u);
   assert.match(up, /UPDATE saas[.]order_drafts[\s\S]*converted_order_id\s*=\s*NULL/iu);
   assert.match(up, /UPDATE saas[.]abandoned_carts[\s\S]*recovered_order_id\s*=\s*NULL/iu);
+  assert.match(up, /'analytics_events'[\s\S]*FROM saas[.]analytics_delivery_outbox[\s\S]*order_id\s*=\s*p_order_id/iu);
+  assert.match(up, /DELETE FROM saas[.]analytics_delivery_outbox\s+WHERE store_id\s*=\s*p_store_id AND order_id\s*=\s*p_order_id/iu);
   assert.match(up, /DELETE FROM saas[.]order_items/iu);
   assert.match(up, /DELETE FROM saas[.]orders/iu);
   assert.match(up, /INSERT INTO saas[.]record_deletion_operations/iu);
@@ -99,4 +109,23 @@ test("142 order deletion functions remain table-private and app-executable only 
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]delete_order_recover/iu);
   assert.match(assertions, /has_function_privilege\s*[(]\s*'celebix_saas_app'[\s\S]*?order_deletion_impact/iu);
   assert.match(assertions, /has_function_privilege\s*[(]\s*'celebix_saas_app'[\s\S]*?delete_order/iu);
+});
+
+test("143 patches the exact analytics outbox blocker without widening deletion authority", () => {
+  const up = analyticsOutboxFix("up");
+  const assertions = analyticsOutboxFix("assertions");
+  const down = analyticsOutboxFix("down");
+
+  assert.match(up, /BEGIN[;]/u);
+  assert.match(up, /SET LOCAL ROLE celebix_saas_owner[;]/u);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]order_deletion_impact\s*[(]/u);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas[.]delete_order\s*[(]/u);
+  assert.match(up, /'analytics_events'[\s\S]*FROM saas[.]analytics_delivery_outbox[\s\S]*order_id\s*=\s*p_order_id/iu);
+  assert.match(up, /DELETE FROM saas[.]analytics_delivery_outbox\s+WHERE store_id\s*=\s*p_store_id AND order_id\s*=\s*p_order_id[;][\s\S]*DELETE FROM saas[.]orders/iu);
+  assert.match(up, /merchant_action_authority_error\([\s\S]*?'orders'[\s\S]*?'orders[.]delete'/u);
+  assert.match(up, /INSERT INTO saas[.]record_deletion_operations/iu);
+  assert.doesNotMatch(up, /(?:paytr|iyzico|provider_(?:cancel|refund|void)|http_post|net[.]http)/iu);
+  assert.match(assertions, /analytics_delivery_outbox/iu);
+  assert.match(assertions, /has_function_privilege/iu);
+  assert.match(down, /PERMANENT_RECORD_DELETION_ANALYTICS_OUTBOX_FIX_ROLLBACK_BLOCKED/u);
 });

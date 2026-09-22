@@ -222,6 +222,7 @@ BEGIN
       pg_catalog.jsonb_build_object('kind','shipping_records','count',(SELECT pg_catalog.count(*) FROM saas.shipping_shipments WHERE store_id=p_store_id AND order_id=p_order_id),'disposition','delete'),
       pg_catalog.jsonb_build_object('kind','draft_links','count',(SELECT pg_catalog.count(*) FROM saas.order_drafts WHERE store_id=p_store_id AND converted_order_id=p_order_id),'disposition','detach'),
       pg_catalog.jsonb_build_object('kind','cart_links','count',(SELECT pg_catalog.count(*) FROM saas.abandoned_carts WHERE store_id=p_store_id AND recovered_order_id=p_order_id),'disposition','detach'),
+      pg_catalog.jsonb_build_object('kind','analytics_events','count',(SELECT pg_catalog.count(*) FROM saas.analytics_delivery_outbox WHERE store_id=p_store_id AND order_id=p_order_id),'disposition','delete'),
       pg_catalog.jsonb_build_object('kind','external_payment','count',CASE WHEN selected.payment_status IN('processing','completed','refunded') THEN 1 ELSE 0 END,'disposition','external_unchanged'),
       pg_catalog.jsonb_build_object('kind','external_fulfillment','count',(SELECT pg_catalog.count(*) FROM saas.shipping_shipments WHERE store_id=p_store_id AND order_id=p_order_id AND provider_shipment_id IS NOT NULL),'disposition','external_unchanged')
     )
@@ -275,6 +276,7 @@ BEGIN
   DELETE FROM saas.storefront_order_receipts WHERE store_id=p_store_id AND order_id=p_order_id;
   DELETE FROM saas.order_commerce_attribution WHERE store_id=p_store_id AND order_id=p_order_id;
   DELETE FROM saas.manual_order_inventory_commitments WHERE store_id=p_store_id AND order_id=p_order_id;
+  DELETE FROM saas.analytics_delivery_outbox WHERE store_id=p_store_id AND order_id=p_order_id;
   DELETE FROM saas.order_email_provider_events WHERE delivery_id IN(
     SELECT id FROM saas.order_email_deliveries WHERE store_id=p_store_id AND order_id=p_order_id
   );

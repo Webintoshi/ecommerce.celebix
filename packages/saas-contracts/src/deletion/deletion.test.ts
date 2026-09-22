@@ -20,6 +20,7 @@ test("parses and deeply freezes exact permanent deletion projections", async () 
     confirmationLabel: "MAN-a5de1e47404a5e9089c2",
     effects: [
       { kind: "order_items", count: 1, disposition: "delete" },
+      { kind: "analytics_events", count: 2, disposition: "delete" },
       { kind: "external_payment", count: 1, disposition: "external_unchanged" },
     ],
   });

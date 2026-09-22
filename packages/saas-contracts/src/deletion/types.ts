@@ -19,6 +19,7 @@ export const PERMANENT_DELETION_EFFECT_KINDS = Object.freeze({
     "shipping_records",
     "draft_links",
     "cart_links",
+    "analytics_events",
     "external_payment",
     "external_fulfillment",
   ] as const),
