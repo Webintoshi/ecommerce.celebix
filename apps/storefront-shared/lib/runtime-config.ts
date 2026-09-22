@@ -23,7 +23,7 @@ type Environment = Record<string, string | undefined>;
 export type StorefrontDataConfig = Readonly<{ database: Readonly<{ name: string; url: string }>; mediaOrigin: string }>;
 export type StorefrontIdentityConfig = Readonly<{
   mode: "approved_staging";
-  allowedOriginSuffix: ".saas-staging.celebix.site";
+  allowedOriginSuffix: ".saas-staging.celebix.site" | ".saas-staging.celebix.net";
   hmacKeyring: StorefrontIdentityKeyring;
   sealKeyring: StorefrontIdentityKeyring;
   email: Readonly<{ mode: "platform_resend"; from: string; apiKey: string }>;
@@ -54,7 +54,7 @@ export function parseStorefrontDataConfig(source: Environment): StorefrontDataCo
 
 export function parseStorefrontIdentityConfig(source: Environment): StorefrontIdentityConfig {
   function identityInvalid(): never { throw new Error("storefront_identity_config_invalid"); }
-  if (!source || typeof source !== "object" || Array.isArray(source) || source.CELEBIX_DEPLOYMENT_TIER !== "staging" || source.CELEBIX_STOREFRONT_ACCOUNTS_MODE !== "approved_staging" || source.CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX !== ".saas-staging.celebix.site" || source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE !== "platform_resend") identityInvalid();
+  if (!source || typeof source !== "object" || Array.isArray(source) || source.CELEBIX_DEPLOYMENT_TIER !== "staging" || source.CELEBIX_STOREFRONT_ACCOUNTS_MODE !== "approved_staging" || ![".saas-staging.celebix.site", ".saas-staging.celebix.net"].includes(source.CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX ?? "") || source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE !== "platform_resend") identityInvalid();
   let hmacKeyring: StorefrontIdentityKeyring;
   let sealKeyring: StorefrontIdentityKeyring;
   let from: string;
@@ -68,7 +68,7 @@ export function parseStorefrontIdentityConfig(source: Environment): StorefrontId
   if (hmacKeyring.activeKeyId === sealKeyring.activeKeyId || !from.endsWith("@celebix.test") && !from.endsWith("@celebix.co") && !from.endsWith("@noreply.celebix.net") || !/^re_[A-Za-z0-9_-]{16,200}$/u.test(apiKey)) identityInvalid();
   return Object.freeze({
     mode: "approved_staging",
-    allowedOriginSuffix: ".saas-staging.celebix.site",
+    allowedOriginSuffix: source.CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX as StorefrontIdentityConfig["allowedOriginSuffix"],
     hmacKeyring,
     sealKeyring,
     email: Object.freeze({ mode: "platform_resend", from, apiKey }),

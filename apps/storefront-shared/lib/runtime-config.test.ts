@@ -67,6 +67,15 @@ test("storefront identity config accepts the verified Celebix Resend sender doma
   assert.equal(parsed.email.from, "hesap@noreply.celebix.net");
 });
 
+test("storefront identity accepts the isolated Celebix .net staging authority", () => {
+  const parsed = parseStorefrontIdentityConfig({
+    ...identity,
+    CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX: ".saas-staging.celebix.net",
+  });
+
+  assert.equal(parsed.allowedOriginSuffix, ".saas-staging.celebix.net");
+});
+
 test("storefront identity config fails closed on incomplete or production settings", () => {
   for (const candidate of [
     {},
