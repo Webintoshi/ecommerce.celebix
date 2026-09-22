@@ -18,7 +18,19 @@ BEGIN
   ] LOOP
     IF pg_catalog.to_regprocedure(signature) IS NULL THEN RAISE EXCEPTION 'PERMANENT_CATALOG_DELETION_FUNCTION_MISSING:%',signature; END IF;
     IF NOT pg_catalog.has_function_privilege('celebix_saas_app',signature,'EXECUTE') THEN RAISE EXCEPTION 'PERMANENT_CATALOG_DELETION_EXECUTE_MISSING:%',signature; END IF;
-    IF pg_catalog.has_function_privilege('PUBLIC',signature,'EXECUTE') THEN RAISE EXCEPTION 'PERMANENT_CATALOG_DELETION_PUBLIC_EXECUTE:%',signature; END IF;
+    IF EXISTS(
+      SELECT 1
+      FROM pg_catalog.pg_proc AS procedure
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        CASE
+          WHEN procedure.proacl IS NULL THEN pg_catalog.acldefault('f',procedure.proowner)
+          ELSE procedure.proacl
+        END
+      ) AS privilege
+      WHERE procedure.oid=pg_catalog.to_regprocedure(signature)
+        AND privilege.grantee=0
+        AND privilege.privilege_type='EXECUTE'
+    ) THEN RAISE EXCEPTION 'PERMANENT_CATALOG_DELETION_PUBLIC_EXECUTE:%',signature; END IF;
   END LOOP;
 END
 $block$;

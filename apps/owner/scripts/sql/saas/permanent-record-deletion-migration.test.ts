@@ -175,6 +175,8 @@ test("144 grants only reviewed RPCs and supplies guarded rollback artifacts", ()
     assert.match(up, new RegExp(`GRANT EXECUTE ON FUNCTION saas[.]${name}`));
     assert.match(assertions, new RegExp(name));
   }
+  assert.doesNotMatch(assertions, /has_function_privilege\('PUBLIC'/u);
+  assert.match(assertions, /aclexplode[\s\S]*privilege[.]grantee=0[\s\S]*privilege[.]privilege_type='EXECUTE'/u);
   assert.match(down, /resource_kind IN\s*[(]\s*'product'\s*,\s*'category'/iu);
   assert.match(down, /DROP FUNCTION saas[.]delete_product/u);
   assert.match(down, /DROP FUNCTION saas[.]delete_category/u);
