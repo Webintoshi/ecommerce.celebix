@@ -10,6 +10,8 @@ import {
   parseOrderDeliveryId,
   parseOrderListItem,
   parseOrderNeighbors,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -30,6 +32,7 @@ import {
   readOrderArchiveInput,
   readOrderDraftListInput,
   readOrderDraftMutationInput,
+  readOrderDeletionInput,
   readOrderMutationInput,
   readOrderPanelSessionCookie,
   readOrderPathId,
@@ -70,6 +73,7 @@ const ERROR_STATUS: Readonly<Record<OrderErrorCode, number>> = Object.freeze({
   operation_replayed: 409,
   operation_mismatch: 409,
   durable_authority_invalid: 409,
+  invalid_confirmation: 409,
   unavailable: 503,
 });
 
@@ -241,6 +245,48 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
   }
 
   return Object.freeze({
+    async getDeletionImpact(request: Request, rawId: unknown) {
+      const orderId = pathId(rawId); if (isResponse(orderId)) return orderId;
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: `${ORDERS_PATH}/${orderId}/deletion-impact`, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.orders.getDeletionImpact({
+          tenantContext: authorized.tenantContext, now: authorized.now, orderId,
+        }),
+        (value) => {
+          const parsed = parsePermanentDeletionImpact(value);
+          if (parsed.resourceKind !== "order" || parsed.resourceId !== orderId) throw new TypeError("invalid");
+          return parsed;
+        },
+      );
+    },
+    async deleteOrder(request: Request, rawId: unknown) {
+      const orderId = pathId(rawId); if (isResponse(orderId)) return orderId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: `${ORDERS_PATH}/${orderId}/delete`, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      const input = await readOrderDeletionInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(
+        () => authorized.runtime.orders.deleteOrder({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+          orderId,
+          ...input.value,
+        }),
+        (value) => {
+          const parsed = parsePermanentDeletionResult(value);
+          if (
+            parsed.resourceKind !== "order" || parsed.resourceId !== orderId ||
+            parsed.auditId !== input.value.operationId
+          ) throw new TypeError("invalid");
+          return parsed;
+        },
+      );
+    },
     archiveOrder:(request:Request,orderId:unknown)=>archiveChange(request,orderId,"archive"),
     restoreOrder:(request:Request,orderId:unknown)=>archiveChange(request,orderId,"restore"),
     async getArchiveEligibility(request:Request,rawId:unknown) {

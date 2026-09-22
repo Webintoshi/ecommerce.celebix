@@ -71,3 +71,32 @@ test("142 rollback refuses to erase committed deletion audit rows", () => {
   assert.match(down, /DROP TABLE saas[.]record_deletion_operations/u);
   assert.match(down, /COMMIT[;]/u);
 });
+
+test("142 implements owner-admin-only order impact deletion and recovery without provider calls", () => {
+  const up = source("up");
+
+  assert.match(up, /'orders[.]delete'/u);
+  assert.match(up, /'catalog_admin[.]delete'/u);
+  assert.match(up, /membership_role IN \('store_owner','admin'\)/u);
+  assert.match(up, /CREATE FUNCTION saas[.]order_deletion_impact\s*[(]/u);
+  assert.match(up, /merchant_action_authority_error\([\s\S]*?'orders'[\s\S]*?'orders[.]delete'/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_order\s*[(]/u);
+  assert.match(up, /CREATE FUNCTION saas[.]delete_order_recover\s*[(]/u);
+  assert.match(up, /UPDATE saas[.]order_drafts[\s\S]*converted_order_id\s*=\s*NULL/iu);
+  assert.match(up, /UPDATE saas[.]abandoned_carts[\s\S]*recovered_order_id\s*=\s*NULL/iu);
+  assert.match(up, /DELETE FROM saas[.]order_items/iu);
+  assert.match(up, /DELETE FROM saas[.]orders/iu);
+  assert.match(up, /INSERT INTO saas[.]record_deletion_operations/iu);
+  assert.doesNotMatch(up, /(?:paytr|iyzico|provider_(?:cancel|refund|void)|http_post|net[.]http)/iu);
+});
+
+test("142 order deletion functions remain table-private and app-executable only by RPC", () => {
+  const up = source("up");
+  const assertions = source("assertions");
+
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]order_deletion_impact/iu);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]delete_order\s*[(]/iu);
+  assert.match(up, /GRANT EXECUTE ON FUNCTION saas[.]delete_order_recover/iu);
+  assert.match(assertions, /has_function_privilege\s*[(]\s*'celebix_saas_app'[\s\S]*?order_deletion_impact/iu);
+  assert.match(assertions, /has_function_privilege\s*[(]\s*'celebix_saas_app'[\s\S]*?delete_order/iu);
+});

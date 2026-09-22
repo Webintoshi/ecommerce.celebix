@@ -14,6 +14,9 @@ import {
   parseOrderDeliveryId,
   parseOrderListItem,
   parseOrderNeighbors,
+  parsePermanentDeletionCommand,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   type OrderAddress,
   type OrderDashboardSummary,
   type OrderDetail,
@@ -28,6 +31,9 @@ import {
   type OrderSort,
   type OrderStatus,
   type OrderTracking,
+  type PermanentDeletionCommand,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
 } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -38,7 +44,7 @@ const ERROR_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
   "order_not_found", "note_not_found", "draft_not_found", "draft_not_editable", "inventory_conflict",
   "catalog_conflict", "customer_conflict", "invalid_transition", "version_conflict", "operation_replayed",
-  "operation_mismatch", "durable_authority_invalid", "unavailable",
+  "operation_mismatch", "durable_authority_invalid", "invalid_confirmation", "unavailable",
 ] as const);
 export type OrderApiErrorCode = (typeof ERROR_CODES)[number];
 
@@ -60,6 +66,7 @@ const MESSAGES: Readonly<Record<OrderApiErrorCode, string>> = Object.freeze({
   operation_replayed: "Bu işlem daha önce tamamlandı. Güncel sipariş yeniden yüklenecek.",
   operation_mismatch: "İşlem güvenli biçimde tekrar edilemedi.",
   durable_authority_invalid: "Sipariş yetkisi yeniden doğrulanamadı.",
+  invalid_confirmation: "Silme onayı sipariş numarasıyla eşleşmiyor.",
   unavailable: "Sipariş hizmeti şu anda kullanılamıyor. Lütfen yeniden deneyin.",
 });
 
@@ -330,6 +337,41 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
   }
 
   return Object.freeze({
+    async getDeletionImpact(orderId: string): Promise<Readonly<PermanentDeletionImpact>> {
+      const order = local(() => id(orderId));
+      const result = await request(`/api/orders/${order}/deletion-impact`, {
+        method: "GET", credentials: "same-origin", cache: "no-store",
+      });
+      return safeParse(() => {
+        const parsed = parsePermanentDeletionImpact(result);
+        if (parsed.resourceKind !== "order" || parsed.resourceId !== order) throw new TypeError("order_response_invalid");
+        return parsed;
+      });
+    },
+    async deleteOrder(
+      orderId: string,
+      command: Readonly<PermanentDeletionCommand>,
+    ): Promise<Readonly<PermanentDeletionResult>> {
+      const order = local(() => id(orderId));
+      const parsedCommand = local(() => parsePermanentDeletionCommand(command));
+      const result = await request(`/api/orders/${order}/delete`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": parsedCommand.operationId },
+        body: local(() => JSON.stringify({
+          expectedVersion: parsedCommand.expectedVersion,
+          confirmation: parsedCommand.confirmation,
+        })),
+      });
+      return safeParse(() => {
+        const parsed = parsePermanentDeletionResult(result);
+        if (
+          parsed.resourceKind !== "order" || parsed.resourceId !== order ||
+          parsed.auditId !== parsedCommand.operationId
+        ) throw new TypeError("order_response_invalid");
+        return parsed;
+      });
+    },
     async getArchiveEligibility(orderId: string) {
       const order = local(() => id(orderId));
       const result = await request(`/api/orders/${order}/archive`, { method: "GET", credentials: "same-origin", cache: "no-store" });

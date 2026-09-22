@@ -11,6 +11,8 @@ import {
   parseOrderDraftListItem,
   parseOrderListItem,
   parseOrderNeighbors,
+  parsePermanentDeletionImpact,
+  parsePermanentDeletionResult,
   type OrderDashboardSummary,
   type OrderDetail,
   type OrderEmailDeliverySummary,
@@ -22,6 +24,8 @@ import {
   type OrderPaymentStatus,
   type OrderSort,
   type OrderStatus,
+  type PermanentDeletionImpact,
+  type PermanentDeletionResult,
   type TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -42,6 +46,7 @@ import type {
   AddOrderNoteInput,
   ArchiveOrderNoteInput,
   CreateOrderDraftInput,
+  DeleteOrderInput,
   GetOrderDraftInput,
   GetOrderInput,
   ListOrdersInput,
@@ -73,13 +78,14 @@ import {
   orderStatusFilter,
   orderUuid,
   orderDeliveryId,
+  orderDeletionConfirmation,
   positiveOrderVersion,
   type ValidatedOrderAuthority,
 } from "./validation.ts";
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
-type RecoveryFunction = "orders_recover_operation" | "order_drafts_recover_operation";
+type RecoveryFunction = "orders_recover_operation" | "order_drafts_recover_operation" | "delete_order_recover";
 const ERROR_CODES = new Set<string>(ORDER_ERROR_CODES);
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -536,6 +542,65 @@ export class PostgresOrderRepository implements OrderRepository {
       if (result.id !== orderId) throw unavailable();
       return result;
     });
+  }
+
+  async getDeletionImpact(input: GetOrderInput): Promise<PermanentDeletionImpact> {
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const orderId = orderUuid(exact.orderId);
+    return this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.order_deletion_impact(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
+      )`,
+      values: [...authorityValues(authority), orderId],
+    }, "found", (value) => {
+      try {
+        const result = parsePermanentDeletionImpact(value);
+        if (result.resourceKind !== "order" || result.resourceId !== orderId) throw unavailable();
+        return result;
+      } catch (error) {
+        if (error instanceof OrderRepositoryError) throw error;
+        throw unavailable();
+      }
+    });
+  }
+
+  async deleteOrder(input: DeleteOrderInput): Promise<PermanentDeletionResult> {
+    const exact = exactOrderInput(input, [
+      "tenantContext", "now", "orderId", "operationId", "expectedVersion", "confirmation",
+    ]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    const operationId = orderUuid(exact.operationId);
+    const orderId = orderUuid(exact.orderId);
+    const expectedVersion = positiveOrderVersion(exact.expectedVersion);
+    const confirmation = orderDeletionConfirmation(exact.confirmation);
+    const fingerprint = orderFingerprint("delete_order", authority.storeId, {
+      orderId, expectedVersion, confirmation,
+    });
+    const parser: MutationParser<PermanentDeletionResult> = (value, replayed) => {
+      try {
+        const result = parsePermanentDeletionResult(value);
+        if (
+          result.resourceKind !== "order" ||
+          result.resourceId !== orderId ||
+          result.auditId !== operationId ||
+          result.replayed !== replayed
+        ) throw unavailable();
+        return result;
+      } catch (error) {
+        if (error instanceof OrderRepositoryError) throw error;
+        throw unavailable();
+      }
+    };
+    return this.mutate(authority, operationId, fingerprint, {
+      text: `SELECT outcome, result_payload FROM saas.delete_order(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+        $8::uuid,$9::text,$10::uuid,$11::bigint,$12::text
+      )`,
+      values: [
+        ...authorityValues(authority), operationId, fingerprint, orderId, expectedVersion, confirmation,
+      ],
+    }, parser, "deleted", "delete_order_recover");
   }
 
   async getArchiveEligibility(input: GetOrderInput): Promise<OrderArchiveEligibility> {

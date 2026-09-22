@@ -33,6 +33,8 @@ function disabledAccess(): ServerPanelAccessRuntime {
 function orders(): OrderRepository {
   const reject = async () => { throw new Error("unused"); };
   return {
+    getDeletionImpact: reject,
+    deleteOrder: reject,
     getArchiveEligibility: reject,
     listArchivedOrders: reject,
     archiveOrder: reject,
@@ -69,7 +71,7 @@ test("approved access resolves an immutable order-only repository facade", () =>
     "addNote", "archiveDraft", "archiveNote", "convertDraft", "createDraft", "getDashboardSummary",
     "getDraft", "getOrder", "getOrderNeighbors", "listDrafts", "listEmailDeliveries", "listOrders",
     "retryEmailDelivery", "transitionPayment", "transitionStatus", "updateDraft", "updateShipping",
-    "archiveOrder", "getArchiveEligibility", "listArchivedOrders", "restoreOrder",
+    "archiveOrder", "deleteOrder", "getArchiveEligibility", "getDeletionImpact", "listArchivedOrders", "restoreOrder",
   ].sort());
   for (const forbidden of ["pool", "options", "database", "connectionString", "tenantContext"]) {
     assert.equal(forbidden in runtime.orders, false);
@@ -149,4 +151,14 @@ test("approved staging preflight gates one shared pool on exact order tables and
     assert.equal(source.includes(`has_function_privilege('celebix_saas_app','saas.${signature}','EXECUTE')`), true);
   }
   assert.match(source, /row\.order_archive_repository !== true/u);
+  assert.match(source, /to_regclass\('saas\.record_deletion_operations'\) IS NOT NULL/u);
+  for (const signature of [
+    "order_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+    "delete_order_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+  ]) {
+    assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true);
+    assert.equal(source.includes(`has_function_privilege('celebix_saas_app','saas.${signature}','EXECUTE')`), true);
+  }
+  assert.match(source, /row\.order_deletion_repository !== true/u);
 });

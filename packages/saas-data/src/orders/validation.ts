@@ -181,6 +181,10 @@ export function positiveOrderVersion(value: unknown): number {
   return value as number;
 }
 
+export function orderDeletionConfirmation(value: unknown): string {
+  return boundedString(value, 1, 200, "invalid_input");
+}
+
 export function orderDraftSaveIntent(
   value: unknown,
   expectedVersion?: number,

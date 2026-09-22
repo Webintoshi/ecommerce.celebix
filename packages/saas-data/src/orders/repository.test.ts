@@ -65,6 +65,7 @@ const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NEXT_ORDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const AUDIT_ID = OPERATION_ID;
 const DRAFT_ID = "12121212-1212-4121-8121-121212121212";
 const DRAFT_OPERATION_ID = "13131313-1313-4131-8131-131313131313";
 const DRAFT_LINE_ID = "14141414-1414-4141-8141-141414141414";
@@ -203,6 +204,32 @@ function mutationProjection(overrides: Record<string, unknown> = {}) {
     paymentStatus: "completed",
     version: 5,
     updatedAt: NOW.toISOString(),
+    ...overrides,
+  };
+}
+
+function deletionImpact(overrides: Record<string, unknown> = {}) {
+  return {
+    resourceKind: "order",
+    resourceId: ORDER_ID,
+    expectedVersion: 4,
+    confirmationLabel: "HMN-1001",
+    effects: [
+      { kind: "order_items", count: 1, disposition: "delete" },
+      { kind: "draft_links", count: 1, disposition: "detach" },
+      { kind: "external_payment", count: 1, disposition: "external_unchanged" },
+    ],
+    ...overrides,
+  };
+}
+
+function deletionResult(overrides: Record<string, unknown> = {}) {
+  return {
+    resourceKind: "order",
+    resourceId: ORDER_ID,
+    deleted: true,
+    auditId: AUDIT_ID,
+    replayed: false,
     ...overrides,
   };
 }
@@ -863,6 +890,69 @@ test("operation replay returns the frozen prior mutation projection with replaye
   assert.equal(client.calls.filter(({ text }) => text.includes("orders_transition_status")).length, 1);
 });
 
+test("order deletion impact binds tenant identity and parses finite effects", async () => {
+  const client = new FakeClient((text, values) => {
+    if (!text.includes("saas.order_deletion_impact(")) return [];
+    assert.deepEqual(values, [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, ORDER_ID]);
+    return [{ outcome: "found", result_payload: deletionImpact() }];
+  });
+  const result = await repository(new FakePool(client)).getDeletionImpact({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  });
+  assert.deepEqual(result, deletionImpact());
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.effects), true);
+});
+
+test("deleteOrder binds tenant version confirmation fingerprint and operation id", async () => {
+  const client = new FakeClient((text, values) => {
+    if (!text.includes("saas.delete_order(")) return [];
+    assert.deepEqual(values.slice(0, 8), [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, OPERATION_ID]);
+    assert.match(String(values[8]), /^[a-f0-9]{64}$/u);
+    assert.deepEqual(values.slice(9), [ORDER_ID, 4, "HMN-1001"]);
+    return [{ outcome: "deleted", result_payload: deletionResult() }];
+  });
+  const result = await repository(new FakePool(client)).deleteOrder({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+    operationId: OPERATION_ID, expectedVersion: 4, confirmation: "HMN-1001",
+  });
+  assert.deepEqual(result, deletionResult());
+  assert.equal(Object.isFrozen(result), true);
+  assert.match(functionCall(client, "delete_order").text, /\$8::uuid,\$9::text,\$10::uuid,\$11::bigint,\$12::text/u);
+});
+
+test("order deletion maps opaque missing stale confirmation and operation mismatch without mutation claims", async () => {
+  for (const outcome of ["order_not_found", "version_conflict", "invalid_confirmation", "operation_mismatch"] as const) {
+    const client = new FakeClient((text) => text.includes("saas.delete_order(")
+      ? [{ outcome, result_payload: null }]
+      : []);
+    await assert.rejects(repository(new FakePool(client)).deleteOrder({
+      tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+      operationId: OPERATION_ID, expectedVersion: 4, confirmation: "HMN-1001",
+    }), orderError(outcome));
+    assert.equal(client.calls.filter(({ text }) => text.includes("saas.delete_order(")).length, 1);
+  }
+});
+
+test("order deletion replays and performs exactly one read-only recovery after an ambiguous commit", async () => {
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.delete_order(")) return [{ outcome: "deleted", result_payload: deletionResult() }];
+    if (text === "COMMIT") throw new Error(PRIVATE_PROXY_SECRET);
+    return [];
+  });
+  const recovery = new FakeClient((text) => text.includes("saas.delete_order_recover(")
+    ? [{ outcome: "operation_replayed", result_payload: deletionResult({ replayed: true }) }]
+    : []);
+  const result = await repository(new FakePool(writer, recovery)).deleteOrder({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+    operationId: OPERATION_ID, expectedVersion: 4, confirmation: "HMN-1001",
+  });
+  assert.deepEqual(result, deletionResult({ replayed: true }));
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("saas.delete_order_recover(")).length, 1);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("saas.delete_order(")), false);
+});
+
 test("finite mismatch, missing entity, conflict, transition, and role denials map to stable order errors", async () => {
   const outcomes = [
     "operation_mismatch", "order_not_found", "note_not_found", "version_conflict", "invalid_transition", "membership_denied",
@@ -1166,7 +1256,7 @@ test("every public failure contains only its stable code and never private autho
 
 test("the finite error vocabulary is frozen and constructor policy rejects unsafe role or timeout configuration", () => {
   assert.deepEqual(ORDER_ERROR_CODES, [
-    "invalid_input", "unauthenticated", "membership_denied", "store_inactive",
+    "invalid_input", "invalid_confirmation", "unauthenticated", "membership_denied", "store_inactive",
     "feature_not_enabled", "order_not_found", "note_not_found", "draft_not_found",
     "draft_not_editable", "inventory_conflict", "catalog_conflict", "customer_conflict", "invalid_transition",
     "version_conflict", "operation_replayed", "operation_mismatch",

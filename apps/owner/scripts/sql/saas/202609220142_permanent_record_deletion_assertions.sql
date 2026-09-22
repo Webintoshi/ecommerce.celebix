@@ -55,5 +55,21 @@ BEGIN
   ) <> 1 THEN
     RAISE EXCEPTION 'PERMANENT_RECORD_DELETION_CONSTRAINT_ASSERTION_FAILED';
   END IF;
+
+  IF NOT pg_catalog.has_function_privilege(
+    'celebix_saas_app',
+    'saas.order_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+    'EXECUTE'
+  ) OR NOT pg_catalog.has_function_privilege(
+    'celebix_saas_app',
+    'saas.delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)',
+    'EXECUTE'
+  ) OR NOT pg_catalog.has_function_privilege(
+    'celebix_saas_app',
+    'saas.delete_order_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'PERMANENT_RECORD_DELETION_RPC_ASSERTION_FAILED';
+  END IF;
 END
 $assertions$;

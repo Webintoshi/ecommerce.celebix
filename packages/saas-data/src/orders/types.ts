@@ -13,6 +13,9 @@ import type {
   OrderSort,
   OrderStatus,
   OrderTracking,
+  PermanentDeletionCommand,
+  PermanentDeletionImpact,
+  PermanentDeletionResult,
   TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -65,6 +68,8 @@ export interface UpdateOrderDraftInput extends OrderDraftOperationInput {
 export interface OrderOperationInput extends GetOrderInput {
   readonly operationId: string;
 }
+
+export interface DeleteOrderInput extends GetOrderInput, PermanentDeletionCommand {}
 
 export interface ArchiveOrderInput extends OrderOperationInput {
   readonly reason: string;
@@ -130,6 +135,8 @@ export interface ListOrderDraftsResult {
 }
 
 export interface OrderRepository {
+  getDeletionImpact(input: GetOrderInput): Promise<PermanentDeletionImpact>;
+  deleteOrder(input: DeleteOrderInput): Promise<PermanentDeletionResult>;
   getArchiveEligibility(input: GetOrderInput): Promise<OrderArchiveEligibility>;
   listArchivedOrders(input: ListOrdersInput): Promise<ListOrdersResult>;
   archiveOrder(input: ArchiveOrderInput): Promise<OrderArchiveResult>;

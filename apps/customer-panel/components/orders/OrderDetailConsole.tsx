@@ -29,6 +29,7 @@ import {
   type OrderPaymentStatus,
   type OrderStatus,
   type OrderTracking,
+  type PermanentDeletionImpact,
 } from "@celebix/saas-contracts";
 
 import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
@@ -37,6 +38,7 @@ import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import styles from "./order-console.module.css";
 
 export interface OrderUiCapabilities {
+  readonly delete?: boolean;
   readonly fulfill: boolean;
   readonly manage: boolean;
   readonly payment: boolean;
@@ -205,10 +207,13 @@ export interface OrderDetailPresentationProps {
   readonly notice: string;
   readonly busy: string;
   readonly notificationBusy?: string;
+  readonly deletionImpact?: PermanentDeletionImpact;
   readonly capabilities: OrderUiCapabilities;
   readonly onRetry: () => void;
   readonly onArchiveSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onRestoreSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+  readonly onDeletionImpactRequest?: () => void;
+  readonly onDeleteSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onNotificationRetry?: (deliveryId: string) => void;
   readonly onStatusChange: (status: OrderStatus) => void;
   readonly onPaymentChange: (status: OrderPaymentStatus) => void;
@@ -255,6 +260,26 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <label>QA kanıt referansı<input name="evidenceReference" required maxLength={500} /></label>
         <button type="submit" disabled={Boolean(props.busy)}>Arşivden çıkar</button>
       </form> : null}
+      {props.capabilities.delete === true && props.onDeletionImpactRequest && props.onDeleteSubmit ? <details className={styles.orderInfoCard}>
+        <summary>Siparişi kalıcı olarak sil</summary>
+        <p>Bu işlem geri alınamaz. Sipariş ve bağlı panel kayıtları kalıcı olarak kaldırılır; dış ödeme veya kargo sağlayıcılarındaki kayıtlar değiştirilmez.</p>
+        {props.deletionImpact === undefined ? (
+          <button type="button" disabled={Boolean(props.busy)} onClick={props.onDeletionImpactRequest}>
+            {props.busy === "deletion-impact" ? "Etki yükleniyor…" : "Silme etkisini göster"}
+          </button>
+        ) : (
+          <form onSubmit={props.onDeleteSubmit}>
+            <ul>
+              {props.deletionImpact.effects.map((effect) => <li key={effect.kind}>{effect.kind}: {effect.count}</li>)}
+            </ul>
+            <label>Onaylamak için <strong>{props.deletionImpact.confirmationLabel}</strong> yazın
+              <input name="confirmation" required maxLength={200} autoComplete="off" />
+            </label>
+            <label><input name="acknowledged" type="checkbox" required /> Bu işlemin geri alınamayacağını anlıyorum.</label>
+            <button type="submit" disabled={Boolean(props.busy)}>{props.busy === "delete" ? "Siliniyor…" : "Kalıcı olarak sil"}</button>
+          </form>
+        )}
+      </details> : null}
 
       <div className={styles.orderWorkspace}>
         <main className={styles.workspaceMain}>
@@ -378,6 +403,8 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [deletionImpact, setDeletionImpact] = useState<PermanentDeletionImpact>();
+  const deletionIntent = useRef<Readonly<{ orderId: string; expectedVersion: number; confirmation: string; operationId: string }> | undefined>(undefined);
   const [notificationBusy, setNotificationBusy] = useState("");
   const archiveIntent = useRef<Readonly<{ orderId: string; reason: string; operationId: string }> | undefined>(undefined);
 
@@ -402,6 +429,8 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
 
   useEffect(() => {
     setDetail(undefined);
+    setDeletionImpact(undefined);
+    deletionIntent.current = undefined;
     setNeighbors(undefined);
     setNotifications(Object.freeze([]));
     setState("loading");
@@ -465,6 +494,55 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     });
   }
 
+  async function loadDeletionImpact() {
+    if (!detail || capabilities.delete !== true || busy) return;
+    setBusy("deletion-impact"); setError(""); setNotice("");
+    try {
+      const impact = await orderApi.getDeletionImpact(orderId);
+      if (impact.resourceId !== detail.id || impact.resourceKind !== "order") throw new Error("invalid deletion impact");
+      setDeletionImpact(impact);
+      deletionIntent.current = undefined;
+    } catch (failure) {
+      setError(safeMessage(failure));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function deleteOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail || !deletionImpact || capabilities.delete !== true || busy) return;
+    const data = new FormData(event.currentTarget);
+    const confirmation = field(data, "confirmation");
+    const acknowledged = data.get("acknowledged") === "on";
+    if (!acknowledged || confirmation !== deletionImpact.confirmationLabel) {
+      setError("Silme onayı sipariş numarasıyla eşleşmiyor.");
+      return;
+    }
+    const intent = deletionIntent.current;
+    const operationId = intent?.orderId === orderId && intent.expectedVersion === deletionImpact.expectedVersion && intent.confirmation === confirmation
+      ? intent.operationId
+      : crypto.randomUUID();
+    deletionIntent.current = Object.freeze({
+      orderId,
+      expectedVersion: deletionImpact.expectedVersion,
+      confirmation,
+      operationId,
+    });
+    setBusy("delete"); setError(""); setNotice("");
+    void orderApi.deleteOrder(orderId, {
+      operationId,
+      expectedVersion: deletionImpact.expectedVersion,
+      confirmation,
+    }).then((result) => {
+      if (!result.deleted || result.resourceId !== orderId || result.auditId !== operationId) throw new Error("invalid deletion result");
+      window.location.assign("/orders");
+    }).catch((failure) => {
+      setError(safeMessage(failure));
+      setBusy("");
+    });
+  }
+
   async function retryNotification(deliveryId: string) {
     setNotificationBusy(deliveryId);
     setError("");
@@ -480,7 +558,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     }
   }
 
-  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onArchiveSubmit={archiveOrder} onRestoreSubmit={(event)=>{
+  return <OrderDetailPresentation state={state} detail={detail} neighbors={neighbors} notifications={notifications} deletionImpact={deletionImpact} error={error} notice={notice} busy={busy} notificationBusy={notificationBusy} capabilities={capabilities} onArchiveSubmit={archiveOrder} onDeletionImpactRequest={() => { void loadDeletionImpact(); }} onDeleteSubmit={deleteOrder} onRestoreSubmit={(event)=>{
     event.preventDefault();
     const data=new FormData(event.currentTarget);
     const operationId=event.currentTarget.dataset.operationId ?? crypto.randomUUID();

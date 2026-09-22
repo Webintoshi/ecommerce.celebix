@@ -227,6 +227,8 @@ function draftListItem() {
 function repository(overrides: Partial<OrderRepository> = {}): OrderRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
   return Object.freeze({
+    getDeletionImpact: reject,
+    deleteOrder: reject,
     getDashboardSummary: reject,
     listOrders: reject,
     getOrder: reject,
@@ -360,6 +362,62 @@ test("authenticated order detail validates the path ID and calls once", async ()
   assert.equal(response.status, 200);
   assert.deepEqual(await body(response), detail());
   assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }]);
+});
+
+test("order permanent deletion exposes exact impact and one confirmed tenant-scoped command", async () => {
+  const calls: Array<readonly [string, unknown]> = [];
+  const impact = Object.freeze({
+    resourceKind: "order" as const,
+    resourceId: ORDER_ID,
+    expectedVersion: 4,
+    confirmationLabel: "HMN-1001",
+    effects: Object.freeze([
+      Object.freeze({ kind: "order_items" as const, count: 2, disposition: "delete" as const }),
+      Object.freeze({ kind: "external_payment" as const, count: 0, disposition: "external_unchanged" as const }),
+    ]),
+  });
+  const deleted = Object.freeze({
+    resourceKind: "order" as const,
+    resourceId: ORDER_ID,
+    deleted: true as const,
+    auditId: OPERATION_ID,
+    replayed: false,
+  });
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async getDeletionImpact(input) { calls.push(["impact", input]); return impact; },
+    async deleteOrder(input) { calls.push(["delete", input]); return deleted; },
+  })));
+  const impactResponse = await handlers.getDeletionImpact(
+    request(`${ORDERS}/${ORDER_ID}/deletion-impact`),
+    ORDER_ID,
+  );
+  const deleteResponse = await handlers.deleteOrder(
+    request(`${ORDERS}/${ORDER_ID}/delete`, {
+      method: "POST",
+      body: { expectedVersion: 4, confirmation: "HMN-1001" },
+    }),
+    ORDER_ID,
+  );
+  assert.equal(impactResponse.status, 200);
+  assert.deepEqual(await body(impactResponse), impact);
+  assert.equal(deleteResponse.status, 200);
+  assert.deepEqual(await body(deleteResponse), deleted);
+  assert.deepEqual(calls, [
+    ["impact", { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }],
+    ["delete", {
+      tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+      operationId: OPERATION_ID, expectedVersion: 4, confirmation: "HMN-1001",
+    }],
+  ]);
+  const invalid = await handlers.deleteOrder(
+    request(`${ORDERS}/${ORDER_ID}/delete`, {
+      method: "POST",
+      body: { expectedVersion: 4, confirmation: "HMN-1001", storeId: STORE_ID },
+    }),
+    ORDER_ID,
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(calls.length, 2);
 });
 
 test("draft HTTP surface lists reads saves archives and converts with session-only authority", async () => {
@@ -730,7 +788,7 @@ test("all stable repository errors map to their safe HTTP statuses", async () =>
     feature_not_enabled: 403, order_not_found: 404, note_not_found: 404, draft_not_found: 404,
     draft_not_editable: 409, inventory_conflict: 409, catalog_conflict: 409, customer_conflict: 409, invalid_transition: 409,
     version_conflict: 409, operation_replayed: 409, operation_mismatch: 409,
-    durable_authority_invalid: 409, unavailable: 503,
+    durable_authority_invalid: 409, invalid_confirmation: 409, unavailable: 503,
   };
   for (const [code, status] of Object.entries(statuses) as [OrderErrorCode, number][]) {
     const handlers = createOrderHttpHandlers(dependencies(repository({

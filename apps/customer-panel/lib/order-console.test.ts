@@ -47,6 +47,17 @@ test('active archive action renders only for managers and never replaces archive
  const archived=renderToStaticMarkup(createElement(Presentation,{...common,detail:{...detail,archive:{archived:true,changedAt:NOW}},capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
  assert.doesNotMatch(archived,/Siparişi arşivle|>Arşivle</u); assert.match(archived,/Arşivden çıkar/u);
 });
+test('permanent order deletion stays manager-only and requires the exact impact label',async()=>{
+ const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
+ const common={detail,state:'loaded',error:'',notice:'',busy:'',onRetry(){},onArchiveSubmit(){},onRestoreSubmit(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){},onDeletionImpactRequest(){},onDeleteSubmit(){}};
+ const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{delete:false,fulfill:true,manage:true,payment:false,shipping:true,note:true}}));
+ assert.doesNotMatch(readOnly,/Kalıcı olarak sil|Silme etkisini göster/u);
+ const pending=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{delete:true,fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
+ assert.match(pending,/Siparişi kalıcı olarak sil/u); assert.match(pending,/Silme etkisini göster/u);
+ const impact={resourceKind:'order',resourceId:ORDER_ID,expectedVersion:4,confirmationLabel:'HMN-1001',effects:[{kind:'order_items',count:2,disposition:'delete'}]};
+ const ready=renderToStaticMarkup(createElement(Presentation,{...common,deletionImpact:impact,capabilities:{delete:true,fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
+ assert.match(ready,/HMN-1001/u); assert.match(ready,/name="confirmation"/u); assert.match(ready,/name="acknowledged"/u); assert.match(ready,/>Kalıcı olarak sil</u);
+});
 test('uncertain archive retry reuses one operation ID until success',async()=>{
  const hooks=createHookRuntime(); let current:OrderDetail=detail; const archiveInputs:Record<string,unknown>[]=[]; let attempts=0;
  const {exports}=await compileOrderModule('components/orders/OrderDetailConsole.tsx',{react:hooks.runtime,orderApi:{
@@ -558,6 +569,42 @@ test("order client performs strict frozen same-origin summary, list, and detail 
   assert.equal(Object.isFrozen(loaded.items[0]), true);
   assert.equal(Object.isFrozen(neighbors), true);
   assert.equal(Object.isFrozen(neighbors.previous), true);
+});
+
+test("order client binds permanent deletion impact and explicit one-shot command", async () => {
+  const { createOrderApiClient } = await import("./order-ui/client.ts");
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const impact = {
+    resourceKind: "order", resourceId: ORDER_ID, expectedVersion: 4, confirmationLabel: "HMN-1001",
+    effects: [{ kind: "order_items", count: 2, disposition: "delete" }],
+  };
+  const deleted = {
+    resourceKind: "order", resourceId: ORDER_ID, deleted: true, auditId: OPERATION_ID, replayed: false,
+  };
+  const bodies = [impact, deleted];
+  const api = createOrderApiClient({
+    fetch: async (input, init) => { calls.push([input, init]); return json(bodies.shift()); },
+  });
+  const loaded = await api.getDeletionImpact(ORDER_ID);
+  const result = await api.deleteOrder(ORDER_ID, {
+    operationId: OPERATION_ID,
+    expectedVersion: 4,
+    confirmation: "HMN-1001",
+  });
+  assert.deepEqual(calls.map(([path]) => path), [
+    `/api/orders/${ORDER_ID}/deletion-impact`,
+    `/api/orders/${ORDER_ID}/delete`,
+  ]);
+  assert.equal(calls[0]?.[1]?.method, "GET");
+  assert.equal(calls[1]?.[1]?.method, "POST");
+  assert.equal(new Headers(calls[1]?.[1]?.headers).get("idempotency-key"), OPERATION_ID);
+  assert.deepEqual(JSON.parse(String(calls[1]?.[1]?.body)), {
+    expectedVersion: 4,
+    confirmation: "HMN-1001",
+  });
+  assert.equal(Object.isFrozen(loaded), true);
+  assert.equal(Object.isFrozen(loaded.effects), true);
+  assert.equal(Object.isFrozen(result), true);
 });
 
 test("order client mutations use exact relative paths, JSON, idempotency, and safe frozen results", async () => {

@@ -4,6 +4,8 @@ import {
   ORDER_STATUSES,
   parseOrderDetail,
   parseOrderDraftSaveIntent,
+  parsePermanentDeletionCommand,
+  type PermanentDeletionCommand,
   type OrderAddress,
   type OrderDraftSaveIntent,
   type OrderPaymentStatus,
@@ -255,6 +257,29 @@ export async function readOrderArchiveInput(request: Request) {
     if(typeof value!=="string"||value.length<1||value.length>500||value!==value.trim()||CONTROL.test(value)) return INVALID;
   }
   return Object.freeze({kind:"valid" as const,operationId,reason:parsed.reason as string,evidenceReference:parsed.evidenceReference as string});
+}
+
+export async function readOrderDeletionInput(
+  request: Request,
+): Promise<Invalid | Readonly<{ kind: "valid"; value: PermanentDeletionCommand }>> {
+  const operationId = request.headers.get("idempotency-key");
+  if (operationId === null || !UUID.test(operationId) || operationId !== operationId.trim() || operationId.includes(",")) {
+    return INVALID;
+  }
+  const parsed = exact(await boundedJson(request), ["expectedVersion", "confirmation"]);
+  if (parsed === null) return INVALID;
+  try {
+    return Object.freeze({
+      kind: "valid" as const,
+      value: parsePermanentDeletionCommand({
+        operationId,
+        expectedVersion: parsed.expectedVersion,
+        confirmation: parsed.confirmation,
+      }),
+    });
+  } catch {
+    return INVALID;
+  }
 }
 
 export type OrderDraftMutationKind = "create" | "update" | "archive" | "convert";

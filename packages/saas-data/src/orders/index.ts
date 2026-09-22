@@ -8,6 +8,7 @@ export type {
   AddOrderNoteInput,
   ArchiveOrderNoteInput,
   CreateOrderDraftInput,
+  DeleteOrderInput,
   GetOrderDraftInput,
   GetOrderInput,
   ListOrdersInput,

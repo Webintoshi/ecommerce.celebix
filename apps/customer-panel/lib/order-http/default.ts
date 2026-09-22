@@ -35,6 +35,8 @@ type OrderDraftRouteContext = Readonly<{
 export const handleDefaultOrderGetDashboardSummary = handlers.getDashboardSummary;
 export const handleDefaultOrderList = handlers.listOrders;
 export const handleDefaultArchivedOrderList = handlers.listArchivedOrders;
+export async function handleDefaultOrderGetDeletionImpact(request:Request,context:OrderRouteContext) { return handlers.getDeletionImpact(request,(await context.params).orderId); }
+export async function handleDefaultOrderDelete(request:Request,context:OrderRouteContext) { return handlers.deleteOrder(request,(await context.params).orderId); }
 export async function handleDefaultOrderArchive(request:Request,context:OrderRouteContext) { return handlers.archiveOrder(request,(await context.params).orderId); }
 export async function handleDefaultOrderRestore(request:Request,context:OrderRouteContext) { return handlers.restoreOrder(request,(await context.params).orderId); }
 export async function handleDefaultOrderArchiveEligibility(request:Request,context:OrderRouteContext) { return handlers.getArchiveEligibility(request,(await context.params).orderId); }

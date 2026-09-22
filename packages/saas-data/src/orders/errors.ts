@@ -1,5 +1,6 @@
 export const ORDER_ERROR_CODES = Object.freeze([
   "invalid_input",
+  "invalid_confirmation",
   "unauthenticated",
   "membership_denied",
   "store_inactive",

@@ -11,6 +11,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const [{ orderId }, access] = await Promise.all([params, requireServerPanelAccess()]);
   const role = access.tenantContext.membership.role;
   const capabilities: OrderUiCapabilities = Object.freeze({
+    delete: isMerchantActionAllowed(role, "orders.delete"),
     fulfill: isMerchantActionAllowed(role, "orders.fulfill"),
     manage: isMerchantActionAllowed(role, "orders.manage"),
     payment: isMerchantActionAllowed(role, "orders.payment"),

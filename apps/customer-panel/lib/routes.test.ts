@@ -142,6 +142,8 @@ test("exports only the exact authenticated order route methods", async () => {
     ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],
     ["../app/api/orders/route.ts", "GET", "handleDefaultOrderList"],
     ["../app/api/orders/[orderId]/route.ts", "GET", "handleDefaultOrderGet"],
+    ["../app/api/orders/[orderId]/deletion-impact/route.ts", "GET", "handleDefaultOrderGetDeletionImpact"],
+    ["../app/api/orders/[orderId]/delete/route.ts", "POST", "handleDefaultOrderDelete"],
     ["../app/api/orders/[orderId]/status/route.ts", "PATCH", "handleDefaultOrderTransitionStatus"],
     ["../app/api/orders/[orderId]/payment/route.ts", "PATCH", "handleDefaultOrderTransitionPayment"],
     ["../app/api/orders/[orderId]/shipping/route.ts", "PATCH", "handleDefaultOrderUpdateShipping"],

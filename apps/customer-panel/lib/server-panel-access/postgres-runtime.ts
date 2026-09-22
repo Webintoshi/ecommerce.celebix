@@ -140,6 +140,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app','saas.orders_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)','EXECUTE')
         AND to_regprocedure('saas.orders_restore(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.orders_restore(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,text,text)','EXECUTE') AS order_archive_repository,
+      to_regclass('saas.record_deletion_operations') IS NOT NULL
+        AND to_regprocedure('saas.order_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.order_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE')
+        AND to_regprocedure('saas.delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)','EXECUTE')
+        AND to_regprocedure('saas.delete_order_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.delete_order_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)','EXECUTE') AS order_deletion_repository,
       to_regclass('saas.checkout_provider_configs') IS NOT NULL
         AND to_regclass('saas.quick_order_links') IS NOT NULL
         AND to_regclass('saas.quick_order_link_items') IS NOT NULL
@@ -614,6 +621,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.order_email_repository !== true ||
       row.migrations_078 !== true ||
       row.order_archive_repository !== true ||
+      row.order_deletion_repository !== true ||
       row.migrations_024_026 !== true ||
       row.sessions !== true || row.tenant_admin_auth !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
