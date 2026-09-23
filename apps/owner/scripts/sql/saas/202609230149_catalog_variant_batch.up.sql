@@ -27,7 +27,7 @@ ALTER TABLE saas.catalog_operations
 
 CREATE FUNCTION saas.catalog_variant_combination_key(p_attributes jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,saas AS $function$
-  SELECT pg_catalog.coalesce(pg_catalog.jsonb_object_agg(pg_catalog.lower(key),pg_catalog.lower(value)),'{}'::jsonb)
+  SELECT coalesce(pg_catalog.jsonb_object_agg(pg_catalog.lower(key),pg_catalog.lower(value)),'{}'::jsonb)
   FROM pg_catalog.jsonb_each_text(p_attributes)
 $function$;
 REVOKE ALL ON FUNCTION saas.catalog_variant_combination_key(jsonb) FROM PUBLIC;
