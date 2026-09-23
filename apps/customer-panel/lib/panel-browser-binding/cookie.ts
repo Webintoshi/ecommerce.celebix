@@ -36,8 +36,16 @@ export function serializePanelBrowserBindingCookie(input: {
 }
 
 export function parsePanelBrowserBindingCookie(value: unknown): string {
-  if (typeof value !== "string" || value.length < 1 || value.trim() !== value || /[\u0000-\u0020\u007f"%,;]/.test(value)) invalid();
+  if (typeof value !== "string" || value.length < 1 || value.length > 16_384 || /[\u0000-\u001f\u007f]/.test(value)) invalid();
   const prefix = `${NAME}=`;
-  if (!value.startsWith(prefix) || value.indexOf("=", prefix.length) !== -1) invalid();
-  return canonicalPanelBrowserBindingCredential(value.slice(prefix.length));
+  let credential: string | undefined;
+  for (const field of value.split(";")) {
+    const cookie = field.replace(/^ +/, "");
+    if (!cookie.startsWith(prefix)) continue;
+    if (credential !== undefined) invalid();
+    try { credential = canonicalPanelBrowserBindingCredential(cookie.slice(prefix.length)); }
+    catch { return invalid(); }
+  }
+  if (credential === undefined) invalid();
+  return credential;
 }

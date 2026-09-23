@@ -25,12 +25,16 @@ test("serializes the exact host-only secure pre-auth cookie with a 900-second ma
   );
 });
 
-test("parses only one exact pre-auth cookie and rejects every alternate cookie authority", () => {
+test("parses one exact pre-auth cookie alongside unrelated browser cookies", () => {
   assert.equal(parsePanelBrowserBindingCookie(`__Host-celebix_panel_pre_auth=${CREDENTIAL}`), CREDENTIAL);
+  assert.equal(parsePanelBrowserBindingCookie(`__Host-celebix_panel_pre_auth=${CREDENTIAL}; cf_clearance=opaque`), CREDENTIAL);
+  assert.equal(parsePanelBrowserBindingCookie(`other=ambient; __Host-celebix_panel_pre_auth=${CREDENTIAL}`), CREDENTIAL);
+});
+
+test("rejects missing, duplicate, and malformed pre-auth cookie authority", () => {
   for (const value of [
     "",
-    `__Host-celebix_panel_pre_auth=${CREDENTIAL}; other=1`,
-    `other=1; __Host-celebix_panel_pre_auth=${CREDENTIAL}`,
+    "other=1",
     `__Host-celebix_panel=${CREDENTIAL}`,
     `__Host-celebix_panel_pre_auth=${CREDENTIAL}; __Host-celebix_panel_pre_auth=${CREDENTIAL}`,
     `__Host-celebix_panel_pre_auth=\"${CREDENTIAL}\"`,

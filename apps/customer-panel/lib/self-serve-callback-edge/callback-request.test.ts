@@ -173,10 +173,10 @@ test("enforces raw query bounds without reading a browser body", () => {
   assert.equal(bodyReads, 0);
 });
 
-test("browser-bound completion accepts exactly one canonical pre-auth cookie and preserves response issuer", () => {
+test("browser-bound completion accepts one canonical pre-auth cookie with ambient cookies and preserves response issuer", () => {
   const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code&iss=${encodeURIComponent(ISSUER)}`;
   const result = validateBrowserBoundPanelCompletionRequest(new Request(callbackUrl, {
-    headers: { cookie: `__Host-celebix_panel_pre_auth=${BINDING}` },
+    headers: { cookie: `cf_clearance=opaque; __Host-celebix_panel_pre_auth=${BINDING}; other=ambient` },
   }), CALLBACK, 2_048);
   assert.deepEqual(result, {
     kind: "success",
@@ -189,12 +189,11 @@ test("browser-bound completion accepts exactly one canonical pre-auth cookie and
   assert.equal(Object.isFrozen(result), true);
 });
 
-test("browser-bound completion rejects missing, duplicate, additional, persistent, and malformed cookies", () => {
+test("browser-bound completion rejects missing, duplicate, and malformed binding cookies", () => {
   const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
   for (const cookie of [
     undefined,
     "",
-    `__Host-celebix_panel_pre_auth=${BINDING}; other=1`,
     `__Host-celebix_panel=${BINDING}`,
     `__Host-celebix_panel_pre_auth=${BINDING}; __Host-celebix_panel_pre_auth=${BINDING}`,
     `__Host-celebix_panel_pre_auth=${BINDING}%3D`,
