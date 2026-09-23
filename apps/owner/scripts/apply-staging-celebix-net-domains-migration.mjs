@@ -8,8 +8,8 @@ import pg from "pg";
 const { Client } = pg;
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIRECTORY = path.join(SCRIPT_DIRECTORY, "sql", "saas");
-const UP_FILE = "202609220146_celebix_net_staging_admin_domain.up.sql";
-const ASSERTIONS_FILE = "202609220146_celebix_net_staging_admin_domain_assertions.sql";
+const UP_FILE = "202609230147_celebix_net_staging_admin_domain_management.up.sql";
+const ASSERTIONS_FILE = "202609230147_celebix_net_staging_admin_domain_management_assertions.sql";
 
 export function resolveCelebixNetDomainsMigrationConfiguration(source = process.env) {
   if (
@@ -43,13 +43,19 @@ export async function runCelebixNetDomainsMigration({ client, readSql, write }) 
             pg_catalog.to_regprocedure('saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)')
           ),
           '.admin.saas-staging.celebix.net'
+        ) > 0, false)
+        AND COALESCE(pg_catalog.strpos(
+          pg_catalog.pg_get_functiondef(
+            pg_catalog.to_regprocedure('saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)')
+          ),
+          'management, status, canonical'
         ) > 0, false) AS migration_ready
     `);
     const row = preflight.rowCount === 1 ? preflight.rows[0] : null;
     if (row?.owner_member !== true) throw new Error("celebix_net_staging_migration_authority_invalid");
     if (row.migration_ready !== true) await client.query(readSql(UP_FILE));
     await client.query(readSql(ASSERTIONS_FILE));
-    write(`celebix_net_staging_admin_domain=${row.migration_ready === true ? "already_applied" : "applied"}`);
+    write(`celebix_net_staging_admin_domain_management=${row.migration_ready === true ? "already_applied" : "applied"}`);
   } finally {
     await client.end();
   }

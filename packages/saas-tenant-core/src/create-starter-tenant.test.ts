@@ -605,6 +605,20 @@ test("failures after each bootstrap stage roll back every partial record", async
   }
 });
 
+test("bootstrap failure diagnostic reports only the failing stage and cannot replace the public error", async () => {
+  const stages: Array<{ stage: string; failureType: string }> = [];
+  const repository = createInMemorySaaSDataRepository({ failAt: "after_store_create" });
+  const service = createStarterTenantService({
+    repository,
+    diagnostic: (stage, failureType) => { stages.push({ stage, failureType }); throw new Error("audit_unavailable"); },
+  });
+
+  const error = requireError(await service.execute(baseInput));
+  assert.equal(error.code, "tenant_transaction_failed");
+  assert.deepEqual(stages, [{ stage: "store_create", failureType: "other" }]);
+  assert.equal(repository.inspectState().stores.length, 0);
+});
+
 test("concurrent duplicate requests create one store and one replay", async () => {
   const repository = createInMemorySaaSDataRepository();
   const service = createStarterTenantService({ repository });

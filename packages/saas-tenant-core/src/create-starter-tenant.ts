@@ -7,6 +7,10 @@ import type {
   StoreMembership,
 } from "@celebix/saas-contracts";
 import {
+  SaaSDataCorruptionError,
+  SaaSDataLockTimeoutError,
+  SaaSDataPoolTimeoutError,
+  SaaSDataStatementTimeoutError,
   SaaSDataUnknownCommitError,
   SaaSDataUniqueConflict,
   assertNormalizedExactHostname,
@@ -33,7 +37,18 @@ export interface CreateStarterTenantServiceOptions {
   platformDomainSuffix?: string;
   panelBaseUrl?: string;
   adminOriginEnvironment?: AdminOriginEnvironment;
+  diagnostic?: (stage: TenantBootstrapStage, failureType: TenantBootstrapFailureType) => void;
 }
+
+export type TenantBootstrapFailureType =
+  | "core_rejection" | "unique_conflict" | "corrupt_result" | "pool_timeout"
+  | "statement_timeout" | "lock_timeout" | "unknown_commit" | "other";
+
+export type TenantBootstrapStage =
+  | "begin_transaction" | "operation_claim" | "principal_lookup" | "principal_create_or_update"
+  | "store_lookup" | "store_create" | "domain_lookup" | "domain_create"
+  | "admin_domain_create" | "membership_create" | "plan_lookup" | "subscription_create"
+  | "media_namespace_create" | "setting_create" | "operation_commit" | "transaction_commit";
 
 const RESERVED_PLATFORM_SLUGS: ReadonlySet<string> = new Set([
   "admin",
@@ -201,9 +216,11 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
   private readonly repository: SaaSDataRepository;
   private readonly platformDomainSuffix: string;
   private readonly adminOriginEnvironment: AdminOriginEnvironment;
+  private readonly diagnostic: ((stage: TenantBootstrapStage, failureType: TenantBootstrapFailureType) => void) | undefined;
 
   constructor(options: CreateStarterTenantServiceOptions) {
     this.repository = options.repository;
+    this.diagnostic = options.diagnostic;
     this.platformDomainSuffix = options.platformDomainSuffix ?? "celebix.site";
     normalizeExactHttpsOrigin(options.panelBaseUrl ?? "https://panel.celebix.site");
     if (
@@ -213,6 +230,18 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       options.adminOriginEnvironment !== "staging_net"
     ) throw new Error("invalid_exact_https_origin");
     this.adminOriginEnvironment = options.adminOriginEnvironment ?? "production";
+  }
+
+  private reportFailure(stage: TenantBootstrapStage, error: unknown): void {
+    const failureType: TenantBootstrapFailureType = error instanceof TenantCoreFailure ? "core_rejection"
+      : error instanceof SaaSDataUniqueConflict ? "unique_conflict"
+        : error instanceof SaaSDataCorruptionError ? "corrupt_result"
+          : error instanceof SaaSDataPoolTimeoutError ? "pool_timeout"
+            : error instanceof SaaSDataStatementTimeoutError ? "statement_timeout"
+              : error instanceof SaaSDataLockTimeoutError ? "lock_timeout"
+                : error instanceof SaaSDataUnknownCommitError ? "unknown_commit" : "other";
+    try { this.diagnostic?.(stage, failureType); }
+    catch { /* Diagnostics must never affect transaction outcomes. */ }
   }
 
   async execute(rawInput: unknown): Promise<CreateStarterTenantOutcome> {
@@ -231,10 +260,12 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
     let transaction: SaaSDataTransaction;
     try {
       transaction = await this.repository.beginTransaction();
-    } catch {
+    } catch (error) {
+      this.reportFailure("begin_transaction", error);
       return { ok: false, error: safeError("tenant_transaction_failed", undefined, true) };
     }
     let transactionClosed = false;
+    let stage: TenantBootstrapStage = "operation_claim";
 
     try {
       const timestamp = input.requestedAt;
@@ -264,8 +295,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         return { ok: true, value: { ...structuredClone(priorOperation.result), replayed: true } };
       }
 
+      stage = "principal_lookup";
       let principal = await transaction.principals.findByIdentity(input.principal.issuer, input.principal.subject);
       if (principal && principal.email.trim().toLowerCase() !== input.principal.email.trim().toLowerCase()) {
+        stage = "principal_create_or_update";
         principal = await transaction.principals.updateVerifiedEmail(
           principal.id,
           input.principal.email,
@@ -273,6 +306,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         );
       }
       if (!principal) {
+        stage = "principal_create_or_update";
         principal = await transaction.principals.create({
           id: transaction.generateId("principal"),
           issuer: input.principal.issuer,
@@ -284,9 +318,11 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         });
       }
 
+      stage = "store_lookup";
       if (await transaction.stores.findBySlug(input.store.slug)) {
         throw new SaaSDataUniqueConflict("store_slug");
       }
+      stage = "store_create";
       const store = await transaction.stores.create({
         id: transaction.generateId("store"),
         name: input.store.name,
@@ -300,9 +336,11 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       });
 
       const hostname = assertNormalizedExactHostname(`${store.slug}.${this.platformDomainSuffix}`);
+      stage = "domain_lookup";
       if (await transaction.domains.findByHostname(hostname)) {
         throw new SaaSDataUniqueConflict("domain_hostname");
       }
+      stage = "domain_create";
       const domain = await transaction.domains.create({
         id: transaction.generateId("domain"),
         storeId: store.id,
@@ -317,6 +355,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
 
       const canonicalAdminOrigin = createCanonicalAdminOrigin(store.slug, this.adminOriginEnvironment);
       const canonicalAdminHostname = new URL(canonicalAdminOrigin).hostname;
+      stage = "admin_domain_create";
       await transaction.adminDomains.provisionCanonical({
         id: transaction.generateId("domain"),
         storeId: store.id,
@@ -340,8 +379,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         createdAt: timestamp,
         updatedAt: timestamp,
       };
+      stage = "membership_create";
       const membership = await transaction.memberships.create(membershipRecord);
 
+      stage = "plan_lookup";
       const plan = await transaction.plans.findByCodeVersion("free_starter", 1);
       if (!plan || plan.status !== "active") {
         throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
@@ -349,6 +390,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       if (!plan.features.includes("media")) {
         throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
       }
+      stage = "subscription_create";
       const subscription = await transaction.subscriptions.create({
         id: transaction.generateId("subscription"),
         storeId: store.id,
@@ -360,6 +402,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+      stage = "media_namespace_create";
       const mediaNamespace = await transaction.mediaNamespaces.create({
         storeId: store.id,
         namespacePrefix: `stores/${store.id}/`,
@@ -384,6 +427,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         ["currency", store.currency],
         ["themeKey", store.themeKey],
       ] as const) {
+        stage = "setting_create";
         await transaction.settings.create({
           id: transaction.generateId("setting"),
           storeId: store.id,
@@ -429,11 +473,14 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         storefrontUrl: `https://${domain.hostname}`,
       };
 
+      stage = "operation_commit";
       await transaction.operations.markCommitted(operationId, result, timestamp);
+      stage = "transaction_commit";
       await transaction.commit();
       transactionClosed = true;
       return { ok: true, value: structuredClone(result) };
     } catch (error) {
+      this.reportFailure(stage, error);
       if (error instanceof SaaSDataUnknownCommitError) {
         transactionClosed = true;
         return { ok: false, error: safeError("tenant_transaction_failed", undefined, false) };

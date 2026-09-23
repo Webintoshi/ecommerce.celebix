@@ -131,6 +131,9 @@ export async function initializeOwnerStagingAuthRouteSet(
       platformDomainSuffix: config.authority.platformDomainSuffix,
       panelBaseUrl: config.authority.panelOrigin,
       adminOriginEnvironment,
+      diagnostic: (stage, failureType) => {
+        console.info(JSON.stringify({ schemaVersion: 1, event: "owner_staging_tenant_bootstrap_failure", stage, failureType }));
+      },
     })),
     recovery: new PostgresTenantOperationRecovery(repositoryOptions),
     panelOrigin: config.authority.panelOrigin,
