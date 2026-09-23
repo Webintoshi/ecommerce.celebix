@@ -15,6 +15,7 @@ export type {
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
+  CreateVariantBatchInput,
   DeleteProductInput,
   GetProductDetailsInput,
   GetProductInput,
@@ -35,4 +36,5 @@ export type {
   UpdateProductInput,
   UpdateVariantInput,
   VariantMutationResult,
+  VariantBatchMutationResult,
 } from "./types.ts";

@@ -13,10 +13,13 @@ import {
 import {
   buildProductUpdatePayload,
   buildVariantCreatePayload,
+  buildVariantBatchPayload,
   buildVariantUpdatePayload,
 } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
 import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
+import { AttributeVariantPicker } from "@/components/catalog-onboarding/AttributeVariantPicker";
+import { ProductVariantBuilder, type VariantDraft } from "@/components/catalog-onboarding/ProductVariantBuilder";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
@@ -91,6 +94,8 @@ export function ProductDetailConsole({
   const [editingProduct, setEditingProduct] = useState(false);
   const [editingMerchandising, setEditingMerchandising] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
+  const [creatingAttributeVariants, setCreatingAttributeVariants] = useState(false);
+  const [attributeVariants, setAttributeVariants] = useState<readonly VariantDraft[]>([]);
   const [editingVariant, setEditingVariant] = useState<string>();
   const [pricingVariantId, setPricingVariantId] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
@@ -104,7 +109,7 @@ export function ProductDetailConsole({
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
-  const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-edit", "sales"] as const));
+  const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-batch", "variant-edit", "sales"] as const));
 
   const load = useCallback(async () => {
     setError("");
@@ -163,11 +168,11 @@ export function ProductDetailConsole({
     return guard.bindApplicationNavigation(document, () => window.location.href);
   }, []);
 
-  function markDetailDirty(editor: "product" | "variant-create" | "variant-edit") {
+  function markDetailDirty(editor: "product" | "variant-create" | "variant-batch" | "variant-edit") {
     dirtyEditorsRef.current.mark(editor);
   }
 
-  function canDiscardDetailChanges(editor?: "product" | "variant-create" | "variant-edit" | "sales") {
+  function canDiscardDetailChanges(editor?: "product" | "variant-create" | "variant-batch" | "variant-edit" | "sales") {
     const guard = createDirtyNavigationGuard({
       isDirty: () => editor === undefined ? dirtyEditorsRef.current.anyDirty() : dirtyEditorsRef.current.isDirty(editor),
       confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Bu düzenleyiciyi kapatmak istiyor musunuz?"),
@@ -182,6 +187,8 @@ export function ProductDetailConsole({
     setEditingProduct(false);
     setEditingMerchandising(false);
     setCreatingVariant(false);
+    setCreatingAttributeVariants(false);
+    setAttributeVariants([]);
     setEditingVariant(undefined);
     setPricingVariantId(undefined);
   }
@@ -301,7 +308,7 @@ export function ProductDetailConsole({
 
   async function createVariant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManage || detail?.product.status === "archived") return;
+    if (!canManage || detail === undefined || detail.product.status === "archived") return;
     const parsed = buildVariantCreatePayload(variantValues(new FormData(event.currentTarget)));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-variant", async () => {
@@ -310,6 +317,24 @@ export function ProductDetailConsole({
       dirtyEditorsRef.current.clear("variant-create");
       setCreatingVariant(false);
       setNotice("Yeni varyant oluşturuldu.");
+    });
+  }
+
+  async function createAttributeVariants(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManage || detail === undefined || detail.product.status === "archived") return;
+    if (detail.variants.filter((variant) => variant.status !== "archived").length + attributeVariants.length > 100) {
+      setError("Bir üründe en fazla 100 varyant olabilir."); return;
+    }
+    const parsed = buildVariantBatchPayload(attributeVariants);
+    if (!parsed.ok) { setError(parsed.message); return; }
+    await mutation("new-attribute-variants", async () => {
+      await catalogApi.createVariantBatch(productId, parsed.value);
+      const refreshed = await load();
+      setAttributeVariants([]);
+      dirtyEditorsRef.current.clear("variant-batch");
+      setCreatingAttributeVariants(false);
+      if (refreshed) setNotice("Seçilen varyantlar oluşturuldu.");
     });
   }
 
@@ -530,7 +555,7 @@ export function ProductDetailConsole({
       <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">
         <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
-        {canManage && !archived ? <button className="button button-primary product-detail-primary-action" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant}><Plus aria-hidden="true" /> Yeni varyant</button> : null}
+        {canManage && !archived ? <div className="variant-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges()) return; const opening = !creatingAttributeVariants; closeDetailEditors(); setCreatingAttributeVariants(opening); }} disabled={busy !== ""}>Niteliklerden ekle</button><button className="button button-primary product-detail-primary-action" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant}><Plus aria-hidden="true" /> Yeni varyant</button></div> : null}
       </div>
 
       {creatingVariant && canManage && !archived ? (
@@ -539,6 +564,12 @@ export function ProductDetailConsole({
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-create")) setCreatingVariant(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
         </form>
       ) : null}
+
+      {creatingAttributeVariants && canManage && !archived ? <form className="catalog-form inset-form" onSubmit={(event) => void createAttributeVariants(event)}>
+        <AttributeVariantPicker value={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} existing={variants} disabled={busy !== ""} />
+        {attributeVariants.length ? <ProductVariantBuilder variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} /> : null}
+        <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : `${attributeVariants.length} varyantı oluştur`}</button></div>
+      </form> : null}
 
       <div className="variant-list product-detail-variant-rows">
         {variants.length === 0 ? <div className="empty-variants"><strong>Aktif varyant yok</strong><p>Ürünü satışa hazırlamak için bir varyant ekleyin.</p></div> : variants.map((variant) => (

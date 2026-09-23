@@ -77,6 +77,16 @@ test("all mutation body shapes are exact and preserve no browser authority field
   }
 });
 
+test("batch variant input accepts bounded distinct combinations and rejects duplicates", async () => {
+  const black = { ...CREATE.initialVariant, sku: "BLACK-M", attributes: { renk: "Siyah", beden: "M" } };
+  const white = { ...CREATE.initialVariant, sku: "WHITE-S", attributes: { beden: "S", renk: "Beyaz" } };
+  const accepted = await input.readCatalogMutationInput?.(mutation(JSON.stringify({ variants: [black, white] })), "create_variant_batch");
+  assert.deepEqual(accepted, { kind: "valid", operationId: OPERATION_ID, value: { variants: [black, white] } });
+  for (const variants of [[], [black, { ...black, sku: "BLACK-M-2", attributes: { beden: "M", renk: "Siyah" } }], [black, { ...white, sku: "BLACK-M" }]]) {
+    assert.deepEqual(await input.readCatalogMutationInput?.(mutation(JSON.stringify({ variants })), "create_variant_batch"), { kind: "invalid" });
+  }
+});
+
 test("invalid media types malformed JSON unsafe fields and body transport fail closed", async () => {
   for (const contentType of [
     null,

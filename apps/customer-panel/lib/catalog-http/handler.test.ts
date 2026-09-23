@@ -137,6 +137,7 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
     archiveProduct: unavailable,
     restoreProduct: unavailable,
     createVariant: unavailable,
+    createVariantBatch: unavailable,
     updateVariant: unavailable,
     archiveVariant: unavailable,
     bulkMutateProducts: unavailable,
@@ -217,6 +218,25 @@ test("authenticated create uses exact TenantContext and idempotency operation wi
     product: CREATE_BODY.product,
     initialVariant: CREATE_BODY.initialVariant,
   }]);
+});
+
+test("selected variant batch is one tenant-bound call and analysts cannot submit it", async () => {
+  const variants = [{ ...CREATE_BODY.initialVariant, attributes: { renk: "Siyah" } }];
+  const calls: unknown[] = [];
+  const catalog = repository({ async createVariantBatch(input) {
+    calls.push(input);
+    return Object.freeze({ variants: Object.freeze([variant({ attributes: { renk: "Siyah" } })]), replayed: false });
+  } });
+  const path = `${PRODUCTS}/${PRODUCT_ID}/variants/batch`;
+  const accepted = await handlersModule.createCatalogHttpHandlers?.(dependencies(catalog))
+    .createVariantBatch(request(path, { method: "POST", body: { variants } }), PRODUCT_ID);
+  assert.equal(accepted?.status, 201);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variants });
+  const denied = await handlersModule.createCatalogHttpHandlers?.(dependencies(catalog, access("authenticated", "analyst")))
+    .createVariantBatch(request(path, { method: "POST", body: { variants } }), PRODUCT_ID);
+  assert.equal(denied?.status, 403);
+  assert.equal(calls.length, 1);
 });
 
 test("tenant admin product mutations survive internal reverse-proxy Host and remain bound to the authenticated store", async () => {

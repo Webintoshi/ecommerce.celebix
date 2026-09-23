@@ -1,0 +1,15 @@
+.picker { display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; border: 1px solid #E7E2DD; border-radius: 14px; background: #FFFDFC; padding: 16px; color: #2B2B2B; }
+.picker legend { padding: 0 6px; font-weight: 750; }
+.hint { margin: 0; color: #667085; font-size: 13px; }
+.attributes, .values > div, .combinations > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.attributes label, .values label, .combinations label { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; border: 1px solid #E7E2DD; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+.attributes input, .values input, .combinations input { width: 17px; height: 17px; accent-color: #FE6100; }
+.values, .combinations { display: grid; gap: 8px; }
+.values strong, .combinations strong { font-size: 13px; }
+.combinations small { color: #667085; }
+.defaults { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.defaults label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; }
+.defaults input { min-width: 0; min-height: 44px; border: 1px solid #E7E2DD; border-radius: 10px; padding: 8px 11px; font: inherit; }
+.picker :is(input, button):focus-visible { outline: 3px solid #FE6100; outline-offset: 2px; }
+.error { margin: 0; color: #ae3422; font-size: 13px; }
+@media (max-width: 600px) { .defaults { grid-template-columns: 1fr; } }

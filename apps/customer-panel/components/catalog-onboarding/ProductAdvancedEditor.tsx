@@ -26,6 +26,7 @@ import {
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField } from "@/components/catalog/ProductDescriptionField";
 import { ProductClassificationPicker } from "./ProductClassificationPicker";
+import { AttributeVariantPicker } from "./AttributeVariantPicker";
 import { ProductEditorSection } from "./ProductEditorSection";
 import { emptyVariant, ProductVariantBuilder, type VariantDraft } from "./ProductVariantBuilder";
 import styles from "./product-onboarding.module.css";
@@ -106,6 +107,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
   const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
+  const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? []);
   const [titleValue, setTitleValue] = useState(draftSession?.current.title ?? editor?.product.title ?? "");
   const [descriptionValue, setDescriptionValue] = useState(draftSession?.current.description ?? editor?.product.description ?? "");
   const [busy, setBusy] = useState(false);
@@ -134,6 +136,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     const validVariants = variants.filter((variant) => variantIntent(variant, productType) !== null).length;
     const missing = [
       ...(titleValue.trim() ? [] : [Object.freeze({ href: "#product-basics", label: "Ürün adını tamamlayın." })]),
+      ...(variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: "En az bir varyant ekleyin." })]),
       ...(validPrices === variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: kind === "simple" ? "Satış fiyatını tamamlayın." : "Varyant fiyatlarını tamamlayın." })]),
       ...(validPrices < variants.length || validVariants === variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: "Varyant stok ve zorunlu alanlarını kontrol edin." })]),
     ];
@@ -174,14 +177,14 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       seoTitle: text(data, "seoTitle"),
       seoDescription: text(data, "seoDescription"),
       channelIds: selectedChannelIds,
-      resourceAttributeIds: selected(data, "resource-attribute"),
+      resourceAttributeIds: Object.freeze([...new Set([...selected(data, "resource-attribute"), ...selectedVariantAttributeIds])]),
       resourceExtraIds: selected(data, "resource-extra"),
       resourceDefinitionIds: selected(data, "resource-definition"),
       media,
     }));
   // Parent session updates are projections of these local fields.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, media, editing, onDraftSessionChange, createFieldRevision]);
+  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision]);
 
   function markEditingDirty() {
     if (editing) {
@@ -219,7 +222,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     markEditingDirty();
     setKind(next);
     const firstVariant = variants[0] ?? emptyVariant(next === "simple" ? "Standart" : "Varyant 1");
-    setVariants(next === "simple" ? [firstVariant] : variants.length > 1 ? variants : [firstVariant, emptyVariant("Varyant 2")]);
+    setVariants(next === "simple" ? [firstVariant] : variants.length > 1 ? variants : []);
   }
 
   function selectMedia(event: ChangeEvent<HTMLInputElement>) {
@@ -248,7 +251,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     const parsedCreateVariants = editing ? [] : variants.map((variant) => variantIntent(variant, productType));
     if (!editing) {
       setShowValidation(true);
-      if (!titleValue.trim() || parsedCreateVariants.some((variant) => variant === null)) {
+      if (!titleValue.trim() || parsedCreateVariants.length === 0 || parsedCreateVariants.some((variant) => variant === null)) {
         setError("Zorunlu ürün ve satış alanlarını kontrol edin.");
         if (!titleValue.trim()) titleRef.current?.focus();
         else document.querySelector<HTMLElement>("#product-commerce")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -269,7 +272,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       ...(text(data, "seoTitle") ? { seoTitle: text(data, "seoTitle") } : {}),
       ...(text(data, "seoDescription") ? { seoDescription: text(data, "seoDescription") } : {}),
     };
-    const resourceIds: CatalogOnboardingResourceIds = { ...(brand ? { brand } : {}), collections: resources("collection"), tags: resources("tag"), attributes: resources("attribute"), extras: resources("extra"), definitions: resources("definition") };
+    const resourceIds: CatalogOnboardingResourceIds = { ...(brand ? { brand } : {}), collections: resources("collection"), tags: resources("tag"), attributes: Object.freeze([...new Set([...resources("attribute"), ...selectedVariantAttributeIds])]), extras: resources("extra"), definitions: resources("definition") };
     const categoryIds = selected(data, "categoryIds");
     const channelIds = selected(data, "channelIds");
 
@@ -331,7 +334,8 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
         <ProductEditorSection id="product-commerce" title={kind === "simple" ? "Fiyat ve stok" : "Varyantlar"} description={kind === "simple" ? "Ürünün satış fiyatı ve stok durumu" : `${variants.length} satış varyantı`} open>
           {showValidation && summary.validVariants < variants.length ? <p className={styles.inlineValidation}>Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
           {kind === "variant" ? <p className={styles.helper}>Her satır ayrı fiyat, stok ve SKU bilgisi taşır.</p> : null}
-          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} showShipping={productType === "physical"} />
+          {kind === "variant" ? <AttributeVariantPicker value={variants.filter((variant) => Object.keys(variant.attributes).length > 0)} onChange={(next) => { markEditingDirty(); setVariants((current) => Object.freeze([...current.filter((variant) => Object.keys(variant.attributes).length === 0), ...next])); }} onAttributeIdsChange={setSelectedVariantAttributeIds} disabled={busy} /> : null}
+          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} allowManualAdd={kind !== "variant"} showShipping={productType === "physical"} />
         </ProductEditorSection>
         <ProductEditorSection id="product-media" title="Medya" description={media.length ? `${media.length} görsel seçildi` : "Görselleri ekleyin ve alt metinlerini tamamlayın"}>
           <div className={styles.advancedMedia}>

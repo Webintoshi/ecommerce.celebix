@@ -26,6 +26,8 @@ const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "product_limit_reached",
   "product_not_found", "variant_not_found", "slug_conflict", "sku_conflict",
+  "variant_combination_conflict",
+  "variant_limit_reached",
   "version_conflict", "dynamic_pricing_not_ready", "dynamic_price_unavailable", "operation_mismatch", "unavailable",
   "removal_not_eligible",
   "invalid_confirmation", "cleanup_pending", "cleanup_failed",
@@ -41,6 +43,8 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   variant_not_found: "Varyant bulunamadı veya artık erişilemiyor.",
   slug_conflict: "Bu URL anahtarı başka bir üründe kullanılıyor.",
   sku_conflict: "Bu SKU mağazada başka bir varyantta kullanılıyor.",
+  variant_combination_conflict: "Bu nitelik kombinasyonu ürünün varyantlarında zaten var.",
+  variant_limit_reached: "Bir üründe en fazla 100 aktif varyant olabilir.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",
   dynamic_pricing_not_ready: "Ürün satışa açılamadı: dinamik fiyatlandırma bu mağazada henüz etkin değil. Fiyat yöntemini Sabit TL olarak ayarlayın.",
   dynamic_price_unavailable: "Ürün satışa açılamadı: dinamik fiyat için gerekli güncel referans değeri bulunamadı. Referans ve fiyat politikasını kontrol edin.",
@@ -490,6 +494,12 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       const body = record(await mutation(`/api/catalog/products/${productId(id)}/variants`, "POST", input));
       if (body === null) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ variant: parseProductVariant(body.variant), replayed: replayed(body.replayed) });
+    },
+
+    async createVariantBatch(id: string, input: Readonly<{ variants: readonly CatalogVariantFields[] }>): Promise<Readonly<{ variants: readonly ProductVariant[]; replayed: boolean }>> {
+      const body = record(await mutation(`/api/catalog/products/${productId(id)}/variants/batch`, "POST", input));
+      if (body === null || !Array.isArray(body.variants)) throw new CatalogApiError("unavailable", 503);
+      return Object.freeze({ variants: Object.freeze(body.variants.map(parseProductVariant)), replayed: replayed(body.replayed) });
     },
 
     async updateVariant(id: string, variantId: string, input: Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>): Promise<VariantMutationResult> {

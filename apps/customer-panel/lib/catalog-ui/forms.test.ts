@@ -5,6 +5,7 @@ import {
   buildCreateProductPayload,
   buildProductUpdatePayload,
   buildVariantCreatePayload,
+  buildVariantBatchPayload,
   buildVariantUpdatePayload,
 } from "./forms.ts";
 
@@ -22,6 +23,21 @@ const VALID = Object.freeze({
   cost: "70,25",
   stockTracking: true,
   stockQuantity: "12",
+});
+
+test("batch variant form keeps checked combinations and per-row price and stock", () => {
+  const rows = [
+    { ...VALID_VARIANT, title: "Siyah / M", sku: "", price: "199,00", compareAt: "", stockQuantity: "5", attributes: { renk: "Siyah", beden: "M" } },
+    { ...VALID_VARIANT, title: "Beyaz / S", sku: "BEYAZ-S", price: "249,00", compareAt: "", stockQuantity: "2", attributes: { renk: "Beyaz", beden: "S" } },
+  ];
+  const result = buildVariantBatchPayload(rows);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.variants.map(({ priceCents, stockQuantity, sku, attributes }) => ({ priceCents, stockQuantity, sku, attributes })), [
+    { priceCents: 19900, stockQuantity: 5, sku: undefined, attributes: { renk: "Siyah", beden: "M" } },
+    { priceCents: 24900, stockQuantity: 2, sku: "BEYAZ-S", attributes: { renk: "Beyaz", beden: "S" } },
+  ]);
+  assert.equal(buildVariantBatchPayload([...rows, rows[0]!]).ok, false);
 });
 
 const VALID_VARIANT = Object.freeze({

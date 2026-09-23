@@ -132,6 +132,17 @@ export interface CreateVariantInput extends CatalogAuthorityInput {
   readonly variant: CatalogVariantFields;
 }
 
+export interface CreateVariantBatchInput extends CatalogAuthorityInput {
+  readonly operationId: string;
+  readonly productId: string;
+  readonly variants: readonly CatalogVariantFields[];
+}
+
+export interface VariantBatchMutationResult {
+  readonly variants: readonly ProductVariant[];
+  readonly replayed: boolean;
+}
+
 export interface UpdateVariantInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -207,6 +218,7 @@ export interface CatalogRepository {
   removeProduct(input: RemoveProductInput): Promise<RemoveProductResult>;
   bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
+  createVariantBatch(input: CreateVariantBatchInput): Promise<VariantBatchMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;
   archiveVariant(input: ArchiveVariantInput): Promise<VariantMutationResult>;
 }

@@ -207,6 +207,31 @@ export function buildVariantCreatePayload(
     : variant;
 }
 
+export function buildVariantBatchPayload(
+  rows: readonly Readonly<{ title: string; sku: string; barcode: string; price: string; compareAt: string; cost: string; stockQuantity: string; attributes: Readonly<Record<string, string>> }>[],
+): CatalogFormResult<Readonly<{ variants: readonly CatalogVariantFields[] }>> {
+  if (rows.length < 1 || rows.length > 100) return invalid("1–100 varyant seçin.");
+  const variants: CatalogVariantFields[] = [];
+  const combinations = new Set<string>();
+  const skus = new Set<string>();
+  for (const row of rows) {
+    const { attributes: selectedAttributes, ...fields } = row;
+    const parsed = variantFields({ ...fields, stockTracking: true }, selectedAttributes);
+    if (!parsed.ok) return parsed;
+    const attributes = parsed.value.attributes;
+    if (Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3) return invalid("Varyant için 1–3 nitelik seçin.");
+    const combination = JSON.stringify(Object.entries(attributes).sort(([a], [b]) => a.localeCompare(b)));
+    if (combinations.has(combination)) return invalid("Aynı nitelik kombinasyonu iki kez seçilemez.");
+    combinations.add(combination);
+    if (parsed.value.sku) {
+      if (skus.has(parsed.value.sku)) return invalid("Aynı SKU iki kez kullanılamaz.");
+      skus.add(parsed.value.sku);
+    }
+    variants.push(parsed.value);
+  }
+  return Object.freeze({ ok: true, value: Object.freeze({ variants: Object.freeze(variants) }) });
+}
+
 export function buildVariantUpdatePayload(
   value: unknown,
   expectedVersion: unknown,

@@ -407,6 +407,25 @@ test("every mutation uses an exact UUID idempotency key and JSON without store a
   assert.deepEqual(JSON.parse(String(calls[6]?.[1].body)), { expectedVersion: 4 });
 });
 
+test("batch variant client parses the complete server result and uses one idempotent request", async () => {
+  const requests: Array<[string, RequestInit | undefined]> = [];
+  const client = createCatalogApiClient({
+    randomUUID: () => OPERATION_ID,
+    async fetch(input, init) {
+      requests.push([String(input), init]);
+      return jsonResponse({ variants: [{ ...VARIANT, attributes: { renk: "Siyah" } }], replayed: false }, 201);
+    },
+  });
+  const input = { variants: [{ title: "Siyah", priceCents: 12550, stockTracking: true, stockQuantity: 4, attributes: { renk: "Siyah" } }] };
+  const result = await client.createVariantBatch(PRODUCT_ID, input);
+  assert.equal(result.variants[0]?.attributes.renk, "Siyah");
+  assert.equal(result.replayed, false);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0]?.[0], `/api/catalog/products/${PRODUCT_ID}/variants/batch`);
+  assert.deepEqual(JSON.parse(String(requests[0]?.[1]?.body)), input);
+  assert.equal(new Headers(requests[0]?.[1]?.headers).get("idempotency-key"), OPERATION_ID);
+});
+
 test("product permanent deletion reads exact impact and sends one caller-bound confirmed command", async () => {
   const impact = {
     resourceKind: "product", resourceId: PRODUCT_ID, confirmationLabel: "Atlas Kupa", expectedVersion: 3,

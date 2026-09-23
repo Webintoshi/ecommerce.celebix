@@ -20,11 +20,12 @@ export function emptyVariant(title = "Standart", attributes: Readonly<Record<str
   return Object.freeze({ title, sku: "", barcode: "", price: "", compareAt: "", cost: "", stockQuantity: "0", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes });
 }
 
-export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false }: Readonly<{
+export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true }: Readonly<{
   variants: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   allowMultiple: boolean;
   showShipping?: boolean;
+  allowManualAdd?: boolean;
 }>) {
   const change = (index: number, patch: Partial<VariantDraft>) => onChange(Object.freeze(variants.map((variant, position) => position === index ? Object.freeze({ ...variant, ...patch }) : variant)));
   return <div className="onboarding-variant-builder" data-layout={allowMultiple ? "multiple" : "simple"}>
@@ -52,6 +53,6 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
         </div>
       </details>
     </article>)}
-    {allowMultiple && variants.length < 100 ? <button className="onboarding-add-variant" type="button" onClick={() => onChange(Object.freeze([...variants, emptyVariant(`Varyant ${variants.length + 1}`)]))}><Plus aria-hidden="true" />Varyant ekle</button> : null}
+    {allowMultiple && allowManualAdd && variants.length < 100 ? <button className="onboarding-add-variant" type="button" onClick={() => onChange(Object.freeze([...variants, emptyVariant(`Varyant ${variants.length + 1}`)]))}><Plus aria-hidden="true" />Varyant ekle</button> : null}
   </div>;
 }

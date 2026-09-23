@@ -51,6 +51,15 @@ test("restore authority accepts only POST on the exact product restore path", ()
   assert.equal(validator?.validate(request({ url: `http://internal${pathname}?publish=true` }), expected), "request_invalid");
 });
 
+test("variant batch authority accepts only the exact product-scoped POST", () => {
+  const validator = authority.createCatalogRequestAuthorityValidator?.({ panelOrigin: PANEL_ORIGIN });
+  const pathname = `${PRODUCTS}/${PRODUCT_ID}/variants/batch`;
+  const expected = { method: "POST", pathname, query: "forbidden" } as const;
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}` }), expected), "approved");
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}?all=1` }), expected), "request_invalid");
+  assert.equal(validator?.validate(request({ url: `http://internal${pathname}`, method: "GET" }), expected), "method_not_allowed");
+});
+
 test("mutation authority accepts tenant admin Origin shape without trusting the proxy Host", () => {
   const validator = authority.createCatalogRequestAuthorityValidator?.({ panelOrigin: PANEL_ORIGIN });
   assert.equal(validator?.validate(request({

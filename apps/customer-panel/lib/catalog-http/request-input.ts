@@ -31,6 +31,7 @@ export type CatalogMutationKind =
   | "remove_product"
   | "delete_product"
   | "create_variant"
+  | "create_variant_batch"
   | "update_variant"
   | "archive_variant"
   | "bulk_product";
@@ -43,6 +44,7 @@ export type CatalogMutationBodies = Readonly<{
   remove_product: Readonly<{ expectedVersion: number }>;
   delete_product: Readonly<{ expectedVersion: number; confirmation: string }>;
   create_variant: Readonly<{ variant: CatalogVariantFields }>;
+  create_variant_batch: Readonly<{ variants: readonly CatalogVariantFields[] }>;
   update_variant: Readonly<{ expectedVersion: number; variant: CatalogVariantFields }>;
   archive_variant: Readonly<{ expectedVersion: number }>;
   bulk_product: CatalogBulkProductIntent;
@@ -172,6 +174,18 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
     const variant = variantFields(parsed?.variant);
     return parsed && variant ? Object.freeze({ variant }) as CatalogMutationBodies[K] : null;
   }
+  if (kind === "create_variant_batch") {
+    const parsed = exact(value, ["variants"]);
+    if (!parsed || !Array.isArray(parsed.variants) || parsed.variants.length < 1 || parsed.variants.length > 100) return null;
+    const variants = parsed.variants.map(variantFields);
+    if (variants.some((variant) => variant === null)) return null;
+    const valid = variants as CatalogVariantFields[];
+    if (valid.some(({ attributes }) => Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3)) return null;
+    const keys = valid.map(({ attributes }) => JSON.stringify(Object.entries(attributes).map(([key, nested]) => [key.toLocaleLowerCase("tr-TR"), nested.toLocaleLowerCase("tr-TR")]).sort(([left], [right]) => left.localeCompare(right, "tr-TR"))));
+    const skus = valid.flatMap(({ sku }) => sku === undefined ? [] : [sku]);
+    if (new Set(keys).size !== keys.length || new Set(skus).size !== skus.length) return null;
+    return Object.freeze({ variants: Object.freeze(valid) }) as CatalogMutationBodies[K];
+  }
   const parsed = exact(value, ["expectedVersion", "variant"]);
   const expectedVersion = version(parsed?.expectedVersion);
   const variant = variantFields(parsed?.variant);
@@ -188,10 +202,10 @@ function jsonContentType(request: Request): boolean {
     request.headers.get("transfer-encoding") === null;
 }
 
-async function boundedJson(request: Request): Promise<unknown | null> {
+async function boundedJson(request: Request, maximum = BODY_MAXIMUM_BYTES): Promise<unknown | null> {
   if (!jsonContentType(request) || request.body === null) return null;
   const declared = request.headers.get("content-length");
-  if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > BODY_MAXIMUM_BYTES)) return null;
+  if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > maximum)) return null;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -201,7 +215,7 @@ async function boundedJson(request: Request): Promise<unknown | null> {
       if (next.done) break;
       if (!(next.value instanceof Uint8Array)) return null;
       total += next.value.byteLength;
-      if (total > BODY_MAXIMUM_BYTES) {
+      if (total > maximum) {
         await reader.cancel().catch(() => undefined);
         return null;
       }
@@ -225,7 +239,7 @@ export async function readCatalogMutationInput<K extends CatalogMutationKind>(
 ): Promise<Invalid | Readonly<{ kind: "valid"; operationId: string; value: CatalogMutationBodies[K] }>> {
   const operationId = request.headers.get("idempotency-key");
   if (operationId === null || !UUID.test(operationId)) return INVALID;
-  const raw = await boundedJson(request);
+  const raw = await boundedJson(request, kind === "create_variant_batch" ? 131_072 : BODY_MAXIMUM_BYTES);
   const value = raw === null ? null : mutationBody(raw, kind);
   return value === null
     ? INVALID

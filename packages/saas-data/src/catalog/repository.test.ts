@@ -192,6 +192,29 @@ test("createProduct derives store authority from TenantContext and creates an in
   assert.deepEqual(client.releases, [undefined]);
 });
 
+test("createVariantBatch sends selected variants through one tenant-bound transaction", async () => {
+  const black = variant({ id: VARIANT_ID, title: "Siyah / M", sku: "BLACK-M", attributes: { renk: "Siyah", beden: "M" } });
+  const white = variant({ id: SECOND_VARIANT_ID, title: "Beyaz / S", sku: "WHITE-S", attributes: { renk: "Beyaz", beden: "S" } });
+  const client = new FakeClient((text) => text.includes("saas.catalog_create_variants_batch") ? [{ outcome: "created", result_payload: { variants: [black, white] } }] : []);
+  const selected = [black, white].map(({ title, sku, barcode, priceCents, compareAtCents, costCents, stockTracking, stockQuantity, attributes }) => ({ title, sku, barcode, priceCents, compareAtCents, costCents, stockTracking, stockQuantity, attributes }));
+  const result = await repository(new FakePool(client), [VARIANT_ID, SECOND_VARIANT_ID]).createVariantBatch({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variants: selected });
+  assert.deepEqual(result.variants, [black, white]);
+  assert.equal(result.replayed, false);
+  const write = client.calls.filter(({ text }) => text.includes("saas.catalog_create_variants_batch"));
+  assert.equal(write.length, 1);
+  assert.equal(write[0]?.values[0], STORE_ID);
+  assert.equal(write[0]?.values[10], PRODUCT_ID);
+  assert.deepEqual(write[0]?.values[11], [VARIANT_ID, SECOND_VARIANT_ID]);
+  assert.deepEqual(client.releases, [undefined]);
+});
+
+test("createVariantBatch rejects duplicate combinations before database access", async () => {
+  const pool = new FakePool();
+  const first = { title: "Siyah / M", priceCents: 1200, stockTracking: true, stockQuantity: 2, attributes: { renk: "Siyah", beden: "M" } };
+  await assert.rejects(repository(pool).createVariantBatch({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variants: [first, { ...first, title: "Yinelenen", attributes: { beden: "M", renk: "Siyah" } }] }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input");
+  assert.equal(pool.connects, 0);
+});
+
 test("bulkMutateProducts sends one deterministic target set through one transaction", async () => {
   const second = product({ id: SECOND_PRODUCT_ID, title: "Atlas Ring", slug: "atlas-ring", status: "active", version: 5 });
   const client = new FakeClient((text) => {

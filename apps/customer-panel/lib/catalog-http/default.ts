@@ -80,6 +80,11 @@ export async function handleDefaultCatalogCreateVariant(
   return handlers.createVariant(request, productId);
 }
 
+export async function handleDefaultCatalogCreateVariantBatch(request: Request, context: ProductRouteContext) {
+  const { productId } = await context.params;
+  return handlers.createVariantBatch(request, productId);
+}
+
 export async function handleDefaultCatalogUpdateVariant(
   request: Request,
   context: VariantRouteContext,

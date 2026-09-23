@@ -9,6 +9,8 @@ export const CATALOG_ERROR_CODES = Object.freeze([
   "variant_not_found",
   "slug_conflict",
   "sku_conflict",
+  "variant_combination_conflict",
+  "variant_limit_reached",
   "version_conflict",
   "dynamic_pricing_not_ready",
   "dynamic_price_unavailable",

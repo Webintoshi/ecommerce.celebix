@@ -33,6 +33,7 @@ import type {
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
+  CreateVariantBatchInput,
   DeleteProductInput,
   GetProductDetailsInput,
   GetProductInput,
@@ -51,6 +52,7 @@ import type {
   UpdateProductInput,
   UpdateVariantInput,
   VariantMutationResult,
+  VariantBatchMutationResult,
 } from "./types.ts";
 import {
   catalogAuthority,
@@ -304,6 +306,14 @@ function createProductResult(value: unknown, replayed: boolean): CreateProductRe
 function variantResult(value: unknown, replayed: boolean): VariantMutationResult {
   const parsed = payload(value, ["variant"]);
   return Object.freeze({ variant: parseProductVariant(parsed.variant), replayed });
+}
+
+function variantBatchResult(value: unknown, replayed: boolean): VariantBatchMutationResult {
+  const parsed = payload(value, ["variants"]);
+  if (!Array.isArray(parsed.variants) || parsed.variants.length < 1 || parsed.variants.length > 100) throw unavailable();
+  const variants = Object.freeze(parsed.variants.map(parseProductVariant));
+  if (new Set(variants.map(({ id }) => id)).size !== variants.length) throw unavailable();
+  return Object.freeze({ variants, replayed });
 }
 
 function authorityValues(authority: ValidatedCatalogAuthority): unknown[] {
@@ -899,6 +909,30 @@ export class PostgresCatalogRepository implements CatalogRepository {
       )`,
       values: [...authorityValues(authority), operationId, fingerprint, productId, variantId, variant.title, variant.sku ?? null, variant.barcode ?? null, variant.priceCents, variant.compareAtCents ?? null, variant.costCents ?? null, variant.stockTracking, variant.stockQuantity, JSON.stringify(variant.attributes)],
     }, ["created"], variantResult);
+  }
+
+  async createVariantBatch(input: CreateVariantBatchInput): Promise<VariantBatchMutationResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "variants"]);
+    const authority = catalogAuthority(exact.tenantContext as CreateVariantBatchInput["tenantContext"], exact.now as Date);
+    authorizeOperation(authority, "create_variant");
+    const operationId = catalogUuid(exact.operationId);
+    const productId = catalogUuid(exact.productId);
+    if (!Array.isArray(exact.variants) || exact.variants.length < 1 || exact.variants.length > 100) throw new CatalogRepositoryError("invalid_input");
+    const variants = Object.freeze(exact.variants.map(variantFields));
+    const keys = variants.map(({ attributes }) => JSON.stringify(Object.entries(attributes).map(([key, value]) => [key.toLocaleLowerCase("tr-TR"), value.toLocaleLowerCase("tr-TR")]).sort(([left], [right]) => left.localeCompare(right, "tr-TR"))));
+    const skus = variants.flatMap(({ sku }) => sku === undefined ? [] : [sku]);
+    if (variants.some(({ attributes }) => Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3) || new Set(keys).size !== keys.length || new Set(skus).size !== skus.length) throw new CatalogRepositoryError("invalid_input");
+    const variantIds = variants.map(() => catalogUuid(this.options.generateId("variant")));
+    if (new Set(variantIds).size !== variantIds.length) throw new CatalogRepositoryError("invalid_input");
+    const fingerprint = catalogFingerprint("create_variant_batch", authority.storeId, { productId, variants });
+    return this.mutate(authority, operationId, fingerprint, {
+      text: "SELECT outcome,result_payload FROM saas.catalog_create_variants_batch($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, productId, variantIds, JSON.stringify(variants)],
+    }, ["created"], (value, replayed) => {
+      const result = variantBatchResult(value, replayed);
+      if (result.variants.length !== variants.length || result.variants.some((variant) => variant.productId !== productId || variant.storeId !== authority.storeId)) throw unavailable();
+      return result;
+    });
   }
 
   async updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult> {

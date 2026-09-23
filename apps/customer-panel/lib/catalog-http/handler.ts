@@ -59,6 +59,8 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   product_limit_reached: 409,
   slug_conflict: 409,
   sku_conflict: 409,
+  variant_combination_conflict: 409,
+  variant_limit_reached: 409,
   version_conflict: 409,
   removal_not_eligible: 409,
   invalid_confirmation: 409,
@@ -462,6 +464,21 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
         }),
         (result) => json(result, 201),
       );
+    },
+
+    async createVariantBatch(request: Request, rawProductId: unknown): Promise<Response> {
+      const productId = exactId(rawProductId);
+      if (isResponse(productId)) return productId;
+      const authorized = await authorize(dependencies, request, {
+        method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/variants/batch`, query: "forbidden",
+      }, "create_variant");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogMutationInput(request, "create_variant_batch");
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.catalog.createVariantBatch({
+        tenantContext: authorized.tenantContext, now: authorized.now,
+        operationId: input.operationId, productId, ...input.value,
+      }), (result) => json(result, 201));
     },
 
     async updateVariant(request: Request, rawProductId: unknown, rawVariantId: unknown): Promise<Response> {
