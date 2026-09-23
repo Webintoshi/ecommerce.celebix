@@ -286,6 +286,17 @@ test("consumed replay, no-grant completion, and expired handoff never return aut
   assert.deepEqual((await invoke(expired)).body, { schemaVersion: 1, kind: "fresh_login_required", code: "handoff_rejected", retryable: false });
 });
 
+test("no-grant callback audit records only a safe completion class", async () => {
+  const events: unknown[] = [];
+  const current = fixture({ completion: "in_progress", audit: (event) => { events.push(event); } });
+  await invoke(current);
+  assert.deepEqual(events.at(-1), {
+    stage: "callback",
+    outcome: "rejected",
+    completionKind: "in_progress",
+  });
+});
+
 test("provider error consumes only provider state and creates no grant or handoff", async () => {
   const current = fixture();
   const result = await invoke(current, `state=${STATE}&error=access_denied&error_description=private&iss=${encodeURIComponent(ISSUER)}`);

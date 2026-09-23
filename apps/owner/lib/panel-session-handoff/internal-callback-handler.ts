@@ -1,6 +1,7 @@
 import {
   assertPersistentSelfServeRuntime,
   type PersistentSelfServeRuntime,
+  type SelfServeCallbackServiceResult,
 } from "../self-serve-http/runtime.ts";
 import {
   classifyReconstructedOwnerCallbackRequest,
@@ -32,6 +33,8 @@ const handlerAuthorities = new WeakMap<object, VerifiedEdgeTrustBoundary>();
 type HandlerAudit = (event: Readonly<{
   stage: "request_gate" | "callback" | "browser_claim" | "provider_rejection" | "handoff";
   outcome: "accepted" | "rejected" | "unavailable";
+  completionKind?: SelfServeCallbackServiceResult["kind"];
+  completionErrorCode?: string;
 }>) => void | Promise<void>;
 
 export interface OwnerPanelSessionInitialCallbackHandler {
@@ -250,7 +253,14 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
         return createFreshLoginRequiredResult("callback_replayed");
       }
       if (executed.kind !== "initial_callback_granted") {
-        auditSafely(audit, { stage: "callback", outcome: "rejected" });
+        auditSafely(audit, {
+          stage: "callback",
+          outcome: "rejected",
+          completionKind: executed.completion.kind,
+          ...(executed.completion.kind === "rejected"
+            ? { completionErrorCode: executed.completion.error.code }
+            : {}),
+        });
         return createFreshLoginRequiredResult("callback_not_granted");
       }
       const handoff = executed.value.handoff;
