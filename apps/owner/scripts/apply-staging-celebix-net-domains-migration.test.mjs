@@ -50,7 +50,7 @@ test(".net migration checks authority, applies once, and runs postconditions", a
   assert.ok(calls.some((call) => call === "SQL:202609230147_celebix_net_staging_admin_domain_management.up.sql"));
   assert.ok(calls.some((call) => call === "SQL:202609230147_celebix_net_staging_admin_domain_management_assertions.sql"));
   assert.equal(calls.at(-1), "end");
-  assert.deepEqual(lines, ["celebix_net_staging_admin_domain_management=applied"]);
+  assert.deepEqual(lines, ["celebix_net_staging_admin_domain_management=applied", "celebix_net_staging_starter_storefront=applied"]);
 });
 
 test(".net management migration preserves existing platform hosts and sets platform management explicitly", async () => {
@@ -71,7 +71,7 @@ test(".net management migration skips DDL when already applied but still checks 
     async connect() { calls.push("connect"); },
     async query(sql) {
       calls.push(sql);
-      if (sql.includes("owner_member")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true }] };
+      if (sql.includes("owner_member")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, storefront_ready: true }] };
       return { rowCount: 0, rows: [] };
     },
     async end() { calls.push("end"); },
@@ -84,5 +84,37 @@ test(".net management migration skips DDL when already applied but still checks 
   });
   assert.ok(!calls.some((call) => call.endsWith("management.up.sql")));
   assert.ok(calls.some((call) => call.endsWith("management_assertions.sql")));
-  assert.deepEqual(lines, ["celebix_net_staging_admin_domain_management=already_applied"]);
+  assert.deepEqual(lines, ["celebix_net_staging_admin_domain_management=already_applied", "celebix_net_staging_starter_storefront=already_applied"]);
+});
+
+test(".net staging runner provisions the Siora storefront authority and starter design", async () => {
+  const calls = [];
+  const client = {
+    async connect() { calls.push("connect"); },
+    async query(sql) {
+      calls.push(sql);
+      if (sql.includes("owner_member")) return { rowCount: 1, rows: [{ owner_member: true, migration_ready: true, storefront_ready: false }] };
+      return { rowCount: 0, rows: [] };
+    },
+    async end() { calls.push("end"); },
+  };
+  await runCelebixNetDomainsMigration({ client, readSql: (name) => `SQL:${name}`, write() {} });
+  assert.ok(calls.includes("SQL:202609230148_celebix_net_staging_starter_storefront.up.sql"));
+  assert.ok(calls.includes("SQL:202609230148_celebix_net_staging_starter_storefront_assertions.sql"));
+});
+
+test("starter storefront bridge is .net-only, additive, and seeds the Siora public design", async () => {
+  const { readFileSync } = await import("node:fs");
+  const sql = readFileSync(new URL("./sql/saas/202609230148_celebix_net_staging_starter_storefront.up.sql", import.meta.url), "utf8");
+  assert.match(sql, /normalized_hostname<>selected_store\.slug\|\|'\.saas-staging\.celebix\.net'/);
+  assert.match(sql, /AFTER INSERT ON saas\.domains/);
+  assert.match(sql, /INSERT INTO saas\.store_domains/);
+  assert.match(sql, /INSERT INTO saas\.storefront_designs/);
+  assert.match(sql, /storefront_design_document_with_home_ids\(/);
+  assert.match(sql, /storefront_design_upgrade_v3\(/);
+  assert.match(sql, /storefront_design_upgrade_v2\(/);
+  assert.match(sql, /selected_store\.id,4,seeded_design,seeded_design/);
+  assert.match(sql, /store\.slug='butik-siora'/);
+  assert.doesNotMatch(sql, /\b(?:UPDATE|DELETE|DROP)\s+saas\.(?:stores|domains|store_domains|storefront_designs)\b/i);
+  assert.doesNotMatch(sql, /paytr|iyzico|payment/i);
 });

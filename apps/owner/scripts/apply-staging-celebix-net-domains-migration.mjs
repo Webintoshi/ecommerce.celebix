@@ -10,6 +10,8 @@ const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIRECTORY = path.join(SCRIPT_DIRECTORY, "sql", "saas");
 const UP_FILE = "202609230147_celebix_net_staging_admin_domain_management.up.sql";
 const ASSERTIONS_FILE = "202609230147_celebix_net_staging_admin_domain_management_assertions.sql";
+const STOREFRONT_UP_FILE = "202609230148_celebix_net_staging_starter_storefront.up.sql";
+const STOREFRONT_ASSERTIONS_FILE = "202609230148_celebix_net_staging_starter_storefront_assertions.sql";
 
 export function resolveCelebixNetDomainsMigrationConfiguration(source = process.env) {
   if (
@@ -49,13 +51,18 @@ export async function runCelebixNetDomainsMigration({ client, readSql, write }) 
             pg_catalog.to_regprocedure('saas.provision_canonical_admin_domain(uuid,uuid,text,timestamp with time zone)')
           ),
           'management, status, canonical'
-        ) > 0, false) AS migration_ready
+        ) > 0, false) AS migration_ready,
+        pg_catalog.to_regprocedure('saas.provision_celebix_net_starter_storefront(uuid)') IS NOT NULL
+          AS storefront_ready
     `);
     const row = preflight.rowCount === 1 ? preflight.rows[0] : null;
     if (row?.owner_member !== true) throw new Error("celebix_net_staging_migration_authority_invalid");
     if (row.migration_ready !== true) await client.query(readSql(UP_FILE));
     await client.query(readSql(ASSERTIONS_FILE));
     write(`celebix_net_staging_admin_domain_management=${row.migration_ready === true ? "already_applied" : "applied"}`);
+    if (row.storefront_ready !== true) await client.query(readSql(STOREFRONT_UP_FILE));
+    await client.query(readSql(STOREFRONT_ASSERTIONS_FILE));
+    write(`celebix_net_staging_starter_storefront=${row.storefront_ready === true ? "already_applied" : "applied"}`);
   } finally {
     await client.end();
   }
