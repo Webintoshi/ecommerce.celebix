@@ -10,6 +10,7 @@ import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/cl
 import { brandLogoAssetId, loadBrandProductDirectory, type BrandProductDirectoryEntry } from "@/lib/catalog-admin-ui/brand-product-directory";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
+import { attributeSlug } from "@/lib/catalog-onboarding-ui/attribute-resource";
 import styles from "./catalog-admin-console.module.css";
 
 const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
@@ -23,15 +24,6 @@ const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
 
 function value(data: FormData, name: string) {
   return String(data.get(name) ?? "").trim();
-}
-
-function attributeSlug(name: string) {
-  return name.toLocaleLowerCase("tr-TR")
-    .replaceAll("ı", "i").replaceAll("ğ", "g").replaceAll("ü", "u")
-    .replaceAll("ş", "s").replaceAll("ö", "o").replaceAll("ç", "c")
-    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-    .slice(0, 120).replace(/-$/g, "");
 }
 
 function appendAttributeValue(current: readonly string[], raw: string) {

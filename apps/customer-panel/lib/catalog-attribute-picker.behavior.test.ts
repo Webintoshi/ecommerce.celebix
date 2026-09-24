@@ -8,7 +8,8 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 
-import { attributeChoices, mergeSelectedVariants, updateSharedVariantDefault, variantAttributeKey } from "./catalog-onboarding-ui/attribute-variants.ts";
+import { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSharedVariantDefault, variantAttributeKey } from "./catalog-onboarding-ui/attribute-variants.ts";
+import { buildAttributeResourceMutation, saveAttributeForPicker } from "./catalog-onboarding-ui/attribute-resource.ts";
 import { buildVariantMatrix } from "./catalog-onboarding-ui/variant-matrix.ts";
 import type { VariantDraft } from "../components/catalog-onboarding/ProductVariantBuilder.tsx";
 
@@ -22,7 +23,7 @@ test("attribute picker renders saved values and stages only checked combinations
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({
     window: browser, document: browser.document, navigator: browser.navigator,
-    HTMLElement: browser.HTMLElement, Event: browser.Event, MouseEvent: browser.MouseEvent,
+    HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, Event: browser.Event, InputEvent: browser.InputEvent, MouseEvent: browser.MouseEvent,
     MutationObserver: browser.MutationObserver, IS_REACT_ACT_ENVIRONMENT: true,
   })) {
     globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -35,8 +36,9 @@ test("attribute picker renders saved values and stages only checked combinations
   Function("require", "module", "exports", output)((name: string) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
-    if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resources() { return resources; } } };
-    if (name === "@/lib/catalog-onboarding-ui/attribute-variants") return { attributeChoices, mergeSelectedVariants, updateSharedVariantDefault, variantAttributeKey };
+    if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resources() { return resources; } }, CatalogAdminApiError: class extends Error {} };
+    if (name === "@/lib/catalog-onboarding-ui/attribute-variants") return { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSharedVariantDefault, variantAttributeKey };
+    if (name === "@/lib/catalog-onboarding-ui/attribute-resource") return { buildAttributeResourceMutation, saveAttributeForPicker };
     if (name === "@/lib/catalog-onboarding-ui/variant-matrix") return { buildVariantMatrix };
     if (name === "./attribute-variant-picker.module.css") return styles;
     throw new Error(`unexpected_import:${name}`);
@@ -67,6 +69,15 @@ test("attribute picker renders saved values and stages only checked combinations
     assert.match(container.textContent ?? "", /Beyaz \/ M/);
     await click("Siyah / M");
     assert.deepEqual(staged.map(({ title, attributes }) => ({ title, attributes })), [{ title: "Siyah / M", attributes: { renk: "Siyah", beden: "M" } }]);
+    let confirmations = 0;
+    Object.defineProperty(browser, "confirm", { configurable: true, value: () => { confirmations++; return false; } });
+    await click("Siyah / M");
+    assert.equal(confirmations, 1);
+    assert.equal(staged.length, 1);
+    Object.defineProperty(browser, "confirm", { configurable: true, value: () => true });
+    await click("Siyah / M");
+    assert.equal(staged.length, 0);
+    assert.ok([...container.querySelectorAll("button")].some((node) => node.textContent?.includes("Renk için değer ekle")));
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);

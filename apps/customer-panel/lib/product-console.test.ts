@@ -1120,7 +1120,7 @@ test("a failed new global query never exposes old rows as interactive results fo
   assert.equal(mountedNodes(tree).some((node) => String(node.props["aria-label"]).includes("Eski Sorgu Satırı")), false);
 });
 
-test("mount and quick-create share one options request without poisoning ready filter options", async () => {
+test("product list opens the shared create page without poisoning ready filter options", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "active", 1);
   const options = deferred<{ categories: readonly unknown[]; resources: readonly unknown[]; locations: readonly unknown[]; channels: readonly unknown[] }>();
   let optionCalls = 0;
@@ -1131,8 +1131,8 @@ test("mount and quick-create share one options request without poisoning ready f
     getOptions() { optionCalls += 1; return options.promise; },
   });
   let tree = await mounted.render();
-  const add = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Ürün Ekle")!;
-  (add.props.onClick as () => void)();
+  const add = mountedNodes(tree).find((node) => mountedText(node) === "Ürün Ekle" && node.props.href === "/products/new")!;
+  assert.equal(add.type, "a");
   await mounted.render();
   assert.equal(optionCalls, 1);
 
@@ -1351,8 +1351,10 @@ test("product drafts survive quick-to-advanced handoff and navigation is guarded
   assert.match(quick, /mergeQuickProductDraft/);
   assert.match(advanced, /updateProductDraft/);
   assert.match(advanced, /draftSession\?\.current\.media/);
-  assert.match(list, /draftSession={draftSession}/);
-  assert.match(list, /onAdvanced=\{\(\) => \{ setQuickCreateOpen\(false\); setAdvancedCreateOpen\(true\); \}\}/);
+  assert.match(create, /draftSession=\{draftSession\}/);
+  assert.match(create, /onAdvanced=\{\(\) => selectMode\("advanced"\)\}/);
+  assert.match(list, /href="\/products\/new"/);
+  assert.doesNotMatch(list, /setQuickCreateOpen|setAdvancedCreateOpen/);
   assert.doesNotMatch(list, /location[.]assign\("\/products\/new\?mode=advanced"\)/);
   assert.doesNotMatch(`${create}\n${list}\n${quick}\n${advanced}`, /localStorage|sessionStorage/);
 });
@@ -1402,7 +1404,8 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   assert.match(detail, /href="\/products"/);
   assert.match(detail, /onValueChange=\{\(\) => markDetailDirty\("product"\)\}/);
   assert.match(description, /onValueChange\?\.\(nextSource\)/);
-  for (const surface of [detail, create, list]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
+  for (const surface of [detail, create]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
+  assert.match(list, /href="\/products\/new"/);
   assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
   assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
@@ -1434,8 +1437,9 @@ test("advanced create projects every persisted field into the shared dirty draft
   assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setVariants\(next\); \}\}/);
   assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setCategoryIds\(next\); \}\}/);
   assert.match(advanced, /if \(editing \|\| next === kind\) return/);
-  assert.match(advanced, /Ürün yapısını değiştirmek fazla varyantları kaldırabilir/);
-  assert.match(advanced, /const firstVariant = variants\[0\]/);
+  assert.match(advanced, /Seçili varyantları kaldırıp basit ürüne dönmek istiyor musunuz/);
+  assert.match(advanced, /simpleVariantRef\.current = variants\[0\] \?\? emptyVariant\(\)/);
+  assert.match(advanced, /setVariants\(\[simpleVariantRef\.current\]\)/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {

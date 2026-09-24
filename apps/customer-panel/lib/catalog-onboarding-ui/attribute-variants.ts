@@ -20,6 +20,18 @@ export function variantAttributeKey(attributes: Readonly<Record<string, string>>
   return JSON.stringify(Object.entries(attributes).map(([key, value]) => [key.toLocaleLowerCase("tr-TR"), value.toLocaleLowerCase("tr-TR")]).sort(([left], [right]) => left.localeCompare(right, "tr-TR")));
 }
 
+export function reconcileVariantRows(options: readonly VariantMatrixOption[], current: readonly VariantDraft[]): Readonly<{
+  kept: readonly VariantDraft[];
+  removed: readonly VariantDraft[];
+}> {
+  const matrix = options.length ? buildVariantMatrix(options) : null;
+  const validKeys = new Set(matrix?.ok ? matrix.value.map((candidate) => variantAttributeKey(candidate.attributes)) : []);
+  return Object.freeze({
+    kept: Object.freeze(current.filter((row) => validKeys.has(variantAttributeKey(row.attributes)))),
+    removed: Object.freeze(current.filter((row) => !validKeys.has(variantAttributeKey(row.attributes)))),
+  });
+}
+
 export function updateSharedVariantDefault(
   rows: readonly VariantDraft[], field: "price" | "stockQuantity", previous: string, next: string,
 ): readonly VariantDraft[] {

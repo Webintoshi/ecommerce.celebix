@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { attributeChoices, mergeSelectedVariants, updateSharedVariantDefault, variantAttributeKey } from "./attribute-variants.ts";
+import { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSharedVariantDefault, variantAttributeKey } from "./attribute-variants.ts";
 
 const resources = [
   { id: "10000000-0000-4000-8000-000000000001", kind: "attribute", name: "Renk", slug: "renk", config: { values: ["Siyah", "Beyaz"] }, status: "active", productIds: [], productCount: 0, version: 1, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
@@ -57,4 +57,19 @@ test("changing the common starting price updates untouched rows but preserves pe
   if (!first.ok) return;
   const rows = [{ ...first.value[0]!, price: "155,00" }, first.value[1]!];
   assert.deepEqual(updateSharedVariantDefault(rows, "price", "", "199,00").map(({ price }) => price), ["155,00", "199,00"]);
+});
+
+test("adding a value retains checked combinations and their row edits", () => {
+  const edited = { title: "Siyah / M", sku: "RSA-1", barcode: "", price: "150,00", compareAt: "", cost: "", stockQuantity: "3", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes: { renk: "Siyah", beden: "M" } };
+  const result = reconcileVariantRows([{ name: "renk", values: ["Siyah", "Beyaz"] }, { name: "beden", values: ["M", "L"] }], [edited]);
+  assert.deepEqual(result.kept, [edited]);
+  assert.deepEqual(result.removed, []);
+});
+
+test("removing a selected value reports only affected variant rows", () => {
+  const black = { title: "Siyah", sku: "RSA-1", barcode: "", price: "150,00", compareAt: "", cost: "", stockQuantity: "3", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes: { renk: "Siyah" } };
+  const white = { ...black, title: "Beyaz", attributes: { renk: "Beyaz" } };
+  const result = reconcileVariantRows([{ name: "renk", values: ["Siyah"] }], [black, white]);
+  assert.deepEqual(result.kept, [black]);
+  assert.deepEqual(result.removed, [white]);
 });

@@ -34,8 +34,6 @@ import type {
 } from "@celebix/saas-contracts";
 import { catalogProductListQueryDigest } from "@celebix/saas-contracts";
 
-import { ProductQuickCreateDialog } from "@/components/catalog-onboarding/ProductQuickCreateDialog";
-import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
@@ -45,13 +43,6 @@ import {
   type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
 import { parseProductListUrlState, productListUrlStateQuery } from "@/lib/catalog-ui/product-list-query";
-import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
-import {
-  commitProductDraft,
-  createEmptyProductDraftSession,
-  productDraftIsDirty,
-  type ProductDraftSession,
-} from "@/lib/catalog-ui/product-draft-session";
 import catalogStyles from "./catalog-operations.module.css";
 
 type Filter = "all" | "draft" | "active" | "archived";
@@ -273,11 +264,6 @@ export function ProductListConsole({
   rowsStaleRef.current = rowsStale;
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  const [advancedCreateOpen, setAdvancedCreateOpen] = useState(false);
-  const [draftSession, setDraftSession] = useState<ProductDraftSession>(() => createEmptyProductDraftSession());
-  const draftSessionRef = useRef(draftSession);
-  draftSessionRef.current = draftSession;
   const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [quickOptionsState, setQuickOptionsState] = useState<"loading" | "ready" | "unavailable">("loading");
   const quickOptionsRequestRef = useRef<Promise<CatalogOnboardingOptions> | null>(null);
@@ -296,7 +282,6 @@ export function ProductListConsole({
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
   const refreshListButtonRef = useRef<HTMLButtonElement>(null);
-  const quickCreateTriggerRef = useRef<HTMLButtonElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
   const requestQuickOptions = useCallback(() => {
@@ -418,16 +403,6 @@ export function ProductListConsole({
     return () => { current = false; };
   }, [requestQuickOptions]);
 
-  useEffect(() => {
-    if ((!quickCreateOpen && !advancedCreateOpen) || typeof window === "undefined") return;
-    const guard = createDirtyNavigationGuard({
-      isDirty: () => productDraftIsDirty(draftSessionRef.current),
-      confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
-    });
-    const cleanupBeforeUnload = guard.bindBeforeUnload(window);
-    const cleanupApplicationNavigation = guard.bindApplicationNavigation(document, () => window.location.href);
-    return () => { cleanupBeforeUnload(); cleanupApplicationNavigation(); };
-  }, [advancedCreateOpen, quickCreateOpen]);
 
   useEffect(() => {
     if (archiveCandidate !== undefined) {
@@ -720,50 +695,9 @@ export function ProductListConsole({
       <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => updateSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Son güncellenen</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option><option value="created-desc">En yeni</option><option value="created-asc">En eski</option></select></label>
       {canImport ? <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link> : null}
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
-      {canManage ? <button className={`command-button command-button-primary ${catalogStyles.primaryAction}`} type="button" disabled={busy} onClick={(event) => void openQuickCreate(event?.currentTarget)}><Plus aria-hidden="true" />Ürün Ekle</button> : null}
+      {canManage ? <Link className={`command-button command-button-primary ${catalogStyles.primaryAction}`} href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link> : null}
     </div>
     );
-  }
-
-  async function openQuickCreate(trigger?: HTMLButtonElement) {
-    if (!canManage) return;
-    if (trigger) quickCreateTriggerRef.current = trigger;
-    setDraftSession(createEmptyProductDraftSession());
-    setAdvancedCreateOpen(false);
-    setQuickCreateOpen(true);
-    if (quickOptions !== null) {
-      setQuickOptionsState("ready");
-      return;
-    }
-    setQuickOptionsState("loading");
-    try {
-      setQuickOptions(await requestQuickOptions());
-      setQuickOptionsState("ready");
-    }
-    catch (failure) {
-      setQuickOptionsState("unavailable");
-      setQuickCreateOpen(false);
-      setError(failure instanceof Error ? failure.message : "Ürün seçenekleri yüklenemedi.");
-    }
-  }
-
-  function closeCreateWorkflow() {
-    if (
-      productDraftIsDirty(draftSessionRef.current)
-      && !window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Taslaktan çıkmak istiyor musunuz?")
-    ) return;
-    setQuickCreateOpen(false);
-    setAdvancedCreateOpen(false);
-    setDraftSession(createEmptyProductDraftSession());
-  }
-
-  function completeCreateWorkflow() {
-    const committed = commitProductDraft(draftSessionRef.current);
-    draftSessionRef.current = committed;
-    setDraftSession(committed);
-    setQuickCreateOpen(false);
-    setAdvancedCreateOpen(false);
-    void load();
   }
 
   const topbarActions = productCommands();
@@ -879,23 +813,6 @@ export function ProductListConsole({
         </div>
       ) : null}
 
-      {canManage ? <ProductQuickCreateDialog
-        open={quickCreateOpen}
-        options={quickOptions}
-        draftSession={draftSession}
-        returnFocusTarget={quickCreateTriggerRef.current}
-        onDraftSessionChange={setDraftSession}
-        onClose={closeCreateWorkflow}
-        onCreated={completeCreateWorkflow}
-        onAdvanced={() => { setQuickCreateOpen(false); setAdvancedCreateOpen(true); }}
-      /> : null}
-      {canManage && advancedCreateOpen && quickOptions ? <div className="product-create-overlay" role="dialog" aria-modal="true" aria-label="Gelişmiş ürün oluşturma"><div className="product-create-overlay-surface"><ProductAdvancedEditor
-        options={quickOptions}
-        draftSession={draftSession}
-        onDraftSessionChange={setDraftSession}
-        onCancel={closeCreateWorkflow}
-        onCreated={completeCreateWorkflow}
-      /></div></div> : null}
     </section>
   );
 }

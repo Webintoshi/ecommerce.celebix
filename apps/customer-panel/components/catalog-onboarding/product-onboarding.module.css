@@ -666,3 +666,69 @@
   .page .actions { bottom: 76px; }
 }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Shared product-entry choice. */
+.createChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 10px; }
+.createChoice { display: grid; min-width: 0; min-height: 220px; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; align-items: end; gap: 24px; border: 1px solid var(--catalog-border); border-radius: 16px; background: var(--catalog-surface); padding: 28px; color: var(--catalog-text); text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.createChoice:hover { border-color: var(--catalog-accent); background: #fff8f3; transform: translateY(-2px); }
+.createChoice:focus-visible { outline: 3px solid var(--catalog-accent); outline-offset: 3px; }
+.createChoiceIcon { display: grid; width: 54px; height: 54px; grid-column: 1 / -1; place-items: center; border-radius: 12px; background: #fff0e6; color: var(--catalog-accent); }
+.createChoiceIcon svg { width: 27px; height: 27px; }
+.createChoice > span:nth-child(2) { display: grid; gap: 7px; }
+.createChoice strong { font-size: clamp(20px, 2vw, 26px); letter-spacing: -.02em; }
+.createChoice small { color: #667085; font-size: 14px; line-height: 1.5; }
+.createChoice > svg { width: 24px; height: 24px; color: var(--catalog-accent); }
+@media (max-width: 560px) { .createChoices { grid-template-columns: 1fr; gap: 12px; } .createChoice { min-height: 164px; gap: 16px; padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { .createChoice { transition-duration: .01ms; } }
+
+/* Product creation: readable hierarchy without changing existing edit surfaces. */
+.createWorkspace .sections { gap: 14px; }
+.createWorkspace .sections :global(.onboarding-editor-section > summary) { min-height: 64px; padding: 14px 18px; }
+.createWorkspace .sections :global(.onboarding-editor-section > summary strong) { font-size: 16px; }
+.createWorkspace .sections :global(.onboarding-editor-section > summary small) { font-size: 13px; }
+.createWorkspace .sections :global(.onboarding-editor-section > div) { padding: 18px; }
+.createWorkspace .sections :global(.onboarding-editor-grid label),
+.createWorkspace .organizationGrid > label { font-size: 13px; }
+.createWorkspace .sections :global(.onboarding-editor-grid input),
+.createWorkspace .sections :global(.onboarding-editor-grid select),
+.createWorkspace .sections :global(.onboarding-editor-grid textarea),
+.createWorkspace .organizationGrid input,
+.createWorkspace .organizationGrid select { min-height: 44px; font-size: 14px; }
+.createWorkspace .sections :global(.onboarding-title-field input) { min-height: 50px; font-size: 16px; }
+.createWorkspace .productKind { margin-bottom: 16px; }
+.createWorkspace .productKind button { min-height: 72px; }
+.createWorkspace .productKind button strong { font-size: 14px; }
+.createWorkspace .productKind button small { font-size: 12px; }
+.createWorkspace .helper,
+.createWorkspace .createMediaPicker > span,
+.createWorkspace .stickySummary dl div { font-size: 13px; }
+.createWorkspace .sections :global(.onboarding-variant-builder article) { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px; }
+.createWorkspace .sections :global(.onboarding-variant-builder article > header) { margin: 0; }
+.createWorkspace .sections :global(.onboarding-variant-builder article > header strong) { font-size: 14px; }
+.createWorkspace .sections :global(.onboarding-variant-builder article > header small) { font-size: 12px; }
+.createWorkspace .sections :global(.onboarding-variant-builder article > header button) { min-width: 44px; min-height: 44px; }
+.createWorkspace .sections :global(.onboarding-variant-index) { font-size: 12px; }
+.createWorkspace .sections :global(.onboarding-variant-primary-fields),
+.createWorkspace .sections :global(.onboarding-variant-builder[data-layout="multiple"] .onboarding-variant-primary-fields) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.createWorkspace .sections :global(.onboarding-variant-primary-fields label) { font-size: 12px; }
+.createWorkspace .sections :global(.onboarding-variant-primary-fields input) { min-height: 44px; font-size: 14px; }
+.createWorkspace .sections :global(.onboarding-variant-advanced) { grid-column: 1; }
+.createWorkspace .sections :global(.onboarding-variant-advanced > summary) { min-height: 42px; font-size: 13px; }
+.createWorkspace .sections :global(.onboarding-continue-selling) { grid-column: auto; min-height: 44px; font-size: 13px; }
+.createWorkspace .createMediaPicker { min-height: 72px; }
+.createWorkspace .createMediaPicker small,
+.createWorkspace .createMediaGrid article label { font-size: 12px; }
+.createWorkspace .createMediaGrid article input { min-height: 42px; font-size: 13px; }
+.createWorkspace .stickySummary > span { font-size: 11px; }
+.createWorkspace .stickySummary > strong { font-size: 17px; }
+.createWorkspace .summaryMissing :is(span, a),
+.createWorkspace .summaryReady { font-size: 12px; }
+.createWorkspace .editorActions button { min-height: 48px; font-size: 14px; }
+@media (max-width: 700px) {
+  .createWorkspace .sections :global(.onboarding-variant-primary-fields),
+  .createWorkspace .sections :global(.onboarding-variant-builder[data-layout="multiple"] .onboarding-variant-primary-fields) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .createWorkspace .sections :global(.onboarding-variant-primary-fields),
+  .createWorkspace .sections :global(.onboarding-variant-builder[data-layout="multiple"] .onboarding-variant-primary-fields) { grid-template-columns: 1fr; }
+}

@@ -5,6 +5,7 @@ import * as React from "react";
 import { createElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import { attributeSlug } from "../catalog-onboarding-ui/attribute-resource.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -103,6 +104,7 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
     if (specifier === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: (config: Readonly<Record<string, unknown>>) => typeof config.logoAssetId === "string" ? config.logoAssetId : undefined, loadBrandProductDirectory: async () => [] };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: overrides.products ?? (async () => ({ items: [] })) }) };
     if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
+    if (specifier === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeSlug };
     if (specifier === "./catalog-admin-console.module.css") return styles;
     if (specifier === "@celebix/saas-contracts") return {};
     throw new Error(`unexpected_catalog_resource_editor_import:${specifier}`);

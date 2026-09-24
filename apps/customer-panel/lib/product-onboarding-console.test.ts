@@ -39,25 +39,25 @@ test("quick create makes category selection obvious before publishing", async ()
   assert.match(css, /\.fieldHint/);
 });
 
-test("new product page defaults to quick creation and keeps advanced mode explicit", async () => {
+test("new product page opens a choice before either creation form", async () => {
   const page = await source("app/products/new/page.tsx");
-  assert.match(page, /mode === "advanced" \? "advanced" : "quick"/);
-  assert.doesNotMatch(page, /mode === "quick" \? "quick" : "advanced"/);
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  assert.match(page, /mode === "advanced"/);
+  assert.match(create, /Hızlı Ürün Yükle/);
+  assert.match(create, /Detaylı Ürün Yükle/);
+  assert.match(create, /mode === "choose"/);
 });
 
-test("launcher opens the quick dialog instead of navigating away", async () => {
+test("product list launcher opens the same choice route as navigation", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
-  const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
-  assert.match(list, /setQuickCreateOpen\(true\)/);
-  assert.match(list, /ProductQuickCreateDialog/);
-  assert.match(dialog, /role=\{mode === "dialog" \? "dialog" : "region"\}/);
-  assert.match(dialog, /aria-modal=\{mode === "dialog" \? "true" : undefined\}/);
+  assert.match(list, /href="\/products\/new"[^>]*>[^<]*<Plus/);
+  assert.doesNotMatch(list, /setQuickCreateOpen\(true\)/);
 });
 
 test("dialog preserves focus, keyboard, duplicate-submit and close safety", async () => {
-  const [dialog, list] = await Promise.all([
+  const [dialog, create] = await Promise.all([
     source("components/catalog-onboarding/ProductQuickCreateDialog.tsx"),
-    source("components/catalog/ProductListConsole.tsx"),
+    source("components/catalog/ProductCreateForm.tsx"),
   ]);
   assert.match(dialog, /event\.key === "Escape"/);
   assert.match(dialog, /event\.key !== "Tab"/);
@@ -65,8 +65,7 @@ test("dialog preserves focus, keyboard, duplicate-submit and close safety", asyn
   assert.match(dialog, /beforeunload/);
   assert.match(dialog, /returnFocusRef\.current\?\.focus/);
   assert.match(dialog, /returnFocusTarget/);
-  assert.match(list, /quickCreateTriggerRef\.current = trigger/);
-  assert.match(list, /returnFocusTarget=\{quickCreateTriggerRef\.current\}/);
+  assert.match(create, /createDirtyNavigationGuard/);
   assert.match(dialog, /onMouseDown=.*event\.target === event\.currentTarget/);
 });
 
@@ -99,9 +98,12 @@ test("catalog onboarding owns its Mira palette and clears the fixed mobile navig
 
 test("advanced editor is one collapsible form, not a wizard", async () => {
   const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
-  for (const label of ["Temel bilgiler", "Fiyat ve stok", "Varyantlar", "Medya", "Kategori, koleksiyon, marka ve etiket", "Kargo ve gümrük", "SEO", "Satış kanalları", "Nitelikler ve ekstralar"]) {
+  for (const label of ["Temel bilgiler ve kategori", "Fiyat ve varyantlar", "Görseller", "Diğer ayarlar", "SEO", "Satış kanalları"]) {
     assert.match(editor, new RegExp(label));
   }
+  assert.ok(editor.indexOf('id="product-basics"') < editor.indexOf('id="product-commerce"'));
+  assert.ok(editor.indexOf('id="product-commerce"') < editor.indexOf('id="product-media"'));
+  assert.ok(editor.indexOf('id="product-media"') < editor.indexOf('id="product-advanced"'));
   assert.doesNotMatch(editor, /İleri|Önceki|stepIndex|currentStep/);
   assert.match(editor, /stickySummary/);
   assert.match(editor, /completeProductMedia/);
@@ -115,6 +117,17 @@ test("advanced editor locks native and rich fields while a versioned save is pen
   assert.match(editor, /<fieldset className=\{styles[.]editorFieldset\} disabled=\{busy\}>/);
   assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy\}/s);
   assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy \|\| editing\}/s);
+});
+
+test("variant rows prioritize price and stock while secondary fields stay disclosed", async () => {
+  const builder = await source("components/catalog-onboarding/ProductVariantBuilder.tsx");
+  const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
+  assert.match(builder, /Satış fiyatı \*/);
+  assert.match(builder, /Stok/);
+  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("Karşılaştırma fiyatı"));
+  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("Barkod"));
+  assert.match(builder, /!simplified \? <div className="onboarding-variant-list-heading"/);
+  assert.match(editor, /allowManualAdd=\{kind !== "variant"\} simplified/);
 });
 
 test("variant matrix rejects duplicate attributes and bounds combinations", () => {

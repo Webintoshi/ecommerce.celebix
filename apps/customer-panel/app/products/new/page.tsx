@@ -7,6 +7,6 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 export default async function NewProductPage({ searchParams }: Readonly<{ searchParams: Promise<Readonly<{ mode?: string }>> }>) {
   const [query, { tenantContext }] = await Promise.all([searchParams, requireServerPanelAccess()]);
   if (!isCatalogProductOperationAllowed(tenantContext.membership.role, "create")) redirect("/unauthorized");
-  const mode = query.mode === "advanced" ? "advanced" : "quick";
+  const mode = query.mode === "advanced" ? "advanced" : query.mode === "quick" ? "quick" : "choose";
   return <ProductCreateForm initialMode={mode} />;
 }

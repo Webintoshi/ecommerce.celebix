@@ -122,6 +122,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   const [createdProductId, setCreatedProductId] = useState<string>();
   const [progress, setProgress] = useState(0);
   const lock = useRef(false);
+  const simpleVariantRef = useRef<VariantDraft>(variants[0] ?? emptyVariant());
   const editingDirtyRef = useRef(false);
   const createTouchedRef = useRef(false);
   const [createFieldRevision, setCreateFieldRevision] = useState(0);
@@ -136,13 +137,14 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     const validVariants = variants.filter((variant) => variantIntent(variant, productType) !== null).length;
     const missing = [
       ...(titleValue.trim() ? [] : [Object.freeze({ href: "#product-basics", label: "Ürün adını tamamlayın." })]),
+      ...(categoryIds.length ? [] : [Object.freeze({ href: "#product-basics", label: "Satışa açmak için kategori seçin." })]),
       ...(variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: "En az bir varyant ekleyin." })]),
       ...(validPrices === variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: kind === "simple" ? "Satış fiyatını tamamlayın." : "Varyant fiyatlarını tamamlayın." })]),
       ...(validPrices < variants.length || validVariants === variants.length ? [] : [Object.freeze({ href: "#product-commerce", label: "Varyant stok ve zorunlu alanlarını kontrol edin." })]),
     ];
     const firstPrice = variants[0] && parseTurkishMoneyToCents(variants[0].price) !== null ? `${variants[0].price} ₺` : "Eksik";
     return Object.freeze({ variantCount: variants.length, validPrices, validVariants, firstPrice, missing: Object.freeze(missing) });
-  }, [kind, productType, titleValue, variants]);
+  }, [categoryIds, kind, productType, titleValue, variants]);
 
   useEffect(() => () => {
     if (onDraftSessionChange === undefined) for (const preview of mediaPreviewUrlsRef.current) URL.revokeObjectURL(preview);
@@ -218,11 +220,16 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
 
   function switchKind(next: "simple" | "variant") {
     if (editing || next === kind) return;
-    if (!window.confirm("Ürün yapısını değiştirmek fazla varyantları kaldırabilir. Devam etmek istiyor musunuz?")) return;
+    if (next === "simple" && variants.length && !window.confirm("Seçili varyantları kaldırıp basit ürüne dönmek istiyor musunuz?")) return;
     markEditingDirty();
     setKind(next);
-    const firstVariant = variants[0] ?? emptyVariant(next === "simple" ? "Standart" : "Varyant 1");
-    setVariants(next === "simple" ? [firstVariant] : variants.length > 1 ? variants : []);
+    if (next === "variant") {
+      simpleVariantRef.current = variants[0] ?? emptyVariant();
+      setVariants([]);
+    } else {
+      setVariants([simpleVariantRef.current]);
+      setSelectedVariantAttributeIds([]);
+    }
   }
 
   function selectMedia(event: ChangeEvent<HTMLInputElement>) {
@@ -248,12 +255,14 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     if (lock.current) return;
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const data = new FormData(event.currentTarget);
+    const publish = (event.nativeEvent as SubmitEvent).submitter instanceof HTMLButtonElement && (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "publish";
     const parsedCreateVariants = editing ? [] : variants.map((variant) => variantIntent(variant, productType));
     if (!editing) {
       setShowValidation(true);
-      if (!titleValue.trim() || parsedCreateVariants.length === 0 || parsedCreateVariants.some((variant) => variant === null)) {
+      if (!titleValue.trim() || (publish && categoryIds.length === 0) || parsedCreateVariants.length === 0 || parsedCreateVariants.some((variant) => variant === null)) {
         setError("Zorunlu ürün ve satış alanlarını kontrol edin.");
         if (!titleValue.trim()) titleRef.current?.focus();
+        else if (publish && categoryIds.length === 0) document.querySelector<HTMLElement>("#product-basics")?.scrollIntoView({ behavior: "smooth", block: "start" });
         else document.querySelector<HTMLElement>("#product-commerce")?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
@@ -273,22 +282,21 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       ...(text(data, "seoDescription") ? { seoDescription: text(data, "seoDescription") } : {}),
     };
     const resourceIds: CatalogOnboardingResourceIds = { ...(brand ? { brand } : {}), collections: resources("collection"), tags: resources("tag"), attributes: Object.freeze([...new Set([...resources("attribute"), ...selectedVariantAttributeIds])]), extras: resources("extra"), definitions: resources("definition") };
-    const categoryIds = selected(data, "categoryIds");
+    const submittedCategoryIds = selected(data, "categoryIds");
     const channelIds = selected(data, "channelIds");
 
     lock.current = true; setBusy(true); setError(""); setConflict(false);
     try {
       if (editor) {
-        const updated = await api.updateMerchandising(editor.product.id, { expectedProfileVersion: editor.profile.version, profile, categoryIds, resourceIds, channelIds });
+        const updated = await api.updateMerchandising(editor.product.id, { expectedProfileVersion: editor.profile.version, profile, categoryIds: submittedCategoryIds, resourceIds, channelIds });
         editingDirtyRef.current = false;
         onDirtyChange?.(false);
         onUpdated?.(updated);
         return;
       }
-      const publish = (event.nativeEvent as SubmitEvent).submitter instanceof HTMLButtonElement && (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "publish";
       const candidate: CatalogAdvancedCreateIntent = {
         kind: "advanced", productType, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
-        variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds, resourceIds, channelIds, profile,
+        variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile,
       };
       const parsed = buildAdvancedCreateIntent(candidate);
       if (!parsed.ok) { setError(parsed.error); return; }
@@ -324,36 +332,34 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     {error ? <div className={styles.error} role="alert"><span>{error}</span>{conflict ? <button type="button" className={styles.secondary} onClick={reloadConflict}>Sunucudaki sürümü yükle</button> : null}{createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}</div> : null}
     {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
     <fieldset className={styles.editorFieldset} disabled={busy}>
-    <div className={styles.productKind} aria-label="Ürün yapısı">
-      <button type="button" aria-pressed={kind === "simple"} className={kind === "simple" ? styles.selected : ""} onClick={() => switchKind("simple")}><span className={styles.kindIcon}><Package aria-hidden="true" /></span><span><strong>Basit ürün</strong><small>Tek fiyat ve stok</small></span>{kind === "simple" ? <Check className={styles.kindCheck} aria-hidden="true" /> : null}</button>
-      <button type="button" aria-pressed={kind === "variant"} className={kind === "variant" ? styles.selected : ""} onClick={() => switchKind("variant")}><span className={styles.kindIcon}><Boxes aria-hidden="true" /></span><span><strong>Varyantlı ürün</strong><small>Renk, beden veya diğer seçenekler</small></span>{kind === "variant" ? <Check className={styles.kindCheck} aria-hidden="true" /> : null}</button>
-    </div>
     <div className={styles.editorLayout}>
       <div className={styles.sections}>
-        <ProductEditorSection id="product-basics" title="Temel bilgiler" description="Ürün adı, türü ve açıklaması" open><div className="onboarding-editor-grid"><label className="onboarding-wide onboarding-title-field"><span>Ürün adı *</span><input ref={titleRef} name="title" required maxLength={200} autoFocus value={titleValue} onChange={(event) => setTitleValue(event.target.value)} aria-invalid={showValidation && !titleValue.trim()} />{showValidation && !titleValue.trim() ? <small className={styles.fieldError}>Ürün adı gerekli.</small> : null}</label><label><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label><ProductDescriptionField className="onboarding-wide" rows={4} previewCollapsed readOnly={busy} defaultValue={descriptionValue} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></div></ProductEditorSection>
-        <ProductEditorSection id="product-commerce" title={kind === "simple" ? "Fiyat ve stok" : "Varyantlar"} description={kind === "simple" ? "Ürünün satış fiyatı ve stok durumu" : `${variants.length} satış varyantı`} open>
+        <ProductEditorSection id="product-basics" title="Temel bilgiler ve kategori" description="Ürün adı, kategori ve açıklama" open><div className="onboarding-editor-grid"><label className="onboarding-wide onboarding-title-field"><span>Ürün adı *</span><input ref={titleRef} name="title" required maxLength={200} autoFocus value={titleValue} onChange={(event) => setTitleValue(event.target.value)} aria-invalid={showValidation && !titleValue.trim()} />{showValidation && !titleValue.trim() ? <small className={styles.fieldError}>Ürün adı gerekli.</small> : null}</label><ProductClassificationPicker label="Kategoriler (satışa açmak için seçin)" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={(next) => { markEditingDirty(); setCategoryIds(next); }} searchLabel="Kategori ara" /><label><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label><ProductDescriptionField className="onboarding-wide" rows={4} previewCollapsed readOnly={busy} defaultValue={descriptionValue} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></div></ProductEditorSection>
+        <ProductEditorSection id="product-commerce" title="Fiyat ve varyantlar" description={kind === "simple" ? "Tek fiyat ve stok" : `${variants.length} satış varyantı`} open>
+          <div className={styles.productKind} aria-label="Ürün yapısı">
+            <button type="button" aria-pressed={kind === "simple"} className={kind === "simple" ? styles.selected : ""} onClick={() => switchKind("simple")}><span className={styles.kindIcon}><Package aria-hidden="true" /></span><span><strong>Basit ürün</strong><small>Tek fiyat ve stok</small></span>{kind === "simple" ? <Check className={styles.kindCheck} aria-hidden="true" /> : null}</button>
+            <button type="button" aria-pressed={kind === "variant"} className={kind === "variant" ? styles.selected : ""} onClick={() => switchKind("variant")}><span className={styles.kindIcon}><Boxes aria-hidden="true" /></span><span><strong>Varyantlı ürün</strong><small>Renk, beden veya diğer seçenekler</small></span>{kind === "variant" ? <Check className={styles.kindCheck} aria-hidden="true" /> : null}</button>
+          </div>
           {showValidation && summary.validVariants < variants.length ? <p className={styles.inlineValidation}>Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          {kind === "variant" ? <p className={styles.helper}>Her satır ayrı fiyat, stok ve SKU bilgisi taşır.</p> : null}
-          {kind === "variant" ? <AttributeVariantPicker value={variants.filter((variant) => Object.keys(variant.attributes).length > 0)} onChange={(next) => { markEditingDirty(); setVariants((current) => Object.freeze([...current.filter((variant) => Object.keys(variant.attributes).length === 0), ...next])); }} onAttributeIdsChange={setSelectedVariantAttributeIds} disabled={busy} /> : null}
-          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} allowManualAdd={kind !== "variant"} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} />
+          {kind === "variant" ? <AttributeVariantPicker value={variants.filter((variant) => Object.keys(variant.attributes).length > 0)} onChange={(next) => { markEditingDirty(); setVariants(Object.freeze(next)); }} onAttributeIdsChange={setSelectedVariantAttributeIds} initialPrice={simpleVariantRef.current.price} initialStock={simpleVariantRef.current.stockQuantity} disabled={busy} /> : null}
+          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} allowManualAdd={kind !== "variant"} simplified showShipping={productType === "physical"} skuPrefix={options.skuPrefix} />
         </ProductEditorSection>
-        <ProductEditorSection id="product-media" title="Medya" description={media.length ? `${media.length} görsel seçildi` : "Görselleri ekleyin ve alt metinlerini tamamlayın"}>
+        <ProductEditorSection id="product-media" title="Görseller" description={media.length ? `${media.length} görsel seçildi` : "Ürün görselleri ve açıklamaları"}>
           <div className={styles.advancedMedia}>
             <label className={`${styles.media} ${styles.createMediaPicker}`}><ImagePlus aria-hidden="true" /><span>{media.length ? "Görselleri değiştir" : "+ Görsel ekle"}<small>JPEG, PNG veya WebP · en fazla 16 görsel · dosya başına 5 MB</small></span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={selectMedia} /></label>
             {media.length ? <div className={styles.createMediaGrid}>{media.map((selected, index) => <article key={`${selected.file.name}-${index}`}><div className={styles.createMediaThumbnail}><img src={selected.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} />{index === 0 ? <span>Birincil</span> : null}</div><label><span>Alt metin</span><input value={selected.altText} maxLength={500} onChange={(event) => changeMediaAlt(index, event.target.value)} placeholder="Görseli kısaca açıklayın" /></label></article>)}</div> : null}
             {busy && media.length ? <progress max="100" value={progress}>{progress}%</progress> : null}
           </div>
         </ProductEditorSection>
-        <ProductEditorSection id="product-organization" title="Organizasyon" description="Kategori, marka, koleksiyon ve etiketler">
+        <ProductEditorSection id="product-organization" title="Diğer ayarlar" description="Marka, koleksiyon, etiket ve tedarikçi">
           <div className={styles.organizationGrid}>
-            <ProductClassificationPicker label="Kategoriler" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={(next) => { markEditingDirty(); setCategoryIds(next); }} searchLabel="Kategori ara" />
             <label><span>Marka</span><select name="resource-brand" defaultValue={draftSession?.current.brandId ?? ""}><option value="">Marka seçilmedi</option>{activeResources("brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
             <ProductClassificationPicker label="Koleksiyonlar" name="resource-collection" options={collectionChoices} selected={collectionIds} onChange={(next) => { markEditingDirty(); setCollectionIds(next); }} searchLabel="Koleksiyon ara" />
             <ProductClassificationPicker label="Etiketler" name="resource-tag" options={tagChoices} selected={tagIds} onChange={(next) => { markEditingDirty(); setTagIds(next); }} searchLabel="Etiket ara" />
             <label><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={draftSession?.current.supplierName ?? ""} /></label>
           </div>
         </ProductEditorSection>
-        <ProductEditorSection id="product-advanced" title="Gelişmiş ayarlar" description="Satış kanalları, SEO ve diğer ayrıntılar">
+        <ProductEditorSection id="product-advanced" title="Ek satış ayarları" description="SEO, kanallar ve diğer ayrıntılar">
           <div className={styles.advancedGroups}>
             <details><summary>Kargo ve sipariş sınırları</summary><div className="onboarding-editor-grid"><label><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.minimumOrderQuantity || "1"} /></label><label><span>Maksimum sipariş</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.maximumOrderQuantity ?? ""} /></label><label><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={draftSession?.current.googleProductCategoryId ?? ""} /></label></div></details>
             <details><summary>SEO</summary><div className="onboarding-editor-grid"><label className="onboarding-wide"><span>SEO başlığı</span><input name="seoTitle" maxLength={200} defaultValue={draftSession?.current.seoTitle ?? ""} /></label><label className="onboarding-wide"><span>SEO açıklaması</span><textarea name="seoDescription" maxLength={500} rows={4} defaultValue={draftSession?.current.seoDescription ?? ""} /></label></div></details>
