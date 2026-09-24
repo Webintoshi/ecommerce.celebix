@@ -25,6 +25,12 @@ function activeResources(resources: readonly CatalogAdminResource[]) {
   return Object.freeze(resources.filter((resource) => resource.status === "active"));
 }
 
+function attributeValues(resource: CatalogAdminResource) {
+  return Array.isArray(resource.config.values)
+    ? resource.config.values.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
 export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdminResourceKind; canManage: boolean }) {
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const meta = META[kind];
@@ -82,7 +88,9 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
   const productById = new Map(brandProducts.map((product) => [product.id, product]));
   const logoById = new Map(brandLogos.map((asset) => [asset.id, asset]));
   const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
-  const visibleItems = kind !== "brand" || !normalizedSearch ? items : items.filter((resource) => resource.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || resource.productIds.some((id) => productById.get(id)?.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch)));
+  const visibleItems = !normalizedSearch ? items : kind === "brand"
+    ? items.filter((resource) => resource.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || resource.productIds.some((id) => productById.get(id)?.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch)))
+    : kind === "attribute" ? items.filter((resource) => resource.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || attributeValues(resource).some((entry) => entry.toLocaleLowerCase("tr-TR").includes(normalizedSearch))) : items;
 
   function brandCard(resource: CatalogAdminResource) {
     const logo = logoById.get(brandLogoAssetId(resource.config) ?? "");
@@ -98,9 +106,23 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     </article>;
   }
 
+  function attributeCard(resource: CatalogAdminResource) {
+    const values = attributeValues(resource);
+    return <article className={styles.attributeCard} key={resource.id}>
+      <div className={styles.attributeMonogram} aria-hidden="true">{resource.name.charAt(0).toLocaleUpperCase("tr-TR")}</div>
+      <div className={styles.attributeCardBody}>
+        <div className={styles.attributeCardHeading}><h2>{resource.name}</h2><span>{values.length} değer</span></div>
+        {resource.description ? <p>{resource.description}</p> : null}
+        <ul className={styles.attributeChips}>{values.map((entry) => <li key={entry}>{entry}</li>)}</ul>
+      </div>
+      {canManage ? <div className={styles.attributeCardActions}><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></div> : null}
+    </article>;
+  }
+
   return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link> : undefined} /><section className={styles.surface}>
     {error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button></p> : null}
     {!loading && kind === "brand" && items.length ? <label className={styles.brandSearch}><Search aria-hidden="true" /><span className={styles.srOnly}>Marka veya bağlı ürün ara</span><input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Marka veya bağlı ürün ara" /></label> : null}
-    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? error ? null : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title="Eşleşen marka yok" description="Arama ifadenizi değiştirip yeniden deneyin." /> : <div className={styles.list}>{items.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
+    {!loading && kind === "attribute" && items.length ? <div className={styles.attributeToolbar}><div><strong>Ürün seçenekleri</strong><span>{items.length} nitelik</span></div><label className={styles.attributeSearch}><Search aria-hidden="true" /><span className={styles.srOnly}>Nitelik veya değer ara</span><input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Nitelik veya değer ara" /></label></div> : null}
+    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? error ? null : kind === "attribute" ? <PanelEmptyState title="Henüz nitelik yok" description="Renk veya beden ekleyerek başlayın; değerleri ürün varyantlarında seçebilirsiniz." action={canManage ? <Link className={styles.primary} href="/products/attributes/new">İlk niteliği oluştur</Link> : undefined} /> : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title="Eşleşen marka yok" description="Arama ifadenizi değiştirip yeniden deneyin." /> : kind === "attribute" ? visibleItems.length ? <div className={styles.attributeList}>{visibleItems.map(attributeCard)}</div> : <PanelEmptyState title="Eşleşen nitelik yok" description="Başka bir ad veya değer arayın." /> : <div className={styles.list}>{items.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
   </section></PanelPageShell>;
 }

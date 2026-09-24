@@ -340,3 +340,59 @@
 @media (max-width: 480px) {
   .importWorkspace .providerGrid { grid-template-columns: 1fr; }
 }
+
+/* Attribute management: merchant-facing names and values, never technical slugs. */
+.attributeToolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; border: 1px solid var(--catalog-border); border-radius: 12px; background: var(--catalog-surface); padding: 14px 18px; }
+.attributeToolbar > div { display: grid; gap: 3px; }
+.attributeToolbar strong { color: var(--catalog-text); font-size: .92rem; }
+.attributeToolbar span { color: #716963; font-size: .76rem; }
+.attributeSearch { display: flex; width: min(100%, 320px); align-items: center; gap: 8px; border: 1px solid var(--catalog-border); border-radius: 9px; background: #fff; padding: 0 12px; }
+.attributeSearch svg { width: 17px; height: 17px; flex: 0 0 auto; color: #756b65; }
+.attributeSearch input { width: 100%; min-height: 40px; border: 0; outline: 0; background: transparent; color: var(--catalog-text); font: inherit; font-size: .8rem; }
+.attributeSearch:focus-within { outline: 2px solid var(--catalog-text); outline-offset: 2px; }
+.attributeList { display: grid; gap: 12px; }
+.attributeCard { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 16px; align-items: start; border: 1px solid var(--catalog-border); border-radius: 12px; background: var(--catalog-surface); padding: 18px; }
+.attributeMonogram { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #ffd9c1; border-radius: 12px; background: #fff4ed; color: #aa4300; font-size: 1.15rem; font-weight: 800; }
+.attributeCardBody { display: grid; min-width: 0; gap: 10px; }
+.attributeCardHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.attributeCardHeading h2,.attributeCardBody p { margin: 0; }
+.attributeCardHeading h2 { color: var(--catalog-text); font-size: 1rem; overflow-wrap: anywhere; }
+.attributeCardHeading span { border-radius: 999px; background: var(--catalog-canvas); padding: 4px 9px; color: #655d57; font-size: .69rem; font-weight: 750; }
+.attributeCardBody p { color: #756b65; font-size: .78rem; }
+.attributeChips,.attributeValueList { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.attributeChips li,.attributeValueList li { border: 1px solid var(--catalog-border); border-radius: 8px; background: #fff; padding: 6px 10px; color: var(--catalog-text); font-size: .76rem; font-weight: 700; }
+.attributeCardActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.attributeForm { max-width: 760px; grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 28px; }
+.attributeFormIntro { display: grid; gap: 6px; border-bottom: 1px solid var(--catalog-border); padding-bottom: 18px; }
+.attributeFormIntro span { color: #a74500; font-size: .68rem; font-weight: 800; letter-spacing: .1em; }
+.attributeFormIntro h2,.attributeFormIntro p { margin: 0; }
+.attributeFormIntro h2 { color: var(--catalog-text); font-size: 1.25rem; }
+.attributeFormIntro p { color: #716963; font-size: .79rem; line-height: 1.5; }
+.attributeForm label { color: var(--catalog-text); font-size: .83rem; }
+.attributeForm input,.attributeForm textarea { min-height: 48px; font-size: .85rem; }
+.attributeValueField { display: grid; gap: 8px; }
+.attributeValueField > label { font-size: .83rem; font-weight: 700; }
+.attributeValueField > p { margin: 0; color: #716963; font-size: .76rem; line-height: 1.5; }
+.attributeValueEntry { display: flex; gap: 8px; }
+.attributeValueEntry input { min-width: 0; flex: 1; }
+.attributeValueEntry button { flex: 0 0 auto; }
+.attributeValueList { padding-top: 4px; }
+.attributeValueList li { display: inline-flex; align-items: center; gap: 8px; border-color: #ffd9c1; background: #fff6f0; }
+.attributeValueList li button { display: grid; width: 22px; height: 22px; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #9a3900; cursor: pointer; font: inherit; font-size: 1rem; }
+.attributeValueList li button:hover { background: #ffe6d7; }
+.attributeValueList li button:focus-visible { outline: 2px solid var(--catalog-text); outline-offset: 2px; }
+.attributeValueField .attributeValueEmpty { border: 1px dashed var(--catalog-border); border-radius: 9px; background: var(--catalog-canvas); padding: 14px; color: #716963; }
+.attributeDetails { border-top: 1px solid var(--catalog-border); padding-top: 14px; }
+.attributeDetails summary { color: var(--catalog-text); cursor: pointer; font-size: .8rem; font-weight: 700; }
+.attributeDetails label { margin-top: 14px; }
+.attributeFormActions { justify-content: flex-end; border-top: 1px solid var(--catalog-border); padding-top: 18px; }
+@media (max-width: 700px) {
+  .attributeToolbar { align-items: stretch; flex-direction: column; }
+  .attributeSearch { width: 100%; }
+  .attributeCard { grid-template-columns: 40px minmax(0, 1fr); padding: 14px; }
+  .attributeMonogram { width: 40px; height: 40px; }
+  .attributeCardActions { grid-column: 1 / -1; justify-content: stretch; }
+  .attributeCardActions > * { flex: 1; }
+  .attributeForm { padding: 18px; }
+  .attributeValueEntry { align-items: stretch; flex-direction: column; }
+}
