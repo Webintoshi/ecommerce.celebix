@@ -172,7 +172,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             <div id="panel-topbar-context" className={styles.desktopTopbarContext} />
             <div className={styles.desktopTopbarCommands}>
               <div id="panel-topbar-actions" />
-              <PanelTopbarUtilities />
+              <PanelTopbarUtilities storefrontHostname={model.storefrontHostname} />
             </div>
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>

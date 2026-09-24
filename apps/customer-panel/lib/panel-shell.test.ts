@@ -697,7 +697,7 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(layout, /styles[.]desktopTopbarTitle/);
   assert.match(layout, /activeChrome[?][.]subtitle/);
   assert.match(layout, /styles[.]desktopTopbarSubtitle/);
-  assert.match(layout, /PanelTopbarUtilities/);
+  assert.match(layout, /<PanelTopbarUtilities storefrontHostname=\{model[.]storefrontHostname\}/);
   assert.match(utilities, /Bildirim merkezi/);
   assert.match(utilities, /Bana Sorun/);
   assert.match(utilities, /href="\/settings\/notifications"/);
@@ -706,6 +706,44 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.match(styles, /[.]desktopTopbarSubtitle\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(styles, /[.]desktopTopbarUtilities\s*\{[\s\S]*?display:\s*flex;/);
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
+});
+
+test("shared topbar opens only the resolved tenant storefront and disables an unavailable address", async () => {
+  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+  const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
+    createElement("a", props, children);
+  const utilities = await compileHookTestComponent(
+    "components/panel/PanelTopbarUtilities.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return jsxRuntime;
+      if (specifier === "react") return ReactModule;
+      if (specifier === "next/image") return {
+        __esModule: true,
+        default: ({ priority: _priority, unoptimized: _unoptimized, ...props }: Record<string, unknown>) =>
+          createElement("img", props),
+      };
+      if (specifier === "next/link") return { __esModule: true, default: Link };
+      if (specifier === "lucide-react") return { Bell: Icon, Eye: Icon };
+      if (specifier === "@/components/toshi/ToshiDrawer") return { ToshiDrawer: () => null };
+      if (specifier === "./panel-shell.module.css") return { topbarUtilityButton: "topbarUtilityButton" };
+      throw new Error(`unexpected topbar dependency: ${specifier}`);
+    },
+  );
+
+  const available = renderToStaticMarkup(createElement(utilities as ComponentType<{ storefrontHostname?: string }>, {
+    storefrontHostname: "guzidekuyumcu.com",
+  }));
+  assert.match(available, /aria-label="Mağazayı gör"[^>]*href="https:\/\/guzidekuyumcu\.com\/"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+
+  const anotherStore = renderToStaticMarkup(createElement(utilities as ComponentType<{ storefrontHostname?: string }>, {
+    storefrontHostname: "butik-siora.saas-staging.celebix.net",
+  }));
+  assert.match(anotherStore, /href="https:\/\/butik-siora\.saas-staging\.celebix\.net\/"/);
+  assert.doesNotMatch(anotherStore, /guzidekuyumcu/);
+
+  const unavailable = renderToStaticMarkup(createElement(utilities as ComponentType<{ storefrontHostname?: string }>, {}));
+  assert.match(unavailable, /aria-label="Mağazayı gör"[^>]*disabled=""/);
+  assert.doesNotMatch(unavailable, /href="https:\/\//);
 });
 
 test("empty topbar context keeps page actions and utilities in the rightmost column", async () => {
@@ -762,7 +800,7 @@ test("topbar launches the real Toshi identity without a remote or generated avat
   const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
   assert.match(utilities, /src="\/toshi\/toshi-profile[.]webp"/);
   assert.match(utilities, /alt="Toshi yapay zekâ mağaza asistanı"/);
-  assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
+  assert.doesNotMatch(utilities, /<Bot\b|src="https?:\/\//);
 });
 
 test("Toshi drawer is an accessible modal with complete close and focus-return behavior", async () => {

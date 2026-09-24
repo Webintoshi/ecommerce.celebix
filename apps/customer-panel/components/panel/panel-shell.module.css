@@ -203,6 +203,22 @@
   height: 1.1rem;
 }
 
+.topbarUtilityButton:hover:not(:disabled),
+.topbarUtilityButton:focus-visible {
+  border-color: #FE6100;
+  color: #FE6100;
+}
+
+.topbarUtilityButton:focus-visible {
+  outline: 2px solid #FE6100;
+  outline-offset: 2px;
+}
+
+.topbarUtilityButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .topbarAssistantButton {
   position: relative;
   display: flex;

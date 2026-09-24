@@ -2,19 +2,41 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, Eye } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { ToshiDrawer } from "@/components/toshi/ToshiDrawer";
 
 import styles from "./panel-shell.module.css";
 
-export function PanelTopbarUtilities() {
+export function PanelTopbarUtilities({ storefrontHostname }: { storefrontHostname?: string }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className={styles.desktopTopbarUtilities}>
+      {storefrontHostname ? (
+        <a
+          className={styles.topbarUtilityButton}
+          aria-label="Mağazayı gör"
+          title="Mağazayı gör"
+          href={`https://${storefrontHostname}/`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Eye aria-hidden="true" />
+        </a>
+      ) : (
+        <button
+          className={styles.topbarUtilityButton}
+          aria-label="Mağazayı gör"
+          title="Mağaza adresi henüz hazır değil"
+          type="button"
+          disabled
+        >
+          <Eye aria-hidden="true" />
+        </button>
+      )}
       <Link
         className={styles.topbarUtilityButton}
         href="/settings/notifications"
