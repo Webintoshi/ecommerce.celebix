@@ -335,7 +335,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
           {showValidation && summary.validVariants < variants.length ? <p className={styles.inlineValidation}>Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
           {kind === "variant" ? <p className={styles.helper}>Her satır ayrı fiyat, stok ve SKU bilgisi taşır.</p> : null}
           {kind === "variant" ? <AttributeVariantPicker value={variants.filter((variant) => Object.keys(variant.attributes).length > 0)} onChange={(next) => { markEditingDirty(); setVariants((current) => Object.freeze([...current.filter((variant) => Object.keys(variant.attributes).length === 0), ...next])); }} onAttributeIdsChange={setSelectedVariantAttributeIds} disabled={busy} /> : null}
-          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} allowManualAdd={kind !== "variant"} showShipping={productType === "physical"} />
+          <ProductVariantBuilder variants={variants} onChange={(next) => { markEditingDirty(); setVariants(next); }} allowMultiple={kind === "variant"} allowManualAdd={kind !== "variant"} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} />
         </ProductEditorSection>
         <ProductEditorSection id="product-media" title="Medya" description={media.length ? `${media.length} görsel seçildi` : "Görselleri ekleyin ve alt metinlerini tamamlayın"}>
           <div className={styles.advancedMedia}>

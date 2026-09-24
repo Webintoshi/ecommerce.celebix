@@ -189,11 +189,12 @@ function resourceIds(value: unknown): CatalogOnboardingResourceIds {
 }
 
 function parseQuick(value: Record<string, unknown>): CatalogQuickCreateIntent {
-  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId"]);
+  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId", "sku"]);
   if (parsed.kind !== "quick") invalid();
   return Object.freeze({
     kind: "quick",
     title: text(parsed.title, 1, 200),
+    ...(Object.hasOwn(parsed, "sku") ? { sku: optionalText(parsed, "sku", 1, 64, SKU)! } : {}),
     priceCents: integer(parsed.priceCents, 0),
     publish: boolean(parsed.publish),
     ...(Object.hasOwn(parsed, "stockQuantity") ? { stockQuantity: integer(parsed.stockQuantity, 0) } : {}),
@@ -244,8 +245,9 @@ function channelOption(value: unknown): CatalogOnboardingChannelOption {
 }
 
 export function parseCatalogOnboardingOptions(value: unknown): CatalogOnboardingOptions {
-  const parsed = exact(value, ["categories", "resources", "locations", "channels"]);
+  const parsed = exact(value, ["categories", "resources", "locations", "channels"], ["skuPrefix"]);
   return Object.freeze({
+    ...(Object.hasOwn(parsed, "skuPrefix") && parsed.skuPrefix !== null ? { skuPrefix: text(parsed.skuPrefix, 1, 20, /^[A-Z0-9]{1,20}$/) } : {}),
     categories: Object.freeze(denseArray(parsed.categories, 0, 500).map(categoryOption)),
     resources: Object.freeze(denseArray(parsed.resources, 0, 1_000).map(resourceOption)),
     locations: Object.freeze(denseArray(parsed.locations, 0, 100).map(locationOption)),

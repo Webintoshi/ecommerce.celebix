@@ -289,6 +289,7 @@ test("general settings require storefront identity fields", () => {
       ["storeDisplayName", true],
       ["supportEmail", true],
       ["timezone", true],
+      ["skuPrefix", undefined],
     ],
   );
 });

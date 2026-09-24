@@ -75,6 +75,10 @@ function unavailable(): CatalogRepositoryError { return new CatalogRepositoryErr
 
 function mutationError(value: unknown): CatalogRepositoryError {
   if (value instanceof CatalogRepositoryError) return value;
+  if (typeof value === "object" && value !== null && "code" in value && "constraint" in value
+    && value.code === "23505" && value.constraint === "product_variants_store_sku_owner_key") {
+    return new CatalogRepositoryError("sku_conflict");
+  }
   if (
     typeof value === "object" && value !== null && "message" in value
     && value.message === "PRICING_DYNAMIC_ACTIVATION_REQUIRED"
@@ -920,8 +924,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     if (!Array.isArray(exact.variants) || exact.variants.length < 1 || exact.variants.length > 100) throw new CatalogRepositoryError("invalid_input");
     const variants = Object.freeze(exact.variants.map(variantFields));
     const keys = variants.map(({ attributes }) => JSON.stringify(Object.entries(attributes).map(([key, value]) => [key.toLocaleLowerCase("tr-TR"), value.toLocaleLowerCase("tr-TR")]).sort(([left], [right]) => left.localeCompare(right, "tr-TR"))));
-    const skus = variants.flatMap(({ sku }) => sku === undefined ? [] : [sku]);
-    if (variants.some(({ attributes }) => Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3) || new Set(keys).size !== keys.length || new Set(skus).size !== skus.length) throw new CatalogRepositoryError("invalid_input");
+    if (variants.some(({ attributes }) => Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3) || new Set(keys).size !== keys.length) throw new CatalogRepositoryError("invalid_input");
     const variantIds = variants.map(() => catalogUuid(this.options.generateId("variant")));
     if (new Set(variantIds).size !== variantIds.length) throw new CatalogRepositoryError("invalid_input");
     const fingerprint = catalogFingerprint("create_variant_batch", authority.storeId, { productId, variants });

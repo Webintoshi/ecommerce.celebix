@@ -42,7 +42,7 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   product_not_found: "Ürün bulunamadı veya artık erişilemiyor.",
   variant_not_found: "Varyant bulunamadı veya artık erişilemiyor.",
   slug_conflict: "Bu URL anahtarı başka bir üründe kullanılıyor.",
-  sku_conflict: "Bu SKU mağazada başka bir varyantta kullanılıyor.",
+  sku_conflict: "Bu SKU mağazada başka bir üründe kullanılıyor.",
   variant_combination_conflict: "Bu nitelik kombinasyonu ürünün varyantlarında zaten var.",
   variant_limit_reached: "Bir üründe en fazla 100 aktif varyant olabilir.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",

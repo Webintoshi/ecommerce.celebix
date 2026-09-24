@@ -270,6 +270,10 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
       if (began && !terminal) await this.rollback(client);
       else if (!began && !terminal) release(client, true);
       if (error instanceof CatalogOnboardingRepositoryError) throw error;
+      if (typeof error === "object" && error !== null && "code" in error && "constraint" in error
+        && error.code === "23505" && error.constraint === "product_variants_store_sku_owner_key") {
+        throw new CatalogOnboardingRepositoryError("sku_conflict");
+      }
       throw unavailable();
     }
   }
@@ -283,7 +287,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     const { authority } = this.authority(input, ["tenantContext", "now"]);
     authorizeProduct(authority, "read");
     return this.read({
-      text: "SELECT outcome,result_payload FROM saas.catalog_get_onboarding_options($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz)",
+      text: "SELECT outcome,result_payload FROM saas.catalog_get_onboarding_options_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz)",
       values: authorityValues(authority),
     }, "found", (value) => {
       try { return parseCatalogOnboardingOptions(value); } catch { throw unavailable(); }
@@ -301,7 +305,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     if (new Set([productId, ...variantIds]).size !== variantIds.length + 1) throw new CatalogOnboardingRepositoryError("invalid_input");
     const fingerprint = catalogOnboardingFingerprint("create_product", authority.storeId, intent);
     return this.mutate(authority, operationId, fingerprint, "created", {
-      text: "SELECT outcome,result_payload FROM saas.catalog_onboard_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
+      text: "SELECT outcome,result_payload FROM saas.catalog_onboard_product_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
       values: [...authorityValues(authority), operationId, fingerprint, productId, variantIds, JSON.stringify(intent)],
     }, parseResult);
   }

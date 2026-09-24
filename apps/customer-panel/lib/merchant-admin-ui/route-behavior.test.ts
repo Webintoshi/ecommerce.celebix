@@ -423,6 +423,7 @@ test("merchant route matrix invokes every actual page, production console, clien
       mutations.push(`save:${scenario.kind}:${input.recordId ? "update" : "create"}`);
       if (scenario.save === "version_conflict") throw new MerchantAdminRepositoryError("version_conflict");
       assert.equal(input.kind, scenario.kind);
+      if (input.kind === "general_setting") assert.equal(input.config.skuPrefix, "RSA");
       if (input.recordId) {
         assert.equal(input.recordId, RECORD_ID);
         assert.equal(input.expectedVersion, scenario.recordVersion);
@@ -674,7 +675,9 @@ test("merchant route matrix invokes every actual page, production console, clien
         status: "active",
       };
       for (const field of definition.fields) {
-        values[field.key] = field.type === "boolean"
+        values[field.key] = field.key === "skuPrefix"
+          ? "rsa"
+          : field.type === "boolean"
           ? "on"
           : field.type === "number"
             ? field.allowedValues?.[0] ?? "5"

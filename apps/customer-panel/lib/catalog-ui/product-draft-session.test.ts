@@ -14,6 +14,7 @@ test("quick fields and the exact selected File survive the advanced-mode handoff
   const image = new File([new Uint8Array([1, 2, 3])], "atlas.webp", { type: "image/webp" });
   const session = mergeQuickProductDraft(createEmptyProductDraftSession(), {
     title: "Atlas Kolye",
+    sku: "RSA-001",
     price: "12.500,00",
     stockQuantity: "7",
     categoryId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -22,6 +23,7 @@ test("quick fields and the exact selected File survive the advanced-mode handoff
 
   assert.equal(session.current.title, "Atlas Kolye");
   assert.equal(session.current.variants[0]?.price, "12.500,00");
+  assert.equal(session.current.variants[0]?.sku, "RSA-001");
   assert.equal(session.current.variants[0]?.stockQuantity, "7");
   assert.deepEqual(session.current.categoryIds, ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]);
   assert.equal(session.current.media[0]?.file, image);
@@ -35,6 +37,7 @@ test("nested variant and media edits independently make a draft dirty", () => {
   const image = new File(["atlas"], "atlas.png", { type: "image/png" });
   const selected = mergeQuickProductDraft(createEmptyProductDraftSession(), {
     title: "Atlas",
+    sku: "",
     price: "100,00",
     stockQuantity: "1",
     categoryId: "",

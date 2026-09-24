@@ -10,6 +10,7 @@ export const CATALOG_ONBOARDING_ERROR_CODES = Object.freeze([
   "category_not_found",
   "category_in_use",
   "catalog_conflict",
+  "sku_conflict",
   "version_conflict",
   "invalid_transition",
   "media_incomplete",

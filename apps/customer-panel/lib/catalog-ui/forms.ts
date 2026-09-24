@@ -213,7 +213,6 @@ export function buildVariantBatchPayload(
   if (rows.length < 1 || rows.length > 100) return invalid("1–100 varyant seçin.");
   const variants: CatalogVariantFields[] = [];
   const combinations = new Set<string>();
-  const skus = new Set<string>();
   for (const row of rows) {
     const { attributes: selectedAttributes, ...fields } = row;
     const parsed = variantFields({ ...fields, stockTracking: true }, selectedAttributes);
@@ -223,10 +222,6 @@ export function buildVariantBatchPayload(
     const combination = JSON.stringify(Object.entries(attributes).sort(([a], [b]) => a.localeCompare(b)));
     if (combinations.has(combination)) return invalid("Aynı nitelik kombinasyonu iki kez seçilemez.");
     combinations.add(combination);
-    if (parsed.value.sku) {
-      if (skus.has(parsed.value.sku)) return invalid("Aynı SKU iki kez kullanılamaz.");
-      skus.add(parsed.value.sku);
-    }
     variants.push(parsed.value);
   }
   return Object.freeze({ ok: true, value: Object.freeze({ variants: Object.freeze(variants) }) });

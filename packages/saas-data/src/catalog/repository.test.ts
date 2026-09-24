@@ -194,7 +194,7 @@ test("createProduct derives store authority from TenantContext and creates an in
 
 test("createVariantBatch sends selected variants through one tenant-bound transaction", async () => {
   const black = variant({ id: VARIANT_ID, title: "Siyah / M", sku: "BLACK-M", attributes: { renk: "Siyah", beden: "M" } });
-  const white = variant({ id: SECOND_VARIANT_ID, title: "Beyaz / S", sku: "WHITE-S", attributes: { renk: "Beyaz", beden: "S" } });
+  const white = variant({ id: SECOND_VARIANT_ID, title: "Beyaz / S", sku: "BLACK-M", attributes: { renk: "Beyaz", beden: "S" } });
   const client = new FakeClient((text) => text.includes("saas.catalog_create_variants_batch") ? [{ outcome: "created", result_payload: { variants: [black, white] } }] : []);
   const selected = [black, white].map(({ title, sku, barcode, priceCents, compareAtCents, costCents, stockTracking, stockQuantity, attributes }) => ({ title, sku, barcode, priceCents, compareAtCents, costCents, stockTracking, stockQuantity, attributes }));
   const result = await repository(new FakePool(client), [VARIANT_ID, SECOND_VARIANT_ID]).createVariantBatch({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variants: selected });
@@ -213,6 +213,19 @@ test("createVariantBatch rejects duplicate combinations before database access",
   const first = { title: "Siyah / M", priceCents: 1200, stockTracking: true, stockQuantity: 2, attributes: { renk: "Siyah", beden: "M" } };
   await assert.rejects(repository(pool).createVariantBatch({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variants: [first, { ...first, title: "Yinelenen", attributes: { beden: "M", renk: "Siyah" } }] }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input");
   assert.equal(pool.connects, 0);
+});
+
+test("concurrent cross-product SKU ownership rejection is reported as SKU conflict", async () => {
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_create_variant")) {
+      throw { code: "23505", constraint: "product_variants_store_sku_owner_key" };
+    }
+    return [];
+  });
+  await assert.rejects(repository(new FakePool(client)).createVariant({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID,
+    variant: { title: "Beyaz", sku: "RSA-001", priceCents: 100, stockTracking: true, stockQuantity: 1, attributes: { renk: "Beyaz" } },
+  }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "sku_conflict");
 });
 
 test("bulkMutateProducts sends one deterministic target set through one transaction", async () => {

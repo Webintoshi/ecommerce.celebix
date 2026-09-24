@@ -91,6 +91,8 @@ test("quick intent requires only title and price and applies no browser authorit
 });
 
 test("quick intent accepts only bounded optional stock and one canonical category", () => {
+  assert.deepEqual(parseCatalogOnboardingIntent({ kind: "quick", title: "Kupa", priceCents: 100, publish: false, sku: "RSA-001" }), { kind: "quick", title: "Kupa", priceCents: 100, publish: false, sku: "RSA-001" });
+  assert.throws(() => parseCatalogOnboardingIntent({ kind: "quick", title: "Kupa", priceCents: 100, publish: false, sku: "rsa-001" }), /catalog_onboarding_contract_invalid/);
   assert.deepEqual(parseCatalogOnboardingIntent({
     kind: "quick",
     title: "Seramik Kupa",
@@ -190,6 +192,8 @@ test("onboarding options are exact active display projections and deeply frozen"
   assert.ok(Object.isFrozen(parsed.categories));
   assert.ok(Object.isFrozen(parsed.categories[0]));
   assert.ok(Object.isFrozen(parsed.resources));
+  assert.equal(parseCatalogOnboardingOptions({ ...parsed, skuPrefix: "RSA" }).skuPrefix, "RSA");
+  assert.throws(() => parseCatalogOnboardingOptions({ ...parsed, skuPrefix: "rsa" }), /catalog_onboarding_contract_invalid/);
   assert.throws(() => parseCatalogOnboardingOptions({ ...parsed, databaseUrl: "postgres://private" }), /catalog_onboarding_contract_invalid/);
 });
 

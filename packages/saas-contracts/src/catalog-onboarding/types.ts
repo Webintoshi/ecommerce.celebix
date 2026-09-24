@@ -64,6 +64,7 @@ export interface CatalogOnboardingResourceIds {
 export interface CatalogQuickCreateIntent {
   readonly kind: "quick";
   readonly title: string;
+  readonly sku?: string;
   readonly priceCents: number;
   readonly publish: boolean;
   readonly stockQuantity?: number;
@@ -137,6 +138,7 @@ export interface CatalogOnboardingChannelOption {
 }
 
 export interface CatalogOnboardingOptions {
+  readonly skuPrefix?: string;
   readonly categories: readonly CatalogOnboardingCategoryOption[];
   readonly resources: readonly CatalogOnboardingResourceOption[];
   readonly locations: readonly CatalogOnboardingLocationOption[];

@@ -70,6 +70,16 @@ test("client preserves request authority failures instead of showing generic ser
   );
 });
 
+test("cross-product SKU conflict names the conflicting field", async () => {
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => OPERATION,
+    async fetch() { return Response.json({ code: "sku_conflict" }, { status: 409 }); },
+  });
+  await assert.rejects(() => client.createProduct({ ...quick, sku: "RSA-001" }),
+    (error: unknown) => error instanceof CatalogOnboardingApiError
+      && error.code === "sku_conflict" && error.status === 409 && error.message.includes("SKU"));
+});
+
 test("detail editor loads the complete no-store merchandising projection", async () => {
   const projection = {
     product: result().product,

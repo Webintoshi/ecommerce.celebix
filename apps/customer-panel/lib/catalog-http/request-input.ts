@@ -182,8 +182,7 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
     const valid = variants as CatalogVariantFields[];
     if (valid.some(({ attributes }) => Object.keys(attributes).length < 1 || Object.keys(attributes).length > 3)) return null;
     const keys = valid.map(({ attributes }) => JSON.stringify(Object.entries(attributes).map(([key, nested]) => [key.toLocaleLowerCase("tr-TR"), nested.toLocaleLowerCase("tr-TR")]).sort(([left], [right]) => left.localeCompare(right, "tr-TR"))));
-    const skus = valid.flatMap(({ sku }) => sku === undefined ? [] : [sku]);
-    if (new Set(keys).size !== keys.length || new Set(skus).size !== skus.length) return null;
+    if (new Set(keys).size !== keys.length) return null;
     return Object.freeze({ variants: Object.freeze(valid) }) as CatalogMutationBodies[K];
   }
   const parsed = exact(value, ["expectedVersion", "variant"]);

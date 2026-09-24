@@ -60,6 +60,14 @@ test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("general settings accept only an optional canonical store SKU prefix",()=>{
+ const base={storeDisplayName:"Mağaza",supportEmail:"support@example.test",timezone:"Europe/Istanbul"};
+ assert.deepEqual(merchantAdminConfig("general_setting",{...base,skuPrefix:"RSA"}),{...base,skuPrefix:"RSA"});
+ assert.deepEqual(merchantAdminConfig("general_setting",base),base);
+ for(const skuPrefix of ["rsa","RSA-","RSA_1","R SA","",123,"A".repeat(21)])
+  assert.throws(()=>merchantAdminConfig("general_setting",{...base,skuPrefix}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
 test("administrator invites require canonical email fixed role and expiration before SQL",async()=>{
  const valid={email:"manager@example.test",role:"admin",expiresAt:"2026-08-22T19:00:00.000Z"};
  assert.deepEqual(merchantAdminConfig("administrator_invite",valid),valid);

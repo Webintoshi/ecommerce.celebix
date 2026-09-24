@@ -62,6 +62,7 @@ const ERROR_STATUS: Readonly<Record<CatalogOnboardingErrorCode, number>> = Objec
   durable_authority_invalid: 409,
   product_limit_reached: 409,
   catalog_conflict: 409,
+  sku_conflict: 409,
   version_conflict: 409,
   invalid_transition: 409,
   media_incomplete: 409,

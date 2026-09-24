@@ -27,6 +27,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
   "durable_authority_invalid", "product_limit_reached", "product_not_found", "catalog_conflict",
+  "sku_conflict",
   "category_not_found", "category_in_use",
   "version_conflict", "invalid_transition", "media_incomplete", "operation_mismatch", "operation_not_found",
   "origin_denied", "method_not_allowed",
@@ -47,6 +48,7 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   category_not_found: "Kategori bulunamadı veya artık erişilemiyor.",
   category_in_use: "Kategori alt kategorilerde veya etkin ürünlerde kullanılıyor.",
   catalog_conflict: "Bu ürün bilgileri mağazadaki başka bir kayıtla çakışıyor.",
+  sku_conflict: "Bu SKU mağazada başka bir üründe kullanılıyor.",
   version_conflict: "Ürün sizden önce güncellendi. Sayfayı yenileyin.",
   invalid_transition: "Ürün bu durumda satışa açılamıyor.",
   media_incomplete: "Ürün görselleri henüz tamamlanmadı.",

@@ -52,6 +52,7 @@ type ProductDraftPatch = Partial<{
 
 type QuickProductDraft = Readonly<{
   title: string;
+  sku: string;
   price: string;
   stockQuantity: string;
   categoryId: string;
@@ -160,6 +161,7 @@ export function mergeQuickProductDraft(
     title: quick.title,
     variants: [{
       ...firstVariant,
+      sku: quick.sku,
       price: quick.price,
       stockQuantity: quick.stockQuantity,
     }],

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { SkuInput } from "@/components/catalog/SkuInput";
 
 export type VariantDraft = Readonly<{
   title: string;
@@ -20,12 +21,13 @@ export function emptyVariant(title = "Standart", attributes: Readonly<Record<str
   return Object.freeze({ title, sku: "", barcode: "", price: "", compareAt: "", cost: "", stockQuantity: "0", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes });
 }
 
-export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true }: Readonly<{
+export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true, skuPrefix }: Readonly<{
   variants: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   allowMultiple: boolean;
   showShipping?: boolean;
   allowManualAdd?: boolean;
+  skuPrefix?: string;
 }>) {
   const change = (index: number, patch: Partial<VariantDraft>) => onChange(Object.freeze(variants.map((variant, position) => position === index ? Object.freeze({ ...variant, ...patch }) : variant)));
   return <div className="onboarding-variant-builder" data-layout={allowMultiple ? "multiple" : "simple"}>
@@ -38,7 +40,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
       </header>
       <div className="onboarding-variant-primary-fields">
         {allowMultiple ? <label className="onboarding-variant-title"><span>Varyant adı *</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
-        <label><span>SKU</span><input maxLength={64} value={variant.sku} onChange={(event) => change(index, { sku: event.target.value.toLocaleUpperCase("tr-TR") })} /></label>
+        <SkuInput skuPrefix={skuPrefix} value={variant.sku} onChange={(sku) => change(index, { sku })} />
         <label><span>Satış fiyatı *</span><input required inputMode="decimal" placeholder="0,00" value={variant.price} onChange={(event) => change(index, { price: event.target.value })} /></label>
         <label><span>Stok</span><input inputMode="numeric" value={variant.stockQuantity} onChange={(event) => change(index, { stockQuantity: event.target.value })} /></label>
         <label><span>Karşılaştırma</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label>

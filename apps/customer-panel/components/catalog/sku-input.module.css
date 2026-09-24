@@ -1,0 +1,6 @@
+.field { min-width: 0; }
+.entry { display: flex; align-items: center; min-width: 0; border: 1px solid #e7e2dd; border-radius: 10px; background: #fffdfc; overflow: hidden; }
+.entry > span { flex: none; padding: 0 10px; color: #2b2b2b; font-weight: 700; background: #f8f7f5; border-right: 1px solid #e7e2dd; white-space: nowrap; }
+.entry input { flex: 1; min-width: 0; border: 0 !important; box-shadow: none !important; background: transparent; }
+.entry:focus-within { outline: 2px solid #fe6100; outline-offset: 2px; }
+.replace { padding: 4px 0; border: 0; background: none; color: #a83f00; text-align: left; text-decoration: underline; cursor: pointer; }

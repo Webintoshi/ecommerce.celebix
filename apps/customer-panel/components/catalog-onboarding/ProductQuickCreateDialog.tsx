@@ -19,6 +19,7 @@ import {
 } from "@/lib/catalog-onboarding-ui/client";
 import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/category-tree";
 import { buildQuickCreateIntent } from "@/lib/catalog-onboarding-ui/forms";
+import { SkuInput } from "@/components/catalog/SkuInput";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 import {
@@ -88,6 +89,7 @@ export function ProductQuickCreateDialog({
   const [categoryId, setCategoryId] = useState(draftSession?.current.categoryIds[0] ?? "");
   const [title, setTitle] = useState(draftSession?.current.title ?? "");
   const [price, setPrice] = useState(draftSession?.current.variants[0]?.price ?? "");
+  const [sku, setSku] = useState(draftSession?.current.variants[0]?.sku ?? "");
   const [stockQuantity, setStockQuantity] = useState(draftSession?.current.variants[0]?.stockQuantity ?? "0");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -117,10 +119,10 @@ export function ProductQuickCreateDialog({
 
   useEffect(() => {
     if (draftSession === undefined || onDraftSessionChange === undefined) return;
-    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, stockQuantity, categoryId, media: images }));
+    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, stockQuantity, categoryId, media: images }));
   // The parent replaces draftSession after each projection; local fields are the source for this handoff.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, price, stockQuantity, categoryId, images, onDraftSessionChange]);
+  }, [title, price, sku, stockQuantity, categoryId, images, onDraftSessionChange]);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -204,6 +206,7 @@ export function ProductQuickCreateDialog({
     const publish = submitter instanceof HTMLButtonElement && submitter.value === "publish";
     const parsed = buildQuickCreateIntent({
       title: field(data, "title"),
+      sku,
       price: field(data, "price"),
       publish,
       stockQuantity: field(data, "stockQuantity"),
@@ -269,6 +272,7 @@ export function ProductQuickCreateDialog({
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
+          <SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} />
           <label className={styles.wide}>
             <span>Kategori (satışa açmak için zorunlu)</span>
             <select name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length}>

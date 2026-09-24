@@ -227,6 +227,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.catalog_onboarding_operations') IS NOT NULL
         AND to_regprocedure('saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_get_onboarding_options(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)','EXECUTE')
+        AND to_regprocedure('saas.catalog_get_onboarding_options_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_onboarding_options_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)','EXECUTE')
+        AND to_regprocedure('saas.catalog_onboard_product_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_onboard_product_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)','EXECUTE')
         AND to_regprocedure('saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_onboard_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)','EXECUTE')
         AND to_regprocedure('saas.catalog_get_product_editor(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL

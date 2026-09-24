@@ -14,6 +14,7 @@ export type CatalogFormResult<T> =
 
 export type QuickCreateFormInput = Readonly<{
   title: string;
+  sku?: string;
   price: string;
   publish: boolean;
   stockQuantity?: string;
@@ -57,7 +58,7 @@ function stockQuantity(value: unknown): number | null {
 }
 
 export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogFormResult<CatalogQuickCreateIntent> {
-  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId"], ["title", "price", "publish"])) {
+  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku"], ["title", "price", "publish"])) {
     return invalid("Ürün bilgileri geçersiz.");
   }
   if (typeof input.title !== "string") return invalid("Ürün adı zorunludur.");
@@ -81,6 +82,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
   const candidate = {
     kind: "quick" as const,
     title,
+    ...(input.sku ? { sku: input.sku } : {}),
     priceCents,
     publish: input.publish,
     ...(quantity === undefined ? {} : { stockQuantity: quantity }),

@@ -40,6 +40,16 @@ test("batch variant form keeps checked combinations and per-row price and stock"
   assert.equal(buildVariantBatchPayload([...rows, rows[0]!]).ok, false);
 });
 
+test("batch variants of one product may share a SKU", () => {
+  const rows = [
+    { ...VALID_VARIANT, title: "Beyaz", sku: "RSA-001", attributes: { renk: "Beyaz" } },
+    { ...VALID_VARIANT, title: "Siyah", sku: "RSA-001", attributes: { renk: "Siyah" } },
+  ];
+  const result = buildVariantBatchPayload(rows);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.value.variants.map(({ sku }) => sku), ["RSA-001", "RSA-001"]);
+});
+
 const VALID_VARIANT = Object.freeze({
   title: VALID.variantTitle,
   sku: VALID.sku,

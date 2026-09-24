@@ -3,6 +3,13 @@ import test from "node:test";
 
 import { buildAdvancedCreateIntent, buildQuickCreateIntent, parseTurkishMoneyToCents } from "./forms.ts";
 
+test("quick create keeps an optional complete SKU", () => {
+  assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "100,00", publish: false, sku: "RSA-001" }), {
+    ok: true, value: { kind: "quick", title: "Kupa", priceCents: 10000, publish: false, sku: "RSA-001" },
+  });
+  assert.equal(buildQuickCreateIntent({ title: "Kupa", price: "100,00", publish: false, sku: "" }).ok, true);
+});
+
 const CATEGORY = "11111111-1111-4111-8111-111111111111";
 
 test("quick form keeps drafts lightweight and requires category before publishing", () => {

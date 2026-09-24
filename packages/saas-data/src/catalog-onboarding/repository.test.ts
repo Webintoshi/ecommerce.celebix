@@ -149,6 +149,19 @@ test("createProduct validates, fingerprints, and sends one SQL mutation", async 
   assert.equal(writer.calls.filter(({ text }) => text === "BEGIN ISOLATION LEVEL READ COMMITTED").length, 1);
 });
 
+test("quick create reports a cross-product SKU ownership rejection without exposing SQL", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("catalog_onboard_product_v2")) {
+      throw { code: "23505", constraint: "product_variants_store_sku_owner_key", detail: "private database detail" };
+    }
+    return [];
+  });
+  await assert.rejects(repository(new Pool([writer])).createProduct({
+    tenantContext: tenant(), now: NOW, operationId: OPERATION,
+    intent: { kind: "quick", title: "Seramik Kupa", sku: "RSA-001", priceCents: 12990, publish: false },
+  }), (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "sku_conflict");
+});
+
 test("unknown COMMIT destroys writer and performs exactly one read-only recovery", async () => {
   let commits = 0;
   const writer = new Client((text) => {
@@ -174,13 +187,13 @@ test("unknown COMMIT destroys writer and performs exactly one read-only recovery
 });
 
 test("reads use read-only transactions and exact durable authority", async () => {
-  const options = { categories: [], resources: [], locations: [], channels: [] };
+  const options = { categories: [], resources: [], locations: [], channels: [], skuPrefix: "RSA" };
   const reader = new Client((text) => text.includes("catalog_get_onboarding_options")
     ? [{ outcome: "found", result_payload: options }]
     : []);
   assert.deepEqual(await repository(new Pool([reader])).getOptions({ tenantContext: tenant(), now: NOW }), options);
   assert.equal(reader.calls[0]?.text, "BEGIN READ ONLY");
-  assert.deepEqual(sqlCall(reader, "catalog_get_onboarding_options").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW]);
+  assert.deepEqual(sqlCall(reader, "catalog_get_onboarding_options_v2").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW]);
 });
 
 test("unknown keys and browser store authority fail before SQL", async () => {
