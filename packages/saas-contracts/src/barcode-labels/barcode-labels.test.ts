@@ -395,6 +395,15 @@ test("internal barcode intent is unique versioned and result never fabricates GT
   );
 });
 
+test("reserved internal barcode result accepts only a Code 128 internal value", () => {
+  assert.deepEqual(contracts.parseBarcodeInternalReservationResult({
+    barcode: "CXI-000000000123",
+    replayed: false,
+  }), { barcode: "CXI-000000000123", replayed: false });
+  assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "8691234567890", replayed: false }));
+  assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "CXI-000000000123", replayed: false, storeId: PRODUCT_ID }));
+});
+
 test("print intent accepts only positive bounded quantities and finite outputs", () => {
   const intent = {
     template: { kind: "system", key: "retail-50x30" },

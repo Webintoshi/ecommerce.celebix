@@ -1,0 +1,9 @@
+.root { display: grid; min-width: 0; gap: 7px; color: #344054; font-size: 12px; font-weight: 720; }
+.control { position: relative; display: block; min-width: 0; }
+.control .input { width: 100%; min-height: 46px; padding-right: 55px; }
+.generate { position: absolute; top: 50%; right: 2px; display: grid; width: 44px; height: 44px; place-items: center; translate: 0 -50%; border: 0; border-radius: 10px; background: transparent; color: #2B2B2B; cursor: pointer; }
+.generate:hover:not(:disabled) { background: #F8F7F5; color: #FE6100; }
+.generate:focus-visible { outline: 2px solid #FE6100; outline-offset: -3px; }
+.generate:disabled { opacity: .42; cursor: not-allowed; }
+.generate svg { width: 20px; height: 20px; }
+.root .error { color: #a32626; font-size: 12px; line-height: 1.4; }

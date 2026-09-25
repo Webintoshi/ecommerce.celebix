@@ -616,6 +616,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.barcode_label_reserve_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)') IS NOT NULL
         AND to_regprocedure('saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
@@ -624,6 +625,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint,text,jsonb,boolean)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_template_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,bigint)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_label_generate_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.barcode_label_reserve_internal(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE') AS barcode_label_repository

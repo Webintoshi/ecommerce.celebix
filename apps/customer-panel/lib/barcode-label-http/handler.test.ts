@@ -114,6 +114,7 @@ function repository(
     saveTemplate: reject,
     archiveTemplate: reject,
     generateInternal: reject,
+    reserveInternal: reject,
     listJobs: reject,
     createJob: reject,
     createJobLegacy: reject,
@@ -411,6 +412,45 @@ for (const [role, expected] of [
     );
     assert.equal(result.status, expected);
     assert.equal(calls, expected === 200 ? 1 : 0);
+  });
+}
+
+test("inline reservation rejects cross-origin and browser-supplied tenant authority before allocating", async () => {
+  let calls = 0;
+  const selected = handlers(repository({
+    async reserveInternal() { calls++; return { barcode: "CXI-000000000123", replayed: false }; },
+  }));
+  const crossOrigin = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+    method: "POST", origin: "https://evil.example", body: {},
+  }));
+  const forged = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+    method: "POST", body: {}, headers: { "x-store-id": "forged" },
+  }));
+  const nonempty = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+    method: "POST", body: { storeId: JOB_ID },
+  }));
+  assert.equal(crossOrigin.status, 403);
+  assert.equal(forged.status, 400);
+  assert.equal(nonempty.status, 400);
+  assert.equal(calls, 0);
+});
+
+for (const [role, expected] of [
+  ["store_owner", 200],
+  ["admin", 200],
+  ["editor", 200],
+  ["analyst", 403],
+] as const) {
+  test(`${role} may reserve an internal barcode only with catalog manage authority`, async () => {
+    let calls = 0;
+    const result = await handlers(repository({
+      async reserveInternal() { calls += 1; return { barcode: "CXI-000000000123", replayed: false }; },
+    }), role).reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+      method: "POST", body: {},
+    }));
+    assert.equal(result.status, expected);
+    assert.equal(calls, expected === 200 ? 1 : 0);
+    if (expected === 200) assert.deepEqual(await result.json(), { barcode: "CXI-000000000123", replayed: false });
   });
 }
 

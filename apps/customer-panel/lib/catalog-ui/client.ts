@@ -26,6 +26,7 @@ const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "product_limit_reached",
   "product_not_found", "variant_not_found", "slug_conflict", "sku_conflict",
+  "barcode_conflict",
   "variant_combination_conflict",
   "variant_limit_reached",
   "version_conflict", "dynamic_pricing_not_ready", "dynamic_price_unavailable", "operation_mismatch", "unavailable",
@@ -43,6 +44,7 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   variant_not_found: "Varyant bulunamadı veya artık erişilemiyor.",
   slug_conflict: "Bu URL anahtarı başka bir üründe kullanılıyor.",
   sku_conflict: "Bu SKU mağazada başka bir üründe kullanılıyor.",
+  barcode_conflict: "Bu barkod mağazada başka bir varyantta kullanılıyor. Alanı temizleyip yeni bir barkod oluşturun.",
   variant_combination_conflict: "Bu nitelik kombinasyonu ürünün varyantlarında zaten var.",
   variant_limit_reached: "Bir üründe en fazla 100 aktif varyant olabilir.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",

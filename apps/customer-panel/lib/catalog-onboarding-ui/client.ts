@@ -47,7 +47,7 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   product_not_found: "Ürün bulunamadı veya artık erişilemiyor.",
   category_not_found: "Kategori bulunamadı veya artık erişilemiyor.",
   category_in_use: "Kategori alt kategorilerde veya etkin ürünlerde kullanılıyor.",
-  catalog_conflict: "Bu ürün bilgileri mağazadaki başka bir kayıtla çakışıyor.",
+  catalog_conflict: "Ürün bilgileri veya barkod mağazadaki başka bir kayıtla çakışıyor. Alanları kontrol edin.",
   sku_conflict: "Bu SKU mağazada başka bir üründe kullanılıyor.",
   version_conflict: "Ürün sizden önce güncellendi. Sayfayı yenileyin.",
   invalid_transition: "Ürün bu durumda satışa açılamıyor.",

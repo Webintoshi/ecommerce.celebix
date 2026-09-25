@@ -21,6 +21,7 @@ import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAd
 import { AttributeVariantPicker } from "@/components/catalog-onboarding/AttributeVariantPicker";
 import { ProductVariantBuilder, type VariantDraft } from "@/components/catalog-onboarding/ProductVariantBuilder";
 import { SkuInput } from "@/components/catalog/SkuInput";
+import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
@@ -60,12 +61,12 @@ function displayVariantPrice(variant: ProductVariant, currency: string): string 
   return current === null ? "Fiyat güncelleniyor" : formatTurkishMoney(current, currency);
 }
 
-function VariantFields({ variant, skuPrefix }: { variant?: ProductVariant; skuPrefix?: string }) {
+function VariantFields({ variant, skuPrefix, onBarcodeGenerated }: { variant?: ProductVariant; skuPrefix?: string; onBarcodeGenerated?: () => void }) {
   return (
     <div className="form-grid compact-form-grid">
       <label className="field field-wide"><span>Varyant adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={variant?.title ?? ""} /></label>
       <SkuInput key={variant?.id ?? "new"} labelClassName="field" name="sku" skuPrefix={skuPrefix} value={variant?.sku ?? ""} />
-      <label className="field"><span>Barkod</span><input name="barcode" maxLength={128} defaultValue={variant?.barcode ?? ""} /></label>
+      <BarcodeInput labelClassName="field" name="barcode" defaultValue={variant?.barcode ?? ""} onGenerated={onBarcodeGenerated} />
       <label className="field"><span>Satış fiyatı <b>*</b></span><div className="money-input"><input name="price" required inputMode="decimal" defaultValue={variant ? formatTurkishMoneyInput(variant.priceCents) : ""} /><span>₺</span></div></label>
       <label className="field"><span>Karşılaştırma fiyatı</span><div className="money-input"><input name="compareAt" inputMode="decimal" defaultValue={variant?.compareAtCents === undefined ? "" : formatTurkishMoneyInput(variant.compareAtCents)} /><span>₺</span></div></label>
       <label className="field"><span>Maliyet</span><div className="money-input"><input name="cost" inputMode="decimal" defaultValue={variant?.costCents === undefined ? "" : formatTurkishMoneyInput(variant.costCents)} /><span>₺</span></div></label>
@@ -564,7 +565,7 @@ export function ProductDetailConsole({
 
       {creatingVariant && canManage && !archived ? (
         <form className="catalog-form inset-form" onSubmit={createVariant} onChange={() => markDetailDirty("variant-create")}>
-          <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend><span>＋</span><span><strong>Yeni varyant</strong><small>Ürüne yeni bir satış seçeneği ekleyin</small></span></legend><VariantFields skuPrefix={onboarding?.options.skuPrefix} /></fieldset>
+          <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend><span>＋</span><span><strong>Yeni varyant</strong><small>Ürüne yeni bir satış seçeneği ekleyin</small></span></legend><VariantFields skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-create")) setCreatingVariant(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
         </form>
       ) : null}
@@ -584,7 +585,7 @@ export function ProductDetailConsole({
             </div>
             {editingVariant === variant.id && canManage && !archived ? (
               <form onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
-                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields variant={variant} skuPrefix={onboarding?.options.skuPrefix} /></fieldset>
+                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
                 <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-edit")) setEditingVariant(undefined); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === `variant-${variant.id}` ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
               </form>
             ) : (

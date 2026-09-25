@@ -81,6 +81,28 @@ test("list executes one projection statement and binds tenant query and page siz
   assert.equal(domainQueries[0]!.values?.includes(50), true);
 });
 
+test("internal reservation writes through the authorized store sequence and parses its exact result", async () => {
+  const queries: Array<{ text: string; values?: unknown[] }> = [];
+  const pool: PostgresPoolLike = { connect: async () => ({
+    async query(text: string, values?: unknown[]) {
+      queries.push({ text, values });
+      return text.startsWith("SELECT outcome")
+        ? { rows: [{ outcome: "reserved", result_payload: { barcode: "CXI-000000000123", replayed: false } }], rowCount: 1 } as never
+        : { rows: [], rowCount: null } as never;
+    },
+    release() {},
+  }) };
+  const repository = new PostgresBarcodeLabelRepository({
+    pool, role: "celebix_saas_app",
+    timeouts: { poolCheckoutMs: 100, statementMs: 1000, lockMs: 100, idleTransactionMs: 1000 },
+    uuid: () => ID("9"), audit: () => undefined,
+  });
+  const result = await repository.reserveInternal({ tenantContext, now, operationId: ID("99") });
+  assert.deepEqual(result, { barcode: "CXI-000000000123", replayed: false });
+  const domain = queries.find(({ text }) => text.includes("saas.barcode_label_reserve_internal("));
+  assert.deepEqual(domain?.values, [tenantContext.store.id, tenantContext.principal.id, tenantContext.membership.id, tenantContext.entitlements.planId, tenantContext.entitlements.planCode, tenantContext.entitlements.version, now, ID("99")]);
+});
+
 test("cursor is tenant and normalized-query bound", async () => {
   const row = {
     productId: ID("11"),

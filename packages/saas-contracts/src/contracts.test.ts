@@ -538,6 +538,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAnalyticsSummary",
     "parseBarcodeInternalCreateIntent",
     "parseBarcodeInternalCreateResult",
+    "parseBarcodeInternalReservationResult",
     "parseBarcodeLabelListQuery",
     "parseBarcodeLabelListResult",
     "parseBarcodeLabelRows",

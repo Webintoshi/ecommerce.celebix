@@ -125,7 +125,7 @@ test("variant rows prioritize price and stock while secondary fields stay disclo
   assert.match(builder, /Satış fiyatı \*/);
   assert.match(builder, /Stok/);
   assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("Karşılaştırma fiyatı"));
-  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("Barkod"));
+  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("<BarcodeInput"));
   assert.match(builder, /!simplified \? <div className="onboarding-variant-list-heading"/);
   assert.match(editor, /allowManualAdd=\{kind !== "variant"\} simplified/);
 });

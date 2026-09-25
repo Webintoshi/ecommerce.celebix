@@ -2,6 +2,7 @@ import {
   BARCODE_LABEL_FIELD_KEYS,
   type BarcodeInternalCreateIntent,
   type BarcodeInternalCreateResult,
+  type BarcodeInternalReservationResult,
   type BarcodeLabelListResult,
   BARCODE_LABEL_PAGE_SIZES,
   BARCODE_LABEL_SORTS,
@@ -592,6 +593,15 @@ export function parseBarcodeInternalCreateResult(
   const allIds = [...succeeded, ...failed].map(({ variantId }) => variantId);
   if (new Set(allIds).size !== allIds.length) invalid();
   return Object.freeze({ succeeded, failed, replayed: parsed.replayed });
+}
+
+export function parseBarcodeInternalReservationResult(value: unknown): BarcodeInternalReservationResult {
+  const parsed = exact(value, ["barcode", "replayed"]);
+  if (parsed.replayed !== true && parsed.replayed !== false) invalid();
+  return Object.freeze({
+    barcode: text(parsed.barcode, 16, 16, /^CXI-[0-9]{12}$/),
+    replayed: parsed.replayed,
+  });
 }
 
 export function parseBarcodePrintJobCreateIntent(

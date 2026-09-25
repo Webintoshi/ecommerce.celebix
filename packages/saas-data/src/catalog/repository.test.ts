@@ -228,6 +228,19 @@ test("concurrent cross-product SKU ownership rejection is reported as SKU confli
   }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "sku_conflict");
 });
 
+test("a reserved barcode claimed by another variant reports a clear conflict", async () => {
+  const client = new FakeClient((text) => {
+    if (text.includes("saas.catalog_create_variant")) {
+      throw { code: "23505", constraint: "product_variants_store_internal_barcode_key" };
+    }
+    return [];
+  });
+  await assert.rejects(repository(new FakePool(client)).createVariant({
+    tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID,
+    variant: { title: "Beyaz", barcode: "CXI-000000000123", priceCents: 100, stockTracking: true, stockQuantity: 1, attributes: { renk: "Beyaz" } },
+  }), (error: unknown) => error instanceof CatalogRepositoryError && error.code === "barcode_conflict");
+});
+
 test("bulkMutateProducts sends one deterministic target set through one transaction", async () => {
   const second = product({ id: SECOND_PRODUCT_ID, title: "Atlas Ring", slug: "atlas-ring", status: "active", version: 5 });
   const client = new FakeClient((text) => {

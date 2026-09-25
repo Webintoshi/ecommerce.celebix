@@ -2,6 +2,7 @@
 
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { SkuInput } from "@/components/catalog/SkuInput";
+import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 
 export type VariantDraft = Readonly<{
   title: string;
@@ -52,7 +53,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
         <div className="onboarding-editor-grid">
           {allowMultiple && simplified ? <label className="onboarding-variant-title"><span>Varyant adı</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
           {simplified ? <label><span>Karşılaştırma fiyatı</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label> : null}
-          <label><span>Barkod</span><input maxLength={128} value={variant.barcode} onChange={(event) => change(index, { barcode: event.target.value })} /></label>
+          <BarcodeInput value={variant.barcode} reservationIdentity={variant} onChange={(barcode) => change(index, { barcode })} />
           <label><span>Maliyet</span><input inputMode="decimal" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /></label>
           {showShipping ? <><label><span>Kargo desi</span><input inputMode="decimal" value={variant.shippingDesi} onChange={(event) => change(index, { shippingDesi: event.target.value })} /></label><label><span>GTİP / HS kodu</span><input maxLength={32} value={variant.hsCode} onChange={(event) => change(index, { hsCode: event.target.value })} /></label></> : null}
           {simplified ? <label className="onboarding-check onboarding-continue-selling"><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}

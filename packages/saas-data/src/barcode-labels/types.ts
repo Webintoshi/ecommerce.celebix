@@ -1,6 +1,7 @@
 import type {
   BarcodeInternalCreateIntent,
   BarcodeInternalCreateResult,
+  BarcodeInternalReservationResult,
   BarcodeLabelListQuery,
   BarcodeLabelListResult,
   BarcodeLabelTemplate,
@@ -33,6 +34,7 @@ export type ArchiveBarcodeLabelTemplateInput = BarcodeLabelAuthority &
 export type GenerateInternalBarcodesInput = BarcodeLabelAuthority &
   BarcodeInternalCreateIntent &
   Readonly<{ operationId: string }>;
+export type ReserveInternalBarcodeInput = BarcodeLabelAuthority & Readonly<{ operationId: string }>;
 export type CreateBarcodePrintJobInput = BarcodeLabelAuthority &
   BarcodePrintJobCreateIntent &
   Readonly<{
@@ -54,6 +56,7 @@ export interface BarcodeLabelRepository {
   generateInternal(
     input: GenerateInternalBarcodesInput,
   ): Promise<BarcodeInternalCreateResult>;
+  reserveInternal(input: ReserveInternalBarcodeInput): Promise<BarcodeInternalReservationResult>;
   listJobs(input: BarcodeLabelAuthority): Promise<readonly BarcodePrintJobSummary[]>;
   createJob(input: CreateBarcodePrintJobInput): Promise<BarcodePrintJob>;
   createJobLegacy(input: CreateBarcodePrintJobInput): Promise<BarcodePrintJob>;

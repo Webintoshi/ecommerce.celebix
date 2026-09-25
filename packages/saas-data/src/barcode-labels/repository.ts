@@ -1,5 +1,6 @@
 import {
   parseBarcodeInternalCreateResult,
+  parseBarcodeInternalReservationResult,
   parseBarcodeLabelListQuery,
   parseBarcodeLabelListResult,
   parseBarcodeLabelTemplate,
@@ -38,6 +39,8 @@ const SQL = Object.freeze({
     "SELECT outcome,result_payload FROM saas.barcode_label_template_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::bigint)",
   internal:
     "SELECT outcome,result_payload FROM saas.barcode_label_generate_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb)",
+  reserveInternal:
+    "SELECT outcome,result_payload FROM saas.barcode_label_reserve_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   listJobs:
     "SELECT outcome,result_payload FROM saas.barcode_print_job_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   createJob:
@@ -350,6 +353,15 @@ export class PostgresBarcodeLabelRepository implements BarcodeLabelRepository {
       ["generated"],
     );
     return parseBarcodeInternalCreateResult(result.payload);
+  }
+  async reserveInternal(input: Parameters<BarcodeLabelRepository["reserveInternal"]>[0]) {
+    const result = await this.run(
+      SQL.reserveInternal,
+      [...authority(input.tenantContext, input.now), input.operationId],
+      "write",
+      ["reserved"],
+    );
+    return parseBarcodeInternalReservationResult(result.payload);
   }
   async listJobs(input: Parameters<BarcodeLabelRepository["listJobs"]>[0]) {
     const result = await this.run(

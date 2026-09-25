@@ -409,6 +409,27 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
         return failure("invalid_input", 400);
       }
     },
+    async reserveInternal(request: Request) {
+      if (request.method !== "POST") return failure("method_not_allowed", 405, { allow: "POST" });
+      const authorized = await authorize(dependencies, request, true);
+      if (authorized instanceof Response) return authorized;
+      try {
+        const value = await body(request);
+        if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).length !== 0)
+          return failure("invalid_input", 400);
+        const operation = operationId(request);
+        return run(
+          () => authorized.runtime.barcodeLabels.reserveInternal({
+            tenantContext: authorized.tenantContext,
+            now: authorized.now,
+            operationId: operation,
+          }),
+          (result) => response(result),
+        );
+      } catch {
+        return failure("invalid_input", 400);
+      }
+    },
     async jobs(request: Request) {
       const mutation = request.method === "POST";
       if (request.method !== "GET" && !mutation)

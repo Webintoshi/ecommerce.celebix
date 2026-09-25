@@ -76,6 +76,10 @@ function unavailable(): CatalogRepositoryError { return new CatalogRepositoryErr
 function mutationError(value: unknown): CatalogRepositoryError {
   if (value instanceof CatalogRepositoryError) return value;
   if (typeof value === "object" && value !== null && "code" in value && "constraint" in value
+    && value.code === "23505" && value.constraint === "product_variants_store_internal_barcode_key") {
+    return new CatalogRepositoryError("barcode_conflict");
+  }
+  if (typeof value === "object" && value !== null && "code" in value && "constraint" in value
     && value.code === "23505" && value.constraint === "product_variants_store_sku_owner_key") {
     return new CatalogRepositoryError("sku_conflict");
   }

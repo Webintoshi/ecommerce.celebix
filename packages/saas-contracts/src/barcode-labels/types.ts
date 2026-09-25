@@ -179,6 +179,11 @@ export type BarcodeInternalCreateResult = Readonly<{
   replayed: boolean;
 }>;
 
+export type BarcodeInternalReservationResult = Readonly<{
+  barcode: string;
+  replayed: boolean;
+}>;
+
 export type BarcodePrintJobCreateIntent = Readonly<{
   template: Readonly<
     | { kind: "system"; key: string }

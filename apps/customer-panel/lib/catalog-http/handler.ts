@@ -59,6 +59,7 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   product_limit_reached: 409,
   slug_conflict: 409,
   sku_conflict: 409,
+  barcode_conflict: 409,
   variant_combination_conflict: 409,
   variant_limit_reached: 409,
   version_conflict: 409,

@@ -21,6 +21,7 @@ const METHODS = Object.freeze([
   "saveTemplate",
   "archiveTemplate",
   "generateInternal",
+  "reserveInternal",
   "listJobs",
   "createJob",
   "createJobLegacy",
