@@ -762,13 +762,13 @@
 .railAdvancedBody { display: grid; gap: 15px; min-width: 0; padding: 3px 0 18px; }
 .railResourceGroup { display: grid; gap: 5px; min-width: 0; border-top: 1px solid #eee8e3; padding-top: 14px; }
 .railSettings .error { margin: 0 0 14px; border-radius: 8px; padding: 10px; font-size: 11px; }
-.railActionBar { display: flex; position: fixed; z-index: 35; right: auto; bottom: 16px; left: calc(50% + 7.65625rem); width: min(550px, calc(100vw - 32px)); align-items: center; gap: 8px; margin: 0; transform: translateX(-50%); border: 1px solid #46413b; border-radius: 10px; background: #292725; padding: 9px 10px 9px 15px; box-shadow: 0 12px 30px rgb(20 15 11 / 23%); backdrop-filter: none; }
-.railActionBar[hidden] { display: none; }
-.railActionBar > span { min-width: 0; flex: 1; color: #fffdfc; font-size: 11px; font-weight: 650; }
-.railActionBar button { min-height: 38px; border-radius: 7px; padding: 0 12px; font-size: 11px; white-space: nowrap; }
-.railActionBar .primary { border-color: #fffdfc; background: #fffdfc; color: #292725; box-shadow: none; }
-.railActionBar .secondary { border-color: #69635e; background: transparent; color: #fffdfc; }
-.railActionBar button:focus-visible { outline: 2px solid #fe6100; outline-offset: 2px; }
+.editSettings .railActionBar { display: flex; position: fixed; z-index: 15; right: auto; bottom: 16px; left: calc(50% + 7.65625rem); width: min(550px, calc(100vw - 32px)); align-items: center; gap: 8px; margin: 0; transform: translateX(-50%); border: 1px solid #46413b; border-radius: 10px; background: #292725; padding: 9px 10px 9px 15px; box-shadow: 0 12px 30px rgb(20 15 11 / 23%); backdrop-filter: none; }
+.editSettings .railActionBar[hidden] { display: none; }
+.editSettings .railActionBar > span { min-width: 0; flex: 1; color: #fffdfc; font-size: 11px; font-weight: 650; }
+.editSettings .railActionBar button { min-height: 38px; border-radius: 7px; padding: 0 12px; font-size: 11px; white-space: nowrap; }
+.editSettings .railActionBar .primary { border-color: #fffdfc; background: #fffdfc; color: #292725; box-shadow: none; }
+.editSettings .railActionBar .secondary { border-color: #69635e; background: transparent; color: #fffdfc; }
+.editSettings .railActionBar button:focus-visible { outline: 2px solid #fe6100; outline-offset: 2px; }
 
 @media (max-width: 600px) {
   .editTabs { gap: 12px; padding: 0 16px; }
@@ -779,9 +779,9 @@
   .editSettings .editActionBar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
   .editSettings .editActionBar button { width: 100%; padding: 0 8px; }
 }
-@media (max-width: 1024px) { .railActionBar { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); left: 50%; } }
+@media (max-width: 1024px) { .editSettings .railActionBar { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); left: 50%; } }
 @media (max-width: 600px) { .editSettings .railActionBar { display: flex; padding: 8px; } .editSettings .railActionBar button { width: auto; } }
-@media (max-width: 440px) { .editSettings .railActionBar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: calc(100vw - 16px); padding: 8px; } .railActionBar > span { grid-column: 1 / -1; padding: 1px 3px; } }
+@media (max-width: 440px) { .editSettings .railActionBar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: calc(100vw - 16px); padding: 8px; } .editSettings .railActionBar > span { grid-column: 1 / -1; padding: 1px 3px; } }
 @media (max-width: 560px) { .createChoices { grid-template-columns: 1fr; gap: 12px; } .createChoice { min-height: 164px; gap: 16px; padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { .createChoice { transition-duration: .01ms; } }
 
