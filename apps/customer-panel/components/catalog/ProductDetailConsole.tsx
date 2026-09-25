@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, Product, ProductVariant } from "@celebix/saas-contracts";
-import { Archive, ArrowLeft, Eye, Pencil, Plus, RotateCcw, SlidersHorizontal, Tag, Trash2 } from "lucide-react";
+import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
+import { Archive, ArrowLeft, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, SlidersHorizontal, Trash2, X } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -28,7 +29,9 @@ import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDes
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 import { VariantPricingPolicyControl } from "@/components/reference-pricing/VariantPricingPolicyControl";
 import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
+import { usePanelTopbarChrome } from "@/components/panel/PanelTopbarChrome";
 import catalogStyles from "./catalog-operations.module.css";
+import styles from "./product-detail-workspace.module.css";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -93,8 +96,9 @@ export function ProductDetailConsole({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(canManage);
   const [editingMerchandising, setEditingMerchandising] = useState(false);
+  const [salesSaving, setSalesSaving] = useState(false);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [creatingAttributeVariants, setCreatingAttributeVariants] = useState(false);
   const [attributeVariants, setAttributeVariants] = useState<readonly VariantDraft[]>([]);
@@ -104,14 +108,25 @@ export function ProductDetailConsole({
   const [archiveProduct, setArchiveProduct] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletionImpact, setDeletionImpact] = useState<PermanentDeletionImpact>();
+  const [activeMedia, setActiveMedia] = useState<readonly ProductMediaLifecycle[]>();
   const deletionIntentRef = useRef<Readonly<{ productId: string; expectedVersion: number; confirmation: string; operationId: string }> | undefined>(undefined);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
+  const salesDialogRef = useRef<HTMLElement>(null);
+  const salesCloseRef = useRef<HTMLButtonElement>(null);
+  const salesTriggerRef = useRef<HTMLButtonElement>(null);
+  const salesOpenerRef = useRef<HTMLElement>(null);
+  const salesSavingRef = useRef(false);
+  const actionMenuRef = useRef<HTMLDetailsElement>(null);
   const mutationLockedRef = useRef(false);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
-  const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const archiveTriggerRef = useRef<HTMLElement>(null);
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
+  const wasSalesDialogOpen = useRef(false);
   const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-batch", "variant-edit", "sales"] as const));
+
+  usePanelTopbarChrome({ title: "", hideHeading: true });
+  const receiveActiveMedia = useCallback((items: readonly ProductMediaLifecycle[]) => setActiveMedia(items), []);
 
   const load = useCallback(async () => {
     setError("");
@@ -216,6 +231,59 @@ export function ProductDetailConsole({
     wasArchiveDialogOpen.current = false;
     restoreArchiveFocus(archiveTriggerRef.current, variantsHeadingRef.current);
   }, [archiveDialogOpen]);
+
+  useEffect(() => {
+    if (editingMerchandising) {
+      wasSalesDialogOpen.current = true;
+      salesCloseRef.current?.focus();
+      return;
+    }
+    if (!wasSalesDialogOpen.current) return;
+    wasSalesDialogOpen.current = false;
+    const opener = salesOpenerRef.current;
+    if (opener?.isConnected) opener.focus();
+    else salesTriggerRef.current?.focus();
+  }, [editingMerchandising]);
+
+  useEffect(() => {
+    if (!editingMerchandising) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [editingMerchandising]);
+
+  useEffect(() => {
+    function closeMenu(event: PointerEvent | globalThis.KeyboardEvent) {
+      if (event.type === "keydown" && (event as globalThis.KeyboardEvent).key !== "Escape") return;
+      if (event.type === "pointerdown" && actionMenuRef.current?.contains(event.target as Node)) return;
+      actionMenuRef.current?.removeAttribute("open");
+    }
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeMenu);
+    };
+  }, []);
+
+  function closeSalesDrawer() {
+    if (salesSavingRef.current) return;
+    if (!canDiscardDetailChanges("sales")) return;
+    setEditingMerchandising(false);
+  }
+
+  function handleSalesDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") { closeSalesDrawer(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(salesDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) ?? []).filter((element) => element.getClientRects().length > 0);
+    if (!focusable.length) return;
+    const first = focusable[0]!;
+    const last = focusable.at(-1)!;
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
 
   function closeArchiveDialog() {
     if (busy !== "") return;
@@ -447,7 +515,7 @@ export function ProductDetailConsole({
 
   const { product, variants } = detail;
   const archived = product.status === "archived";
-  const statusLabel = product.status === "active" ? "Aktif" : archived ? "Arşivlenmiş" : "Taslak";
+  const statusLabel = product.status === "active" ? "Satışta" : archived ? "Arşivlenmiş" : "Taslak";
   const priceValues = variants.flatMap((variant) => {
     const current = currentVariantPrice(variant);
     return current === null ? [] : [current];
@@ -467,6 +535,17 @@ export function ProductDetailConsole({
       : `${trackedVariants.reduce((total, variant) => total + variant.stockQuantity, 0)} adet`;
   const primarySku = variants.find((variant) => variant.sku)?.sku;
   const updatedAt = new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(product.updatedAt));
+  const cover = activeMedia?.find((item) => item.publicUrl);
+  const categoryNames = onboarding?.options.categories.filter(({ id }) => onboarding.editor.categoryIds.includes(id)).map(({ name }) => name) ?? [];
+  const brandName = onboarding?.options.resources.find(({ id }) => id === onboarding.editor.resourceIds.brand)?.name;
+  const channelNames = onboarding?.options.channels.filter(({ id }) => onboarding.editor.channelIds.includes(id)).map(({ name }) => name) ?? [];
+  const openSalesSettings = (opener?: HTMLElement) => {
+    if (merchandisingState === "error") { void reloadMerchandising(); return; }
+    if (merchandisingState !== "ready" || archived) return;
+    salesOpenerRef.current = opener ?? salesTriggerRef.current;
+    if (canManage) openExclusiveEditor("sales");
+    else setEditingMerchandising(true);
+  };
   const readOnlySalesSettings = onboarding && !canManage ? (
     <section className="product-detail-section" aria-labelledby="read-only-sales-settings-title">
       <div className="product-detail-section-header"><div><span className="eyebrow">SATIŞ AYARLARI</span><h2 id="read-only-sales-settings-title">Satış ayarları</h2></div></div>
@@ -489,77 +568,61 @@ export function ProductDetailConsole({
     </section>
   ) : null;
   return (
-    <section data-presentation="hemenaku-product-detail" className={`catalog-page product-detail-workspace ${catalogStyles.catalogRoot}`} aria-labelledby="product-title">
-      <header className="detail-heading-row hemenaku-detail-hero product-detail-header">
-        <div className="catalog-heading product-detail-heading">
-          <Link className="back-link product-detail-back" href="/products"><ArrowLeft aria-hidden="true" /> Ürünlere dön</Link>
-          <div className="heading-meta product-detail-heading-meta"><span className={`status-pill status-${product.status}`}>{statusLabel}</span><span className="version-badge">v{product.version}</span></div>
+    <section data-presentation="hemenaku-product-detail" className={`catalog-page product-detail-workspace ${catalogStyles.catalogRoot} ${styles.root}`} aria-labelledby="product-title">
+      <Link className={styles.backLink} href="/products"><ArrowLeft aria-hidden="true" /> Tüm ürünler</Link>
+      <header className={styles.hero}>
+        <div className={styles.heroImage}>{cover?.publicUrl ? <img src={cover.publicUrl} alt={cover.altText || product.title} /> : <ImageIcon aria-hidden="true" />}</div>
+        <div className={styles.heroContent}>
+          <div className={styles.heroMeta}><span className={`${styles.status} ${product.status === "active" ? styles.statusActive : ""}`}>{statusLabel}</span><span>{primarySku ? `SKU: ${primarySku}` : "SKU eklenmemiş"}</span><span>v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
-          <p>{primarySku ? `SKU ${primarySku}` : "SKU eklenmemiş"}<span aria-hidden="true"> · </span>{product.currency}</p>
+          <div className={styles.heroStats}><div><strong>{salePrice}</strong><span>Satış fiyatı</span></div><div><strong>{stockValue}</strong><span>Takipli stok</span></div><div><strong>{activeMedia === undefined ? "—" : `${activeMedia.length} görsel`}</strong><span>Ürün medyası</span></div></div>
         </div>
-        <div className="heading-actions product-detail-actions">
-          {!archived && canManage ? <button className={product.status === "active" ? "button button-secondary" : "button button-primary"} type="button" onClick={() => void setProductStatus(product.status === "active" ? "draft" : "active")} disabled={busy !== ""}>{busy === "product-status" ? "Güncelleniyor…" : product.status === "active" ? "Satıştan kaldır" : "Satışa aç"}</button> : null}
-          {!archived ? <Link className="button button-secondary" href={`/products/barcode-labels?productId=${product.id}`}><Tag aria-hidden="true" /> Barkod etiketi yazdır</Link> : null}
-          {!archived ? <button className="button button-secondary" type="button" onClick={() => void openStorefrontPreview()} disabled={busy!==""}><Eye aria-hidden="true"/> {busy==="preview"?"Önizleme hazırlanıyor…":"Mağazada önizle"}</button>:null}
-          {archived && canArchive ? <button className="button button-primary" type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri Yükle"}</button> : null}
-          {!archived && canManage ? <button className="button button-secondary" type="button" onClick={() => { if (editingProduct) { if (canDiscardDetailChanges("product")) setEditingProduct(false); } else openExclusiveEditor("product"); }}><Pencil aria-hidden="true" /> Ürünü düzenle</button> : null}
-          {!archived ? <button className="button button-secondary" type="button" onClick={() => { if (merchandisingState === "error") void reloadMerchandising(); else if (merchandisingState === "ready") { if (canManage) openExclusiveEditor("sales"); else setEditingMerchandising(true); } }} disabled={merchandisingState === "loading"}><SlidersHorizontal aria-hidden="true" /> {merchandisingState === "loading" ? "Yükleniyor…" : "Satış ayarları"}</button> : null}
-          {!archived && canArchive ? <button className="button button-quiet-danger" type="button" onClick={(event) => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
-          {canDelete ? <button className="button button-quiet-danger" type="button" onClick={() => void openDeleteDialog()} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı sil</button> : null}
+        <div className={styles.heroActions}>
+          {!archived ? <button className={styles.outlineButton} type="button" onClick={() => void openStorefrontPreview()} disabled={busy !== ""}><Eye aria-hidden="true" /> {busy === "preview" ? "Hazırlanıyor…" : "Mağazada gör"}</button> : null}
+          {!archived ? <Link className={styles.outlineButton} href={`/products/barcode-labels?productId=${product.id}`}><ScanBarcode aria-hidden="true" /> Barkod etiketi</Link> : null}
+          {archived && canArchive ? <button className={styles.outlineButton} type="button" onClick={() => void restoreProduct()} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === "restore-product" ? "Geri yükleniyor…" : "Geri yükle"}</button> : null}
+          {(canManage || canArchive || canDelete) ? <details className={styles.more} ref={actionMenuRef}><summary aria-label="Diğer ürün işlemleri" title="Diğer ürün işlemleri"><MoreHorizontal aria-hidden="true" /></summary><div className={styles.moreMenu}>
+            {!archived && canManage ? <button type="button" onClick={() => { actionMenuRef.current?.removeAttribute("open"); void setProductStatus(product.status === "active" ? "draft" : "active"); }} disabled={busy !== ""}>{product.status === "active" ? "Satıştan kaldır" : "Satışa aç"}</button> : null}
+            {!archived && canArchive ? <button type="button" onClick={() => { if (!canDiscardDetailChanges()) return; closeDetailEditors(); archiveTriggerRef.current = actionMenuRef.current?.querySelector("summary") ?? null; actionMenuRef.current?.removeAttribute("open"); setArchiveProduct(true); }}><Archive aria-hidden="true" /> Arşivle</button> : null}
+            {canDelete ? <button className={styles.dangerAction} type="button" onClick={() => { actionMenuRef.current?.removeAttribute("open"); void openDeleteDialog(); }} disabled={busy !== ""}><Trash2 aria-hidden="true" /> Kalıcı sil</button> : null}
+          </div></details> : null}
         </div>
       </header>
 
-      {archived ? <div className="feedback feedback-warning product-archive-banner" role="status"><div><strong>Ürün arşivlenmiş</strong><p>Bu ürün mağazada ve yayın akışında görünmez. Sipariş geçmişi, medya ve analiz verileri korunur.</p></div></div> : null}
+      <nav className={styles.sectionNav} aria-label="Ürün bölümleri"><a href="#product-general">Bilgiler</a><a href="#product-images">Görseller {activeMedia !== undefined ? <span>{activeMedia.length}</span> : null}</a><a href="#product-variants">Varyantlar <span>{variants.length}</span></a>{!archived ? <button type="button" onClick={(event) => openSalesSettings(event.currentTarget)} disabled={merchandisingState === "loading"}>Satış ayarları <SlidersHorizontal aria-hidden="true" /></button> : null}</nav>
 
-      <dl className="product-detail-facts" aria-label="Ürün hızlı özeti">
-        <div><dt>Satış fiyatı</dt><dd>{salePrice}</dd></div>
-        <div><dt>Karşılaştırma</dt><dd>{compareAtPrice}</dd></div>
-        <div><dt>Takipli stok</dt><dd>{stockValue}</dd></div>
-        <div><dt>Varyant</dt><dd>{variants.length}</dd></div>
-        <div className="product-detail-fact-updated"><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div>
-        <div><dt>Durum</dt><dd><span className={`status-pill status-${product.status}`}>{statusLabel}</span></dd></div>
-      </dl>
-
+      {archived ? <div className="feedback feedback-warning product-archive-banner" role="status"><div><strong>Ürün arşivlenmiş</strong><p>Mağazada görünmüyor. Sipariş geçmişi ve medya korunuyor.</p></div></div> : null}
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div>{conflict ? <button className="button button-secondary" type="button" onClick={() => void loadServerSnapshot()}>Sunucudaki sürümü yükle</button> : null}</div> : null}
-      {merchandisingState === "error" ? <div className="feedback feedback-error" role="alert"><div><strong>Yüklenemedi — Tekrar dene</strong><p>Satış ayarları yüklenemedi. {merchandisingError}</p></div><button className="button button-secondary" type="button" onClick={() => void reloadMerchandising()}>Tekrar dene</button></div> : null}
-      {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
+      {merchandisingState === "error" ? <div className="feedback feedback-error" role="alert"><div><strong>Satış ayarları yüklenemedi</strong><p>{merchandisingError}</p></div><button className="button button-secondary" type="button" onClick={() => void reloadMerchandising()}>Tekrar dene</button></div> : null}
+      {notice ? <div className="feedback feedback-success" role="status"><div><p>{notice}</p></div></div> : null}
 
-      <section className="product-detail-section product-detail-description" aria-labelledby="product-fields-title">
-        <div className="product-detail-section-header">
-          <div><span className="eyebrow">ÜRÜN BİLGİLERİ</span><h2 id="product-fields-title">{editingProduct ? "Ürün bilgilerini düzenle" : "Açıklama"}</h2></div>
+      <div className={styles.workspace}><div className={styles.mainColumn}>
+      <section id="product-general" className={`product-detail-section product-detail-description ${styles.surface} ${styles.general}`} aria-labelledby="product-fields-title">
+        <div className={`product-detail-section-header ${styles.sectionHeader}`}>
+          <div><span className="eyebrow">ÜRÜN BİLGİLERİ</span><h2 id="product-fields-title">Temel bilgiler</h2></div>
+          {!editingProduct && canManage && !archived ? <button className={styles.smallAction} type="button" onClick={() => openExclusiveEditor("product")}><Pencil aria-hidden="true" /> Düzenle</button> : <span className={styles.version}>v{product.version}</span>}
         </div>
         {editingProduct && canManage && !archived ? (
-          <form className="catalog-form inset-form product-detail-edit-form" onSubmit={updateProduct} onChange={() => markDetailDirty("product")} key={product.version}>
+          <form className={`catalog-form inset-form product-detail-edit-form ${styles.generalForm}`} onSubmit={updateProduct} onChange={() => markDetailDirty("product")} key={product.version}>
           <fieldset disabled={busy !== ""}>
-            <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
               <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
               <label className="field"><span>Para birimi</span><select name="currency" defaultValue={product.currency}><option value="TRY">TRY — Türk lirası</option></select></label>
               <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} onValueChange={() => markDetailDirty("product")} />
             </div>
           </fieldset>
-          <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("product")) setEditingProduct(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Değişiklikleri kaydet"}</button></div>
+          <div className={`form-actions ${styles.formActions}`}><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("product")) setEditingProduct(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Bilgileri kaydet"}</button></div>
           </form>
         ) : (
           <div className="product-detail-description-content"><ProductDescriptionPreview source={product.description} emptyMessage="Bu ürün için açıklama eklenmemiş." /></div>
         )}
       </section>
 
-      {editingMerchandising && onboarding && !archived ? canManage ? <section aria-label="Ürün satış ayarları"><ProductAdvancedEditor
-          key={onboarding.editor.profile.version}
-          options={onboarding.options}
-          editor={onboarding.editor}
-          onCancel={() => { dirtyEditorsRef.current.clear("sales"); setEditingMerchandising(false); }}
-          onUpdated={() => void reloadMerchandising(true)}
-          onConflictReload={() => reloadMerchandising()}
-          onDirtyChange={(dirty) => { if (dirty) dirtyEditorsRef.current.mark("sales"); else dirtyEditorsRef.current.clear("sales"); }}
-        /></section> : readOnlySalesSettings : null}
+      <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} onActiveMediaChange={receiveActiveMedia} />
 
-      <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} />
-
-      <section className="variant-list product-detail-section product-detail-variants" aria-labelledby="variants-title">
+      <section id="product-variants" className={`variant-list product-detail-section product-detail-variants ${styles.surface} ${styles.variants}`} aria-labelledby="variants-title">
       <div className="section-heading-row product-detail-section-header">
-        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
+        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar <span className={styles.count}>{variants.length}</span></h2></div>
         {canManage && !archived ? <div className="variant-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges()) return; const opening = !creatingAttributeVariants; closeDetailEditors(); setCreatingAttributeVariants(opening); }} disabled={busy !== "" || merchandisingState !== "ready" || !onboarding}>Niteliklerden ekle</button><button className="button button-primary product-detail-primary-action" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant || merchandisingState !== "ready" || !onboarding}><Plus aria-hidden="true" /> Yeni varyant</button></div> : null}
       </div>
 
@@ -603,6 +666,40 @@ export function ProductDetailConsole({
         ))}
       </div>
       </section>
+
+      </div><aside className={styles.sideColumn} aria-label="Ürün özeti">
+        <section className={styles.storePreview} aria-labelledby="store-preview-title">
+          <div className={styles.asideHeader}><h2 id="store-preview-title">Mağazada görünüm</h2>{!archived ? <button type="button" onClick={() => void openStorefrontPreview()} disabled={busy !== ""} aria-label="Mağaza ön izlemesini aç"><Eye aria-hidden="true" /></button> : null}</div>
+          <div className={styles.storeImage}>{cover?.publicUrl ? <img src={cover.publicUrl} alt={cover.altText || product.title} /> : <ImageIcon aria-hidden="true" />}</div>
+          <div className={styles.storeInfo}>{brandName ? <span>{brandName}</span> : null}<strong>{product.title}</strong><b>{salePrice}</b></div>
+        </section>
+        <section className={styles.asidePanel} aria-labelledby="sales-summary-title">
+          <div className={styles.asideHeader}><h2 id="sales-summary-title">Satış düzeni</h2>{!archived ? <button ref={salesTriggerRef} type="button" onClick={(event) => openSalesSettings(event.currentTarget)} disabled={merchandisingState === "loading"} aria-label="Satış ayarlarını aç"><Pencil aria-hidden="true" /></button> : null}</div>
+          <dl className={styles.asideFacts}>
+            <div><dt>Ürün türü</dt><dd>{onboarding?.editor.profile.productType === "digital" ? "Dijital" : onboarding ? "Fiziksel" : "—"}</dd></div>
+            <div><dt>Kategori</dt><dd>{categoryNames.length ? categoryNames.join(" · ") : "—"}</dd></div>
+            <div><dt>Marka</dt><dd>{brandName || "—"}</dd></div>
+            <div><dt>Satış kanalı</dt><dd>{channelNames.length ? channelNames.join(", ") : "—"}</dd></div>
+            <div><dt>Karşılaştırma</dt><dd>{compareAtPrice}</dd></div>
+            <div><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div>
+          </dl>
+          {!archived ? <button className={styles.asideLink} type="button" onClick={(event) => openSalesSettings(event.currentTarget)} disabled={merchandisingState === "loading"}>Satış ayarlarını {canManage ? "düzenle" : "gör"} <span aria-hidden="true">→</span></button> : null}
+        </section>
+      </aside></div>
+
+      {editingMerchandising && onboarding && !archived ? <div className={styles.drawerLayer} onMouseDown={(event) => { if (event.target === event.currentTarget) closeSalesDrawer(); }}><aside ref={salesDialogRef} className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="product-sales-title" onKeyDown={handleSalesDialogKeyDown}>
+        <div className={styles.drawerHeader}><div><span>SATIŞ DÜZENİ</span><h2 id="product-sales-title">Satış ayarları</h2></div><button ref={salesCloseRef} type="button" onClick={closeSalesDrawer} disabled={salesSaving} aria-label="Satış ayarlarını kapat"><X aria-hidden="true" /></button></div>
+        <div className={styles.drawerContent}>{canManage ? <ProductAdvancedEditor
+          key={onboarding.editor.profile.version}
+          options={onboarding.options}
+          editor={onboarding.editor}
+          onCancel={() => { dirtyEditorsRef.current.clear("sales"); setEditingMerchandising(false); }}
+          onUpdated={() => void reloadMerchandising(true)}
+          onConflictReload={() => reloadMerchandising()}
+          onDirtyChange={(dirty) => { if (dirty) dirtyEditorsRef.current.mark("sales"); else dirtyEditorsRef.current.clear("sales"); }}
+          onBusyChange={(saving) => { salesSavingRef.current = saving; setSalesSaving(saving); }}
+        /> : readOnlySalesSettings}</div>
+      </aside></div> : null}
 
       {archiveDialogOpen && canArchive && !archived ? (
         <div className="archive-dialog-layer">

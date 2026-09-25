@@ -430,8 +430,8 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.match(create, /ProductQuickCreateDialog/);
   assert.match(onboarding, /Ürün adı/);
   assert.match(onboarding, /Satış fiyatı/);
-  assert.match(detail, /hemenaku-detail-hero/);
-  assert.match(detail, /Ürün Bilgileri/);
+  assert.match(detail, /className=\{styles[.]hero\}/);
+  assert.match(detail, /Temel bilgiler/);
   assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
   assert.match(onboardingStyles, /\.dialog[^}]*border-radius:\s*30px/s);
   assert.doesNotMatch(`${list}\n${create}\n${onboarding}\n${detail}`, /\/api\/admin|\/admin\/urunler|supabase/i);
@@ -1374,9 +1374,9 @@ test("functional launch keeps the legacy removal route disabled while confirmed 
   const removeRoute = await source("app/api/catalog/products/[productId]/remove/route.ts");
 
   for (const state of [
-    "Yükleniyor…",
+    "Ürün ayrıntıları yükleniyor…",
     "Satış ayarları",
-    "Yüklenemedi — Tekrar dene",
+    "Satış ayarları yüklenemedi",
     "Bu hesap yalnızca görüntüleme yetkisine sahiptir",
   ]) assert.match(detail, new RegExp(state));
   assert.match(detail, /readOnlySalesSettings/);

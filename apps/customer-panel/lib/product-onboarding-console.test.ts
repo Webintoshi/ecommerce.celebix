@@ -116,7 +116,7 @@ test("advanced editor locks native and rich fields while a versioned save is pen
   assert.match(editor, /aria-busy=\{busy\}/);
   assert.match(editor, /<fieldset className=\{styles[.]editorFieldset\} disabled=\{busy\}>/);
   assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy\}/s);
-  assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy \|\| editing\}/s);
+  assert.match(editor, /<fieldset className=\{styles[.]editFieldset\} disabled=\{busy\}>/);
 });
 
 test("variant rows prioritize price and stock while secondary fields stay disclosed", async () => {

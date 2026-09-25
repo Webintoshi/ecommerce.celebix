@@ -678,6 +678,63 @@
 .createChoice strong { font-size: clamp(20px, 2vw, 26px); letter-spacing: -.02em; }
 .createChoice small { color: #667085; font-size: 14px; line-height: 1.5; }
 .createChoice > svg { width: 24px; height: 24px; color: var(--catalog-accent); }
+
+/* Sales settings inside the product edit workspace. Create mode keeps its own layout. */
+.editSettings { min-width: 0; gap: 0; color: var(--catalog-text); }
+.editTabs { display: flex; min-width: 0; gap: 20px; overflow-x: auto; border-bottom: 1px solid var(--catalog-border); padding: 0 24px; scrollbar-width: thin; }
+.editTabs button { position: relative; min-width: 80px; min-height: 48px; flex: 0 0 auto; border: 0; background: transparent; padding: 0 4px; color: #667085; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.editTabs button:hover { color: var(--catalog-text); }
+.editTabs button.editTabActive { color: var(--catalog-text); }
+.editTabs button.editTabActive::after { position: absolute; right: 4px; bottom: 0; left: 4px; height: 2px; background: var(--catalog-accent); content: ""; }
+.editTabs button:focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: -4px; }
+.editFieldset { display: block; min-width: 0; margin: 0; border: 0; padding: 0; }
+.editPanel { display: grid; gap: 24px; min-width: 0; padding: 24px; }
+.editPanel[hidden] { display: none; }
+.editPanel:focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: -4px; }
+.editGroup { display: grid; gap: 16px; min-width: 0; }
+.editGroup + .editGroup { border-top: 1px solid var(--catalog-border); padding-top: 24px; }
+.editGroup h3 { margin: 0; color: var(--catalog-text); font-size: 16px; font-weight: 650; line-height: 1.35; }
+.editFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.editField { display: grid; align-content: start; gap: 8px; min-width: 0; color: var(--catalog-text); font-size: 13px; font-weight: 600; }
+.editFieldWide { grid-column: 1 / -1; }
+.editField input,
+.editField select,
+.editField textarea { width: 100%; min-height: 44px; border: 1px solid var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); padding: 10px 12px; color: var(--catalog-text); font: inherit; font-size: 14px; font-weight: 400; }
+.editField textarea { min-height: 112px; resize: vertical; }
+.editField input:focus-visible,
+.editField select:focus-visible,
+.editField textarea:focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: 1px; }
+.editSettings .classificationPicker { border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); }
+.editSettings .classificationPicker > summary { min-height: 44px; padding: 8px 12px; }
+.editSettings .classificationPicker > summary strong { color: var(--catalog-text); font-size: 13px; font-weight: 600; }
+.editSettings .classificationPicker > summary small { color: #667085; font-size: 12px; }
+.editSettings .classificationPicker > summary svg { width: 16px; }
+.editSettings .classificationPopover { gap: 8px; border-color: var(--catalog-border); padding: 12px; }
+.editSettings .classificationSearch { min-height: 40px; border-color: var(--catalog-border); border-radius: 8px; }
+.editSettings .classificationOptions { border-color: var(--catalog-border); border-radius: 8px; }
+.editSettings .classificationOptions label { min-height: 44px; color: var(--catalog-text); font-size: 13px; }
+.editSettings .classificationOptions input { width: 18px !important; min-height: 18px !important; accent-color: var(--catalog-accent); }
+.editSettings .classificationChips button { min-height: 32px; border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-canvas); color: var(--catalog-text); font-size: 12px; }
+.editOptionList { display: grid; gap: 8px; min-width: 0; }
+.editOptionList label { display: flex; min-height: 44px; align-items: center; gap: 12px; border: 1px solid var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); padding: 8px 12px; color: var(--catalog-text); cursor: pointer; }
+.editOptionList label:has(input:checked) { border-color: var(--catalog-accent); background: rgba(254, 97, 0, 0.06); }
+.editOptionList input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; accent-color: var(--catalog-accent); }
+.editOptionList label > span { display: grid; gap: 2px; min-width: 0; font-size: 13px; font-weight: 600; }
+.editOptionList small { color: #667085; font-size: 12px; font-weight: 400; }
+.editOptionList p { margin: 0; color: #667085; font-size: 13px; }
+.editSettings .editActionBar { justify-content: flex-end; gap: 8px; margin: 0; border: 0; border-top: 1px solid var(--catalog-border); border-radius: 0; background: var(--catalog-surface); padding: 12px 24px; box-shadow: none; backdrop-filter: none; }
+.editSettings .editActionBar button { min-height: 44px; border-radius: 8px; padding: 0 16px; font-size: 13px; }
+.editSettings .editActionBar .primary { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); }
+
+@media (max-width: 600px) {
+  .editTabs { gap: 12px; padding: 0 16px; }
+  .editPanel { gap: 20px; padding: 20px 16px; }
+  .editGroup + .editGroup { padding-top: 20px; }
+  .editFieldGrid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .editFieldWide { grid-column: auto; }
+  .editSettings .editActionBar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .editSettings .editActionBar button { width: 100%; padding: 0 8px; }
+}
 @media (max-width: 560px) { .createChoices { grid-template-columns: 1fr; gap: 12px; } .createChoice { min-height: 164px; gap: 16px; padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { .createChoice { transition-duration: .01ms; } }
 
