@@ -189,7 +189,7 @@ export function ProductDescriptionField({
   });
 
   useEffect(() => {
-    editor?.setEditable(!readOnly);
+    editor?.setEditable(!readOnly, false);
   }, [editor, readOnly]);
 
   useEffect(() => {
