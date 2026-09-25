@@ -9,3 +9,10 @@ export function availableProductsFirst(products: readonly PublicProduct[]): read
   }
   return Object.freeze([...available, ...unavailable]);
 }
+
+export function productGridOrder(
+  products: readonly PublicProduct[],
+  preserveOrder: boolean,
+): readonly PublicProduct[] {
+  return preserveOrder ? products : availableProductsFirst(products);
+}

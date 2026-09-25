@@ -37,8 +37,11 @@ import type {
   CreateCatalogCategoryInput,
   UpdateCatalogCategoryInput,
   ArchiveCatalogCategoryInput,
+  CatalogCategoryProductOrder,
+  CatalogCategoryProductOrderResult,
   DeleteCatalogCategoryInput,
   GetCatalogCategoryInput,
+  ReorderCatalogCategoryProductsInput,
 } from "./types.ts";
 import {
   catalogMerchandisingPayload,
@@ -53,7 +56,7 @@ import {
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
-type CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation" | "delete_category_recover";
+type CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation" | "delete_category_recover" | "catalog_recover_category_product_order";
 const ERROR_CODES = new Set<string>(CATALOG_ONBOARDING_ERROR_CODES);
 
 function unavailable(): CatalogOnboardingRepositoryError {
@@ -133,6 +136,34 @@ function parseCategoryResult(value: unknown, replayed: boolean): CatalogCategory
     if (error instanceof CatalogOnboardingRepositoryError) throw error;
     throw unavailable();
   }
+}
+
+const PRODUCT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function parseCategoryProductOrder(value: unknown, categoryId: string, replayed?: boolean): CatalogCategoryProductOrder | CatalogCategoryProductOrderResult {
+  const candidate = value as Record<string, unknown> | null;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) throw unavailable();
+  const expected = replayed === undefined ? "categoryId,items,version" : "categoryId,items,replayed,version";
+  if (Object.keys(candidate).sort().join(",") !== expected || candidate.categoryId !== categoryId
+    || !Number.isSafeInteger(candidate.version) || (candidate.version as number) < 0
+    || !Array.isArray(candidate.items) || candidate.items.length > 1000
+    || (replayed !== undefined && candidate.replayed !== replayed)) throw unavailable();
+  const seen = new Set<string>();
+  const items = candidate.items.map((value) => {
+    const item = value as Record<string, unknown> | null;
+    if (!item || typeof item !== "object" || Array.isArray(item)
+      || Object.keys(item).sort().join(",") !== "productId,slug,status,storefrontPosition,title"
+      || typeof item.productId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(item.productId)
+      || seen.has(item.productId)
+      || typeof item.title !== "string" || item.title.length < 1 || item.title.length > 200
+      || typeof item.slug !== "string" || item.slug.length < 1 || item.slug.length > 100 || !PRODUCT_SLUG.test(item.slug)
+      || (item.status !== "active" && item.status !== "draft")
+      || (item.storefrontPosition !== null && (!Number.isSafeInteger(item.storefrontPosition) || (item.storefrontPosition as number) < 0 || (item.storefrontPosition as number) > 999))) throw unavailable();
+    seen.add(item.productId);
+    return Object.freeze({ productId: item.productId as string, title: item.title as string, slug: item.slug as string,
+      status: item.status as "active" | "draft", storefrontPosition: item.storefrontPosition as number | null });
+  });
+  return Object.freeze({ categoryId, version: candidate.version as number, items: Object.freeze(items),
+    ...(replayed === undefined ? {} : { replayed }) });
 }
 
 export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRepository {
@@ -373,6 +404,34 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     }, "found", (value) => {
       try { return parseCatalogCategoryList(value); } catch { throw unavailable(); }
     });
+  }
+
+  async getCategoryProductOrder(input: GetCatalogCategoryInput): Promise<CatalogCategoryProductOrder> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "categoryId"]);
+    authorizeCategory(authority, "catalog_admin.read");
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    return this.read({
+      text: "SELECT outcome,result_payload FROM saas.catalog_get_category_product_order($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
+      values: [...authorityValues(authority), categoryId],
+    }, "found", (value) => parseCategoryProductOrder(value, categoryId) as CatalogCategoryProductOrder);
+  }
+
+  async reorderCategoryProducts(input: ReorderCatalogCategoryProductsInput): Promise<CatalogCategoryProductOrderResult> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "categoryId", "operationId", "expectedVersion", "orderedProductIds"]);
+    authorizeCategory(authority, "catalog_admin.manage");
+    const categoryId = catalogOnboardingUuid(parsed.categoryId);
+    const operationId = catalogOnboardingUuid(parsed.operationId);
+    const expectedVersion = catalogOnboardingCount(parsed.expectedVersion, Number.MAX_SAFE_INTEGER - 1);
+    if (!Array.isArray(parsed.orderedProductIds) || parsed.orderedProductIds.length > 1000) throw new CatalogOnboardingRepositoryError("invalid_input");
+    const orderedProductIds = Object.freeze(parsed.orderedProductIds.map(catalogOnboardingUuid));
+    if (new Set(orderedProductIds).size !== orderedProductIds.length) throw new CatalogOnboardingRepositoryError("invalid_input");
+    const fingerprint = catalogOnboardingFingerprint("reorder_category_products", authority.storeId,
+      { categoryId, expectedVersion, orderedProductIds });
+    return this.mutate(authority, operationId, fingerprint, "reordered", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_reorder_category_products($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::uuid[])",
+      values: [...authorityValues(authority), operationId, fingerprint, categoryId, expectedVersion, orderedProductIds],
+    }, (value, replayed) => parseCategoryProductOrder(value, categoryId, replayed) as CatalogCategoryProductOrderResult,
+    "catalog_recover_category_product_order");
   }
 
   async createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult> {

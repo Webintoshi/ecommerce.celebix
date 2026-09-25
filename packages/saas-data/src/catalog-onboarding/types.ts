@@ -57,6 +57,8 @@ export interface CatalogOnboardingRepository {
   updateMerchandising(input: UpdateCatalogMerchandisingInput): Promise<CatalogOnboardingResult>;
   publishAfterMedia(input: PublishCatalogAfterMediaInput): Promise<CatalogOnboardingResult>;
   listCategories(input: CatalogOnboardingAuthorityInput): Promise<readonly CatalogCategory[]>;
+  getCategoryProductOrder(input: GetCatalogCategoryInput): Promise<CatalogCategoryProductOrder>;
+  reorderCategoryProducts(input: ReorderCatalogCategoryProductsInput): Promise<CatalogCategoryProductOrderResult>;
   createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
   updateCategory(input: UpdateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
   archiveCategory(input: ArchiveCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
@@ -66,6 +68,25 @@ export interface CatalogOnboardingRepository {
 
 export interface GetCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
   readonly categoryId: string;
+}
+
+export type CatalogCategoryProductOrderItem = Readonly<{
+  productId: string;
+  title: string;
+  slug: string;
+  status: "active" | "draft";
+  storefrontPosition: number | null;
+}>;
+export type CatalogCategoryProductOrder = Readonly<{
+  categoryId: string;
+  version: number;
+  items: readonly CatalogCategoryProductOrderItem[];
+}>;
+export type CatalogCategoryProductOrderResult = CatalogCategoryProductOrder & Readonly<{ replayed: boolean }>;
+export interface ReorderCatalogCategoryProductsInput extends GetCatalogCategoryInput {
+  readonly operationId: string;
+  readonly expectedVersion: number;
+  readonly orderedProductIds: readonly string[];
 }
 
 export interface DeleteCatalogCategoryInput extends GetCatalogCategoryInput, PermanentDeletionCommand {}

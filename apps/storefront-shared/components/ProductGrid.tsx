@@ -1,16 +1,17 @@
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 
-import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
+import { productGridOrder } from "@/lib/public-product-ordering.ts";
 import { ProductCard } from "./ProductCard";
 
-export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMessage }: Readonly<{
+export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMessage, preserveOrder = false }: Readonly<{
   products: readonly PublicProduct[];
   locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
   emptyMessage?: string;
+  preserveOrder?: boolean;
 }>) {
-  const orderedProducts = availableProductsFirst(products);
+  const orderedProducts = productGridOrder(products, preserveOrder);
   return orderedProducts.length ? (
     <div className="product-grid">
       {orderedProducts.map((product) => (

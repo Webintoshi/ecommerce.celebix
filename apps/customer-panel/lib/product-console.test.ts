@@ -214,6 +214,7 @@ async function createMountedProductConsole(
     }
     if (specifier === "@/components/catalog-onboarding/ProductQuickCreateDialog") return { ProductQuickCreateDialog: () => null };
     if (specifier === "@/components/catalog-onboarding/ProductAdvancedEditor") return { ProductAdvancedEditor: () => null };
+    if (specifier === "@/components/catalog/ProductCategoryRankConsole") return { ProductCategoryRankConsole: () => null };
     if (specifier === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: onboarding };
     if (specifier === "@/lib/catalog-ui/product-list-query") return {
       parseProductListUrlState: () => ({ query: { sort: "updated-desc" }, pageSize: 20 }),

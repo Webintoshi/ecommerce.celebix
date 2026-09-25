@@ -5,7 +5,6 @@ import * as React from "react";
 import { createElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
-import { AreaChart, ResponsiveContainer } from "recharts";
 import ts from "typescript";
 
 import {
@@ -17,38 +16,40 @@ const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
 test("commerce analytics workspace exposes URL-stable tabs, honest formulas, degraded traffic and worker health", async () => {
-  const [componentSource, workspaceModel, page] = await Promise.all([
+  const [componentSource, workspaceModel, page, chart] = await Promise.all([
     source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
     source("lib/analytics-ui/workspace.ts"),
     source("app/analytics/page.tsx"),
+    source("components/analytics/SalesTrendChart.tsx"),
   ]);
-  const component = `${componentSource}\n${workspaceModel}`;
+  const component = `${componentSource}\n${workspaceModel}\n${chart}`;
   for (const label of [
-    "Genel Bakış",
-    "Dönüşüm Hunisi",
-    "Sepet & Checkout",
-    "Trafik Kaynakları",
-    "Ürün Performansı",
+    "Genel bakış",
+    "Dönüşüm",
+    "Sepetler",
+    "Kaynaklar",
+    "Ürünler",
     "Bugün",
-    "Özel tarih",
-    "Önceki dönemle kıyasla",
-    "Para birimi",
-    "Trafik verileri geçici olarak alınamıyor",
-    "Sipariş ve sepet verileri günceldir",
-    "Dead-letter",
-    "Hesaplanamadı",
-    "yanlış kohort eşleştirmemek adına kullanılamıyor",
-    "Oturumlar",
-    "Hemen çıkma oranı",
-    "Ortalama oturum süresi",
-    "En çok görüntülenen sayfalar",
-    "Yönlendiren kaynaklar",
-    "Cihaz dağılımı",
-    "Ülke dağılımı",
+    "Özel aralık",
+    "Kıyasla",
+    "Grafik para birimi",
+    "Trafik verisi alınamıyor",
+    "Satış ve sepet verileri güncel",
+    "Ölçüm durumu",
+    "Hatalı",
+    "İlk temasta ziyaretçi adımları ölçülmüyor",
+    "Oturum",
+    "Hemen çıkma",
+    "Ort. oturum",
+    "Sayfalar",
+    "Yönlendirenler",
+    "Cihazlar",
+    "Ülkeler",
+    "Satış ritmi",
   ])
     assert.match(component, new RegExp(label));
-  assert.match(component, /\[\s*"today",\s*"7d",\s*"30d",\s*"90d",?\s*\]/);
-  assert.match(component, /Son \$\{value[.]slice\(0, -1\)\} gün/);
+  for (const range of ["today", "7d", "30d", "90d"])
+    assert.match(componentSource, new RegExp(`<option value="${range}">`));
   for (const tab of ["overview", "funnel", "carts", "acquisition", "products"])
     assert.match(component, new RegExp(`\\[?\"${tab}\"`));
   for (const route of [
@@ -59,7 +60,7 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
     "products",
   ])
     assert.match(component, new RegExp(`/api/analytics/${route}`));
-  assert.match(component, /paidOrders\s*\/\s*visitors/);
+  assert.match(component, /paidOrders\s*\/\s*traffic[.]visitors/);
   assert.match(
     component,
     /bucket[.]recoveredCarts\s*\/\s*bucket[.]abandonedCarts/,
@@ -72,16 +73,16 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
     "payment_method_selected",
   ])
     assert.match(component, new RegExp(event));
-  assert.match(component, /Önceki adımdan/);
-  assert.match(component, /Toplam dönüşüm/);
+  assert.match(component, /Öncekinden/);
+  assert.match(component, /İlk adımdan/);
   assert.match(component, /Kayıp/);
   assert.match(component, /AbortController/);
   assert.doesNotMatch(
     component,
     /websiteId|connectionId|customerEmail|customerPhone|console[.](log|error)/,
   );
-  assert.match(component, /Umami unique session/);
-  assert.match(component, /firstTouch \? \[\] : acquisitionRows/);
+  assert.match(component, /analyticsTrafficMetric\(data[.]traffic/);
+  assert.match(component, /firstTouch \? \[\] : acquisitionRows\(data[.]traffic\)/);
   assert.match(component, /query[.]set\("range", range\)/);
   assert.match(page, /searchParams/);
   assert.match(page, /CommerceAnalyticsWorkspace/);
@@ -94,7 +95,7 @@ test("analytics moves the honest active visitor card into a titleless sticky top
     source("lib/analytics-ui/active-visitors.ts"),
   ]);
   assert.match(workspace, /<PanelTopbarBridge[\s\S]*?hideHeading[\s\S]*?context=\{<div className=\{styles[.]topbarLiveMetric\}><ActiveVisitorsCard \/><\/div>\}/);
-  assert.match(workspace, /<h1 className=\{styles[.]srOnly\}>Analizler<\/h1>/);
+  assert.match(workspace, /<h1 className="sr-only">Analizler<\/h1>/);
   assert.doesNotMatch(workspace, /className=\{styles[.]pageHeader\}/);
   assert.doesNotMatch(workspace, /aria-label="İçerik yolu"/);
   assert.doesNotMatch(workspace, /Mağazanızın performansını detaylı verilerle analiz edin[.]/);
@@ -135,113 +136,71 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(component, /aria-selected=/);
   assert.match(component, /onKeyDown=/);
   assert.doesNotMatch(component, /Ziyaretçi & Dönüşüm|previousRevenue|topProducts/);
-  assert.match(component, /Oturum Trendi/);
+  assert.match(component, /<SalesTrendChart/);
   assert.match(component, /key=\{`\$\{tab\}:\$\{serialized\}`\}/);
-  assert.match(component, /className=\{styles[.]srOnly\}/);
-  assert.match(component, /Analitik durumu/);
+  assert.match(component, /<h1 className="sr-only">Analizler<\/h1>/);
+  assert.match(component, /Ölçüm durumu/);
   assert.match(component, /setFrom\(customFrom \?\? ""\)/);
-  assert.match(component, /selectedCurrency && !currencies[.]includes\(selectedCurrency\)/);
-  assert.match(component, /function PaginationAction/);
-  assert.match(component, /<span aria-disabled="true">\{children\}<\/span>/);
+  assert.match(component, /current[.]find\(\(row\) => row[.]currency === chartCurrency\) \?\? current\[0\]/);
+  assert.match(component, /<nav aria-label="Ürün listesi sayfaları"/);
+  assert.match(component, /<span aria-disabled="true">Önceki<\/span>/);
   assert.match(css, /overflow-x:\s*auto/);
-  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /min-height:\s*44px/);
   assert.match(css, /focus-visible/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.match(css, /[.]topbarLiveMetric\s*\{[\s\S]*?--analytics-graphite:\s*#2B2B2B;[\s\S]*?--analytics-surface:\s*#FFFDFC;[\s\S]*?--analytics-border:\s*#E4D5C9;/);
-  assert.match(css, /[.]topbarLiveMetric > article \{ min-height: 2[.]75rem;/);
-  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[\s\S]*?clip:\s*rect\(0, 0, 0, 0\);/);
+  assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--ink:\s*#292929;[^}]*--line:\s*#e7e7e3;/);
+  assert.match(css, /[.]topbarLiveMetric > article \{[^}]*min-height: 44px;/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
   assert.doesNotMatch(css, /[.]topbarLiveMetric > article span\s*\{\s*display:\s*none;/);
   assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
   assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);
   assert.doesNotMatch(component, /284[.]590|489[.]020|156[.]300/);
 });
 
-test("analytics charts provide positive initial geometry before browser measurement", async () => {
-  const component = await source(
-    "components/analytics/CommerceAnalyticsWorkspace.tsx",
-  );
-  const tree = ts.createSourceFile(
-    "CommerceAnalyticsWorkspace.tsx",
-    component,
-    ts.ScriptTarget.ESNext,
-    true,
-    ts.ScriptKind.TSX,
-  );
-  const containers: Array<{
-    width: string;
-    height: string;
-    initialDimension?: { width: number; height: number };
-  }> = [];
-  const inspect = (node: ts.Node) => {
-    if (
-      ts.isJsxOpeningElement(node) &&
-      node.tagName.getText(tree) === "ResponsiveContainer"
-    ) {
-      const attributes = new Map(
-        node.attributes.properties
-          .filter(ts.isJsxAttribute)
-          .map((attribute) => [attribute.name.getText(tree), attribute]),
-      );
-      const stringValue = (name: string) => {
-        const initializer = attributes.get(name)?.initializer;
-        return initializer && ts.isStringLiteral(initializer)
-          ? initializer.text
-          : "";
-      };
-      const dimension = attributes.get("initialDimension")?.initializer;
-      let initialDimension: { width: number; height: number } | undefined;
-      if (
-        dimension &&
-        ts.isJsxExpression(dimension) &&
-        dimension.expression &&
-        ts.isObjectLiteralExpression(dimension.expression)
-      ) {
-        const values = new Map(
-          dimension.expression.properties
-            .filter(ts.isPropertyAssignment)
-            .map((property) => [
-              property.name.getText(tree),
-              Number(property.initializer.getText(tree)),
-            ]),
-        );
-        initialDimension = {
-          width: values.get("width") ?? -1,
-          height: values.get("height") ?? -1,
-        };
-      }
-      containers.push({
-        width: stringValue("width"),
-        height: stringValue("height"),
-        ...(initialDimension ? { initialDimension } : {}),
-      });
-    }
-    ts.forEachChild(node, inspect);
+test("sales chart renders positive geometry before browser measurement", async () => {
+  const output = ts.transpileModule(
+    await source("components/analytics/SalesTrendChart.tsx"),
+    {
+      compilerOptions: {
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    },
+  ).outputText;
+  const module = { exports: {} as Record<string, unknown> };
+  const styles = new Proxy({}, { get: (_target, property) => String(property) });
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react") return React;
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "./sales-trend-chart.module.css")
+      return { __esModule: true, default: styles };
+    throw new Error(`unexpected_sales_chart_import:${specifier}`);
   };
-  inspect(tree);
+  Function("require", "module", "exports", output)(requireModule, module, module.exports);
+  const Chart = module.exports.SalesTrendChart as React.ComponentType<{
+    points: readonly { label: string; value: number; orders: number }[];
+    currency: string;
+    totalMinor: number;
+  }>;
+  const chart = renderToString(createElement(Chart, {
+    points: [
+      { label: "1 Eyl", value: 0, orders: 0 },
+      { label: "2 Eyl", value: 10_000, orders: 1 },
+      { label: "3 Eyl", value: 5_000, orders: 1 },
+    ],
+    currency: "TRY",
+    totalMinor: 15_000,
+  }));
+  assert.match(chart, /<svg[^>]*viewBox="0 0 640 210"[^>]*role="img"/);
+  assert.match(chart, /aria-label="Seçili dönemde toplam satış/);
+  assert.match(chart, /M12[.]00 184[.]00 L320[.]00 16[.]00 L628[.]00 100[.]00/);
+  assert.doesNotMatch(chart, /NaN|Infinity/);
 
-  const warnings: string[] = [];
-  const originalWarn = console.warn;
-  console.warn = (...values: unknown[]) => {
-    warnings.push(values.map(String).join(" "));
-  };
-  try {
-    for (const props of containers) {
-      renderToString(
-        createElement(
-          ResponsiveContainer,
-          {
-            ...props,
-            children: createElement(AreaChart, { data: [] }),
-          } as React.ComponentProps<typeof ResponsiveContainer>,
-        ),
-      );
-    }
-  } finally {
-    console.warn = originalWarn;
-  }
-
-  assert.equal(containers.length, 2);
-  assert.deepEqual(warnings, []);
+  const empty = renderToString(createElement(Chart, {
+    points: [], currency: "TRY", totalMinor: 0,
+  }));
+  assert.match(empty, /Bu dönemde satış yok/);
 });
 
 test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {

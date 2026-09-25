@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import {
+  ArrowDownUp,
+  CircleCheck,
+  Clock3,
   Download,
   Eye,
   FileUp,
   Filter as FilterIcon,
   GripVertical,
+  ImageOff,
   Package,
   Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
+  ScanBarcode,
   Search,
-  Tag,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import {
   useCallback,
@@ -35,6 +40,7 @@ import type {
 import { catalogProductListQueryDigest } from "@celebix/saas-contracts";
 
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { ProductCategoryRankConsole } from "@/components/catalog/ProductCategoryRankConsole";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
   CatalogApiError,
@@ -241,6 +247,9 @@ export function ProductListConsole({
   const [search, setSearch] = useState(initialQuery.search ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery.search ?? "");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [rankMode, setRankMode] = useState(false);
+  const [rankDirty, setRankDirty] = useState(false);
+  const [rankSaving, setRankSaving] = useState(false);
   const [rows, setRows] = useState<readonly ProductRow[]>([]);
   const [appliedQueryDigest, setAppliedQueryDigest] = useState<string>();
   const [summary, setSummary] = useState<CatalogDashboardSummary>();
@@ -418,6 +427,8 @@ export function ProductListConsole({
 
   const currentQueryDigest = catalogProductListQueryDigest(queryRef.current);
   const visibleRows = appliedQueryDigest === currentQueryDigest ? rows : Object.freeze([] as ProductRow[]);
+  const knownImages = Object.fromEntries(visibleRows.flatMap(({ product, featuredImage }) => featuredImage ? [[product.id, featuredImage] as const] : []));
+  const firstProductWithoutMedia = visibleRows.find(({ product, featuredImage }) => product.status !== "archived" && featuredImage === undefined)?.product;
 
   const visibleIds = visibleRows.filter(({ product }) => product.status !== "archived").map(({ product }) => product.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
@@ -481,6 +492,21 @@ export function ProductListConsole({
     if (value === collectionId) return;
     invalidateGlobalQuery();
     setCollectionId(value);
+  }
+
+  function toggleRankMode() {
+    if (rankSaving) return;
+    if (rankMode && rankDirty && !window.confirm("Kaydedilmemiş vitrin sırası silinecek. Listeye dönülsün mü?")) return;
+    setRankMode((current) => !current);
+    setRankDirty(false);
+  }
+
+  function retryQuickOptions() {
+    setQuickOptionsState("loading");
+    void requestQuickOptions().then((options) => {
+      setQuickOptions(options);
+      setQuickOptionsState("ready");
+    }).catch(() => setQuickOptionsState("unavailable"));
   }
 
   function updateSort(value: Sort) {
@@ -692,7 +718,7 @@ export function ProductListConsole({
   function productCommands() {
     return (
     <div className="hemenaku-product-commandbar product-operations-commandbar" aria-label="Ürün sayfası işlemleri">
-      <label className="command-select"><GripVertical aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => updateSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Son güncellenen</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option><option value="created-desc">En yeni</option><option value="created-asc">En eski</option></select></label>
+      <label className="command-select"><ArrowDownUp aria-hidden="true" /><span className="sr-only">Sırala</span><select value={sort} disabled={busy || loading || loadingMore} onChange={(event) => updateSort(event.target.value as Sort)} aria-label="Ürünleri sırala"><option value="updated-desc">Son güncellenen</option><option value="title-asc">İsim A-Z</option><option value="title-desc">İsim Z-A</option><option value="created-desc">En yeni</option><option value="created-asc">En eski</option></select></label>
       {canImport ? <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link> : null}
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
       {canManage ? <Link className={`command-button command-button-primary ${catalogStyles.primaryAction}`} href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link> : null}
@@ -703,7 +729,7 @@ export function ProductListConsole({
   const topbarActions = productCommands();
 
   return (
-    <section className={`catalog-page donor-product-page product-operations-page ${catalogStyles.catalogRoot}`} aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations">
+    <section className={`catalog-page donor-product-page product-operations-page ${catalogStyles.catalogRoot}`} aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations" data-mode={rankMode ? "rank" : "list"}>
       <PanelTopbarBridge title="Ürünler" actions={topbarActions} />
       <h1 id="products-title" className="sr-only">Ürünler</h1>
       <div className="product-mobile-commandbar">{productCommands()}</div>
@@ -721,6 +747,7 @@ export function ProductListConsole({
               disabled={busy || loading || loadingMore}
               onClick={() => applySummaryFilter(metric.key)}
             >
+              <span className="product-stat-icon" aria-hidden="true">{metric.key === "total" ? <Package /> : metric.key === "active" ? <CircleCheck /> : metric.key === "draft" ? <Clock3 /> : <TriangleAlert />}</span>
               <span className="product-stat-label">{metric.label}</span>
               <span className="product-stat-value">{metric.value}</span>
             </button>
@@ -729,7 +756,12 @@ export function ProductListConsole({
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın; tüm katalogda ürün, slug, SKU veya barkod arayın</span><input value={search} disabled={busy} onChange={(event) => updateSearch(event.target.value)} placeholder="Ürün, slug, SKU veya barkod ara" aria-label="Ürün tablosunda ara" /></label>
         <button className={`command-button ${filterOpen || filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== "" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== ""} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
         <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
+        {canManage ? <button className={`command-button product-rank-toggle ${rankMode ? "is-active" : ""}`} type="button" aria-pressed={rankMode} aria-expanded={rankMode} disabled={rankSaving} onClick={toggleRankMode}><GripVertical aria-hidden="true" />Vitrin sırası</button> : null}
       </div>
+
+      {summaryState === "ready" && (summary?.productsWithoutMedia ?? 0) > 0 ? <div className="product-media-notice" role="status"><span className="product-media-notice-icon" aria-hidden="true"><ImageOff /></span><span><strong>{summary?.productsWithoutMedia} üründe görsel eksik</strong><small>Mağaza vitrini için görselleri tamamlayın.</small></span>{firstProductWithoutMedia ? <Link href={`/products/${firstProductWithoutMedia.id}`} className="product-media-notice-link">İlk eksik ürüne git <span aria-hidden="true">→</span></Link> : null}</div> : null}
+
+      {rankMode ? <ProductCategoryRankConsole categories={quickOptions?.categories ?? []} initialCategoryId={categoryId} knownImages={knownImages} optionsState={quickOptionsState} onRetryOptions={retryQuickOptions} onDirtyChange={setRankDirty} onSavingChange={setRankSaving} onClose={toggleRankMode} /> : <>
 
       {filterOpen ? (
         <div className="product-filter-panel" aria-label="Ürün durumu filtresi">
@@ -785,7 +817,7 @@ export function ProductListConsole({
                   <td data-label="Stok"><span className={productStockClass(variant)}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
                   <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>
-                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><Tag /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
+                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
                 </tr>
               ))}
             </tbody>
@@ -812,6 +844,8 @@ export function ProductListConsole({
           </div>
         </div>
       ) : null}
+
+      </>}
 
     </section>
   );

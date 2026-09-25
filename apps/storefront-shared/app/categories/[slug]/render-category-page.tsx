@@ -96,6 +96,7 @@ export async function renderCategoryPage({
         <h1 className="sr-only">{selected.category.name}</h1>
         <ProductGrid
           products={selected.products}
+          preserveOrder
           locale={selected.storefront.locale}
           cardStyle={presentation.theme.productCardStyle}
           imageRatio={presentation.theme.productImageRatio}

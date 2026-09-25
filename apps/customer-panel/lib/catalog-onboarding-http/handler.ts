@@ -28,6 +28,7 @@ import {
   readCatalogCategoryUpdateInput,
   readCatalogCategoryArchiveInput,
   readCatalogCategoryDeletionInput,
+  readCatalogCategoryProductOrderInput,
 } from "./request-input.ts";
 
 export const CATALOG_ONBOARDING_OPTIONS_PATH = "/api/catalog/onboarding/options";
@@ -59,6 +60,8 @@ const ERROR_STATUS: Readonly<Record<CatalogOnboardingErrorCode, number>> = Objec
   product_not_found: 404,
   category_not_found: 404,
   category_in_use: 409,
+  order_membership_changed: 409,
+  order_limit_exceeded: 409,
   durable_authority_invalid: 409,
   product_limit_reached: 409,
   catalog_conflict: 409,
@@ -265,6 +268,32 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH }, "catalog_admin.read");
       if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.onboarding.listCategories({ tenantContext: authorized.tenantContext, now: authorized.now }));
+    },
+
+    async getCategoryProductOrder(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = readCatalogOnboardingProductId(rawCategoryId);
+      if (categoryId === null) return error("invalid_input", 400);
+      const pathname = `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/product-order`;
+      const authorized = await authorize(dependencies, request, { method: "GET", pathname }, "catalog_admin.read");
+      if (isResponse(authorized)) return authorized;
+      return execute(() => authorized.runtime.onboarding.getCategoryProductOrder({
+        tenantContext: authorized.tenantContext, now: authorized.now, categoryId,
+      }));
+    },
+
+    async reorderCategoryProducts(request: Request, rawCategoryId: unknown): Promise<Response> {
+      const categoryId = readCatalogOnboardingProductId(rawCategoryId);
+      if (categoryId === null) return error("invalid_input", 400);
+      const pathname = `${CATALOG_ONBOARDING_CATEGORIES_PATH}/${categoryId}/product-order`;
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname }, "catalog_admin.manage");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryProductOrderInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.reorderCategoryProducts({
+        tenantContext: authorized.tenantContext, now: authorized.now, categoryId,
+        operationId: input.operationId, expectedVersion: input.expectedVersion,
+        orderedProductIds: input.orderedProductIds,
+      }));
     },
 
     async createCategory(request: Request): Promise<Response> {

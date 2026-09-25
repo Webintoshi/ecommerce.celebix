@@ -13,6 +13,7 @@ const OPERATION = "70000000-0000-4000-8000-000000000001";
 const PRODUCT = "71000000-0000-4000-8000-000000000001";
 const VARIANT = "72000000-0000-4000-8000-000000000001";
 const CATEGORY = "74000000-0000-4000-8000-000000000001";
+const SECOND_PRODUCT = "71000000-0000-4000-8000-000000000002";
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 
 function tenant(role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): TenantContext {
@@ -81,6 +82,14 @@ function categoryResult(replayed = false) {
   return { category: { id: CATEGORY, name: "Kupalar", slug: "kupalar", position: 0, depth: 1, status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }, replayed };
 }
 
+function categoryProductOrder(replayed?: boolean) {
+  return { categoryId: CATEGORY, version: replayed === undefined ? 0 : 1,
+    items: [
+      { productId: PRODUCT, title: "Seramik Kupa", slug: "seramik-kupa", status: "active", storefrontPosition: replayed === undefined ? null : 0 },
+      { productId: SECOND_PRODUCT, title: "Beyaz Kupa", slug: "beyaz-kupa", status: "draft", storefrontPosition: replayed === undefined ? null : 1 },
+    ], ...(replayed === undefined ? {} : { replayed }) };
+}
+
 type Row = Record<string, unknown>;
 type Responder = (text: string, values: unknown[]) => Row[] | Promise<Row[]>;
 
@@ -126,6 +135,45 @@ function sqlCall(client: Client, name: string) {
   assert.equal(selected.length, 1);
   return selected[0]!;
 }
+
+test("category order GET reads all exact-category members and initial version zero", async () => {
+  const reader = new Client((text) => text.includes("catalog_get_category_product_order")
+    ? [{ outcome: "found", result_payload: categoryProductOrder() }] : []);
+  const result = await repository(new Pool([reader])).getCategoryProductOrder({
+    tenantContext: tenant(), now: NOW, categoryId: CATEGORY,
+  });
+  assert.deepEqual(result, categoryProductOrder());
+  assert.deepEqual(sqlCall(reader, "catalog_get_category_product_order").values,
+    [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW, CATEGORY]);
+  assert.equal(reader.calls.some(({ text }) => text === "BEGIN READ ONLY"), true);
+});
+
+test("category order POST sends an exact complete order with a fingerprint and rejects duplicates", async () => {
+  const writer = new Client((text) => text.includes("catalog_reorder_category_products")
+    ? [{ outcome: "reordered", result_payload: categoryProductOrder(false) }] : []);
+  const selected = repository(new Pool([writer]));
+  const result = await selected.reorderCategoryProducts({ tenantContext: tenant(), now: NOW,
+    categoryId: CATEGORY, operationId: OPERATION, expectedVersion: 0,
+    orderedProductIds: [PRODUCT, SECOND_PRODUCT] });
+  assert.deepEqual(result, categoryProductOrder(false));
+  const call = sqlCall(writer, "catalog_reorder_category_products");
+  assert.deepEqual(call.values.slice(0, 9), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW, OPERATION]);
+  assert.match(String(call.values[9]), /^[a-f0-9]{64}$/);
+  assert.deepEqual(call.values.slice(10), [CATEGORY, 0, [PRODUCT, SECOND_PRODUCT]]);
+  await assert.rejects(selected.reorderCategoryProducts({ tenantContext: tenant(), now: NOW,
+    categoryId: CATEGORY, operationId: OPERATION, expectedVersion: 0,
+    orderedProductIds: [PRODUCT, PRODUCT] }),
+  (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "invalid_input");
+});
+
+test("category order stale membership has a distinct conflict error", async () => {
+  const writer = new Client((text) => text.includes("catalog_reorder_category_products")
+    ? [{ outcome: "order_membership_changed", result_payload: null }] : []);
+  await assert.rejects(repository(new Pool([writer])).reorderCategoryProducts({
+    tenantContext: tenant(), now: NOW, categoryId: CATEGORY, operationId: OPERATION,
+    expectedVersion: 0, orderedProductIds: [PRODUCT],
+  }), (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "order_membership_changed");
+});
 
 test("createProduct validates, fingerprints, and sends one SQL mutation", async () => {
   const writer = new Client((text) => text.includes("catalog_onboard_product")

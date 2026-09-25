@@ -44,7 +44,7 @@ function result(): CatalogOnboardingResult {
 
 function repository(overrides: Partial<CatalogOnboardingRepository> = {}): CatalogOnboardingRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
-  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject, ...overrides } as CatalogOnboardingRepository;
+  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, getCategoryProductOrder: reject, reorderCategoryProducts: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject, ...overrides } as CatalogOnboardingRepository;
 }
 
 function runtime(onboarding: CatalogOnboardingRepository, role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): ServerCatalogOnboardingRuntime {
@@ -77,6 +77,43 @@ function request(path: string, method = "GET", body?: unknown, headers: HeadersI
   }
   return new Request(`http://customer-panel:3400${path}`, { method, headers: selected, body: body === undefined ? undefined : JSON.stringify(body) });
 }
+
+test("category product order reads category-scoped rows and saves exact drag order", async () => {
+  const calls: unknown[] = [];
+  const selected = handlers(repository({
+    async getCategoryProductOrder(input) { calls.push(["get", input]); return { categoryId: CATEGORY, version: 0, items: [] }; },
+    async reorderCategoryProducts(input) { calls.push(["reorder", input]); return { categoryId: CATEGORY, version: 1, items: [], replayed: false }; },
+  }));
+  const path = `/api/catalog/onboarding/categories/${CATEGORY}/product-order`;
+  const read = await selected.getCategoryProductOrder(request(path), CATEGORY);
+  assert.equal(read.status, 200);
+  assert.deepEqual(await read.json(), { categoryId: CATEGORY, version: 0, items: [] });
+  const save = await selected.reorderCategoryProducts(request(path, "POST", {
+    expectedVersion: 0, orderedProductIds: [PRODUCT],
+  }, { origin: TENANT_ADMIN_ORIGIN, host: TENANT_ADMIN_HOST }), CATEGORY);
+  assert.equal(save.status, 200);
+  assert.deepEqual(await save.json(), { categoryId: CATEGORY, version: 1, items: [], replayed: false });
+  assert.deepEqual(calls, [
+    ["get", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY }],
+    ["reorder", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY,
+      operationId: OPERATION, expectedVersion: 0, orderedProductIds: [PRODUCT] }],
+  ]);
+});
+
+test("category product order blocks malformed, duplicate and cross-origin changes", async () => {
+  let writes = 0;
+  const selected = handlers(repository({ async reorderCategoryProducts() { writes++; throw new Error("unexpected"); } }));
+  const path = `/api/catalog/onboarding/categories/${CATEGORY}/product-order`;
+  const duplicate = await selected.reorderCategoryProducts(request(path, "POST", {
+    expectedVersion: 0, orderedProductIds: [PRODUCT, PRODUCT],
+  }, { origin: TENANT_ADMIN_ORIGIN, host: TENANT_ADMIN_HOST }), CATEGORY);
+  assert.equal(duplicate.status, 400);
+  const crossOrigin = await selected.reorderCategoryProducts(request(path, "POST", {
+    expectedVersion: 0, orderedProductIds: [PRODUCT],
+  }, { origin: "https://foreign.example.test", host: TENANT_ADMIN_HOST }), CATEGORY);
+  assert.equal(crossOrigin.status, 403);
+  assert.equal(writes, 0);
+});
 
 test("quick create forwards only session TenantContext and parsed intent", async () => {
   const calls: unknown[] = [];

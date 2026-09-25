@@ -9,6 +9,8 @@ export const CATALOG_ONBOARDING_ERROR_CODES = Object.freeze([
   "product_not_found",
   "category_not_found",
   "category_in_use",
+  "order_membership_changed",
+  "order_limit_exceeded",
   "catalog_conflict",
   "sku_conflict",
   "version_conflict",

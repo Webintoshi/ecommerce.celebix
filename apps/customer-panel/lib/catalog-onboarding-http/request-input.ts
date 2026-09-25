@@ -119,6 +119,19 @@ export async function readCatalogCategoryArchiveInput(request: Request) {
   return Object.freeze({ kind: "valid" as const, operationId, expectedVersion: parsed.expectedVersion as number });
 }
 
+export async function readCatalogCategoryProductOrderInput(request: Request) {
+  const operationId = operation(request);
+  const parsed = exact(await json(request), ["expectedVersion", "orderedProductIds"]);
+  if (operationId === null || parsed === null || !Number.isSafeInteger(parsed.expectedVersion)
+    || (parsed.expectedVersion as number) < 0 || !Array.isArray(parsed.orderedProductIds)
+    || parsed.orderedProductIds.length > 1000
+    || parsed.orderedProductIds.some((id) => typeof id !== "string" || !UUID.test(id))
+    || new Set(parsed.orderedProductIds).size !== parsed.orderedProductIds.length) return INVALID;
+  return Object.freeze({ kind: "valid" as const, operationId,
+    expectedVersion: parsed.expectedVersion as number,
+    orderedProductIds: Object.freeze(parsed.orderedProductIds as string[]) });
+}
+
 export async function readCatalogCategoryDeletionInput(request: Request) {
   const operationId = operation(request);
   const parsed = exact(await json(request), ["expectedVersion", "confirmation"]);

@@ -249,6 +249,14 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app','saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)','EXECUTE')
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS catalog_category_repository,
+      to_regclass('saas.catalog_category_product_order_state') IS NOT NULL
+        AND to_regclass('saas.catalog_category_product_order_operations') IS NOT NULL
+        AND to_regprocedure('saas.catalog_get_category_product_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_get_category_product_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE')
+        AND to_regprocedure('saas.catalog_reorder_category_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid[])') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_reorder_category_products(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid[])','EXECUTE')
+        AND to_regprocedure('saas.catalog_recover_category_product_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_recover_category_product_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)','EXECUTE') AS catalog_category_product_order_repository,
       to_regprocedure('saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_category_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)','EXECUTE')
         AND to_regprocedure('saas.delete_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
@@ -654,6 +662,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_product_deletion_repository !== true ||
       row.catalog_onboarding_repository !== true ||
       row.catalog_category_repository !== true ||
+      row.catalog_category_product_order_repository !== true ||
       row.catalog_category_deletion_repository !== true ||
       row.merchant_action_authority !== true || row.shipping_repository !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
@@ -972,6 +981,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogOnboardingRepository(access, createPostCommitInvalidatingRepository(catalogOnboardingRepository, {
       createProduct: ["catalog"], updateMerchandising: ["catalog"], publishAfterMedia: ["catalog"],
       createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"], deleteCategory: ["settings"],
+      reorderCategoryProducts: ["catalog"],
     }));
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);

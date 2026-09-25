@@ -23,7 +23,7 @@ export function CampaignProductRow({ section, products, presentation, locale }: 
         <div><span>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : "YENİ GELENLER"}</span><h2 id={`campaign-row-${section.key}`}>{section.heading}</h2></div>
         <Link href={destination}>Tümünü gör <span aria-hidden="true">→</span></Link>
       </div>
-      <ProductGrid products={products} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} />
+      <ProductGrid products={products} preserveOrder={section.source === "category"} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} />
     </section>
   );
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { PublicProduct } from "@celebix/saas-contracts";
-import { availableProductsFirst } from "./public-product-ordering.ts";
+import { availableProductsFirst, productGridOrder } from "./public-product-ordering.ts";
 
 function product(id: string, available: boolean): PublicProduct {
   return Object.freeze({
@@ -54,4 +54,17 @@ test("availableProductsFirst keeps category order stable while moving sold-out p
     "sold-last",
   ]);
   assert.equal(Object.isFrozen(ordered), true);
+});
+
+test("product grid preserves a saved category order even when the first product is sold out", () => {
+  const items = Object.freeze([
+    product("manual-first", false),
+    product("manual-second", true),
+  ]);
+
+  assert.equal(productGridOrder(items, true), items);
+  assert.deepEqual(productGridOrder(items, false).map(({ id }) => id), [
+    "manual-second",
+    "manual-first",
+  ]);
 });

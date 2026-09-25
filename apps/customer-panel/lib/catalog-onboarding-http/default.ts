@@ -17,6 +17,12 @@ export const handleDefaultCatalogOnboardingOptions = handlers.getOptions;
 export const handleDefaultCatalogOnboardingCreateProduct = handlers.createProduct;
 export const handleDefaultCatalogOnboardingListCategories = handlers.listCategories;
 export const handleDefaultCatalogOnboardingCreateCategory = handlers.createCategory;
+export async function handleDefaultCatalogOnboardingGetCategoryProductOrder(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
+  return handlers.getCategoryProductOrder(request, (await context.params).categoryId);
+}
+export async function handleDefaultCatalogOnboardingReorderCategoryProducts(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
+  return handlers.reorderCategoryProducts(request, (await context.params).categoryId);
+}
 
 export async function handleDefaultCatalogOnboardingGetProductEditor(request: Request, context: ProductRouteContext) {
   return handlers.getProductEditor(request, (await context.params).productId);
