@@ -9,9 +9,9 @@ test("form reservation obtains a server-issued internal code without saving a pr
     assert.equal(init?.method, "POST");
     assert.equal(init?.body, "{}");
     assert.ok(new Headers(init?.headers).get("idempotency-key"));
-    return Response.json({ barcode: "CXI-000000000123", replayed: false });
+    return Response.json({ barcode: "970000123", replayed: false });
   });
-  assert.equal(code, "CXI-000000000123");
+  assert.equal(code, "970000123");
   assert.deepEqual(calls, ["/api/catalog/barcodes/internal/reservations"]);
 });
 

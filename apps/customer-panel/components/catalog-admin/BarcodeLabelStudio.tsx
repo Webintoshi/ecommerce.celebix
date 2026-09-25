@@ -688,7 +688,7 @@ export function BarcodeLabelStudio({
     }
     if (
       !confirm(
-        `${targets.length} barkodsuz varyant için CXI dahili Code 128 kimliği oluşturulsun mu?`,
+        `${targets.length} barkodsuz varyant için 9 haneli sayısal dahili Code 128 kimliği oluşturulsun mu?`,
       )
     )
       return;

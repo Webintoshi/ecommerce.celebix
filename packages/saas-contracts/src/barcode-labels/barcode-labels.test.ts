@@ -395,13 +395,33 @@ test("internal barcode intent is unique versioned and result never fabricates GT
   );
 });
 
-test("reserved internal barcode result accepts only a Code 128 internal value", () => {
+test("reserved internal barcode accepts numeric Code 128 while retaining legacy replay compatibility", () => {
+  assert.deepEqual(contracts.parseBarcodeInternalReservationResult({
+    barcode: "970000123",
+    replayed: false,
+  }), { barcode: "970000123", replayed: false });
   assert.deepEqual(contracts.parseBarcodeInternalReservationResult({
     barcode: "CXI-000000000123",
     replayed: false,
   }), { barcode: "CXI-000000000123", replayed: false });
+  assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "97000123", replayed: false }));
+  assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "990000123", replayed: false }));
   assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "8691234567890", replayed: false }));
   assert.throws(() => contracts.parseBarcodeInternalReservationResult({ barcode: "CXI-000000000123", replayed: false, storeId: PRODUCT_ID }));
+});
+
+test("internal label generation accepts the new numeric barcode and historical codes", () => {
+  for (const barcode of ["970000123", "CXI-000000000123"]) {
+    const result = contracts.parseBarcodeInternalCreateResult({
+      succeeded: [{ variantId: VARIANT_ID, barcode, version: 5 }],
+      failed: [], replayed: false,
+    });
+    assert.equal(result.succeeded[0]?.barcode, barcode);
+  }
+  assert.throws(() => contracts.parseBarcodeInternalCreateResult({
+    succeeded: [{ variantId: VARIANT_ID, barcode: "97000123", version: 5 }],
+    failed: [], replayed: false,
+  }));
 });
 
 test("print intent accepts only positive bounded quantities and finite outputs", () => {

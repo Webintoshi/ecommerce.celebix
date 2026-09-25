@@ -88,32 +88,22 @@ test("independent ZXing decoder reads Code 128 and valid EAN-13 output", async (
     assert.equal(decoded.getText(), value);
   }
 });
-test("independent decoder reads the compact non-GTIN internal Code 128 form", async () => {
-  const value = "CXI-000000000123";
-  const png = PNG.sync.read(await renderBarcodePng("code128", value, 15));
-  const grey = new Uint8ClampedArray(png.width * png.height);
-  for (let pixel = 0; pixel < grey.length; pixel += 1) {
-    const offset = pixel * 4;
-    grey[pixel] = Math.round(
-      (png.data[offset]! + png.data[offset + 1]! + png.data[offset + 2]!) / 3,
-    );
+test("independent decoder reads both numeric and legacy internal Code 128 labels", async () => {
+  for (const value of ["970000123", "CXI-000000000123"]) {
+    const png = PNG.sync.read(await renderBarcodePng("code128", value, 15));
+    const grey = new Uint8ClampedArray(png.width * png.height);
+    for (let pixel = 0; pixel < grey.length; pixel += 1) {
+      const offset = pixel * 4;
+      grey[pixel] = Math.round(
+        (png.data[offset]! + png.data[offset + 1]! + png.data[offset + 2]!) / 3,
+      );
+    }
+    const reader = new MultiFormatReader();
+    reader.setHints(new Map([[DecodeHintType.POSSIBLE_FORMATS, [ZxingFormat.CODE_128]]]));
+    assert.equal(reader.decode(new BinaryBitmap(new HybridBinarizer(
+      new RGBLuminanceSource(grey, png.width, png.height),
+    ))).getText(), value);
   }
-  const reader = new MultiFormatReader();
-  reader.setHints(
-    new Map([[DecodeHintType.POSSIBLE_FORMATS, [ZxingFormat.CODE_128]]]),
-  );
-  assert.equal(
-    reader
-      .decode(
-        new BinaryBitmap(
-          new HybridBinarizer(
-            new RGBLuminanceSource(grey, png.width, png.height),
-          ),
-        ),
-      )
-      .getText(),
-    value,
-  );
 });
 test("PDF uses the exact document dimensions and produces both repeated labels", async () => {
   const bytes = await renderLabelPdf(document);

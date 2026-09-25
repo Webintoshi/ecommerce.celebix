@@ -570,7 +570,7 @@ export function parseBarcodeInternalCreateResult(
       const row = exact(candidate, ["variantId", "barcode", "version"]);
       return Object.freeze({
         variantId: uuid(row.variantId),
-        barcode: text(row.barcode, 12, 68, /^CXI-[A-Z0-9]+$/),
+        barcode: text(row.barcode, 9, 68, /^(?:97[0-9]{7}|CXI-[A-Z0-9]{8,64})$/),
         version: integer(row.version, 1),
       });
     }),
@@ -599,7 +599,7 @@ export function parseBarcodeInternalReservationResult(value: unknown): BarcodeIn
   const parsed = exact(value, ["barcode", "replayed"]);
   if (parsed.replayed !== true && parsed.replayed !== false) invalid();
   return Object.freeze({
-    barcode: text(parsed.barcode, 16, 16, /^CXI-[0-9]{12}$/),
+    barcode: text(parsed.barcode, 9, 16, /^(?:97[0-9]{7}|CXI-[0-9]{12})$/),
     replayed: parsed.replayed,
   });
 }
