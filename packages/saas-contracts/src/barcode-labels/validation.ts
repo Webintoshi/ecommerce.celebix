@@ -72,6 +72,17 @@ function text(
   return value;
 }
 
+function internalBarcode(value: unknown): string {
+  const barcode = text(value, 13, 13);
+  if (!/^9[89][0-9]{11}$/.test(barcode)) invalid();
+  let sum = 0;
+  for (let index = 0; index < 12; index += 1) {
+    sum += Number(barcode[index]) * (index % 2 === 0 ? 1 : 3);
+  }
+  if ((10 - (sum % 10)) % 10 !== Number(barcode[12])) invalid();
+  return barcode;
+}
+
 function integer(
   value: unknown,
   minimum = 0,
@@ -570,7 +581,7 @@ export function parseBarcodeInternalCreateResult(
       const row = exact(candidate, ["variantId", "barcode", "version"]);
       return Object.freeze({
         variantId: uuid(row.variantId),
-        barcode: text(row.barcode, 9, 68, /^(?:97[0-9]{7}|CXI-[A-Z0-9]{8,64})$/),
+        barcode: internalBarcode(row.barcode),
         version: integer(row.version, 1),
       });
     }),
@@ -599,7 +610,7 @@ export function parseBarcodeInternalReservationResult(value: unknown): BarcodeIn
   const parsed = exact(value, ["barcode", "replayed"]);
   if (parsed.replayed !== true && parsed.replayed !== false) invalid();
   return Object.freeze({
-    barcode: text(parsed.barcode, 9, 16, /^(?:97[0-9]{7}|CXI-[0-9]{12})$/),
+    barcode: internalBarcode(parsed.barcode),
     replayed: parsed.replayed,
   });
 }

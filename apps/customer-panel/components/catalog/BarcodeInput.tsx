@@ -86,7 +86,7 @@ export function BarcodeInput({
       />
       <button
         className={styles.generate} type="button"
-        aria-label="Dahili barkod oluştur" title={currentValue.trim() ? "Yeni barkod için önce alanı temizleyin" : "9 haneli sayısal dahili Code 128 oluşturur; EAN/GTIN değildir"}
+        aria-label="Dahili barkod oluştur" title={currentValue.trim() ? "Yeni barkod için önce alanı temizleyin" : "13 haneli 98 veya 99 ile başlayan dahili barkod oluşturur; GS1 ürün GTIN'i değildir"}
         disabled={busy || Boolean(currentValue.trim())} onClick={() => void generate()}
       ><ScanBarcode aria-hidden="true" /></button>
     </span>

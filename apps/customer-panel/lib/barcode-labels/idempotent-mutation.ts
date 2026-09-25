@@ -12,6 +12,7 @@ export async function idempotentJsonMutation<T = unknown>(
     fetcher?: Fetcher;
     operationId?: string;
     parse?: (value: unknown) => T;
+    headers?: HeadersInit;
   } = {},
 ): Promise<T> {
   const fetcher = options.fetcher ?? fetch;
@@ -19,13 +20,13 @@ export async function idempotentJsonMutation<T = unknown>(
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let response: Response;
     try {
+      const headers = new Headers(options.headers);
+      headers.set("content-type", "application/json");
+      headers.set("idempotency-key", idempotencyKey);
       response = await fetcher(path, {
         method,
         credentials: "same-origin",
-        headers: {
-          "content-type": "application/json",
-          "idempotency-key": idempotencyKey,
-        },
+        headers,
         body: JSON.stringify(payload),
       });
     } catch (error) {

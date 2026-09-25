@@ -688,17 +688,20 @@ export function BarcodeLabelStudio({
     }
     if (
       !confirm(
-        `${targets.length} barkodsuz varyant için 9 haneli sayısal dahili Code 128 kimliği oluşturulsun mu?`,
+        `${targets.length} barkodsuz varyant için 98 veya 99 ile başlayan 13 haneli dahili barkod oluşturulsun mu?`,
       )
     )
       return;
     setBusy("internal");
     try {
-      const result = await mutation(
-        "/api/catalog/barcodes/internal",
+      const result = await idempotentJsonMutation(
+        "/api/catalog/barcodes/internal/ean13",
         "POST",
         { targets },
-        parseBarcodeInternalCreateResult,
+        {
+          parse: parseBarcodeInternalCreateResult,
+          headers: { "x-celebix-internal-barcode-format": "ean13" },
+        },
       );
       const succeeded = new Map<
         string,

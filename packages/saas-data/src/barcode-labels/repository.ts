@@ -38,9 +38,9 @@ const SQL = Object.freeze({
   archiveTemplate:
     "SELECT outcome,result_payload FROM saas.barcode_label_template_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::uuid,$10::bigint)",
   internal:
-    "SELECT outcome,result_payload FROM saas.barcode_label_generate_numeric_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb)",
+    "SELECT outcome,result_payload FROM saas.barcode_label_generate_ean13_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb)",
   reserveInternal:
-    "SELECT outcome,result_payload FROM saas.barcode_label_reserve_numeric_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+    "SELECT outcome,result_payload FROM saas.barcode_label_reserve_ean13_internal($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   listJobs:
     "SELECT outcome,result_payload FROM saas.barcode_print_job_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   createJob:

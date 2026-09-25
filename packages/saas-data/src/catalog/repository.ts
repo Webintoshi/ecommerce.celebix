@@ -77,7 +77,7 @@ function mutationError(value: unknown): CatalogRepositoryError {
   if (value instanceof CatalogRepositoryError) return value;
   if (typeof value === "object" && value !== null && "code" in value && "constraint" in value
     && value.code === "23505" && typeof value.constraint === "string"
-    && ["product_variants_store_internal_barcode_key", "product_variants_store_numeric_internal_barcode_key"].includes(value.constraint)) {
+    && ["product_variants_store_internal_barcode_key", "product_variants_store_numeric_internal_barcode_key", "product_variants_store_ean13_internal_barcode_key"].includes(value.constraint)) {
     return new CatalogRepositoryError("barcode_conflict");
   }
   if (typeof value === "object" && value !== null && "code" in value && "constraint" in value

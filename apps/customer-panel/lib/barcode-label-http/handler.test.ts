@@ -187,6 +187,8 @@ function request(
     headers.set("content-type", "application/json");
     headers.set("origin", options.origin ?? ORIGIN);
     headers.set("idempotency-key", OPERATION_ID);
+    if (path.startsWith("/api/catalog/barcodes/internal/ean13"))
+      headers.set("x-celebix-internal-barcode-format", "ean13");
   }
   return new Request(`http://customer-panel:3400${path}`, {
     method,
@@ -287,7 +289,7 @@ test("private authority, cross-origin mutation and analyst output fail before re
   );
   assert.equal(privateResponse.status, 400);
   const crossOrigin = await handlers(labels).internal(
-    request("/api/catalog/barcodes/internal", {
+    request("/api/catalog/barcodes/internal/ean13", {
       method: "POST",
       origin: "https://evil.example",
       body: { targets: [{ variantId: JOB_ID, expectedVersion: 1 }] },
@@ -405,7 +407,7 @@ for (const [role, expected] of [
       }),
       role,
     ).internal(
-      request("/api/catalog/barcodes/internal", {
+      request("/api/catalog/barcodes/internal/ean13", {
         method: "POST",
         body: { targets: [{ variantId: JOB_ID, expectedVersion: 1 }] },
       }),
@@ -418,21 +420,42 @@ for (const [role, expected] of [
 test("inline reservation rejects cross-origin and browser-supplied tenant authority before allocating", async () => {
   let calls = 0;
   const selected = handlers(repository({
-    async reserveInternal() { calls++; return { barcode: "CXI-000000000123", replayed: false }; },
+    async reserveInternal() { calls++; return { barcode: "9800000000007", replayed: false }; },
   }));
-  const crossOrigin = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+  const crossOrigin = await selected.reserveInternal(request("/api/catalog/barcodes/internal/ean13/reservations", {
     method: "POST", origin: "https://evil.example", body: {},
   }));
-  const forged = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+  const forged = await selected.reserveInternal(request("/api/catalog/barcodes/internal/ean13/reservations", {
     method: "POST", body: {}, headers: { "x-store-id": "forged" },
   }));
-  const nonempty = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+  const nonempty = await selected.reserveInternal(request("/api/catalog/barcodes/internal/ean13/reservations", {
     method: "POST", body: { storeId: JOB_ID },
   }));
   assert.equal(crossOrigin.status, 403);
   assert.equal(forged.status, 400);
   assert.equal(nonempty.status, 400);
   assert.equal(calls, 0);
+});
+
+test("old barcode tabs cannot allocate or bulk mutate through the new API", async () => {
+  let reservations = 0;
+  let bulkWrites = 0;
+  const selected = handlers(repository({
+    async reserveInternal() { reservations += 1; return { barcode: "9800000000007", replayed: false }; },
+    async generateInternal() { bulkWrites += 1; return { succeeded: [], failed: [], replayed: false }; },
+  }));
+  const reserve = await selected.reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+    method: "POST", body: {},
+  }));
+  const bulk = await selected.internal(request("/api/catalog/barcodes/internal", {
+    method: "POST", body: { targets: [{ variantId: JOB_ID, expectedVersion: 1 }] },
+  }));
+  assert.equal(reserve.status, 409);
+  assert.equal(bulk.status, 409);
+  assert.deepEqual(await reserve.json(), { code: "client_upgrade_required" });
+  assert.deepEqual(await bulk.json(), { code: "client_upgrade_required" });
+  assert.equal(reservations, 0);
+  assert.equal(bulkWrites, 0);
 });
 
 for (const [role, expected] of [
@@ -444,13 +467,13 @@ for (const [role, expected] of [
   test(`${role} may reserve an internal barcode only with catalog manage authority`, async () => {
     let calls = 0;
     const result = await handlers(repository({
-      async reserveInternal() { calls += 1; return { barcode: "CXI-000000000123", replayed: false }; },
-    }), role).reserveInternal(request("/api/catalog/barcodes/internal/reservations", {
+      async reserveInternal() { calls += 1; return { barcode: "9800000000007", replayed: false }; },
+    }), role).reserveInternal(request("/api/catalog/barcodes/internal/ean13/reservations", {
       method: "POST", body: {},
     }));
     assert.equal(result.status, expected);
     assert.equal(calls, expected === 200 ? 1 : 0);
-    if (expected === 200) assert.deepEqual(await result.json(), { barcode: "CXI-000000000123", replayed: false });
+    if (expected === 200) assert.deepEqual(await result.json(), { barcode: "9800000000007", replayed: false });
   });
 }
 
@@ -482,7 +505,7 @@ for (const declaredLength of [undefined, "1"] as const) {
     });
     if (declaredLength) headers.set("content-length", declaredLength);
     const selected = new Request(
-      "http://customer-panel:3400/api/catalog/barcodes/internal",
+      "http://customer-panel:3400/api/catalog/barcodes/internal/ean13",
       { method: "POST", headers, body: stream, duplex: "half" } as RequestInit,
     );
     const result = await handlers(repository()).internal(selected);

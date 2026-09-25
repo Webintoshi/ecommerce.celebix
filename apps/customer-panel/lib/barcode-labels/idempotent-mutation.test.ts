@@ -44,6 +44,23 @@ test("a definitive client rejection is not retried", async () => {
   assert.equal(calls, 1);
 });
 
+test("a barcode contract header survives a retry without replacing mutation authority headers", async () => {
+  const headers: Headers[] = [];
+  await idempotentJsonMutation("/api/catalog/barcodes/internal/ean13", "POST", { targets: [] }, {
+    headers: { "x-celebix-internal-barcode-format": "ean13" },
+    async fetcher(_input, init) {
+      headers.push(new Headers(init?.headers));
+      if (headers.length === 1) throw new Error("response lost");
+      return Response.json({ ok: true });
+    },
+  });
+  assert.equal(headers.length, 2);
+  assert.equal(headers[0]?.get("x-celebix-internal-barcode-format"), "ean13");
+  assert.equal(headers[1]?.get("x-celebix-internal-barcode-format"), "ean13");
+  assert.equal(headers[0]?.get("idempotency-key"), headers[1]?.get("idempotency-key"));
+  assert.equal(headers[0]?.get("content-type"), "application/json");
+});
+
 test("malformed success JSON retries with the same key before failing closed", async () => {
   const keys: Array<string | null> = [];
   await assert.rejects(

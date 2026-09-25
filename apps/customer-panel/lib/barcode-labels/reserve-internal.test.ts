@@ -9,10 +9,11 @@ test("form reservation obtains a server-issued internal code without saving a pr
     assert.equal(init?.method, "POST");
     assert.equal(init?.body, "{}");
     assert.ok(new Headers(init?.headers).get("idempotency-key"));
-    return Response.json({ barcode: "970000123", replayed: false });
+    assert.equal(new Headers(init?.headers).get("x-celebix-internal-barcode-format"), "ean13");
+    return Response.json({ barcode: "9800000000007", replayed: false });
   });
-  assert.equal(code, "970000123");
-  assert.deepEqual(calls, ["/api/catalog/barcodes/internal/reservations"]);
+  assert.equal(code, "9800000000007");
+  assert.deepEqual(calls, ["/api/catalog/barcodes/internal/ean13/reservations"]);
 });
 
 test("malformed or retail GTIN-like responses never populate the form", async () => {

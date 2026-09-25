@@ -32,7 +32,7 @@ async function withBarcodeInput(
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return { ScanBarcode: () => createElement("svg", { "aria-hidden": true }) };
-    if (name === "@/lib/barcode-labels/reserve-internal") return { reserveInternalBarcode: async () => "CXI-000000000001" };
+    if (name === "@/lib/barcode-labels/reserve-internal") return { reserveInternalBarcode: async () => "9800000000007" };
     if (name === "./barcode-input.module.css") return { default: { control: "control", input: "input", generate: "generate", error: "error" } };
     throw new Error(`unexpected_import:${name}`);
   }, compiled, compiled.exports);
@@ -57,15 +57,15 @@ async function withBarcodeInput(
 test("icon fills an empty barcode field but does not submit the product", async () => {
   let requested = 0;
   let submitted = 0;
-  await withBarcodeInput({ name: "barcode", reserve: async () => { requested++; return "970000123"; } }, async (container, browser) => {
+  await withBarcodeInput({ name: "barcode", reserve: async () => { requested++; return "9800000000007"; } }, async (container, browser) => {
     container.addEventListener("submit", () => { submitted++; });
     const button = container.querySelector('button[aria-label="Dahili barkod oluştur"]') as HTMLButtonElement;
     assert.ok(button);
     assert.equal(button.type, "button");
-    assert.match(button.title, /9 haneli sayısal dahili Code 128/);
+    assert.match(button.title, /13 haneli 98 veya 99 ile başlayan dahili barkod/);
     await act(async () => { button.click(); });
-    assert.equal((container.querySelector('input[name="barcode"]') as HTMLInputElement).value, "970000123");
-    assert.equal(new browser.FormData(browser.document.querySelector("form")!).get("barcode"), "970000123");
+    assert.equal((container.querySelector('input[name="barcode"]') as HTMLInputElement).value, "9800000000007");
+    assert.equal(new browser.FormData(browser.document.querySelector("form")!).get("barcode"), "9800000000007");
     assert.equal(requested, 1);
     assert.equal(submitted, 0);
     assert.equal(button.disabled, true);
@@ -75,7 +75,7 @@ test("icon fills an empty barcode field but does not submit the product", async 
 test("existing barcode is never overwritten and a pending click is not duplicated", async () => {
   let resolve!: (value: string) => void;
   let requested = 0;
-  await withBarcodeInput({ defaultValue: "8691234567890", reserve: async () => { requested++; return "CXI-000000000123"; } }, async (container) => {
+  await withBarcodeInput({ defaultValue: "8691234567890", reserve: async () => { requested++; return "9800000000007"; } }, async (container) => {
     const button = container.querySelector("button") as HTMLButtonElement;
     assert.equal(button.disabled, true);
     await act(async () => { button.click(); });
@@ -86,8 +86,8 @@ test("existing barcode is never overwritten and a pending click is not duplicate
     await act(async () => { button.click(); button.click(); });
     assert.equal(requested, 1);
     assert.equal(button.disabled, true);
-    await act(async () => { resolve("CXI-000000000124"); });
-    assert.equal((container.querySelector("input") as HTMLInputElement).value, "CXI-000000000124");
+    await act(async () => { resolve("9900000000004"); });
+    assert.equal((container.querySelector("input") as HTMLInputElement).value, "9900000000004");
   });
 });
 
@@ -108,7 +108,7 @@ test("a removed variant never receives a late barcode reservation", async () => 
   await withBarcodeInput({ value: "", reservationIdentity: oldVariant, reserve, onChange: (value: string) => changed.push(value) }, async (container, _browser, rerender) => {
     await act(async () => { (container.querySelector("button") as HTMLButtonElement).click(); });
     await rerender({ value: "", reservationIdentity: newVariant, reserve, onChange: (value: string) => changed.push(value) });
-    await act(async () => { resolve("CXI-000000000125"); });
+    await act(async () => { resolve("9800000000007"); });
     assert.equal((container.querySelector("input") as HTMLInputElement).value, "");
     assert.deepEqual(changed, []);
   });

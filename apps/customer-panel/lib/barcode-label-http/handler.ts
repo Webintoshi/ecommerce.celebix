@@ -394,6 +394,9 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
       if (authorized instanceof Response) return authorized;
       try {
         const value = parseBarcodeInternalCreateIntent(await body(request));
+        if (new URL(request.url).pathname !== "/api/catalog/barcodes/internal/ean13"
+          || request.headers.get("x-celebix-internal-barcode-format") !== "ean13")
+          return failure("client_upgrade_required", 409);
         const operation = operationId(request);
         return run(
           () =>
@@ -417,6 +420,9 @@ export function createBarcodeLabelHttpHandlers(dependencies: Dependencies) {
         const value = await body(request);
         if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).length !== 0)
           return failure("invalid_input", 400);
+        if (new URL(request.url).pathname !== "/api/catalog/barcodes/internal/ean13/reservations"
+          || request.headers.get("x-celebix-internal-barcode-format") !== "ean13")
+          return failure("client_upgrade_required", 409);
         const operation = operationId(request);
         return run(
           () => authorized.runtime.barcodeLabels.reserveInternal({
