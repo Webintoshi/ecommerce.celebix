@@ -309,7 +309,7 @@ function PricingTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
 function TargetRouteSurface({ pathname, state }: Readonly<{ pathname: string; state: AcceptanceState }>) {
   switch (pathname) {
     case "/":
-      return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" analyticsState="loaded" onRefresh={() => undefined} />;
+      return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" analyticsState="loaded" recentOrdersState="loaded" activeVisitorsEnabled={false} onRefresh={() => undefined} />;
     case "/analytics":
       return <AnalyticsDashboard />;
     case "/orders/ORDER_ID/print":

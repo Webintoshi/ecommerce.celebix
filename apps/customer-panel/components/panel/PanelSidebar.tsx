@@ -28,14 +28,31 @@ function PanelBrand({ onClick }: { onClick?: () => void }) {
   );
 }
 
+function StoreIdentity({ model }: { model: PanelClientChromeModel }) {
+  const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
+
+  return (
+    <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
+      {model.activeStoreSelectionKey && model.storeOptions && model.storeOptions.length > 1 ? (
+        <StoreSwitcher stores={model.storeOptions} activeStoreSelectionKey={model.activeStoreSelectionKey} />
+      ) : (
+        <>
+          <span className={styles.merchantAvatar} aria-hidden="true">{initial}</span>
+          <span className={styles.merchantIdentityCopy}>
+            <strong>{model.storeSlug}</strong>
+            <small>{model.membershipLabel}</small>
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SidebarFooter({ model }: { model: PanelClientChromeModel }) {
   const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
 
   return (
     <div className={styles.sidebarFooter}>
-      {model.activeStoreSelectionKey && model.storeOptions ? (
-        <StoreSwitcher stores={model.storeOptions} activeStoreSelectionKey={model.activeStoreSelectionKey} />
-      ) : null}
       <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
         <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>
         <span className={styles.sidebarAccountCopy}>
@@ -80,7 +97,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
       if (event.key !== "Tab") return;
 
       const focusable = surfaceRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
       if (!focusable?.length) {
         event.preventDefault();
@@ -174,6 +191,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                   <X aria-hidden="true" />
                 </button>
               </div>
+              <StoreIdentity model={model} />
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
                 <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} />
               </div>
@@ -188,6 +206,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   return (
     <aside className={styles.desktopSidebar}>
       <PanelBrand />
+      <StoreIdentity model={model} />
       <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} />
       <SidebarFooter model={model} />
     </aside>
