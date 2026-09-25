@@ -726,6 +726,50 @@
 .editSettings .editActionBar button { min-height: 44px; border-radius: 8px; padding: 0 16px; font-size: 13px; }
 .editSettings .editActionBar .primary { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); }
 
+/* Product detail: a compact inline rail, while the existing tabbed editor stays unchanged. */
+.railSettings { width: 100%; min-width: 0; gap: 0; background: transparent; color: #2b2b2b; }
+.railHeading { padding: 2px 0 15px; }
+.railHeading h2 { margin: 0; color: #2b2b2b; font-size: 16px; font-weight: 720; line-height: 1.25; letter-spacing: -.02em; }
+.railFieldset { display: grid; min-width: 0; margin: 0; border: 0; padding: 0; }
+.railFieldset:disabled { opacity: .65; }
+.railGroup { display: grid; gap: 13px; min-width: 0; border-top: 1px solid #e4d5c9; padding: 17px 0; }
+.railGroup h3, .railResourceGroup h4 { margin: 0; color: #5a5550; font-size: 12px; font-weight: 720; line-height: 1.35; }
+.railFields { display: grid; gap: 13px; min-width: 0; }
+.railSettings .editField { gap: 6px; color: #5a5550; font-size: 11px; font-weight: 650; }
+.railSettings .editField input, .railSettings .editField select, .railSettings .editField textarea { min-height: 40px; border-color: #ded6cf; border-radius: 7px; background: #fffdfc; padding: 8px 10px; color: #2b2b2b; font-size: 12px; }
+.railSettings .editField textarea { min-height: 84px; }
+.railSettings .classificationPicker { border-color: #ded6cf; border-radius: 7px; background: #fffdfc; }
+.railSettings .classificationPicker > summary { min-height: 40px; padding: 7px 10px; }
+.railSettings .classificationPicker > summary strong { color: #5a5550; font-size: 11px; font-weight: 650; }
+.railSettings .classificationPicker > summary small { color: #8c857e; font-size: 10px; }
+.railSettings .classificationPopover { padding: 9px; }
+.railSettings .classificationOptions label { min-height: 38px; font-size: 11px; }
+.railSettings .classificationChips button { min-height: 27px; border-color: #ded6cf; border-radius: 6px; background: #f8f7f5; color: #4c4742; font-size: 10px; }
+.railSettings .editOptionList { gap: 0; }
+.railSettings .editOptionList label { min-height: 43px; gap: 9px; border: 0; border-radius: 0; border-bottom: 1px solid #eee8e3; background: transparent; padding: 6px 0; color: #37332f; }
+.railSettings .editOptionList label:has(input:checked) { border-color: #eee8e3; background: transparent; }
+.railSettings .editOptionList label:last-child { border-bottom: 0; }
+.railSettings .editOptionList input { width: 16px; height: 16px; flex-basis: 16px; accent-color: #2b2b2b; }
+.railSettings .editOptionList label > span { font-size: 11px; font-weight: 650; }
+.railSettings .editOptionList small { color: #8c857e; font-size: 10px; }
+.railSettings .editOptionList p { color: #77716b; font-size: 11px; }
+.railAdvanced { min-width: 0; border-top: 1px solid #e4d5c9; }
+.railAdvanced > summary { display: flex; min-height: 47px; align-items: center; justify-content: space-between; gap: 10px; color: #4b4641; cursor: pointer; font-size: 12px; font-weight: 700; list-style: none; }
+.railAdvanced > summary::-webkit-details-marker { display: none; }
+.railAdvanced > summary::after { content: "+"; color: #77716b; font-size: 18px; font-weight: 400; }
+.railAdvanced[open] > summary::after { content: "−"; }
+.railAdvanced > summary:focus-visible { outline: 2px solid #fe6100; outline-offset: -2px; }
+.railAdvancedBody { display: grid; gap: 15px; min-width: 0; padding: 3px 0 18px; }
+.railResourceGroup { display: grid; gap: 5px; min-width: 0; border-top: 1px solid #eee8e3; padding-top: 14px; }
+.railSettings .error { margin: 0 0 14px; border-radius: 8px; padding: 10px; font-size: 11px; }
+.railActionBar { display: flex; position: fixed; z-index: 35; right: auto; bottom: 16px; left: calc(50% + 7.65625rem); width: min(550px, calc(100vw - 32px)); align-items: center; gap: 8px; margin: 0; transform: translateX(-50%); border: 1px solid #46413b; border-radius: 10px; background: #292725; padding: 9px 10px 9px 15px; box-shadow: 0 12px 30px rgb(20 15 11 / 23%); backdrop-filter: none; }
+.railActionBar[hidden] { display: none; }
+.railActionBar > span { min-width: 0; flex: 1; color: #fffdfc; font-size: 11px; font-weight: 650; }
+.railActionBar button { min-height: 38px; border-radius: 7px; padding: 0 12px; font-size: 11px; white-space: nowrap; }
+.railActionBar .primary { border-color: #fffdfc; background: #fffdfc; color: #292725; box-shadow: none; }
+.railActionBar .secondary { border-color: #69635e; background: transparent; color: #fffdfc; }
+.railActionBar button:focus-visible { outline: 2px solid #fe6100; outline-offset: 2px; }
+
 @media (max-width: 600px) {
   .editTabs { gap: 12px; padding: 0 16px; }
   .editPanel { gap: 20px; padding: 20px 16px; }
@@ -735,6 +779,9 @@
   .editSettings .editActionBar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
   .editSettings .editActionBar button { width: 100%; padding: 0 8px; }
 }
+@media (max-width: 1024px) { .railActionBar { bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); left: 50%; } }
+@media (max-width: 600px) { .editSettings .railActionBar { display: flex; padding: 8px; } .editSettings .railActionBar button { width: auto; } }
+@media (max-width: 440px) { .editSettings .railActionBar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: calc(100vw - 16px); padding: 8px; } .railActionBar > span { grid-column: 1 / -1; padding: 1px 3px; } }
 @media (max-width: 560px) { .createChoices { grid-template-columns: 1fr; gap: 12px; } .createChoice { min-height: 164px; gap: 16px; padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { .createChoice { transition-duration: .01ms; } }
 

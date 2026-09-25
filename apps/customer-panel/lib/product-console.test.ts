@@ -414,13 +414,13 @@ test("merchant shell applies Celebix brand tokens without adding dedicated autho
   assert.doesNotMatch(`${shell}\n${navigation}`, /apps\/admin|\/admin\/|supabase|STORE_RUNTIME|ToshiAssistant/);
 });
 
-test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupported modules", async () => {
+test("catalog pages keep product commands and the open detail workspace without unsupported modules", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const onboarding = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
   const onboardingStyles = await source("components/catalog-onboarding/product-onboarding.module.css");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
-  const styles = await source("app/globals.css");
+  const detailStyles = await source("components/catalog/product-detail-workspace.module.css");
   assert.match(list, /donor-product-page/);
   assert.match(list, /hemenaku-product-commandbar/);
   assert.match(list, /hemenaku-product-filters/);
@@ -430,9 +430,11 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.match(create, /ProductQuickCreateDialog/);
   assert.match(onboarding, /Ürün adı/);
   assert.match(onboarding, /Satış fiyatı/);
-  assert.match(detail, /className=\{styles[.]hero\}/);
-  assert.match(detail, /Temel bilgiler/);
-  assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
+  assert.match(detail, /className=\{styles[.]workspace\}/);
+  assert.match(detail, /className=\{styles[.]productCore\}/);
+  assert.match(detail, /<ProductAdvancedEditor[\s\S]*?presentation="rail"/);
+  assert.match(detailStyles, /--detail-canvas:\s*#f8f7f5/i);
+  assert.match(detailStyles, /\.workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+252px/s);
   assert.match(onboardingStyles, /\.dialog[^}]*border-radius:\s*30px/s);
   assert.doesNotMatch(`${list}\n${create}\n${onboarding}\n${detail}`, /\/api\/admin|\/admin\/urunler|supabase/i);
 });
@@ -1331,7 +1333,7 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(detail, /if \(mutationLockedRef\.current\) return;/);
   assert.match(detail, /mutationLockedRef\.current = true/);
   assert.match(detail, /mutationLockedRef\.current = false/);
-  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("product-status"/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*resetProductDraft\(\);\s*setSalesRevision\(\(current\) => current \+ 1\);\s*setSeoPreviewDraft\(undefined\);\s*closeDetailEditors\(\);\s*await mutation\("product-status"/);
   assert.match(detail, /createVariant\(productId, parsed\.value\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);
@@ -1377,9 +1379,10 @@ test("functional launch keeps the legacy removal route disabled while confirmed 
     "Ürün ayrıntıları yükleniyor…",
     "Satış ayarları",
     "Satış ayarları yüklenemedi",
-    "Bu hesap yalnızca görüntüleme yetkisine sahiptir",
+    "Yalnızca görüntüleme",
   ]) assert.match(detail, new RegExp(state));
   assert.match(detail, /readOnlySalesSettings/);
+  assert.match(detail, /!canManage && !archived \? <div[^>]*role="status"[^>]*>[\s\S]*?Bu ayarları düzenlemek için yetki gerekir/);
   assert.match(detail, /catalogOnboardingClient[.]getOptions\(\)/);
   assert.match(detail, /catalogOnboardingClient[.]getProductEditor\(productId\)/);
   assert.doesNotMatch(detail, /ProductRemovalEligibility|inspectRemoval|permanentlyRemoveProduct|Kalıcı kaldır/);
@@ -1408,7 +1411,7 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   for (const surface of [detail, create]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
   assert.match(list, /href="\/products\/new"/);
   assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
-  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
+  assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*resetProductDraft\(\);\s*setSalesRevision\(\(current\) => current \+ 1\);\s*setSeoPreviewDraft\(undefined\);\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);
   assert.match(advanced, /bindBeforeUnload\(window\)/);

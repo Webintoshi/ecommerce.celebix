@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, ArrowRight, Image as ImageIcon, ImagePlus, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
@@ -45,6 +45,8 @@ export function ProductMediaManager({
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [archiveTarget, setArchiveTarget] = useState<ProductMediaLifecycle>();
+  const [dragOverId, setDragOverId] = useState<string>();
+  const draggedIdRef = useRef<string | undefined>(undefined);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
@@ -178,15 +180,49 @@ export function ProductMediaManager({
     finally { setBusy(""); }
   }
 
+  async function reorder(ids: string[]) {
+    setBusy("reorder"); setError(""); setNotice("");
+    try { setMedia(await productMediaApi.reorder(productId, ids)); setNotice("Görsel sırası güncellendi."); }
+    catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
+    finally { setBusy(""); }
+  }
+
   async function move(index: number, direction: -1 | 1) {
     if (!canManage) return;
     const next = index + direction;
     if (next < 0 || next >= activeMedia.length) return;
     const ids = activeMedia.map((item) => item.id); [ids[index], ids[next]] = [ids[next]!, ids[index]!];
-    setBusy("reorder"); setError(""); setNotice("");
-    try { setMedia(await productMediaApi.reorder(productId, ids)); setNotice("Görsel sırası güncellendi."); }
-    catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
-    finally { setBusy(""); }
+    await reorder(ids);
+  }
+
+  function handleDragStart(event: DragEvent<HTMLDivElement>, itemId: string) {
+    if (!canManage || busy !== "" || tab !== "active") { event.preventDefault(); return; }
+    draggedIdRef.current = itemId;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", itemId);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>, itemId: string) {
+    if (!draggedIdRef.current || draggedIdRef.current === itemId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverId(itemId);
+  }
+
+  function handleDragEnd() { draggedIdRef.current = undefined; setDragOverId(undefined); }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedIdRef.current;
+    handleDragEnd();
+    if (!sourceId || sourceId === targetId || !canManage || busy !== "") return;
+    const ids = activeMedia.map((item) => item.id);
+    const sourceIndex = ids.indexOf(sourceId);
+    const targetIndex = ids.indexOf(targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    ids.splice(sourceIndex, 1);
+    ids.splice(targetIndex, 0, sourceId);
+    void reorder(ids);
   }
 
   async function archive() {
@@ -241,59 +277,61 @@ export function ProductMediaManager({
     <section id="product-images" className={`product-detail-section product-detail-media ${styles.root}`} aria-labelledby="product-media-title">
       <div className={styles.header}>
         <div className={styles.heading}>
-          <span className={styles.kicker}>GÖRSEL YÖNETİMİ</span>
           <h2 id="product-media-title">Görseller <span className={styles.count}>{loading ? "…" : visibleMedia.length}</span></h2>
+          {tab === "active" ? <p>İlk görsel mağazada kapak olur.</p> : null}
         </div>
-        {canManage ? <form ref={mediaUploadCardRef} className={styles.uploadForm} data-expanded={selectedFile ? "true" : "false"} onSubmit={upload} tabIndex={-1}>
-          <input ref={fileInputRef} className={styles.fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Ürün görseli seç" tabIndex={-1} onChange={selectFile} disabled={busy !== ""} />
-          <button ref={addImageButtonRef} className={styles.addButton} type="button" onClick={() => fileInputRef.current?.click()} disabled={busy !== ""}><ImagePlus aria-hidden="true" /> {selectedFile ? "Başka görsel seç" : "Görsel ekle"}</button>
-          {selectedFile ? <div className={styles.uploadDetails}>
-            {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true"><ImageIcon /></span>}
-            <div className={styles.uploadFields}>
-              <span className={styles.fileName} title={selectedFile.name}>{selectedFile.name}</span>
-              <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli kısaca açıklayın" disabled={busy !== ""} /></label>
-              <span className={styles.fileHelp}>PNG, JPEG, WebP · en fazla 5 MB</span>
-            </div>
-            <div className={styles.uploadActions}><button className={styles.quietButton} type="button" onClick={clearSelectedFile} disabled={busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={busy !== ""}>{busy === "upload" ? "Yükleniyor…" : "Yükle"}</button></div>
-            {busy === "upload" ? <div className={styles.progress}><span>Yükleme</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
-          </div> : null}
-        </form> : null}
+        {canArchive ? <div className={styles.tabs} role="tablist" aria-label="Görsel durumu">
+          <button ref={activeTabRef} type="button" role="tab" aria-selected={tab === "active"} tabIndex={tab === "active" ? 0 : -1} onClick={() => setTab("active")} onKeyDown={(event) => handleTabKeyDown(event, "archived")}>Aktif <span>{activeMedia.length}</span></button>
+          <button ref={archivedTabRef} type="button" role="tab" aria-selected={tab === "archived"} tabIndex={tab === "archived" ? 0 : -1} onClick={() => setTab("archived")} onKeyDown={(event) => handleTabKeyDown(event, "active")}>Arşiv <span>{archivedMedia.length}</span></button>
+        </div> : null}
       </div>
 
       {error ? <div className={styles.error} role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Yeniden dene</button></div> : null}
       {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
 
-      {canArchive ? <div className={styles.tabs} role="tablist" aria-label="Görsel durumu">
-        <button ref={activeTabRef} type="button" role="tab" aria-selected={tab === "active"} tabIndex={tab === "active" ? 0 : -1} onClick={() => setTab("active")} onKeyDown={(event) => handleTabKeyDown(event, "archived")}>Aktif <span>{activeMedia.length}</span></button>
-        <button ref={archivedTabRef} type="button" role="tab" aria-selected={tab === "archived"} tabIndex={tab === "archived" ? 0 : -1} onClick={() => setTab("archived")} onKeyDown={(event) => handleTabKeyDown(event, "active")}>Arşivlenenler <span>{archivedMedia.length}</span></button>
-      </div> : null}
-
-      {loading ? <div className={styles.grid} role="status" aria-label="Görseller yükleniyor"><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /></div> : visibleMedia.length === 0 ? (
-        <div className={styles.empty}><ImageIcon aria-hidden="true" /><strong>{tab === "active" ? "Henüz görsel yok" : "Arşivlenmiş görsel yok"}</strong><span>{tab === "active" ? "İlk görsel mağaza kapağı olur." : "Arşivlenen görseller burada görünür."}</span></div>
+      {loading ? <div className={styles.grid} role="status" aria-label="Görseller yükleniyor"><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /></div> : tab === "archived" && visibleMedia.length === 0 ? (
+        <div className={styles.empty}><ImageIcon aria-hidden="true" /><strong>Arşivlenmiş görsel yok</strong><span>Arşivlediğiniz görseller burada görünür.</span></div>
+      ) : tab === "active" && visibleMedia.length === 0 && !canManage ? (
+        <div className={styles.empty}><ImageIcon aria-hidden="true" /><strong>Henüz görsel yok</strong><span>Görsel eklemek için ürün düzenleme yetkisi gerekir.</span></div>
       ) : (
         <div className={styles.grid}>
           {visibleMedia.map((item, index) => (
             <article className={styles.card} key={item.id}>
-              <div className={styles.thumbnail}>{item.publicUrl ? <img src={item.publicUrl} alt={item.altText || `Ürün görseli ${index + 1}`} loading="lazy" /> : <span className={styles.purgedImage} aria-label="Görsel kalıcı olarak temizlendi"><ImageIcon aria-hidden="true" /></span>}{tab === "active" && index === 0 ? <span className={styles.coverBadge}>Kapak</span> : null}</div>
+              <div className={`${styles.thumbnail} ${dragOverId === item.id ? styles.dragOver : ""}`} draggable={canManage && tab === "active" && busy === ""} onDragStart={(event) => handleDragStart(event, item.id)} onDragOver={(event) => handleDragOver(event, item.id)} onDrop={(event) => handleDrop(event, item.id)} onDragEnd={handleDragEnd} title={canManage && tab === "active" ? "Sürükleyerek sırala" : undefined}>
+                {item.publicUrl ? <img src={item.publicUrl} alt={item.altText || `Ürün görseli ${index + 1}`} loading="lazy" /> : <span className={styles.purgedImage} aria-label="Görsel kalıcı olarak temizlendi"><ImageIcon aria-hidden="true" /></span>}
+                {tab === "active" && index === 0 ? <span className={styles.coverBadge}>Kapak</span> : <span className={styles.positionBadge}>{String(index + 1).padStart(2, "0")}</span>}
+                {canManage && tab === "active" ? <div className={styles.orderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}><ArrowLeft aria-hidden="true" /></button>
+                  <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" onClick={() => void move(index, 1)} disabled={busy !== "" || index === visibleMedia.length - 1}><ArrowRight aria-hidden="true" /></button>
+                </div> : null}
+              </div>
               <div className={styles.cardHeading}><strong>Görsel {index + 1}</strong>{canManage && tab === "active" ? <div className={styles.cardActions}>
                 <button type="button" aria-label={`${index + 1}. görselin alt metnini düzenle`} title="Alt metni düzenle" aria-expanded={editingAltId === item.id} onClick={(event) => { altTriggerRef.current = event.currentTarget; setEditingAltId((current) => current === item.id ? undefined : item.id); }} disabled={busy !== ""}><Pencil aria-hidden="true" /></button>
                 {canArchive ? <button type="button" aria-label={`${index + 1}. görseli arşivle`} title="Arşivle" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}><Archive aria-hidden="true" /></button> : null}
               </div> : null}</div>
               {editingAltId === item.id && canManage && tab === "active" ? <form className={styles.altForm} onSubmit={(event) => void updateAlt(event, item)} key={item.version}>
                 <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} defaultValue={item.altText} disabled={busy !== ""} /></label>
-                <button className={styles.quietButton} type="submit" disabled={busy !== ""}>{busy === `alt-${item.id}` ? "Kaydediliyor…" : "Kaydet"}</button>
+                <div className={styles.altActions}><button className={styles.quietButton} type="button" onClick={() => { setEditingAltId(undefined); altTriggerRef.current?.focus(); }} disabled={busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={busy !== ""}>{busy === `alt-${item.id}` ? "Kaydediliyor…" : "Kaydet"}</button></div>
               </form> : <p className={styles.altText} title={item.altText || undefined}>{item.altText || "Alt metin eklenmemiş"}</p>}
               {tab === "archived" ? <p className={styles.retention}>{item.cleanupState === "retained" ? `${item.retentionExpiresAt ? new Date(item.retentionExpiresAt).toLocaleString("tr-TR") : "Belirtilen tarihe"} kadar saklanır.` : item.cleanupState === "eligible" ? "Kalıcı temizliğe hazır." : item.cleanupState === "cleanup_pending" ? "Temizlik doğrulanıyor." : "Kalıcı olarak temizlendi."}</p> : null}
-              {canManage && tab === "active" ? <div className={styles.orderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
-                <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}><ArrowLeft aria-hidden="true" /></button>
-                <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" onClick={() => void move(index, 1)} disabled={busy !== "" || index === visibleMedia.length - 1}><ArrowRight aria-hidden="true" /></button>
-              </div> : null}
               {canArchive && tab === "archived" ? <div className={styles.archiveActions}>{item.cleanupState === "retained" ? <button type="button" className={styles.quietButton} onClick={() => void restore(item)} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === `restore-${item.id}` ? "Geri yükleniyor…" : "Geri yükle"}</button> : null}{item.cleanupState === "eligible" ? <button type="button" className={styles.dangerButton} onClick={() => void cleanup(item)} disabled={busy !== ""}><Trash2 aria-hidden="true" /> {busy === `cleanup-${item.id}` ? "Temizleniyor…" : "Kalıcı temizle"}</button> : null}</div> : null}
             </article>
           ))}
+          {canManage && tab === "active" ? <form ref={mediaUploadCardRef} className={styles.uploadForm} data-expanded={selectedFile ? "true" : "false"} onSubmit={upload} tabIndex={-1}>
+            <input ref={fileInputRef} className={styles.fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Ürün görseli seç" tabIndex={-1} onChange={selectFile} disabled={busy !== ""} />
+            <button ref={addImageButtonRef} className={styles.addButton} type="button" onClick={() => fileInputRef.current?.click()} disabled={busy !== ""}><ImagePlus aria-hidden="true" /><strong>{selectedFile ? "Başka görsel seç" : "Görsel ekle"}</strong><small>JPG, PNG, WebP · 5 MB</small></button>
+            {selectedFile ? <div className={styles.uploadDetails}>
+              {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true"><ImageIcon /></span>}
+              <div className={styles.uploadFields}>
+                <span className={styles.fileName} title={selectedFile.name}>{selectedFile.name}</span>
+                <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli kısaca açıklayın" disabled={busy !== ""} /></label>
+              </div>
+              <div className={styles.uploadActions}><button className={styles.quietButton} type="button" onClick={clearSelectedFile} disabled={busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={busy !== ""}>{busy === "upload" ? "Yükleniyor…" : "Yükle"}</button></div>
+              {busy === "upload" ? <div className={styles.progress}><span>Yükleme</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
+            </div> : null}
+          </form> : null}
         </div>
       )}
-      {!loading && activeMedia.length > 0 && tab === "active" ? <p className={styles.footnote}>İlk görsel mağazada kapak olarak kullanılır.</p> : null}
 
       {archiveTarget && canArchive ? (
         <div className={styles.dialogLayer}>

@@ -36,6 +36,8 @@ type EditorApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publish
 type ProductAdvancedEditorProps = Readonly<{
   options: CatalogOnboardingOptions;
   onCancel(): void;
+  /** Inline product detail rail. The default editor presentation is unchanged. */
+  presentation?: "default" | "rail";
   api?: EditorApi;
   mediaClient?: Pick<typeof productMediaApi, "upload">;
   editor?: CatalogProductEditorProjection;
@@ -44,6 +46,7 @@ type ProductAdvancedEditorProps = Readonly<{
   onConflictReload?(): boolean | void | Promise<boolean | void>;
   onDirtyChange?(dirty: boolean): void;
   onBusyChange?(busy: boolean): void;
+  onSeoPreviewChange?(preview: Readonly<{ title: string; description: string }>): void;
   draftSession?: ProductDraftSession;
   onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
@@ -103,7 +106,7 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
@@ -120,6 +123,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   const [tagIds, setTagIds] = useState<readonly string[]>(draftSession?.current.tagIds ?? editor?.resourceIds.tags ?? []);
   const [selectedChannelIds, setSelectedChannelIds] = useState<readonly string[]>(() => draftSession?.current.channelIds ?? initialChannelIds(options, editor));
   const [activeEditPanel, setActiveEditPanel] = useState<"catalog" | "seo" | "channels">("catalog");
+  const [railDirty, setRailDirty] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string>();
   const [progress, setProgress] = useState(0);
@@ -129,6 +133,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   const createTouchedRef = useRef(false);
   const [createFieldRevision, setCreateFieldRevision] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+  const railAdvancedRef = useRef<HTMLDetailsElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const mediaPreviewUrlsRef = useRef<readonly string[]>([]);
   const categoryHierarchy = buildCatalogCategoryHierarchy(options.categories);
@@ -193,11 +198,18 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
   function markEditingDirty() {
     if (editing) {
       editingDirtyRef.current = true;
+      if (presentation === "rail") setRailDirty(true);
       onDirtyChange?.(true);
       return;
     }
     createTouchedRef.current = true;
     setCreateFieldRevision((current) => current + 1);
+  }
+
+  function updateSeoPreview(form: HTMLFormElement | null) {
+    if (!form) return;
+    const values = new FormData(form);
+    onSeoPreviewChange?.({ title: text(values, "seoTitle"), description: text(values, "seoDescription") });
   }
 
   function requestCancel() {
@@ -208,6 +220,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       });
       if (!guard.canLeave()) return;
       editingDirtyRef.current = false;
+      setRailDirty(false);
       onDirtyChange?.(false);
     }
     onCancel();
@@ -217,6 +230,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     const reloaded = await onConflictReload?.();
     if (reloaded === false) return;
     editingDirtyRef.current = false;
+    setRailDirty(false);
     onDirtyChange?.(false);
   }
 
@@ -272,7 +286,11 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     const minimum = positiveInteger(text(data, "minimumPurchaseQuantity"), 1);
     const maximumRaw = text(data, "maximumPurchaseQuantity");
     const maximum = maximumRaw ? positiveInteger(maximumRaw) : undefined;
-    if (minimum === null || maximum === null) { setError("Satış sınırı alanlarını kontrol edin."); return; }
+    if (minimum === null || maximum === null) {
+      if (presentation === "rail" && railAdvancedRef.current) railAdvancedRef.current.open = true;
+      setError("Satış sınırı alanlarını kontrol edin.");
+      return;
+    }
     const resources = (resourceKind: CatalogOnboardingResourceKind) => selected(data, `resource-${resourceKind}`);
     const brand = text(data, "resource-brand");
     const profile: CatalogProductMerchandisingFields = {
@@ -292,6 +310,7 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
       if (editor) {
         const updated = await api.updateMerchandising(editor.product.id, { expectedProfileVersion: editor.profile.version, profile, categoryIds: submittedCategoryIds, resourceIds, channelIds });
         editingDirtyRef.current = false;
+        setRailDirty(false);
         onDirtyChange?.(false);
         onUpdated?.(updated);
         return;
@@ -374,6 +393,54 @@ export function ProductAdvancedEditor({ options, onCancel, api = catalogOnboardi
     </div>
     </fieldset>
     <footer className={styles.editorActions}><button type="button" className={styles.advanced} onClick={requestCancel} disabled={busy}>Vazgeç</button><button type="submit" name="intent" value="draft" className={styles.secondary} disabled={busy}>Taslak kaydet</button><button type="submit" name="intent" value="publish" className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button></footer>
+  </form>;
+
+  if (presentation === "rail" && editor) return <form className={`${styles.advancedEditor} ${styles.editSettings} ${styles.railSettings}`} onSubmit={submit} onChange={(event) => {
+    if (!(event.target instanceof HTMLElement) || !event.target.closest(`.${styles.classificationSearch}`)) markEditingDirty();
+  }} aria-busy={busy} noValidate>
+    <div className={styles.railHeading}><h2>Yayın ve sınıflandırma</h2></div>
+    {error ? <div className={styles.error} role="alert"><span>{error}</span>{conflict ? <button type="button" className={styles.secondary} onClick={reloadConflict}>Sunucudaki sürümü yükle</button> : null}</div> : null}
+    {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
+    <fieldset className={styles.railFieldset} disabled={busy}>
+      <section className={styles.railGroup} aria-labelledby="rail-channels-title">
+        <h3 id="rail-channels-title">Satış kanalları</h3>
+        <div className={`${styles.editOptionList} ${styles.railChannelList}`}>{options.channels.length ? options.channels.map((channel) => <label key={channel.id}>
+          <input type="checkbox" name="channelIds" value={channel.id} defaultChecked={has(editor.channelIds, channel.id)} />
+          <span>{channel.name}<small>{channel.kind === "storefront" ? "Online mağaza" : "Pazar yeri"}</small></span>
+        </label>) : <p>Etkin satış kanalı bulunamadı.</p>}</div>
+      </section>
+      <section className={styles.railGroup} aria-labelledby="rail-classification-title">
+        <h3 id="rail-classification-title">Sınıflandırma</h3>
+        <div className={styles.railFields}>
+          <ProductClassificationPicker label="Kategoriler" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={(next) => { markEditingDirty(); setCategoryIds(next); }} searchLabel="Kategori ara" />
+          <label className={styles.editField}><span>Marka</span><select name="resource-brand" defaultValue={editor.resourceIds.brand ?? ""}><option value="">Marka seçilmedi</option>{activeResources("brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
+          <ProductClassificationPicker label="Koleksiyonlar" name="resource-collection" options={collectionChoices} selected={collectionIds} onChange={(next) => { markEditingDirty(); setCollectionIds(next); }} searchLabel="Koleksiyon ara" />
+          <ProductClassificationPicker label="Etiketler" name="resource-tag" options={tagChoices} selected={tagIds} onChange={(next) => { markEditingDirty(); setTagIds(next); }} searchLabel="Etiket ara" />
+        </div>
+      </section>
+      <details ref={railAdvancedRef} className={styles.railAdvanced}>
+        <summary>SEO ve gelişmiş alanlar</summary>
+        <div className={styles.railAdvancedBody}>
+          <label className={styles.editField}><span>SEO başlığı</span><input name="seoTitle" maxLength={200} defaultValue={editor.profile.seoTitle ?? ""} onChange={(event) => updateSeoPreview(event.currentTarget.form)} /></label>
+          <label className={styles.editField}><span>SEO açıklaması</span><textarea name="seoDescription" maxLength={500} rows={3} defaultValue={editor.profile.seoDescription ?? ""} onChange={(event) => updateSeoPreview(event.currentTarget.form)} /></label>
+          <label className={styles.editField}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={editor.profile.googleProductCategoryId ?? ""} /></label>
+          <label className={styles.editField}><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={editor.profile.supplierName ?? ""} /></label>
+          <label className={styles.editField}><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.minimumPurchaseQuantity} /></label>
+          <label className={styles.editField}><span>Maksimum sipariş</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.maximumPurchaseQuantity ?? ""} /></label>
+          {(["attribute", "extra", "definition"] as const).map((resourceKind) => {
+            const resources = activeResources(resourceKind);
+            if (!resources.length) return null;
+            const label = resourceKind === "attribute" ? "Nitelikler" : resourceKind === "extra" ? "Ekstralar" : "Tanımlar";
+            return <div className={styles.railResourceGroup} key={resourceKind}><h4>{label}</h4><div className={`${styles.editOptionList} ${styles.railResourceList}`}>{resources.map((resource) => <label key={resource.id}><input type="checkbox" name={`resource-${resourceKind}`} value={resource.id} defaultChecked={has(editor.resourceIds[`${resourceKind}s` as "attributes" | "extras" | "definitions"] ?? [], resource.id)} /><span>{resource.name}</span></label>)}</div></div>;
+          })}
+        </div>
+      </details>
+    </fieldset>
+    <footer className={`${styles.editorActions} ${styles.railActionBar}`} hidden={!railDirty}>
+      <span>Kaydedilmemiş değişiklikler</span>
+      <button type="button" className={styles.secondary} onClick={requestCancel} disabled={busy}>Vazgeç</button>
+      <button type="submit" className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button>
+    </footer>
   </form>;
 
   const editPanels = ["catalog", "seo", "channels"] as const;
