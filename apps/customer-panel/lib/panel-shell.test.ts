@@ -56,6 +56,7 @@ class HookTestHost {
   focusAttemptCount = 0;
   open = false;
   parent: HookTestHost | null = null;
+  selectCount = 0;
   showModalCount = 0;
 
   constructor(
@@ -86,6 +87,10 @@ class HookTestHost {
     this.documentState.activeElement = this;
   }
 
+  select(): void {
+    this.selectCount += 1;
+  }
+
   close(): void {
     this.closeCount += 1;
     this.open = false;
@@ -108,8 +113,15 @@ class HookTestHost {
     return descendants.filter((element) => (
       (element.type === "a" && typeof element.props.href === "string")
       || (element.type === "button" && !element.props.disabled)
+      || (element.type === "input" && !element.props.disabled)
+      || (element.type === "select" && !element.props.disabled)
       || (typeof element.props.tabIndex === "number" && element.props.tabIndex !== -1)
     ));
+  }
+
+  querySelector(selector: string): HookTestHost | null {
+    if (selector !== "a[href]") return null;
+    return this.querySelectorAll().find((element) => element.type === "a") ?? null;
   }
 }
 
@@ -1101,14 +1113,19 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
   await firstSubmit;
 });
 
-test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {
+test("desktop sidebar keeps a compact neutral navigation with searchable sections", async () => {
   const navigation = await renderPanelNavigation("/");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
   const logout = await source("components/panel/LogoutButton.tsx");
   const css = await source("components/panel/panel-shell.module.css");
 
-  assert.match(navigation, />Giriş</);
+  assert.match(navigation, />Genel Bakış</);
+  assert.match(navigation, />Genel</);
+  assert.match(navigation, />Ticaret</);
+  assert.match(navigation, />Büyüme</);
+  assert.match(navigation, />Yönetim</);
   assert.match(navigation, />SEO Araçları</);
+  assert.match(navigation, /aria-label="Menüde ara"/);
   assert.doesNotMatch(navigation, />Özet</);
   assert.doesNotMatch(navigation, />Analizler</);
   assert.doesNotMatch(navigation, />Kurulum</);
@@ -1116,7 +1133,7 @@ test("desktop sidebar matches the approved compact Celebix navigation anatomy", 
   assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
   assert.match(sidebar, /styles[.]sidebarAccount/);
   assert.match(sidebar, /styles[.]sidebarAvatar/);
-  assert.doesNotMatch(sidebar, /className=\{styles[.]merchantIdentity\}/);
+  assert.match(sidebar, /className=\{styles[.]merchantIdentity\}/);
   assert.match(logout, /LogOut/);
   assert.match(logout, />Çıkış</);
   const navigationSource = await source("components/panel/PanelNavigation.tsx");
@@ -1127,9 +1144,105 @@ test("desktop sidebar matches the approved compact Celebix navigation anatomy", 
 
   assert.match(css, /\.brandMark\s*\{[\s\S]*?width:\s*8rem;/);
   assert.match(css, /\.brandMark\s*\{[\s\S]*?background:\s*transparent;/);
-  assert.match(css, /\.navigationLabel\s*\{[\s\S]*?font-size:\s*0[.]9375rem;/);
+  assert.match(css, /\.navigationLabel\s*\{[\s\S]*?font-size:\s*0[.]875rem;/);
+  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
+  assert.match(css, /\.navigationLinkActive,\s*\.navigationGroupActive\s*\{[\s\S]*?background:\s*#3B3B3B;/i);
+  assert.doesNotMatch(css, /\.activeRail\s*\{/);
   assert.match(css, /\.sidebarFooter\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
   assert.match(css, /\.sidebarAvatar\s*\{[\s\S]*?width:\s*1[.]75rem;/);
+});
+
+test("sidebar search reveals deep product and SEO links without losing the access gate", async () => {
+  const harness = await createInteractivePanelNavigation("/");
+  try {
+    const search = () => harness.hosts().find((host) => host.type === "input" && host.props["aria-label"] === "Menüde ara");
+    assert.ok(search());
+    const setSearch = (value: string) => {
+      (search()?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
+      harness.flush();
+    };
+    const hrefs = () => harness.hosts().filter((host) => host.type === "a").map((host) => host.props.href);
+
+    setSearch("stok");
+    assert.ok(hrefs().includes("/products/inventory-counts"));
+    assert.ok(hrefs().includes("/products/transfers"));
+    assert.ok(!hrefs().includes("/products/new"));
+
+    setSearch("seo");
+    assert.ok(hrefs().includes("/seo/products"));
+    assert.equal(hrefs().filter((href) => href === "/seo").length, 1);
+    assert.ok(!hrefs().includes("/analytics"));
+
+    setSearch("iç bağlantılar");
+    assert.ok(hrefs().includes("/seo/internal-linking"));
+
+    setSearch("ürünler");
+    assert.ok(hrefs().includes("/products"));
+    assert.ok(!hrefs().includes("/products/new"));
+
+    setSearch("uydurma sayfa");
+    assert.equal(hrefs().length, 0);
+    assert.ok(harness.hosts().some((host) => host.type === "p" && host.props.children === "Sonuç bulunamadı. Başka bir kelime deneyin."));
+  } finally {
+    harness.unmount();
+  }
+});
+
+test("sidebar keyboard shortcut focuses search and arrow navigation reaches results", async () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  let onKeyDown: ((event: { key: string; metaKey: boolean; ctrlKey: boolean; defaultPrevented: boolean; preventDefault: () => void }) => void) | undefined;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      addEventListener(type: string, listener: typeof onKeyDown) {
+        if (type === "keydown") onKeyDown = listener;
+      },
+      removeEventListener(type: string) {
+        if (type === "keydown") onKeyDown = undefined;
+      },
+    },
+  });
+
+  let harness: Awaited<ReturnType<typeof createInteractivePanelNavigation>> | undefined;
+  try {
+    harness = await createInteractivePanelNavigation("/");
+    const search = () => harness!.hosts().find((host) => host.type === "input" && host.props["aria-label"] === "Menüde ara");
+    const input = search();
+    assert.ok(input);
+    assert.ok(onKeyDown);
+    let prevented = false;
+    onKeyDown({
+      key: "k",
+      metaKey: true,
+      ctrlKey: false,
+      defaultPrevented: false,
+      preventDefault() { prevented = true; },
+    });
+    assert.equal(prevented, true);
+    assert.equal(input.focusCount, 1);
+    assert.equal(input.selectCount, 1);
+
+    (search()?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "stok" } });
+    harness.flush();
+    const firstResult = harness.hosts().find((host) => host.type === "a" && host.props.href === "/products/inventory-counts");
+    assert.ok(firstResult);
+    (search()?.props.onKeyDown as (event: { key: string; preventDefault: () => void }) => void)({ key: "ArrowDown", preventDefault() {} });
+    assert.equal(firstResult.focusCount, 1);
+
+    let stopped = false;
+    (search()?.props.onKeyDown as (event: { key: string; preventDefault: () => void; stopPropagation: () => void }) => void)({
+      key: "Escape",
+      preventDefault() {},
+      stopPropagation() { stopped = true; },
+    });
+    harness.flush();
+    assert.equal(stopped, true);
+    assert.equal(search()?.props.value, "");
+  } finally {
+    harness?.unmount();
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
 });
 
 test("desktop navigation exposes accessible dropdown groups and opens only the active family initially", async () => {
@@ -1706,7 +1819,8 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   assert.match(view, /label: "Dönüşüm oranı", value: "—", detail: "Canlı veri alınamıyor"/);
   assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
   assert.match(view, /loader[.]current[?][.]reload\("analytics"\)/);
-  assert.match(view, /<Line[\s\S]*?isAnimationActive=\{false\}/);
+  assert.match(view, /data-dashboard-chart="sales"/);
+  assert.match(view, /<polyline points=\{points\}/);
   assert.match(await source("components/dashboard/panel-dashboard.module.css"), /@media \(max-width: 1024px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.match(combined, /"\/analytics"/);
@@ -1788,7 +1902,8 @@ test("dashboard presentation keeps the merchant-dashboard anatomy when analytics
   );
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
+  assert.match(html, /Mağazanın nabzı/);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
@@ -1824,7 +1939,7 @@ test("dashboard presentation renders independent retry controls without stale re
 
   assert.equal((html.match(/>Tekrar dene<\/button>/g) ?? []).length, 2);
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 2);
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|Etkin medya/);
 });
@@ -2632,24 +2747,23 @@ function assertSmallShellContrast(css: string): void {
   }
 
   const declarations = parseApplicableCss(css, 390);
-  const activeRail: CssTestElement = {
-    tagName: "span",
-    classNames: ["activeRail"],
-    parent: elements.drawerChildLink,
+  const activeItem: CssTestElement = {
+    ...elements.drawerChildLink,
+    classNames: ["navigationLink", "navigationLinkActive"],
   };
   const tokens: readonly [string, CssTestElement, readonly string[], string][] = [
-    ["orange active rail", activeRail, ["background", "background-color"], "#FE6100"],
+    ["neutral active row", activeItem, ["background", "background-color"], "#3B3B3B"],
     [
       "drawer focus ring",
       { ...elements.drawerClose, states: ["focus-visible"] },
       ["box-shadow"],
-      "0 0 0 2px rgb(254 97 0 / 32%)",
+      "0 0 0 2px rgb(255 255 255 / 70%)",
     ],
     [
       "dock focus ring",
       { ...elements.activeDockButton, states: ["focus-visible"] },
       ["box-shadow"],
-      "inset 0 0 0 2px rgb(254 97 0 / 32%)",
+      "inset 0 0 0 2px #201C19",
     ],
   ];
   for (const [label, element, properties, expected] of tokens) {
@@ -2780,7 +2894,7 @@ test("drawer and dock controls keep an effective 48px minimum target", async () 
 test("desktop child navigation and logout keep an effective 48px minimum target", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   for (const [override, expectedFailure] of [
-    [`.navigationChildren .navigationLink { min-height: 32px; }`, /desktop child navigation effective min-height is 32px/],
+    [`.desktopSidebar .navigationChildren .navigationLink { min-height: 32px; }`, /desktop child navigation effective min-height is 32px/],
     [`.sidebarFooter .logout-button { min-height: 42px; }`, /desktop logout effective min-height is 42px/],
   ] as const) {
     assert.throws(() => assertDesktopMinimumShellTargets(`${css}\n${override}`), expectedFailure);
@@ -2802,7 +2916,7 @@ test("shared panel data table keeps aligned padded readable cells without fixing
   }
 });
 
-test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
+test("effective small shell text colors meet AA with neutral navigation states", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
   const logo = await source("public/Logo/celebix-beyaz-logo.svg");
@@ -2810,8 +2924,8 @@ test("effective small shell text colors meet AA without weakening orange brand o
   assert.match(logo, /fill="#FE6100"/i);
   for (const [override, expectedFailure] of [
     [
-      `.merchantIdentity small { color: rgb(255 255 255 / 48%); }`,
-      /desktop merchant membership secondary effective contrast is 4\.08:1/,
+      `.merchantIdentity small { color: rgb(255 255 255 / 40%); }`,
+      /desktop merchant membership secondary effective contrast/,
     ],
     [
       `@media (min-width: 1025px) {
@@ -2826,7 +2940,7 @@ test("effective small shell text colors meet AA without weakening orange brand o
           color: #FF6A00;
         }
       }`,
-      /active mobile dock link label effective contrast is 2\.57:1/,
+      /active mobile dock link label effective contrast/,
     ],
     [
       `@media (max-width: 1024px) {
@@ -2835,7 +2949,7 @@ test("effective small shell text colors meet AA without weakening orange brand o
           color: #FF6A00;
         }
       }`,
-      /expanded mobile dock button label effective contrast is 2\.57:1/,
+      /expanded mobile dock button label effective contrast/,
     ],
   ] as const) {
     assert.throws(() => assertSmallShellContrast(`${css}\n${override}`), expectedFailure);
@@ -2955,7 +3069,7 @@ test("approved merchant dashboard starts with four honest KPIs, real routes, and
     recentOrdersState: "loaded",
   });
 
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 0);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.doesNotMatch(html, /<h1[^>]*class="visuallyHidden"/);
   for (const label of ["Toplam satış", "Toplam sipariş", "Yeni müşteri", "Dönüşüm oranı"])

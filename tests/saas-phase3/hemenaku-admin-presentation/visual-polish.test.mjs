@@ -15,12 +15,13 @@ test("merchant analytics and dashboard charts reserve readable plot geometry", a
   const dashboard = await read("apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx");
   const dashboardCss = await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css");
 
-  assert.match(analytics, /<LineChart data=\{dashboard[.]series\} accessibilityLayer margin=\{\{ left: 12, right: 16 \}\}>/);
-  assert.match(analytics, /<YAxis[\s\S]*?width=\{96\}[\s\S]*?tickMargin=\{8\}/);
-  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{280\}>/);
-  assert.match(dashboard, /<LineChart data=\{analytics[.]series\} accessibilityLayer margin=\{\{ left: 8, right: 12 \}\}>/);
-  assert.match(dashboardCss, /[.]salesChart\s*\{[\s\S]*?min-height:\s*320px;/);
-  assert.match(dashboardCss, /@media \(max-width: 640px\)[\s\S]*?[.]salesChart\s*\{\s*min-height:\s*270px;/);
+  assert.match(analytics, /<LineChart data=\{dashboard[.]series\} accessibilityLayer margin=\{\{ left: 4, right: 16, top: 8, bottom: 0 \}\}>/);
+  assert.match(analytics, /<YAxis[\s\S]*?width=\{88\}[\s\S]*?tickMargin=\{8\}/);
+  assert.match(dashboard, /<svg className=\{styles[.]seriesChart\} data-dashboard-chart="sales"/);
+  assert.match(dashboard, /role="img" aria-label="Dönemlik satış gelirleri"/);
+  assert.match(dashboard, /<polyline points=\{points\}/);
+  assert.match(dashboardCss, /[.]seriesChart\s*\{[\s\S]*?width:\s*100%;/);
+  assert.match(dashboardCss, /@media \(max-width: 640px\)[\s\S]*?[.]seriesChart\s*\{\s*min-height:\s*170px;/);
 });
 
 test("sidebar and product controls stay dense without sacrificing target size", async () => {
@@ -31,16 +32,16 @@ test("sidebar and product controls stay dense without sacrificing target size", 
   assert.match(shellCss, /[.]navigationChildren\s*\{[\s\S]*?overflow-y:\s*auto;/);
   assert.match(shellCss, /[.]navigationChildren\s*\{[\s\S]*?overscroll-behavior:\s*contain;/);
   assert.match(catalogCss, /[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/);
-  assert.match(catalogCss, /[.]product-stat-grid > div\s*\{[^}]*min-height:\s*56px;/);
+  assert.match(catalogCss, /[.]product-stat-grid > button\s*\{[^}]*min-height:\s*56px;/);
+  assert.match(catalogCss, /[.]product-operations-page [.]product-stat-grid > button\s*\{[^}]*min-height:\s*52px;/);
   assert.match(catalogCss, /@media \(max-width:\s*640px\)[\s\S]*?[.]product-stat-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
-  assert.match(catalogCss, /[.]product-bulk-actions[^}]*min-height:\s*48px;/);
+  assert.match(catalogCss, /[.]product-bulk-actions > select, [.]product-bulk-actions > button\s*\{\s*min-height:\s*48px;/);
 });
 
 test("local Toshi artwork bypasses the runtime image optimizer", async () => {
   const paths = [
     "apps/customer-panel/components/panel/PanelTopbarUtilities.tsx",
     "apps/customer-panel/components/toshi/ToshiDrawer.tsx",
-    "apps/customer-panel/components/toshi/ToshiWorkspace.tsx",
   ];
   for (const relativePath of paths) {
     const source = await read(relativePath);

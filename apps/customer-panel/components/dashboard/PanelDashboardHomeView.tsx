@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronRight, CircleDollarSign, Package, PackageCheck, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronRight, CircleDollarSign, Package, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
 import {
   ANALYTICS_PERIODS,
   type AbandonedCartSummary,
@@ -85,6 +84,16 @@ function formatMoney(cents: number, currency: string) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency, maximumFractionDigits: 2 }).format(cents / 100);
 }
 
+function formatAxisMoney(cents: number) {
+  const amount = Math.max(0, cents / 100);
+  if (amount === 0) return "0";
+  const magnitude = amount >= 1_000_000_000 ? 1_000_000_000 : amount >= 1_000_000 ? 1_000_000 : amount >= 1_000 ? 1_000 : 1;
+  const suffix = magnitude === 1_000_000_000 ? "mr" : magnitude === 1_000_000 ? "mn" : magnitude === 1_000 ? "bin" : "";
+  const scaled = amount / magnitude;
+  const digits = scaled >= 10 || magnitude === 1 ? 0 : 1;
+  return `${scaled.toFixed(digits).replace(".", ",")}${suffix ? ` ${suffix}` : ""}`;
+}
+
 function formatSeriesLabel(startsAt: string): string {
   const date = new Date(startsAt);
   return Number.isFinite(date.getTime())
@@ -122,6 +131,109 @@ function stateDetail(state: OptionalLoadState): string {
 
 function SummaryRetryButton({ onRetry }: Readonly<{ onRetry: () => void }>) {
   return <button type="button" className={styles.retryButton} onClick={onRetry}>Tekrar dene</button>;
+}
+
+function FocusArtwork() {
+  return (
+    <svg className={styles.focusArtwork} viewBox="0 0 320 166" fill="none" aria-hidden="true">
+      <path d="M27 145c23-41 68-48 111-30 48 20 93 21 155-13v55H27v-12Z" fill="#3A3B3E" />
+      <g transform="rotate(8 218 79)">
+        <rect x="174" y="17" width="118" height="138" rx="11" fill="#EAEAF2" />
+        <rect x="185" y="28" width="96" height="113" rx="6" fill="#FCFBFE" />
+        <path d="M225 70h25l8 44h-41l8-44Z" fill="#D9A184" />
+        <path d="M230 70c0-12 3-19 8-19s8 7 8 19" stroke="#C7896B" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(-9 103 83)">
+        <rect x="40" y="16" width="126" height="142" rx="11" fill="#F0F0F8" />
+        <rect x="51" y="27" width="104" height="117" rx="6" fill="white" />
+        <rect x="65" y="45" width="76" height="72" rx="5" stroke="#AAB3D0" strokeWidth="1.6" strokeDasharray="5 5" />
+        <path d="m79 102 16-16 11 11 7-7 15 12" stroke="#677595" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="118" cy="75" r="5" fill="#ADB8D2" />
+      </g>
+      <g transform="rotate(9 278 116)">
+        <rect x="253" y="73" width="53" height="73" rx="7" fill="white" />
+        <path d="m268 116 11-25 11 25h-22Z" fill="#DDA587" />
+        <path d="M279 115v17m-10 0h20" stroke="#AE7454" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      <circle cx="168" cy="113" r="13" fill="#FE6100" />
+      <path d="M168 106v14m-7-7h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SalesEmptyArtwork() {
+  return (
+    <svg className={styles.salesEmptyArtwork} viewBox="0 0 260 126" fill="none" aria-hidden="true">
+      <path d="M23 88c19-16 40-21 63-18 31 3 41-28 80-33 35-4 50 23 72 51 10 13-4 29-25 29H47C22 117 11 101 23 88Z" fill="#FFF0E9" />
+      <path d="M54 109c-3-19-12-25-19-28 0 13 5 23 19 28Zm0 0c1-23 9-30 18-35 0 15-5 27-18 35Z" fill="#67988A" />
+      <path d="M47 109h17l-3 12H50l-3-12Z" fill="#FE6100" />
+      <rect x="76" y="31" width="147" height="89" rx="9" fill="white" stroke="#4B5874" strokeWidth="2" />
+      <path d="M77 47h145" stroke="#4B5874" strokeWidth="2" />
+      <circle cx="89" cy="39" r="2" fill="#4B5874" /><circle cx="98" cy="39" r="2" fill="#4B5874" /><circle cx="107" cy="39" r="2" fill="#4B5874" />
+      <rect x="89" y="64" width="34" height="39" rx="4" fill="#E8EAF0" />
+      <rect x="132" y="64" width="34" height="39" rx="4" fill="#E8EAF0" />
+      <rect x="175" y="64" width="34" height="39" rx="4" fill="#E8EAF0" />
+      <circle cx="240" cy="94" r="2" fill="#5B6B87" /><circle cx="249" cy="84" r="2" fill="#5B6B87" /><circle cx="247" cy="104" r="2" fill="#5B6B87" />
+    </svg>
+  );
+}
+
+function OrdersEmptyArtwork() {
+  return (
+    <svg className={styles.smallArtwork} viewBox="0 0 150 105" fill="none" aria-hidden="true">
+      <ellipse cx="75" cy="88" rx="64" ry="15" fill="#F0F1F5" />
+      <path d="m48 45 28-13 28 13-28 12-28-12Z" fill="white" stroke="#303B56" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M48 45v34l28 14V57L48 45Zm56 0v34L76 93V57l28-12Z" fill="white" stroke="#303B56" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="m63 39 28 12M89 51v12" stroke="#303B56" strokeWidth="2.5" />
+      <path d="m115 28 8-7m-18 9 2-12m17 25 11-1" stroke="#FE6100" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProductsEmptyArtwork() {
+  return (
+    <svg className={styles.smallArtwork} viewBox="0 0 150 105" fill="none" aria-hidden="true">
+      <ellipse cx="75" cy="89" rx="64" ry="15" fill="#F0F1F5" />
+      <path d="M50 45h50l5 47H45l5-47Z" fill="white" stroke="#303B56" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M62 53V38c0-10 5-16 13-16s13 6 13 16v15" stroke="#303B56" strokeWidth="3" strokeLinecap="round" />
+      <path d="m113 35 9-7m-4 18 12-1m-18-22 3-11" stroke="#FE6100" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SalesSeriesChart({ series, currency }: Readonly<{
+  series: readonly Readonly<{ startsAt: string; revenueCents: number }>[];
+  currency: string;
+}>) {
+  const width = 700;
+  const height = 220;
+  const left = 86;
+  const right = 18;
+  const top = 12;
+  const bottom = 30;
+  const plotHeight = height - top - bottom;
+  const max = Math.max(1, ...series.map((point) => point.revenueCents));
+  const x = (index: number) => left + index * (width - left - right) / Math.max(1, series.length - 1);
+  const y = (value: number) => top + (1 - value / max) * plotHeight;
+  const points = series.map((point, index) => `${x(index)},${y(point.revenueCents)}`).join(" ");
+  const ticks = [...new Set([0, Math.floor((series.length - 1) / 2), series.length - 1])];
+  return (
+    <>
+      <svg className={styles.seriesChart} data-dashboard-chart="sales" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Dönemlik satış gelirleri" aria-describedby="dashboard-sales-series-description">
+        <desc id="dashboard-sales-series-description">{series.map((point) => `${formatSeriesLabel(point.startsAt)}: ${formatMoney(point.revenueCents, currency)}`).join("; ")}</desc>
+        {[0, .5, 1].map((fraction) => <g key={fraction}>
+          <line x1={left} x2={width - right} y1={top + fraction * plotHeight} y2={top + fraction * plotHeight} stroke="var(--dash-line)" />
+          <text x={left - 9} y={top + fraction * plotHeight + 4} textAnchor="end" className={styles.chartAxisLabel}>{formatAxisMoney(Math.round(max * (1 - fraction)))}</text>
+        </g>)}
+        <polyline points={points} fill="none" stroke="var(--dash-brand)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {series.map((point, index) => <circle key={`${point.startsAt}-${index}`} cx={x(index)} cy={y(point.revenueCents)} r={series.length > 22 ? 2 : 3} fill="var(--dash-brand)"><title>{`${formatSeriesLabel(point.startsAt)}: ${formatMoney(point.revenueCents, currency)}`}</title></circle>)}
+        {ticks.map((index) => <text key={index} x={x(index)} y={height - 5} textAnchor={index === 0 ? "start" : index === series.length - 1 ? "end" : "middle"} className={styles.chartAxisLabel}>{formatSeriesLabel(series[index].startsAt)}</text>)}
+      </svg>
+      <ol className={styles.mobileSeriesList} aria-label="Seçili dönemdeki satış gelirleri">
+        {series.map((point, index) => <li key={`${point.startsAt}-${index}`}><time dateTime={point.startsAt}>{formatSeriesLabel(point.startsAt)}</time><strong>{formatMoney(point.revenueCents, currency)}</strong></li>)}
+      </ol>
+    </>
+  );
 }
 
 function DashboardLiveVisitors({ enabled }: Readonly<{ enabled: boolean }>) {
@@ -241,7 +353,7 @@ function DashboardKpiGrid({ metrics }: Readonly<{ metrics: readonly DashboardKpi
       {metrics.map((metric) => {
         const Icon = metric.icon;
         return (
-          <article key={metric.key} className={styles.kpiCard}>
+          <article key={metric.key} className={styles.kpiCard} data-metric={metric.key}>
             <span className={styles.kpiIcon} aria-hidden="true"><Icon /></span>
             <div><span>{metric.label}</span>{metric.loading ? <span className={styles.metricSkeleton} aria-hidden="true" /> : <strong>{metric.value}</strong>}<small>{metric.detail}</small></div>
           </article>
@@ -255,25 +367,17 @@ function SalesChartCard({ analytics, state, period, onRetry }: Readonly<{ analyt
   const hasSales = Boolean(analytics && (analytics.revenueCents > 0 || analytics.series.some((point) => point.revenueCents > 0)));
   return (
     <article className={`${styles.panelCard} ${styles.salesCard}`}>
-      <header className={styles.cardHeader}><div><h2>Satış Grafiği</h2><p>{PERIOD_LABELS[period]} ödenmiş sipariş geliri</p></div><strong>{analytics ? formatMoney(analytics.revenueCents, analytics.currency) : "—"}</strong></header>
-      <div className={styles.salesChart} role="img" aria-label="Satış grafiği; seçili dönemde ödenmiş sipariş gelirini gösterir">
+      <header className={styles.cardHeader}><span className={styles.sectionIcon} aria-hidden="true"><BarChart3 /></span><div><h2>Satış ritmi</h2><p>{PERIOD_LABELS[period]} ödenmiş sipariş geliri</p></div><strong>{analytics ? formatMoney(analytics.revenueCents, analytics.currency) : "—"}</strong></header>
+      <div className={styles.salesChart} role="group" aria-label="Satış grafiği; seçili dönemde ödenmiş sipariş gelirini gösterir">
         {state === "loading" ? <div className={styles.chartSkeleton} role="status"><span />Satış verisi yükleniyor…</div> : null}
         {state === "error" || state === "unsupported" ? <div className={styles.chartError} role="alert"><div><strong>Satış verisi alınamıyor</strong><span>Diğer dashboard bölümleri çalışmaya devam ediyor.</span></div><SummaryRetryButton onRetry={onRetry} /></div> : null}
         {state === "loaded" && analytics ? (
           hasSales && analytics.series.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={analytics.series} accessibilityLayer margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
-                  <CartesianGrid stroke="#E7E2DD" vertical={false} />
-                  <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={(value) => formatMoney(Number(value), analytics.currency)} axisLine={false} tickLine={false} width={76} />
-                  <Tooltip labelFormatter={(value) => typeof value === "string" ? formatSeriesLabel(value) : ""} formatter={(value) => [formatMoney(Number(value), analytics.currency), "Satış"]} />
-                  <Line type="monotone" dataKey="revenueCents" stroke="#FE6100" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <SalesSeriesChart series={analytics.series} currency={analytics.currency} />
               <p className={styles.chartSummary}>{formatRange(analytics.rangeStart, analytics.rangeEnd)} arasında {analytics.orders.paid.toLocaleString("tr-TR")} ödenmiş siparişten {formatMoney(analytics.revenueCents, analytics.currency)} gelir.</p>
             </>
-          ) : <div className={styles.emptyState}><BarChart3 aria-hidden="true" /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ödenmiş sipariş oluştuğunda grafik burada görünür.</span></div>
+          ) : <div className={styles.emptyState}><SalesEmptyArtwork /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ödenmiş sipariş oluştuğunda grafik burada görünür.</span></div>
         ) : null}
       </div>
     </article>
@@ -309,7 +413,36 @@ function OrderStatusCard({ dashboard, state }: Readonly<{ dashboard: MerchantDas
 type DashboardTask = Readonly<{ key: string; label: string; detail: string; href: string; actionLabel: string }>;
 type TaskState = "loading" | "loaded" | "partial-loading" | "partial-error" | "error" | "unsupported";
 
-function ActionItemsCard({ onRetry, state, tasks }: Readonly<{ onRetry: () => void; state: TaskState; tasks: readonly DashboardTask[] }>) {
+function FocusBanner({ task, taskState, hasStorefront }: Readonly<{ task?: DashboardTask; taskState: TaskState; hasStorefront: boolean }>) {
+  const pendingSetup = !hasStorefront;
+  const copy = pendingSetup
+    ? { title: "Mağazanızı yayına hazırlayın", detail: "Satış kanalınızı bağlayarak mağazanızı kullanıma açın.", href: "/setup", action: "Kurulumu tamamla" }
+    : task?.key === "media"
+      ? { title: `Vitrininizde ${task.label.split(" ")[0]} ürün görsel bekliyor`, detail: "Görselleri tamamlayarak ürünlerinizi yayına hazırlayın.", href: task.href, action: "Ürünlere git" }
+      : task?.key === "orders"
+        ? { title: `İşlem bekleyen ${task.label.split(" ")[0]} siparişiniz var`, detail: "Bekleyen siparişleri gözden geçirerek müşterilerinizi bilgilendirin.", href: task.href, action: "Siparişlere git" }
+        : task?.key === "stock"
+          ? { title: task.label, detail: task.detail, href: task.href, action: "Ürünlere git" }
+          : task?.key === "carts"
+            ? { title: task.label, detail: "Sepetleri inceleyerek geri kazanım fırsatlarını görün.", href: task.href, action: "Sepetlere git" }
+            : taskState === "loaded"
+              ? { title: "Mağazanızın nabzını buradan izleyin", detail: "Yeni siparişler ve satış hareketleri oluştukça burada görünecek.", href: "/analytics", action: "Analizleri gör" }
+              : taskState === "loading" || taskState === "partial-loading"
+                ? { title: "Mağaza verileri hazırlanıyor", detail: "Güncel işlemler yüklendikçe öncelikli işiniz burada görünecek.", href: "/products", action: "Ürünlere git" }
+                : { title: "Mağaza verileri şu anda alınamıyor", detail: "Ürün kataloğunuzdan çalışmaya devam edebilir veya aşağıdan yeniden deneyebilirsiniz.", href: "/products", action: "Ürünlere git" };
+  return (
+    <section className={styles.focusBanner} aria-label="Öncelikli mağaza işi">
+      <div className={styles.focusCopy}>
+        <h2>{task?.key === "media" && !pendingSetup ? <>Vitrininizde <em>{task.label.split(" ")[0]} ürün</em> görsel bekliyor</> : copy.title}</h2>
+        <p>{copy.detail}</p>
+        <Link href={copy.href}>{copy.action}<ArrowRight aria-hidden="true" /></Link>
+      </div>
+      <FocusArtwork />
+    </section>
+  );
+}
+
+function ActionItemsCard({ analyticsState, onRetry, state, tasks }: Readonly<{ analyticsState: OptionalLoadState; onRetry: () => void; state: TaskState; tasks: readonly DashboardTask[] }>) {
   const notice = state === "loading"
     ? "Operasyon sinyalleri yükleniyor…"
     : state === "partial-loading"
@@ -322,8 +455,9 @@ function ActionItemsCard({ onRetry, state, tasks }: Readonly<{ onRetry: () => vo
   const isLoading = state === "loading" || state === "partial-loading";
   return (
     <aside className={`${styles.panelCard} ${styles.actionItemsCard}`} aria-labelledby="attention-title">
-      <header className={styles.cardHeader}><div><h2 id="attention-title">Yapılacaklar</h2><p>Gerçek operasyon sinyalleri</p></div><span>{tasks.length}</span></header>
-      {tasks.length > 0 ? <ul className={styles.attentionList}>{tasks.map((task) => <li key={task.key}><div><strong>{task.label}</strong><small>{task.detail}</small></div><Link href={task.href} aria-label={task.actionLabel}><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : null}
+      <header className={styles.cardHeader}><div><h2 id="attention-title">Mağaza durumu</h2><p>Yapılacaklar ve canlı veriler</p></div>{tasks.length > 0 ? <span>{tasks.length}</span> : null}</header>
+      {tasks.length > 0 ? <ul className={styles.attentionList}>{tasks.map((task) => <li key={task.key}><span className={styles.attentionIcon} aria-hidden="true">{task.key === "media" ? <Package /> : task.key === "orders" ? <ShoppingBag /> : task.key === "stock" ? <Store /> : <Users />}</span><div><strong>{task.label}</strong><small>{task.detail}</small></div><Link href={task.href} aria-label={task.actionLabel}><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : null}
+      {analyticsState === "error" || analyticsState === "unsupported" ? <div className={styles.dataNotice}><span className={styles.dataNoticeIcon} aria-hidden="true"><Activity /></span><div><strong>Canlı veri alınamıyor</strong><small>Satış analizleri şu anda gösterilemiyor.</small></div></div> : null}
       {notice ? <div className={styles.taskNotice} role={isLoading ? "status" : "alert"}><span>{notice}</span>{isLoading ? null : <SummaryRetryButton onRetry={onRetry} />}</div> : null}
       {tasks.length === 0 && state === "loaded" ? <p className={styles.attentionEmpty}>Şu anda acil işlem görünmüyor.</p> : null}
     </aside>
@@ -350,7 +484,7 @@ function RecentOrdersCard({ orders, state, onRetry }: Readonly<{ orders: readonl
               <td data-label="Tarih"><time dateTime={order.createdAt}>{formatOrderDate(order.createdAt)}</time></td>
             </tr>)}</tbody>
           </table></div>
-        ) : <p className={styles.inlineState}>Henüz sipariş bulunmuyor.</p>
+        ) : <div className={styles.emptyState}><OrdersEmptyArtwork /><strong>Henüz sipariş bulunmuyor.</strong><span>Siparişleriniz oluştuğunda burada listelenecek.</span></div>
       ) : null}
     </section>
   );
@@ -364,7 +498,7 @@ function TopProductsCard({ analytics, state }: Readonly<{ analytics?: AnalyticsV
       {state === "error" || state === "unsupported" ? <p className={styles.inlineState}>En çok satan ürünler şu anda kullanılamıyor.</p> : null}
       {state === "loaded" && analytics ? (
         analytics.topProducts.length > 0 ? <ol className={styles.productList}>{analytics.topProducts.slice(0, 5).map((product, index) => <li key={product.productId}><span className={styles.productRank}>{index + 1}</span><span className={styles.productThumb} aria-hidden="true"><Package /></span><div><strong>{product.title}</strong><small>{product.quantity.toLocaleString("tr-TR")} adet</small></div><span>{formatMoney(product.revenueCents, analytics.currency)}</span></li>)}</ol>
-          : <div className={styles.emptyState}><PackageCheck aria-hidden="true" /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ürün satışı oluştuğunda liste burada görünür.</span></div>
+          : <div className={styles.emptyState}><ProductsEmptyArtwork /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ürün satışı oluştuğunda liste burada görünür.</span></div>
       ) : null}
     </section>
   );
@@ -427,16 +561,22 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     { key: "customers", label: "Yeni müşteri", value: analytics ? analytics.customers.newInPeriod.toLocaleString("tr-TR") : "—", detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState), icon: Users, loading: analyticsState === "loading" },
     { key: "conversion", label: "Dönüşüm oranı", value: "—", detail: "Canlı veri alınamıyor", icon: Percent, loading: false },
   ];
+  const storefront = props.dashboard.chromeCards.find(({ key }) => key === "storefront");
+  const focusTask = tasks.find((task) => task.key === "media") ?? tasks[0];
 
   return (
     <PanelPageShell>
       <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton></div>} />
-      <DashboardKpiGrid metrics={metrics} />
-      <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><OrderStatusCard dashboard={props.dashboard} state={props.ordersState ?? (orders ? "loaded" : "unsupported")} /><ActionItemsCard tasks={tasks} state={taskState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
-      <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>
-      <StoreStatusBar dashboard={props.dashboard} analytics={analytics} analyticsState={analyticsState} />
-      <DashboardInsights dashboard={props.dashboard} analytics={analytics} customersState={props.customersState ?? (props.dashboard.customers.state === "ready" ? "loaded" : "unsupported")} cartsState={props.cartsState ?? (carts ? "loaded" : "unsupported")} />
-      <DashboardQuickActions />
+      <div className={styles.dashboardPage}>
+        <header className={styles.pageIntro}><h1>Mağazanın nabzı</h1><p>Önce önemli işlere odaklanın.</p></header>
+        <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />
+        <DashboardKpiGrid metrics={metrics} />
+        <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><ActionItemsCard tasks={tasks} state={taskState} analyticsState={analyticsState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
+        <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>
+        <div className={styles.detailGrid}><OrderStatusCard dashboard={props.dashboard} state={props.ordersState ?? (orders ? "loaded" : "unsupported")} /><StoreStatusBar dashboard={props.dashboard} analytics={analytics} analyticsState={analyticsState} /></div>
+        <DashboardInsights dashboard={props.dashboard} analytics={analytics} customersState={props.customersState ?? (props.dashboard.customers.state === "ready" ? "loaded" : "unsupported")} cartsState={props.cartsState ?? (carts ? "loaded" : "unsupported")} />
+        <DashboardQuickActions />
+      </div>
     </PanelPageShell>
   );
 }

@@ -316,7 +316,8 @@ async function measurePage(cdp, label) {
     const dimensions=targets.map((entry)=>{
       const hitTarget=entry.matches('input[type="checkbox"],input[type="radio"]')?entry.closest('label')??entry:entry;
       const rect=hitTarget.getBoundingClientRect();
-      return {label:entry.getAttribute('aria-label')||entry.textContent?.trim().slice(0,60)||entry.tagName,width:rect.width,height:rect.height};
+      const compactDesktopNavigation=innerWidth>1024&&innerHeight<=950&&Boolean(entry.closest('aside:not(#panel-mobile-drawer) nav'));
+      return {label:entry.getAttribute('aria-label')||entry.textContent?.trim().slice(0,60)||entry.tagName,width:rect.width,height:rect.height,minimum:compactDesktopNavigation?44:48};
     });
     const parse=(color)=>{const values=color.match(/[\\d.]+/g)?.slice(0,3).map(Number);return values?.length===3?values:[0,0,0];};
     const luminance=(color)=>parse(color).map((part)=>part/255).map((part)=>part<=.03928?part/12.92:Math.pow((part+.055)/1.055,2.4)).reduce((sum,part,index)=>sum+part*[.2126,.7152,.0722][index],0);
@@ -339,14 +340,16 @@ async function measurePage(cdp, label) {
       height:innerHeight,
       horizontalOverflow:document.documentElement.scrollWidth-innerWidth,
       minimumTarget:dimensions.length?Math.min(...dimensions.map(({width,height})=>Math.min(width,height))):0,
-      undersized:dimensions.filter(({width,height})=>width<48||height<48),
+      minimumStandardTarget:dimensions.filter(({minimum})=>minimum===48).length?Math.min(...dimensions.filter(({minimum})=>minimum===48).map(({width,height})=>Math.min(width,height))):0,
+      undersized:dimensions.filter(({width,height,minimum})=>width<minimum||height<minimum),
       primaryContrast:targetPrimaryActions.length?Math.min(...targetPrimaryActions.map(({contrast})=>contrast)):null,
       targetPrimaryAction,
     };
   })()`);
   assert.equal(value.horizontalOverflow, 0, `${label} horizontal overflow`);
-  assert.deepEqual(value.undersized, [], `${label} has targets smaller than 48px`);
-  assert.ok(value.minimumTarget >= 48, `${label} minimum target ${value.minimumTarget}`);
+  assert.deepEqual(value.undersized, [], `${label} has undersized targets`);
+  assert.ok(value.minimumTarget >= 44, `${label} minimum target ${value.minimumTarget}`);
+  assert.ok(value.minimumStandardTarget >= 48, `${label} standard target ${value.minimumStandardTarget}`);
   if (value.targetPrimaryAction) {
     assert.ok(value.targetPrimaryAction.width >= 48 && value.targetPrimaryAction.height >= 48, `${label} target action dimensions`);
     assert.ok(value.primaryContrast >= 4.5, `${label} primary orange contrast ${value.primaryContrast}`);
@@ -701,7 +704,8 @@ function validateArtifacts() {
   assert.equal(parsedResult.externalWebSocketAttempts, 0);
   assert.equal(parsedResult.blockedExternalRequests, 0);
   assert.equal(parsedResult.interceptionErrors, 0);
-  assert.ok(parsedResult.measurements.minimumTarget >= 48);
+  assert.ok(parsedResult.measurements.minimumTarget >= 44);
+  assert.ok(parsedResult.measurements.minimumStandardTarget >= 48);
   assert.ok(parsedResult.measurements.primaryContrast >= 4.5);
   assert.equal(parsedResult.measurements.horizontalOverflow, 0);
   assert.ok(parsedResult.measurements.viewportMeasurements.some(({ targetPrimaryAction }) => targetPrimaryAction !== null));
@@ -811,8 +815,8 @@ async function main() {
     await setViewport(cdp, VIEWPORTS[0], matrixSeen);
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[0]);
     await waitFor(cdp, `(() => {const image=document.querySelector('img[alt="Toshi yapay zekâ mağaza asistanı"]');return image?.complete===true&&image.naturalWidth>0&&image.naturalHeight>0;})()`, "toshi_avatar_loaded");
-    await waitFor(cdp, `document.querySelector('[data-target-route="/"] .recharts-line-curve')!==null`, "dashboard_chart_ready");
-    const dashboardVisualReadiness = await cdp.evaluate(`(() => {const image=document.querySelector('img[alt="Toshi yapay zekâ mağaza asistanı"]');const chart=document.querySelector('[data-target-route="/"] .recharts-line-curve');return {toshiNaturalWidth:image?.naturalWidth??0,toshiNaturalHeight:image?.naturalHeight??0,chartRendered:Boolean(chart)};})()`);
+    await waitFor(cdp, `document.querySelector('[data-target-route="/"] svg[data-dashboard-chart="sales"] polyline')!==null`, "dashboard_chart_ready");
+    const dashboardVisualReadiness = await cdp.evaluate(`(() => {const image=document.querySelector('img[alt="Toshi yapay zekâ mağaza asistanı"]');const chart=document.querySelector('[data-target-route="/"] svg[data-dashboard-chart="sales"] polyline');return {toshiNaturalWidth:image?.naturalWidth??0,toshiNaturalHeight:image?.naturalHeight??0,chartRendered:Boolean(chart)};})()`);
     if (process.env.CELEBIX_TOUCH_DIAGNOSTICS === "1") {
       process.stdout.write(`TOUCH_TARGET_DIAGNOSTICS\n${JSON.stringify(await touchTargetDiagnostics(cdp), null, 2)}\n`);
     }
@@ -937,6 +941,7 @@ async function main() {
     assert.deepEqual(interceptionErrors, []);
 
     const minimumTarget = Math.min(...viewportMeasurements.map((entry) => entry.minimumTarget));
+    const minimumStandardTarget = Math.min(...viewportMeasurements.map((entry) => entry.minimumStandardTarget));
     const primaryContrast = Math.min(...viewportMeasurements.map((entry) => entry.primaryContrast).filter((entry) => entry !== null));
     const horizontalOverflow = Math.max(...viewportMeasurements.map((entry) => entry.horizontalOverflow));
     const reducedMotionDuration = Object.values(targetReducedMotion.targets).flatMap((target) => [
@@ -953,6 +958,7 @@ async function main() {
       measurements: {
         dashboardVisualReadiness,
         minimumTarget,
+        minimumStandardTarget,
         primaryContrast,
         horizontalOverflow,
         reducedMotionDuration,

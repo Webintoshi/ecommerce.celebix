@@ -978,3 +978,673 @@
   .quickAction,
   .quickActionPrimary { transition: none; }
 }
+
+/* Mira dashboard: one calm canvas, one focus action, and open data sections. */
+.dashboardPage {
+  --dash-brand: #FE6100;
+  --dash-ink: #20283F;
+  --dash-muted: #62708A;
+  --dash-line: #DFE4ED;
+  --dash-surface: #FFFDFC;
+  --dash-soft: #F4F5F8;
+  min-width: 0;
+  color: var(--dash-ink);
+}
+
+.pageIntro {
+  margin: 0 0 12px;
+}
+
+.pageIntro h1,
+.pageIntro p {
+  margin: 0;
+}
+
+.pageIntro h1 {
+  color: var(--dash-ink);
+  font-size: clamp(24px, 2.1vw, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.pageIntro p {
+  margin-top: 4px;
+  color: var(--dash-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.focusBanner {
+  position: relative;
+  display: flex;
+  min-height: 172px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #2B2B2B;
+  color: #FFFDFC;
+  padding: 24px 32px;
+}
+
+.focusBanner::before {
+  position: absolute;
+  inset: 0 0 0 44%;
+  background: #303031;
+  clip-path: polygon(36% 0, 100% 0, 100% 100%, 0 100%);
+  content: "";
+}
+
+.focusCopy {
+  position: relative;
+  z-index: 1;
+  max-width: min(72%, 720px);
+}
+
+.focusCopy h2 {
+  position: relative;
+  margin: 0;
+  padding-left: 20px;
+  color: #FFFDFC;
+  font-size: clamp(19px, 1.75vw, 25px);
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.025em;
+}
+
+.focusCopy h2::before {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--dash-brand);
+  content: "";
+}
+
+.focusCopy h2 em {
+  color: var(--dash-brand);
+  font-style: normal;
+}
+
+.focusCopy p {
+  margin: 8px 0 16px 20px;
+  color: #E3E3E6;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.focusCopy a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-left: 20px;
+  border-radius: 9px;
+  background: var(--dash-brand);
+  color: var(--dash-ink);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.focusCopy a svg {
+  width: 16px;
+  height: 16px;
+}
+
+.focusArtwork {
+  position: absolute;
+  right: 32px;
+  bottom: 0;
+  width: min(31%, 310px);
+  height: auto;
+}
+
+.focusCopy a:focus-visible,
+.dashboardTopbarActions a:focus-visible,
+.quickAction:focus-visible,
+.quickActionPrimary:focus-visible,
+.attentionList a:focus-visible,
+.textAction:focus-visible,
+.statusAction:focus-visible,
+.retryButton:focus-visible,
+.periodFilter:focus-within,
+.orderLink:focus-visible {
+  outline: 2px solid var(--dash-brand, #FE6100);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+.dashboardTopbarActions a {
+  border-color: #DDE2EB;
+  background: #FFFFFF;
+  color: #252B3C;
+}
+
+.kpiGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 16px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--dash-line);
+  border-radius: 12px;
+  background: var(--dash-surface);
+}
+
+.kpiCard,
+.panelCard {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kpiCard {
+  min-height: 110px;
+  gap: 12px;
+  padding: 16px;
+}
+
+.kpiCard + .kpiCard {
+  border-left: 1px solid var(--dash-line);
+}
+
+.kpiIcon {
+  width: 52px;
+  height: 52px;
+  flex-basis: 52px;
+  background: rgb(254 97 0 / 10%);
+  color: var(--dash-brand);
+}
+
+.kpiCard .kpiIcon {
+  color: var(--dash-brand);
+}
+
+.kpiIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.kpiCard > div {
+  gap: 3px;
+}
+
+.kpiCard span,
+.kpiCard small {
+  color: var(--dash-muted);
+  font-size: 12px;
+}
+
+.kpiCard strong {
+  color: var(--dash-ink);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.metricSkeleton,
+.chartSkeleton span {
+  background: #ECEEF3;
+  animation: none;
+}
+
+.primaryGrid,
+.operationsGrid {
+  gap: 0;
+  margin: 24px 0 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--dash-line);
+}
+
+.primaryGrid {
+  grid-template-columns: minmax(0, 1.36fr) minmax(300px, 0.9fr);
+}
+
+.operationsGrid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.salesCard,
+.recentOrders {
+  padding: 0 24px 0 0;
+}
+
+.actionItemsCard,
+.topProducts {
+  border-left: 1px solid var(--dash-line);
+  padding: 0 0 0 24px;
+}
+
+.cardHeader {
+  min-height: 44px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cardHeader > div {
+  flex: 1 1 auto;
+  gap: 3px;
+}
+
+.cardHeader h2 {
+  color: var(--dash-ink);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.cardHeader p {
+  color: var(--dash-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cardHeader > strong {
+  color: var(--dash-ink);
+  font-size: 14px;
+}
+
+.sectionIcon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  color: var(--dash-brand);
+}
+
+.sectionIcon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.salesChart {
+  min-height: 220px;
+}
+
+.seriesChart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.mobileSeriesList {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chartAxisLabel {
+  fill: var(--dash-muted);
+  font-size: 11px;
+}
+
+.chartSkeleton,
+.chartError,
+.emptyState,
+.inlineState {
+  min-height: 205px;
+  color: var(--dash-muted);
+  font-size: 14px;
+}
+
+.emptyState {
+  align-content: center;
+  gap: 5px;
+  padding: 8px 0;
+}
+
+.emptyState strong {
+  color: var(--dash-ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.emptyState span {
+  color: var(--dash-muted);
+  font-size: 13px;
+}
+
+.emptyState .salesEmptyArtwork {
+  width: min(260px, 74%);
+  height: auto;
+  margin-bottom: 4px;
+}
+
+.emptyState .smallArtwork {
+  width: 150px;
+  height: 105px;
+  margin-bottom: 2px;
+}
+
+.chartSummary {
+  color: var(--dash-muted);
+  font-size: 12px;
+}
+
+.actionItemsCard .cardHeader > span {
+  flex: 0 0 auto;
+  background: var(--dash-brand);
+  color: #FFFFFF;
+}
+
+.attentionList li {
+  grid-template-columns: 48px minmax(0, 1fr) 44px;
+  gap: 12px;
+  min-height: 72px;
+  border-top: 0;
+  border-bottom: 1px solid var(--dash-line);
+  padding: 8px 0;
+}
+
+.attentionIcon,
+.dataNoticeIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(254 97 0 / 10%);
+  color: var(--dash-brand);
+}
+
+.attentionIcon svg,
+.dataNoticeIcon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.attentionList strong,
+.dataNotice strong {
+  overflow: visible;
+  color: var(--dash-ink);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-overflow: unset;
+  white-space: normal;
+}
+
+.attentionList small,
+.dataNotice small {
+  color: var(--dash-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.attentionList a {
+  width: 44px;
+  height: 44px;
+  color: var(--dash-brand);
+}
+
+.dataNotice {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  border-bottom: 1px solid var(--dash-line);
+  padding: 8px 0;
+}
+
+.dataNotice > div {
+  display: grid;
+  gap: 3px;
+}
+
+.dataNoticeIcon {
+  background: #EEE9FB;
+  color: #594B8F;
+}
+
+.attentionEmpty {
+  min-height: 120px;
+  color: var(--dash-muted);
+  font-size: 13px;
+}
+
+.taskNotice {
+  border-color: var(--dash-line);
+  color: var(--dash-muted);
+  font-size: 12px;
+}
+
+.textAction {
+  margin-left: auto;
+  color: var(--dash-ink);
+  font-size: 13px;
+}
+
+.textAction svg {
+  color: var(--dash-brand);
+}
+
+.recentOrdersTable {
+  min-width: 580px;
+  color: var(--dash-ink);
+  font-size: 12px;
+}
+
+.recentOrdersTable th,
+.recentOrdersTable td {
+  border-color: var(--dash-line);
+  padding: 8px 5px;
+}
+
+.recentOrdersTable th {
+  color: var(--dash-muted);
+  font-size: 11px;
+}
+
+.orderLink {
+  min-height: 2.75rem;
+  color: var(--dash-ink);
+}
+
+.productList li {
+  border-color: var(--dash-line);
+}
+
+.productList strong,
+.productList li > span:last-child {
+  color: var(--dash-ink);
+  font-size: 13px;
+}
+
+.productList small {
+  color: var(--dash-muted);
+  font-size: 12px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  margin: 24px 0 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--dash-line);
+}
+
+.detailGrid .orderStatusCard {
+  border-right: 1px solid var(--dash-line);
+  padding-right: 24px;
+}
+
+.orderStatusBody {
+  min-height: 140px;
+}
+
+.orderRing svg {
+  max-width: 112px;
+}
+
+.storeStatusBar {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.insightGrid {
+  gap: 24px;
+  margin: 24px 0 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--dash-line);
+}
+
+.insightCard + .insightCard {
+  border-left: 1px solid var(--dash-line);
+  padding-left: 24px;
+}
+
+.insightCard dl div {
+  border-left-color: var(--dash-line);
+}
+
+.quickActions {
+  gap: 0;
+  margin: 24px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--dash-line);
+  border-radius: 10px;
+  background: var(--dash-surface);
+}
+
+.quickAction,
+.quickActionPrimary {
+  min-height: 76px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--dash-ink);
+  transform: none;
+}
+
+.quickAction + .quickAction,
+.quickActionPrimary + .quickAction {
+  border-left: 1px solid var(--dash-line);
+}
+
+.quickAction > svg:first-child,
+.quickActionPrimary > svg:first-child,
+.quickAction > svg:last-child,
+.quickActionPrimary > svg:last-child {
+  color: var(--dash-brand);
+}
+
+.quickActionPrimary small,
+.quickAction small {
+  color: var(--dash-muted);
+}
+
+.quickAction:hover,
+.quickActionPrimary:hover {
+  border-color: transparent;
+  background: #F7F8FA;
+  transform: none;
+}
+
+@media (max-width: 1180px) {
+  .primaryGrid { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); }
+  .actionItemsCard { grid-column: auto; }
+  .attentionList { display: block; }
+  .operationsGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (max-width: 1024px) {
+  .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpiCard:nth-child(3) { border-left: 0; border-top: 1px solid var(--dash-line); }
+  .kpiCard:nth-child(4) { border-top: 1px solid var(--dash-line); }
+  .primaryGrid, .operationsGrid, .detailGrid, .insightGrid { grid-template-columns: 1fr; }
+  .salesCard, .recentOrders { padding: 0 0 24px; border-bottom: 1px solid var(--dash-line); }
+  .actionItemsCard, .topProducts { border-left: 0; padding: 24px 0 0; }
+  .detailGrid .orderStatusCard { border-right: 0; border-bottom: 1px solid var(--dash-line); padding: 0 0 24px; }
+  .insightCard + .insightCard { border-left: 0; border-top: 1px solid var(--dash-line); padding: 24px 0 0; }
+  .quickActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quickAction:nth-child(3) { border-left: 0; border-top: 1px solid var(--dash-line); }
+  .quickAction:nth-child(4) { border-top: 1px solid var(--dash-line); }
+}
+
+@media (max-width: 720px) {
+  .focusBanner { min-height: 180px; padding: 20px; }
+  .focusCopy { max-width: 78%; }
+  .focusArtwork { right: -12px; width: 38%; opacity: 0.8; }
+  .focusCopy h2 { font-size: 20px; }
+  .focusCopy p { font-size: 13px; }
+}
+
+@media (max-width: 640px) {
+  .seriesChart { min-height: 170px; }
+  .seriesChart text { display: none; }
+  .mobileSeriesList {
+    display: grid;
+    max-height: 160px;
+    overflow-y: auto;
+    border-top: 1px solid var(--dash-line);
+    padding: 4px 0;
+  }
+  .mobileSeriesList li {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--dash-line);
+    color: var(--dash-muted);
+    font-size: 12px;
+  }
+  .mobileSeriesList li:last-child { border-bottom: 0; }
+  .mobileSeriesList strong { color: var(--dash-ink); font-size: 13px; }
+}
+
+@media (max-width: 520px) {
+  .pageIntro h1 { font-size: 24px; }
+  .pageIntro p { font-size: 14px; }
+  .focusBanner { min-height: 210px; align-items: flex-start; }
+  .focusCopy { max-width: 100%; }
+  .focusCopy h2 { padding-right: 30px; font-size: 19px; }
+  .focusCopy p { max-width: 88%; }
+  .focusArtwork { right: -45px; bottom: -18px; width: 47%; opacity: 0.42; }
+  .kpiCard { min-height: 100px; gap: 8px; padding: 12px; }
+  .kpiIcon { width: 34px; height: 34px; flex-basis: 34px; }
+  .kpiIcon svg { width: 18px; height: 18px; }
+  .kpiCard strong { font-size: 20px; }
+  .kpiCard strong { overflow-wrap: anywhere; text-overflow: unset; white-space: normal; }
+  .kpiCard span, .kpiCard small { font-size: 11px; }
+  .cardHeader h2 { font-size: 17px; }
+  .cardHeader > strong { font-size: 13px; }
+  .seriesChart { min-height: 170px; }
+  .quickActions { grid-template-columns: 1fr; }
+  .quickAction, .quickActionPrimary { border-left: 0 !important; border-top: 1px solid var(--dash-line); }
+  .quickActionPrimary { border-top: 0; }
+}
+
+@media (max-width: 390px) {
+  .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .focusBanner { padding: 16px; }
+  .focusCopy h2 { padding-left: 16px; font-size: 18px; }
+  .focusCopy p, .focusCopy a { margin-left: 16px; }
+  .kpiCard { flex-direction: column; align-items: flex-start; }
+  .kpiIcon { width: 32px; height: 32px; flex-basis: 32px; }
+  .detailGrid, .primaryGrid, .operationsGrid, .insightGrid { max-width: 100%; }
+  .insightCard dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metricSkeleton, .chartSkeleton span { animation: none; }
+  .quickAction, .quickActionPrimary { transition: none; }
+}
