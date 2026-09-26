@@ -24,5 +24,5 @@
 .saveBar .primary { border-color: #2B2B2B; color: #FFFFFF; background: #2B2B2B; }
 .saveBar button:disabled { opacity: .5; cursor: not-allowed; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); }
-@media(max-width:1024px) { .section { grid-template-columns: 145px minmax(0,1fr); gap: 24px; } .fields { gap: 20px; } }
+@media(max-width:1024px) { .saveBar { bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); } .section { grid-template-columns: 145px minmax(0,1fr); gap: 24px; } .fields { gap: 20px; } }
 @media(max-width:700px) { .section { grid-template-columns: 1fr; gap: 18px; padding: 24px 0; } .sectionLabel { display: flex; align-items: center; justify-content: space-between; gap: 16px; } .sectionLabel h2 { margin: 0; } .sectionLabel img { width: 90px; height: 60px; } .fields { grid-template-columns: 1fr; } .saveBar { padding-block: 14px; } }
