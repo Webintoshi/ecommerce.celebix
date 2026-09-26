@@ -222,6 +222,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/32 .+$/gm,
     completion: /^32\/32 PASS$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/in-store-cashier-role/postgres-harness.mjs",
+    total: 7,
+    line: /^PASS \d+ .+$/gm,
+    completion: /^IN_STORE_CASHIER_ROLE_POSTGRESQL16_COMPLETE 7\/7$/m,
+  }),
 ]);
 const gateRank = Object.freeze({
   "provider-execution-foundation": 0,
@@ -263,8 +269,7 @@ function runRequiredHarness({
   completion,
   transformTypes = false,
 }) {
-  const result = spawnSync(
-    process.execPath,
+  const result = spawnSync(process.execPath,
     [...(transformTypes ? ["--experimental-transform-types"] : []), file],
     {
       cwd: ROOT,
