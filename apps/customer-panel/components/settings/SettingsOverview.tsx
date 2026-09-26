@@ -28,7 +28,7 @@ export function SettingsOverview({ embedded = false }: { embedded?: boolean }) {
   return <PanelPageShell embedded={embedded}>
     <PanelPageHeader title="Ayarlar" embedded={embedded} />
     <div className={styles.hubToolbar}>
-      <label className={styles.search}><Search size={18} aria-hidden="true" /><span className={styles.srOnly}>Ayarlarda ara</span><input ref={search} type="search" placeholder="Ayarlarda ara" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <label className={styles.search}><Search size={18} aria-hidden="true" /><span className={styles.srOnly}>Ayarlarda ara</span><input ref={search} type="search" aria-label="Ayarlarda ara" placeholder="Ayarlarda ara" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
         {query ? <button type="button" aria-label="Aramayı temizle" onClick={() => { setQuery(""); search.current?.focus(); }}><X size={16} aria-hidden="true" /></button> : <kbd>/</kbd>}
       </label>
       <span className={styles.resultCount} role="status">{normalized ? `${groups.reduce((count, group) => count + group.items.length, 0)} sonuç` : null}</span>

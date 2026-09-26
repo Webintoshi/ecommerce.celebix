@@ -1,4 +1,5 @@
 import { getToshiFixture, postToshiFixture } from "../toshi-fixture.ts";
+import { getSettingsPresentationFixture, postSettingsPresentationFixture } from "../settings-presentation-fixture";
 
 const NOW = "2026-07-24T12:00:00.000Z";
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
@@ -214,6 +215,8 @@ export async function GET(
   context: { params: Promise<{ slug: string[] }> },
 ) {
   const slug = await route(context);
+  const settings = getSettingsPresentationFixture(slug);
+  if (settings) return settings;
   const toshi = getToshiFixture(slug);
   if (toshi) return toshi;
   const search = new URL(request.url).searchParams;
@@ -300,7 +303,9 @@ export async function GET(
 }
 
 export async function POST(request: Request, context: { params: Promise<{ slug: string[] }> }) {
-  return postToshiFixture(request, await route(context));
+  const slug = await route(context);
+  const settings = await postSettingsPresentationFixture(slug, request);
+  return settings ?? postToshiFixture(request, slug);
 }
 
 export async function PATCH(

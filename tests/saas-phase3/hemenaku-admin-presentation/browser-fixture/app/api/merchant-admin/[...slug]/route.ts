@@ -1,4 +1,5 @@
 import { merchantAdminConfig } from "@celebix/saas-data";
+import { getSettingsMerchantFixture, postSettingsMerchantFixture } from "../../settings-presentation-fixture";
 
 const NOW = "2026-07-22T19:00:00.000Z";
 const RECORD = "71000000-0000-4000-8000-000000000001";
@@ -46,6 +47,8 @@ async function segments(context: { params: Promise<{ slug: string[] }> }) { retu
 export async function GET(_request: Request, context: { params: Promise<{ slug: string[] }> }) {
   const slug = await segments(context);
   const route = slug.join("/");
+  const settings = getSettingsMerchantFixture(route);
+  if (settings) return settings;
   const providerMatch = /^(records|events|provider-jobs)\/([^/]+)$/.exec(route);
   if (providerMatch && Object.hasOwn(PROVIDER_RECORDS, providerMatch[2]!)) {
     const kind = providerMatch[2] as ProviderRecordKind;
@@ -61,7 +64,10 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
 }
 
 export async function POST(request: Request, context: { params: Promise<{ slug: string[] }> }) {
-  const slug = await segments(context), body = await request.json().catch(() => null);
+  const slug = await segments(context);
+  const settings = await postSettingsMerchantFixture(slug.join("/"), request);
+  if (settings) return settings;
+  const body = await request.json().catch(() => null);
   if (slug.join("/") === "records/seo_product_entry") {
     const operationId = request.headers.get("idempotency-key");
     if (
