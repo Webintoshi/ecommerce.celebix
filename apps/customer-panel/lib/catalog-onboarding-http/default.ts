@@ -17,6 +17,7 @@ export const handleDefaultCatalogOnboardingOptions = handlers.getOptions;
 export const handleDefaultCatalogOnboardingCreateProduct = handlers.createProduct;
 export const handleDefaultCatalogOnboardingListCategories = handlers.listCategories;
 export const handleDefaultCatalogOnboardingCreateCategory = handlers.createCategory;
+export const handleDefaultCatalogOnboardingReorderCategories = handlers.reorderCategories;
 export async function handleDefaultCatalogOnboardingGetCategoryProductOrder(request: Request, context: Readonly<{ params: Promise<Readonly<{ categoryId: string }>> }>) {
   return handlers.getCategoryProductOrder(request, (await context.params).categoryId);
 }

@@ -29,6 +29,7 @@ import {
   readCatalogCategoryArchiveInput,
   readCatalogCategoryDeletionInput,
   readCatalogCategoryProductOrderInput,
+  readCatalogCategoryOrderInput,
 } from "./request-input.ts";
 
 export const CATALOG_ONBOARDING_OPTIONS_PATH = "/api/catalog/onboarding/options";
@@ -268,6 +269,17 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
       const authorized = await authorize(dependencies, request, { method: "GET", pathname: CATALOG_ONBOARDING_CATEGORIES_PATH }, "catalog_admin.read");
       if (isResponse(authorized)) return authorized;
       return execute(() => authorized.runtime.onboarding.listCategories({ tenantContext: authorized.tenantContext, now: authorized.now }));
+    },
+
+    async reorderCategories(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${CATALOG_ONBOARDING_CATEGORIES_PATH}/order` }, "catalog_admin.manage");
+      if (isResponse(authorized)) return authorized;
+      const input = await readCatalogCategoryOrderInput(request);
+      if (input.kind !== "valid") return error("invalid_input", 400);
+      return execute(() => authorized.runtime.onboarding.reorderCategories({
+        tenantContext: authorized.tenantContext, now: authorized.now,
+        operationId: input.operationId, groups: input.groups,
+      }));
     },
 
     async getCategoryProductOrder(request: Request, rawCategoryId: unknown): Promise<Response> {

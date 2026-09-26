@@ -252,7 +252,13 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)','EXECUTE')
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
-        AND has_function_privilege('celebix_saas_app','saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS catalog_category_repository,
+        AND has_function_privilege('celebix_saas_app','saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE')
+        AND to_regclass('saas.catalog_category_order_operations') IS NOT NULL
+        AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='saas.catalog_categories'::regclass AND attname='image_asset_id' AND NOT attisdropped)
+        AND to_regprocedure('saas.catalog_reorder_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_reorder_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,jsonb)','EXECUTE')
+        AND to_regprocedure('saas.catalog_recover_category_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.catalog_recover_category_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)','EXECUTE') AS catalog_category_repository,
       to_regclass('saas.catalog_category_product_order_state') IS NOT NULL
         AND to_regclass('saas.catalog_category_product_order_operations') IS NOT NULL
         AND to_regprocedure('saas.catalog_get_category_product_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL
@@ -988,7 +994,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogOnboardingRepository(access, createPostCommitInvalidatingRepository(catalogOnboardingRepository, {
       createProduct: ["catalog"], updateMerchandising: ["catalog"], publishAfterMedia: ["catalog"],
       createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"], deleteCategory: ["settings"],
-      reorderCategoryProducts: ["catalog"],
+      reorderCategoryProducts: ["catalog"], reorderCategories: ["catalog"],
     }));
     registerServerOrderRepository(access, orderRepository);
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {

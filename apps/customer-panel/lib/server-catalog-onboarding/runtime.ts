@@ -17,7 +17,7 @@ export type ServerCatalogOnboardingRuntime = Readonly<{
 const repositories = new WeakMap<ServerPanelAccessRuntime, CatalogOnboardingRepository>();
 const METHODS = Object.freeze([
   "getOptions", "createProduct", "getProductEditor", "updateMerchandising", "publishAfterMedia",
-  "listCategories", "getCategoryProductOrder", "reorderCategoryProducts", "createCategory", "updateCategory", "archiveCategory", "getCategoryDeletionImpact", "deleteCategory",
+  "listCategories", "reorderCategories", "getCategoryProductOrder", "reorderCategoryProducts", "createCategory", "updateCategory", "archiveCategory", "getCategoryDeletionImpact", "deleteCategory",
 ] as const);
 
 function invalid(): never { throw new Error("server_catalog_onboarding_runtime_invalid"); }
@@ -31,6 +31,7 @@ function facade(repository: CatalogOnboardingRepository): CatalogOnboardingRepos
     updateMerchandising: (input) => repository.updateMerchandising(input),
     publishAfterMedia: (input) => repository.publishAfterMedia(input),
     listCategories: (input) => repository.listCategories(input),
+    reorderCategories: (input) => repository.reorderCategories(input),
     getCategoryProductOrder: (input) => repository.getCategoryProductOrder(input),
     reorderCategoryProducts: (input) => repository.reorderCategoryProducts(input),
     createCategory: (input) => repository.createCategory(input),

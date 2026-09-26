@@ -24,7 +24,7 @@ function sessionAuthority() {
 
 function repository(): CatalogOnboardingRepository {
   const reject = async () => { throw new Error("unused"); };
-  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, getCategoryProductOrder: reject, reorderCategoryProducts: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject } as CatalogOnboardingRepository;
+  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, reorderCategories: reject, getCategoryProductOrder: reject, reorderCategoryProducts: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject } as CatalogOnboardingRepository;
 }
 
 test("approved access resolves only the frozen onboarding facade", () => {
@@ -35,7 +35,7 @@ test("approved access resolves only the frozen onboarding facade", () => {
   assert.equal(runtime.access, access);
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.onboarding), true);
-  assert.deepEqual(Object.keys(runtime.onboarding).sort(), ["archiveCategory", "createCategory", "createProduct", "deleteCategory", "getCategoryDeletionImpact", "getCategoryProductOrder", "getOptions", "getProductEditor", "listCategories", "publishAfterMedia", "reorderCategoryProducts", "updateCategory", "updateMerchandising"]);
+  assert.deepEqual(Object.keys(runtime.onboarding).sort(), ["archiveCategory", "createCategory", "createProduct", "deleteCategory", "getCategoryDeletionImpact", "getCategoryProductOrder", "getOptions", "getProductEditor", "listCategories", "publishAfterMedia", "reorderCategories", "reorderCategoryProducts", "updateCategory", "updateMerchandising"]);
   for (const key of ["pool", "options", "database", "connectionString"]) assert.equal(key in runtime.onboarding, false);
 });
 

@@ -6,12 +6,16 @@ import {
   parseCatalogCategoryFields,
   parseCatalogCategoryList,
   parseCatalogCategoryMutationResult,
+  parseCatalogCategoryOrderFields,
+  parseCatalogCategoryOrderResult,
   parsePermanentDeletionCommand,
   parsePermanentDeletionImpact,
   parsePermanentDeletionResult,
   type CatalogCategory,
   type CatalogCategoryFields,
   type CatalogCategoryMutationResult,
+  type CatalogCategoryOrderFields,
+  type CatalogCategoryOrderResult,
   type CatalogOnboardingIntent,
   type CatalogOnboardingOptions,
   type CatalogOnboardingResourceIds,
@@ -29,6 +33,7 @@ const API_CODES = Object.freeze([
   "durable_authority_invalid", "product_limit_reached", "product_not_found", "catalog_conflict",
   "sku_conflict",
   "category_not_found", "category_in_use",
+  "order_membership_changed", "order_limit_exceeded",
   "version_conflict", "invalid_transition", "media_incomplete", "operation_mismatch", "operation_not_found",
   "origin_denied", "method_not_allowed",
   "invalid_confirmation",
@@ -47,6 +52,8 @@ const MESSAGES: Readonly<Record<CatalogOnboardingApiErrorCode, string>> = Object
   product_not_found: "Ürün bulunamadı veya artık erişilemiyor.",
   category_not_found: "Kategori bulunamadı veya artık erişilemiyor.",
   category_in_use: "Kategori alt kategorilerde veya etkin ürünlerde kullanılıyor.",
+  order_membership_changed: "Kategori listesi değişti. Yenileyip sıralamayı tekrar düzenleyin.",
+  order_limit_exceeded: "Bu kategori listesi sıralama sınırını aşıyor.",
   catalog_conflict: "Ürün bilgileri veya barkod mağazadaki başka bir kayıtla çakışıyor. Alanları kontrol edin.",
   sku_conflict: "Bu SKU mağazada başka bir üründe kullanılıyor.",
   version_conflict: "Ürün sizden önce güncellendi. Sayfayı yenileyin.",
@@ -121,6 +128,7 @@ async function responseJson(response: Response): Promise<unknown> {
 export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID }>) {
   const fetchImpl = options?.fetch ?? ((input, init) => fetch(input, init));
   const randomUUID = options?.randomUUID ?? (() => crypto.randomUUID());
+  const pendingCategoryOperations = new Map<string, string>();
 
   async function request(path: string, init: RequestInit): Promise<unknown> {
     let response: Response;
@@ -140,6 +148,43 @@ export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch
       headers: { "content-type": "application/json", "idempotency-key": operationId },
       body: JSON.stringify(body),
     });
+  }
+
+  async function categoryMutation<T>(
+    path: string,
+    method: "POST" | "PATCH",
+    body: unknown,
+    parser: (value: unknown) => T,
+  ): Promise<T> {
+    const payload = JSON.stringify(body);
+    if (typeof payload !== "string") throw new TypeError("catalog_onboarding_client_invalid");
+    const pendingKey = `${method} ${path}\n${payload}`;
+    let operationId = pendingCategoryOperations.get(pendingKey);
+    if (operationId === undefined) {
+      operationId = randomUUID();
+      if (!UUID.test(operationId)) throw new TypeError("catalog_onboarding_client_invalid");
+      pendingCategoryOperations.set(pendingKey, operationId);
+    }
+    try {
+      const response = await request(path, {
+        method,
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "idempotency-key": operationId },
+        body: payload,
+      });
+      let parsed: T;
+      try { parsed = parser(response); }
+      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+      // Only a fully validated result proves the operation completed. A lost or
+      // malformed response retains the same proof for an exact user retry.
+      pendingCategoryOperations.delete(pendingKey);
+      return parsed;
+    } catch (error) {
+      if (error instanceof CatalogOnboardingApiError && error.code !== "unavailable") {
+        pendingCategoryOperations.delete(pendingKey);
+      }
+      throw error;
+    }
   }
 
   return Object.freeze({
@@ -194,32 +239,33 @@ export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch
       catch { throw new CatalogOnboardingApiError("unavailable", 503); }
     },
 
+    async reorderCategories(input: CatalogCategoryOrderFields): Promise<CatalogCategoryOrderResult> {
+      let fields: CatalogCategoryOrderFields;
+      try { fields = parseCatalogCategoryOrderFields(input); }
+      catch { throw new TypeError("catalog_onboarding_client_invalid"); }
+      return categoryMutation("/api/catalog/onboarding/categories/order", "POST", fields, parseCatalogCategoryOrderResult);
+    },
+
     async createCategory(fields: CatalogCategoryFields): Promise<CatalogCategoryMutationResult> {
       let parsed: CatalogCategoryFields;
       try { parsed = parseCatalogCategoryFields(fields); }
       catch { throw new TypeError("catalog_onboarding_client_invalid"); }
-      const body = await mutation("/api/catalog/onboarding/categories", "POST", parsed);
-      try { return parseCatalogCategoryMutationResult(body); }
-      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+      return categoryMutation("/api/catalog/onboarding/categories", "POST", parsed, parseCatalogCategoryMutationResult);
     },
 
     async updateCategory(categoryId: string, input: Readonly<{ expectedVersion: number; fields: CatalogCategoryFields }>): Promise<CatalogCategoryMutationResult> {
       let fields: CatalogCategoryFields;
       try { fields = parseCatalogCategoryFields(input.fields); }
       catch { throw new TypeError("catalog_onboarding_client_invalid"); }
-      const body = await mutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}`, "PATCH", {
+      return categoryMutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}`, "PATCH", {
         expectedVersion: positiveInteger(input.expectedVersion), fields,
-      });
-      try { return parseCatalogCategoryMutationResult(body); }
-      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+      }, parseCatalogCategoryMutationResult);
     },
 
     async archiveCategory(categoryId: string, expectedVersion: number): Promise<CatalogCategoryMutationResult> {
-      const body = await mutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}/archive`, "POST", {
+      return categoryMutation(`/api/catalog/onboarding/categories/${selectedId(categoryId)}/archive`, "POST", {
         expectedVersion: positiveInteger(expectedVersion),
-      });
-      try { return parseCatalogCategoryMutationResult(body); }
-      catch { throw new CatalogOnboardingApiError("unavailable", 503); }
+      }, parseCatalogCategoryMutationResult);
     },
 
     async getCategoryDeletionImpact(categoryId: string): Promise<Readonly<PermanentDeletionImpact>> {

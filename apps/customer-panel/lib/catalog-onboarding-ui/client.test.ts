@@ -155,3 +155,86 @@ test("category permanent deletion reads exact impact and sends one caller-bound 
   assert.equal(calls[0]?.init?.cache, "no-store");
   assert.equal(new Headers(calls[1]?.init?.headers).get("idempotency-key"), OPERATION);
 });
+
+test("category reorder uses one atomic endpoint, credentials, and idempotency key", async () => {
+  const groups = [{ orderedCategoryIds: [PRODUCT], expectedVersions: [{ categoryId: PRODUCT, version: 3 }] }];
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const client = createCatalogOnboardingClient({ randomUUID: () => OPERATION, async fetch(input, init) {
+    calls.push({ input, init }); return Response.json({ categories: [], replayed: false });
+  } });
+  assert.deepEqual(await client.reorderCategories({ groups }), { categories: [], replayed: false });
+  assert.equal(calls[0]?.input, "/api/catalog/onboarding/categories/order");
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(calls[0]?.init?.credentials, "same-origin");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), OPERATION);
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ groups }));
+  await assert.rejects(client.reorderCategories({ groups: [groups[0]!, groups[0]!] }), /catalog_onboarding_client_invalid/);
+  assert.equal(calls.length, 1);
+});
+
+function categoryMutationReply(replayed = false) {
+  return { category: { id: PRODUCT, name: "Kupalar", slug: "kupalar", position: 1, depth: 1, status: "active", version: 2, createdAt: NOW, updatedAt: NOW }, replayed };
+}
+
+for (const operation of ["create", "update", "order"] as const) {
+  test(`category ${operation} reuses the exact proof after a lost response and releases it on parsed success`, async () => {
+    let generated = 0;
+    const calls: RequestInit[] = [];
+    const client = createCatalogOnboardingClient({
+      randomUUID: () => `70000000-0000-4000-8000-${String(++generated).padStart(12, "0")}`,
+      async fetch(_input, init) {
+        calls.push(init ?? {});
+        if (calls.length === 1) throw new TypeError("first response lost after commit");
+        return Response.json(operation === "order" ? { categories: [], replayed: true } : categoryMutationReply(true));
+      },
+    });
+    const save = () => operation === "create" ? client.createCategory({ name: "Kupalar", position: 1 })
+      : operation === "update" ? client.updateCategory(PRODUCT, { expectedVersion: 1, fields: { name: "Kupalar", position: 1 } })
+        : client.reorderCategories({ groups: [{ orderedCategoryIds: [PRODUCT], expectedVersions: [{ categoryId: PRODUCT, version: 1 }] }] });
+    await assert.rejects(save(), (error: unknown) => error instanceof CatalogOnboardingApiError && error.code === "unavailable");
+    await save();
+    assert.equal(generated, 1);
+    assert.equal(new Headers(calls[0]?.headers).get("idempotency-key"), new Headers(calls[1]?.headers).get("idempotency-key"));
+    assert.equal(calls[0]?.body, calls[1]?.body);
+    await save();
+    assert.equal(generated, 2);
+    assert.notEqual(new Headers(calls[1]?.headers).get("idempotency-key"), new Headers(calls[2]?.headers).get("idempotency-key"));
+  });
+}
+
+test("changed category payload receives a new proof while the original pending proof survives", async () => {
+  let generated = 0;
+  const calls: RequestInit[] = [];
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => `70000000-0000-4000-8000-${String(++generated).padStart(12, "0")}`,
+    async fetch(_input, init) { calls.push(init ?? {}); throw new TypeError("lost response"); },
+  });
+  await assert.rejects(client.createCategory({ name: "Kupalar", position: 1 }));
+  await assert.rejects(client.createCategory({ name: "Bardaklar", position: 1 }));
+  await assert.rejects(client.createCategory({ name: "Kupalar", position: 1 }));
+  assert.equal(generated, 2);
+  assert.equal(calls[0]?.body, calls[2]?.body);
+  assert.equal(new Headers(calls[0]?.headers).get("idempotency-key"), new Headers(calls[2]?.headers).get("idempotency-key"));
+  assert.notEqual(new Headers(calls[0]?.headers).get("idempotency-key"), new Headers(calls[1]?.headers).get("idempotency-key"));
+});
+
+test("malformed success retains category proof but a permanent API rejection clears it", async () => {
+  let generated = 0;
+  const calls: RequestInit[] = [];
+  const client = createCatalogOnboardingClient({
+    randomUUID: () => `70000000-0000-4000-8000-${String(++generated).padStart(12, "0")}`,
+    async fetch(_input, init) {
+      calls.push(init ?? {});
+      if (calls.length === 1) return Response.json({ category: "malformed" });
+      if (calls.length === 2) return Response.json({ code: "version_conflict" }, { status: 409 });
+      return Response.json(categoryMutationReply());
+    },
+  });
+  const save = () => client.updateCategory(PRODUCT, { expectedVersion: 1, fields: { name: "Kupalar", position: 1 } });
+  await assert.rejects(save(), (error: unknown) => error instanceof CatalogOnboardingApiError && error.code === "unavailable");
+  await assert.rejects(save(), (error: unknown) => error instanceof CatalogOnboardingApiError && error.code === "version_conflict");
+  await save();
+  assert.equal(generated, 2);
+  assert.equal(new Headers(calls[0]?.headers).get("idempotency-key"), new Headers(calls[1]?.headers).get("idempotency-key"));
+  assert.notEqual(new Headers(calls[1]?.headers).get("idempotency-key"), new Headers(calls[2]?.headers).get("idempotency-key"));
+});

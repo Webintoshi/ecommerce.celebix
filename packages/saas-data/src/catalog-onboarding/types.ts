@@ -3,6 +3,8 @@ import type {
   CatalogCategory,
   CatalogCategoryFields,
   CatalogCategoryMutationResult,
+  CatalogCategoryOrderFields,
+  CatalogCategoryOrderResult,
   CatalogOnboardingOptions,
   CatalogOnboardingResourceIds,
   CatalogOnboardingResult,
@@ -57,6 +59,7 @@ export interface CatalogOnboardingRepository {
   updateMerchandising(input: UpdateCatalogMerchandisingInput): Promise<CatalogOnboardingResult>;
   publishAfterMedia(input: PublishCatalogAfterMediaInput): Promise<CatalogOnboardingResult>;
   listCategories(input: CatalogOnboardingAuthorityInput): Promise<readonly CatalogCategory[]>;
+  reorderCategories(input: ReorderCatalogCategoriesInput): Promise<CatalogCategoryOrderResult>;
   getCategoryProductOrder(input: GetCatalogCategoryInput): Promise<CatalogCategoryProductOrder>;
   reorderCategoryProducts(input: ReorderCatalogCategoryProductsInput): Promise<CatalogCategoryProductOrderResult>;
   createCategory(input: CreateCatalogCategoryInput): Promise<CatalogCategoryMutationResult>;
@@ -68,6 +71,10 @@ export interface CatalogOnboardingRepository {
 
 export interface GetCatalogCategoryInput extends CatalogOnboardingAuthorityInput {
   readonly categoryId: string;
+}
+
+export interface ReorderCatalogCategoriesInput extends CatalogOnboardingAuthorityInput, CatalogCategoryOrderFields {
+  readonly operationId: string;
 }
 
 export type CatalogCategoryProductOrderItem = Readonly<{

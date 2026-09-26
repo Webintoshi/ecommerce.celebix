@@ -106,12 +106,41 @@ export interface CatalogCategory {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly archivedAt?: string;
+  readonly image?: CatalogCategoryImage;
+}
+
+export interface CatalogCategoryImageFields {
+  readonly assetId: string;
+  readonly altText: string;
+}
+
+export interface CatalogCategoryImage extends CatalogCategoryImageFields {
+  readonly publicUrl?: string;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface CatalogCategoryFields {
   readonly name: string;
   readonly parentId?: string;
   readonly position: number;
+  /** Omitted preserves an existing image; null removes the association. */
+  readonly image?: CatalogCategoryImageFields | null;
+}
+
+export interface CatalogCategoryOrderGroup {
+  readonly parentId?: string;
+  readonly orderedCategoryIds: readonly string[];
+  readonly expectedVersions: readonly Readonly<{ categoryId: string; version: number }>[];
+}
+
+export interface CatalogCategoryOrderFields {
+  readonly groups: readonly CatalogCategoryOrderGroup[];
+}
+
+export interface CatalogCategoryOrderResult {
+  readonly categories: readonly CatalogCategory[];
+  readonly replayed: boolean;
 }
 
 export interface CatalogCategoryMutationResult {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCatalogCategoryFields, parseCatalogOnboardingIntent, parsePermanentDeletionCommand, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
+import { parseCatalogCategoryFields, parseCatalogCategoryOrderFields, parseCatalogOnboardingIntent, parsePermanentDeletionCommand, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BODY_LIMIT = 131_072;
@@ -101,6 +101,14 @@ export async function readCatalogCategoryCreateInput(request: Request) {
   const raw = await json(request);
   if (operationId === null || raw === null) return INVALID;
   try { return Object.freeze({ kind: "valid" as const, operationId, fields: parseCatalogCategoryFields(raw) }); }
+  catch { return INVALID; }
+}
+
+export async function readCatalogCategoryOrderInput(request: Request) {
+  const operationId = operation(request);
+  const raw = await json(request);
+  if (operationId === null || raw === null) return INVALID;
+  try { return Object.freeze({ kind: "valid" as const, operationId, ...parseCatalogCategoryOrderFields(raw) }); }
   catch { return INVALID; }
 }
 
