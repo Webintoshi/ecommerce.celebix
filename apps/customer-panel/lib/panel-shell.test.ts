@@ -635,7 +635,7 @@ test("analytics can suppress route copy and right-align its sticky topbar contex
   const layout = await source("components/panel/PanelLayoutClient.tsx");
   const styles = await source("components/panel/panel-shell.module.css");
 
-  assert.match(layout, /const hideTopbarHeading = activeChrome[?][.]hideHeading \?\? pathname === "\/analytics"/);
+  assert.match(layout, /const hideTopbarHeading = activeChrome[?][.]hideHeading \?\? \(pathname === "\/analytics" \|\| pathname === "\/products\/new"\)/);
   assert.match(layout, /hideTopbarHeading \? styles[.]desktopTopbarRight : ""/);
   assert.match(layout, /hideTopbarHeading \? null : \(/);
   assert.match(styles, /[.]desktopTopbarRight\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
@@ -1370,7 +1370,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
     for (const [nextPathname, expectedTitle] of [
       ["/", "Özet"],
       ["/products", "Ürün kataloğu"],
-      ["/products/new", "Yeni ürün oluştur"],
+      ["/products/new", undefined],
       ["/products/product-123", "Ürün ayrıntısı"],
       ["/orders", "Siparişler"],
       ["/orders/quick-links", "Mağaza satışı"],

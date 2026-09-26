@@ -945,7 +945,8 @@ test("product create heading and dense controls use the compact balanced contrac
   const list = await source("components/catalog/ProductListConsole.tsx");
   const styles = await source("app/globals.css");
 
-  assert.match(create, /product-create-heading/);
+  assert.match(create, /<PanelTopbarBridge title="Yeni ürün oluştur" hideHeading/);
+  assert.match(create, /<h1 className=\{styles.srOnly\} id="create-title">Yeni ürün oluştur/);
   assert.doesNotMatch(create, /hemenaku-form-hero|YENİ KAYIT/);
   assert.match(list, /product-stat-grid/);
   assert.match(list, /product-bulk-actions/);
@@ -1307,12 +1308,12 @@ test("quick creation remains bound to the durable onboarding and media workflow"
   assert.match(dialog, /mediaClient\.upload\(productId, input\)/);
   assert.match(dialog, /api\.publishAfterMedia/);
   assert.match(dialog, /api\.getProductEditor/);
-  assert.match(dialog, /outcome\.kind === "draft_media_failed"[\s\S]*setRecovery[\s\S]*Ürün oluşturuldu, bazı görseller yüklenemedi[\s\S]*İkinci yazma yapılmadı/);
+  assert.match(dialog, /outcome\.kind === "draft_media_failed"[\s\S]*setRecovery[\s\S]*Ürün taslağı kaydedildi. Yüklenemeyen görselleri yeniden dene/);
   assert.match(dialog, /Görselleri yeniden yükle/);
   assert.match(dialog, /Ürüne git/);
   assert.match(advanced, /function initialChannelIds/);
   assert.match(advanced, /channel\.kind === "storefront"/);
-  assert.match(advanced, /draftSession\?\.current\.channelIds \?\? initialChannelIds\(options, editor\)/);
+  assert.match(advanced, /draftSession\?\.current\.channelSelectionTouched \|\| draftSession\?\.current\.channelIds.length \? draftSession.current.channelIds : initialChannelIds\(options, editor\)/);
   assert.match(advanced, /outcome\.kind === "draft_media_failed"[\s\S]*onCreated\?\.\(outcome\.result\)/);
   assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.doesNotMatch(`${create}\n${dialog}\n${advanced}`, /nutrition|\/api\/admin|supabase/i);
@@ -1415,7 +1416,7 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);
   assert.match(advanced, /bindBeforeUnload\(window\)/);
-  assert.match(advanced, /onChange=\{markEditingDirty\}/);
+  assert.match(advanced, /onChange=\{\(event\) => \{[\s\S]*?classificationSearch[\s\S]*?markEditingDirty\(\)/);
   assert.match(advanced, /if \(reloaded === false\) return/);
   assert.match(advanced, /onDirtyChange\?\.\(true\)/);
   assert.match(advanced, /Kaydedilmemiş satış ayarı değişiklikleriniz var/);
@@ -1438,12 +1439,14 @@ test("advanced create projects every persisted field into the shared dirty draft
   ]) assert.match(advanced, new RegExp(`${field}:`));
   assert.match(advanced, /createTouchedRef\.current/);
   assert.match(advanced, /onValueChange=\{\(next\) => \{ setDescriptionValue\(next\); markEditingDirty\(\); \}\}/);
-  assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setVariants\(next\); \}\}/);
+  assert.match(advanced, /onChange=\{changeCreateVariants\}/);
+  assert.match(advanced, /function changeCreateVariants[\s\S]*?markEditingDirty\(\)[\s\S]*?setVariants\(next\)/);
   assert.match(advanced, /onChange=\{\(next\) => \{ markEditingDirty\(\); setCategoryIds\(next\); \}\}/);
-  assert.match(advanced, /if \(editing \|\| next === kind\) return/);
-  assert.match(advanced, /Seçili varyantları kaldırıp basit ürüne dönmek istiyor musunuz/);
+  assert.match(advanced, /function applyPendingVariants[\s\S]*?if \(!pendingVariants.length \|\| attributeSavingRef.current\) return/);
+  assert.match(advanced, /removedCount && !window.confirm/);
   assert.match(advanced, /simpleVariantRef\.current = variants\[0\] \?\? emptyVariant\(\)/);
   assert.match(advanced, /setVariants\(\[simpleVariantRef\.current\]\)/);
+  assert.match(advanced, /markEditingDirty\(\);\s*setKind\("variant"\);\s*setVariants\(nextVariants\)/);
 });
 
 test("store selection is omitted when no authorized server projection exists", async () => {
