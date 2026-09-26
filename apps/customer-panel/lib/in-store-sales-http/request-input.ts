@@ -25,10 +25,10 @@ export async function readInStoreMutationInput<K extends InStoreMutationKind>(re
       if(kind==='update')value={expectedVersion,intent:parseInStoreSaleIntent(raw.intent)};
       else if(kind==='hold'){if(typeof raw.held!=='boolean')return null;value={expectedVersion,held:raw.held};}
       else if(kind==='prepare')value={expectedVersion,expectedTotalCents:parseInStoreInteger(raw.expectedTotalCents,1)};
-      else if(kind==='payment'){if(raw.slipReference!==null&&(typeof raw.slipReference!=='string'||raw.slipReference.length<1||raw.slipReference.length>128||raw.slipReference!==raw.slipReference.trim()||/[\u0000-\u001f\u007f]/.test(raw.slipReference)))return null;value={expectedVersion,slipReference:raw.slipReference as string|null};}
+      else if(kind==='payment'){if(raw.slipReference!==null&&(typeof raw.slipReference!=='string'||raw.slipReference.length<1||raw.slipReference.length>100||raw.slipReference!==raw.slipReference.trim()||/[\u0000-\u001f\u007f]/.test(raw.slipReference)))return null;value={expectedVersion,slipReference:raw.slipReference as string|null};}
       else if(kind==='cancel'){if(raw.confirmUnpaid!==true)return null;value={expectedVersion,confirmUnpaid:true};}
       else if(kind==='staff'){
-        if(typeof raw.enabled!=='boolean'||!Array.isArray(raw.locationIds)||raw.locationIds.length>1000)return null;
+        if(typeof raw.enabled!=='boolean'||!Array.isArray(raw.locationIds)||raw.locationIds.length>100)return null;
         const locationIds=raw.locationIds.map(parseInStoreUuid);if(new Set(locationIds).size!==locationIds.length)return null;
         value={expectedVersion,enabled:raw.enabled,locationIds:Object.freeze(locationIds),discountLimitBps:parseInStoreInteger(raw.discountLimitBps,0,9999)};
       }else value={expectedVersion};
@@ -44,7 +44,7 @@ function query(request:Request,allowed:readonly string[]):URLSearchParams|null {
 function searchText(value:string|null,max:number):string|null {return value!==null&&value.length>=1&&value.length<=max&&value===value.trim()&&!/[\u0000-\u001f\u007f]/.test(value)?value:null;}
 export function readInStoreProductsInput(request:Request):Readonly<{locationId:string;barcode?:string;query?:string;limit:number}>|null {
   try{const q=query(request,['locationId','barcode','query','limit']);if(!q||q.has('barcode')===q.has('query'))return null;
-    const key=q.has('barcode')?'barcode':'query';const value=searchText(q.get(key),key==='barcode'?128:200);if(value===null)return null;
+    const key=q.has('barcode')?'barcode':'query';const value=searchText(q.get(key),key==='barcode'?128:100);if(value===null)return null;
     const raw=q.get('limit')??'20';if(!/^(?:[1-9]|1\d|20)$/.test(raw))return null;
     return Object.freeze({locationId:parseInStoreUuid(q.get('locationId')),[key]:value,limit:Number(raw)});
   }catch{return null;}

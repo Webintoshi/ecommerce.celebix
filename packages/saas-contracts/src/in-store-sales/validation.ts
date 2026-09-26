@@ -67,8 +67,8 @@ export function parseInStoreSale(value:unknown):Readonly<InStoreSale> {
   const rawTotals=exactInStoreRecord(r.totals,['subtotalCents','eligibleSubtotalCents','discountCents','totalCents']);
   if(Object.entries(totals).some(([key,total])=>rawTotals[key]!==total)||items.reduce((sum,item)=>sum+BigInt(item.allocatedDiscountCents),0n)!==BigInt(totals.discountCents))bad();
   const createdAt=time(r.createdAt);const updatedAt=time(r.updatedAt);const paymentReceivedAt=nullable(r.paymentReceivedAt,time);const completedAt=nullable(r.completedAt,time);const orderId=nullable(r.orderId,parseInStoreUuid);const orderNumber=nullable(r.orderNumber,v=>text(v,1,64));
-  const paid=status==='payment_received'||status==='completed';const completed=status==='completed';
-  if(new Date(updatedAt)<new Date(createdAt)||paid!==(paymentReceivedAt!==null)||completed!==(completedAt!==null)||completed!==(orderNumber!==null)||(!completed&&orderId!==null)||(paid&&totals.totalCents===0)||(['payment_pending','payment_received','completed'].includes(status)&&items.length===0))bad();
+  const paid=status==='payment_received'||status==='completed';const completed=status==='completed';const paymentStage=status==='payment_pending'||paid;
+  if(new Date(updatedAt)<new Date(createdAt)||paid!==(paymentReceivedAt!==null)||completed!==(completedAt!==null)||completed!==(orderNumber!==null)||(!completed&&orderId!==null)||(paymentStage&&(totals.totalCents===0||items.length===0)))bad();
   if((paymentReceivedAt!==null&&(new Date(paymentReceivedAt)<new Date(createdAt)||new Date(paymentReceivedAt)>new Date(updatedAt)))||(completedAt!==null&&(new Date(completedAt)<new Date(paymentReceivedAt!)||new Date(completedAt)>new Date(updatedAt))))bad();
   return freeze({id:parseInStoreUuid(r.id),saleNumber:text(r.saleNumber,1,64),status:status as InStoreSale['status'],version:parseInStoreInteger(r.version,1),locationId:parseInStoreUuid(r.locationId),locationName:text(r.locationName,1,200),ownerMembershipId:parseInStoreUuid(r.ownerMembershipId),ownerLabel:text(r.ownerLabel,1,320),customerName:nullable(r.customerName,v=>text(v,1,200)),note:nullable(r.note,v=>text(v,1,2000,true)),discount,items,totals,createdAt,updatedAt,paymentReceivedAt,completedAt,orderId,orderNumber});
 }
@@ -89,6 +89,6 @@ export function parseInStoreBootstrap(value:unknown):Readonly<InStoreBootstrap> 
 }
 export function parseInStoreSalePage(value:unknown):Readonly<InStoreSalePage> {const r=exactInStoreRecord(value,['sales','nextCursor']);return freeze({sales:array(r.sales,50,parseInStoreSale),nextCursor:nullable(r.nextCursor,v=>text(v,1,512))});}
 export function parseInStoreStaffGrant(value:unknown):Readonly<InStoreStaffGrant> {
-  const r=exactInStoreRecord(value,['membershipId','label','role','enabled','locationIds','discountLimitBps','version']);const locationIds=array(r.locationIds,1000,parseInStoreUuid);if(new Set(locationIds).size!==locationIds.length)bad();
+  const r=exactInStoreRecord(value,['membershipId','label','role','enabled','locationIds','discountLimitBps','version']);const locationIds=array(r.locationIds,100,parseInStoreUuid);if(new Set(locationIds).size!==locationIds.length)bad();
   return freeze({membershipId:parseInStoreUuid(r.membershipId),label:text(r.label,1,320),role:text(r.role,1,32),enabled:bool(r.enabled),locationIds,discountLimitBps:parseInStoreInteger(r.discountLimitBps,0,9999),version:parseInStoreInteger(r.version,0)});
 }

@@ -16,6 +16,22 @@ test('body size, invalid JSON and wrong encoding fail before command dispatch',a
   assert.equal(await readInStoreMutationInput(request({saleId:id,intent:{...intent,note:'x'.repeat(40000)}}),'create'),null);
   assert.equal(await readInStoreMutationInput(request({expectedVersion:1},{'content-type':'text/plain'}),'complete'),null);
 });
+test('payment slip references accept 100 characters and reject 101 before dispatch',async()=>{
+  const slipReference='x'.repeat(100);
+  assert.deepEqual(await readInStoreMutationInput(request({expectedVersion:1,slipReference}),'payment'),{operationId:id,value:{expectedVersion:1,slipReference}});
+  assert.equal(await readInStoreMutationInput(request({expectedVersion:1,slipReference:'x'.repeat(101)}),'payment'),null);
+});
+test('staff grant commands accept 100 unique locations and reject 101 before dispatch',async()=>{
+  const locationIds=Array.from({length:101},(_,index)=>`11111111-1111-4111-8111-${String(index).padStart(12,'0')}`);
+  const body={expectedVersion:0,enabled:true,locationIds:locationIds.slice(0,100),discountLimitBps:1000};
+  assert.deepEqual(await readInStoreMutationInput(request(body),'staff'),{operationId:id,value:body});
+  assert.equal(await readInStoreMutationInput(request({...body,locationIds}),'staff'),null);
+});
+test('product search accepts 100 characters and rejects 101 before dispatch',()=>{
+  const query='x'.repeat(100);
+  assert.deepEqual(readInStoreProductsInput(new Request(`https://panel.example/api/orders/in-store/products?locationId=${id}&query=${query}`)),{locationId:id,query,limit:20});
+  assert.equal(readInStoreProductsInput(new Request(`https://panel.example/api/orders/in-store/products?locationId=${id}&query=${'x'.repeat(101)}`)),null);
+});
 test('barcode lookup preserves leading zeros and rejects ambiguous query authority',()=>{
   assert.deepEqual(readInStoreProductsInput(new Request(`https://panel.example/api/orders/in-store/products?locationId=${id}&barcode=0012345678905&limit=1`)),{locationId:id,barcode:'0012345678905',limit:1});
   for(const query of [`locationId=${id}&barcode=a&query=b`,`locationId=${id}&barcode=a&barcode=b`,`locationId=${id}&query=x&storeId=${id}`])assert.equal(readInStoreProductsInput(new Request(`https://panel.example/?${query}`)),null);
