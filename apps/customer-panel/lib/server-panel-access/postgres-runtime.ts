@@ -912,6 +912,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       openai: (input, init) => fetch(input, init),
       gemini: (input, init) => fetch(input, init),
       anthropic: (input, init) => fetch(input, init),
+      deepseek: (input, init) => fetch(input, init),
     });
     const iyzicoActivationRepository = new PostgresIyzicoSandboxEvidenceAppRepository({
       pool,

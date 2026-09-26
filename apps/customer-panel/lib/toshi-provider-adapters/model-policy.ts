@@ -129,6 +129,7 @@ export async function fetchOfficialJson(
   }
   if (!(response instanceof Response)) unavailable();
   if (response.status === 401 || response.status === 403) throw new ToshiProviderAdapterError("credential_invalid");
+  if (response.status === 402) throw new ToshiProviderAdapterError("quota_exceeded");
   if (response.status === 429) throw new ToshiProviderAdapterError(await quotaCode(response));
   if (!response.ok) throw new ToshiProviderAdapterError("provider_unavailable");
   return json(response);

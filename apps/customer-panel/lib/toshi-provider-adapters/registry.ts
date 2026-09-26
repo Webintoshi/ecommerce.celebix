@@ -1,6 +1,7 @@
 import { TOSHI_PROVIDERS, type ToshiProvider } from "@celebix/saas-contracts";
 
 import { createAnthropicProviderAdapter } from "./anthropic.ts";
+import { createDeepSeekProviderAdapter } from "./deepseek.ts";
 import { createGeminiProviderAdapter } from "./gemini.ts";
 import { createOpenAIProviderAdapter } from "./openai.ts";
 import {
@@ -22,6 +23,7 @@ export function createToshiProviderAdapterRegistry(fetchers: ToshiProviderFetche
     openai: createOpenAIProviderAdapter(fetchers.openai),
     gemini: createGeminiProviderAdapter(fetchers.gemini),
     anthropic: createAnthropicProviderAdapter(fetchers.anthropic),
+    deepseek: createDeepSeekProviderAdapter(fetchers.deepseek),
   });
   return Object.freeze({
     get(provider: ToshiProvider): ToshiProviderVerificationAdapter {
@@ -32,6 +34,7 @@ export function createToshiProviderAdapterRegistry(fetchers: ToshiProviderFetche
 }
 
 export { createAnthropicProviderAdapter } from "./anthropic.ts";
+export { createDeepSeekProviderAdapter } from "./deepseek.ts";
 export { createGeminiProviderAdapter } from "./gemini.ts";
 export { createOpenAIProviderAdapter } from "./openai.ts";
 export { ToshiProviderAdapterError } from "./types.ts";

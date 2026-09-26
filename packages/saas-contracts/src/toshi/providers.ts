@@ -7,6 +7,7 @@ export const TOSHI_PROVIDERS = Object.freeze([
   "openai",
   "gemini",
   "anthropic",
+  "deepseek",
 ] as const);
 export type ToshiProvider = (typeof TOSHI_PROVIDERS)[number];
 
@@ -58,6 +59,7 @@ const PROVIDER_LABELS: Readonly<Record<ToshiProvider, string>> = Object.freeze({
   openai: "OpenAI",
   gemini: "Google Gemini",
   anthropic: "Anthropic Claude",
+  deepseek: "DeepSeek",
 });
 
 function invalid(): never {

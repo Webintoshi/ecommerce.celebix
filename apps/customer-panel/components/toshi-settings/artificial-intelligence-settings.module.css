@@ -130,7 +130,8 @@
   font-size: 24px;
 }
 
-.anthropic {
+.anthropic,
+.deepseek {
   color: #2B2B2B;
 }
 

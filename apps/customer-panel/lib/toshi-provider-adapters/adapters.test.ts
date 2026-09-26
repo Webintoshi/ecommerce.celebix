@@ -123,6 +123,7 @@ test("registry is complete immutable and rejects provider drift", () => {
     openai: captureJson({ data: [{ id: "gpt-5" }] }),
     gemini: captureJson({ models: [{ name: "models/gemini-2.5-flash", supportedGenerationMethods: ["generateContent"] }] }),
     anthropic: captureJson({ data: [{ id: "claude-sonnet-4-20250514" }], has_more: false, first_id: null, last_id: null }),
+    deepseek: captureJson({ data: [{ id: "deepseek-flash" }] }),
   });
   assert.equal(Object.isFrozen(registry), true);
   assert.equal(registry.get("openai").provider, "openai");

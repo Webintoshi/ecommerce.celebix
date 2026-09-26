@@ -80,11 +80,11 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     await act(async () => button("Niteliklerden ekle").click());
     await act(async () => button("Test kombinasyonu").click());
     const weight = container.querySelector('input[name="measurement-weight"]')!;
-    assert.equal(weight.closest("details")?.open, false);
+    assert.equal(weight.closest("details")?.hasAttribute("open"), false);
     await submit();
     assert.equal(requests.length, 0);
     assert.equal(weight.getAttribute("aria-invalid"), "true");
-    assert.equal(weight.closest("details")?.open, true);
+    assert.equal(weight.closest("details")?.hasAttribute("open"), true);
     assert.match(weight.closest("details")?.textContent ?? "", /üç ondalık/);
     await act(async () => {
       Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype, "value")!.set!.call(weight, "");
@@ -100,7 +100,7 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     await act(async () => button("Test kombinasyonu").click());
     const reopened = container.querySelector('input[name="measurement-weight"]')!;
     assert.equal(reopened.getAttribute("aria-invalid"), null, "opening a fresh batch resets submitted validation");
-    assert.equal(reopened.closest("details")?.open, false);
+    assert.equal(reopened.closest("details")?.hasAttribute("open"), false);
     for (const [key, value] of Object.entries({ weight: "14.89", volume: "250,125", length: "3", width: "2,1", depth: "4.2", height: "0,001", area: "5.55", packageCount: "4" })) {
       const field = container.querySelector(`input[name="measurement-${key}"]`)!;
       await act(async () => {

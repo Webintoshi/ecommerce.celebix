@@ -42,7 +42,7 @@ function keyring(): MerchantProviderCredentialKeyring {
 
 function adapters() {
   const unused = async () => { throw new Error("unused"); };
-  return createToshiProviderAdapterRegistry({ openai: unused, gemini: unused, anthropic: unused });
+  return createToshiProviderAdapterRegistry({ openai: unused, gemini: unused, anthropic: unused, deepseek: unused });
 }
 
 test("runtime registers one immutable provider authority beside panel access", () => {

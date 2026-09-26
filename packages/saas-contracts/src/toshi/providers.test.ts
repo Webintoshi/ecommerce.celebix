@@ -29,8 +29,8 @@ function fixture() {
   };
 }
 
-test("Toshi provider contracts expose only the three official connection families", () => {
-  assert.deepEqual(TOSHI_PROVIDERS, ["openai", "gemini", "anthropic"]);
+test("Toshi provider contracts expose the four supported connection families", () => {
+  assert.deepEqual(TOSHI_PROVIDERS, ["openai", "gemini", "anthropic", "deepseek"]);
   assert.deepEqual(TOSHI_PROVIDER_CONNECTION_STATUSES, ["active", "revoked"]);
   assert.equal(TOSHI_PROVIDER_ERROR_CODES.includes("credential_invalid"), true);
   assert.equal(TOSHI_PROVIDER_ERROR_CODES.includes("quota_exceeded"), true);
@@ -81,4 +81,17 @@ test("Toshi provider list is exact bounded and contains at most one default", ()
   assert.throws(() => parseToshiProviderConnectionList({ items: [openai, { ...gemini, isDefault: true }] }), /toshi_provider_contract_invalid/);
   assert.throws(() => parseToshiProviderConnectionList({ items: [openai, openai] }), /toshi_provider_contract_invalid/);
   assert.throws(() => parseToshiProviderConnectionList({ items: [], next: "secret" }), /toshi_provider_contract_invalid/);
+});
+
+
+test("DeepSeek public state accepts both model aliases with the exact official label", () => {
+  const deepseek = { ...fixture(), provider: "deepseek", label: "DeepSeek", selectedModel: "deepseek-chat",
+    availableModels: [{ id: "deepseek-chat", label: "DeepSeek Chat" }, { id: "deepseek-reasoner", label: "DeepSeek Reasoner" }] };
+  assert.equal(parseToshiProviderConnection(deepseek).provider, "deepseek");
+  assert.equal(parseToshiProviderConnection({ ...deepseek, selectedModel: "deepseek-reasoner" }).selectedModel, "deepseek-reasoner");
+  assert.throws(() => parseToshiProviderConnection({ ...deepseek, label: "Anthropic Claude" }), /toshi_provider_contract_invalid/);
+  const items = [fixture(), { ...fixture(), provider: "gemini", label: "Google Gemini", isDefault: false },
+    { ...fixture(), provider: "anthropic", label: "Anthropic Claude", isDefault: false }, { ...deepseek, isDefault: false }];
+  assert.equal(parseToshiProviderConnectionList({ items }).items.length, 4);
+  assert.throws(() => parseToshiProviderConnectionList({ items: [...items, deepseek] }), /toshi_provider_contract_invalid/);
 });

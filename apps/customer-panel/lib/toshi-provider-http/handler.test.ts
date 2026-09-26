@@ -57,18 +57,21 @@ function request(path: string, method = "GET", value?: unknown, origin = ORIGIN,
 
 function fixture(options: Readonly<{
   role?: "store_owner" | "analyst";
+  provider?: "openai" | "deepseek";
   verify?: (key: Uint8Array) => Promise<Readonly<{ models: typeof MODELS; selectedModel: "gpt-5" }>>;
   identity?: Readonly<{ configId: string; credentialVersion: number; version: number }> | null;
 }> = {}) {
+  const selectedProvider = options.provider ?? "openai";
+  const selectedConnection = selectedProvider === "deepseek" ? { ...CONNECTION, provider: "deepseek" as const, label: "DeepSeek", selectedModel: "deepseek-flash", availableModels: Object.freeze([Object.freeze({ id: "deepseek-flash", label: "DeepSeek-V4.1-Flash" })]) } : CONNECTION;
   const calls: { connect: ConnectToshiProviderInput[]; select: unknown[]; defaults: unknown[]; revoke: unknown[]; verified: string[] } = { connect: [], select: [], defaults: [], revoke: [], verified: [] };
   const reject = async () => { throw new Error("unexpected"); };
   const repository: ToshiProviderRepository = {
-    async list() { return [CONNECTION]; },
+    async list() { return [selectedConnection]; },
     async getConnectionIdentity() { return options.identity ?? null; },
-    async connect(input) { calls.connect.push(input); return { ...CONNECTION, version: input.expectedVersion + 1 }; },
-    async selectModel(input) { calls.select.push(input); return { ...CONNECTION, selectedModel: input.selectedModel, version: input.expectedVersion + 1 }; },
-    async setDefault(input) { calls.defaults.push(input); return { ...CONNECTION, isDefault: true, version: input.expectedVersion + 1 }; },
-    async revoke(input) { calls.revoke.push(input); return { ...CONNECTION, status: "revoked", isDefault: false, version: input.expectedVersion + 1 }; },
+    async connect(input) { calls.connect.push(input); return { ...selectedConnection, version: input.expectedVersion + 1 }; },
+    async selectModel(input) { calls.select.push(input); return { ...selectedConnection, selectedModel: input.selectedModel, version: input.expectedVersion + 1 }; },
+    async setDefault(input) { calls.defaults.push(input); return { ...selectedConnection, isDefault: true, version: input.expectedVersion + 1 }; },
+    async revoke(input) { calls.revoke.push(input); return { ...selectedConnection, status: "revoked", isDefault: false, version: input.expectedVersion + 1 }; },
     getAuthority: reject,
   };
   const runtime = {
@@ -77,10 +80,10 @@ function fixture(options: Readonly<{
     keyring: Object.freeze({ activeKeyId: "staging-key-01", keys: Object.freeze([Object.freeze({ keyId: "staging-key-01", key: new Uint8Array(32).fill(7) })]) }),
     adapters: Object.freeze({
       get(provider: string) {
-        if (provider !== "openai") return Object.freeze({ provider, verify: reject });
-        return Object.freeze({ provider: "openai", async verify(key: Uint8Array) {
+        if (provider !== selectedProvider) return Object.freeze({ provider, verify: reject });
+        return Object.freeze({ provider: selectedProvider, async verify(key: Uint8Array) {
           calls.verified.push(new TextDecoder().decode(key));
-          return options.verify ? options.verify(key) : Object.freeze({ models: MODELS, selectedModel: "gpt-5" as const });
+          return options.verify ? options.verify(key) : Object.freeze({ models: selectedConnection.availableModels, selectedModel: selectedConnection.selectedModel });
         } });
       },
     }),
@@ -236,4 +239,21 @@ test("connect rejects missing session invalid provider content type body size an
   assert.equal(invalidProvider.status, 400);
   assert.equal(selected.calls.connect.length, 0);
   assert.equal(selected.calls.verified.length, 0);
+});
+
+
+test("DeepSeek HTTP connection seals credentials under its own provider and returns only public state", async () => {
+  const selected = fixture({ provider: "deepseek" });
+  const response = await selected.handlers.connect(request("/api/settings/artificial-intelligence/providers/deepseek/connect", "POST", { apiKey: "sk-deepseek-fixture", expectedVersion: 0 }), { params: Promise.resolve({ provider: "deepseek" }) });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.provider, "deepseek");
+  assert.equal(payload.label, "DeepSeek");
+  assert.equal(payload.selectedModel, "deepseek-flash");
+  assert.equal(JSON.stringify(payload).includes("sk-deepseek-fixture"), false);
+  assert.equal(selected.calls.connect.length, 1);
+  const persisted = selected.calls.connect[0]!;
+  assert.equal(persisted.provider, "deepseek");
+  assert.equal(persisted.selectedModel, "deepseek-flash");
+  assert.equal(JSON.stringify(persisted.sealedCredentials).includes("sk-deepseek-fixture"), false);
 });

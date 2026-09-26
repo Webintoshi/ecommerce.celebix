@@ -16,10 +16,11 @@ const PROVIDERS = Object.freeze([
   Object.freeze({ provider: "openai" as const, label: "OpenAI", mark: "◎", tone: "openai" }),
   Object.freeze({ provider: "gemini" as const, label: "Google Gemini", mark: "✦", tone: "gemini" }),
   Object.freeze({ provider: "anthropic" as const, label: "Anthropic Claude", mark: "AI", tone: "anthropic" }),
+  Object.freeze({ provider: "deepseek" as const, label: "DeepSeek", mark: "D", tone: "deepseek" }),
 ]);
 
 type Keys = Readonly<Record<ToshiProvider, string>>;
-const EMPTY_KEYS: Keys = Object.freeze({ openai: "", gemini: "", anthropic: "" });
+const EMPTY_KEYS: Keys = Object.freeze({ openai: "", gemini: "", anthropic: "", deepseek: "" });
 
 function message(error: unknown): string {
   return error instanceof ToshiProviderApiError ? error.message : "İşlem şu anda tamamlanamadı.";

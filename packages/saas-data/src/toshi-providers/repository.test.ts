@@ -127,12 +127,12 @@ function sqlCall(client: Client, name: string) {
 }
 
 test("list projects only public provider state through full tenant authority", async () => {
-  const client = new Client((text) => text.includes("toshi_provider_list")
+  const client = new Client((text) => text.includes("toshi_provider_list_v2")
     ? [{ outcome: "listed", result_payload: { items: [CONNECTION] } }]
     : []);
   const result = await repository(new Pool([client])).list({ tenantContext: tenant(), now: NOW });
   assert.deepEqual(result, [CONNECTION]);
-  assert.deepEqual(sqlCall(client, "toshi_provider_list").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "starter", 2, NOW]);
+  assert.deepEqual(sqlCall(client, "toshi_provider_list_v2").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "starter", 2, NOW]);
   assert.equal(JSON.stringify(result).includes("sealedCredentials"), false);
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
   assert.equal(client.calls[4]?.text, "SET LOCAL ROLE celebix_saas_app");
@@ -205,7 +205,7 @@ test("version conflict rolls back and public parser rejects secret-bearing rows"
   assert.equal(conflict.calls.at(-1)?.text, "ROLLBACK");
   assert.deepEqual(conflict.releases, [undefined]);
 
-  const unsafe = new Client((text) => text.includes("toshi_provider_list")
+  const unsafe = new Client((text) => text.includes("toshi_provider_list_v2")
     ? [{ outcome: "listed", result_payload: { items: [{ ...CONNECTION, sealedCredentials: sealedEnvelope() }] } }]
     : []);
   await assert.rejects(
@@ -248,4 +248,19 @@ test("constructor rejects unsafe timeout or mutable option drift", () => {
     }),
     (error: unknown) => error instanceof ToshiProviderRepositoryError && error.code === "unavailable",
   );
+});
+
+
+test("DeepSeek connections use the existing encrypted tenant RPC and secret-free public parser", async () => {
+  const models = [{ id: "deepseek-chat", label: "DeepSeek Chat" }, { id: "deepseek-reasoner", label: "DeepSeek Reasoner" }];
+  const connection = { ...CONNECTION, provider: "deepseek" as const, label: "DeepSeek", selectedModel: "deepseek-chat", availableModels: models };
+  const client = new Client((text) => text.includes("toshi_provider_connect")
+    ? [{ outcome: "connected", result_payload: connection }] : []);
+  const result = await repository(new Pool([client])).connect({ ...connectInput(), provider: "deepseek", selectedModel: "deepseek-chat", availableModels: models });
+  assert.deepEqual(result, connection);
+  const call = sqlCall(client, "toshi_provider_connect");
+  assert.equal(call.values[10], "deepseek");
+  assert.equal(call.values[11], JSON.stringify(sealedEnvelope()));
+  assert.equal(JSON.stringify(result).includes("sealedCredentials"), false);
+  assert.equal(client.calls[4]?.text, "SET LOCAL ROLE celebix_saas_app");
 });

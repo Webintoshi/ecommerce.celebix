@@ -235,7 +235,7 @@ export class PostgresToshiProviderRepository implements ToshiProviderRepository 
     const parsed = exactToshiInput(input, ["tenantContext", "now"]);
     const authority = toshiAuthority(parsed.tenantContext as never, parsed.now as Date);
     return this.read({
-      text: "SELECT outcome,result_payload FROM saas.toshi_provider_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+      text: "SELECT outcome,result_payload FROM saas.toshi_provider_list_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
       values: authorityValues(authority),
     }, "listed", (value) => {
       try { return parseToshiProviderConnectionList(value).items; } catch { throw unavailable(); }
