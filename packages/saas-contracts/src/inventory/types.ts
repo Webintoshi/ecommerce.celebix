@@ -7,6 +7,7 @@ export const INVENTORY_MOVEMENT_KINDS = Object.freeze([
   "transfer_in",
   "transfer_return",
   "checkout_sale",
+  "in_store_sale",
 ] as const);
 export type InventoryMovementKind = (typeof INVENTORY_MOVEMENT_KINDS)[number];
 

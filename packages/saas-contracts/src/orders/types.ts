@@ -8,7 +8,7 @@ export const ORDER_PAYMENT_STATUSES = Object.freeze([
 ] as const);
 export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number];
 
-export const ORDER_SOURCES = Object.freeze(["storefront", "quick_link", "marketplace", "manual_import", "manual"] as const);
+export const ORDER_SOURCES = Object.freeze(["storefront", "quick_link", "marketplace", "manual_import", "manual", "in_store"] as const);
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
 export const ORDER_EMAIL_EVENT_TYPES = Object.freeze([
@@ -87,8 +87,8 @@ export interface OrderListItem {
   readonly id: string;
   readonly orderNumber: string;
   readonly source: OrderSource;
-  readonly customerName: string;
-  readonly customerEmail: string;
+  readonly customerName: string | null;
+  readonly customerEmail: string | null;
   readonly currency: string;
   readonly totalCents: number;
   readonly status: OrderStatus;
@@ -105,7 +105,7 @@ export interface OrderDetail extends OrderListItem {
   readonly subtotalCents: number;
   readonly shippingCents: number;
   readonly discountCents: number;
-  readonly shippingAddress: Readonly<OrderAddress>;
+  readonly shippingAddress: Readonly<OrderAddress> | null;
   readonly tracking?: Readonly<OrderTracking>;
   readonly items: readonly OrderItem[];
   readonly events: readonly OrderEvent[];

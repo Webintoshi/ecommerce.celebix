@@ -70,6 +70,7 @@ export * from "./barcode-labels/index.ts";
 export * from "./promotions/index.ts";
 export * from "./reference-pricing/index.ts";
 export * from "./deletion/index.ts";
+export * from "./in-store-sales/index.ts";
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";

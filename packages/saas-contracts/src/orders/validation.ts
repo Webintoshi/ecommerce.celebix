@@ -231,12 +231,13 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
   const createdAt = timestamp(parsed.createdAt);
   const updatedAt = timestamp(parsed.updatedAt);
   if (comparableTimestamp(updatedAt) < comparableTimestamp(createdAt)) invalid();
+  const source = status<OrderSource>(parsed.source, ORDER_SOURCES);
   return freeze({
     id: uuid(parsed.id),
     orderNumber: string(parsed.orderNumber, 1, 64),
-    source: status<OrderSource>(parsed.source, ORDER_SOURCES),
-    customerName: string(parsed.customerName, 1, 200),
-    customerEmail: string(parsed.customerEmail, 3, 320),
+    source,
+    customerName: source === 'in_store' && parsed.customerName === null ? null : string(parsed.customerName, 1, 200),
+    customerEmail: source === 'in_store' && parsed.customerEmail === null ? null : string(parsed.customerEmail, 3, 320),
     currency: string(parsed.currency, 3, 3, CURRENCY),
     totalCents: safeInteger(parsed.totalCents, 0),
     status: status<OrderStatus>(parsed.status, ORDER_STATUSES),
@@ -302,7 +303,7 @@ export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
     subtotalCents,
     shippingCents,
     discountCents,
-    shippingAddress: parseAddress(parsed.shippingAddress),
+    shippingAddress: list.source === 'in_store' && parsed.shippingAddress === null ? null : parseAddress(parsed.shippingAddress),
     ...(Object.hasOwn(parsed, "tracking") ? { tracking: parseTracking(parsed.tracking) } : {}),
     items,
     events,

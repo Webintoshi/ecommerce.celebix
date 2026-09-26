@@ -77,6 +77,15 @@ function listItem(overrides: Record<string, unknown> = {}) {
   };
 }
 
+test('only in-store orders accept anonymous customer and no delivery address', () => {
+  const anonymous = detail({source:'in_store',customerName:null,customerEmail:null,shippingAddress:null,shippingCents:0,subtotalCents:13000});
+  assert.equal(parseOrderDetail(anonymous).customerEmail,null);
+  assert.equal(parseOrderDetail(anonymous).shippingAddress,null);
+  for(const source of ['storefront','quick_link','manual']) {
+    assert.throws(()=>parseOrderDetail({...anonymous,source}));
+  }
+});
+
 function detail(overrides: Record<string, unknown> = {}) {
   return {
     ...listItem(),

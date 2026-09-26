@@ -1,6 +1,7 @@
 export const PRICE_CHANNELS = Object.freeze([
   "storefront",
   "quick_order",
+  "in_store",
 ] as const);
 export type PriceChannel = (typeof PRICE_CHANNELS)[number];
 

@@ -45,7 +45,7 @@ function listFixture() {
 }
 
 test("price list contracts export exact frozen finite registries", () => {
-  assert.deepEqual(PRICE_CHANNELS, ["storefront", "quick_order"]);
+  assert.deepEqual(PRICE_CHANNELS, ["storefront", "quick_order", "in_store"]);
   assert.deepEqual(PRICE_LIST_STATUSES, ["draft", "active", "archived"]);
   assert.deepEqual(PRICE_SOURCE_KINDS, ["base", "price_list"]);
   for (const registry of [PRICE_CHANNELS, PRICE_LIST_STATUSES, PRICE_SOURCE_KINDS]) {
@@ -56,6 +56,7 @@ test("price list contracts export exact frozen finite registries", () => {
 test("price rules are finite and cannot carry browser authority", () => {
   assert.throws(() => parsePriceListRule({ ...ruleFixture(), storeId: STORE_ID }));
   assert.throws(() => parsePriceListRule({ ...ruleFixture(), customerSegment: "vip" }));
+  assert.equal(parsePriceListRule({channel:"in_store",priority:0}).channel,"in_store");
   assert.equal(parsePriceListRule({ channel: "quick_order", customerTagId: TAG_ID, priority: 10 }).channel, "quick_order");
   assert.throws(() => parsePriceListRule({ ...ruleFixture(), channel: "browser" }));
   assert.throws(() => parsePriceListRule({ ...ruleFixture(), priority: -1 }));

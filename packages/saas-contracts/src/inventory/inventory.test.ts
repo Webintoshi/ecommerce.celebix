@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+test('in-store inventory deductions remain readable with exact negative quantity',()=>{
+  assert.equal(parseInventoryMovement({id:ID,locationId:LOCATION_ID,variantId:VARIANT_ID,kind:'in_store_sale',quantity:-1,occurredAt:NOW}).kind,'in_store_sale');
+});
 import test from "node:test";
 
 import {
@@ -59,7 +62,7 @@ function lineId(index: number) {
 }
 
 test("inventory contracts export the exact immutable enum registries", () => {
-  assert.deepEqual(INVENTORY_MOVEMENT_KINDS, ["opening", "catalog_adjustment", "purchase_receipt", "count_adjustment", "transfer_out", "transfer_in", "transfer_return", "checkout_sale"]);
+  assert.deepEqual(INVENTORY_MOVEMENT_KINDS, ["opening", "catalog_adjustment", "purchase_receipt", "count_adjustment", "transfer_out", "transfer_in", "transfer_return", "checkout_sale", "in_store_sale"]);
   assert.deepEqual(PURCHASE_ORDER_STATUSES, ["draft", "ordered", "partially_received", "received", "cancelled"]);
   assert.deepEqual(INVENTORY_COUNT_STATUSES, ["draft", "counting", "committed", "cancelled"]);
   assert.deepEqual(INVENTORY_TRANSFER_STATUSES, ["draft", "in_transit", "received", "cancelled"]);
