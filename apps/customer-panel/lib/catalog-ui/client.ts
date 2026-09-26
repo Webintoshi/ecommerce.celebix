@@ -105,6 +105,7 @@ export type CatalogDashboardSummary = Readonly<{
   productLimit: number;
   activeVariants: number;
   outOfStockVariants: number;
+  outOfStockProducts?: number;
   productsWithoutMedia: number;
   activeMedia: number;
 }>;
@@ -246,7 +247,9 @@ function productVariantSummaries(
 
 function parseCatalogDashboardSummary(value: unknown): CatalogDashboardSummary {
   const parsed = record(value);
-  if (parsed === null || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(SUMMARY_KEYS)) {
+  const expectedKeys = parsed && Object.hasOwn(parsed, "outOfStockProducts")
+    ? [...SUMMARY_KEYS, "outOfStockProducts"].sort() : SUMMARY_KEYS;
+  if (parsed === null || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(expectedKeys)) {
     throw new CatalogApiError("unavailable", 503);
   }
   const summary = Object.freeze({
@@ -256,12 +259,14 @@ function parseCatalogDashboardSummary(value: unknown): CatalogDashboardSummary {
     productLimit: count(parsed.productLimit),
     activeVariants: count(parsed.activeVariants),
     outOfStockVariants: count(parsed.outOfStockVariants),
+    ...(Object.hasOwn(parsed, "outOfStockProducts") ? { outOfStockProducts: count(parsed.outOfStockProducts) } : {}),
     productsWithoutMedia: count(parsed.productsWithoutMedia),
     activeMedia: count(parsed.activeMedia),
   });
   if (
     summary.activeProducts + summary.draftProducts !== summary.totalProducts ||
     summary.outOfStockVariants > summary.activeVariants ||
+    summary.outOfStockProducts !== undefined && summary.outOfStockProducts > summary.totalProducts ||
     summary.productsWithoutMedia > summary.totalProducts
   ) {
     throw new CatalogApiError("unavailable", 503);

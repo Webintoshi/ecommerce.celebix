@@ -289,6 +289,37 @@ test("list products rejects unknown, duplicate, and unsafe variant summaries", a
   }
 });
 
+test("product stock aggregate survives list parsing without replacing the representative variant", async () => {
+  const summary = { variantId: VARIANT_ID, sku: "M-SKU", priceCents: 12550, stockTracking: true, stockQuantity: 1,
+    productStock: { trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: 2 } };
+  const client = createCatalogApiClient({ fetch: async () => jsonResponse({ items: [PRODUCT], catalogTotal: 1, variantSummaries: { [PRODUCT_ID]: summary } }) });
+  const result = await client.listProducts();
+  assert.deepEqual(result.variantSummaries?.[PRODUCT_ID], summary);
+  assert.equal(Object.isFrozen(result.variantSummaries?.[PRODUCT_ID].productStock), true);
+});
+
+test("product stock aggregate rejects malformed or inconsistent counts", async () => {
+  const summary = { variantId: VARIANT_ID, priceCents: 12550, stockTracking: true, stockQuantity: 1 };
+  for (const productStock of [null, { trackedVariantCount: 2, untrackedVariantCount: 0 },
+    { trackedVariantCount: -1, untrackedVariantCount: 0, trackedQuantity: 2 },
+    { trackedVariantCount: 2, untrackedVariantCount: 0.5, trackedQuantity: 2 },
+    { trackedVariantCount: 2, untrackedVariantCount: 0, trackedQuantity: Number.MAX_SAFE_INTEGER + 1 },
+    { trackedVariantCount: 0, untrackedVariantCount: 1, trackedQuantity: 2 },
+    { trackedVariantCount: 2, untrackedVariantCount: 0, trackedQuantity: 2, privateField: 1 }]) {
+    const client = createCatalogApiClient({ fetch: async () => jsonResponse({ items: [PRODUCT], catalogTotal: 1, variantSummaries: { [PRODUCT_ID]: { ...summary, productStock } } }) });
+    await assert.rejects(client.listProducts(), CatalogApiError);
+  }
+});
+
+test("dashboard accepts product out-of-stock count separately from legacy variant count", async () => {
+  const client = createCatalogApiClient({ fetch: async () => jsonResponse({ ...SUMMARY, outOfStockProducts: 1 }) });
+  assert.deepEqual(await client.getDashboardSummary(), { ...SUMMARY, outOfStockProducts: 1 });
+  for (const outOfStockProducts of [-1, 0.5, "1", null, SUMMARY.totalProducts + 1]) {
+    const invalid = createCatalogApiClient({ fetch: async () => jsonResponse({ ...SUMMARY, outOfStockProducts }) });
+    await assert.rejects(invalid.getDashboardSummary(), CatalogApiError);
+  }
+});
+
 test("variant choice client performs one bounded same-origin read and rejects duplicate or private fields", async () => {
   const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
   const choice = Object.freeze({

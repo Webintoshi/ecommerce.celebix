@@ -49,6 +49,7 @@ import {
   type ProductFeaturedImage,
 } from "@/lib/catalog-ui/client";
 import { parseProductListUrlState, productListUrlStateQuery } from "@/lib/catalog-ui/product-list-query";
+import { productStockPresentation } from "@/lib/catalog-ui/stock-presentation";
 import catalogStyles from "./catalog-operations.module.css";
 
 type Filter = "all" | "draft" | "active" | "archived";
@@ -97,12 +98,6 @@ function compareAtPrice(variant: CatalogProductListVariantSummary | undefined): 
     && variant.compareAtCents > current ? variant.compareAtCents : undefined;
 }
 
-function productStockClass(variant: CatalogProductListVariantSummary | undefined) {
-  if (!variant?.stockTracking) return "product-stock";
-  if (variant.stockQuantity === 0) return "product-stock-out";
-  return variant.stockQuantity <= 10 ? "product-stock-low" : "product-stock";
-}
-
 export function resolveProductActionPlacement(viewportWidth: number): "inline" | "topbar" {
   return viewportWidth <= 1024 ? "inline" : "topbar";
 }
@@ -131,10 +126,10 @@ const PRODUCT_SUMMARY_DEFINITIONS = Object.freeze([
 
 export function productSummaryMetrics(
   summaryState: SummaryState,
-  summary?: Pick<CatalogDashboardSummary, "totalProducts" | "activeProducts" | "draftProducts" | "outOfStockVariants">,
+  summary?: Pick<CatalogDashboardSummary, "totalProducts" | "activeProducts" | "draftProducts" | "outOfStockVariants" | "outOfStockProducts">,
 ): readonly ProductSummaryMetric[] {
   return Object.freeze(PRODUCT_SUMMARY_DEFINITIONS.map(({ key, label, field }) => {
-    const metricValue = summary?.[field];
+    const metricValue = key === "out-of-stock" ? summary?.outOfStockProducts ?? summary?.outOfStockVariants : summary?.[field];
     if (summaryState !== "ready" || metricValue === undefined) {
       const stateLabel = summaryState === "loading" ? "yükleniyor" : "kullanılamıyor";
       return Object.freeze({ key, label, value: "—", accessibleValue: `${label} mağaza toplamı ${stateLabel}` });
@@ -703,7 +698,7 @@ export function ProductListConsole({
         product.title,
         variant?.sku ?? "",
         variant === undefined ? "" : String(variant.priceCents),
-        variant === undefined ? "" : String(variant.stockQuantity),
+        productStockPresentation(variant).csvValue,
         STATUS_LABELS[product.status],
       ]),
     ].map((line) => line.map(csvCell).join(",")).join("\r\n");
@@ -814,7 +809,7 @@ export function ProductListConsole({
                   <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><ProductThumbnail product={product} featuredImage={featuredImage} /><span><strong>{product.title}</strong></span></Link></td>
                   <td data-label="SKU"><span className="mono-value">{variant?.sku ?? "—"}</span></td>
                   <td data-label="Fiyat">{compareAtPrice(variant) !== undefined ? <del>{money(compareAtPrice(variant), product.currency)}</del> : null}<span className="product-price">{money(sellingPrice(variant), product.currency)}</span></td>
-                  <td data-label="Stok"><span className={productStockClass(variant)}>{variant === undefined ? "—" : variant.stockTracking ? `${variant.stockQuantity} adet` : "Takipsiz"}</span></td>
+                  <td data-label="Stok"><span className={productStockPresentation(variant).className}>{productStockPresentation(variant).label}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
                   <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>
                   <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>

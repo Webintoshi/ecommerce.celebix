@@ -5,6 +5,7 @@ import * as React from "react";
 import { createElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import { productStockPresentation } from "./catalog-ui/stock-presentation.ts";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -31,6 +32,7 @@ async function productionProductListModule() {
     useState: (value: unknown) => [value, () => undefined],
   });
   const requireStub = (specifier: string) => {
+    if (specifier === "@/lib/catalog-ui/stock-presentation") return { productStockPresentation };
     if (specifier === "react") return fakeReact;
     if (specifier === "next/link") return () => null;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => () => null });
@@ -204,6 +206,7 @@ async function createMountedProductConsole(
   }
   const compiled = { exports: {} as Record<string, unknown> };
   const requireModule = (specifier: string): unknown => {
+    if (specifier === "@/lib/catalog-ui/stock-presentation") return { productStockPresentation };
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return hooks.runtime;
     if (specifier === "next/link") return Link;
@@ -638,6 +641,68 @@ test("product summary exposes four honest fixed metrics", async () => {
   );
   assert.ok(summaryMetrics("loading").every(({ value }) => value === "—"));
   assert.ok(summaryMetrics("unavailable").every(({ accessibleValue }) => /kullanılamıyor/.test(accessibleValue)));
+});
+
+test("product stock summary prefers product count while preserving legacy variant fallback", async () => {
+  const production = await productionProductListModule() as { productSummaryMetrics: (state: string, summary: typeof catalogSummary & { outOfStockProducts?: number }) => readonly { key: string; value: string }[] };
+  assert.equal(production.productSummaryMetrics("ready", { ...catalogSummary, outOfStockVariants: 4, outOfStockProducts: 1 }).find(metric => metric.key === "out-of-stock")?.value, "1");
+  assert.equal(production.productSummaryMetrics("ready", { ...catalogSummary, outOfStockVariants: 4, outOfStockProducts: 0 }).find(metric => metric.key === "out-of-stock")?.value, "0");
+  assert.equal(production.productSummaryMetrics("ready", { ...catalogSummary, outOfStockVariants: 4 }).find(metric => metric.key === "out-of-stock")?.value, "4");
+});
+
+test("product row refresh shows aggregate three to two after selling a later variant and exports two", async () => {
+  const product = productFixture("10000000-0000-4000-8000-000000000901", "active", 1, "Üç varyantlı ürün");
+  let quantity = 3;
+  const mounted = await createMountedProductConsole({
+    async listProducts() { return { items: [product], catalogTotal: 1, variantSummaries: { [product.id]: {
+      variantId: "10000000-0000-4000-8000-000000000902", sku: "M-SKU", priceCents: 12550, stockTracking: true, stockQuantity: 1,
+      productStock: { trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: quantity },
+    } } }; },
+    async getDashboardSummary() { return catalogSummary; },
+  });
+  let tree = await mounted.render();
+  assert.equal(mountedText(mountedNodes(tree).find(node => node.type === "td" && node.props["data-label"] === "Stok")!), "3 adet");
+  quantity = 2;
+  const refresh = mountedNodes(tree).find(node => node.props["aria-label"] === "Ürün listesini yenile")!;
+  await (refresh.props.onClick as () => Promise<void>)();
+  tree = await mounted.render();
+  assert.equal(mountedText(mountedNodes(tree).find(node => node.type === "td" && node.props["data-label"] === "Stok")!), "2 adet");
+  assert.equal(mountedText(mountedNodes(tree).find(node => node.type === "td" && node.props["data-label"] === "SKU")!), "M-SKU");
+  let captured: Blob | undefined;
+  const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL, originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  URL.createObjectURL = blob => { assert.ok(blob instanceof Blob); captured = blob; return "blob:stock-export"; }; URL.revokeObjectURL = () => undefined;
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => ({ click() {}, href: "", download: "" }) } });
+  try {
+    const download = mountedNodes(tree).find(node => node.type === "button" && mountedText(node) === "Dışa Aktar")!;
+    (download.props.onClick as () => void)();
+    assert.match(await captured!.text(), /"Üç varyantlı ürün","M-SKU","12550","2","Aktif"/);
+  } finally {
+    URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke;
+    if (originalDocument) Object.defineProperty(globalThis, "document", originalDocument); else Reflect.deleteProperty(globalThis, "document");
+  }
+});
+
+test("product stock display uses aggregate availability for mixed untracked empty and legacy rows", async () => {
+  const product = productFixture("10000000-0000-4000-8000-000000000903", "active", 1);
+  for (const [productStock, label, className] of [
+    [{ trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: 14 }, "14 adet", "product-stock"],
+    [{ trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: 0 }, "0 adet", "product-stock-out"],
+    [{ trackedVariantCount: 2, untrackedVariantCount: 1, trackedQuantity: 0 }, "0 adet + takipsiz", "product-stock"],
+    [{ trackedVariantCount: 0, untrackedVariantCount: 2, trackedQuantity: 0 }, "Takipsiz", "product-stock"],
+    [{ trackedVariantCount: 0, untrackedVariantCount: 0, trackedQuantity: 0 }, "—", "product-stock"],
+    [undefined, "1 adet", "product-stock-low"],
+  ] as const) {
+    const mounted = await createMountedProductConsole({
+      async listProducts() { return { items: [product], catalogTotal: 1, variantSummaries: { [product.id]: {
+        variantId: "10000000-0000-4000-8000-000000000904", priceCents: 100, stockTracking: true, stockQuantity: 1,
+        ...(productStock ? { productStock } : {}),
+      } } }; },
+      async getDashboardSummary() { return catalogSummary; },
+    });
+    const stock = mountedNodes(await mounted.render()).find(node => node.type === "td" && node.props["data-label"] === "Stok")!;
+    assert.equal(mountedText(stock), label);
+    assert.equal(mountedNodes(stock.children).find(node => node.type === "span")?.props.className, className);
+  }
 });
 
 test("product summary cards apply canonical status and stock filters", async () => {
