@@ -97,3 +97,7 @@ Focused, route and final regression logs are available in `/tmp/settings-approve
 - The test browser fixture uses actual settings components and a relative symlink to public assets; it is not a substitute for authenticated tenant acceptance. Some provider routes require their actual API boundaries.
 - Another task is changing design-workspace behavior on `codex/design-workspace-fixes`. Before any later deployment, integrate those changes with this branch's inline editor and rerun the affected design gates. Do not overwrite the newer design rollout with this baseline.
 - No tenant panel was deployed and no live data was written during this implementation turn.
+
+## Deployment-turn acceptance update — 27 September 2026 (TR)
+
+The browser connection recovered during the authorized deployment turn. The earlier limitation above remains the record of the coding turn; rendered acceptance was subsequently completed on the actual components in the isolated browser fixture. See [release evidence](settings-approved-release-2026-09-27.md). The final Cemo design source `ff56325482b942dbc2168680836cde9143e5b31b` was merged into this worktree, preserving the newer shared contracts and all editor lifecycle fixes.

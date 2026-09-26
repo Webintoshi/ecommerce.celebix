@@ -1,0 +1,605 @@
+[
+  {
+    "label": "hub",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "hub",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "hub",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "general",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/general",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "general",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/general",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "general",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/general",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "language",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/language",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "language",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/language",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "language",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/language",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrators",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrators",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrators",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrators",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrator-new-dialog",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrator-new-dialog",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "administrator-new-dialog",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/administrators",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "domains",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/domains",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "domains",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/domains",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "domains",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/domains",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "payment",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/payment",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "payment",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/payment",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "payment",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/payment",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "payment-providers",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/payment",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "payment-providers",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/payment",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "pricing",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/pricing",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "pricing",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/pricing",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "pricing",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/pricing",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "shipping",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/shipping",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "shipping",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/shipping",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "shipping",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/shipping",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "notifications",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/notifications",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "notifications",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/notifications",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "notifications",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/notifications",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "analytics",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/analytics",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "analytics",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/analytics",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "analytics",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/analytics",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "ai",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/artificial-intelligence",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "ai",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/artificial-intelligence",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "ai",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/artificial-intelligence",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "design-merged",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-merged",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-merged",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-product-selection",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "design-product-selection",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "design-product-loaded",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "İnci Küpe"
+    ]
+  },
+  {
+    "label": "notifications-savebar-fixed",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/notifications",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "notifications-savebar-fixed",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/notifications",
+    "visibleAlerts": [],
+    "visibleHeadings": []
+  },
+  {
+    "label": "design-inline-products-loaded",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-inline-products-loaded",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-inline-products-loaded",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-inline-category-image",
+    "width": 390,
+    "bodyWidth": 390,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-inline-category-image",
+    "width": 1024,
+    "bodyWidth": 1024,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  },
+  {
+    "label": "design-inline-category-image",
+    "width": 1440,
+    "bodyWidth": 1440,
+    "brokenImages": [],
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "pathname": "/settings/design",
+    "visibleAlerts": [],
+    "visibleHeadings": [
+      "14 Ayar Altın Kolye"
+    ]
+  }
+]
