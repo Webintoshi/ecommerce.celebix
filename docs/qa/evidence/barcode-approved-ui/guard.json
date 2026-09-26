@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-09-26T17:46:23.818886+00:00",
+  "route": "/products/barcode-labels",
+  "results": [
+    {
+      "host": "butik-siora.admin.saas-staging.celebix.net",
+      "httpStatus": 307,
+      "location": "/login"
+    },
+    {
+      "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "httpStatus": 307,
+      "location": "/login"
+    },
+    {
+      "host": "admin.guzidekuyumcu.com",
+      "httpStatus": 307,
+      "location": "/login"
+    },
+    {
+      "host": "admin.guzidekuyumcu.com.tr",
+      "httpStatus": 307,
+      "location": "/login"
+    }
+  ],
+  "failures": []
+}

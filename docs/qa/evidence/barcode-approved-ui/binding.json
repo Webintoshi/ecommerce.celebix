@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-09-26T17:29:29.915Z",
+  "source": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+  "independentSourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+  "paytr": {
+    "test": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "test",
+      "adapterVersion": 1,
+      "gitSha": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:8953d9b68cef3afb4caf3abb2e2e649d3413e25bf153740aca9f825238a85d6d"
+    },
+    "live": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "live",
+      "adapterVersion": 1,
+      "gitSha": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:25c51125051df054ed447fb2770ca55d9a57d739fa9b402991f2b88ad7e6d7b2"
+    }
+  },
+  "iyzico": {
+    "buildMetadataSchemaVersion": 1,
+    "evidenceSchemaVersion": 1,
+    "providerCode": "iyzico_iframe",
+    "capability": "payment_processing",
+    "environment": "test",
+    "adapterVersion": 1,
+    "gitSha": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+    "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+    "candidateExecutionDigest": "sha256:cbe10c5283402c3212a96e1ef5a805169ec9c897d9da9a72c95bc4851f36028a"
+  },
+  "records": [
+    {
+      "application": "e4xe74cmii7jucbkyor0o412",
+      "approved": false,
+      "paytrFileSha256": "sha256:a92238ff47225e9658a61a244acff24c6edf062741b4a8956b6430b0fd8d6a83",
+      "iyzicoFileSha256": "sha256:7fe22efe21b2fe55aa4a92dedce5088fe6700eb8adf94e856905191fe342c189"
+    },
+    {
+      "application": "yk1h6d97z7ex0h74ok3zrj5c",
+      "approved": true,
+      "paytrFileSha256": "sha256:05c661726a704bed591cccb2ee6d2b5618a018a2fa0b3f4c7f334ed10e59b14f",
+      "iyzicoFileSha256": "sha256:7fe22efe21b2fe55aa4a92dedce5088fe6700eb8adf94e856905191fe342c189"
+    }
+  ],
+  "officialChecks": "PASS",
+  "independentPaytr": "PASS"
+}
