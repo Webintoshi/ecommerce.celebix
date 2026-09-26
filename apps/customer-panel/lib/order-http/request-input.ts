@@ -96,6 +96,7 @@ function shipping(value: Record<string, unknown>): OrderMutationBodies["update_s
       events: [],
       notes: [],
     });
+    if (parsed.shippingAddress === null) return null;
     return Object.freeze({
       expectedVersion,
       shippingAddress: parsed.shippingAddress,
@@ -144,7 +145,7 @@ function exactJsonContentType(request: Request): boolean {
     request.headers.get("transfer-encoding") === null;
 }
 
-async function boundedJson(request: Request): Promise<unknown | null> {
+export async function readBoundedOrderJson(request: Request): Promise<unknown | null> {
   if (!exactJsonContentType(request) || request.body === null) return null;
   const declared = request.headers.get("content-length");
   if (
@@ -178,6 +179,8 @@ async function boundedJson(request: Request): Promise<unknown | null> {
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch { return null; }
 }
+
+const boundedJson = readBoundedOrderJson;
 
 export async function readOrderMutationInput<K extends OrderMutationKind>(
   request: Request,

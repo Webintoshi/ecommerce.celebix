@@ -22,6 +22,7 @@ import {
   PostgresReferencePricingRepository,
   PostgresPromotionRepository,
   PostgresOrderRepository,
+  PostgresInStoreSalesRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
   PostgresShippingAdminRepository,
@@ -56,6 +57,7 @@ import { registerServerPaymentMethodRepository } from "../server-payment-methods
 import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
+import { registerServerInStoreSalesRepository } from "../server-in-store-sales/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
@@ -825,6 +827,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       generateId: () => randomUUID(),
       audit: () => undefined,
     });
+    const inStoreSalesRepository = new PostgresInStoreSalesRepository({
+      pool, role: 'celebix_saas_app', timeouts: TIMEOUTS,
+    });
     const abandonedCartRepository = new PostgresAbandonedCartRepository({
       pool,
       role: "celebix_saas_app",
@@ -984,6 +989,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       reorderCategoryProducts: ["catalog"],
     }));
     registerServerOrderRepository(access, orderRepository);
+    registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
+      prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
+    }));
     registerServerAbandonedCartRepository(access, abandonedCartRepository);
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, createPostCommitInvalidatingRepository(catalogAdminRepository, {
