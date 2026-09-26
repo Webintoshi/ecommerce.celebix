@@ -1,4 +1,10 @@
 import assert from "node:assert/strict";
+test('anonymous in-store detail shows manual payment and pickup without shipping or generic payment controls',async()=>{
+ const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
+ const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,source:'in_store',customerName:null,customerEmail:null,shippingAddress:null,status:'delivered',paymentStatus:'completed'},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:true,manage:true,payment:true,shipping:true,note:true},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
+ assert.match(html,/Mağaza müşterisi/);assert.match(html,/Mağazadan teslim/);assert.match(html,/manuel POS/);
+ assert.doesNotMatch(html,/mailto:null|Kargo bilgileri|name="recipientName"|name="nextStatus"|name="nextPaymentStatus"/);
+});
 test('archived detail shows its real history and management restore form',async()=>{
  const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
  const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,archive:{archived:true,changedAt:NOW}},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false},onRestoreSubmit(){},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
@@ -1334,7 +1340,8 @@ test("orders navigation exposes every genuine child with exact activation and sa
   assert.deepEqual(orders?.children?.map(({ label, href }) => [label, href]), [
     ["Tüm Siparişler", "/orders"],
     ["Taslak Siparişler", "/orders/drafts"],
-    ["Hızlı Siparişler", "/orders/quick-links"],
+    ["Mağaza satışı", "/orders/quick-links"],
+    ["Ödeme bağlantıları", "/orders/payment-links"],
     ["Terk Edilen Sepetler", "/orders/abandoned-carts"],
   ]);
   assert.equal(navigation.isPanelNavigationPathActive("/orders", "/orders"), true);
@@ -1346,7 +1353,7 @@ test("orders navigation exposes every genuine child with exact activation and sa
   assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Taslak Siparişler");
   assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Yeni Taslak Sipariş");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Taslak Sipariş Ayrıntısı");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Hızlı Siparişler");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Mağaza satışı");
   assert.equal(navigation.getPanelRoutePresentation("/orders/abandoned-carts").title, "Terk Edilen Sepetler");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/${ORDER_ID}`).title, "Sipariş ayrıntısı");
 });

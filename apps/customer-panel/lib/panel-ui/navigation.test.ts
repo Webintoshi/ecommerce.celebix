@@ -5,8 +5,17 @@ import {
   PANEL_ROUTE_PRESENTATIONS,
   getPanelRoutePresentation,
   getPanelNavigationState,
+  getPanelNavigation,
   isPanelNavigationPathActive,
 } from "./navigation.ts";
+
+test('cashier chrome exposes only the shared store register and preserves separate payment links for managers',()=>{
+  const navigation=getPanelNavigation({analyticsAvailable:false,navigationMode:'register'});
+  assert.deepEqual(navigation.map(item=>item.href),['/orders/quick-links']);
+  const general=getPanelNavigation({analyticsAvailable:false}).flatMap(item=>[item,...(item.children??[])]);
+  assert.ok(general.some(item=>item.href==='/orders/payment-links'));
+  assert.equal(getPanelRoutePresentation('/orders/quick-links').title,'Mağaza satışı');
+});
 
 function findNavigationItem(key: string) {
   return PANEL_NAVIGATION.find((item) => item.key === key);
@@ -38,6 +47,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/orders",
       "/orders/drafts",
       "/orders/quick-links",
+      "/orders/payment-links",
       "/orders/abandoned-carts",
       "/customers",
       "/customers/new",
@@ -422,6 +432,7 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/",
       "/orders",
       "/orders/quick-links",
+      "/orders/payment-links",
       "/orders/abandoned-carts",
       "/orders/abandoned-carts/cart-123",
       "/orders/order-123",
@@ -451,7 +462,8 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
     [
       "Özet",
       "Siparişler",
-      "Hızlı Siparişler",
+      "Mağaza satışı",
+      "Ödeme bağlantıları",
       "Terk Edilen Sepetler",
       "Sepet ayrıntısı",
       "Sipariş ayrıntısı",

@@ -477,7 +477,7 @@ function RecentOrdersCard({ orders, state, onRetry }: Readonly<{ orders: readonl
             <thead><tr><th scope="col">Sipariş</th><th scope="col">Müşteri</th><th scope="col">Ürünler</th><th scope="col">Tutar</th><th scope="col">Durum</th><th scope="col">Tarih</th></tr></thead>
             <tbody>{orders.map((order) => <tr key={order.id}>
               <td data-label="Sipariş"><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
-              <td data-label="Müşteri"><span className={styles.customerCell}><span aria-hidden="true">{order.customerName.charAt(0).toLocaleUpperCase("tr-TR")}</span>{order.customerName}</span></td>
+              <td data-label="Müşteri"><span className={styles.customerCell}><span aria-hidden="true">{(order.customerName ?? "Mağaza müşterisi").charAt(0).toLocaleUpperCase("tr-TR")}</span>{order.customerName ?? "Mağaza müşterisi"}</span></td>
               <td data-label="Ürünler">{order.itemCount.toLocaleString("tr-TR")} ürün</td>
               <td data-label="Tutar">{formatMoney(order.totalCents, order.currency)}</td>
               <td data-label="Durum"><span className={styles.statusStack}><span className={styles.statusPill} data-tone={orderStatusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</span><small>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</small></span></td>
@@ -566,7 +566,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Hızlı sipariş</PanelActionButton></div>} />
+      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Mağaza satışı</PanelActionButton></div>} />
       <div className={styles.dashboardPage}>
         <header className={styles.pageIntro}><h1>Mağazanın nabzı</h1><p>Önce önemli işlere odaklanın.</p></header>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />

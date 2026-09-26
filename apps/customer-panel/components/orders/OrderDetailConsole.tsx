@@ -60,6 +60,7 @@ const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.fr
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
   manual: "Manuel sipariş",
+  in_store: "Mağaza satışı",
 });
 const EMAIL_EVENT_LABELS: Readonly<Record<OrderEmailEventType, string>> = Object.freeze({
   order_received: "Sipariş alındı",
@@ -228,8 +229,8 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <section className={styles.detailState}><div className={styles.errorState} role="alert"><div><h1>Sipariş açılamadı</h1><p>{props.error || "Sipariş bulunamadı."}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div></section>
   );
   const order = props.detail;
-  const statusOptions = getAuthorizedOrderStatusOptions(order.status, props.capabilities);
-  const paymentOptions = getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment);
+  const statusOptions = order.source === "in_store" ? [] : getAuthorizedOrderStatusOptions(order.status, props.capabilities);
+  const paymentOptions = order.source === "in_store" ? [] : getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment);
   const notifications = props.notifications ?? Object.freeze([]);
   return (
     <PanelPageShell>
@@ -296,8 +297,8 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <section className={styles.orderInfoCard} aria-labelledby="customer-contact-title">
           <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><UserRound aria-hidden="true" size={16} /></span><div><h2 id="customer-contact-title">Müşteri iletişimi</h2><p>Siparişe ait iletişim bilgileri</p></div></div></div>
           <dl>
-            <div><dt>Müşteri</dt><dd>{order.customerName}</dd></div>
-            <div><dt>E-posta</dt><dd><a href={`mailto:${order.customerEmail}`}>{order.customerEmail}</a></dd></div>
+            <div><dt>Müşteri</dt><dd>{order.customerName ?? "Mağaza müşterisi"}</dd></div>
+            <div><dt>E-posta</dt><dd>{order.customerEmail ? <a href={`mailto:${order.customerEmail}`}>{order.customerEmail}</a> : "Belirtilmemiş"}</dd></div>
             <div><dt>Telefon</dt><dd>{order.customerPhone ? <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a> : "Belirtilmemiş"}</dd></div>
           </dl>
         </section>
@@ -310,6 +311,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       </section>
 
       <div className={styles.detailColumns}>
+        {order.shippingAddress && order.source !== "in_store" ? (<>
         <section className={styles.detailPanel} aria-labelledby="shipping-title">
           <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><Truck aria-hidden="true" size={16} /></span><div><h2 id="shipping-title">Kargo bilgileri</h2><p>Adres ve takip kaydı</p></div></div></div>
           <div className={styles.shippingOverview}>
@@ -332,6 +334,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
             <button className={styles.primaryButton} type="submit" disabled={props.busy !== ""}>{props.busy === "shipping" ? "Kaydediliyor…" : "Kargo bilgilerini kaydet"}</button>
           </form></details> : null}
         </section>
+        </>) : <section className={styles.detailPanel}><h2>Mağazadan teslim</h2><p>Ödeme mağazada manuel POS ile alındı. Ürünler müşteriye mağazadan teslim edildi.</p></section>}
 
         <section className={styles.detailPanel} aria-labelledby="notes-title">
           <div className={styles.sectionHeading}><div className={styles.sectionTitle}><span className={styles.sectionIcon}><StickyNote aria-hidden="true" size={16} /></span><div><h2 id="notes-title">Dahili notlar</h2><p>Yalnızca mağaza ekibi görür</p></div></div></div>
@@ -371,7 +374,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
             <div className={styles.summaryRow}><span>Sipariş durumu</span><PanelStatusBadge tone={statusTone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></div>
             <div className={styles.summaryRow}><span>Ödeme durumu</span><strong className={styles.paymentStatus} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</strong></div>
             <div className={styles.summaryRow}><span>Kanal</span><strong className={styles.channelStatus}><Store aria-hidden="true" size={13} />{SOURCE_LABELS[order.source]}</strong></div>
-            <div className={styles.summaryCustomer}><span>Müşteri</span><strong>{order.customerName}</strong><small>{order.customerEmail}</small></div>
+            <div className={styles.summaryCustomer}><span>Müşteri</span><strong>{order.customerName ?? "Mağaza müşterisi"}</strong><small>{order.customerEmail ?? ""}</small></div>
             <div className={styles.summaryTotal}><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
           </section>
 

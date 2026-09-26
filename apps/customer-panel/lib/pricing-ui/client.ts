@@ -149,7 +149,7 @@ export function buildPriceListIntent(value: PriceListIntentDraft): SavePriceList
   const items = Object.freeze(dense(parsed.items, 1, 500).map(parsePriceListItem));
   const rules = Object.freeze(dense(parsed.rules, 1, 100).map((entry) => {
     const draft = exact(entry, ["channel", "customerTagId", "startsAt", "endsAt", "priority"], ["persistedStartsAt", "persistedEndsAt"]);
-    if ((draft.channel !== "storefront" && draft.channel !== "quick_order") || typeof draft.customerTagId !== "string" || typeof draft.startsAt !== "string" || typeof draft.endsAt !== "string" || typeof draft.priority !== "string" || !/^(?:0|[1-9]\d{0,3})$/.test(draft.priority)) return invalid();
+    if ((draft.channel !== "storefront" && draft.channel !== "quick_order" && draft.channel !== "in_store") || typeof draft.customerTagId !== "string" || typeof draft.startsAt !== "string" || typeof draft.endsAt !== "string" || typeof draft.priority !== "string" || !/^(?:0|[1-9]\d{0,3})$/.test(draft.priority)) return invalid();
     const priority = Number(draft.priority); if (priority > 1000) return invalid();
     const startsAt = pricingDraftTime(draft.startsAt, draft.persistedStartsAt ?? "");
     const endsAt = pricingDraftTime(draft.endsAt, draft.persistedEndsAt ?? "");
@@ -193,7 +193,7 @@ function items(value: unknown): readonly PriceList[] { const parsed = exact(valu
 
 function pricingPreviewSelection(value: unknown, maximum: number): PricingPreviewRequest {
   const parsed = exact(value, ["channel", "variantIds"]);
-  if (parsed.channel !== "storefront" && parsed.channel !== "quick_order") return invalid();
+  if (parsed.channel !== "storefront" && parsed.channel !== "quick_order" && parsed.channel !== "in_store") return invalid();
   const variantIds = Object.freeze(dense(parsed.variantIds, 1, maximum).map(id));
   if (new Set(variantIds).size !== variantIds.length) return invalid();
   return Object.freeze({ channel: parsed.channel, variantIds });

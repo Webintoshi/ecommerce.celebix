@@ -4,6 +4,7 @@ export type PanelNavigationHref =
   | "/orders"
   | "/orders/drafts"
   | "/orders/quick-links"
+  | "/orders/payment-links"
   | "/orders/abandoned-carts"
   | "/customers"
   | "/customers/segments"
@@ -141,7 +142,8 @@ function item(
 const ORDER_CHILDREN = Object.freeze([
   item("all-orders", "Tüm Siparişler", "/orders", "orders"),
   item("order-drafts", "Taslak Siparişler", "/orders/drafts", "orders"),
-  item("quick-orders", "Hızlı Siparişler", "/orders/quick-links", "quick-orders"),
+  item("quick-orders", "Mağaza satışı", "/orders/quick-links", "quick-orders"),
+  item("payment-links", "Ödeme bağlantıları", "/orders/payment-links", "quick-orders"),
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
 ]);
 
@@ -252,7 +254,8 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
   item("setup", "Kurulum", "/setup", "setup"),
 ]);
 
-export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean }>): readonly PanelNavigationItem[] {
+export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register" }>): readonly PanelNavigationItem[] {
+  if (input?.navigationMode === "register") return Object.freeze([item("quick-orders", "Mağaza satışı", "/orders/quick-links", "quick-orders")]);
   return input?.analyticsAvailable === true
     ? PANEL_NAVIGATION
     : Object.freeze(PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"));
@@ -265,7 +268,8 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/analytics": presentation("Analizler"),
   "/orders": presentation("Siparişler"),
   "/orders/drafts": presentation("Taslak Siparişler"),
-  "/orders/quick-links": presentation("Hızlı Siparişler"),
+  "/orders/quick-links": presentation("Mağaza satışı"),
+  "/orders/payment-links": presentation("Ödeme bağlantıları"),
   "/orders/abandoned-carts": presentation("Terk Edilen Sepetler"),
   "/customers": presentation("Müşteriler"),
   "/customers/segments": presentation("Segmentler"),

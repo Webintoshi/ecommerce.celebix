@@ -179,7 +179,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             <main ref={desktopFocusRef} className={styles.content} tabIndex={-1}>{children}</main>
           </PanelTopbarChromeProvider>
         </div>
-        <PanelMobileDock
+        <PanelMobileDock navigationMode={model.navigationMode}
           pathname={pathname}
           menuOpen={drawerOpen}
           menuButtonRef={menuButtonRef}

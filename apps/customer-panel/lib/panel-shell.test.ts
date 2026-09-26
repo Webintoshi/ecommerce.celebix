@@ -13,6 +13,7 @@ import {
   isPanelNavigationPathActive,
   isPanelNavigationPathExact,
   PANEL_NAVIGATION,
+  getPanelNavigation,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
 import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
@@ -346,7 +347,7 @@ async function compileHookTestComponent(
   return component as HookTestComponent;
 }
 
-async function renderPanelNavigation(pathname: string): Promise<string> {
+async function renderPanelNavigation(pathname: string, navigationMode?: "register"): Promise<string> {
   const navigationSource = await source("components/panel/PanelNavigation.tsx");
   const output = ts.transpileModule(navigationSource, {
     compilerOptions: {
@@ -360,7 +361,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const Link = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
     createElement("a", props, children);
   const compiledModule: {
-    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer" }> };
+    exports: { PanelNavigation?: ComponentType<{ mode: "desktop" | "drawer"; navigationMode?: "register" }> };
   } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
@@ -372,9 +373,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
       return {
-        getPanelNavigation: ({ analyticsAvailable }: { analyticsAvailable: boolean }) => analyticsAvailable
-          ? PANEL_NAVIGATION
-          : PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"),
+        getPanelNavigation,
         isPanelNavigationPathActive,
         isPanelNavigationPathExact,
       };
@@ -397,7 +396,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
     compiledModule.exports,
   );
   assert.ok(compiledModule.exports.PanelNavigation);
-  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
+  return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop", navigationMode }));
 }
 
 async function createInteractivePanelNavigation(pathname: string) {
@@ -1374,7 +1373,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
       ["/products/new", "Yeni ürün oluştur"],
       ["/products/product-123", "Ürün ayrıntısı"],
       ["/orders", "Siparişler"],
-      ["/orders/quick-links", "Hızlı Siparişler"],
+      ["/orders/quick-links", "Mağaza satışı"],
       ["/orders/order-123", "Sipariş ayrıntısı"],
       ["/setup", "Kurulum durumu"],
     ] as const) {
@@ -1441,7 +1440,7 @@ test("content and settings hubs remain directly navigable", async () => {
   }
 });
 
-test("orders/quick-links marks only Hızlı Siparişler as the current page", async () => {
+test("orders/quick-links marks only Mağaza satışı as the current page", async () => {
   const html = await renderPanelNavigation("/orders/quick-links");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
     .map(([link]) => ({
@@ -1449,7 +1448,14 @@ test("orders/quick-links marks only Hızlı Siparişler as the current page", as
       label: link.replace(/<[^>]*>/g, ""),
     }));
 
-  assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Hızlı Siparişler" }]);
+  assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Mağaza satışı" }]);
+});
+
+test('cashier sidebar renders the real register destination without general admin links',async()=>{
+ const html=await renderPanelNavigation('/orders/quick-links','register');
+ assert.match(html,/href="\/orders\/quick-links"/);
+ assert.doesNotMatch(html,/href="\/(?:products|settings|orders|customers)"/);
+ assert.equal([...html.matchAll(/<a\b/g)].length,1);
 });
 
 test("logout uses a top-level form so the browser follows the Logto redirect without reading credentials", async () => {
@@ -2056,7 +2062,7 @@ test("dashboard presentation follows the approved Celebix merchant anatomy using
     "Atlas Kupa",
     "pilot-store.celebix.site",
     "3 sipariş işlem bekliyor",
-    "Hızlı sipariş",
+    "Mağaza satışı",
     "Ürün Ekle",
     "Yapılacaklar",
     "3 sipariş işlem bekliyor",

@@ -8,6 +8,7 @@ export interface PanelChromeModel {
   readonly entitlementStatus: "active";
   readonly storefrontHostname?: string;
   readonly locale: string;
+  readonly navigationMode?: "register";
 }
 
 const ROLE_LABELS: Readonly<Record<StoreMembershipRole, string>> = Object.freeze({
@@ -15,6 +16,7 @@ const ROLE_LABELS: Readonly<Record<StoreMembershipRole, string>> = Object.freeze
   admin: "Mağaza yöneticisi",
   editor: "İçerik editörü",
   analyst: "Analist",
+  cashier: "Kasiyer",
 });
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -67,5 +69,6 @@ export function createPanelChromeModel(context: TenantContext): PanelChromeModel
     entitlementStatus: "active" as const,
     ...(host !== undefined ? { storefrontHostname: host.canonicalHostname } : {}),
     locale: context.locale,
+    ...(context.membership.role === "cashier" ? {navigationMode: "register" as const} : {}),
   });
 }

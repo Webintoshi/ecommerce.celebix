@@ -386,13 +386,13 @@ test("state-changing routes reject near-match and cross-site origins", async () 
 });
 
 test("quick-order console is directly routable behind panel access and linked by exact navigation", async () => {
-  const page = await readFile(new URL("../app/orders/quick-links/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/orders/payment-links/page.tsx", import.meta.url), "utf8");
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /createPanelChromeModel\(access\.tenantContext\)/);
   assert.match(page, /<QuickOrderLinksConsole\s*\/>/);
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
-  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("payment-links",\s*"Ödeme bağlantıları",\s*"\/orders\/payment-links"/);
 });
 
 test("order print and customer edit pages remain server-authorized route depth", async () => {
@@ -530,6 +530,6 @@ test("quick-order routes expose only the reviewed merchant methods and activate 
     }
   }
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
-  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Mağaza satışı",\s*"\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /ödeme linki/i);
 });

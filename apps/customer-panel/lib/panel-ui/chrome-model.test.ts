@@ -59,6 +59,7 @@ test("maps every contract role to an exact Turkish label", () => {
     admin: "Mağaza yöneticisi",
     editor: "İçerik editörü",
     analyst: "Analist",
+    cashier: "Kasiyer",
   };
   for (const [role, label] of Object.entries(labels)) {
     const input = { ...CONTEXT, membership: { ...CONTEXT.membership, role } } as TenantContext;

@@ -6,6 +6,7 @@ export interface PanelPublicChromeModel {
   readonly entitlementStatus: "active";
   readonly storefrontHostname?: string;
   readonly locale: string;
+  readonly navigationMode?: "register";
 }
 
 export interface PanelClientStoreOption {

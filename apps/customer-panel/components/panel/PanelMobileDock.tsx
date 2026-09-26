@@ -8,11 +8,12 @@ import styles from "./panel-shell.module.css";
 
 export function PanelMobileDock(props: {
   pathname: string;
+  navigationMode?: "register";
   menuOpen: boolean;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
   onMenuToggle: () => void;
 }) {
-  const items = [
+  const items = props.navigationMode === "register" ? [{href: "/orders/quick-links" as const,label:"Mağaza satışı",Icon:ShoppingBag}] : [
     { href: "/" as const, label: "Özet", Icon: Home },
     { href: "/orders" as const, label: "Siparişler", Icon: ShoppingBag },
     { href: "/products" as const, label: "Ürünler", Icon: Package },

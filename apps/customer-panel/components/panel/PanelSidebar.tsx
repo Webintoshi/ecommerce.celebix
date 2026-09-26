@@ -193,7 +193,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
               </div>
               <StoreIdentity model={model} />
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
-                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} />
+                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} />
               </div>
               <SidebarFooter model={model} />
             </motion.aside>
@@ -207,7 +207,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
     <aside className={styles.desktopSidebar}>
       <PanelBrand />
       <StoreIdentity model={model} />
-      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} />
+      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} />
       <SidebarFooter model={model} />
     </aside>
   );

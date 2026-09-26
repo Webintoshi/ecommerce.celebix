@@ -172,7 +172,7 @@ test("pricing preview controller publishes no partial batch and suppresses stale
     `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
   );
   const pending: Array<{
-    input: Readonly<{ channel: "storefront" | "quick_order"; variantIds: readonly string[] }>;
+    input: Readonly<{ channel: "storefront" | "quick_order" | "in_store"; variantIds: readonly string[] }>;
     signal: AbortSignal;
     resolve(value: PricingPreviewResult): void;
     reject(error: unknown): void;

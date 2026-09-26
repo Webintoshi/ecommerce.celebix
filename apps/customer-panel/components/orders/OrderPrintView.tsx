@@ -22,9 +22,9 @@ function OrderSnapshotTable({ order }: Readonly<{ order: OrderDetail }>) {
   return (
     <>
       <section className={styles.printSummary} aria-label="Sipariş teslimat özeti">
-        <div><span>Müşteri</span><strong>{order.customerName}</strong></div>
+        <div><span>Müşteri</span><strong>{order.customerName ?? "Mağaza müşterisi"}</strong></div>
         <div><span>Sipariş tarihi</span><strong>{date(order.createdAt)}</strong></div>
-        <div><span>Teslimat adresi</span><strong>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</strong></div>
+        {order.shippingAddress ? <div><span>Teslimat adresi</span><strong>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</strong></div> : <div><span>Teslimat</span><strong>Mağazadan teslim · Manuel POS</strong></div>}
       </section>
       <table className={styles.printTable}>
         <thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col">Birim fiyat</th><th scope="col">Tutar</th></tr></thead>

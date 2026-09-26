@@ -255,12 +255,14 @@ function NavigationEntry({
 export function PanelNavigation({
   mode,
   analyticsAvailable = false,
+  navigationMode,
 }: {
   mode: "desktop" | "drawer";
   analyticsAvailable?: boolean;
+  navigationMode?: "register";
 }) {
   const pathname = usePathname() ?? "";
-  const navigation = getPanelNavigation({ analyticsAvailable }).filter(({ key }) => key !== "setup");
+  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode }).filter(({ key }) => key !== "setup");
   const currentHref = getCurrentNavigationHref(pathname, navigation);
   const searchRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLElement>(null);
@@ -338,7 +340,7 @@ export function PanelNavigation({
               <NavigationLink key={item.key} item={item} currentHref={currentHref} context={context} />
             )) : <p className={styles.navigationEmpty}>Sonuç bulunamadı. Başka bir kelime deneyin.</p>}
           </section>
-        ) : NAVIGATION_SECTIONS.map((section) => {
+        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['quick-orders']}] : NAVIGATION_SECTIONS).map((section) => {
           const sectionItems = section.items.map((key) => navigationByKey.get(key)).filter((item): item is PanelNavigationItem => Boolean(item));
           if (!sectionItems.length) return null;
           const headingId = `panel-nav-section-${section.key}-${mode}`;

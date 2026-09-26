@@ -38,6 +38,7 @@ const SOURCE_LABELS: Readonly<Record<OrderListItem["source"], string>> = Object.
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
   manual: "Manuel sipariş",
+  in_store: "Mağaza satışı",
 });
 const FULFILLMENT_FILTER_LABELS: Readonly<Record<OrderFulfillment, string>> = Object.freeze({
   all: "Tüm teslimatlar",
@@ -133,8 +134,8 @@ export function serializeOrderListCsv(items: readonly OrderListItem[]) {
   const rows = items.map((order) => [
     order.orderNumber,
     order.createdAt,
-    order.customerName,
-    order.customerEmail,
+    order.customerName ?? "Mağaza müşterisi",
+    order.customerEmail ?? "",
     STATUS_LABELS[order.status],
     PAYMENT_LABELS[order.paymentStatus],
     fulfillmentLabel(order.status),
@@ -205,7 +206,7 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
         {visibleColumns.status ? <PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge> : null}
       </div>
       <dl className={styles.cardFacts}>
-        {visibleColumns.customer ? <div><dt>Müşteri</dt><dd>{order.customerName}<small>{order.customerEmail}</small></dd></div> : null}
+        {visibleColumns.customer ? <div><dt>Müşteri</dt><dd>{order.customerName ?? "Mağaza müşterisi"}<small>{order.customerEmail ?? ""}</small></dd></div> : null}
         {visibleColumns.payment ? <div><dt>Ödeme</dt><dd><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></dd></div> : null}
         {visibleColumns.total ? <div className={styles.totalFact}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div> : null}
         {visibleColumns.date ? <div><dt>Tarih</dt><dd>{date(order.createdAt)}</dd></div> : null}
@@ -238,7 +239,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
             <tr key={order.id}>
               <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status)}</small></td>
               {props.visibleColumns.date ? <td className={styles.dateCell}>{date(order.createdAt)}</td> : null}
-              {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName}</strong><small>{order.customerEmail}</small></td> : null}
+              {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong><small>{order.customerEmail ?? ""}</small></td> : null}
               {props.visibleColumns.status ? <td className={styles.statusCell}><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td> : null}
               {props.visibleColumns.payment ? <td className={styles.paymentCell}><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></td> : null}
               {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
