@@ -1,6 +1,6 @@
 import type { QueryResult } from "pg";
 
-import type { PlanFeatureKey } from "@celebix/saas-contracts";
+import { STORE_MEMBERSHIP_ROLES, type PlanFeatureKey, type StoreMembershipRole } from "@celebix/saas-contracts";
 import type { SaaSDataRepository, SaaSDataTransaction } from "../ports.ts";
 import type {
   AdminDomainRecord, DomainRecord, MembershipRecord, PlanRecord, PrincipalRecord, SaaSGeneratedIdKind,
@@ -418,7 +418,7 @@ function domainRow(value: unknown): DomainRecord {
 }
 function membershipRow(value: unknown): MembershipRecord {
   const row = exactRow(value, ["id", "principal_id", "store_id", "role", "status", "created_at", "updated_at"]);
-  if (!["store_owner", "admin", "editor", "analyst"].includes(text(row.role)) || !["active", "invited", "revoked"].includes(text(row.status))) throw new SaaSDataCorruptionError();
+  if (!STORE_MEMBERSHIP_ROLES.includes(text(row.role) as StoreMembershipRole) || !["active", "invited", "revoked"].includes(text(row.status))) throw new SaaSDataCorruptionError();
   return { schemaVersion: 1, id: parse.uuid(row.id) as MembershipRecord["id"], principalId: parse.uuid(row.principal_id) as MembershipRecord["principalId"], storeId: parse.uuid(row.store_id) as MembershipRecord["storeId"], role: row.role as MembershipRecord["role"], status: row.status as MembershipRecord["status"], createdAt: parse.timestamp(row.created_at), updatedAt: parse.timestamp(row.updated_at) };
 }
 function subscriptionRow(value: unknown): SubscriptionRecord {

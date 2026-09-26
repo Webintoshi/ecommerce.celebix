@@ -854,6 +854,19 @@ test("repository enforces product operation roles before checking out a SQL clie
   }
 });
 
+test("cashier catalog reads and writes fail as permission denial before pool checkout", async () => {
+  const pool = new FakePool();
+  const catalog = repository(pool);
+  const context = tenantContext({ membership: { id: MEMBERSHIP_ID, role: "cashier", status: "active" } });
+  for (const invoke of [
+    () => catalog.getProduct({ tenantContext: context, now: NOW, productId: PRODUCT_ID }),
+    () => catalog.createProduct({ ...createInput(), tenantContext: context }),
+  ]) {
+    await assert.rejects(invoke, (error: unknown) => error instanceof CatalogRepositoryError && error.code === "membership_denied");
+  }
+  assert.equal(pool.connects, 0);
+});
+
 test("owner and admin archive while editor cannot, using the secured SQL boundary", async () => {
   for (const role of ["store_owner", "admin"] as const) {
     const archived = { ...product(), status: "archived", version: 2 };

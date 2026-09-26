@@ -45,6 +45,11 @@ export const MERCHANT_ACTIONS = Object.freeze([
   "purchasing.manage",
   "pricing.read",
   "pricing.manage",
+  "in_store.read",
+  "in_store.sell",
+  "in_store.discount",
+  "in_store.resolve",
+  "in_store.staff",
 ] as const);
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];
@@ -139,6 +144,11 @@ const ROLE_ACTIONS: Readonly<
     "inventory.read",
     "purchasing.read",
     "pricing.read",
+  ]),
+  cashier: new Set<MerchantAction>([
+    "in_store.read",
+    "in_store.sell",
+    "in_store.discount",
   ]),
 });
 

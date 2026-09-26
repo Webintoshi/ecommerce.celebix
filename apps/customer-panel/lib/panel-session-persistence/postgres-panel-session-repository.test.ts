@@ -229,6 +229,30 @@ test("rejects malformed or cross-tenant storefront authority without weakening t
   }
 });
 
+test("resolves active cashier membership without promoting its role", async () => {
+  const authority = resolvedAuthority();
+  authority.tenant.membership.role = "cashier";
+  const h = harness((text, values) => text.includes("issue_panel_session")
+    ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+    : { rows: [{ outcome: "resolved", authority }], rowCount: 1 });
+  const credential = await codecCredential(h);
+  const result = await h.repository.resolveSession({ credential, requestId: "request_cashier", now: NOW });
+  assert.equal(result.kind, "resolved");
+  if (result.kind === "resolved") assert.equal(result.tenantContext?.membership.role, "cashier");
+});
+
+test("rejects revoked cashier and unknown role authority", async () => {
+  for (const [role, status] of [["cashier", "revoked"], ["cashier", "invited"], ["root", "active"]]) {
+    const authority = resolvedAuthority();
+    authority.tenant.membership = { id: MEMBERSHIP_ID, role: role!, status: status! };
+    const h = harness((text, values) => text.includes("issue_panel_session")
+      ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+      : { rows: [{ outcome: "resolved", authority }], rowCount: 1 });
+    const credential = await codecCredential(h);
+    assert.deepEqual(await h.repository.resolveSession({ credential, requestId: "request_denied_cashier", now: NOW }), { kind: "durable_authority_invalid" });
+  }
+});
+
 test("returns one controlled selection candidate but never fabricates TenantContext", async () => {
   const authority = {
     ...sessionAuthority([], PRINCIPAL_ID, null),

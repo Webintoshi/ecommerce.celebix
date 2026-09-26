@@ -1,10 +1,11 @@
-import type {
-  PlanEntitlements,
-  PlanFeatureKey,
-  PlanLimitKey,
-  ResolvedStoreHost,
-  StoreMembershipRole,
-  TenantContext,
+import {
+  STORE_MEMBERSHIP_ROLES,
+  type PlanEntitlements,
+  type PlanFeatureKey,
+  type PlanLimitKey,
+  type ResolvedStoreHost,
+  type StoreMembershipRole,
+  type TenantContext,
 } from "@celebix/saas-contracts";
 
 import { assertPanelSessionPersistenceApproval } from "./activation.ts";
@@ -25,7 +26,7 @@ const FEATURE_KEYS = new Set<PlanFeatureKey>([
   "custom_domains", "staff_management", "promotions", "integrations", "accounting", "marketplaces",
 ]);
 const LIMIT_KEYS = new Set<PlanLimitKey>(["products", "staff", "storageBytes", "monthlyOrders", "customDomains"]);
-const MEMBERSHIP_ROLES = new Set<StoreMembershipRole>(["store_owner", "admin", "editor", "analyst"]);
+const MEMBERSHIP_ROLES = new Set<StoreMembershipRole>(STORE_MEMBERSHIP_ROLES);
 const REVOCATION_REASONS = new Set<PanelSessionRevocationReason>(["logout", "rotation", "security", "administrative", "expired"]);
 
 interface QueryResult {

@@ -15,7 +15,7 @@ export type StoreStatus = (typeof STORE_STATUSES)[number];
 export const PROVISIONING_STATUSES = ["pending", "processing", "ready", "failed"] as const;
 export type ProvisioningStatus = (typeof PROVISIONING_STATUSES)[number];
 
-export const STORE_MEMBERSHIP_ROLES = ["store_owner", "admin", "editor", "analyst"] as const;
+export const STORE_MEMBERSHIP_ROLES = ["store_owner", "admin", "editor", "analyst", "cashier"] as const;
 export type StoreMembershipRole = (typeof STORE_MEMBERSHIP_ROLES)[number];
 
 export const STORE_MEMBERSHIP_STATUSES = ["active", "invited", "revoked"] as const;

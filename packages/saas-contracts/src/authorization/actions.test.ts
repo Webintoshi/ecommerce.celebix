@@ -87,6 +87,29 @@ test("denies unknown merchant actions", () => {
   );
 });
 
+test("cashier can sell and discount only in the in-store workflow", () => {
+  for (const action of ["in_store.read", "in_store.sell", "in_store.discount"] as const) {
+    assert.equal(isMerchantActionAllowed("cashier", action), true, action);
+  }
+  for (const action of MERCHANT_ACTIONS) {
+    if (["in_store.read", "in_store.sell", "in_store.discount"].includes(action)) continue;
+    assert.equal(isMerchantActionAllowed("cashier", action), false, action);
+  }
+  for (const operation of CATALOG_PRODUCT_OPERATIONS) {
+    assert.equal(isCatalogProductOperationAllowed("cashier", operation), false, operation);
+  }
+});
+
+test("only owner and admin can resolve register incidents and manage staff", () => {
+  for (const role of ["store_owner", "admin", "editor", "analyst", "cashier"] as const) {
+    for (const action of ["in_store.read", "in_store.sell", "in_store.discount", "in_store.resolve", "in_store.staff"] as const) {
+      const allowed = role === "store_owner" || role === "admin" ||
+        (role === "cashier" && action !== "in_store.resolve" && action !== "in_store.staff");
+      assert.equal(isMerchantActionAllowed(role, action), allowed, `${role}:${action}`);
+    }
+  }
+});
+
 test("exports the exact immutable merchant action list", () => {
   assert.deepEqual(MERCHANT_ACTIONS, [
     "analytics.read",
@@ -133,6 +156,11 @@ test("exports the exact immutable merchant action list", () => {
     "purchasing.manage",
     "pricing.read",
     "pricing.manage",
+    "in_store.read",
+    "in_store.sell",
+    "in_store.discount",
+    "in_store.resolve",
+    "in_store.staff",
   ]);
   assert.equal(Object.isFrozen(MERCHANT_ACTIONS), true);
 });

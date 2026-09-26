@@ -65,7 +65,7 @@ export interface MerchantModuleDefinition {
 
 export type MerchantModuleStatusFilter = MerchantAdminRecordStatus | "all";
 
-export type AdministratorInvitableRole = Exclude<StoreMembershipRole, "store_owner">;
+export type AdministratorInvitableRole = Extract<StoreMembershipRole, "admin" | "editor" | "analyst">;
 
 export interface AdministratorRoleDefinition {
   readonly allowedActions: readonly MerchantAction[];

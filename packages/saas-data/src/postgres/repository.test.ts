@@ -76,6 +76,31 @@ test("beginTransaction binds one client, READ COMMITTED, local timeouts, then ex
   assert.deepEqual(client.releases, [undefined]);
 });
 
+test("membership repository accepts cashier rows and rejects an unknown role", async () => {
+  const row = {
+    id: "30000000-0000-4000-8000-000000000001",
+    principal_id: "10000000-0000-4000-8000-000000000001",
+    store_id: "20000000-0000-4000-8000-000000000001",
+    role: "cashier", status: "active",
+    created_at: "2026-09-26T12:00:00.000Z", updated_at: "2026-09-26T12:00:00.000Z",
+  };
+  class MembershipClient extends FakeClient {
+    override async query(text: string, values: readonly unknown[] = []): Promise<QueryResult<Record<string, unknown>>> {
+      this.calls.push({ text, values });
+      return { command: "", rowCount: 1, oid: 0, fields: [], rows: text.includes("FROM saas.memberships") ? [{ ...row }] : [] };
+    }
+  }
+  const transaction = await repository(new MembershipClient()).beginTransaction();
+  try {
+    const membership = await transaction.memberships.find(row.principal_id, row.store_id, "cashier");
+    assert.equal(membership?.role, "cashier");
+    row.role = "root";
+    await assert.rejects(() => transaction.memberships.find(row.principal_id, row.store_id, "root"), SaaSDataCorruptionError);
+  } finally {
+    await transaction.rollback();
+  }
+});
+
 test("media namespace adapter uses exact store authority and strict row projection", async () => {
   const storeId = "10000000-0000-4000-8000-000000000001";
   const now = "2026-07-28T00:00:00.000Z";

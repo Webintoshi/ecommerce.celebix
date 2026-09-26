@@ -4,6 +4,7 @@ import {
   QUICK_ORDER_LINK_STATUSES,
   QUICK_ORDER_MAX_COMPONENT_CENTS,
   STORE_DOMAIN_TYPES,
+  STORE_MEMBERSHIP_ROLES,
   type PlanFeatureKey,
   type QuickOrderAddress,
   type QuickOrderLinkStatus,
@@ -25,7 +26,7 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
-const ROLES = new Set<StoreMembershipRole>(["store_owner", "admin", "editor", "analyst"]);
+const ROLES = new Set<StoreMembershipRole>(STORE_MEMBERSHIP_ROLES);
 const FEATURES = new Set<string>(PLAN_FEATURE_KEYS);
 const DOMAIN_TYPES = new Set<string>(STORE_DOMAIN_TYPES);
 const MINIMUM_NOW = Date.parse("0001-01-01T00:00:00.000Z");

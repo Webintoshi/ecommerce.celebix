@@ -1,4 +1,5 @@
 import {
+  STORE_MEMBERSHIP_ROLES,
   parseCatalogProductListQuery,
   parseProduct,
   parseProductVariant,
@@ -99,7 +100,7 @@ export function catalogAuthority(context: TenantContext, currentTime: Date): Val
       planVersion < 1 ||
       !Number.isSafeInteger(productsLimit) ||
       productsLimit < 0 ||
-      !(["store_owner", "admin", "editor", "analyst"] as const).includes(role as StoreMembershipRole) ||
+      !STORE_MEMBERSHIP_ROLES.includes(role as StoreMembershipRole) ||
       typeof context.entitlements.validFrom !== "string"
     ) fail("durable_authority_invalid");
     const validFrom = new Date(context.entitlements.validFrom);

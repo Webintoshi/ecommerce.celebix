@@ -4,6 +4,7 @@ import {
   ORDER_STATUSES,
   PLAN_FEATURE_KEYS,
   STORE_DOMAIN_TYPES,
+  STORE_MEMBERSHIP_ROLES,
   parseOrderDetail,
   parseOrderDeliveryId,
   parseOrderDraftSaveIntent,
@@ -24,7 +25,7 @@ export const ORDER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/;
-const ROLES = new Set<StoreMembershipRole>(["store_owner", "admin", "editor", "analyst"]);
+const ROLES = new Set<StoreMembershipRole>(STORE_MEMBERSHIP_ROLES);
 const FEATURES = new Set<string>(PLAN_FEATURE_KEYS);
 const DOMAIN_TYPES = new Set<string>(STORE_DOMAIN_TYPES);
 const SYNTHETIC_ID = "11111111-1111-4111-8111-111111111111";
@@ -368,6 +369,7 @@ export function orderShipping(shippingAddress: unknown, tracking: unknown): Vali
       events: [],
       notes: [],
     });
+    if (parsed.shippingAddress === null) fail();
     return Object.freeze({
       shippingAddress: parsed.shippingAddress,
       ...(parsed.tracking === undefined ? {} : { tracking: parsed.tracking }),
