@@ -1,0 +1,12 @@
+2026-09-26 PostgreSQL 16.14 restored-backup integration
+Database: celebix_ean13_rehearsal_20260926_052710 (never the live database)
+Migration 155 applied and assertions passed before test.
+Starting snapshots: 1691 variants, 20 barcode operations.
+PASS reserve: valid 13-digit prefix/checksum, replay, repeated-candidate collision
+PASS bulk: two distinct valid saved codes, existing-code preservation, stale-version rejection, replay, mismatch
+PASS collisions: saved product candidates avoided and both per-store unique indexes reject duplicates
+PASS authority: real current context accepted; invalid membership and plan rejected without operations
+PASS preservation: original coded and unrelated product rows unchanged; rollback fixtures=0, current_session_available=f
+PASS rollback: all original product variants and barcode operations identical, no fixtures or allocations retained
+ean13_integration_passed_and_product_data_unchanged
+Process exit code: 0
