@@ -1,0 +1,82 @@
+[
+  {
+    "label": "hub1680",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1680,
+    "path": "/settings",
+    "visiblePageHeading": 0,
+    "width": 1680
+  },
+  {
+    "label": "general1440",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "path": "/settings/general",
+    "visiblePageHeading": 0,
+    "width": 1440
+  },
+  {
+    "label": "design1440",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "path": "/settings/design",
+    "visiblePageHeading": 1,
+    "width": 1440
+  },
+  {
+    "label": "design-product-preview",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "path": "/settings/design",
+    "visiblePageHeading": 1,
+    "width": 1440
+  },
+  {
+    "label": "design390",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "path": "/settings/design",
+    "visiblePageHeading": 1,
+    "width": 390
+  },
+  {
+    "label": "hub390",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 390,
+    "path": "/settings",
+    "visiblePageHeading": 0,
+    "width": 390
+  },
+  {
+    "label": "hub1024",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1024,
+    "path": "/settings",
+    "visiblePageHeading": 0,
+    "width": 1024
+  },
+  {
+    "label": "hub1440",
+    "alerts": [],
+    "brokenImages": 0,
+    "canvas": "rgb(248, 247, 245)",
+    "documentWidth": 1440,
+    "path": "/settings",
+    "visiblePageHeading": 0,
+    "width": 1440
+  }
+]

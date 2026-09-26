@@ -1,0 +1,369 @@
+{
+  "expectedCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "checkedAt": "2026-09-26T21:50:25.885736+00:00",
+  "readonly": true,
+  "sql165": {
+    "auditedAt": "2026-09-26T21:55:22.426288+00:00",
+    "pass": true,
+    "preservation": {
+      "readOnly": true,
+      "ownerRole": true,
+      "artifactCount": 6,
+      "backupForceRls": true,
+      "ownerBypassRls": true,
+      "expectedDatabase": true,
+      "currentDesignCount": 10,
+      "backupAclRestricted": true,
+      "laterChangedDesigns": 0,
+      "migrationDesignCount": 10,
+      "currentDocumentsValid": true,
+      "publicGetterAclCorrect": true,
+      "artifactsOwnedBySaasOwner": true,
+      "migrationEvidenceComplete": true,
+      "migrationVersionsPreserved": true,
+      "missingMigratedDesignCount": 0,
+      "additionalCurrentDesignCount": 0,
+      "unchangedMigratedDesignCount": 10,
+      "visibleComparisonDesignCount": 10,
+      "functionDefinitionBackupCount": 9,
+      "privateFunctionsAclRestricted": true,
+      "sameVersionDocumentDriftCount": 0,
+      "completeMigrationEvidenceCount": 10,
+      "currentDraftValidatorPassCount": 10,
+      "migrationVersionsPreservedCount": 10,
+      "functionDefinitionBackupComplete": true,
+      "migrationDraftDocumentsPreserved": true,
+      "currentPublishedValidatorPassCount": 10,
+      "announcementVisibilityPreservedCount": 10,
+      "visibleCategoryContentPreservedCount": 10,
+      "migrationDraftDocumentsPreservedCount": 10,
+      "visibleAnnouncementItemsPreservedCount": 10,
+      "unchangedPublicPresentationNonNullCount": 10,
+      "visibleCategoriesPreservedForUnchangedDesigns": true,
+      "visibleAnnouncementsPreservedForUnchangedDesigns": true
+    },
+    "contracts": {
+      "pass": true,
+      "designCount": 10,
+      "counts": {
+        "workspaceParsed": 10,
+        "publicDesignParsed": 10,
+        "publicPresentationParsed": 10,
+        "workspaceWithAssets": 10,
+        "workspaceWithPublishedDraft": 10
+      },
+      "failures": {
+        "workspace": 0,
+        "publicDesign": 0,
+        "publicPresentation": 0
+      },
+      "readOnly": true,
+      "liveTransactionRolledBack": true,
+      "postgresqlVersion": "16.14 (Debian 16.14-1.pgdg12+1)",
+      "verifiedAt": "2026-09-26T21:52:22.604192+00:00",
+      "sourceSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "database": "celebix_saas_staging_auth01",
+      "migration": "final165",
+      "liveDatabaseQueries": 1,
+      "liveDatabaseMutations": 0,
+      "sqlWrites": 0,
+      "privatePayloadStored": false,
+      "privatePayloadEmitted": false,
+      "sqlSha256": "2ecf7bbe5fdccb33ed8bf20c3fc5d449e2d6efc8bb8572cca92ec20094033649",
+      "invocation": "SSH docker exec psql -U postgres -d celebix_saas_staging_auth01 -X -qAt -v ON_ERROR_STOP=1; owner READ ONLY / REPEATABLE READ transaction; Node v24 current TypeScript parsers via --experimental-strip-types, JSON on stdin",
+      "parsers": [
+        "parseStorefrontDesignWorkspace",
+        "parsePublicStorefrontDesign",
+        "parsePublicStarterThemePresentation"
+      ]
+    },
+    "evidenceScope": "Independent audit of sanitized Cemo artifacts only; no backup payload or live SQL read by reviewer."
+  },
+  "applications": {
+    "panel-net": {
+      "sourceCount": 104,
+      "sourceMismatches": [],
+      "compiledCount": 27,
+      "compiledFailures": [],
+      "exactSourceCommit": {
+        "expected": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "actual": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "matches": true
+      },
+      "running": true,
+      "imageMatches": true,
+      "imageDigestMatches": true,
+      "runtimeVerdict": "PASS",
+      "runtimeFailures": [],
+      "deploymentCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "deploymentStatus": "finished",
+      "buildStages": {
+        "productionBuildStarted": true,
+        "compiled": true,
+        "typecheckStarted": true,
+        "typecheckFinished": true,
+        "pageData": true,
+        "staticPages": true,
+        "tracing": true
+      },
+      "httpHealth": {
+        "checkedAt": "2026-09-26T21:35:00.106195+00:00",
+        "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health",
+        "status": 200,
+        "health": "ok",
+        "redis": "ready",
+        "pass": true
+      },
+      "verify": {
+        "status": "verified",
+        "targetCount": 4,
+        "commit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "globalIdle": true
+      },
+      "compiledRoutes": [
+        "/settings/design/page",
+        "/api/storefront-design/route",
+        "/api/storefront-design/draft/route",
+        "/api/storefront-design/publish/route",
+        "/api/storefront-design/preview/route",
+        "/api/storefront-design/media/route",
+        "/api/storefront-design/fonts/route",
+        "/settings/page",
+        "/settings/general/page",
+        "/settings/domains/page",
+        "/settings/payment/page",
+        "/settings/shipping/page",
+        "/settings/pricing/page",
+        "/settings/analytics/page",
+        "/settings/artificial-intelligence/page",
+        "/settings/language/page",
+        "/settings/notifications/page",
+        "/settings/administrators/page",
+        "/settings/theme/page",
+        "/settings/hero-banner/page",
+        "/settings/category-showcase/page",
+        "/settings/marquee/page",
+        "/settings/promotion-banner/page",
+        "/settings/payment/new/page",
+        "/settings/payment/[recordId]/edit/page",
+        "/settings/administrators/new/page",
+        "/settings/administrators/[recordId]/edit/page"
+      ],
+      "passed": true
+    },
+    "panel-site": {
+      "sourceCount": 104,
+      "sourceMismatches": [],
+      "compiledCount": 27,
+      "compiledFailures": [],
+      "exactSourceCommit": {
+        "expected": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "actual": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "matches": true
+      },
+      "running": true,
+      "imageMatches": true,
+      "imageDigestMatches": true,
+      "runtimeVerdict": "PASS",
+      "runtimeFailures": [],
+      "deploymentCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "deploymentStatus": "finished",
+      "buildStages": {
+        "productionBuildStarted": true,
+        "compiled": true,
+        "typecheckStarted": true,
+        "typecheckFinished": true,
+        "pageData": true,
+        "staticPages": true,
+        "tracing": true
+      },
+      "httpHealth": {
+        "checkedAt": "2026-09-26T21:41:12.917213+00:00",
+        "records": [
+          {
+            "url": "https://admin.guzidekuyumcu.com.tr/api/health",
+            "status": 200,
+            "health": "ok",
+            "redis": "ready",
+            "pass": true
+          },
+          {
+            "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/health",
+            "status": 200,
+            "health": "ok",
+            "redis": "ready",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "verify": {
+        "status": "verified",
+        "targetCount": 4,
+        "commit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "globalIdle": true
+      },
+      "compiledRoutes": [
+        "/settings/design/page",
+        "/api/storefront-design/route",
+        "/api/storefront-design/draft/route",
+        "/api/storefront-design/publish/route",
+        "/api/storefront-design/preview/route",
+        "/api/storefront-design/media/route",
+        "/api/storefront-design/fonts/route",
+        "/settings/page",
+        "/settings/general/page",
+        "/settings/domains/page",
+        "/settings/payment/page",
+        "/settings/shipping/page",
+        "/settings/pricing/page",
+        "/settings/analytics/page",
+        "/settings/artificial-intelligence/page",
+        "/settings/language/page",
+        "/settings/notifications/page",
+        "/settings/administrators/page",
+        "/settings/theme/page",
+        "/settings/hero-banner/page",
+        "/settings/category-showcase/page",
+        "/settings/marquee/page",
+        "/settings/promotion-banner/page",
+        "/settings/payment/new/page",
+        "/settings/payment/[recordId]/edit/page",
+        "/settings/administrators/new/page",
+        "/settings/administrators/[recordId]/edit/page"
+      ],
+      "passed": true
+    },
+    "storefront-net": {
+      "sourceCount": 34,
+      "sourceMismatches": [],
+      "compiledCount": 7,
+      "compiledFailures": [],
+      "exactSourceCommit": {
+        "expected": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "actual": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "matches": true
+      },
+      "running": true,
+      "imageMatches": true,
+      "imageDigestMatches": true,
+      "runtimeVerdict": "PASS",
+      "runtimeFailures": [],
+      "deploymentCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "deploymentStatus": "finished",
+      "buildStages": {
+        "productionBuildStarted": true,
+        "compiled": true,
+        "typecheckStarted": true,
+        "typecheckFinished": true,
+        "pageData": true,
+        "staticPages": true,
+        "tracing": true
+      },
+      "httpHealth": {
+        "checkedAt": "2026-09-26T21:48:35.004753+00:00",
+        "records": [
+          {
+            "url": "https://butik-siora.saas-staging.celebix.net/",
+            "status": 200,
+            "pass": true
+          },
+          {
+            "url": "https://butik-siora.saas-staging.celebix.net/api/health",
+            "status": 200,
+            "pass": true,
+            "health": "ok"
+          }
+        ],
+        "pass": true
+      },
+      "verify": null,
+      "compiledRoutes": [
+        "/page",
+        "/pages/[slug]/page",
+        "/categories/[slug]/page",
+        "/kategori/[slug]/page",
+        "/products/[slug]/page",
+        "/urun/[slug]/page",
+        "/policies/[policyKey]/page"
+      ],
+      "passed": true
+    },
+    "storefront-site": {
+      "sourceCount": 34,
+      "sourceMismatches": [],
+      "compiledCount": 7,
+      "compiledFailures": [],
+      "exactSourceCommit": {
+        "expected": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "actual": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "matches": true
+      },
+      "running": true,
+      "imageMatches": true,
+      "imageDigestMatches": true,
+      "runtimeVerdict": "PASS",
+      "runtimeFailures": [],
+      "deploymentCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "deploymentStatus": "finished",
+      "buildStages": {
+        "productionBuildStarted": true,
+        "compiled": true,
+        "typecheckStarted": true,
+        "typecheckFinished": true,
+        "pageData": true,
+        "staticPages": true,
+        "tracing": true
+      },
+      "httpHealth": {
+        "checkedAt": "2026-09-26T21:45:00.415601+00:00",
+        "records": [
+          {
+            "url": "https://guzidekuyumcu.com/",
+            "status": 200,
+            "pass": true
+          },
+          {
+            "url": "https://guzidekuyumcu.com/api/health",
+            "status": 200,
+            "pass": true,
+            "health": "ok"
+          }
+        ],
+        "pass": true
+      },
+      "verify": {
+        "status": "verified",
+        "targetCount": 4,
+        "commit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "globalIdle": true
+      },
+      "compiledRoutes": [
+        "/page",
+        "/pages/[slug]/page",
+        "/categories/[slug]/page",
+        "/kategori/[slug]/page",
+        "/products/[slug]/page",
+        "/urun/[slug]/page",
+        "/policies/[policyKey]/page"
+      ],
+      "passed": true
+    }
+  },
+  "limitations": [
+    "Compiled artifacts presence/hashes do not exercise authenticated UI or tenant-specific authorization.",
+    "SQL165 preservation/contracts verified from sanitized live evidence; reviewer made no independent live database connection.",
+    "Environment and approval scope hashes are absent in sanitized artifacts; prepare/verify report preserved attributes only.",
+    "Private backups and encrypted attributes were not read."
+  ],
+  "verifyAfterAllApps": {
+    "status": "verified",
+    "targetCount": 4,
+    "commit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+    "globalIdle": true
+  },
+  "runtimeAllPassed": true,
+  "sourceCountPerRuntimeTotal": 276,
+  "compiledCountPerRuntimeTotal": 68,
+  "allRuntimeAndSqlEvidencePassed": true
+}
