@@ -254,6 +254,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_archive_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE')
         AND to_regclass('saas.catalog_category_order_operations') IS NOT NULL
+        AND to_regprocedure('saas.guard_catalog_category_order_operation_mutation()') IS NOT NULL
+        AND NOT has_function_privilege('public',to_regprocedure('saas.guard_catalog_category_order_operation_mutation()'),'EXECUTE')
+        AND EXISTS(SELECT 1 FROM pg_catalog.pg_trigger WHERE tgrelid=to_regclass('saas.catalog_category_order_operations')
+          AND tgname='catalog_category_order_operations_immutable' AND tgfoid=to_regprocedure('saas.guard_catalog_category_order_operation_mutation()')
+          AND tgenabled='O' AND tgtype=27 AND NOT tgisinternal)
         AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='saas.catalog_categories'::regclass AND attname='image_asset_id' AND NOT attisdropped)
         AND to_regprocedure('saas.catalog_reorder_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
         AND has_function_privilege('celebix_saas_app','saas.catalog_reorder_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,jsonb)','EXECUTE')

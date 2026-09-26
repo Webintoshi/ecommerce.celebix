@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const up = readFileSync(new URL("./202609260157_category_images_and_order.up.sql", import.meta.url), "utf8");
-const down = readFileSync(new URL("./202609260157_category_images_and_order.down.sql", import.meta.url), "utf8");
-const assertions = readFileSync(new URL("./202609260157_category_images_and_order_assertions.sql", import.meta.url), "utf8");
+const up = readFileSync(new URL("./202609260160_category_images_and_order.up.sql", import.meta.url), "utf8");
+const down = readFileSync(new URL("./202609260160_category_images_and_order.down.sql", import.meta.url), "utf8");
+const assertions = readFileSync(new URL("./202609260160_category_images_and_order_assertions.sql", import.meta.url), "utf8");
 
 function body(name: string, delimiter = "$function$") {
   const start = up.indexOf(`CREATE FUNCTION saas.${name}(`);
@@ -52,4 +52,16 @@ test("rollback protects category image and saved order data and restores old aut
     assert.match(down, new RegExp(`ALTER FUNCTION saas[.]${name}_without_images`));
   }
   assert.doesNotMatch(down, /CASCADE/);
+});
+
+
+test("order ledger has a dedicated guard independent of migration-144 deletion fields", () => {
+  const guard = body("guard_catalog_category_order_operation_mutation");
+  assert.match(guard, /RAISE EXCEPTION 'CATALOG_CATEGORY_ORDER_OPERATION_IMMUTABLE'/);
+  assert.doesNotMatch(guard, /OLD[.]|NEW[.]|current_setting|RETURN OLD/);
+  assert.match(up, /REVOKE ALL ON FUNCTION saas[.]guard_catalog_category_order_operation_mutation\(\)\s+FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver/);
+  assert.match(up, /FOR EACH ROW EXECUTE FUNCTION saas[.]guard_catalog_category_order_operation_mutation\(\)/);
+  assert.doesNotMatch(up, /EXECUTE FUNCTION saas[.]guard_catalog_onboarding_operation_mutation/);
+  assert.match(assertions, /tgfoid=guard_function AND tgenabled='O' AND tgtype=27/);
+  assert.ok(down.indexOf("DROP FUNCTION saas.guard_catalog_category_order_operation_mutation()") > down.indexOf("DROP TABLE saas.catalog_category_order_operations"));
 });

@@ -14,13 +14,15 @@ const BIN = process.env.CELEBIX_TEST_PG_BIN ?? '/Users/Celebix/.codex/tmp/postgr
 for (const tool of ['initdb', 'pg_ctl', 'psql']) assert.ok(existsSync(path.join(BIN, tool)), `Missing disposable PostgreSQL tool: ${tool}`);
 const temp = mkdtempSync('/tmp/celebix-category-order-');
 const data = path.join(temp, 'data'), socket = path.join(temp, 'socket');
-const UP = '202609260157_category_images_and_order.up.sql';
-const DOWN = '202609260157_category_images_and_order.down.sql';
-const ASSERTIONS = '202609260157_category_images_and_order_assertions.sql';
+const UP = '202609260160_category_images_and_order.up.sql';
+const DOWN = '202609260160_category_images_and_order.down.sql';
+const ASSERTIONS = '202609260160_category_images_and_order_assertions.sql';
 const source = readFileSync(path.join(SQL, '202607280056_catalog_product_onboarding.up.sql'), 'utf8');
+const deletionSource = readFileSync(path.join(SQL, '202609220144_permanent_catalog_deletion.up.sql'), 'utf8');
 const assetSource = readFileSync(path.join(SQL, '202607300069_admin_managed_starter_theme.up.sql'), 'utf8');
 function extract(text, name, delimiter = '$function$') {
-  const start = text.indexOf(`CREATE FUNCTION saas.${name}(`);
+  const create = text.indexOf(`CREATE FUNCTION saas.${name}(`);
+  const start = create >= 0 ? create : text.indexOf(`CREATE OR REPLACE FUNCTION saas.${name}(`);
   assert.ok(start >= 0);
   const end = text.indexOf(`\n${delimiter};`, text.indexOf(`AS ${delimiter}`, start));
   return text.slice(start, end + delimiter.length + 2);
@@ -65,7 +67,7 @@ try {
     CREATE FUNCTION saas.media_authority_error(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz) RETURNS text LANGUAGE sql STABLE AS $$ SELECT saas.catalog_authority_error($1,$2,$3,$4,$5,$6,$7,$8) $$;
     ${source.slice(categoryStart, categoryEnd)}
     ${source.slice(operationsStart, operationsEnd)}
-    ${extract(source, 'guard_catalog_onboarding_operation_mutation')}
+    ${extract(deletionSource, 'guard_catalog_onboarding_operation_mutation')}
     ${extract(source, 'catalog_onboarding_json_exact')}
     ${extract(source, 'catalog_onboarding_slug_base')}
     ${extract(timestampSource, 'catalog_timestamp')}
@@ -130,6 +132,25 @@ try {
     assert.equal(replay.outcome, 'operation_replayed'); assert.equal(replay.result_payload.replayed, true);
     assert.equal((await order(groups, id, 'b'.repeat(64))).outcome, 'operation_mismatch');
     assert.equal((await call('catalog_recover_category_order', [id, fingerprint])).outcome, 'operation_replayed');
+  });
+  await check('dedicated ledger guard rejects update/delete on actual migration-144 baseline', async () => {
+    const legacyGuard = (await pool.query(`SELECT prosrc FROM pg_catalog.pg_proc WHERE oid='saas.guard_catalog_onboarding_operation_mutation()'::regprocedure`)).rows[0].prosrc;
+    assert.ok(legacyGuard.includes('OLD.result_product_id') && legacyGuard.includes('OLD.result_category_id'));
+    const original = (await pool.query('SELECT operation_id,fingerprint FROM saas.catalog_category_order_operations ORDER BY operation_id LIMIT 1')).rows[0];
+    const client = await pool.connect();
+    try {
+      await client.query('SET ROLE celebix_saas_owner');
+      await client.query(`SELECT pg_catalog.set_config('celebix.category_safe_remove',$1,false)`, [STORE + ':' + A]);
+      for (const command of ['UPDATE saas.catalog_category_order_operations SET fingerprint=$2 WHERE operation_id=$1', 'DELETE FROM saas.catalog_category_order_operations WHERE operation_id=$1']) {
+        await assert.rejects(client.query(command, command.startsWith('UPDATE') ? [original.operation_id, 'b'.repeat(64)] : [original.operation_id]),
+          error => error.code === 'P0001' && error.message === 'CATALOG_CATEGORY_ORDER_OPERATION_IMMUTABLE');
+      }
+    } finally {
+      await client.query('RESET ROLE');
+      await client.query(`RESET celebix.category_safe_remove`);
+      client.release();
+    }
+    assert.equal((await pool.query('SELECT fingerprint FROM saas.catalog_category_order_operations WHERE operation_id=$1', [original.operation_id])).rows[0].fingerprint, original.fingerprint);
   });
   await check('later-group stale version leaves earlier group untouched', async () => {
     const all = await categories(), groups = [group([A, B], all), group([C, D], all, A)];

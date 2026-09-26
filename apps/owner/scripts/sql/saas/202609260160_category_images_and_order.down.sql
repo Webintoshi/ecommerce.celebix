@@ -20,6 +20,7 @@ ALTER FUNCTION saas.storefront_asset_archive_without_images(uuid,uuid,uuid,uuid,
 GRANT EXECUTE ON FUNCTION saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
 DROP FUNCTION saas.catalog_category_image_valid(jsonb);
 DROP TABLE saas.catalog_category_order_operations;
+DROP FUNCTION saas.guard_catalog_category_order_operation_mutation();
 DROP INDEX saas.catalog_categories_image_asset_idx;
 ALTER TABLE saas.catalog_categories DROP CONSTRAINT catalog_categories_image_asset_fk;
 ALTER TABLE saas.catalog_categories DROP CONSTRAINT catalog_categories_image_pair_check;

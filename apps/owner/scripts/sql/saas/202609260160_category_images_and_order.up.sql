@@ -24,8 +24,16 @@ CREATE INDEX catalog_category_order_operations_store_idx ON saas.catalog_categor
 ALTER TABLE saas.catalog_category_order_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.catalog_category_order_operations FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.catalog_category_order_operations FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
+CREATE FUNCTION saas.guard_catalog_category_order_operation_mutation()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $function$
+BEGIN
+  RAISE EXCEPTION 'CATALOG_CATEGORY_ORDER_OPERATION_IMMUTABLE';
+END
+$function$;
+REVOKE ALL ON FUNCTION saas.guard_catalog_category_order_operation_mutation()
+  FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
 CREATE TRIGGER catalog_category_order_operations_immutable BEFORE UPDATE OR DELETE ON saas.catalog_category_order_operations
-  FOR EACH ROW EXECUTE FUNCTION saas.guard_catalog_onboarding_operation_mutation();
+  FOR EACH ROW EXECUTE FUNCTION saas.guard_catalog_category_order_operation_mutation();
 
 ALTER FUNCTION saas.catalog_category_projection(uuid,uuid) RENAME TO catalog_category_projection_without_images;
 REVOKE ALL ON FUNCTION saas.catalog_category_projection_without_images(uuid,uuid) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
