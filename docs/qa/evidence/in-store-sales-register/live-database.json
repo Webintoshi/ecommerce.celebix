@@ -1,0 +1,2252 @@
+{
+  "generatedAt": "2026-09-26T11:55:50.359Z",
+  "mode": "READ ONLY; every connection BEGIN READ ONLY then ROLLBACK",
+  "sourceCommit": "1b6d3f0f82183c1445d2eb57b17f2a25a2f2c27e",
+  "sql157Sha256": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+  "verdict": "PASS",
+  "mismatches": [],
+  "violations": [],
+  "notes": [
+    "Nine new sealed tables total: eight merchant-data tables must be empty; in_store_migration_restore intentionally contains predecessor SQL metadata. No row contents, environment values or credentials recorded."
+  ],
+  "live": {
+    "identity": {
+      "database": "celebix_saas_staging_auth01",
+      "version": "16.14 (Debian 16.14-1.pgdg12+1)",
+      "read_only": "on"
+    },
+    "functions": [
+      {
+        "signature": "saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "checkout_begin_attempt",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0ab04f5ade238bff619750e972b2b0ebb03c6887dc97f5658b488ff83e625387"
+      },
+      {
+        "signature": "saas.commerce_analytics_snapshot(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,timestamp with time zone,timestamp with time zone,jsonb)",
+        "name": "commerce_analytics_snapshot",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "a7bc46a1c6d4e95fba073ffaeaf3b68a5e2f234f945bfc86866258943b701707"
+      },
+      {
+        "signature": "saas.guard_checkout_variant_held_reservation()",
+        "name": "guard_checkout_variant_held_reservation",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "094d707846d43e32bd64bd9f50ab54ca7c67f26b2fad4270d64145a0ad28db34"
+      },
+      {
+        "signature": "saas.in_store_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,boolean)",
+        "name": "in_store_authority_error",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "1c87e9b23c3e2c1b2ff24ca8ff1db24181a84cef9898041ce44f7ad3e248e518"
+      },
+      {
+        "signature": "saas.in_store_catalog_hold_guard()",
+        "name": "in_store_catalog_hold_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f45454b566d36a9db207192c169b9b356934b0c17a4776836efb5463da7ccde4"
+      },
+      {
+        "signature": "saas.in_store_held_quantity(uuid,uuid,uuid,uuid)",
+        "name": "in_store_held_quantity",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "c9c83e0d2e5c2acaae5da05c0c3b5a7027bc69463c9664aa37c08d68497667fd"
+      },
+      {
+        "signature": "saas.in_store_immutable()",
+        "name": "in_store_immutable",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "6ea8ddc6e1faccdccaa8d0ade0561a2d7e16f3b342fc02f2594d3b96d39d9605"
+      },
+      {
+        "signature": "saas.in_store_inventory_balance_guard()",
+        "name": "in_store_inventory_balance_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "2b27b649ec09f8379b1caea1d6e8d07333dc6f2f2efe575ef48122211c39da17"
+      },
+      {
+        "signature": "saas.in_store_is_manager(uuid,uuid)",
+        "name": "in_store_is_manager",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f8d010ea37d8930a76e43da69e22c0beebd1547522f3710f4d9b66fde8526c88"
+      },
+      {
+        "signature": "saas.in_store_order_guard()",
+        "name": "in_store_order_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "11fb0a02e4b8ba441f99190e11e721dc9979bb735ad45dbb1c5a5a346cb266e5"
+      },
+      {
+        "signature": "saas.in_store_order_item_net(uuid,bigint)",
+        "name": "in_store_order_item_net",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "eca64c8af31dcef3aeb2f100924314369dbe3ac470fb98a1684f18ad72a6ce55"
+      },
+      {
+        "signature": "saas.in_store_order_tombstone()",
+        "name": "in_store_order_tombstone",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5d9419de07b065b834bf2ad21f06a3c1d116e9f71567f85cd31862cb23f56353"
+      },
+      {
+        "signature": "saas.in_store_quote(uuid,uuid,timestamp with time zone,jsonb)",
+        "name": "in_store_quote",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "da949ef5fe089c885090eb54768554555800bed0b72a2098947b39d153b14422"
+      },
+      {
+        "signature": "saas.in_store_reservation_admission_guard()",
+        "name": "in_store_reservation_admission_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "e02a18e77ebdb9ac3f4f36c9f5c3d6bf1cc0dd04cd51ecebf80b035ba0c94357"
+      },
+      {
+        "signature": "saas.in_store_sales_bootstrap(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+        "name": "in_store_sales_bootstrap",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "63e66a74a01b04db3cf575f3f1de43bbd3fcb6c0cc4f5fa7775aa96c52415a41"
+      },
+      {
+        "signature": "saas.in_store_sales_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean)",
+        "name": "in_store_sales_cancel",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d28bc2dd92b1eb8c5bc78718c94fd32272b75bdfa01797a3dd7231b797eb1acb"
+      },
+      {
+        "signature": "saas.in_store_sales_complete(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "in_store_sales_complete",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5ab61c0095951bfad8365e9a755675615ce52ff116d160cfbdd529d25a2d5b0a"
+      },
+      {
+        "signature": "saas.in_store_sales_confirm_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "in_store_sales_confirm_payment",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "ed683158a0786ac27f862705bc0c766be5d2693108559a6f8c9e271d3f83e849"
+      },
+      {
+        "signature": "saas.in_store_sales_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,jsonb)",
+        "name": "in_store_sales_create",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "67197d9a2ea8fa1ff56c1083f840440c8758a9363e12cf616c29f368566dbde9"
+      },
+      {
+        "signature": "saas.in_store_sales_get_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+        "name": "in_store_sales_get_operation",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "8cba4c95df283776198f20abe2f63533c989db16c0742b3ce1d77d87e23b51a4"
+      },
+      {
+        "signature": "saas.in_store_sales_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+        "name": "in_store_sales_get",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "cd23d56699a33ffe2f2d24ff31dab8e259adc69e04c9e75f9f1f272598d79292"
+      },
+      {
+        "signature": "saas.in_store_sales_hold(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean)",
+        "name": "in_store_sales_hold",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9db88cd2ac3b2872d8a4b4c8b5629e7432fa6d9b3ec4204ce8bf16554a8c2fad"
+      },
+      {
+        "signature": "saas.in_store_sales_list_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+        "name": "in_store_sales_list_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "34601ea8d75f67afd3100764d27e19038ee7fef5e1a0af320bc6f6f2b81a19cf"
+      },
+      {
+        "signature": "saas.in_store_sales_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,integer,text)",
+        "name": "in_store_sales_list",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d9e2b541dfe8eac3477561a08b9e0ceaae0d60778df6b1f990e741c2fba54679"
+      },
+      {
+        "signature": "saas.in_store_sales_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)",
+        "name": "in_store_sales_mutate",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "22d7f99ab7b8da1b91a2ae4af6559c3b47cd6d41a5bee62158c9363a2d5e9382"
+      },
+      {
+        "signature": "saas.in_store_sales_prepare(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint)",
+        "name": "in_store_sales_prepare",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f77b9cb5cadc31814c53f48ef3fd680659cdf4b96d6bdee2d5d6d58c7b68b1ba"
+      },
+      {
+        "signature": "saas.in_store_sales_projection(uuid,uuid)",
+        "name": "in_store_sales_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d80455be9c9db221dc65f5739a39997220e6f6739f30e2f14852b3af3d5caee7"
+      },
+      {
+        "signature": "saas.in_store_sales_recover_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+        "name": "in_store_sales_recover_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "8fe744faa6b836e98da23a01a79e6804521f9940673bd8ab077a5ba471f6dc86"
+      },
+      {
+        "signature": "saas.in_store_sales_search_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,integer)",
+        "name": "in_store_sales_search_products",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5f4177f26ad987525c0e432616b530e653e2dd1466b28ca422ec1a5397b2fa57"
+      },
+      {
+        "signature": "saas.in_store_sales_set_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean,uuid[],integer)",
+        "name": "in_store_sales_set_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f0ebc97f9273a860bba7cea554a2e6d1092333b08a18a48bb53324ce4a93a735"
+      },
+      {
+        "signature": "saas.in_store_sales_takeover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "in_store_sales_takeover",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "fe69898c73ee6f1a35cd9181e509095f7ed6ec4710f138f7b9c06f7899063bdf"
+      },
+      {
+        "signature": "saas.in_store_sales_update(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
+        "name": "in_store_sales_update",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "379d5aff6f8b9325ba2b328ef97b957d660ca4846ca2876ae099f8cb549704b3"
+      },
+      {
+        "signature": "saas.in_store_staff_projection(uuid,uuid)",
+        "name": "in_store_staff_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "a41c47c3e3a22fe0e9c173d6803c53d6e52ef7a7d41d0df374b064dd732967b1"
+      },
+      {
+        "signature": "saas.inventory_counts_commit(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "inventory_counts_commit",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "6de53b02bb0377b492c585363e5317fdbe35acbdbeda58fae1b0ff695ac5e7d6"
+      },
+      {
+        "signature": "saas.inventory_reconcile_variant_delta(uuid,uuid,bigint,bigint,boolean)",
+        "name": "inventory_reconcile_variant_delta",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "3701a46b8df1f321e4857e7cf1cf4b38c2cb9e990e15b1711d1e5df479b980e8"
+      },
+      {
+        "signature": "saas.inventory_transfers_dispatch(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "inventory_transfers_dispatch",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "959f99ff90d8f0105b6aed8b709d23c537fbb901415d0ebf389a749a9410aab5"
+      },
+      {
+        "signature": "saas.issue_returning_panel_session_for_admin_host(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)",
+        "name": "issue_returning_panel_session_for_admin_host",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "1ed46ad730f557a6dd258787f0e27fa60d24d6e0e9d21a2ec4fe817d9277ea9f"
+      },
+      {
+        "signature": "saas.issue_returning_panel_session(text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)",
+        "name": "issue_returning_panel_session",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "0c31327f22ae8ea5c161eec3114e88c69b1538c49b678531e0fd5efba507b13b"
+      },
+      {
+        "signature": "saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)",
+        "name": "merchant_action_authority_error",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9c1a25ac124f8ef03ea09e0bd6b6ee6f48cc2401f008be1ba982946c9005ed2d"
+      },
+      {
+        "signature": "saas.order_email_enqueue(uuid,uuid,uuid,text,text,timestamp with time zone)",
+        "name": "order_email_enqueue",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "413a5f17e00f6749ca5250658839de2faaed380dc8c11c64d147e39517ef8a30"
+      },
+      {
+        "signature": "saas.orders_detail_projection(uuid,uuid)",
+        "name": "orders_detail_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf"
+      },
+      {
+        "signature": "saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "orders_transition_payment",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "47736fd12784a47922efd73f1751dece472f4fed9d2ce9085280c3d10ff4d2b5"
+      },
+      {
+        "signature": "saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "orders_transition_status",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "86293d79f2bff2c4cec22883f5990c999c4f369d879f088ff4a016ca3434b463"
+      },
+      {
+        "signature": "saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)",
+        "name": "orders_update_shipping",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "691bdd2bfd867c5b3db2aea5ed689145bbf62fce31a221a88fe7a23e3c1521c2"
+      },
+      {
+        "signature": "saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])",
+        "name": "pricing_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0beb36fd06a4c36becd221713e52f5e16aee827ab13a3f89f6f5e1d72ccd3ae6"
+      },
+      {
+        "signature": "saas.pricing_reference_set_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,integer,uuid)",
+        "name": "pricing_reference_set_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0556821103df09c5bcc489a7f986828149311dc25e683058924bfe30af0dc64b"
+      },
+      {
+        "signature": "saas.pricing_rules_valid(uuid,jsonb,timestamp with time zone)",
+        "name": "pricing_rules_valid",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "1943d7e68c5518bf7176abf9d964212dc9391d9ec4f254ba8eb4a5cadfa4fdf1"
+      },
+      {
+        "signature": "saas.pricing_variant_policy_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb,text)",
+        "name": "pricing_variant_policy_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "58bc9a83eb6232c8556f73093ff5b7d78af76f0f811174908c3c7d7b435b1720"
+      },
+      {
+        "signature": "saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)",
+        "name": "promotion_analytics_v2",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "c622c87584823c595c9ccf106dd3a67357dcd41d7daaa3c112a2c710cf8eb80b"
+      },
+      {
+        "signature": "saas.public_storefront_hosted_checkout_begin(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)",
+        "name": "public_storefront_hosted_checkout_begin",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9f298dc9908b67bd8ccdc48e56e1a3677c761211a2736490639c16c6e21456c3"
+      },
+      {
+        "signature": "saas.public_storefront_hosted_checkout_begin_v2(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)",
+        "name": "public_storefront_hosted_checkout_begin_v2",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0f52ebfe121e01ae5cd891979dc47823cb6c1853c55aeb0713c2fa510172e6d0"
+      },
+      {
+        "signature": "saas.purchasing_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)",
+        "name": "purchasing_receive",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "17cc57b6a260a5b031d93ea1cc7aa99749a74463cc2b92580bf17493cdd96897"
+      },
+      {
+        "signature": "saas.quick_order_hosted_payment_begin(text,text,uuid,text,text,text,timestamp with time zone)",
+        "name": "quick_order_hosted_payment_begin",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "7f01aac9a3ae57127b89f5a938ee05a4f3e729e8e58d4ce01f726186f9934413"
+      },
+      {
+        "signature": "saas.recover_returning_panel_session_for_admin_host(text,text,text,uuid,text,text)",
+        "name": "recover_returning_panel_session_for_admin_host",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "bb5a0cbb9310ab562cc83e45739416a3697b0b0d03e82460efc2c9db7f267ee4"
+      },
+      {
+        "signature": "saas.recover_returning_panel_session(text,text,uuid,text,text)",
+        "name": "recover_returning_panel_session",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "804c13bc5d0193e3a755bf766c348bb40c63f83e208e042a72d1a8566e7acad1"
+      },
+      {
+        "signature": "saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)",
+        "name": "resolve_effective_variant_price",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9c4ddcfe3754233a7b3fb43c28a5f4a4ad21974a63714bf57df2acb9038d6d1a"
+      },
+      {
+        "signature": "saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)",
+        "name": "storefront_available_stock",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "95f8faacc75e75dca4226a580f726340f1cc6db468b4546e3f112bbb79136cd3"
+      },
+      {
+        "signature": "saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "storefront_checkout_begin_hosted",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0c39bd7f1e4fa0ed2e8cb97be5f6622a18fade27f3affc813b0a0202016ce5e9"
+      },
+      {
+        "signature": "saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "storefront_checkout_build_quote",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "635db0438cb6f5d63fd5ddba1831355415cce8b29011949f44d102c05f893ff5"
+      },
+      {
+        "signature": "saas.storefront_checkout_payment_attempt_terminal()",
+        "name": "storefront_checkout_payment_attempt_terminal",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d84c8f3ae70813ad3c48f9d43dd6b6548036a6732bc0128aaf0868cea201a578"
+      }
+    ],
+    "tables": [
+      {
+        "name": "in_store_discount_allocations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_inventory_reservations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_migration_restore",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_operations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_payment_attestations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_price_snapshots",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_sale_events",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_sales",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_staff_grants",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      }
+    ],
+    "tableCounts": [
+      {
+        "name": "in_store_migration_restore",
+        "count": 25,
+        "kind": "migration_metadata"
+      },
+      {
+        "name": "in_store_staff_grants",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_sales",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_payment_attestations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_inventory_reservations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_operations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_sale_events",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_discount_allocations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_price_snapshots",
+        "count": 0,
+        "kind": "merchant_data"
+      }
+    ],
+    "policies": [
+      {
+        "tablename": "in_store_discount_allocations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_inventory_reservations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_migration_restore",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_operations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_payment_attestations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_price_snapshots",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_sale_events",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_sales",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_staff_grants",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      }
+    ],
+    "roles": [
+      {
+        "name": "celebix_saas_app",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_bootstrap",
+        "superuser": false,
+        "bypass_rls": true,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_host_resolver",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_identity",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_migrator",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_observability",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_owner",
+        "superuser": false,
+        "bypass_rls": true,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_workflow",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      }
+    ],
+    "membershipRoleConstraint": {
+      "sha256": "cccc1524e5e04cbcd9b9d2d02682e2943d37791825330e26fb865efa5bc5978d",
+      "validated": true,
+      "containsCashier": true
+    },
+    "reservationViewSha256": "67badca113347e3ae9084236d2d37369377053497662be661d769a45981c4d8a",
+    "triggers": [
+      {
+        "table_name": "checkout_inventory_reservations",
+        "name": "in_store_online_hold_admission",
+        "enabled": "O",
+        "sha256": "b6b3e82242fa8c1fa409c22572ff73794b496698ac9d837b2ebb95718e53452f"
+      },
+      {
+        "table_name": "in_store_discount_allocations",
+        "name": "in_store_discount_immutable",
+        "enabled": "O",
+        "sha256": "5d46fedcdf807f2d50354cfa4544010489d8cf10d38c254edaf6bf332cb95c19"
+      },
+      {
+        "table_name": "in_store_inventory_reservations",
+        "name": "in_store_pos_hold_admission",
+        "enabled": "O",
+        "sha256": "8f73e7c8a37725e5e12217097a2d143a87edea81ea281bf3f3ef4e9fe03ac231"
+      },
+      {
+        "table_name": "in_store_operations",
+        "name": "in_store_operation_immutable",
+        "enabled": "O",
+        "sha256": "33171746f7ce479d762b8cb721accd4a3b31e47ea6ac45120b812195b71fb920"
+      },
+      {
+        "table_name": "in_store_payment_attestations",
+        "name": "in_store_payment_immutable",
+        "enabled": "O",
+        "sha256": "9a3ad210317e2ae85727055bffc99b753fc4164fc880db30b5224f0a1b0eb27b"
+      },
+      {
+        "table_name": "in_store_price_snapshots",
+        "name": "in_store_price_snapshot_immutable",
+        "enabled": "O",
+        "sha256": "4c745a9fde69e9ec8278e17922d96d50e71e88a9e0f76fa38af72ae374c739a9"
+      },
+      {
+        "table_name": "in_store_sale_events",
+        "name": "in_store_event_immutable",
+        "enabled": "O",
+        "sha256": "f71920aec989eb925760f4ccd337ce28ec6ced59ba1307cc71b9f4bda1036f50"
+      },
+      {
+        "table_name": "inventory_balances",
+        "name": "in_store_inventory_balance_guard",
+        "enabled": "O",
+        "sha256": "3a2bb6e8af97e1a910c0aaa262f2a67e728b59e72acc7ceec10616b6d6d645bf"
+      },
+      {
+        "table_name": "inventory_locations",
+        "name": "in_store_location_hold_guard",
+        "enabled": "O",
+        "sha256": "a68c97a567315e2aea18b183fbc9b2d3edf0fba73005421ec5aa122cd140319e"
+      },
+      {
+        "table_name": "orders",
+        "name": "in_store_order_guard",
+        "enabled": "O",
+        "sha256": "bab6ecf06aa481f9058370e0f3904a9e815fa0e405bcc1d3089142134419a968"
+      },
+      {
+        "table_name": "orders",
+        "name": "in_store_order_tombstone",
+        "enabled": "O",
+        "sha256": "d176b4d88c686bb13e7fa70c906d43a718b74418f530200db448e0840b91d8bc"
+      },
+      {
+        "table_name": "product_variants",
+        "name": "in_store_variant_hold_guard",
+        "enabled": "O",
+        "sha256": "f2e43f6efa0016873a63723ad0ff211f3683b940ed0ea1c22587de37d3a31013"
+      },
+      {
+        "table_name": "products",
+        "name": "in_store_product_hold_guard",
+        "enabled": "O",
+        "sha256": "59fa0981c66ddb3d01f10ce94217fc388ff7af07b1a1e65f8a57e85ed7ae20aa"
+      }
+    ]
+  },
+  "rehearsal": {
+    "identity": {
+      "database": "celebix_in_store_rehearsal_20260926",
+      "version": "16.14 (Debian 16.14-1.pgdg12+1)",
+      "read_only": "on"
+    },
+    "functions": [
+      {
+        "signature": "saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "checkout_begin_attempt",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0ab04f5ade238bff619750e972b2b0ebb03c6887dc97f5658b488ff83e625387"
+      },
+      {
+        "signature": "saas.commerce_analytics_snapshot(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,timestamp with time zone,timestamp with time zone,jsonb)",
+        "name": "commerce_analytics_snapshot",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "a7bc46a1c6d4e95fba073ffaeaf3b68a5e2f234f945bfc86866258943b701707"
+      },
+      {
+        "signature": "saas.guard_checkout_variant_held_reservation()",
+        "name": "guard_checkout_variant_held_reservation",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "094d707846d43e32bd64bd9f50ab54ca7c67f26b2fad4270d64145a0ad28db34"
+      },
+      {
+        "signature": "saas.in_store_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,boolean)",
+        "name": "in_store_authority_error",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "1c87e9b23c3e2c1b2ff24ca8ff1db24181a84cef9898041ce44f7ad3e248e518"
+      },
+      {
+        "signature": "saas.in_store_catalog_hold_guard()",
+        "name": "in_store_catalog_hold_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f45454b566d36a9db207192c169b9b356934b0c17a4776836efb5463da7ccde4"
+      },
+      {
+        "signature": "saas.in_store_held_quantity(uuid,uuid,uuid,uuid)",
+        "name": "in_store_held_quantity",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "c9c83e0d2e5c2acaae5da05c0c3b5a7027bc69463c9664aa37c08d68497667fd"
+      },
+      {
+        "signature": "saas.in_store_immutable()",
+        "name": "in_store_immutable",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "6ea8ddc6e1faccdccaa8d0ade0561a2d7e16f3b342fc02f2594d3b96d39d9605"
+      },
+      {
+        "signature": "saas.in_store_inventory_balance_guard()",
+        "name": "in_store_inventory_balance_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "2b27b649ec09f8379b1caea1d6e8d07333dc6f2f2efe575ef48122211c39da17"
+      },
+      {
+        "signature": "saas.in_store_is_manager(uuid,uuid)",
+        "name": "in_store_is_manager",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f8d010ea37d8930a76e43da69e22c0beebd1547522f3710f4d9b66fde8526c88"
+      },
+      {
+        "signature": "saas.in_store_order_guard()",
+        "name": "in_store_order_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "11fb0a02e4b8ba441f99190e11e721dc9979bb735ad45dbb1c5a5a346cb266e5"
+      },
+      {
+        "signature": "saas.in_store_order_item_net(uuid,bigint)",
+        "name": "in_store_order_item_net",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "eca64c8af31dcef3aeb2f100924314369dbe3ac470fb98a1684f18ad72a6ce55"
+      },
+      {
+        "signature": "saas.in_store_order_tombstone()",
+        "name": "in_store_order_tombstone",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5d9419de07b065b834bf2ad21f06a3c1d116e9f71567f85cd31862cb23f56353"
+      },
+      {
+        "signature": "saas.in_store_quote(uuid,uuid,timestamp with time zone,jsonb)",
+        "name": "in_store_quote",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "da949ef5fe089c885090eb54768554555800bed0b72a2098947b39d153b14422"
+      },
+      {
+        "signature": "saas.in_store_reservation_admission_guard()",
+        "name": "in_store_reservation_admission_guard",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "e02a18e77ebdb9ac3f4f36c9f5c3d6bf1cc0dd04cd51ecebf80b035ba0c94357"
+      },
+      {
+        "signature": "saas.in_store_sales_bootstrap(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+        "name": "in_store_sales_bootstrap",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "63e66a74a01b04db3cf575f3f1de43bbd3fcb6c0cc4f5fa7775aa96c52415a41"
+      },
+      {
+        "signature": "saas.in_store_sales_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean)",
+        "name": "in_store_sales_cancel",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d28bc2dd92b1eb8c5bc78718c94fd32272b75bdfa01797a3dd7231b797eb1acb"
+      },
+      {
+        "signature": "saas.in_store_sales_complete(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "in_store_sales_complete",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5ab61c0095951bfad8365e9a755675615ce52ff116d160cfbdd529d25a2d5b0a"
+      },
+      {
+        "signature": "saas.in_store_sales_confirm_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "in_store_sales_confirm_payment",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "ed683158a0786ac27f862705bc0c766be5d2693108559a6f8c9e271d3f83e849"
+      },
+      {
+        "signature": "saas.in_store_sales_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,jsonb)",
+        "name": "in_store_sales_create",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "67197d9a2ea8fa1ff56c1083f840440c8758a9363e12cf616c29f368566dbde9"
+      },
+      {
+        "signature": "saas.in_store_sales_get_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+        "name": "in_store_sales_get_operation",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "8cba4c95df283776198f20abe2f63533c989db16c0742b3ce1d77d87e23b51a4"
+      },
+      {
+        "signature": "saas.in_store_sales_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+        "name": "in_store_sales_get",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "cd23d56699a33ffe2f2d24ff31dab8e259adc69e04c9e75f9f1f272598d79292"
+      },
+      {
+        "signature": "saas.in_store_sales_hold(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean)",
+        "name": "in_store_sales_hold",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9db88cd2ac3b2872d8a4b4c8b5629e7432fa6d9b3ec4204ce8bf16554a8c2fad"
+      },
+      {
+        "signature": "saas.in_store_sales_list_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+        "name": "in_store_sales_list_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "34601ea8d75f67afd3100764d27e19038ee7fef5e1a0af320bc6f6f2b81a19cf"
+      },
+      {
+        "signature": "saas.in_store_sales_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,integer,text)",
+        "name": "in_store_sales_list",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d9e2b541dfe8eac3477561a08b9e0ceaae0d60778df6b1f990e741c2fba54679"
+      },
+      {
+        "signature": "saas.in_store_sales_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)",
+        "name": "in_store_sales_mutate",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "22d7f99ab7b8da1b91a2ae4af6559c3b47cd6d41a5bee62158c9363a2d5e9382"
+      },
+      {
+        "signature": "saas.in_store_sales_prepare(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,bigint)",
+        "name": "in_store_sales_prepare",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f77b9cb5cadc31814c53f48ef3fd680659cdf4b96d6bdee2d5d6d58c7b68b1ba"
+      },
+      {
+        "signature": "saas.in_store_sales_projection(uuid,uuid)",
+        "name": "in_store_sales_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d80455be9c9db221dc65f5739a39997220e6f6739f30e2f14852b3af3d5caee7"
+      },
+      {
+        "signature": "saas.in_store_sales_recover_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+        "name": "in_store_sales_recover_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "8fe744faa6b836e98da23a01a79e6804521f9940673bd8ab077a5ba471f6dc86"
+      },
+      {
+        "signature": "saas.in_store_sales_search_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,integer)",
+        "name": "in_store_sales_search_products",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "5f4177f26ad987525c0e432616b530e653e2dd1466b28ca422ec1a5397b2fa57"
+      },
+      {
+        "signature": "saas.in_store_sales_set_staff(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,boolean,uuid[],integer)",
+        "name": "in_store_sales_set_staff",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "f0ebc97f9273a860bba7cea554a2e6d1092333b08a18a48bb53324ce4a93a735"
+      },
+      {
+        "signature": "saas.in_store_sales_takeover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "in_store_sales_takeover",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "fe69898c73ee6f1a35cd9181e509095f7ed6ec4710f138f7b9c06f7899063bdf"
+      },
+      {
+        "signature": "saas.in_store_sales_update(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)",
+        "name": "in_store_sales_update",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "379d5aff6f8b9325ba2b328ef97b957d660ca4846ca2876ae099f8cb549704b3"
+      },
+      {
+        "signature": "saas.in_store_staff_projection(uuid,uuid)",
+        "name": "in_store_staff_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "a41c47c3e3a22fe0e9c173d6803c53d6e52ef7a7d41d0df374b064dd732967b1"
+      },
+      {
+        "signature": "saas.inventory_counts_commit(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "inventory_counts_commit",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "6de53b02bb0377b492c585363e5317fdbe35acbdbeda58fae1b0ff695ac5e7d6"
+      },
+      {
+        "signature": "saas.inventory_reconcile_variant_delta(uuid,uuid,bigint,bigint,boolean)",
+        "name": "inventory_reconcile_variant_delta",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "3701a46b8df1f321e4857e7cf1cf4b38c2cb9e990e15b1711d1e5df479b980e8"
+      },
+      {
+        "signature": "saas.inventory_transfers_dispatch(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+        "name": "inventory_transfers_dispatch",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "959f99ff90d8f0105b6aed8b709d23c537fbb901415d0ebf389a749a9410aab5"
+      },
+      {
+        "signature": "saas.issue_returning_panel_session_for_admin_host(text,text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)",
+        "name": "issue_returning_panel_session_for_admin_host",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "1ed46ad730f557a6dd258787f0e27fa60d24d6e0e9d21a2ec4fe817d9277ea9f"
+      },
+      {
+        "signature": "saas.issue_returning_panel_session(text,text,uuid,uuid,uuid,text,text,timestamp with time zone,timestamp with time zone)",
+        "name": "issue_returning_panel_session",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "0c31327f22ae8ea5c161eec3114e88c69b1538c49b678531e0fd5efba507b13b"
+      },
+      {
+        "signature": "saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)",
+        "name": "merchant_action_authority_error",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9c1a25ac124f8ef03ea09e0bd6b6ee6f48cc2401f008be1ba982946c9005ed2d"
+      },
+      {
+        "signature": "saas.order_email_enqueue(uuid,uuid,uuid,text,text,timestamp with time zone)",
+        "name": "order_email_enqueue",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "413a5f17e00f6749ca5250658839de2faaed380dc8c11c64d147e39517ef8a30"
+      },
+      {
+        "signature": "saas.orders_detail_projection(uuid,uuid)",
+        "name": "orders_detail_projection",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf"
+      },
+      {
+        "signature": "saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "orders_transition_payment",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "47736fd12784a47922efd73f1751dece472f4fed9d2ce9085280c3d10ff4d2b5"
+      },
+      {
+        "signature": "saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+        "name": "orders_transition_status",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "86293d79f2bff2c4cec22883f5990c999c4f369d879f088ff4a016ca3434b463"
+      },
+      {
+        "signature": "saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)",
+        "name": "orders_update_shipping",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "691bdd2bfd867c5b3db2aea5ed689145bbf62fce31a221a88fe7a23e3c1521c2"
+      },
+      {
+        "signature": "saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])",
+        "name": "pricing_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0beb36fd06a4c36becd221713e52f5e16aee827ab13a3f89f6f5e1d72ccd3ae6"
+      },
+      {
+        "signature": "saas.pricing_reference_set_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,integer,uuid)",
+        "name": "pricing_reference_set_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0556821103df09c5bcc489a7f986828149311dc25e683058924bfe30af0dc64b"
+      },
+      {
+        "signature": "saas.pricing_rules_valid(uuid,jsonb,timestamp with time zone)",
+        "name": "pricing_rules_valid",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "1943d7e68c5518bf7176abf9d964212dc9391d9ec4f254ba8eb4a5cadfa4fdf1"
+      },
+      {
+        "signature": "saas.pricing_variant_policy_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,jsonb,text)",
+        "name": "pricing_variant_policy_preview",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "58bc9a83eb6232c8556f73093ff5b7d78af76f0f811174908c3c7d7b435b1720"
+      },
+      {
+        "signature": "saas.promotion_analytics_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,integer)",
+        "name": "promotion_analytics_v2",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "c622c87584823c595c9ccf106dd3a67357dcd41d7daaa3c112a2c710cf8eb80b"
+      },
+      {
+        "signature": "saas.public_storefront_hosted_checkout_begin(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)",
+        "name": "public_storefront_hosted_checkout_begin",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9f298dc9908b67bd8ccdc48e56e1a3677c761211a2736490639c16c6e21456c3"
+      },
+      {
+        "signature": "saas.public_storefront_hosted_checkout_begin_v2(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text)",
+        "name": "public_storefront_hosted_checkout_begin_v2",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0f52ebfe121e01ae5cd891979dc47823cb6c1853c55aeb0713c2fa510172e6d0"
+      },
+      {
+        "signature": "saas.purchasing_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)",
+        "name": "purchasing_receive",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "17cc57b6a260a5b031d93ea1cc7aa99749a74463cc2b92580bf17493cdd96897"
+      },
+      {
+        "signature": "saas.quick_order_hosted_payment_begin(text,text,uuid,text,text,text,timestamp with time zone)",
+        "name": "quick_order_hosted_payment_begin",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "7f01aac9a3ae57127b89f5a938ee05a4f3e729e8e58d4ce01f726186f9934413"
+      },
+      {
+        "signature": "saas.recover_returning_panel_session_for_admin_host(text,text,text,uuid,text,text)",
+        "name": "recover_returning_panel_session_for_admin_host",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "bb5a0cbb9310ab562cc83e45739416a3697b0b0d03e82460efc2c9db7f267ee4"
+      },
+      {
+        "signature": "saas.recover_returning_panel_session(text,text,uuid,text,text)",
+        "name": "recover_returning_panel_session",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": true,
+        "public_execute": false,
+        "sha256": "804c13bc5d0193e3a755bf766c348bb40c63f83e208e042a72d1a8566e7acad1"
+      },
+      {
+        "signature": "saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)",
+        "name": "resolve_effective_variant_price",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": true,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "9c4ddcfe3754233a7b3fb43c28a5f4a4ad21974a63714bf57df2acb9038d6d1a"
+      },
+      {
+        "signature": "saas.storefront_available_stock(uuid,uuid,timestamp with time zone,uuid)",
+        "name": "storefront_available_stock",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "95f8faacc75e75dca4226a580f726340f1cc6db468b4546e3f112bbb79136cd3"
+      },
+      {
+        "signature": "saas.storefront_checkout_begin_hosted(text,text,bigint,uuid,text,text,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "storefront_checkout_begin_hosted",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "0c39bd7f1e4fa0ed2e8cb97be5f6622a18fade27f3affc813b0a0202016ce5e9"
+      },
+      {
+        "signature": "saas.storefront_checkout_build_quote(uuid,uuid,text,uuid,text,timestamp with time zone)",
+        "name": "storefront_checkout_build_quote",
+        "owner": "celebix_saas_owner",
+        "security_definer": false,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "635db0438cb6f5d63fd5ddba1831355415cce8b29011949f44d102c05f893ff5"
+      },
+      {
+        "signature": "saas.storefront_checkout_payment_attempt_terminal()",
+        "name": "storefront_checkout_payment_attempt_terminal",
+        "owner": "celebix_saas_owner",
+        "security_definer": true,
+        "settings": [
+          "search_path=pg_catalog, saas"
+        ],
+        "app_execute": false,
+        "identity_execute": false,
+        "public_execute": false,
+        "sha256": "d84c8f3ae70813ad3c48f9d43dd6b6548036a6732bc0128aaf0868cea201a578"
+      }
+    ],
+    "tables": [
+      {
+        "name": "in_store_discount_allocations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_inventory_reservations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_migration_restore",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_operations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_payment_attestations",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_price_snapshots",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_sale_events",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_sales",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      },
+      {
+        "name": "in_store_staff_grants",
+        "owner": "celebix_saas_owner",
+        "rls": true,
+        "force_rls": true,
+        "app_direct_access": false
+      }
+    ],
+    "tableCounts": [
+      {
+        "name": "in_store_migration_restore",
+        "count": 25,
+        "kind": "migration_metadata"
+      },
+      {
+        "name": "in_store_staff_grants",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_sales",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_payment_attestations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_inventory_reservations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_operations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_sale_events",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_discount_allocations",
+        "count": 0,
+        "kind": "merchant_data"
+      },
+      {
+        "name": "in_store_price_snapshots",
+        "count": 0,
+        "kind": "merchant_data"
+      }
+    ],
+    "policies": [
+      {
+        "tablename": "in_store_discount_allocations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_inventory_reservations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_migration_restore",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_operations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_payment_attestations",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_price_snapshots",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_sale_events",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_sales",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      },
+      {
+        "tablename": "in_store_staff_grants",
+        "policyname": "in_store_owner_only",
+        "permissive": "PERMISSIVE",
+        "roles": "{celebix_saas_owner}",
+        "cmd": "ALL",
+        "qual": "true",
+        "with_check": "true"
+      }
+    ],
+    "roles": [
+      {
+        "name": "celebix_saas_app",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_bootstrap",
+        "superuser": false,
+        "bypass_rls": true,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_host_resolver",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_identity",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_migrator",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_observability",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_owner",
+        "superuser": false,
+        "bypass_rls": true,
+        "can_login": false
+      },
+      {
+        "name": "celebix_saas_workflow",
+        "superuser": false,
+        "bypass_rls": false,
+        "can_login": false
+      }
+    ],
+    "membershipRoleConstraint": {
+      "sha256": "cccc1524e5e04cbcd9b9d2d02682e2943d37791825330e26fb865efa5bc5978d",
+      "validated": true,
+      "containsCashier": true
+    },
+    "reservationViewSha256": "67badca113347e3ae9084236d2d37369377053497662be661d769a45981c4d8a",
+    "triggers": [
+      {
+        "table_name": "checkout_inventory_reservations",
+        "name": "in_store_online_hold_admission",
+        "enabled": "O",
+        "sha256": "b6b3e82242fa8c1fa409c22572ff73794b496698ac9d837b2ebb95718e53452f"
+      },
+      {
+        "table_name": "in_store_discount_allocations",
+        "name": "in_store_discount_immutable",
+        "enabled": "O",
+        "sha256": "5d46fedcdf807f2d50354cfa4544010489d8cf10d38c254edaf6bf332cb95c19"
+      },
+      {
+        "table_name": "in_store_inventory_reservations",
+        "name": "in_store_pos_hold_admission",
+        "enabled": "O",
+        "sha256": "8f73e7c8a37725e5e12217097a2d143a87edea81ea281bf3f3ef4e9fe03ac231"
+      },
+      {
+        "table_name": "in_store_operations",
+        "name": "in_store_operation_immutable",
+        "enabled": "O",
+        "sha256": "33171746f7ce479d762b8cb721accd4a3b31e47ea6ac45120b812195b71fb920"
+      },
+      {
+        "table_name": "in_store_payment_attestations",
+        "name": "in_store_payment_immutable",
+        "enabled": "O",
+        "sha256": "9a3ad210317e2ae85727055bffc99b753fc4164fc880db30b5224f0a1b0eb27b"
+      },
+      {
+        "table_name": "in_store_price_snapshots",
+        "name": "in_store_price_snapshot_immutable",
+        "enabled": "O",
+        "sha256": "4c745a9fde69e9ec8278e17922d96d50e71e88a9e0f76fa38af72ae374c739a9"
+      },
+      {
+        "table_name": "in_store_sale_events",
+        "name": "in_store_event_immutable",
+        "enabled": "O",
+        "sha256": "f71920aec989eb925760f4ccd337ce28ec6ced59ba1307cc71b9f4bda1036f50"
+      },
+      {
+        "table_name": "inventory_balances",
+        "name": "in_store_inventory_balance_guard",
+        "enabled": "O",
+        "sha256": "3a2bb6e8af97e1a910c0aaa262f2a67e728b59e72acc7ceec10616b6d6d645bf"
+      },
+      {
+        "table_name": "inventory_locations",
+        "name": "in_store_location_hold_guard",
+        "enabled": "O",
+        "sha256": "a68c97a567315e2aea18b183fbc9b2d3edf0fba73005421ec5aa122cd140319e"
+      },
+      {
+        "table_name": "orders",
+        "name": "in_store_order_guard",
+        "enabled": "O",
+        "sha256": "bab6ecf06aa481f9058370e0f3904a9e815fa0e405bcc1d3089142134419a968"
+      },
+      {
+        "table_name": "orders",
+        "name": "in_store_order_tombstone",
+        "enabled": "O",
+        "sha256": "d176b4d88c686bb13e7fa70c906d43a718b74418f530200db448e0840b91d8bc"
+      },
+      {
+        "table_name": "product_variants",
+        "name": "in_store_variant_hold_guard",
+        "enabled": "O",
+        "sha256": "f2e43f6efa0016873a63723ad0ff211f3683b940ed0ea1c22587de37d3a31013"
+      },
+      {
+        "table_name": "products",
+        "name": "in_store_product_hold_guard",
+        "enabled": "O",
+        "sha256": "59fa0981c66ddb3d01f10ce94217fc388ff7af07b1a1e65f8a57e85ed7ae20aa"
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # In-store Sales Register Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the shared Customer Panel `/orders/quick-links` working screen with the approved barcode-first store sales register, backed by durable, tenant-scoped orders and location inventory.
 
@@ -119,11 +119,11 @@ Repository (`packages/saas-data/src/in-store-sales/types.ts`) uses authority `{t
 
 **Produces:** Types above; `parseInStoreSaleIntent`, `parseInStoreProduct`, `parseInStoreSale`, `parseInStoreSaleResult`, `parseInStoreBootstrap`, `parseInStoreSalePage`, `parseInStoreStaffGrant`, `calculateInStoreTotals(lines,discount)`.
 
-- [ ] Write failing tests: 200000/%1000 ->180000, fixed15000->185000, excluded gold line not in base, excessive/negative/zero-pay discount rejected, unknown fields rejected, duplicate variant IDs rejected, null customer/address accepted only for in_store.
-- [ ] Run contract targeted tests and observe feature failures.
-- [ ] Implement exact parsers, immutable output and integer calculations. Add `in_store` pricing/order source; keep existing-source customer/address requirements.
-- [ ] Run full contracts tests/typecheck; adapt common order renderers for anonymous in-store customer and null delivery address.
-- [ ] Commit explicit owned files after review.
+- [x] Write failing tests: 200000/%1000 ->180000, fixed15000->185000, excluded gold line not in base, excessive/negative/zero-pay discount rejected, unknown fields rejected, duplicate variant IDs rejected, null customer/address accepted only for in_store.
+- [x] Run contract targeted tests and observe feature failures.
+- [x] Implement exact parsers, immutable output and integer calculations. Add `in_store` pricing/order source; keep existing-source customer/address requirements.
+- [x] Run full contracts tests/typecheck; adapt common order renderers for anonymous in-store customer and null delivery address.
+- [x] Commit explicit owned files after review.
 
 ## Task 2: Cashier role and assignment boundaries
 
@@ -133,10 +133,10 @@ Repository (`packages/saas-data/src/in-store-sales/types.ts`) uses authority `{t
 
 **Produces:** `cashier` membership accepted by auth/session and owner assignment, only in-store read/sell/discount actions; SQL POS grant still determines exact location and discount ceiling. Owner/admin gets all; editor/analyst get no POS mutation implicitly.
 
-- [ ] Write failing tests: cashier resolves panel session; cashier cannot catalog/orders/payment/settings actions; owner can assign cashier; revoked membership cannot operate.
-- [ ] Run role-focused tests, implement narrow role additions without widening other operation guards.
-- [ ] Add reversible membership role CHECK changes; validate customer panel/owner role projection and assign UI.
-- [ ] Run affected suites/typechecks and commit only owned files.
+- [x] Write failing tests: cashier resolves panel session; cashier cannot catalog/orders/payment/settings actions; owner can assign cashier; revoked membership cannot operate.
+- [x] Run role-focused tests, implement narrow role additions without widening other operation guards.
+- [x] Add reversible membership role CHECK changes; validate customer panel/owner role projection and assign UI.
+- [x] Run affected suites/typechecks and commit only owned files.
 
 ## Task 3: Durable DB workflow and repository
 
@@ -146,16 +146,16 @@ Repository (`packages/saas-data/src/in-store-sales/types.ts`) uses authority `{t
 
 **Produces:** Repository methods and SQL `in_store_sales_*` functions matching Shared Interfaces.
 
-- [ ] Write failing repository/DB tests for exact barcode beyond first pages/leading zero, ambiguity, cross-tenant/cashier denial, unknown commit recovery.
-- [ ] Create tables for durable sale, immutable operation/event/payment attestation, membership grants and location holds. Validate subscription/plan/membership and assigned locations server-side.
-- [ ] Implement draft save/hold/get/list, indexed full-catalog lookup and authoritative in_store pricing. Preserve unsupported/reference pricing failures; calculate eligible discount base with existing policy helper.
-- [ ] Implement prepare under shared catalog-store lock: active selected location, global and location available stock, refreshed quote; changed price returns editable updated sale with `priceChanged:true`.
-- [ ] Implement standalone durable payment attestation; finalize uses the attestation, explicit location ledger and inventory_managed aggregate, anonymous fulfilled paid order, immutable discount line/unit capture, one transaction. Retry one operation never creates a second order/movement.
-- [ ] Update online/count/transfer/reconcile hold consumers using explicit shared aggregate view/helper. Guard both global and selected-location availability; preserve checkout hold cleanup tables/lifecycle.
-- [ ] Implement unpaid cancellation, privileged takeover and minimal tombstone after order deletion. Never release payment_received holds via timeout/unpaid path.
-- [ ] Adapt paid-order/product revenue inputs for completed manual attestation and POS line net allocation, excluding completion-pending payments.
-- [ ] Add regression assertions for old checkout and inventory operations, perform full migration rehearsal/rollback on an isolated database clone, run saas-data suite/typecheck.
-- [ ] Commit explicit owned files after independent DB review.
+- [x] Write failing repository/DB tests for exact barcode beyond first pages/leading zero, ambiguity, cross-tenant/cashier denial, unknown commit recovery.
+- [x] Create tables for durable sale, immutable operation/event/payment attestation, membership grants and location holds. Validate subscription/plan/membership and assigned locations server-side.
+- [x] Implement draft save/hold/get/list, indexed full-catalog lookup and authoritative in_store pricing. Preserve unsupported/reference pricing failures; calculate eligible discount base with existing policy helper.
+- [x] Implement prepare under shared catalog-store lock: active selected location, global and location available stock, refreshed quote; changed price returns editable updated sale with `priceChanged:true`.
+- [x] Implement standalone durable payment attestation; finalize uses the attestation, explicit location ledger and inventory_managed aggregate, anonymous fulfilled paid order, immutable discount line/unit capture, one transaction. Retry one operation never creates a second order/movement.
+- [x] Update online/count/transfer/reconcile hold consumers using explicit shared aggregate view/helper. Guard both global and selected-location availability; preserve checkout hold cleanup tables/lifecycle.
+- [x] Implement unpaid cancellation, privileged takeover and minimal tombstone after order deletion. Never release payment_received holds via timeout/unpaid path.
+- [x] Adapt paid-order/product revenue inputs for completed manual attestation and POS line net allocation, excluding completion-pending payments.
+- [x] Add regression assertions for old checkout and inventory operations, perform full migration rehearsal/rollback on an isolated database clone, run saas-data suite/typecheck.
+- [x] Commit explicit owned files after independent DB review.
 
 ## Task 4: Session-authorized API and runtime
 
@@ -165,11 +165,11 @@ Repository (`packages/saas-data/src/in-store-sales/types.ts`) uses authority `{t
 
 **Produces:** Same-origin APIs independent of quick-link/provider readiness, per-request server TenantContext, no-store safe JSON.
 
-- [ ] Write failing handlers for missing session, hostile Origin, foreign-store/custom admin host, caller authority headers/body, oversized body and malformed UUID/version.
-- [ ] Reuse current session cookie/origin authority; register new repository with approved PostgreSQL access runtime unconditionally when commerce runtime is available.
-- [ ] Route exact methods/query/body to repository, serialize only validated public results and finite errors; recover operation response safely.
-- [ ] Run focused and full Customer Panel suites/typecheck.
-- [ ] Commit explicit files.
+- [x] Write failing handlers for missing session, hostile Origin, foreign-store/custom admin host, caller authority headers/body, oversized body and malformed UUID/version.
+- [x] Reuse current session cookie/origin authority; register new repository with approved PostgreSQL access runtime unconditionally when commerce runtime is available.
+- [x] Route exact methods/query/body to repository, serialize only validated public results and finite errors; recover operation response safely.
+- [x] Run focused and full Customer Panel suites/typecheck.
+- [x] Commit explicit files.
 
 ## Task 5: React register and real API client
 
@@ -177,35 +177,39 @@ Repository (`packages/saas-data/src/in-store-sales/types.ts`) uses authority `{t
 
 **Consumes:** Task 1 shared types and API table. Exports `InStoreSalesConsole`.
 
-- [ ] Write failing client/model tests for exact barcode, preserved leading zero, sequential save/scan intents, unknown response result and reused operation keys.
-- [ ] Build the approved layout with real bootstrap/search data; no demo products or local-storage cart authority. Preserve optional customer/note, location, %/TL discount and protected discount-base explanation.
-- [ ] Queue scans and versioned draft saves; do not discard local edits on failed save. Flush before hold/prepare, refresh/reconfirm when priceChanged.
-- [ ] Implement held/history/recoverable list, optional owner staff-grant management, narrow action visibility.
-- [ ] Payment is two server operations behind one user action: persist attestation then complete. Persist only actor-scoped recovery IDs/keys locally; after unknown result query operation/sale before retry. Block edit/cancel after attestation.
-- [ ] Verify native keyboard dialogs/focus, quantity button hit targets, one main action, mobile sticky checkout above existing panel dock, loading/empty/errors.
-- [ ] Run meaningful behavior/client tests and React typecheck; commit explicit owned files.
+- [x] Write failing client/model tests for exact barcode, preserved leading zero, sequential save/scan intents, unknown response result and reused operation keys.
+- [x] Build the approved layout with real bootstrap/search data; no demo products or local-storage cart authority. Preserve optional customer/note, location, %/TL discount and protected discount-base explanation.
+- [x] Queue scans and versioned draft saves; do not discard local edits on failed save. Flush before hold/prepare, refresh/reconfirm when priceChanged.
+- [x] Implement held/history/recoverable list, optional owner staff-grant management, narrow action visibility.
+- [x] Payment is two server operations behind one user action: persist attestation then complete. Persist only actor-scoped recovery IDs/keys locally; after unknown result query operation/sale before retry. Block edit/cancel after attestation.
+- [x] Verify native keyboard dialogs/focus, quantity button hit targets, one main action, mobile sticky checkout above existing panel dock, loading/empty/errors.
+- [x] Run meaningful behavior/client tests and React typecheck; commit explicit owned files.
 
 ## Task 6: Page, navigation and compatibility
 
 **Files:** `/orders/quick-links/page.tsx`, new `/orders/payment-links/page.tsx`, panel navigation/breadcrumb maps, order source/customer/address presentation and source filters. Root owns.
 
-- [ ] Write failing route/source tests pinning the requested route and legacy link access; in_store orders display manual POS and in-store fulfillment with no shipping workflow.
-- [ ] Install InStoreSalesConsole at exact shared route, label `Mağaza satışı`; retain legacy QuickOrderLinksConsole at separate route and keep existing public link URLs/APIs unchanged.
-- [ ] Run panel route, navigation and common order rendering tests; build affected panel, storefront-shared and owner.
-- [ ] Commit explicit owned files.
+- [x] Write failing route/source tests pinning the requested route and legacy link access; in_store orders display manual POS and in-store fulfillment with no shipping workflow.
+- [x] Install InStoreSalesConsole at exact shared route, label `Mağaza satışı`; retain legacy QuickOrderLinksConsole at separate route and keep existing public link URLs/APIs unchanged.
+- [x] Run panel route, navigation and common order rendering tests; build affected panel, storefront-shared and owner.
+- [x] Commit explicit owned files.
 
 ## Task 7: Whole-feature verification and release
 
 **Files:** QA/ops report and release manifest; no unrelated product-editor changes.
 
-- [ ] Review plan/spec coverage, reconcile interfaces, independently review security, inventory, payment state and React flows.
-- [ ] Run complete contracts, saas-data and Customer Panel suites; report any existing failures by name. Run owner migration behavioral suite and affected production builds.
-- [ ] Local browser proof with service fixture/isolated DB: barcode actual products, discount 2000->1800/1850, last-unit race, wrong location/cashier, lost response, reload/operation retry, attestation-before-finalize failure, completed-order tombstone.
-- [ ] Inspect screenshots 1440/1024/390, keyboard focus and console/network; no real external payment needed for QA.
-- [ ] Verify deployment source identity and database backup; rehearse migrations on clone; apply reviewed migration/role changes in declared order and deploy one shared panel source for all tenant admin domains. Use existing source/build and payment digest controls without changing provider credentials.
-- [ ] Read-only live smoke: requested Siora route, other shared admin surface, search/locations/permissions readiness, existing links and storefront availability. Use isolated QA records for mutation proof rather than real merchant sales.
-- [ ] Record exact commit, migration and deployment identities and any material limitation. No claim of physical device test without a real scanner.
+- [x] Review plan/spec coverage, reconcile interfaces, independently review security, inventory, payment state and React flows.
+- [x] Run complete contracts, saas-data and Customer Panel suites; report any existing failures by name. Run owner migration behavioral suite and affected production builds.
+- [x] Local browser proof with service fixture/isolated DB: barcode actual products, discount 2000->1800/1850, last-unit race, wrong location/cashier, lost response, reload/operation retry, attestation-before-finalize failure, completed-order tombstone.
+- [x] Inspect screenshots 1440/1024/390, keyboard focus and console/network; no real external payment needed for QA.
+- [x] Verify deployment source identity and database backup; rehearse migrations on clone; apply reviewed migration/role changes in declared order and deploy one shared panel source for all tenant admin domains. Use existing source/build and payment digest controls without changing provider credentials.
+- [x] Read-only live smoke: requested Siora route, other shared admin surface, search/locations/permissions readiness, existing links and storefront availability. Use isolated QA records for mutation proof rather than real merchant sales.
+- [x] Record exact commit, migration and deployment identities and any material limitation. No claim of physical device test without a real scanner.
 
 ## Self-review
 
 All spec sections map to contracts, role authority, durable DB, runtime, React register, common order/report projections or release verification tasks. Protected gold discount-base and create-response recovery were added from actual repository evidence. Normal bank POS integration remains manual. Execution uses independent workers for DB, UI and role scope; root owns contracts/integration and reviews their outputs before release.
+
+## Completion evidence
+
+Implemented and released source `1b6d3f0f82183c1445d2eb57b17f2a25a2f2c27e` to both shared panels. See [release report](../../qa/in-store-sales-register-release-2026-09-26.md). Initial staff identity enrollment and physical draft deletion are explicitly outside the committed V1 scope. UI flow/viewport proof uses the actual React component; inventory races, authority, durable payment failure and tombstone assertions use actual PG16 RPCs/repository calls. Physical scanner hardware remains untested.
