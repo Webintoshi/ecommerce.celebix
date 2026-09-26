@@ -1,0 +1,26 @@
+{
+  "database": "celebix_toshi_ai_qa_20260926",
+  "migrationSha256": "a79519e053a23ecd658031b563bb577fbb150aa91b1f6f997bf27a46c9490876",
+  "passed": 16,
+  "checks": [
+    "SQL164 creates ten isolated functions and four private tables without changing any existing function authority or merchant row",
+    "empty rollback and reapplication restore the exact original schema and authority",
+    "FORCE RLS and direct-table/helper denial preserve private server authority",
+    "begin pins active default config and model without exposing credentials, incrementing version or appending a fake message",
+    "pending replay and parallel conversations cannot start another charge; uncertain reservation recovers the identical lease",
+    "failed operations replay their safe error and leave conversation messages and version unchanged",
+    "complete atomically appends one user/assistant pair and freezes one public replay result",
+    "cross-store, valid same-store other actor, and invalid membership cannot read or take over a conversation",
+    "finish rechecks pinned config, credential version and allowed model after generation; revoked or changed credentials never append a reply",
+    "selection changes affect new conversations; continued conversations and historical replay preserve the original model and snapshot",
+    "six generation attempts per actor and store per minute remain durable across failures",
+    "expired lease releases the actor and permanently prevents the original paid operation from running again",
+    "one hundred successful turns are retained with only the last forty public messages and bounded history lists; turn 101 is rejected",
+    "audit events are immutable and rollback refuses any conversation, message or operation history",
+    "every fixture and merchant clone mutation rolled back while leaving only SQL164 applied",
+    "independent transactions serialize concurrent reservations and see a committed actor-wide lease without a second charge"
+  ],
+  "existingTablesConserved": 234,
+  "existingFunctionsConserved": 1234,
+  "fixturePolicy": "Lifecycle fixtures rolled back; one cancelled concurrency operation retained only in named disposable clone. No provider calls or credential reads."
+}

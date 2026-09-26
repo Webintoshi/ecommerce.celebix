@@ -130,11 +130,24 @@
 }
 
 .conversation {
-  min-height: 15rem;
+  min-height: 0;
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
 }
+
+.conversationControls { display: grid; flex-shrink: 0; gap: .5rem; padding: .875rem; border-bottom: 1px solid #EAECF0; background: #FFFDFC; }
+.conversationControls > div { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.providerStatus { margin: 0; overflow-wrap: anywhere; color: #2B2B2B; font-size: .75rem; font-weight: 700; }
+.conversationControls select { min-width: 0; min-height: 44px; flex: 1; border: 1px solid #D0D5DD; border-radius: .5rem; padding: 0 .5rem; background: #FFFDFC; color: #2B2B2B; font: inherit; font-size: .75rem; }
+.conversationControls button, .pendingRow button, .errorState button { min-height: 44px; flex-shrink: 0; border: 1px solid #D0D5DD; border-radius: .5rem; padding: .5rem .75rem; background: #FFFDFC; color: #2B2B2B; font: inherit; font-size: .75rem; cursor: pointer; }
+.conversationControls button:disabled, .conversationControls select:disabled, .errorState button:disabled { cursor: not-allowed; opacity: .6; }
+.dataNotice { margin: 0; color: #667085; font-size: .75rem; line-height: 1.5; }
+.pendingRow { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .75rem; }
+.pendingRow .pendingStatus { margin: 0; }
+.errorState { display: grid; flex-shrink: 0; gap: .5rem; padding: .75rem .875rem; border-top: 1px solid #EAECF0; background: #FFFDFC; }
+.errorState p { margin: 0; color: #7A2E0E; font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.errorState button { justify-self: start; }
 
 .welcome {
   display: grid;
@@ -212,6 +225,7 @@
   font-size: 0.875rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .messages nav {
@@ -247,6 +261,7 @@
 
 .composer {
   display: grid;
+  flex-shrink: 0;
   gap: 0.4rem;
   border-top: 1px solid #EAECF0;
   background: #FFFDFC;
@@ -277,6 +292,11 @@
 }
 
 .composer input:focus-visible,
+.conversationControls select:focus-visible,
+.conversationControls button:focus-visible,
+.pendingRow button:focus-visible,
+.errorState button:focus-visible,
+.messages nav a:focus-visible,
 .workspaceLink:focus-visible,
 .closeButton:focus-visible,
 .composer button:focus-visible {
@@ -297,9 +317,10 @@
 
 .workspace {
   display: grid;
-  min-height: calc(100dvh - 10rem);
-  grid-template-rows: minmax(32rem, 1fr);
-  overflow: visible;
+  height: calc(100dvh - 10rem);
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
   border: 1px solid #E7E2DD;
   border-radius: .75rem;
   background: #FFFDFC;
@@ -341,7 +362,6 @@
   }
 
   .workspace {
-    min-height: calc(100dvh - 8rem);
     border-radius: 1rem;
   }
 

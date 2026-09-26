@@ -951,20 +951,25 @@ test("Toshi drawer native modal contains focus and closes by backdrop, Escape, a
   }
 });
 
-test("Toshi conversation executes one abortable local command without seeded or mutation data", async () => {
+test("Toshi conversation uses durable provider chat and retains explicit local read mode", async () => {
   const assistant = await source("components/toshi/ToshiAssistant.tsx");
   const workspace = await source("components/toshi/ToshiWorkspace.tsx");
 
   assert.match(assistant, /createToshiLocalClient/);
   assert.match(assistant, /parseToshiLocalIntent/);
   assert.match(assistant, /useState<readonly ConversationEntry\[]>\(\[\]\)/);
-  assert.match(assistant, /if \(pendingRef[.]current \|\| command[.]trim\(\)[.]length === 0\) return;/);
+  assert.match(assistant, /createToshiChatApi/);
+  assert.match(assistant, /api[.]send\(submission[.]input, submission[.]operationId, controller[.]signal\)/);
+  assert.match(assistant, /recovery \|\| !command/);
   assert.match(assistant, /pendingRef[.]current = true/);
   assert.match(assistant, /new AbortController\(\)/);
-  assert.match(assistant, /client[.]execute\(intent, controller[.]signal\)/);
+  assert.match(assistant, /localClient[.]execute\(parseToshiLocalIntent\(command\), controller[.]signal\)/);
+  assert.match(assistant, /defaultProvider === null/);
+  assert.match(assistant, /Yanıtı kontrol et/);
+  assert.match(assistant, /maxLength=\{4000\}/);
   assert.match(assistant, /abortRef[.]current[?][.]abort\(\)/);
   assert.match(assistant, /aria-live="polite"/);
-  assert.match(assistant, /disabled=\{pending\}/);
+  assert.match(assistant, /disabled=\{pending \|\| loading \|\| recovery/);
   assert.match(assistant, />Mağaza özeti</);
   assert.match(assistant, />Bekleyen siparişler</);
   assert.match(assistant, />Düşük stok</);
@@ -1061,6 +1066,10 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
       if (specifier === "react") return harness.react;
       if (specifier === "next/link") return Link;
       if (specifier === "lucide-react") return { ArrowRight: Icon, SendHorizonal: Icon };
+      if (specifier === "@/lib/toshi-chat-ui/client") return {
+        ToshiChatApiError: class extends Error {},
+        createToshiChatApi: () => ({ list: async () => ({ conversations: [], defaultProvider: null }) }),
+      };
       if (specifier === "@/lib/toshi-local/client") return {
         createToshiLocalClient: () => ({
           execute(intent: unknown, signal: AbortSignal) {
@@ -1077,6 +1086,9 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
     },
   );
   harness.setRoot(ToshiAssistant);
+  harness.flush();
+  await Promise.resolve();
+  await Promise.resolve();
   harness.flush();
 
   const submit = () => {

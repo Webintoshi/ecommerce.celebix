@@ -1,0 +1,16 @@
+{
+  "database": "celebix_toshi_ai_qa_20260926",
+  "migrationSha256": "da6c070a18ae39c618003038be0bac7f42c5d2c9b24e3826a981f0e1331db801",
+  "passed": 4,
+  "checks": [
+    "original 600000-byte snapshot constraint rejects an otherwise valid multilingual conversation; RED reproduced with all fixture writes rolled back",
+    "only named SQL164 snapshot constraint is widened to validated 2 MiB; existing conversation, message, operation and audit rows are unchanged",
+    "twenty maximum-length CJK turns plus twelve bounded sources produce forty successful public messages above 600000 bytes, with identical GET, replay and recovery snapshots",
+    "all Unicode regression fixtures roll back and retain the prior cancelled concurrency fixture exactly"
+  ],
+  "publicBytes": 1114007,
+  "jsonbBytes": 1118002,
+  "snapshotLimit": 2097152,
+  "fixtureRowsConserved": true,
+  "providerCalls": 0
+}

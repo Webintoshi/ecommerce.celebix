@@ -1,0 +1,34 @@
+{
+  "environment": "actual Toshi component in local Next browser fixture; synthetic API, no paid call",
+  "viewportChecks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "horizontalOverflow": 0,
+      "composerBottom": 809
+    },
+    {
+      "width": 1024,
+      "height": 900,
+      "horizontalOverflow": 0,
+      "composerBottom": 814,
+      "bottomNavigationTop": 840
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "horizontalOverflow": 0,
+      "composerBottom": 725,
+      "bottomNavigationTop": 784
+    }
+  ],
+  "verified": [
+    "initial authorized conversation",
+    "question and answer with server sources",
+    "reload restores persisted fixture history",
+    "quota error preserves question and gives billing guidance",
+    "drawer stop then same-operation response recovery after fixture completion",
+    "Escape closes native drawer and focus returns to Bana Sorun"
+  ],
+  "productionInferenceVerified": false
+}

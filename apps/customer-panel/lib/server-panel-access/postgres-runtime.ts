@@ -28,6 +28,7 @@ import {
   PostgresShippingAdminRepository,
   PostgresShippingWorkflowRepository,
   PostgresToshiProviderRepository,
+  PostgresToshiConversationRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
 import {
@@ -66,6 +67,7 @@ import { registerServerReferencePricingRepository } from "../server-reference-pr
 import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
+import { registerServerToshiChatRuntime } from "../server-toshi-chat/runtime.ts";
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
@@ -298,6 +300,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.shipping_shipment_label_current(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid)') IS NOT NULL AS shipping_repository,
       to_regclass('saas.toshi_provider_configs') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_provider_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_connect(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb,text,bigint,text,text,jsonb,bigint)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_select_model(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,text,bigint)') IS NOT NULL
@@ -305,6 +308,18 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.toshi_provider_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_get_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
         AND to_regprocedure('saas.toshi_provider_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS toshi_provider_repository,
+      to_regclass('saas.toshi_conversations') IS NOT NULL
+        AND to_regclass('saas.toshi_messages') IS NOT NULL
+        AND to_regclass('saas.toshi_generation_operations') IS NOT NULL
+        AND to_regclass('saas.toshi_generation_events') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_begin_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_complete_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_fail_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.toshi_conversation_recover_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.toshi_conversation_begin_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)','EXECUTE')
+        AND has_function_privilege('celebix_saas_app','saas.toshi_conversation_complete_turn(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)','EXECUTE') AS toshi_conversation_repository,
       to_regprocedure('saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL AS analytics_dashboard,
       to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
       to_regprocedure('saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_lister,
@@ -679,7 +694,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_category_repository !== true ||
       row.catalog_category_product_order_repository !== true ||
       row.catalog_category_deletion_repository !== true ||
-      row.merchant_action_authority !== true || row.shipping_repository !== true || row.toshi_provider_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.merchant_action_authority !== true || row.shipping_repository !== true || row.toshi_provider_repository !== true || row.toshi_conversation_repository !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_neighbors !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
@@ -908,6 +923,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       timeouts: TIMEOUTS,
       audit: () => undefined,
     });
+    const toshiConversationRepository = new PostgresToshiConversationRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const toshiProviderAdapters = createToshiProviderAdapterRegistry({
       openai: (input, init) => fetch(input, init),
       gemini: (input, init) => fetch(input, init),
@@ -1063,6 +1084,14 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       duplicate: ["promotions"],
       archive: ["promotions"],
     }));
+    registerServerToshiChatRuntime(access, toshiConversationRepository, {
+      catalog: catalogRepository,
+      orders: orderRepository,
+      customers: customerRepository,
+      promotions: promotionRepository,
+      analytics: analyticsRepository,
+      inventory: inventoryRepository,
+    });
     if (quickLinksConfig !== null) {
       registerServerQuickLinksRuntime(access, {
         links: quickLinkRepository,

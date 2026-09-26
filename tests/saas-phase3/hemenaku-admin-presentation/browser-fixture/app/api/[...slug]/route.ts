@@ -1,3 +1,5 @@
+import { getToshiFixture, postToshiFixture } from "../toshi-fixture.ts";
+
 const NOW = "2026-07-24T12:00:00.000Z";
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER_ID = "22222222-2222-4222-8222-222222222222";
@@ -212,6 +214,8 @@ export async function GET(
   context: { params: Promise<{ slug: string[] }> },
 ) {
   const slug = await route(context);
+  const toshi = getToshiFixture(slug);
+  if (toshi) return toshi;
   const search = new URL(request.url).searchParams;
   if (
     (slug === "merchant-providers/definitions" || slug === "merchant-providers/profiles") &&
@@ -293,6 +297,10 @@ export async function GET(
     });
   }
   return Response.json({ code: "invalid_input" }, { status: 400 });
+}
+
+export async function POST(request: Request, context: { params: Promise<{ slug: string[] }> }) {
+  return postToshiFixture(request, await route(context));
 }
 
 export async function PATCH(

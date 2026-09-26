@@ -551,7 +551,19 @@ test("Toshi uses the shared compact page header and keeps the assistant workspac
 
   assert.match(component, /<PanelPageHeader[\s\S]*title="Toshi"/);
   assert.doesNotMatch(component, /<Image|workspaceHeader/);
-  assert.equal(declarations(css, ".workspace").overflow, "visible");
+  const workspace = declarations(css, ".workspace");
+  assert.equal(workspace.height, "calc(100dvh - 10rem)");
+  assert.equal(workspace["min-height"], "0");
+  assert.equal(workspace["grid-template-rows"], "minmax(0, 1fr)");
+  assert.equal(workspace.overflow, "hidden");
+  assert.equal(declarations(css, ".assistant")["min-height"], "0");
+  const conversation = declarations(css, ".conversation");
+  assert.equal(conversation["min-height"], "0");
+  assert.equal(conversation.flex, "1");
+  assert.equal(conversation["overflow-y"], "auto");
+  for (const selector of [".conversationControls", ".errorState", ".composer"]) {
+    assert.equal(declarations(css, selector)["flex-shrink"], "0", selector);
+  }
   assert.equal(declarations(css, ".composer button").background, "#2B2B2B");
 });
 

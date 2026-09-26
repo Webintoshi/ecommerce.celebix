@@ -28,6 +28,7 @@ Kullanıcı bağlı API anahtarıyla doğal dilde soru sorabilmeli; Toshi mevcut
 - Bir turun toplam süresi 50 saniye; sağlayıcı isteği kalan süreyle sınırlandırılır. En fazla 4096 output token; reasoning model yeteneğine uygun ayar, eksik çıktı açık hata. Otomatik ücretli retry yoktur.
 - Durable operation idempotency, tek aktif kullanıcı/mağaza turu, en fazla dakikada altı generation denemesi. Başarılı tekrar aynı public sonucu döndürür; başarısız aynı operasyon yeniden ücretli çağrı başlatmaz. Lease süresi 120 saniye; stale lease yeni güvenli denemeyi engellemez.
 - Anahtar/kota/model/timeout durumları Türkçe, tek ve eyleme dönük hata verir; kullanıcı sorusu kaybolmaz. Abort/unmount otomatik ikinci çağrıya yol açmaz. Konuşma DB commit belirsizliği varsa operation sonucu DB'den doğrulanır.
+- Konuşma snapshot ve istemci yanıt sınırı 2 MiB; azami 40 Unicode mesaj ve doğrulanmış kaynakların tek public yanıtı desteklenir. Tanınabilir API anahtarı/PEM/credential URI girdisi kayıt veya sağlayıcı isteğinden önce reddedilir. Kesin kayıtlı başarısızlık yeni açık denemeye izin verir; commit belirsizliği aynı operation ile ücretli yeniden çağrı olmadan kurtarılır.
 - Veri içeriği ve kullanıcı mesajları talimat otoritesi taşımaz; prompt injection ile tool yetkisi veya kaynak sınırı değişmez. Kaynak bağlantıları modelden alınmaz; yürütülen araçların doğrulanmış kaynakları cevaba eklenir.
 
 ## Deneyim

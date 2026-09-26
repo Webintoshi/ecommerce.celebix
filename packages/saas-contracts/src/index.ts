@@ -661,3 +661,6 @@ export type {
   StorefrontDesignWorkspace,
 } from "./storefront-design/index.ts";
 export { parseOrderArchiveResult, parseOrderArchiveEligibility } from "./orders/index.ts";
+
+export { parseToshiSource, parseToshiMessage, parseToshiConversationSummary, parseToshiConversation, parseToshiConversationListResponse } from "./toshi/conversations.ts";
+export type { ToshiSource, ToshiMessage, ToshiConversationSummary, ToshiConversation, ToshiConversationListResponse } from "./toshi/conversations.ts";

@@ -174,3 +174,5 @@ export type {
   TenantOperationStatus,
   UniqueConflictKind,
 } from "./types.ts";
+
+export * from "./toshi-conversations/index.ts";

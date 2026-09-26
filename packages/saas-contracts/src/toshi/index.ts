@@ -14,3 +14,5 @@ export type {
   ToshiProviderErrorCode,
   ToshiProviderModel,
 } from "./providers.ts";
+export { parseToshiSource, parseToshiMessage, parseToshiConversationSummary, parseToshiConversation, parseToshiConversationListResponse } from "./conversations.ts";
+export type { ToshiSource, ToshiMessage, ToshiConversationSummary, ToshiConversation, ToshiConversationListResponse } from "./conversations.ts";
