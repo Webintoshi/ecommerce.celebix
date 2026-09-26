@@ -1,0 +1,54 @@
+{
+  "baselineFunctionCount": 1204,
+  "restorationExact": true,
+  "changedCreatorCount": 10,
+  "addedPrivateFunctionCount": 5,
+  "unchangedPreviousFunctionCount": 1194,
+  "allExistingOwnerAclConserved": true,
+  "allSixMerchantTableCountsHashesConserved": true,
+  "changed": [
+    "saas.in_store_sales_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)",
+    "saas.order_drafts_convert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+    "saas.public_checkout_complete_v2(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone,text[])",
+    "saas.public_checkout_complete_without_available_stock_v090(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)",
+    "saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)",
+    "saas.quick_order_hosted_payment_terminal_transition()",
+    "saas.storefront_checkout_payment_attempt_terminal()",
+    "saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)",
+    "saas.storefront_hosted_checkout_promotion_terminal_v2()",
+    "saas.storefront_hosted_checkout_terminal_transition()"
+  ],
+  "added": [
+    "saas.order_number_allocate(uuid,uuid,text,timestamp with time zone)",
+    "saas.order_number_allocation_immutable()",
+    "saas.order_number_assign_before_insert()",
+    "saas.order_number_existing_max(uuid,text)",
+    "saas.order_number_immutable_after_allocation()"
+  ],
+  "tables": {
+    "orders": {
+      "count": 19,
+      "hash": "ec1f7b81136a73d02c92bee01d471ca0"
+    },
+    "in_store_sales": {
+      "count": 3,
+      "hash": "ae3adaf060c0cbfa34adf0cab27c5fd1"
+    },
+    "product_variants": {
+      "count": 1691,
+      "hash": "916a93a9cdc4cc89d29311594cfb244a"
+    },
+    "inventory_balances": {
+      "count": 1683,
+      "hash": "ac879eb4de23ee2886653a04e3b92800"
+    },
+    "inventory_movements": {
+      "count": 1703,
+      "hash": "a514229145b01e08236363f033869dbe"
+    },
+    "in_store_inventory_reservations": {
+      "count": 1,
+      "hash": "faa4ce37d08d792b8cda9081208beb13"
+    }
+  }
+}

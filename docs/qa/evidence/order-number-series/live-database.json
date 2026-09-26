@@ -1,0 +1,292 @@
+{
+  "checkedAt": "2026-09-26T13:59:36.592Z",
+  "database": "celebix_saas_staging_auth01",
+  "verdict": "PASS",
+  "migrationFile": "202609260161_order_number_series.up.sql",
+  "migrationSha256": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+  "assertionsSha256": "e816bff6440f58f2c8ad884ac32ba93fc311bbad28debfd91564c16376957609",
+  "existingRowsPreserved": true,
+  "functionsBefore": 1212,
+  "functionsAfter": 1217,
+  "changedCreators": [
+    {
+      "signature": "saas.in_store_sales_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)",
+      "before_hash": "22d7f99ab7b8da1b91a2ae4af6559c3b47cd6d41a5bee62158c9363a2d5e9382",
+      "after_hash": "2f4074c3eb6ab802144ff7dade9b3c63d2f17c897d8629a31609cc9a3095ace5"
+    },
+    {
+      "signature": "saas.order_drafts_convert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+      "before_hash": "2220103da3714167c16dd06566019551e6f35db5e2af641121d53ef1f12b36af",
+      "after_hash": "af1e78f3c20999334aa0ff017c88ceb43bf6efa4540fc8b97d2d3268e854d7b3"
+    },
+    {
+      "signature": "saas.public_checkout_complete_v2(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone,text[])",
+      "before_hash": "2d897492c36ab49cb36bcb7e8a11a29411b206de70a26a9477408a2409d85129",
+      "after_hash": "bdb25cec231593c5a344e04fe19ef7da37d72a8c37b39b36308208072b2c26f0"
+    },
+    {
+      "signature": "saas.public_checkout_complete_without_available_stock_v090(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)",
+      "before_hash": "e959ec1b74a44426eb6ab981c98aba2e07bcc1eb34e953eb7007e81773ca4505",
+      "after_hash": "820162efed3edd25766499769ce3b6fa2f6fb21ebcf1791434571e57ce0481ed"
+    },
+    {
+      "signature": "saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)",
+      "before_hash": "d8082d0abfec2a2674942283e64c15f52a231c2be19bb6ba7d81477c8c7cab17",
+      "after_hash": "17e36cf2d7ba678fe913b6152e08f10d7b13210bf56b1d8d325c554e1b03314d"
+    },
+    {
+      "signature": "saas.quick_order_hosted_payment_terminal_transition()",
+      "before_hash": "7cc0dc8838a7f2ff64fa1bbdba5a5329b8c57fd5464cdc35fe634e00bd3b2755",
+      "after_hash": "3f97e9a9dad1839b7e679eb67017dd1fa3edfccb1f2b921183b10b69f5fc3209"
+    },
+    {
+      "signature": "saas.storefront_checkout_payment_attempt_terminal()",
+      "before_hash": "d84c8f3ae70813ad3c48f9d43dd6b6548036a6732bc0128aaf0868cea201a578",
+      "after_hash": "d33b2218f9d5687fb23e10338a2b7ef028f17e248b03041c9cbfa1ae34f89a67"
+    },
+    {
+      "signature": "saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)",
+      "before_hash": "43c1d1c141f1d2b0db7820b9e43e55c390bcbd81ee2dc5d0dd7b5b0e3a1e85d2",
+      "after_hash": "76c02206380dbbf0af4f4a3a6941fdec6f17359d0c134b25b4d36f4ccbc658b5"
+    },
+    {
+      "signature": "saas.storefront_hosted_checkout_promotion_terminal_v2()",
+      "before_hash": "6b5b70464d784515e07e01c1ef07abde5ccdfd572bdbd291c92034ae194b672a",
+      "after_hash": "537aac4c66dbcd93629f3ae6bf7ea2f144c6f0c7e06e076add0a8c60149288fa"
+    },
+    {
+      "signature": "saas.storefront_hosted_checkout_terminal_transition()",
+      "before_hash": "6b3c5008cc4dc74dc3ed9347dec9f850b63d7fac283794ec612f78d8e4b0dd05",
+      "after_hash": "40413b0ccb18eeb79fb034a81be2bbc9675753d3ae1db9920cbda18e4add7d69"
+    }
+  ],
+  "otherFunctionsPreserved": true,
+  "before": {
+    "orders": {
+      "rows": "19",
+      "digest": "ab545bff8f2d5b4cdf795c67485f4366"
+    },
+    "order_items": {
+      "rows": "23",
+      "digest": "1db597bb719251e640cf1c734eb871f3"
+    },
+    "order_operations": {
+      "rows": "4",
+      "digest": "808220c53c1635a0f41ba8277a6b47b8"
+    },
+    "storefront_order_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_checkout_operations": {
+      "rows": "6",
+      "digest": "9962c55469c33831d33a10f0f4d5f24f"
+    },
+    "storefront_hosted_checkout_operations": {
+      "rows": "128",
+      "digest": "e27054371b88574c3ed9ef34d38f7356"
+    },
+    "checkout_operations": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_payment_attempts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_callback_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_reconciliation_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "payment_attempts": {
+      "rows": "74",
+      "digest": "d3fa1f19753fcbe5c644891f2b8cf7f1"
+    },
+    "payment_attempt_operations": {
+      "rows": "158",
+      "digest": "2a56d9b384b788ab538bfc947be6e535"
+    },
+    "payment_attempt_events": {
+      "rows": "173",
+      "digest": "2d7c0f306b09b509a7afb5663fe14551"
+    },
+    "quick_order_hosted_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_hosted_checkout_sessions": {
+      "rows": "74",
+      "digest": "e58e6bf85bd89daa374bd89b8d5a4d20"
+    },
+    "storefront_checkout_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "in_store_sales": {
+      "rows": "3",
+      "digest": "b63f3aa8a0d86a7dfe4e72c6776208f7"
+    },
+    "in_store_operations": {
+      "rows": "17",
+      "digest": "e791af07bd12f9c49ea4a2d9640455b7"
+    },
+    "in_store_payment_attestations": {
+      "rows": "1",
+      "digest": "2130bd0432971ffc9217f793d0463b2d"
+    },
+    "in_store_price_snapshots": {
+      "rows": "1",
+      "digest": "19baa0cb5856cbc0919c3b98bb166437"
+    },
+    "in_store_discount_allocations": {
+      "rows": "1",
+      "digest": "91f8f9cd39a2fec790fcc2f75887fdb3"
+    },
+    "in_store_sale_events": {
+      "rows": "17",
+      "digest": "8c8d1e55b00bf83144b7182d6263d0c2"
+    },
+    "in_store_inventory_reservations": {
+      "rows": "1",
+      "digest": "f91e33d270edd4cf38a7b9104bf8a61a"
+    },
+    "order_drafts": {
+      "rows": "7",
+      "digest": "b8929cadc1fc295f7811eadfe1fc406b"
+    },
+    "order_draft_operations": {
+      "rows": "18",
+      "digest": "b92c6d6d8a3027fd5a1728510f9513d5"
+    },
+    "inventory_balances": {
+      "rows": "1683",
+      "digest": "af6c9ffc3e9387ea31afe3c75c78130f"
+    },
+    "inventory_movements": {
+      "rows": "1703",
+      "digest": "10c4cb52e33015b5ad60fb9ca1db99e9"
+    },
+    "product_variants": {
+      "rows": "1691",
+      "digest": "3caa62a2df20d01b87d579b0422eae2d"
+    }
+  },
+  "after": {
+    "orders": {
+      "rows": "19",
+      "digest": "ab545bff8f2d5b4cdf795c67485f4366"
+    },
+    "order_items": {
+      "rows": "23",
+      "digest": "1db597bb719251e640cf1c734eb871f3"
+    },
+    "order_operations": {
+      "rows": "4",
+      "digest": "808220c53c1635a0f41ba8277a6b47b8"
+    },
+    "storefront_order_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_checkout_operations": {
+      "rows": "6",
+      "digest": "9962c55469c33831d33a10f0f4d5f24f"
+    },
+    "storefront_hosted_checkout_operations": {
+      "rows": "128",
+      "digest": "e27054371b88574c3ed9ef34d38f7356"
+    },
+    "checkout_operations": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_payment_attempts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_callback_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_reconciliation_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "payment_attempts": {
+      "rows": "74",
+      "digest": "d3fa1f19753fcbe5c644891f2b8cf7f1"
+    },
+    "payment_attempt_operations": {
+      "rows": "158",
+      "digest": "2a56d9b384b788ab538bfc947be6e535"
+    },
+    "payment_attempt_events": {
+      "rows": "173",
+      "digest": "2d7c0f306b09b509a7afb5663fe14551"
+    },
+    "quick_order_hosted_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_hosted_checkout_sessions": {
+      "rows": "74",
+      "digest": "e58e6bf85bd89daa374bd89b8d5a4d20"
+    },
+    "storefront_checkout_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "in_store_sales": {
+      "rows": "3",
+      "digest": "b63f3aa8a0d86a7dfe4e72c6776208f7"
+    },
+    "in_store_operations": {
+      "rows": "17",
+      "digest": "e791af07bd12f9c49ea4a2d9640455b7"
+    },
+    "in_store_payment_attestations": {
+      "rows": "1",
+      "digest": "2130bd0432971ffc9217f793d0463b2d"
+    },
+    "in_store_price_snapshots": {
+      "rows": "1",
+      "digest": "19baa0cb5856cbc0919c3b98bb166437"
+    },
+    "in_store_discount_allocations": {
+      "rows": "1",
+      "digest": "91f8f9cd39a2fec790fcc2f75887fdb3"
+    },
+    "in_store_sale_events": {
+      "rows": "17",
+      "digest": "8c8d1e55b00bf83144b7182d6263d0c2"
+    },
+    "in_store_inventory_reservations": {
+      "rows": "1",
+      "digest": "f91e33d270edd4cf38a7b9104bf8a61a"
+    },
+    "order_drafts": {
+      "rows": "7",
+      "digest": "b8929cadc1fc295f7811eadfe1fc406b"
+    },
+    "order_draft_operations": {
+      "rows": "18",
+      "digest": "b92c6d6d8a3027fd5a1728510f9513d5"
+    },
+    "inventory_balances": {
+      "rows": "1683",
+      "digest": "af6c9ffc3e9387ea31afe3c75c78130f"
+    },
+    "inventory_movements": {
+      "rows": "1703",
+      "digest": "10c4cb52e33015b5ad60fb9ca1db99e9"
+    },
+    "product_variants": {
+      "rows": "1691",
+      "digest": "3caa62a2df20d01b87d579b0422eae2d"
+    }
+  }
+}

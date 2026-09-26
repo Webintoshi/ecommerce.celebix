@@ -50,6 +50,19 @@ test("batch variants of one product may share a SKU", () => {
   if (result.ok) assert.deepEqual(result.value.variants.map(({ sku }) => sku), ["RSA-001", "RSA-001"]);
 });
 
+test("batch forms project neutral shared draft fields and preserve optional measurements without dropping unsupported data", () => {
+  const row = { ...VALID_VARIANT, attributes: { Renk: "Beyaz" }, continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", measurements: { weight: "14,89" } };
+  const result = buildVariantBatchPayload([row]);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.value.variants[0]?.measurements, { weight: { valueMilli: 14890, unit: "g" } });
+    assert.equal(Object.hasOwn(result.value.variants[0]!, "continueSellingWhenOutOfStock"), false);
+  }
+  assert.equal(buildVariantBatchPayload([{ ...row, continueSellingWhenOutOfStock: true }]).ok, false);
+  assert.equal(buildVariantBatchPayload([{ ...row, shippingDesi: "1" }]).ok, false);
+  assert.equal(buildVariantBatchPayload([{ ...row, storeId: "unexpected" } as never]).ok, false);
+});
+
 const VALID_VARIANT = Object.freeze({
   title: VALID.variantTitle,
   sku: VALID.sku,
@@ -71,6 +84,33 @@ function buildExistingVariantUpdate(
     existingAttributes,
   );
 }
+
+test("variant measurements create optionally, update atomically, preserve omitted callers and clear explicitly", () => {
+  const draft = { weight: "14,89", weightUnit: "g", depth: "2.125", packageCount: "6" };
+  const measurements = { weight: { valueMilli: 14890, unit: "g" }, depth: { valueMilli: 2125, unit: "cm" }, packageCount: 6 };
+  const created = buildVariantCreatePayload({ ...VALID_VARIANT, measurements: draft });
+  assert.equal(created.ok, true);
+  if (created.ok) assert.deepEqual(created.value.variant.measurements, measurements);
+  const updated = buildExistingVariantUpdate({ measurements: draft }, { Renk: "Beyaz" });
+  assert.equal(updated.ok, true);
+  if (updated.ok) {
+    assert.deepEqual(updated.value.variant.measurements, measurements);
+    assert.deepEqual(updated.value.variant.attributes, { Renk: "Beyaz" });
+    assert.equal(updated.value.expectedVersion, 4);
+    assert.equal(updated.value.variant.stockQuantity, 12);
+    assert.equal(updated.value.variant.priceCents, 12550);
+  }
+  const omitted = buildExistingVariantUpdate({}, {});
+  assert.equal(omitted.ok, true);
+  if (omitted.ok) assert.equal(Object.hasOwn(omitted.value.variant, "measurements"), false);
+  const cleared = buildExistingVariantUpdate({ measurements: { weight: "", packageCount: "" } }, {});
+  assert.equal(cleared.ok, true);
+  if (cleared.ok) assert.equal(cleared.value.variant.measurements, null);
+  const blankCreated = buildVariantCreatePayload({ ...VALID_VARIANT, measurements: {} });
+  assert.equal(blankCreated.ok, true);
+  if (blankCreated.ok) assert.equal(Object.hasOwn(blankCreated.value.variant, "measurements"), false);
+  assert.equal(buildExistingVariantUpdate({ measurements: { weight: "14,8912" } }, {}).ok, false);
+});
 
 test("create payload matches the exact catalog contract and never contains store authority", () => {
   const result = buildCreateProductPayload(VALID);

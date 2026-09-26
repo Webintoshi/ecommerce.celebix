@@ -151,7 +151,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
   const parsed = exact(
     value,
     ["title", "priceCents", "stockTracking", "stockQuantity", "attributes"],
-    ["sku", "barcode", "compareAtCents", "costCents"],
+    ["sku", "barcode", "compareAtCents", "costCents", "measurements"],
   );
   let projection;
   try {
@@ -159,7 +159,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
       id: SYNTHETIC_ID,
       productId: SYNTHETIC_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...parsed,
+      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "measurements" || value !== null)),
       status: "active",
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
@@ -176,6 +176,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
     stockTracking: projection.stockTracking,
     stockQuantity: projection.stockQuantity,
     attributes: projection.attributes,
+    ...(Object.hasOwn(parsed, "measurements") ? { measurements: parsed.measurements === null ? null : projection.measurements! } : {}),
   });
 }
 

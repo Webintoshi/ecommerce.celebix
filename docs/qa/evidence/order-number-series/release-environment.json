@@ -1,0 +1,76 @@
+{
+  "verdict": "PASS",
+  "check": "recovery preflight",
+  "records": [
+    {
+      "uuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "release_environment": [
+        {
+          "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+          "value": "approved_test_sandbox",
+          "runtime": true,
+          "buildtime": true
+        },
+        {
+          "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+          "value": "sha256:4abf2c696195b75c7fb11c9a407178715ff989c6bce02919221835ed660b5a36",
+          "runtime": true,
+          "buildtime": true
+        },
+        {
+          "key": "SOURCE_COMMIT",
+          "value": "29afede4319f733560a20e3fae068331048816d9",
+          "runtime": true,
+          "buildtime": true
+        },
+        {
+          "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+          "value": "sha256:3790adca67f55bcb77488190d30053615c907e2408959a3466f176aeb9b6d1e1",
+          "runtime": true,
+          "buildtime": true
+        },
+        {
+          "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+          "value": "approved_live",
+          "runtime": true,
+          "buildtime": true
+        }
+      ]
+    },
+    {
+      "uuid": "e4xe74cmii7jucbkyor0o412",
+      "release_environment": [
+        {
+          "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+          "value": "approved_test_sandbox",
+          "runtime": false,
+          "buildtime": false
+        },
+        {
+          "key": "SOURCE_COMMIT",
+          "value": "29afede4319f733560a20e3fae068331048816d9",
+          "runtime": true,
+          "buildtime": true
+        },
+        {
+          "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+          "value": "sha256:3790adca67f55bcb77488190d30053615c907e2408959a3466f176aeb9b6d1e1",
+          "runtime": false,
+          "buildtime": false
+        },
+        {
+          "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+          "value": "approved_live",
+          "runtime": false,
+          "buildtime": false
+        },
+        {
+          "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+          "value": "sha256:4abf2c696195b75c7fb11c9a407178715ff989c6bce02919221835ed660b5a36",
+          "runtime": false,
+          "buildtime": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { parseProduct, parseProductVariant } from "../catalog/validation.ts";
+import { parseProduct, parseProductVariant, parseProductMeasurements } from "../catalog/validation.ts";
 import {
   CATALOG_ONBOARDING_CHANNEL_KINDS,
   CATALOG_ONBOARDING_PRODUCT_TYPES,
@@ -138,7 +138,7 @@ function variantIntent(value: unknown, productType: "physical" | "digital"): Cat
   const parsed = exact(value, [
     "title", "priceCents", "stockTracking", "stockQuantity", "attributes",
     "continueSellingWhenOutOfStock", "inventory",
-  ], ["sku", "barcode", "compareAtCents", "costCents", "unitPricing", "shippingDesiMilli", "hsCode"]);
+  ], ["sku", "barcode", "compareAtCents", "costCents", "unitPricing", "shippingDesiMilli", "hsCode", "measurements"]);
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = Object.hasOwn(parsed, "compareAtCents") ? integer(parsed.compareAtCents, 0) : undefined;
   if (compareAtCents !== undefined && compareAtCents < priceCents) invalid();
@@ -153,6 +153,7 @@ function variantIntent(value: unknown, productType: "physical" | "digital"): Cat
     stockTracking: boolean(parsed.stockTracking),
     stockQuantity: integer(parsed.stockQuantity, 0),
     attributes: attributes(parsed.attributes),
+    ...(Object.hasOwn(parsed, "measurements") ? { measurements: parseProductMeasurements(parsed.measurements) } : {}),
     continueSellingWhenOutOfStock: boolean(parsed.continueSellingWhenOutOfStock),
     ...(Object.hasOwn(parsed, "unitPricing") ? { unitPricing: unitPricing(parsed.unitPricing) } : {}),
     ...(Object.hasOwn(parsed, "shippingDesiMilli") ? { shippingDesiMilli: integer(parsed.shippingDesiMilli, 0) } : {}),
@@ -192,10 +193,11 @@ function resourceIds(value: unknown): CatalogOnboardingResourceIds {
 }
 
 function parseQuick(value: Record<string, unknown>): CatalogQuickCreateIntent {
-  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId", "sku"]);
+  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId", "sku", "measurements"]);
   if (parsed.kind !== "quick") invalid();
   return Object.freeze({
     kind: "quick",
+    ...(Object.hasOwn(parsed, "measurements") ? { measurements: parseProductMeasurements(parsed.measurements) } : {}),
     title: text(parsed.title, 1, 200),
     ...(Object.hasOwn(parsed, "sku") ? { sku: optionalText(parsed, "sku", 1, 64, SKU)! } : {}),
     priceCents: integer(parsed.priceCents, 0),

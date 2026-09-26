@@ -7,6 +7,7 @@ import type {
   Product,
   ProductStatus,
   ProductVariant,
+  ProductMeasurements,
   PermanentDeletionCommand,
   PermanentDeletionImpact,
   PermanentDeletionResult,
@@ -35,6 +36,8 @@ export interface CatalogVariantFields {
   readonly stockTracking: boolean;
   readonly stockQuantity: number;
   readonly attributes: Readonly<Record<string, string>>;
+  /** Omitted preserves existing values; null explicitly clears them. */
+  readonly measurements?: ProductMeasurements | null;
 }
 
 export interface CatalogAuthorityInput {

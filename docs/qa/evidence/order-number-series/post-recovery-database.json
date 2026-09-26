@@ -1,0 +1,146 @@
+{
+  "checkedAt": "2026-09-26T14:11:43.283Z",
+  "verdict": "PASS",
+  "assertions": "PASS",
+  "existingMerchantSnapshotUnchanged": true,
+  "changedTables": [],
+  "tables": {
+    "orders": {
+      "rows": "19",
+      "digest": "ab545bff8f2d5b4cdf795c67485f4366"
+    },
+    "order_items": {
+      "rows": "23",
+      "digest": "1db597bb719251e640cf1c734eb871f3"
+    },
+    "order_operations": {
+      "rows": "4",
+      "digest": "808220c53c1635a0f41ba8277a6b47b8"
+    },
+    "storefront_order_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_checkout_operations": {
+      "rows": "6",
+      "digest": "9962c55469c33831d33a10f0f4d5f24f"
+    },
+    "storefront_hosted_checkout_operations": {
+      "rows": "128",
+      "digest": "e27054371b88574c3ed9ef34d38f7356"
+    },
+    "checkout_operations": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_payment_attempts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_callback_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "checkout_reconciliation_receipts": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "payment_attempts": {
+      "rows": "74",
+      "digest": "d3fa1f19753fcbe5c644891f2b8cf7f1"
+    },
+    "payment_attempt_operations": {
+      "rows": "158",
+      "digest": "2a56d9b384b788ab538bfc947be6e535"
+    },
+    "payment_attempt_events": {
+      "rows": "173",
+      "digest": "2d7c0f306b09b509a7afb5663fe14551"
+    },
+    "quick_order_hosted_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "storefront_hosted_checkout_sessions": {
+      "rows": "74",
+      "digest": "e58e6bf85bd89daa374bd89b8d5a4d20"
+    },
+    "storefront_checkout_payment_bridges": {
+      "rows": "0",
+      "digest": "d751713988987e9331980363e24189ce"
+    },
+    "in_store_sales": {
+      "rows": "3",
+      "digest": "b63f3aa8a0d86a7dfe4e72c6776208f7"
+    },
+    "in_store_operations": {
+      "rows": "17",
+      "digest": "e791af07bd12f9c49ea4a2d9640455b7"
+    },
+    "in_store_payment_attestations": {
+      "rows": "1",
+      "digest": "2130bd0432971ffc9217f793d0463b2d"
+    },
+    "in_store_price_snapshots": {
+      "rows": "1",
+      "digest": "19baa0cb5856cbc0919c3b98bb166437"
+    },
+    "in_store_discount_allocations": {
+      "rows": "1",
+      "digest": "91f8f9cd39a2fec790fcc2f75887fdb3"
+    },
+    "in_store_sale_events": {
+      "rows": "17",
+      "digest": "8c8d1e55b00bf83144b7182d6263d0c2"
+    },
+    "in_store_inventory_reservations": {
+      "rows": "1",
+      "digest": "f91e33d270edd4cf38a7b9104bf8a61a"
+    },
+    "order_drafts": {
+      "rows": "7",
+      "digest": "b8929cadc1fc295f7811eadfe1fc406b"
+    },
+    "order_draft_operations": {
+      "rows": "18",
+      "digest": "b92c6d6d8a3027fd5a1728510f9513d5"
+    },
+    "inventory_balances": {
+      "rows": "1683",
+      "digest": "af6c9ffc3e9387ea31afe3c75c78130f"
+    },
+    "inventory_movements": {
+      "rows": "1703",
+      "digest": "10c4cb52e33015b5ad60fb9ca1db99e9"
+    },
+    "product_variants": {
+      "rows": "1691",
+      "digest": "3caa62a2df20d01b87d579b0422eae2d"
+    }
+  },
+  "numbers": {
+    "issued": "0"
+  },
+  "counters": [
+    {
+      "slug": "butik-siora",
+      "series": "POS",
+      "last_value": "0"
+    },
+    {
+      "slug": "butik-siora",
+      "series": "WEB",
+      "last_value": "0"
+    },
+    {
+      "slug": "guzide-kuyumcu-4",
+      "series": "POS",
+      "last_value": "0"
+    },
+    {
+      "slug": "guzide-kuyumcu-4",
+      "series": "WEB",
+      "last_value": "0"
+    }
+  ]
+}

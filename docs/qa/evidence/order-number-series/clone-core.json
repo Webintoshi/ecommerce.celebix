@@ -1,0 +1,31 @@
+{
+  "database": "celebix_order_number_qa_20260926",
+  "server": "PostgreSQL16",
+  "migration": "202609260161_order_number_series",
+  "commit": "ae779de2",
+  "recordedAt": "2026-09-26T13:56:29.370Z",
+  "redLog": "/tmp/order-number-red.log",
+  "greenLog": "/tmp/order-number-final-green.log",
+  "coreMarker": "ORDER_NUMBER_SEQUENCES_POSTGRESQL16_COMPLETE 11/11",
+  "integrationLog": "/tmp/order-number-integrations-green.log",
+  "integrationMarker": "ORDER_NUMBER_INTEGRATIONS_POSTGRESQL16_COMPLETE 9/9",
+  "command": "ORDER_NUMBER_QA_ENV_FILE=/tmp/order-number-qa.env node tests/saas-phase3/order-number-sequences/behavior.mjs",
+  "integrationCommand": "ORDER_NUMBER_QA_ENV_FILE=/tmp/order-number-qa.env node tests/saas-phase3/order-number-sequences/integrations.mjs",
+  "normalFixtures": "BEGIN/ROLLBACK",
+  "durableSyntheticRaceStore": "a160a7ff-0000-4000-8000-000000000001",
+  "raceCleanup": "Coordinator drops disposable QA database",
+  "downRefusal": {
+    "code": "P0001",
+    "message": "ORDER_NUMBER_ROLLBACK_HAS_ALLOCATIONS",
+    "unchanged": [
+      "all saas function definitions/owners/ACLs",
+      "all numbering counters",
+      "all numbering allocations",
+      "all rollback metadata"
+    ]
+  },
+  "fileSha256": {
+    "tests/saas-phase3/order-number-sequences/behavior.mjs": "f17429b036d7f7a7eb241f38d4fe06d095ca426d1438bcbf35469c55217e7153",
+    "tests/saas-phase3/order-number-sequences/manifest.json": "b925545cfc54d311aabd8bbdc9de491f6ec79679ba7fbee55ba376bde6d2af00"
+  }
+}

@@ -13,6 +13,23 @@ import {
   type ProductDraftVariant,
 } from "./product-draft-session.ts";
 
+test("optional measurements survive quick-detailed handoff, remain independently frozen and can be cleared", () => {
+  const empty = createEmptyProductDraftSession();
+  const projection = { title: "", sku: "", barcode: "", price: "", stockQuantity: "", categoryId: "", media: [] };
+  const blank = mergeQuickProductDraft(empty, { ...projection, measurements: {} });
+  assert.equal(productDraftIsDirty(blank), false, "mounting old empty drafts does not invent measurements");
+  const values = { weight: "14,89", weightUnit: "g", depth: "4.5" };
+  const filled = mergeQuickProductDraft(empty, { ...projection, measurements: values });
+  values.weight = "99";
+  assert.equal(filled.current.variants[0]?.measurements?.weight, "14,89");
+  assert.equal(Object.isFrozen(filled.current.variants[0]?.measurements), true);
+  assert.equal(quickDraftRequiresDetailedSave(filled.current), false, "quick create now saves measurement metadata");
+  const unrelated = mergeQuickProductDraft(filled, { ...projection, title: "Bilezik" });
+  assert.deepEqual(unrelated.current.variants[0]?.measurements, { weight: "14,89", weightUnit: "g", depth: "4.5" });
+  const cleared = mergeQuickProductDraft(unrelated, { ...projection, title: "Bilezik", measurements: {} });
+  assert.deepEqual(cleared.current.variants[0]?.measurements, {});
+});
+
 test("quick fields and the exact selected File survive the advanced-mode handoff", () => {
   const image = new File([new Uint8Array([1, 2, 3])], "atlas.webp", { type: "image/webp" });
   const session = mergeQuickProductDraft(createEmptyProductDraftSession(), {

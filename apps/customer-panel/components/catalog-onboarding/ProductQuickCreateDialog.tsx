@@ -21,6 +21,8 @@ import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/categ
 import { buildQuickCreateIntent, parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
+import { ProductMeasurementFields } from "@/components/catalog/ProductMeasurementFields";
+import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 import {
@@ -98,6 +100,8 @@ export function ProductQuickCreateDialog({
   const [price, setPrice] = useState(draftSession?.current.variants[0]?.price ?? "");
   const [sku, setSku] = useState(draftSession?.current.variants[0]?.sku ?? "");
   const [barcode, setBarcode] = useState(draftSession?.current.variants[0]?.barcode ?? "");
+  const [measurements, setMeasurements] = useState<ProductMeasurementDraft>(draftSession?.current.variants[0]?.measurements ?? {});
+  const [showMeasurementValidation, setShowMeasurementValidation] = useState(false);
   const [barcodeBusy, setBarcodeBusy] = useState(false);
   const [stockQuantity, setStockQuantity] = useState(draftSession?.current.variants[0]?.stockQuantity ?? "0");
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -138,10 +142,10 @@ export function ProductQuickCreateDialog({
 
   useEffect(() => {
     if (draftSession === undefined || onDraftSessionChange === undefined) return;
-    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, barcode, stockQuantity, categoryId, media: images }));
+    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, barcode, measurements, stockQuantity, categoryId, media: images }));
   // The parent replaces draftSession after each projection; local fields are the source for this handoff.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, price, sku, barcode, stockQuantity, categoryId, images, onDraftSessionChange]);
+  }, [title, price, sku, barcode, measurements, stockQuantity, categoryId, images, onDraftSessionChange]);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -229,10 +233,12 @@ export function ProductQuickCreateDialog({
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const publish = submitter instanceof HTMLButtonElement && submitter.value === "publish";
+    setShowMeasurementValidation(true);
     const parsed = buildQuickCreateIntent({
       title: field(data, "title"),
       sku,
       barcode,
+      measurements,
       channelIds: options?.channels.filter((channel) => channel.kind === "storefront").map(({ id }) => id) ?? [],
       price: field(data, "price"),
       publish,
@@ -315,6 +321,7 @@ export function ProductQuickCreateDialog({
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input ref={priceRef} name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
+          <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} />
           </>}
           <label className={styles.wide}>
             <span>Kategori</span>

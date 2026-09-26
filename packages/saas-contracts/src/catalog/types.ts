@@ -35,6 +35,19 @@ export interface Product {
   readonly version: number;
 }
 
+export type ProductMeasurement<Unit extends string> = Readonly<{ valueMilli: number; unit: Unit }>;
+/** Optional physical information. Quantities are scaled by 1000; unrelated to stock or price. */
+export interface ProductMeasurements {
+  readonly weight?: ProductMeasurement<"g" | "kg">;
+  readonly volume?: ProductMeasurement<"ml" | "l">;
+  readonly length?: ProductMeasurement<"cm" | "m">;
+  readonly width?: ProductMeasurement<"cm" | "m">;
+  readonly depth?: ProductMeasurement<"cm" | "m">;
+  readonly height?: ProductMeasurement<"cm" | "m">;
+  readonly area?: ProductMeasurement<"m2">;
+  readonly packageCount?: number;
+}
+
 export interface ProductVariant {
   readonly id: ProductVariantId;
   readonly productId: ProductId;
@@ -53,6 +66,7 @@ export interface ProductVariant {
   readonly stockQuantity: number;
   readonly status: VariantStatus;
   readonly attributes: Readonly<Record<string, string>>;
+  readonly measurements?: ProductMeasurements;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly version: number;

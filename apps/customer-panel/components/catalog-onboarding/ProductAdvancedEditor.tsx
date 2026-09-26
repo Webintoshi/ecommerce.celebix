@@ -29,6 +29,7 @@ import { ProductDescriptionField } from "@/components/catalog/ProductDescription
 import { ProductClassificationPicker } from "./ProductClassificationPicker";
 import { AttributeVariantPicker } from "./AttributeVariantPicker";
 import { emptyVariant, ProductVariantBuilder, type VariantDraft } from "./ProductVariantBuilder";
+import { measurementsToDraft, parseProductMeasurements } from "@/lib/catalog-ui/product-measurements";
 import styles from "./product-onboarding.module.css";
 import createStyles from "./create-advanced.module.css";
 
@@ -74,6 +75,7 @@ function initialVariants(editor?: CatalogProductEditorProjection): readonly Vari
     shippingDesi: shippingDesiMilli === undefined ? "" : String(shippingDesiMilli / 1000).replace(".", ","),
     hsCode: hsCode ?? "",
     attributes: variant.attributes,
+    ...(variant.measurements === undefined ? {} : { measurements: measurementsToDraft(variant.measurements) }),
   })));
 }
 
@@ -88,6 +90,8 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   const stockQuantity = positiveInteger(variant.stockQuantity, 0);
   const compareAtCents = optionalMoney(variant.compareAt);
   const costCents = optionalMoney(variant.cost);
+  const measurements = parseProductMeasurements(variant.measurements);
+  if (!measurements.ok) return null;
   const shippingCents = variant.shippingDesi === "" ? undefined : parseTurkishMoneyToCents(variant.shippingDesi);
   if (priceCents === null || stockQuantity === null || compareAtCents === null || costCents === null || shippingCents === null || variant.title.trim().length < 1) return null;
   return Object.freeze({
@@ -100,6 +104,7 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
     stockTracking: true,
     stockQuantity,
     attributes: variant.attributes,
+    ...(measurements.value === undefined ? {} : { measurements: measurements.value }),
     continueSellingWhenOutOfStock: variant.continueSellingWhenOutOfStock,
     ...(productType === "physical" && shippingCents !== undefined ? { shippingDesiMilli: shippingCents * 10 } : {}),
     ...(productType === "physical" && variant.hsCode.trim() ? { hsCode: variant.hsCode.trim() } : {}),
@@ -296,6 +301,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       cost: standard.cost,
       shippingDesi: standard.shippingDesi,
       hsCode: standard.hsCode,
+      ...(standard.measurements === undefined ? {} : { measurements: standard.measurements }),
       continueSellingWhenOutOfStock: standard.continueSellingWhenOutOfStock,
       // SKU and barcode identify one sale option; each new combination starts blank.
     })));

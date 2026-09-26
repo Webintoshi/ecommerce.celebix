@@ -1,6 +1,7 @@
-import type { ProductStatus } from "@celebix/saas-contracts";
+import type { ProductStatus, ProductMeasurements } from "@celebix/saas-contracts";
 
 import { parseTurkishMoneyToCents } from "./money.ts";
+import { parseProductMeasurements, type ProductMeasurementDraft } from "./product-measurements.ts";
 
 export type CatalogProductFields = Readonly<{
   slug: string;
@@ -20,6 +21,7 @@ export type CatalogVariantFields = Readonly<{
   stockTracking: boolean;
   stockQuantity: number;
   attributes: Readonly<Record<string, string>>;
+  measurements?: ProductMeasurements | null;
 }>;
 
 type Valid<T> = Readonly<{ ok: true; value: T }>;
@@ -32,11 +34,11 @@ const SKU = /^[A-Z0-9](?:[A-Z0-9._-]{0,63})$/;
 
 const CREATE_KEYS = Object.freeze([
   "title", "slug", "description", "status", "currency", "variantTitle", "sku", "barcode",
-  "price", "compareAt", "cost", "stockTracking", "stockQuantity",
+  "price", "compareAt", "cost", "stockTracking", "stockQuantity", "measurements",
 ] as const);
 const PRODUCT_KEYS = Object.freeze(["title", "slug", "description", "status", "currency"] as const);
 const VARIANT_KEYS = Object.freeze([
-  "title", "sku", "barcode", "price", "compareAt", "cost", "stockTracking", "stockQuantity",
+  "title", "sku", "barcode", "price", "compareAt", "cost", "stockTracking", "stockQuantity", "measurements",
 ] as const);
 
 function invalid(message: string): Invalid {
@@ -105,6 +107,8 @@ function variantFields(
 ): CatalogFormResult<CatalogVariantFields> {
   const parsed = record(value, allowed);
   if (parsed === null) return invalid("Formda beklenmeyen bir alan var.");
+  const measurements = parseProductMeasurements(parsed.measurements as ProductMeasurementDraft | undefined);
+  if (!measurements.ok) return invalid(measurements.error);
   const preservedAttributes = variantAttributes(attributes);
   if (preservedAttributes === null) return invalid("Varyant nitelikleri geçersiz.");
   const title = text(parsed.title, 1, 200);
@@ -147,6 +151,7 @@ function variantFields(
       stockTracking: parsed.stockTracking,
       stockQuantity,
       attributes: preservedAttributes,
+      ...(measurements.value === undefined ? {} : { measurements: measurements.value }),
     }),
   });
 }
@@ -178,6 +183,7 @@ export function buildCreateProductPayload(value: unknown): CatalogFormResult<Rea
     cost: parsed.cost,
     stockTracking: parsed.stockTracking,
     stockQuantity: parsed.stockQuantity,
+    ...(parsed.measurements === undefined ? {} : { measurements: parsed.measurements }),
   }, Object.freeze({}));
   if (!initialVariant.ok) return initialVariant;
   return Object.freeze({
@@ -208,13 +214,16 @@ export function buildVariantCreatePayload(
 }
 
 export function buildVariantBatchPayload(
-  rows: readonly Readonly<{ title: string; sku: string; barcode: string; price: string; compareAt: string; cost: string; stockQuantity: string; attributes: Readonly<Record<string, string>> }>[],
+  rows: readonly Readonly<{ title: string; sku: string; barcode: string; price: string; compareAt: string; cost: string; stockQuantity: string; attributes: Readonly<Record<string, string>>; measurements?: ProductMeasurementDraft; continueSellingWhenOutOfStock?: boolean; shippingDesi?: string; hsCode?: string }>[],
 ): CatalogFormResult<Readonly<{ variants: readonly CatalogVariantFields[] }>> {
   if (rows.length < 1 || rows.length > 100) return invalid("1–100 varyant seçin.");
   const variants: CatalogVariantFields[] = [];
   const combinations = new Set<string>();
   for (const row of rows) {
-    const { attributes: selectedAttributes, ...fields } = row;
+    if (record(row, [...VARIANT_KEYS, "attributes", "continueSellingWhenOutOfStock", "shippingDesi", "hsCode"]) === null) return invalid("Formda beklenmeyen bir alan var.");
+    const { attributes: selectedAttributes, continueSellingWhenOutOfStock, shippingDesi, hsCode, ...fields } = row;
+    if (continueSellingWhenOutOfStock !== undefined && continueSellingWhenOutOfStock !== false) return invalid("Toplu varyant eklerken stok bitince satış seçeneğini kapatın.");
+    if ((shippingDesi !== undefined && shippingDesi !== "") || (hsCode !== undefined && hsCode !== "")) return invalid("Toplu varyant eklerken kargo bilgilerini boş bırakın.");
     const parsed = variantFields({ ...fields, stockTracking: true }, selectedAttributes);
     if (!parsed.ok) return parsed;
     const attributes = parsed.value.attributes;
@@ -238,7 +247,9 @@ export function buildVariantUpdatePayload(
   return variant.ok
     ? Object.freeze({
       ok: true,
-      value: Object.freeze({ expectedVersion: parsedVersion, variant: variant.value }),
+      value: Object.freeze({ expectedVersion: parsedVersion, variant: Object.freeze({ ...variant.value,
+        ...(typeof value === "object" && value !== null && (value as { measurements?: unknown }).measurements !== undefined && variant.value.measurements === undefined ? { measurements: null } : {}),
+      }) }),
     })
     : variant;
 }

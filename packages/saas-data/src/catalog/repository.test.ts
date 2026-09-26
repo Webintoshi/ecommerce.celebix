@@ -351,7 +351,7 @@ test("bulk activation replay returns its durable result without reevaluating cur
     if (text.includes("saas.catalog_bulk_mutate_products")) {
       return [{ outcome: "operation_replayed", result_payload: { products: [product({ status: "active", version: 2 })] } }];
     }
-    if (text.includes("saas.catalog_get_product_details_v2")) throw new Error("replay must not revalidate");
+    if (text.includes("saas.catalog_get_product_details_v3")) throw new Error("replay must not revalidate");
     return [];
   });
 
@@ -361,7 +361,7 @@ test("bulk activation replay returns its durable result without reevaluating cur
   });
 
   assert.equal(result.replayed, true);
-  assert.equal(client.calls.some(({ text }) => text.includes("saas.catalog_get_product_details_v2")), false);
+  assert.equal(client.calls.some(({ text }) => text.includes("saas.catalog_get_product_details_v3")), false);
 });
 
 test("bulk activation maps the transactional dynamic-pricing gate to one finite catalog error", async () => {
@@ -1106,4 +1106,23 @@ test("getDashboardSummary rejects impossible or unsafe exhausted product counts"
     await assert.rejects(repository(new FakePool(client)).getDashboardSummary({ tenantContext: tenantContext(), now: NOW }),
       (error: unknown) => error instanceof CatalogRepositoryError && error.code === "unavailable");
   }
+});
+
+test("measurement replacement and removal retain exact fingerprinted intent and use atomic RPCs", async () => {
+  for (const measurements of [{ weight: { valueMilli: 14890, unit: "g" as const } }, null]) {
+    const client = new FakeClient((text) => text.includes("catalog_update_variant_measurements") ? [{ outcome: "updated", result_payload: { variant: variant({ version: 2, ...(measurements === null ? {} : { measurements }) }) } }] : []);
+    const fields = { ...createInput().initialVariant, measurements };
+    const result = await repository(new FakePool(client)).updateVariant({ tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, variantId: VARIANT_ID, expectedVersion: 1, variant: fields });
+    assert.deepEqual(result.variant.measurements, measurements ?? undefined);
+    const write = client.calls.find(({ text }) => text.includes("catalog_update_variant_measurements"));
+    assert.ok(write);assert.equal(write.values[22],JSON.stringify(measurements));assert.equal(write.values[20],10);
+    assert.equal(client.calls.filter(({ text }) => text.includes("catalog_update_variant")).length,1);
+  }
+});
+
+test("measurement-aware detail read preserves exact metadata and dynamic-price fields", async () => {
+  const measurements = { weight: { valueMilli: 14890, unit: "g" as const } };
+  const client = new FakeClient((text) => text.includes("catalog_get_product_details_v3") ? [{ outcome: "found", result_payload: { product: product(), variants: [variant({measurements,pricingMethod:"gold_gram",effectivePriceCents:15000})] } }] : []);
+  const result = await repository(new FakePool(client)).getProductDetails({tenantContext:tenantContext(),now:NOW,productId:PRODUCT_ID});
+  assert.deepEqual(result.variants[0]?.measurements, measurements);assert.equal(result.variants[0]?.pricingMethod,"gold_gram");assert.equal(result.variants[0]?.effectivePriceCents,15000);
 });

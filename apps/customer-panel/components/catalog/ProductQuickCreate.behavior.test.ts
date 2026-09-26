@@ -8,6 +8,7 @@ import { Window } from "happy-dom";
 import ts from "typescript";
 import * as categoryTree from "../../lib/catalog-onboarding-ui/category-tree.ts";
 import * as forms from "../../lib/catalog-onboarding-ui/forms.ts";
+import * as measurementForms from "../../lib/catalog-ui/product-measurements.ts";
 import * as mediaCompletion from "../../lib/catalog-onboarding-ui/media-completion.ts";
 import * as drafts from "../../lib/catalog-ui/product-draft-session.ts";
 
@@ -73,6 +74,7 @@ async function withQuickCreate(
     "@/lib/barcode-labels/reserve-internal": { reserveInternalBarcode: reserveBarcode },
   });
   class ApiError extends Error {}
+  const measurements = await compile(new URL("./ProductMeasurementFields.tsx", import.meta.url), { "@/lib/catalog-ui/product-measurements": measurementForms });
   const quick = await compile(new URL("../catalog-onboarding/ProductQuickCreateDialog.tsx", import.meta.url), {
     "next/link": ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode),
     "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: {} },
@@ -82,6 +84,7 @@ async function withQuickCreate(
     "@/lib/catalog-ui/product-draft-session": drafts,
     "@/lib/catalog-ui/media-client": { ProductMediaApiError: ApiError, productMediaApi: {} },
     "@/components/catalog/BarcodeInput": barcode,
+    "@/components/catalog/ProductMeasurementFields": measurements,
     "@/components/catalog/SkuInput": { SkuInput: ({ value, onChange }: { value: string; onChange(value: string): void }) => createElement("input", { name: "sku", value, onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChange(event.currentTarget.value) }) },
   });
   const ProductQuickCreateDialog = quick.ProductQuickCreateDialog as React.ComponentType<Record<string, unknown>>;
@@ -156,6 +159,48 @@ test("quick validation retains entered fields and barcode is saved in the atomic
     assert.deepEqual(intent.channelIds, [channelId]);
     assert.deepEqual({ barcode: intent.variants[0]!.barcode, sku: intent.variants[0]!.sku, priceCents: intent.variants[0]!.priceCents, stockQuantity: intent.variants[0]!.stockQuantity }, { barcode: "8691234567890", sku: "SIORA-001", priceCents: 24990, stockQuantity: 7 });
     assert.equal(finished.length, 1);
+  });
+});
+
+test("quick optional fields stay blank-save compatible and persist all selected measurements through a draft handoff", async () => {
+  const intents: unknown[] = [];
+  const projections: drafts.ProductDraftSession[] = [];
+  await withQuickCreate({ draftSession: draft(), onDraftSessionChange: (next: drafts.ProductDraftSession) => projections.push(next), api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async (container, browser) => {
+    const fields = [...container.querySelectorAll<HTMLInputElement>('input[name^="measurement-"]')];
+    assert.equal(fields.length, 8);
+    assert.ok(fields.every((field) => !field.required && field.value === ""));
+    assert.match(container.querySelector("details summary")?.textContent ?? "", /İsteğe bağlı/);
+    const values = { weight: "14,89", volume: "250.125", length: "3", width: "2.1", depth: "4,2", height: "0.001", area: "5,55", packageCount: "6" };
+    for (const [key, value] of Object.entries(values)) await input(container, browser, `measurement-${key}`, value);
+    assert.deepEqual(projections.at(-1)?.current.variants[0]?.measurements, values);
+    await submit(container, browser, "draft");
+    assert.equal(intents.length, 1);
+    assert.deepEqual((intents[0] as Record<string, unknown>).measurements, {
+      weight: { valueMilli: 14890, unit: "g" }, volume: { valueMilli: 250125, unit: "ml" },
+      length: { valueMilli: 3000, unit: "cm" }, width: { valueMilli: 2100, unit: "cm" }, depth: { valueMilli: 4200, unit: "cm" },
+      height: { valueMilli: 1, unit: "cm" }, area: { valueMilli: 5550, unit: "m2" }, packageCount: 6,
+    });
+  });
+  await withQuickCreate({ draftSession: draft(), api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async (container, browser) => {
+    await submit(container, browser, "draft");
+    assert.equal(Object.hasOwn(intents.at(-1) as object, "measurements"), false);
+  });
+});
+
+test("invalid optional quick measurements keep entered values and reveal their group, then allow clearing", async () => {
+  let creates = 0;
+  await withQuickCreate({ draftSession: draft(), api: { createProduct: async () => { creates++; return created; } } }, async (container, browser) => {
+    await input(container, browser, "measurement-weight", "14,8912");
+    await submit(container, browser, "draft");
+    assert.equal(creates, 0);
+    const weight = container.querySelector('input[name="measurement-weight"]') as HTMLInputElement;
+    assert.equal(weight.value, "14,8912");
+    assert.equal(weight.getAttribute("aria-invalid"), "true");
+    assert.equal(weight.closest("details")?.open, true);
+    assert.match(container.textContent ?? "", /üç ondalık/);
+    await input(container, browser, "measurement-weight", "");
+    await submit(container, browser, "draft");
+    assert.equal(creates, 1);
   });
 });
 

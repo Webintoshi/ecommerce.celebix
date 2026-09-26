@@ -169,3 +169,16 @@ test("path identifiers accept only canonical UUIDs", () => {
     assert.equal(input.readCatalogPathId?.(value), null);
   }
 });
+
+test("optional measurement mutation distinguishes omission, replacement and explicit removal", async () => {
+  const measurements = { weight: { valueMilli: 14890, unit: "g" }, height: { valueMilli: 1, unit: "cm" } };
+  for (const value of [undefined, measurements, null]) {
+    const fields = { ...CREATE.initialVariant, ...(value === undefined ? {} : { measurements: value }) };
+    const parsed = await input.readCatalogMutationInput?.(mutation(JSON.stringify({ expectedVersion: 1, variant: fields })), "update_variant");
+    assert.equal(parsed?.kind, "valid");
+    if (parsed?.kind === "valid") assert.deepEqual(parsed.value.variant, fields);
+  }
+  for (const measurements of [{}, { weight: { valueMilli: 14890, unit: "ml" } }, { height: { valueMilli: 1.5, unit: "cm" } }, { packageCount: 0 }]) {
+    assert.equal((await input.readCatalogMutationInput?.(mutation(JSON.stringify({ expectedVersion: 1, variant: { ...CREATE.initialVariant, measurements } })), "update_variant"))?.kind, "invalid");
+  }
+});
