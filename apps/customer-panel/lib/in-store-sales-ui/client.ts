@@ -77,7 +77,7 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
       const selected=object(input,["locationId"],["barcode","query","limit"]);id(selected.locationId);
       if((selected.barcode===undefined)===(selected.query===undefined))invalid();
       const query=new URLSearchParams({locationId:input.locationId,limit:String(integer(selected.limit??20,1,20))});
-      if(selected.barcode!==undefined)query.set("barcode",plainText(selected.barcode,200));else query.set("query",plainText(selected.query,100));
+      if(selected.barcode!==undefined)query.set("barcode",plainText(selected.barcode,128));else query.set("query",plainText(selected.query,100));
       return read(`/products?${query}`,value=>{const list=object(value,["products"]).products;if(!Array.isArray(list)||list.length>20)invalid();return Object.freeze(list.map(parseInStoreProduct));},signal);
     },
     async listSales(input:Readonly<{status:"draft"|"held"|"pending"|"completed";pageSize?:number;cursor?:string}>){

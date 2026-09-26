@@ -49,3 +49,7 @@ test("a manual slip reference beyond the database limit is rejected before netwo
   let calls=0;const client=createInStoreSalesUiClient({fetch:async()=>{calls++;return reply({data:null});}});
   await assert.rejects(client.confirmPayment(SALE_ID,{expectedVersion:1,slipReference:"a".repeat(101)},OP));assert.equal(calls,0);
 });
+test("registered barcode boundary accepts 128 characters and rejects 129 before fetch",async()=>{
+  let calls=0;const client=createInStoreSalesUiClient({fetch:async()=>{calls++;return reply({data:{products:[]}});}});
+  await client.searchProducts({locationId:LOCATION,barcode:"A".repeat(128)});await assert.rejects(client.searchProducts({locationId:LOCATION,barcode:"A".repeat(129)}));assert.equal(calls,1);
+});
