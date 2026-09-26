@@ -1,0 +1,31 @@
+{
+  "pass": true,
+  "verifiedAt": "2026-09-26T21:48:55.628527+00:00",
+  "sourceSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "liveDatabase": "celebix_saas_staging_auth01",
+  "rehearsedQaDatabase": "celebix_design_qa_20260926",
+  "postgresqlVersion": "16.14",
+  "targetAndOwnerGuardsPassed": true,
+  "exactPredecessorFunctionsMatchedCount": 9,
+  "replacementFunctionCount": 9,
+  "replacementFunctionsOwnedBySaasOwnerCount": 9,
+  "liveFunctionDigestSetSha256": "5e3f519447337d56523a5c369e51464d8ab88e107fb990a05692b53b57dd8a3f",
+  "rehearsedOriginalFunctionDigestSetSha256": "5e3f519447337d56523a5c369e51464d8ab88e107fb990a05692b53b57dd8a3f",
+  "sql164SentinelTableCount": 4,
+  "sql164SentinelOwnerForceRlsCount": 4,
+  "pre165BackupAbsent": true,
+  "new165ArtifactsAbsent": true,
+  "designCount": 10,
+  "rehearsedDesignCount": 10,
+  "currentDraftValidCount": 10,
+  "currentPublishedValidCount": 10,
+  "readOnly": true,
+  "transactionsRolledBack": true,
+  "sqlMutations": 0,
+  "appConfigurationMutations": 0,
+  "functionDefinitionsEmitted": false,
+  "customerContentEmitted": false,
+  "limitations": [
+    "Point-in-time read-only preflight; root still takes the fresh private full database backup after all four exact-image health gates and before SQL165."
+  ]
+}

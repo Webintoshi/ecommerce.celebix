@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-09-26T21:58:52.474021+00:00",
+  "pass": true,
+  "sourceCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "finalConfigurationGuard": "verify-after-all-apps.json",
+  "globalIdleBeforeCleanup": true,
+  "ownedQaDatabase": "celebix_design_qa_20260926",
+  "qaConnectionsBeforeDrop": 0,
+  "qaDatabaseAbsentAfterDrop": true,
+  "ownedCoolifyHelperDirectoryRemoved": true,
+  "privateDeploymentReceiptsPreserved": true,
+  "privateSnapshotPreserved": true,
+  "privateFullDatabaseBackupPreserved": true,
+  "privateBackupMode": "0600",
+  "privateSnapshotSha256": "43a7c54b0d615e956a56c71edfd12af52c8b26c79905bf13da0c2c120b177f40",
+  "privateFreshDatabaseBackupSha256": "1267a8ed76766a3ab9d0013c96c726bf6c768e8e680ecdbb70113e56dd553e2d",
+  "liveDatabaseDrop": false,
+  "imagesVolumesGlobalCachePruned": false
+}

@@ -1,0 +1,35 @@
+{
+  "pass": true,
+  "designCount": 10,
+  "counts": {
+    "workspaceParsed": 10,
+    "publicDesignParsed": 10,
+    "publicPresentationParsed": 10,
+    "workspaceWithAssets": 10,
+    "workspaceWithPublishedDraft": 10
+  },
+  "failures": {
+    "workspace": 0,
+    "publicDesign": 0,
+    "publicPresentation": 0
+  },
+  "readOnly": true,
+  "liveTransactionRolledBack": true,
+  "postgresqlVersion": "16.14 (Debian 16.14-1.pgdg12+1)",
+  "verifiedAt": "2026-09-26T21:52:22.604192+00:00",
+  "sourceSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "database": "celebix_saas_staging_auth01",
+  "migration": "final165",
+  "liveDatabaseQueries": 1,
+  "liveDatabaseMutations": 0,
+  "sqlWrites": 0,
+  "privatePayloadStored": false,
+  "privatePayloadEmitted": false,
+  "sqlSha256": "2ecf7bbe5fdccb33ed8bf20c3fc5d449e2d6efc8bb8572cca92ec20094033649",
+  "invocation": "SSH docker exec psql -U postgres -d celebix_saas_staging_auth01 -X -qAt -v ON_ERROR_STOP=1; owner READ ONLY / REPEATABLE READ transaction; Node v24 current TypeScript parsers via --experimental-strip-types, JSON on stdin",
+  "parsers": [
+    "parseStorefrontDesignWorkspace",
+    "parsePublicStorefrontDesign",
+    "parsePublicStarterThemePresentation"
+  ]
+}

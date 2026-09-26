@@ -1,0 +1,92 @@
+{
+  "targets": [
+    {
+      "target": "panel_net",
+      "uuid": "e4xe74cmii7jucbkyor0o412",
+      "branch": "codex/settings-approved-ui",
+      "sha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "environmentRows": 84,
+      "allowedEnvironmentPresence": {
+        "SOURCE_COMMIT": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        }
+      }
+    },
+    {
+      "target": "panel_site",
+      "uuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "branch": "codex/settings-approved-ui",
+      "sha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "environmentRows": 89,
+      "allowedEnvironmentPresence": {
+        "SOURCE_COMMIT": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        }
+      }
+    },
+    {
+      "target": "storefront_net",
+      "uuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "branch": "codex/settings-approved-ui",
+      "sha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "environmentRows": 77,
+      "allowedEnvironmentPresence": {
+        "SOURCE_COMMIT": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        }
+      }
+    },
+    {
+      "target": "storefront_site",
+      "uuid": "vtc2aah63jbqnmtxmvykn6jl",
+      "branch": "codex/settings-approved-ui",
+      "sha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "environmentRows": 77,
+      "allowedEnvironmentPresence": {
+        "SOURCE_COMMIT": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        },
+        "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": {
+          "normalRows": 1,
+          "previewRows": 1
+        }
+      }
+    }
+  ],
+  "globalActiveDeployments": 0,
+  "checkedAt": "2026-09-26T22:02:14.582021+00:00",
+  "readOnly": true,
+  "pass": true
+}

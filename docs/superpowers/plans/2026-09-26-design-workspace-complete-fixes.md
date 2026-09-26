@@ -87,17 +87,21 @@
 
 **Owner:** root plus fresh reviewers.
 
-- [ ] Independent review of tenant references, SQL migration/rollback, lifecycle and cross-app runtime compatibility; fix findings.
-- [ ] Typecheck/contracts and focused regression suite; build shared customer-panel and storefront (owner if shared-contract gate requires).
-- [ ] Test with representative isolated fixture data including older discounted product, ranked sold-out rows, category overrides and manual product order.
-- [ ] Browser screenshot/console/network/keyboard matrix at 1440/1024/390; Atlas visual review; fix material failures.
+- [x] Independent review of tenant references, SQL migration/rollback, lifecycle and cross-app runtime compatibility; fix findings. Final combined source review found no remaining P1/P2; independent merged design behaviors passed 41/41.
+- [x] Typecheck/contracts and focused regression suite; build shared customer-panel and storefront (owner if shared-contract gate requires). Final panel build on `89cc73218f2a7113f2fd593ca743e45e51621a98` exited 0 (compile 30.5s, TypeScript 33.1s, 90/90 pages, tracing complete). Storefront build passed under `ff563254`; storefront/packages trees exactly match the combined source. Owner dependency build passed. Mira focused gates passed 67/67, 42/42 and 13/13.
+- [x] Test with representative isolated fixture data including older discounted product, ranked sold-out rows, category overrides and manual product order. The actual SQL165 QA copy passed all three current parsers for 10/10 stores; every workspace included assets and full publishedDraft, without live queries or writes. See `docs/qa/evidence/design-workspace-fixes/actual165-contracts.json`.
+- [x] Browser screenshot/console/network/keyboard matrix at 1440/1024/390; independent visual review; fix material failures. Final Mira evidence contains 53 measurements and 52 PNGs, manual SKU/barcode/order and category-image checks at all three widths, 44px mobile controls and mobile dock hit checks. Final presentation uses seven inline steps; inner section Escape/focus remains preserved. Earlier outer-modal checks prove the prior presentation only. See `docs/qa/settings-approved-release-2026-09-27.md`.
 
 ## Task 6 — Live release and evidence
 
 **Owner:** root only.
 
-- [ ] Verify latest NET/SITE source and concurrent project changes; rebase/integrate authorized completed changes if needed.
-- [ ] Commit reviewed source; backup current design authority/functions before applying the new SQL migration once.
-- [ ] Deploy shared NET and SITE services from the exact reviewed source; inspect deployment logs and fresh health/runtime markers.
-- [ ] Read-only merchant/public smoke checks across current stores; verify draft save/publish with isolated QA fixture, preserve merchant drafts.
-- [ ] Record final source, migrations, test/build/browser/release evidence and precise remaining limitations (if any); finish only after required work is complete.
+- [x] Verify latest NET/SITE source and concurrent project changes; integrate authorized completed changes. Final combined source and mobile dock CSS are committed at `89cc73218f2a7113f2fd593ca743e45e51621a98`.
+- [x] Commit reviewed source and record completed pre-release test/build/browser/contract evidence in the two release reports.
+- [x] Prepare all four targets by changing only the source branch/SHA and the three existing normal SOURCE_COMMIT/PayTR digest values; preserve every other application/settings/environment attribute and all preview rows.
+- [x] Deploy all shared NET and SITE services from the exact reviewed source; inspect deployment logs and fresh health/runtime markers. All four jobs finished at `89cc73218f2a7113f2fd593ca743e45e51621a98`: NET panel `i118qvye36lonxaf94h7tkx2`, SITE panel `thlao99pmks8ndvotngykh9b`, SITE storefront `tq83nl29608yttypk4qgi67m`, NET storefront `purxjjnpyhpxja7aua2qlf52`. Every runtime source/image check and separate HTTP health check passed. See the deployment/runtime/health evidence table in the [release report](../../qa/design-workspace-fixes-release-2026-09-26.md).
+- [x] After all new application code is deployed, take the final private backup of current design authority/functions and apply SQL165 once. The restricted backup/checksum record is retained; SQL165 up and assertions exited 0.
+- [x] Verify live migration preservation and actual payload compatibility without customer mutations. All 10 stores preserved draft/version/visible announcement/category content; all 10 actual live workspace/public-design/public-presentation payloads passed final source parsers, including assets and full publishedDraft. See [preservation](../../qa/evidence/design-workspace-fixes/live165-preservation.json) and [live contracts](../../qa/evidence/design-workspace-fixes/live165-contracts.json).
+- [x] Perform Mira's read-only Siora live UI acceptance: seven inline steps, 10 real product options and no console errors or customer/design mutation. The final UI report includes the read-only live metrics and screenshots; authenticated Güzide UI was not exercised.
+- [x] Finish the final read-only merchant/public smoke probe and record remaining limits; QA draft save/publish behavior is evidenced by the isolated database rehearsal. All 22 checks passed, including the existing Next.js streaming not-found/redirect markers. See [live-final-smoke.json](../../qa/evidence/design-workspace-fixes/live-final-smoke.json).
+- [x] Verify final cleanup and append precise final release closure. Only the owned inactive QA database and temporary Coolify helper directory were removed; protected backups and deployment receipts were retained and rechecked. [Cleanup](../../qa/evidence/design-workspace-fixes/cleanup-final.json) and all six [post-cleanup health checks](../../qa/evidence/design-workspace-fixes/health-after-cleanup.json) passed. Live source remains fixed at `89cc73218f2a7113f2fd593ca743e45e51621a98`; evidence commits do not repin or redeploy applications.

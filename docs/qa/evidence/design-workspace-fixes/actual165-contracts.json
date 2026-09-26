@@ -1,0 +1,35 @@
+{
+  "pass": true,
+  "designCount": 10,
+  "counts": {
+    "workspaceParsed": 10,
+    "publicDesignParsed": 10,
+    "publicPresentationParsed": 10,
+    "workspaceWithAssets": 10,
+    "workspaceWithPublishedDraft": 10
+  },
+  "failures": {
+    "workspace": 0,
+    "publicDesign": 0,
+    "publicPresentation": 0
+  },
+  "readOnly": true,
+  "qaTransactionRolledBack": true,
+  "postgresqlVersion": "16.14 (Debian 16.14-1.pgdg12+1)",
+  "verifiedAt": "2026-09-26T21:32:07.773737+00:00",
+  "sourceSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "database": "celebix_design_qa_20260926",
+  "migration": "final165",
+  "liveDatabaseQueries": 0,
+  "liveDatabaseMutations": 0,
+  "qaWrites": 0,
+  "privatePayloadStored": false,
+  "privatePayloadEmitted": false,
+  "sqlSha256": "efd51345ec01d64482814aa9e6ace97b6981f65f84c05fa8b26eb6a76835e493",
+  "invocation": "SSH docker exec psql -U postgres -d celebix_design_qa_20260926 -X -qAt -v ON_ERROR_STOP=1; owner READ ONLY / REPEATABLE READ transaction; Node v24 current TypeScript parsers via --experimental-strip-types, JSON on stdin",
+  "parsers": [
+    "parseStorefrontDesignWorkspace",
+    "parsePublicStorefrontDesign",
+    "parsePublicStarterThemePresentation"
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "checkedAt": "2026-09-26T21:56:54.933031+00:00",
+  "sourceCommit": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "readOnly": true,
+  "userAgent": "Mozilla/5.0 CelebixReleaseReadOnly",
+  "pass": true,
+  "checks": [
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/storefront-design",
+      "kind": "unsigned",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/settings/design",
+      "kind": "protected",
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/storefront-design",
+      "kind": "unsigned",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/settings/design",
+      "kind": "protected",
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/storefront-design",
+      "kind": "unsigned",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/settings/design",
+      "kind": "protected",
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/storefront-design",
+      "kind": "unsigned",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/settings/design",
+      "kind": "protected",
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/",
+      "kind": "home",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/pages/celebix-design-release-missing",
+      "kind": "missing",
+      "status": 200,
+      "pass": true,
+      "cacheControl": "private, no-store, no-transform",
+      "streamedLoadingBoundary": true,
+      "notFoundDigest": true,
+      "robotsNoindex": true,
+      "evaluation": "Next.js streamed notFound/permanentRedirect after existing root loading boundary; status200 accepted only with semantic markers"
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/pages/odeme-teslimat",
+      "kind": "alias",
+      "status": 200,
+      "pass": true,
+      "cacheControl": "private, no-store, no-transform",
+      "streamedLoadingBoundary": true,
+      "permanentRedirectDigest": true,
+      "policyMetaRefresh": true,
+      "evaluation": "Next.js streamed notFound/permanentRedirect after existing root loading boundary; status200 accepted only with semantic markers"
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/policies/payment-delivery",
+      "kind": "policy",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/",
+      "kind": "home",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/api/health",
+      "kind": "health",
+      "status": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/pages/celebix-design-release-missing",
+      "kind": "missing",
+      "status": 200,
+      "pass": true,
+      "cacheControl": "private, no-store, no-transform",
+      "streamedLoadingBoundary": true,
+      "notFoundDigest": true,
+      "robotsNoindex": true,
+      "evaluation": "Next.js streamed notFound/permanentRedirect after existing root loading boundary; status200 accepted only with semantic markers"
+    },
+    {
+      "url": "https://guzidekuyumcu.com/pages/odeme-teslimat",
+      "kind": "alias",
+      "status": 200,
+      "pass": true,
+      "cacheControl": "private, no-store, no-transform",
+      "streamedLoadingBoundary": true,
+      "permanentRedirectDigest": true,
+      "policyMetaRefresh": true,
+      "evaluation": "Next.js streamed notFound/permanentRedirect after existing root loading boundary; status200 accepted only with semantic markers"
+    },
+    {
+      "url": "https://guzidekuyumcu.com/policies/payment-delivery",
+      "kind": "policy",
+      "status": 200,
+      "pass": true
+    }
+  ],
+  "streamSemanticsCheckedAt": "2026-09-26T21:59:37.009581+00:00",
+  "rawHtmlStored": false,
+  "documentation": [
+    "https://nextjs.org/docs/app/api-reference/file-conventions/not-found",
+    "https://nextjs.org/docs/app/api-reference/functions/permanentRedirect"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "sha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "candidates": {
+    "test": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "test",
+      "adapterVersion": 1,
+      "gitSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:7a0a60997c499a96aefbc79fa8339a22ac246531253aa4c1295774deda202007"
+    },
+    "live": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "live",
+      "adapterVersion": 1,
+      "gitSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:36c69769e01ef3785137ba7592f7a3b19739dbc3b4a5860529c14db351ff8005"
+    }
+  }
+}

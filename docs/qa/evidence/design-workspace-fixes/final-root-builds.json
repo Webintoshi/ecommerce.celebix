@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-09-26T21:18:58.138231+00:00",
+  "sourceCommit": "ff56325482b942dbc2168680836cde9143e5b31b",
+  "sourceTrees": {
+    "apps/storefront-shared": "f26217e1f2c3bce426753b5d95a2e5490003ad13",
+    "apps/owner": "ba1dab9561b94944e093e2d683bb359038497897",
+    "packages": "6953f552287dfeca023e989d80fd17cc8a2a752a"
+  },
+  "storefrontFinalProductionBuild": {
+    "exitCode": 0,
+    "compileSeconds": 9.1,
+    "typecheckSeconds": 14.3,
+    "generatedPages": 27,
+    "completedTracing": true,
+    "log": "root-storefront-final-build.log"
+  },
+  "ownerProductionBuild": {
+    "exitCode": 0,
+    "log": "root-owner-build.log",
+    "scope": "owner and its contracts/data; final navigation presentation changes do not change owner dependencies"
+  },
+  "mergedPanelProductionBuild": {
+    "exitCode": 0,
+    "compileSeconds": 30.5,
+    "typecheckSeconds": 33.1,
+    "generatedPages": 90,
+    "completedTracing": true,
+    "source": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+    "evidence": "docs/qa/settings-approved-release-2026-09-27.md"
+  },
+  "liveDeployment": {
+    "status": "all four finished",
+    "runtimeGate": "verify-after-all-apps.json",
+    "payloadGate": "live165-contracts.json",
+    "preservationGate": "live165-preservation.json"
+  },
+  "finalReleaseSource": "89cc73218f2a7113f2fd593ca743e45e51621a98"
+}
