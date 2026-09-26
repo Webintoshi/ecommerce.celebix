@@ -1,4 +1,4 @@
-import type { Product, ProductVariant } from "../catalog/types.ts";
+import type { Product, ProductVariant, ProductMeasurements } from "../catalog/types.ts";
 
 export const CATALOG_ONBOARDING_PRODUCT_TYPES = Object.freeze(["physical", "digital"] as const);
 export const CATALOG_ONBOARDING_RESOURCE_KINDS = Object.freeze([
@@ -38,6 +38,7 @@ export interface CatalogOnboardingVariantIntent {
   readonly attributes: Readonly<Record<string, string>>;
   readonly continueSellingWhenOutOfStock: boolean;
   readonly unitPricing?: CatalogOnboardingUnitPricing;
+  readonly measurements?: ProductMeasurements;
   readonly shippingDesiMilli?: number;
   readonly hsCode?: string;
   readonly inventory: readonly CatalogOnboardingInventoryAllocation[];
@@ -69,6 +70,7 @@ export interface CatalogQuickCreateIntent {
   readonly publish: boolean;
   readonly stockQuantity?: number;
   readonly categoryId?: string;
+  readonly measurements?: ProductMeasurements;
 }
 
 export interface CatalogAdvancedCreateIntent {

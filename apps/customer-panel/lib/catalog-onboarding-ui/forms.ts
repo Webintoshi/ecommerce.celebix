@@ -5,6 +5,8 @@ import {
   type CatalogQuickCreateIntent,
 } from "@celebix/saas-contracts";
 
+import { parseProductMeasurements, type ProductMeasurementDraft } from "../catalog-ui/product-measurements.ts";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const TURKISH_MONEY = /^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$/;
@@ -17,6 +19,7 @@ export type QuickCreateFormInput = Readonly<{
   title: string;
   sku?: string;
   barcode?: string;
+  measurements?: ProductMeasurementDraft;
   channelIds?: readonly string[];
   price: string;
   publish: boolean;
@@ -61,7 +64,7 @@ function stockQuantity(value: unknown): number | null {
 }
 
 export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogFormResult<CatalogOnboardingIntent> {
-  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku", "barcode", "channelIds"], ["title", "price", "publish"])) {
+  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku", "barcode", "channelIds", "measurements"], ["title", "price", "publish"])) {
     return invalid("Ürün bilgileri geçersiz.");
   }
   if (typeof input.title !== "string") return invalid("Ürün adı zorunludur.");
@@ -90,6 +93,8 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
     return invalid("Satış kanalı seçimi geçersiz.");
   }
 
+  const measurements = parseProductMeasurements(input.measurements);
+  if (!measurements.ok) return invalid(measurements.error);
   const barcode = input.barcode?.trim() ?? "";
   if (barcode) {
     // The existing advanced contract stores the barcode in the same atomic create.
@@ -108,6 +113,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
         stockTracking: true,
         stockQuantity: quantity ?? 0,
         attributes: {},
+        ...(measurements.value === undefined ? {} : { measurements: measurements.value }),
         continueSellingWhenOutOfStock: false,
         inventory: [],
       }],
@@ -120,6 +126,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
 
   const candidate = {
     kind: "quick" as const,
+    ...(measurements.value === undefined ? {} : { measurements: measurements.value }),
     title,
     ...(input.sku ? { sku: input.sku } : {}),
     priceCents,

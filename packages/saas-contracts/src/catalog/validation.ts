@@ -13,6 +13,7 @@ import {
   type CatalogProductPageSize,
   type ProductStatus,
   type ProductVariant,
+  type ProductMeasurements,
   type VariantStatus,
 } from "./types.ts";
 
@@ -127,6 +128,19 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
   return Object.freeze(output);
 }
 
+export function parseProductMeasurements(value: unknown): ProductMeasurements {
+  const parsed = exact(value, [], ["weight", "volume", "length", "width", "depth", "height", "area", "packageCount"]);
+  if (Object.keys(parsed).length === 0) invalid();
+  const output: Record<string, unknown> = {};
+  for (const [key, units] of Object.entries({ weight: ["g", "kg"], volume: ["ml", "l"], length: ["cm", "m"], width: ["cm", "m"], depth: ["cm", "m"], height: ["cm", "m"], area: ["m2"] })) {
+    if (!Object.hasOwn(parsed, key)) continue;
+    const measurement = exact(parsed[key], ["valueMilli", "unit"]);
+    output[key] = Object.freeze({ valueMilli: safeInteger(measurement.valueMilli, 1), unit: status(measurement.unit, units) });
+  }
+  if (Object.hasOwn(parsed, "packageCount")) output.packageCount = safeInteger(parsed.packageCount, 1);
+  return Object.freeze(output) as ProductMeasurements;
+}
+
 export function parseProduct(value: unknown): Product {
   const parsed = exact(
     value,
@@ -158,7 +172,7 @@ export function parseProductVariant(value: unknown): ProductVariant {
       "id", "productId", "storeId", "title", "priceCents", "stockTracking",
       "stockQuantity", "status", "attributes", "createdAt", "updatedAt", "version",
     ],
-    ["sku", "barcode", "compareAtCents", "costCents", "effectivePriceCents", "pricingMethod"],
+    ["sku", "barcode", "compareAtCents", "costCents", "effectivePriceCents", "pricingMethod", "measurements"],
   );
   const priceCents = safeInteger(parsed.priceCents, 0);
   const effectivePriceCents = Object.hasOwn(parsed, "effectivePriceCents")
@@ -191,6 +205,7 @@ export function parseProductVariant(value: unknown): ProductVariant {
     stockQuantity: safeInteger(parsed.stockQuantity, 0),
     status: status<VariantStatus>(parsed.status, VARIANT_STATUSES),
     attributes: attributes(parsed.attributes),
+    ...(Object.hasOwn(parsed, "measurements") ? { measurements: parseProductMeasurements(parsed.measurements) } : {}),
     createdAt: timestamp(parsed.createdAt),
     updatedAt: timestamp(parsed.updatedAt),
     version: safeInteger(parsed.version, 1),

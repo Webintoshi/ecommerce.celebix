@@ -23,6 +23,8 @@ import { AttributeVariantPicker } from "@/components/catalog-onboarding/Attribut
 import { ProductVariantBuilder, type VariantDraft } from "@/components/catalog-onboarding/ProductVariantBuilder";
 import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
+import { ProductMeasurementFields } from "./ProductMeasurementFields";
+import { measurementsToDraft, measurementSummary, readProductMeasurementForm } from "@/lib/catalog-ui/product-measurements";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
@@ -48,6 +50,7 @@ function variantValues(data: FormData) {
     cost: value(data, "cost"),
     stockTracking: data.get("stockTracking") === "on",
     stockQuantity: value(data, "stockQuantity"),
+    ...(data.has("measurementsPresent") ? { measurements: readProductMeasurementForm(data) } : {}),
   };
 }
 
@@ -64,7 +67,7 @@ function displayVariantPrice(variant: ProductVariant, currency: string): string 
   return current === null ? "Fiyat güncelleniyor" : formatTurkishMoney(current, currency);
 }
 
-function VariantFields({ variant, skuPrefix, onBarcodeGenerated }: { variant?: ProductVariant; skuPrefix?: string; onBarcodeGenerated?: () => void }) {
+function VariantFields({ variant, skuPrefix, onBarcodeGenerated, showMeasurementValidation }: { variant?: ProductVariant; skuPrefix?: string; onBarcodeGenerated?: () => void; showMeasurementValidation?: boolean }) {
   return (
     <div className="form-grid compact-form-grid">
       <label className="field field-wide"><span>Varyant adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={variant?.title ?? ""} /></label>
@@ -74,6 +77,7 @@ function VariantFields({ variant, skuPrefix, onBarcodeGenerated }: { variant?: P
       <label className="field"><span>Karşılaştırma fiyatı</span><div className="money-input"><input name="compareAt" inputMode="decimal" defaultValue={variant?.compareAtCents === undefined ? "" : formatTurkishMoneyInput(variant.compareAtCents)} /><span>₺</span></div></label>
       <label className="field"><span>Maliyet</span><div className="money-input"><input name="cost" inputMode="decimal" defaultValue={variant?.costCents === undefined ? "" : formatTurkishMoneyInput(variant.costCents)} /><span>₺</span></div></label>
       <label className="field"><span>Stok adedi <b>*</b></span><input name="stockQuantity" required inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue={String(variant?.stockQuantity ?? 0)} /></label>
+      <ProductMeasurementFields defaultValue={measurementsToDraft(variant?.measurements)} showValidation={showMeasurementValidation} />
       <label className="check-field field-wide"><input name="stockTracking" type="checkbox" defaultChecked={variant?.stockTracking ?? true} /><span><strong>Stok takibi açık</strong><small>Mevcut stok adedini satışlarla birlikte izleyin.</small></span></label>
     </div>
   );
@@ -103,6 +107,7 @@ export function ProductDetailConsole({
   const [seoPreviewDraft, setSeoPreviewDraft] = useState<Readonly<{ title: string; description: string }>>();
   const [activeSection, setActiveSection] = useState("product-general");
   const [creatingVariant, setCreatingVariant] = useState(false);
+  const [showMeasurementValidation, setShowMeasurementValidation] = useState(false);
   const [creatingAttributeVariants, setCreatingAttributeVariants] = useState(false);
   const [attributeVariants, setAttributeVariants] = useState<readonly VariantDraft[]>([]);
   const [editingVariant, setEditingVariant] = useState<string>();
@@ -250,6 +255,7 @@ export function ProductDetailConsole({
     setAttributeVariants([]);
     setEditingVariant(undefined);
     setPricingVariantId(undefined);
+    setShowMeasurementValidation(false);
     if (editor === "variant-create") setCreatingVariant(true);
     else setEditingVariant(variantId);
   }
@@ -387,6 +393,7 @@ export function ProductDetailConsole({
     event.preventDefault();
     if (!canManage || detail === undefined || detail.product.status === "archived") return;
     if (merchandisingState !== "ready" || !onboarding) { setError("SKU ayarı yüklenemedi. Satış ayarlarını yeniden yükleyin."); return; }
+    setShowMeasurementValidation(true);
     const parsed = buildVariantCreatePayload(variantValues(new FormData(event.currentTarget)));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-variant", async () => {
@@ -405,6 +412,7 @@ export function ProductDetailConsole({
     if (detail.variants.filter((variant) => variant.status !== "archived").length + attributeVariants.length > 100) {
       setError("Bir üründe en fazla 100 varyant olabilir."); return;
     }
+    setShowMeasurementValidation(true);
     const parsed = buildVariantBatchPayload(attributeVariants);
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-attribute-variants", async () => {
@@ -421,6 +429,7 @@ export function ProductDetailConsole({
     event.preventDefault();
     if (!canManage || detail?.product.status === "archived") return;
     if (merchandisingState !== "ready" || !onboarding) { setError("SKU ayarı yüklenemedi. Satış ayarlarını yeniden yükleyin."); return; }
+    setShowMeasurementValidation(true);
     const parsed = buildVariantUpdatePayload(
       variantValues(new FormData(event.currentTarget)),
       variant.version,
@@ -647,21 +656,21 @@ export function ProductDetailConsole({
             <div className={styles.sectionHeader}>
               <h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar <span className={styles.count}>{variants.length}</span></h2>
               {canManage && !archived ? <div className={styles.variantActions}>
-                <button className="button button-secondary" type="button" onClick={() => { if (!canDiscardVariantChanges()) return; const opening = !creatingAttributeVariants; closeDetailEditors(); setCreatingAttributeVariants(opening); }} disabled={busy !== "" || merchandisingState !== "ready" || !onboarding}>Niteliklerden ekle</button>
+                <button className="button button-secondary" type="button" onClick={() => { if (!canDiscardVariantChanges()) return; const opening = !creatingAttributeVariants; closeDetailEditors(); setShowMeasurementValidation(false); setCreatingAttributeVariants(opening); }} disabled={busy !== "" || merchandisingState !== "ready" || !onboarding}>Niteliklerden ekle</button>
                 <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant || merchandisingState !== "ready" || !onboarding}><Plus aria-hidden="true" /> Varyant ekle</button>
               </div> : null}
             </div>
 
             {creatingVariant && canManage && !archived ? (
               <form className="catalog-form inset-form" onSubmit={createVariant} onChange={() => markDetailDirty("variant-create")}>
-                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend>Yeni varyant</legend><VariantFields skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
+                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend>Yeni varyant</legend><VariantFields showMeasurementValidation={showMeasurementValidation} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
                 <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-create")) setCreatingVariant(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
               </form>
             ) : null}
 
             {creatingAttributeVariants && canManage && !archived ? <form className="catalog-form inset-form" onSubmit={(event) => void createAttributeVariants(event)}>
               <AttributeVariantPicker value={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
-              {attributeVariants.length ? <ProductVariantBuilder variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
+              {attributeVariants.length ? <ProductVariantBuilder showValidation={showMeasurementValidation} variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}
 
@@ -671,7 +680,7 @@ export function ProductDetailConsole({
                   <div className={styles.variantIdentity}><span className="variant-mark" aria-hidden="true">V</span><div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
                   {editingVariant === variant.id && canManage && !archived ? (
                     <form className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
-                      <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
+                      <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
                       <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-edit")) setEditingVariant(undefined); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "variant-" + variant.id ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
                     </form>
                   ) : (
@@ -682,6 +691,7 @@ export function ProductDetailConsole({
                         <span><small>Stok</small><strong>{variant.stockTracking ? String(variant.stockQuantity) + " adet" : "Takip dışı"}</strong></span>
                       </div>
                       <div className={styles.variantCodes}><span>{variant.sku ? "SKU " + variant.sku : "SKU eklenmemiş"}</span><small><ScanBarcode aria-hidden="true" /> {variant.barcode || "Barkod eklenmemiş"}</small></div>
+                      {measurementSummary(variant.measurements).length ? <div className={styles.variantCodes} aria-label="Ölçü ve teknik bilgiler">{measurementSummary(variant.measurements).map((measurement) => <small key={measurement}>{measurement}</small>)}</div> : null}
                       <div className={styles.variantActions}>
                         {canManage && !archived ? <button className={styles.smallAction} type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)} disabled={merchandisingState !== "ready" || !onboarding} aria-label={variant.title + " varyantını düzenle"}><Pencil aria-hidden="true" /></button> : null}
                         {canReadPricing && !archived ? <button className={styles.smallAction} type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardVariantChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}

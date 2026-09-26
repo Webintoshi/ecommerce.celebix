@@ -13,6 +13,21 @@ test("quick create keeps an optional complete SKU", () => {
 const CATEGORY = "11111111-1111-4111-8111-111111111111";
 const CHANNEL = "22222222-2222-4222-8222-222222222222";
 
+test("quick measurement input saves directly, and barcode create retains it without requiring other optional fields", () => {
+  const input = { title: "Bilezik", price: "100,00", publish: false, measurements: { weight: "14.89", area: "0,25" } };
+  const measurements = { weight: { valueMilli: 14890, unit: "g" }, area: { valueMilli: 250, unit: "m2" } };
+  const quick = buildQuickCreateIntent(input);
+  assert.equal(quick.ok, true);
+  if (quick.ok) assert.deepEqual(quick.value, { kind: "quick", title: "Bilezik", priceCents: 10000, publish: false, measurements });
+  const barcode = buildQuickCreateIntent({ ...input, barcode: "9800000000007", channelIds: [] });
+  assert.equal(barcode.ok, true);
+  if (barcode.ok && barcode.value.kind === "advanced") assert.deepEqual(barcode.value.variants[0]?.measurements, measurements);
+  const blank = buildQuickCreateIntent({ ...input, measurements: { weight: "" } });
+  assert.equal(blank.ok, true);
+  if (blank.ok) assert.equal(Object.hasOwn(blank.value, "measurements"), false);
+  assert.equal(buildQuickCreateIntent({ ...input, measurements: { packageCount: "1,5" } }).ok, false);
+});
+
 test("quick barcode uses an atomic advanced create while retaining the selected sales channel", () => {
   assert.deepEqual(buildQuickCreateIntent({
     title: " Kupa ", price: "129,90", stockQuantity: "4", sku: "RSA-001",

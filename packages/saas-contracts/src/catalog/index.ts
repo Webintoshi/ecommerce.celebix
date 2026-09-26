@@ -19,6 +19,8 @@ export type {
   ProductId,
   ProductStatus,
   ProductVariant,
+  ProductMeasurements,
+  ProductMeasurement,
   ProductVariantId,
   VariantStatus,
 } from "./types.ts";
@@ -31,4 +33,5 @@ export {
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
+  parseProductMeasurements,
 } from "./validation.ts";

@@ -8,6 +8,7 @@ import { Window } from "happy-dom";
 import ts from "typescript";
 import * as categoryTree from "../../lib/catalog-onboarding-ui/category-tree.ts";
 import * as forms from "../../lib/catalog-onboarding-ui/forms.ts";
+import * as measurementForms from "../../lib/catalog-ui/product-measurements.ts";
 import * as mediaCompletion from "../../lib/catalog-onboarding-ui/media-completion.ts";
 import * as drafts from "../../lib/catalog-ui/product-draft-session.ts";
 import * as attributes from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
@@ -67,7 +68,8 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   const { createRoot } = await import("react-dom/client");
   const barcode = await compile(new URL("./BarcodeInput.tsx", import.meta.url), { "@/lib/barcode-labels/reserve-internal": { reserveInternalBarcode: reserve } });
   const sku = await compile(new URL("./SkuInput.tsx", import.meta.url), { "@/lib/catalog-ui/sku-prefix": skuPrefix });
-  const builder = await compile(new URL("../catalog-onboarding/ProductVariantBuilder.tsx", import.meta.url), { "@/components/catalog/SkuInput": sku, "@/components/catalog/BarcodeInput": barcode, "@/lib/catalog-onboarding-ui/attribute-variants": attributes, "@/lib/catalog-onboarding-ui/forms": forms });
+  const measurements = await compile(new URL("./ProductMeasurementFields.tsx", import.meta.url), { "@/lib/catalog-ui/product-measurements": measurementForms });
+  const builder = await compile(new URL("../catalog-onboarding/ProductVariantBuilder.tsx", import.meta.url), { "@/components/catalog/SkuInput": sku, "@/components/catalog/BarcodeInput": barcode, "@/lib/catalog-onboarding-ui/attribute-variants": attributes, "@/lib/catalog-onboarding-ui/forms": forms, "@/components/catalog/ProductMeasurementFields": measurements });
   const classification = await compile(new URL("../catalog-onboarding/ProductClassificationPicker.tsx", import.meta.url), {});
   let stagedRows: readonly drafts.ProductDraftVariant[] = [];
   class ApiError extends Error {}
@@ -76,6 +78,7 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
     "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: {} },
     "@/lib/catalog-onboarding-ui/category-tree": categoryTree,
     "@/lib/catalog-onboarding-ui/forms": forms,
+    "@/lib/catalog-ui/product-measurements": measurementForms,
     "@/lib/catalog-onboarding-ui/media-completion": mediaCompletion,
     "@/lib/catalog-ui/product-draft-session": drafts,
     "@/lib/catalog-ui/dirty-navigation": dirtyNavigation,
@@ -117,6 +120,30 @@ async function submit(container: HTMLElement, browser: Window) {
 
 const standard = draft().current.variants[0]!;
 const newSmall = { ...standard, title: "S", sku: "", barcode: "", compareAt: "", cost: "", shippingDesi: "", hsCode: "", continueSellingWhenOutOfStock: false, attributes: { beden: "S" } };
+
+test("advanced optional measurements restore after remount and save without changing stock or pricing", async () => {
+  const measurements = { weight: "14,89", weightUnit: "g", width: "2.125", area: "0,5", packageCount: "3" };
+  const intents: unknown[] = [];
+  const original = drafts.updateProductDraft(draft(), { variants: [{ ...standard, measurements }] });
+  await withAdvanced({ draftSession: original, api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async ({ container, browser, latest, remount }) => {
+    const weight = () => container.querySelector('input[name="measurement-weight"]') as HTMLInputElement;
+    assert.equal(weight().value, "14,89");
+    assert.ok([...container.querySelectorAll<HTMLInputElement>('input[name^="measurement-"]')].every((field) => !field.required));
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype, "value")!.set!.call(weight(), "14.99");
+      weight().dispatchEvent(new browser.Event("input", { bubbles: true }) as unknown as Event);
+    });
+    assert.equal(latest().current.variants[0]?.measurements?.weight, "14.99");
+    await remount(latest());
+    assert.equal(weight().value, "14.99");
+    await submit(container, browser);
+    assert.equal(intents.length, 1);
+    const variant = (intents[0] as { variants: Record<string, unknown>[] }).variants[0]!;
+    assert.deepEqual(variant.measurements, { weight: { valueMilli: 14990, unit: "g" }, width: { valueMilli: 2125, unit: "cm" }, area: { valueMilli: 500, unit: "m2" }, packageCount: 3 });
+    assert.equal(variant.priceCents, 24990);
+    assert.equal(variant.stockQuantity, 7);
+  });
+});
 
 test("staged combinations leave the standard barcode visible until confirmation and inherit common sale fields only", async () => {
   let creates = 0;

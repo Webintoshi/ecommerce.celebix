@@ -1,6 +1,7 @@
 import { CATEGORIES, EDITOR, EXTRA_ID, NOW, OPTIONS, PRODUCT, PRODUCT_ID, RESOURCES, VARIANT, VARIANT_ID } from "../../../mira-catalog/catalog-fixture";
 import { VARIANT_CHOICE } from "../../../mira-stock/stock-fixture";
 import { GET as fallbackGET, PATCH as fallbackPATCH } from "../../[...slug]/route";
+import { MEASUREMENT_PRODUCT_ID, measurementCreate, measurementDetail, measurementEditor, measurementUpdate } from "../../../measurements-fixture/state";
 
 async function selectedPath(context: { params: Promise<{ path?: string[] }> }) {
   return (await context.params).path?.join("/") ?? "";
@@ -18,6 +19,9 @@ function fixtureMutationTarget(path: string) {
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await selectedPath(context);
+  if (path === `products/${MEASUREMENT_PRODUCT_ID}` || path === `products/v2/${MEASUREMENT_PRODUCT_ID}`) return Response.json(measurementDetail());
+  if (path === `products/${MEASUREMENT_PRODUCT_ID}/merchandising`) return Response.json(measurementEditor());
+  if (path === `products/${MEASUREMENT_PRODUCT_ID}/media`) return Response.json({ media: [] });
   if (path === "summary") return Response.json({ totalProducts: 1, activeProducts: 1, draftProducts: 0, productLimit: 100, activeVariants: 1, outOfStockVariants: 0, productsWithoutMedia: 1, activeMedia: 0 });
   if (path === "products") {
     const search = new URL(request.url).searchParams;
@@ -58,12 +62,22 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
 }
 
 export async function POST(_request: Request, context: { params: Promise<{ path?: string[] }> }) {
+  if (await selectedPath(context) === "onboarding/products") {
+    try { const created = measurementCreate(await _request.json()); if (created) return Response.json(created); }
+    catch { return Response.json({ code: "invalid_input" }, { status: 400 }); }
+  }
   if (!fixtureMutationTarget(await selectedPath(context))) return Response.json({ code: "invalid_input" }, { status: 400 });
   return Response.json({ code: "version_conflict" }, { status: 409 });
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await selectedPath(context);
+  const measurementMatch = new RegExp(`^products/${MEASUREMENT_PRODUCT_ID}/variants/([0-9a-f-]+)$`).exec(path);
+  if (measurementMatch) {
+    try { const updated = measurementUpdate(measurementMatch[1], await request.json()); if (updated) return Response.json(updated); }
+    catch { return Response.json({ code: "invalid_input" }, { status: 400 }); }
+    return Response.json({ code: "version_conflict" }, { status: 409 });
+  }
   if (!fixtureMutationTarget(path)) return fallbackPATCH(request, fallbackContext(path));
   return Response.json({ code: "version_conflict" }, { status: 409 });
 }

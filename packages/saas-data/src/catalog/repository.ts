@@ -527,17 +527,17 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variantId = catalogUuid(this.options.generateId("variant"));
     const fingerprint = catalogFingerprint("create_product", authority.storeId, { product, initialVariant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_create_product(
+      text: `SELECT outcome, result_payload FROM saas.${Object.hasOwn(initialVariant, "measurements") ? "catalog_create_product_measurements" : "catalog_create_product"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::text,$14::text,$15::text,$16::text,$17::text,
-        $18::text,$19::text,$20::text,$21::bigint,$22::bigint,$23::bigint,$24::boolean,$25::bigint,$26::jsonb
+        $18::text,$19::text,$20::text,$21::bigint,$22::bigint,$23::bigint,$24::boolean,$25::bigint,$26::jsonb${Object.hasOwn(initialVariant, "measurements") ? ",$27::jsonb" : ""}
       )`,
       values: [
         ...authorityValues(authority), operationId, fingerprint, productId, variantId,
         product.slug, product.title, product.description ?? null, product.status, product.currency,
         initialVariant.title, initialVariant.sku ?? null, initialVariant.barcode ?? null,
         initialVariant.priceCents, initialVariant.compareAtCents ?? null, initialVariant.costCents ?? null,
-        initialVariant.stockTracking, initialVariant.stockQuantity, JSON.stringify(initialVariant.attributes),
+        initialVariant.stockTracking, initialVariant.stockQuantity, JSON.stringify(initialVariant.attributes), ...(Object.hasOwn(initialVariant, "measurements") ? [JSON.stringify(initialVariant.measurements)] : []),
       ],
     }, ["created"], createProductResult);
   }
@@ -651,7 +651,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const includeArchivedVariants = exact.includeArchivedVariants ?? false;
     if (typeof includeArchivedVariants !== "boolean") throw new CatalogRepositoryError("invalid_input");
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_get_product_details_v2(
+      text: `SELECT outcome, result_payload FROM saas.catalog_get_product_details_v3(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::boolean
       )`,
@@ -917,12 +917,12 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variantId = catalogUuid(this.options.generateId("variant"));
     const fingerprint = catalogFingerprint("create_variant", authority.storeId, { productId, variant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_create_variant(
+      text: `SELECT outcome, result_payload FROM saas.${Object.hasOwn(variant, "measurements") ? "catalog_create_variant_measurements" : "catalog_create_variant"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::text,$14::text,$15::text,$16::bigint,$17::bigint,
-        $18::bigint,$19::boolean,$20::bigint,$21::jsonb
+        $18::bigint,$19::boolean,$20::bigint,$21::jsonb${Object.hasOwn(variant, "measurements") ? ",$22::jsonb" : ""}
       )`,
-      values: [...authorityValues(authority), operationId, fingerprint, productId, variantId, variant.title, variant.sku ?? null, variant.barcode ?? null, variant.priceCents, variant.compareAtCents ?? null, variant.costCents ?? null, variant.stockTracking, variant.stockQuantity, JSON.stringify(variant.attributes)],
+      values: [...authorityValues(authority), operationId, fingerprint, productId, variantId, variant.title, variant.sku ?? null, variant.barcode ?? null, variant.priceCents, variant.compareAtCents ?? null, variant.costCents ?? null, variant.stockTracking, variant.stockQuantity, JSON.stringify(variant.attributes), ...(Object.hasOwn(variant, "measurements") ? [JSON.stringify(variant.measurements)] : [])],
     }, ["created"], variantResult);
   }
 
@@ -940,7 +940,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     if (new Set(variantIds).size !== variantIds.length) throw new CatalogRepositoryError("invalid_input");
     const fingerprint = catalogFingerprint("create_variant_batch", authority.storeId, { productId, variants });
     return this.mutate(authority, operationId, fingerprint, {
-      text: "SELECT outcome,result_payload FROM saas.catalog_create_variants_batch($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
+      text: "SELECT outcome,result_payload FROM saas.catalog_create_variants_batch_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)",
       values: [...authorityValues(authority), operationId, fingerprint, productId, variantIds, JSON.stringify(variants)],
     }, ["created"], (value, replayed) => {
       const result = variantBatchResult(value, replayed);
@@ -960,12 +960,12 @@ export class PostgresCatalogRepository implements CatalogRepository {
     const variant = variantFields(exact.variant);
     const fingerprint = catalogFingerprint("update_variant", authority.storeId, { productId, variantId, expectedVersion, variant });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_update_variant(
+      text: `SELECT outcome, result_payload FROM saas.${Object.hasOwn(variant, "measurements") ? "catalog_update_variant_measurements" : "catalog_update_variant"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::uuid,$10::text,$11::uuid,$12::uuid,$13::bigint,$14::text,$15::text,$16::text,$17::bigint,
-        $18::bigint,$19::bigint,$20::boolean,$21::bigint,$22::jsonb
+        $18::bigint,$19::bigint,$20::boolean,$21::bigint,$22::jsonb${Object.hasOwn(variant, "measurements") ? ",$23::jsonb" : ""}
       )`,
-      values: [...authorityValues(authority), operationId, fingerprint, productId, variantId, expectedVersion, variant.title, variant.sku ?? null, variant.barcode ?? null, variant.priceCents, variant.compareAtCents ?? null, variant.costCents ?? null, variant.stockTracking, variant.stockQuantity, JSON.stringify(variant.attributes)],
+      values: [...authorityValues(authority), operationId, fingerprint, productId, variantId, expectedVersion, variant.title, variant.sku ?? null, variant.barcode ?? null, variant.priceCents, variant.compareAtCents ?? null, variant.costCents ?? null, variant.stockTracking, variant.stockQuantity, JSON.stringify(variant.attributes), ...(Object.hasOwn(variant, "measurements") ? [JSON.stringify(variant.measurements)] : [])],
     }, ["updated"], variantResult);
   }
 

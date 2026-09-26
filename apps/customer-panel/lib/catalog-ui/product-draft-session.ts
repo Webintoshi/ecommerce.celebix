@@ -1,3 +1,5 @@
+import type { ProductMeasurementDraft } from "./product-measurements.ts";
+
 export type ProductDraftMedia = Readonly<{
   file: File;
   altText: string;
@@ -15,6 +17,7 @@ export type ProductDraftVariant = Readonly<{
   continueSellingWhenOutOfStock: boolean;
   shippingDesi: string;
   hsCode: string;
+  measurements?: ProductMeasurementDraft;
   attributes: Readonly<Record<string, string>>;
 }>;
 
@@ -56,6 +59,7 @@ type QuickProductDraft = Readonly<{
   title: string;
   sku: string;
   barcode?: string;
+  measurements?: ProductMeasurementDraft;
   price: string;
   stockQuantity: string;
   categoryId: string;
@@ -103,6 +107,7 @@ function freezeDraft(draft: ProductDraft): ProductDraft {
   const freezeVariant = (variant: ProductDraftVariant) => Object.freeze({
     ...variant,
     attributes: Object.freeze({ ...variant.attributes }),
+    ...(variant.measurements === undefined ? {} : { measurements: Object.freeze({ ...variant.measurements }) }),
   });
   const variants = draft.variants.map(freezeVariant);
   const { standardVariant, channelSelectionTouched, ...fields } = draft;
@@ -173,6 +178,7 @@ export function mergeQuickProductDraft(
       ...firstVariant,
       sku: quick.sku,
       ...(quick.barcode === undefined ? {} : { barcode: quick.barcode }),
+      ...(quick.measurements === undefined || (!Object.keys(quick.measurements).length && firstVariant.measurements === undefined) ? {} : { measurements: quick.measurements }),
       price: quick.price,
       stockQuantity: quick.stockQuantity,
     }],

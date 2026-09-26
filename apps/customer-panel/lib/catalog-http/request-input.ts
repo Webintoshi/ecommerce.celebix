@@ -97,7 +97,7 @@ function variantFields(value: unknown): CatalogVariantFields | null {
   const parsed = exact(
     value,
     ["title", "priceCents", "stockTracking", "stockQuantity", "attributes"],
-    ["sku", "barcode", "compareAtCents", "costCents"],
+    ["sku", "barcode", "compareAtCents", "costCents", "measurements"],
   );
   if (parsed === null) return null;
   try {
@@ -105,7 +105,7 @@ function variantFields(value: unknown): CatalogVariantFields | null {
       id: SYNTHETIC_VARIANT_ID,
       productId: SYNTHETIC_PRODUCT_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...parsed,
+      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "measurements" || value !== null)),
       status: "active",
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
@@ -121,6 +121,7 @@ function variantFields(value: unknown): CatalogVariantFields | null {
       stockTracking: variant.stockTracking,
       stockQuantity: variant.stockQuantity,
       attributes: variant.attributes,
+      ...(Object.hasOwn(parsed, "measurements") ? { measurements: parsed.measurements === null ? null : variant.measurements! } : {}),
     });
   } catch { return null; }
 }

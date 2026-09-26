@@ -87,6 +87,7 @@ export {
   parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
+  parseProductMeasurements,
 } from "./catalog/index.ts";
 export {
   CATALOG_ONBOARDING_CHANNEL_KINDS,
@@ -150,6 +151,8 @@ export type {
   ProductId,
   ProductStatus,
   ProductVariant,
+  ProductMeasurements,
+  ProductMeasurement,
   ProductVariantId,
   VariantStatus,
 } from "./catalog/index.ts";

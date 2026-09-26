@@ -7,6 +7,8 @@ import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { variantAttributeKey } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import createStyles from "./create-advanced.module.css";
+import { ProductMeasurementFields } from "@/components/catalog/ProductMeasurementFields";
+import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
 
 export type VariantDraft = Readonly<{
   title: string;
@@ -19,6 +21,7 @@ export type VariantDraft = Readonly<{
   continueSellingWhenOutOfStock: boolean;
   shippingDesi: string;
   hsCode: string;
+  measurements?: ProductMeasurementDraft;
   attributes: Readonly<Record<string, string>>;
 }>;
 
@@ -84,6 +87,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
           <div className={createStyles.variantDetailFooter}><label className={createStyles.check}><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label>{allowMultiple ? <button className={createStyles.dangerAction} type="button" disabled={disableStructureChanges} onClick={() => { if (window.confirm(`${variant.title || "Bu varyant"} ve girilmiş satış bilgileri kaldırılacak. Devam edilsin mi?`)) onChange(Object.freeze(variants.filter((_, position) => position !== index))); }}><Trash2 aria-hidden="true" />Kaldır</button> : null}</div>
         </div>
       </details>
+      <ProductMeasurementFields value={variant.measurements ?? {}} onChange={(measurements) => change(index, { measurements })} showValidation={showValidation} labelPrefix={allowMultiple ? variant.title : ""} />
     </article>; })}
   </div>;
   return <div className="onboarding-variant-builder" data-layout={allowMultiple ? "multiple" : "simple"}>
@@ -113,6 +117,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
           {simplified ? <label className="onboarding-check onboarding-continue-selling"><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
         </div>
       </details>
+      <ProductMeasurementFields value={variant.measurements ?? {}} onChange={(measurements) => change(index, { measurements })} showValidation={showValidation} labelPrefix={allowMultiple ? variant.title : ""} />
     </article>)}
     {allowMultiple && allowManualAdd && variants.length < 100 ? <button className="onboarding-add-variant" type="button" onClick={() => onChange(Object.freeze([...variants, emptyVariant(`Varyant ${variants.length + 1}`)]))}><Plus aria-hidden="true" />Varyant ekle</button> : null}
   </div>;
