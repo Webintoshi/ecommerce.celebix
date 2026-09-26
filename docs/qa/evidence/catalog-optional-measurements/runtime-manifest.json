@@ -1,0 +1,26 @@
+{
+  "measurementFiles": [
+    "apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx",
+    "apps/customer-panel/components/catalog-onboarding/ProductQuickCreateDialog.tsx",
+    "apps/customer-panel/components/catalog-onboarding/ProductVariantBuilder.tsx",
+    "apps/customer-panel/components/catalog/ProductDetailConsole.tsx",
+    "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx",
+    "apps/customer-panel/components/catalog/product-measurements.module.css",
+    "apps/customer-panel/lib/catalog-http/request-input.ts",
+    "apps/customer-panel/lib/catalog-onboarding-ui/forms.ts",
+    "apps/customer-panel/lib/catalog-ui/forms.ts",
+    "apps/customer-panel/lib/catalog-ui/product-draft-session.ts",
+    "apps/customer-panel/lib/catalog-ui/product-measurements.ts",
+    "packages/saas-contracts/src/catalog-onboarding/types.ts",
+    "packages/saas-contracts/src/catalog-onboarding/validation.ts",
+    "packages/saas-contracts/src/catalog/index.ts",
+    "packages/saas-contracts/src/catalog/types.ts",
+    "packages/saas-contracts/src/catalog/validation.ts",
+    "packages/saas-contracts/src/index.ts",
+    "packages/saas-data/src/catalog-onboarding/repository.ts",
+    "packages/saas-data/src/catalog/repository.ts",
+    "packages/saas-data/src/catalog/types.ts",
+    "packages/saas-data/src/catalog/validation.ts",
+    "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql"
+  ]
+}

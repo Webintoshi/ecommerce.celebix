@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-26T15:53:07.257963+00:00",
+  "verdict": "PASS",
+  "ownedBridgeFilesRemoved": true,
+  "backupHashesVerified": {
+    "/data/celebix-release-backups/measurements_20260926_151435.dump": "1d173ffd53b2f5441263b94b8bf084cd19dd7107a04af281aa413b346543b22b",
+    "/data/celebix-release-backups/measurements_live_20260926_153533.dump": "db6379cdaeffc422b87e4a91d799d3448d3b0534dd241dfb332495e4b968e650"
+  },
+  "freeBytes": 19447390208
+}

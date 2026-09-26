@@ -1,0 +1,38 @@
+[
+  {
+    "app": "e4xe74cmii7jucbkyor0o412",
+    "uuid": "x128dia8pscyur677ui7tkks",
+    "status": "finished",
+    "commit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+    "updated_at": "2026-09-26T15:44:54.000000Z",
+    "finished_at": "2026-09-26T15:44:53.000000Z",
+    "log_entries": 230,
+    "phases": [
+      "Starting deployment",
+      "npm ci",
+      "next build",
+      "Compiled successfully",
+      "Generating static pages",
+      "New container started",
+      "Rolling update completed"
+    ]
+  },
+  {
+    "app": "yk1h6d97z7ex0h74ok3zrj5c",
+    "uuid": "zke84g7xdem45xtw27ourmwz",
+    "status": "finished",
+    "commit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+    "updated_at": "2026-09-26T15:49:35.000000Z",
+    "finished_at": "2026-09-26T15:49:34.000000Z",
+    "log_entries": 201,
+    "phases": [
+      "Starting deployment",
+      "npm ci",
+      "next build",
+      "Compiled successfully",
+      "Generating static pages",
+      "New container started",
+      "Rolling update completed"
+    ]
+  }
+]

@@ -1,0 +1,84 @@
+[
+  {
+    "uuid": "yk1h6d97z7ex0h74ok3zrj5c",
+    "branch": "codex/in-store-sales-register",
+    "commit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+    "autoDeploy": false,
+    "previewDeploy": false,
+    "preHookSha256": "ace00b971421954c7d2c01911fda9dd44103e899d421873679250f182a96eaa3",
+    "postHookSha256": "a594d05ac19cc95ff4eba0d19e5617987c21ce3d885642f89b270f0b0852d78e",
+    "environment": [
+      {
+        "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+        "value": "approved_test_sandbox",
+        "runtime": true,
+        "buildtime": true
+      },
+      {
+        "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+        "value": "sha256:3636feac12b57dae5ab076e2ceeb40d451bb692052e07890ef5afab96de97835",
+        "runtime": true,
+        "buildtime": true
+      },
+      {
+        "key": "SOURCE_COMMIT",
+        "value": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+        "runtime": true,
+        "buildtime": true
+      },
+      {
+        "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+        "value": "sha256:1da62b745a9d00ab08c93e18877be72a3bd42b981f147676aec8bbd8e9a89b20",
+        "runtime": true,
+        "buildtime": true
+      },
+      {
+        "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+        "value": "approved_live",
+        "runtime": true,
+        "buildtime": true
+      }
+    ]
+  },
+  {
+    "uuid": "e4xe74cmii7jucbkyor0o412",
+    "branch": "codex/in-store-sales-register",
+    "commit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+    "autoDeploy": false,
+    "previewDeploy": false,
+    "preHookSha256": "ace00b971421954c7d2c01911fda9dd44103e899d421873679250f182a96eaa3",
+    "postHookSha256": "a594d05ac19cc95ff4eba0d19e5617987c21ce3d885642f89b270f0b0852d78e",
+    "environment": [
+      {
+        "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+        "value": "approved_test_sandbox",
+        "runtime": false,
+        "buildtime": false
+      },
+      {
+        "key": "SOURCE_COMMIT",
+        "value": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+        "runtime": true,
+        "buildtime": true
+      },
+      {
+        "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+        "value": "sha256:1da62b745a9d00ab08c93e18877be72a3bd42b981f147676aec8bbd8e9a89b20",
+        "runtime": false,
+        "buildtime": false
+      },
+      {
+        "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+        "value": "approved_live",
+        "runtime": false,
+        "buildtime": false
+      },
+      {
+        "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+        "value": "sha256:3636feac12b57dae5ab076e2ceeb40d451bb692052e07890ef5afab96de97835",
+        "runtime": false,
+        "buildtime": false
+      }
+    ]
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "tests": 18,
+  "database": "celebix_measurements_qa_20260926",
+  "checks": [
+    "quick create persists all eight independent optional values without channel input",
+    "create replay retains metadata without creating duplicate variants",
+    "fresh product reads preserve exact milli precision",
+    "versioned admin reads include metadata while old detail and editor projections preserve their exact ABI",
+    "new merchandising and publish responses retain metadata while legacy replays keep exact ledger ABI",
+    "blank optional fields do not block a zero-price draft and remain absent",
+    "advanced create allows one dimension and preserves unrelated unit-pricing data",
+    "atomic variant edit changes measurement without changing stock or base price",
+    "historical replays never pair current measurements with an older variant version",
+    "legacy update signature preserves stored optional measurements",
+    "cross-store metadata update is denied without mutation",
+    "missing membership authority denies metadata write",
+    "concurrent edits with the same version accept exactly one mutation",
+    "explicit null clears metadata and replay preserves the cleared result",
+    "invalid filled metadata rejects unknown keys, nonpositive, fractional milli and wrong units atomically",
+    "normal product and additional-variant create RPCs persist metadata in their ledger snapshots",
+    "batch create stores optional measurements atomically and preserves replay, unit and tenant boundaries",
+    "application has only authorized public RPCs, no direct metadata table or private helper writes"
+  ]
+}

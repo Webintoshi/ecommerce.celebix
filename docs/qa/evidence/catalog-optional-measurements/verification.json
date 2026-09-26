@@ -1,0 +1,51 @@
+{
+  "sourceCommit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+  "frontendBehaviorAndForms": {
+    "tests": 52,
+    "pass": 52,
+    "fail": 0
+  },
+  "contractsAndRepositories": {
+    "tests": 90,
+    "pass": 90,
+    "fail": 0
+  },
+  "http": {
+    "tests": 8,
+    "pass": 8,
+    "fail": 0
+  },
+  "postgresqlClone": {
+    "tests": 18,
+    "pass": 18,
+    "fail": 0
+  },
+  "adminBuild": "PASS exact feature source",
+  "storefrontBuild": "PASS affected shared contracts; pre-final batch UI changes admin only",
+  "types": [
+    "contracts PASS",
+    "data PASS",
+    "customer-panel PASS"
+  ],
+  "browser": {
+    "fixture": "named local Cemo \u00d6l\u00e7\u00fc QA (no merchant writes)",
+    "optionalInputsRequiredFalse": 8,
+    "commaAndDotExact": true,
+    "editAllFieldsThenReload": "PASS",
+    "clearAllFields": "PASS",
+    "priceAndStockPreserved": "PASS",
+    "widths": [
+      1440,
+      1024,
+      390
+    ],
+    "overflow": [
+      0,
+      0,
+      0
+    ],
+    "mobileLastFieldVisibleAboveSave": true,
+    "consoleErrors": 0,
+    "visualReview": "PASS"
+  }
+}

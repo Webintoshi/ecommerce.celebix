@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-09-26T15:52:34.864016+00:00",
+  "verdict": "PASS",
+  "disposableQACloneRemoved": "celebix_measurements_qa_20260926",
+  "qaConnectionsBeforeDrop": 0,
+  "terminatedOnlyOwnedBridge": {
+    "pid": 1290060,
+    "startTicks": "18452807",
+    "argv": [
+      "python3",
+      "/tmp/measurements-pg-bridge.py"
+    ],
+    "scriptSha256": "fae7fd9fc5b988b3968a28d136ce179a250c1f7c0dcda56c46cfe73e5e3a4084"
+  },
+  "liveDatabaseUntouched": true,
+  "backupRetained": true,
+  "applicationConfigurationUntouched": true
+}

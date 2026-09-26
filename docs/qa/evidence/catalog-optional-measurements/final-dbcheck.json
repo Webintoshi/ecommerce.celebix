@@ -1,0 +1,306 @@
+{
+  "checkedAt": "2026-09-26T15:50:58.136984+00:00",
+  "verdict": "PASS",
+  "database": "celebix_saas_staging_auth01",
+  "transport": "existing PostgreSQL container UNIX socket via ordinary SSH",
+  "readOnlyTransaction": true,
+  "merchantWritesPerformed": false,
+  "migration": "202609260162_catalog_optional_measurements.up.sql",
+  "migrationSha256": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3",
+  "newFunctionCount": 16,
+  "newFunctionSignaturesHashesOwnersAclMatchedMigration": true,
+  "legacyFunctionCount": 13,
+  "category160AndNumber161FunctionsMatchedQAClone": true,
+  "number161PatchedBodiesMatchedRestoreTable": true,
+  "number161PatchedFunctionCount": 10,
+  "column": {
+    "type": "jsonb",
+    "nullable": true,
+    "hasDefault": false
+  },
+  "constraint": {
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((measurements IS NULL) OR saas.catalog_measurements_valid(measurements)))"
+  },
+  "newFunctions": [
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "e88e52f8e2eea2daa9947be1ea02fe128f22e6ebc2a521a709ce606eb6845340",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_product_measurements_implementation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "801ccd14b3f06df12861b4c7865715862eb51bfb2e176857dc43449559920933",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_product_measurements(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "00f788a0aad4bcb9f55733c9a711d3e17019d77c4a5193b415231999378eb7c9",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_variant_measurements_implementation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "649c5c249eeac992fd72f727d19662f782943dab31f7991ffeb13b9a68191b23",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_variant_measurements(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "d91751bdd89cf302ed22d1ae09065c4102c90afa3b5f838601fc2dd60efc95c4",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_variants_batch_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "61e1a0de51d265be5177d56f6ec6fb0988ab521b4b829eb024476e69c0dc853f",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_get_product_details_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "5827a7a844557ff827d9e89ca9e35dd8261d3dd77bb5c55d632da03f492bf4e9",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_get_product_editor_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "d54d4d0ffc429b6d230d7a47dabf6c1f764f7167d97badd99a0e671162cb1b77",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_measurements_enrich_result(uuid,uuid,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "dd85698baf75e6923389456729697ee2a5ffdd4327f6947ab35a8748bbbd5923",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_measurements_valid(jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "d738f6897a2f437b2357db4190afce4e48d2a55c767a6e31795a72bcad0286ad",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_onboarding_result_projection_v2(uuid,uuid)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "980a886d983ac404ced294f51bf0479df534dc8516337a8b41f277ea1a99bbf7",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_onboard_product_v3(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid[],jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "bbfaabeed7b0d9c22f1d18864d184a0c2cd53e011f3a2f7c4c91cdfb4927c6e1",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_publish_after_media_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,integer)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "079ec40a1cf693a77c88dd9982b56ebe3488886654b8cd55974d369f424e3ef9",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_update_merchandising_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "d2d9a3134a66f678b6588431e8f53a9f0f013b273a24c7652410dcef9437903a",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_update_variant_measurements_implementation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "bfa3e245c79f065acc7faa502ee62abe14dea6ef26959d4e37f734018efb1c2c",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_update_variant_measurements(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "be7a5f1a6ad1e03cf089a4d4c7885614769661980382d008cac160a79b579f5d",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_variant_projection_v2(uuid)"
+    }
+  ],
+  "legacyFunctions": [
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "bc9c23a09d996c3f6d6e2a98b9c7ac2d5063806610951e9e8b280c443bdf396e",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_category_image_valid(jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "0985b2b2cfc77bf2a59b5c2b81c349e6ed84724032b1429fbf3e09a2115a686e",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_category_projection(uuid,uuid)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "427ea0bd54caf242513900baf27c943031e74c763c580de58819c384c1eba267",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_create_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "c700283bd785c1c76f3dbef70667d633d8bcbbad7b419b6f34fa6ef2c61f4563",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_recover_category_order(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "85f64b8b715725f6c7155f48fc7650ab0de67b47aa6f10d3e9fb825dc90c2964",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_reorder_categories(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "e1b55bd8a38a1caf570a3c91311841707d3f6d11b6d1aba4cc04ffdb11fd4f5e",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.catalog_update_category(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "fa99da3474d5849a51ebdef303c3d5f436329d0bf988c0110188057e1a26afe9",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.guard_catalog_category_order_operation_mutation()"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "bd44a68c15311191ed21a93732179580f1be4d6fba3a591e778c666398a96311",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.order_number_allocate(uuid,uuid,text,timestamp with time zone)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "4d704552b495f60ca6f55b81fd70d95430387134d7dcb48683825a5a0430a059",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.order_number_allocation_immutable()"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "0d2869f8b0c7d586064f2c7657bd926d9bdd07b58085f2571e84fd67b6e4066c",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.order_number_assign_before_insert()"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "0739a54f8c8d2fad0ab6137241cb6c96595328c581f7149d69b2c55d7befb351",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.order_number_existing_max(uuid,text)"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "hash": "d9425e76e5b4e7c0c6d8900c133a21099f599bbba6a804034ed96344dec0cce7",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.order_number_immutable_after_allocation()"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "hash": "f949f2fb3a3657b627668af140133d9acf80fee1f8db0ab7cb13dd2b9b28fb61",
+      "owner": "celebix_saas_owner",
+      "signature": "saas.storefront_asset_archive(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,bigint)"
+    }
+  ],
+  "numberPatchedFunctions": [
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.in_store_sales_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb)",
+      "actualHash": "2f4074c3eb6ab802144ff7dade9b3c63d2f17c897d8629a31609cc9a3095ace5",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "2f4074c3eb6ab802144ff7dade9b3c63d2f17c897d8629a31609cc9a3095ace5",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "signature": "saas.order_drafts_convert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+      "actualHash": "af1e78f3c20999334aa0ff017c88ceb43bf6efa4540fc8b97d2d3268e854d7b3",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "expectedHash": "af1e78f3c20999334aa0ff017c88ceb43bf6efa4540fc8b97d2d3268e854d7b3",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_host_resolver=X/celebix_saas_owner}",
+      "signature": "saas.public_checkout_complete_v2(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone,text[])",
+      "actualHash": "bdb25cec231593c5a344e04fe19ef7da37d72a8c37b39b36308208072b2c26f0",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_host_resolver=X/celebix_saas_owner}",
+      "expectedHash": "bdb25cec231593c5a344e04fe19ef7da37d72a8c37b39b36308208072b2c26f0",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.public_checkout_complete_without_available_stock_v090(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)",
+      "actualHash": "820162efed3edd25766499769ce3b6fa2f6fb21ebcf1791434571e57ce0481ed",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "820162efed3edd25766499769ce3b6fa2f6fb21ebcf1791434571e57ce0481ed",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)",
+      "actualHash": "17e36cf2d7ba678fe913b6152e08f10d7b13210bf56b1d8d325c554e1b03314d",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "17e36cf2d7ba678fe913b6152e08f10d7b13210bf56b1d8d325c554e1b03314d",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.quick_order_hosted_payment_terminal_transition()",
+      "actualHash": "3f97e9a9dad1839b7e679eb67017dd1fa3edfccb1f2b921183b10b69f5fc3209",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "3f97e9a9dad1839b7e679eb67017dd1fa3edfccb1f2b921183b10b69f5fc3209",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.storefront_checkout_payment_attempt_terminal()",
+      "actualHash": "d33b2218f9d5687fb23e10338a2b7ef028f17e248b03041c9cbfa1ae34f89a67",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "d33b2218f9d5687fb23e10338a2b7ef028f17e248b03041c9cbfa1ae34f89a67",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+      "signature": "saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)",
+      "actualHash": "76c02206380dbbf0af4f4a3a6941fdec6f17359d0c134b25b4d36f4ccbc658b5",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+      "expectedHash": "76c02206380dbbf0af4f4a3a6941fdec6f17359d0c134b25b4d36f4ccbc658b5",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.storefront_hosted_checkout_promotion_terminal_v2()",
+      "actualHash": "537aac4c66dbcd93629f3ae6bf7ea2f144c6f0c7e06e076add0a8c60149288fa",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "537aac4c66dbcd93629f3ae6bf7ea2f144c6f0c7e06e076add0a8c60149288fa",
+      "expectedOwner": "celebix_saas_owner"
+    },
+    {
+      "actualAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "signature": "saas.storefront_hosted_checkout_terminal_transition()",
+      "actualHash": "40413b0ccb18eeb79fb034a81be2bbc9675753d3ae1db9920cbda18e4add7d69",
+      "actualOwner": "celebix_saas_owner",
+      "expectedAcl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "expectedHash": "40413b0ccb18eeb79fb034a81be2bbc9675753d3ae1db9920cbda18e4add7d69",
+      "expectedOwner": "celebix_saas_owner"
+    }
+  ],
+  "numberTables": [
+    "order_number_allocations",
+    "order_number_counters",
+    "order_number_migration_restore"
+  ],
+  "numberTriggers": [
+    "order_number_allocation_immutable",
+    "order_number_assign_before_insert",
+    "order_number_immutable_after_allocation"
+  ]
+}

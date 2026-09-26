@@ -1,0 +1,154 @@
+{
+  "checkedAt": "2026-09-26T15:50:46.499Z",
+  "verdict": "PASS",
+  "source": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+  "records": [
+    {
+      "app": "yk1h6d97z7ex0h74ok3zrj5c",
+      "container": "f1e68937a1f7",
+      "name": "/yk1h6d97z7ex0h74ok3zrj5c-154452891915",
+      "imageTag": "yk1h6d97z7ex0h74ok3zrj5c:c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+      "image": "sha256:b9019fd5a9de4409682b6728c3d1a9817bb1400048467fabb976b1ba4e141228",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "01d8542c5cb21f8b2933a23f02aba2a7d2c1264b312cc3d13f3afb77c70edfc5",
+          "packages/saas-contracts/src/catalog/validation.ts": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228",
+          "apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx": "cfce35159baef4a48cf7e309f7165d1cbc1e25829882c5deeb8391a98ff0b898",
+          "apps/customer-panel/components/catalog-onboarding/ProductQuickCreateDialog.tsx": "ba58d46d2efcb1e5cb2cdc3329b783548533a6bc33592381f072062a74c4580a",
+          "apps/customer-panel/components/catalog-onboarding/ProductVariantBuilder.tsx": "c4613378cb05c01b4ecff632d6455c2884ebdeb94cf946e16aada82b912e560a",
+          "apps/customer-panel/components/catalog/ProductDetailConsole.tsx": "2b46eef0407b4ae991f5896785ecb1e765ddf1bddef41bf6fd8fa4fd25fbb357",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/customer-panel/components/catalog/product-measurements.module.css": "281418e2ccb1783ebaff7e2730d6d6da320216f41b19b87fa417fc558c02e5c7",
+          "apps/customer-panel/lib/catalog-http/request-input.ts": "e60d0b3745f4ac66417226a1636e6e94fe42c9adbc4419eeb2d66909b7384074",
+          "apps/customer-panel/lib/catalog-onboarding-ui/forms.ts": "9b170753e9c3f437694487b48d7623bcf724419109f53557fd096000fc4d29a8",
+          "apps/customer-panel/lib/catalog-ui/forms.ts": "f2ae3a6573a4923a790b9d729b0567bd6db87d441121f1d91387fadb26d03400",
+          "apps/customer-panel/lib/catalog-ui/product-draft-session.ts": "7c2f5bd657999cb56f281aca8d64edb5607b11932e071785a2ab3356ed7c7bbd",
+          "apps/customer-panel/lib/catalog-ui/product-measurements.ts": "0ef7b3003fbff448032bcc3d4d007ce11bc867ea43b9fe246d151678adeadfbb",
+          "packages/saas-contracts/src/catalog-onboarding/types.ts": "fda234a712cfa00db553570ef72cdb89790a569d25afeb0bc3ea234d0a30129b",
+          "packages/saas-contracts/src/catalog-onboarding/validation.ts": "a15ca907df20c08cc6ecf15a3efd71e8c3aacd31db89ceae4daeda1f7117de63",
+          "packages/saas-contracts/src/catalog/index.ts": "62350874da8ad0c2d086d58111741e08016cd57e91a9bfde75d4bea03c3a6c67",
+          "packages/saas-contracts/src/catalog/types.ts": "ad45b1abb1588d4cf4d9adad58bc7bfcd2f8ae94354a303399423a9e51eb587c",
+          "packages/saas-contracts/src/index.ts": "d68d24e047ec9da772dc1df8a5f5036f7bb359beabfc96dfa9d10c72ca14ca0e",
+          "packages/saas-data/src/catalog-onboarding/repository.ts": "3820ea17c815e210b993e7a3fbf49aae581d4f4c5bf256bd5284c5ef0eef9983",
+          "packages/saas-data/src/catalog/types.ts": "f8672641e852a34b30d06ee3d9ec8a96a4405d8939042c89c78bd1db856349c0",
+          "packages/saas-data/src/catalog/validation.ts": "0dd1139f9c2562aa2f1ca7564c2454345af22323bb1f65a2c162026560833a87",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4"
+            ],
+            "candidates": [
+              "sha256:3636feac12b57dae5ab076e2ceeb40d451bb692052e07890ef5afab96de97835",
+              "sha256:1da62b745a9d00ab08c93e18877be72a3bd42b981f147676aec8bbd8e9a89b20"
+            ],
+            "approvedDigests": [
+              "sha256:3636feac12b57dae5ab076e2ceeb40d451bb692052e07890ef5afab96de97835",
+              "sha256:1da62b745a9d00ab08c93e18877be72a3bd42b981f147676aec8bbd8e9a89b20"
+            ]
+          },
+          "iyzico": {
+            "commits": [
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4"
+            ],
+            "candidates": [
+              "sha256:c0bb1cd5a4adabd3b4168de54318934eb7226a5c22877e3bc7911979aadbffc4"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledRegister": true,
+        "compiledLegacy": true,
+        "compiledProductCreate": true,
+        "compiledProductDetail": true
+      }
+    },
+    {
+      "app": "e4xe74cmii7jucbkyor0o412",
+      "container": "fa08fc1916f5",
+      "name": "/e4xe74cmii7jucbkyor0o412-153956038249",
+      "imageTag": "e4xe74cmii7jucbkyor0o412:c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+      "image": "sha256:5bdc5541932cc6ff8f22a9a1fa179c9f9793047f74648d90ec896efa06ee3a7c",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "01d8542c5cb21f8b2933a23f02aba2a7d2c1264b312cc3d13f3afb77c70edfc5",
+          "packages/saas-contracts/src/catalog/validation.ts": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228",
+          "apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx": "cfce35159baef4a48cf7e309f7165d1cbc1e25829882c5deeb8391a98ff0b898",
+          "apps/customer-panel/components/catalog-onboarding/ProductQuickCreateDialog.tsx": "ba58d46d2efcb1e5cb2cdc3329b783548533a6bc33592381f072062a74c4580a",
+          "apps/customer-panel/components/catalog-onboarding/ProductVariantBuilder.tsx": "c4613378cb05c01b4ecff632d6455c2884ebdeb94cf946e16aada82b912e560a",
+          "apps/customer-panel/components/catalog/ProductDetailConsole.tsx": "2b46eef0407b4ae991f5896785ecb1e765ddf1bddef41bf6fd8fa4fd25fbb357",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/customer-panel/components/catalog/product-measurements.module.css": "281418e2ccb1783ebaff7e2730d6d6da320216f41b19b87fa417fc558c02e5c7",
+          "apps/customer-panel/lib/catalog-http/request-input.ts": "e60d0b3745f4ac66417226a1636e6e94fe42c9adbc4419eeb2d66909b7384074",
+          "apps/customer-panel/lib/catalog-onboarding-ui/forms.ts": "9b170753e9c3f437694487b48d7623bcf724419109f53557fd096000fc4d29a8",
+          "apps/customer-panel/lib/catalog-ui/forms.ts": "f2ae3a6573a4923a790b9d729b0567bd6db87d441121f1d91387fadb26d03400",
+          "apps/customer-panel/lib/catalog-ui/product-draft-session.ts": "7c2f5bd657999cb56f281aca8d64edb5607b11932e071785a2ab3356ed7c7bbd",
+          "apps/customer-panel/lib/catalog-ui/product-measurements.ts": "0ef7b3003fbff448032bcc3d4d007ce11bc867ea43b9fe246d151678adeadfbb",
+          "packages/saas-contracts/src/catalog-onboarding/types.ts": "fda234a712cfa00db553570ef72cdb89790a569d25afeb0bc3ea234d0a30129b",
+          "packages/saas-contracts/src/catalog-onboarding/validation.ts": "a15ca907df20c08cc6ecf15a3efd71e8c3aacd31db89ceae4daeda1f7117de63",
+          "packages/saas-contracts/src/catalog/index.ts": "62350874da8ad0c2d086d58111741e08016cd57e91a9bfde75d4bea03c3a6c67",
+          "packages/saas-contracts/src/catalog/types.ts": "ad45b1abb1588d4cf4d9adad58bc7bfcd2f8ae94354a303399423a9e51eb587c",
+          "packages/saas-contracts/src/index.ts": "d68d24e047ec9da772dc1df8a5f5036f7bb359beabfc96dfa9d10c72ca14ca0e",
+          "packages/saas-data/src/catalog-onboarding/repository.ts": "3820ea17c815e210b993e7a3fbf49aae581d4f4c5bf256bd5284c5ef0eef9983",
+          "packages/saas-data/src/catalog/types.ts": "f8672641e852a34b30d06ee3d9ec8a96a4405d8939042c89c78bd1db856349c0",
+          "packages/saas-data/src/catalog/validation.ts": "0dd1139f9c2562aa2f1ca7564c2454345af22323bb1f65a2c162026560833a87",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4",
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4"
+            ],
+            "candidates": [
+              "sha256:3636feac12b57dae5ab076e2ceeb40d451bb692052e07890ef5afab96de97835",
+              "sha256:1da62b745a9d00ab08c93e18877be72a3bd42b981f147676aec8bbd8e9a89b20"
+            ],
+            "approvedDigests": []
+          },
+          "iyzico": {
+            "commits": [
+              "c55b88f8c6c4e1679bf58cf3d22ccbc0c160cac4"
+            ],
+            "candidates": [
+              "sha256:c0bb1cd5a4adabd3b4168de54318934eb7226a5c22877e3bc7911979aadbffc4"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledRegister": true,
+        "compiledLegacy": true,
+        "compiledProductCreate": true,
+        "compiledProductDetail": true
+      }
+    }
+  ]
+}
