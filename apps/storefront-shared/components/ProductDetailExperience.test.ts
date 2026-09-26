@@ -39,6 +39,7 @@ async function compileProductDetailExperience() {
     if (specifier === "@/lib/format.ts") return { formatTry: (value: number) => `₺${value}` };
     if (specifier === "@/lib/public-product-ordering.ts") return { availableProductsFirst };
     if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` };
+    if (specifier === "@celebix/storefront-design-ui") return { ProductDetailSummary: component("ProductDetailSummary") };
     if (specifier === "./ProductCard") return { ProductCard };
     if (specifier === "./ProductApprovedReviews") return { ProductApprovedReviews: component("ProductApprovedReviews") };
     if (specifier === "./ProductGallery") return { ProductGallery: component("ProductGallery") };
@@ -81,7 +82,7 @@ test("buy now reuses canonical cart before checkout", async () => {
 
 test("detail experience composes canonical brand category merchandising policy and recommendation surfaces", async () => {
   const source = await read("ProductDetailExperience.tsx");
-  for (const token of ["product.categoryPath", "product.brand", "product.merchandising", "product.reviews", "ProductGallery", "ProductPurchasePanel", "ProductInformationDisclosures", "ProductApprovedReviews", "relatedProducts"]) assert.match(source, new RegExp(token.replace(".", "\\.")));
+  for (const token of ["product.categoryPath", "ProductDetailSummary", "product.merchandising", "product.reviews", "ProductGallery", "ProductPurchasePanel", "ProductInformationDisclosures", "ProductApprovedReviews", "relatedProducts"]) assert.match(source, new RegExp(token.replace(".", "\\.")));
   assert.doesNotMatch(source, /Organic cotton|premium linen|ready to ship|Rachel F[.]|Leslie M[.]/u);
   assert.doesNotMatch(source, /storeId|tenantId|localStorage|sessionStorage/);
 });
@@ -174,8 +175,8 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   ]);
 
   assert.doesNotMatch(experience, />ÜRÜN DETAYI</u);
-  assert.match(experience, /Ürün Kodu:/u);
-  assert.match(experience, /className=\{styles[.]summaryHeader\}/u);
+  assert.match(experience, /ProductDetailSummary/u);
+  assert.match(experience, /classes=\{styles\}/u);
   assert.doesNotMatch(experience, /Siparişe hazır seçenekler mevcut[.]/u);
   assert.doesNotMatch(experience, /styles[.]stock/u);
   assert.match(experience, /available=\{product[.]available\}/u);

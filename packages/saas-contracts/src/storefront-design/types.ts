@@ -140,11 +140,20 @@ export type StorefrontDesignMediaOption = Readonly<{
   height: number;
 }>;
 
+export type StorefrontDesignAssetOption = Readonly<StorefrontDesignMediaOption & {
+  kind: "logo" | "hero" | "social" | "favicon" | "category";
+}>;
+
 export type StorefrontDesignDestinationOption = Readonly<{
   kind: "product" | "collection" | "page";
   resourceId: string;
   label: string;
   path: string;
+  searchTerms?: readonly string[];
+  categoryIds?: readonly string[];
+  imageUrl?: string;
+  priceCents?: number;
+  available?: boolean;
 }>;
 
 export type StorefrontDesignWorkspace = Readonly<{
@@ -157,6 +166,8 @@ export type StorefrontDesignWorkspace = Readonly<{
   published: PublicStorefrontDesign;
   store: Readonly<{ name: string; timezone: string }>;
   media: readonly StorefrontDesignMediaOption[];
+  assets?: readonly StorefrontDesignAssetOption[];
+  publishedDraft?: StorefrontDesignDocument;
   destinations: readonly StorefrontDesignDestinationOption[];
 }>;
 
@@ -174,7 +185,9 @@ export type StorefrontDesignPublicationMutation = Readonly<{
 }>;
 
 export type StorefrontDesignPublishIssue = Readonly<{
-  code: "hero_enabled_slide_missing" | "hero_slide_headline_missing" | "hero_slide_desktop_image_missing";
+  code: "hero_enabled_slide_missing" | "hero_slide_headline_missing" | "hero_slide_desktop_image_missing" | "product_row_selection_missing" | "category_grid_image_missing";
   slideIndex?: number;
+  sectionId?: string;
+  categoryId?: string;
 }>;
 import type { StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3 } from "../storefront/types.ts";

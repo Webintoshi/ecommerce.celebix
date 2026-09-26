@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (name: string) => readFile(new URL(name, import.meta.url), "utf8");
 
-test("desktop navigation uses only locale-aware public category slugs", async () => { const source = await read("CampaignHeader.tsx"); assert.match(source, /categoryPath\(storefront[.]locale, item[.]slug\)/); assert.doesNotMatch(source, /item[.]id|storeId|tenantId/); });
+test("desktop navigation uses only locale-aware public category slugs", async () => { const source = await read("CampaignHeader.tsx"); assert.match(source, /categoryHref=\{\(slug\) => categoryPath\(storefront[.]locale, slug\)\}/); assert.doesNotMatch(source, /item[.]id|storeId|tenantId/); });
 test("mobile menu restores focus and closes on Escape", async () => { const source = await read("CampaignHeaderClient.tsx"); assert.match(source, /event[.]key === "Escape"/); assert.match(source, /triggerRef[.]current[?][.]focus/); });
 test("active path comparison rejects near-match locale product routes", async () => { const source = await read("CampaignHeaderClient.tsx"); assert.match(source, /pathname === href \|\| pathname[.]startsWith\(`\$\{href\}\/`\)/); assert.match(source, /isActivePath\(pathname, productIndexPath\(locale\)\)/); });
 test("mobile navigation has nested disclosure focus trap and backdrop closure", async () => { const source = await read("CampaignHeaderClient.tsx"); for (const token of ["<details", "focusable", "event.key === \"Tab\"", "event.target === event.currentTarget", "aria-modal=\"true\""]) assert.match(source, new RegExp(token)); });
@@ -15,8 +15,8 @@ test("desktop mega menu fills empty space and keeps featured navigation balanced
     read("CampaignHeader.tsx"),
     read("campaign-header.module.css"),
   ]);
-  assert.match(source, /data-featured=\{item[.]featured \? "true" : "false"\}/);
-  assert.match(source, /className=\{styles[.]megaLinks\}/);
+  assert.match(source, /<StorefrontNavigationItems/);
+  assert.match(source, /links: styles[.]megaLinks/);
   assert.match(css, /[.]mega\[data-featured="false"\]\{[^}]*grid-template-columns:1fr/);
   assert.match(css, /[.]mega\[data-featured="false"\] [.]megaLinks\{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(css, /[.]megaLinks\{[^}]*repeat\(2,minmax\(0,1fr\)\)/);

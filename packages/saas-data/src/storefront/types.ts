@@ -8,7 +8,7 @@ export type PublicStorefrontCategory = Readonly<{ id: string; name: string; slug
 export type PublicStorefrontCategoryProductList = Readonly<{ category: PublicStorefrontCategory; items: readonly PublicProduct[] }>;
 export type PublicCatalogQuery = TrustedStorefrontContext & Readonly<{
   now: Date; categorySlug: string | null; query: string;
-  filter: "all" | "available" | "discounted";
+  filter: "all" | "available" | "discounted" | "available_discounted";
   order: "featured" | "title-asc" | "price-asc" | "price-desc";
   limit: number; offset: number;
 }>;

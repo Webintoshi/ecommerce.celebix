@@ -48,3 +48,12 @@ test("preview POST rejects private authority input, foreign origin, and non-exac
     assert.ok([400, 403].includes(response.status)); assert.deepEqual(selected.calls, []);
   }
 });
+
+test("preview accepts representative product identity while malformed IDs never reach data reads", async () => {
+  const selected = fixture();
+  const response = await selected.handler(request({composition:createDefaultStarterThemeComposition(),previewProductId:"61000000-0000-4000-8000-000000000099"}));
+  assert.equal(response.status,200);
+  const invalid = fixture();
+  assert.equal((await invalid.handler(request({composition:createDefaultStarterThemeComposition(),previewProductId:"../foreign"}))).status,400);
+  assert.deepEqual(invalid.calls,[]);
+});

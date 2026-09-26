@@ -23,7 +23,7 @@ const HEADER_LAYOUTS = Object.freeze(["menu_logo_actions", "logo_menu_actions", 
 const CATEGORY_SHOWCASE_LAYOUTS = Object.freeze(["duo", "grid"] as const);
 const SECTION_SPACINGS = Object.freeze(["compact", "balanced", "airy"] as const);
 const GALLERY_STYLES = Object.freeze(["grid", "rail"] as const);
-const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category"] as const);
+const PRODUCT_ROW_SOURCES = Object.freeze(["latest", "sale", "category", "manual"] as const);
 const VALUE_ICONS = Object.freeze(["sparkles", "cotton", "heart", "shield", "truck", "return"] as const);
 const INFORMATION_SECTIONS = Object.freeze(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const);
 const FOOTER_TONES = Object.freeze(["light", "dark"] as const);
@@ -270,11 +270,11 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
     return Object.freeze({ kind, enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), categoryIds: uuidArray(parsed.categoryIds, 0, 8) });
   }
   if (kind === "product_row") {
-    const parsed = exact(candidate, ["kind", "enabled", "heading", "source", "limit"], ["categoryId"]);
+    const parsed = exact(candidate, ["kind", "enabled", "heading", "source", "limit"], ["categoryId", "productIds"]);
     const source = oneOf(parsed.source, PRODUCT_ROW_SOURCES);
     const limit = integer(parsed.limit, 4, 12);
-    if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categoryId")) invalid();
-    return Object.freeze({ kind, enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categoryId: uuid(parsed.categoryId) } : {}), limit: limit as 4 | 8 | 12 });
+    if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categoryId") || (source !== "manual" && Object.hasOwn(parsed, "productIds"))) invalid();
+    return Object.freeze({ kind, enabled: boolean(parsed.enabled), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categoryId: uuid(parsed.categoryId) } : {}), ...(Object.hasOwn(parsed, "productIds") ? { productIds: uuidArray(parsed.productIds, 0, 12) } : {}), limit: limit as 4 | 8 | 12 });
   }
   if (kind === "split_campaign") {
     const parsed = exact(candidate, ["kind", "enabled", "panels"]);
@@ -295,12 +295,21 @@ function parseConfigSection(value: unknown): StarterThemeSectionConfig {
 function parseConfigSectionV2(value: unknown): StarterThemeSectionConfigV2 {
   const candidate = record(value);
   if (candidate.kind === "category_grid") {
-    const parsed = exact(candidate, ["kind", "enabled", "heading", "categoryIds", "layout"]);
+    const parsed = exact(candidate, ["kind", "enabled", "heading", "categoryIds", "layout"], ["categoryImages"]);
+    const categoryIds = uuidArray(parsed.categoryIds, 0, 8);
+    const categoryImages = Object.hasOwn(parsed, "categoryImages") ? Object.freeze(arrayValues(parsed.categoryImages, 0, 8).map((value) => {
+      const item = exact(value, ["categoryId", "assetId"]);
+      const categoryId = uuid(item.categoryId);
+      if (!categoryIds.includes(categoryId)) invalid();
+      return Object.freeze({ categoryId, assetId: uuid(item.assetId) });
+    })) : undefined;
+    if (categoryImages && new Set(categoryImages.map((item) => item.categoryId)).size !== categoryImages.length) invalid();
     return Object.freeze({
       kind: "category_grid",
       enabled: boolean(parsed.enabled),
       heading: string(parsed.heading, 1, 160),
-      categoryIds: uuidArray(parsed.categoryIds, 0, 8),
+      categoryIds,
+      ...(categoryImages ? { categoryImages } : {}),
       layout: oneOf(parsed.layout, CATEGORY_SHOWCASE_LAYOUTS),
     });
   }
@@ -580,11 +589,11 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
     });
   }
   if (kind === "product_row") {
-    const parsed = exact(candidate, ["kind", "key", "heading", "source", "limit"], ["categorySlug"]);
+    const parsed = exact(candidate, ["kind", "key", "heading", "source", "limit"], ["categorySlug", "productIds"]);
     const source = oneOf(parsed.source, PRODUCT_ROW_SOURCES);
     const limit = integer(parsed.limit, 4, 12);
-    if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categorySlug")) invalid();
-    return resolved({ kind, key: string(parsed.key, 1, 64, SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), limit: limit as 4 | 8 | 12 });
+    if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categorySlug") || (source !== "manual" && Object.hasOwn(parsed, "productIds"))) invalid();
+    return resolved({ kind, key: string(parsed.key, 1, 64, SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), ...(Object.hasOwn(parsed, "productIds") ? { productIds: uuidArray(parsed.productIds, 0, 12) } : {}), limit: limit as 4 | 8 | 12 });
   }
   if (kind === "split_campaign") {
     const parsed = exact(candidate, ["kind", "panels"]);

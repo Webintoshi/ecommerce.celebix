@@ -1,5 +1,6 @@
 import { createDefaultStarterThemeComposition, parseStorefrontDesignDocument, type StorefrontDesignDestinationOption, type StorefrontDesignWorkspace } from "@celebix/saas-contracts";
 import { createPreviewStorefrontDesign } from "@celebix/storefront-design-ui";
+import { fixtureAssets, fixtureDestinations } from "./catalog-fixture";
 
 export function initialDesignFixture(): StorefrontDesignWorkspace {
   const composition = createDefaultStarterThemeComposition();
@@ -18,10 +19,9 @@ export function initialDesignFixture(): StorefrontDesignWorkspace {
   });
   const publishedAt = "2026-09-14T00:00:00.000Z";
   const media = [];
-  const destinations: readonly StorefrontDesignDestinationOption[] = [
-    { kind: "collection", resourceId: "91000000-0000-4000-8000-000000000004", label: "Giyim · izole QA", path: "/collections/giyim" },
-  ];
+  const destinations: readonly StorefrontDesignDestinationOption[] = fixtureDestinations;
   return { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: publishedAt, publishedAt, draft,
     published: createPreviewStorefrontDesign({ draft, publishedVersion: 1, publishedAt, media, destinations }),
+    publishedDraft: draft, assets: fixtureAssets,
     store: { name: "İzole QA Mağazası", timezone: "Europe/Istanbul" }, media, destinations };
 }

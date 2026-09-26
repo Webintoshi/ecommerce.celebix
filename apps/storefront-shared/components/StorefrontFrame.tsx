@@ -30,6 +30,7 @@ export function StorefrontFrame({
   const typography = createStorefrontTypographyResources(design.typography);
   const style: DesignStyle = {
     ...typography.style,
+    "--store-section-spacing": storefront.presentation.schemaVersion !== 3 ? "clamp(64px, 7vw, 112px)" : storefront.presentation.visual.sectionSpacing === "compact" ? "40px" : storefront.presentation.visual.sectionSpacing === "airy" ? "112px" : "clamp(64px, 7vw, 112px)",
     ...(customized ? {
         "--store-primary": design.brand.primaryColor,
         "--store-accent": design.brand.accentColor,

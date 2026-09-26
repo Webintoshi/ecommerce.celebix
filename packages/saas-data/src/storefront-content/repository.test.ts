@@ -189,3 +189,26 @@ test("malformed inputs and database projections fail closed", async () => {
   const corrupt = new Client((text) => text.includes("public_policy_get") ? [{ outcome: "found", result_payload: { key: "kvkk", label: "KVKK", route: "/policies/kvkk", published: true, body: POLICY.body, storeId: STORE } }] : []);
   await assert.rejects(publicRepository(new Pool([corrupt])).getPolicy({ hostname: HOST, now: NOW, key: "kvkk" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
 });
+
+test("public custom pages use hostname authority and exact safe projection", async () => {
+  const page = { id: PRODUCT, slug: "hakkimizda", title: "Hakkımızda", body: "<p>Mağazamız.</p>", updatedAt: NOW.toISOString() };
+  const client = new Client((text) => text.includes("public_content_page_get") ? [{ outcome: "found", result_payload: page }] : []);
+  const repository = publicRepository(new Pool([client]));
+  assert.deepEqual(await repository.getPage({ hostname: HOST, now: NOW, slug: "hakkimizda" }), page);
+  assert.deepEqual(client.calls.find((call) => call.text.includes("public_content_page_get"))?.values, [HOST, NOW, "hakkimizda"]);
+});
+
+test("public custom pages accept empty bodies projected from optional content", async () => {
+  const page = { id: PRODUCT, slug: "empty", title: "Empty", body: "", updatedAt: NOW.toISOString() };
+  const client = new Client((text) => text.includes("public_content_page_get") ? [{ outcome: "found", result_payload: page }] : []);
+  assert.deepEqual(await publicRepository(new Pool([client])).getPage({ hostname: HOST, now: NOW, slug: "empty" }), page);
+});
+
+test("public custom pages reject traversal private fields and unpublished outcomes", async () => {
+  const client = new Client((text) => text.includes("public_content_page_get") ? [{ outcome: "not_found", result_payload: null }] : []);
+  const repository = publicRepository(new Pool([client]));
+  await assert.rejects(repository.getPage({ hostname: HOST, now: NOW, slug: "../hakkimizda" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "invalid_input");
+  await assert.rejects(repository.getPage({ hostname: HOST, now: NOW, slug: "hakkimizda" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "not_found");
+  const hostile = new Client((text) => text.includes("public_content_page_get") ? [{ outcome: "found", result_payload: { id: PRODUCT, slug: "hakkimizda", title: "Page", body: "Text", updatedAt: NOW.toISOString(), storeId: STORE } }] : []);
+  await assert.rejects(publicRepository(new Pool([hostile])).getPage({ hostname: HOST, now: NOW, slug: "hakkimizda" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+});

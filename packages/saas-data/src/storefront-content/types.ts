@@ -31,7 +31,16 @@ export type StorePolicyAdminPage = Readonly<{
   updatedAt: string;
 }>;
 
+export type PublicContentPage = Readonly<{
+  id: string;
+  slug: string;
+  title: string;
+  body: string;
+  updatedAt: string;
+}>;
+
 export interface PublicStorefrontContentRepository {
+  getPage?(input: Readonly<{ hostname: string; now: Date; slug: string }>): Promise<PublicContentPage>;
   listPolicies(input: Readonly<{ hostname: string; now: Date }>): Promise<readonly PublicPolicyPage[]>;
   getPolicy(input: Readonly<{ hostname: string; now: Date; key: StorefrontPolicyKey }>): Promise<PublicPolicySourcePage>;
   search(input: Readonly<{ hostname: string; now: Date; query: string; limit: number; cursor?: string }>): Promise<PublicProductSearch>;

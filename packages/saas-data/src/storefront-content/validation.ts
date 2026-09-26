@@ -13,7 +13,7 @@ import {
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { StorefrontContentRepositoryError, type StorefrontContentErrorCode } from "./errors.ts";
-import type { PublicPolicySourcePage, StorePolicyAdminPage, StorePolicyStatus } from "./types.ts";
+import type { PublicContentPage, PublicPolicySourcePage, StorePolicyAdminPage, StorePolicyStatus } from "./types.ts";
 
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -213,4 +213,23 @@ export function parseStorePolicyAdminList(value: unknown): readonly StorePolicyA
   const pages = Object.freeze(parsed.items.map(parseStorePolicyAdminPage));
   if (pages.some((page, index) => page.key !== FIXED_STOREFRONT_POLICIES[index]?.key)) fail("unavailable");
   return pages;
+}
+
+export function storefrontContentPageSlug(value: unknown, code: StorefrontContentErrorCode = "invalid_input"): string {
+  const slug = text(value, 1, 100, code);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail(code);
+  return slug;
+}
+
+export function parsePublicContentPage(value: unknown): PublicContentPage {
+  const parsed = exactStorefrontContentInput(value, ["id", "slug", "title", "body", "updatedAt"], [], "unavailable");
+  if (typeof parsed.id !== "string" || !UUID.test(parsed.id)) fail("unavailable");
+  if (typeof parsed.body !== "string" || Buffer.byteLength(parsed.body, "utf8") > 256_000 || CONTROL.test(parsed.body)) fail("unavailable");
+  return Object.freeze({
+    id: parsed.id,
+    slug: storefrontContentPageSlug(parsed.slug, "unavailable"),
+    title: text(parsed.title, 1, 800, "unavailable"),
+    body: parsed.body,
+    updatedAt: timestamp(parsed.updatedAt, "unavailable"),
+  });
 }

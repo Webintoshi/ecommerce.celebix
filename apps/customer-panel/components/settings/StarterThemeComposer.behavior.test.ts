@@ -71,7 +71,7 @@ type ComposerProps = Readonly<{
 
 type ComposerModule = Readonly<{ StarterThemeComposer: (props: ComposerProps) => ReactNode }>;
 
-function compileComposer(): ComposerModule {
+function compileComposer(categories: readonly unknown[] = []): ComposerModule {
   const filename = new URL("./StarterThemeComposer.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -82,7 +82,7 @@ function compileComposer(): ComposerModule {
     if (id === "@/components/settings/StarterThemePreview") return { StarterThemePreview: () => null };
     if (id === "@/components/settings/StarterFooterEditor") return { StarterFooterEditor: () => React.createElement("fieldset", null, React.createElement("legend", null, "Footer ayarları")) };
     if (id === "@/components/settings/StarterRetailSectionEditors") return { StarterRetailSectionEditor: () => null };
-    if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => [] } };
+    if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => categories } };
     if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => ({ items: [] }) } };
     if (id === "@/lib/merchant-admin-ui/client") return { merchantAdminApi: { records: async () => [] } };
     if (id === "@/lib/starter-theme-composer-model") return composerModel;
@@ -321,4 +321,63 @@ test("invalid composition shows an explicit editor error without writing", () =>
   assert.match(markup, /role="alert"/);
   assert.match(markup, /Kayıtlı tema verisi açılamadı/);
   assert.equal(changes.length, 0);
+});
+
+test("featured navigation pairs allow either selection order, atomic clearing and external restore", async () => {
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previous = { window: globalThis.window, document: globalThis.document, fetch: globalThis.fetch };
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const category = { id: CATEGORY, name: "Kolyeler", slug: "kolyeler", position: 0, depth: 1, status: "active", version: 1, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" };
+  const asset = { id: ASSET, storeId: "60000000-0000-4000-8000-000000000001", kind: "hero", objectKey: `stores/60000000-0000-4000-8000-000000000001/storefront/hero/${ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/60000000-0000-4000-8000-000000000001/storefront/hero/${ASSET}.webp`, mediaType: "image/webp", altText: "Kolye görseli", width: 800, height: 800, byteSize: 1000, status: "active", version: 1, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" };
+  globalThis.fetch = async () => Response.json({ assets: [asset] });
+  const { StarterThemeComposer } = compileComposer([category]);
+  const container = window.document.createElement("div"); window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const initial: StarterThemeCompositionConfigV3 = { ...V3_FIXTURE, navigation: { rootCategoryIds: [CATEGORY] } };
+  let current: StarterThemeComposition = initial;
+  const changes: StarterThemeComposition[] = [];
+  function render(value: StarterThemeComposition = current) {
+    current = value;
+    root.render(React.createElement(StarterThemeComposer, { value, activePanel: "navigation", canManage: true, showPreview: false, onChange: (next) => { changes.push(parseStarterThemeCompositionConfig(next)); render(next); } }));
+  }
+  function select(label: string) {
+    const node = [...container.querySelectorAll("label")].find((node) => node.firstChild?.textContent === label)?.querySelector("select"); assert.ok(node); return node;
+  }
+  async function choose(label: string, value: string) {
+    const control = select(label); control.value = value;
+    await React.act(async () => control.dispatchEvent(new window.Event("change", { bubbles: true })));
+    await settle();
+  }
+  try {
+    await React.act(async () => render()); await settle();
+    await choose("Öne çıkan kategori", CATEGORY);
+    assert.equal(changes.length, 0); assert.equal(select("Öne çıkan kategori").value, CATEGORY);
+    assert.match(container.textContent ?? "", /İki seçim tamamlandığında/);
+    await choose("Öne çıkan görsel", ASSET);
+    assert.deepEqual(current.navigation, { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET });
+    await choose("Öne çıkan kategori", "");
+    assert.deepEqual(current.navigation, { rootCategoryIds: [CATEGORY] });
+    assert.equal(select("Öne çıkan görsel").value, ASSET);
+    await React.act(async () => render({ ...initial, navigation: { rootCategoryIds: [CATEGORY] } })); await settle();
+    assert.equal(select("Öne çıkan görsel").value, "");
+    changes.length = 0;
+    await choose("Öne çıkan görsel", ASSET);
+    assert.equal(changes.length, 0); assert.equal(select("Öne çıkan görsel").value, ASSET);
+    const rootCategory = [...container.querySelectorAll('input[type="checkbox"]')].find((node) => node.parentElement?.textContent === "Kolyeler"); assert.ok(rootCategory);
+    await React.act(async () => rootCategory.dispatchEvent(new window.Event("click", { bubbles: true }))); await settle();
+    assert.equal(select("Öne çıkan görsel").value, ASSET, "valid root changes preserve an intentional incomplete pair");
+    await choose("Öne çıkan kategori", CATEGORY);
+    assert.equal(current.navigation.featuredCategoryId, CATEGORY); assert.equal(current.navigation.featuredAssetId, ASSET);
+    await choose("Öne çıkan görsel", "");
+    assert.equal(current.navigation.featuredCategoryId, undefined); assert.equal(current.navigation.featuredAssetId, undefined);
+    assert.equal(select("Öne çıkan kategori").value, CATEGORY);
+    assert.doesNotMatch(container.textContent ?? "", /Tema alanı geçersiz/);
+    await React.act(async () => render({ ...initial, navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET } })); await settle();
+    assert.equal(select("Öne çıkan kategori").value, CATEGORY); assert.equal(select("Öne çıkan görsel").value, ASSET);
+  } finally {
+    await React.act(async () => root.unmount()); await window.happyDOM.close();
+    globalThis.window = previous.window; globalThis.document = previous.document; globalThis.fetch = previous.fetch;
+  }
 });

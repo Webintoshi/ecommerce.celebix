@@ -21,8 +21,8 @@ function privateHeaders(request: Request): boolean {
   } catch { return true; }
 }
 
-function exact(value: unknown, keys: readonly string[]): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype || Object.keys(value).sort().join(",") !== [...keys].sort().join(",")) return null;
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype || (keys.some((key) => !Object.hasOwn(value, key)) || Object.keys(value).some((key) => !keys.includes(key) && !optional.includes(key)))) return null;
   return value as Record<string, unknown>;
 }
 
@@ -63,11 +63,12 @@ async function authorize(deps: Dependencies, request: Request): Promise<Readonly
 export function createStorefrontDesignPreviewHttpHandler(deps: Dependencies) {
   return async function handle(request: Request): Promise<Response> {
     const authorized = await authorize(deps, request); if (authorized instanceof Response) return authorized;
-    const parsed = exact(await jsonBody(request), ["composition"]); if (!parsed) return response("invalid_input", 400);
+    const parsed = exact(await jsonBody(request), ["composition"], ["previewProductId"]); if (!parsed) return response("invalid_input", 400);
+    if (parsed.previewProductId !== undefined && (typeof parsed.previewProductId !== "string" || !UUID.test(parsed.previewProductId))) return response("invalid_input", 400);
     let composition; try { composition = normalizeStarterThemeCompositionV3(parsed.composition as never); } catch { return response("invalid_input", 400); }
     try {
       const workspace = await authorized.runtime.design.getWorkspace({ tenantContext: authorized.tenantContext, now: authorized.now });
-      const resources = await authorized.runtime.loader.load({ tenantContext: authorized.tenantContext, now: authorized.now, workspace, composition });
+      const resources = await authorized.runtime.loader.load({ tenantContext: authorized.tenantContext, now: authorized.now, workspace, composition, ...(parsed.previewProductId ? { previewProductId: parsed.previewProductId as string } : {}) });
       return response("ok", 200, { resources });
     } catch { return response("unavailable", 503); }
   };

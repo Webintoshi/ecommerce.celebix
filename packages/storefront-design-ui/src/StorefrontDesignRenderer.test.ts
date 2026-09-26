@@ -20,6 +20,11 @@ const NOW = "2026-08-03T09:00:00.000Z";
 const DESIGN: StorefrontDesignDocument = { schemaVersion: 3, brand: { logo: { kind: "media", mediaId: MEDIA }, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" }, hero: { enabled: true, slides: [{ headline: "Güzide Kuyumcu", body: "Zamansız tasarımlar", desktopImage: { kind: "media", mediaId: MEDIA }, mobileImage: null, destination: { kind: "product", resourceId: DESTINATION }, enabled: true }] }, promotion: { headline: "Yaz fırsatı", body: "Seçili ürünlerde", destination: { kind: "none" }, startsAt: "2026-08-01T00:00:00.000Z", endsAt: "2026-08-10T00:00:00.000Z", enabled: true }, announcement: { items: ["Ücretsiz kargo", "Güvenli ödeme"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true }, typography: { headingFont: { family: "Playfair Display", category: "serif", availableWeights: ["400", "700"], source: "google" }, bodyFont: { family: "Inter", category: "sans-serif", availableWeights: ["400", "500", "700"], source: "google" }, headingWeight: "700", bodyWeight: "400", headingSizePx: 48, bodySizePx: 17 }, composition: createDefaultStarterThemeComposition() };
 
 async function loadStorefrontDesignRenderer() {
+  const navigationSource = await readFile(new URL("./StorefrontNavigation.tsx", import.meta.url), "utf8");
+  const navigation = ts.transpileModule(navigationSource, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
+    .replace('from "react"', `from "${import.meta.resolve("react")}"`)
+    .replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
+  const navigationUrl = `data:text/javascript;base64,${Buffer.from(navigation).toString("base64")}`;
   const sourceUrl = new URL("./StorefrontDesignRenderer.tsx", import.meta.url);
   const source = await readFile(sourceUrl, "utf8");
   const compiled = ts.transpileModule(source, {
@@ -32,7 +37,8 @@ async function loadStorefrontDesignRenderer() {
     .replace('from "react"', `from "${import.meta.resolve("react")}"`)
     .replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`)
     .replace('from "./model.ts"', `from "${new URL("./model.ts", import.meta.url).href}"`)
-    .replace('from "./typography.ts"', `from "${new URL("./typography.ts", import.meta.url).href}"`);
+    .replace('from "./typography.ts"', `from "${new URL("./typography.ts", import.meta.url).href}"`)
+    .replace('from "./StorefrontNavigation.tsx"', `from "${navigationUrl}"`);
   const loaded = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
   return loaded.StorefrontDesignRenderer as typeof import("./StorefrontDesignRenderer.tsx").StorefrontDesignRenderer;
 }
@@ -156,7 +162,7 @@ test("renderer source owns exact brand tokens and no unsafe HTML path", async ()
   const source = await readFile(new URL("./StorefrontDesignRenderer.tsx", import.meta.url), "utf8");
   for (const token of ["--store-primary", "--store-accent", "--store-background", "--store-text"]) assert.match(source, new RegExp(token));
   assert.match(source, /isStorefrontPromotionActive/);
-  assert.match(source, /design[.]announcement[.]enabled/);
+  assert.match(source, /announcement[.]enabled/);
   assert.match(source, /design[.]hero[.]enabled/);
   assert.match(source, /5_000/);
   assert.match(source, /aria-label="Önceki banner"/);
@@ -165,4 +171,48 @@ test("renderer source owns exact brand tokens and no unsafe HTML path", async ()
   assert.match(source, /showHeader = true/);
   assert.match(source, /showHeader \?/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|mediaId|resourceId/);
+});
+
+
+test("explicit mobile preview selects the mobile image regardless of browser width", async () => {
+  const Renderer = await loadStorefrontDesignRenderer();
+  const design = createPreviewStorefrontDesign({ draft: { ...DESIGN, hero: { ...DESIGN.hero, slides: [{ ...DESIGN.hero.slides[0]!, mobileImage: { kind: "media", mediaId: MOBILE_MEDIA } }] } }, publishedVersion: 3, publishedAt: NOW,
+    media: [{ id: MEDIA, url: "https://media.example/desktop.webp", altText: "Desktop", mediaType: "image/webp", width: 1600, height: 900 }, { id: MOBILE_MEDIA, url: "https://media.example/mobile.webp", altText: "Mobile", mediaType: "image/webp", width: 700, height: 900 }],
+    destinations: [{ kind: "product", resourceId: DESTINATION, label: "Product", path: "/products/product" }] });
+  const markup = renderToStaticMarkup(createElement(Renderer, { design, storeName: "Atlas", now: new Date(NOW), previewMode: "mobile" }));
+  assert.match(markup, /<img[^>]*src="https:\/\/media.example\/mobile.webp"/);
+  assert.doesNotMatch(markup, /<source media=/);
+});
+
+test("composition announcement controls content destination visibility and section spacing", async () => {
+  const Renderer = await loadStorefrontDesignRenderer();
+  const design = createPreviewStorefrontDesign({draft:DESIGN,publishedVersion:3,publishedAt:NOW,media:[{id:MEDIA,url:"https://media.example/banner.webp",altText:"Banner",mediaType:"image/webp",width:1000,height:600}],destinations:[{kind:"product",resourceId:DESTINATION,label:"Product",path:"/products/product"}]});
+  const base = createDefaultStarterThemeComposition();
+  const presentation = {schemaVersion:3,visual:{...base.visual,sectionSpacing:"airy"},announcement:{items:["Yetkili duyuru"],destination:"/pages/duyuru"},navigation:{items:[]}} as const;
+  const visible = renderToStaticMarkup(createElement(Renderer,{design,storeName:"Atlas",now:new Date(NOW),presentation:presentation as never}));
+  assert.match(visible,/href="\/pages\/duyuru"/);
+  assert.match(visible,/Yetkili duyuru/);
+  assert.doesNotMatch(visible,/Ücretsiz kargo/);
+  assert.match(visible,/data-animation="continuous"/);
+  assert.match(visible,/--store-section-spacing:112px/);
+  const hidden = renderToStaticMarkup(createElement(Renderer,{design,storeName:"Atlas",now:new Date(NOW),presentation:{...presentation,announcement:undefined} as never}));
+  assert.doesNotMatch(hidden,/aria-label="Mağaza duyuruları"/);
+});
+
+test("renderer previews nested navigation and featured images through native keyboard disclosures", async () => {
+  const Renderer = await loadStorefrontDesignRenderer();
+  const design = createPreviewStorefrontDesign({ draft: DESIGN, publishedVersion: 3, publishedAt: NOW, media: [{ id: MEDIA, url: "https://media.example/banner.webp", altText: "Banner", mediaType: "image/webp", width: 1000, height: 600 }], destinations: [{ kind: "product", resourceId: DESTINATION, label: "Product", path: "/products/product" }] });
+  const presentation = { schemaVersion: 3, visual: createDefaultStarterThemeComposition().visual, navigation: { items: [{ name: "Kolyeler", slug: "kolyeler", children: [{ name: "Altın", slug: "altin", children: [{ name: "İnce", slug: "ince", children: [] }] }], featured: { name: "Kolyeler", slug: "kolyeler", image: { url: "https://media.example/kolye.webp", altText: "Öne çıkan kolye", mediaType: "image/webp", width: 800, height: 800 } } }] } };
+  const markup = renderToStaticMarkup(createElement(Renderer, { design, storeName: "Atlas", now: new Date(NOW), presentation: presentation as never, previewMode: "mobile" }));
+  assert.match(markup, /<details class="celebix-store-mobile-nav"><summary>Menü/);
+  assert.match(markup, /href="\/categories\/altin"/);
+  assert.match(markup, /href="\/categories\/ince"/);
+  assert.match(markup, /alt="Öne çıkan kolye"/);
+  assert.match(markup, /--store-section-spacing:64px/);
+  assert.doesNotMatch(markup, /storeId|tenantId|mediaId|resourceId/);
+  const desktop = renderToStaticMarkup(createElement(Renderer, { design, storeName: "Atlas", now: new Date(NOW), presentation: presentation as never, previewMode: "desktop" }));
+  // The canvas prevents link navigation. Its disclosure title must therefore
+  // be plain text so clicking the category name still opens the menu.
+  assert.match(desktop, /<summary class="celebix-store-nav-summary">Kolyeler<span/);
+  assert.doesNotMatch(desktop, /<summary[^>]*><a/);
 });

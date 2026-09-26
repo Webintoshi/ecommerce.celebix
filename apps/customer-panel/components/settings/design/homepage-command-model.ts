@@ -7,7 +7,8 @@ import {
 
 export type HomepageUndo = Readonly<{
   label: string;
-  composition: StarterThemeCompositionConfigV3;
+  section: StarterThemeSectionConfigV3;
+  index: number;
 }>;
 
 export class HomepageCommandError extends Error {
@@ -149,10 +150,17 @@ export function removeHomepageSection(
   const sections = composition.sections.filter((_, candidate) => candidate !== index);
   return Object.freeze({
     composition: normalize(composition, sections),
-    undo: Object.freeze({ label: "Bölümü geri getir", composition }),
+    undo: Object.freeze({ label: "Bölümü geri getir", section: composition.sections[index]!, index }),
   });
 }
 
-export function restoreRemovedHomepageSection(undo: HomepageUndo): StarterThemeCompositionConfigV3 {
-  return normalizeStarterThemeCompositionV3(undo.composition);
+export function restoreRemovedHomepageSection(composition: StarterThemeCompositionConfigV3, undo: HomepageUndo): StarterThemeCompositionConfigV3 {
+  if (undo.section.kind === "hero") {
+    if (composition.sections.length >= BODY_SECTION_LIMIT) fail("homepage_section_total_limit");
+    if (composition.sections.some(section => section.sectionId === undo.section.sectionId)) fail("homepage_section_id_duplicate");
+    if (composition.sections.some(section => section.kind === "hero")) fail("homepage_section_singleton_exists");
+  } else ensureCanAdd(composition, undo.section.kind, undo.section.sectionId);
+  const sections = [...composition.sections];
+  sections.splice(Math.min(undo.index, sections.length), 0, undo.section);
+  return normalize(composition, sections);
 }

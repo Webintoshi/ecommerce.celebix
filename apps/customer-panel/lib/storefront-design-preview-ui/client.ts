@@ -1,4 +1,4 @@
-import { normalizeStarterThemeCompositionV3, type PublicStorefrontAsset, type StarterThemeComposition } from "@celebix/saas-contracts";
+import { parsePublicProduct, normalizeStarterThemeCompositionV3, type PublicStarterNavigationItem, type PublicStorefrontAsset, type StarterThemeComposition } from "@celebix/saas-contracts";
 
 import { storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResourceStatus, type StorefrontDesignPreviewResources } from "../storefront-design-preview-model.ts";
 
@@ -49,19 +49,65 @@ function asset(value: unknown): PublicStorefrontAsset {
 }
 function list(value: unknown, max: number): unknown[] { if (!Array.isArray(value) || value.length > max) throw new StorefrontDesignPreviewApiError(); return value; }
 
+function navigationItems(value: unknown, depth = 0): readonly PublicStarterNavigationItem[] {
+  const slugs = new Set<string>();
+  return Object.freeze(list(value, 8).map((entry) => {
+    const selected = record(entry, ["name", "slug", "children"], ["featured"]);
+    const slug = text(selected.slug, 100); if (!SLUG.test(slug) || slugs.has(slug)) throw new StorefrontDesignPreviewApiError(); slugs.add(slug);
+    const rawChildren = list(selected.children, 8);
+    if (depth >= 2 && rawChildren.length) throw new StorefrontDesignPreviewApiError();
+    const children = rawChildren.length ? navigationItems(rawChildren, depth + 1) : Object.freeze([]);
+    let featured: PublicStarterNavigationItem["featured"];
+    if (selected.featured !== undefined) {
+      const value = record(selected.featured, ["name", "slug", "image"]);
+      const featuredSlug = text(value.slug, 100); if (!SLUG.test(featuredSlug)) throw new StorefrontDesignPreviewApiError();
+      featured = Object.freeze({ name: text(value.name, 160), slug: featuredSlug, image: asset(value.image) });
+    }
+    return Object.freeze({ name: text(selected.name, 160), slug, children, ...(featured ? { featured } : {}) });
+  }));
+}
+
 export function parseStorefrontDesignPreviewResources(value: unknown, expectedKey: string): StorefrontDesignPreviewResources {
-  const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"]);
+  const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"], ["productDetail", "relatedProducts", "testimonials", "navigation"]);
   if (root.schemaVersion !== 1 || root.dependencyKey !== expectedKey) throw new StorefrontDesignPreviewApiError();
   const sourceKeys = new Set<string>();
-  const productSources = list(root.productSources, 12).map((entry) => { const parsed = record(entry, ["key", "status", "items"], ["categorySlug"]); const key = text(parsed.key, 96); if (sourceKeys.has(key) || (key !== "latest" && key !== "sale" && !/^category:[0-9a-f-]{36}$/.test(key))) throw new StorefrontDesignPreviewApiError(); sourceKeys.add(key); const categorySlug = parsed.categorySlug === undefined ? undefined : text(parsed.categorySlug, 100); if (categorySlug && !SLUG.test(categorySlug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ key, status: status(parsed.status), items: Object.freeze(list(parsed.items, 48).map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) }); });
+  const productSources = list(root.productSources, 12).map((entry) => { const parsed = record(entry, ["key", "status", "items"], ["categorySlug"]); const key = text(parsed.key, 96); if (sourceKeys.has(key) || (key !== "latest" && key !== "sale" && !/^category:[0-9a-f-]{36}$/.test(key) && !/^manual:home_[a-z0-9][a-z0-9_-]{2,74}$/.test(key))) throw new StorefrontDesignPreviewApiError(); sourceKeys.add(key); const categorySlug = parsed.categorySlug === undefined ? undefined : text(parsed.categorySlug, 100); if (categorySlug && !SLUG.test(categorySlug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ key, status: status(parsed.status), items: Object.freeze(list(parsed.items, 48).map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) }); });
   const assetIds = new Set<string>();
-  const assets = list(root.assets, 24).map((entry) => { const parsed = record(entry, ["id", "status"], ["image"]); const id = text(parsed.id, 36); if (!UUID.test(id) || assetIds.has(id)) throw new StorefrontDesignPreviewApiError(); assetIds.add(id); const selectedStatus = status(parsed.status); const image = parsed.image === undefined ? undefined : asset(parsed.image); if ((selectedStatus === "ready") !== Boolean(image)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ id, status: selectedStatus, ...(image ? { image } : {}) }); });
+  const assets = list(root.assets, 40).map((entry) => { const parsed = record(entry, ["id", "status"], ["image"]); const id = text(parsed.id, 36); if (!UUID.test(id) || assetIds.has(id)) throw new StorefrontDesignPreviewApiError(); assetIds.add(id); const selectedStatus = status(parsed.status); const image = parsed.image === undefined ? undefined : asset(parsed.image); if ((selectedStatus === "ready") !== Boolean(image)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ id, status: selectedStatus, ...(image ? { image } : {}) }); });
   const hotspotIds = new Set<string>();
   const hotspots = list(root.hotspots, 12).map((entry) => { const parsed = record(entry, ["productId", "status"], ["value"]); const productId = text(parsed.productId, 36); if (!UUID.test(productId) || hotspotIds.has(productId)) throw new StorefrontDesignPreviewApiError(); hotspotIds.add(productId); const selectedStatus = status(parsed.status); let selected; if (parsed.value !== undefined) { const value = record(parsed.value, ["productSlug", "title", "priceCents", "currency"]); if (value.currency !== "TRY" || !SLUG.test(text(value.productSlug, 100))) throw new StorefrontDesignPreviewApiError(); selected = Object.freeze({ productSlug: value.productSlug as string, title: text(value.title, 200), priceCents: nonnegativeInteger(value.priceCents, Number.MAX_SAFE_INTEGER), currency: "TRY" as const }); } if ((selectedStatus === "ready") !== Boolean(selected)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ productId, status: selectedStatus, ...(selected ? { value: selected } : {}) }); });
   const category = record(root.categoryShowcase, ["status"], ["value"]); const categoryStatus = status(category.status); let categoryValue;
   if (category.value !== undefined) { const selected = record(category.value, ["heading", "layout", "items"]); if (!['duo','grid'].includes(selected.layout as string)) throw new StorefrontDesignPreviewApiError(); categoryValue = Object.freeze({ heading: text(selected.heading, 160), layout: selected.layout as "duo" | "grid", items: Object.freeze(list(selected.items, 8).map((entry) => { const item = record(entry, ["id", "name", "slug", "image"]); const id = text(item.id, 36), slug = text(item.slug, 100); if (!UUID.test(id) || !SLUG.test(slug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ id, name: text(item.name, 160), slug, image: asset(item.image) }); })) }); }
   if ((categoryStatus === "ready") !== Boolean(categoryValue)) throw new StorefrontDesignPreviewApiError();
-  return Object.freeze({ schemaVersion: 1, dependencyKey: expectedKey, productSources: Object.freeze(productSources), assets: Object.freeze(assets), hotspots: Object.freeze(hotspots), categoryShowcase: Object.freeze({ status: categoryStatus, ...(categoryValue ? { value: categoryValue } : {}) }) });
+  let productDetail: StorefrontDesignPreviewResources["productDetail"];
+  if (root.productDetail !== undefined) {
+    const detail = record(root.productDetail, ["status"], ["value"]); const selectedStatus = status(detail.status);
+    let product;
+    if (detail.value !== undefined) {
+      try { product = parsePublicProduct(detail.value); } catch { throw new StorefrontDesignPreviewApiError(); }
+      for (const media of product.media) safeProductMedia({ url: media.url, altText: media.altText, ...(media.width ? { width: media.width } : {}), ...(media.height ? { height: media.height } : {}) });
+    }
+    if ((selectedStatus === "ready") !== Boolean(product)) throw new StorefrontDesignPreviewApiError();
+    productDetail = Object.freeze({ status: selectedStatus, ...(product ? { value: product } : {}) });
+  }
+  const relatedProducts = root.relatedProducts === undefined ? undefined : Object.freeze(list(root.relatedProducts, 12).map(previewProduct));
+  let testimonials: StorefrontDesignPreviewResources["testimonials"];
+  if (root.testimonials !== undefined) {
+    const selected = record(root.testimonials, ["status", "items"]);
+    const items = Object.freeze(list(selected.items, 500).map((review) => {
+      const item = record(review, ["reviewerName", "rating", "body"], ["title", "merchantReply"]);
+      return Object.freeze({ reviewerName: text(item.reviewerName, 160), rating: integer(item.rating, 5) as 1 | 2 | 3 | 4 | 5, body: text(item.body, 2000), ...(item.title === undefined ? {} : { title: text(item.title, 200) }), ...(item.merchantReply === undefined ? {} : { merchantReply: text(item.merchantReply, 2000) }) });
+    }));
+    testimonials = Object.freeze({ status: status(selected.status), items });
+  }
+  let navigation: StorefrontDesignPreviewResources["navigation"];
+  if (root.navigation !== undefined) {
+    const selected = record(root.navigation, ["status"], ["value"]); const selectedStatus = status(selected.status);
+    const value = selected.value === undefined ? undefined : Object.freeze({ items: navigationItems(record(selected.value, ["items"]).items) });
+    if ((selectedStatus === "ready" || selectedStatus === "partial") !== Boolean(value)) throw new StorefrontDesignPreviewApiError();
+    navigation = Object.freeze({ status: selectedStatus, ...(value ? { value } : {}) });
+  }
+  return Object.freeze({ schemaVersion: 1, dependencyKey: expectedKey, productSources: Object.freeze(productSources), assets: Object.freeze(assets), hotspots: Object.freeze(hotspots), categoryShowcase: Object.freeze({ status: categoryStatus, ...(categoryValue ? { value: categoryValue } : {}) }), ...(productDetail ? { productDetail } : {}), ...(relatedProducts ? { relatedProducts } : {}), ...(testimonials ? { testimonials } : {}), ...(navigation ? { navigation } : {}) });
 }
 
 async function responseJson(response: Response): Promise<unknown> {
@@ -87,9 +133,9 @@ async function responseJson(response: Response): Promise<unknown> {
 
 export function createStorefrontDesignPreviewApi(fetcher: typeof fetch = fetch) {
   return Object.freeze({
-    async preview(input: StarterThemeComposition, signal?: AbortSignal): Promise<StorefrontDesignPreviewResources> {
-      const composition = normalizeStarterThemeCompositionV3(input); const dependencyKey = storefrontDesignPreviewDependencyKey(composition); let response: Response;
-      try { response = await fetcher("/api/storefront-design/preview", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ composition }), signal }); }
+    async preview(input: StarterThemeComposition, signal?: AbortSignal, previewProductId?: string): Promise<StorefrontDesignPreviewResources> {
+      const composition = normalizeStarterThemeCompositionV3(input); const dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId); if (previewProductId !== undefined && !UUID.test(previewProductId)) throw new StorefrontDesignPreviewApiError(); let response: Response;
+      try { response = await fetcher("/api/storefront-design/preview", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ composition, ...(previewProductId ? { previewProductId } : {}) }), signal }); }
       catch (error) { if (error instanceof DOMException && error.name === "AbortError") throw error; throw new StorefrontDesignPreviewApiError(); }
       const value = await responseJson(response); if (!response.ok) throw new StorefrontDesignPreviewApiError();
       const envelope = record(value, ["code", "resources"]); if (envelope.code !== "ok") throw new StorefrontDesignPreviewApiError();

@@ -21,6 +21,7 @@ import type {
   StorefrontDesignHeroSlide,
   StorefrontDesignFontOption,
   StorefrontDesignMediaOption,
+  StorefrontDesignAssetOption,
   StorefrontDesignPublishIssue,
   StorefrontDesignTypography,
   StorefrontDesignWorkspace,
@@ -179,9 +180,9 @@ function parseDestination(value: unknown): DesignDestination {
   return Object.freeze({ kind: parsed.kind, resourceId: uuid(parsed.resourceId) });
 }
 
-function parseAnnouncement(value: unknown): StorefrontDesignAnnouncement {
+function parseAnnouncement(value: unknown, maximumLength = 120): StorefrontDesignAnnouncement {
   const parsed = exact(value, ["items", "icon", "speed", "direction", "animation", "enabled"]);
-  const items = Object.freeze(array(parsed.items, 1, 12).map((item) => text(item, 1, 120)));
+  const items = Object.freeze(array(parsed.items, 1, 12).map((item) => text(item, 1, maximumLength)));
   return Object.freeze({
     items,
     icon: oneOf(parsed.icon, STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS),
@@ -316,10 +317,23 @@ export function getStorefrontDesignPublishIssue(value: StorefrontDesignDocument)
   const enabled = design.hero.slides
     .map((slide, slideIndex) => Object.freeze({ slide, slideIndex }))
     .filter(({ slide }) => slide.enabled);
-  if (!enabled.length) return Object.freeze({ code: "hero_enabled_slide_missing" });
-  for (const { slide, slideIndex } of enabled) {
+  if (design.hero.enabled && !enabled.length) return Object.freeze({ code: "hero_enabled_slide_missing" });
+  for (const { slide, slideIndex } of design.hero.enabled ? enabled : []) {
     if (!slide.headline) return Object.freeze({ code: "hero_slide_headline_missing", slideIndex });
     if (slide.desktopImage === null) return Object.freeze({ code: "hero_slide_desktop_image_missing", slideIndex });
+  }
+  for (const section of design.composition.sections) {
+    if (!section.enabled) continue;
+    const sectionId = "sectionId" in section ? section.sectionId : undefined;
+    if (section.kind === "product_row" && section.source === "manual" && !section.productIds?.length) {
+      return Object.freeze({ code: "product_row_selection_missing", ...(sectionId ? { sectionId } : {}) });
+    }
+    // Absent mappings can use the tenant's legacy image library. Explicit mappings
+    // represent the editor's selection and must cover every visible card.
+    if (section.kind === "category_grid" && section.categoryImages) {
+      const categoryId = section.categoryIds.find((id) => !section.categoryImages?.some((image) => image.categoryId === id));
+      if (categoryId) return Object.freeze({ code: "category_grid_image_missing", ...(sectionId ? { sectionId } : {}), categoryId });
+    }
   }
   return null;
 }
@@ -393,7 +407,7 @@ export function parsePublicStorefrontDesign(value: unknown): PublicStorefrontDes
       endsAt,
       enabled: boolean(promotion.enabled),
     }),
-    announcement: parseAnnouncement(parsed.announcement),
+    announcement: parseAnnouncement(parsed.announcement, 160),
     typography: parseTypography(parsed.typography, brand.fontFamily),
   });
 }
@@ -414,13 +428,20 @@ function parseMediaOption(value: unknown): StorefrontDesignMediaOption {
 }
 
 function parseDestinationOption(value: unknown): StorefrontDesignDestinationOption {
-  const parsed = exact(value, ["kind", "resourceId", "label", "path"]);
+  const parsed = exact(value, ["kind", "resourceId", "label", "path"], ["searchTerms", "categoryIds", "imageUrl", "priceCents", "available"]);
+  if (parsed.kind !== "product" && ["searchTerms", "categoryIds", "imageUrl", "priceCents", "available"].some((key) => Object.hasOwn(parsed, key))) invalid();
   if (parsed.kind !== "product" && parsed.kind !== "collection" && parsed.kind !== "page") invalid();
-  return Object.freeze({ kind: parsed.kind, resourceId: uuid(parsed.resourceId), label: text(parsed.label, 1, 200), path: path(parsed.path) });
+  return Object.freeze({ kind: parsed.kind, resourceId: uuid(parsed.resourceId), label: text(parsed.label, 1, 200), path: path(parsed.path),
+    ...(Object.hasOwn(parsed, "searchTerms") ? { searchTerms: Object.freeze(array(parsed.searchTerms, 0, 100).map((item) => text(item, 1, 200))) } : {}),
+    ...(Object.hasOwn(parsed, "categoryIds") ? { categoryIds: Object.freeze(array(parsed.categoryIds, 0, 100).map(uuid)) } : {}),
+    ...(Object.hasOwn(parsed, "imageUrl") ? { imageUrl: httpsUrl(parsed.imageUrl) } : {}),
+    ...(Object.hasOwn(parsed, "priceCents") ? { priceCents: boundedInteger(parsed.priceCents, 0, Number.MAX_SAFE_INTEGER) } : {}),
+    ...(Object.hasOwn(parsed, "available") ? { available: boolean(parsed.available) } : {}),
+  });
 }
 
 export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesignWorkspace {
-  const parsed = exact(value, ["schemaVersion", "draftVersion", "publishedVersion", "draftUpdatedAt", "publishedAt", "draft", "published", "store", "media", "destinations"]);
+  const parsed = exact(value, ["schemaVersion", "draftVersion", "publishedVersion", "draftUpdatedAt", "publishedAt", "draft", "published", "store", "media", "destinations"], ["assets", "publishedDraft"]);
   if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
   const publishedVersion = positiveInteger(parsed.publishedVersion);
   const publishedAt = timestamp(parsed.publishedAt);
@@ -428,6 +449,12 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
   if (published.publicationVersion !== publishedVersion || published.publishedAt !== publishedAt) invalid();
   const store = exact(parsed.store, ["name", "timezone"]);
   const media = Object.freeze(array(parsed.media, 0, 500).map(parseMediaOption));
+  const assets = Object.hasOwn(parsed, "assets") ? Object.freeze(array(parsed.assets, 0, 2000).map((value): StorefrontDesignAssetOption => {
+    const item = exact(value, ["id", "url", "altText", "mediaType", "width", "height", "kind"]);
+    const { kind: _kind, ...media } = item;
+    return Object.freeze({ ...parseMediaOption(media), kind: oneOf(item.kind, ["logo", "hero", "social", "favicon", "category"] as const) });
+  })) : undefined;
+  if (assets && new Set(assets.map((item) => item.id)).size !== assets.length) invalid();
   const destinations = Object.freeze(array(parsed.destinations, 0, 2_000).map(parseDestinationOption));
   if (new Set(media.map((item) => item.id)).size !== media.length) invalid();
   if (new Set(destinations.map((item) => `${item.kind}:${item.resourceId}`)).size !== destinations.length) invalid();
@@ -443,5 +470,7 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
     store: Object.freeze({ name: text(store.name, 1, 160), timezone: timezone(store.timezone) }),
     media,
     destinations,
+    ...(assets ? { assets } : {}),
+    ...(Object.hasOwn(parsed, "publishedDraft") ? { publishedDraft: parseStorefrontDesignDocument(parsed.publishedDraft) } : {}),
   });
 }

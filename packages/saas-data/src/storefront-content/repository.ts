@@ -11,6 +11,8 @@ import type {
 } from "./types.ts";
 import {
   exactStorefrontContentInput,
+  parsePublicContentPage,
+  storefrontContentPageSlug,
   parsePolicyIndexPayload,
   parseProductSearchPayload,
   parsePublicPolicySource,
@@ -135,6 +137,14 @@ export class PostgresPublicStorefrontContentRepository extends PostgresStorefron
   constructor(options: PostgresPublicStorefrontContentRepositoryOptions) {
     validateOptions(options, ["pool", "role", "timeouts"], "celebix_saas_host_resolver");
     super(Object.freeze({ ...options, timeouts: Object.freeze({ ...options.timeouts }) }));
+  }
+
+  async getPage(input: Readonly<{ hostname: string; now: Date; slug: string }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "slug"]);
+    return this.read({
+      text: "SELECT outcome,result_payload FROM saas.public_content_page_get($1::text,$2::timestamptz,$3::text)",
+      values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), storefrontContentPageSlug(parsed.slug)],
+    }, "found", parsePublicContentPage);
   }
 
   async listPolicies(input: Parameters<PublicStorefrontContentRepository["listPolicies"]>[0]) {

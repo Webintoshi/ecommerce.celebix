@@ -49,7 +49,7 @@ test("campaign home mounts the durable category showcase once without navigation
   assert.doesNotMatch(source, /presentation[.]navigation|deriveJewelryCategoryPlaceholders|JewelryCategoryPlaceholders|PLACEHOLDER/);
   assert.doesNotMatch(source, /tenantId|storeId|categoryId|assetId/);
 });
-test("durable category showcase replaces stale composition content and preserves exact order", async () => {
+test("composition category content preserves exact heading layout and order despite legacy showcase", async () => {
   const module = await import("./campaign-home-sections.ts");
   const image = Object.freeze({ url: "https://media.saas-staging.celebix.site/stores/10000000-0000-4000-8000-000000000001/storefront/category/70000000-0000-4000-8000-000000000001.webp", mediaType: "image/webp", altText: "Kategori", width: 896, height: 1195 });
   const presentation = {
@@ -67,10 +67,7 @@ test("durable category showcase replaces stale composition content and preserves
   const sections = module.composeCampaignHomeSections(presentation as never, false);
   const categories = sections.filter(({ kind }) => kind === "category_grid");
   assert.equal(categories.length, 1);
-  assert.deepEqual(categories[0], { kind: "category_grid", heading: "Tek kaynak", layout: "duo", items: [
-    { name: "Yüzükler", slug: "yuzukler", image },
-    { name: "Kolyeler", slug: "kolyeler", image },
-  ] });
+  assert.deepEqual(categories[0], { kind: "category_grid", heading: "Eski içerik", layout: "grid", items: [{ name: "Menüden gelen", slug: "menu", image }] });
   assert.equal(Object.isFrozen(categories[0]), true);
 });
 test("durable showcase never invents a category section outside the merchant order", async () => {

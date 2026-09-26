@@ -12,7 +12,7 @@ import {
   type StorefrontAsset,
 } from "@celebix/saas-contracts";
 import { ArrowDown, ArrowUp, LoaderCircle, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
 import { StarterFooterEditor } from "@/components/settings/StarterFooterEditor";
@@ -170,6 +170,22 @@ export function StarterThemeComposer({
   const [pages, setPages] = useState<readonly MerchantAdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [announcementText, setAnnouncementText] = useState<string|null>(null);
+  const [announcementError, setAnnouncementError] = useState("");
+  const lastAnnouncementWrite = useRef<string|null>(null);
+  const [featuredSelection, setFeaturedSelection] = useState<Readonly<{ categoryId: string; assetId: string }> | null>(null);
+  const lastComposerWrite = useRef<string | null>(null);
+  const compositionIdentity = JSON.stringify(value);
+  useEffect(() => {
+    // A local write is acknowledged once. A later restore/conflict replacement,
+    // including one with equal saved values, discards the incomplete local pair.
+    if (lastComposerWrite.current !== compositionIdentity) setFeaturedSelection(null);
+    lastComposerWrite.current = null;
+  }, [value, compositionIdentity]);
+  const announcementIdentity = JSON.stringify(value?.announcement?.items);
+  useEffect(() => {
+    if (lastAnnouncementWrite.current !== announcementIdentity) { setAnnouncementText(null); setAnnouncementError(""); }
+  }, [announcementIdentity]);
   const [newSection, setNewSection] = useState<EditableSectionKind>("product_row");
 
   const load = useCallback(async () => {
@@ -214,10 +230,25 @@ export function StarterThemeComposer({
   const disabled = !canManage;
   const patch = (patchValue: Partial<StarterThemeEditorState>) => {
     try {
-      onChange(buildStarterThemeCompositionFromSession(editorSession, patchValue));
+      const next = buildStarterThemeCompositionFromSession(editorSession, patchValue);
+      lastComposerWrite.current = JSON.stringify(next);
+      onChange(next);
       setError("");
     } catch {
       setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+    }
+  };
+  const featuredPair = featuredSelection ?? { categoryId: state.navigation.featuredCategoryId ?? "", assetId: state.navigation.featuredAssetId ?? "" };
+  const featuredIncomplete = Boolean(featuredPair.categoryId) !== Boolean(featuredPair.assetId);
+  const chooseFeatured = (field: "categoryId" | "assetId", selected: string) => {
+    const pair = { ...featuredPair, [field]: selected };
+    setFeaturedSelection(pair);
+    setError("");
+    if (pair.categoryId && pair.assetId) patch({ navigation: { ...state.navigation, featuredCategoryId: pair.categoryId, featuredAssetId: pair.assetId } });
+    else if (!selected && (state.navigation.featuredCategoryId || state.navigation.featuredAssetId)) {
+      const navigation = { ...state.navigation };
+      delete navigation.featuredCategoryId; delete navigation.featuredAssetId;
+      patch({ navigation });
     }
   };
   const updateSection = (index: number, section: StarterThemeSectionConfigV2) => patch({
@@ -270,14 +301,20 @@ export function StarterThemeComposer({
             <label>Header genişliği<select value={state.visual.headerWidth} onChange={(event) => patch({ visual: { ...state.visual, headerWidth: event.currentTarget.value as StarterThemeEditorState["visual"]["headerWidth"] } })}><option value="wide">Geniş</option><option value="contained">Sınırlı</option></select></label>
           </div>
           <label className={styles.check}><input type="checkbox" checked={state.announcement.enabled} onChange={(event) => patch({ announcement: { ...state.announcement, enabled: event.currentTarget.checked } })} /> Duyuru şeridini göster</label>
-          <label>Duyuru metni<input maxLength={160} value={state.announcement.items.join(" · ")} onChange={(event) => patch({ announcement: { ...state.announcement, items: Object.freeze(event.currentTarget.value.split("·").map((item) => item.trim()).filter(Boolean).slice(0, 12)) } })} /></label>
+          <label>Duyuru metni<textarea maxLength={1452} value={announcementText ?? state.announcement.items.join("\n")} aria-invalid={Boolean(announcementError)} aria-describedby={announcementError ? "starter-announcement-error" : undefined} onChange={(event) => {
+            setAnnouncementText(event.currentTarget.value);
+            const items=event.currentTarget.value.split(/\n|·/).map(item=>item.trim()).filter(Boolean);
+            if(!items.length||items.length>12||items.some(item=>item.length>120)){setAnnouncementError("1–12 mesaj yazın; her mesaj en fazla 120 karakter olmalı. Son geçerli taslak korunuyor.");return;}
+            lastAnnouncementWrite.current=JSON.stringify(items);setAnnouncementError("");patch({announcement:{...state.announcement,items:Object.freeze(items)}});
+          }} />{announcementError?<small id="starter-announcement-error" className={styles.error} role="alert">{announcementError}</small>:null}</label>
           <label>Duyuru hedefi<input maxLength={500} placeholder="/pages/odeme-teslimat" value={state.announcement.destination ?? ""} onChange={(event) => { const announcement = { ...state.announcement }; if (event.currentTarget.value) announcement.destination = event.currentTarget.value; else delete announcement.destination; patch({ announcement }); }} /></label>
           <p className={styles.label}>Ana menü kategorileri</p>
           <div className={styles.choiceGrid}>{categories.length ? categories.map((category) => <label className={styles.check} key={category.id}><input type="checkbox" checked={state.navigation.rootCategoryIds.includes(category.id)} onChange={(event) => { const ids = event.currentTarget.checked ? [...state.navigation.rootCategoryIds, category.id].slice(0, 8) : state.navigation.rootCategoryIds.filter((id) => id !== category.id); patch({ navigation: updateStarterNavigationRoots(state.navigation, ids) }); }} />{category.name}</label>) : <p>Henüz etkin kategori yok.</p>}</div>
           <div className={styles.fieldGrid}>
-            <label>Öne çıkan kategori<select value={state.navigation.featuredCategoryId ?? ""} onChange={(event) => { const navigation = { ...state.navigation }; if (event.currentTarget.value) navigation.featuredCategoryId = event.currentTarget.value; else delete navigation.featuredCategoryId; patch({ navigation }); }}><option value="">Öne çıkan kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <label>Öne çıkan görsel<select value={state.navigation.featuredAssetId ?? ""} onChange={(event) => { const navigation = { ...state.navigation }; if (event.currentTarget.value) navigation.featuredAssetId = event.currentTarget.value; else delete navigation.featuredAssetId; patch({ navigation }); }}><option value="">Öne çıkan görsel yok</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
+            <label>Öne çıkan kategori<select value={featuredPair.categoryId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("categoryId", event.currentTarget.value)}><option value="">Öne çıkan kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <label>Öne çıkan görsel<select value={featuredPair.assetId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("assetId", event.currentTarget.value)}><option value="">Öne çıkan görsel yok</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
           </div>
+          {featuredIncomplete ? <p id="starter-featured-selection-help" className={styles.fieldHelp} role="status">Öne çıkan alan için kategori ve görsel seçin. İki seçim tamamlandığında taslağa kaydedilir.</p> : null}
         </fieldset> : null}
         {activePanel === "home" ? <section className={styles.sectionList} aria-labelledby="starter-sections-title">
           <div className={styles.sectionHeading}><div><h2 id="starter-sections-title">Ana sayfa bölümleri</h2><p>Sıralama için sürükleme gerekmez; yukarı ve aşağı kontrolleri klavyeyle çalışır.</p></div></div>

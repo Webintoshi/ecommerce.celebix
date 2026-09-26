@@ -65,6 +65,12 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   const [selectedSurface, setSelectedSurface] = useState<DesignCanvasSurface>(() => designCanvasSurfaceForLocation(initialLocation).key);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
+  const [assets, setAssets] = useState(workspace.assets ?? []);
+  const [destinations, setDestinations] = useState(workspace.destinations);
+  const [previewProductId, setPreviewProductId] = useState<string | undefined>();
+  const [publishedDraft, setPublishedDraft] = useState(workspace.publishedDraft);
+  const [showPublicationComparison, setShowPublicationComparison] = useState(false);
+  const [assetRefreshError, setAssetRefreshError] = useState("");
   const [recovery, setRecovery] = useState<StorefrontDesignWorkspace | null>(null);
   const [message, setMessage] = useState(editor.status === "conflict" ? "Kaydedilmemiş değişiklikleriniz geri getirildi. Kaydetmeden önce güncel taslakla karşılaştırın." : "");
   const [navigationRecovered, setNavigationRecovered] = useState(editor.status === "conflict");
@@ -73,7 +79,7 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   const [publishedAt, setPublishedAt] = useState(workspace.publishedAt);
   const [publishedRevision, setPublishedRevision] = useState<number | null>(null);
   const [failedOperation, setFailedOperation] = useState<"save" | "publish">("save");
-  const previewResources = useStorefrontDesignPreviewResources(editor.design.composition, initialPreviewResources);
+  const previewResources = useStorefrontDesignPreviewResources(editor.design.composition, initialPreviewResources, undefined, previewProductId);
   const editorRef = useRef(editor);
   const draftVersionRef = useRef(editor.draftVersion);
   const publishedVersionRef = useRef(workspace.publishedVersion);
@@ -90,6 +96,7 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   const publishLockRef = useRef(false);
   const readingRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
+  const assetRefreshSequenceRef = useRef(0);
   const canManageRef = useRef(canManage);
   canManageRef.current = canManage;
 
@@ -188,6 +195,19 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
     setMedia((current) => Object.freeze([...current.filter(({ id }) => id !== created.id), created]));
     return created;
   }, []);
+  const refreshAssets = useCallback(async () => {
+    const sequence = ++assetRefreshSequenceRef.current;
+    try {
+      const latest = await storefrontDesignApi.workspace();
+      if (!mountedRef.current || sequence !== assetRefreshSequenceRef.current) return;
+      setAssets(latest.assets ?? []);
+      setMedia(latest.media);
+      setDestinations(latest.destinations);
+      setAssetRefreshError("");
+    } catch {
+      if (mountedRef.current && sequence === assetRefreshSequenceRef.current) setAssetRefreshError("Görsel listesi yenilenemedi. Seçimleriniz korunuyor.");
+    }
+  }, []);
   const publish = useCallback(async () => {
     if (!canManageRef.current || abandonedRef.current || publishLockRef.current || failureRef.current || getStorefrontDesignPublishIssue(editorRef.current.design)) return;
     publishLockRef.current = true;
@@ -205,6 +225,8 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
       publishedVersionRef.current = result.publishedVersion;
       setPublishedAt(result.publishedAt);
       setPublishedRevision(editorRef.current.revision);
+      setPublishedDraft(editorRef.current.design);
+      setShowPublicationComparison(false);
       setMessage("");
       update((current) => ({ ...current, publishedVersion: result.publishedVersion, status: "saved" }));
     } catch (error) {
@@ -249,6 +271,10 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
     setPublishedAt(recovery.publishedAt);
     setPublishedRevision(null);
     setMedia(recovery.media);
+    setAssets(recovery.assets ?? []);
+    setDestinations(recovery.destinations);
+    setPublishedDraft(recovery.publishedDraft);
+    setShowPublicationComparison(false);
     setRecovery(null); setMessage("");
     if (overwrite) {
       // A fresh expected version is used only after this explicit overwrite choice.
@@ -264,7 +290,7 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   }, [cancelTimer, queueSave, recovery, recoveryScope, update]);
 
   const publishIssue = useMemo(() => getStorefrontDesignPublishIssue(editor.design), [editor.design]);
-  const publishIssueLabel = publishIssue?.code === "hero_enabled_slide_missing" ? "En az bir bannerı açın" : publishIssue?.code === "hero_slide_headline_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner başlığı gerekli` : publishIssue?.code === "hero_slide_desktop_image_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner görseli gerekli` : null;
+  const publishIssueLabel = publishIssue?.code === "hero_enabled_slide_missing" ? "Banner alanı açık. En az bir slaytı gösterin." : publishIssue?.code === "hero_slide_headline_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner başlığı gerekli` : publishIssue?.code === "hero_slide_desktop_image_missing" ? `${(publishIssue.slideIndex ?? 0) + 1}. banner görseli gerekli` : publishIssue?.code === "product_row_selection_missing" ? "Elle seçim yapılan ürün bölümüne ürün ekleyin." : publishIssue?.code === "category_grid_image_missing" ? "Kategori vitrininde eksik kart görselini seçin." : null;
 
   const selectSurface = useCallback((surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => {
     returnFocusRef.current = trigger ?? null;
@@ -281,10 +307,20 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   const selected = useMemo(() => designCanvasSurface(selectedSurface), [selectedSurface]);
 
   const publishDisabled = !canManage || busyPublishing || publishIssue !== null || ["saving", "publishing", "conflict", "error"].includes(editor.status);
-  const statusLabel = editor.status === "conflict" && navigationRecovered ? "Kaydedilmemiş taslak geri getirildi" : editor.status === "error" && failedOperation === "publish" ? "Yayınlanamadı" : editor.status === "saved" && publishedRevision === editor.revision ? "Yayınlandı" : STATUS_LABEL[editor.status];
+  const publicationDifferences = useMemo(() => publishedDraft ? compareDesignDrafts(editor.design, publishedDraft) : [], [editor.design, publishedDraft]);
+  const statusLabel = editor.status === "conflict" && navigationRecovered ? "Kaydedilmemiş taslak geri getirildi" : editor.status === "error" && failedOperation === "publish" ? "Yayınlanamadı" : editor.status === "saved" && (publishedRevision === editor.revision || (publishedDraft && publicationDifferences.length === 0)) ? "Yayınlandı" : editor.status === "saved" && publishedDraft ? "Taslak kaydedildi · Yayında değil" : STATUS_LABEL[editor.status];
   const differences = useMemo(() => recovery ? compareDesignDrafts(editor.design, recovery.draft) : [], [editor.design, recovery]);
   const recoveryControls = <>
     {message && <p role="alert">{message}</p>}
+    {publishIssueLabel && <p role="status">{publishIssueLabel}{publishIssue?.sectionId && <button type="button" onClick={() => selectSurface("homepage")}>Bölümü düzenle</button>}</p>}
+    {assetRefreshError && <p role="alert">{assetRefreshError} <button type="button" onClick={() => void refreshAssets()}>Görselleri yeniden yükle</button></p>}
+    {publishedDraft && publicationDifferences.length > 0 && <section className={styles.conflictRecovery} aria-label="Taslak ve yayın karşılaştırması">
+      <button type="button" aria-expanded={showPublicationComparison} onClick={() => setShowPublicationComparison((current) => !current)}>Yayındaki tasarımla karşılaştır</button>
+      {showPublicationComparison && <>
+        <div className={styles.conflictComparison}><table aria-label="Yayın farkları"><thead><tr><th>Alan</th><th>Bu taslak</th><th>Yayın sürümü {publishedVersionRef.current}</th></tr></thead><tbody>{publicationDifferences.map((row) => <tr key={row.field}><th scope="row">{row.field}</th><td>{row.local}</td><td>{row.remote}</td></tr>)}</tbody></table></div>
+        <button type="button" disabled={!canManage || busyPublishing || ["conflict", "error", "publishing"].includes(editor.status)} onClick={() => { change(publishedDraft); setShowPublicationComparison(false); }}>Yayındaki tasarıma dön</button>
+      </>}
+    </section>}
     {editor.status === "error" && (failedOperation === "publish"
       ? <button type="button" disabled={!canManage} onClick={() => void retrySave().then(publish)}>Yayınlamayı yeniden dene</button>
       : <button type="button" disabled={!canManage} onClick={() => void retrySave()}>Kaydetmeyi yeniden dene</button>)}
@@ -311,9 +347,9 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
     <div className={styles.designLayout}>
       <aside ref={inlineEditorRef} tabIndex={-1} className={styles.designEditor} aria-label="Tasarım düzenleyicisi">
         <nav className={styles.editorNavigation} aria-label="Tasarım adımları">{EDITOR_STEPS.map((item, index) => <button key={item.step} type="button" aria-current={item.step === location.step ? "step" : undefined} aria-controls="design-inline-editor" onClick={(event) => selectSurface(item.surface, event.currentTarget)}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><strong>{item.label}</strong></button>)}</nav>
-        <DesignSettingsModal open inline surface={selected} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage && !busyPublishing} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
+        <DesignSettingsModal open inline surface={selected} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} assets={assets} onAssetsChange={() => void refreshAssets()} destinations={destinations} canManage={canManage && !busyPublishing} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
       </aside>
-      <main className={styles.canvasStage} aria-label="Mağaza önizlemesi"><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={workspace.destinations} previewResources={previewResources} mode={previewMode} now={nowRef.current} selectedSurface={selectedSurface} onSelectSurface={selectCanvasSurface} /></main>
+      <main className={styles.canvasStage} aria-label="Mağaza önizlemesi"><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={destinations} previewResources={previewResources} previewProductId={previewProductId} onSelectPreviewProduct={setPreviewProductId} mode={previewMode} now={nowRef.current} selectedSurface={selectedSurface} onSelectSurface={selectCanvasSurface} /></main>
     </div>
   </section>;
 }

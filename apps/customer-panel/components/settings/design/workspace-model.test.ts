@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createDefaultStarterThemeComposition, normalizeStarterThemeCompositionV3, parseStorefrontDesignDocument } from "@celebix/saas-contracts";
 
-import type { HomepageUndo } from "./homepage-command-model.ts";
+import { removeHomepageSection } from "./homepage-command-model.ts";
 import { applyDesignEdit, clearHomepageUndo, createDesignEditorState } from "./workspace-model.ts";
 
 test("editor keeps one-level homepage undo in memory without adding it to the design document", () => {
@@ -24,7 +24,7 @@ test("editor keeps one-level homepage undo in memory without adding it to the de
     composition: createDefaultStarterThemeComposition(),
   });
   const state = createDesignEditorState({ draft: design, draftVersion: 2, publishedVersion: 1 });
-  const undo: HomepageUndo = Object.freeze({ label: "Bölümü geri getir", composition: normalizeStarterThemeCompositionV3(design.composition) });
+  const { undo } = removeHomepageSection(normalizeStarterThemeCompositionV3(design.composition), normalizeStarterThemeCompositionV3(design.composition).sections[0].sectionId);
   const edited = applyDesignEdit(state, design, undo);
 
   assert.equal(edited.homepageUndo, undo);

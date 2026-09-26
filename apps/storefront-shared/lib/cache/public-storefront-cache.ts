@@ -1,6 +1,5 @@
 import {
   parsePublicProductMedia,
-  parsePublicStorefrontDesign,
   type PublicProductMedia,
 } from "@celebix/saas-contracts";
 import type { Cache, CacheDataClass } from "@celebix/saas-cache";
@@ -71,13 +70,15 @@ export function createCachedPublicStorefrontRepository(
   return Object.freeze({
     getPublicStorefront: (input: Parameters<PublicStorefrontRepository["getPublicStorefront"]>[0]) => repository.getPublicStorefront(input),
     // A reference-set activation must affect the next catalog request, not
-    // wait for the old TTL. Media and design remain cacheable below.
+    // wait for the old TTL. Only product media remains cacheable below.
     listPublicProducts: (input: Parameters<PublicStorefrontRepository["listPublicProducts"]>[0]) => repository.listPublicProducts(input),
     ...(repository.queryPublicCatalog ? { queryPublicCatalog: (input: PublicCatalogQuery) => repository.queryPublicCatalog!(input) } : {}),
     listPublicProductsByCategory: (input: Parameters<PublicStorefrontRepository["listPublicProductsByCategory"]>[0]) => repository.listPublicProductsByCategory(input),
     getPublicProductBySlug: (input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]) => repository.getPublicProductBySlug(input),
     listPublicProductMedia: (input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]) => cached({ storeId: input.storefront.id, dataClass: "catalog", scope: "product-media", input: { productId: input.productId }, ttlSeconds: ttl.catalogSeconds, parser: parseMediaList, load: () => repository.listPublicProductMedia(input) }),
-    getPublicStorefrontDesign: (input: Parameters<PublicStorefrontRepository["getPublicStorefrontDesign"]>[0]) => cached({ storeId: input.storefront.id, dataClass: "settings", scope: "settings", input: {}, ttlSeconds: ttl.settingsSeconds, parser: parsePublicStorefrontDesign, load: () => repository.getPublicStorefrontDesign(input) }),
+    // Design and composition are read from committed authority on every request.
+    // Publication succeeds even if best-effort cache invalidation fails.
+    getPublicStorefrontDesign: (input: Parameters<PublicStorefrontRepository["getPublicStorefrontDesign"]>[0]) => repository.getPublicStorefrontDesign(input),
     ...(repository.resolveCampaignHome ? { resolveCampaignHome: (input: Parameters<NonNullable<PublicStorefrontRepository["resolveCampaignHome"]>>[0]) => repository.resolveCampaignHome!(input) } : {}),
     ...(repository.listRelatedPublicProducts ? { listRelatedPublicProducts: (input: Parameters<NonNullable<PublicStorefrontRepository["listRelatedPublicProducts"]>>[0]) => repository.listRelatedPublicProducts!(input) } : {}),
   });

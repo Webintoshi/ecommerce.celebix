@@ -111,7 +111,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const store = context({ storefront: parsed.storefront });
     if (parsed.categorySlug !== null) categorySlug(parsed.categorySlug);
     if (typeof parsed.query !== "string" || parsed.query !== parsed.query.trim() || CONTROL.test(parsed.query) || Buffer.byteLength(parsed.query, "utf8") > 100
-      || !(["all", "available", "discounted"] as unknown[]).includes(parsed.filter)
+      || !(["all", "available", "discounted", "available_discounted"] as unknown[]).includes(parsed.filter)
       || !(["featured", "title-asc", "price-asc", "price-desc"] as unknown[]).includes(parsed.order)
       || !Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48
       || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 10_000) throw failure("invalid_input");

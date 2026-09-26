@@ -654,6 +654,7 @@ export type {
   StorefrontDesignHero,
   StorefrontDesignHeroSlide,
   StorefrontDesignMediaOption,
+  StorefrontDesignAssetOption,
   StorefrontDesignPromotion,
   StorefrontDesignTypography,
   StorefrontDesignPublishIssue,

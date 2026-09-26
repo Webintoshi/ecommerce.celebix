@@ -51,14 +51,14 @@ export type StarterCampaignPanelConfig = Readonly<{
 export type StarterThemeSectionConfig =
   | Readonly<{ kind: "hero"; enabled: boolean; slides: readonly StarterHeroSlideConfig[] }>
   | Readonly<{ kind: "category_grid"; enabled: boolean; heading: string; categoryIds: readonly string[] }>
-  | Readonly<{ kind: "product_row"; enabled: boolean; heading: string; source: "latest" | "sale" | "category"; categoryId?: string; limit: 4 | 8 | 12 }>
+  | Readonly<{ kind: "product_row"; enabled: boolean; heading: string; source: "latest" | "sale" | "category" | "manual"; categoryId?: string; productIds?: readonly string[]; limit: 4 | 8 | 12 }>
   | Readonly<{ kind: "split_campaign"; enabled: boolean; panels: readonly StarterCampaignPanelConfig[] }>
   | Readonly<{ kind: "brand_story"; enabled: boolean; eyebrow?: string; heading: string; body: string; assetId?: string; destination?: string }>;
 
 export type StarterValueIcon = "sparkles" | "cotton" | "heart" | "shield" | "truck" | "return";
 export type StarterThemeSectionConfigV2 =
   | Exclude<StarterThemeSectionConfig, Readonly<{ kind: "category_grid" }>>
-  | Readonly<{ kind: "category_grid"; enabled: boolean; heading: string; categoryIds: readonly string[]; layout: CategoryShowcaseLayout }>
+  | Readonly<{ kind: "category_grid"; enabled: boolean; heading: string; categoryIds: readonly string[]; categoryImages?: readonly Readonly<{ categoryId: string; assetId: string }>[]; layout: CategoryShowcaseLayout }>
   | Readonly<{ kind: "value_propositions"; enabled: boolean; items: readonly Readonly<{ icon: StarterValueIcon; heading: string; body: string }>[] }>
   | Readonly<{ kind: "testimonials"; enabled: boolean; heading: string; source: "approved_product_reviews"; limit: 3 | 6 | 9; minimumRating: 4 | 5 }>;
 
@@ -149,7 +149,7 @@ export type PublicStarterNavigation = Readonly<{ items: readonly PublicStarterNa
 export type PublicStarterHomeSectionV2 =
   | Readonly<{ kind: "hero"; slides: readonly Readonly<{ eyebrow?: string; heading: string; body?: string; desktopImage?: PublicStorefrontAsset; mobileImage?: PublicStorefrontAsset; destination: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number; currency: "TRY" }> }>[] }>
   | Readonly<{ kind: "category_grid"; heading: string; layout: CategoryShowcaseLayout; items: readonly Readonly<{ name: string; slug: string; image: PublicStorefrontAsset }>[] }>
-  | Readonly<{ kind: "product_row"; key: string; heading: string; source: "latest" | "sale" | "category"; categorySlug?: string; limit: 4 | 8 | 12 }>
+  | Readonly<{ kind: "product_row"; key: string; heading: string; source: "latest" | "sale" | "category" | "manual"; categorySlug?: string; productIds?: readonly string[]; limit: 4 | 8 | 12 }>
   | Readonly<{ kind: "split_campaign"; panels: readonly Readonly<{ eyebrow?: string; heading: string; body?: string; image: PublicStorefrontAsset; destination: string }>[] }>
   | Readonly<{ kind: "brand_story"; eyebrow?: string; heading: string; body: string; image?: PublicStorefrontAsset; destination?: string }>;
 

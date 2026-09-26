@@ -70,6 +70,11 @@ function compileRenderer(): Readonly<{ StorefrontDesignRenderer: (props: Readonl
   const load = (id: string): unknown => {
     if (id === "./model.ts") return { isStorefrontPromotionActive };
     if (id === "./typography.ts") return { createStorefrontTypographyResources };
+    if (id === "./StorefrontNavigation.tsx") {
+      const source = new URL("../../../../../packages/storefront-design-ui/src/StorefrontNavigation.tsx", import.meta.url);
+      const output = ts.transpileModule(readFileSync(source, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+      const navigation = { exports: {} }; new Function("require", "module", "exports", output)(require, navigation, navigation.exports); return navigation.exports;
+    }
     return require(id);
   };
   new Function("require", "module", "exports", output)(load, module, module.exports);
@@ -110,6 +115,22 @@ function compileSharedProductCardContent(navigate: () => void = () => undefined)
   return module.exports as Readonly<{ ProductCardContent: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
 }
 
+function compileSharedCampaignHero() {
+  const filename = new URL("../../../../storefront-shared/components/CampaignHero.tsx", import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), {compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const module = {exports:{}};
+  const load = (id:string):unknown => {
+    if (id.endsWith(".css")) return {__esModule:true,default:styles};
+    if (id === "next/link") return {__esModule:true,default:({href,children}:Readonly<{href:string;children:ReactNode}>)=>React.createElement("a",{href},children)};
+    if (id === "./CampaignHeroClient") return {CampaignHeroClient:({children}:Readonly<{children:ReactNode}>)=>React.createElement("div",null,children)};
+    if (id === "../lib/format.ts") return {formatTry:(value:number)=>`${value} TRY`};
+    if (id === "../lib/storefront-routes.ts") return {localizeStorefrontPath:(value:string)=>value,productPath:(_locale:string,slug:string)=>`/products/${slug}`};
+    return require(id);
+  };
+  new Function("require","module","exports",output)(load,module,module.exports);
+  return module.exports;
+}
+
 function compileSharedCampaignSectionContent(): Readonly<{ CampaignSectionContent: (props: Readonly<Record<string, unknown>>) => ReactNode }> {
   const filename = new URL("../../../../storefront-shared/components/CampaignSectionContent.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
@@ -118,7 +139,8 @@ function compileSharedCampaignSectionContent(): Readonly<{ CampaignSectionConten
   const module = { exports: {} };
   const empty = () => null;
   const load = (id: string): unknown => {
-    if (id === "./CampaignHero") return { CampaignHero: empty };
+    if (id.endsWith(".css")) return { __esModule: true, default: styles };
+    if (id === "./CampaignHero") return compileSharedCampaignHero();
     if (id === "./CampaignPanels") return { CampaignCategories: empty, CampaignPanels: empty, CampaignStory: empty };
     if (id === "./CampaignTestimonials") return { CampaignTestimonials: empty };
     if (id === "./CampaignValuePropositions") return { CampaignValuePropositions: empty };
@@ -129,6 +151,14 @@ function compileSharedCampaignSectionContent(): Readonly<{ CampaignSectionConten
   return module.exports as Readonly<{ CampaignSectionContent: (props: Readonly<Record<string, unknown>>) => ReactNode }>;
 }
 
+function compileProductPresentation(file = "ProductDetailPresentation.tsx") {
+  const filename = new URL(`../../../../../packages/storefront-design-ui/src/${file}`, import.meta.url);
+  const output = ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} };
+  new Function("require", "module", "exports", output)((id: string) => id === "./ProductDetailSummary.tsx" ? compileProductPresentation("ProductDetailSummary.tsx") : require(id), module, module.exports);
+  return module.exports;
+}
+
 function compileCanvas(navigate: () => void = () => undefined): CanvasModule {
   const filename = new URL("./VisualStorefrontCanvas.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
@@ -137,7 +167,7 @@ function compileCanvas(navigate: () => void = () => undefined): CanvasModule {
   const module = { exports: {} };
   const load = (id: string): unknown => {
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
-    if (id === "@celebix/storefront-design-ui") return { ...compileRenderer(), createPreviewStorefrontDesign };
+    if (id === "@celebix/storefront-design-ui") return { ...compileRenderer(), ...compileProductPresentation(), createPreviewStorefrontDesign };
     if (id === "../StarterThemePreviewScaffolds") return compileScaffolds();
     if (id.endsWith("storefront-shared/components/CampaignSectionContent")) return compileSharedCampaignSectionContent();
     if (id.endsWith("storefront-shared/components/ProductCardContent")) return compileSharedProductCardContent(navigate);
@@ -496,12 +526,12 @@ test("the top-level design hero owns output when it and a stored composition her
   assert.equal((markup.match(/aria-label="Mağaza bannerları"/g) ?? []).length, 1);
 });
 
-test("stored section configuration is disclosed without fabricating unresolved storefront data", () => {
+test("intentionally disabled banner with disabled legacy section stays off", () => {
   const sections = Object.freeze([
     Object.freeze({
       sectionId: "home_composition_hero",
       kind: "hero",
-      enabled: true,
+      enabled: false,
       slides: Object.freeze([Object.freeze({
         heading: "COMPOSITION_HERO",
         desktopAssetId: COMPOSITION_DESKTOP_MEDIA,
@@ -514,12 +544,11 @@ test("stored section configuration is disclosed without fabricating unresolved s
   const markup = renderCanvas({ ...BASE_DESIGN, composition: composition(sections) }, { destinations: DESTINATIONS });
 
   for (const text of [
-    "COMPOSITION_HERO",
-    `Masaüstü görsel kimliği: ${COMPOSITION_DESKTOP_MEDIA}`,
-    `Mobil görsel kimliği: ${COMPOSITION_MOBILE_MEDIA}`,
     "Düzen: İki büyük görsel",
     "Fixture Category",
   ]) assert.match(markup, new RegExp(text));
+  assert.doesNotMatch(markup, /COMPOSITION_HERO/);
+  assert.match(markup, /Banner alanı kapalı/);
   assert.match(markup, /yayın vitrininin sunucu tarafında çözümlenir/);
   const storedHeroMarkup = markup.slice(
     markup.indexOf('data-preview-section-kind="hero"'),
@@ -527,4 +556,47 @@ test("stored section configuration is disclosed without fabricating unresolved s
   );
   assert.doesNotMatch(storedHeroMarkup, /<img|<picture|canvasExampleMedia/);
   assert.match(markup, /Kategori görsel alanları için örnek yerleşim/);
+});
+
+test("real product selector and PDP controls only change local preview while purchase stays disabled", async () => {
+  const productId = "50000000-0000-4000-8000-000000000090";
+  const nextProductId = "50000000-0000-4000-8000-000000000092";
+  const product = {id:productId,slug:"gercek-kolye",title:"Gerçek kolye",currency:"TRY",status:"active",priceCents:129900,available:true,variants:[],media:[]};
+  const resources = {schemaVersion:1,dependencyKey:"actual",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"missing"},productDetail:{status:"ready",value:product}};
+  const window = new Window({url:"https://fixture.invalid/settings/design"});
+  const previousWindow = globalThis.window, previousDocument = globalThis.document;
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  const container = window.document.createElement("div"); window.document.body.append(container);
+  const selections: string[] = [];
+  const {VisualStorefrontCanvas} = compileCanvas();
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    await React.act(async () => root.render(React.createElement(VisualStorefrontCanvas,{design:BASE_DESIGN,storeName:"Fixture",publishedVersion:7,publishedAt:NOW,media:[],destinations:[{kind:"product",resourceId:productId,label:"Kolye",path:"/products/gercek-kolye"},{kind:"product",resourceId:nextProductId,label:"Yüzük",path:"/products/gercek-yuzuk"}],previewResources:resources,mode:"mobile",now:new Date(NOW),onSelectSurface:()=>undefined,onSelectPreviewProduct:(id:string)=>selections.push(id)})));
+    const select = container.querySelector('select[aria-label="Önizlenecek gerçek ürün"]') as unknown as HTMLSelectElement;
+    select.value = nextProductId;
+    await React.act(async () => select.dispatchEvent(new window.Event("change",{bubbles:true}) as unknown as Event));
+    assert.deepEqual(selections,[nextProductId]);
+    const quantity = container.querySelector('.celebix-product-preview button[aria-label="Adedi artır"]');
+    assert.ok(quantity);
+    await React.act(async () => quantity.dispatchEvent(new window.MouseEvent("click",{bubbles:true,cancelable:true})));
+    assert.equal(container.querySelector('.celebix-product-preview output')?.textContent,"2");
+    const purchase = [...container.querySelectorAll('button')].find((button)=>button.textContent === "Sepete ekle");
+    const checkout = [...container.querySelectorAll('button')].find((button)=>button.textContent === "Ödemeye geç");
+    assert.ok(purchase?.disabled); assert.ok(checkout?.disabled);
+  } finally {
+    await React.act(async()=>root.unmount()); await window.happyDOM.close();
+    globalThis.window = previousWindow; globalThis.document = previousDocument;
+  }
+});
+
+
+test("old customized design with inactive fixed hero preserves its enabled legacy hero fallback", () => {
+  const image = {url:"https://media.example/legacy.webp",mediaType:"image/webp",altText:"Legacy hero",width:1200,height:800};
+  const design = {...BASE_DESIGN,composition:composition([{sectionId:"home_legacy_visible",kind:"hero",enabled:true,slides:[{heading:"VISIBLE_LEGACY_HERO",desktopAssetId:COMPOSITION_DESKTOP_MEDIA,destination:"/products"}]}])};
+  const markup = renderCanvas(design,{previewResources:{schemaVersion:1,dependencyKey:"legacy",productSources:[],assets:[{id:COMPOSITION_DESKTOP_MEDIA,status:"ready",image}],hotspots:[],categoryShowcase:{status:"missing"}}});
+  assert.match(markup,/VISIBLE_LEGACY_HERO/);
+  assert.match(markup,/src="https:\/\/media.example\/legacy.webp"/);
+  assert.doesNotMatch(markup,/Banner alanı kapalı/);
 });
