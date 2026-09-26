@@ -1,0 +1,46 @@
+{
+  "regression": "Local Toshi rejected current catalog summary ninth field and current catalog product list public metadata.",
+  "changes": [
+    "Allow optional outOfStockProducts with strict nonnegative safe integer and totalProducts upper bound; preserve exact legacy eight-field DTO.",
+    "Validate current catalogTotal/featuredImages/variantSummaries envelope fields and shared variant/stock summary contract before local product matching.",
+    "Use current v2 read-only product list/detail routes so dynamic pricing does not trigger legacy 503.",
+    "Preserve existing page/product/variant/result/concurrency/cursor limits and same-origin no-store GET behavior."
+  ],
+  "independentAudit": "Customer/order/abandoned summary and search DTOs match public shared contract; SQL162 measurement-bearing variant DTO accepted; v2 route switch necessary for active dynamic pricing.",
+  "tests": [
+    {
+      "phase": "red",
+      "exitCode": 1,
+      "logPath": "/Users/Celebix/.codex/toshi-ai-runtime/local-catalog-dto-red.log",
+      "counts": {
+        "tests": 4,
+        "pass": 2,
+        "fail": 2,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "phase": "green",
+      "exitCode": 0,
+      "logPath": "/Users/Celebix/.codex/toshi-ai-runtime/local-catalog-dto-green.log",
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "modifiedPaths": [
+    "apps/customer-panel/lib/toshi-local/client.ts",
+    "apps/customer-panel/lib/toshi-local.test.ts"
+  ],
+  "diffCheckPassed": true,
+  "buildRun": false,
+  "fullSuiteRun": false,
+  "providerCalls": 0,
+  "liveMutations": 0,
+  "deploymentRun": false
+}

@@ -1,0 +1,221 @@
+{
+  "normal": {
+    "phase": "normal",
+    "startedAt": "2026-09-26T18:00:47.074958+00:00",
+    "finishedAt": "2026-09-26T18:04:07.512492+00:00",
+    "exitCode": 1,
+    "logPath": "private-runtime/full-panel-tests-normal.log",
+    "testScriptSha256": "981ffc5b99d702066da5fb4a7f48eddcebb5d79a9f72f8720695a1e4ae4c898b",
+    "counts": {
+      "tests": 1573,
+      "suites": 0,
+      "pass": 1564,
+      "fail": 8,
+      "cancelled": 0,
+      "skipped": 1,
+      "todo": 0
+    },
+    "failureNames": [
+      "actual Next catalog and inventory pages redirect the genuine signed-out runtime",
+      "effective scoped graphite keyboard focus: catalog-onboarding/category-management.module.css",
+      "Toshi uses the shared compact page header and keeps the assistant workspace unobstructed",
+      "analytics can suppress route copy and right-align its sticky topbar context",
+      "desktop topbar follows route transitions while the active bridge keeps precedence",
+      "product and category surfaces receive server-derived delete capability and keep archive separate",
+      "category manager presents hierarchy without exposing technical slugs",
+      "category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus"
+    ]
+  },
+  "reactServer": {
+    "phase": "react-server",
+    "startedAt": "2026-09-26T18:00:47.076001+00:00",
+    "finishedAt": "2026-09-26T18:01:22.690190+00:00",
+    "exitCode": 0,
+    "logPath": "private-runtime/full-panel-tests-react-server.log",
+    "testScriptSha256": "981ffc5b99d702066da5fb4a7f48eddcebb5d79a9f72f8720695a1e4ae4c898b",
+    "counts": {
+      "tests": 86,
+      "suites": 0,
+      "pass": 86,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "failureNames": []
+  },
+  "combinedCounts": {
+    "tests": 1659,
+    "suites": 0,
+    "pass": 1650,
+    "fail": 8,
+    "cancelled": 0,
+    "skipped": 1,
+    "todo": 0
+  },
+  "matchesPreviouslyReportedSevenFailureNames": [
+    "actual Next catalog and inventory pages redirect the genuine signed-out runtime",
+    "effective scoped graphite keyboard focus: catalog-onboarding/category-management.module.css",
+    "analytics can suppress route copy and right-align its sticky topbar context",
+    "desktop topbar follows route transitions while the active bridge keeps precedence",
+    "product and category surfaces receive server-derived delete capability and keep archive separate",
+    "category manager presents hierarchy without exposing technical slugs",
+    "category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus"
+  ],
+  "newFailureNames": [
+    "Toshi uses the shared compact page header and keeps the assistant workspace unobstructed"
+  ],
+  "failureLocations": [
+    "lib/catalog-page-guard.integration.test.ts:68:1",
+    "lib/mira-final-regressions.test.ts:103:50",
+    "lib/mira-settings-presentation.test.ts:546:1",
+    "lib/panel-shell.test.ts:634:1",
+    "lib/panel-shell.test.ts:1308:1",
+    "lib/permanent-delete-dialog.test.ts:18:1",
+    "lib/product-onboarding-console.test.ts:140:1",
+    "lib/product-onboarding-console.test.ts:147:1"
+  ],
+  "comparisonCaveat": "Tracked baseline audit proves six inherited assertion failures. The seventh matching name is the prior signed-out Next runtime timeout, which was not run on baseline and remains inconclusive.",
+  "newFailureCause": "mira-settings-presentation.test.ts expects workspace overflow visible; Toshi viewport bounding correction intentionally uses hidden, bounded height, minmax(0,1fr), and conversation overflow-y:auto.",
+  "baselineEvidencePath": "docs/qa/evidence/deepseek-provider/baseline-suite-audit.json",
+  "inheritedBaselineAssertionFailureNames": [
+    "effective scoped graphite keyboard focus: catalog-onboarding/category-management.module.css",
+    "analytics can suppress route copy and right-align its sticky topbar context",
+    "desktop topbar follows route transitions while the active bridge keeps precedence",
+    "product and category surfaces receive server-derived delete capability and keep archive separate",
+    "category manager presents hierarchy without exposing technical slugs",
+    "category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus"
+  ],
+  "previouslyReportedTimeout": {
+    "name": "actual Next catalog and inventory pages redirect the genuine signed-out runtime",
+    "reproducedInCurrentFullSuite": true,
+    "baselineResult": "NOT_RUN",
+    "classification": "inconclusive_test_environment_or_load_timeout"
+  },
+  "targetedIntroducedFixResults": [
+    {
+      "phase": "toshi-mira-fix",
+      "exitCode": 0,
+      "logPath": "private-runtime/full-panel-tests-toshi-mira-fix.log",
+      "counts": {
+        "tests": 1,
+        "suites": 0,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "phase": "toshi-shell-fix",
+      "exitCode": 0,
+      "logPath": "private-runtime/full-panel-tests-toshi-shell-fix.log",
+      "counts": {
+        "tests": 7,
+        "suites": 0,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    }
+  ],
+  "fullSuiteRerunAfterFix": false,
+  "claimFullSuiteGreen": false,
+  "unresolvedPreviouslyReportedFailureCount": 7,
+  "auditedCurrentSourceHashes": [
+    {
+      "path": "apps/customer-panel/lib/mira-final-regressions.test.ts",
+      "currentSha256": "ec2ff9237c925224f840e334457ae49fe0c02b42e541bf91bfaf5f76d057f7e8",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/mira-final-test-support.ts",
+      "currentSha256": "d137fb673d91cc8f8d2838cd99e4a971fef0562caadf24b7d480307904640660",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-shell.test.ts",
+      "currentSha256": "2b3acb120eacda5b8aed3b47b20f32e1463ce835cee056aaa7a17d9c6d1a23f3",
+      "matchesBaseline": false
+    },
+    {
+      "path": "apps/customer-panel/lib/permanent-delete-dialog.test.ts",
+      "currentSha256": "3ba1063e328b1f98d85c042dadc57f5a4515b6782972c8602b99cc7eae3c154a",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/product-onboarding-console.test.ts",
+      "currentSha256": "6894400adf493238c012c476dfe4e17be1f5b3386787c38bf4382324a82c94bc",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/catalog-page-guard.integration.test.ts",
+      "currentSha256": "38345d1ab9cdb12a5249653efe757555906d3d6b09d71891394f07accbb60fd1",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx",
+      "currentSha256": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/category-management.module.css",
+      "currentSha256": "299b961107ccc6c63344e211d2e91344f428cc010555567de1a906b0f78b9359",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDetailConsole.tsx",
+      "currentSha256": "2b46eef0407b4ae991f5896785ecb1e765ddf1bddef41bf6fd8fa4fd25fbb357",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/app/products/categories/page.tsx",
+      "currentSha256": "688cafff933de3e40bd2542270215b71ff083912f1d90977101cf32b2a01ce0a",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/app/products/[productId]/page.tsx",
+      "currentSha256": "5781923aa393f2a032d4e59247ad0c5164fa7814ccc2a01129308ba6a11c88fe",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelLayoutClient.tsx",
+      "currentSha256": "d3868a5a26a27a5444de753035bda2bbb4d88bbd77ca7ce529c07ca597911f12",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelTopbarChrome.tsx",
+      "currentSha256": "84634c8c1a77dcdb853c93d95b48f269996f2e6babb951659083c35f92d18cc5",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/panel-shell.module.css",
+      "currentSha256": "15c4e01746e74609455ba9472c51b427f002d9314b538a13290f7356b48cd7b4",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/navigation.ts",
+      "currentSha256": "5af8ab0e1f2971d4cbde6514ac5e992f612e551528e42e89ca009f1eb74a4a6d",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/chrome-model.ts",
+      "currentSha256": "e1b36581e7ec882d8859184d4af884fffe2854410bf34d406761f5fe044ccf03",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/authority-slice.ts",
+      "currentSha256": "6508583b9ac9f5c0e003829aad9eddfa71f1e2c71ad998922d228f50a36a4780",
+      "matchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/dashboard-model.ts",
+      "currentSha256": "6ed67a832dbb80b96c890c5f7760d05076d7bdf03361f96bd6abf7017e72a9c0",
+      "matchesBaseline": true
+    }
+  ],
+  "timingNote": "Fullsuite was run before cancellation regression and final barcode merge; current merged targeted server24/client+barcode100 separately pass. Added Toshi assertion fixed with targeted1+7; fullsuite was not rerun."
+}

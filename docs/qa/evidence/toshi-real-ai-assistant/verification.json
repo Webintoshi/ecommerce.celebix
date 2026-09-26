@@ -1,0 +1,73 @@
+{
+  "source": "919d4c72c56951f592772588da1d17321743ed18",
+  "mergedPanelTypecheck": "PASS",
+  "sharedTypes": "contracts/data PASS",
+  "contractsRepositoryMigrationTests": {
+    "pass": 37,
+    "fail": 0
+  },
+  "mergedServerToolsHTTPTests": {
+    "pass": 24,
+    "fail": 0
+  },
+  "mergedGenerationUIBarcodeTests": {
+    "pass": 100,
+    "fail": 0
+  },
+  "independentReview": [
+    "tool result JSON optional normalization fixed",
+    "version0 and definitive failed operation UI recovery fixed",
+    "2MiB Unicode snapshot actualPG confirmed",
+    "status-only Gemini429 fixed",
+    "uncertain completion during cancellation same-operation recovery preserved"
+  ],
+  "fullSuiteGreen": false,
+  "productionBuilds": [
+    {
+      "target": "customer-panel",
+      "status": 0,
+      "signal": null
+    },
+    {
+      "target": "storefront-shared",
+      "status": 0,
+      "signal": null
+    }
+  ],
+  "deployment": "NET/SITE finished, final source d02c4160, global queue0",
+  "liveSQL164": "PASS; full conservation guard committed",
+  "finalSource": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+  "finalTargetTests": {
+    "localGenerationUI": {
+      "pass": 46,
+      "fail": 0
+    },
+    "serverToolsHTTP": {
+      "pass": 24,
+      "fail": 0
+    }
+  },
+  "finalPanelProductionBuild": {
+    "target": "customer-panel",
+    "source": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+    "status": 0,
+    "signal": null
+  },
+  "unchangedStorefrontProductionBuild": "PASS on919d; final d02 only modifies local panel parser/tests, storefront unchanged",
+  "localCatalogRegression": "15/15 and independent review PASS",
+  "finalRuntime": {
+    "sourceFiles": 46,
+    "paymentMetadataFiles": 2,
+    "compiledRoutes": 9,
+    "net": "PASS",
+    "site": "PASS"
+  },
+  "finalHealth": "4admins200/ok/redisready,2storefront200",
+  "accessGuards": {
+    "pass": 24,
+    "fail": 0
+  },
+  "realDeepSeek": "Two paid app questions on919d, panel_help source and follow-up context correct; saved answers reopened on finald02 with no additional paid call",
+  "localMode": "Finald02 real summary and existing SKU match PASS",
+  "cleanup": "Exact clone and owned bridge/helpers removed; six verifiedroot0600backups retained; no cache/image/volume prune"
+}

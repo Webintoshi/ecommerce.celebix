@@ -1,0 +1,15 @@
+{
+  "database": "celebix_saas_staging_auth01",
+  "existingTablesConserved": 234,
+  "existingFunctionsConserved": 1234,
+  "newPrivateTables": 4,
+  "newFunctions": 10,
+  "migrationSha256": "da6c070a18ae39c618003038be0bac7f42c5d2c9b24e3826a981f0e1331db801",
+  "appliedAt": "2026-09-26T18:14:04.547332+00:00",
+  "transactionCommitted": true,
+  "backup": {
+    "path": "/data/celebix-release-backups/toshi_ai_20260926_live.dump",
+    "sha256": "7728b8f8c048f2f0e5461f8df6dcde60df304053a2ac6b2523e59b6bec8355fc",
+    "mode": "0600"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-09-26T18:18:08.449Z",
+  "records": [
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/health",
+      "kind": "admin",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/health",
+      "kind": "admin",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/health",
+      "kind": "admin",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health",
+      "kind": "admin",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/",
+      "kind": "storefront",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/",
+      "kind": "storefront",
+      "status": 200,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

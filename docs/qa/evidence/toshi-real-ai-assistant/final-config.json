@@ -1,0 +1,86 @@
+[
+    {
+        "uuid": "yk1h6d97z7ex0h74ok3zrj5c",
+        "branch": "codex/toshi-ai-assistant",
+        "commit": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+        "autoDeploy": false,
+        "previewDeploy": false,
+        "preHookSha256": "ace00b971421954c7d2c01911fda9dd44103e899d421873679250f182a96eaa3",
+        "postHookSha256": "a594d05ac19cc95ff4eba0d19e5617987c21ce3d885642f89b270f0b0852d78e",
+        "environment": [
+            {
+                "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+                "value": "approved_test_sandbox",
+                "runtime": true,
+                "buildtime": true
+            },
+            {
+                "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+                "value": "sha256:2be32f44034ac28bc4381a5fecf08a265f79c0417e709af38621d15cfe854ba9",
+                "runtime": true,
+                "buildtime": true
+            },
+            {
+                "key": "SOURCE_COMMIT",
+                "value": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+                "runtime": true,
+                "buildtime": true
+            },
+            {
+                "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+                "value": "sha256:16f3cce930501d20b4e66bce63d9f71f5f4a98ad469f24f40da43025e2c6e914",
+                "runtime": true,
+                "buildtime": true
+            },
+            {
+                "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+                "value": "approved_live",
+                "runtime": true,
+                "buildtime": true
+            }
+        ],
+        "active": []
+    },
+    {
+        "uuid": "e4xe74cmii7jucbkyor0o412",
+        "branch": "codex/toshi-ai-assistant",
+        "commit": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+        "autoDeploy": false,
+        "previewDeploy": false,
+        "preHookSha256": "ace00b971421954c7d2c01911fda9dd44103e899d421873679250f182a96eaa3",
+        "postHookSha256": "a594d05ac19cc95ff4eba0d19e5617987c21ce3d885642f89b270f0b0852d78e",
+        "environment": [
+            {
+                "key": "CELEBIX_PAYTR_TEST_APPROVAL_MODE",
+                "value": "approved_test_sandbox",
+                "runtime": false,
+                "buildtime": false
+            },
+            {
+                "key": "SOURCE_COMMIT",
+                "value": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+                "runtime": true,
+                "buildtime": true
+            },
+            {
+                "key": "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST",
+                "value": "sha256:16f3cce930501d20b4e66bce63d9f71f5f4a98ad469f24f40da43025e2c6e914",
+                "runtime": false,
+                "buildtime": false
+            },
+            {
+                "key": "CELEBIX_PAYTR_LIVE_APPROVAL_MODE",
+                "value": "approved_live",
+                "runtime": false,
+                "buildtime": false
+            },
+            {
+                "key": "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+                "value": "sha256:2be32f44034ac28bc4381a5fecf08a265f79c0417e709af38621d15cfe854ba9",
+                "runtime": false,
+                "buildtime": false
+            }
+        ],
+        "active": []
+    }
+]

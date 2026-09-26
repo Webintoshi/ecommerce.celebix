@@ -1,0 +1,12 @@
+[
+  {
+    "target": "customer-panel",
+    "status": 0,
+    "signal": null
+  },
+  {
+    "target": "storefront-shared",
+    "status": 0,
+    "signal": null
+  }
+]

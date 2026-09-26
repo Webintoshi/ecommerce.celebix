@@ -1,0 +1,51 @@
+{
+  "status": "prepared_not_queued",
+  "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+  "branch": "codex/toshi-ai-assistant",
+  "source": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+  "backupPath": "/var/www/html/storage/app/backups/toshi-release-private-20260926/yk1h6d97z7ex0h74ok3zrj5c-d02c41604cd26cec4d8cd93cbdabe76029c8822c-raw-encrypted.json",
+  "backupSha256": "3cbfe89453a9c3262469e9d62b8757e75b8eced46763eaff230f89f3449dd150",
+  "deploymentUuid": null,
+  "rawStoredAttributesPreserved": true,
+  "autoDeploy": false,
+  "previewDeploy": false,
+  "preHookSha256": "ace00b971421954c7d2c01911fda9dd44103e899d421873679250f182a96eaa3",
+  "postHookSha256": "a594d05ac19cc95ff4eba0d19e5617987c21ce3d885642f89b270f0b0852d78e",
+  "counts": {
+    "settings": 1,
+    "environment": 89
+  },
+  "publicBindings": {
+    "CELEBIX_PAYTR_LIVE_APPROVAL_MODE": {
+      "id": 9908,
+      "value": "approved_live",
+      "runtime": true,
+      "buildtime": true
+    },
+    "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": {
+      "id": 9907,
+      "value": "sha256:16f3cce930501d20b4e66bce63d9f71f5f4a98ad469f24f40da43025e2c6e914",
+      "runtime": true,
+      "buildtime": true
+    },
+    "CELEBIX_PAYTR_TEST_APPROVAL_MODE": {
+      "id": 9893,
+      "value": "approved_test_sandbox",
+      "runtime": true,
+      "buildtime": true
+    },
+    "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": {
+      "id": 9895,
+      "value": "sha256:2be32f44034ac28bc4381a5fecf08a265f79c0417e709af38621d15cfe854ba9",
+      "runtime": true,
+      "buildtime": true
+    },
+    "SOURCE_COMMIT": {
+      "id": 9901,
+      "value": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+      "runtime": true,
+      "buildtime": true
+    }
+  },
+  "copyBackupToHostBeforeQueue": "/data/celebix-release-backups"
+}

@@ -1,0 +1,174 @@
+{
+  "checkedAt": "2026-09-26T18:54:40.940Z",
+  "records": [
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/products/new",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/products/inventory-counts",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/settings/artificial-intelligence",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/toshi",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/toshi/conversations",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/toshi/conversations/72000000-0000-4000-8000-000000000012",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/products/new",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/products/inventory-counts",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/settings/artificial-intelligence",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/toshi",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/toshi/conversations",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/toshi/conversations/72000000-0000-4000-8000-000000000012",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/products/new",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/products/inventory-counts",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/settings/artificial-intelligence",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/toshi",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/toshi/conversations",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/toshi/conversations/72000000-0000-4000-8000-000000000012",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/products/new",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/products/inventory-counts",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/settings/artificial-intelligence",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/toshi",
+      "api": false,
+      "status": 307,
+      "location": "/login",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/toshi/conversations",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/toshi/conversations/72000000-0000-4000-8000-000000000012",
+      "api": true,
+      "status": 401,
+      "location": null,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

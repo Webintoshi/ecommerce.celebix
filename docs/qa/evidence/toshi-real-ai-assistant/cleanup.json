@@ -1,0 +1,14 @@
+{
+  "sql164": "Already committed once; no reapply during local parser release",
+  "clone": "Exact disposable celebix_toshi_ai_qa_20260926 dropped after zero connections; subsequent name count0",
+  "bridge": {
+    "ownedBridgeStopped": true,
+    "scriptHashVerified": "1333b5d68b1beb168906bdb21ccd955be411b430f7ff507936cf577e42f05dcc",
+    "bridgeFilesRemoved": true
+  },
+  "sshTunnel": "Owned PTY session32664 no longer running; reported remote connection reset at close",
+  "connectionFileRemoved": true,
+  "productionBackupsRetained": true,
+  "imagesVolumesCachePruned": false,
+  "remainingTemporaryReleaseHelpers": "Completed; exact hash/owner validated owned helpers removed, see final-cleanup.json"
+}

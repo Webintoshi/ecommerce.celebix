@@ -1,0 +1,62 @@
+{
+  "containerHelpersRemoved": [
+    "/tmp/queue-toshi-release.php",
+    "/tmp/toshi-ai-deployment-status.php",
+    "/tmp/toshi-ai-coolify-read.php"
+  ],
+  "hostHelpersRemoved": [
+    "/tmp/queue-toshi-release.php",
+    "/tmp/toshi-ai-deployment-status.php",
+    "/tmp/toshi-ai-coolify-read.php",
+    "/tmp/toshi-ai-cleanup-owned-bridge.py",
+    "/tmp/toshi-ai-live-migration.sql"
+  ],
+  "backupsRetained": [
+    {
+      "path": "/data/celebix-release-backups/toshi_ai_20260926_live.dump",
+      "sha256": "7728b8f8c048f2f0e5461f8df6dcde60df304053a2ac6b2523e59b6bec8355fc",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    },
+    {
+      "path": "/data/celebix-release-backups/toshi_ai_20260926_qa.dump",
+      "sha256": "030a84de76677bd1d1379dfc1a7988c2838017d5a7c1f0f12b911bd45a8e8cbb",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    },
+    {
+      "path": "/data/celebix-release-backups/toshi-coolify-net-20260926-919d4c72.json",
+      "sha256": "86e9ab618fa53ce73c15512b97a6fb7b8f66290cdd48f3975597fdbc130d8d35",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    },
+    {
+      "path": "/data/celebix-release-backups/toshi-coolify-site-20260926-919d4c72.json",
+      "sha256": "e818d094f206f98221a00361ac0bf26556aaa7d77539aaf6e6c5ad6e9c349f0a",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    },
+    {
+      "path": "/data/celebix-release-backups/toshi-coolify-net-20260926-d02c4160.json",
+      "sha256": "f7a8961285a3f7e6abad767a6815c6ec14ab5f03211a3d11a09a9202468d7e89",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    },
+    {
+      "path": "/data/celebix-release-backups/toshi-coolify-site-20260926-d02c4160.json",
+      "sha256": "3cbfe89453a9c3262469e9d62b8757e75b8eced46763eaff230f89f3449dd150",
+      "mode": "0600",
+      "owner": "root",
+      "verified": true
+    }
+  ],
+  "cloneAbsent": true,
+  "bridgeScriptAbsent": true,
+  "availableBytes": 9581203456,
+  "imagesVolumesCachePruned": false
+}

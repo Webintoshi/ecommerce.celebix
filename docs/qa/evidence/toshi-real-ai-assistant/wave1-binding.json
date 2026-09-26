@@ -1,0 +1,34 @@
+{
+  "sha": "919d4c72c56951f592772588da1d17321743ed18",
+  "env": {
+    "SOURCE_COMMIT": "919d4c72c56951f592772588da1d17321743ed18",
+    "CELEBIX_PAYTR_TEST_APPROVAL_MODE": "approved_test_sandbox",
+    "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST": "sha256:bcc4e9fed31fbdb251cd49dcb684bf683ad72facc0664bbfa82d9fcaa5e6c66b",
+    "CELEBIX_PAYTR_LIVE_APPROVAL_MODE": "approved_live",
+    "CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST": "sha256:9a532a78e85d51ba10672b2e08bfb3ef8445323579620f50f88ba0d86f0780e2"
+  },
+  "candidates": {
+    "test": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "test",
+      "adapterVersion": 1,
+      "gitSha": "919d4c72c56951f592772588da1d17321743ed18",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:bcc4e9fed31fbdb251cd49dcb684bf683ad72facc0664bbfa82d9fcaa5e6c66b"
+    },
+    "live": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "live",
+      "adapterVersion": 1,
+      "gitSha": "919d4c72c56951f592772588da1d17321743ed18",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:9a532a78e85d51ba10672b2e08bfb3ef8445323579620f50f88ba0d86f0780e2"
+    }
+  }
+}

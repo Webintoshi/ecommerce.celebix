@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-09-26T18:39:22.492856+00:00",
+  "host": "admin.guzidekuyumcu.com.tr",
+  "source": "919d4c72c56951f592772588da1d17321743ed18",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "method": "Authenticated native Chrome UI; existing merchant connection; no plaintext credential read or direct provider test call",
+  "questions": [
+    "Ürüne 14,89 gram bilgisini nasıl eklerim? Panel yardımını kontrol ederek anlat.",
+    "Bu bilgi zorunlu mu?"
+  ],
+  "result": {
+    "firstAnswer": "Explained optional physical measurements: enter14,89 and select g; product/new source visible",
+    "followUp": "Answered no, physical measurements are optional; weight is not stock quantity or price; followed conversation context",
+    "sourcesVisible": true,
+    "realAnswers": 2
+  },
+  "historyReloadFinalSource": {
+    "source": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+    "pass": true,
+    "method": "New authenticated native Chrome tab loaded /toshi after SITE final runtime PASS; latest saved gram conversation reopened with both questions, answers and panel source links",
+    "additionalPaidCalls": 0
+  },
+  "localModeFinalSource": {
+    "source": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+    "host": "butik-siora.admin.saas-staging.celebix.net",
+    "providerAbsentMode": "Yerel mod visible",
+    "summary": {
+      "pass": true,
+      "text": "Mağazada10ürün,0bekleyen sipariş,0aktifmüşteri,1terkedilmişsepet",
+      "sourceVisible": true
+    },
+    "catalogSearch": {
+      "pass": true,
+      "query": "Ürün ara SRA-2024-HAKI",
+      "matchedExistingProduct": true,
+      "expected": "Lunea Noir Asimetrik Düğmeli Vintage Jean",
+      "resultCount": 1,
+      "sourceVisible": true,
+      "comparison": "Read existing product table SKU/title, then ran read-only local Toshi query; no product mutation"
+    },
+    "activeUserWork": "Native Chrome QA tab reused by user for products/new?mode=advanced; preserved current form and other tabs"
+  },
+  "otherProviders": "adapter fixtures only, not live merchant calls",
+  "historyReloadFirstWave": {
+    "source": "919d4c72c56951f592772588da1d17321743ed18",
+    "pass": true,
+    "method": "Native Cmd+R retained both questions, both answers and sources; same AX tree after reload"
+  },
+  "finalCheckedAt": "2026-09-26T18:58:16.152804+00:00",
+  "browserCleanup": "Only final root-created native QA tab was closed; earlier user-reused tabs and design/product work preserved; temporary IAB fixture unmarked after viewport reset"
+}

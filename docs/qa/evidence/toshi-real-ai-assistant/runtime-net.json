@@ -1,0 +1,291 @@
+{
+  "application": "e4xe74cmii7jucbkyor0o412",
+  "container": "b6267963294aa827438638dd50bbba5b02d2e14f343fc91ee2dc2790130813a6",
+  "name": "e4xe74cmii7jucbkyor0o412-184204758203",
+  "image": "e4xe74cmii7jucbkyor0o412:d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+  "checkedAt": "2026-09-26T18:48:12.650Z",
+  "comparisons": {
+    "source": {
+      "expected": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+      "actual": "d02c41604cd26cec4d8cd93cbdabe76029c8822c",
+      "matches": true
+    },
+    "files": {
+      "apps/customer-panel/app/api/toshi/conversations/[conversationId]/route.ts": {
+        "expected": "6247beec5d6730448756ddc9552a8cb2033266cb1f23257a95021651db7d27d2",
+        "actual": "6247beec5d6730448756ddc9552a8cb2033266cb1f23257a95021651db7d27d2",
+        "matches": true
+      },
+      "apps/customer-panel/app/api/toshi/conversations/route.ts": {
+        "expected": "788b7c731f06886b0d161b4205fe184bd17dd6e8f9449ceb8b15beca273dcf73",
+        "actual": "788b7c731f06886b0d161b4205fe184bd17dd6e8f9449ceb8b15beca273dcf73",
+        "matches": true
+      },
+      "apps/customer-panel/app/api/toshi/messages/route.ts": {
+        "expected": "4266567f706759541690fdaef6ed71928bd567c9038f2606a86d5d40698bc1e1",
+        "actual": "4266567f706759541690fdaef6ed71928bd567c9038f2606a86d5d40698bc1e1",
+        "matches": true
+      },
+      "apps/customer-panel/components/catalog-admin/BarcodeLabelStudio.tsx": {
+        "expected": "65eb9d1641220e56a6e895fa978582a64fdd208edd79a35141a82568e0b9c78d",
+        "actual": "65eb9d1641220e56a6e895fa978582a64fdd208edd79a35141a82568e0b9c78d",
+        "matches": true
+      },
+      "apps/customer-panel/components/catalog-admin/barcode-label-studio.css": {
+        "expected": "515e1f336e7bd87a1ef7750d90fd7b28f306f71821856d780d0b6d2344cf0491",
+        "actual": "515e1f336e7bd87a1ef7750d90fd7b28f306f71821856d780d0b6d2344cf0491",
+        "matches": true
+      },
+      "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": {
+        "expected": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+        "actual": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+        "matches": true
+      },
+      "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": {
+        "expected": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+        "actual": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+        "matches": true
+      },
+      "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": {
+        "expected": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+        "actual": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+        "matches": true
+      },
+      "apps/customer-panel/components/orders/OrderDetailConsole.tsx": {
+        "expected": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+        "actual": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+        "matches": true
+      },
+      "apps/customer-panel/components/orders/OrderListConsole.tsx": {
+        "expected": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+        "actual": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+        "matches": true
+      },
+      "apps/customer-panel/components/panel/PanelLayoutClient.tsx": {
+        "expected": "17fa54eaabe1e032b60bf4801f0afef0098802451d3dc007cb1942d8b15ca594",
+        "actual": "17fa54eaabe1e032b60bf4801f0afef0098802451d3dc007cb1942d8b15ca594",
+        "matches": true
+      },
+      "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx": {
+        "expected": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+        "actual": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+        "matches": true
+      },
+      "apps/customer-panel/components/toshi/ToshiAssistant.tsx": {
+        "expected": "b5c3d748d3bced5f1ff95e12f4deaa0c66f502a1a2de8486942f521bdc53096a",
+        "actual": "b5c3d748d3bced5f1ff95e12f4deaa0c66f502a1a2de8486942f521bdc53096a",
+        "matches": true
+      },
+      "apps/customer-panel/components/toshi/toshi.module.css": {
+        "expected": "6b51ba5b2f3c5baebdb36ae3555273a119c117a5726a47005fdb3d80daae93f1",
+        "actual": "6b51ba5b2f3c5baebdb36ae3555273a119c117a5726a47005fdb3d80daae93f1",
+        "matches": true
+      },
+      "apps/customer-panel/lib/barcode-label-http/handler.ts": {
+        "expected": "e726554baf83bf8f2c1ee4a919a07fc33eaea420bb8267af5dfc439bf62391f6",
+        "actual": "e726554baf83bf8f2c1ee4a919a07fc33eaea420bb8267af5dfc439bf62391f6",
+        "matches": true
+      },
+      "apps/customer-panel/lib/barcode-labels/document.ts": {
+        "expected": "822e605e52a4f50c5f55b9057ea39f856fe71c1a700db89087dff08fcad1dfa8",
+        "actual": "822e605e52a4f50c5f55b9057ea39f856fe71c1a700db89087dff08fcad1dfa8",
+        "matches": true
+      },
+      "apps/customer-panel/lib/barcode-labels/selection.ts": {
+        "expected": "1bf768c9ac02a4b2c9e88313329326ad19ac0eab5dd2e54cc7390e2a6575ec1c",
+        "actual": "1bf768c9ac02a4b2c9e88313329326ad19ac0eab5dd2e54cc7390e2a6575ec1c",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts": {
+        "expected": "41ed8d58604579cf9cb7a5657c1bad79a0601bfcb8d45412823a762cdc7e198d",
+        "actual": "41ed8d58604579cf9cb7a5657c1bad79a0601bfcb8d45412823a762cdc7e198d",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/credential-input.ts": {
+        "expected": "821b7d90cf5338d94cfbbe6f32f5b88321c0aac1ff621ec839e715aabcaf4c85",
+        "actual": "821b7d90cf5338d94cfbbe6f32f5b88321c0aac1ff621ec839e715aabcaf4c85",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/knowledge.ts": {
+        "expected": "1fb35b7abead68c585ebe614c100c892ceddd8069e8c1852aefd318d2db94214",
+        "actual": "1fb35b7abead68c585ebe614c100c892ceddd8069e8c1852aefd318d2db94214",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/runtime.ts": {
+        "expected": "d3f412a3ccf64f82c513aa823ffe6dcbacaefeebafae283afcb3a3eb5e696011",
+        "actual": "d3f412a3ccf64f82c513aa823ffe6dcbacaefeebafae283afcb3a3eb5e696011",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/service.ts": {
+        "expected": "ce19905773ebfad9449697fb6006e153c80f3338b6302c8ccdbc9cd83d4abd62",
+        "actual": "ce19905773ebfad9449697fb6006e153c80f3338b6302c8ccdbc9cd83d4abd62",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/tools.ts": {
+        "expected": "8880c2cf4837eb8f341db9584057fb66b9de6d1238add77cdd15a45154788818",
+        "actual": "8880c2cf4837eb8f341db9584057fb66b9de6d1238add77cdd15a45154788818",
+        "matches": true
+      },
+      "apps/customer-panel/lib/server-toshi-chat/validation.ts": {
+        "expected": "263e9c495c8e9392aef6fd34a657140507dc94ec5b3a91ea96c5edd97a5e4374",
+        "actual": "263e9c495c8e9392aef6fd34a657140507dc94ec5b3a91ea96c5edd97a5e4374",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-chat-http/default.ts": {
+        "expected": "dd7c4b2e4f3c38f4206ed83217a3713586a4ec719324f271f7d86e9ced9d1d16",
+        "actual": "dd7c4b2e4f3c38f4206ed83217a3713586a4ec719324f271f7d86e9ced9d1d16",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-chat-http/handler.ts": {
+        "expected": "0f31ba2db6f2574e2e4749dd4466206ccf9c11a95b8e329b98ab2efa22aebc49",
+        "actual": "0f31ba2db6f2574e2e4749dd4466206ccf9c11a95b8e329b98ab2efa22aebc49",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-chat-ui/client.ts": {
+        "expected": "d6ebbd9bb7fd63601c058b3e468c94cb36d0fc78a099634a3ae96457f244bbbd",
+        "actual": "d6ebbd9bb7fd63601c058b3e468c94cb36d0fc78a099634a3ae96457f244bbbd",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/anthropic.ts": {
+        "expected": "1a765997ff84187e3742c32d39894436ebf74ba57541eba13ae34a4dc8fea103",
+        "actual": "1a765997ff84187e3742c32d39894436ebf74ba57541eba13ae34a4dc8fea103",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/deepseek.ts": {
+        "expected": "f2ef8619ce46a8d374f687b6fdde4a140f6aabe3410d3a3078edbe34052e84a6",
+        "actual": "f2ef8619ce46a8d374f687b6fdde4a140f6aabe3410d3a3078edbe34052e84a6",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/gemini.ts": {
+        "expected": "518c37a1de53d7090a18c76246fd06843cb8947ebd74eafe690b913412223ae6",
+        "actual": "518c37a1de53d7090a18c76246fd06843cb8947ebd74eafe690b913412223ae6",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/openai.ts": {
+        "expected": "1140c57d279740e7ab83b96b0e9c443a467ccad3558909c673e32c864e47a495",
+        "actual": "1140c57d279740e7ab83b96b0e9c443a467ccad3558909c673e32c864e47a495",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/policy.ts": {
+        "expected": "0bd91de0756f9a161f07609557585a55f066957271bfc7b746e94a0cadf255fc",
+        "actual": "0bd91de0756f9a161f07609557585a55f066957271bfc7b746e94a0cadf255fc",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/registry.ts": {
+        "expected": "2407790a0a80dc1cf45e6eae5c28b70581c1fa72883a933d42d1b0551270f471",
+        "actual": "2407790a0a80dc1cf45e6eae5c28b70581c1fa72883a933d42d1b0551270f471",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-generation/types.ts": {
+        "expected": "892e0a4ac3fbc5df5b05a7914b2f8cfb0779ae07cb5707d7288e33f62619859c",
+        "actual": "892e0a4ac3fbc5df5b05a7914b2f8cfb0779ae07cb5707d7288e33f62619859c",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts": {
+        "expected": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+        "actual": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+        "matches": true
+      },
+      "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql": {
+        "expected": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f",
+        "actual": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f",
+        "matches": true
+      },
+      "apps/owner/scripts/sql/saas/202609260164_toshi_conversations.up.sql": {
+        "expected": "da6c070a18ae39c618003038be0bac7f42c5d2c9b24e3826a981f0e1331db801",
+        "actual": "da6c070a18ae39c618003038be0bac7f42c5d2c9b24e3826a981f0e1331db801",
+        "matches": true
+      },
+      "packages/saas-contracts/src/index.ts": {
+        "expected": "e56d2e1164994681ed1ae6148d0d9d79ee1bd47e4f27febbc0f06565fa5bdaea",
+        "actual": "e56d2e1164994681ed1ae6148d0d9d79ee1bd47e4f27febbc0f06565fa5bdaea",
+        "matches": true
+      },
+      "packages/saas-contracts/src/toshi/conversations.ts": {
+        "expected": "d64dd387d7c7bf94e007ff37493dde4869acf49b40520a61260497ceb06673be",
+        "actual": "d64dd387d7c7bf94e007ff37493dde4869acf49b40520a61260497ceb06673be",
+        "matches": true
+      },
+      "packages/saas-contracts/src/toshi/index.ts": {
+        "expected": "d7f5f40565372579095b47c7ad89bedbbf77a69ab318950dd43ea46fb3db3e63",
+        "actual": "d7f5f40565372579095b47c7ad89bedbbf77a69ab318950dd43ea46fb3db3e63",
+        "matches": true
+      },
+      "packages/saas-data/src/index.ts": {
+        "expected": "e7bd3561c2331e27561b4b276ec2fc21bb20c8a8cea2b8b7dd0cc98ab9443a7e",
+        "actual": "e7bd3561c2331e27561b4b276ec2fc21bb20c8a8cea2b8b7dd0cc98ab9443a7e",
+        "matches": true
+      },
+      "packages/saas-data/src/toshi-conversations/errors.ts": {
+        "expected": "1668f34a1737d396898dba3e8984017a9a1ae9abb1241bcc4d57bc0609a1f4eb",
+        "actual": "1668f34a1737d396898dba3e8984017a9a1ae9abb1241bcc4d57bc0609a1f4eb",
+        "matches": true
+      },
+      "packages/saas-data/src/toshi-conversations/index.ts": {
+        "expected": "83bcd78b31b901598fa0f4eee925a648ca9ea1c35098b06453c43e924c3cbda9",
+        "actual": "83bcd78b31b901598fa0f4eee925a648ca9ea1c35098b06453c43e924c3cbda9",
+        "matches": true
+      },
+      "packages/saas-data/src/toshi-conversations/repository.ts": {
+        "expected": "ad20bdb158fd4e2d0586a899419cba125ac8f428831f4cebecd77a1f107a31b9",
+        "actual": "ad20bdb158fd4e2d0586a899419cba125ac8f428831f4cebecd77a1f107a31b9",
+        "matches": true
+      },
+      "packages/saas-data/src/toshi-conversations/types.ts": {
+        "expected": "c9ebe575f10f0ff648c3924998910aef78ca21775c6de08cba8da81d2bcbd74c",
+        "actual": "c9ebe575f10f0ff648c3924998910aef78ca21775c6de08cba8da81d2bcbd74c",
+        "matches": true
+      },
+      "apps/customer-panel/lib/toshi-local/client.ts": {
+        "expected": "54a53342fb07aaa8550c213921a3b1de3950ddc76d23ae8c4b29377c24de8904",
+        "actual": "54a53342fb07aaa8550c213921a3b1de3950ddc76d23ae8c4b29377c24de8904",
+        "matches": true
+      }
+    },
+    "metadataHashes": {
+      "packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts": {
+        "expected": "8a7b51058f8258fd1b4408306ad3ce35898403146234e186814d9b0defca1b7c",
+        "actual": "8a7b51058f8258fd1b4408306ad3ce35898403146234e186814d9b0defca1b7c",
+        "matches": true
+      },
+      "packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts": {
+        "expected": "2f9760a1a27fb1e8f1ca16ff6f0c6bb1f0fd1b5b4c39ac13a5d47fcd4faa86ab",
+        "actual": "2f9760a1a27fb1e8f1ca16ff6f0c6bb1f0fd1b5b4c39ac13a5d47fcd4faa86ab",
+        "matches": true
+      }
+    },
+    "compiled": {
+      "server/app/api/toshi/messages/route.js": {
+        "exists": true
+      },
+      "server/app/api/toshi/conversations/route.js": {
+        "exists": true
+      },
+      "server/app/api/toshi/conversations/[conversationId]/route.js": {
+        "exists": true
+      },
+      "server/app/toshi/page.js": {
+        "exists": true
+      },
+      "server/app/products/barcode-labels/page.js": {
+        "exists": true
+      },
+      "server/app/orders/page.js": {
+        "exists": true
+      },
+      "server/app/orders/quick-links/page.js": {
+        "exists": true
+      },
+      "server/app/products/new/page.js": {
+        "exists": true
+      },
+      "server/app/settings/artificial-intelligence/page.js": {
+        "exists": true
+      }
+    },
+    "failures": [],
+    "checkedAt": "2026-09-26T18:48:12.882Z"
+  },
+  "failures": [],
+  "verdict": "PASS"
+}
