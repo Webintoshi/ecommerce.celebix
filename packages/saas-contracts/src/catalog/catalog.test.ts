@@ -309,3 +309,27 @@ test("product-list variant summary rejects extra keys and unsafe list values", (
     assert.throws(() => parseCatalogProductListVariantSummary(value), /catalog_contract_invalid/);
   }
 });
+
+
+test("whole-product stock preserves representative variant stock and freezes the aggregate", () => {
+  const parsed = parseCatalogProductListVariantSummary({
+    variantId: VARIANT_ID, priceCents: 100, stockTracking: true, stockQuantity: 0,
+    productStock: { trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: 2 },
+  });
+  assert.equal(parsed.stockQuantity, 0);
+  assert.deepEqual(parsed.productStock, { trackedVariantCount: 3, untrackedVariantCount: 0, trackedQuantity: 2 });
+  assert.equal(Object.isFrozen(parsed.productStock), true);
+});
+
+test("whole-product stock rejects malformed counts and quantities without tracked variants", () => {
+  for (const productStock of [
+    null, {},
+    { trackedVariantCount: -1, untrackedVariantCount: 0, trackedQuantity: 0 },
+    { trackedVariantCount: 1, untrackedVariantCount: 0.5, trackedQuantity: 0 },
+    { trackedVariantCount: 1, untrackedVariantCount: 0, trackedQuantity: Number.MAX_SAFE_INTEGER + 1 },
+    { trackedVariantCount: 0, untrackedVariantCount: 1, trackedQuantity: 1 },
+    { trackedVariantCount: 1, untrackedVariantCount: 0, trackedQuantity: 0, extra: 1 },
+  ]) assert.throws(() => parseCatalogProductListVariantSummary({
+    variantId: VARIANT_ID, priceCents: 100, stockTracking: true, stockQuantity: 0, productStock,
+  }), /catalog_contract_invalid/);
+});

@@ -58,6 +58,12 @@ export interface ProductVariant {
   readonly version: number;
 }
 
+export type CatalogProductStockSummary = Readonly<{
+  readonly trackedVariantCount: number;
+  readonly untrackedVariantCount: number;
+  readonly trackedQuantity: number;
+}>;
+
 export type CatalogProductListVariantSummary = Readonly<{
   readonly variantId: ProductVariantId;
   readonly sku?: string;
@@ -68,6 +74,8 @@ export type CatalogProductListVariantSummary = Readonly<{
   readonly compareAtCents?: number;
   readonly stockTracking: boolean;
   readonly stockQuantity: number;
+  /** Total stock across active variants; independent of the representative variant. */
+  readonly productStock?: CatalogProductStockSummary;
 }>;
 
 export type CatalogProductListQuery = Readonly<{

@@ -203,7 +203,7 @@ export function parseCatalogProductListVariantSummary(value: unknown): CatalogPr
   const parsed = exact(
     value,
     ["variantId", "priceCents", "stockTracking", "stockQuantity"],
-    ["sku", "compareAtCents", "effectivePriceCents", "pricingMethod"],
+    ["sku", "compareAtCents", "effectivePriceCents", "pricingMethod", "productStock"],
   );
   const priceCents = safeInteger(parsed.priceCents, 0);
   const effectivePriceCents = Object.hasOwn(parsed, "effectivePriceCents")
@@ -216,6 +216,15 @@ export function parseCatalogProductListVariantSummary(value: unknown): CatalogPr
     ? safeInteger(parsed.compareAtCents, 0)
     : undefined;
   if (compareAtCents !== undefined && compareAtCents < priceCents) invalid();
+  let productStock;
+  if (Object.hasOwn(parsed, "productStock")) {
+    const stock = exact(parsed.productStock, ["trackedVariantCount", "untrackedVariantCount", "trackedQuantity"]);
+    const trackedVariantCount = safeInteger(stock.trackedVariantCount, 0);
+    const untrackedVariantCount = safeInteger(stock.untrackedVariantCount, 0);
+    const trackedQuantity = safeInteger(stock.trackedQuantity, 0);
+    if (trackedVariantCount === 0 && trackedQuantity !== 0) invalid();
+    productStock = Object.freeze({ trackedVariantCount, untrackedVariantCount, trackedQuantity });
+  }
   return Object.freeze({
     variantId: uuid(parsed.variantId),
     ...(Object.hasOwn(parsed, "sku") ? { sku: optionalString(parsed, "sku", 1, 64, SKU)! } : {}),
@@ -229,6 +238,7 @@ export function parseCatalogProductListVariantSummary(value: unknown): CatalogPr
         ? false
         : invalid(),
     stockQuantity: safeInteger(parsed.stockQuantity, 0),
+    ...(productStock === undefined ? {} : { productStock }),
   });
 }
 

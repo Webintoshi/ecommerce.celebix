@@ -202,6 +202,7 @@ function listVariantSummary(
     ...(Object.hasOwn(candidate, "compareAtCents") ? ["compareAtCents"] : []),
     ...(Object.hasOwn(candidate, "effectivePriceCents") ? ["effectivePriceCents"] : []),
     ...(Object.hasOwn(candidate, "pricingMethod") ? ["pricingMethod"] : []),
+    ...(Object.hasOwn(candidate, "productStock") ? ["productStock"] : []),
   ]);
   if (parsed.productId !== expectedProductId || parsed.storeId !== expectedStoreId) throw unavailable();
   try {
@@ -214,6 +215,7 @@ function listVariantSummary(
       ...(Object.hasOwn(parsed, "compareAtCents") ? { compareAtCents: parsed.compareAtCents } : {}),
       stockTracking: parsed.stockTracking,
       stockQuantity: parsed.stockQuantity,
+      ...(Object.hasOwn(parsed, "productStock") ? { productStock: parsed.productStock } : {}),
     });
   } catch {
     throw unavailable();
@@ -239,6 +241,7 @@ function listVariantSummaryMap(
 }
 
 function dashboardSummary(value: unknown): CatalogDashboardSummary {
+  const candidate = value as Record<string, unknown>;
   const parsed = payload(value, [
     "totalProducts",
     "activeProducts",
@@ -246,6 +249,7 @@ function dashboardSummary(value: unknown): CatalogDashboardSummary {
     "productLimit",
     "activeVariants",
     "outOfStockVariants",
+    ...(candidate && Object.hasOwn(candidate, "outOfStockProducts") ? ["outOfStockProducts"] : []),
     "productsWithoutMedia",
     "activeMedia",
   ]);
@@ -256,12 +260,14 @@ function dashboardSummary(value: unknown): CatalogDashboardSummary {
     productLimit: count(parsed.productLimit),
     activeVariants: count(parsed.activeVariants),
     outOfStockVariants: count(parsed.outOfStockVariants),
+    ...(Object.hasOwn(parsed, "outOfStockProducts") ? { outOfStockProducts: count(parsed.outOfStockProducts) } : {}),
     productsWithoutMedia: count(parsed.productsWithoutMedia),
     activeMedia: count(parsed.activeMedia),
   });
   if (
     result.activeProducts + result.draftProducts !== result.totalProducts ||
     result.outOfStockVariants > result.activeVariants ||
+    (result.outOfStockProducts !== undefined && result.outOfStockProducts > result.totalProducts) ||
     result.productsWithoutMedia > result.totalProducts
   ) throw unavailable();
   return result;
@@ -544,7 +550,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     );
     authorizeOperation(authority, "read");
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_get_dashboard_summary(
+      text: `SELECT outcome, result_payload FROM saas.catalog_get_dashboard_summary_v2(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz
       )`,
       values: authorityValues(authority),
@@ -712,7 +718,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
     const cursor = decodeCursor(exact.cursor as string | undefined, authority.storeId, query);
     const result = await this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v4(
+      text: `SELECT outcome, result_payload FROM saas.catalog_list_products_v5(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
         $9::text,$10::text,$11::text,$12::uuid,$13::uuid,$14::uuid,$15::text,$16::integer,
         $17::timestamptz,$18::text,$19::uuid

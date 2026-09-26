@@ -15,6 +15,7 @@ export type {
   CatalogProductStockFilter,
   Product,
   CatalogProductListVariantSummary,
+  CatalogProductStockSummary,
   ProductId,
   ProductStatus,
   ProductVariant,

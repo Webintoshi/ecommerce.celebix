@@ -136,6 +136,7 @@ export type {
   CatalogProductPageSize,
   CatalogProductListQueryBinding,
   CatalogProductListVariantSummary,
+  CatalogProductStockSummary,
   CatalogProductSort,
   CatalogProductStockFilter,
   Product,

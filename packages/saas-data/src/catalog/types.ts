@@ -197,6 +197,7 @@ export interface CatalogDashboardSummary {
   readonly productLimit: number;
   readonly activeVariants: number;
   readonly outOfStockVariants: number;
+  readonly outOfStockProducts?: number;
   readonly productsWithoutMedia: number;
   readonly activeMedia: number;
 }
