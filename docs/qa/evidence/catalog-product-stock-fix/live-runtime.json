@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-09-26T13:17:02.153Z",
+  "verdict": "PASS",
+  "records": [
+    {
+      "app": "yk1h6d97z7ex0h74ok3zrj5c",
+      "container": "0e2fca6ea40c",
+      "name": "/yk1h6d97z7ex0h74ok3zrj5c-130703773742",
+      "imageTag": "yk1h6d97z7ex0h74ok3zrj5c:d56a01df675a79f99b03440baea7553dc20926ab",
+      "image": "sha256:2c4f624c196d0c6498d55dab03053145b1123f3c6d4177f8ccd208ce6f188e39",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "d56a01df675a79f99b03440baea7553dc20926ab",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "2182908ffa577ffcaefe96c5ad06f1c483f4c4b757e4eb83b906c1cbc1d2f6e6",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "535a6593414841c6ee428f4cd6ea60b21f75dbf74231befb7520721130f45297",
+          "packages/saas-contracts/src/catalog/validation.ts": "e3d75709fd124709a3328df27eb5bf33fbf7bbf4a024b290efee277866f3a80b"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "d56a01df675a79f99b03440baea7553dc20926ab",
+              "d56a01df675a79f99b03440baea7553dc20926ab"
+            ],
+            "candidates": [
+              "sha256:61c8747d4251097a8376c1dae23c2b83bdeb8962f1da4e954d861033761e537d",
+              "sha256:145df71a172ce18709d30940990273e5fa5cf241e0b578e7a8a37a451e4df83d"
+            ],
+            "approvedDigests": [
+              "sha256:61c8747d4251097a8376c1dae23c2b83bdeb8962f1da4e954d861033761e537d",
+              "sha256:145df71a172ce18709d30940990273e5fa5cf241e0b578e7a8a37a451e4df83d"
+            ]
+          },
+          "iyzico": {
+            "commits": [
+              "d56a01df675a79f99b03440baea7553dc20926ab"
+            ],
+            "candidates": [
+              "sha256:a09dec09a5b3854578bb0f8b3f2825802f153e701eb0176da934ffcfa1de48f1"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledRegister": true,
+        "compiledLegacy": true
+      }
+    },
+    {
+      "app": "e4xe74cmii7jucbkyor0o412",
+      "container": "21ca12cd5fb7",
+      "name": "/e4xe74cmii7jucbkyor0o412-131136891474",
+      "imageTag": "e4xe74cmii7jucbkyor0o412:d56a01df675a79f99b03440baea7553dc20926ab",
+      "image": "sha256:3e5d350a73e0b42fdf670186ed72ea5d354101eec612d80ad57865125a6fa03e",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "d56a01df675a79f99b03440baea7553dc20926ab",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "2182908ffa577ffcaefe96c5ad06f1c483f4c4b757e4eb83b906c1cbc1d2f6e6",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "535a6593414841c6ee428f4cd6ea60b21f75dbf74231befb7520721130f45297",
+          "packages/saas-contracts/src/catalog/validation.ts": "e3d75709fd124709a3328df27eb5bf33fbf7bbf4a024b290efee277866f3a80b"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "d56a01df675a79f99b03440baea7553dc20926ab",
+              "d56a01df675a79f99b03440baea7553dc20926ab"
+            ],
+            "candidates": [
+              "sha256:61c8747d4251097a8376c1dae23c2b83bdeb8962f1da4e954d861033761e537d",
+              "sha256:145df71a172ce18709d30940990273e5fa5cf241e0b578e7a8a37a451e4df83d"
+            ],
+            "approvedDigests": []
+          },
+          "iyzico": {
+            "commits": [
+              "d56a01df675a79f99b03440baea7553dc20926ab"
+            ],
+            "candidates": [
+              "sha256:a09dec09a5b3854578bb0f8b3f2825802f153e701eb0176da934ffcfa1de48f1"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledRegister": true,
+        "compiledLegacy": true
+      }
+    }
+  ]
+}
