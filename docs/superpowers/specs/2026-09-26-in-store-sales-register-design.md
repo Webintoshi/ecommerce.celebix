@@ -147,7 +147,7 @@ Kasiyerin beyanı bankadan doğrulanmış tahsilat gibi etiketlenmez: ödeme yö
 - Ağ kesintisi veya oturum kapanması sonrasında yetkili kullanıcı bekleyen satış listesinde aynı kaydı bulur. “Tekrar ödeme al” talimatı verilmez; mevcut tahsilat kontrol edilir.
 - Aynı kaydı iki kasiyer açarsa sürüm ve sahiplik kilidi tek işlem sahibini belirler. Yetkili devralma denetim kaydı oluşturur; iki başarılı tamamlama mümkün değildir.
 - Kasiyerin üyeliği kapatılmış olsa da yetkili mağaza sahibi bekleyen satış ve ödeme beyanını devralıp çözer. Kapatılmış kullanıcı eski yetkileriyle işleme devam edemez.
-- Taslak silme yalnız ödeme hazırlığı başlamamış kayıtlarda çalışır. Tahsilat/beyan/rezervasyon kayıtları bu eylemle silinmez. Mevcut ortak sipariş kalıcı silme politikası uygulandığında sipariş bağı kontrollü ayrılır; tamamlanmış satışın asgari idempotency/tombstone kaydı korunur. Eski tamamlama isteği “tamamlanmış, sipariş silinmiş” sonucuna döner; yeni sipariş veya stok hareketi üretmez. Kişisel veri temizliği mevcut silme politikasıyla yürütülür.
+- İlk sürüm taslakları kalıcı silmez; ürünler çıkarılarak aynı taslak düzenlenir veya sepet bekletilir. Ödeme alınmadı onayı ayrılmış stoğu bırakıp aynı sepeti düzenlenebilir taslağa döndürür. Kalıcı taslak silme ayrı bir sonraki kapsamdır; tahsilat/beyan/rezervasyon kayıtları bu akışla silinmez. Mevcut ortak sipariş kalıcı silme politikası uygulandığında sipariş bağı kontrollü ayrılır; tamamlanmış satışın asgari idempotency/tombstone kaydı korunur. Eski tamamlama isteği “tamamlanmış, sipariş silinmiş” sonucuna döner; yeni sipariş veya stok hareketi üretmez. Kişisel veri temizliği mevcut silme politikasıyla yürütülür.
 - Son ürün başka kanalda tüketilmişse hazırlık tahsilattan önce reddedilir. Hazırlıktan sonraki stok sayımı/düzeltmesi aktif rezervasyonları geçersiz kılıp sessiz satışa izin vermez; çakışma kontrollü çözüm gerektirir.
 
 ## 7. Sipariş ve yetki modeli
@@ -207,3 +207,7 @@ Sonraki kapsam: bölünmüş ödeme, nakit/para üstü, doğrudan banka POS bağ
 ## 11. Tasarım inceleme sonucu
 
 Konuşmadaki manuel POS ve basit indirim gereksinimleri tek normal satış yoluna yerleştirildi. Normal ekranda üç ana bölüm ve bir ana eylem vardır; yetki ve kurtarma kontrolleri ihtiyaç oluştuğunda görünür. İndirim tek kez düşülür, ödeme öncesi toplam sabitlenir ve belirsiz tahsilat otomatik iptal edilmez. Bu belge tasarımdır; POS özelliğinin uygulandığı veya canlıya alındığı anlamına gelmez.
+
+## İlk sürüm kapsamı kararı
+
+Yeni çalışan kimliği daveti ve doğrulanmış SaaS üyeliğine kasiyer rolü atama bu sürümde yapılmaz. Mevcut mağaza sahibi/admin hesapları kasayı kullanabilir; önceden doğrulanmış kasiyer üyeliğinin depo ve indirim yetkileri düzenlenebilir. Eski yönetici daveti formu kimlik bağlamadığı için yeni kasiyer daveti gibi sunulmaz.
