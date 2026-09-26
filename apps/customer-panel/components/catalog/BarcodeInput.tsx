@@ -11,6 +11,9 @@ type BarcodeInputProps = Readonly<{
   defaultValue?: string;
   onChange?(value: string): void;
   onGenerated?(): void;
+  onBusyChange?(busy: boolean): void;
+  actionLabel?: string;
+  inputLabel?: string;
   labelClassName?: string;
   reservationIdentity?: object;
   reserve?: () => Promise<string>;
@@ -24,7 +27,7 @@ function reservationMessage(error: unknown): string {
 }
 
 export function BarcodeInput({
-  name = "barcode", value, defaultValue = "", onChange, onGenerated,
+  name = "barcode", value, defaultValue = "", onChange, onGenerated, onBusyChange, actionLabel, inputLabel,
   labelClassName, reservationIdentity, reserve = reserveInternalBarcode,
 }: BarcodeInputProps) {
   const [draft, setDraft] = useState(defaultValue);
@@ -37,15 +40,17 @@ export function BarcodeInput({
   const identityRef = useRef(reservationIdentity);
   const onChangeRef = useRef(onChange);
   const onGeneratedRef = useRef(onGenerated);
+  const onBusyChangeRef = useRef(onBusyChange);
   const currentValue = value ?? draft;
   const currentRef = useRef(currentValue);
   currentRef.current = currentValue;
   identityRef.current = reservationIdentity;
   onChangeRef.current = onChange;
   onGeneratedRef.current = onGenerated;
+  onBusyChangeRef.current = onBusyChange;
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => { mountedRef.current = false; if (busyRef.current) onBusyChangeRef.current?.(false); };
   }, []);
 
   function update(next: string) {
@@ -59,6 +64,7 @@ export function BarcodeInput({
     if (busyRef.current || currentRef.current.trim()) return;
     busyRef.current = true;
     setBusy(true);
+    onBusyChangeRef.current?.(true);
     setError("");
     const owner = identityRef.current;
     try {
@@ -71,24 +77,25 @@ export function BarcodeInput({
       if (mountedRef.current && identityRef.current === owner) setError(reservationMessage(caught));
     } finally {
       busyRef.current = false;
-      if (mountedRef.current) setBusy(false);
+      if (mountedRef.current) { setBusy(false); onBusyChangeRef.current?.(false); }
     }
   }
 
   return <div className={`${styles.root ?? ""} ${labelClassName ?? ""}`}>
     <label htmlFor={`${id}-input`}>Barkod</label>
-    <span className={styles.control}>
+    <span className={`${styles.control} ${actionLabel ? styles.labeledControl : ""}`}>
       <input
         id={`${id}-input`} ref={inputRef} className={styles.input} name={name} maxLength={128}
         value={currentValue} onChange={(event) => update(event.currentTarget.value)}
-        style={{ minHeight: 48, paddingRight: 55 }}
+        style={actionLabel ? undefined : { minHeight: 48, paddingRight: 55 }}
+        aria-label={inputLabel}
         aria-describedby={error ? id : undefined}
       />
       <button
         className={styles.generate} type="button"
         aria-label="Dahili barkod oluştur" title={currentValue.trim() ? "Yeni barkod için önce alanı temizleyin" : "13 haneli 98 veya 99 ile başlayan dahili barkod oluşturur; GS1 ürün GTIN'i değildir"}
         disabled={busy || Boolean(currentValue.trim())} onClick={() => void generate()}
-      ><ScanBarcode aria-hidden="true" /></button>
+      ><ScanBarcode aria-hidden="true" />{actionLabel ? <span>{busy ? "Oluşturuluyor…" : actionLabel}</span> : null}</button>
     </span>
     {error ? <small id={id} className={styles.error} role="alert">{error}</small> : null}
   </div>;

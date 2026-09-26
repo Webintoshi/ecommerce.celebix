@@ -113,3 +113,37 @@ test("a removed variant never receives a late barcode reservation", async () => 
     assert.deepEqual(changed, []);
   });
 });
+
+test("busy notifications are paired and late reservations cannot overwrite manual or unmounted fields", async () => {
+  let resolve!: (value: string) => void;
+  const changed: string[] = [];
+  const busy: boolean[] = [];
+  let generated = 0;
+  const identity = {};
+  const reserve = () => new Promise<string>((done) => { resolve = done; });
+  const props = { value: "", reservationIdentity: identity, reserve,
+    onChange: (value: string) => changed.push(value), onBusyChange: (value: boolean) => busy.push(value),
+    onGenerated: () => { generated++; }, actionLabel: "Oluştur" };
+  await withBarcodeInput(props, async (container, _browser, rerender) => {
+    await act(async () => { (container.querySelector("button") as HTMLButtonElement).click(); });
+    assert.deepEqual(busy, [true]);
+    await rerender({ ...props, value: "MANUAL-0001" });
+    await act(async () => { resolve("9800000000007"); });
+    assert.equal((container.querySelector("input") as HTMLInputElement).value, "MANUAL-0001");
+    assert.deepEqual(changed, []);
+    assert.equal(generated, 0);
+    assert.deepEqual(busy, [true, false]);
+  });
+  const unmountedBusy: boolean[] = [];
+  let completeAfterUnmount!: (value: string) => void;
+  await withBarcodeInput({ reserve: () => new Promise<string>((done) => { completeAfterUnmount = done; }),
+    onBusyChange: (value: boolean) => unmountedBusy.push(value), onChange: (value: string) => changed.push(value),
+  }, async (container) => {
+    await act(async () => { (container.querySelector("button") as HTMLButtonElement).click(); });
+    assert.deepEqual(unmountedBusy, [true]);
+  });
+  assert.deepEqual(unmountedBusy, [true, false]);
+  await act(async () => { completeAfterUnmount("9900000000004"); });
+  assert.deepEqual(unmountedBusy, [true, false]);
+  assert.deepEqual(changed, []);
+});
