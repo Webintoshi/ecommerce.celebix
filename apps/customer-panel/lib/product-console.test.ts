@@ -5,6 +5,7 @@ import * as React from "react";
 import { createElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import type { CatalogDashboardSummary } from "./catalog-ui/client.ts";
 import { productStockPresentation } from "./catalog-ui/stock-presentation.ts";
 
 const ROOT = new URL("../", import.meta.url);
@@ -174,7 +175,7 @@ function productFixture(id: string, status: "draft" | "active" | "archived", ver
   });
 }
 
-const catalogSummary = Object.freeze({
+const catalogSummary: CatalogDashboardSummary = Object.freeze({
   totalProducts: 2,
   activeProducts: 1,
   draftProducts: 1,

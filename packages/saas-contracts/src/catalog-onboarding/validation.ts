@@ -8,6 +8,9 @@ import {
   type CatalogCategory,
   type CatalogCategoryFields,
   type CatalogCategoryMutationResult,
+  type CatalogCategoryImage,
+  type CatalogCategoryOrderFields,
+  type CatalogCategoryOrderResult,
   type CatalogOnboardingCategoryOption,
   type CatalogOnboardingChannelOption,
   type CatalogOnboardingIntent,
@@ -295,19 +298,41 @@ export function parseCatalogOnboardingResult(value: unknown): CatalogOnboardingR
   return Object.freeze({ product, variants, profile: profile(parsed.profile), categoryIds: uniqueIds(parsed.categoryIds, 8), resourceIds: resourceIds(parsed.resourceIds), channelIds: uniqueIds(parsed.channelIds, 32), mediaCount: integer(parsed.mediaCount, 0, 100), replayed: boolean(parsed.replayed) });
 }
 
+function categoryImage(value: unknown, projection = false): CatalogCategoryImage {
+  const parsed = exact(value, ["assetId", "altText"], projection ? ["publicUrl", "width", "height"] : []);
+  const assetId = uuid(parsed.assetId);
+  let publicUrl: string | undefined;
+  if (Object.hasOwn(parsed, "publicUrl")) {
+    publicUrl = text(parsed.publicUrl, 1, 2048);
+    let url: URL;
+    try { url = new URL(publicUrl); } catch { return invalid(); }
+    const categoryPath = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/category\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|png|webp)$/;
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.port
+      || !["media.celebix.site", "media.saas-staging.celebix.site"].includes(url.hostname)
+      || !categoryPath.test(url.pathname) || !url.pathname.includes(`/category/${assetId}.`)
+      || url.toString() !== publicUrl) invalid();
+  }
+  return Object.freeze({ assetId, altText: text(parsed.altText, 0, 500),
+    ...(publicUrl ? { publicUrl } : {}),
+    ...(Object.hasOwn(parsed, "width") ? { width: integer(parsed.width, 1, 8192) } : {}),
+    ...(Object.hasOwn(parsed, "height") ? { height: integer(parsed.height, 1, 8192) } : {}),
+  });
+}
+
 export function parseCatalogCategoryFields(value: unknown): CatalogCategoryFields {
-  const parsed = exact(value, ["name", "position"], ["parentId"]);
+  const parsed = exact(value, ["name", "position"], ["parentId", "image"]);
   return Object.freeze({
     name: text(parsed.name, 1, 120),
     ...(Object.hasOwn(parsed, "parentId") ? { parentId: uuid(parsed.parentId) } : {}),
     position: integer(parsed.position, 0, 9_999),
+    ...(Object.hasOwn(parsed, "image") ? { image: parsed.image === null ? null : categoryImage(parsed.image) } : {}),
   });
 }
 
 export function parseCatalogCategory(value: unknown): CatalogCategory {
   const parsed = exact(value, [
     "id", "name", "slug", "position", "depth", "status", "version", "createdAt", "updatedAt",
-  ], ["parentId", "archivedAt"]);
+  ], ["parentId", "archivedAt", "image"]);
   const status = enumValue(parsed.status, ["active", "archived"] as const);
   if ((status === "active") === Object.hasOwn(parsed, "archivedAt")) invalid();
   return Object.freeze({
@@ -322,6 +347,7 @@ export function parseCatalogCategory(value: unknown): CatalogCategory {
     createdAt: timestamp(parsed.createdAt),
     updatedAt: timestamp(parsed.updatedAt),
     ...(Object.hasOwn(parsed, "archivedAt") ? { archivedAt: timestamp(parsed.archivedAt) } : {}),
+    ...(Object.hasOwn(parsed, "image") ? { image: categoryImage(parsed.image, true) } : {}),
   });
 }
 
@@ -332,4 +358,40 @@ export function parseCatalogCategoryList(value: unknown): readonly CatalogCatego
 export function parseCatalogCategoryMutationResult(value: unknown): CatalogCategoryMutationResult {
   const parsed = exact(value, ["category", "replayed"]);
   return Object.freeze({ category: parseCatalogCategory(parsed.category), replayed: boolean(parsed.replayed) });
+}
+
+export function parseCatalogCategoryOrderFields(value: unknown): CatalogCategoryOrderFields {
+  const parsed = exact(value, ["groups"]);
+  const parents = new Set<string>();
+  const categories = new Set<string>();
+  const groups = denseArray(parsed.groups, 1, 500).map((rawGroup) => {
+    const group = exact(rawGroup, ["orderedCategoryIds", "expectedVersions"], ["parentId"]);
+    const parentId = Object.hasOwn(group, "parentId") ? uuid(group.parentId) : undefined;
+    const parentKey = parentId ?? "root";
+    if (parents.has(parentKey)) invalid();
+    parents.add(parentKey);
+    const orderedCategoryIds = uniqueIds(group.orderedCategoryIds, 500);
+    if (orderedCategoryIds.length === 0) invalid();
+    for (const id of orderedCategoryIds) {
+      if (categories.has(id)) invalid();
+      categories.add(id);
+    }
+    const expectedVersions = denseArray(group.expectedVersions, 1, 500).map((rawVersion) => {
+      const version = exact(rawVersion, ["categoryId", "version"]);
+      return Object.freeze({ categoryId: uuid(version.categoryId), version: integer(version.version, 1, Number.MAX_SAFE_INTEGER - 1) });
+    });
+    if (expectedVersions.length !== orderedCategoryIds.length
+      || new Set(expectedVersions.map(({ categoryId }) => categoryId)).size !== expectedVersions.length
+      || expectedVersions.some(({ categoryId }) => !orderedCategoryIds.includes(categoryId))) invalid();
+    return Object.freeze({ ...(parentId ? { parentId } : {}), orderedCategoryIds, expectedVersions: Object.freeze(expectedVersions) });
+  });
+  if (categories.size > 500) invalid();
+  return Object.freeze({ groups: Object.freeze(groups) });
+}
+
+export function parseCatalogCategoryOrderResult(value: unknown): CatalogCategoryOrderResult {
+  const parsed = exact(value, ["categories", "replayed"]);
+  const categories = parseCatalogCategoryList(parsed.categories);
+  if (new Set(categories.map(({ id }) => id)).size !== categories.length) invalid();
+  return Object.freeze({ categories, replayed: boolean(parsed.replayed) });
 }

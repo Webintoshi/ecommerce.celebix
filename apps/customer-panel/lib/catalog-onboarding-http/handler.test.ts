@@ -44,7 +44,7 @@ function result(): CatalogOnboardingResult {
 
 function repository(overrides: Partial<CatalogOnboardingRepository> = {}): CatalogOnboardingRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
-  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, getCategoryProductOrder: reject, reorderCategoryProducts: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject, ...overrides } as CatalogOnboardingRepository;
+  return { getOptions: reject, createProduct: reject, getProductEditor: reject, updateMerchandising: reject, publishAfterMedia: reject, listCategories: reject, reorderCategories: reject, getCategoryProductOrder: reject, reorderCategoryProducts: reject, createCategory: reject, updateCategory: reject, archiveCategory: reject, getCategoryDeletionImpact: reject, deleteCategory: reject, ...overrides } as CatalogOnboardingRepository;
 }
 
 function runtime(onboarding: CatalogOnboardingRepository, role: "store_owner" | "admin" | "editor" | "analyst" = "store_owner"): ServerCatalogOnboardingRuntime {
@@ -265,4 +265,17 @@ test("category permanent deletion exposes impact and one exact confirmed command
     ["impact", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY }],
     ["delete", { tenantContext: tenant(), now: NOW, categoryId: CATEGORY, operationId: OPERATION, expectedVersion: 2, confirmation: "Kupalar" }],
   ]);
+});
+
+test("category reorder propagates trusted tenant context and rejects cross-origin or analyst writes", async () => {
+  const path = "/api/catalog/onboarding/categories/order";
+  const groups = [{ orderedCategoryIds: [CATEGORY], expectedVersions: [{ categoryId: CATEGORY, version: 1 }] }];
+  const calls: unknown[] = [];
+  const data = repository({ async reorderCategories(input) { calls.push(input); return { categories: [], replayed: false }; } });
+  assert.equal((await handlers(data).reorderCategories(request(path, "POST", { groups }))).status, 200);
+  assert.deepEqual(calls[0], { tenantContext: tenant(), now: NOW, operationId: OPERATION, groups });
+  assert.equal((await handlers(data).reorderCategories(request(path, "POST", { groups }, { origin: "https://foreign.test" }))).status, 403);
+  assert.equal((await handlers(data, "analyst").reorderCategories(request(path, "POST", { groups }))).status, 403);
+  assert.equal((await handlers(data).reorderCategories(request(path, "POST", { groups: [groups[0], groups[0]] }))).status, 400);
+  assert.equal(calls.length, 1);
 });

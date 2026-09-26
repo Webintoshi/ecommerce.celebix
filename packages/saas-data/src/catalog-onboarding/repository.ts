@@ -6,11 +6,14 @@ import {
   parseCatalogProductEditorProjection,
   parseCatalogCategoryList,
   parseCatalogCategoryMutationResult,
+  parseCatalogCategoryOrderFields,
+  parseCatalogCategoryOrderResult,
   parsePermanentDeletionCommand,
   parsePermanentDeletionImpact,
   parsePermanentDeletionResult,
   type CatalogCategory,
   type CatalogCategoryMutationResult,
+  type CatalogCategoryOrderResult,
   type CatalogOnboardingOptions,
   type CatalogOnboardingResult,
   type CatalogProductEditorProjection,
@@ -42,6 +45,7 @@ import type {
   DeleteCatalogCategoryInput,
   GetCatalogCategoryInput,
   ReorderCatalogCategoryProductsInput,
+  ReorderCatalogCategoriesInput,
 } from "./types.ts";
 import {
   catalogMerchandisingPayload,
@@ -56,7 +60,7 @@ import {
 
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<T> = (value: unknown, replayed: boolean) => T;
-type CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation" | "delete_category_recover" | "catalog_recover_category_product_order";
+type CatalogOnboardingRecoveryFunction = "catalog_recover_onboarding_operation" | "delete_category_recover" | "catalog_recover_category_product_order" | "catalog_recover_category_order";
 const ERROR_CODES = new Set<string>(CATALOG_ONBOARDING_ERROR_CODES);
 
 function unavailable(): CatalogOnboardingRepositoryError {
@@ -404,6 +408,26 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     }, "found", (value) => {
       try { return parseCatalogCategoryList(value); } catch { throw unavailable(); }
     });
+  }
+
+  async reorderCategories(input: ReorderCatalogCategoriesInput): Promise<CatalogCategoryOrderResult> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "groups"]);
+    authorizeCategory(authority, "catalog_admin.manage");
+    const operationId = catalogOnboardingUuid(parsed.operationId);
+    let fields;
+    try { fields = parseCatalogCategoryOrderFields({ groups: parsed.groups }); }
+    catch { throw new CatalogOnboardingRepositoryError("invalid_input"); }
+    const fingerprint = catalogOnboardingFingerprint("reorder_categories", authority.storeId, fields);
+    return this.mutate(authority, operationId, fingerprint, "reordered", {
+      text: "SELECT outcome,result_payload FROM saas.catalog_reorder_categories($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, JSON.stringify(fields)],
+    }, (value, replayed) => {
+      try {
+        const result = parseCatalogCategoryOrderResult(value);
+        if (result.replayed !== replayed) throw unavailable();
+        return result;
+      } catch { throw unavailable(); }
+    }, "catalog_recover_category_order");
   }
 
   async getCategoryProductOrder(input: GetCatalogCategoryInput): Promise<CatalogCategoryProductOrder> {

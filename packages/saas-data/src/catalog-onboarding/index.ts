@@ -12,6 +12,7 @@ export type {
   CatalogCategoryProductOrderItem,
   CatalogCategoryProductOrderResult,
   ReorderCatalogCategoryProductsInput,
+  ReorderCatalogCategoriesInput,
   CreateCatalogCategoryInput,
   UpdateCatalogCategoryInput,
   ArchiveCatalogCategoryInput,

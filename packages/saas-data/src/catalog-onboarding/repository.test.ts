@@ -372,3 +372,48 @@ test("unknown category deletion COMMIT recovers only from the immutable deletion
   assert.equal(recovery.calls.some(({ text }) => text.includes("catalog_recover_onboarding_operation")), false);
   assert.equal(recovery.calls.some(({ text }) => text.includes("saas.delete_category(")), false);
 });
+
+test("category sibling order sends one atomic group command and never partially retries", async () => {
+  const category = categoryResult().category;
+  const groups = [{ orderedCategoryIds: [CATEGORY], expectedVersions: [{ categoryId: CATEGORY, version: 1 }] }];
+  const writer = new Client((text) => text.includes("catalog_reorder_categories")
+    ? [{ outcome: "reordered", result_payload: { categories: [category], replayed: false } }] : []);
+  const result = await repository(new Pool([writer])).reorderCategories({ tenantContext: tenant(), now: NOW, operationId: OPERATION, groups });
+  assert.deepEqual(result.categories, [category]);
+  const call = sqlCall(writer, "catalog_reorder_categories");
+  assert.deepEqual(JSON.parse(call.values[10] as string), { groups });
+  assert.deepEqual(call.values.slice(0, 9), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, 100, NOW, OPERATION]);
+  const denied = new Client(() => { throw new Error("must not checkout"); });
+  await assert.rejects(repository(new Pool([denied])).reorderCategories({ tenantContext: tenant("analyst"), now: NOW, operationId: OPERATION, groups }),
+    (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === "membership_denied");
+  assert.equal(denied.calls.length, 0);
+});
+
+test("category order membership and stale version conflicts are preserved", async () => {
+  const groups = [{ orderedCategoryIds: [CATEGORY], expectedVersions: [{ categoryId: CATEGORY, version: 1 }] }];
+  for (const code of ["version_conflict", "order_membership_changed"] as const) {
+    const writer = new Client((text) => text.includes("catalog_reorder_categories") ? [{ outcome: code, result_payload: null }] : []);
+    await assert.rejects(repository(new Pool([writer])).reorderCategories({ tenantContext: tenant(), now: NOW, operationId: OPERATION, groups }),
+      (error: unknown) => error instanceof CatalogOnboardingRepositoryError && error.code === code);
+    assert.equal(writer.calls.some(({ text }) => text === "COMMIT"), false);
+    assert.equal(writer.calls.some(({ text }) => text === "ROLLBACK"), true);
+  }
+});
+
+test("unknown category reorder COMMIT recovers from only its immutable order ledger", async () => {
+  const category = categoryResult().category;
+  const writer = new Client((text) => {
+    if (text.includes("catalog_reorder_categories")) return [{ outcome: "reordered", result_payload: { categories: [category], replayed: false } }];
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("catalog_recover_category_order")
+    ? [{ outcome: "operation_replayed", result_payload: { categories: [category], replayed: true } }] : []);
+  const result = await repository(new Pool([writer, recovery])).reorderCategories({ tenantContext: tenant(), now: NOW, operationId: OPERATION,
+    groups: [{ orderedCategoryIds: [CATEGORY], expectedVersions: [{ categoryId: CATEGORY, version: 1 }] }] });
+  assert.equal(result.replayed, true);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter(({ text }) => text.includes("catalog_recover_category_order")).length, 1);
+  assert.equal(recovery.calls.some(({ text }) => text.includes("catalog_reorder_categories") || text.includes("catalog_recover_onboarding_operation")), false);
+});
