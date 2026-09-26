@@ -1,5 +1,6 @@
 import {
   parseAbandonedCartSummary,
+  parseCatalogProductListVariantSummary,
   parseCustomerListItem,
   parseCustomerSummary,
   parseOrderDashboardSummary,
@@ -29,6 +30,8 @@ const CATALOG_MAX_PRODUCTS = 60;
 const CATALOG_MAX_VARIANTS_PER_PRODUCT = 100;
 const CATALOG_DETAIL_CONCURRENCY = 4;
 const RESULT_CAP = 10;
+const CATALOG_LIST_KEYS = new Set(["items", "catalogTotal", "featuredImages", "variantSummaries", "nextCursor"]);
+const CONTROL = /[\u0000-\u001f\u007f]/;
 
 type CatalogSummary = Readonly<{
   totalProducts: number;
@@ -61,7 +64,9 @@ function count(value: unknown): number {
 
 function parseCatalogSummary(value: unknown): CatalogSummary {
   const summary = record(value);
-  if (summary === null || JSON.stringify(Object.keys(summary).sort()) !== JSON.stringify(CATALOG_SUMMARY_KEYS)) {
+  const expectedKeys = summary !== null && Object.hasOwn(summary, "outOfStockProducts")
+    ? [...CATALOG_SUMMARY_KEYS, "outOfStockProducts"].sort() : CATALOG_SUMMARY_KEYS;
+  if (summary === null || JSON.stringify(Object.keys(summary).sort()) !== JSON.stringify(expectedKeys)) {
     throw new ToshiLocalError();
   }
   const totalProducts = count(summary.totalProducts);
@@ -70,11 +75,14 @@ function parseCatalogSummary(value: unknown): CatalogSummary {
   const activeVariants = count(summary.activeVariants);
   const outOfStockVariants = count(summary.outOfStockVariants);
   const productsWithoutMedia = count(summary.productsWithoutMedia);
+  const outOfStockProducts = Object.hasOwn(summary, "outOfStockProducts")
+    ? count(summary.outOfStockProducts) : undefined;
   count(summary.productLimit);
   count(summary.activeMedia);
   if (
     activeProducts + draftProducts !== totalProducts ||
     outOfStockVariants > activeVariants ||
+    outOfStockProducts !== undefined && outOfStockProducts > totalProducts ||
     productsWithoutMedia > totalProducts
   ) throw new ToshiLocalError();
   return Object.freeze({ totalProducts, outOfStockVariants });
@@ -103,6 +111,58 @@ function parseSearchEnvelope<T>(
   });
 }
 
+function validateFeaturedImage(value: unknown): void {
+  const image = record(value);
+  if (
+    image === null || Object.keys(image).sort().join(",") !== "altText,publicUrl" ||
+    typeof image.publicUrl !== "string" || image.publicUrl.length < 1 || image.publicUrl.length > 2048 ||
+    image.publicUrl !== image.publicUrl.trim() || CONTROL.test(image.publicUrl) ||
+    typeof image.altText !== "string" || image.altText.length > 500 ||
+    image.altText !== image.altText.trim() || CONTROL.test(image.altText)
+  ) throw new ToshiLocalError();
+  let url: URL;
+  try { url = new URL(image.publicUrl); } catch { throw new ToshiLocalError(); }
+  if (
+    url.protocol !== "https:" || url.username !== "" || url.password !== "" ||
+    url.search !== "" || url.hash !== "" || url.toString() !== image.publicUrl
+  ) throw new ToshiLocalError();
+}
+
+function parseCatalogPage(value: unknown): SearchEnvelope<Product> {
+  const body = record(value);
+  if (body === null || Object.keys(body).some((key) => !CATALOG_LIST_KEYS.has(key))) {
+    throw new ToshiLocalError();
+  }
+  const page = parseSearchEnvelope({
+    items: body.items,
+    ...(Object.hasOwn(body, "nextCursor") ? { nextCursor: body.nextCursor } : {}),
+  }, CATALOG_PAGE_SIZE, 2048, parseProduct);
+  if (Object.hasOwn(body, "catalogTotal")) {
+    if (count(body.catalogTotal) < page.items.length) throw new ToshiLocalError();
+  } else if (Object.hasOwn(body, "featuredImages") || Object.hasOwn(body, "variantSummaries")) {
+    throw new ToshiLocalError();
+  }
+  const productIds = new Set(page.items.map((product) => product.id));
+  for (const field of ["featuredImages", "variantSummaries"] as const) {
+    if (!Object.hasOwn(body, field)) continue;
+    const metadata = record(body[field]);
+    if (metadata === null) throw new ToshiLocalError();
+    const entries = Object.entries(metadata);
+    if (entries.length > productIds.size || entries.some(([id]) => !productIds.has(id))) {
+      throw new ToshiLocalError();
+    }
+    if (field === "featuredImages") {
+      entries.forEach(([, image]) => validateFeaturedImage(image));
+    } else {
+      const summaries = entries.map(([, summary]) => parseCatalogProductListVariantSummary(summary));
+      if (new Set(summaries.map((summary) => summary.variantId)).size !== summaries.length) {
+        throw new ToshiLocalError();
+      }
+    }
+  }
+  return page;
+}
+
 function matchesProduct(product: Product, variants: readonly ProductVariant[], query: string): boolean {
   const normalizedQuery = query.toLocaleLowerCase("tr-TR");
   return [product.title, product.slug, ...variants.flatMap((variant) => variant.sku === undefined ? [] : [variant.sku])]
@@ -112,7 +172,7 @@ function matchesProduct(product: Product, variants: readonly ProductVariant[], q
 function productPath(status: "active" | "draft", cursor?: string): string {
   const query = new URLSearchParams({ limit: String(CATALOG_PAGE_SIZE), status });
   if (cursor !== undefined) query.set("cursor", cursor);
-  return `/api/catalog/products?${query}`;
+  return `/api/catalog/products/v2?${query}`;
 }
 
 function parseProductDetail(value: unknown, expected: Product): Readonly<{ product: Product; variants: readonly ProductVariant[] }> {
@@ -124,7 +184,8 @@ function parseProductDetail(value: unknown, expected: Product): Readonly<{ produ
   const product = parseProduct(detail.product);
   const variants = Object.freeze(detail.variants.map(parseProductVariant));
   if (
-    product.id !== expected.id || variants.some((variant) => variant.productId !== product.id)
+    product.id !== expected.id || product.storeId !== expected.storeId ||
+    variants.some((variant) => variant.productId !== product.id || variant.storeId !== product.storeId)
   ) throw new ToshiLocalError();
   return Object.freeze({ product, variants });
 }
@@ -171,7 +232,7 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
       let cursor: string | undefined;
       const cursors = new Set<string>();
       for (let page = 0; page < CATALOG_MAX_PAGES_PER_STATUS; page += 1) {
-        const envelope = parseSearchEnvelope(await read(productPath(status, cursor), signal), CATALOG_PAGE_SIZE, 2048, parseProduct);
+        const envelope = parseCatalogPage(await read(productPath(status, cursor), signal));
         for (const product of envelope.items) {
           if (productIds.has(product.id)) throw new ToshiLocalError();
           productIds.add(product.id);
@@ -192,7 +253,7 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
       }
       if (truncated) break;
     }
-    const details = await mapBounded(products, async (product) => parseProductDetail(await read(`/api/catalog/products/${product.id}`, signal), product));
+    const details = await mapBounded(products, async (product) => parseProductDetail(await read(`/api/catalog/products/v2/${product.id}`, signal), product));
     const matches = details.filter((detail) => matchesProduct(detail.product, detail.variants, query)).map((detail) => detail.product);
     return Object.freeze({ products: Object.freeze(matches.slice(0, RESULT_CAP)), truncated });
   }

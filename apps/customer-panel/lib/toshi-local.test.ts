@@ -38,6 +38,114 @@ const order = {
   itemCount: 1, createdAt: NOW, updatedAt: NOW, version: 1,
 };
 
+const liveCatalogSummary = {
+  totalProducts: 10, activeProducts: 10, draftProducts: 0, productLimit: 100,
+  activeVariants: 30, outOfStockVariants: 0, outOfStockProducts: 0,
+  productsWithoutMedia: 10, activeMedia: 0,
+};
+
+const currentCatalogList = () => ({
+  items: [product()], catalogTotal: 1,
+  featuredImages: { [PRODUCT_ID]: { publicUrl: "https://assets.example.com/krem.webp", altText: "Krem" } },
+  variantSummaries: { [PRODUCT_ID]: {
+    variantId: "44444444-4444-4444-8444-444444444444", sku: "SKU-DYNAMIC", priceCents: 100,
+    effectivePriceCents: null, pricingMethod: "gold_gram", stockTracking: true, stockQuantity: 1,
+    productStock: { trackedVariantCount: 1, untrackedVariantCount: 0, trackedQuantity: 1 },
+  } },
+});
+
+test("accepts the current nine-field catalog summary in local store and stock commands", async () => {
+  const client = createToshiLocalClient(async (path) => {
+    switch (String(path)) {
+      case "/api/catalog/summary": return Response.json(liveCatalogSummary);
+      case "/api/orders/summary": return Response.json({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: NOW });
+      case "/api/customers/summary": return Response.json({ active: 2, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: NOW });
+      case "/api/orders/abandoned-carts/summary": return Response.json({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: NOW });
+      default: throw new Error("unexpected_path");
+    }
+  });
+  assert.equal((await client.execute({ kind: "store_summary" })).text, "Mağazada 10 ürün, 1 bekleyen sipariş, 2 aktif müşteri ve 1 terk edilmiş sepet var.");
+  assert.equal((await client.execute({ kind: "low_stock" })).text, "Stokta olmayan 0 varyant var.");
+
+  const draftStock = createToshiLocalClient(async () => Response.json({
+    ...liveCatalogSummary, activeProducts: 0, draftProducts: 10,
+    outOfStockVariants: 30, outOfStockProducts: 10,
+  }));
+  assert.equal((await draftStock.execute({ kind: "low_stock" })).text, "Stokta olmayan 30 varyant var.");
+});
+
+test("rejects invalid or private catalog summary extensions without losing strict legacy validation", async () => {
+  for (const payload of [
+    { ...liveCatalogSummary, outOfStockProducts: -1 },
+    { ...liveCatalogSummary, outOfStockProducts: 0.5 },
+    { ...liveCatalogSummary, outOfStockProducts: 11 },
+    { ...liveCatalogSummary, outOfStockProducts: null },
+    { ...liveCatalogSummary, outOfStockProducts: Number.MAX_SAFE_INTEGER + 1 },
+    { ...liveCatalogSummary, privateCostCents: 100 },
+    { ...liveCatalogSummary, activeVariants: 0, outOfStockVariants: 1 },
+  ]) {
+    const client = createToshiLocalClient(async () => Response.json(payload));
+    await assert.rejects(client.execute({ kind: "low_stock" }), { name: "ToshiLocalError", code: "unavailable" });
+  }
+});
+
+test("searches current v2 catalog envelopes and measurement-bearing dynamic variants", async () => {
+  const calls: string[] = [];
+  const client = createToshiLocalClient(async (path) => {
+    const value = String(path);
+    calls.push(value);
+    if (value === "/api/catalog/products/v2?limit=20&status=active") return Response.json(currentCatalogList());
+    if (value === "/api/catalog/products/v2?limit=20&status=draft") return Response.json({ items: [], catalogTotal: 1, featuredImages: {} });
+    if (value === `/api/catalog/products/v2/${PRODUCT_ID}`) {
+      const entry = detail(product(), "SKU-DYNAMIC");
+      return Response.json({ ...entry, variants: entry.variants.map((variant) => ({
+        ...variant, effectivePriceCents: null, pricingMethod: "gold_gram",
+        measurements: { weight: { valueMilli: 14890, unit: "g" } },
+      })) });
+    }
+    throw new Error("unexpected_path");
+  });
+  assert.equal((await client.execute({ kind: "find_product", query: "SKU-DYNAMIC" })).text, "“SKU-DYNAMIC” için ilk 1 eşleşme: Krem Gömlek.");
+  assert.deepEqual(calls, [
+    "/api/catalog/products/v2?limit=20&status=active",
+    "/api/catalog/products/v2?limit=20&status=draft",
+    `/api/catalog/products/v2/${PRODUCT_ID}`,
+  ]);
+});
+
+test("rejects malformed catalog list metadata and detail identity before returning local matches", async () => {
+  const current = currentCatalogList();
+  const foreign = PRODUCT_ID_2;
+  const malformed = [
+    { ...current, privateToken: "private" },
+    { ...current, catalogTotal: 0 },
+    { ...current, catalogTotal: -1 },
+    { ...current, featuredImages: { [foreign]: current.featuredImages[PRODUCT_ID] } },
+    { ...current, featuredImages: { [PRODUCT_ID]: { publicUrl: "javascript:alert(1)", altText: "Krem" } } },
+    { ...current, featuredImages: { [PRODUCT_ID]: { ...current.featuredImages[PRODUCT_ID], privateToken: "private" } } },
+    { ...current, variantSummaries: { [foreign]: current.variantSummaries[PRODUCT_ID] } },
+    { ...current, variantSummaries: { [PRODUCT_ID]: { ...current.variantSummaries[PRODUCT_ID], privateToken: "private" } } },
+    { ...current, variantSummaries: { [PRODUCT_ID]: { ...current.variantSummaries[PRODUCT_ID], productStock: { trackedVariantCount: 0, untrackedVariantCount: 0, trackedQuantity: 1 } } } },
+    { ...current, items: Array.from({ length: 21 }, () => product()), catalogTotal: 21 },
+  ];
+  for (const payload of malformed) {
+    let detailReads = 0;
+    const client = createToshiLocalClient(async (path) => {
+      if (String(path).includes("?")) return Response.json(payload);
+      detailReads += 1;
+      return Response.json(detail(product(), "SKU-DYNAMIC"));
+    });
+    await assert.rejects(client.execute({ kind: "find_product", query: "Krem" }), { name: "ToshiLocalError", code: "unavailable" });
+    assert.equal(detailReads, 0);
+  }
+  const mismatchedDetail = createToshiLocalClient(async (path) => {
+    if (String(path).includes("status=active")) return Response.json(current);
+    if (String(path).includes("status=draft")) return Response.json({ items: [], catalogTotal: 1 });
+    return Response.json(detail(product("Başka ürün", "baska-urun", foreign), "SKU-DYNAMIC"));
+  });
+  await assert.rejects(mismatchedDetail.execute({ kind: "find_product", query: "Krem" }), { name: "ToshiLocalError", code: "unavailable" });
+});
+
 test("parses supported Turkish local intents", () => {
   for (const [input, expected] of [
     ["mağaza özeti", { kind: "store_summary" }],
@@ -145,9 +253,9 @@ test("routes supported local reads through bounded same-origin JSON GET requests
       case "/api/orders/summary": return Response.json({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
       case "/api/customers/summary": return Response.json({ active: 2, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
       case "/api/orders/abandoned-carts/summary": return Response.json({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-24T10:00:00.000Z" });
-      case "/api/catalog/products?limit=20&status=active": return Response.json({ items: [product()] });
-      case "/api/catalog/products?limit=20&status=draft": return Response.json({ items: [] });
-      case `/api/catalog/products/${PRODUCT_ID}`: return Response.json(detail(product(), "KG-M-KREM"));
+      case "/api/catalog/products/v2?limit=20&status=active": return Response.json({ items: [product()] });
+      case "/api/catalog/products/v2?limit=20&status=draft": return Response.json({ items: [] });
+      case `/api/catalog/products/v2/${PRODUCT_ID}`: return Response.json(detail(product(), "KG-M-KREM"));
       case "/api/customers?search=Ada&pageSize=10": return Response.json({ items: [customer] });
       case "/api/orders?search=CBX-1042&pageSize=10&sort=newest": return Response.json({ items: [order] });
       default: throw new Error(`unexpected_path:${path}`);
@@ -171,9 +279,9 @@ test("routes supported local reads through bounded same-origin JSON GET requests
   ]);
 
   assert.deepEqual(calls.map(([path]) => path).sort(), [
-    "/api/catalog/products?limit=20&status=active",
-    "/api/catalog/products?limit=20&status=draft",
-    `/api/catalog/products/${PRODUCT_ID}`,
+    "/api/catalog/products/v2?limit=20&status=active",
+    "/api/catalog/products/v2?limit=20&status=draft",
+    `/api/catalog/products/v2/${PRODUCT_ID}`,
     "/api/customers?search=Ada&pageSize=10",
     "/api/orders?search=CBX-1042&pageSize=10&sort=newest",
   ].sort());
@@ -195,10 +303,10 @@ test("returns the validated summary and bounded matching search results", async 
       case "/api/orders/summary": return Response.json({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: NOW });
       case "/api/customers/summary": return Response.json({ active: 2, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: NOW });
       case "/api/orders/abandoned-carts/summary": return Response.json({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: NOW });
-      case "/api/catalog/products?limit=20&status=active": return Response.json({ items: Array.from({ length: 11 }, (_, index) => product(`Krem Ürün ${index + 1}`, `krem-urun-${index + 1}`, productId(index + 1))) });
-      case "/api/catalog/products?limit=20&status=draft": return Response.json({ items: [] });
+      case "/api/catalog/products/v2?limit=20&status=active": return Response.json({ items: Array.from({ length: 11 }, (_, index) => product(`Krem Ürün ${index + 1}`, `krem-urun-${index + 1}`, productId(index + 1))) });
+      case "/api/catalog/products/v2?limit=20&status=draft": return Response.json({ items: [] });
       default: {
-        const id = String(path).replace("/api/catalog/products/", "");
+        const id = String(path).replace("/api/catalog/products/v2/", "");
         if (/^[0-9a-f-]{36}$/u.test(id)) return Response.json(detail(product("Krem Ürün", "krem-urun", id)));
         throw new Error(`unexpected_path:${path}`);
       }
@@ -224,13 +332,13 @@ test("scans bounded catalog pages and product details for later title and SKU ma
   let maximumDetails = 0;
   const client = createToshiLocalClient(async (path) => {
     const value = String(path);
-    if (value === "/api/catalog/products?limit=20&status=active") return Response.json({ items: [first], nextCursor: "later" });
-    if (value === "/api/catalog/products?limit=20&status=active&cursor=later") return Response.json({ items: [laterTitle, laterSku] });
-    if (value === "/api/catalog/products?limit=20&status=draft") return Response.json({ items: [] });
+    if (value === "/api/catalog/products/v2?limit=20&status=active") return Response.json({ items: [first], nextCursor: "later" });
+    if (value === "/api/catalog/products/v2?limit=20&status=active&cursor=later") return Response.json({ items: [laterTitle, laterSku] });
+    if (value === "/api/catalog/products/v2?limit=20&status=draft") return Response.json({ items: [] });
     const entries = new Map([
-      [`/api/catalog/products/${PRODUCT_ID}`, detail(first)],
-      [`/api/catalog/products/${PRODUCT_ID_2}`, detail(laterTitle)],
-      [`/api/catalog/products/${PRODUCT_ID_3}`, detail(laterSku, "SKU-LATE")],
+      [`/api/catalog/products/v2/${PRODUCT_ID}`, detail(first)],
+      [`/api/catalog/products/v2/${PRODUCT_ID_2}`, detail(laterTitle)],
+      [`/api/catalog/products/v2/${PRODUCT_ID_3}`, detail(laterSku, "SKU-LATE")],
     ]);
     const body = entries.get(value);
     if (body === undefined) throw new Error(`unexpected_path:${path}`);
@@ -249,8 +357,8 @@ test("scans bounded catalog pages and product details for later title and SKU ma
 test("fails closed on a catalog cursor loop and labels a bounded zero-result scan as incomplete", async () => {
   const loop = createToshiLocalClient(async (path) => {
     const value = String(path);
-    if (value === "/api/catalog/products?limit=20&status=active") return Response.json({ items: [], nextCursor: "loop" });
-    if (value === "/api/catalog/products?limit=20&status=active&cursor=loop") return Response.json({ items: [], nextCursor: "loop" });
+    if (value === "/api/catalog/products/v2?limit=20&status=active") return Response.json({ items: [], nextCursor: "loop" });
+    if (value === "/api/catalog/products/v2?limit=20&status=active&cursor=loop") return Response.json({ items: [], nextCursor: "loop" });
     throw new Error(`unexpected_path:${path}`);
   });
   await assert.rejects(loop.execute({ kind: "find_product", query: "Krem" }), { name: "ToshiLocalError", code: "unavailable" });
@@ -261,7 +369,7 @@ test("fails closed on a catalog cursor loop and labels a bounded zero-result sca
     const cursor = new URL(`https://panel.invalid${value}`).searchParams.get("cursor");
     if (value.includes("status=active")) return Response.json({ items: [entries[cursor === null ? 0 : Number(cursor)]!], nextCursor: cursor === "2" ? "3" : String((cursor === null ? 0 : Number(cursor)) + 1) });
     if (value.includes("status=draft")) return Response.json({ items: [] });
-    const id = value.replace("/api/catalog/products/", "");
+    const id = value.replace("/api/catalog/products/v2/", "");
     const entry = entries.find((candidate) => candidate.id === id);
     if (entry) return Response.json(detail(entry));
     throw new Error(`unexpected_path:${path}`);
