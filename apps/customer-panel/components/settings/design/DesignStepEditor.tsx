@@ -88,7 +88,7 @@ export function DesignStepEditor({
 
   if (step === "brand") return <div className={styles.editorStack}>
     <section className={styles.editorGroup} aria-labelledby="design-brand-heading">
-      <header><h3 id="design-brand-heading">Logo ve simge</h3><p>Mağazanızın her sayfada görünen kimliğini seçin.</p></header>
+      <header><h3 id="design-brand-heading">Logo ve simge</h3></header>
       {inspector("brand")}
     </section>
     <details className={styles.advancedDisclosure}>
@@ -98,8 +98,8 @@ export function DesignStepEditor({
   </div>;
 
   if (step === "style") return <div className={styles.editorStack}>
-    <section className={styles.editorGroup} aria-labelledby="design-color-heading"><header><h3 id="design-color-heading">Renkler</h3><p>Mağazanızın ana renklerini seçin.</p></header>{inspector("colors")}</section>
-    <section className={styles.editorGroup} aria-labelledby="design-type-heading"><header><h3 id="design-type-heading">Yazılar</h3><p>Başlık ve normal metin görünümünü ayrı ayrı ayarlayın.</p></header>{inspector("typography")}</section>
+    <section className={styles.editorGroup} aria-labelledby="design-color-heading"><header><h3 id="design-color-heading">Renkler</h3></header>{inspector("colors")}</section>
+    <section className={styles.editorGroup} aria-labelledby="design-type-heading"><header><h3 id="design-type-heading">Yazılar</h3></header>{inspector("typography")}</section>
     <details className={styles.advancedDisclosure}><summary>Gelişmiş görünüm</summary>{composer("visual")}</details>
   </div>;
 
@@ -112,7 +112,7 @@ export function DesignStepEditor({
   if (step === "cart") return composer("cart");
   if (step === "footer") return composer("footer");
   if (step === "homepage") return <div className={styles.editorStack}>
-    <section className={styles.editorGroup} aria-labelledby="homepage-banner-heading"><header><h3 id="homepage-banner-heading">Sabit ana banner</h3><p>Banner her zaman ilk sıradadır. Görsel, metin ve bağlantısını buradan yönetin.</p></header>{inspector("hero")}</section>
+    <section className={styles.editorGroup} aria-labelledby="homepage-banner-heading"><header><h3 id="homepage-banner-heading">Ana banner</h3></header>{inspector("hero")}</section>
     <HomepageBuilder design={design} media={media} destinations={destinations} canManage={canManage} previewMode={previewMode} onChange={onChange} />
     <details className={styles.advancedDisclosure}><summary>Kampanya zamanlaması</summary>{inspector("promotion")}</details>
     <details className={styles.advancedDisclosure}><summary>Ana sayfa görsel arşivi</summary><StorefrontAssetManager allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." /></details>

@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   Banknote,
   CheckCircle2,
-  CircleDollarSign,
   CreditCard,
   GripVertical,
   MoreHorizontal,
@@ -579,21 +578,17 @@ export function PaymentSettingsConsole(props: Readonly<{
 
   return (
     <section className={styles.page} aria-labelledby="payment-settings-title">
-      <PanelTopbarBridge title="Ödeme Ayarları" subtitle="Checkout'ta kullanılacak ödeme yöntemlerini ve sağlayıcı bağlantılarını yönetin." actions={topbarActions} />
+      <PanelTopbarBridge title="Ödeme Ayarları" />
       <h1 id="payment-settings-title" className={styles.srOnly}>Ödeme Ayarları</h1>
-      <div className={styles.mobileCommands}>{topbarActions}</div>
 
       <section className={styles.paymentSummary} aria-labelledby="payment-summary-title">
-        <div className={styles.availabilityIcon}><CircleDollarSign aria-hidden="true" /></div>
-        <div className={styles.summaryCopy}>
-          <h2 id="payment-summary-title">Checkout ödeme özeti</h2>
-          <p>Yalnız etkin ödeme yöntemleri müşteriye gösterilir.</p>
-        </div>
+        <h2 id="payment-summary-title" className={styles.srOnly}>Checkout ödeme özeti</h2>
         <dl className={styles.summaryMetrics}>
           <div><dt>Etkin yöntem</dt><dd>{methodsKnown ? view.counts.activeMethods : "—"}</dd></div>
           <div><dt>Manuel yöntem</dt><dd>{manualMethodCount ?? "—"}</dd></div>
           <div><dt>Sağlayıcı bağlantısı</dt><dd>{providerProfileCount ?? "—"}</dd></div>
         </dl>
+        {topbarActions}
       </section>
 
       {message ? <p className={messageTone === "success" ? styles.successNotice : messageTone === "warning" ? styles.providerWarning : styles.errorNotice} role={messageTone === "error" ? "alert" : "status"}>{messageTone === "success" ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{message}</p> : null}
@@ -605,9 +600,8 @@ export function PaymentSettingsConsole(props: Readonly<{
       </nav>
 
       {workspaceTab === "methods" ? <section className={styles.methodsPanel} aria-labelledby="payment-methods-title">
-        <header className={styles.workspaceSectionHeader}>
-          <div><h2 id="payment-methods-title">Checkout yöntemleri</h2><p>Müşterinin ödeme adımında görebileceği yöntemleri ve mevcut durumlarını yönetin.</p></div>
-        </header>
+        <h2 id="payment-methods-title" className={styles.srOnly}>Checkout yöntemleri</h2>
+        <p className={styles.workspaceNote}>Yalnız etkin ödeme yöntemleri müşteriye gösterilir.</p>
 
         {sources.methods.phase === "loading" ? <p className={styles.loadingState} role="status">Ödeme yöntemleri yükleniyor…</p> : null}
         {methodsLoadError ? <div className={styles.loadError} role="alert"><span>Ödeme yöntemleri yüklenemedi.</span><button type="button" className={styles.secondaryButton} onClick={() => void load()}><RefreshCw />Tekrar dene</button></div> : null}

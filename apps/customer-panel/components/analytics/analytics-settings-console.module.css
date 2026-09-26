@@ -1,87 +1,46 @@
-.root {
-  display: grid;
-  min-width: 0;
-  gap: 1rem;
-  color: #2B2B2B;
-}
-
-.loading,
-.warning,
-.panel {
-  min-width: 0;
-  border: 1px solid #E7E2DD;
-  border-radius: .75rem;
-  background: #FFFDFC;
-  padding: 1rem;
-}
-
-.loading { color: rgb(43 43 43 / 72%); }
-
-.warning {
-  border-color: rgba(254, 97, 0, .16);
-  background: rgb(254 97 0 / 6%);
-}
-
-.warning p,
-.panel p {
-  margin: .35rem 0 0;
-  color: rgb(43 43 43 / 72%);
-  font-size: .78rem;
-  line-height: 1.5;
-}
-
-.settingsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .75rem;
-  margin-bottom: 1rem;
-}
-
-.settingsGrid label {
-  display: grid;
-  min-width: 0;
-  gap: .35rem;
-  color: rgb(43 43 43 / 78%);
-  font-size: .75rem;
-  font-weight: 650;
-}
-
-.settingsGrid label span { font-weight: 500; }
-
-.settingsGrid input,
-.settingsGrid select {
-  min-width: 0;
-  min-height: 44px;
-  border: 1px solid #E7E2DD;
-  border-radius: .55rem;
-  background: #FFFDFC;
-  padding: .6rem .7rem;
-  color: #2B2B2B;
-  font: inherit;
-}
-
-.primary {
-  min-height: 44px;
-  border: 1px solid #2B2B2B;
-  border-radius: .55rem;
-  background: #2B2B2B;
-  padding: .6rem .9rem;
-  color: #FFFDFC;
-  cursor: pointer;
-  font: inherit;
-  font-size: .78rem;
-  font-weight: 700;
-}
-
-.primary:disabled { cursor: not-allowed; opacity: .5; }
-
-.primary:focus-visible,
-.settingsGrid input:focus-visible,
-.settingsGrid select:focus-visible {
-  outline: 2px solid #2B2B2B;
-  outline-offset: 2px;
-}
+.root { width: 100%; min-width: 0; color: var(--settings-text, var(--text)); }
+.loading { margin: 0; padding: 24px 0; color: var(--settings-muted, var(--muted)); font-size: 13px; }
+.error { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 0; color: var(--settings-danger, var(--danger)); font-size: 13px; }
+.error p { margin: 0; }
+.connection { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-width: 0; padding: 0 0 24px; border-bottom: 1px solid var(--settings-border, var(--border)); }
+.connection > div { min-width: 0; }
+.connectionStatus { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; line-height: 1.6; }
+.connectionStatus i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
+.activeDot { background: var(--settings-success, var(--success)); }
+.pendingDot { background: var(--settings-warning, var(--muted)); }
+.form { min-width: 0; }
+.formSection { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 32px; padding: 32px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }
+.sectionLabel h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.sectionLabel p { margin: 8px 0 0; color: var(--settings-muted, var(--muted)); font-size: 12px; line-height: 1.6; }
+.settingsGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.settingsGrid label { display: grid; align-content: start; min-width: 0; gap: 8px; font-size: 13px; font-weight: 500; }
+.settingsGrid label small { color: var(--settings-muted, var(--muted)); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.settingsGrid input:not([type="checkbox"]), .settingsGrid select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; background: var(--settings-surface, var(--surface)); padding: 8px 12px; color: inherit; font: inherit; }
+.wide { grid-column: 1 / -1; }
+.settingsGrid .switchRow { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.switchRow > span { display: grid; gap: 8px; }
+.switchRow strong { font-size: 13px; font-weight: 500; }
+.switchRow input { flex: 0 0 auto; appearance: none; position: relative; width: 40px; min-height: 24px; height: 24px; margin: 0; border: 1px solid var(--settings-border, var(--border)); border-radius: 24px; background: var(--settings-surface, var(--surface)); }
+.switchRow input::after { content: ""; position: absolute; width: 16px; height: 16px; top: 3px; left: 3px; border-radius: 50%; background: var(--settings-muted, var(--muted)); }
+.switchRow input:checked::after { left: 19px; background: var(--settings-action, var(--text)); }
+.switchRow input:disabled { opacity: .6; }
+.savebar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 0; }
+.savebar p { margin: 0; color: var(--settings-muted, var(--muted)); font-size: 13px; line-height: 1.6; }
+.primary, .secondary { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; }
+.primary { border-color: var(--settings-action, var(--text)); background: var(--settings-action, var(--text)); color: var(--settings-inverse, var(--surface)); }
+.primary:hover { background: var(--settings-action-hover, var(--text)); }
+.secondary:hover { background: var(--settings-canvas, var(--canvas)); }
+.root button:disabled { cursor: not-allowed; opacity: .5; }
+.settingsGrid:disabled :is(input:not([type="checkbox"]), select) { cursor: not-allowed; opacity: .65; }
+.root :is(button, input, select):focus-visible { outline: 2px solid var(--settings-action, var(--text)); outline-offset: 3px; }
 
 @media (max-width: 1024px) {
-  .settingsGrid { grid-template-columns: 1fr; }
+  .formSection { grid-template-columns: 140px minmax(0, 1fr); gap: 24px; }
+}
+@media (max-width: 720px) {
+  .formSection { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 0; }
+  .settingsGrid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .settingsGrid input:not([type="checkbox"]), .settingsGrid select { font-size: 16px; }
+  .connection, .error { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .savebar { align-items: flex-start; gap: 16px; }
 }

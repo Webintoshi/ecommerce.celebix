@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ReferenceIdentity } from "@celebix/saas-contracts";
 import type { ReferenceImpactEntry, ReferenceImpactPreview, ReferenceSetDetail, ReferenceSetList } from "@celebix/saas-data";
 
@@ -13,6 +14,12 @@ import styles from "./reference-pricing.module.css";
 type Phase = "loading" | "ready" | "error";
 type PreviewPhase = "idle" | "loading" | "ready" | "error";
 type Kind = "usd" | "eur" | "gold_gram";
+type WorkspaceTab = "references" | "preview" | "history";
+const WORKSPACE_TABS = Object.freeze([
+  { id: "references", label: "Referanslar" },
+  { id: "preview", label: "Fiyat önizlemesi" },
+  { id: "history", label: "Sürüm geçmişi" },
+] as const);
 
 const KIND_LABEL: Record<Kind, string> = { usd: "ABD doları", eur: "Euro", gold_gram: "Gram altın" };
 const fmtDate = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -53,6 +60,35 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
   const [kind, setKind] = useState<Kind>("usd");
   const [referenceLabel, setReferenceLabel] = useState("USD satış");
   const [purityText, setPurityText] = useState("");
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("references");
+  const [definitionOpen, setDefinitionOpen] = useState(false);
+  const definitionDialogRef = useRef<HTMLDialogElement>(null);
+  const definitionTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const dialog = definitionDialogRef.current;
+    if (!definitionOpen || !dialog) return;
+    if (!dialog.open) dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      if (dialog.open) dialog.close();
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => definitionTriggerRef.current?.focus());
+    };
+  }, [definitionOpen]);
+
+  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, selected: WorkspaceTab) {
+    const index = WORKSPACE_TABS.findIndex(({ id }) => id === selected);
+    const nextIndex = event.key === "ArrowRight" ? (index + 1) % WORKSPACE_TABS.length
+      : event.key === "ArrowLeft" ? (index + WORKSPACE_TABS.length - 1) % WORKSPACE_TABS.length
+        : event.key === "Home" ? 0 : event.key === "End" ? WORKSPACE_TABS.length - 1 : null;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const next = WORKSPACE_TABS[nextIndex]!;
+    setWorkspaceTab(next.id);
+    document.getElementById(`pricing-tab-${next.id}`)?.focus();
+  }
 
   const reload = useCallback(async (preserveDraft = false, signal?: AbortSignal) => {
     setPhase("loading");
@@ -143,6 +179,8 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
       setPurityText("");
       setNotice("Manuel referans tanımı oluşturuldu. Kullanıma almak için satış değerini girip yeni seti kaydedin.");
       setDraftDirty(true);
+      setDefinitionOpen(false);
+      setWorkspaceTab("references");
     } catch (failure) { mutationFailure(failure); }
     finally { setBusy(""); }
   }
@@ -221,6 +259,8 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
         setDraftDirty(false);
         setPreview(null); setPreviewEntries([]); setPreviewCursor(null); setPreviewPhase("idle");
         setNotice("Taslak sürüm açıldı. Etkiyi önizleyip aynı sürümü uygulayabilirsiniz.");
+        setWorkspaceTab("references");
+        requestAnimationFrame(() => document.getElementById("pricing-tab-references")?.focus());
       }
     } catch (failure) { setProblem(messageForFailure(failure, false)); }
     finally { setBusy(""); }
@@ -242,18 +282,20 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
 
   if (!canRead) return <PanelPageShell><PanelPageHeader title="Kur ve altın referansları" /><p className={styles.state} role="status">Bu mağazanın fiyatlandırma referanslarını görüntüleme yetkiniz yok.</p></PanelPageShell>;
   return <PanelPageShell>
-    <PanelPageHeader title="Kur ve altın referansları" description="Mağazanızın manuel satış referanslarını hazırlayın, etkisini görün ve açıkça uygulayın." />
-    <div className={styles.root}>
+    <PanelPageHeader title="Kur ve altın referansları" />
+    <div className={styles.root} data-settings-dirty={draftDirty ? "true" : undefined}>
       {phase === "loading" ? <div className={styles.loading} role="status" aria-label="Referanslar yükleniyor"><span /><span /><span /></div> : null}
       {phase === "error" ? <div className={styles.feedback} role="alert"><p>{problem}</p><button type="button" onClick={() => void reload()}>Yeniden dene</button></div> : null}
       {phase === "ready" ? <>
-        <div className={styles.intro}><div><strong>Manuel satış referansı</strong><p>Bu değerler piyasa verisi değildir; siz değiştirene kadar geçerlidir. TRY sabit 1’dir ve burada düzenlenmez.</p></div><PanelStatusBadge tone={activeSet ? "success" : "neutral"}>{activeSet ? `Etkin sürüm v${activeSet.version}` : "Etkin set yok"}</PanelStatusBadge></div>
+        <div className={styles.intro}><div><strong>Manuel kur ve altın referansları</strong><PanelStatusBadge tone={activeSet ? "success" : "neutral"}>{activeSet ? `Etkin sürüm v${activeSet.version}` : "Etkin set yok"}</PanelStatusBadge></div>{canManage ? <button ref={definitionTriggerRef} type="button" onClick={() => { setProblem(""); setDefinitionOpen(true); }} disabled={Boolean(busy) || locked}><Plus size={16} aria-hidden="true" />Tanım ekle</button> : null}</div>
+        <p className={styles.subtle}>Bu değerler piyasa verisi değildir; siz değiştirene kadar geçerlidir. TRY sabit 1’dir ve burada düzenlenmez.</p>
         {notice ? <p className={styles.success} role="status">{notice}</p> : null}
         {problem ? <p className={styles.feedback} role="alert">{problem}</p> : null}
         {locked ? <p className={styles.warning} role="alert">İşlem sonucu doğrulanmadan başka kayıt yapılamaz. <a href="/settings/pricing">Sayfayı tamamen yenile</a>.</p> : null}
         {!canManage ? <p className={styles.state} role="status">Görüntüleme modundasınız; referansları değiştirmek için fiyatlandırma yetkisi gerekir.</p> : null}
+        <nav className={styles.tabs} role="tablist" aria-label="Fiyat referansı görünümleri">{WORKSPACE_TABS.map(({ id, label }) => <button key={id} id={`pricing-tab-${id}`} type="button" role="tab" aria-selected={workspaceTab === id} aria-controls={`pricing-panel-${id}`} tabIndex={workspaceTab === id ? 0 : -1} onClick={() => setWorkspaceTab(id)} onKeyDown={(event) => navigateTabs(event, id)}>{label}</button>)}</nav>
 
-        <section className={styles.section} aria-labelledby="reference-values-title">
+        <section className={styles.section} id="pricing-panel-references" role="tabpanel" aria-labelledby="pricing-tab-references" hidden={workspaceTab !== "references"}>
           <div className={styles.sectionHeading}><div><h2 id="reference-values-title">Satış referansları</h2><p>Kaynak: Manuel · Birim: TL / seçili birim</p></div><span className={styles.subtle}>{definitions.length} tanım</span></div>
           {definitions.length === 0 ? <div className={styles.empty}><h3>Henüz referans tanımı yok</h3><p>USD, EUR veya gram altın için mağazanıza özel bir manuel satış referansı oluşturun. Herhangi bir piyasa değeri otomatik eklenmez.</p></div> : <div className={styles.rateList}>{definitions.map((definition) => {
             const draft = rates.find((item) => item.referenceId === definition.id);
@@ -265,15 +307,15 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
           {canManage && definitions.length > 0 ? <div className={styles.actions}><button className={savedSet && !draftDirty ? undefined : styles.primary} type="button" onClick={() => void save()} disabled={Boolean(busy) || locked}>{busy === "save" ? "Kaydediliyor…" : "Taslağı kaydet"}</button><span>Kaydetmek canlı fiyatı değiştirmez.</span></div> : null}
         </section>
 
-        {canManage ? <section className={styles.section} aria-labelledby="new-reference-title"><div className={styles.sectionHeading}><div><h2 id="new-reference-title">Yeni referans tanımı</h2><p>Tanımın adını veya saflık temelini sonra sessizce değiştirmek yerine yeni tanım oluşturun.</p></div></div><form className={styles.definitionForm} onSubmit={(event) => void defineReference(event)}><label><span>Birim</span><select value={kind} onChange={(event) => { const next = event.target.value as Kind; setKind(next); setReferenceLabel(next === "usd" ? "USD satış" : next === "eur" ? "EUR satış" : "Gram altın satış"); }} disabled={Boolean(busy) || locked}><option value="usd" disabled={definitions.some((item) => item.kind === "usd")}>USD</option><option value="eur" disabled={definitions.some((item) => item.kind === "eur")}>EUR</option><option value="gold_gram">Gram altın</option></select></label><label><span>Tanım adı</span><input required maxLength={120} value={referenceLabel} onChange={(event) => setReferenceLabel(event.target.value)} disabled={Boolean(busy) || locked} /></label>{kind === "gold_gram" ? <label><span>Referans saflığı (isteğe bağlı)</span><input inputMode="decimal" placeholder="0,916" value={purityText} onChange={(event) => setPurityText(event.target.value)} disabled={Boolean(busy) || locked} /><small>Oran modunda kullanılacaksa gerçek saflık oranını girin.</small></label> : null}<button type="submit" disabled={Boolean(busy) || locked}>{busy === "define" ? "Ekleniyor…" : "Tanım ekle"}</button></form></section> : null}
+        {canManage ? <dialog ref={definitionDialogRef} className={styles.definitionDialog} aria-labelledby="new-reference-title" onCancel={(event) => { if (busy) event.preventDefault(); else setDefinitionOpen(false); }} onClose={() => setDefinitionOpen(false)}><header className={styles.definitionHeader}><h2 id="new-reference-title">Yeni referans tanımı</h2><button type="button" className={styles.closeButton} onClick={() => setDefinitionOpen(false)} disabled={Boolean(busy)} aria-label="Referans tanımı penceresini kapat"><X size={20} /></button></header><p className={styles.definitionHelp}>Tanımın adını veya saflık temelini sonra sessizce değiştirmek yerine yeni tanım oluşturun.</p>{problem ? <p className={styles.feedback} role="alert">{problem}</p> : null}<form className={styles.definitionForm} onSubmit={(event) => void defineReference(event)}><label><span>Birim</span><select value={kind} onChange={(event) => { const next = event.target.value as Kind; setKind(next); setReferenceLabel(next === "usd" ? "USD satış" : next === "eur" ? "EUR satış" : "Gram altın satış"); }} disabled={Boolean(busy) || locked}><option value="usd" disabled={definitions.some((item) => item.kind === "usd")}>USD</option><option value="eur" disabled={definitions.some((item) => item.kind === "eur")}>EUR</option><option value="gold_gram">Gram altın</option></select></label><label><span>Tanım adı</span><input required maxLength={120} value={referenceLabel} onChange={(event) => setReferenceLabel(event.target.value)} disabled={Boolean(busy) || locked} /></label>{kind === "gold_gram" ? <label><span>Referans saflığı (isteğe bağlı)</span><input inputMode="decimal" placeholder="0,916" value={purityText} onChange={(event) => setPurityText(event.target.value)} disabled={Boolean(busy) || locked} /><small>Oran modunda kullanılacaksa gerçek saflık oranını girin.</small></label> : null}<footer className={styles.definitionActions}><button type="button" onClick={() => setDefinitionOpen(false)} disabled={Boolean(busy)}>Vazgeç</button><button className={styles.primary} type="submit" disabled={Boolean(busy) || locked}>{busy === "define" ? "Ekleniyor…" : "Tanım ekle"}</button></footer></form></dialog> : null}
 
-        <section className={styles.section} aria-labelledby="impact-title"><div className={styles.sectionHeading}><div><h2 id="impact-title">Etkiyi önizle ve uygula</h2><p>Fiyat hesabı yalnız sunucuda yapılır. Sabit fiyat listeleri ayrı kalır; eski siparişler değişmez.</p></div></div><div className={styles.previewControls}><label><span>Kanal</span><select value={channel} onChange={(event) => { setChannel(event.target.value as "storefront" | "quick_order"); setPreview(null); setPreviewEntries([]); setPreviewCursor(null); setPreviewPhase("idle"); }}><option value="storefront">Mağaza</option><option value="quick_order">Hızlı sipariş</option></select></label><button type="button" onClick={() => void loadPreview()} disabled={!savedSet || draftDirty || Boolean(busy) || previewPhase === "loading"}>{previewPhase === "loading" ? "Hesaplanıyor…" : "Sunucuda önizle"}</button></div>
+        <section className={styles.section} id="pricing-panel-preview" role="tabpanel" aria-labelledby="pricing-tab-preview" hidden={workspaceTab !== "preview"}><div className={styles.sectionHeading}><div><h2 id="impact-title">Etkiyi önizle ve uygula</h2><p>Fiyat hesabı yalnız sunucuda yapılır. Sabit fiyat listeleri ayrı kalır; eski siparişler değişmez.</p></div></div><div className={styles.previewControls}><label><span>Kanal</span><select value={channel} onChange={(event) => { setChannel(event.target.value as "storefront" | "quick_order"); setPreview(null); setPreviewEntries([]); setPreviewCursor(null); setPreviewPhase("idle"); }}><option value="storefront">Mağaza</option><option value="quick_order">Hızlı sipariş</option></select></label><button type="button" onClick={() => void loadPreview()} disabled={!savedSet || draftDirty || Boolean(busy) || previewPhase === "loading"}>{previewPhase === "loading" ? "Hesaplanıyor…" : "Sunucuda önizle"}</button></div>
           {!savedSet ? <p className={styles.state}>Önizleme için önce bir referans taslağı kaydedin.</p> : draftDirty ? <p className={styles.warning}>Taslak kayıttan sonra değişti. Yeniden kaydedip etkiyi tekrar önizleyin.</p> : null}
           {previewPhase === "error" ? <p className={styles.feedback} role="alert">Önizleme yüklenemedi. Verileriniz korundu; tekrar deneyin.</p> : null}
           {preview ? <><div className={styles.impactStats}><div><span>Etkilenen ürün</span><strong>{preview.affectedProducts}</strong></div><div><span>Etkilenen varyant</span><strong>{preview.affectedVariants}</strong></div><div><span>Sabit liste etkisi</span><strong>{preview.fixedOverrideVariants}</strong></div><div><span>Hesaplanamayan</span><strong>{preview.unavailableVariants}</strong></div></div><p className={styles.subtle}>Toplamlar tüm katalog için sunucudan gelir; aşağıdaki kayıtlar sayfalıdır.</p><div className={styles.tableScroll}><table><caption>Sunucu fiyat etkisi, {channel === "storefront" ? "mağaza" : "hızlı sipariş"} kanalı</caption><thead><tr><th>Varyant</th><th>Eski fiyat</th><th>Yeni fiyat</th><th>Not</th></tr></thead><tbody>{previewEntries.length ? previewEntries.map((entry) => <tr key={entry.variantId}><td>{entry.variantId.slice(0, 8)}…</td><td>{formatCents(entry.oldPriceCents)}</td><td>{formatCents(entry.newPriceCents)}</td><td>{entry.overriddenByPriceList ? "Sabit liste geçerli" : entry.newPriceCents === null ? "Satışa kapalı" : "Referans fiyatı"}</td></tr>) : <tr><td colSpan={4}>Bu setin fiyatını değiştirdiği varyant yok.</td></tr>}</tbody></table></div>{previewCursor ? <button className={styles.more} type="button" onClick={() => void loadPreview(previewCursor)} disabled={previewPhase === "loading"}>Sonraki varyantları göster</button> : null}{preview.unavailableVariants > 0 ? <p className={styles.warning} role="alert">{preview.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor. Bu set etkinleştirilirse yalnız bağlı yeni satışlar kapanır; devam etmek için açık teyit gerekir.</p> : null}{canManage ? <div className={styles.actions}><button className={styles.primary} type="button" onClick={() => void activate()} disabled={Boolean(busy) || locked || previewPhase !== "ready" || !canActivateReferenceSet({ savedSetId: savedSet?.setId ?? null, preview, dirty: draftDirty })}>{busy === "activate" ? "Uygulanıyor…" : "Onayla ve uygula"}</button><span>Etkinleştirme anında kapsam ve sürüm yeniden doğrulanır.</span></div> : null}</> : null}
         </section>
 
-        <section className={styles.section} aria-labelledby="history-title"><div className={styles.sectionHeading}><div><h2 id="history-title">Sürüm geçmişi</h2><p>Etkin ve taslak sürümler; eski kayıtları gerektiğinde açabilirsiniz.</p></div></div>{listing?.items.length ? <><div className={styles.tableScroll}><table><caption>Manuel referans seti geçmişi</caption><thead><tr><th>Oluşturuldu</th><th>Sürüm</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{listing.items.map((item) => <tr key={item.setId}><td>{fmtDate(item.createdAt)}</td><td>v{item.version}</td><td><PanelStatusBadge tone={item.isActive ? "success" : "neutral"}>{item.isActive ? "Etkin" : "Taslak"}</PanelStatusBadge></td><td><button type="button" onClick={() => void openHistorySet(item.setId)} disabled={Boolean(busy) || locked}>{item.isActive ? "Görüntüle" : "Taslağı aç"}</button></td></tr>)}</tbody></table></div>{listing.nextCursor ? <button className={styles.more} type="button" onClick={() => void loadOlderHistory()} disabled={Boolean(busy)}>Daha eski sürümler</button> : null}{historyDetail ? <div className={styles.historyDetail}><h3>v{historyDetail.version} · {historyDetail.isActive ? "Etkin" : "Taslak"}</h3><dl>{historyDetail.values.map((item) => <div key={item.referenceId}><dt>{item.label}</dt><dd>{item.rateTry === null ? "Değer yok" : `${displayDecimal(item.rateTry)} TL`}{item.active ? " · Kullanımda" : " · Pasif"}</dd></div>)}</dl></div> : null}</> : <p className={styles.state}>Henüz kaydedilmiş referans sürümü yok.</p>}</section>
+        <section className={styles.section} id="pricing-panel-history" role="tabpanel" aria-labelledby="pricing-tab-history" hidden={workspaceTab !== "history"}><div className={styles.sectionHeading}><div><h2 id="history-title">Sürüm geçmişi</h2><p>Etkin ve taslak sürümler; eski kayıtları gerektiğinde açabilirsiniz.</p></div></div>{listing?.items.length ? <><div className={styles.tableScroll}><table><caption>Manuel referans seti geçmişi</caption><thead><tr><th>Oluşturuldu</th><th>Sürüm</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{listing.items.map((item) => <tr key={item.setId}><td>{fmtDate(item.createdAt)}</td><td>v{item.version}</td><td><PanelStatusBadge tone={item.isActive ? "success" : "neutral"}>{item.isActive ? "Etkin" : "Taslak"}</PanelStatusBadge></td><td><button type="button" onClick={() => void openHistorySet(item.setId)} disabled={Boolean(busy) || locked}>{item.isActive ? "Görüntüle" : "Taslağı aç"}</button></td></tr>)}</tbody></table></div>{listing.nextCursor ? <button className={styles.more} type="button" onClick={() => void loadOlderHistory()} disabled={Boolean(busy)}>Daha eski sürümler</button> : null}{historyDetail ? <div className={styles.historyDetail}><h3>v{historyDetail.version} · {historyDetail.isActive ? "Etkin" : "Taslak"}</h3><dl>{historyDetail.values.map((item) => <div key={item.referenceId}><dt>{item.label}</dt><dd>{item.rateTry === null ? "Değer yok" : `${displayDecimal(item.rateTry)} TL`}{item.active ? " · Kullanımda" : " · Pasif"}</dd></div>)}</dl></div> : null}</> : <p className={styles.state}>Henüz kaydedilmiş referans sürümü yok.</p>}</section>
       </> : null}
     </div>
   </PanelPageShell>;

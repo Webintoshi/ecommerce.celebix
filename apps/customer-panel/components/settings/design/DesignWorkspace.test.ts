@@ -32,7 +32,7 @@ test("derived homepage quality never becomes browser write authority", async () 
   assert.match(client, /design/);
 });
 
-test("workspace exposes one visual canvas, truthful save states and one shared settings modal", async () => {
+test("workspace exposes one visual canvas, truthful save states and a shared inline editor", async () => {
   const [workspace, stepEditor, inspector, preview, css] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignStepEditor.tsx", import.meta.url), "utf8"),
@@ -43,7 +43,8 @@ test("workspace exposes one visual canvas, truthful save states and one shared s
   assert.match(workspace, /DESIGN_CANVAS_SURFACES/);
   assert.match(workspace, /DesignSettingsModal/);
   assert.match(workspace, /className=\{styles[.]canvasStage\}/);
-  assert.doesNotMatch(workspace, /aria-label="Tasarım alanı"|aria-label="Tasarım adımları"/);
+  assert.match(workspace, /aria-label="Tasarım adımları"/);
+  assert.match(workspace, /<DesignSettingsModal open inline/);
   assert.match(stepEditor, /Gelişmiş görünüm/);
   assert.match(stepEditor, /Gelişmiş duyuru ayarları/);
   for (const state of ["Kaydediliyor", "Taslak kaydedildi", "Yayınlanmamış değişiklik", "Kaydedilemedi"]) assert.match(workspace, new RegExp(state));
@@ -91,15 +92,19 @@ test("design preview delegates to one selectable storefront canvas without brows
   assert.doesNotMatch(canvas, /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
 });
 
-test("canvas selection opens an accessible centered settings modal and removes permanent form rails", async () => {
+test("canvas selection updates the inline editor while preserving accessible modal fallback", async () => {
   const [workspace, drawer] = await Promise.all([
     readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DesignSettingsDrawer.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(workspace, /selectedSurface/);
-  assert.match(workspace, /<DesignSettingsModal/);
+  assert.match(workspace, /<DesignSettingsModal open inline/);
   assert.match(workspace, /<DesignPreview[^>]*onSelectSurface=/s);
+  assert.match(workspace, /aria-label="Tasarım adımları"/);
+  for (const step of ["brand", "style", "navigation", "product", "cart", "footer", "homepage"]) assert.match(workspace, new RegExp(`step: "${step}"`));
   assert.doesNotMatch(workspace, /className=\{styles[.]stepRail\}|className=\{styles[.]inspector\}|aria-label="Tasarım alanı"/);
+  assert.match(drawer, /if \(!open \|\| inline\) return undefined/);
+  assert.match(drawer, /if \(inline\) return <section[^>]*aria-labelledby="design-inline-title"/);
   assert.match(drawer, /role="dialog"/);
   assert.match(drawer, /aria-modal="true"/);
   assert.match(drawer, /event[.]key === "Escape"/);

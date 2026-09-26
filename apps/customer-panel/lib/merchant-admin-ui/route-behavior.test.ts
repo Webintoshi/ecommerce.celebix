@@ -11,6 +11,9 @@ import {
 import * as React from "react";
 import { createElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Window } from "happy-dom";
+import { SETTINGS_GROUPS } from "../../components/settings/settings-navigation.ts";
 import ts from "typescript";
 
 import { createMerchantAdminHttpHandlers } from "../merchant-admin-http/handler.ts";
@@ -260,6 +263,11 @@ async function compileComponent(
   react: typeof React,
   modules: Readonly<Record<string, unknown>>,
 ) {
+  const settingsChildren = relativePath.endsWith("MerchantRecordEditor.tsx")
+    ? { SettingsRecordForm: await compileComponent("../../components/settings/SettingsRecordForm.tsx", "SettingsRecordForm", react, { "@/lib/merchant-admin-ui/presentation": presentation }) }
+    : relativePath.endsWith("MerchantFamilyOverview.tsx")
+      ? { SettingsOverview: await compileComponent("../../components/settings/SettingsOverview.tsx", "SettingsOverview", react, { "@/components/panel/PanelPageShell": panelComponents(), "./settings-navigation": { SETTINGS_GROUPS } }) }
+      : undefined;
   const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -277,6 +285,7 @@ async function compileComponent(
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "lucide-react") return new Proxy({}, { get: () => (props: Record<string, unknown>) => createElement("svg", props) });
     if (specifier.endsWith(".module.css")) return styles;
+    if (settingsChildren && (specifier === "@/components/settings/SettingsRecordForm" || specifier === "@/components/settings/SettingsOverview")) return settingsChildren;
     if (Object.hasOwn(modules, specifier)) return modules[specifier];
     throw new Error(`unexpected_route_behavior_component_import:${relativePath}:${specifier}`);
   };
@@ -285,6 +294,7 @@ async function compileComponent(
 }
 
 async function compileConsole(react: typeof React, api: ReturnType<typeof createMerchantAdminApi>) {
+  const SettingsRecordForm = await compileComponent("../../components/settings/SettingsRecordForm.tsx", "SettingsRecordForm", react, { "@/lib/merchant-admin-ui/presentation": presentation });
   const output = await consoleSource;
   const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
   const icons = new Proxy({}, { get: () => ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("svg", props, children) });
@@ -295,6 +305,7 @@ async function compileConsole(react: typeof React, api: ReturnType<typeof create
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "lucide-react") return icons;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+    if (specifier === "@/components/settings/SettingsRecordForm") return { SettingsRecordForm };
     if (specifier === "@/components/panel/PanelPageShell") return panelComponents();
     if (specifier === "@/components/merchant-admin/ProviderConnectionPanel") return { ProviderConnectionPanel: (props: Record<string, unknown>) => createElement("section", { ...props, "data-provider-connection-panel": true }) };
     if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError, merchantAdminApi: api };
@@ -570,8 +581,9 @@ test("merchant route matrix invokes every actual page, production console, clien
   for (const definition of genericDefinitions) {
     let mounted = await mount(definition, { records: "loaded" });
     if (definition.cardinality === "singleton") {
-      assert.match(textOf(mounted.view), /Kayıtlı ayarlar/u, `${definition.kind}:loaded-singleton`);
-      assert.match(textOf(mounted.view), /Ayarları kaydet/u, `${definition.kind}:save-singleton`);
+      const form = findElement(mounted.view, (element) => element.props.kind === definition.kind && typeof element.props.onSubmit === "function");
+      assert.equal((form.props.record as contracts.MerchantAdminRecord).id, RECORD_ID, `${definition.kind}:loaded-singleton`);
+      assert.equal(form.props.canManage, true, `${definition.kind}:save-singleton`);
       assert.doesNotMatch(textOf(mounted.view), /Toplam kayıt/u, `${definition.kind}:no-collection-metrics`);
     } else {
       assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
@@ -585,7 +597,8 @@ test("merchant route matrix invokes every actual page, production console, clien
 
     mounted = await mount(definition, { records: "empty" });
     if (definition.cardinality === "singleton") {
-      assert.match(textOf(mounted.view), /İlk yapılandırma/u, `${definition.kind}:empty-singleton`);
+      const form = findElement(mounted.view, (element) => element.props.kind === definition.kind && typeof element.props.onSubmit === "function");
+      assert.equal(form.props.record, null, `${definition.kind}:empty-singleton`);
       assert.doesNotMatch(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:no-empty-list`);
     } else {
       assert.match(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:empty`);
@@ -667,7 +680,7 @@ test("merchant route matrix invokes every actual page, production console, clien
         mounted.view = await mounted.hooks.flush(mounted.render);
       }
       const form = (() => {
-        try { return findElement(mounted.view, (element) => element.type === "form"); }
+        try { return findElement(mounted.view, (element) => element.type === "form" || typeof element.props.onSubmit === "function"); }
         catch { assert.fail(`${definition.kind}:${action}:${save}: expected inline form`); }
       })();
       const values: Record<string, string | readonly string[]> = {
@@ -701,7 +714,7 @@ test("merchant route matrix invokes every actual page, production console, clien
       if (save === "version_conflict") {
         assert.match(textOf(mounted.view), /sizden önce güncellendi/u, `${definition.kind}:${action}:conflict`);
       } else {
-        assert.match(textOf(mounted.view), definition.cardinality === "singleton" ? /Ayarlar kalıcı olarak kaydedildi/u : /Kayıt kalıcı olarak kaydedildi/u, `${definition.kind}:${action}:${save}:saved`);
+        assert.match(textOf(mounted.view), definition.cardinality === "singleton" ? /Kaydedildi/u : /Kayıt kalıcı olarak kaydedildi/u, `${definition.kind}:${action}:${save}:saved`);
         assert.equal(scenario.recordName, `${definition.kind} ${action} persisted`);
       }
     } finally {
@@ -994,7 +1007,7 @@ test("merchant non-default route matrix invokes generic record pages and exact c
         }
         const render = () => component(routeElement.props);
         let view = await hooks.flush(render);
-        const form = findElement(view, (element) => element.type === "form");
+        const form = findElement(view, (element) => element.type === "form" || typeof element.props.onSubmit === "function");
         const values: Record<string, string> = { name: `${routeCase.kind} persisted`, status: "active" };
         const definition = MERCHANT_MODULE_DEFINITIONS.find(({ kind }) => kind === routeCase.kind);
         assert.ok(definition);
@@ -1103,6 +1116,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
         "/settings/pricing",
         "/settings/shipping",
         "/settings/notifications",
+        "/settings/analytics",
         "/settings/artificial-intelligence",
         "/settings/design",
       ],
@@ -1121,16 +1135,16 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     const Page = await compileBoundPage(entry.route, entry.module, entry.exportName, entry.Component, "store_owner");
     const pageTree = await Page();
     const componentElement = findElement(pageTree, (element) => element.type === entry.Component);
-    const view = entry.Component(componentElement.props);
-    const heading = findElement(view, (element) => element.props.title === entry.title);
-    assert.equal(heading.props.title, entry.title, `${entry.route}:visible-heading`);
-    assert.equal(typeof heading.props.description === "string", "hasDescription" in entry ? entry.hasDescription : false, `${entry.route}:description-contract`);
-    const destinations: string[] = [];
-    visitElements(view, (element) => {
-      if (typeof element.props.href === "string") destinations.push(element.props.href);
-    });
+    const html = renderToStaticMarkup(createElement(entry.Component, componentElement.props));
+    const window = new Window();
+    window.document.body.innerHTML = html;
+    const heading = window.document.querySelector(`[title="${entry.title}"]`);
+    assert.ok(heading, `${entry.route}:semantic-context`);
+    assert.equal(heading.hasAttribute("description"), "hasDescription" in entry ? entry.hasDescription : false, `${entry.route}:description-contract`);
+    const destinations = [...window.document.querySelectorAll("a[href]")].map((link) => link.getAttribute("href"));
     assert.deepEqual(destinations, entry.destinations, entry.route);
-    assert.doesNotMatch(textOf(view), /Toplam kayıt|Kalıcı kayıt/u, entry.route);
+    assert.doesNotMatch(window.document.body.textContent, /Toplam kayıt|Kalıcı kayıt/u, entry.route);
+    await window.happyDOM.close();
   }
 });
 

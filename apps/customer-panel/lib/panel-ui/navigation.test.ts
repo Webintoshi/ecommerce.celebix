@@ -91,6 +91,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/settings/pricing",
       "/settings/shipping",
       "/settings/notifications",
+      "/settings/analytics",
       "/settings/artificial-intelligence",
       "/settings/design",
       "/accounting",

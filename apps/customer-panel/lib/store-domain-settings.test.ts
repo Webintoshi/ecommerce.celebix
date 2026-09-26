@@ -11,7 +11,7 @@ test("settings domain route is tenant-authorized and uses the live domain client
     source("components/settings/domains/StoreDomainSettings.tsx"),
     source("components/settings/domains/store-domain-settings.module.css"),
     source("lib/panel-ui/navigation.ts"),
-    source("components/merchant-admin/MerchantFamilyOverview.tsx"),
+    source("components/settings/settings-navigation.ts"),
   ]);
   assert.match(page, /requireServerPanelAccess/u);
   assert.match(page, /configuration\.manage/u);

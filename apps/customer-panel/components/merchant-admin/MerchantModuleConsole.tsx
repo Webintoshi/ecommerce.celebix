@@ -60,6 +60,7 @@ import {
   type MerchantModuleStatusFilter,
 } from "@/lib/merchant-admin-ui/presentation";
 
+import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
 import styles from "./merchant-module-console.module.css";
 
 function inputValue(record: MerchantAdminRecord | null, key: string) {
@@ -286,6 +287,9 @@ export function MerchantModuleConsole({
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const compactAdministrators = kind === "administrator_invite";
+  const quietSettings = kind === "general_setting" || kind === "language_setting" || kind === "notification_setting";
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const singleton = definition.cardinality === "singleton";
   const providerRecordKind = toProviderRecordKind(kind);
   const providerCapability = providerRecordKind ? capabilityForProviderKind(providerRecordKind) : null;
@@ -321,11 +325,11 @@ export function MerchantModuleConsole({
   );
   const singletonRecord = singleton ? activeRecords[0] ?? null : null;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (quiet = false) => {
     const version = loadVersionRef.current + 1;
     loadVersionRef.current = version;
     if (!mountedRef.current) return;
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setError("");
     try {
       const [records, audit, jobs, profiles] = await Promise.all([
@@ -340,6 +344,7 @@ export function MerchantModuleConsole({
       ]);
       if (!mountedRef.current || loadVersionRef.current !== version) return;
       setItems(records);
+      setHasLoaded(true);
       setEvents(audit);
       setProviderJobs(jobs);
       setProviderProfiles(profiles);
@@ -425,7 +430,7 @@ export function MerchantModuleConsole({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (activeSubmissionRef.current !== null) return;
+    if (!canManage || activeSubmissionRef.current !== null) return;
     const submission = submissionVersionRef.current + 1;
     submissionVersionRef.current = submission;
     activeSubmissionRef.current = submission;
@@ -436,19 +441,26 @@ export function MerchantModuleConsole({
     setMessage("");
     const selectedRecord = singleton ? singletonRecord : editing;
     try {
-      await merchantAdminApi.save(kind, {
+      const submittedConfig = parseFormConfig(definition.fields, data, selectedRecord?.config);
+      const submittedName = String(data.get("name") ?? "").trim();
+      const saved = await merchantAdminApi.save(kind, {
         ...(selectedRecord ? { recordId: selectedRecord.id, expectedVersion: selectedRecord.version } : {}),
-        name: String(data.get("name") ?? "").trim(),
-        config: parseFormConfig(definition.fields, data, selectedRecord?.config),
+        name: submittedName,
+        config: submittedConfig,
         status: data.get("status") === "active" ? "active" : "draft",
       });
       if (!mountedRef.current || activeSubmissionRef.current !== submission) return;
-      setMessage(singleton ? "Ayarlar kalıcı olarak kaydedildi." : "Kayıt kalıcı olarak kaydedildi.");
+      if (quietSettings) {
+        const committed: MerchantAdminRecord = Object.freeze({ id: saved.id, kind: saved.kind, name: submittedName, config: submittedConfig, status: saved.status, version: saved.version, createdAt: selectedRecord?.createdAt ?? saved.updatedAt, updatedAt: saved.updatedAt });
+        setItems((current) => [...current.filter((record) => record.id !== saved.id), committed]);
+        setSettingsDirty(false);
+      }
+      setMessage(quietSettings ? "Kaydedildi." : singleton ? "Ayarlar kalıcı olarak kaydedildi." : "Kayıt kalıcı olarak kaydedildi.");
       if (!singleton) {
         closeEditor();
         form.reset();
       }
-      await load();
+      await load(quietSettings);
     } catch (caught) {
       if (mountedRef.current && activeSubmissionRef.current === submission) {
         setError(formErrorMessage(caught));
@@ -571,11 +583,11 @@ export function MerchantModuleConsole({
     <PanelPageShell embedded={embedded}>
       <PanelPageHeader
         title={definition.title}
-        description={compactAdministrators ? undefined : definition.description}
+        description={quietSettings || compactAdministrators ? undefined : definition.description}
         embedded={embedded}
         actions={(
           <div className={styles.headerActions}>
-            <button type="button" className={styles.button} disabled={loading} onClick={() => void load()}>
+            <button type="button" className={styles.button} disabled={loading || busy || quietSettings && settingsDirty} title={settingsDirty ? "Önce değişiklikleri kaydet veya vazgeç" : undefined} onClick={() => void load()}>
               <RefreshCcw aria-hidden="true" /> Yenile
             </button>
             {canManage && !singleton ? createRoute ? (
@@ -618,7 +630,12 @@ export function MerchantModuleConsole({
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
       <section className={styles.surface} data-merchant-workspace={singleton ? "singleton" : "collection"}>
-        {singleton ? (
+        {quietSettings ? (
+          loading ? <div className={styles.state} role="status">Yükleniyor…</div> : hasLoaded ? <>
+            {activeRecords.length > 1 ? <p className={styles.warning} role="status">En son güncellenen etkin kayıt düzenleniyor.</p> : null}
+            <SettingsRecordForm key={`${singletonRecord?.id ?? "new"}:${singletonRecord?.version ?? 0}`} kind={kind} record={singletonRecord} canManage={canManage} busy={busy} onSubmit={submit} onDirtyChange={setSettingsDirty} />
+          </> : <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button>
+        ) : singleton ? (
           <div className={styles.singletonWorkspace}>
             {loading ? (
               <div className={styles.state} role="status">{definition.title} yükleniyor…</div>

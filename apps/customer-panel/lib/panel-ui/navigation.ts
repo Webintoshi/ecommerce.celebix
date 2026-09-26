@@ -50,6 +50,7 @@ export type PanelNavigationHref =
   | "/settings/shipping"
   | "/settings/administrators"
   | "/settings/notifications"
+  | "/settings/analytics"
   | "/settings/hero-banner"
   | "/settings/promotion-banner"
   | "/settings/marquee"
@@ -203,6 +204,7 @@ const SETTINGS_CHILDREN = Object.freeze([
   item("pricing-settings", "Fiyatlandırma", "/settings/pricing", "price-lists"),
   item("shipping-settings", "Kargo", "/settings/shipping", "shipping"),
   item("notifications", "Bildirimler", "/settings/notifications", "email"),
+  item("analytics-settings", "Analitik ve sepet", "/settings/analytics", "analytics"),
   item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "settings"),
   item("design-settings", "Tasarım", "/settings/design", "design"),
 ]);
@@ -318,6 +320,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/hero-banner": presentation("Hero Banner"),
   "/settings/promotion-banner": presentation("Promosyon Banner"),
   "/settings/marquee": presentation("Kayan Duyuru"),
+  "/settings/analytics": presentation("Analitik ve sepet"),
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
   "/accounting/invoicing-integration": presentation("Fatura Entegrasyonu"),

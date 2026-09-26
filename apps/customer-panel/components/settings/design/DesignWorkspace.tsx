@@ -28,6 +28,16 @@ import styles from "../design-settings.module.css";
 
 const STATUS_LABEL = Object.freeze({ saved: "Taslak kaydedildi", dirty: "Yayınlanmamış değişiklik", saving: "Kaydediliyor", publishing: "Yayınlanıyor", error: "Kaydedilemedi", conflict: "Başka bir oturumda değişti" } as const);
 
+const EDITOR_STEPS = Object.freeze([
+  { surface: "brand", step: "brand", label: "Marka" },
+  { surface: "style", step: "style", label: "Renk ve yazı" },
+  { surface: "navigation", step: "navigation", label: "Menü ve duyuru" },
+  { surface: "product", step: "product", label: "Ürün" },
+  { surface: "cart", step: "cart", label: "Sepet" },
+  { surface: "footer", step: "footer", label: "Footer" },
+  { surface: "homepage", step: "homepage", label: "Ana sayfa" },
+] as const);
+
 export function DesignWorkspaceToolbar({ selectedSurface, previewMode, publishDisabled, publishIssueLabel, onSelectSurface, onPreviewModeChange, onPublish }: Readonly<{
   selectedSurface: DesignCanvasSurface;
   previewMode: "desktop" | "mobile";
@@ -53,7 +63,6 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   });
   const [location, setLocation] = useState<DesignWorkspaceLocation>(initialLocation);
   const [selectedSurface, setSelectedSurface] = useState<DesignCanvasSurface>(() => designCanvasSurfaceForLocation(initialLocation).key);
-  const [modalOpen, setModalOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [media, setMedia] = useState(workspace.media);
   const [recovery, setRecovery] = useState<StorefrontDesignWorkspace | null>(null);
@@ -74,6 +83,7 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   const mountedRef = useRef(true);
   const nowRef = useRef(new Date());
   const returnFocusRef = useRef<DesignCanvasTrigger | null>(null);
+  const inlineEditorRef = useRef<HTMLElement>(null);
   const epochRef = useRef(0);
   const abandonedRef = useRef(false);
   const failureRef = useRef<"error" | "conflict" | null>(editor.status === "conflict" ? "conflict" : null);
@@ -260,9 +270,14 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
     returnFocusRef.current = trigger ?? null;
     setSelectedSurface(surface);
     setLocation(designCanvasSurface(surface).location);
-    setModalOpen(true);
   }, []);
-  const closeModal = useCallback(() => setModalOpen(false), []);
+  const selectCanvasSurface = useCallback((surface: DesignCanvasSurface, trigger?: DesignCanvasTrigger) => {
+    selectSurface(surface, trigger);
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      inlineEditorRef.current?.focus({ preventScroll: true });
+      inlineEditorRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    }
+  }, [selectSurface]);
   const selected = useMemo(() => designCanvasSurface(selectedSurface), [selectedSurface]);
 
   const publishDisabled = !canManage || busyPublishing || publishIssue !== null || ["saving", "publishing", "conflict", "error"].includes(editor.status);
@@ -286,10 +301,19 @@ export function DesignWorkspace({ workspace, initialPreviewResources, canManage,
   </>;
 
   return <section className={styles.workspace} data-panel-layout="visual-storefront-canvas">
-    <PanelTopbarBridge title="Tasarım" subtitle={statusLabel} />
-    <div className={styles.workspaceToolbar}><DesignWorkspaceToolbar selectedSurface={selectedSurface} previewMode={previewMode} publishDisabled={publishDisabled} publishIssueLabel={publishIssueLabel} onSelectSurface={selectSurface} onPreviewModeChange={setPreviewMode} onPublish={() => void publish()} /></div>
-    {!modalOpen && <div className={styles.saveRecovery}>{recoveryControls}</div>}
-    <main className={styles.canvasStage}><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={workspace.destinations} previewResources={previewResources} mode={previewMode} now={nowRef.current} selectedSurface={modalOpen ? selectedSurface : undefined} onSelectSurface={selectSurface} /></main>
-    <DesignSettingsModal open={modalOpen} surface={selected} onClose={closeModal} returnFocusRef={returnFocusRef}><div className={styles.saveRecovery}><p role="status">{statusLabel}</p>{recoveryControls}</div><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage && !busyPublishing} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
+    <PanelTopbarBridge title="Tasarım" hideHeading />
+    <h1 className={styles.srOnly}>Mağaza tasarımı</h1>
+    <div className={styles.workspaceToolbar}>
+      <p className={styles.workspaceStatus} role="status" data-status={canManage ? editor.status : "readonly"}><span aria-hidden="true" />{canManage ? statusLabel : "Salt okunur"}</p>
+      <DesignWorkspaceToolbar selectedSurface={selectedSurface} previewMode={previewMode} publishDisabled={publishDisabled} publishIssueLabel={publishIssueLabel} onSelectSurface={selectSurface} onPreviewModeChange={setPreviewMode} onPublish={() => void publish()} />
+    </div>
+    <div className={styles.saveRecovery}>{recoveryControls}</div>
+    <div className={styles.designLayout}>
+      <aside ref={inlineEditorRef} tabIndex={-1} className={styles.designEditor} aria-label="Tasarım düzenleyicisi">
+        <nav className={styles.editorNavigation} aria-label="Tasarım adımları">{EDITOR_STEPS.map((item, index) => <button key={item.step} type="button" aria-current={item.step === location.step ? "step" : undefined} aria-controls="design-inline-editor" onClick={(event) => selectSurface(item.surface, event.currentTarget)}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><strong>{item.label}</strong></button>)}</nav>
+        <DesignSettingsModal open inline surface={selected} returnFocusRef={returnFocusRef}><DesignStepEditor step={location.step} design={editor.design} storeName={workspace.store.name} timezone={workspace.store.timezone} media={media} destinations={workspace.destinations} canManage={canManage && !busyPublishing} previewMode={previewMode} onChange={change} onUpload={upload} /></DesignSettingsModal>
+      </aside>
+      <main className={styles.canvasStage} aria-label="Mağaza önizlemesi"><DesignPreview design={editor.design} storeName={workspace.store.name} publishedVersion={publishedVersionRef.current} publishedAt={publishedAt} media={media} destinations={workspace.destinations} previewResources={previewResources} mode={previewMode} now={nowRef.current} selectedSurface={selectedSurface} onSelectSurface={selectCanvasSurface} /></main>
+    </div>
   </section>;
 }

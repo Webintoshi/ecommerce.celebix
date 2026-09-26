@@ -8,34 +8,38 @@ import styles from "../design-settings.module.css";
 
 interface DesignSettingsModalProps {
   readonly open: boolean;
+  readonly inline?: boolean;
   readonly surface: DesignCanvasSurfaceItem;
   readonly children: ReactNode;
-  readonly onClose: () => void;
+  readonly onClose?: () => void;
   readonly returnFocusRef: RefObject<DesignCanvasTrigger | null>;
 }
 
-export function DesignSettingsModal({ open, surface, children, onClose, returnFocusRef }: Readonly<DesignSettingsModalProps>) {
+const NOOP = () => undefined;
+
+export function DesignSettingsModal({ open, inline = false, surface, children, onClose = NOOP, returnFocusRef }: Readonly<DesignSettingsModalProps>) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || inline) return undefined;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [open, onClose]);
+  }, [open, inline, onClose]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || inline) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previousOverflow; };
-  }, [open]);
+  }, [open, inline]);
 
   useEffect(() => {
+    if (inline) return;
     if (open) {
       wasOpenRef.current = true;
       closeButtonRef.current?.focus();
@@ -45,7 +49,7 @@ export function DesignSettingsModal({ open, surface, children, onClose, returnFo
       wasOpenRef.current = false;
       returnFocusRef.current?.focus();
     }
-  }, [open, returnFocusRef]);
+  }, [open, inline, returnFocusRef]);
 
   const keepModalFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key !== "Tab") return;
@@ -57,6 +61,10 @@ export function DesignSettingsModal({ open, surface, children, onClose, returnFo
   };
 
   if (!open) return null;
+  if (inline) return <section id="design-inline-editor" className={styles.settingsPanel} aria-labelledby="design-inline-title">
+    <header className={styles.panelHeader}><h2 id="design-inline-title">{surface.label}</h2></header>
+    <div className={styles.panelBody}>{children}</div>
+  </section>;
   return <>
     <button type="button" className={styles.modalBackdrop} aria-label="Ayarları kapat" onClick={onClose} />
     <aside ref={modalRef} className={styles.settingsModal} role="dialog" aria-modal="true" aria-labelledby="design-modal-title" aria-describedby="design-modal-description" onKeyDown={keepModalFocus}>

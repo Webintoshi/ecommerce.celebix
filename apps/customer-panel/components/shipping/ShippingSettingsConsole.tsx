@@ -39,6 +39,7 @@ function selectedId(resources: readonly ShippingResource[], kind: "brand" | "add
 export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boolean }>) {
   const mounted = useRef(true);
   const activeRequest = useRef<AbortController | null>(null);
+  const mutationActive = useRef(false);
   const [workspace, setWorkspace] = useState<ShippingSettingsWorkspace>(EMPTY);
   const [token, setToken] = useState("");
   const [editingToken, setEditingToken] = useState(false);
@@ -71,16 +72,19 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
   }, [load]);
 
   async function run(kind: "connect" | "resources" | "revoke", operation: (signal: AbortSignal) => Promise<ShippingSettingsWorkspace>, success: string) {
-    if (!canManage || busy !== null) return;
+    if (!canManage || mutationActive.current) return;
+    mutationActive.current = true;
     const controller = new AbortController();
     activeRequest.current = controller;
     setBusy(kind); setNotice("");
     try {
       const next = await operation(controller.signal);
+      if (!mounted.current) return;
       hydrate(next);
-      setToken(""); setEditingToken(false); setNotice(success);
+      if (kind !== "resources") { setToken(""); setEditingToken(false); }
+      setNotice(success);
     } catch (error) { if (mounted.current && !controller.signal.aborted) setNotice(message(error)); }
-    finally { if (mounted.current) setBusy(null); }
+    finally { mutationActive.current = false; if (mounted.current) setBusy(null); }
   }
 
   function connect(event: FormEvent<HTMLFormElement>) {
@@ -95,9 +99,14 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
   const addresses = active(workspace.resources, "address");
   const canChoose = brands.length > 0 && addresses.length > 0;
   const showToken = connection === null || editingToken || connection.status === "attention_required";
+  const resourceDirty = connection !== null && (
+    brandId !== selectedId(workspace.resources, "brand", connection.selectedBrandLabel)
+    || addressId !== selectedId(workspace.resources, "address", connection.selectedAddressLabel)
+    || codDeliveredMarksPaid !== connection.codDeliveredMarksPaid
+  );
 
   return (
-    <section className={styles.page} data-panel-layout="open-canvas" aria-busy={loading || busy !== null}>
+    <section className={styles.page} data-panel-layout="open-canvas" data-settings-dirty={canManage && (resourceDirty || token.length > 0) ? "true" : undefined} aria-busy={loading || busy !== null}>
       <PanelTopbarBridge title="Kargo Ayarları" />
       <div className={styles.providerRow}>
         <div className={styles.identity}>
@@ -105,32 +114,47 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
           <div><strong>Basit Kargo</strong><span className={`${styles.status} ${styles[presentation.tone]}`}><i />{presentation.label}</span></div>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.refresh} disabled={loading || busy !== null} onClick={() => { const controller = new AbortController(); activeRequest.current = controller; setLoading(true); setNotice(""); void load(controller.signal).catch((error) => { if (!controller.signal.aborted) setNotice(message(error)); }).finally(() => setLoading(false)); }} aria-label="Kargo bağlantısını yenile"><RefreshCw size={16} /></button>
-          {connection && canManage ? <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => setEditingToken((value) => !value)}>Değiştir</button> : null}
-          {connection && canManage ? <button type="button" className={styles.remove} disabled={busy !== null} onClick={() => { if (window.confirm("Basit Kargo bağlantısı kaldırılsın mı?")) void run("revoke", (signal) => shippingSettingsApi.revoke(signal), "Bağlantı kaldırıldı."); }}><Trash2 size={15} />Bağlantıyı kaldır</button> : null}
+          <button type="button" className={styles.refresh} disabled={loading || busy !== null || resourceDirty} title={resourceDirty ? "Önce değişiklikleri kaydet veya vazgeç" : undefined} onClick={() => { const controller = new AbortController(); activeRequest.current = controller; setLoading(true); setNotice(""); void load(controller.signal).catch((error) => { if (!controller.signal.aborted) setNotice(message(error)); }).finally(() => setLoading(false)); }} aria-label="Kargo bağlantısını yenile"><RefreshCw size={16} /></button>
         </div>
       </div>
 
       {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : null}
 
-      {!loading && showToken && canManage ? <form className={styles.tokenForm} onSubmit={connect}>
-        <label htmlFor="basit-kargo-token">API anahtarı</label>
-        <div className={styles.tokenControl}>
-          <KeyRound size={17} aria-hidden="true" />
-          <input id="basit-kargo-token" type="password" autoComplete="new-password" spellCheck={false} value={token} onChange={(event) => setToken(event.target.value)} placeholder="Basit Kargo API anahtarını yapıştır" disabled={busy !== null} />
-          <button type="submit" disabled={busy !== null || token.length < 16}>{busy === "connect" ? <LoaderCircle className={styles.spinner} size={16} /> : null}{connection ? "Kaydet" : "Bağla"}</button>
-        </div>
-      </form> : null}
-
       {!loading && connection && canChoose ? <form className={styles.resourceForm} onSubmit={(event) => {
         event.preventDefault();
         void run("resources", (signal) => shippingSettingsApi.selectResources({ brandResourceId: brandId, addressResourceId: addressId, codDeliveredMarksPaid }, signal), "Kargo ayarları kaydedildi.");
       }}>
-        <label><span>Gönderici marka</span><select value={brandId} onChange={(event) => setBrandId(event.target.value)} disabled={!canManage || busy !== null}>{brands.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
-        <label><span>Çıkış adresi</span><select value={addressId} onChange={(event) => setAddressId(event.target.value)} disabled={!canManage || busy !== null}>{addresses.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
-        <label className={styles.toggle}><input type="checkbox" checked={codDeliveredMarksPaid} onChange={(event) => setCodDeliveredMarksPaid(event.target.checked)} disabled={!canManage || busy !== null} /><span><b>Kapıda ödeme</b><small>Teslim edilince ödendi işaretle</small></span></label>
-        {canManage ? <button className={styles.save} type="submit" disabled={busy !== null || !brandId || !addressId}>{busy === "resources" ? <LoaderCircle className={styles.spinner} size={16} /> : <Check size={16} />}Kaydet</button> : null}
+        <div className={styles.formSection}>
+          <div className={styles.sectionLabel}><h2>Gönderici</h2><p>Kargoların çıkış bilgileri.</p></div>
+          <div className={styles.fields}>
+            <label><span>Gönderici marka</span><select value={brandId} onChange={(event) => setBrandId(event.target.value)} disabled={!canManage || busy !== null}>{brands.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
+            <label><span>Çıkış adresi</span><select value={addressId} onChange={(event) => setAddressId(event.target.value)} disabled={!canManage || busy !== null}>{addresses.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
+          </div>
+        </div>
+        <div className={styles.formSection}>
+          <div className={styles.sectionLabel}><h2>Kapıda ödeme</h2><p>Teslimat sonrası sipariş durumu.</p></div>
+          <label className={styles.toggle}><input type="checkbox" checked={codDeliveredMarksPaid} onChange={(event) => setCodDeliveredMarksPaid(event.target.checked)} disabled={!canManage || busy !== null} /><span><b>Teslim edilince ödendi işaretle</b><small>Kapıda ödemeli siparişlere uygulanır.</small></span></label>
+        </div>
+        {canManage ? <div className={styles.saveRow}>{resourceDirty ? <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => { hydrate(workspace); setNotice(""); }}>Vazgeç</button> : null}<button className={styles.save} type="submit" disabled={busy !== null || !resourceDirty || !brandId || !addressId}>{busy === "resources" ? <LoaderCircle className={styles.spinner} size={16} /> : <Check size={16} />}Kaydet</button></div> : null}
       </form> : null}
+
+      {!loading && canManage ? <section className={styles.formSection} aria-labelledby="shipping-connection-title">
+        <div className={styles.sectionLabel}><h2 id="shipping-connection-title">Bağlantı</h2><p>Basit Kargo API anahtarı.</p></div>
+        <div className={styles.connectionControls}>
+          {connection ? <div className={styles.actions}>
+            <button type="button" className={styles.secondary} disabled={busy !== null || resourceDirty} title={resourceDirty ? "Önce kargo ayarlarını kaydet veya vazgeç" : undefined} onClick={() => setEditingToken((value) => !value)} aria-label="Basit Kargo API anahtarını değiştir" aria-expanded={showToken}>Değiştir</button>
+            <button type="button" className={styles.remove} disabled={busy !== null || resourceDirty} onClick={() => { if (window.confirm("Basit Kargo bağlantısı kaldırılsın mı?")) void run("revoke", (signal) => shippingSettingsApi.revoke(signal), "Bağlantı kaldırıldı."); }}><Trash2 size={15} />Bağlantıyı kaldır</button>
+          </div> : null}
+          {showToken ? <form className={styles.tokenForm} onSubmit={connect}>
+            <label htmlFor="basit-kargo-token">API anahtarı</label>
+            <div className={styles.tokenControl}>
+              <KeyRound size={17} aria-hidden="true" />
+              <input id="basit-kargo-token" type="password" autoComplete="new-password" spellCheck={false} value={token} onChange={(event) => setToken(event.target.value)} placeholder="Basit Kargo API anahtarını yapıştır" disabled={busy !== null} />
+            </div>
+            <button className={styles.save} type="submit" disabled={busy !== null || resourceDirty || token.length < 16}>{busy === "connect" ? <LoaderCircle className={styles.spinner} size={16} /> : null}{connection ? "Kaydet" : "Bağla"}</button>
+          </form> : null}
+        </div>
+      </section> : null}
 
       {!loading && connection?.status === "pending" && !canChoose ? <p className={styles.inlineState}><ShieldCheck size={16} />Bağlantı doğrulanıyor.</p> : null}
       <p className={styles.liveStatus} aria-live="polite">{notice}</p>

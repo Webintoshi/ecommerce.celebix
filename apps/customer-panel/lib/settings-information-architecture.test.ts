@@ -17,20 +17,21 @@ test("settings navigation has one appearance destination and no legacy banner si
     { label: "Fiyatlandırma", href: "/settings/pricing" },
     { label: "Kargo", href: "/settings/shipping" },
     { label: "Bildirimler", href: "/settings/notifications" },
+    { label: "Analitik ve sepet", href: "/settings/analytics" },
     { label: "Yapay Zeka", href: "/settings/artificial-intelligence" },
     { label: "Tasarım", href: "/settings/design" },
   ]);
 });
 
 test("settings index is a quiet grouped row workspace without decorative card copy", async () => {
-  const component = await source("components/merchant-admin/MerchantFamilyOverview.tsx");
-  const css = await source("components/merchant-admin/merchant-family-overview.module.css");
+  const component = (await Promise.all([source("components/settings/SettingsOverview.tsx"),source("components/settings/settings-navigation.ts")])).join("\n");
+  const css = await source("components/settings/settings-workspace.module.css");
   for (const label of ["Mağaza", "Satış ve teslimat", "İletişim ve otomasyon", "Görünüm"]) assert.match(component, new RegExp(`"${label}"`));
   for (const label of ["Genel", "Alan Adı", "Dil", "Yöneticiler", "Ödeme", "Fiyatlandırma", "Kargo", "Bildirimler", "Yapay Zeka", "Tasarım"]) assert.match(component, new RegExp(`"${label}"`));
   assert.doesNotMatch(component, /Hero Banner|Promosyon Banner|Kayan Duyuru|Vitrin, banner/);
   assert.match(component, /styles[.]settingsGroups/);
   assert.match(component, /styles[.]settingsRow/);
   assert.match(css, /border-bottom:/);
-  assert.match(css, /min-height:\s*64px/);
+  assert.match(css, /min-height:\s*76px/);
   assert.doesNotMatch(css, /\.settingsRow\s*\{[^}]*box-shadow/s);
 });

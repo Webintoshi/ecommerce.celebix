@@ -102,8 +102,8 @@ export function ArtificialIntelligenceSettings({ canManage }: Readonly<{ canMana
     <section className={styles.root} aria-labelledby="toshi-provider-settings-title">
       <div className={styles.sectionHeading}>
         <div>
-          <h2 id="toshi-provider-settings-title">Model sağlayıcıları</h2>
-          <span>{connections.length} bağlı</span>
+          <h2 id="toshi-provider-settings-title">Toshi bağlantıları</h2>
+          <span>{loading ? "Yükleniyor…" : `${connections.length} bağlı`}</span>
         </div>
         <button
           type="button"

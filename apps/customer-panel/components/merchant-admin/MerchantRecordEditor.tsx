@@ -11,6 +11,7 @@ import {
   type MerchantModuleFieldDefinition,
 } from "@/lib/merchant-admin-ui/presentation";
 
+import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
 import styles from "./merchant-module-console.module.css";
 
 function inputValue(record: MerchantAdminRecord | undefined, key: string) {
@@ -140,6 +141,7 @@ export function MerchantRecordEditor({
   const definition = getMerchantModuleDefinition(kind);
   const router = useRouter();
   const [record, setRecord] = useState<MerchantAdminRecord>();
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -155,10 +157,12 @@ export function MerchantRecordEditor({
     setBusy(false);
     setError("");
     setRecord(undefined);
+    setLoadSucceeded(false);
     try {
       const selected = recordId === undefined ? undefined : await merchantAdminApi.record(kind, recordId);
       if (requestSequence.current !== sequence) return;
       if (selected) setRecord(selected);
+      setLoadSucceeded(true);
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {
@@ -202,6 +206,14 @@ export function MerchantRecordEditor({
       }
     }
   }
+
+  if (kind === "administrator_invite") return <PanelPageShell>
+    <PanelPageHeader title={recordId ? "Daveti düzenle" : "Yönetici ekle"} />
+    {!canManage ? <p className={styles.error} role="alert">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      {loadSucceeded ? <SettingsRecordForm key={`${record?.id ?? "new"}:${record?.version ?? 0}`} kind={kind} record={record ?? null} canManage={canManage} busy={busy} onSubmit={submit} /> : <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button>}
+    </>}
+  </PanelPageShell>;
 
   const title = recordId === undefined ? `Yeni ${definition.singular}` : `${definition.singular} düzenle`;
   if (!canManage) {

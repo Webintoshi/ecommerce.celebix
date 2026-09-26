@@ -594,3 +594,30 @@
 @media (prefers-reduced-motion: reduce) {
   .loading svg { animation-duration: .01ms; animation-iteration-count: 1; }
 }
+
+/* Compact fields inside the shared design workspace. */
+.embeddedShell { min-width: 0; padding: 0; color: var(--settings-text, #2B2B2B); background: transparent; }
+.embeddedShell .notice { display: none; }
+.embeddedShell .editor, .embeddedShell .themePanel { min-width: 0; }
+.embeddedShell .panel { gap: 14px; border-color: var(--settings-border, #E7E2DD); padding: 20px 0; }
+.embeddedShell .panel:first-of-type { padding-top: 0; }
+.embeddedShell .panel legend { color: var(--settings-text, #2B2B2B); font-size: 13px; }
+.embeddedShell .fieldGrid, .embeddedShell .twoColumns, .embeddedShell .choiceGrid, .embeddedShell .categoryLayoutChoices, .embeddedShell .valueFields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.embeddedShell .panel label, .embeddedShell .sectionCard label, .embeddedShell .entryCard label { color: var(--settings-text, #2B2B2B); font-size: 12px; font-weight: 600; }
+.embeddedShell input, .embeddedShell select, .embeddedShell textarea { min-width: 0; max-width: 100%; min-height: 44px; border-color: var(--settings-border, #E7E2DD); border-radius: 8px; background: var(--settings-surface, #FFFDFC); color: var(--settings-text, #2B2B2B); font-size: 12px; }
+.embeddedShell input:focus-visible, .embeddedShell select:focus-visible, .embeddedShell textarea:focus-visible, .embeddedShell button:focus-visible { outline: 2px solid var(--settings-brand, #FE6100); outline-offset: 3px; border-color: var(--settings-brand, #FE6100); }
+.embeddedShell .check { min-height: 44px; }
+.embeddedShell .check input { flex: 0 0 18px; width: 18px !important; min-height: 18px !important; accent-color: var(--settings-action, #2B2B2B); }
+.embeddedShell .fieldHelp, .embeddedShell .label, .embeddedShell .entryToolbar { color: var(--settings-muted, #79716A); font-size: 11px; }
+.embeddedShell .entryCard, .embeddedShell .valueCard { border: 0; border-top: 1px solid var(--settings-border, #E7E2DD); border-radius: 0; background: transparent; padding: 18px 0; }
+.embeddedShell .entryCard legend { padding: 0; color: var(--settings-text, #2B2B2B); font-size: 12px; }
+.embeddedShell .footerLink { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.embeddedShell .footerLink > button { justify-self: end; }
+.embeddedShell .entryToolbar button, .embeddedShell .entryAdd { min-height: 44px; border-color: var(--settings-border, #E7E2DD); border-radius: 8px; color: var(--settings-text, #2B2B2B); background: var(--settings-surface, #FFFDFC); font-size: 12px; }
+.embeddedShell .entryAdd { justify-self: stretch; }
+.embeddedShell .socialList > div, .embeddedShell .twoColumns { border-color: var(--settings-border, #E7E2DD); }
+.embeddedShell .error { border-color: var(--settings-danger, #B0473F); color: var(--settings-danger, #B0473F); background: #F8EEEB; }
+.embeddedShell .readOnly, .embeddedShell .loading { border-color: var(--settings-border, #E7E2DD); color: var(--settings-muted, #79716A); background: transparent; }
+@media (max-width: 900px) and (min-width: 641px) {
+  .embeddedShell .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

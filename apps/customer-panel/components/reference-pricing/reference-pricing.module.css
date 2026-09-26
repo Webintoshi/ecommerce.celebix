@@ -168,3 +168,100 @@
   .impactStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tableScroll table { min-width: 560px; }
 }
+
+/* Approved Settings presentation is scoped to this workspace; product policy controls keep their existing layout. */
+.root {
+  --rp-brand: var(--settings-brand, var(--accent));
+  --rp-graphite: var(--settings-text, var(--text));
+  --rp-sidebar: var(--settings-action-hover, var(--text));
+  --rp-canvas: var(--settings-canvas, var(--canvas));
+  --rp-surface: var(--settings-surface, var(--surface));
+  --rp-border: var(--settings-border, var(--border));
+  --rp-secondary: var(--settings-muted, var(--muted));
+  gap: 24px;
+  font-size: 14px;
+}
+.root [hidden] { display: none; }
+.root h2, .root h3 { font-size: 14px; font-weight: 600; }
+.root button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 500; }
+.root label { gap: 8px; font-size: 13px; font-weight: 500; }
+.root input, .root select { font-size: 13px; }
+.root small, .root .subtle { color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
+.root .intro { flex-wrap: wrap; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.root .intro > div { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.root .intro strong { font-size: 14px; font-weight: 500; }
+.root .section { padding: 0; border: 0; border-radius: 0; background: transparent; gap: 24px; }
+.root .sectionHeading { align-items: center; gap: 16px; }
+.root .sectionHeading p { color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
+.root .rateList { border-top: 1px solid var(--rp-border); }
+.root .rateRow { grid-template-columns: minmax(0, 1fr) minmax(320px, 1.15fr); gap: 32px; padding: 24px 0; }
+.root .rateIdentity { gap: 8px; }
+.root .rateIdentity strong { font-weight: 600; }
+.root .rateIdentity span { font-size: 12px; line-height: 1.6; }
+.root .rateControls { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; }
+.root .toggle { min-height: 44px; font-weight: 400; }
+.root .toggle input { width: 16px; height: 16px; min-height: 16px; accent-color: var(--rp-graphite); }
+.root .actions { justify-content: flex-end; gap: 16px; }
+.root .actions span { margin-right: auto; font-size: 12px; line-height: 1.6; }
+.root .primary { background: var(--settings-action, var(--rp-graphite)); border-color: var(--settings-action, var(--rp-graphite)); color: var(--settings-inverse, var(--rp-surface)); font-weight: 500; }
+.root .primary:hover:not(:disabled) { background: var(--settings-action-hover, var(--rp-sidebar)); }
+.tabs { display: flex; min-width: 0; gap: 24px; border-bottom: 1px solid var(--rp-border); overflow-x: auto; }
+.root .tabs button { position: relative; min-height: 48px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 0 4px; color: var(--rp-secondary); white-space: nowrap; }
+.root .tabs button[aria-selected='true'] { border-bottom-color: var(--rp-brand); color: var(--rp-graphite); font-weight: 600; }
+.root .tabs button:hover:not(:disabled) { border-color: transparent; border-bottom-color: var(--rp-border); }
+.root .tabs button[aria-selected='true']:hover { border-bottom-color: var(--rp-brand); }
+.root .previewControls { justify-content: space-between; align-items: end; gap: 16px; }
+.root .previewControls label { width: min(240px, 100%); }
+.root .impactStats { gap: 24px; padding: 16px 0 24px; border-bottom: 1px solid var(--rp-border); }
+.root .impactStats > div { display: grid; gap: 8px; border: 0; border-radius: 0; background: transparent; padding: 0; }
+.root .impactStats strong { order: -1; font-size: 20px; font-weight: 600; }
+.root .impactStats span { font-size: 12px; }
+.root .tableScroll { border: 0; border-top: 1px solid var(--rp-border); border-radius: 0; }
+.root .tableScroll th, .root .tableScroll td { min-height: 44px; height: auto; padding: 16px 16px 16px 0; }
+.root .tableScroll th { background: transparent; font-size: 12px; font-weight: 500; }
+.root .tableScroll th:last-child, .root .tableScroll td:last-child { padding-right: 0; }
+.root .historyDetail { border: 0; border-top: 1px solid var(--rp-border); border-radius: 0; padding: 24px 0; }
+.root .state, .root .feedback, .root .warning, .root .success, .root .empty { border: 0; border-radius: 0; background: transparent; padding: 12px 0; font-size: 13px; line-height: 1.6; }
+.root .feedback { color: var(--settings-danger, var(--danger)); }
+.root .warning { color: var(--settings-warning, var(--rp-graphite)); }
+.root .success { color: var(--settings-success, var(--success)); }
+.root .empty { padding: 32px 0; gap: 12px; }
+.root .loading { border: 0; border-radius: 0; background: transparent; padding: 0; }
+.root .loading span { background: var(--rp-border); }
+.definitionDialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; border: 1px solid var(--rp-border); border-radius: 16px; background: var(--rp-surface); color: var(--rp-graphite); padding: 0; box-shadow: 0 20px 80px rgb(32 28 25 / 16%); }
+.definitionDialog::backdrop { background: rgb(32 28 25 / 32%); }
+.definitionHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--rp-border); padding: 16px 24px; }
+.root .definitionHeader h2 { font-size: 18px; }
+.root .closeButton { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; }
+.root .definitionHelp { margin: 20px 24px 0; color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
+.root .definitionDialog > .feedback { margin: 16px 24px 0; padding: 0; }
+.root .definitionForm { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 24px; }
+.root .definitionForm > label:nth-child(3) { grid-column: 1 / -1; }
+.definitionActions { display: flex; grid-column: 1 / -1; align-items: center; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--rp-border); padding-top: 20px; }
+@media (max-width: 1024px) { .root .rateRow { grid-template-columns: minmax(0, 1fr) minmax(280px, 1.15fr); gap: 24px; } .root .rateControls { gap: 8px 16px; } }
+@media (max-width: 640px) {
+  .root { gap: 20px; }
+  .root .intro { flex-direction: row; align-items: center; }
+  .root .intro > div { gap: 8px; }
+  .root .sectionHeading { flex-direction: row; align-items: start; }
+  .root .rateRow, .root .rateControls, .root .definitionForm { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .root .rateControls { gap: 8px; }
+  .root input, .root select { font-size: 16px; }
+  .root .rateControls > label:first-child, .root .rateControls > small, .root .toggle { grid-column: 1; grid-row: auto; }
+  .root .actions { flex-direction: row; align-items: center; gap: 12px; }
+  .root .actions span { width: 100%; order: -1; }
+  .root .actions button { width: auto; margin-left: auto; }
+  .root .previewControls { flex-direction: row; align-items: end; flex-wrap: wrap; }
+  .root .previewControls label { width: min(180px, 100%); }
+  .root .previewControls button { width: auto; }
+  .root .impactStats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .root .historyDetail dl > div { flex-wrap: wrap; }
+  .root .definitionForm > label:nth-child(3) { grid-column: auto; }
+  .definitionDialog { width: calc(100% - 24px); max-height: calc(100dvh - 24px); border-radius: 12px; }
+  .definitionHeader { padding: 12px 16px; }
+  .root .definitionHeader h2 { font-size: 16px; }
+  .root .definitionHelp, .root .definitionDialog > .feedback { margin-inline: 16px; }
+  .root .definitionForm { padding: 20px 16px; }
+  .root .definitionForm button { width: auto; }
+  .tabs { gap: 20px; }
+}

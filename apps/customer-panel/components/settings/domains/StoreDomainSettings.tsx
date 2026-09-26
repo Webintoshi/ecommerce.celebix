@@ -64,7 +64,7 @@ function BundleCard({ storefront, admin, canManage, locked, busy, copied, onCopy
       <section aria-label="Mağaza adresi"><div><small>Mağaza</small><a href={`https://${storefront.hostname}`} target="_blank" rel="noreferrer">https://{storefront.hostname}<ExternalLink size={15} /></a></div><p>{storefront.uiStatus === "active" ? "DNS hazır · SSL aktif · Yayında" : "Bağlantı hazırlanıyor"}</p></section>
       <section aria-label="Yönetim paneli adresi"><div><small>Yönetim paneli <b>Otomatik oluşturuldu</b></small>{preview ? <a href={`https://${adminHostname}`} target="_blank" rel="noreferrer">https://{adminHostname}<ExternalLink size={15} /></a> : <strong>{adminHostname}</strong>}</div><AdminState domain={admin} /><p><AdminSummary domain={admin} /></p></section>
     </div>
-    {!active ? <Progress domain={storefront} /> : <p className={styles.ready}><Check size={15} /> Mağaza ve yönetim paneli bağlantıları hazır.</p>}
+    {!active ? <Progress domain={storefront} /> : <p className={styles.ready}><Check size={15} /> Mağaza ve yönetim adresleri hazır.</p>}
     {dnsInstructions.length > 0 ? <details className={styles.dnsDetails} open={!active}><summary>DNS kayıtlarını göster</summary><DnsRows instructions={dnsInstructions} copied={copied} onCopy={onCopy} /></details> : null}
     {canManage ? <div className={styles.actions}>
       {storefront.uiStatus !== "active" ? <button type="button" disabled={busy} onClick={() => onStoreAction("recheck")}><RefreshCw size={16} />Durumu yenile</button> : null}
@@ -87,6 +87,7 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const mounted = useRef(true);
+  const mutationActive = useRef(false);
   const preview = useMemo(() => previewDomainBundle(hostname.trim()), [hostname]);
 
   const load = useCallback(async (quiet = false) => {
@@ -116,7 +117,8 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canManage || busy || !preview) return;
+    if (!canManage || mutationActive.current || !preview) return;
+    mutationActive.current = true;
     setBusy("create"); setError(null);
     try {
       if (replacementMode && primaryCustomDomain) await storeDomainApi.createReplacement(primaryCustomDomain.id, preview.storefront);
@@ -124,14 +126,15 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
       if (mounted.current) { setHostname(""); setReplacementMode(false); await load(true); }
     }
     catch (caught) { if (mounted.current) setError(caught instanceof StoreDomainApiError ? caught.message : "Alan adı eklenemedi."); }
-    finally { if (mounted.current) setBusy(null); }
+    finally { mutationActive.current = false; if (mounted.current) setBusy(null); }
   };
 
   const mutateReplacement = async (replacement: StoreDomainReplacementView, action: "activate" | "cancel" | "rollback") => {
-    if (!canManage || busy) return;
+    if (!canManage || mutationActive.current) return;
     if (action === "activate" && !window.confirm("Yeni mağaza ve yönetim adresleri birincil yapılacak. Eski adresler geri dönüş için korunacaktır.")) return;
     if (action === "cancel" && !window.confirm("Hazırlanan yeni adresler iptal edilecek. Mevcut birincil adresler değişmeden kalacaktır.")) return;
     if (action === "rollback" && !window.confirm("Birincil mağaza ve yönetim adresleri eski doğrulanmış çifte döndürülecektir.")) return;
+    mutationActive.current = true;
     setBusy(replacement.id); setError(null);
     try {
       if (action === "activate") await storeDomainApi.activateReplacement(replacement.id, replacement.version);
@@ -139,12 +142,13 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
       else await storeDomainApi.rollbackReplacement(replacement.id, replacement.version);
       if (mounted.current) await load(true);
     } catch (caught) { if (mounted.current) setError(caught instanceof StoreDomainApiError ? caught.message : "Alan adı geçişi tamamlanamadı."); }
-    finally { if (mounted.current) setBusy(null); }
+    finally { mutationActive.current = false; if (mounted.current) setBusy(null); }
   };
 
   const mutateStorefront = async (domain: StoreDomainView, action: "recheck" | "primary" | "remove") => {
-    if (!canManage || busy) return;
+    if (!canManage || mutationActive.current) return;
     if (action === "remove" && !window.confirm("Bu mağaza alan adı ve ona bağlı otomatik yönetim paneli adresi devre dışı bırakılacaktır.\n\nTeknik Celebix yedek adresleriniz çalışmaya devam eder.")) return;
+    mutationActive.current = true;
     setBusy(domain.id); setError(null);
     try {
       if (action === "recheck") await storeDomainApi.recheck(domain.id, domain.version);
@@ -152,15 +156,16 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
       else await storeDomainApi.remove(domain.id, domain.version);
       if (mounted.current) await load(true);
     } catch (caught) { if (mounted.current) setError(caught instanceof StoreDomainApiError ? caught.message : "İşlem tamamlanamadı."); }
-    finally { if (mounted.current) setBusy(null); }
+    finally { mutationActive.current = false; if (mounted.current) setBusy(null); }
   };
 
   const recheckAdmin = async (domain: AdminDomainView | undefined) => {
-    if (!domain || !canManage || busy) return;
+    if (!domain || !canManage || mutationActive.current) return;
+    mutationActive.current = true;
     setBusy(domain.id); setError(null);
     try { await adminDomainApi.recheck(domain.id, domain.version); if (mounted.current) await load(true); }
     catch (caught) { if (mounted.current) setError(caught instanceof StoreDomainApiError ? caught.message : "Yönetim paneli alan adı kontrol edilemedi."); }
-    finally { if (mounted.current) setBusy(null); }
+    finally { mutationActive.current = false; if (mounted.current) setBusy(null); }
   };
 
   const copy = async (instruction: StoreDomainDnsInstruction) => {
@@ -170,21 +175,21 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
   };
 
   return <section className={styles.page} data-panel-layout="open-canvas" aria-labelledby="domain-settings-title">
-    <PanelTopbarBridge title="Alan Adları" subtitle="Mağazanız ve yönetim paneliniz için alan adı bağlantılarını tek yerden yönetin." />
+    <PanelTopbarBridge title="Alan Adları" hideHeading />
     <h1 className={styles.srOnly} id="domain-settings-title">Alan Adları</h1>
     {canManage ? <form className={styles.add} onSubmit={create}>
-      <div><label htmlFor="custom-domain">Mağaza alan adınızı bağlayın</label><p>Alan adını yazın; yönetim paneli adresiniz otomatik hazırlanır.</p></div>
+      <div><label htmlFor="custom-domain">Mağaza alan adı</label><p>Yönetim adresi otomatik hazırlanır.</p></div>
       <div className={styles.addControls}><input id="custom-domain" name="hostname" value={hostname} onChange={(event) => setHostname(event.target.value)} placeholder="magazaniz.com" autoCapitalize="none" autoCorrect="off" spellCheck={false} required /><button type="submit" disabled={busy !== null || !preview}>Alan adını bağla</button></div>
       {preview ? <div className={styles.preview} aria-live="polite"><span><small>Mağaza adresi</small>{preview.storefront}</span><span><small>Yönetim paneli</small>{preview.admin}<b>Otomatik oluşturulacak</b></span></div> : null}
-      {primaryCustomDomain && !openReplacement ? <label className={styles.replacementChoice}><input type="checkbox" checked={replacementMode} onChange={(event) => setReplacementMode(event.target.checked)} /><span><b>Güvenli alan adı geçişi olarak hazırla</b><small>{primaryCustomDomain.hostname} çalışmaya devam eder; yeni mağaza ve yönetim adresleri birlikte doğrulanmadan birincil değişmez.</small></span></label> : null}
-      <p className={styles.aliasNote}>www adresi doğrulama sonrasında ana mağaza adresine DNS yönlendirmesi olarak eklenir; ayrı bir domain bundle veya kota kaydı değildir.</p>
+      {primaryCustomDomain && !openReplacement ? <label className={styles.replacementChoice}><input type="checkbox" checked={replacementMode} onChange={(event) => setReplacementMode(event.target.checked)} /><span><b>Alan adı geçişi olarak hazırla</b><small>{primaryCustomDomain.hostname}, yeni mağaza ve yönetim adresleri doğrulanana kadar çalışır.</small></span></label> : null}
+      <p className={styles.aliasNote}>www, doğrulama sonrası ana adrese yönlenir; ayrı bağlantı veya kota kullanmaz.</p>
     </form> : null}
     {error ? <p className={styles.error} role="alert">{error}<button type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
     <span className={styles.srOnly} aria-live="polite">{copied ? "DNS değeri kopyalandı" : ""}</span>
     {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : null}
     {loaded ? <>
       {openReplacement && replacementPresentation ? <section className={styles.replacement} aria-label="Güvenli alan adı geçişi">
-        <div><ArrowLeftRight size={20} aria-hidden="true" /><span><strong>{replacementPresentation.label}</strong><small>Eski mağaza ve yönetim adresleri kontrollü geri dönüş için korunuyor.</small></span></div>
+        <div><ArrowLeftRight size={20} aria-hidden="true" /><span><strong>{replacementPresentation.label}</strong><small>Eski adresler geri dönüş için korunur.</small></span></div>
         {canManage && replacementPresentation.action ? <button type="button" disabled={busy !== null || (replacementPresentation.action === "activate" && !openReplacement.ready)} onClick={() => void mutateReplacement(openReplacement, replacementPresentation.action!)}>
           {replacementPresentation.action === "activate" ? <><Check size={16} />Yeni adreslere geç</> : replacementPresentation.action === "rollback" ? <><RotateCcw size={16} />Eski adreslere dön</> : <><X size={16} />Hazırlığı iptal et</>}
         </button> : null}

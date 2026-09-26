@@ -82,6 +82,8 @@ export function AnalyticsSettingsConsole() {
     [connection, setConnection] = useState<Connection>(),
     [message, setMessage] = useState(""),
     [activating, setActivating] = useState(false),
+    [saving, setSaving] = useState(false),
+    activeSave = useRef(false),
     activationOperation = useRef<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -111,7 +113,9 @@ export function AnalyticsSettingsConsole() {
   }, []);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!settings) return;
+    if (!settings || activeSave.current) return;
+    activeSave.current = true;
+    setSaving(true);
     setMessage("Kaydediliyor…");
     const form = new FormData(event.currentTarget),
       payload = {
@@ -141,6 +145,9 @@ export function AnalyticsSettingsConsole() {
       setMessage("Analitik ayarları kaydedildi.");
     } catch {
       setMessage("Ayarlar kaydedilemedi. Güncel değerleri yeniden yükleyin.");
+    } finally {
+      activeSave.current = false;
+      setSaving(false);
     }
   }
   async function enableAnalytics() {
@@ -189,140 +196,91 @@ export function AnalyticsSettingsConsole() {
   return (
     <PanelPageShell>
       <div className={styles.root}>
-        <PanelPageHeader
-          title="Analitik ayarları"
-          description="Ticaret analitiği ve sepet kurtarma eşikleri mağaza bazında yönetilir."
-        />
+        <PanelPageHeader title="Analitik ayarları" />
         {state === "loading" ? (
-          <div className={styles.loading} role="status">
-            Ayarlar yükleniyor…
-          </div>
+          <p className={styles.loading} role="status">Ayarlar yükleniyor…</p>
         ) : null}
         {state === "error" ? (
-          <div className={styles.warning} role="alert">
-            {message}
+          <div className={styles.error} role="alert">
+            <p>{message}</p>
+            <button className={styles.secondary} type="button" onClick={() => window.location.reload()}>Tekrar dene</button>
           </div>
         ) : null}
         {state === "ready" && settings ? (
           <>
-            <section
-              className={
-                connection?.configured && connection.status === "active"
-                  ? styles.panel
-                  : styles.warning
-              }
-              aria-label="Umami bağlantı durumu"
-            >
-              <strong>{connectionText}</strong>
-              <p>
-                Provider: self-hosted Umami · internal website ID ve erişim
-                anahtarları gizlidir.
-              </p>
+            <section className={styles.connection} aria-label="Umami bağlantı durumu">
+              <div>
+                <strong className={styles.connectionStatus}>
+                  <i className={connection?.configured && connection.status === "active" && connection.live ? styles.activeDot : styles.pendingDot} aria-hidden="true" />
+                  {connectionText}
+                </strong>
+              </div>
               {!connection?.configured || connection.status !== "active" ? (
-                <button
-                  className={styles.primary}
-                  type="button"
-                  disabled={activating}
-                  onClick={() => void enableAnalytics()}
-                >
+                <button className={styles.secondary} type="button" disabled={activating} onClick={() => void enableAnalytics()}>
                   {activating ? "Etkinleştiriliyor…" : "Analitiği etkinleştir"}
                 </button>
               ) : null}
             </section>
-            <form className={styles.panel} onSubmit={submit}>
-              <div className={styles.settingsGrid}>
-                <label>
-                  Terk adayı süresi <span>dakika, 15–360</span>
-                  <input
-                    name="candidateInactivityMinutes"
-                    type="number"
-                    min="15"
-                    max="360"
-                    defaultValue={settings.candidateInactivityMinutes}
-                    required
-                  />
-                </label>
-                <label>
-                  Terk edilmiş süresi <span>saat, 1–168</span>
-                  <input
-                    name="abandonedInactivityHours"
-                    type="number"
-                    min="1"
-                    max="168"
-                    defaultValue={settings.abandonedInactivityHours}
-                    required
-                  />
-                </label>
-                <label>
-                  Recovery link geçerliliği <span>saat, 1–168</span>
-                  <input
-                    name="recoveryLinkHours"
-                    type="number"
-                    min="1"
-                    max="168"
-                    defaultValue={settings.recoveryLinkHours}
-                    required
-                  />
-                </label>
-                <label>
-                  Mesaj limiti <span>en fazla 3</span>
-                  <input
-                    name="maximumMessageAttempts"
-                    type="number"
-                    min="1"
-                    max="3"
-                    defaultValue={settings.maximumMessageAttempts}
-                    required
-                  />
-                </label>
-                <label>
-                  Minimum mesaj aralığı <span>saat, en az 6</span>
-                  <input
-                    name="minimumMessageIntervalHours"
-                    type="number"
-                    min="6"
-                    max="168"
-                    defaultValue={settings.minimumMessageIntervalHours}
-                    required
-                  />
-                </label>
-                <label>
-                  Tracking policy{" "}
-                  <select
-                    name="trackingPolicy"
-                    defaultValue={settings.trackingPolicy}
-                  >
-                    <option value="anonymous_commerce">
-                      Anonim ticaret analitiği
-                    </option>
-                    <option value="disabled">Kapalı</option>
-                  </select>
-                </label>
-                <label>
-                  Otomatik recovery{" "}
-                  <input
-                    type="checkbox"
-                    checked={settings.automaticRecoveryEnabled}
-                    disabled
-                    readOnly
-                  />
-                  <span>
-                    E-posta provider ve izin sertifikasyonu tamamlanana kadar
-                    kapalıdır.
-                  </span>
-                </label>
-                <label>
-                  Session replay kapalı{" "}
-                  <input type="checkbox" checked={false} disabled readOnly />
-                  <span>
-                    Checkout, ödeme, müşteri ve adres sayfalarında açılmaz.
-                  </span>
-                </label>
-              </div>
-              <button className={styles.primary} type="submit">
-                Kaydet
-              </button>
-              {message ? <p role="status">{message}</p> : null}
+            <form className={styles.form} onSubmit={submit}>
+              <section className={styles.formSection} aria-labelledby="analytics-tracking-title">
+                <div className={styles.sectionLabel}><h2 id="analytics-tracking-title">Takip</h2><p>Mağaza analitiği.</p></div>
+                <fieldset className={styles.settingsGrid} disabled={saving} aria-labelledby="analytics-tracking-title">
+                  <label className={styles.wide}>
+                    Takip tercihi
+                    <select name="trackingPolicy" defaultValue={settings.trackingPolicy}>
+                      <option value="anonymous_commerce">Anonim ticaret analitiği</option>
+                      <option value="disabled">Kapalı</option>
+                    </select>
+                  </label>
+                  <label className={styles.switchRow}>
+                    <span><strong>Oturum kaydı</strong><small>Checkout, ödeme, müşteri ve adres sayfalarında kapalıdır.</small></span>
+                    <input type="checkbox" checked={false} disabled readOnly />
+                  </label>
+                </fieldset>
+              </section>
+              <section className={styles.formSection} aria-labelledby="analytics-carts-title">
+                <div className={styles.sectionLabel}><h2 id="analytics-carts-title">Sepet süreleri</h2><p>Sepet değerlendirme eşikleri.</p></div>
+                <fieldset className={styles.settingsGrid} disabled={saving} aria-labelledby="analytics-carts-title">
+                  <label>
+                    Terk adayı süresi
+                    <input name="candidateInactivityMinutes" type="number" min="15" max="360" defaultValue={settings.candidateInactivityMinutes} required />
+                    <small>15–360 dakika</small>
+                  </label>
+                  <label>
+                    Terk edilmiş süresi
+                    <input name="abandonedInactivityHours" type="number" min="1" max="168" defaultValue={settings.abandonedInactivityHours} required />
+                    <small>1–168 saat</small>
+                  </label>
+                  <label>
+                    Kurtarma bağlantısı
+                    <input name="recoveryLinkHours" type="number" min="1" max="168" defaultValue={settings.recoveryLinkHours} required />
+                    <small>Geçerlilik · 1–168 saat</small>
+                  </label>
+                </fieldset>
+              </section>
+              <section className={styles.formSection} aria-labelledby="analytics-recovery-title">
+                <div className={styles.sectionLabel}><h2 id="analytics-recovery-title">Kurtarma</h2><p>Mesaj sıklığı ve sınırı.</p></div>
+                <fieldset className={styles.settingsGrid} disabled={saving} aria-labelledby="analytics-recovery-title">
+                  <label>
+                    Mesaj limiti
+                    <input name="maximumMessageAttempts" type="number" min="1" max="3" defaultValue={settings.maximumMessageAttempts} required />
+                    <small>En fazla 3</small>
+                  </label>
+                  <label>
+                    Minimum mesaj aralığı
+                    <input name="minimumMessageIntervalHours" type="number" min="6" max="168" defaultValue={settings.minimumMessageIntervalHours} required />
+                    <small>6–168 saat</small>
+                  </label>
+                  <label className={styles.switchRow}>
+                    <span><strong>Otomatik sepet kurtarma</strong><small>E-posta bağlantısı ve izin doğrulaması tamamlanana kadar kapalıdır.</small></span>
+                    <input type="checkbox" checked={settings.automaticRecoveryEnabled} disabled readOnly />
+                  </label>
+                </fieldset>
+              </section>
+              <footer className={styles.savebar}>
+                {message ? <p role="status">{message}</p> : <span />}
+                <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Kaydediliyor…" : "Kaydet"}</button>
+              </footer>
             </form>
           </>
         ) : null}

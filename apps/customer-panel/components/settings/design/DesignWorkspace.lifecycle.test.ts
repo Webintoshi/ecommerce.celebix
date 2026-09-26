@@ -260,7 +260,13 @@ test("queued edits survive older responses, section and device changes; draft sa
   const app = await mount();
   try {
     app.holdSave(); await app.edit("Older"); await app.debounce();
-    await app.edit("Newest"); await app.click("Bitti"); await app.click("Mobil"); await app.click("Footer");
+    await app.edit("Newest");
+    assert.equal(app.container.querySelector('[role="dialog"]'), null);
+    assert.notEqual(app.window.document.body.style.overflow, "hidden");
+    assert.ok(app.container.querySelector("#design-inline-editor"));
+    await app.click("Mobil"); await app.click("Footer");
+    assert.equal(app.container.querySelector('[aria-current="step"] strong')?.textContent, "Footer");
+    assert.ok(app.container.querySelector("#design-inline-editor"));
     await app.debounce(); assert.equal(app.unload(), true);
     await app.releaseSave();
     assert.equal(app.container.querySelector("input")?.value, "Newest");

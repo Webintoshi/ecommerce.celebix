@@ -49,7 +49,7 @@ export function compile(path: string, overrides: Record<string, any> = {}): any 
 
 export async function mounted(Component: any, props: any, run: (host: any, window: Window) => Promise<void>, setup?: (window: Window) => void) {
   const window = new Window({ url: "https://panel.example.test/" });
-  const replacements: Record<string, any> = { window, document: window.document, navigator: window.navigator, IS_REACT_ACT_ENVIRONMENT: true };
+  const replacements: Record<string, any> = { window, document: window.document, navigator: window.navigator, Element: window.Element, HTMLElement: window.HTMLElement, HTMLInputElement: window.HTMLInputElement, FormData: window.FormData, IS_REACT_ACT_ENVIRONMENT: true };
   const prior = new Map(Object.keys(replacements).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const [key, value] of Object.entries(replacements)) Object.defineProperty(globalThis, key, { configurable: true, value });
   setup?.(window);

@@ -9,6 +9,8 @@ import { PanelLayoutClient } from "@/components/panel/PanelLayoutClient";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { StoreDomainSettings } from "@/components/settings/domains/StoreDomainSettings";
 import { PaymentSettingsConsole } from "@/components/settings/payment/PaymentSettingsConsole";
+import { SettingsWorkspace } from "@/components/settings/SettingsWorkspace";
+import { ReferencePricingConsole } from "@/components/reference-pricing/ReferencePricingConsole";
 import { ShippingSettingsConsole } from "@/components/shipping/ShippingSettingsConsole";
 import { ArtificialIntelligenceSettings } from "@/components/toshi-settings/ArtificialIntelligenceSettings";
 import { ToshiWorkspace } from "@/components/toshi/ToshiWorkspace";
@@ -20,6 +22,12 @@ export const SETTINGS_FIXTURE_VIEWS = Object.freeze([
   "settings",
   "content",
   "general",
+  "language",
+  "notifications",
+  "administrators",
+  "administrator-new",
+  "administrator-edit",
+  "pricing",
   "content-new",
   "lucky-wheel",
   "policies",
@@ -38,6 +46,12 @@ function SettingsSurface({ view }: Readonly<{ view: string }>) {
     case "settings": return <MerchantFamilyOverview family="settings" canManage />;
     case "content": return <MerchantFamilyOverview family="content" canManage />;
     case "general": return <MerchantModuleConsole kind="general_setting" canManage />;
+    case "language": return <MerchantModuleConsole kind="language_setting" canManage />;
+    case "notifications": return <MerchantModuleConsole kind="notification_setting" canManage />;
+    case "administrators": return <MerchantModuleConsole kind="administrator_invite" canManage />;
+    case "administrator-new": return <MerchantRecordEditor kind="administrator_invite" returnTo="/settings/administrators" canManage />;
+    case "administrator-edit": return <MerchantRecordEditor kind="administrator_invite" recordId="76000000-0000-4000-8000-000000000001" returnTo="/settings/administrators" canManage />;
+    case "pricing": return <ReferencePricingConsole canRead canManage />;
     case "content-new": return <MerchantRecordEditor kind="blog_post" returnTo="/content/blog" canManage />;
     case "lucky-wheel": return <MerchantModuleConsole kind="lucky_wheel" canManage={false} />;
     case "policies": return <PolicyConsole canManage />;
@@ -63,10 +77,11 @@ function SettingsSurface({ view }: Readonly<{ view: string }>) {
 }
 
 export function SettingsFixtureScreen({ view }: Readonly<{ view: string }>) {
+  const settingsRoute = view === "settings" ? "/settings" : view.startsWith("administrator-") ? "/settings/administrators" : SETTINGS_FIXTURE_VIEWS.includes(view as never) && !["content", "content-new", "lucky-wheel", "policies", "policy-edit", "toshi", "design-unavailable"].includes(view) ? `/settings/${view}` : null;
   return (
     <PanelLayoutClient model={MODEL}>
       <aside className={styles.notice} role="note">Kontrollü sunum fixture&apos;ı · provider, alan adı ve ödeme işlemleri kalıcı değildir.</aside>
-      <SettingsSurface view={view} />
+      {settingsRoute ? <SettingsWorkspace route={settingsRoute}><SettingsSurface view={view} /></SettingsWorkspace> : <SettingsSurface view={view} />}
     </PanelLayoutClient>
   );
 }
