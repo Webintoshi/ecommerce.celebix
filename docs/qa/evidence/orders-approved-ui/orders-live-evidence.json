@@ -1,0 +1,251 @@
+{
+  "sourceCommit": "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+  "checkedDate": "2026-09-26",
+  "browser": [
+    {
+      "screen": "guzide-list-desktop",
+      "width": 1680,
+      "documentWidth": 1680,
+      "headingHidden": true,
+      "rows": 17
+    },
+    {
+      "check": "columns-escape",
+      "dialogOpen": false,
+      "focus": "Sütunlar"
+    },
+    {
+      "check": "failed-payment-filter",
+      "rows": 3,
+      "dialogOpen": false
+    },
+    {
+      "screen": "guzide-detail-desktop",
+      "width": 1680,
+      "documentWidth": 1680,
+      "headingHidden": true,
+      "hasOrderProducts": true,
+      "hasCustomerRail": true
+    },
+    {
+      "check": "manual-shipping-escape",
+      "dialogOpen": false,
+      "focus": "Elle düzenle"
+    },
+    {
+      "screen": "guzide-detail-mobile",
+      "width": 390,
+      "documentWidth": 390,
+      "headingHidden": true
+    },
+    {
+      "screen": "guzide-list-mobile",
+      "width": 390,
+      "documentWidth": 390,
+      "headingHidden": true,
+      "visibleOrderLinks": 17
+    },
+    {
+      "screen": "siora-list-desktop",
+      "width": 1680,
+      "documentWidth": 1680,
+      "headingHidden": true,
+      "emptyState": true,
+      "csvDisabled": true
+    },
+    {
+      "screen": "siora-list-mobile",
+      "width": 390,
+      "documentWidth": 390,
+      "emptyState": true
+    }
+  ],
+  "consoleErrorsOrWarningsInFreshQaTabs": 0,
+  "merchantWritesSubmitted": 0,
+  "temporaryViewportReset": true,
+  "agentCreatedQaTabsClosed": true,
+  "deployments": [
+    {
+      "uuid": "n10lauw2pw2fzmxvn2fagi91",
+      "status": "finished",
+      "commit": "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+      "updated_at": "2026-09-26T16:00:18.000000Z",
+      "finished_at": "2026-09-26T16:00:17.000000Z",
+      "log_entries": 199,
+      "phases": [
+        "Starting deployment",
+        "npm ci",
+        "next build",
+        "Compiled successfully",
+        "Generating static pages",
+        "New container started",
+        "Rolling update completed"
+      ]
+    },
+    {
+      "uuid": "sdbjrb9h0lw1nco4ftoey0vc",
+      "status": "finished",
+      "commit": "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+      "updated_at": "2026-09-26T16:07:09.000000Z",
+      "finished_at": "2026-09-26T16:07:08.000000Z",
+      "log_entries": 204,
+      "phases": [
+        "Starting deployment",
+        "npm ci",
+        "next build",
+        "Compiled successfully",
+        "Generating static pages",
+        "New container started",
+        "Rolling update completed"
+      ]
+    }
+  ],
+  "runtime": [
+    {
+      "app": "yk1h6d97z7ex0h74ok3zrj5c",
+      "container": "48c5ad4da2ae",
+      "name": "/yk1h6d97z7ex0h74ok3zrj5c-155537428979",
+      "imageTag": "yk1h6d97z7ex0h74ok3zrj5c:b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+      "image": "sha256:c8acfcfe1c7507a38b63451252ce4cafe3f19fe2ba20b98c776da98a3ee83daa",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+        "files": {
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/orders/OrderActionDialog.tsx": "f3eb185d0ae27c0de5d5b9e91fff15eb385ff483fb9ea828751c7407cc7c2a75",
+          "apps/customer-panel/components/orders/order-list.module.css": "eece3182dc1e97a3c1ac353fa5b8ca0e4785cc9ec42d6f75ab5128dd9d4a0b5e",
+          "apps/customer-panel/components/orders/order-detail.module.css": "9e3489fcb4321f72a63a6fbd0eba1c7d19c3900685f6e663ac6d0b737ad349ba",
+          "apps/customer-panel/components/shipping/OrderShipmentConsole.tsx": "53c60c393172ff72bcb5e6593fe2d266e5c45f3dd0d22159cdd150e08b2f693c",
+          "apps/customer-panel/components/shipping/order-shipment.module.css": "ae0beb10a42d95ace6362a507a06cf61682e2d51974fdbf8df869f6c3e034722",
+          "apps/customer-panel/components/panel/PanelLayoutClient.tsx": "d3868a5a26a27a5444de753035bda2bbb4d88bbd77ca7ce529c07ca597911f12",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11"
+            ],
+            "candidates": [
+              "sha256:6cd1b1e167259ca6bf405a6c560191850e010499cbf870c7e0fae3b53b30601e",
+              "sha256:27478ae099eea0979f600c540efc5975412cd72a94beae37cc6e5bc4bea9a45a"
+            ],
+            "approvedDigests": [
+              "sha256:6cd1b1e167259ca6bf405a6c560191850e010499cbf870c7e0fae3b53b30601e",
+              "sha256:27478ae099eea0979f600c540efc5975412cd72a94beae37cc6e5bc4bea9a45a"
+            ]
+          },
+          "iyzico": {
+            "commits": [
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11"
+            ],
+            "candidates": [
+              "sha256:bf28633f6083f6cc8cb25896a1ab22986aa8219d0258db3b33a160b4cfa185af"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledList": true,
+        "compiledDetail": true,
+        "compiledRegister": true,
+        "compiledLegacy": true
+      }
+    },
+    {
+      "app": "e4xe74cmii7jucbkyor0o412",
+      "container": "24b0992a1789",
+      "name": "/e4xe74cmii7jucbkyor0o412-160225412137",
+      "imageTag": "e4xe74cmii7jucbkyor0o412:b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+      "image": "sha256:7f91277f8b4f53bb5f0b16f0a2eb962c380a5725badfa9d381a29e5f644ce1fe",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+        "files": {
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/orders/OrderActionDialog.tsx": "f3eb185d0ae27c0de5d5b9e91fff15eb385ff483fb9ea828751c7407cc7c2a75",
+          "apps/customer-panel/components/orders/order-list.module.css": "eece3182dc1e97a3c1ac353fa5b8ca0e4785cc9ec42d6f75ab5128dd9d4a0b5e",
+          "apps/customer-panel/components/orders/order-detail.module.css": "9e3489fcb4321f72a63a6fbd0eba1c7d19c3900685f6e663ac6d0b737ad349ba",
+          "apps/customer-panel/components/shipping/OrderShipmentConsole.tsx": "53c60c393172ff72bcb5e6593fe2d266e5c45f3dd0d22159cdd150e08b2f693c",
+          "apps/customer-panel/components/shipping/order-shipment.module.css": "ae0beb10a42d95ace6362a507a06cf61682e2d51974fdbf8df869f6c3e034722",
+          "apps/customer-panel/components/panel/PanelLayoutClient.tsx": "d3868a5a26a27a5444de753035bda2bbb4d88bbd77ca7ce529c07ca597911f12",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11",
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11"
+            ],
+            "candidates": [
+              "sha256:6cd1b1e167259ca6bf405a6c560191850e010499cbf870c7e0fae3b53b30601e",
+              "sha256:27478ae099eea0979f600c540efc5975412cd72a94beae37cc6e5bc4bea9a45a"
+            ],
+            "approvedDigests": []
+          },
+          "iyzico": {
+            "commits": [
+              "b2b805ee987f173ce1cbe07bf49c7d406a994e11"
+            ],
+            "candidates": [
+              "sha256:bf28633f6083f6cc8cb25896a1ab22986aa8219d0258db3b33a160b4cfa185af"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledList": true,
+        "compiledDetail": true,
+        "compiledRegister": true,
+        "compiledLegacy": true
+      }
+    }
+  ],
+  "health": {
+    "checkedAt": "2026-09-26T16:09:54.449702+00:00",
+    "results": [
+      {
+        "host": "butik-siora.admin.saas-staging.celebix.net",
+        "http": 200,
+        "status": "ok",
+        "storeId": "ff465e64-1491-40ef-8840-c66281155a1d",
+        "hostname": "butik-siora.admin.saas-staging.celebix.net"
+      },
+      {
+        "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+        "http": 200,
+        "status": "ok",
+        "storeId": "a828862c-4cc1-475a-89cc-5fbee31eb43f",
+        "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site"
+      },
+      {
+        "host": "admin.guzidekuyumcu.com",
+        "http": 200,
+        "status": "ok",
+        "storeId": "a828862c-4cc1-475a-89cc-5fbee31eb43f",
+        "hostname": "admin.guzidekuyumcu.com"
+      },
+      {
+        "host": "admin.guzidekuyumcu.com.tr",
+        "http": 200,
+        "status": "ok",
+        "storeId": "a828862c-4cc1-475a-89cc-5fbee31eb43f",
+        "hostname": "admin.guzidekuyumcu.com.tr"
+      }
+    ]
+  },
+  "configVerification": "PASS: existing bindings, approval modes, all unrelated environment attributes, flags and hooks preserved against c55 preflight",
+  "independentReview": "PASS: both immutable runtime source/hash checks, config preservation and four host mappings; no blocker"
+}
