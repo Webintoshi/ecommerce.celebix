@@ -134,7 +134,15 @@ test("visual canvas keeps the final responsive, accessibility and browser-author
   assert.match(css, /@media \(max-width:\s*390px\)/);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /[.]01ms/);
-  assert.doesNotMatch(sources.join("\n"), /iframe|localStorage|sessionStorage|x-store-id|tenantContext|dangerouslySetInnerHTML/);
+  assert.doesNotMatch(sources.join("\n"), /iframe|localStorage|sessionStorage|x-store-id|tenantContext/);
+  const canvas = sources[2]!;
+  assert.doesNotMatch([sources[0], sources[1], sources[3]].join("\n"), /dangerouslySetInnerHTML/);
+  assert.equal((canvas.match(/dangerouslySetInnerHTML/g) ?? []).length, 1);
+  assert.match(canvas, /dangerouslySetInnerHTML=\{\{\s*__html:\s*normalizeProductDescriptionHtml\(value\)\s*\}\}/);
+  const descriptionModuleUrl = new URL("../../../../../packages/platform-config/src/product-description-rich-text.ts", import.meta.url).href;
+  const { normalizeProductDescriptionHtml } = await import(descriptionModuleUrl);
+  const unsafeDescription = normalizeProductDescriptionHtml('<script>alert(1)</script><img src=x onerror=alert(1)><a href="javascript:alert(1)">Bağlantı</a>');
+  assert.doesNotMatch(unsafeDescription, /<script|<img|onerror=|href="javascript:/i);
   assert.equal((workspace.match(/>Yayınla<\/button>/g) ?? []).length, 1);
 });
 
@@ -146,7 +154,7 @@ test("controlled theme steps edit the same draft and keep the one workspace publ
   ]);
   assert.match(stepEditor, /<StarterThemeComposer/);
   assert.match(stepEditor, /showPreview=\{false\}/);
-  assert.match(stepEditor, /composition:\s*value/);
+  assert.match(stepEditor, /onChange\(synchronizeCompositionAnnouncement\(design,\s*value\)\)/);
   assert.match(stepEditor, /composer\("product"\)/);
   assert.match(stepEditor, /composer\("cart"\)/);
   assert.match(stepEditor, /composer\("footer"\)/);
