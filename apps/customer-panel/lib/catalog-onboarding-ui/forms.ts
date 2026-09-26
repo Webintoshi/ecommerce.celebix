@@ -1,6 +1,7 @@
 import {
   parseCatalogOnboardingIntent,
   type CatalogAdvancedCreateIntent,
+  type CatalogOnboardingIntent,
   type CatalogQuickCreateIntent,
 } from "@celebix/saas-contracts";
 
@@ -15,6 +16,8 @@ export type CatalogFormResult<T> =
 export type QuickCreateFormInput = Readonly<{
   title: string;
   sku?: string;
+  barcode?: string;
+  channelIds?: readonly string[];
   price: string;
   publish: boolean;
   stockQuantity?: string;
@@ -57,8 +60,8 @@ function stockQuantity(value: unknown): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogFormResult<CatalogQuickCreateIntent> {
-  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku"], ["title", "price", "publish"])) {
+export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogFormResult<CatalogOnboardingIntent> {
+  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku", "barcode", "channelIds"], ["title", "price", "publish"])) {
     return invalid("Ürün bilgileri geçersiz.");
   }
   if (typeof input.title !== "string") return invalid("Ürün adı zorunludur.");
@@ -77,6 +80,42 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
   }
   if (input.categoryId !== undefined && input.categoryId !== "" && !UUID.test(input.categoryId)) {
     return invalid("Kategori seçimi geçersiz.");
+  }
+  if (input.barcode !== undefined && (typeof input.barcode !== "string" || CONTROL.test(input.barcode) || input.barcode.trim().length > 128)) {
+    return invalid("Geçerli bir barkod girin.");
+  }
+  if (input.channelIds !== undefined && (!Array.isArray(input.channelIds) || input.channelIds.length > 32
+    || input.channelIds.some((id) => typeof id !== "string" || !UUID.test(id))
+    || new Set(input.channelIds).size !== input.channelIds.length)) {
+    return invalid("Satış kanalı seçimi geçersiz.");
+  }
+
+  const barcode = input.barcode?.trim() ?? "";
+  if (barcode) {
+    // The existing advanced contract stores the barcode in the same atomic create.
+    // An explicit channel selection avoids silently creating an unlisted product.
+    if (input.channelIds === undefined) return invalid("Ürün satış kanalları yüklenemedi.");
+    return buildAdvancedCreateIntent({
+      kind: "advanced",
+      productType: "physical",
+      title,
+      publish: input.publish,
+      variants: [{
+        title: "Standart",
+        ...(input.sku ? { sku: input.sku } : {}),
+        barcode,
+        priceCents,
+        stockTracking: true,
+        stockQuantity: quantity ?? 0,
+        attributes: {},
+        continueSellingWhenOutOfStock: false,
+        inventory: [],
+      }],
+      categoryIds: input.categoryId ? [input.categoryId] : [],
+      resourceIds: { collections: [], tags: [], attributes: [], extras: [], definitions: [] },
+      channelIds: input.channelIds,
+      profile: { minimumPurchaseQuantity: 1 },
+    });
   }
 
   const candidate = {

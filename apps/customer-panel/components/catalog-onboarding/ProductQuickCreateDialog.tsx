@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, PackagePlus, X } from "lucide-react";
+import { ImagePlus, Package, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -18,16 +18,19 @@ import {
   catalogOnboardingClient,
 } from "@/lib/catalog-onboarding-ui/client";
 import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/category-tree";
-import { buildQuickCreateIntent } from "@/lib/catalog-onboarding-ui/forms";
+import { buildQuickCreateIntent, parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import { SkuInput } from "@/components/catalog/SkuInput";
+import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 import {
   mergeQuickProductDraft,
+  quickDraftRequiresDetailedSave,
   type ProductDraftSession,
 } from "@/lib/catalog-ui/product-draft-session";
 
 import styles from "./product-onboarding.module.css";
+import workspace from "./product-create-quick.module.css";
 
 type OnboardingApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publishAfterMedia" | "getProductEditor">;
 type MediaApi = Pick<typeof productMediaApi, "upload">;
@@ -44,6 +47,8 @@ export type ProductQuickCreateDialogProps = Readonly<{
   draftSession?: ProductDraftSession;
   returnFocusTarget?: HTMLElement | null;
   onDraftSessionChange?(session: ProductDraftSession): void;
+  onBusyChange?(busy: boolean): void;
+  onCreatedProductChange?(productId: string): void;
 }>;
 
 type Recovery = Readonly<{
@@ -79,6 +84,8 @@ export function ProductQuickCreateDialog({
   draftSession,
   returnFocusTarget,
   onDraftSessionChange,
+  onBusyChange,
+  onCreatedProductChange,
 }: ProductQuickCreateDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -90,14 +97,26 @@ export function ProductQuickCreateDialog({
   const [title, setTitle] = useState(draftSession?.current.title ?? "");
   const [price, setPrice] = useState(draftSession?.current.variants[0]?.price ?? "");
   const [sku, setSku] = useState(draftSession?.current.variants[0]?.sku ?? "");
+  const [barcode, setBarcode] = useState(draftSession?.current.variants[0]?.barcode ?? "");
+  const [barcodeBusy, setBarcodeBusy] = useState(false);
   const [stockQuantity, setStockQuantity] = useState(draftSession?.current.variants[0]?.stockQuantity ?? "0");
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLSelectElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const barcodeIdentityRef = useRef({});
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const submittingRef = useRef(false);
+  const createdProductIdRef = useRef<string | undefined>(undefined);
   const previewUrlsRef = useRef<readonly string[]>([]);
   const categoryHierarchy = buildCatalogCategoryHierarchy(options?.categories ?? []);
   const categoryRows = categoryHierarchy.valid ? categoryHierarchy.rows : [];
+  const hasVariantDraft = draftSession !== undefined && (draftSession.current.kind === "variant" || draftSession.current.variants.length > 1 || draftSession.current.variants.some((variant) => Object.keys(variant.attributes).length > 0));
+  const requiresDetailed = draftSession !== undefined && quickDraftRequiresDetailedSave(draftSession.current, options?.channels.filter((channel) => channel.kind === "storefront").map(({ id }) => id));
+
+  useEffect(() => { onBusyChange?.(submitting || barcodeBusy); }, [submitting, barcodeBusy, onBusyChange]);
+  useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -119,10 +138,10 @@ export function ProductQuickCreateDialog({
 
   useEffect(() => {
     if (draftSession === undefined || onDraftSessionChange === undefined) return;
-    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, stockQuantity, categoryId, media: images }));
+    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, barcode, stockQuantity, categoryId, media: images }));
   // The parent replaces draftSession after each projection; local fields are the source for this handoff.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, price, sku, stockQuantity, categoryId, images, onDraftSessionChange]);
+  }, [title, price, sku, barcode, stockQuantity, categoryId, images, onDraftSessionChange]);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -130,6 +149,7 @@ export function ProductQuickCreateDialog({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (mode === "page") return;
     if (event.key === "Escape") {
       event.preventDefault();
       requestClose();
@@ -151,16 +171,16 @@ export function ProductQuickCreateDialog({
 
   function selectImage(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (files.length === 0 || createdProductIdRef.current) return;
     setError("");
     setRecovery(undefined);
     setProgress(0);
-    if (files.length > 16 || files.some((file) => !ACCEPTED_MEDIA.has(file.type) || file.size < 1 || file.size > 5_242_880)) {
-      event.currentTarget.value = "";
+    if (images.length + files.length > 16 || files.some((file) => !ACCEPTED_MEDIA.has(file.type) || file.size < 1 || file.size > 5_242_880)) {
       setError("En fazla 16 adet PNG, JPEG veya WebP görsel seçin; her dosya en fazla 5 MB olabilir.");
       return;
     }
-    if (onDraftSessionChange === undefined) for (const preview of previewUrlsRef.current) URL.revokeObjectURL(preview);
-    const next = Object.freeze(files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) })));
+    const next = Object.freeze([...images, ...files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) }))]);
     previewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setImages(next);
   }
@@ -188,17 +208,22 @@ export function ProductQuickCreateDialog({
     }
     if (outcome.kind === "draft_media_failed") {
       setCreatedProductId(outcome.result.product.id);
-      setRecovery(Object.freeze({ created: outcome.result, files, publish }));
-      setError("Ürün oluşturuldu, bazı görseller yüklenemedi. Taslak güvenli şekilde saklandı. İkinci yazma yapılmadı; isterseniz görselleri yeniden yükleyebilir veya ürüne gidebilirsiniz.");
+      setRecovery(Object.freeze({
+        created: Object.freeze({ ...outcome.result, mediaCount: outcome.result.mediaCount + outcome.uploadedCount }),
+        files: Object.freeze(files.slice(outcome.uploadedCount)),
+        publish,
+      }));
+      setError("Ürün taslağı kaydedildi. Yüklenemeyen görselleri yeniden dene veya ürünü aç.");
       return;
     }
     setCreatedProductId(outcome.result.product.id);
-    setError("Ürün taslağı oluşturuldu ancak satışa açıldığı doğrulanamadı. İkinci yazma yapılmadı; ürünü açıp durumu kontrol edin.");
+    setError("Taslak kaydedildi. Satış durumunu ürünü açarak kontrol et.");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submittingRef.current) return;
+    if (submittingRef.current || barcodeBusy || createdProductIdRef.current) return;
+    if (requiresDetailed) { setError("Ayrıntıların korunuyor. Kaydı detaylı formdan tamamla."); return; }
     const form = event.currentTarget;
     const data = new FormData(form);
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
@@ -207,12 +232,20 @@ export function ProductQuickCreateDialog({
     const parsed = buildQuickCreateIntent({
       title: field(data, "title"),
       sku,
+      barcode,
+      channelIds: options?.channels.filter((channel) => channel.kind === "storefront").map(({ id }) => id) ?? [],
       price: field(data, "price"),
       publish,
       stockQuantity: field(data, "stockQuantity"),
       categoryId: field(data, "categoryId"),
     });
-    if (!parsed.ok) { setError(parsed.error); return; }
+    if (!parsed.ok) {
+      setError(parsed.error);
+      if (!title.trim()) titleRef.current?.focus();
+      else if (parseTurkishMoneyToCents(price) === null) priceRef.current?.focus();
+      else if (publish && !categoryId) categoryRef.current?.focus();
+      return;
+    }
 
     submittingRef.current = true;
     setSubmitting(true);
@@ -221,7 +254,9 @@ export function ProductQuickCreateDialog({
     setProgress(0);
     try {
       const created = await api.createProduct(parsed.value);
+      createdProductIdRef.current = created.product.id;
       setCreatedProductId(created.product.id);
+      onCreatedProductChange?.(created.product.id);
       const files = Object.freeze(images.map(({ file, altText }) => Object.freeze({ file, altText: altText.trim() })));
       finish(await completeMedia(created, files, publish), publish, files);
     } catch (failure) {
@@ -252,61 +287,56 @@ export function ProductQuickCreateDialog({
   const content = (
     <div
       ref={dialogRef}
-      className={`${styles.dialog} ${mode === "page" ? styles.page : ""}`}
+      className={`${styles.dialog} ${mode === "page" ? styles.page : ""} ${workspace.workspace}`}
       role={mode === "dialog" ? "dialog" : "region"}
       aria-modal={mode === "dialog" ? "true" : undefined}
       aria-labelledby="quick-product-title"
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
-      <header className={styles.header}>
-        <span className={styles.icon}><PackagePlus aria-hidden="true" /></span>
-        <div><span className={styles.eyebrow}>HIZLI ÜRÜN</span><h2 id="quick-product-title">Yeni ürün ekle</h2><p>Ürün adı ve fiyatıyla yaklaşık 60 saniyede başlayın.</p></div>
-        {mode === "dialog" ? <button className={styles.iconButton} type="button" onClick={requestClose} aria-label="Ürün ekleme penceresini kapat"><X aria-hidden="true" /></button> : null}
-      </header>
+      <h2 id="quick-product-title" className={workspace.srOnly}>Hızlı ürün ekle</h2>
+      {mode === "dialog" ? <button className={`${styles.iconButton} ${workspace.close}`} type="button" onClick={requestClose} aria-label="Ürün ekleme penceresini kapat"><X aria-hidden="true" /></button> : null}
 
       <form className={styles.form} onSubmit={submit} noValidate>
         {error ? <div className={styles.error} role="alert"><strong>{recovery ? "Taslak güvende" : "Formu kontrol edin"}</strong><span>{error}</span></div> : null}
         {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
-        <fieldset disabled={submitting || options === null}>
-          <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Örn. Seramik kahve kupası" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
-          <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
+        <fieldset disabled={submitting || options === null || Boolean(createdProductId)} className={workspace.layout}>
+          <div className={workspace.mediaColumn}>
+            <div className={workspace.cover}>{images[0] ? <img src={images[0].preview} alt={images[0].altText || "Ürün görseli"} /> : <Package aria-hidden="true" />}</div>
+            <span>Görseller · {images.length}</span>
+            <button type="button" className={workspace.mediaButton} onClick={() => imageInputRef.current?.click()}><ImagePlus aria-hidden="true" />Görsel ekle</button>
+            <input ref={imageInputRef} type="file" tabIndex={-1} className={workspace.srOnly} multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} aria-label="Ürün görselleri seç" />
+            <small>JPG, PNG, WebP · 5 MB · en fazla 16</small>
+            {images.length > 1 ? <div className={workspace.thumbnails}>{images.slice(1).map((image, index) => <img key={`${image.file.name}-${index}`} src={image.preview} alt={image.altText || `${index + 2}. ürün görseli`} />)}</div> : null}
+          </div>
+          <div className={workspace.fields}>
+          <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Ürün adı" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
+          {hasVariantDraft ? <div className={workspace.variantSummary}><strong>{draftSession?.current.variants.length ?? 0} varyant</strong><button type="button" onClick={onAdvanced}>Varyantları düzenle</button></div> : <>
+          <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input ref={priceRef} name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
-          <SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} />
+          <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
+          </>}
           <label className={styles.wide}>
-            <span>Kategori (satışa açmak için zorunlu)</span>
-            <select name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length}>
+            <span>Kategori</span>
+            <select ref={categoryRef} name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length || (draftSession?.current.categoryIds.length ?? 0) > 1} aria-describedby="quick-category-hint">
               <option value="">Kategori seçin</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}
             </select>
-            <small className={styles.fieldHint}>Kategori seçmeden satışa açılmaz; ürün vitrinde doğru koleksiyona bağlanır.</small>
+            <small id="quick-category-hint" className={styles.fieldHint}>Satışa açmak için gerekli</small>
           </label>
-          {categoryRows.length ? (
-            <div className={`${styles.categoryChips} ${styles.wide}`} role="group" aria-label="Hızlı kategori seçimi">
-              {categoryRows.slice(0, 8).map(({ category, label }) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className={`${styles.categoryChip} ${categoryId === category.id ? styles.categoryChipActive : ""}`}
-                  aria-pressed={categoryId === category.id}
-                  onClick={() => setCategoryId(category.id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <label className={`${styles.media} ${styles.wide}`}><ImagePlus aria-hidden="true" /><span>{images.length ? `${images.length} görsel seçildi` : "İsteğe bağlı görseller seç"}<small>PNG, JPEG veya WebP · en fazla 16 dosya · dosya başına 5 MB</small></span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
           {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={`${image.file.name}-${index}`}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
+          </div>
         </fieldset>
 
         {options === null ? <p className={styles.loading} role="status">Ürün seçenekleri yükleniyor…</p> : null}
+        {requiresDetailed ? <div className={workspace.detailedNotice} role="status"><span>Ayrıntıların korunuyor. Kaydı detaylı formdan tamamla.</span><button type="button" onClick={onAdvanced} disabled={submitting || barcodeBusy}>Detaylı forma dön</button></div> : null}
+        {!requiresDetailed && (!title.trim() || parseTurkishMoneyToCents(price) === null || !categoryId) ? <p className={workspace.readiness}>Satışa açmak için: {[!title.trim() ? "Ürün adı" : "", parseTurkishMoneyToCents(price) === null ? "Fiyat" : "", !categoryId ? "Kategori" : ""].filter(Boolean).join(" · ")}</p> : null}
         <div className={styles.actions}>
           {recovery ? <button type="button" className={styles.secondary} onClick={() => void retryMedia()} disabled={submitting}>Görselleri yeniden yükle</button> : null}
           {createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}
-          <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting}>Gelişmiş ürün eklemeye geç</button>
-          <button type="submit" name="intent" value="draft" className={styles.secondary} disabled={submitting || options === null}>Taslak kaydet</button>
-          <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || options === null}>{submitting ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button>
+          {mode === "dialog" ? <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting || barcodeBusy}>Gelişmiş ürün eklemeye geç</button> : <button type="button" className={workspace.cancel} onClick={requestClose} disabled={submitting || barcodeBusy}>Vazgeç</button>}
+          <button type="submit" name="intent" value="draft" className={styles.secondary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>Taslak kaydet</button>
+          <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>{submitting ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button>
         </div>
       </form>
     </div>

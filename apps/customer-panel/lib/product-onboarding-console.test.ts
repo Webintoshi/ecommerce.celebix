@@ -21,21 +21,17 @@ test("quick create exposes only two required merchant fields", async () => {
   for (const label of ["Taslak kaydet", "Kaydet ve satışa aç", "Gelişmiş ürün eklemeye geç"]) {
     assert.match(dialog, new RegExp(label));
   }
-  assert.match(dialog, /Kategori \(satışa açmak için zorunlu\)/);
+  assert.match(dialog, /Satışa açmak için gerekli/);
 });
 
 test("quick create makes category selection obvious before publishing", async () => {
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
   const css = await source("components/catalog-onboarding/product-onboarding.module.css");
-
   assert.match(dialog, /name="categoryId"[^>]*required/);
   assert.match(dialog, /fieldHint/);
-  assert.match(dialog, /Kategori seçmeden satışa açılmaz/);
-  assert.match(dialog, /role="group"[^>]*aria-label="Hızlı kategori seçimi"/);
-  assert.match(dialog, /setCategoryId\(category[.]id\)/);
-  assert.match(dialog, /categoryChipActive/);
-  assert.match(css, /\.categoryChips/);
-  assert.match(css, /\.categoryChip/);
+  assert.match(dialog, /aria-describedby="quick-category-hint"/);
+  assert.match(dialog, /setCategoryId\(event[.]currentTarget[.]value\)/);
+  assert.match(dialog, /categoryHierarchy[.]valid/);
   assert.match(css, /\.fieldHint/);
 });
 
@@ -43,8 +39,8 @@ test("new product page opens a choice before either creation form", async () => 
   const page = await source("app/products/new/page.tsx");
   const create = await source("components/catalog/ProductCreateForm.tsx");
   assert.match(page, /mode === "advanced"/);
-  assert.match(create, /Hızlı Ürün Yükle/);
-  assert.match(create, /Detaylı Ürün Yükle/);
+  assert.match(create, /Hızlı ürün yükle/i);
+  assert.match(create, /Detaylı ürün yükle/i);
   assert.match(create, /mode === "choose"/);
 });
 
@@ -71,11 +67,11 @@ test("dialog preserves focus, keyboard, duplicate-submit and close safety", asyn
 
 test("media failure remains an honest draft with recovery links", async () => {
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
-  assert.match(dialog, /Ürün oluşturuldu, bazı görseller yüklenemedi/);
+  assert.match(dialog, /Ürün taslağı kaydedildi\. Yüklenemeyen görselleri yeniden dene/);
   assert.match(dialog, /Görselleri yeniden yükle/);
   assert.match(dialog, /Ürüne git/);
   assert.match(dialog, /completeProductMedia/);
-  assert.match(dialog, /İkinci yazma yapılmadı/);
+  assert.match(dialog, /submittingRef\.current \|\| barcodeBusy \|\| createdProductIdRef\.current/);
 });
 
 test("quick surface is a mobile sheet with 48px targets and reduced motion", async () => {
@@ -96,16 +92,12 @@ test("catalog onboarding owns its Mira palette and clears the fixed mobile navig
   assert.match(css, /@media \(max-width:\s*1024px\)[^]*padding-bottom:\s*calc\(76px/s);
 });
 
-test("advanced editor is one collapsible form, not a wizard", async () => {
+test("advanced editor preserves one form with visible core fields and disclosed settings", async () => {
   const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
-  for (const label of ["Temel bilgiler ve kategori", "Fiyat ve varyantlar", "Görseller", "Diğer ayarlar", "SEO", "Satış kanalları"]) {
+  for (const label of ["Ürün adı", "Varyant", "Görsel", "SEO", "Satış kanal"]) {
     assert.match(editor, new RegExp(label));
   }
-  assert.ok(editor.indexOf('id="product-basics"') < editor.indexOf('id="product-commerce"'));
-  assert.ok(editor.indexOf('id="product-commerce"') < editor.indexOf('id="product-media"'));
-  assert.ok(editor.indexOf('id="product-media"') < editor.indexOf('id="product-advanced"'));
   assert.doesNotMatch(editor, /İleri|Önceki|stepIndex|currentStep/);
-  assert.match(editor, /stickySummary/);
   assert.match(editor, /completeProductMedia/);
   assert.match(editor, /multiple accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(editor, /ProductDescriptionField/);
@@ -114,20 +106,20 @@ test("advanced editor is one collapsible form, not a wizard", async () => {
 test("advanced editor locks native and rich fields while a versioned save is pending", async () => {
   const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
   assert.match(editor, /aria-busy=\{busy\}/);
-  assert.match(editor, /<fieldset className=\{styles[.]editorFieldset\} disabled=\{busy\}>/);
+  assert.match(editor, /<fieldset className=\{createStyles[.]editorFieldset\} disabled=\{busy\}>/);
   assert.match(editor, /<ProductDescriptionField[^>]*readOnly=\{busy\}/s);
   assert.match(editor, /<fieldset className=\{styles[.]editFieldset\} disabled=\{busy\}>/);
 });
 
-test("variant rows prioritize price and stock while secondary fields stay disclosed", async () => {
+test("variant rows keep identifiers visible while secondary commerce fields stay disclosed", async () => {
   const builder = await source("components/catalog-onboarding/ProductVariantBuilder.tsx");
   const editor = await source("components/catalog-onboarding/ProductAdvancedEditor.tsx");
   assert.match(builder, /Satış fiyatı \*/);
   assert.match(builder, /Stok/);
-  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("Karşılaştırma fiyatı"));
-  assert.ok(builder.indexOf("onboarding-variant-advanced") < builder.indexOf("<BarcodeInput"));
+  assert.ok(builder.indexOf("createStyles.variantDetails") < builder.indexOf("Karşılaştırma fiyatı"));
+  assert.ok(builder.indexOf("<BarcodeInput") < builder.indexOf("createStyles.variantDetails"));
   assert.match(builder, /!simplified \? <div className="onboarding-variant-list-heading"/);
-  assert.match(editor, /allowManualAdd=\{kind !== "variant"\} simplified/);
+  assert.match(editor, /ProductVariantBuilder/);
 });
 
 test("variant matrix rejects duplicate attributes and bounds combinations", () => {

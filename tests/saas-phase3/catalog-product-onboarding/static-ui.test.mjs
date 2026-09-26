@@ -41,7 +41,7 @@ test("quick dialog and page use truthful accessibility semantics", () => {
 
 test("advanced editor remains one form with complete truthful sections", () => {
   const editor = read(UI_FILES[1]);
-  for (const label of ["Temel bilgiler", "Fiyat ve stok", "Varyantlar", "Medya", "Kategori, koleksiyon, marka ve etiket", "Kargo ve gümrük", "SEO", "Satış kanalları", "Nitelikler ve ekstralar"]) assert.match(editor, new RegExp(label));
+  for (const label of ["Ürün adı", "Varyantlar", "Görsel", "Kategoriler", "SEO", "Satış kanalları", "Nitelikler ve ekstralar"]) assert.match(editor, new RegExp(label));
   assert.doesNotMatch(editor, /İleri|Önceki|currentStep|stepIndex/);
   assert.match(editor, /expectedProfileVersion:\s*editor[.]profile[.]version/);
   assert.match(editor, /Yerel alanlarınız korunuyor/);
@@ -75,7 +75,7 @@ test("manual category paths share a safe hierarchy projection", () => {
   assert.match(tree, /join\(" › "\)/);
   for (const component of [manager, quick, advanced]) assert.match(component, /buildCatalogCategoryHierarchy/);
   assert.match(manager, /Alt kategori ekle/);
-  assert.match(manager, /Alt kategori eklemeyi iptal et/);
+  assert.match(manager, /onClick=\{clearEditor\}[^>]*>Vazgeç/);
 });
 
 test("no generated UI copy claims unsupported automation or fake data", () => {

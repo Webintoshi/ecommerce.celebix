@@ -484,3 +484,4 @@
     padding: 20px 16px 54px;
   }
 }
+.compact .footer { justify-content: flex-end; }

@@ -9,10 +9,11 @@ import { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSh
 import { buildVariantMatrix } from "@/lib/catalog-onboarding-ui/variant-matrix";
 import type { VariantDraft } from "./ProductVariantBuilder";
 import styles from "./attribute-variant-picker.module.css";
+import createStyles from "./create-advanced.module.css";
 
 type Editor = Readonly<{ kind: "new" }> | Readonly<{ kind: "existing"; id: string }>;
 
-export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, existing = [], initialPrice = "", initialStock = "0", disabled = false }: Readonly<{
+export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, existing = [], initialPrice = "", initialStock = "0", disabled = false, presentation = "default", onBusyChange }: Readonly<{
   value: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   onAttributeIdsChange?(ids: readonly string[]): void;
@@ -20,13 +21,17 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
   initialPrice?: string;
   initialStock?: string;
   disabled?: boolean;
+  presentation?: "default" | "create";
+  onBusyChange?(busy: boolean): void;
 }>) {
+  const ui = presentation === "create" ? createStyles : styles;
   const [resources, setResources] = useState<readonly CatalogAdminResource[]>([]);
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [selectedValues, setSelectedValues] = useState<Readonly<Record<string, readonly string[]>>>({});
   const [price, setPrice] = useState(initialPrice);
   const [stock, setStock] = useState(initialStock);
   const [loading, setLoading] = useState(true);
+  const [loadRevision, setLoadRevision] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -38,9 +43,15 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
   const savingRef = useRef(false);
   const editorInputRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onBusyChangeRef = useRef(onBusyChange);
+  onBusyChangeRef.current = onBusyChange;
+
+  useEffect(() => () => { if (savingRef.current) onBusyChangeRef.current?.(false); }, []);
 
   useEffect(() => {
     let live = true;
+    setLoading(true);
+    setError("");
     void catalogAdminApi.resources("attribute").then((resources) => {
       if (live) {
         const loaded = attributeChoices(resources);
@@ -52,7 +63,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
       }
     }).catch(() => { if (live) { setError("Nitelikler yüklenemedi. Tekrar deneyin."); setLoading(false); } });
     return () => { live = false; };
-  }, []);
+  }, [loadRevision]);
 
   useEffect(() => { if (editor) editorInputRef.current?.focus(); }, [editor]);
 
@@ -70,7 +81,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     const nextMatrix = nextOptions.length && nextOptions.every(({ values }) => values.length) ? buildVariantMatrix(nextOptions) : null;
     if (nextMatrix && !nextMatrix.ok) { setError(`${nextMatrix.error} Daha az değer seçin.`); return; }
     const { kept, removed } = reconcileVariantRows(nextOptions, value);
-    if (removed.length && !window.confirm(`${removed.length} seçili varyant bu nitelik değişikliğiyle kaldırılacak. Devam edilsin mi?`)) return;
+    if (presentation !== "create" && removed.length && !window.confirm(`${removed.length} seçili varyant bu nitelik değişikliğiyle kaldırılacak. Devam edilsin mi?`)) return;
     if (removed.length) onChange(kept);
     setSelectedIds(Object.freeze([...nextIds]));
     setSelectedValues(Object.freeze({ ...nextValues }));
@@ -91,7 +102,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
   }
 
   function toggleCombination(key: string) {
-    if (selectedKeys.has(key) && !window.confirm("Bu varyantın girilmiş fiyat, stok ve diğer bilgileri kaldırılacak. Devam edilsin mi?")) return;
+    if (presentation !== "create" && selectedKeys.has(key) && !window.confirm("Bu varyantın girilmiş fiyat, stok ve diğer bilgileri kaldırılacak. Devam edilsin mi?")) return;
     const next = selectedKeys.has(key) ? [...selectedKeys].filter((item) => item !== key) : [...selectedKeys, key];
     if (!next.length) { onChange(Object.freeze([])); setError(""); return; }
     const result = mergeSelectedVariants({ options, selectedKeys: next, current: value, existing: existing.map(({ attributes }) => attributes), defaultPrice: price, defaultStock: stock });
@@ -144,6 +155,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     const parsed = buildAttributeResourceMutation({ ...(original ? { existing: original } : { name: editorName }), values: editorValues });
     if (!parsed.ok) { setEditorError(parsed.error); return; }
     savingRef.current = true;
+    onBusyChangeRef.current?.(true);
     setSaving(true);
     setEditorError("");
     try {
@@ -156,7 +168,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
         onAttributeIdsChange?.(Object.freeze([...selectedIds, saved.id]));
       }
       setEditor(null);
-      setNotice("Nitelik kaydedildi. Ürüne eklenecek değerleri seçin; mevcut varyantlar korunuyor.");
+      setNotice(presentation === "create" ? "Nitelik kaydedildi." : "Nitelik kaydedildi. Ürüne eklenecek değerleri seçin; mevcut varyantlar korunuyor.");
       if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
     } catch (failure) {
       if (failure instanceof CatalogAdminApiError && (failure.code === "version_conflict" || failure.code === "slug_conflict")) {
@@ -169,31 +181,31 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
           : failure instanceof CatalogAdminApiError
             ? `${failure.message} Ürün varyantları değiştirilmedi.`
             : "Nitelik kaydedilemedi. Ürün varyantları değiştirilmedi.");
-    } finally { savingRef.current = false; setSaving(false); }
+    } finally { savingRef.current = false; setSaving(false); onBusyChangeRef.current?.(false); }
   }
 
-  return <fieldset className={styles.picker} disabled={disabled || loading || saving}>
-    <legend>Niteliklerden varyant seç</legend>
-    <div className={styles.intro}><p className={styles.hint}>Renk, Beden gibi seçenekleri belirleyin; yalnız işaretlediğiniz kombinasyonlar eklenecek.</p><button type="button" onClick={() => openEditor({ kind: "new" })} disabled={selectedIds.length >= 3}>+ Yeni nitelik</button></div>
+  return <fieldset className={ui.picker} disabled={disabled || loading || saving}>
+    <legend>{presentation === "create" ? "Nitelikler" : "Niteliklerden varyant seç"}</legend>
+    <div className={ui.intro}>{presentation !== "create" ? <p className={ui.hint}>Renk, Beden gibi seçenekleri belirleyin; yalnız işaretlediğiniz kombinasyonlar eklenecek.</p> : null}<button type="button" onClick={() => openEditor({ kind: "new" })} disabled={selectedIds.length >= 3}>+ Yeni nitelik</button></div>
     {loading ? <p role="status">Nitelikler yükleniyor…</p> : null}
-    {!loading && !choices.length ? <p>Henüz nitelik yok. Buradan Renk veya Beden ekleyebilirsiniz.</p> : null}
-    {invalidChoiceCount > 0 ? <p role="status" className={styles.error}>{invalidChoiceCount} nitelik kaydının değeri geçersiz; diğer nitelikleri kullanabilirsiniz.</p> : null}
-    {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-    {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
-    <div className={styles.attributes}>{choices.map((choice) => <label key={choice.id}><input type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
-    {selectedChoices.map((choice) => <div key={choice.id} className={styles.values}><div className={styles.valueHeading}><strong>{choice.name}</strong><button type="button" onClick={() => openEditor({ kind: "existing", id: choice.id })}>{choice.name} için değer ekle</button></div><div>{choice.values.map((item) => <label key={item}><input type="checkbox" checked={(selectedValues[choice.id] ?? []).includes(item)} onChange={() => toggleValue(choice, item)} /> {item}</label>)}</div></div>)}
-    {editor ? <section className={styles.inlineEditor} aria-label="Nitelik düzenleyici" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeEditor(); } }}>
-      <div className={styles.editorHeading}><strong>{editor.kind === "new" ? "Yeni nitelik oluştur" : `${choices.find((choice) => choice.id === editor.id)?.name ?? "Nitelik"} için değer ekle`}</strong><button type="button" onClick={closeEditor} aria-label="Nitelik düzenleyiciyi kapat">×</button></div>
+    {!loading && !error && !choices.length ? <p>Henüz nitelik yok. Buradan Renk veya Beden ekleyebilirsiniz.</p> : null}
+    {invalidChoiceCount > 0 ? <p role="status" className={ui.error}>{invalidChoiceCount} nitelik kaydının değeri geçersiz; diğer nitelikleri kullanabilirsiniz.</p> : null}
+    {error ? <p role="alert" className={ui.error}>{error}{!resources.length && !loading ? <button type="button" onClick={() => setLoadRevision((current) => current + 1)}>Tekrar dene</button> : null}</p> : null}
+    {notice ? <p role="status" className={ui.notice}>{notice}</p> : null}
+    <div className={ui.attributes}>{choices.map((choice) => <label key={choice.id}><input type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
+    {selectedChoices.map((choice) => <div key={choice.id} className={ui.values} role="group" aria-label={`${choice.name} değerleri`}><div className={ui.valueHeading}><strong>{choice.name}</strong><button type="button" onClick={() => openEditor({ kind: "existing", id: choice.id })}>{choice.name} için değer ekle</button></div><div>{choice.values.map((item) => <label key={item}><input type="checkbox" checked={(selectedValues[choice.id] ?? []).includes(item)} onChange={() => toggleValue(choice, item)} /> {item}</label>)}</div></div>)}
+    {editor ? <section className={ui.inlineEditor} aria-label="Nitelik düzenleyici" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeEditor(); } }}>
+      <div className={ui.editorHeading}><strong>{editor.kind === "new" ? "Yeni nitelik oluştur" : `${choices.find((choice) => choice.id === editor.id)?.name ?? "Nitelik"} için değer ekle`}</strong><button type="button" onClick={closeEditor} aria-label="Nitelik düzenleyiciyi kapat">×</button></div>
       {editor.kind === "new" ? <label>Nitelik adı<input value={editorName} maxLength={120} placeholder="Örn. Renk" onChange={(event) => setEditorName(event.target.value)} /></label> : null}
-      <div className={styles.valueEntry}><label>Yeni değer<input ref={editorInputRef} aria-label="Yeni nitelik değeri" value={editorInput} maxLength={100} placeholder="Örn. Siyah" onChange={(event) => setEditorInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEditorValue(); } }} /></label><button type="button" onClick={addEditorValue}>Değer ekle</button></div>
-      {editorValues.length ? <div className={styles.newValues}>{editorValues.map((item) => <button key={item} type="button" onClick={() => setEditorValues((current) => current.filter((value) => value !== item))} aria-label={`${item} değerini kaldır`}>{item} ×</button>)}</div> : null}
-      <p className={styles.saveHint}>Nitelik ayrı kaydedilir; üründen vazgeçseniz de Nitelikler bölümünde kalır.</p>
-      {editorError ? <p role="alert" className={styles.error}>{editorError}</p> : null}
-      <div className={styles.editorActions}><button type="button" onClick={closeEditor}>Vazgeç</button><button type="button" onClick={() => void saveAttribute()} disabled={!editorValues.length}>Niteliği kaydet</button></div>
+      <div className={ui.valueEntry}><label>Yeni değer<input ref={editorInputRef} aria-label="Yeni nitelik değeri" value={editorInput} maxLength={100} placeholder="Örn. Siyah" onChange={(event) => setEditorInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEditorValue(); } }} /></label><button type="button" onClick={addEditorValue}>Değer ekle</button></div>
+      {editorValues.length ? <div className={ui.newValues}>{editorValues.map((item) => <button key={item} type="button" onClick={() => setEditorValues((current) => current.filter((value) => value !== item))} aria-label={`${item} değerini kaldır`}>{item} ×</button>)}</div> : null}
+      <p className={ui.saveHint}>Nitelik ayrı kaydedilir; üründen vazgeçseniz de Nitelikler bölümünde kalır.</p>
+      {editorError ? <p role="alert" className={ui.error}>{editorError}</p> : null}
+      <div className={ui.editorActions}><button type="button" onClick={closeEditor}>Vazgeç</button><button type="button" onClick={() => void saveAttribute()} disabled={!editorValues.length}>Niteliği kaydet</button></div>
     </section> : null}
-    {selectedChoices.length ? <div className={styles.defaults}><label>Başlangıç fiyatı (₺)<input inputMode="decimal" value={price} onChange={(event) => updateDefault("price", event.target.value)} placeholder="Örn. 199,00" /></label><label>Başlangıç stoku<input inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stock} onChange={(event) => updateDefault("stockQuantity", event.target.value)} /></label></div> : null}
-    {matrix && !matrix.ok ? <p role="alert" className={styles.error}>{matrix.error} Daha az nitelik değeri seçin.</p> : null}
-    {matrix?.ok ? <div className={styles.combinations}><strong>Satılacak kombinasyonlar ({selectedKeys.size} seçili)</strong><div>{matrix.value.map((candidate) => {
+    {selectedChoices.length ? <div className={ui.defaults}><label>Başlangıç fiyatı (₺)<input inputMode="decimal" value={price} onChange={(event) => updateDefault("price", event.target.value)} placeholder="Örn. 199,00" /></label><label>Başlangıç stoku<input inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stock} onChange={(event) => updateDefault("stockQuantity", event.target.value)} /></label></div> : null}
+    {matrix && !matrix.ok ? <p role="alert" className={ui.error}>{matrix.error} Daha az nitelik değeri seçin.</p> : null}
+    {matrix?.ok ? <div className={ui.combinations} role="group" aria-label="Satılacak kombinasyonlar"><strong>Satılacak kombinasyonlar ({selectedKeys.size} seçili)</strong><div>{matrix.value.map((candidate) => {
       const key = variantAttributeKey(candidate.attributes);
       const exists = existingKeys.has(key);
       return <label key={key}><input type="checkbox" checked={selectedKeys.has(key) || exists} disabled={exists} onChange={() => toggleCombination(key)} /><span>{candidate.title}</span>{exists ? <small>Zaten var</small> : null}</label>;

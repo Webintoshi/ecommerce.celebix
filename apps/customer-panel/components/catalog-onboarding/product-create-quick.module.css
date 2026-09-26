@@ -1,0 +1,45 @@
+.workspace { color: var(--catalog-text); min-width: 0; }
+.workspace.workspace[role="region"] { background: transparent; max-height: none; overflow: visible; border-radius: 0; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.workspace form { padding: 0; gap: 24px; }
+.workspace fieldset.layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+.mediaColumn { display: grid; min-width: 0; gap: 12px; }
+.mediaColumn > span, .mediaColumn small { color: var(--cp-text-secondary, #736b63); font-size: 12px; line-height: 1.5; }
+.cover { display: grid; aspect-ratio: 4 / 5; width: 100%; place-items: center; background: var(--catalog-border); border-radius: 8px; overflow: hidden; }
+.cover > svg { width: 40px; height: 40px; color: var(--cp-text-secondary, #736b63); stroke-width: 1; }
+.cover img { width: 100%; height: 100%; object-fit: cover; }
+.mediaButton { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px dashed var(--catalog-border); border-radius: 8px; background: transparent; color: var(--catalog-text); font: inherit; font-size: 13px; cursor: pointer; }
+.mediaButton svg { width: 16px; height: 16px; }
+.thumbnails { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.thumbnails img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; gap: 20px; }
+.workspace label { color: var(--catalog-text); gap: 8px; font-size: 13px; font-weight: 600; min-width: 0; }
+.workspace label > span b { color: var(--catalog-text); }
+.workspace input, .workspace select { min-height: 44px; min-width: 0; padding: 0 12px; border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); color: var(--catalog-text); font-size: 14px; font-weight: 400; }
+.workspace.workspace input:focus, .workspace.workspace select:focus { box-shadow: none; outline: 2px solid var(--catalog-accent); outline-offset: 2px; }
+.workspace input.srOnly { width: 1px; min-width: 0; min-height: 1px; padding: 0; border: 0; }
+.workspace small { font-size: 12px; color: var(--cp-text-secondary, #736b63); font-weight: 400; }
+.identifiers { display: grid; grid-column: 1 / -1; gap: 20px; min-width: 0; }
+.identifiers > div { min-width: 0; color: var(--catalog-text); }
+.identifiers :global(button) { white-space: nowrap; }
+.workspace .readiness { margin: 0; color: var(--cp-text-secondary, #736b63); font-size: 12px; }
+.workspace form > div:last-child { border-color: var(--catalog-border); margin-top: 8px; padding-top: 20px; }
+.workspace form > div:last-child button, .workspace form > div:last-child a { min-height: 44px; border-radius: 8px; padding: 0 16px; font-weight: 600; box-shadow: none; }
+.workspace form > div:last-child button[type="submit"][value="publish"] { background: var(--catalog-text); border-color: var(--catalog-text); color: var(--catalog-surface); }
+.workspace form > div:last-child button[type="submit"][value="draft"], .workspace form > div:last-child a { background: var(--catalog-surface); border-color: var(--catalog-border); color: var(--catalog-text); }
+.cancel { margin-right: auto; border: 0; background: transparent; color: var(--cp-text-secondary, #736b63); }
+.variantSummary { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; grid-column: 1 / -1; min-height: 44px; padding: 12px 0; border-bottom: 1px solid var(--catalog-border); }
+.variantSummary button, .detailedNotice button { min-height: 44px; border: 0; padding: 0; background: transparent; color: var(--catalog-text); font: inherit; text-decoration: underline; cursor: pointer; }
+.detailedNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; color: var(--cp-text-secondary, #736b63); font-size: 13px; }
+.close { justify-self: end; margin: 16px; }
+.workspace[role="dialog"] { padding: 24px; }
+@media (max-width: 700px) { .workspace fieldset.layout { grid-template-columns: 144px minmax(0, 1fr); gap: 24px; } .fields { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .workspace fieldset.layout { grid-template-columns: 1fr; gap: 24px; } .mediaColumn { width: 160px; } .workspace input, .workspace select { font-size: 16px; } .workspace form > div:last-child { justify-content: flex-start; } .workspace form > div:last-child button[type="submit"][value="publish"] { flex: 1 0 100%; } .workspace[role="dialog"] { padding: 16px; } }
+@media (max-width: 520px) {
+  .workspace[role="region"] .mediaColumn { width: 100%; grid-template-columns: 104px minmax(0, 1fr); gap: 8px 16px; }
+  .workspace[role="region"] .cover { grid-row: span 3; }
+  .workspace[role="region"] .thumbnails { grid-column: 1 / -1; }
+  .workspace.workspace[role="region"] form > div:last-child { display: grid; grid-template-columns: 1fr 1fr; margin: 0; padding: 12px 0; bottom: 76px; background: var(--catalog-canvas); backdrop-filter: none; }
+  .workspace[role="region"] form > div:last-child button[type="submit"][value="publish"] { grid-column: 1 / -1; grid-row: 1; }
+  .workspace[role="region"] .cancel { margin-right: 0; }
+}

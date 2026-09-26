@@ -24,6 +24,7 @@ export type ProductDraft = Readonly<{
   title: string;
   description: string;
   variants: readonly ProductDraftVariant[];
+  standardVariant?: ProductDraftVariant;
   categoryIds: readonly string[];
   brandId: string;
   collectionIds: readonly string[];
@@ -35,6 +36,7 @@ export type ProductDraft = Readonly<{
   seoTitle: string;
   seoDescription: string;
   channelIds: readonly string[];
+  channelSelectionTouched?: boolean;
   resourceAttributeIds: readonly string[];
   resourceExtraIds: readonly string[];
   resourceDefinitionIds: readonly string[];
@@ -53,6 +55,7 @@ type ProductDraftPatch = Partial<{
 type QuickProductDraft = Readonly<{
   title: string;
   sku: string;
+  barcode?: string;
   price: string;
   stockQuantity: string;
   categoryId: string;
@@ -97,15 +100,19 @@ const EMPTY_DRAFT: ProductDraft = {
 };
 
 function freezeDraft(draft: ProductDraft): ProductDraft {
-  const variants = draft.variants.map((variant) => Object.freeze({
+  const freezeVariant = (variant: ProductDraftVariant) => Object.freeze({
     ...variant,
     attributes: Object.freeze({ ...variant.attributes }),
-  }));
+  });
+  const variants = draft.variants.map(freezeVariant);
+  const { standardVariant, channelSelectionTouched, ...fields } = draft;
   const media = draft.media.map((item) => Object.freeze({ ...item }));
 
   return Object.freeze({
-    ...draft,
+    ...fields,
     variants: Object.freeze(variants),
+    ...(standardVariant === undefined ? {} : { standardVariant: freezeVariant(standardVariant) }),
+    ...(channelSelectionTouched ? { channelSelectionTouched: true } : {}),
     categoryIds: Object.freeze([...draft.categoryIds]),
     collectionIds: Object.freeze([...draft.collectionIds]),
     tagIds: Object.freeze([...draft.tagIds]),
@@ -157,17 +164,46 @@ export function mergeQuickProductDraft(
   quick: QuickProductDraft,
 ): ProductDraftSession {
   const firstVariant = session.current.variants[0] ?? EMPTY_VARIANT;
+  const preserveVariantDraft = session.current.kind === "variant"
+    || session.current.variants.length > 1
+    || session.current.variants.some((variant) => Object.keys(variant.attributes).length > 0);
   return updateProductDraft(session, {
     title: quick.title,
-    variants: [{
+    variants: preserveVariantDraft ? session.current.variants : [{
       ...firstVariant,
       sku: quick.sku,
+      ...(quick.barcode === undefined ? {} : { barcode: quick.barcode }),
       price: quick.price,
       stockQuantity: quick.stockQuantity,
     }],
-    categoryIds: quick.categoryId ? [quick.categoryId] : [],
+    categoryIds: session.current.categoryIds.length > 1
+      ? session.current.categoryIds
+      : quick.categoryId ? [quick.categoryId] : [],
     media: quick.media,
   });
+}
+
+/** Hidden detailed fields must never be discarded by a quick-only create intent. */
+export function quickDraftRequiresDetailedSave(draft: ProductDraft, defaultStorefrontChannelIds?: readonly string[]): boolean {
+  const channelSelectionDiffers = draft.channelIds.length > 0
+    && (defaultStorefrontChannelIds === undefined
+      || new Set(draft.channelIds).size !== new Set(defaultStorefrontChannelIds).size
+      || draft.channelIds.some((id) => !defaultStorefrontChannelIds.includes(id)));
+  return draft.kind === "variant"
+    || draft.variants.length !== 1
+    || draft.productType === "digital"
+    || draft.categoryIds.length > 1
+    || draft.channelSelectionTouched === true
+    || channelSelectionDiffers
+    || Boolean(draft.description.trim() || draft.brandId || draft.supplierName.trim()
+      || draft.googleProductCategoryId.trim() || draft.seoTitle.trim() || draft.seoDescription.trim()
+      || draft.maximumOrderQuantity.trim())
+    || (draft.minimumOrderQuantity.trim() !== "" && draft.minimumOrderQuantity.trim() !== "1")
+    || [draft.collectionIds, draft.tagIds, draft.resourceAttributeIds, draft.resourceExtraIds, draft.resourceDefinitionIds]
+      .some((ids) => ids.length > 0)
+    || draft.variants.some((variant) => Object.keys(variant.attributes).length > 0
+      || Boolean(variant.compareAt.trim() || variant.cost.trim() || variant.shippingDesi.trim() || variant.hsCode.trim())
+      || variant.continueSellingWhenOutOfStock);
 }
 
 export function commitProductDraft(session: ProductDraftSession): ProductDraftSession {

@@ -11,6 +11,59 @@ test("quick create keeps an optional complete SKU", () => {
 });
 
 const CATEGORY = "11111111-1111-4111-8111-111111111111";
+const CHANNEL = "22222222-2222-4222-8222-222222222222";
+
+test("quick barcode uses an atomic advanced create while retaining the selected sales channel", () => {
+  assert.deepEqual(buildQuickCreateIntent({
+    title: " Kupa ", price: "129,90", stockQuantity: "4", sku: "RSA-001",
+    barcode: "9800000000007", categoryId: CATEGORY, channelIds: [CHANNEL], publish: true,
+  }), {
+    ok: true,
+    value: {
+      kind: "advanced", productType: "physical", title: "Kupa", publish: true,
+      variants: [{
+        title: "Standart", sku: "RSA-001", barcode: "9800000000007", priceCents: 12990,
+        stockTracking: true, stockQuantity: 4, attributes: {},
+        continueSellingWhenOutOfStock: false, inventory: [],
+      }],
+      categoryIds: [CATEGORY],
+      resourceIds: { collections: [], tags: [], attributes: [], extras: [], definitions: [] },
+      channelIds: [CHANNEL], profile: { minimumPurchaseQuantity: 1 },
+    },
+  });
+});
+
+test("barcode drafts allow an explicit empty channel selection and manual codes", () => {
+  const result = buildQuickCreateIntent({ title: "Kupa", price: "0", barcode: " MANUAL-001 ", channelIds: [], publish: false });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.kind, "advanced");
+  if (result.value.kind !== "advanced") return;
+  assert.equal(result.value.variants[0]?.barcode, "MANUAL-001");
+  assert.equal(result.value.variants[0]?.stockQuantity, 0);
+  assert.deepEqual(result.value.categoryIds, []);
+  assert.deepEqual(result.value.channelIds, []);
+});
+
+test("quick barcode never drops missing channels, malformed identifiers or publishing category", () => {
+  const input = { title: "Kupa", price: "129,90", publish: false, barcode: "9800000000007" };
+  assert.deepEqual(buildQuickCreateIntent(input), { ok: false, error: "Ürün satış kanalları yüklenemedi." });
+  for (const barcode of ["bad\ncode", "a".repeat(129), 123 as never]) {
+    assert.equal(buildQuickCreateIntent({ ...input, barcode, channelIds: [] }).ok, false);
+  }
+  for (const channelIds of [["not-a-uuid"], [CHANNEL, CHANNEL], "invalid" as never]) {
+    assert.equal(buildQuickCreateIntent({ ...input, channelIds }).ok, false);
+  }
+  assert.deepEqual(buildQuickCreateIntent({ ...input, channelIds: [CHANNEL], publish: true }), {
+    ok: false, error: "Satışa açmadan önce kategori seçin.",
+  });
+});
+
+test("empty optional barcode retains the original lightweight quick-create contract", () => {
+  assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "129,90", barcode: " ", channelIds: [CHANNEL], publish: false }), {
+    ok: true, value: { kind: "quick", title: "Kupa", priceCents: 12990, publish: false },
+  });
+});
 
 test("quick form keeps drafts lightweight and requires category before publishing", () => {
   assert.deepEqual(buildQuickCreateIntent({ title: "Kupa", price: "129,90", publish: false }), {

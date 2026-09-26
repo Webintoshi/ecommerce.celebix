@@ -7,3 +7,6 @@
 .generate:disabled { opacity: .42; cursor: not-allowed; }
 .generate svg { width: 20px; height: 20px; }
 .root .error { color: #a32626; font-size: 12px; line-height: 1.4; }
+.labeledControl { display: flex; gap: 8px; align-items: start; }
+.labeledControl .input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; }
+.labeledControl .generate { position: static; display: inline-flex; flex: none; gap: 8px; width: auto; min-height: 44px; height: auto; padding: 0 12px; translate: none; border: 1px solid var(--cp-border, #e7e2dd); background: var(--cp-surface, #fffdfc); font: inherit; font-weight: 600; }

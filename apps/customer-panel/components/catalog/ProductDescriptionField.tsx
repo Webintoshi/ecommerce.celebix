@@ -49,6 +49,7 @@ type ProductDescriptionFieldProps = Readonly<{
   readOnly?: boolean;
   rows?: number;
   className?: string;
+  compact?: boolean;
   previewCollapsed?: boolean;
   onValueChange?(value: string): void;
 }>;
@@ -143,6 +144,7 @@ export function ProductDescriptionField({
   defaultValue = "",
   readOnly = false,
   className = "",
+  compact = false,
   onValueChange,
 }: ProductDescriptionFieldProps) {
   const initialValue = useMemo(() => normalizeStoredProductDescription(defaultValue), [defaultValue]);
@@ -246,11 +248,11 @@ export function ProductDescriptionField({
   const activeTable = editor?.isActive("table") ?? false;
 
   return (
-    <div className={`${styles.field} ${focusMode ? styles.focusMode : ""} ${className}`.trim()}>
+    <div className={`${styles.field} ${focusMode ? styles.focusMode : ""} ${compact ? styles.compact : ""} ${className}`.trim()}>
       <div className={styles.labelRow}>
         <div>
           <strong>Açıklama</strong>
-          <small>Ürünün özelliklerini ve müşterinin bilmesi gereken bilgileri ekleyin.</small>
+          {!compact ? <small>Ürünün özelliklerini ve müşterinin bilmesi gereken bilgileri ekleyin.</small> : null}
         </div>
         {!readOnly ? (
           <button type="button" className={styles.focusButton} onClick={() => setFocusMode((current) => !current)}>
@@ -323,7 +325,7 @@ export function ProductDescriptionField({
       <input type="hidden" name="description" value={source} readOnly />
       {!readOnly ? (
         <div className={styles.footer}>
-          <span>Biçimlendirilmiş metin yapıştırabilirsiniz.</span>
+          {!compact ? <span>Biçimlendirilmiş metin yapıştırabilirsiniz.</span> : null}
           <span className={invalidLength ? styles.countError : ""}>{characterCount.toLocaleString("tr-TR")} karakter</span>
         </div>
       ) : null}
