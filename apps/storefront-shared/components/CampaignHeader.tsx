@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StorefrontNavigationItems } from "@celebix/storefront-design-ui";
 import type {
   PublicStorefront,
   PublicStorefrontDesign,
@@ -43,44 +44,12 @@ export function CampaignHeader({
           <nav className={styles.desktopNav} aria-label="Ana menü">
             <Link href="/">Ana Sayfa</Link>
             <Link href={productIndexPath(storefront.locale)}>Ürünler</Link>
-            {presentation.navigation.items.map((item) => (
-              <div className={styles.megaTrigger} key={item.slug}>
-                <Link href={categoryPath(storefront.locale, item.slug)}>{item.name}</Link>
-                {item.children.length || item.featured ? (
-                  <div
-                    className={styles.mega}
-                    data-featured={item.featured ? "true" : "false"}
-                  >
-                    <div className={styles.megaLinks}>
-                      <strong>{item.name}</strong>
-                      {item.children.map((child) => (
-                        <Link
-                          href={categoryPath(storefront.locale, child.slug)}
-                          key={child.slug}
-                        >
-                          {child.name}
-                        </Link>
-                      ))}
-                    </div>
-                    {item.featured ? (
-                      <Link
-                        className={styles.featured}
-                        href={categoryPath(storefront.locale, item.featured.slug)}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.featured.image.url}
-                          alt={item.featured.image.altText}
-                          width={item.featured.image.width}
-                          height={item.featured.image.height}
-                        />
-                        <span>{item.featured.name}</span>
-                      </Link>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+            <StorefrontNavigationItems
+              items={presentation.navigation.items}
+              categoryHref={(slug) => categoryPath(storefront.locale, slug)}
+              renderLink={(href, content, className) => <Link href={href} className={className}>{content}</Link>}
+              classes={{ root: styles.megaTrigger, summary: styles.megaTrigger, panel: styles.mega, links: styles.megaLinks, featured: styles.featured, branch: styles.megaBranch }}
+            />
           </nav>
         }
       />

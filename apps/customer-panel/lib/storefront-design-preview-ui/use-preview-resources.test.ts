@@ -86,3 +86,37 @@ test("hook exposes loading for a changed source and cancels it when dependencies
     globalThis.document = previousDocument;
   }
 });
+
+
+test("clearing inherited category images refreshes the preview to an empty selection", async () => {
+  const categoryId = "71000000-0000-4000-8000-000000000011";
+  const inherited = { ...createDefaultStarterThemeComposition(), sections: [{ sectionId: "home_categories", kind: "category_grid", enabled: true, heading: "Categories", layout: "grid", categoryIds: [categoryId] }] } as StarterThemeComposition;
+  const cleared = { ...inherited, sections: [{ ...inherited.sections[0]!, categoryImages: [] }] } as StarterThemeComposition;
+  const image = { url: "https://media.saas-staging.celebix.site/stores/71000000-0000-4000-8000-000000000001/storefront/category/71000000-0000-4000-8000-000000000002.webp", mediaType: "image/webp", altText: "Category", width: 800, height: 800 } as const;
+  const initialResources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(inherited), productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "ready", value: { heading: "Categories", layout: "grid", items: [{ id: categoryId, name: "Inherited category", slug: "inherited-category", image }] } } } as StorefrontDesignPreviewResources;
+  const pending = deferred<StorefrontDesignPreviewResources>();
+  const api = { preview: async () => pending.promise };
+  function Harness({ composition }: Readonly<{ composition: StarterThemeComposition }>) {
+    const resources = useStorefrontDesignPreviewResources(composition, initialResources, api);
+    return React.createElement("output", null, resources.categoryShowcase.status + ":" + (resources.categoryShowcase.value?.items.length ?? 0));
+  }
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previousWindow = globalThis.window, previousDocument = globalThis.document;
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = window.document.createElement("div"); window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    await React.act(async () => root.render(React.createElement(Harness, { composition: inherited })));
+    assert.equal(container.textContent, "ready:1");
+    await React.act(async () => root.render(React.createElement(Harness, { composition: cleared })));
+    assert.equal(container.textContent, "loading:0");
+    pending.resolve({ ...initialResources, dependencyKey: storefrontDesignPreviewDependencyKey(cleared), categoryShowcase: { status: "missing" } });
+    await React.act(async () => { await pending.promise; });
+    assert.equal(container.textContent, "missing:0");
+  } finally {
+    await React.act(async () => root.unmount()); await window.happyDOM.close();
+    globalThis.window = previousWindow; globalThis.document = previousDocument;
+  }
+});

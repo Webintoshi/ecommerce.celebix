@@ -8,16 +8,16 @@ import styles from "./campaign-home.module.css";
 
 type HeroSection = Extract<PublicStarterHomeSection, { kind: "hero" }>;
 
-export function CampaignHero({ section, locale, prefetch }: Readonly<{ section: HeroSection; locale: string; prefetch?: boolean }>) {
+export function CampaignHero({ section, locale, prefetch, previewMode }: Readonly<{ section: HeroSection; locale: string; prefetch?: boolean; previewMode?: "desktop" | "mobile" }>) {
   return (
     <CampaignHeroClient count={section.slides.length}>
       {section.slides.map((slide, index) => (
         <article className={styles.heroSlide} key={`${slide.heading}-${index}`}>
           {slide.desktopImage ? (
             <picture>
-              <source media="(max-width: 700px)" srcSet={(slide.mobileImage ?? slide.desktopImage).url} />
+              {previewMode === undefined ? <source media="(max-width: 700px)" srcSet={(slide.mobileImage ?? slide.desktopImage).url} /> : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={styles.heroImage} src={slide.desktopImage.url} alt={slide.desktopImage.altText} width={slide.desktopImage.width} height={slide.desktopImage.height} fetchPriority={index === 0 ? "high" : "auto"} />
+              <img className={styles.heroImage} src={(previewMode === "mobile" ? slide.mobileImage ?? slide.desktopImage : slide.desktopImage).url} alt={(previewMode === "mobile" ? slide.mobileImage ?? slide.desktopImage : slide.desktopImage).altText} width={slide.desktopImage.width} height={slide.desktopImage.height} fetchPriority={index === 0 ? "high" : "auto"} />
             </picture>
           ) : <div className={styles.heroFallback} aria-hidden="true" />}
           <div className={styles.heroShade} />

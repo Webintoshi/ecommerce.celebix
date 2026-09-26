@@ -61,7 +61,7 @@ function workspace(extraDestinations: StorefrontDesignWorkspace["destinations"] 
   return { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft, published: { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW.toISOString(), brand: { logo: null, favicon: null, primaryColor: "#111111", accentColor: "#222222", backgroundColor: "#ffffff", textColor: "#111111", fontFamily: "inter" }, hero: { enabled: false, slides: [] }, promotion: { headline: "Kampanya", body: "", destination: null, startsAt: null, endsAt: null, enabled: false }, announcement: draft.announcement, typography: draft.typography }, store: { name: "Atlas", timezone: "Europe/Istanbul" }, media: [], destinations: [{ kind: "collection", resourceId: CATEGORY, label: "Kolyeler", path: "/collections/kolyeler" }, ...extraDestinations] };
 }
 
-function fixture(overrides: Readonly<{ storefront?: Record<string, unknown>; showcaseEnabled?: boolean; merchantRecords?: readonly MerchantAdminRecord[] }> = {}) {
+function fixture(overrides: Readonly<{ storefront?: Record<string, unknown>; showcaseEnabled?: boolean; merchantRecords?: readonly MerchantAdminRecord[]; categories?: import("@celebix/saas-data").CatalogOnboardingRepository["listCategories"] }> = {}) {
   const calls: Array<{ method: string; input: unknown }> = [];
   const latest = [product(1), product(2, { available: false }), product(3), product(4), product(5), product(6), product(7), product(8), product(9)];
   const sale = [product(11, { sale: true }), product(12), product(13, { sale: true, available: false }), product(14, { sale: true }), product(15, { sale: true }), product(16, { sale: true })];
@@ -94,10 +94,46 @@ function fixture(overrides: Readonly<{ storefront?: Record<string, unknown>; sho
     config: { heading: "Ayrı vitrin", enabled: overrides.showcaseEnabled ?? false, layout: "grid", items: [{ categoryId: CATEGORY, assetId: CATEGORY_ASSET }] },
     status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
   }]; } };
-  return { calls, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin }) };
+  return { calls, publicStorefront, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin, ...(overrides.categories ? { categories: { listCategories: overrides.categories } } : {}) }) };
 }
 
-test("loader deduplicates draft sources and follows migration 113 row limits and availability order", async () => {
+test("navigation resolves the draft tenant hierarchy, active ordering, depth, and selected featured asset", async () => {
+  const childA = "41000000-0000-4000-8000-000000000031", childB = "41000000-0000-4000-8000-000000000032", grandchild = "41000000-0000-4000-8000-000000000033", beyond = "41000000-0000-4000-8000-000000000034", archived = "41000000-0000-4000-8000-000000000035";
+  let authority: unknown;
+  const category = (id: string, slug: string, position: number, parentId?: string, status: "active" | "archived" = "active") => ({ id, name: slug, slug, position, ...(parentId ? { parentId } : {}), depth: 0, status, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
+  const selected = fixture({ categories: async (input) => { authority = input; return [category(CATEGORY, "kolyeler", 0), category(childA, "altin", 2, CATEGORY), category(childB, "gumus", 1, CATEGORY), category(grandchild, "ince", 0, childA), category(beyond, "uzun", 0, grandchild), category(archived, "eski", 0, CATEGORY, "archived")]; } });
+  const draft = { ...composition([]), navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: CATEGORY_ASSET } };
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.deepEqual(authority, { tenantContext: tenant(), now: NOW });
+  assert.equal(result.navigation?.status, "ready");
+  assert.deepEqual(result.navigation?.value?.items[0]?.children.map(({ slug }) => slug), ["gumus", "altin"]);
+  assert.deepEqual(result.navigation?.value?.items[0]?.children[1]?.children.map(({ slug, children }) => [slug, children]), [["ince", []]]);
+  assert.equal(result.navigation?.value?.items[0]?.featured?.image.url, `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET}.webp`);
+  assert.equal(JSON.stringify(result.navigation).includes("eski"), false);
+  assert.equal(JSON.stringify(result.navigation).includes("version"), false);
+});
+
+test("navigation omits foreign selection and fails safely if tenant category read is unavailable", async () => {
+  const foreign = "41000000-0000-4000-8000-000000000039";
+  const draft = { ...composition([]), navigation: { rootCategoryIds: [foreign], featuredCategoryId: foreign, featuredAssetId: CATEGORY_ASSET } };
+  const absent = fixture({ categories: async () => [] });
+  const missing = await absent.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.deepEqual(missing.navigation, { status: "missing" });
+  const failing = fixture({ categories: async () => { throw new Error("private database message"); } });
+  const result = await failing.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.deepEqual(result.navigation, { status: "unavailable" });
+});
+
+test("missing selected featured media never creates a substitute navigation image", async () => {
+  const selected = fixture({ categories: async () => [{ id: CATEGORY, name: "Kolyeler", slug: "kolyeler", position: 0, depth: 1, status: "active", version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }] });
+  const draft = { ...composition([]), navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: "41000000-0000-4000-8000-000000000099" } };
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  assert.equal(result.navigation?.status, "partial");
+  assert.equal(result.navigation?.value?.items[0]?.featured, undefined);
+  assert.equal(result.assets[0]?.status, "missing");
+});
+
+test("loader resolves source limits after availability and discount predicates", async () => {
   const selected = fixture();
   const draft = composition(Object.freeze([
     { sectionId: "home_latest_1", kind: "product_row", enabled: true, heading: "Yeni 4", source: "latest", limit: 4 },
@@ -106,11 +142,11 @@ test("loader deduplicates draft sources and follows migration 113 row limits and
     { sectionId: "home_category_1", kind: "product_row", enabled: true, heading: "Kolye", source: "category", categoryId: CATEGORY, limit: 4 },
   ]));
   const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
-  assert.deepEqual(selected.calls.map(({ method }) => method), ["storefront", "products:48", "category"]);
+  assert.deepEqual(selected.calls.map(({ method }) => method), ["storefront", "products:48", "products:48", "category", "category"]);
   assert.deepEqual(result.productSources.map(({ key, items }) => [key, items.map(({ id }) => id)]), [
-    ["category:41000000-0000-4000-8000-000000000006", [product(21).id, product(22).id, product(23).id, product(24).id]],
-    ["latest", [product(1).id, product(2).id, product(3).id, product(4).id, product(5).id, product(6).id, product(7).id, product(8).id]],
-    ["sale", [product(11).id, product(13).id, product(14).id, product(15).id]],
+    ["category:41000000-0000-4000-8000-000000000006", [product(21).id, product(23).id, product(24).id]],
+    ["latest", [product(1).id, product(3).id, product(4).id, product(5).id, product(6).id, product(7).id, product(8).id, product(9).id]],
+    ["sale", [product(11).id, product(14).id, product(15).id, product(16).id]],
   ]);
   for (const source of result.productSources) for (const item of source.items) {
     for (const unused of ["description", "variants", "attributes", "reviews", "categoryPath", "merchandising", "status"]) assert.equal(Object.hasOwn(item, unused), false, unused);
@@ -172,7 +208,7 @@ test("loader reuses a source product for a matching hotspot without a product-de
     { sectionId: "home_hero_hotspot", kind: "hero", enabled: true, slides: [{ heading: "Hero", desktopAssetId: ASSET, destination: "/products/urun-1", productId }] },
   ]));
   const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(Object.freeze([{ kind: "product", resourceId: productId, label: "Ürün 1", path: "/products/urun-1" }])), composition: draft });
-  assert.deepEqual(selected.calls.map(({ method }) => method), ["storefront", "products:4", "assets"]);
+  assert.deepEqual(selected.calls.map(({ method }) => method), ["storefront", "products:48", "assets"]);
   assert.equal(result.hotspots[0]?.value?.title, "Ürün 1");
 });
 
@@ -192,4 +228,57 @@ test("loader refuses missing or mismatched canonical tenant authority before dep
   const mismatch = fixture({ storefront: { primaryHostname: "other.saas-staging.celebix.site" } });
   await assert.rejects(mismatch.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: composition(Object.freeze([{ sectionId: "home_latest_1", kind: "product_row", enabled: true, heading: "Yeni", source: "latest", limit: 4 }])) }), (error) => error instanceof StorefrontDesignPreviewLoaderError && error.code === "unavailable");
   assert.deepEqual(mismatch.calls.map(({ method }) => method), ["storefront"]);
+});
+
+
+test("preview detail is authorized by tenant workspace identity and carries real options reviews and media", async () => {
+  const selected = fixture(); const actual = { ...product(1), reviews: [{ reviewerName: "Ada", rating: 5 as const, body: "Gerçek onaylı yorum" }] };
+  selected.publicStorefront.getPublicProductBySlug = async () => actual;
+  selected.publicStorefront.listPublicProductMedia = async () => [];
+  const authorized = workspace([{ kind: "product", resourceId: actual.id, label: actual.title, path: `/products/${actual.slug}` }]);
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: authorized, composition: composition([]), previewProductId: actual.id });
+  assert.equal(result.productDetail?.status, "ready");
+  assert.deepEqual(result.productDetail?.value?.reviews, actual.reviews);
+  assert.deepEqual(result.productDetail?.value?.variants, actual.variants);
+  const foreign = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: authorized, composition: composition([]), previewProductId: product(2).id });
+  assert.equal(foreign.productDetail?.status, "missing");
+  assert.equal(foreign.productDetail?.value, undefined);
+});
+
+test("manual rows load only authorized product IDs in merchant order", async () => {
+  const selected = fixture();
+  selected.publicStorefront.getPublicProductBySlug = async ({slug}) => product(Number(slug.split("-")[1]));
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace([1,3].map((id) => ({ kind: "product", resourceId: product(id).id, label: product(id).title, path: `/products/${product(id).slug}` }))), composition: composition([
+    { sectionId: "home_manual_test", kind: "product_row", enabled: true, heading: "Manual", source: "manual", productIds: [product(3).id,product(2).id,product(1).id], limit: 4 },
+  ] as never) });
+  assert.deepEqual(result.productSources[0]?.items.map(({id}) => id), [product(3).id,product(1).id]);
+  assert.equal(result.productSources[0]?.status, "partial");
+});
+
+test("explicit category image overrides legacy mapping and uses composition order", async () => {
+  const selected = fixture();
+  const draft = composition([{sectionId:"home_explicit_image",kind:"category_grid",enabled:true,heading:"Özel",layout:"grid",categoryIds:[CATEGORY],categoryImages:[{categoryId:CATEGORY,assetId:CATEGORY_ASSET_B}]}]);
+  const result = await selected.loader.load({tenantContext:tenant(),now:NOW,workspace:workspace(),composition:draft});
+  assert.equal(result.categoryShowcase.value?.items[0]?.image.url, `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET_B}.webp`);
+});
+
+test("sale preview pushes combined stock and discount filter before the catalog limit", async () => {
+  const selected = fixture();
+  selected.publicStorefront.queryPublicCatalog = async (input) => { assert.equal(input.filter,"available_discounted"); return {items:[product(99,{sale:true})],total:1,nextOffset:null}; };
+  const result = await selected.loader.load({tenantContext:tenant(),now:NOW,workspace:workspace(),composition:composition([{sectionId:"home_sale_beyond_limit",kind:"product_row",enabled:true,heading:"İndirim",source:"sale",limit:4}])});
+  assert.deepEqual(result.productSources[0]?.items.map(({id}) => id),[product(99).id]);
+});
+
+test("explicit empty category image mappings never resurrect a legacy image", async () => {
+  const selected = fixture();
+  const result = await selected.loader.load({tenantContext:tenant(),now:NOW,workspace:workspace(),composition:composition([{sectionId:"home_categories_cleared",kind:"category_grid",enabled:true,heading:"Kategoriler",layout:"grid",categoryIds:[CATEGORY],categoryImages:[]}])});
+  assert.equal(result.categoryShowcase.value,undefined);
+  assert.equal(result.categoryShowcase.status,"missing");
+  assert.ok(!selected.calls.some(({method})=>method === "category-config"));
+});
+
+test("explicit partial category image mapping leaves unmapped selected categories missing", async () => {
+  const selected = fixture();
+  const result = await selected.loader.load({tenantContext:tenant(),now:NOW,workspace:workspace([{kind:"collection",resourceId:CATEGORY_B,label:"Yüzükler",path:"/categories/yuzukler"}]),composition:composition([{sectionId:"home_categories_partial",kind:"category_grid",enabled:true,heading:"Kategoriler",layout:"grid",categoryIds:[CATEGORY_B,CATEGORY],categoryImages:[{categoryId:CATEGORY_B,assetId:CATEGORY_ASSET_B}]}])});
+  assert.deepEqual(result.categoryShowcase.value?.items.map(({id})=>id),[CATEGORY_B]);
 });

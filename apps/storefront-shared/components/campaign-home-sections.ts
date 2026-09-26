@@ -8,21 +8,6 @@ import type {
 type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
 type ProductRowItems = CampaignHomeProjection["productRows"][number]["items"];
 
-function categoryShowcaseSection(
-  presentation: CampaignPresentation,
-  sectionId?: PublicStarterHomeSection["sectionId"],
-): Extract<PublicStarterHomeSection, { kind: "category_grid" }> | null {
-  const showcase = presentation.categoryShowcase;
-  if (!showcase) return null;
-  return Object.freeze({
-    kind: "category_grid",
-    heading: showcase.heading,
-    layout: showcase.layout,
-    items: Object.freeze(showcase.items.map(({ name, slug, image }) => Object.freeze({ name, slug, image }))),
-    ...(sectionId ? { sectionId } : {}),
-  });
-}
-
 export function composeCampaignHomeSections(
   presentation: CampaignPresentation,
   designHeroActive: boolean,
@@ -33,17 +18,7 @@ export function composeCampaignHomeSections(
   const resolved: PublicStarterHomeSection[] = [];
 
   for (const section of source) {
-    if (section.kind === "category_grid") {
-      const category = categoryShowcaseSection(
-        presentation,
-        "sectionId" in section ? section.sectionId : undefined,
-      );
-      if (category) {
-        resolved.push(category);
-      }
-      continue;
-    }
-    resolved.push(section);
+    resolved.push(Object.freeze({ ...section }));
   }
   return Object.freeze(resolved);
 }

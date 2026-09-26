@@ -80,3 +80,34 @@ test("preview client stops reading a response body as soon as the byte cap is ex
   assert.equal(readPastBound, false);
   assert.equal(cancelled, true);
 });
+
+test("preview product selection is an optional read-only input tied to response identity", async () => {
+  const composition = createDefaultStarterThemeComposition();
+  const previewProductId = "71000000-0000-4000-8000-000000000012";
+  let body: unknown;
+  const resources = {schemaVersion:1,dependencyKey:storefrontDesignPreviewDependencyKey(composition,previewProductId),productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"missing"},productDetail:{status:"missing"}};
+  const api = createStorefrontDesignPreviewApi(async (_path,init)=>{body=JSON.parse(String(init?.body));return response({code:"ok",resources});});
+  assert.deepEqual(await api.preview(composition,undefined,previewProductId),resources);
+  assert.deepEqual(body,{composition,previewProductId});
+  await assert.rejects(api.preview(composition,undefined,"foreign-authority"),StorefrontDesignPreviewApiError);
+});
+
+test("preview navigation roundtrips nested links and only safe featured images", async () => {
+  const composition = createDefaultStarterThemeComposition();
+  const image = { url: "https://media.saas-staging.celebix.site/stores/71000000-0000-4000-8000-000000000001/storefront/category/71000000-0000-4000-8000-000000000002.webp", mediaType: "image/webp", altText: "Kolye", width: 800, height: 800 };
+  const item = { name: "Kolyeler", slug: "kolyeler", children: [{ name: "Altın", slug: "altin", children: [] }], featured: { name: "Kolyeler", slug: "kolyeler", image } };
+  const base = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "missing" } };
+  const resources = { ...base, navigation: { status: "ready", value: { items: [item] } } };
+  const api = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources }));
+  assert.deepEqual((await api.preview(composition)).navigation, resources.navigation);
+  for (const navigation of [
+    { status: "ready", value: { items: [{ ...item, featured: { ...item.featured, image: { ...image, url: "https://evil.test/image.webp" } } }] } },
+    { status: "ready", value: { items: [item, item] } },
+    { status: "ready", value: { items: [{ ...item, slug: "../private" }] } },
+    { status: "unavailable", value: { items: [item] } },
+    { status: "ready", value: { items: [{ ...item, children: [{ name: "A", slug: "a", children: [{ name: "B", slug: "b", children: [{ name: "C", slug: "c", children: [] }] }] }] }] } },
+  ]) {
+    const bad = createStorefrontDesignPreviewApi(async () => response({ code: "ok", resources: { ...base, navigation } }));
+    await assert.rejects(bad.preview(composition), StorefrontDesignPreviewApiError);
+  }
+});

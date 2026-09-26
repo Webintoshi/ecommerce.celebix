@@ -86,8 +86,29 @@ test("remove returns one-level undo and restore returns the exact frozen previou
 
   assert.equal(result.undo.label, "Bölümü geri getir");
   assert.equal(result.composition.sections.some(({ sectionId }) => sectionId === id("story_100")), false);
-  assert.deepEqual(restoreRemovedHomepageSection(result.undo), before);
+  assert.deepEqual(restoreRemovedHomepageSection(result.composition, result.undo), before);
   assert.equal(Object.isFrozen(result.undo), true);
+});
+
+test("undo restores only the removed section and preserves later changes", () => {
+  const before = addHomepageSection(composition(), "brand_story", id("story_100"), 0);
+  const removed = removeHomepageSection(before, id("story_100"));
+  const row = removed.composition.sections[0]!;
+  assert.equal(row.kind, "product_row");
+  const edited = updateHomepageSection(removed.composition, row.sectionId, { ...row, heading: "Silme sonrası yeni başlık" } as StarterThemeSectionConfigV3);
+  const restored = restoreRemovedHomepageSection(edited, removed.undo);
+  assert.equal(restored.sections[0]?.sectionId, id("story_100"));
+  assert.equal((restored.sections[1] as Extract<StarterThemeSectionConfigV3, { kind: "product_row" }>).heading, "Silme sonrası yeni başlık");
+});
+
+test("undo refuses conflicts instead of discarding current sections", () => {
+  const before = addHomepageSection(composition(), "brand_story", id("story_100"));
+  const removed = removeHomepageSection(before, id("story_100"));
+  const replaced = addHomepageSection(removed.composition, "brand_story", id("story_101"));
+  expectCode(() => restoreRemovedHomepageSection(replaced, removed.undo), "homepage_section_singleton_exists");
+  let full = removed.composition;
+  for (let index = 2; index <= 4; index += 1) full = addHomepageSection(full, "product_row", id(`rows_${index}`));
+  expectCode(() => duplicateHomepageSection(full, id("product_row_1"), id("rows_5")), "homepage_product_row_limit");
 });
 
 test("rejects unknown IDs, duplicate IDs, kind replacement, fixed hero and invalid positions with stable safe codes", () => {
@@ -112,4 +133,12 @@ test("enforces singleton, four product-row and twelve-section limits", () => {
   const repeatable = fourRows.sections.find(({ kind }) => kind === "product_row")!;
   let full: StarterThemeCompositionConfigV3 = { ...fourRows, sections: Object.freeze(Array.from({ length: 12 }, (_, index) => ({ ...repeatable, sectionId: id(`full_${index + 10}`) }))) };
   expectCode(() => addHomepageSection(full, "testimonials", id("reviews_10")), "homepage_section_total_limit");
+});
+
+test("removing and restoring a persisted legacy hero preserves the old section and later edits",()=>{
+ const hero={kind:"hero" as const,sectionId:id("legacy_hero"),enabled:true,slides:[{heading:"Eski banner",desktopAssetId:"30000000-0000-4000-8000-000000000001",destination:"/products"}]};
+ const base={...composition(),sections:[hero,...composition().sections]} as StarterThemeCompositionConfigV3;
+ const removed=removeHomepageSection(base,hero.sectionId);const row=removed.composition.sections[0]!;
+ const edited=updateHomepageSection(removed.composition,row.sectionId,{...row,heading:"Yeni ürün başlığı"} as StarterThemeSectionConfigV3);
+ const restored=restoreRemovedHomepageSection(edited,removed.undo);assert.deepEqual(restored.sections[0],hero);assert.equal((restored.sections[1] as Extract<StarterThemeSectionConfigV3,{kind:"product_row"}>).heading,"Yeni ürün başlığı");
 });

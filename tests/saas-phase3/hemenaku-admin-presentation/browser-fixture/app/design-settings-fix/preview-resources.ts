@@ -1,12 +1,41 @@
-import type { StarterThemeComposition, StorefrontDesignWorkspace } from "@celebix/saas-contracts";
-import { storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "../../../../../../apps/customer-panel/lib/storefront-design-preview-model";
+import type { PublicStarterNavigationItem, StarterThemeComposition, StorefrontDesignWorkspace } from "@celebix/saas-contracts";
+import { normalizeStarterThemeCompositionV3 } from "@celebix/saas-contracts";
+import { previewProductSourceKey, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "../../../../../../apps/customer-panel/lib/storefront-design-preview-model";
 import { parseStorefrontDesignPreviewResources } from "../../../../../../apps/customer-panel/lib/storefront-design-preview-ui/client";
-import postgresSnapshot from "./postgres-preview-snapshot.json";
+import { fixtureAssets, fixtureCategoryIds, fixtureCategoryParents, fixtureProducts } from "./catalog-fixture";
 
-// The disposable PG16 harness asserts this payload against the real public
-// repository. Only the dependency key follows the current draft; labels and
-// section order are recomposed from that draft by the production model.
-export async function designFixturePreviewResources(workspace: StorefrontDesignWorkspace, composition: StarterThemeComposition = workspace.draft.composition): Promise<StorefrontDesignPreviewResources> {
-  const dependencyKey = storefrontDesignPreviewDependencyKey(composition);
-  return parseStorefrontDesignPreviewResources({ ...postgresSnapshot, dependencyKey }, dependencyKey);
+// Test-only catalog projection. The production composer, parser, editors and
+// workspace lifecycle stay real; SQL projection is verified by its own harness.
+export async function designFixturePreviewResources(workspace: StorefrontDesignWorkspace, composition: StarterThemeComposition = workspace.draft.composition, previewProductId?: string): Promise<StorefrontDesignPreviewResources> {
+  const dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId);
+  const normalized = normalizeStarterThemeCompositionV3(composition);
+  const sections = normalized.sections;
+  const product = fixtureProducts.find(({ id }) => id === previewProductId) ?? fixtureProducts[0];
+  const card = ({ id, slug, title, currency, priceCents, available, media, brand }: typeof product) => ({ id, slug, title, currency, priceCents, available, media: media.map(({ url, altText, width, height }) => ({ url, altText, width, height })), ...(brand ? { brand: { name: brand.name } } : {}) });
+  const sourceKeys = new Set<string>();
+  const productSources = sections.flatMap((section) => {
+    if (!section.enabled || section.kind !== "product_row") return [];
+    const key = previewProductSourceKey(section);
+    if (sourceKeys.has(key)) return [];
+    sourceKeys.add(key);
+    const items = section.source === "manual" ? (section.productIds ?? []).flatMap((id) => fixtureProducts.filter((item) => item.id === id))
+      : section.source === "category" ? fixtureProducts.filter((item) => item.primaryCategoryId === section.categoryId) : fixtureProducts;
+    return [{ key, status: items.length ? "ready" : "empty", items: items.map(card) }];
+  });
+  const categories = sections.flatMap((section) => section.enabled && section.kind === "category_grid" ? section.categoryIds : []);
+  const selectedFeatured = fixtureAssets.find(({ id }) => id === normalized.navigation.featuredAssetId);
+  // Synthetic hierarchy covers children and grandchildren without changing any
+  // saved fixture identifiers or the default design composition.
+  const navigationItem = (id: string, depth = 0): PublicStarterNavigationItem | undefined => {
+    const destination = workspace.destinations.find((item) => item.kind === "collection" && item.resourceId === id);
+    const slug = destination?.path.match(/^\/categories\/([a-z0-9-]+)$/)?.[1]; if (!destination || !slug) return undefined;
+    return { name: destination.label, slug, children: depth < 2 ? [...fixtureCategoryParents].filter(([, parentId]) => parentId === id).flatMap(([childId]) => { const item = navigationItem(childId, depth + 1); return item ? [item] : []; }) : [], ...(id === normalized.navigation.featuredCategoryId && selectedFeatured ? { featured: { name: destination.label, slug, image: { url: selectedFeatured.url, altText: selectedFeatured.altText, mediaType: selectedFeatured.mediaType, width: selectedFeatured.width, height: selectedFeatured.height } } } : {}) };
+  };
+  const navigation = { status: "ready", value: { items: normalized.navigation.rootCategoryIds.flatMap((id) => { const item = navigationItem(id); return item ? [item] : []; }) } };
+  return parseStorefrontDesignPreviewResources({ schemaVersion: 1, dependencyKey, productSources,
+    navigation,
+    productDetail: { status: "ready", value: product }, relatedProducts: fixtureProducts.filter(({ id }) => id !== product.id).map(card), testimonials: { status: "ready", items: product.reviews },
+    assets: fixtureAssets.map((asset) => ({ id: asset.id, status: "ready", image: { url: asset.url, altText: asset.altText, mediaType: asset.mediaType, width: asset.width, height: asset.height } })), hotspots: [],
+    categoryShowcase: categories.length ? { status: "ready", value: { heading: "QA Kategoriler", layout: "grid", items: categories.map((id) => ({ id, slug: `kategori-${fixtureCategoryIds.indexOf(id) + 1}`, name: workspace.destinations.find(({ resourceId }) => resourceId === id)?.label ?? "QA Kategori", image: { url: fixtureAssets[1].url, mediaType: fixtureAssets[1].mediaType, altText: fixtureAssets[1].altText, width: 800, height: 1000 } })) } } : { status: "empty" },
+  }, dependencyKey);
 }

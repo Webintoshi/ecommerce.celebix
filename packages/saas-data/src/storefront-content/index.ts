@@ -10,6 +10,7 @@ export type {
   PostgresPublicStorefrontContentRepositoryOptions,
   PostgresStorePolicyAdminRepositoryOptions,
   PublicPolicySourcePage,
+  PublicContentPage,
   PublicStorefrontContentRepository,
   StorePolicyAdminPage,
   StorePolicyAdminRepository,

@@ -2,6 +2,7 @@
 
 import type {
   StorefrontDesignDestinationOption,
+  StorefrontDesignAssetOption,
   StorefrontDesignDocument,
   StorefrontDesignMediaOption,
 } from "@celebix/saas-contracts";
@@ -10,6 +11,7 @@ import { Component, type ReactNode } from "react";
 import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer";
 import { StorefrontAssetManager } from "@/components/settings/StorefrontAssetManager";
 import { DesignInspector } from "./DesignInspector";
+import { synchronizeCompositionAnnouncement } from "./design-editor-model";
 import { HomepageBuilder } from "./HomepageBuilder";
 import type { DesignWorkspaceStep } from "./workspace-navigation-model";
 import styles from "../design-settings.module.css";
@@ -46,6 +48,8 @@ interface DesignStepEditorProps {
   readonly storeName: string;
   readonly timezone: string;
   readonly media: readonly StorefrontDesignMediaOption[];
+  readonly assets?: readonly StorefrontDesignAssetOption[];
+  readonly onAssetsChange?: () => void;
   readonly destinations: readonly StorefrontDesignDestinationOption[];
   readonly canManage: boolean;
   readonly previewMode: "desktop" | "mobile";
@@ -60,6 +64,8 @@ export function DesignStepEditor({
   timezone,
   media,
   destinations,
+  assets = [],
+  onAssetsChange,
   canManage,
   previewMode,
   onChange,
@@ -82,7 +88,7 @@ export function DesignStepEditor({
       canManage={canManage}
       showPreview={false}
       value={design.composition}
-      onChange={(value) => onChange({ ...design, composition: value })}
+      onChange={(value) => onChange(synchronizeCompositionAnnouncement(design, value))}
     />
   </ThemeEditorErrorBoundary>;
 
@@ -113,9 +119,9 @@ export function DesignStepEditor({
   if (step === "footer") return composer("footer");
   if (step === "homepage") return <div className={styles.editorStack}>
     <section className={styles.editorGroup} aria-labelledby="homepage-banner-heading"><header><h3 id="homepage-banner-heading">Sabit ana banner</h3><p>Banner her zaman ilk sıradadır. Görsel, metin ve bağlantısını buradan yönetin.</p></header>{inspector("hero")}</section>
-    <HomepageBuilder design={design} media={media} destinations={destinations} canManage={canManage} previewMode={previewMode} onChange={onChange} />
+    <HomepageBuilder design={design} media={media} assets={assets} destinations={destinations} canManage={canManage} previewMode={previewMode} onChange={onChange} />
     <details className={styles.advancedDisclosure}><summary>Kampanya zamanlaması</summary>{inspector("promotion")}</details>
-    <details className={styles.advancedDisclosure}><summary>Ana sayfa görsel arşivi</summary><StorefrontAssetManager allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." /></details>
+    <details className={styles.advancedDisclosure}><summary>Ana sayfa görsel arşivi</summary><StorefrontAssetManager onAssetsChange={onAssetsChange} allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." /></details>
   </div>;
   return null;
 }

@@ -2,6 +2,7 @@ import { CATEGORIES, EDITOR, EXTRA_ID, NOW, OPTIONS, PRODUCT, PRODUCT_ID, RESOUR
 import { VARIANT_CHOICE } from "../../../mira-stock/stock-fixture";
 import { GET as fallbackGET, PATCH as fallbackPATCH } from "../../[...slug]/route";
 import { MEASUREMENT_PRODUCT_ID, measurementCreate, measurementDetail, measurementEditor, measurementUpdate } from "../../../measurements-fixture/state";
+import { fixtureCatalogCategories, fixtureProducts } from "../../../design-settings-fix/catalog-fixture";
 
 async function selectedPath(context: { params: Promise<{ path?: string[] }> }) {
   return (await context.params).path?.join("/") ?? "";
@@ -19,11 +20,15 @@ function fixtureMutationTarget(path: string) {
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await selectedPath(context);
+  let designFixture = false;
+  try { designFixture = new URL(request.headers.get("referer") ?? "").pathname === "/design-settings-fix"; } catch { /* Other isolated fixture datasets stay unchanged. */ }
+  if (designFixture && (path === "products/v2" || path === "products")) return Response.json({ items: fixtureProducts.map((item) => ({ id: item.id, storeId: "91000000-0000-4000-8000-000000000001", title: item.title, slug: item.slug, description: item.description, status: item.status, currency: item.currency, createdAt: NOW, updatedAt: NOW, version: 1 })), catalogTotal: fixtureProducts.length });
+  if (designFixture && path === "onboarding/categories") return Response.json(fixtureCatalogCategories);
   if (path === `products/${MEASUREMENT_PRODUCT_ID}` || path === `products/v2/${MEASUREMENT_PRODUCT_ID}`) return Response.json(measurementDetail());
   if (path === `products/${MEASUREMENT_PRODUCT_ID}/merchandising`) return Response.json(measurementEditor());
   if (path === `products/${MEASUREMENT_PRODUCT_ID}/media`) return Response.json({ media: [] });
   if (path === "summary") return Response.json({ totalProducts: 1, activeProducts: 1, draftProducts: 0, productLimit: 100, activeVariants: 1, outOfStockVariants: 0, productsWithoutMedia: 1, activeMedia: 0 });
-  if (path === "products") {
+  if (path === "products" || path === "products/v2") {
     const search = new URL(request.url).searchParams;
     const query = search.get("q")?.trim().toLocaleLowerCase("tr-TR");
     const requestedStatus = search.get("status");

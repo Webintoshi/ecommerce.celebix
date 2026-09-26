@@ -30,13 +30,13 @@ const workspace: StorefrontDesignWorkspace = {
 // The real workspace, state model, navigation guard and modal are mounted. Only
 // external API and heavyweight field/canvas presenters are controlled collaborators.
 // This is in-memory fixture persistence, not durable server persistence evidence.
-async function mount(canManage = true) {
+async function mount(canManage = true, publishedDraft?: StorefrontDesignDocument) {
   const window = new Window({ url: "https://fixture.invalid/settings/design" });
   const priorWindow = globalThis.window, priorDocument = globalThis.document;
   globalThis.window = window as unknown as Window & typeof globalThis.window;
   globalThis.document = window.document as unknown as Document;
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  let persisted = structuredClone(workspace);
+  let persisted = structuredClone({ ...workspace, ...(publishedDraft ? { publishedDraft } : {}) });
   let failure: StorefrontDesignApiError | null = null;
   let publishFailure: StorefrontDesignApiError | null = null;
   let readFailure = false;
@@ -71,7 +71,9 @@ async function mount(canManage = true) {
       if (id === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: ({ subtitle }: { subtitle: string }) => React.createElement("p", { role: "status" }, subtitle) };
       if (id.endsWith("storefront-design-ui/client")) return { StorefrontDesignApiError, storefrontDesignApi: api };
       if (id.endsWith("storefront-design-preview-ui/use-preview-resources")) return { useStorefrontDesignPreviewResources: (_composition: unknown, initial: unknown) => initial };
-      if (id === "./DesignPreview") return { DesignPreview: ({ design, mode }: { design: StorefrontDesignDocument; mode: string }) => React.createElement("output", { "data-mode": mode }, design.promotion.headline) };
+      if (id === "./DesignPreview") return { DesignPreview: ({ design, mode, previewProductId, onSelectPreviewProduct }: { design: StorefrontDesignDocument; mode: string; previewProductId?: string; onSelectPreviewProduct?: (id: string) => void }) => React.createElement(React.Fragment, null,
+        React.createElement("output", { "data-mode": mode, "data-preview-product": previewProductId ?? "" }, design.promotion.headline),
+        React.createElement("button", { onClick: () => onSelectPreviewProduct?.("40000000-0000-4000-8000-000000000099") }, "Fixture preview product")) };
       if (id === "./DesignStepEditor") return { DesignStepEditor: ({ design, onChange, canManage }: { design: StorefrontDesignDocument; onChange: (design: StorefrontDesignDocument) => void; canManage: boolean }) => React.createElement("input", { "aria-label": "Fixture headline", value: design.promotion.headline, disabled: !canManage, onInput: (event: React.FormEvent<HTMLInputElement>) => onChange({ ...design, promotion: { ...design.promotion, headline: event.currentTarget.value } }) }) };
       if (id.startsWith("@/")) return compile(new URL(`../../../${id.slice(2)}.ts`, import.meta.url));
       if (id.startsWith(".")) return compile(new URL(/\.tsx?$/.test(id) ? id : `${id}${id === "./DesignSettingsDrawer" ? ".tsx" : ".ts"}`, path));
@@ -310,5 +312,49 @@ test("in-flight flush locks publishing and blocks intentional navigation until s
     assert.equal(await app.leave(true), false);
     await app.releaseSave();
     assert.equal(app.publications, 1); assert.equal(app.persisted.published.promotion.headline, "Publish once");
+  } finally { await app.close(); }
+});
+
+test("reopening a saved unpublished draft shows publication differences without writing", async () => {
+  const published = { ...design, promotion: { ...design.promotion, headline: "Published baseline" } };
+  const app = await mount(true, published);
+  try {
+    assert.match(app.container.textContent ?? "", /Taslak kaydedildi.*Yayında değil/);
+    await app.click("Yayındaki tasarımla karşılaştır");
+    const table = app.container.querySelector('table[aria-label="Yayın farkları"]');
+    assert.ok(table);
+    assert.match(table.textContent ?? "", /Published baseline/);
+    assert.match(table.textContent ?? "", /Original/);
+    await app.debounce();
+    assert.equal(app.saves, 0);
+    assert.equal(app.publications, 0);
+  } finally { await app.close(); }
+});
+
+test("restoring the compared published design updates draft only through ordinary autosave", async () => {
+  const published = { ...design, promotion: { ...design.promotion, headline: "Published baseline" } };
+  const app = await mount(true, published);
+  try {
+    await app.edit("Newer unsaved draft");
+    await app.click("Yayındaki tasarımla karşılaştır");
+    await app.click("Yayındaki tasarıma dön");
+    await app.debounce();
+    assert.equal(app.persisted.draft.promotion.headline, "Published baseline");
+    assert.equal(app.saves, 1);
+    assert.equal(app.publications, 0);
+    assert.equal(app.persisted.publishedVersion, 1);
+  } finally { await app.close(); }
+});
+
+test("representative product selection is local preview state and never creates a design save", async () => {
+  const app = await mount(true, structuredClone(design));
+  try {
+    await app.click("Fixture preview product");
+    assert.equal(app.container.querySelector("output")?.getAttribute("data-preview-product"), "40000000-0000-4000-8000-000000000099");
+    await app.debounce();
+    assert.equal(app.saves, 0);
+    assert.equal(app.publications, 0);
+    assert.equal(app.persisted.draft.promotion.headline, "Original");
+    assert.equal(app.unload(), false);
   } finally { await app.close(); }
 });

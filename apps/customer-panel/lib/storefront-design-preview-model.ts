@@ -1,5 +1,8 @@
 import {
   normalizeStarterThemeCompositionV3,
+  type PublicProduct,
+  type PublicStarterNavigation,
+  type PublicStarterReview,
   type PublicStarterHomeSection,
   type PublicStarterThemePresentationV3,
   type PublicStorefrontAsset,
@@ -23,6 +26,10 @@ export type StorefrontDesignPreviewProduct = Readonly<{
 
 export type StorefrontDesignPreviewResources = Readonly<{
   schemaVersion: 1;
+  navigation?: Readonly<{ status: StorefrontDesignPreviewResourceStatus; value?: PublicStarterNavigation }>;
+  productDetail?: Readonly<{ status: StorefrontDesignPreviewResourceStatus; value?: PublicProduct }>;
+  relatedProducts?: readonly StorefrontDesignPreviewProduct[];
+  testimonials?: Readonly<{ status: StorefrontDesignPreviewResourceStatus; items: readonly PublicStarterReview[] }>;
   dependencyKey: string;
   productSources: readonly Readonly<{
     key: string;
@@ -57,13 +64,14 @@ export type DraftCampaignProjection = Readonly<{
 }>;
 
 export function previewProductSourceKey(section: Extract<StarterThemeCompositionConfigV3["sections"][number], { kind: "product_row" }>): string {
-  return section.source === "category" ? `category:${section.categoryId}` : section.source;
+  return section.source === "manual" ? `manual:${section.sectionId}` : section.source === "category" ? `category:${section.categoryId}` : section.source;
 }
 
-export function storefrontDesignPreviewDependencyKey(compositionInput: StarterThemeComposition): string {
+export function storefrontDesignPreviewDependencyKey(compositionInput: StarterThemeComposition, previewProductId?: string): string {
   const composition = normalizeStarterThemeCompositionV3(compositionInput);
   const sourceLimits = new Map<string, number>();
   const assets = new Set<string>();
+  if (composition.navigation.featuredAssetId) assets.add(composition.navigation.featuredAssetId);
   const hotspots = new Set<string>();
   for (const section of composition.sections) {
     if (!section.enabled) continue;
@@ -86,13 +94,18 @@ export function storefrontDesignPreviewDependencyKey(compositionInput: StarterTh
     sources: [...sourceLimits].sort(([left], [right]) => left.localeCompare(right)),
     assets: [...assets].sort(),
     hotspots: [...hotspots].sort(),
-    categoryShowcase: composition.sections.some((section) => section.enabled && section.kind === "category_grid"),
+    categories: composition.sections.flatMap((section) => section.enabled && section.kind === "category_grid" ? [{ ids: section.categoryIds, images: section.categoryImages ?? null }] : []),
+    manual: composition.sections.flatMap((section) => section.enabled && section.kind === "product_row" && section.source === "manual" ? [[section.sectionId, section.productIds ?? []]] : []),
+    reviews: composition.sections.some((section) => section.enabled && section.kind === "testimonials"),
+    previewProductId: previewProductId ?? null,
+    navigation: composition.navigation,
   });
 }
 
-function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, selectedStatus: "loading" | "unavailable"): StorefrontDesignPreviewResources {
+function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, selectedStatus: "loading" | "unavailable", previewProductId?: string): StorefrontDesignPreviewResources {
   const composition = normalizeStarterThemeCompositionV3(compositionInput);
   const sources = new Set<string>(), assets = new Set<string>(), hotspots = new Set<string>(); let needsCategories = false;
+  if (composition.navigation.featuredAssetId) assets.add(composition.navigation.featuredAssetId);
   for (const section of composition.sections) {
     if (!section.enabled) continue;
     if (section.kind === "product_row") sources.add(previewProductSourceKey(section));
@@ -101,15 +114,15 @@ function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThe
     else if (section.kind === "brand_story" && section.assetId) assets.add(section.assetId);
     else if (section.kind === "category_grid") needsCategories = true;
   }
-  return Object.freeze({ schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: selectedStatus, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: selectedStatus }))), categoryShowcase: Object.freeze({ status: needsCategories ? selectedStatus : "missing" as const }) });
+  return Object.freeze({ schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(composition, previewProductId), navigation: Object.freeze({ status: selectedStatus }), productDetail: Object.freeze({ status: selectedStatus }), testimonials: Object.freeze({ status: selectedStatus, items: Object.freeze([]) }), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: selectedStatus, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: selectedStatus }))), categoryShowcase: Object.freeze({ status: needsCategories ? selectedStatus : "missing" as const }) });
 }
 
-export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition): StorefrontDesignPreviewResources {
-  return unresolvedStorefrontDesignPreviewResources(compositionInput, "unavailable");
+export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "unavailable", previewProductId);
 }
 
-export function loadingStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition): StorefrontDesignPreviewResources {
-  return unresolvedStorefrontDesignPreviewResources(compositionInput, "loading");
+export function loadingStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "loading", previewProductId);
 }
 
 function publicFooter(composition: StarterThemeCompositionConfigV3, destinations: readonly StorefrontDesignDestinationOption[]): PublicStarterThemePresentationV3["footer"] {
@@ -199,7 +212,9 @@ export function composeDraftCampaignProjection(input: Readonly<{
       const available = new Map(input.resources.categoryShowcase.value?.items.map((item) => [item.id, item]));
       const selected = Object.freeze(section.categoryIds.flatMap((id) => {
         const item = available.get(id);
-        return item ? [item] : [];
+        const overrideId = section.categoryImages?.find((mapping) => mapping.categoryId === id)?.assetId;
+        const override = overrideId ? assetMap.get(overrideId) : undefined;
+        return item && (!overrideId || override?.status === "ready" && override.image) ? [override?.image ? Object.freeze({ ...item, image: override.image }) : item] : [];
       }));
       const categoryStatus = input.resources.categoryShowcase.status === "ready"
         ? selected.length === section.categoryIds.length ? (selected.length ? "ready" : "empty")
@@ -211,7 +226,8 @@ export function composeDraftCampaignProjection(input: Readonly<{
       states.push(Object.freeze({ sectionId: section.sectionId, status: categoryStatus }));
     } else if (section.kind === "product_row") {
       const source = sourceMap.get(previewProductSourceKey(section));
-      const items = Object.freeze((source?.items ?? []).slice(0, section.limit).filter(({ available }) => available));
+      const candidates = section.source === "manual" ? (section.productIds ?? []).flatMap((id) => { const item = source?.items.find((product) => product.id === id); return item ? [item] : []; }) : source?.items ?? [];
+      const items = Object.freeze(candidates.filter(({ available }) => available).slice(0, section.limit));
       sections.push(Object.freeze({
         kind: "product_row",
         sectionId: section.sectionId,
@@ -253,8 +269,9 @@ export function composeDraftCampaignProjection(input: Readonly<{
       sections.push(Object.freeze({ kind: "value_propositions", sectionId: section.sectionId, items: section.items }));
       states.push(Object.freeze({ sectionId: section.sectionId, status: section.items.length ? "ready" : "empty" }));
     } else {
-      sections.push(Object.freeze({ kind: "testimonials", sectionId: section.sectionId, heading: section.heading, items: Object.freeze([]) }));
-      states.push(Object.freeze({ sectionId: section.sectionId, status: "unavailable" }));
+      const reviews = Object.freeze((input.resources.testimonials?.items ?? []).filter((review) => review.rating >= section.minimumRating).slice(0, section.limit));
+      sections.push(Object.freeze({ kind: "testimonials", sectionId: section.sectionId, heading: section.heading, items: reviews }));
+      states.push(Object.freeze({ sectionId: section.sectionId, status: reviews.length ? "ready" : input.resources.testimonials?.status ?? "unavailable" }));
     }
   }
 
@@ -274,7 +291,11 @@ export function composeDraftCampaignProjection(input: Readonly<{
     hero: Object.freeze({ enabled: Boolean(firstHero), headline: firstHero?.heading ?? input.storeName, body: firstHero?.body ?? "Ürünlerimizi keşfedin.", destination: firstHero?.destination ?? "/products", ...(firstHero?.desktopImage ? { image: firstHero.desktopImage } : {}) }),
     visual: composition.visual,
     ...(composition.announcement.enabled ? { announcement: Object.freeze({ items: composition.announcement.items, ...(composition.announcement.destination ? { destination: composition.announcement.destination } : {}) }) } : {}),
-    navigation: Object.freeze({ items: Object.freeze([]) }),
+    navigation: input.resources.navigation?.value ?? Object.freeze({ items: Object.freeze(composition.navigation.rootCategoryIds.flatMap((id) => {
+      const item = input.destinations.find((item) => item.kind === "collection" && item.resourceId === id);
+      const slug = item?.path.match(/^\/(?:categories|collections|kategori)\/([a-z0-9-]+)$/)?.[1];
+      return item && slug ? [{ name: item.label, slug, children: Object.freeze([]) }] : [];
+    })) }),
     sections: Object.freeze(sections),
     productDetail: composition.productDetail,
     cart: composition.cart,

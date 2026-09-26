@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import process from "node:process";
 
-import { PostgresMerchantAdminRepository, PostgresPublicStorefrontRepository, PostgresStorefrontAssetRepository, PostgresStorefrontDesignRepository } from "@celebix/saas-data";
+import { PostgresCatalogAdminRepository, PostgresCatalogOnboardingRepository, PostgresMerchantAdminRepository, PostgresPublicStorefrontRepository, PostgresStorefrontAssetRepository, PostgresStorefrontDesignRepository } from "@celebix/saas-data";
 import pg from "pg";
 
 import { CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS, parseCustomerPanelStagingAuthConfig, resolveCustomerPanelStagingAuthMode } from "../panel-auth-authority/config.ts";
@@ -41,7 +41,9 @@ async function initialize(): Promise<ServerStorefrontDesignRuntime | null> {
         const publicStorefront = new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
         const assets = new PostgresStorefrontAssetRepository({ pool, role: "celebix_saas_app", publicMediaOrigin: media.publicOrigin, timeouts: TIMEOUTS, audit: () => undefined });
         const merchantAdmin = new PostgresMerchantAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, uuid: randomUUID, audit: () => undefined });
-        registerDefaultServerStorefrontDesignPreviewRuntime(createServerStorefrontDesignPreviewRuntime({ access, design: repository, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin }) }));
+        const reviews = new PostgresCatalogAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, uuid: randomUUID, audit: () => undefined });
+        const categories = new PostgresCatalogOnboardingRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, uuid: randomUUID, audit: () => undefined });
+        registerDefaultServerStorefrontDesignPreviewRuntime(createServerStorefrontDesignPreviewRuntime({ access, design: repository, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin, reviews, categories }) }));
       }
     } catch { /* Preview remains explicitly unavailable while the design editor stays usable. */ }
     return runtime;

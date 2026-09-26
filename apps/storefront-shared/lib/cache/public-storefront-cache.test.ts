@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildDefaultStarterPresentation } from "@celebix/saas-contracts";
+import { buildDefaultStarterPresentation, type PublicStorefrontDesign } from "@celebix/saas-contracts";
 import { createCache, type CacheBackend } from "@celebix/saas-cache";
 import { PublicStorefrontRepositoryError, type PublicStorefrontRepository } from "@celebix/saas-data";
 
@@ -9,8 +9,9 @@ import { createCachedPublicStorefrontRepository } from "./public-storefront-cach
 
 class MemoryBackend implements CacheBackend {
   readonly values = new Map<string, string>();
+  failWrites = false;
   async get(key: string) { return this.values.get(key) ?? null; }
-  async set(key: string, value: string) { this.values.set(key, value); }
+  async set(key: string, value: string) { if (this.failWrites) throw new Error("write_failed"); this.values.set(key, value); }
   async delete(key: string) { this.values.delete(key); }
   async ping() {}
 }
@@ -29,8 +30,9 @@ function fixture(overrides: Partial<PublicStorefrontRepository> = {}) {
     async getPublicStorefrontDesign() { throw new PublicStorefrontRepositoryError("not_found"); },
     ...overrides,
   };
-  const cache = createCache({ backend: new MemoryBackend(), namespace: "celebix:staging", defaultTtlSeconds: 60, negativeTtlSeconds: 5, maxPayloadBytes: 262_144, randomToken: () => "token", random: () => 0.5 });
-  return { calls, repository: createCachedPublicStorefrontRepository(repository, cache, { catalogSeconds: 45, settingsSeconds: 120 }) };
+  const backend = new MemoryBackend();
+  const cache = createCache({ backend, namespace: "celebix:staging", defaultTtlSeconds: 60, negativeTtlSeconds: 5, maxPayloadBytes: 262_144, randomToken: () => "token", random: () => 0.5 });
+  return { calls, cache, backend, repository: createCachedPublicStorefrontRepository(repository, cache, { catalogSeconds: 45, settingsSeconds: 120 }) };
 }
 
 test("hostname and price-bearing product projections always resolve live authority", async () => {
@@ -77,4 +79,21 @@ test("cache outage fails open to PostgreSQL", async () => {
   const wrapped = createCachedPublicStorefrontRepository(source, cache, { catalogSeconds: 45, settingsSeconds: 120 });
   assert.deepEqual(await wrapped.listPublicProducts({ storefront: STOREFRONT, now: NOW, limit: 12 }), { items: [] });
   assert.equal(calls, 1);
+});
+
+
+test("published design changes are immediately authoritative when namespace rotation fails", async () => {
+  const typography = { headingFont: {family:"Inter",category:"sans-serif",availableWeights:["400"],source:"google"},bodyFont: {family:"Inter",category:"sans-serif",availableWeights:["400"],source:"google"},headingWeight:"400",bodyWeight:"400",headingSizePx:40,bodySizePx:16 } as const;
+  let design: PublicStorefrontDesign = {schemaVersion:2,publicationVersion:1,publishedAt:NOW.toISOString(),brand:{logo:null,favicon:null,primaryColor:"#111111",accentColor:"#222222",backgroundColor:"#FFFFFF",textColor:"#111111",fontFamily:"inter"},hero:{enabled:false,slides:[]},promotion:{enabled:false,headline:"None",body:"",destination:null,startsAt:null,endsAt:null},announcement:{enabled:false,items:["Güvenli alışveriş"],icon:"none",speed:"normal",direction:"left",animation:"continuous"},typography};
+  let reads = 0;
+  const selected = fixture({async getPublicStorefrontDesign() { reads += 1; return design; }});
+  const input = {storefront:STOREFRONT,now:NOW};
+  assert.equal((await selected.repository.getPublicStorefrontDesign(input)).publicationVersion,1);
+  design = {...design,publicationVersion:2,brand:{...design.brand,primaryColor:"#FF5A00"}};
+  selected.backend.failWrites = true;
+  await selected.cache.rotateNamespace(STOREFRONT.id,"settings");
+  const fresh = await selected.repository.getPublicStorefrontDesign(input);
+  assert.equal(fresh.publicationVersion,2);
+  assert.equal(fresh.brand.primaryColor,"#FF5A00");
+  assert.equal(reads,2);
 });

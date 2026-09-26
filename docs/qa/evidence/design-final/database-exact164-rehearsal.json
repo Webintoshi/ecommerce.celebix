@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-09-26T20:40:19.259219+00:00",
+  "database": "celebix_design_qa_20260926",
+  "postgresqlVersion": "16.14",
+  "restoredPrivateSnapshot": "pre165.dump",
+  "restoredOwnershipAndAcl": true,
+  "activeQaConnectionsBeforeReplacement": 0,
+  "replacementUsedForce": false,
+  "liveDatabaseMutations": 0,
+  "migrationUp": "pass",
+  "migrationAssertions": "pass",
+  "realAuthoritySavePublishManualOrder": "pass",
+  "rehearsalRolledBack": true,
+  "preservationAfterRehearsal": {
+    "designCount": 10,
+    "versionsPreserved": 10,
+    "draftDocumentsPreserved": 10,
+    "announcementVisibilityPreserved": 10,
+    "visibleAnnouncementItemsPreserved": 10,
+    "visibleCategoryContentPreserved": 10
+  },
+  "sqlArtifacts": [
+    {
+      "file": "202609260165_storefront_design_workspace_fixes.up.sql",
+      "direction": "up",
+      "sha256": "70ec9687f3df166fd8a7f85d827e0d187685e06314eaeb9ed7951f0ba6066bd2"
+    },
+    {
+      "file": "202609260165_storefront_design_workspace_fixes.down.sql",
+      "direction": "down",
+      "sha256": "f316ee88ac6b161bb72bc1d15ca858a36cd12f8e35aa573bca2b081ed6eb23b3"
+    },
+    {
+      "file": "202609260165_storefront_design_workspace_fixes_assertions.sql",
+      "direction": "verify",
+      "sha256": "672a4e70315a4956b55c5c64ba34db15457726ed48b0f84ee19bd999c064d038"
+    }
+  ],
+  "rehearsalArtifacts": [
+    {
+      "file": "tests/saas-phase3/design-workspace-fixes/live-clone-preservation.sql",
+      "sha256": "afbae793cbd8213150059d2d4fc8dd941e048f01333646b78fcd6ae10310c324"
+    },
+    {
+      "file": "tests/saas-phase3/design-workspace-fixes/live-clone-rehearsal.sql",
+      "sha256": "4a5a8f61908d6e629a4cdabd5adeaa5098a4ca913c31554922e7ffbbfc93c0af"
+    }
+  ],
+  "limitations": [
+    "QA snapshot provided by root; no live database queried or changed.",
+    "Category comparison uses displayed name, slug, image URL, order, heading and layout; public section cards intentionally omit the private category ID."
+  ],
+  "newCodeOn164Compatibility": {
+    "old164WorkspaceParsed": 10,
+    "old164PublicDesignParsed": 10,
+    "old164PublicPresentationParsed": 10,
+    "qaTransactionRolledBack": true
+  }
+}

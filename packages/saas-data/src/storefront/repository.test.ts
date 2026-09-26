@@ -76,3 +76,10 @@ test("global catalog query rejects invalid bounds and private projection fields"
   await assert.rejects(fixture.value.queryPublicCatalog({ ...base, offset: 10_001 }), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "invalid_input");
   await assert.rejects(fixture.value.queryPublicCatalog(base), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
 });
+
+test("catalog available discounted conjunction is sent to the authority before pagination", async () => {
+  const fixture = repository("found", { items: [product], total: 1, nextOffset: null });
+  const selected = await fixture.value.queryPublicCatalog({ storefront, now: new Date("2026-09-20T10:00:00.000Z"), categorySlug: null, query: "", filter: "available_discounted", order: "featured", limit: 4, offset: 0 });
+  assert.deepEqual(selected.items, [product]);
+  assert.equal(fixture.queries.filter((sql) => sql.includes("public_catalog_query_v2")).length, 1);
+});

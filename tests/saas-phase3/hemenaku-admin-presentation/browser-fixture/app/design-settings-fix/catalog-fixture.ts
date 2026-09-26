@@ -1,0 +1,24 @@
+import { parseCatalogCategory, parseStorefrontAsset, parsePublicProduct, type StorefrontDesignAssetOption, type StorefrontDesignDestinationOption } from "@celebix/saas-contracts";
+// Existing public image, used only by isolated fixture records.
+const image = { url: "https://media.saas-staging.celebix.site/stores/a828862c-4cc1-475a-89cc-5fbee31eb43f/storefront/category/a4d45e40-064f-488f-b7c4-0dcbe3287f75.jpg", width: 896, height: 1195 };
+const productImage = { url: "https://media.saas-staging.celebix.site/stores/a828862c-4cc1-475a-89cc-5fbee31eb43f/products/6117374e-e794-4a3f-9032-b631c55d5e9d/c8afc1b9-1321-8971-8877-274f486d4444.jpg", width: 548, height: 547 };
+export const fixtureCategoryIds = Array.from({ length: 10 }, (_, index) => `91000000-0000-4000-8000-${String(index + 4).padStart(12, "0")}`);
+export const fixtureCategoryParents = new Map([[fixtureCategoryIds[3], fixtureCategoryIds[0]], [fixtureCategoryIds[4], fixtureCategoryIds[0]], [fixtureCategoryIds[5], fixtureCategoryIds[3]], [fixtureCategoryIds[6], fixtureCategoryIds[1]]]);
+export const fixtureCatalogCategories = fixtureCategoryIds.map((id, index) => parseCatalogCategory({ id, name: ["Kolyeler", "Bileklikler", "Küpeler"][index] ?? `Kategori ${index + 1}`, slug: `kategori-${index + 1}`, position: index, ...(fixtureCategoryParents.has(id) ? { parentId: fixtureCategoryParents.get(id) } : {}), depth: index === 5 ? 3 : fixtureCategoryParents.has(id) ? 2 : 1, status: "active", version: 1, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" }));
+export const fixtureProducts = ["14 Ayar Altın Kolye", "Gümüş Bileklik", "İnci Küpe"].map((title, index) => {
+  const id = `42000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`;
+  return parsePublicProduct({ id, slug: ["altin-kolye", "gumus-bileklik", "inci-kupe"][index], title, description: "<p>Mağazanın gerçek ürün yapısıyla hazırlanmış izole test verisi.</p>",
+    primaryCategoryId: fixtureCategoryIds[index], categoryPath: [{ name: ["Kolyeler", "Bileklikler", "Küpeler"][index], slug: `kategori-${index + 1}` }],
+    brand: { name: "QA Koleksiyon", slug: "qa-koleksiyon" }, currency: "TRY", status: "active", priceCents: [148900, 49900, 78000][index], available: index !== 2,
+    variants: [{ id: `43000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`, title: "Standart", sku: `QA-00${index + 1}`, priceCents: [148900, 49900, 78000][index], stockTracking: true, stockQuantity: index === 2 ? 0 : 5, available: index !== 2, attributes: {} }],
+    media: [{ ...productImage, id: `44000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`, productId: id, mediaType: "image/jpeg", sortOrder: 0, altText: title }],
+    merchandising: { highlights: ["İzole kalite kontrol ürünü"], materialsAndCare: "Yumuşak bir bezle temizleyin.", certifications: ["Test sertifikası"], sizeGuide: { heading: "Ölçü rehberi", body: "Standart ölçü" } },
+    reviews: [{ reviewerName: "QA Müşterisi", rating: 5, body: "İzole onaylı yorum örneği." }],
+  });
+});
+export const fixtureNavigationAsset = parseStorefrontAsset({ id: "a4d45e40-064f-488f-b7c4-0dcbe3287f75", storeId: "a828862c-4cc1-475a-89cc-5fbee31eb43f", kind: "category", objectKey: "stores/a828862c-4cc1-475a-89cc-5fbee31eb43f/storefront/category/a4d45e40-064f-488f-b7c4-0dcbe3287f75.jpg", publicUrl: image.url, mediaType: "image/jpeg", altText: "QA menü görseli", width: image.width, height: image.height, byteSize: 1000, status: "active", createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z", version: 1 });
+export const fixtureAssets: readonly StorefrontDesignAssetOption[] = [...["hero", "category"].map((kind, index) => ({ id: `44000000-0000-4000-8000-${String(index + 400).padStart(12, "0")}`, url: image.url, altText: index ? "QA kategori görseli" : "QA kampanya görseli", mediaType: "image/jpeg" as const, width: image.width, height: image.height, kind: kind as "hero" | "category" })), { id: fixtureNavigationAsset.id, kind: fixtureNavigationAsset.kind, url: fixtureNavigationAsset.publicUrl, altText: fixtureNavigationAsset.altText, mediaType: fixtureNavigationAsset.mediaType, width: fixtureNavigationAsset.width, height: fixtureNavigationAsset.height }];
+export const fixtureDestinations: readonly StorefrontDesignDestinationOption[] = [
+  ...fixtureProducts.map((product, index) => ({ kind: "product" as const, resourceId: product.id, label: product.title, path: `/products/${product.slug}`, searchTerms: [product.variants[0].sku!, `990000000000${index + 1}`], categoryIds: [fixtureCategoryIds[index]], imageUrl: productImage.url, priceCents: product.priceCents, available: product.available })),
+  ...fixtureCategoryIds.map((resourceId, index) => ({ kind: "collection" as const, resourceId, label: ["Kolyeler", "Bileklikler", "Küpeler"][index] ?? `Kategori ${index + 1}`, path: `/categories/kategori-${index + 1}` })),
+];

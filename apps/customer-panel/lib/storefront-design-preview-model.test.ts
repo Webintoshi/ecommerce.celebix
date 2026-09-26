@@ -42,7 +42,7 @@ test("draft category selection keeps draft heading, layout and order instead of 
   assert.deepEqual(result.sectionStates, [{ sectionId: "home_categories_draft", status: "ready" }]);
 });
 
-test("row projection applies the section limit before availability and keeps current IDs, order, and labels", () => {
+test("row projection applies availability before the section limit and keeps current IDs, order, and labels", () => {
   const draft = composition(Object.freeze([
     { sectionId: "home_latest_short", kind: "product_row", enabled: true, heading: "Güncel kısa başlık", source: "latest", limit: 4 },
     { sectionId: "home_latest_long", kind: "product_row", enabled: true, heading: "Güncel uzun başlık", source: "latest", limit: 8 },
@@ -51,7 +51,7 @@ test("row projection applies the section limit before availability and keeps cur
   const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: Object.freeze([]), resources: resources({ productSources: Object.freeze([{ key: "latest", status: "ready", items: candidates }]) }) });
   assert.deepEqual(result.projection.presentation.sections.map(({ sectionId, kind }) => [sectionId, kind]), [["home_latest_short", "product_row"], ["home_latest_long", "product_row"]]);
   assert.deepEqual(result.projection.presentation.sections.map((section) => section.kind === "product_row" ? section.heading : ""), ["Güncel kısa başlık", "Güncel uzun başlık"]);
-  assert.deepEqual(result.projection.productRows.map(({ items }) => items.map(({ title }) => title)), [["Ürün 1", "Ürün 3", "Ürün 4"], ["Ürün 1", "Ürün 3", "Ürün 4", "Ürün 5", "Ürün 6", "Ürün 7", "Ürün 8"]]);
+  assert.deepEqual(result.projection.productRows.map(({ items }) => items.map(({ title }) => title)), [["Ürün 1", "Ürün 3", "Ürün 4", "Ürün 5"], ["Ürün 1", "Ürün 3", "Ürün 4", "Ürün 5", "Ürün 6", "Ürün 7", "Ürün 8"]]);
 });
 
 test("dependency key changes only for selected source/media dependencies", () => {
@@ -83,4 +83,45 @@ test("changed selected resources have a loading state distinct from unavailable"
 
   assert.equal(result.productSources[0]?.status, "loading");
   assert.equal(result.categoryShowcase.status, "loading");
+});
+
+
+test("category IDs, ordered image overrides and representative product invalidate resource dependencies", () => {
+  const section = { sectionId: "home_categories", kind: "category_grid", enabled: true, heading: "Categories", categoryIds: [CATEGORY_A], layout: "grid" } as const;
+  const first = composition([section]);
+  const changed = composition([{ ...section, categoryIds: [CATEGORY_B] }]);
+  assert.notEqual(storefrontDesignPreviewDependencyKey(first), storefrontDesignPreviewDependencyKey(changed));
+  const overrideA = composition([{ ...section, categoryImages: [{ categoryId: CATEGORY_A, assetId: ASSET_A }] }] as never);
+  const overrideB = composition([{ ...section, categoryImages: [{ categoryId: CATEGORY_A, assetId: ASSET_B }] }] as never);
+  assert.notEqual(storefrontDesignPreviewDependencyKey(overrideA), storefrontDesignPreviewDependencyKey(overrideB));
+  assert.notEqual(storefrontDesignPreviewDependencyKey(first, product(1).id), storefrontDesignPreviewDependencyKey(first, product(2).id));
+});
+
+test("manual product rows preserve their selected order and have independent sources", () => {
+  const draft = composition([
+    { sectionId: "home_manual_a", kind: "product_row", enabled: true, heading: "A", source: "manual", productIds: [product(3).id, product(1).id], limit: 4 },
+    { sectionId: "home_manual_b", kind: "product_row", enabled: true, heading: "B", source: "manual", productIds: [product(1).id], limit: 4 },
+  ] as never);
+  const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: [], resources: resources({ productSources: [
+    { key: "manual:home_manual_a", status: "ready", items: [product(1), product(3)] },
+    { key: "manual:home_manual_b", status: "ready", items: [product(1)] },
+  ] }) });
+  assert.deepEqual(result.projection.productRows.map(({ items }) => items.map(({ id }) => id)), [[product(3).id, product(1).id], [product(1).id]]);
+});
+
+test("navigation changes invalidate preview resources independently of homepage sections", () => {
+  const base = composition([]);
+  const selected = { ...base, navigation: { rootCategoryIds: [CATEGORY_A], featuredCategoryId: CATEGORY_A, featuredAssetId: ASSET_A } };
+  assert.notEqual(storefrontDesignPreviewDependencyKey(base), storefrontDesignPreviewDependencyKey(selected));
+  assert.notEqual(storefrontDesignPreviewDependencyKey(selected), storefrontDesignPreviewDependencyKey({ ...selected, navigation: { ...selected.navigation, featuredAssetId: ASSET_B } }));
+  const pending = loadingStorefrontDesignPreviewResources(selected);
+  assert.equal(pending.navigation?.status, "loading");
+  assert.deepEqual(pending.assets.map(({ id }) => id), [ASSET_A]);
+});
+
+test("draft navigation projection preserves authorized nested categories and featured media", () => {
+  const base = composition([]);
+  const navigation = { items: [{ name: "Kolyeler", slug: "kolyeler", children: [{ name: "Altın", slug: "altin", children: [] }], featured: { name: "Kolyeler", slug: "kolyeler", image: { url: `https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/storefront/category/${ASSET_A}.webp`, mediaType: "image/webp" as const, altText: "Kolye", width: 800, height: 800 } } }] };
+  const result = composeDraftCampaignProjection({ composition: { ...base, navigation: { rootCategoryIds: [CATEGORY_A], featuredCategoryId: CATEGORY_A, featuredAssetId: ASSET_A } }, storeName: "Atlas", destinations: [], resources: resources({ navigation: { status: "ready", value: navigation } }) });
+  assert.deepEqual(result.projection.presentation.navigation, navigation);
 });

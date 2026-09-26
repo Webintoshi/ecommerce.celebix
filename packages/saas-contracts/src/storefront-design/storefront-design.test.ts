@@ -300,3 +300,50 @@ test("authenticated workspace keeps exact tenant choices and versioned state", (
   assert.throws(() => parseStorefrontDesignWorkspace({ ...WORKSPACE, storeId: PRODUCT_ID }));
   assert.throws(() => parseStorefrontDesignWorkspace({ ...WORKSPACE, destinations: [{ ...WORKSPACE.destinations[0], kind: "none" }] }));
 });
+
+test("manual product rows preserve selection order and reject duplicates or invalid IDs", () => {
+  const second = "20000000-0000-4000-8000-000000000002";
+  const row = { kind: "product_row", sectionId: "home_manual_1", enabled: true, heading: "Seçtiklerimiz", source: "manual", productIds: [second, PRODUCT_ID], limit: 4 };
+  const input = { ...DESIGN, schemaVersion: 4, composition: { ...VERSIONED_COMPOSITION, sections: [row] } };
+  const parsed = parseStorefrontDesignDocument(input);
+  assert.deepEqual(parsed.composition.sections[0], row);
+  assert.throws(() => parseStorefrontDesignDocument({ ...input, composition: { ...input.composition, sections: [{ ...row, productIds: [PRODUCT_ID, PRODUCT_ID] }] } }));
+  assert.throws(() => parseStorefrontDesignDocument({ ...input, composition: { ...input.composition, sections: [{ ...row, productIds: ["foreign"] }] } }));
+  assert.throws(() => parseStorefrontDesignDocument({ ...input, composition: { ...input.composition, sections: [{ ...row, source: "latest" }] } }));
+  const empty = parseStorefrontDesignDocument({ ...input, hero: { ...DESIGN.hero, enabled: false }, composition: { ...input.composition, sections: [{ ...row, productIds: [] }] } });
+  assert.deepEqual(getStorefrontDesignPublishIssue(empty), { code: "product_row_selection_missing", sectionId: "home_manual_1" });
+});
+
+test("category image mappings are ordered immutable and limited to selected categories", () => {
+  const category = "60000000-0000-4000-8000-000000000001";
+  const row = { kind: "category_grid", sectionId: "home_category_1", enabled: true, heading: "Kategoriler", layout: "duo", categoryIds: [category], categoryImages: [{ categoryId: category, assetId: MEDIA_ID }] };
+  const input = { ...DESIGN, schemaVersion: 4, composition: { ...VERSIONED_COMPOSITION, sections: [row] } };
+  const parsed = parseStorefrontDesignDocument(input);
+  assert.deepEqual(parsed.composition.sections[0], row);
+  assert.throws(() => parseStorefrontDesignDocument({ ...input, composition: { ...input.composition, sections: [{ ...row, categoryImages: [row.categoryImages[0], row.categoryImages[0]] }] } }));
+  assert.throws(() => parseStorefrontDesignDocument({ ...input, composition: { ...input.composition, sections: [{ ...row, categoryIds: [] }] } }));
+  const hidden = parseStorefrontDesignDocument({ ...input, hero: { ...DESIGN.hero, enabled: false }, composition: { ...input.composition, sections: [{ ...row, enabled: false, categoryImages: [] }] } });
+  assert.equal(getStorefrontDesignPublishIssue(hidden), null);
+});
+
+test("disabled hero permits publication without enabled slides", () => {
+  const parsed = parseStorefrontDesignDocument({ ...DESIGN, hero: { enabled: false, slides: [{ ...SLIDE, enabled: false, headline: "", desktopImage: null }] } });
+  assert.equal(getStorefrontDesignPublishIssue(parsed), null);
+});
+
+test("workspace accepts asset library published draft and tenant product metadata compatibly", () => {
+  const input = { ...WORKSPACE, assets: [{ ...WORKSPACE.media[0], kind: "category" }], publishedDraft: DESIGN, destinations: [{ ...WORKSPACE.destinations[0], searchTerms: ["SKU-1", "8690000000001"], categoryIds: ["60000000-0000-4000-8000-000000000001"], imageUrl: WORKSPACE.media[0].url, priceCents: 19900, available: true }] };
+  const parsed = parseStorefrontDesignWorkspace(input);
+  assert.deepEqual(parsed.assets, input.assets);
+  assert.deepEqual(parsed.publishedDraft, parseStorefrontDesignDocument(DESIGN));
+  assert.deepEqual(parsed.destinations, input.destinations);
+  assert.throws(() => parseStorefrontDesignWorkspace({ ...input, assets: [{ ...input.assets[0], kind: "unknown" }] }));
+  assert.throws(() => parseStorefrontDesignWorkspace({ ...input, destinations: [{ ...input.destinations[0], priceCents: -1 }] }));
+  assert.equal(parseStorefrontDesignWorkspace(WORKSPACE).assets, undefined);
+});
+
+test("public composition announcement preserves legacy messages longer than the top-level editor limit", () => {
+  const items = ["A".repeat(160)];
+  assert.deepEqual(parsePublicStorefrontDesign({ ...PUBLIC_DESIGN, announcement: { ...PUBLIC_DESIGN.announcement, items } }).announcement.items, items);
+  assert.throws(() => parseStorefrontDesignDocument({ ...DESIGN, announcement: { ...DESIGN.announcement, items } }));
+});

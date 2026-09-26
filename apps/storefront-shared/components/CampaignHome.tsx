@@ -51,7 +51,7 @@ export function CampaignHome({
     <StorefrontFrame
       storefront={effective}
       design={design}
-      hasAnnouncement={customized ? design.announcement.enabled : Boolean(announcement)}
+      hasAnnouncement={Boolean(announcement)}
     >
       {customized ? (
         <StorefrontDesignRenderer
@@ -59,6 +59,7 @@ export function CampaignHome({
           storeName={presentation.displayName}
           now={new Date()}
           showHeader={false}
+          presentation={presentation}
         >
           {campaignSections}
         </StorefrontDesignRenderer>

@@ -11,6 +11,7 @@ import { Window } from "happy-dom";
 import React, { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import ts from "typescript";
+import * as editorModel from "./design-editor-model.ts";
 
 const require = createRequire(import.meta.url);
 const styles = new Proxy({}, { get: (_target, key) => String(key) });
@@ -42,6 +43,7 @@ function compileStepEditor(StarterThemeComposer: () => ReactNode): StepEditorMod
   }).outputText;
   const module = { exports: {} };
   const load = (id: string): unknown => {
+    if (id === "./design-editor-model") return editorModel;
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@/components/settings/StarterThemeComposer") return { StarterThemeComposer };
     if (id === "@/components/settings/StorefrontAssetManager") return { StorefrontAssetManager: () => null };

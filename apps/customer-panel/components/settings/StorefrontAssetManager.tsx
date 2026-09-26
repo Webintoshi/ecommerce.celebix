@@ -35,11 +35,13 @@ function selectRecord(records: readonly MerchantAdminRecord[]): MerchantAdminRec
 export function StorefrontAssetManager({
   allowedKinds = ALL_ASSET_KINDS,
   canManage,
+  onAssetsChange,
   description = "Nerede kullanacağınızı ve görselin şeklini seçin; uygun değilse yüklemeden önce size söyleyelim.",
   title = "Vitrin görselleri",
 }: Readonly<{
   allowedKinds?: readonly StorefrontAssetKind[];
   canManage: boolean;
+  onAssetsChange?: () => void;
   description?: string;
   title?: string;
 }>) {
@@ -121,7 +123,7 @@ export function StorefrontAssetManager({
     try {
       const response = await fetch("/api/storefront-assets", { method: "POST", credentials: "same-origin", headers: { "idempotency-key": operationId }, body: data });
       if (!response.ok) throw new Error();
-      pendingUploadOperation.current = null; await load(); form.reset(); fileSelection.current += 1; setSelectedFile(null); setPreviewUrl(""); setDimensions(null); setMessage("Görsel güvenle yüklendi.");
+      pendingUploadOperation.current = null; await load(); onAssetsChange?.(); form.reset(); fileSelection.current += 1; setSelectedFile(null); setPreviewUrl(""); setDimensions(null); setMessage("Görsel güvenle yüklendi.");
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 
@@ -129,7 +131,7 @@ export function StorefrontAssetManager({
     if (!canManage || busy) return; setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch("/api/storefront-assets", { method: "DELETE", credentials: "same-origin", headers: { "content-type": "application/json", "idempotency-key": id() }, body: JSON.stringify({ assetId: asset.id, expectedVersion: asset.version }) });
-      if (!response.ok) throw new Error(); await load(); setMessage("Görsel arşivlendi.");
+      if (!response.ok) throw new Error(); await load(); onAssetsChange?.(); setMessage("Görsel arşivlendi.");
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 

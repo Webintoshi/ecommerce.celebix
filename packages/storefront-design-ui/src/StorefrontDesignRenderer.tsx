@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
-import type { PublicStorefrontDesign } from "@celebix/saas-contracts";
+import type { PublicStorefrontDesign, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "@celebix/saas-contracts";
 
 import { isStorefrontPromotionActive } from "./model.ts";
 import { createStorefrontTypographyResources } from "./typography.ts";
+import { StorefrontNavigationItems } from "./StorefrontNavigation.tsx";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -26,7 +27,7 @@ function editorSurface(editor: StorefrontDesignEditorBridge | undefined, surface
   </div>;
 }
 
-export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true, editor }: Readonly<{
+export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true, editor, presentation, previewMode, navigationStatus }: Readonly<{
   design: PublicStorefrontDesign;
   storeName: string;
   now: Date;
@@ -35,7 +36,11 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   showHeader?: boolean;
   showHomeSurfaces?: boolean;
   editor?: StorefrontDesignEditorBridge;
+  presentation?: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+  previewMode?: "desktop" | "mobile";
+  navigationStatus?: "loading" | "ready" | "partial" | "empty" | "missing" | "unavailable";
 }>) {
+  const visual = presentation?.schemaVersion === 3 ? presentation.visual : undefined;
   const typography = createStorefrontTypographyResources(design.typography);
   const style: DesignStyle = {
     "--store-primary": design.brand.primaryColor,
@@ -43,7 +48,10 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
     "--store-background": design.brand.backgroundColor,
     "--store-text": design.brand.textColor,
     ...typography.style,
+    "--store-section-spacing": visual?.sectionSpacing === "compact" ? "40px" : visual?.sectionSpacing === "airy" ? "112px" : previewMode === "mobile" ? "64px" : "clamp(64px, 7vw, 112px)",
   };
+  const announcement = presentation ? { ...design.announcement, enabled: Boolean(presentation.announcement), items: presentation.announcement?.items ?? [] } : design.announcement;
+  const announcementDestination = presentation?.announcement?.destination;
   const promotionActive = isStorefrontPromotionActive(design.promotion, now);
   const [activeSlide, setActiveSlide] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -60,17 +68,21 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={typography.stylesheetUrl} />
-      <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} style={style}>
-      {design.announcement.enabled ? editorSurface(editor, "announcement", "Duyuru şeridi", (
-        <div className="celebix-store-announcement" data-speed={design.announcement.speed} data-direction={design.announcement.direction} data-animation={design.announcement.animation} aria-label="Mağaza duyuruları">
-          <div>{design.announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[design.announcement.icon] ? <i aria-hidden="true">{ICONS[design.announcement.icon]}</i> : null}{item}</span>)}</div>
+      <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} data-preview-mode={previewMode} style={style}>
+      {announcement.enabled ? editorSurface(editor, "announcement", "Duyuru şeridi", (
+        <div className="celebix-store-announcement" data-speed={announcement.speed} data-direction={announcement.direction} data-animation={announcement.animation} aria-label="Mağaza duyuruları">
+          <div>{announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[announcement.icon] ? <i aria-hidden="true">{ICONS[announcement.icon]}</i> : null}{announcementDestination ? <a href={announcementDestination}>{item}</a> : item}</span>)}</div>
         </div>
       )) : null}
-      {showHeader ? <header className="celebix-store-header">
+      {showHeader ? <header className="celebix-store-header" data-layout={visual?.headerLayout} data-width={visual?.headerWidth} data-style={presentation?.visual.headerStyle}>
         {editorSurface(editor, "brand", "Logo ve marka", <a className="celebix-store-brand" href="/" aria-label={`${storeName} ana sayfa`}>
           {design.brand.logo ? <img src={design.brand.logo.url} alt={design.brand.logo.altText || storeName} /> : <strong>{storeName}</strong>}
         </a>)}
-        {editorSurface(editor, "navigation", "Header ve menü", <nav aria-label="Ana menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a></nav>)}
+        {editorSurface(editor, "navigation", "Header ve menü", <>
+          <nav className="celebix-store-desktop-nav" aria-label="Ana menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a><StorefrontNavigationItems items={presentation?.navigation.items ?? []} desktopDisclosure /></nav>
+          <details className="celebix-store-mobile-nav"><summary>Menü <span aria-hidden="true">☰</span></summary><nav aria-label="Mobil menü"><a href="/">Ana Sayfa</a><a href="/products">Ürünler</a><StorefrontNavigationItems items={presentation?.navigation.items ?? []} mode="mobile" /></nav></details>
+          {navigationStatus && navigationStatus !== "ready" ? <small className="celebix-store-nav-state" role="status">{navigationStatus === "loading" ? "Menü kategorileri yükleniyor." : navigationStatus === "partial" ? "Bazı menü kategorileri kullanılamıyor." : navigationStatus === "empty" ? "Menü kategorisi seçilmedi." : "Seçili menü kategorileri önizlemede kullanılamıyor."}</small> : null}
+        </>)}
         {editorSurface(editor, "cart", "Yan sepet", <span className="celebix-store-bag">Çanta <b>0</b></span>)}
       </header> : null}
       {showHomeSurfaces && design.hero.enabled && slides.length ? (
@@ -80,9 +92,10 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
               const desktopImage = slide.desktopImage;
               if (!desktopImage) return null;
               const mobileImage = slide.mobileImage ?? desktopImage;
+              const selectedImage = previewMode === "mobile" ? mobileImage : desktopImage;
               const banner = <picture>
-                <source media="(max-width: 720px)" srcSet={mobileImage.url} />
-                <img src={desktopImage.url} alt={desktopImage.altText} fetchPriority={index === 0 ? "high" : "auto"} />
+                {previewMode === undefined ? <source media="(max-width: 720px)" srcSet={mobileImage.url} /> : null}
+                <img src={selectedImage.url} alt={selectedImage.altText} fetchPriority={index === 0 ? "high" : "auto"} />
               </picture>;
               return <article key={`${index}-${slide.headline}`} className="celebix-store-hero" data-active={index === activeSlide ? "true" : "false"} aria-label={slide.headline} aria-hidden={index !== activeSlide}>
                 <h1 className="celebix-store-hero-title-sr">{slide.headline}</h1>
