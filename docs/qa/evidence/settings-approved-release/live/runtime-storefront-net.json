@@ -1,0 +1,295 @@
+{
+  "checkedAt": "2026-09-26T21:48:35.399753+00:00",
+  "applications": {
+    "storefront-net": {
+      "application": "h55zoba9jh6ij8g6irpqzd9i",
+      "kind": "storefront-shared",
+      "failures": [],
+      "container": "69c04c93b259",
+      "name": "h55zoba9jh6ij8g6irpqzd9i-214531115989",
+      "image": "h55zoba9jh6ij8g6irpqzd9i:89cc73218f2a7113f2fd593ca743e45e51621a98",
+      "imageId": "sha256:24e34da7f9c37d1c40a54f1c67087e0c2ee3a0c6476d6a6d20d6039673e32f1f",
+      "running": true,
+      "health": "healthy",
+      "imageMatches": true,
+      "imageDigestMatches": true,
+      "healthcheckConfigured": true,
+      "healthcheckVerified": true,
+      "source": {
+        "expected": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "actual": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+        "matches": true
+      },
+      "buildId": "at8vlxucyaCvLBeu4gWqK",
+      "files": {
+        "packages/saas-contracts/src/storefront/types.ts": {
+          "expected": "db811573d87f2497de2f143c69e418dbce2cf75568d5b42b66fc7075cafebd97",
+          "actual": "db811573d87f2497de2f143c69e418dbce2cf75568d5b42b66fc7075cafebd97",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-contracts/src/storefront/validation.ts": {
+          "expected": "61135ab4ddabed0ec13ed94eb4ca06b26429719013798c5c436daf3722dc317e",
+          "actual": "61135ab4ddabed0ec13ed94eb4ca06b26429719013798c5c436daf3722dc317e",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-contracts/src/storefront-design/types.ts": {
+          "expected": "88c412e86cde9764e519311599b167eaa79edabaa065920a49562f8c681c335b",
+          "actual": "88c412e86cde9764e519311599b167eaa79edabaa065920a49562f8c681c335b",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-contracts/src/storefront-design/validation.ts": {
+          "expected": "d4c40b4324175df17bde19b932cd62f7ab7c0b9d3ea0d0596bb643479720f9bf",
+          "actual": "d4c40b4324175df17bde19b932cd62f7ab7c0b9d3ea0d0596bb643479720f9bf",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront/repository.ts": {
+          "expected": "321fd23f29901348d2e276b42bb8421ba883db554fa904087d83420d15420e2a",
+          "actual": "321fd23f29901348d2e276b42bb8421ba883db554fa904087d83420d15420e2a",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront/types.ts": {
+          "expected": "44d39294a1ceae39ed7d8a8eb535ffc597c1fac11431c8d50a1b060e8bc7cb1e",
+          "actual": "44d39294a1ceae39ed7d8a8eb535ffc597c1fac11431c8d50a1b060e8bc7cb1e",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront-design/repository.ts": {
+          "expected": "44689aa043dfa6c2ca05a82464053a5f14efec9249e290d66896113e6976a188",
+          "actual": "44689aa043dfa6c2ca05a82464053a5f14efec9249e290d66896113e6976a188",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront-content/repository.ts": {
+          "expected": "1cc8b74f36101ea98f7039126815f7c71f0f81c6750e7f324e5fa6a3186bcd77",
+          "actual": "1cc8b74f36101ea98f7039126815f7c71f0f81c6750e7f324e5fa6a3186bcd77",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront-content/validation.ts": {
+          "expected": "057dbc08f6f68cb85ac406f08224f242132fdf0d7714dd4d4db9c01273264944",
+          "actual": "057dbc08f6f68cb85ac406f08224f242132fdf0d7714dd4d4db9c01273264944",
+          "exists": true,
+          "matches": true
+        },
+        "packages/saas-data/src/storefront-content/types.ts": {
+          "expected": "9b4bc4a4a4b4e368550316c60845c85412f5531b2052045a49235c2537ae4ad0",
+          "actual": "9b4bc4a4a4b4e368550316c60845c85412f5531b2052045a49235c2537ae4ad0",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/StorefrontDesignRenderer.tsx": {
+          "expected": "32b6f36e432cd7c0047bfde68f480d5ce230c22443a06e49cfabdcb46705050b",
+          "actual": "32b6f36e432cd7c0047bfde68f480d5ce230c22443a06e49cfabdcb46705050b",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/StorefrontNavigation.tsx": {
+          "expected": "a6b7e0ac997ffda93e069d14e234d5fee8c50a005928ce87fc86837f8b82c706",
+          "actual": "a6b7e0ac997ffda93e069d14e234d5fee8c50a005928ce87fc86837f8b82c706",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/ProductDetailPresentation.tsx": {
+          "expected": "66f33edbf3eb97c7e52f99f9354715b9d9ab6531f2c5f873e963b49eb211c482",
+          "actual": "66f33edbf3eb97c7e52f99f9354715b9d9ab6531f2c5f873e963b49eb211c482",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/ProductDetailSummary.tsx": {
+          "expected": "77b7f77abb59d79b20e37714f0b87c664884c326092fe25385f76ae5f8546ef0",
+          "actual": "77b7f77abb59d79b20e37714f0b87c664884c326092fe25385f76ae5f8546ef0",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/model.ts": {
+          "expected": "b8f4978ecd12030143cc94abd61b1ab694547ca2b0ef64fc286c7319ef8b869a",
+          "actual": "b8f4978ecd12030143cc94abd61b1ab694547ca2b0ef64fc286c7319ef8b869a",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/index.ts": {
+          "expected": "0ca7687d2f6ab19f8c9a9cb3f9778ac330d518bfecbeed6a7c6b34862dffe6f3",
+          "actual": "0ca7687d2f6ab19f8c9a9cb3f9778ac330d518bfecbeed6a7c6b34862dffe6f3",
+          "exists": true,
+          "matches": true
+        },
+        "packages/storefront-design-ui/src/storefront-design.css": {
+          "expected": "ad240e741acb6a183816c1b669ed76b6550ed716704edb969eea2aab392ef175",
+          "actual": "ad240e741acb6a183816c1b669ed76b6550ed716704edb969eea2aab392ef175",
+          "exists": true,
+          "matches": true
+        },
+        "apps/owner/scripts/sql/saas/202609260165_storefront_design_workspace_fixes.up.sql": {
+          "expected": "70ec9687f3df166fd8a7f85d827e0d187685e06314eaeb9ed7951f0ba6066bd2",
+          "actual": "70ec9687f3df166fd8a7f85d827e0d187685e06314eaeb9ed7951f0ba6066bd2",
+          "exists": true,
+          "matches": true
+        },
+        "apps/owner/scripts/sql/saas/202609260165_storefront_design_workspace_fixes.down.sql": {
+          "expected": "f316ee88ac6b161bb72bc1d15ca858a36cd12f8e35aa573bca2b081ed6eb23b3",
+          "actual": "f316ee88ac6b161bb72bc1d15ca858a36cd12f8e35aa573bca2b081ed6eb23b3",
+          "exists": true,
+          "matches": true
+        },
+        "apps/owner/scripts/sql/saas/202609260165_storefront_design_workspace_fixes_assertions.sql": {
+          "expected": "672a4e70315a4956b55c5c64ba34db15457726ed48b0f84ee19bd999c064d038",
+          "actual": "672a4e70315a4956b55c5c64ba34db15457726ed48b0f84ee19bd999c064d038",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/app/page.tsx": {
+          "expected": "18f61c49037909b7176cfea1ee83e7be831ec8444d1b91850f2363ae843fe054",
+          "actual": "18f61c49037909b7176cfea1ee83e7be831ec8444d1b91850f2363ae843fe054",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/app/pages/[slug]/page.tsx": {
+          "expected": "e9bc9febe60e145ba48656b53b9d0bc8c843770830ed984a4b2ff5be6a1f3c3f",
+          "actual": "e9bc9febe60e145ba48656b53b9d0bc8c843770830ed984a4b2ff5be6a1f3c3f",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/app/categories/[slug]/render-category-page.tsx": {
+          "expected": "a8709e37f86c66fb79599ffa42e6e440d51c9aecd6e535e10f34325cf841c48d",
+          "actual": "a8709e37f86c66fb79599ffa42e6e440d51c9aecd6e535e10f34325cf841c48d",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/CampaignHome.tsx": {
+          "expected": "785823d13c4558d78b18c401994fb9723124925edbbe5c55bd6d46d825ecb685",
+          "actual": "785823d13c4558d78b18c401994fb9723124925edbbe5c55bd6d46d825ecb685",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/CampaignHeader.tsx": {
+          "expected": "055d597595498da005c601a7e236436e9f73f899f08c2ea3168d35c7400de53d",
+          "actual": "055d597595498da005c601a7e236436e9f73f899f08c2ea3168d35c7400de53d",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/CampaignHeaderClient.tsx": {
+          "expected": "ab4de8ad880ad9848f45f03f8cc47fbcf6a4c7c16db9116b7647f75a986b8a76",
+          "actual": "ab4de8ad880ad9848f45f03f8cc47fbcf6a4c7c16db9116b7647f75a986b8a76",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/CampaignSectionContent.tsx": {
+          "expected": "08216cad95154e29fd98dc5fe718bb8b56b5ddb0a3e6d419bfaa27c699552bfa",
+          "actual": "08216cad95154e29fd98dc5fe718bb8b56b5ddb0a3e6d419bfaa27c699552bfa",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/campaign-home.module.css": {
+          "expected": "2a77b0a91b45f2e431198340bf5cf0607a60e3ee694a407c83df03bb505a968a",
+          "actual": "2a77b0a91b45f2e431198340bf5cf0607a60e3ee694a407c83df03bb505a968a",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/components/campaign-header.module.css": {
+          "expected": "1ad45bdf37f8c6373e7d27490506999a5e26a2922bad0f9c4cd6197293499680",
+          "actual": "1ad45bdf37f8c6373e7d27490506999a5e26a2922bad0f9c4cd6197293499680",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/lib/content-page.ts": {
+          "expected": "37da7a20f3084dd0882f570438b33c01e0045af5222355a2253abbf71abe857e",
+          "actual": "37da7a20f3084dd0882f570438b33c01e0045af5222355a2253abbf71abe857e",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/lib/storefront-routes.ts": {
+          "expected": "313869df1df87275563c55cb87cb4cbc669b2c41aa4ac99ed1caf1ca56c5fc42",
+          "actual": "313869df1df87275563c55cb87cb4cbc669b2c41aa4ac99ed1caf1ca56c5fc42",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/lib/public-storefront.ts": {
+          "expected": "7f2d2e87663e9209fa0c4555086f47c669cb55c3d055d7d0fb65900f3373ae85",
+          "actual": "7f2d2e87663e9209fa0c4555086f47c669cb55c3d055d7d0fb65900f3373ae85",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/lib/default-runtime.ts": {
+          "expected": "b459957510d5757ee2e4fa0f70c24b4b484881954a04b88f768fb1e750933a65",
+          "actual": "b459957510d5757ee2e4fa0f70c24b4b484881954a04b88f768fb1e750933a65",
+          "exists": true,
+          "matches": true
+        },
+        "apps/storefront-shared/lib/cache/public-storefront-cache.ts": {
+          "expected": "f8d0995c2fe0d6e4e6541cab97e09afef58fd58ce65b16d54fbbf826085681e7",
+          "actual": "f8d0995c2fe0d6e4e6541cab97e09afef58fd58ce65b16d54fbbf826085681e7",
+          "exists": true,
+          "matches": true
+        }
+      },
+      "compiled": {
+        "/page": {
+          "manifestMatches": true,
+          "path": "server/app/page.js",
+          "exists": true,
+          "size": 49721,
+          "sha256": "49a86b4a05379446a6c395f53e23bde7ead88604cee88bd76bd6991487ba131f"
+        },
+        "/pages/[slug]/page": {
+          "manifestMatches": true,
+          "path": "server/app/pages/[slug]/page.js",
+          "exists": true,
+          "size": 29807,
+          "sha256": "9952a158aa8ebf12d4e84a3e78e882e29955a26a62dbc6dff795b32afb0975b0"
+        },
+        "/categories/[slug]/page": {
+          "manifestMatches": true,
+          "path": "server/app/categories/[slug]/page.js",
+          "exists": true,
+          "size": 23362,
+          "sha256": "e2dd7ff21e6baff58c404e372976c50abcb4aa31bb2a4bff3faedfc3a195b8ea"
+        },
+        "/kategori/[slug]/page": {
+          "manifestMatches": true,
+          "path": "server/app/kategori/[slug]/page.js",
+          "exists": true,
+          "size": 23359,
+          "sha256": "89c1a5d2a5d1cb5021a6b6eef045ee9cc3fb8ed1f7a5247bc13d399d4c3f40ab"
+        },
+        "/products/[slug]/page": {
+          "manifestMatches": true,
+          "path": "server/app/products/[slug]/page.js",
+          "exists": true,
+          "size": 23075,
+          "sha256": "d6ef053fa2f61bf313f95568adff4f8e79d34d67c60ab63890c7f0923be737db"
+        },
+        "/urun/[slug]/page": {
+          "manifestMatches": true,
+          "path": "server/app/urun/[slug]/page.js",
+          "exists": true,
+          "size": 23328,
+          "sha256": "04dd0e57d5f1eb11a0e7ce5dffe9d88d89cfc05cf1c1cd20de8f6ae877a6880d"
+        },
+        "/policies/[policyKey]/page": {
+          "manifestMatches": true,
+          "path": "server/app/policies/[policyKey]/page.js",
+          "exists": true,
+          "size": 29988,
+          "sha256": "14867c485c285a1675d200fc973bc151c9d65b3f1f3e7db0948bc3f4b5b126ed"
+        }
+      },
+      "verdict": "PASS"
+    }
+  },
+  "expectedSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "expectedSource": "exact committed Git blobs",
+  "readonly": true,
+  "limitations": [
+    "Source hashes and compiled route presence do not execute merchant UI interactions or tenant authorization flows.",
+    "SQL files are compared as image source only; applied database functions/data must be verified separately.",
+    "Compiled artifact hashes are observed, not compared to nondeterministic local Next.js build outputs.",
+    "Health uses the existing Docker health state. Apps without a Docker healthcheck are marked unverified and require separate HTTP health evidence; no authenticated merchant request or customer mutation is made.",
+    "SOURCE_COMMIT is the only environment field read; secret values/configuration and application logs are never fetched."
+  ],
+  "verdict": "PASS"
+}
