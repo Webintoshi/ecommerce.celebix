@@ -1,0 +1,45 @@
+{
+    "checkedAt": "2026-09-26T17:45:55+00:00",
+    "records": [
+        {
+            "application": "e4xe74cmii7jucbkyor0o412",
+            "deployment": "vnwvrm7zzo4jj2bmm8785p2u",
+            "source": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+            "status": "finished",
+            "finishedAt": "2026-09-26T17:39:50.000000Z",
+            "logEntries": 207,
+            "phases": [
+                "Starting deployment",
+                "npm ci",
+                "generate:paytr-build",
+                "generate:iyzico-sandbox-build",
+                "next build",
+                "Compiled successfully",
+                "Finished TypeScript",
+                "Generating static pages",
+                "New container started",
+                "Rolling update completed"
+            ]
+        },
+        {
+            "application": "yk1h6d97z7ex0h74ok3zrj5c",
+            "deployment": "klkp12pik21rlv0r6lp9mxay",
+            "source": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+            "status": "finished",
+            "finishedAt": "2026-09-26T17:45:22.000000Z",
+            "logEntries": 142,
+            "phases": [
+                "Starting deployment",
+                "npm ci",
+                "generate:paytr-build",
+                "generate:iyzico-sandbox-build",
+                "next build",
+                "Compiled successfully",
+                "Finished TypeScript",
+                "Generating static pages",
+                "New container started",
+                "Rolling update completed"
+            ]
+        }
+    ]
+}

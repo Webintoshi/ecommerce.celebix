@@ -6,7 +6,7 @@ Tarih: 26 Eylül 2026
 
 Kullanıcının onayladığı HTML tasarımı, ortak müşteri panelindeki gerçek `BarcodeLabelStudio` bileşenine uygulandı. Çalışma `codex/barcode-approved-ui` dalında, son canlı uygulama kaynağı `4353ff4fb9429c6d04c9a4b9852da9115f9ac700` ve onun üzerindeki belge güncellemesi `e94e1c80` temel alınarak yapıldı.
 
-Bu çalışma canlıya alınmadı. Veritabanı, API ve mağaza verileri değiştirilmedi; yeni bağımlılık eklenmedi.
+Bu rapor ilk kod kabulünü kaydeder. Kullanıcının sonraki yayın onayıyla iki ortak admin uygulaması canlıya alındı; sonuç [yayın raporunda](barcode-label-studio-release-2026-09-26.md) bulunur. Veritabanı, API ve mağaza verileri değiştirilmedi; yeni bağımlılık eklenmedi.
 
 ## Kullanım akışı
 

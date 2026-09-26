@@ -1,0 +1,81 @@
+{
+  "checkedAt": "2026-09-26T17:46:31.545764+00:00",
+  "source": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+  "records": [
+    {
+      "application": "e4xe74cmii7jucbkyor0o412",
+      "container": "cbcf57b0e026",
+      "name": "e4xe74cmii7jucbkyor0o412-173502696873",
+      "imageTag": "e4xe74cmii7jucbkyor0o412:06fb43db778e37883b74832ba38ed90e9ebb924c",
+      "runtime": {
+        "sourceCommit": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+        "files": {
+          "apps/customer-panel/components/catalog-admin/BarcodeLabelStudio.tsx": "65eb9d1641220e56a6e895fa978582a64fdd208edd79a35141a82568e0b9c78d",
+          "apps/customer-panel/components/catalog-admin/barcode-label-studio.css": "515e1f336e7bd87a1ef7750d90fd7b28f306f71821856d780d0b6d2344cf0491",
+          "apps/customer-panel/components/panel/PanelLayoutClient.tsx": "17fa54eaabe1e032b60bf4801f0afef0098802451d3dc007cb1942d8b15ca594",
+          "apps/customer-panel/lib/barcode-labels/selection.ts": "1bf768c9ac02a4b2c9e88313329326ad19ac0eab5dd2e54cc7390e2a6575ec1c",
+          "apps/customer-panel/lib/barcode-labels/document.ts": "822e605e52a4f50c5f55b9057ea39f856fe71c1a700db89087dff08fcad1dfa8",
+          "apps/customer-panel/lib/barcode-label-http/handler.ts": "e726554baf83bf8f2c1ee4a919a07fc33eaea420bb8267af5dfc439bf62391f6",
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+          "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+          "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f"
+        },
+        "metadataHashes": [
+          "a92238ff47225e9658a61a244acff24c6edf062741b4a8956b6430b0fd8d6a83",
+          "7fe22efe21b2fe55aa4a92dedce5088fe6700eb8adf94e856905191fe342c189"
+        ],
+        "compiled": {
+          "products/barcode-labels": true,
+          "orders": true,
+          "orders/quick-links": true,
+          "products/new": true,
+          "settings/artificial-intelligence": true
+        }
+      },
+      "failures": []
+    },
+    {
+      "application": "yk1h6d97z7ex0h74ok3zrj5c",
+      "container": "e34b8cb51111",
+      "name": "yk1h6d97z7ex0h74ok3zrj5c-174138899317",
+      "imageTag": "yk1h6d97z7ex0h74ok3zrj5c:06fb43db778e37883b74832ba38ed90e9ebb924c",
+      "runtime": {
+        "sourceCommit": "06fb43db778e37883b74832ba38ed90e9ebb924c",
+        "files": {
+          "apps/customer-panel/components/catalog-admin/BarcodeLabelStudio.tsx": "65eb9d1641220e56a6e895fa978582a64fdd208edd79a35141a82568e0b9c78d",
+          "apps/customer-panel/components/catalog-admin/barcode-label-studio.css": "515e1f336e7bd87a1ef7750d90fd7b28f306f71821856d780d0b6d2344cf0491",
+          "apps/customer-panel/components/panel/PanelLayoutClient.tsx": "17fa54eaabe1e032b60bf4801f0afef0098802451d3dc007cb1942d8b15ca594",
+          "apps/customer-panel/lib/barcode-labels/selection.ts": "1bf768c9ac02a4b2c9e88313329326ad19ac0eab5dd2e54cc7390e2a6575ec1c",
+          "apps/customer-panel/lib/barcode-labels/document.ts": "822e605e52a4f50c5f55b9057ea39f856fe71c1a700db89087dff08fcad1dfa8",
+          "apps/customer-panel/lib/barcode-label-http/handler.ts": "e726554baf83bf8f2c1ee4a919a07fc33eaea420bb8267af5dfc439bf62391f6",
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+          "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+          "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f"
+        },
+        "metadataHashes": [
+          "05c661726a704bed591cccb2ee6d2b5618a018a2fa0b3f4c7f334ed10e59b14f",
+          "7fe22efe21b2fe55aa4a92dedce5088fe6700eb8adf94e856905191fe342c189"
+        ],
+        "compiled": {
+          "products/barcode-labels": true,
+          "orders": true,
+          "orders/quick-links": true,
+          "products/new": true,
+          "settings/artificial-intelligence": true
+        }
+      },
+      "failures": []
+    }
+  ],
+  "verdict": "PASS"
+}
