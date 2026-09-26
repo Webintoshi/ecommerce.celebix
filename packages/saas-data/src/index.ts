@@ -23,6 +23,9 @@ export {
   CatalogRepositoryError,
   PostgresCatalogRepository,
 } from "./catalog/index.ts";
+export {PostgresInStoreSalesRepository,InStoreSalesRepositoryError,inStoreSalesRepositoryErrorCode,IN_STORE_SALES_ERROR_CODES} from "./in-store-sales/index.ts";
+export type * from "./in-store-sales/types.ts";
+export type {InStoreSalesErrorCode} from "./in-store-sales/errors.ts";
 export type {
   ArchiveProductInput,
   ArchiveVariantInput,

@@ -1,0 +1,36 @@
+{
+  "name": "in-store-sales-register",
+  "migration": "202609260157_in_store_sales_register",
+  "requires": [
+    "202609250156_retire_numeric_internal_barcode",
+    "202609260158_in_store_cashier_role"
+  ],
+  "database": "PostgreSQL 16 disposable clone only",
+  "behavior": "behavior.sql",
+  "repositoryBehavior": "repository-behavior.ts",
+  "repositoryCommand": "IN_STORE_REHEARSAL_ENV_FILE=/path/to/restricted-clone.env node --experimental-transform-types tests/saas-phase3/in-store-sales-register/repository-behavior.ts",
+  "coverage": [
+    "exact barcode/leading zero/ambiguity",
+    "tenant and cashier assignment",
+    "authoritative price refresh",
+    "protected gold eligibility",
+    "reference pricing unavailable",
+    "global and selected-location holds",
+    "online last-unit admission",
+    "manual payment attestation before completion",
+    "idempotent create/completion",
+    "revoked cashier and manager recovery",
+    "anonymous order null fields",
+    "single header discount and immutable unit allocations",
+    "completed-order deletion tombstone",
+    "bounded app grants and RLS",
+    "full exact function rollback",
+    "two-connection actual storefront checkout/POS last-unit races",
+    "actual count and transfer RPC global and selected-location active_hold_conflict",
+    "permanent-delete sanitizes operation replay and slip personal data",
+    "immutable private price resolution provenance",
+    "redaction exception cannot change payment facts or replay totals"
+  ],
+  "contentionBehavior": "contention-behavior.mjs",
+  "contentionCommand": "IN_STORE_CONTENTION_ENV_FILE=/path/to/restricted-race-clone.env node tests/saas-phase3/in-store-sales-register/contention-behavior.mjs"
+}
