@@ -1,0 +1,14 @@
+{
+  "homepage": {
+    "url": "https://guzidekuyumcu.com/",
+    "title": "Güzide Kuyumcu",
+    "rendered": true,
+    "consoleErrors": 0,
+    "readOnly": true
+  },
+  "homepagePass": true,
+  "healthBrowserCheck": "blocked_by_client",
+  "healthBrowserCheckAttempted": true,
+  "noBypassAttempted": true,
+  "readOnly": true
+}

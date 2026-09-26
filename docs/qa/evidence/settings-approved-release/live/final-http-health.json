@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-09-26T21:55:50.895055+00:00",
+  "readOnly": true,
+  "sourceSha": "89cc73218f2a7113f2fd593ca743e45e51621a98",
+  "records": [
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/api/health",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/health",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com.tr/api/health",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/api/health",
+      "status": 200,
+      "health": "ok",
+      "redis": "ready",
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/",
+      "pass": false,
+      "error": "HTTP Error 403: Forbidden"
+    },
+    {
+      "url": "https://guzidekuyumcu.com/api/health",
+      "pass": false,
+      "error": "HTTP Error 403: Forbidden"
+    }
+  ],
+  "pass": false
+}
