@@ -1,0 +1,32 @@
+{
+  "name": "catalog-product-stock-summary",
+  "migration": "202609260159_catalog_product_stock_summary",
+  "requires": [
+    "202609260157_in_store_sales_register",
+    "202609260158_in_store_cashier_role"
+  ],
+  "database": "PostgreSQL 16 named disposable clone only; every fixture rolls back",
+  "databaseName": "celebix_product_stockfix_qa_20260926",
+  "behavior": "behavior.mjs",
+  "command": "IN_STORE_REHEARSAL_ENV_FILE=/path/to/restricted-clone.env node tests/saas-phase3/catalog-product-stock-summary/behavior.mjs",
+  "completionMarker": "CATALOG_PRODUCT_STOCK_SUMMARY_POSTGRESQL16_COMPLETE 8/8",
+  "cases": {
+    "S159-01": "Actual in-store L sale: representative stock0 and remaining M1+S1 product total2",
+    "S159-02": "All-zero, mixed, untracked, archived variant exclusion and zero-active summaries",
+    "S159-03": "Legacy V4 payload unchanged; V5 nested productStock additive",
+    "S159-04": "Aggregate stock filters with search and status; zero-active products excluded",
+    "S159-05": "All five sorts and filtered keyset pagination",
+    "S159-06": "Dashboard sold-out product count with legacy variant counts preserved",
+    "S159-07": "Tenant isolation and durable membership/store/subscription authority",
+    "S159-08": "Private helper ACL and exact safe-integer arithmetic boundary"
+  },
+  "sourceAssumptions": [
+    "V5 list uses the existing V4 nineteen-argument signature",
+    "Dashboard V2 uses the existing eight-argument catalog authority signature",
+    "Representative raw stockQuantity and effective pricing remain unchanged",
+    "Only active variants count; draft products remain part of non-archived dashboard totals",
+    "Any untracked active variant qualifies for both in-stock and untracked filters",
+    "A product is out-of-stock only with tracked variants, no untracked variants, and zero tracked sum",
+    "Existing per-variant stock ceiling prevents a practical aggregate overflow fixture; the owner-only arithmetic guard is exercised directly"
+  ]
+}
