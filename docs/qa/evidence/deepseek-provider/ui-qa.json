@@ -1,0 +1,73 @@
+{
+  "result": "PASS",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "overflow": 0
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": 0
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": 0
+    }
+  ],
+  "passwordFields": 4,
+  "modelSelectors": 4,
+  "deepseekPasswordValueLength": 0,
+  "keyboard": {
+    "sequence": "DeepSeek API password -> Tab -> Model select",
+    "focusOutline": "rgb(43,43,43) solid 2px"
+  },
+  "browserConsoleErrors": [],
+  "apiFixtureStatus": 200,
+  "credentialWrites": 0,
+  "merchantWrites": 0,
+  "providerCalls": 0,
+  "screenshots": [
+    "/tmp/deepseek-ui-1440.png",
+    "/tmp/deepseek-ui-1024.png",
+    "/tmp/deepseek-ui-390.png"
+  ],
+  "cleanup": {
+    "viewportReset": true,
+    "createdTabsClosed": true,
+    "localServerStopped": true
+  },
+  "componentTests": {
+    "passed": 5,
+    "failed": 0
+  },
+  "functionInventory": {
+    "primaryTask": "Add and manage AI provider connections in settings",
+    "information": [
+      "Provider identity",
+      "Connected state",
+      "Masked API key",
+      "Available and selected models",
+      "Default state"
+    ],
+    "actions": [
+      "Refresh list",
+      "Connect/renew password key",
+      "Select model",
+      "Set default",
+      "Confirm and revoke"
+    ],
+    "states": [
+      "Loading",
+      "Disconnected",
+      "Connected",
+      "Pending action",
+      "Error",
+      "Version conflict refresh",
+      "Read only member"
+    ]
+  },
+  "scopeGap": "Toshi currently uses deterministic GET-only local reads, not LLM generation from saved provider settings."
+}

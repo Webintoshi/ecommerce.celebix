@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "tests": 16,
+  "database": "celebix_deepseek_qa_20260926",
+  "checks": [
+    "changed predecessor definition fails closed and leaves every function unchanged",
+    "migration changes nine definitions plus one authorized reader and two validated checks with all owners, ACLs, RLS and existing rows intact",
+    "clean down migration restores every original function and constraint without changing stored rows",
+    "clean rollback supports exact reapplication",
+    "encrypted envelope validator enforces the unchanged ASCII and length bounds without unsupported PostgreSQL regex quantifiers",
+    "DeepSeek connect stores only an encrypted envelope and returns the correct secret-free label with existing-default behavior",
+    "legacy reader stays strictly three-provider compatible while versioned reader returns all four",
+    "list, identity, server authority and connect replay preserve tenant boundaries and existing providers",
+    "cross-store access, replay takeover, invalid membership and unknown provider are denied",
+    "model selection retains verified allowlist, optimistic versions and immutable replay",
+    "setting DeepSeek as default preserves the single-default invariant and Toshi authority lookup",
+    "credential rotation preserves encryption and old replay returns its historical public state",
+    "revocation disables authority and keeps the complete immutable lifecycle audit",
+    "rollback refuses even revoked DeepSeek history without deleting credentials or replay records",
+    "application grants stay narrow and both audit and replay ledgers stay append-only",
+    "all lifecycle test data rolls back while leaving the clone feature migration applied"
+  ]
+}

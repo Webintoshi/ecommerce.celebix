@@ -1,0 +1,13 @@
+{
+  "featureFiles": [
+    "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx",
+    "apps/customer-panel/components/toshi-settings/artificial-intelligence-settings.module.css",
+    "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts",
+    "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts",
+    "apps/customer-panel/lib/toshi-provider-adapters/model-policy.ts",
+    "apps/customer-panel/lib/toshi-provider-adapters/registry.ts",
+    "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql",
+    "packages/saas-contracts/src/toshi/providers.ts",
+    "packages/saas-data/src/toshi-providers/repository.ts"
+  ]
+}

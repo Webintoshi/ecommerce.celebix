@@ -1,0 +1,242 @@
+{
+  "generatedAt": "2026-09-26T16:34:01.351921+00:00",
+  "sourceGitSha": "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+  "reviewMethod": "Independent evidence review; no tests, builds, provider API calls or production operations were rerun by this reviewer.",
+  "targetedChecks": {
+    "applicationAdaptersHttpRuntimeClientAndReactUi": {
+      "result": "PASS",
+      "tests": 31,
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "sourceLog": "/tmp/deepseek-app-final-tests.log",
+      "logSha256": "778c70f35d9690b0840e2fa72a60b5f71cfd856ffb5fb0143e6a2f39865b7994",
+      "summary": [
+        "ℹ tests 31",
+        "ℹ suites 0",
+        "ℹ pass 31",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 3984.731625"
+      ]
+    },
+    "contractsRepositoryMigration": {
+      "result": "PASS",
+      "tests": 20,
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "sourceLog": "/tmp/deepseek-persistence-green.log",
+      "logSha256": "955ee4ac02f3325f02adf743ac525135a481c5854ac6729c830e299865ed0b74",
+      "summary": [
+        "ℹ tests 20",
+        "ℹ suites 0",
+        "ℹ pass 20",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 851.142"
+      ]
+    },
+    "realPostgresqlClone": {
+      "result": "PASS",
+      "checks": 16,
+      "database": "celebix_deepseek_qa_20260926",
+      "evidence": "postgresql-behavior.json",
+      "syntheticLifecycleRowsRolledBack": true
+    },
+    "optionalMeasurementsBehaviorRegression": {
+      "result": "PASS",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "sourceLog": "/tmp/deepseek-measurements-regression.log",
+      "logSha256": "886e3a67de68323addd1351df90d99c33680f37d2b0b67cf31a8d364731b6635",
+      "summary": [
+        "ℹ tests 1",
+        "ℹ suites 0",
+        "ℹ pass 1",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 2875.091166"
+      ]
+    },
+    "countingNote": "The five React UI tests are included in the 31 application tests and are not counted again."
+  },
+  "typechecks": [
+    {
+      "workspace": "@celebix/saas-contracts",
+      "result": "PASS",
+      "command": "npm run typecheck --workspace @celebix/saas-contracts",
+      "evidenceBasis": "Parent reported successful execution; reviewed complete compiler log has no diagnostics.",
+      "sourceLog": "/tmp/deepseek-contracts-typecheck.log",
+      "logSha256": "e45bc7d05b0ec481a6d16fdb0cac510c65cc50b67b7dc790466440eb4b9395c0",
+      "summary": []
+    },
+    {
+      "workspace": "@celebix/saas-data",
+      "result": "PASS",
+      "command": "npm run typecheck --workspace @celebix/saas-data",
+      "evidenceBasis": "Parent reported successful execution; reviewed complete compiler log has no diagnostics.",
+      "sourceLog": "/tmp/deepseek-data-typecheck.log",
+      "logSha256": "dacc34dc9c5c7226553b83d23258c1cd5b405a2ba3b1bfddd3cee15d999103e2",
+      "summary": []
+    },
+    {
+      "workspace": "@celebix/customer-panel",
+      "result": "PASS",
+      "command": "npm run typecheck --workspace @celebix/customer-panel",
+      "evidenceBasis": "Parent reported successful execution; reviewed complete compiler log has no diagnostics.",
+      "sourceLog": "/tmp/deepseek-panel-typecheck-final.log",
+      "logSha256": "818a846ca9b17247e97147558bcc87379d472359fac6e1fe51bc5026d6f6dd7d",
+      "summary": []
+    }
+  ],
+  "productionBuilds": [
+    {
+      "workspace": "@celebix/customer-panel",
+      "result": "PASS",
+      "command": "npm run build --workspace @celebix/customer-panel",
+      "completedStaticPages": 90,
+      "evidenceBasis": "Parent reported successful execution; reviewed compile, TypeScript, page generation and finalization log.",
+      "sourceLog": "/tmp/deepseek-admin-build.log",
+      "logSha256": "bede26f679e4e6eebc25ecf5492cf2b85e98c3b7967df982f40bad39cba337c9",
+      "summary": []
+    },
+    {
+      "workspace": "@celebix/storefront-shared",
+      "result": "PASS",
+      "command": "npm run build --workspace @celebix/storefront-shared",
+      "completedStaticPages": 27,
+      "evidenceBasis": "Parent reported successful execution; reviewed compile, TypeScript, page generation and finalization log.",
+      "sourceLog": "/tmp/deepseek-storefront-build.log",
+      "logSha256": "67e869002adab7a7a9eb8ffe604746ddfc9155e06b3334465440a2c64124b6f8",
+      "summary": []
+    }
+  ],
+  "localRenderedUi": {
+    "result": "PASS",
+    "evidence": "ui-qa.json",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "overflow": 0
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "overflow": 0
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "overflow": 0
+      }
+    ],
+    "consoleErrors": 0,
+    "providerCalls": 0,
+    "credentialWrites": 0,
+    "merchantWrites": 0,
+    "independentVisualReview": "PASS"
+  },
+  "fullCustomerPanelSuite": {
+    "result": "FAIL",
+    "fullSuiteGreen": false,
+    "tests": 1505,
+    "passed": 1497,
+    "failed": 7,
+    "skipped": 1,
+    "cancelled": 0,
+    "subsequentChainedServerOnlyPhase": "Not run because the first npm test phase failed.",
+    "reproducedBaselineFailures": {
+      "count": 6,
+      "baselineSource": "d4a7e790a110e41f2f3261eb416dc1daaca7c466",
+      "names": [
+        "effective scoped graphite keyboard focus: catalog-onboarding/category-management.module.css",
+        "analytics can suppress route copy and right-align its sticky topbar context",
+        "desktop topbar follows route transitions while the active bridge keeps precedence",
+        "product and category surfaces receive server-derived delete capability and keep archive separate",
+        "category manager presents hierarchy without exposing technical slugs",
+        "category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus"
+      ]
+    },
+    "unresolvedTimeout": {
+      "count": 1,
+      "name": "actual Next catalog and inventory pages redirect the genuine signed-out runtime",
+      "timeoutMs": 90000,
+      "observedDurationMs": 94515.386583,
+      "baselineReproduction": "NOT_RUN",
+      "regressionRuledOut": false,
+      "classification": "inconclusive_test_environment_or_load_timeout",
+      "phase": "HTTP fetch after Next dev reported Ready, before response status/redirect assertion"
+    },
+    "baselineEvidence": "baseline-suite-audit.json",
+    "sourceLog": "/tmp/deepseek-panel-suite.log",
+    "logSha256": "2f07e1aba74b0111ac571aa0888e1d954683f8b7f23a646c016db0a9e1d21af8",
+    "summary": [
+      "ℹ tests 1505",
+      "ℹ suites 0",
+      "ℹ pass 1497",
+      "ℹ fail 7",
+      "ℹ cancelled 0",
+      "ℹ skipped 1",
+      "ℹ todo 0",
+      "ℹ duration_ms 132597.76875"
+    ]
+  },
+  "liveDatabase": {
+    "migration": {
+      "result": "PASS",
+      "evidence": "live-migration.json",
+      "sqlSha256": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f",
+      "preservedWholeRowDigestTables": 23,
+      "existingFunctionAuthoritiesPreserved": 1233,
+      "expectedExistingBodiesChanged": 9,
+      "newAuthorizedReaders": 1
+    },
+    "finalReadonlyCheck": {
+      "result": "PASS",
+      "evidence": "final-dbcheck.json",
+      "checkedAt": "2026-09-26T16:26:26.068754+00:00",
+      "functionInventory": 1234,
+      "unchangedFunctionHashesOwnersAclsVerified": 1224,
+      "sql160Sql161Sql162Preserved": true
+    }
+  },
+  "releaseStatus": {
+    "verdict": "PASS",
+    "sourceGitSha": "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+    "sharedApplications": 2,
+    "healthyAdminHosts": 4,
+    "reachableStorefrontHosts": 2,
+    "liveRenderedUiStores": 2,
+    "productionSignedOutRouteChecks": 24,
+    "evidence": [
+      "deployments.json",
+      "runtime-verdict.json",
+      "final-config.json",
+      "final-health.json",
+      "live-browser.json",
+      "live-guard-check.json",
+      "qa-cleanup.json",
+      "final-operations.json"
+    ],
+    "fullSuiteGreen": false
+  },
+  "scopeLimitations": [
+    "Provider connections are managed and stored securely; Toshi model generation/tool execution remains unwired.",
+    "No real merchant provider connection or paid generation call was created for QA.",
+    "Seven full-suite failures remain, including one timeout whose baseline reproduction was not attempted."
+  ],
+  "sanitization": {
+    "reviewedForCredentialLikeValues": true,
+    "includedLiveData": "Schema authority metadata, table counts and digests only; no merchant row contents, API keys, connection strings or encrypted credential envelopes."
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "verdict": "PASS",
+  "checks": [
+    {
+      "checkedAt": "2026-09-26T16:37:16.757Z",
+      "verdict": "PASS",
+      "evidence": {
+        "alerts": [],
+        "connectButtons": [
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          }
+        ],
+        "inputs": [
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          }
+        ],
+        "overflow": 0,
+        "providerLabels": [
+          "OpenAI",
+          "Google Gemini",
+          "Anthropic Claude",
+          "DeepSeek"
+        ],
+        "url": "https://butik-siora.admin.saas-staging.celebix.net/settings/artificial-intelligence"
+      },
+      "consoleErrors": 0,
+      "credentialWrites": 0,
+      "providerCalls": 0
+    },
+    {
+      "checkedAt": "2026-09-26T16:41:27.217Z",
+      "verdict": "PASS",
+      "evidence": {
+        "alerts": [],
+        "connectButtons": [
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          },
+          {
+            "disabled": true,
+            "label": "Ba\u011fla"
+          }
+        ],
+        "inputs": [
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          },
+          {
+            "empty": true,
+            "type": "password"
+          }
+        ],
+        "overflow": 0,
+        "providerLabels": [
+          "OpenAI",
+          "Google Gemini",
+          "Anthropic Claude",
+          "DeepSeek"
+        ],
+        "url": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/settings/artificial-intelligence"
+      },
+      "consoleErrors": 0,
+      "credentialWrites": 0,
+      "providerCalls": 0
+    }
+  ],
+  "ownedTabsClosed": true,
+  "noViewportOverrideApplied": true
+}

@@ -1,0 +1,27 @@
+{
+  "verdict": "PASS",
+  "checkedAt": "2026-09-26T16:42:31.829742+00:00",
+  "backups": [
+    {
+      "path": "/data/celebix-release-backups/deepseek_20260926_qa.dump",
+      "sha256": "99d8242e735e5d3b87d399cb88af86ff6ca29b16956a986576a4b4901ec74eee",
+      "bytes": 9762805,
+      "mode": "0600"
+    },
+    {
+      "path": "/data/celebix-release-backups/deepseek_live_20260926.dump",
+      "sha256": "e60c33d1225fb13a722703b58aec74450b08f9435e6c2901b299fc329e88e4da",
+      "bytes": 9762806,
+      "mode": "0600"
+    }
+  ],
+  "ownedBridgeFilesAbsent": true,
+  "disk": {
+    "totalBytes": 160970244096,
+    "usedBytes": 140425486336,
+    "freeBytes": 13949915136
+  },
+  "cleanupScope": "Only owned disposable QA clone, bridge and unused build cache; no application images, volumes or rollback images pruned.",
+  "ownedLocalSshMasterClosed": true,
+  "ownedLocalQaEnvironmentRemoved": true
+}

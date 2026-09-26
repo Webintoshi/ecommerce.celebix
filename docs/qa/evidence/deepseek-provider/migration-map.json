@@ -1,0 +1,87 @@
+{
+  "database": "celebix_deepseek_qa_20260926",
+  "modifiedFunctions": 9,
+  "newFunctions": 1,
+  "functions": [
+    {
+      "signature": "saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
+      "previousMd5": "a39402e23c1a14c5ffa6b813afcee11b",
+      "currentMd5": "76b1c8628ec0e0d7519388232a59e45c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_connect(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb,text,bigint,text,text,jsonb,bigint)",
+      "previousMd5": "bcd7332aaa93c94097a0fc254aa9d445",
+      "currentMd5": "397c2aca523d26e40565c14f98110998",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_envelope_valid(jsonb)",
+      "previousMd5": "ecf77335bc58c62bac75372a97ceec20",
+      "currentMd5": "8852e2efd92c19c3636a3e049661b39c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_get_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
+      "previousMd5": "bc7b1e9bb34e3f99168533e48270fa90",
+      "currentMd5": "2e0da51701b287335005c6e878a2fdc1",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+      "previousMd5": "26f95c24feabbf33cde18129ecaa41de",
+      "currentMd5": "cf4058b13e0cc519d7f26f71fd23b5ed",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+      "previousMd5": null,
+      "currentMd5": "fdf1ff1289eecdc85247b875c814abf8",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "added"
+    },
+    {
+      "signature": "saas.toshi_provider_public_payload(uuid,uuid)",
+      "previousMd5": "0e07a827b09770d180ec0bee1b2e1909",
+      "currentMd5": "ac1382de16018caa784562ac29fb63d0",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)",
+      "previousMd5": "d189304c3fc075401797b5b99bcccb03",
+      "currentMd5": "48ed1c6631e905caf9b91be839e1844f",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_select_model(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,text,bigint)",
+      "previousMd5": "399e62766de8b192ed595e5e295b444a",
+      "currentMd5": "e3528486e8ab8327a39c7fa42018e73c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    },
+    {
+      "signature": "saas.toshi_provider_set_default(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)",
+      "previousMd5": "7c8bee8dabe64c54f316edb03181c912",
+      "currentMd5": "d7b947dbd982fec8d1a0191d51d36d5a",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "change": "modified"
+    }
+  ]
+}

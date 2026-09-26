@@ -1,0 +1,120 @@
+{
+  "checkedAt": "2026-09-26T16:26:26.068754+00:00",
+  "verdict": "PASS",
+  "database": "celebix_saas_staging_auth01",
+  "readOnly": true,
+  "functionInventory": 1234,
+  "sql163FunctionsVerified": [
+    {
+      "signature": "saas.toshi_provider_connection_identity(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
+      "md5": "76b1c8628ec0e0d7519388232a59e45c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_connect(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb,text,bigint,text,text,jsonb,bigint)",
+      "md5": "397c2aca523d26e40565c14f98110998",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_envelope_valid(jsonb)",
+      "md5": "8852e2efd92c19c3636a3e049661b39c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_get_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
+      "md5": "2e0da51701b287335005c6e878a2fdc1",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+      "md5": "cf4058b13e0cc519d7f26f71fd23b5ed",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_list_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+      "md5": "fdf1ff1289eecdc85247b875c814abf8",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_public_payload(uuid,uuid)",
+      "md5": "ac1382de16018caa784562ac29fb63d0",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_revoke(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)",
+      "md5": "48ed1c6631e905caf9b91be839e1844f",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_select_model(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,text,bigint)",
+      "md5": "e3528486e8ab8327a39c7fa42018e73c",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    },
+    {
+      "signature": "saas.toshi_provider_set_default(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,bigint)",
+      "md5": "d7b947dbd982fec8d1a0191d51d36d5a",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}"
+    }
+  ],
+  "retainedFunctionHashesOwnersAclsVerified": 1224,
+  "sql160Retained": true,
+  "sql161Retained": true,
+  "sql162Retained": true,
+  "providerConstraints": [
+    {
+      "name": "toshi_provider_configs_provider_check",
+      "validated": true,
+      "definition": "CHECK ((provider = ANY (ARRAY['openai'::text, 'gemini'::text, 'anthropic'::text, 'deepseek'::text])))"
+    },
+    {
+      "name": "toshi_provider_events_provider_check",
+      "validated": true,
+      "definition": "CHECK ((provider = ANY (ARRAY['openai'::text, 'gemini'::text, 'anthropic'::text, 'deepseek'::text])))"
+    }
+  ],
+  "privateTables": [
+    {
+      "rls": true,
+      "name": "toshi_provider_configs",
+      "owner": "celebix_saas_owner",
+      "appRead": false,
+      "appWrite": false,
+      "forceRls": true
+    },
+    {
+      "rls": true,
+      "name": "toshi_provider_events",
+      "owner": "celebix_saas_owner",
+      "appRead": false,
+      "appWrite": false,
+      "forceRls": true
+    },
+    {
+      "rls": true,
+      "name": "toshi_provider_operations",
+      "owner": "celebix_saas_owner",
+      "appRead": false,
+      "appWrite": false,
+      "forceRls": true
+    }
+  ],
+  "nullableMeasurementColumn": {
+    "type": "jsonb",
+    "nullable": "YES"
+  },
+  "validatedMeasurementConstraint": {
+    "validated": true,
+    "definition": "CHECK (((measurements IS NULL) OR saas.catalog_measurements_valid(measurements)))"
+  },
+  "retainedFunctionManifestSha256": "1137a588f6442391cde4e3c9dbea4486151b9f837cb1ccb5b285161f79ec98b1"
+}

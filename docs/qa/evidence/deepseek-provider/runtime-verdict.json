@@ -1,0 +1,144 @@
+{
+  "checkedAt": "2026-09-26T16:41:35.742Z",
+  "verdict": "PASS",
+  "source": "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+  "records": [
+    {
+      "app": "yk1h6d97z7ex0h74ok3zrj5c",
+      "container": "55d30e7516bf",
+      "name": "/yk1h6d97z7ex0h74ok3zrj5c-163541454060",
+      "imageTag": "yk1h6d97z7ex0h74ok3zrj5c:4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+      "image": "sha256:5736ca0db8d0850fde50ac47801429fa581521ea0ba5f85aadc95033c6ea970d",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "01d8542c5cb21f8b2933a23f02aba2a7d2c1264b312cc3d13f3afb77c70edfc5",
+          "packages/saas-contracts/src/catalog/validation.ts": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228",
+          "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+          "apps/customer-panel/components/toshi-settings/artificial-intelligence-settings.module.css": "b206f2e774422319982fd7a78058f75d4f4415ed72ba628acde4260046e4a131",
+          "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts": "3caf9c0421d4c9425102e5b3f9afe5b12a74be7d16fdf49c962bf813fdec3d5b",
+          "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+          "apps/customer-panel/lib/toshi-provider-adapters/model-policy.ts": "040e8f14ce9441b2a8b5d75ce65b4dafd3daa6fe50e5ba6a97a59561fb953371",
+          "apps/customer-panel/lib/toshi-provider-adapters/registry.ts": "d59478c32a481bad868e6970788d49306f6836f21237be18ab981b6e092e79c9",
+          "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f",
+          "packages/saas-contracts/src/toshi/providers.ts": "bc2bc52c656ae1ca6ba4007d0a8f3d8975521a436bf3f804dacc42a270a67219",
+          "packages/saas-data/src/toshi-providers/repository.ts": "244eb4dc307ae1b4c560ab92398fd52ad976b9dd6f3af7022bb71191765ec254"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700"
+            ],
+            "candidates": [
+              "sha256:cf11f2cc3c2a9865d72e430099e4ced89aa4b782ad4687693a5f9509068aa9fd",
+              "sha256:3f016c5272b0c9a508f0c8f28e0a4e731972f96fbf3b4789d22bd0a49e2a0c77"
+            ],
+            "approvedDigests": [
+              "sha256:cf11f2cc3c2a9865d72e430099e4ced89aa4b782ad4687693a5f9509068aa9fd",
+              "sha256:3f016c5272b0c9a508f0c8f28e0a4e731972f96fbf3b4789d22bd0a49e2a0c77"
+            ]
+          },
+          "iyzico": {
+            "commits": [
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700"
+            ],
+            "candidates": [
+              "sha256:cbce87b08f4282e318c4d55cb667ed99605fa8ecbb1c1d78a2eb74ea0bc3f5bb"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledAISettings": true,
+        "compiledProviderConnect": true,
+        "compiledRegister": true,
+        "compiledLegacy": true,
+        "compiledProductCreate": true,
+        "compiledProductDetail": true
+      }
+    },
+    {
+      "app": "e4xe74cmii7jucbkyor0o412",
+      "container": "61da952b0a40",
+      "name": "/e4xe74cmii7jucbkyor0o412-163059126323",
+      "imageTag": "e4xe74cmii7jucbkyor0o412:4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+      "image": "sha256:8c603cbd423109dcb76dcda82e8d73f70d17ed5213a3a2dc1c56ea83969ecb30",
+      "state": "running",
+      "health": null,
+      "evidence": {
+        "sourceCommit": "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+        "files": {
+          "apps/customer-panel/app/orders/quick-links/page.tsx": "ec0235e5a2c83c5b056912f54d6f4a07a8d2ffb04360c60b36182fa63d7775ec",
+          "apps/customer-panel/components/orders/InStoreSalesConsole.tsx": "f7c8d7aaaf33ae58ec0f8ded555f24f5296ec21ed7e57963434753e3eb01cd89",
+          "apps/customer-panel/components/orders/OrderListConsole.tsx": "a5a60a5c1b38c4e0b701ffd22046966c0703dff1888147aad7eb3fb704c874d6",
+          "apps/customer-panel/components/orders/OrderDetailConsole.tsx": "3418b2697dd44bd3807b649e778d336283ddaf887b1fb4ceb7ef13cac3d59bea",
+          "apps/customer-panel/components/catalog/ProductMeasurementFields.tsx": "be58eb10a015de9455b513bbd952f01180d3ce7604ec4fe9d81da1a76b9de652",
+          "apps/owner/scripts/sql/saas/202609260162_catalog_optional_measurements.up.sql": "2c429ecadf46f05fc8697acf96fe3361c950d94b7210945967aa01ac8c718db3",
+          "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+          "apps/owner/scripts/sql/saas/202609260160_category_images_and_order.up.sql": "c01e776498139931a80feaebc69447456a478aa1c5abfe56eb87671091e8bccd",
+          "apps/customer-panel/lib/in-store-sales-ui/model.ts": "6abab73fb5366c746d5fb50dde4a9124882706b1cd1b5aa1d82b516fbcfe05ab",
+          "apps/owner/scripts/sql/saas/202609260157_in_store_sales_register.up.sql": "0e977fbee77287339bcd0a7a7756cac8097464e29c1a4de512fd1ba716bc4ed3",
+          "apps/owner/scripts/sql/saas/202609260159_catalog_product_stock_summary.up.sql": "fedd7000640b175bc9113e51887687e8f8bd27776a9c79a9c3957d3a2baafa14",
+          "apps/owner/scripts/sql/saas/202609260161_order_number_series.up.sql": "aad3923f009f722de2e4b8b1306309e566c7fdc4316b5a64ca4da8ba5804b99c",
+          "apps/customer-panel/components/catalog/ProductListConsole.tsx": "c069c3e5e7e951ec128fd8abebb27f9772679b62cf52a8a453c544df7bd67fca",
+          "apps/customer-panel/lib/catalog-ui/stock-presentation.ts": "ce6d95fbeca6adffd1ff27f21ffcd9b22fb654b39118c5f5bd84332964ff200f",
+          "packages/saas-data/src/catalog/repository.ts": "01d8542c5cb21f8b2933a23f02aba2a7d2c1264b312cc3d13f3afb77c70edfc5",
+          "packages/saas-contracts/src/catalog/validation.ts": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228",
+          "apps/customer-panel/components/toshi-settings/ArtificialIntelligenceSettings.tsx": "a86d705ef81ae46e2bec7a41ea380c515c8b01749f0741e62f63e5d9fed6a42a",
+          "apps/customer-panel/components/toshi-settings/artificial-intelligence-settings.module.css": "b206f2e774422319982fd7a78058f75d4f4415ed72ba628acde4260046e4a131",
+          "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts": "3caf9c0421d4c9425102e5b3f9afe5b12a74be7d16fdf49c962bf813fdec3d5b",
+          "apps/customer-panel/lib/toshi-provider-adapters/deepseek.ts": "523f3c701ad376ec0835da67571f5e5a3c3434f441ebc9c345604b81afb51197",
+          "apps/customer-panel/lib/toshi-provider-adapters/model-policy.ts": "040e8f14ce9441b2a8b5d75ce65b4dafd3daa6fe50e5ba6a97a59561fb953371",
+          "apps/customer-panel/lib/toshi-provider-adapters/registry.ts": "d59478c32a481bad868e6970788d49306f6836f21237be18ab981b6e092e79c9",
+          "apps/owner/scripts/sql/saas/202609260163_toshi_deepseek_provider.up.sql": "86c62cfaf9db78a58e3d8623194d1c9a4126106a94ba6c5313a4e8b6114fc66f",
+          "packages/saas-contracts/src/toshi/providers.ts": "bc2bc52c656ae1ca6ba4007d0a8f3d8975521a436bf3f804dacc42a270a67219",
+          "packages/saas-data/src/toshi-providers/repository.ts": "244eb4dc307ae1b4c560ab92398fd52ad976b9dd6f3af7022bb71191765ec254"
+        },
+        "providers": {
+          "paytr": {
+            "commits": [
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700",
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700"
+            ],
+            "candidates": [
+              "sha256:cf11f2cc3c2a9865d72e430099e4ced89aa4b782ad4687693a5f9509068aa9fd",
+              "sha256:3f016c5272b0c9a508f0c8f28e0a4e731972f96fbf3b4789d22bd0a49e2a0c77"
+            ],
+            "approvedDigests": []
+          },
+          "iyzico": {
+            "commits": [
+              "4353ff4fb9429c6d04c9a4b9852da9115f9ac700"
+            ],
+            "candidates": [
+              "sha256:cbce87b08f4282e318c4d55cb667ed99605fa8ecbb1c1d78a2eb74ea0bc3f5bb"
+            ],
+            "approvedDigests": []
+          }
+        },
+        "compiledAISettings": true,
+        "compiledProviderConnect": true,
+        "compiledRegister": true,
+        "compiledLegacy": true,
+        "compiledProductCreate": true,
+        "compiledProductDetail": true
+      }
+    }
+  ]
+}

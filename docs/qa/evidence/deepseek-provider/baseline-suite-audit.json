@@ -1,0 +1,250 @@
+{
+  "generatedAt": "2026-09-26T16:20:20.125941+00:00",
+  "baselineWorktree": "/Users/Celebix/.codex/worktrees/orders-approved-ui/Saas-Celebix",
+  "featureWorktree": "/Users/Celebix/.codex/worktrees/deepseek-toshi/Saas-Celebix",
+  "baselineSource": "d4a7e790a110e41f2f3261eb416dc1daaca7c466",
+  "baselineGitStatus": "",
+  "baselineRun": {
+    "command": "node --experimental-transform-types --test --test-name-pattern=<exact six failure names> lib/mira-final-regressions.test.ts lib/panel-shell.test.ts lib/permanent-delete-dialog.test.ts lib/product-onboarding-console.test.ts",
+    "log": "/tmp/deepseek-baseline-six-tests.log",
+    "exitCode": 1,
+    "tests": 6,
+    "pass": 0,
+    "fail": 6,
+    "durationMs": 2672.823125
+  },
+  "originalFeatureSuite": {
+    "log": "/tmp/deepseek-panel-suite.log",
+    "tests": 1505,
+    "pass": 1497,
+    "fail": 7,
+    "skipped": 1,
+    "claimFullSuiteGreen": false
+  },
+  "reproducedFailures": [
+    {
+      "name": "effective scoped graphite keyboard focus: catalog-onboarding/category-management.module.css",
+      "durationMs": 87.158333,
+      "testPath": "apps/customer-panel/lib/mira-final-regressions.test.ts",
+      "line": 103,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/components/catalog-onboarding/category-management.module.css",
+      "finding": "Actual focus outline #fe6100, test expects #2B2B2B. Existing category presentation uses catalog accent."
+    },
+    {
+      "name": "analytics can suppress route copy and right-align its sticky topbar context",
+      "durationMs": 20.477833,
+      "testPath": "apps/customer-panel/lib/panel-shell.test.ts",
+      "line": 634,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/components/panel/PanelLayoutClient.tsx",
+      "finding": "Source regexp expects hideHeading for exactly analytics/product create. Approved order UI also hides heading for orders/order detail."
+    },
+    {
+      "name": "desktop topbar follows route transitions while the active bridge keeps precedence",
+      "durationMs": 148.962875,
+      "testPath": "apps/customer-panel/lib/panel-shell.test.ts",
+      "line": 1296,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/components/panel/PanelLayoutClient.tsx",
+      "finding": "Behavior expects Siparişler topbar title on /orders, while approved order UI explicitly hides that heading."
+    },
+    {
+      "name": "product and category surfaces receive server-derived delete capability and keep archive separate",
+      "durationMs": 21.694083,
+      "testPath": "apps/customer-panel/lib/permanent-delete-dialog.test.ts",
+      "line": 18,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/app/products/categories/page.tsx",
+      "finding": "Source regexp requires tenantContext.membership.role inline. Category page already aliases role and calls same catalog_admin.delete authorization."
+    },
+    {
+      "name": "category manager presents hierarchy without exposing technical slugs",
+      "durationMs": 29.30075,
+      "testPath": "apps/customer-panel/lib/product-onboarding-console.test.ts",
+      "line": 140,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx",
+      "finding": "Source regexp requires former hierarchy literal. Current category presentation uses descendants/image-status/level copy. No DeepSeek edit."
+    },
+    {
+      "name": "category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus",
+      "durationMs": 4.963625,
+      "testPath": "apps/customer-panel/lib/product-onboarding-console.test.ts",
+      "line": 147,
+      "baselineResult": "FAIL",
+      "featureSuiteResult": "FAIL",
+      "classification": "inherited_baseline_failure",
+      "primarySourcePath": "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx",
+      "finding": "Source regexp requires old categoryCommands function/topbar/mobile duplication. Current category manager exposes create/refresh in its persistent toolbar."
+    }
+  ],
+  "timeout": {
+    "name": "actual Next catalog and inventory pages redirect the genuine signed-out runtime",
+    "testPath": "apps/customer-panel/lib/catalog-page-guard.integration.test.ts",
+    "line": 68,
+    "failureLine": 99,
+    "featureResult": "FAIL",
+    "baselineResult": "NOT_RUN",
+    "durationMs": 94515.386583,
+    "error": "TimeoutError: The operation was aborted due to timeout",
+    "timeoutMs": 90000,
+    "phase": "HTTP fetch after Next dev reported Ready, before response status/redirect assertion",
+    "classification": "inconclusive_test_environment_or_load_timeout",
+    "finding": "The full suite aborted its first pending route fetch. No failed authorization/redirect assertion was produced; cannot claim baseline reproduction or rule out regression solely from timeout. Exact test source is unchanged. No broad rerun performed per task scope."
+  },
+  "unchangedAuditedFiles": [
+    {
+      "path": "apps/customer-panel/lib/mira-final-regressions.test.ts",
+      "baselineSha256": "ec2ff9237c925224f840e334457ae49fe0c02b42e541bf91bfaf5f76d057f7e8",
+      "featureSha256": "ec2ff9237c925224f840e334457ae49fe0c02b42e541bf91bfaf5f76d057f7e8",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/mira-final-test-support.ts",
+      "baselineSha256": "d137fb673d91cc8f8d2838cd99e4a971fef0562caadf24b7d480307904640660",
+      "featureSha256": "d137fb673d91cc8f8d2838cd99e4a971fef0562caadf24b7d480307904640660",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-shell.test.ts",
+      "baselineSha256": "360184f6d1fbcbaa545cc7fc9af18dd24831b36622e7fbc77f42f1aa2829f739",
+      "featureSha256": "360184f6d1fbcbaa545cc7fc9af18dd24831b36622e7fbc77f42f1aa2829f739",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/permanent-delete-dialog.test.ts",
+      "baselineSha256": "3ba1063e328b1f98d85c042dadc57f5a4515b6782972c8602b99cc7eae3c154a",
+      "featureSha256": "3ba1063e328b1f98d85c042dadc57f5a4515b6782972c8602b99cc7eae3c154a",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/product-onboarding-console.test.ts",
+      "baselineSha256": "6894400adf493238c012c476dfe4e17be1f5b3386787c38bf4382324a82c94bc",
+      "featureSha256": "6894400adf493238c012c476dfe4e17be1f5b3386787c38bf4382324a82c94bc",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/catalog-page-guard.integration.test.ts",
+      "baselineSha256": "38345d1ab9cdb12a5249653efe757555906d3d6b09d71891394f07accbb60fd1",
+      "featureSha256": "38345d1ab9cdb12a5249653efe757555906d3d6b09d71891394f07accbb60fd1",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/CategoryManager.tsx",
+      "baselineSha256": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+      "featureSha256": "8e25138d654bd8b809159638274b76b79a12234994d2567bc893ea5f125a15ff",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/category-management.module.css",
+      "baselineSha256": "299b961107ccc6c63344e211d2e91344f428cc010555567de1a906b0f78b9359",
+      "featureSha256": "299b961107ccc6c63344e211d2e91344f428cc010555567de1a906b0f78b9359",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDetailConsole.tsx",
+      "baselineSha256": "2b46eef0407b4ae991f5896785ecb1e765ddf1bddef41bf6fd8fa4fd25fbb357",
+      "featureSha256": "2b46eef0407b4ae991f5896785ecb1e765ddf1bddef41bf6fd8fa4fd25fbb357",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/app/products/categories/page.tsx",
+      "baselineSha256": "688cafff933de3e40bd2542270215b71ff083912f1d90977101cf32b2a01ce0a",
+      "featureSha256": "688cafff933de3e40bd2542270215b71ff083912f1d90977101cf32b2a01ce0a",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/app/products/[productId]/page.tsx",
+      "baselineSha256": "5781923aa393f2a032d4e59247ad0c5164fa7814ccc2a01129308ba6a11c88fe",
+      "featureSha256": "5781923aa393f2a032d4e59247ad0c5164fa7814ccc2a01129308ba6a11c88fe",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelLayoutClient.tsx",
+      "baselineSha256": "d3868a5a26a27a5444de753035bda2bbb4d88bbd77ca7ce529c07ca597911f12",
+      "featureSha256": "d3868a5a26a27a5444de753035bda2bbb4d88bbd77ca7ce529c07ca597911f12",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelTopbarChrome.tsx",
+      "baselineSha256": "84634c8c1a77dcdb853c93d95b48f269996f2e6babb951659083c35f92d18cc5",
+      "featureSha256": "84634c8c1a77dcdb853c93d95b48f269996f2e6babb951659083c35f92d18cc5",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/panel-shell.module.css",
+      "baselineSha256": "15c4e01746e74609455ba9472c51b427f002d9314b538a13290f7356b48cd7b4",
+      "featureSha256": "15c4e01746e74609455ba9472c51b427f002d9314b538a13290f7356b48cd7b4",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/navigation.ts",
+      "baselineSha256": "5af8ab0e1f2971d4cbde6514ac5e992f612e551528e42e89ca009f1eb74a4a6d",
+      "featureSha256": "5af8ab0e1f2971d4cbde6514ac5e992f612e551528e42e89ca009f1eb74a4a6d",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/chrome-model.ts",
+      "baselineSha256": "e1b36581e7ec882d8859184d4af884fffe2854410bf34d406761f5fe044ccf03",
+      "featureSha256": "e1b36581e7ec882d8859184d4af884fffe2854410bf34d406761f5fe044ccf03",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/authority-slice.ts",
+      "baselineSha256": "6508583b9ac9f5c0e003829aad9eddfa71f1e2c71ad998922d228f50a36a4780",
+      "featureSha256": "6508583b9ac9f5c0e003829aad9eddfa71f1e2c71ad998922d228f50a36a4780",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/dashboard-model.ts",
+      "baselineSha256": "6ed67a832dbb80b96c890c5f7760d05076d7bdf03361f96bd6abf7017e72a9c0",
+      "featureSha256": "6ed67a832dbb80b96c890c5f7760d05076d7bdf03361f96bd6abf7017e72a9c0",
+      "baselineWorktreeMatchesCommitted": true,
+      "featureMatchesBaseline": true
+    }
+  ],
+  "actualDeepSeekRegressionDetected": false,
+  "mutations": {
+    "merchantWrites": 0,
+    "providerCalls": 0,
+    "liveWrites": 0,
+    "auditedBaselineSourceEdits": false,
+    "existingFailingTestsEdited": false,
+    "ownNewUiTestTypeCorrection": "HappyDOM Window confirm cast; parent explicitly requested correction"
+  },
+  "ownUiRetest": {
+    "log": "/tmp/deepseek-ui-tests.log",
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "durationMs": 1722.6665
+  }
+}
