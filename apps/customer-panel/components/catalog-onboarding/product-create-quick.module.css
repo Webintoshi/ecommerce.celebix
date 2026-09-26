@@ -33,6 +33,7 @@
 .detailedNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; color: var(--cp-text-secondary, #736b63); font-size: 13px; }
 .close { justify-self: end; margin: 16px; }
 .workspace[role="dialog"] { padding: 24px; }
+@media (max-width: 1024px) { .workspace.workspace[role="region"] form > div:last-child { margin-inline: 0; padding-inline: 0; } }
 @media (max-width: 700px) { .workspace fieldset.layout { grid-template-columns: 144px minmax(0, 1fr); gap: 24px; } .fields { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .workspace fieldset.layout { grid-template-columns: 1fr; gap: 24px; } .mediaColumn { width: 160px; } .workspace input, .workspace select { font-size: 16px; } .workspace form > div:last-child { justify-content: flex-start; } .workspace form > div:last-child button[type="submit"][value="publish"] { flex: 1 0 100%; } .workspace[role="dialog"] { padding: 16px; } }
 @media (max-width: 520px) {
