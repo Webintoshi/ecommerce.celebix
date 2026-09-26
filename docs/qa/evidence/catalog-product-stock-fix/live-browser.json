@@ -1,0 +1,11 @@
+{
+  "tenant": "butik-siora",
+  "page": "/products",
+  "productId": "3efa29e4-77b4-4406-b989-7f520deb510b",
+  "productStockLabel": "3 adet",
+  "representativeSku": "SRA-2024-HAKI",
+  "outOfStockProducts": 0,
+  "outOfStockFilterRows": 0,
+  "merchantWrites": false,
+  "recordedAt": "2026-09-26T13:20:08.281Z"
+}

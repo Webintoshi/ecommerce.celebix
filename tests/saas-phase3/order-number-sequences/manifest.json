@@ -1,0 +1,34 @@
+{
+  "name": "order-number-sequences",
+  "migration": "202609260161_order_number_series",
+  "requires": ["202609260159_catalog_product_stock_summary"],
+  "databaseName": "celebix_order_number_qa_20260926",
+  "database": "PostgreSQL16 exact named disposable clone; normal fixtures rollback; race commits synthetic rows only",
+  "behavior": "behavior.mjs",
+  "redCommand": "ORDER_NUMBER_QA_ENV_FILE=/path/to/restricted-clone.env node tests/saas-phase3/order-number-sequences/behavior.mjs --red",
+  "command": "ORDER_NUMBER_QA_ENV_FILE=/path/to/restricted-clone.env node tests/saas-phase3/order-number-sequences/behavior.mjs",
+  "rollbackCommand": "ORDER_NUMBER_QA_ENV_FILE=/path/to/restricted-clone.env node tests/saas-phase3/order-number-sequences/behavior.mjs --no-race",
+  "rollbackCompletionMarker": "ORDER_NUMBER_SEQUENCES_POSTGRESQL16_COMPLETE 9/9",
+  "baseline": "The pre-migration real POS RED captures only old-number count/digest to ORDER_NUMBER_QA_BASELINE_FILE, default /tmp/order-number-qa-before161.json",
+  "completionMarker": "ORDER_NUMBER_SEQUENCES_POSTGRESQL16_COMPLETE 11/11",
+  "cases": {
+    "N161-01": "Actual paid POS completion returns the persisted POS-0000001",
+    "N161-02": "Existing numbers match the pre-migration digest",
+    "N161-03": "Unconverted drafts allocate nothing; manual conversion shares POS",
+    "N161-04": "Real RPC retry and recovery preserve numbers without increments",
+    "N161-05": "Independent per-store WEB/POS helper allocation, retry and late imported-number collision",
+    "N161-06": "Permanent deletion retains ledger, prevents reuse and deleted-order recreation",
+    "N161-07": "Failed orders INSERT rolls back the allocator and counter together",
+    "N161-08": "Private grants, allocated identity and rollback metadata immutability",
+    "N161-09": "Minimum width expands; bigint exhaustion is explicit",
+    "N161-10": "Two-connection distinct-order and same-order allocation races",
+    "N161-11": "Exact down migration refuses durable allocations and preserves function and numbering-table hashes"
+  },
+  "raceCleanup": "The coordinator drops the isolated clone after rehearsing committed synthetic race fixtures",
+  "integrations": {
+    "behavior": "integrations.mjs",
+    "command": "ORDER_NUMBER_QA_ENV_FILE=/path/to/restricted-clone.env node tests/saas-phase3/order-number-sequences/integrations.mjs",
+    "completionMarker": "ORDER_NUMBER_INTEGRATIONS_POSTGRESQL16_COMPLETE 9/9",
+    "cases": "Six real WEB creators, builtin retry/protected receipt, and zero/two tracked stock settlement/replay; all integration fixtures rollback"
+  }
+}

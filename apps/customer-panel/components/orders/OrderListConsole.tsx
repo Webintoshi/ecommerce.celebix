@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { OrderListItem, OrderPaymentStatus, OrderSort, OrderStatus } from "@celebix/saas-contracts";
 
-import { PanelEmptyState, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
-import styles from "./order-console.module.css";
+import { ArrowDownUp, ArrowRight, Check, ChevronDown, ChevronRight, Clock3, Columns3, Download, Package, Plus, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Store, X } from "lucide-react";
+import { OrderActionDialog } from "./OrderActionDialog";
+import styles from "./order-list.module.css";
 
 type ListState = "loading" | "loaded" | "error";
 type OrderListPage = Awaited<ReturnType<typeof orderApi.listOrders>>;
@@ -90,7 +92,8 @@ function fulfillment(status: OrderStatus): Exclude<OrderFulfillment, "all"> {
   return "not_applicable";
 }
 
-function fulfillmentLabel(status: OrderStatus) {
+function fulfillmentLabel(status: OrderStatus, source?: OrderListItem["source"]) {
+  if (source === "in_store") return "Mağazadan teslim";
   if (status === "pending") return "Onay bekliyor";
   if (status === "confirmed") return "Hazırlama bekliyor";
   return FULFILLMENT_FILTER_LABELS[fulfillment(status)];
@@ -117,7 +120,7 @@ export function filterOrderListItems(
       )
     );
     const paymentMatches = filters.payment === "all" || order.paymentStatus === filters.payment;
-    const fulfillmentMatches = filters.fulfillment === "all" || fulfillment(order.status) === filters.fulfillment;
+    const fulfillmentMatches = filters.fulfillment === "all" || (order.source === "in_store" ? "not_applicable" : fulfillment(order.status)) === filters.fulfillment;
     return dateMatches && paymentMatches && fulfillmentMatches;
   });
   return Object.freeze(filtered);
@@ -138,7 +141,7 @@ export function serializeOrderListCsv(items: readonly OrderListItem[]) {
     order.customerEmail ?? "",
     STATUS_LABELS[order.status],
     PAYMENT_LABELS[order.paymentStatus],
-    fulfillmentLabel(order.status),
+    fulfillmentLabel(order.status, order.source),
     SOURCE_LABELS[order.source],
     order.itemCount,
     (order.totalCents / 100).toFixed(2),
@@ -182,6 +185,7 @@ export interface OrderListPresentationProps {
   readonly visibleColumns: OrderColumnVisibility;
   readonly nextCursor?: string;
   readonly loadingMore: boolean;
+  readonly loadMoreError?: string;
   readonly onRetry: () => void;
   readonly onSearchChange: (value: string) => void;
   readonly onStatusChange: (value: OrderStatus | "all") => void;
@@ -193,99 +197,112 @@ export interface OrderListPresentationProps {
   readonly onExport: () => void;
   readonly onLoadMore: () => void;
   readonly onSearchSubmit?: () => void;
+  readonly onClearSearch?: () => void;
+  readonly onReset?: () => void;
+}
+
+function OrderStateBadge({ order }: { order: OrderListItem }) {
+  return <span className={styles.statusBadge}><PanelStatusBadge tone={tone(order.status)}>{order.status === "delivered" ? <Check aria-hidden="true" /> : order.status === "pending" ? <Clock3 aria-hidden="true" /> : <span className={styles.statusDot} aria-hidden="true" />}{STATUS_LABELS[order.status]}</PanelStatusBadge></span>;
+}
+
+function PaymentStatus({ status }: { status: OrderPaymentStatus }) {
+  return <span className={styles.paymentBadge} data-state={status}><span className={styles.statusDot} aria-hidden="true" />{PAYMENT_LABELS[status]}</span>;
 }
 
 function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleColumns: OrderColumnVisibility }) {
   return (
     <article className={styles.orderCard}>
       <div className={styles.cardHeading}>
-        <div className={styles.cardOrderIdentity}>
-          <Link href={`/orders/${order.id}`}>{order.orderNumber}</Link>
-          <small>{fulfillmentLabel(order.status)}</small>
-        </div>
-        {visibleColumns.status ? <PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge> : null}
+        <div className={styles.cardOrderIdentity}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link>{visibleColumns.date ? <small>{date(order.createdAt)}</small> : null}</div>
+        {visibleColumns.total ? <strong className={styles.cardTotal}>{money(order.totalCents, order.currency)}</strong> : null}
       </div>
-      <dl className={styles.cardFacts}>
-        {visibleColumns.customer ? <div><dt>Müşteri</dt><dd>{order.customerName ?? "Mağaza müşterisi"}<small>{order.customerEmail ?? ""}</small></dd></div> : null}
-        {visibleColumns.payment ? <div><dt>Ödeme</dt><dd><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></dd></div> : null}
-        {visibleColumns.total ? <div className={styles.totalFact}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div> : null}
-        {visibleColumns.date ? <div><dt>Tarih</dt><dd>{date(order.createdAt)}</dd></div> : null}
-        {visibleColumns.items ? <div><dt>Ürün</dt><dd>{order.itemCount.toLocaleString("tr-TR")}</dd></div> : null}
-        {visibleColumns.source ? <div><dt>Kanal</dt><dd>{SOURCE_LABELS[order.source]}</dd></div> : null}
-      </dl>
-      <Link className={styles.detailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detayı görüntüle</Link>
+      {visibleColumns.customer ? <div className={styles.cardCustomer}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong>{order.customerEmail ? <small>{order.customerEmail}</small> : null}</div> : null}
+      <div className={styles.cardStatuses}>{visibleColumns.status ? <OrderStateBadge order={order} /> : null}{visibleColumns.payment ? <PaymentStatus status={order.paymentStatus} /> : null}</div>
+      <div className={styles.cardFooter}><div className={styles.cardMeta}>{visibleColumns.items ? <span><Package aria-hidden="true" />{order.itemCount.toLocaleString("tr-TR")} ürün</span> : null}{visibleColumns.source ? <span>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{SOURCE_LABELS[order.source]}</span> : null}</div><Link className={styles.detailLink} href={`/orders/${order.id}`} aria-label={`${order.orderNumber} — Sipariş detayını aç`}>Detay <ArrowRight aria-hidden="true" /></Link></div>
     </article>
   );
 }
 
 export function OrderListPresentation(props: OrderListPresentationProps) {
+  const [dialog, setDialog] = useState<"filters" | "columns" | "export" | null>(null);
+  const [draft, setDraft] = useState({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment });
+  const searchRef = useRef<HTMLInputElement>(null);
+  const activeFilters = Number(props.status !== "all") + Number(props.dateRange !== "all") + Number(props.payment !== "all") + Number(props.fulfillment !== "all");
+  const hasLocalFilter = props.dateRange !== "all" || props.payment !== "all" || props.fulfillment !== "all";
+
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !document.querySelector("dialog[open]")) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, []);
+
+  function resetFilters() {
+    if (props.onReset) props.onReset();
+    else {
+      props.onStatusChange("all"); props.onDateRangeChange("all"); props.onPaymentChange("all"); props.onFulfillmentChange("all");
+    }
+  }
+  function openFilters() {
+    setDraft({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment });
+    setDialog("filters");
+  }
+  function clearSearch() {
+    if (props.onClearSearch) props.onClearSearch();
+    else props.onSearchChange("");
+    searchRef.current?.focus();
+  }
+  function applyFilters(event: FormEvent) {
+    event.preventDefault();
+    props.onStatusChange(draft.status); props.onDateRangeChange(draft.dateRange); props.onPaymentChange(draft.payment); props.onFulfillmentChange(draft.fulfillment);
+    setDialog(null);
+  }
+
   const content = props.state === "loading" ? (
-    <div className={styles.loading} role="status" aria-live="polite">Siparişler yükleniyor…</div>
+    <div className={styles.loading} role="status" aria-live="polite"><span className="sr-only">Siparişler yükleniyor…</span><div className={styles.skeletonRows} aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <div key={i}><span /><span /><span /><span /></div>)}</div></div>
   ) : props.state === "error" ? (
-    <div className={styles.errorState} role="alert">
-      <div><h2>Siparişler yüklenemedi</h2><p>{props.error}</p></div>
-      <button type="button" onClick={props.onRetry}>Tekrar dene</button>
-    </div>
+    <div className={styles.errorState} role="alert"><div><h2>Siparişler yüklenemedi</h2><p>{props.error}</p></div><button className={styles.button} type="button" onClick={props.onRetry}><RefreshCw aria-hidden="true" />Tekrar dene</button></div>
   ) : props.items.length === 0 ? (
-    props.loadedCount > 0
-      ? <PanelEmptyState title="Filtrelerle eşleşen sipariş yok" description="Tarih, ödeme veya teslimat filtresini değiştirin." />
-      : <PanelEmptyState title="Henüz sipariş bulunmuyor" description="İlk gerçek sipariş oluştuğunda bu listede görünecek." />
+    <div className={styles.emptyState}><Search aria-hidden="true" /><h2>{props.loadedCount > 0 || activeFilters > 0 || props.search ? "Filtrelerle eşleşen sipariş yok" : "Henüz sipariş bulunmuyor"}</h2>{props.loadedCount > 0 || activeFilters > 0 ? <button className={styles.quietButton} type="button" onClick={() => { resetFilters(); if (props.search) clearSearch(); }}>{props.search ? "Arama ve filtreleri temizle" : "Filtreleri temizle"} <X aria-hidden="true" /></button> : props.search ? <button className={styles.quietButton} type="button" onClick={clearSearch}>Aramayı temizle <X aria-hidden="true" /></button> : null}</div>
   ) : (
     <>
-      <div className={styles.desktopTable}>
-        <table aria-label="Sipariş listesi">
-          <thead><tr><th className={styles.orderColumn}>Sipariş</th>{props.visibleColumns.date ? <th className={styles.dateColumn}>Tarih</th> : null}{props.visibleColumns.customer ? <th className={styles.customerColumn}>Müşteri</th> : null}{props.visibleColumns.status ? <th className={styles.statusColumn}>Durum</th> : null}{props.visibleColumns.payment ? <th className={styles.paymentColumn}>Ödeme</th> : null}{props.visibleColumns.items ? <th className={styles.itemsColumn}>Ürün</th> : null}{props.visibleColumns.source ? <th className={styles.sourceColumn}>Kanal</th> : null}{props.visibleColumns.total ? <th className={styles.totalColumn}>Toplam</th> : null}<th className={styles.actionColumn}>İşlem</th></tr></thead>
-          <tbody>{props.items.map((order) => (
-            <tr key={order.id}>
-              <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status)}</small></td>
-              {props.visibleColumns.date ? <td className={styles.dateCell}>{date(order.createdAt)}</td> : null}
-              {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong><small>{order.customerEmail ?? ""}</small></td> : null}
-              {props.visibleColumns.status ? <td className={styles.statusCell}><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td> : null}
-              {props.visibleColumns.payment ? <td className={styles.paymentCell}><span className={styles.paymentBadge} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></td> : null}
-              {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
-              {props.visibleColumns.source ? <td className={styles.sourceCell}><span className={styles.channelBadge}>{SOURCE_LABELS[order.source]}</span></td> : null}
-              {props.visibleColumns.total ? <td className={styles.totalCell}><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
-              <td className={styles.actionCell}><Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label="Sipariş detayını aç">Detay</Link></td>
-            </tr>
-          ))}</tbody>
-        </table>
+      <div className={styles.desktopTable} role="region" aria-label="Sipariş tablosu" tabIndex={0}>
+        <table aria-label="Sipariş listesi"><thead><tr><th scope="col">Sipariş</th>{props.visibleColumns.date ? <th scope="col">Tarih</th> : null}{props.visibleColumns.customer ? <th scope="col">Müşteri</th> : null}{props.visibleColumns.status ? <th scope="col">Durum</th> : null}{props.visibleColumns.payment ? <th scope="col">Ödeme</th> : null}{props.visibleColumns.items ? <th scope="col" className={styles.itemsCell}>Ürün</th> : null}{props.visibleColumns.source ? <th scope="col">Kanal</th> : null}{props.visibleColumns.total ? <th scope="col" className={styles.totalCell}>Toplam</th> : null}<th scope="col"><span className="sr-only">Detay</span></th></tr></thead>
+        <tbody>{props.items.map((order) => <tr key={order.id}>
+          <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status, order.source)}</small></td>
+          {props.visibleColumns.date ? <td className={styles.dateCell}><time dateTime={order.createdAt}>{new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(order.createdAt))}<small>{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(order.createdAt))}</small></time></td> : null}
+          {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong>{order.customerEmail ? <small title={order.customerEmail}>{order.customerEmail}</small> : null}</td> : null}
+          {props.visibleColumns.status ? <td><OrderStateBadge order={order} /></td> : null}{props.visibleColumns.payment ? <td><PaymentStatus status={order.paymentStatus} /></td> : null}
+          {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
+          {props.visibleColumns.source ? <td><span className={styles.channelBadge}>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{SOURCE_LABELS[order.source]}</span></td> : null}
+          {props.visibleColumns.total ? <td className={styles.totalCell}><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
+          <td className={styles.actionCell}><Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label={`${order.orderNumber} — Sipariş detayını aç`}><ChevronRight aria-hidden="true" /></Link></td>
+        </tr>)}</tbody></table>
       </div>
       <div className={styles.mobileCards}>{props.items.map((order) => <OrderCard key={order.id} order={order} visibleColumns={props.visibleColumns} />)}</div>
     </>
   );
 
-  return (
-    <PanelPageShell>
-      <PanelPageHeader
-        title="Siparişler"
-        description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin."
-        actions={<Link className={styles.primaryAction} href="/orders/drafts/new">Manuel sipariş oluştur</Link>}
-      />
-      <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
-        <div className={styles.filterPanel}>
-          <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
-            <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
-            <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
-          </form>
-          <div className={styles.filterToolbar} aria-label="Yüklenen sipariş filtreleri">
-            <label><span>Tarih aralığı</span><select value={props.dateRange} onChange={(event) => props.onDateRangeChange(event.target.value as OrderDateRange)}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label>
-            <label><span>Ödeme durumu</span><select value={props.payment} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus | "all")}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label><span>Teslimat durumu</span><select value={props.fulfillment} onChange={(event) => props.onFulfillmentChange(event.target.value as OrderFulfillment)}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <details className={styles.columnPicker}>
-              <summary>Sütunlar</summary>
-              <div>{(Object.entries(COLUMN_LABELS) as [OrderColumnKey, string][]).map(([column, label]) => <label key={column}><input type="checkbox" checked={props.visibleColumns[column]} onChange={(event) => props.onColumnVisibilityChange(column, event.target.checked)} aria-label={`${label} sütununu göster`} />{label}</label>)}</div>
-            </details>
-            <button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={props.onExport}>CSV Dışa Aktar</button>
-          </div>
-        </div>
-        <div className={styles.dataSurface}>
-          {content}
-          {props.state === "loaded" && props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : "Daha fazla sipariş yükle"}</button> : null}
-        </div>
-      </section>
-    </PanelPageShell>
-  );
+  return <PanelPageShell>
+    <h1 className="sr-only">Tüm siparişler</h1>
+    <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
+      <div className={styles.toolbar}>
+        <form className={styles.searchField} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}><Search aria-hidden="true" /><label className="sr-only" htmlFor="order-search">Sipariş ara</label><input ref={searchRef} id="order-search" type="search" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş, müşteri, e-posta veya telefon ara" maxLength={200} />{props.search ? <button className={styles.iconButton} type="button" aria-label="Aramayı temizle" onClick={clearSearch}><X aria-hidden="true" /></button> : null}<button className={styles.iconButton} type="submit" aria-label="Ara"><ArrowRight aria-hidden="true" /></button></form>
+        <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" /><span>Manuel sipariş</span></Link></div>
+      </div>
+      <div className={styles.viewbar}><div className={styles.statusShortcuts} aria-label="Sipariş durumu">{([ ["all", "Tümü"], ["pending", "Onay bekleyen"], ["preparing", "Hazırlanıyor"], ["shipped", "Kargolandı"], ["delivered", "Teslim edildi"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={props.status === value} className={props.status === value ? styles.activeShortcut : styles.shortcut} onClick={() => props.onStatusChange(value)}>{label}</button>)}</div><div className={styles.viewTools}><button className={styles.quietButton} type="button" onClick={openFilters} aria-haspopup="dialog"><SlidersHorizontal aria-hidden="true" />Filtreler{activeFilters ? <span className={styles.filterCount}>{activeFilters}</span> : null}</button><label className={styles.sortControl}><ArrowDownUp aria-hidden="true" /><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten</option><option value="lowest">Tutar: düşükten</option></select></label></div></div>
+      {activeFilters > 0 ? <div className={styles.appliedFilters}><span>{props.state === "loaded" ? `${props.items.length} gösteriliyor` : "Filtreler uygulanıyor"}{hasLocalFilter ? " · Yüklenen siparişlerde" : ""}</span><button className={styles.quietButton} type="button" onClick={resetFilters}>Filtreleri temizle <X aria-hidden="true" /></button></div> : null}
+      <div className={styles.dataSurface} aria-busy={props.state === "loading"}>{content}</div>
+      {props.state === "loaded" ? <footer className={styles.listFooter}><span>{props.items.length} gösteriliyor · {props.loadedCount} sipariş yüklendi</span><div>{props.loadMoreError ? <div className={styles.loadMoreError} role="alert"><span>{props.loadMoreError}</span></div> : null}{props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : props.loadMoreError ? "Tekrar dene" : "Daha fazla sipariş yükle"}<ChevronDown aria-hidden="true" /></button> : null}</div></footer> : null}
+    </section>
+    <OrderActionDialog open={dialog === "filters"} title="Filtreler" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDraft({ status: "all", dateRange: "all", payment: "all", fulfillment: "all" })}>Temizle</button><button className={styles.primaryAction} type="submit" form="order-filter-form">Uygula</button></>}><form id="order-filter-form" onSubmit={applyFilters} className={styles.filterForm}><label>Sipariş durumu<select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as OrderStatus | "all" }))}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className={styles.loadedScope}>Tarih, ödeme ve teslimat: yüklenen siparişlerde.</div><div className={styles.localFilters}><label>Tarih aralığı<select value={draft.dateRange} onChange={(event) => setDraft((current) => ({ ...current, dateRange: event.target.value as OrderDateRange }))}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label><label>Ödeme durumu<select value={draft.payment} onChange={(event) => setDraft((current) => ({ ...current, payment: event.target.value as OrderPaymentStatus | "all" }))}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Teslimat durumu<select value={draft.fulfillment} onChange={(event) => setDraft((current) => ({ ...current, fulfillment: event.target.value as OrderFulfillment }))}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></form></OrderActionDialog>
+    <OrderActionDialog open={dialog === "columns"} title="Sütunlar" onClose={() => setDialog(null)} footer={<button className={styles.button} type="button" onClick={() => setDialog(null)}>Tamam</button>}><div className={styles.columnPicker}>{(Object.entries(COLUMN_LABELS) as [OrderColumnKey, string][]).map(([column, label]) => <label key={column}><input type="checkbox" checked={props.visibleColumns[column]} onChange={(event) => props.onColumnVisibilityChange(column, event.target.checked)} aria-label={`${label} sütununu göster`} />{label}</label>)}</div></OrderActionDialog>
+    <OrderActionDialog open={dialog === "export"} title="CSV dışa aktar" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDialog(null)}>Vazgeç</button><button className={styles.primaryAction} type="button" disabled={props.state !== "loaded" || !props.items.length} onClick={() => { props.onExport(); setDialog(null); }}><Download aria-hidden="true" />CSV indir</button></>}><p className={styles.exportScope}>Mevcut filtrelerle görüntülenen <strong>{props.items.length} sipariş</strong> dışa aktarılacak.</p><p className={styles.loadedScope}>Yalnızca yüklenen siparişler dahil.</p></OrderActionDialog>
+  </PanelPageShell>;
 }
 
 function message(error: unknown) {
@@ -298,6 +315,7 @@ export function OrderListConsole() {
   const [nextCursor, setNextCursor] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OrderStatus | "all">("all");
@@ -307,11 +325,15 @@ export function OrderListConsole() {
   const [fulfillmentFilter, setFulfillmentFilter] = useState<OrderFulfillment>("all");
   const [visibleColumns, setVisibleColumns] = useState<OrderColumnVisibility>(DEFAULT_VISIBLE_COLUMNS);
   const sequence = useRef(0);
+  const appendRequest = useRef(false);
 
   const load = useCallback(async (cursor?: string) => {
+    if (cursor && appendRequest.current) return;
     const request = ++sequence.current;
-    cursor ? setLoadingMore(true) : setState("loading");
-    setError("");
+    appendRequest.current = cursor !== undefined;
+    setLoadingMore(cursor !== undefined);
+    if (!cursor) setState("loading");
+    setError(""); setLoadMoreError("");
     try {
       const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort });
       if (request !== sequence.current) return;
@@ -320,35 +342,36 @@ export function OrderListConsole() {
       setState("loaded");
     } catch (failure) {
       if (request !== sequence.current) return;
-      setError(message(failure));
-      setState("error");
+      if (cursor) setLoadMoreError(message(failure));
+      else { setError(message(failure)); setState("error"); }
     } finally {
-      if (request === sequence.current) setLoadingMore(false);
+      if (request === sequence.current) { appendRequest.current = false; setLoadingMore(false); }
     }
   }, [search, sort, status]);
 
-  useEffect(() => { void load(); return () => { sequence.current += 1; }; }, [load]);
+  useEffect(() => { void load(); return () => { sequence.current += 1; appendRequest.current = false; }; }, [load]);
 
   function submitSearch(event?: FormEvent) {
     event?.preventDefault();
     const normalized = searchInput.trim();
-    if (normalized.length === 0 || normalized.length <= 200) setSearch(normalized);
+    if (normalized.length <= 200) {
+      if (normalized === search) void load();
+      else setSearch(normalized);
+    }
   }
 
-  const filteredItems = useMemo(
-    () => filterOrderListItems(items, { dateRange, payment, fulfillment: fulfillmentFilter }),
-    [dateRange, fulfillmentFilter, items, payment],
-  );
+  const filteredItems = useMemo(() => filterOrderListItems(items, { dateRange, payment, fulfillment: fulfillmentFilter }), [dateRange, fulfillmentFilter, items, payment]);
 
   function exportCsv() {
     const blob = new Blob([serializeOrderListCsv(filteredItems)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.download = `siparisler-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    link.href = url; link.download = `siparisler-${new Date().toISOString().slice(0, 10)}.csv`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
+  function clearSearch() { setSearchInput(""); setSearch(""); }
+  function resetFilters() { setStatus("all"); setDateRange("all"); setPayment("all"); setFulfillmentFilter("all"); }
+
+  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} loadMoreError={loadMoreError} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onClearSearch={clearSearch} onReset={resetFilters} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
 }

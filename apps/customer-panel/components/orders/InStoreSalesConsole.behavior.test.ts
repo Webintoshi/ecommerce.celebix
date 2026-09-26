@@ -51,6 +51,50 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
 }
 const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>x.textContent?.trim()===label)!;
 
+test("completed receipt and checkout footer show the order code while preserving legacy and missing-order fallbacks",async()=>{
+  for(const [orderNumber,expected] of [["POS-0000001","POS-0000001"],["S-101","S-101"],[null,`POS-${ID}`]] as const){
+    await mounted(async(container)=>{
+      await act(async()=>button(container,"Satışı kaydetmeyi yeniden dene").click());
+      assert.match(container.querySelector(".receipt p")?.textContent??"",new RegExp(`^${expected}`));
+      assert.equal(container.querySelector(".saleId")?.textContent,`${expected} · Kasiyer`);
+    },"payment_received",async(api)=>{
+      const paid={...await api.getSale(ID),saleNumber:`POS-${ID}`};
+      const completed:InStoreSale={...paid,status:"completed",version:2,completedAt:date,orderId:LOCATION,orderNumber};
+      const bootstrap=await api.bootstrap();
+      api.bootstrap=async()=>({...bootstrap,activeDraft:paid,recentSales:[completed]});
+      api.completeSale=async()=>({sale:completed,replayed:false,priceChanged:false});
+    });
+  }
+});
+test("recent completed sales expose their order code even when a customer name is present",async()=>{
+  await mounted(async(container)=>{
+    await act(async()=>button(container,"Son satışlar").click());
+    const entries=Array.from(container.querySelectorAll(".listEntry header strong:first-child"),element=>element.textContent);
+    assert.deepEqual(entries,["Ayşe · POS-0000001","Deniz · S-101",`POS-${ID}`]);
+  },"draft",async(api)=>{
+    const draft=await api.getSale(ID);
+    const completed:InStoreSale={...draft,saleNumber:`POS-${ID}`,status:"completed",completedAt:date,paymentReceivedAt:date,orderId:LOCATION,orderNumber:"POS-0000001",customerName:"Ayşe"};
+    const legacy:InStoreSale={...completed,id:LOCATION,saleNumber:"MS-101",orderNumber:"S-101",customerName:"Deniz"};
+    const fallback:InStoreSale={...completed,id:"9e000000-0000-4000-8000-000000000004",orderNumber:null,customerName:null};
+    api.listSales=async()=>({sales:[completed,legacy,fallback],nextCursor:null});
+  });
+});
+test("draft and pending checkout labels retain the stable sale code and held lists retain their fallback",async()=>{
+  for(const status of ["draft","payment_pending"] as const){
+    await mounted(async(container)=>{
+      assert.equal(container.querySelector(".saleId")?.textContent,`POS-${ID} · Kasiyer`);
+      await act(async()=>button(container,"Bekletilenler1").click());
+      assert.equal(container.querySelector(".listEntry header strong")?.textContent,`POS-${ID}`);
+    },status,async(api)=>{
+      const sale={...await api.getSale(ID),saleNumber:`POS-${ID}`};
+      const held:InStoreSale={...sale,status:"held"};
+      const bootstrap=await api.bootstrap();
+      api.bootstrap=async()=>({...bootstrap,activeDraft:sale,heldSales:[held]});
+      api.listSales=async()=>({sales:[held],nextCursor:null});
+    });
+  }
+});
+
 test("native discount dialog is labelled and blank Enter cannot apply a discount",async()=>{
   await mounted(async(container,browser)=>{
     const trigger=button(container,"İndirim uygula");trigger.focus();await act(async()=>{trigger.click();});

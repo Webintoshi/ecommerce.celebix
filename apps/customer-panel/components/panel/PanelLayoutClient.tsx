@@ -48,7 +48,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
   const pathname = usePathname() ?? "";
   const routePresentation = getPanelRoutePresentation(pathname);
   const activeChrome = chrome?.pathname === pathname ? chrome : null;
-  const hideTopbarHeading = activeChrome?.hideHeading ?? (pathname === "/analytics" || pathname === "/products/new");
+  const hideTopbarHeading = activeChrome?.hideHeading ?? (pathname === "/analytics" || pathname === "/products/new" || pathname === "/orders" || /^\/orders\/[0-9a-f-]{36}$/i.test(pathname));
   const handleChromeChange = useCallback((next: PanelTopbarChromeState | null) => {
     setChrome((current) => {
       if (!next) return current ? null : current;

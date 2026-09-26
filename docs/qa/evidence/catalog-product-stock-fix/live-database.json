@@ -1,0 +1,125 @@
+{
+  "database": "celebix_saas_staging_auth01",
+  "migration": "159",
+  "productId": "3efa29e4-77b4-4406-b989-7f520deb510b",
+  "variantStocks": [
+    {
+      "id": "4e73265c-9350-4506-bd9a-ecd1f54c60c4",
+      "title": "S",
+      "sku": "SRA-2024-HAKI",
+      "stock_tracking": true,
+      "stock_quantity": "1",
+      "status": "active",
+      "version": "5"
+    },
+    {
+      "id": "524f0c6e-7bac-4f89-8784-575324dad74a",
+      "title": "L",
+      "sku": "SRA-2024",
+      "stock_tracking": true,
+      "stock_quantity": "1",
+      "status": "active",
+      "version": "4"
+    },
+    {
+      "id": "7b865b30-2e0f-43e7-8976-aae95b83ef3f",
+      "title": "M",
+      "sku": "SRA-2024-HAKI",
+      "stock_tracking": true,
+      "stock_quantity": "1",
+      "status": "active",
+      "version": "2"
+    }
+  ],
+  "before": {
+    "sku": "SRA-2024-HAKI",
+    "storeId": "ff465e64-1491-40ef-8840-c66281155a1d",
+    "productId": "3efa29e4-77b4-4406-b989-7f520deb510b",
+    "variantId": "4e73265c-9350-4506-bd9a-ecd1f54c60c4",
+    "priceCents": 199000,
+    "pricingMethod": "fixed_try",
+    "stockQuantity": 1,
+    "stockTracking": true,
+    "effectivePriceCents": 199000
+  },
+  "after": {
+    "sku": "SRA-2024-HAKI",
+    "storeId": "ff465e64-1491-40ef-8840-c66281155a1d",
+    "productId": "3efa29e4-77b4-4406-b989-7f520deb510b",
+    "variantId": "4e73265c-9350-4506-bd9a-ecd1f54c60c4",
+    "priceCents": 199000,
+    "productStock": {
+      "trackedQuantity": 3,
+      "trackedVariantCount": 3,
+      "untrackedVariantCount": 0
+    },
+    "pricingMethod": "fixed_try",
+    "stockQuantity": 1,
+    "stockTracking": true,
+    "effectivePriceCents": 199000
+  },
+  "stocksUnchanged": true,
+  "salesReservationsMovementsUnchanged": true,
+  "summaryAfter": {
+    "outcome": "summarized",
+    "result_payload": {
+      "activeMedia": 0,
+      "productLimit": 100,
+      "draftProducts": 0,
+      "totalProducts": 10,
+      "activeProducts": 10,
+      "activeVariants": 30,
+      "outOfStockProducts": 0,
+      "outOfStockVariants": 0,
+      "productsWithoutMedia": 10
+    }
+  },
+  "cloneRoundtrip": {
+    "generatedAt": "2026-09-26T13:03:24.858Z",
+    "database": "celebix_product_stockfix_qa_20260926",
+    "verdict": "PASS",
+    "legacyFunctions": 1199,
+    "newFunctions": 5,
+    "legacyDefinitionOwnerAclDigest": "39da0f479bfe6efdf80222bbcadc1bdc044b21f6c5abaf0285988670fd954bed",
+    "afterDownExactLegacyMatch": true,
+    "afterReapplyExactMatch": true,
+    "stockDigestBeforeAndAfter": {
+      "variants": "f55996a779218b9c91e3fccb04dbb549",
+      "balances": "4ae5cacda1b72bf89ad014b6fb43bab4",
+      "movements": "b8d56aa87faaec43fee73d8fb5fb3d1d"
+    },
+    "newFunctionEvidence": [
+      {
+        "signature": "saas.catalog_checked_product_stock_summary(bigint,bigint,numeric)",
+        "owner": "celebix_saas_owner",
+        "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+        "sha256": "7bd958ba1f941072706f75734612acc94091b28abf8295d038101e30a8c67a60"
+      },
+      {
+        "signature": "saas.catalog_get_dashboard_summary_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)",
+        "owner": "celebix_saas_owner",
+        "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+        "sha256": "0118854d510082950a7377f77f65c490933cce48615055acd7060639b2758a8f"
+      },
+      {
+        "signature": "saas.catalog_list_products_unpriced_v5(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)",
+        "owner": "celebix_saas_owner",
+        "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+        "sha256": "7512e6968017b52414ce9160c516e408e0ab4277598d6710897ba84085ce60b4"
+      },
+      {
+        "signature": "saas.catalog_list_products_v5(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,text,text,text,uuid,uuid,uuid,text,integer,timestamp with time zone,text,uuid)",
+        "owner": "celebix_saas_owner",
+        "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+        "sha256": "d26ddaada2ee48a7274008225fccfd1f8beb1f6d296ad2b31755f8d08c065d3b"
+      },
+      {
+        "signature": "saas.catalog_product_stock_summary(uuid,uuid)",
+        "owner": "celebix_saas_owner",
+        "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+        "sha256": "f8f8accf97e8a2311eaa49346e2b2633728a49f23f867963437d34fbb13fa623"
+      }
+    ],
+    "noMerchantRowsChanged": true
+  }
+}

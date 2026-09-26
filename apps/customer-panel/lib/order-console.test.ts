@@ -9,6 +9,11 @@ test('archived detail shows its real history and management restore form',async(
  const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
  const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,archive:{archived:true,changedAt:NOW}},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false},onRestoreSubmit(){},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
  assert.match(html,/Arşivlenmiş sipariş/); assert.match(html,/Arşivden çıkar/); assert.match(html,/Keten Gömlek/);
+ assert.doesNotMatch(html,/<dialog[^>]*open|name="evidenceReference"/);
+ const Restore=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation','restore');
+ const opened=renderToStaticMarkup(createElement(Restore,{detail:{...detail,archive:{archived:true,changedAt:NOW}},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false},onRestoreSubmit(){},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
+ assert.match(opened,/<textarea[^>]*name="reason"[^>]*required=""[^>]*maxLength="500"/u);
+ assert.match(opened,/<input(?=[^>]*name="evidenceReference")(?=[^>]*required="")(?=[^>]*maxLength="500")[^>]*>/u);
 });
 test('restore client binds exact order and explicit operation for safe retry',async()=>{
  const {createOrderApiClient}=await import('./order-ui/client.ts');
@@ -42,28 +47,40 @@ test('archive client binds the explicit operation and rejects mismatched archive
 test('active archive action renders only for managers and never replaces archived restore',async()=>{
  const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
  const common={detail,state:'loaded',error:'',notice:'',busy:'',onRetry(){},onArchiveSubmit(){},onRestoreSubmit(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}};
- const active=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
- assert.match(active,/<details class="orderInfoCard"><summary>Siparişi arşivle<\/summary>/u);
- assert.match(active,/<input[^>]*name="reason"/u);
- assert.match(active,/<input[^>]*required=""/u);
- assert.match(active,/<input[^>]*maxLength="500"/u); assert.match(active,/>Arşivle<\/button>/u);
- assert.doesNotMatch(active,/merchant-panel\/orders\/archive|evidenceReference/u);
- const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{fulfill:false,manage:false,payment:false,shipping:false,note:false}}));
+ const capabilities={fulfill:false,manage:true,payment:false,shipping:false,note:false};
+ const active=renderToStaticMarkup(createElement(Presentation,{...common,capabilities}));
+ assert.match(active,/>Siparişi arşivle<\/button>/u);
+ assert.doesNotMatch(active,/<dialog[^>]*open|name="reason"|evidenceReference/u);
+ const Archive=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation','archive');
+ const opened=renderToStaticMarkup(createElement(Archive,{...common,capabilities}));
+ assert.match(opened,/<dialog[^>]*open/u);
+ assert.match(opened,/<textarea[^>]*name="reason"[^>]*required=""[^>]*maxLength="500"/u);
+ assert.match(opened,/>Arşivle<\/button>/u);
+ assert.doesNotMatch(opened,/merchant-panel\/orders\/archive|evidenceReference/u);
+ const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{...capabilities,manage:false}}));
  assert.doesNotMatch(readOnly,/Siparişi arşivle|>Arşivle<|Arşivden çıkar/u);
- const archived=renderToStaticMarkup(createElement(Presentation,{...common,detail:{...detail,archive:{archived:true,changedAt:NOW}},capabilities:{fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
+ const archived=renderToStaticMarkup(createElement(Presentation,{...common,detail:{...detail,archive:{archived:true,changedAt:NOW}},capabilities}));
  assert.doesNotMatch(archived,/Siparişi arşivle|>Arşivle</u); assert.match(archived,/Arşivden çıkar/u);
 });
+
 test('permanent order deletion stays manager-only and requires the exact impact label',async()=>{
  const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
  const common={detail,state:'loaded',error:'',notice:'',busy:'',onRetry(){},onArchiveSubmit(){},onRestoreSubmit(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){},onDeletionImpactRequest(){},onDeleteSubmit(){}};
- const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{delete:false,fulfill:true,manage:true,payment:false,shipping:true,note:true}}));
- assert.doesNotMatch(readOnly,/Kalıcı olarak sil|Silme etkisini göster/u);
- const pending=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{delete:true,fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
- assert.match(pending,/Siparişi kalıcı olarak sil/u); assert.match(pending,/Silme etkisini göster/u);
+ const capabilities={delete:true,fulfill:false,manage:true,payment:false,shipping:false,note:false};
+ const readOnly=renderToStaticMarkup(createElement(Presentation,{...common,capabilities:{...capabilities,delete:false}}));
+ assert.doesNotMatch(readOnly,/Kalıcı sil|Silme etkisi/u);
+ const pending=renderToStaticMarkup(createElement(Presentation,{...common,capabilities}));
+ assert.match(pending,/>Kalıcı sil<\/button>/u);
+ assert.doesNotMatch(pending,/<dialog[^>]*open|name="confirmation"|name="acknowledged"/u);
+ const Delete=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation','delete');
+ const loading=renderToStaticMarkup(createElement(Delete,{...common,busy:'deletion-impact',capabilities}));
+ assert.match(loading,/Silme etkisi yükleniyor/u);
  const impact={resourceKind:'order',resourceId:ORDER_ID,expectedVersion:4,confirmationLabel:'HMN-1001',effects:[{kind:'order_items',count:2,disposition:'delete'}]};
- const ready=renderToStaticMarkup(createElement(Presentation,{...common,deletionImpact:impact,capabilities:{delete:true,fulfill:false,manage:true,payment:false,shipping:false,note:false}}));
- assert.match(ready,/HMN-1001/u); assert.match(ready,/name="confirmation"/u); assert.match(ready,/name="acknowledged"/u); assert.match(ready,/>Kalıcı olarak sil</u);
+ const Ready=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation','delete');
+ const ready=renderToStaticMarkup(createElement(Ready,{...common,deletionImpact:impact,capabilities}));
+ assert.match(ready,/HMN-1001/u); assert.match(ready,/name="confirmation"/u); assert.match(ready,/name="acknowledged"/u); assert.match(ready,/>Kalıcı sil</u);
 });
+
 test('uncertain archive retry reuses one operation ID until success',async()=>{
  const hooks=createHookRuntime(); let current:OrderDetail=detail; const archiveInputs:Record<string,unknown>[]=[]; let attempts=0;
  const {exports}=await compileOrderModule('components/orders/OrderDetailConsole.tsx',{react:hooks.runtime,orderApi:{
@@ -359,9 +376,39 @@ async function compileOrderModule(
     constructor(readonly code: string) { super(code); }
   }
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
+  // The controller's deterministic hook runtime must not also own the hooks of
+  // the presentation when renderToStaticMarkup renders its returned element.
+  let renderingPresentation = false;
+  const presentations = new WeakMap<Function, ComponentType<Record<string, unknown>>>();
+  const renderJsx = (factory: typeof jsxRuntime.jsx) => (type: Parameters<typeof jsxRuntime.jsx>[0], props: Record<string, unknown>, key?: string) => {
+    let selected = type;
+    if (overrides.react && typeof type === "function" && /^(OrderList|OrderDetail)Presentation$/.test(type.name)) {
+      let wrapper = presentations.get(type);
+      if (!wrapper) {
+        wrapper = (input) => {
+          renderingPresentation = true;
+          try { return (type as (props: Record<string, unknown>) => ReactNode)(input); } finally { renderingPresentation = false; }
+        };
+        presentations.set(type, wrapper);
+      }
+      selected = wrapper;
+    }
+    return factory(selected, props, key);
+  };
+  const controllerReact = overrides.react ? {
+    ...overrides.react,
+    ...Object.fromEntries(["useState", "useRef", "useCallback", "useMemo", "useEffect", "useId"].map((name) => [name, (...args: unknown[]) => {
+      const hooks = renderingPresentation ? React : overrides.react!;
+      return (hooks[name as keyof typeof React] as (...input: unknown[]) => unknown)(...args);
+    }])),
+  } : React;
+  const Dialog = ({ open, title, busy, onClose, children, footer }: { open: boolean; title: string; busy?: boolean; onClose: () => void; children?: ReactNode; footer?: ReactNode }) =>
+    createElement("dialog", { open: open || undefined, "aria-label": title, "aria-busy": busy || undefined },
+      createElement("header", null, createElement("h2", null, title), createElement("button", { type: "button", disabled: busy, onClick: onClose, "aria-label": `${title} penceresini kapat` }, "Kapat")),
+      createElement("div", null, children), footer ? createElement("footer", null, footer) : null);
   const requireModule = (specifier: string): unknown => {
-    if (specifier === "react/jsx-runtime") return jsxRuntime;
-    if (specifier === "react") return overrides.react ?? React;
+    if (specifier === "react/jsx-runtime") return { ...jsxRuntime, jsx: renderJsx(jsxRuntime.jsx), jsxs: renderJsx(jsxRuntime.jsxs) };
+    if (specifier === "react") return controllerReact;
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
@@ -376,7 +423,8 @@ async function compileOrderModule(
       ORDER_PAYMENT_STATUSES: ["pending", "processing", "completed", "failed", "refunded"],
       ORDER_STATUSES: ["pending", "confirmed", "preparing", "shipped", "delivered", "cancelled", "refunded"],
     };
-    if (specifier === "./order-console.module.css") return styles;
+    if (["./order-console.module.css", "./order-list.module.css", "./order-detail.module.css"].includes(specifier)) return styles;
+    if (specifier === "./OrderActionDialog") return { OrderActionDialog: Dialog };
     throw new Error(`unexpected_order_console_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -386,8 +434,17 @@ async function compileOrderModule(
 async function compilePresentation(
   path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx",
   exportName: "OrderListPresentation" | "OrderDetailPresentation",
+  initialDialog?: string,
 ): Promise<ComponentType<Record<string, unknown>>> {
-  const compiled = await compileOrderModule(path);
+  let seeded = false;
+  const react = initialDialog === undefined ? undefined : {
+    ...React,
+    useState<T>(initial: T | (() => T)) {
+      if (!seeded) { seeded = true; return React.useState(initialDialog as T); }
+      return React.useState(initial);
+    },
+  } as typeof React;
+  const compiled = await compileOrderModule(path, react ? { react } : {});
   assert.equal(typeof compiled.exports[exportName], "function");
   return compiled.exports[exportName] as ComponentType<Record<string, unknown>>;
 }
@@ -415,6 +472,7 @@ function createHookRuntime() {
       if (!(index in slots)) slots[index] = { current: initial };
       return slots[index] as { current: T };
     },
+    useId() { const index = cursor++; if (!(index in slots)) slots[index] = `test-order-${index}`; return slots[index] as string; },
     useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
       const index = cursor++;
       const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
@@ -818,7 +876,7 @@ test("order list renders a controlled loading state without records", async () =
   assert.match(html, /Siparişler yükleniyor/);
   assert.doesNotMatch(html, /Sipariş kapsamı yükleniyor/u);
   assert.doesNotMatch(html, /HMK-1042/);
-  assert.match(html, /<button class="exportButton" type="button" disabled="">CSV Dışa Aktar<\/button>/u);
+  assert.match(html, /<button class="exportButton"[^>]*disabled=""[^>]*aria-label="CSV Dışa Aktar"/u);
 });
 
 test("order list renders a truthful empty state without fake rows", async () => {
@@ -1011,48 +1069,36 @@ test("order list keeps cursor pagination usable when local filters have no loade
   assert.match(html, /Daha fazla sipariş yükle/u);
 });
 
-test("order console switches table and mobile cards exactly at 1024/1025 with 48px targets", async () => {
-  const css = await source("components/orders/order-console.module.css");
+test("order console switches table and mobile cards at 1024/1025 with reachable mobile controls", async () => {
+  const css = await source("components/orders/order-list.module.css");
   const list = await source("components/orders/OrderListConsole.tsx");
-
-  assert.match(css, /[.]columnPicker\s*>\s*div\s+label\s*\{[^}]*min-height:\s*48px/s);
+  assert.match(css, /[.]columnPicker\s+label\s*\{[^}]*min-height:\s*44px/s);
   const Presentation = await compilePresentation("components/orders/OrderListConsole.tsx", "OrderListPresentation");
   const html = renderToStaticMarkup(createElement(Presentation, renderProps("loaded")));
-  assert.match(list, /styles[.]desktopTable/);
-  assert.match(list, /styles[.]mobileCards/);
+  assert.match(list, /styles[.]desktopTable/); assert.match(list, /styles[.]mobileCards/);
   assert.match(html, new RegExp(`<a class="orderLink" href="/orders/${ORDER_ID}">HMK-1042</a>`));
   assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]desktopTable\s*\{\s*display:\s*none/);
   assert.match(css, /@media \(min-width: 1025px\)[\s\S]*?[.]mobileCards\s*\{\s*display:\s*none/);
-  assert.match(css, /[.]orderLink\s*\{[^}]*display:\s*inline-flex[^}]*min-width:\s*48px[^}]*min-height:\s*48px/s);
+  assert.match(css, /[.]detailLink\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]cardOrderIdentity [.]orderLink\s*\{\s*min-height:\s*44px/);
 });
 
-test("order detail renders immutable items, events, and merchant notes", async () => {
-  const Presentation = await compilePresentation("components/orders/OrderDetailConsole.tsx", "OrderDetailPresentation");
-  const html = renderToStaticMarkup(createElement(Presentation, {
-    detail,
-    state: "loaded",
-    error: "",
-    notice: "",
-    busy: "",
-    capabilities: { fulfill: true, manage: true, payment: true, shipping: true, note: true },
-    onRetry() {}, onStatusChange() {}, onPaymentChange() {}, onShippingSubmit() {}, onNoteSubmit() {}, onNoteArchive() {},
-  }));
-  assert.match(html, /Keten Gömlek/);
-  assert.match(html, /Kiremit \/ M/);
-  assert.match(html, /Sipariş onaylandı/);
-  assert.match(html, /Hediye paketiyle gönderin/);
-  assert.match(html, /Adres devamı/);
-  assert.match(html, /value="Daire 4"/);
-  assert.match(html, /Takip bağlantısı/);
-  assert.match(html, /value="https:\/\/track[.]example\/YK123"/);
-  assert.match(html, /Kargoya veriliş zamanı/);
-  assert.match(html, new RegExp(`value="${NOW.replaceAll(".", "[.]")}"`));
-  assert.match(html, /Sipariş bilgileri/);
-  assert.match(html, /Online mağaza/);
-  assert.match(html, /Son güncelleme/);
-  assert.match(html, /Müşteri iletişimi/);
-  assert.match(html, /mailto:ada@example[.]com/);
-  assert.match(html, /tel:[+]905551112233/);
+test("order detail renders immutable facts and keeps shipping and metadata fields in focused dialogs", async () => {
+  const common={detail,state:"loaded",error:"",notice:"",busy:"",capabilities:{fulfill:true,manage:true,payment:true,shipping:true,note:true},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}};
+  const Presentation=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation");
+  const html=renderToStaticMarkup(createElement(Presentation,common));
+  for(const text of [/Keten Gömlek/,/Kiremit \/ M/,/Sipariş onaylandı/,/Hediye paketiyle gönderin/,/Daire 4/,/Online mağaza/,/mailto:ada@example[.]com/,/tel:[+]905551112233/]) assert.match(html,text);
+  assert.doesNotMatch(html,/<dialog[^>]*open|name="recipientName"|name="shippedAt"/);
+  const Shipping=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation","shipping");
+  const shipping=renderToStaticMarkup(createElement(Shipping,common));
+  assert.match(shipping,/Adres devamı/); assert.match(shipping,/value="Daire 4"/);
+  assert.match(shipping,/Takip bağlantısı/); assert.match(shipping,/value="https:\/\/track[.]example\/YK123"/);
+  assert.match(shipping,/Gönderim zamanı/); assert.match(shipping,/<input[^>]*type="datetime-local"[^>]*name="shippedAt"/);
+  const expectedLocal=new Date(new Date(NOW).getTime()-new Date(NOW).getTimezoneOffset()*60_000).toISOString().slice(0,16);
+  assert.ok(shipping.includes(`value="${expectedLocal}"`));
+  const Metadata=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation","metadata");
+  const metadata=renderToStaticMarkup(createElement(Metadata,common));
+  assert.match(metadata,/Son güncelleme/); assert.match(metadata,/Kayıt sürümü/);
 });
 
 test("notification failure leaves a valid order detail visible", async () => {
@@ -1115,13 +1161,13 @@ test("order detail exposes deterministic previous/next navigation in a responsiv
   assert.match(html, /Önceki/);
   assert.match(html, /href="\/orders\/dddddddd-dddd-4ddd-8ddd-dddddddddddd"/);
   assert.match(html, /Sonraki/);
-  assert.match(html, /class="orderWorkspace"/);
-  assert.match(html, /class="workspaceRail"/);
+  assert.match(html, /class="workspace"/);
+  assert.match(html, /class="rail"/);
 
-  const css = await source("components/orders/order-console.module.css");
-  assert.match(css, /[.]orderWorkspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/s);
-  assert.match(css, /[.]workspaceRail\s*\{[^}]*position:\s*sticky/s);
-  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]orderWorkspace\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  const css = await source("components/orders/order-detail.module.css");
+  assert.match(css, /[.]workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+288px/s);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?[.]workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*?[.]rail\s*\{[^}]*display:\s*block/s);
 });
 
 test("order detail treats neighbor navigation as non-blocking auxiliary data", async () => {
@@ -1164,13 +1210,13 @@ test("order detail offers only authorized SQL 023 status and payment transitions
   ] as const;
   for (const [status, capability, expected] of orderCases) {
     assert.deepEqual(statusOptions(status, capability), expected);
-    const html = renderToStaticMarkup(createElement(Presentation, {
-      ...common,
-      detail: Object.freeze({ ...detail, status }),
-      capabilities: { ...capability, payment: false, shipping: false, note: false },
-    }));
-    assert.deepEqual(values(html, "Sipariş durumunu güncelle"), expected);
-    if (expected.length === 0) assert.doesNotMatch(html, /aria-label="Sipariş operasyonları"/);
+    const Status = await compilePresentation("components/orders/OrderDetailConsole.tsx", "OrderDetailPresentation", "status");
+    const props = { ...common, detail: Object.freeze({ ...detail, status }), capabilities: { ...capability, payment: false, shipping: false, note: false } };
+    const html = renderToStaticMarkup(createElement(Status, props));
+    assert.deepEqual(values(html, "Sipariş durumunu güncelle"), expected.slice(1));
+    const resting = renderToStaticMarkup(createElement(Presentation, props));
+    assert.doesNotMatch(resting, /<select aria-label="Sipariş durumunu güncelle"/);
+    if (expected.length === 0) assert.doesNotMatch(resting, />Sipariş durumu</);
   }
   const paymentCases = [
     ["pending", ["pending", "processing", "failed"]],
@@ -1181,32 +1227,48 @@ test("order detail offers only authorized SQL 023 status and payment transitions
   ] as const;
   for (const [paymentStatus, expected] of paymentCases) {
     assert.deepEqual(paymentOptions(paymentStatus, true), expected);
-    const html = renderToStaticMarkup(createElement(Presentation, {
-      ...common,
-      detail: Object.freeze({ ...detail, paymentStatus }),
-      capabilities: { fulfill: false, manage: false, payment: true, shipping: false, note: false },
-    }));
-    assert.deepEqual(values(html, "Ödeme durumunu güncelle"), expected);
-    if (expected.length === 0) assert.doesNotMatch(html, /aria-label="Sipariş operasyonları"/);
+    const Payment = await compilePresentation("components/orders/OrderDetailConsole.tsx", "OrderDetailPresentation", "payment");
+    const props = { ...common, detail: Object.freeze({ ...detail, paymentStatus }), capabilities: { fulfill: false, manage: false, payment: true, shipping: false, note: false } };
+    const html = renderToStaticMarkup(createElement(Payment, props));
+    assert.deepEqual(values(html, "Ödeme durumunu güncelle"), expected.slice(1));
+    const resting = renderToStaticMarkup(createElement(Presentation, props));
+    assert.doesNotMatch(resting, /<select aria-label="Ödeme durumunu güncelle"/);
+    if (expected.length === 0) assert.doesNotMatch(resting, />Durumu güncelle /);
   }
   assert.deepEqual(paymentOptions("pending", false), []);
-  const editorHtml = renderToStaticMarkup(createElement(Presentation, {
-    ...common,
-    capabilities: { fulfill: true, manage: false, payment: true, shipping: true, note: true },
-  }));
-  const editorTree = (Presentation as (props: Record<string, unknown>) => ReactNode)({
-    ...common,
-    capabilities: { fulfill: true, manage: false, payment: true, shipping: true, note: true },
-  });
-  visitElements(editorTree, (element) => {
-    const label = element.props["aria-label"];
-    const onChange = element.props.onChange as ((event: { target: { value: string } }) => void) | undefined;
-    if (label === "Sipariş durumunu güncelle") onChange?.({ target: { value: "preparing" } });
-    if (label === "Ödeme durumunu güncelle") onChange?.({ target: { value: "refunded" } });
-  });
-  assert.deepEqual(selected, ["status:preparing", "payment:refunded"]);
-  assert.deepEqual(values(editorHtml, "Sipariş durumunu güncelle"), ["confirmed", "preparing"]);
-  assert.deepEqual(values(editorHtml, "Ödeme durumunu güncelle"), ["completed", "refunded"]);
+  const interactionHooks=createHookRuntime();
+  const interactive=await compileOrderModule("components/orders/OrderDetailConsole.tsx",{react:interactionHooks.runtime});
+  const Interactive=interactive.exports.OrderDetailPresentation as (props:Record<string,unknown>)=>ReactNode;
+  const editorProps={...common,capabilities:{fulfill:true,manage:false,payment:true,shipping:true,note:true}};
+  const find=(tree:ReactNode,predicate:(element:React.ReactElement<Record<string,unknown>>)=>boolean)=>{
+    let match:React.ReactElement<Record<string,unknown>>|undefined;
+    visitElements(tree,element=>{if(predicate(element))match=element;});
+    assert.ok(match);return match;
+  };
+  const text=(element:React.ReactElement<Record<string,unknown>>)=>React.Children.toArray(element.props.children as ReactNode).filter(value=>typeof value==='string').join('').trim();
+  let tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  assert.equal(selected.length,0);
+  const openStatus=find(tree,element=>element.type==='button'&&text(element)==='Sipariş durumu');
+  (openStatus.props.onClick as ()=>void)();
+  tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  const statusSelect=find(tree,element=>element.props['aria-label']==='Sipariş durumunu güncelle');
+  (statusSelect.props.onChange as (event:unknown)=>void)({target:{value:'preparing'}});
+  tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  assert.equal(selected.length,0,'selection alone does not mutate the order');
+  const statusForm=find(tree,element=>element.type==='form'&&Boolean(element.props.id));
+  (statusForm.props.onSubmit as (event:unknown)=>void)({preventDefault(){}});
+  const statusDialog=find(tree,element=>element.props.title==='Sipariş durumunu güncelle'&&element.props.open===true);
+  (statusDialog.props.onClose as ()=>void)();
+  tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  const openPayment=find(tree,element=>element.type==='button'&&text(element)==='Durumu güncelle');
+  (openPayment.props.onClick as ()=>void)();
+  tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  const paymentSelect=find(tree,element=>element.props['aria-label']==='Ödeme durumunu güncelle');
+  (paymentSelect.props.onChange as (event:unknown)=>void)({target:{value:'refunded'}});
+  tree=await interactionHooks.flush(()=>Interactive(editorProps));
+  const paymentForm=find(tree,element=>element.type==='form'&&Boolean(element.props.id));
+  (paymentForm.props.onSubmit as (event:unknown)=>void)({preventDefault(){}});
+  assert.deepEqual(selected,['status:preparing','payment:refunded']);
   const executeOrderMutation = exports.executeOrderMutation as (
     operation: () => Promise<unknown>,
     reload: (conflict: boolean) => Promise<unknown>,
