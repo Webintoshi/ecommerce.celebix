@@ -58,6 +58,6 @@ test('audit is purpose separated and copies only bounded safe fields, with loggi
  assert.notEqual((events[0] as {correlation:string}).correlation,(other[0] as {correlation:string}).correlation);
  assert.doesNotThrow(()=>createOnboardingAudit({key,write:()=>{throw new Error('log sink failed');}})({attemptId:'job-1',stage:'tenant_recovery',code:'completion_pending'}));
  const completion:unknown[]=[];createRegistrationCompletionAudit(event=>completion.push(event))({operation:'resume_tenant_creation',outcome:'completed',password:'private',state:'private'} as never);
- assert.deepEqual(completion,[{schemaVersion:1,event:'onboarding_completion',stage:'resume_tenant_creation',code:'completed'}]);
  createRegistrationCompletionAudit(event=>completion.push(event))({operation:'raw error',outcome:'password private'} as never);assert.equal(completion.length,1);
+ assert.deepEqual(completion,[{schemaVersion:1,event:'onboarding_completion',stage:'resume_tenant_creation',code:'completed'}]);
 });

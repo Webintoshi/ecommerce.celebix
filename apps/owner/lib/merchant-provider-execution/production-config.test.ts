@@ -8,6 +8,7 @@ import {
   resolveMerchantProviderProductionMode,
 } from "./production-config.ts";
 import { createProductionMerchantProviderRegistries } from "./registry.ts";
+import {IYZICO_APPROVED_EXECUTION_AUTHORITY,PAYTR_APPROVED_EXECUTION_AUTHORITIES} from '@celebix/payment-adapters';
 
 const KEY = Buffer.alloc(32, 0x41).toString("base64url");
 const EVIDENCE = `sha256:${"a".repeat(64)}`;
@@ -45,9 +46,9 @@ function environment(overrides: Record<string, string | undefined> = {}) {
   };
 }
 
-test("compiled provider-keyed identities enable Iyzico and PayTR verification while execution authorities stay closed", () => {
+test("closed execution authority fixture enables Iyzico and PayTR verification independently", () => {
   assert.equal(resolveMerchantProviderProductionMode(environment()), "approved_test_validation");
-  const config = parseMerchantProviderProductionConfig(environment());
+  const config = createMerchantProviderProductionConfigParser(NO_AUTHORITIES,ALL_IDENTITIES).parse(environment());
 
   assert.deepEqual(config.executionAuthorities, NO_AUTHORITIES);
   assert.deepEqual(config.verificationIdentities, ALL_IDENTITIES);
@@ -59,6 +60,12 @@ test("compiled provider-keyed identities enable Iyzico and PayTR verification wh
   assert.equal(Object.isFrozen(config.executionAuthorities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities), true);
   assert.equal(Object.isFrozen(config.verificationIdentities.iyzico_iframe), true);
+});
+
+test('default parser preserves the currently compiled approved execution authorities',()=>{
+ const config=parseMerchantProviderProductionConfig(environment());
+ assert.deepEqual(config.executionAuthorities,{iyzico_iframe:IYZICO_APPROVED_EXECUTION_AUTHORITY,paytr_iframe:PAYTR_APPROVED_EXECUTION_AUTHORITIES.test??PAYTR_APPROVED_EXECUTION_AUTHORITIES.live});
+ assert.deepEqual(config.verificationIdentities,ALL_IDENTITIES);
 });
 
 test("default production authority is compiled only from generated provider build bindings", () => {

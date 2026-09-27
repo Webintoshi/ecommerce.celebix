@@ -328,12 +328,15 @@ test("production validation-only worker never falls through to either execution 
   const preflight = new Client((text) => text.includes("payment_provider_keyed_lifecycle_preflight")
     ? [preflightRow()]
     : []);
-  const emptyClaims = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new Client((text) =>
-    text.includes("merchant_provider_profile_claim_verification")
+  const selected=config();
+  const verificationSlots=Object.values(selected.verificationIdentities).reduce((total,identities)=>total+identities.length,0);
+  const validationSlots=Object.values(selected.executionAuthorities).filter(Boolean).length;
+  const emptyClaims = Array.from({length:2*(verificationSlots+validationSlots)},() => new Client((text) =>
+    text.includes("merchant_provider_profile_claim_verification")||text.includes("merchant_provider_profile_claim_validation")
       ? [{ outcome: "empty", result_payload: null }]
       : []));
   const clients = [preflight, ...emptyClaims];
-  const runtime = await initializeMerchantProviderProductionRuntime(config(), Object.freeze({
+  const runtime = await initializeMerchantProviderProductionRuntime(selected, Object.freeze({
     createPool: () => ({
       async connect() {
         checkouts += 1;
@@ -351,11 +354,12 @@ test("production validation-only worker never falls through to either execution 
 
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
   assert.deepEqual(await runtime.runOnce(), { kind: "empty" });
-  assert.equal(checkouts, 9);
+  assert.equal(checkouts, 1+2*(verificationSlots+validationSlots));
   assert.equal(providerCalls, 0);
   assert.equal(clients.length, 0);
+  assert.equal(emptyClaims.filter(claim=>claim.calls.some(({text})=>text.includes('claim_verification'))).length,2*verificationSlots);
+  assert.equal(emptyClaims.filter(claim=>claim.calls.some(({text})=>text.includes('claim_validation'))).length,2*validationSlots);
   for (const claim of emptyClaims) {
-    assert.equal(claim.calls.some(({ text }) => text.includes("claim_validation")), false);
     assert.equal(claim.calls.some(({ text }) => text.includes("merchant_provider_claim(")), false);
     assert.equal(claim.calls.some(({ text }) => text.includes("merchant_provider_finalize")), false);
   }
