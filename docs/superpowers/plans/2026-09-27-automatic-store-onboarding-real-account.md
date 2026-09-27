@@ -59,8 +59,8 @@
 ## Task 5 — Integrate, release and verify the real tenant (root)
 
 - [ ] Inspect any actual completion/recovery failure and repair the normal durable path with focused tests if encountered.
-- [ ] Independent source review, affected typechecks/builds, disposable migration rehearsal and a fresh private backup.
-- [ ] Commit exact source and safely release affected owner/shared applications, maintaining source-bound payment metadata and all unrelated settings.
-- [ ] Apply final migration once and verify existing design/domain preservation.
+- [x] Independent source review, affected typechecks/builds, disposable migration rehearsal and a fresh private backup.
+- [x] Commit exact source and safely release affected owner/shared applications, maintaining source-bound payment metadata and all unrelated settings.
+- [x] Apply final migration once and verify existing design/domain preservation.
 - [ ] Complete the pending browser signup; verify admin, setup/design, public storefront, console and media availability with no real commerce transaction.
 - [ ] Preserve the deliverable admin tab; report actual account URLs, changes, tests and any remaining user verification requirement.

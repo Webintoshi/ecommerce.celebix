@@ -1,0 +1,65 @@
+{
+  "checkedAt": "2026-09-27T18:00:44.922828+00:00",
+  "readOnly": true,
+  "checks": [
+    {
+      "url": "https://owner.saas-staging.celebix.net/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://owner.saas-staging.celebix.site/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://admin.guzidekuyumcu.com/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://butik-siora.saas-staging.celebix.net/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://guzidekuyumcu.com/api/health",
+      "httpStatus": 200,
+      "health": "ok",
+      "pass": true
+    },
+    {
+      "url": "https://owner.saas-staging.celebix.net/kayit",
+      "httpStatus": 200,
+      "checks": {
+        "enabledState": true,
+        "submitEnabled": true,
+        "creationText": true,
+        "suffixCorrect": true
+      },
+      "pass": true
+    },
+    {
+      "url": "https://owner.saas-staging.celebix.site/kayit",
+      "httpStatus": 200,
+      "checks": {
+        "enabledState": true,
+        "submitEnabled": true,
+        "creationText": true,
+        "suffixCorrect": true
+      },
+      "pass": true
+    }
+  ],
+  "pass": true
+}

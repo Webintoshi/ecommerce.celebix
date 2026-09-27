@@ -1,0 +1,8 @@
+{
+  "pass": true,
+  "migration166Present": true,
+  "unchangedDesigns": 10,
+  "unchangedLegacyDomains": 10,
+  "unchangedPublicDomains": 6,
+  "unchangedAdminDomains": 4
+}

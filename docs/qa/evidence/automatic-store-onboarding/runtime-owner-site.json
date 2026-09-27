@@ -1,0 +1,50 @@
+{
+  "sourceCommit": "7d1230e1182c7d7cdf9d7484d4a3319ae9f9640e",
+  "hashes": {
+    "apps/owner/app/kayit/page.tsx": "a5b28bd857ee11f7cb489869a444fc978f7f12e0ed1f4132c993eeff02d3711f",
+    "apps/owner/components/self-serve/SelfServeDirectRegistrationForm.tsx": "e7d0f52947d312caaee526c4768ff4aeb1fca4fdc596308633c39ba37f052223",
+    "apps/owner/lib/self-serve-auth-route-runtime/resolver.ts": "2c27744b78006d4262bb4da4bf309e017e297033bc64e002647aa652c9996b92",
+    "apps/owner/lib/self-serve-logto-provider/provider.ts": "01c50e4770a3a171d52cf3cb2b30b1032793f4c71ad6d857fcae8ef36cdfea67",
+    "apps/owner/lib/self-serve-oidc.ts": "223f399c1fa0fe382221aa7a002f5ad6d2df023d07f98acb9cf1df8176cdb8f7",
+    "apps/owner/scripts/sql/saas/202609230148_celebix_net_staging_starter_storefront_assertions.sql": "52957b635a5e04e1bddba1c8f9f527bf27f793210bfe9a1008d7d9a11a43e98c",
+    "apps/owner/scripts/sql/saas/202609270166_platform_starter_storefront.up.sql": "26de24a3d5ffe299f6dfd62ce7b35a60f34df541d4c5c2a79df1546802934aa7",
+    "apps/owner/scripts/sql/saas/202609270166_platform_starter_storefront.down.sql": "5810aabdb26bb02d52fd6c0a938c42141d7ed57302fe3ac1487a7ab9f3083d98",
+    "apps/owner/scripts/sql/saas/202609270166_platform_starter_storefront_assertions.sql": "5f53caa1baba4300b225cfd87b7435dd180ff79a351b89e842b772ff3b5458d7"
+  },
+  "paytrCandidate": {
+    "buildMetadataSchemaVersion": 1,
+    "evidenceSchemaVersion": 1,
+    "providerCode": "paytr_iframe",
+    "capability": "payment_processing",
+    "environment": "test",
+    "adapterVersion": 1,
+    "gitSha": "7d1230e1182c7d7cdf9d7484d4a3319ae9f9640e",
+    "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+    "candidateExecutionDigest": "sha256:5668c8e6285efab73144169686cabd4f48cc972bacfae5b8755fa04acb25c841"
+  },
+  "iyzicoCandidate": {
+    "buildMetadataSchemaVersion": 1,
+    "evidenceSchemaVersion": 1,
+    "providerCode": "iyzico_iframe",
+    "capability": "payment_processing",
+    "environment": "test",
+    "adapterVersion": 1,
+    "gitSha": "7d1230e1182c7d7cdf9d7484d4a3319ae9f9640e",
+    "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+    "candidateExecutionDigest": "sha256:39bb2dd2c817faea8430f2ff6710535f88c6d304f72f1e43b987edf871779874"
+  },
+  "paytrClosed": false,
+  "paytrTestApproval": {
+    "environment": "test",
+    "adapterVersion": 1,
+    "evidenceDigest": "sha256:5668c8e6285efab73144169686cabd4f48cc972bacfae5b8755fa04acb25c841"
+  },
+  "paytrLiveClosed": true,
+  "iyzicoClosed": true,
+  "nodeVersion": "v20.20.2",
+  "compiledRegistration": true,
+  "compiledRegistrationApi": true,
+  "matchedFiles": 9,
+  "preservedExistingTestScope": true,
+  "pass": true
+}

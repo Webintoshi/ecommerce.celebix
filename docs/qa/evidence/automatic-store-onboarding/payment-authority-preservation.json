@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "7d1230e1182c7d7cdf9d7484d4a3319ae9f9640e",
+  "oldOwnerNetImage": "kfpz000ahmt6w3c13eu34cs2:3613b565c249fa7080ead567a14629a36ea6c56a",
+  "oldOwnerSiteImage": "bpsgdwfiswna06mooguu2mr3:65f0500ae544d4bccb4fbc3006b4b9e307d1e66e",
+  "verificationMethod": "read-only generated metadata from old images; temporary network-isolated node process removed automatically",
+  "net": {
+    "iyzicoClosedBeforeAndAfter": true,
+    "paytrTestClosedBeforeAndAfter": true,
+    "paytrLiveClosedBeforeAndAfter": true
+  },
+  "site": {
+    "iyzicoClosedBeforeAndAfter": true,
+    "existingPaytrTestEnabledBeforeAndAfter": true,
+    "paytrLiveClosedBeforeAndAfter": true
+  },
+  "normalBindingsUpdated": [
+    "SOURCE_COMMIT",
+    "CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST",
+    "CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST"
+  ],
+  "allOtherApplicationSettingsEnvironmentAttributesPreserved": true,
+  "previewValuesPreserved": true
+}
