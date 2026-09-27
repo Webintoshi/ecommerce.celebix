@@ -1,0 +1,14 @@
+import type { CatalogRepository, StoreDomainOriginHealth } from "@celebix/saas-data";
+import type { MerchantAdminRecord, MerchantPaymentMethod, MerchantProviderProfile, StoreDomainView, StorefrontDesignWorkspace, TenantContext } from "@celebix/saas-contracts";
+export type SetupItemState = "ready" | "action_required" | "unavailable" | "restricted";
+export type SetupItem = Readonly<{ state: SetupItemState; code: string; recommendation?: "optional_logo" | "unpublished_changes" }>;
+export type SetupPaymentKind = "none" | "offline" | "configured" | "test" | "live" | "unavailable";
+export type SetupStatus = Readonly<{ access: SetupItem; products: SetupItem; design: SetupItem; domains: SetupItem; delivery: SetupItem; payment: SetupItem & Readonly<{ kind: SetupPaymentKind }> }>;
+export type SetupRead<T> = Readonly<{ kind: "value"; value: T }> | Readonly<{ kind: "unavailable" | "restricted" }>;
+export type SetupPaymentAvailability = Readonly<{ kind: "ready" | "disabled" | "unavailable"; providers: readonly Readonly<{ providerCode: "paytr_iframe" | "iyzico_iframe"; environment: "test" | "live" }>[] }>;
+export type SetupEdgeProof = Readonly<{ schemaVersion: 1; storeId: string; hostname: string; adminHostname: string; payment: SetupPaymentAvailability }>;
+export type SetupPaymentData = Readonly<{ methods: readonly MerchantPaymentMethod[]; profiles: readonly MerchantProviderProfile[]; authorities: readonly Readonly<{ providerCode: string; environment: "test" | "live" }>[] }>;
+export type SetupInputs = Readonly<{ access: SetupRead<SetupEdgeProof>; products: SetupRead<CatalogDashboardSummary>; design: SetupRead<StorefrontDesignWorkspace>; domains: SetupRead<readonly StoreDomainView[]>; delivery: SetupRead<readonly MerchantAdminRecord[]>; payment: SetupRead<SetupPaymentData> }>;
+export type SetupPorts = Readonly<{ access(context: TenantContext, now: Date): Promise<SetupEdgeProof>; products(context: TenantContext, now: Date): Promise<CatalogDashboardSummary>; design(context: TenantContext, now: Date): Promise<StorefrontDesignWorkspace>; domains(context: TenantContext, now: Date): Promise<readonly StoreDomainView[]>; delivery(context: TenantContext, now: Date): Promise<readonly MerchantAdminRecord[]>; payment(context: TenantContext, now: Date): Promise<SetupPaymentData> }>;
+export type SetupAdminHealth = StoreDomainOriginHealth;
+type CatalogDashboardSummary = Awaited<ReturnType<CatalogRepository["getDashboardSummary"]>>;
