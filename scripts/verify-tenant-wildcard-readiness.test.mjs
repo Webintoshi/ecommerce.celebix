@@ -6,6 +6,7 @@ import {
   certificateHealth,
   evaluateTenantWildcardReadiness,
   parseSubjectAlternativeNames,
+  runTenantWildcardReadiness,
 } from "./verify-tenant-wildcard-readiness.mjs";
 
 const NOW = new Date("2026-07-31T10:00:00.000Z");
@@ -17,6 +18,36 @@ const SHA = Object.freeze({
   panel: "5".repeat(64),
   auth: "6".repeat(64),
 });
+
+for (const environment of ["staging", "staging_net", "production"]) {
+  test(`runner probes central ${environment} panel login and rejects route collisions`, async () => {
+    const fixture = healthyInput(environment);
+    const calls = [];
+    const dependencies = {
+      probeHttp: async (hostname, path) => {
+        calls.push({ hostname, path });
+        const role = Object.keys(fixture.http).find((key) => fixture.http[key].hostname === hostname)
+          ?? (hostname.includes(".admin.") ? "unknownAdmin" : "unknownStorefront");
+        return { ...fixture.http[role], hostname };
+      },
+      probeCertificate: async (role, hostname) => ({
+        ...fixture.certificates.find((entry) => entry.role === role),
+        hostname,
+        validTo: "2099-01-01T00:00:00.000Z",
+      }),
+    };
+    const args = ["--environment", environment, "--known-admin", fixture.http.knownAdmin.hostname,
+      "--known-storefront", fixture.http.knownStorefront.hostname];
+    const result = await runTenantWildcardReadiness(args, dependencies);
+    const panelProbe = calls.find((entry) => entry.hostname === fixture.http.panel.hostname);
+    assert.equal(panelProbe?.path, "/login");
+    assert.equal(result.ok, true);
+    fixture.http.panel.bodySha256 = fixture.http.knownStorefront.bodySha256;
+    const collision = await runTenantWildcardReadiness(args, dependencies);
+    assert.equal(collision.ok, false);
+    assert.ok(collision.errors.includes("panel_storefront_route_collision"));
+  });
+}
 
 function healthyInput(environment = "staging") {
   const hosts = {

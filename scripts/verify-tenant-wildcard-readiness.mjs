@@ -266,7 +266,9 @@ async function probeCertificate(role, hostname) {
   });
 }
 
-export async function runTenantWildcardReadiness(rawArguments) {
+export async function runTenantWildcardReadiness(rawArguments, dependencies = {}) {
+  const httpProbe = dependencies.probeHttp ?? probeHttp;
+  const certificateProbe = dependencies.probeCertificate ?? probeCertificate;
   const config = argumentsFrom(rawArguments);
   const labels = [
     "adminCertificate",
@@ -279,14 +281,14 @@ export async function runTenantWildcardReadiness(rawArguments) {
     "auth",
   ];
   const settled = await Promise.allSettled([
-    probeCertificate("admin", config.unknownAdmin),
-    probeCertificate("storefront", config.unknownStorefront),
-    probeHttp(config.knownAdmin, "/"),
-    probeHttp(config.knownStorefront, "/"),
-    probeHttp(config.unknownAdmin, "/"),
-    probeHttp(config.unknownStorefront, "/"),
-    probeHttp(config.panel, "/api/health"),
-    probeHttp(config.auth, "/sign-in"),
+    certificateProbe("admin", config.unknownAdmin),
+    certificateProbe("storefront", config.unknownStorefront),
+    httpProbe(config.knownAdmin, "/"),
+    httpProbe(config.knownStorefront, "/"),
+    httpProbe(config.unknownAdmin, "/"),
+    httpProbe(config.unknownStorefront, "/"),
+    httpProbe(config.panel, "/login"),
+    httpProbe(config.auth, "/sign-in"),
   ]);
   const failures = settled.flatMap((result, index) => {
     if (result.status === "fulfilled") return [];
