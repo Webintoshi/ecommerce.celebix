@@ -1,4 +1,4 @@
-import assert from"node:assert/strict";import test from"node:test";import type{TenantContext}from"@celebix/saas-contracts";import type{MerchantAdminRepository}from"@celebix/saas-data";import{createMerchantAdminHttpHandlers}from"./handler.ts";
+import assert from"node:assert/strict";import test from"node:test";import type{TenantContext}from"@celebix/saas-contracts";import{PostgresMerchantAdminRepository,type MerchantAdminRepository}from"@celebix/saas-data";import{createMerchantAdminHttpHandlers}from"./handler.ts";
 const ORIGIN="https://panel.saas-staging.celebix.site",OP="74000000-0000-4000-8000-000000000001",REQ="78000000-0000-4000-8000-000000000001",RECORD="71000000-0000-4000-8000-000000000001",NOW=new Date("2026-07-22T19:00:00.000Z"),CREDENTIAL=`v1.panel.current.${Buffer.alloc(32,1).toString("base64url")}`;
 const TENANT_ADMIN_ORIGIN="https://store.admin.saas-staging.celebix.site",TENANT_ADMIN_HOST="store.admin.saas-staging.celebix.site";
 const JOB="73000000-0000-4000-8000-000000000001";
@@ -20,6 +20,26 @@ test("lists saves and archives with server TenantContext only",async()=>{const c
 test("tenant admin same-origin merchant mutations are accepted through internal proxy without trusting another tenant admin origin",async()=>{let calls=0;const h=handlers(repo({async save(){calls+=1;return{id:RECORD,kind:"discount",status:"draft",version:1,updatedAt:NOW.toISOString(),replayed:false}}}));const accepted=await h.save(request("/api/merchant-admin/records/discount","POST",{name:"Yaz",config:{value:15},status:"draft"},TENANT_ADMIN_ORIGIN,{host:"customer-panel:3400"}),"discount");assert.equal(accepted.status,200);assert.equal(calls,1);const rejected=await h.save(request("/api/merchant-admin/records/discount","POST",{name:"Yaz",config:{value:15},status:"draft"},"https://other-store.admin.saas-staging.celebix.site",{host:TENANT_ADMIN_HOST}),"discount");assert.equal(rejected.status,403);assert.deepEqual(await rejected.json(),{code:"origin_denied"});assert.equal(calls,1)});
 test("audit endpoint is read-only and exact path",async()=>{const h=handlers(repo({async listEvents(){return[{id:OP,recordId:RECORD,recordKind:"discount",eventKind:"saved",summary:{},occurredAt:NOW.toISOString()}]}}));assert.equal((await h.events(request("/api/merchant-admin/events/discount"),"discount")).status,200);assert.equal((await h.events(request("/api/merchant-admin/events/discount-child"),"discount")).status,400)});
 test("wrong origin private authority and secret config fail closed",async()=>{let calls=0;const h=handlers(repo({async save(){calls++;throw new Error("unexpected")}}));assert.equal((await h.save(request("/api/merchant-admin/records/marketplace_connection","POST",{name:"Pazar",config:{apiSecret:"x"},status:"draft"}),"marketplace_connection")).status,400);assert.equal((await h.save(request("/api/merchant-admin/records/discount","POST",{name:"Yaz",config:{},status:"active"},"https://attacker.test"),"discount")).status,403);assert.equal((await h.records(request("/api/merchant-admin/records/discount","GET",undefined,ORIGIN,{"x-store-id":RECORD}),"discount")).status,400);assert.equal(calls,0)});
+
+test("shipping fee HTTP uses typed repository validation and preserves version conflicts",async()=>{
+ const writes:unknown[][]=[];let outcome="saved";
+ const merchantAdmin=new PostgresMerchantAdminRepository({
+  pool:{async connect(){return{async query(text:string,values:unknown[]=[]){
+   const rows=text.includes("saas.merchant_admin_save(")?(writes.push(values),[{outcome,result_payload:outcome==="saved"?{id:RECORD,kind:"shipping_setting",status:"active",version:8,updatedAt:NOW.toISOString()}:null}]):[];
+   return{rows,rowCount:rows.length,command:"",oid:0,fields:[]};
+  },release(){}};}},role:"celebix_saas_app",timeouts:{poolCheckoutMs:100,statementMs:500,lockMs:300,idleTransactionMs:700},uuid:()=>RECORD,audit:()=>undefined,
+ });
+ const h=handlers(merchantAdmin),path="/api/merchant-admin/records/shipping_setting";
+ const input={recordId:RECORD,expectedVersion:7,name:"Teslimat",config:{regions:"Türkiye",freeShippingThresholdCents:50000,shippingPriceCents:1489,estimatedDays:365},status:"active"};
+ assert.equal((await h.save(request(path,"POST",input),"shipping_setting")).status,200);
+ assert.deepEqual(writes[0].slice(0,3),[tenant().store.id,tenant().principal.id,tenant().membership.id]);
+ assert.equal(writes[0][7],OP);assert.equal(writes[0][10],7);assert.deepEqual(JSON.parse(writes[0][13]as string),input.config);
+ assert.equal((await h.save(request(path,"POST",{...input,config:{shippingPriceCents:"1489"}}),"shipping_setting")).status,400);
+ assert.equal(writes.length,1);
+ outcome="version_conflict";
+ const conflict=await h.save(request(path,"POST",input),"shipping_setting");
+ assert.equal(conflict.status,409);assert.deepEqual(await conflict.json(),{code:"version_conflict"});
+});
 
 test("lists prepares and cancels provider work as preparation only",async()=>{
  const calls:unknown[]=[];

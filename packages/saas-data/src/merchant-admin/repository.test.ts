@@ -60,6 +60,25 @@ test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("shipping checkout fees reach the versioned SQL boundary without losing legacy configuration",async()=>{
+ for(const shippingPriceCents of [0,1489,100000000]){
+  const config={shippingPriceCents,estimatedDays:365,regions:"Türkiye",freeShippingThresholdCents:50000};
+  const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind:"shipping_setting"}}]:[]);
+  const result=await repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"shipping_setting",name:"Teslimat",config,status:"active"});
+  assert.equal(result.kind,"shipping_setting");
+  assert.deepEqual(JSON.parse(call(writer,"merchant_admin_save").values[13] as string),config);
+ }
+ assert.deepEqual(merchantAdminConfig("shipping_setting",{regions:"Türkiye"}),{regions:"Türkiye"});
+ assert.deepEqual(merchantAdminConfig("shipping_setting",{shippingPriceCents:1489,estimatedDays:1}),{shippingPriceCents:1489,estimatedDays:1});
+});
+
+test("shipping checkout rejects invalid cents and delivery days before SQL",async()=>{
+ for(const config of [
+  ...[-1,1.5,100000001,"1489",null].map(shippingPriceCents=>({shippingPriceCents})),
+  ...[0,366,1.5,"2",null].map(estimatedDays=>({shippingPriceCents:1489,estimatedDays})),
+ ]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"shipping_setting",name:"Teslimat",config:config as never,status:"active"}),error=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
 test("general settings accept only an optional canonical store SKU prefix",()=>{
  const base={storeDisplayName:"Mağaza",supportEmail:"support@example.test",timezone:"Europe/Istanbul"};
  assert.deepEqual(merchantAdminConfig("general_setting",{...base,skuPrefix:"RSA"}),{...base,skuPrefix:"RSA"});
