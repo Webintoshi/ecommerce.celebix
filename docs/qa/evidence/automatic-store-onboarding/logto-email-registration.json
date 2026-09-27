@@ -1,5 +1,5 @@
 {
-  "checkedAtUtc": "2026-09-27T18:25:38Z",
+  "checkedAtUtc": "2026-09-27T18:51:22.892816+00:00",
   "version": "1.41.0",
   "target": "Celebix shared staging Logto default tenant",
   "backupSha256": "36563aaf74fe69aa151e548a400ca6fc69f3f50082e7eca0dd4e297dfab69184",
@@ -12,11 +12,30 @@
   "tls": true,
   "debug": false,
   "templates": 9,
-  "signUp": {"identifiers": ["email"], "password": true, "verify": true, "secondaryIdentifiers": []},
-  "signIn": {"methods": [
-    {"identifier": "username", "password": true, "verificationCode": false, "isPasswordPrimary": true},
-    {"identifier": "email", "password": true, "verificationCode": false, "isPasswordPrimary": true}
-  ]},
+  "signUp": {
+    "identifiers": [
+      "email"
+    ],
+    "password": true,
+    "verify": true,
+    "secondaryIdentifiers": []
+  },
+  "signIn": {
+    "methods": [
+      {
+        "identifier": "username",
+        "password": true,
+        "verificationCode": false,
+        "isPasswordPrimary": true
+      },
+      {
+        "identifier": "email",
+        "password": true,
+        "verificationCode": false,
+        "isPasswordPrimary": true
+      }
+    ]
+  },
   "preservation": {
     "otherDefaultSettingsHash": "f37a06cae0d923a079168816e45eafde",
     "adminExperienceHash": "9e7f4ea31c46be89ba17bd35b48e1b5b",
@@ -27,13 +46,15 @@
   "legalConsent": "explicitly accepted by user",
   "marketingConsent": false,
   "browserReachedEmailCodeVerification": true,
-  "inboxDeliveryVerified": false,
-  "currentBlocker": "user requested a replacement Gmail registration address; real email code pending",
+  "inboxDeliveryVerified": true,
+  "currentBlocker": "account and tenant created; NET tenant DNS, wildcard TLS and browser E2E pending",
   "replacementMailboxCodeScreenVerified": true,
-  "replacementMailboxLogtoUserCount": 0,
-  "requestedLogtoUserCount": 0,
-  "requestedSaasPrincipalCount": 0,
-  "requestedStoreCount": 0,
-  "accountCompleted": false,
-  "adminAndStorefrontE2eCompleted": false
+  "replacementMailboxLogtoUserCount": 1,
+  "requestedSaasPrincipalCount": 1,
+  "requestedStoreCount": 1,
+  "accountCompleted": true,
+  "adminAndStorefrontE2eCompleted": false,
+  "originalMailboxAccountCreated": false,
+  "normalUserCodeAccepted": true,
+  "initialPasswordCreatedViaNormalUi": true
 }

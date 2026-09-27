@@ -33,6 +33,10 @@ function unavailable(): NextResponse {
   return new NextResponse("Storefront unavailable", { status: 503, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
 }
 
+function storefrontNotFound(): NextResponse {
+  return new NextResponse("Storefront not found", { status: 404, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
+}
+
 type ProxyAuthority = ReturnType<typeof selectTrustedStorefrontHostAuthority>;
 type StorefrontProxyDependencies = Readonly<{
   selectAuthority: (headers: Headers) => ProxyAuthority;
@@ -126,10 +130,9 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     if (dependencies.resolveCanonicalHostname && !originHealthPath) {
       try {
         const primaryHostname = await dependencies.resolveCanonicalHostname({ hostname: authority.hostname, now: dependencies.now() });
-        if (primaryHostname !== null) {
-          const location = createCanonicalStorefrontLocation({ requestedHostname: authority.hostname, primaryHostname, pathname, search: request.nextUrl.search });
-          if (location !== null) return new NextResponse(null, { status: 308, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, location } });
-        }
+        if (primaryHostname === null) return storefrontNotFound();
+        const location = createCanonicalStorefrontLocation({ requestedHostname: authority.hostname, primaryHostname, pathname, search: request.nextUrl.search });
+        if (location !== null) return new NextResponse(null, { status: 308, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, location } });
       } catch { return unavailable(); }
     }
     if (exactTarget && pathname === "/checkout/payment") return NextResponse.next();

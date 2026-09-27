@@ -62,3 +62,76 @@ test("storefront proxy fails closed when canonical authority is malformed", asyn
   const response = await handler(new NextRequest("https://internal.example/products"));
   assert.equal(response.status, 503);
 });
+
+test("storefront proxy returns HTTP 404 for an unknown authenticated root before page rendering", async () => {
+  let presentationCalls = 0;
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "unknown.saas-staging.celebix.net" }),
+    resolveCanonicalHostname: async ({ hostname }) => {
+      assert.equal(hostname, "unknown.saas-staging.celebix.net");
+      return null;
+    },
+    resolveMediaOrigin: () => { presentationCalls += 1; return "https://media.example"; },
+    authorizePaytrIframe: async () => { presentationCalls += 1; return false; },
+    resolveAnalytics: async () => { presentationCalls += 1; return null; },
+    now: () => new Date("2026-09-27T10:00:00.000Z"),
+  });
+
+  for (const target of ["https://internal.example/", "https://internal.example/?source=onboarding"]) {
+    const response = await handler(new NextRequest(target));
+
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get("x-middleware-next"), null);
+    assert.equal(response.headers.get("location"), null);
+    assert.match(response.headers.get("cache-control") ?? "", /(?:^|,\s*)no-store(?:,|$)/u);
+    assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'none'/u);
+  }
+  assert.equal(presentationCalls, 0);
+});
+
+test("storefront proxy continues page rendering for an active primary hostname", async () => {
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.saas-staging.celebix.net" }),
+    resolveCanonicalHostname: async () => "shop.saas-staging.celebix.net",
+    resolveMediaOrigin: () => "https://media.example",
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-09-27T10:00:00.000Z"),
+  });
+
+  const response = await handler(new NextRequest("https://internal.example/"));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-middleware-next"), "1");
+  assert.equal(response.headers.get("location"), null);
+});
+
+test("storefront proxy keeps unavailable canonical authority as HTTP 503", async () => {
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.saas-staging.celebix.net" }),
+    resolveCanonicalHostname: async () => { throw new Error("repository unavailable"); },
+    resolveMediaOrigin: () => "https://media.example",
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-09-27T10:00:00.000Z"),
+  });
+
+  const response = await handler(new NextRequest("https://internal.example/"));
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("x-middleware-next"), null);
+});
+
+test("exact PayTR callback keeps its authority adapter ahead of unknown storefront presentation", async () => {
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "unknown.saas-staging.celebix.net" }),
+    resolveCanonicalHostname: async () => null,
+    resolveMediaOrigin: () => { throw new Error("presentation unavailable"); },
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-09-27T10:00:00.000Z"),
+  });
+
+  const response = await handler(new NextRequest("https://internal.example/api/payments/paytr/callback", { method: "POST" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-middleware-next"), "1");
+  assert.equal(response.headers.get("location"), null);
+});

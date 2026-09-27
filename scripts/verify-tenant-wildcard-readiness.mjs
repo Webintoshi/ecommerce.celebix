@@ -66,6 +66,16 @@ function expectedEnvironment(environment) {
       authHostname: "auth.saas-staging.celebix.site",
     });
   }
+  if (environment === "staging_net") {
+    return Object.freeze({
+      adminSuffix: ".admin.saas-staging.celebix.net",
+      storefrontSuffix: ".saas-staging.celebix.net",
+      adminWildcard: "*.admin.saas-staging.celebix.net",
+      storefrontWildcard: "*.saas-staging.celebix.net",
+      panelHostname: "panel.saas-staging.celebix.net",
+      authHostname: "auth.saas-staging.celebix.site",
+    });
+  }
   if (environment === "production") {
     return Object.freeze({
       adminSuffix: ".admin.celebix.site",

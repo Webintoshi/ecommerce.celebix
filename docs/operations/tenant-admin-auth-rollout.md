@@ -7,8 +7,11 @@ This runbook covers the shared customer-panel and Owner authentication services 
 Canonical hosts:
 
 - Production: `https://<store-slug>.admin.celebix.site`
-- Staging: `https://<store-slug>.admin.saas-staging.celebix.site`
-- Shared staging callback/login authority: `https://panel.saas-staging.celebix.site`
+- SITE staging: `https://<store-slug>.admin.saas-staging.celebix.site`
+- NET staging: `https://<store-slug>.admin.saas-staging.celebix.net`
+- SITE staging callback/login authority: `https://panel.saas-staging.celebix.site`
+- NET staging callback/login authority: `https://panel.saas-staging.celebix.net`
+- Shared SITE/NET staging Logto identity provider: `https://auth.saas-staging.celebix.site`
 
 ## Wildcard TLS and instant Starter readiness
 
@@ -18,18 +21,28 @@ Required certificate scopes:
 
 | Environment | Admin | Storefront |
 | --- | --- | --- |
-| Staging | `*.admin.saas-staging.celebix.site` | `*.saas-staging.celebix.site` |
+| SITE staging (`staging`) | `*.admin.saas-staging.celebix.site` | `*.saas-staging.celebix.site` |
+| NET staging (`staging_net`) | `*.admin.saas-staging.celebix.net` | `*.saas-staging.celebix.net` |
 | Production | `*.admin.celebix.site` | `*.celebix.site` |
 
 Exact platform routers for `auth`, `panel`, `ecommerce`, `api`, `media`, and other reserved services must have higher priority than the storefront wildcard router. Existing exact-domain routers and certificates remain installed during the wildcard canary.
 
-Run the read-only staging preflight before and after every router/certificate change:
+Run the read-only preflight for the affected environment before and after every router/certificate change. SITE staging:
 
 ```bash
 npm run verify:tenant-wildcard -- \
   --environment staging \
   --known-admin guzide-kuyumcu-4.admin.saas-staging.celebix.site \
   --known-storefront guzide-kuyumcu-4.saas-staging.celebix.site
+```
+
+NET staging uses NET tenant hosts and the NET panel while checking the shared SITE Logto host:
+
+```bash
+npm run verify:tenant-wildcard -- \
+  --environment staging_net \
+  --known-admin alpler-spor.admin.saas-staging.celebix.net \
+  --known-storefront alpler-spor.saas-staging.celebix.net
 ```
 
 The verifier requires both wildcard SANs, rejects certificates below the critical 14-day threshold, warns below 30 days, checks that central platform hosts remain healthy, compares route body fingerprints, and requires random unknown tenant hosts to fail closed with 404 or 503. Any TLS verification failure, Traefik default certificate, route collision, accepted unknown tenant, or unhealthy platform host aborts rollout.

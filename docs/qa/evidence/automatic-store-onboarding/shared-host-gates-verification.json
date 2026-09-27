@@ -1,0 +1,34 @@
+{
+  "checkedAtUtc": "2026-09-27T18:57:38.076629+00:00",
+  "panel": {
+    "focusedTestsPassed": 29,
+    "focusedTestsFailed": 0,
+    "buildExitCode": 0,
+    "staticPagesGenerated": 90,
+    "proxyCompiled": true,
+    "routesGated": [
+      "/",
+      "/login"
+    ],
+    "developmentLoopbackPreserved": true,
+    "independentReview": "no deployed blocker; identified local loopback regression fixed"
+  },
+  "storefront": {
+    "focusedTestsPassed": 52,
+    "focusedTestsFailed": 0,
+    "typecheck": "PASS",
+    "build": "PASS",
+    "broadSuite": {
+      "passed": 562,
+      "failed": 1,
+      "failure": "unchanged CampaignSectionContent.test.ts imports renderToStaticMarkup under react-server condition; isolated unchanged test passes without that condition"
+    },
+    "buildExitCode": 0,
+    "independentReview": "PASS"
+  },
+  "wildcardReadinessTests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "deploymentCompleted": false
+}

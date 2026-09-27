@@ -2,7 +2,7 @@
 
 ## Kapsam
 
-İstenen Alpler Spor hesabını normal `/kayit` ve Logto akışıyla oluşturma, gözlenen başlangıç sorunlarını düzeltme, ortak NET/SITE kayıt panellerini yayınlama. İlk mağaza için mevcut HTTPS wildcard altyapısı kullanılır; ayrı Coolify uygulaması açılmaz. Pazarlama onayı, gerçek sipariş/ödeme veya ücretli plan işlemi yok.
+İstenen Alpler Spor hesabını normal `/kayit` ve Logto akışıyla oluşturma, gözlenen başlangıç sorunlarını düzeltme, ortak NET/SITE kayıt panellerini yayınlama. İlk mağaza ortak uygulamalara bağlanır; ayrı Coolify uygulaması açılmaz. Gerçek deneme ortak DNS/TLS wildcard ön koşullarının eksik olduğunu gösterdi. Pazarlama onayı, gerçek sipariş/ödeme veya ücretli plan işlemi yok.
 
 ## Düzeltmeler
 
@@ -25,7 +25,7 @@
 
 ## Gerçek kullanıcı akışı
 
-Salt okunur kontrolde istenen e-posta için principal/active owner membership ve istenen slug için mağaza bulunmadı. Kullanıcı gerekli kayıt metinlerini açıkça kabul etti; yalnız gerekli checkbox seçilip normal kayıt gönderildi. Logto e-postayı kullanıcı adı olarak reddetti. Aşağıdaki kimlik yapılandırması düzeltildikten sonra yeni normal kayıt denemesi gerçek e-posta doğrulama ekranına ulaştı. Kullanıcı şu anda posta kutusuna erişemediğini belirtti. **Hesap/tenant henüz oluşturulmadı.** Şifre, kod ve kimlik tokenları dosya veya raporlara yazılmaz.
+İlk salt okunur kontrolde istenen principal/active owner membership ve slug için mağaza bulunmadı. Kullanıcı gerekli kayıt metinlerini açıkça kabul etti; yalnız gerekli checkbox seçilip normal kayıt gönderildi. Logto e-postayı kullanıcı adı olarak reddetti. Aşağıdaki kimlik yapılandırması düzeltildi. Kullanıcı ilk posta kutusuna erişemediği için kendi belirttiği başka bir adresi kullandı; gelen gerçek kod normal doğrulama ekranına girildi ve ilk parola kurulumuyla kayıt tamamlandı. **Hesap ve Alpler Spor tenant'ı oluştu.** Admin yönlendirmesi DNS hatası verdi; adreslerin DNS/TLS kurulumu ve tarayıcı E2E doğrulaması sürüyor. Şifre, kod ve kimlik tokenları dosya veya raporlara yazılmaz.
 
 ## Yayın
 
@@ -58,6 +58,14 @@ NET `/kayit` tarayıcıda yeni etkin metin/form/domain suffix ile doğrulandı; 
 
 Resmi kaynaklar: [Logto signup](https://docs.logto.io/end-user-flows/sign-up-and-sign-in/sign-up), [Logto1.41.0 validation](https://github.com/logto-io/logto/blob/v1.41.0/packages/core/src/routes/experience/classes/libraries/sign-in-experience-validator.ts), [SMTP](https://resend.com/docs/send-with-smtp). Bağımsız ajan incelemesi kurulu sürümün mandatory identifier, connector ve cache koşullarını doğruladı. Bu adım kaynak uygulama derlemesi/deploy gerektirmeyen canlı kimlik yapılandırması düzeltmesidir.
 
-### Bekleyen gerçek hesap adımı
+### Gerçek hesap tamamlandı; alan adı kurulumu bekliyor
 
-Gerekli metin kabulü alınmıştır. Kullanıcı ilk posta kutusuna erişemediği için kayıt adresini kendi belirttiği Gmail adresine değiştirmeyi istedi; normal ekranda geri dönülüp bu adrese yeni kod gönderildi ve altı haneli kod ekranı doğrulandı. İki adres için de Logto kullanıcı sayısı0. **Alpler Spor hesabı henüz oluşturulmadı; kullanıcıdan gerçek e-posta doğrulama kodu bekleniyor.** Chrome kayıt tabı korunur. Gerekirse normal ekrandan yeni kod gönderilip kullanıcıdan alınacak; ardından verilen şifreyle ilk hesap kurulumu, admin oturumu ve yeni storefront E2E tamamlanacak. Pazarlama checkbox’ı kapalıdır. Kişisel posta adresi ve şifre rapora eklenmez.
+Kullanıcıdan alınan gerçek e-posta kodu doğrulandı, ilk hesap parolası normal ekranda oluşturuldu. [Salt okunur canlı kanıt](evidence/automatic-store-onboarding/alpler-spor-account.json): tek aktif Alpler Spor mağazası, doğrulanmış aktif mağaza sahibi, ücretsiz başlangıç aboneliği, eşleşen legacy/modern storefront alan adı, doğrulanmış admin alan adı ve aktif medya namespace'i hazır. Başlangıç tasarımı schema4, taslak/yayın sürümü1, aynı config ve yayınlanabilir durumdadır. Kayıt işlemi committed/ready, workflow tenant_created/completed; bir redeemed registration handoff ve bir aktif panel session kaydı vardır. Bunlar tarayıcıda admin erişiminin doğrulandığı anlamına gelmez.
+
+[Güvenilen origin HTTP kontrolü](evidence/automatic-store-onboarding/pre-wildcard-internal-storefront.json) mevcut Siora ve yeni Alpler Spor için200/doğru mağaza başlığını doğruladı. Olmayan slug için SQL resolver not_found iken stream edilen Next sayfası HTTP200/“Mağaza bulunamadı” döndürdü; erken proxy404 düzeltmesi eklendi. Admin root/login de bilinmeyen adresi girişe yönlendirdiği için exact persisted host kapısı eklendi. Yeni kapı API/auth/handoff/health yollarını korur; development modundaki yalnız exact loopback3400 adresleri yerel geliştirme için korunur. Wildcard router adayı ayrı NET/SITE servisleri ve mevcut Docker storefront authority middleware'lerini kullanır; secret tekrar edilmez, mevcut exact platform router'ları daha yüksek öncelikte kalır. Bu aday henüz canlıya kurulmadı.
+
+`alpler-spor.saas-staging.celebix.net` ve `alpler-spor.admin.saas-staging.celebix.net` DNS'te bulunmuyor. Mevcut proxy yalnız tekil sertifikalarla HTTP01 kullanıyor; staging wildcard sertifikaları ve ortak slug yönlendirmeleri hazır değil. Mevcut Cloudflare anahtarı yalnız SITE DNS okuyabiliyor, DNS yazma denemesi403 ile reddedildi ve kayıt eklenmedi; NET zone erişimi yok. Kullanıcı Cloudflare girişini sürdürüyor. Proxy compose/dynamic/ACME ve SITE DNS kayıtlarının özel yedekleri alındı; proxy/DNS henüz değiştirilmedi. Kayıt tekrar edilmeyecek; adresler açıldığında mevcut hesapla admin ve storefront doğrulanacak. Pazarlama checkbox'ı kapalıdır. Kişisel posta adresi, parola, kod ve API anahtarları rapora eklenmez.
+
+### Ortak host kapısı doğrulaması
+
+[Odaklı kanıt](evidence/automatic-store-onboarding/shared-host-gates-verification.json): admin kapısı/login/handoff29/29, storefront canonical/authority52/52 ve wildcard verifier9/9 test başarılı; iki uygulamanın typecheck/üretim derlemesi başarılı. Admin geliştirme ortamında yalnız exact loopback3400 erişimi korunur. Vitrin genel suite562 başarılı/1 başarısız: değişmeyen CampaignSectionContent testinin react-server koşulunda react-dom/server export uyuşmazlığı; aynı test bu koşul olmadan2/2 başarılıdır. Bu ilgisiz koşul hatası değiştirilmedi. Canlı ortak uygulama yayını ve DNS/TLS/browser kontrolleri aşağıdaki kanıta ayrıca bağlanacak.

@@ -4,7 +4,7 @@
 
 **Goal:** Register the requested Alpler Spor business through the normal browser flow and verify its account, owner membership, admin and public storefront after correcting onboarding failures.
 
-**Architecture:** Keep verified Logto OIDC identity, durable registration completion, shared SaaS applications and tenant isolation. Use the existing trusted HTTPS wildcard domain for the first registration; make new tenant storefront authority and a publishable starter design work consistently for supported platform suffixes. Preserve current merchant drafts and payment/provider settings.
+**Architecture:** Keep verified Logto OIDC identity, durable registration completion, shared SaaS applications and tenant isolation. Complete the missing shared DNS, TLS and routing prerequisites for the first registration; make new tenant storefront authority and a publishable starter design work consistently for supported platform suffixes. Preserve current merchant drafts and payment/provider settings.
 
 **Tech Stack:** Next.js, React, TypeScript, PostgreSQL16, existing Logto and Coolify deployments.
 
@@ -31,9 +31,9 @@
 ## Task 1 — Browser registration and actual error evidence (root)
 
 - [x] Fill the normal signup form and obtain the required privacy/consent decision.
-- [ ] Complete actual Logto signup/sign-in with the user-supplied credentials and verified email; preserve the in-progress tab during user input.
+- [x] Complete actual Logto signup/sign-in with the user-supplied credentials and verified email; preserve the in-progress tab during user input.
 - [x] Record sanitized observed errors and follow each boundary to its root cause; focused source regressions pass. Actual Logto identifier/connector configuration failures corrected and validated against installed1.41.0 schema.
-- [ ] Confirm exactly one intended tenant and active store-owner membership; do not bypass normal session creation.
+- [x] Confirm exactly one intended tenant and active store-owner membership; do not bypass normal session creation.
 
 ## Task 2 — Consistent new storefront authority and valid starter seed (SQL worker)
 
@@ -67,4 +67,6 @@
 
 ## Current continuation boundary
 
-User accepted required registration texts. Shared Logto signup was username-only with zero email connectors; real email entry failed. A private backup, installed SMTP schema validation, TLS/authentication on provider-supported2465, guarded single connector insertion and authorized Console signup update now bring the normal browser flow to email-code verification. Existing username signin and all unrelated settings/application rows remain preserved. User cannot access the initial mailbox and explicitly requested switching registration to a supplied Gmail address. Normal UI returned to email entry and sent a new code to that address; actual user-supplied code is pending. No password/code was entered and no Logto user/SaaS tenant exists yet for either address. Resume from the preserved tab, request a fresh code through normal UI if expired, then finish account/admin/storefront verification. Do not bypass email verification.
+User accepted required registration texts and supplied the replacement mailbox's real verification code. The normal Logto UI accepted the code and created the initial password; exactly one Alpler Spor store and verified active owner now exist. Subscription, modern/legacy domains, schema4 publishable starter, media namespace and committed ready operation are verified. One handoff has been redeemed and one active panel session row exists, but browser admin/storefront E2E is pending because both new NET hostnames return NXDOMAIN.
+
+The proxy has no staging wildcard certificates or slug routers. A private backup of proxy compose/dynamic/ACME state and existing SITE DNS was taken. Current Cloudflare API credential has SITE read-only access, no NET zone access and DNS creation returned403 without changes. User is manually signing in to Cloudflare. Do not re-register or bypass verification. Complete DNS01 certificates and exact-host-safe shared routes, preserve existing services, then verify the existing account in the normal browser. An unknown admin host gate is being tested before wildcard rollout. No proxy/DNS live changes yet.

@@ -1,0 +1,24 @@
+{
+  "checkedAtUtc": "2026-09-27T18:53:35.264140+00:00",
+  "readOnly": true,
+  "method": "direct shared origin GET with matching trusted proxy authority read in server memory",
+  "publicDnsTlsVerified": false,
+  "checks": [
+    {
+      "hostname": "butik-siora.saas-staging.celebix.net",
+      "httpStatus": 200,
+      "title": "Butik Siora"
+    },
+    {
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "httpStatus": 200,
+      "title": "Alpler Spor"
+    },
+    {
+      "hostname": "wildcard-probe-onboarding-20260927.saas-staging.celebix.net",
+      "httpStatus": 200,
+      "title": "Mağaza bulunamadı"
+    }
+  ],
+  "finding": "unknown storefront page content is not-found but streamed HTTP status is200; early proxy404 fix pending"
+}

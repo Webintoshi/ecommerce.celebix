@@ -1,0 +1,70 @@
+{
+  "owner": {
+    "activeStoreOwnerCount": 1,
+    "verifiedActiveStoreOwnerCount": 1
+  },
+  "store": {
+    "count": 1,
+    "localeTr": true,
+    "activeCount": 1,
+    "currencyTry": true,
+    "themeStarter": true
+  },
+  "design": {
+    "count": 1,
+    "draftValid": true,
+    "heroDisabled": true,
+    "publishedValid": true,
+    "draftPublishable": true,
+    "draftEqualsPublished": true,
+    "publishedPublishable": true,
+    "schema4Version1Count": 1
+  },
+  "readOnly": true,
+  "settings": {
+    "count": 3,
+    "expectedValueCount": 3
+  },
+  "adminDomain": {
+    "canonicalVerifiedNetCount": 1
+  },
+  "panelAccess": {
+    "handoffCount": 1,
+    "sessionCount": 1,
+    "activeSessionCount": 1,
+    "redeemedHandoffCount": 1,
+    "redeemedHandoffSessionExists": true
+  },
+  "registration": {
+    "workflowCount": 1,
+    "tenantCreatedCompletedCount": 1
+  },
+  "subscription": {
+    "activeFreeStarterV1Count": 1
+  },
+  "mediaNamespace": {
+    "activeCount": 1,
+    "exactTenantPrefix": true
+  },
+  "tenantOperation": {
+    "count": 1,
+    "committedReadyCount": 1,
+    "validCommittedProofCount": 1
+  },
+  "storefrontDomains": {
+    "legacyCanonicalNetCount": 1,
+    "legacyModernMatchingCount": 1,
+    "modernVerifiedPrimaryNetCount": 1
+  },
+  "exactHostResolvers": {
+    "knownAdminBrand": "resolved",
+    "knownStorefront": "found",
+    "knownPublicDesign": "found",
+    "unknownAdminBrand": "admin_host_unknown",
+    "unknownStorefront": "not_found",
+    "knownAdminOriginHealth": "found",
+    "unknownAdminOriginHealth": "not_found"
+  },
+  "checkedAtUtc": "2026-09-27T18:55:05.030878+00:00",
+  "browserAdminAndStorefrontVerified": false
+}
