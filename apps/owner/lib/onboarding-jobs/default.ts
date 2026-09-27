@@ -22,7 +22,7 @@ function mapResume(result:ResumeTenantResult):CompletionOutcome{
 }
 export async function completeOnboardingAttempt(attemptId:string,completion:CompletionPort,recovery:PersistentRegistrationRecoveryPort):Promise<CompletionOutcome>{
  const resumed=await completion.resumeTenantCreation(attemptId);
- if(['commit_unknown','reconciliation_required','completion_state_unknown'].includes(resumed.kind)){
+ if(['in_progress','commit_unknown','reconciliation_required','completion_state_unknown'].includes(resumed.kind)){
   const reconciled=await completion.reconcileUnknownCommit(attemptId);
   if(reconciled.kind==='tenant_recovered')return {kind:'completed',result:reconciled.result};
   if(reconciled.kind==='recovery_absent')return mapResume(await recovery.resumeRecoveredTenantCreation(attemptId));

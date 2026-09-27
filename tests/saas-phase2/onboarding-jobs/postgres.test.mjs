@@ -10,9 +10,11 @@ import {createPersistentRegistrationCompletionService,createPersistentRegistrati
 import {createAes256GcmPayloadCipher,createOpaqueStateDigester} from '../../../apps/owner/lib/saas-persistence/identity-crypto.ts';
 import {PostgresRegistrationAttemptStore} from '../../../apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts';
 import {PostgresOnboardingJobRepository,bindOriginalRegistrationScope} from '../../../apps/owner/lib/onboarding-jobs/postgres-repository.ts';
-import {createDefaultOnboardingWorker} from '../../../apps/owner/lib/onboarding-jobs/default.ts';
+import {createDefaultOnboardingWorker,completeOnboardingAttempt} from '../../../apps/owner/lib/onboarding-jobs/default.ts';
 import {probeTenantAccess} from '../../../apps/owner/lib/onboarding-jobs/access-probe.ts';
-const database='onboarding_jobs_empty_qa_20260927';
+const selectedDatabase=process.env.CELEBIX_ONBOARDING_JOBS_QA;
+if(selectedDatabase&&!['onboarding_jobs_empty_qa_20260927','onboarding_completion_qa_20260928'].includes(selectedDatabase))throw new Error('unapproved_qa_database');
+const database=selectedDatabase??'onboarding_jobs_empty_qa_20260927';
 const connection={host:'127.0.0.1',port:56417,user:'postgres',database,connectionTimeoutMillis:2000};
 const sql=name=>readFileSync(new URL(`../../../apps/owner/scripts/sql/saas/${name}`,import.meta.url),'utf8');
 const up=()=>sql('202609270167_registration_onboarding_jobs.up.sql');
@@ -20,7 +22,8 @@ const assertions=()=>sql('202609270167_registration_onboarding_jobs_assertions.s
 const down=()=>sql('202609270167_registration_onboarding_jobs.down.sql');
 const net={ownerOrigin:'https://owner.saas-staging.celebix.net',panelOrigin:'https://panel.saas-staging.celebix.net',platformDomainSuffix:'saas-staging.celebix.net'};
 const site={ownerOrigin:'https://owner.saas-staging.celebix.site',panelOrigin:'https://panel.saas-staging.celebix.site',platformDomainSuffix:'saas-staging.celebix.site'};
-test('PG16 durable scope, atomic enqueue, scope separation, lease CAS, retry cap, RLS and rollback guards',async()=>{
+test('PG16 durable scope, atomic enqueue, scope separation, lease CAS, retry cap, RLS and rollback guards',{skip:!selectedDatabase},async()=>{
+ for(const key of Object.keys(process.env))if(key==='DATABASE_URL'||key.startsWith('PG')||key.includes('SUPABASE'))throw new Error('external_database_environment_denied');
  const admin=new pg.Pool(connection);const pools=[];
  try{
   const check=(await admin.query("SELECT current_database() AS name,current_setting('server_version_num') AS version,shobj_description(oid,'pg_database') AS marker FROM pg_database WHERE datname=current_database()")).rows[0];
@@ -101,6 +104,23 @@ test('PG16 durable scope, atomic enqueue, scope separation, lease CAS, retry cap
   const worker=createDefaultOnboardingWorker({scope:net,repository,completion:createPersistentRegistrationCompletionService(freshDependencies),recovery:createPersistentRegistrationRecoveryService(freshDependencies),clock:()=>new Date(),probe:(scope,result,attemptId)=>probeTenantAccess(scope,result,{attemptId,now:new Date(),verifyProof:p=>repository.verifyTenantProof(p.scope,p.attemptId,p.storeId,p.adminHost,p.storefrontHost,p.now),get:async url=>({status:200,body:url.pathname==='/api/health'?JSON.stringify({schemaVersion:1,status:'ok',storeId:result.store.id,hostname:url.hostname}):'<html>QA</html>'})})});
   const counts=await worker.tick();assert.ok(counts.ready>=1);assert.equal((await repository.readSnapshot({scope:net,attemptId:fresh.id,now:new Date()})).state,'ready');
   const elapsed=Date.now()-verifiedStarted;assert.ok(elapsed<=60000,'verification to ready fixture exceeds60s');console.info(`Synthetic verification-to-ready ${elapsed}ms (realPG, injected network; not liveTLS evidence)`);
+
+  for(const mode of ['committed','absent','active']){
+   const crashed=await fixture(net);const claim=await crashed.store.claimTenantCompletion({attemptId:crashed.id,now});assert.equal(claim.kind,'claimed');
+   const dependencies={workflowStore:crashed.store,tenantCore:createOwnerTenantCoreAdapter(createStarterTenantService({repository:new PostgresSaaSDataRepository(tenantOptions),platformDomainSuffix:net.platformDomainSuffix,panelBaseUrl:net.panelOrigin,adminOriginEnvironment:'staging_net'})),recovery:new PostgresTenantOperationRecovery(tenantOptions),panelOrigin:net.panelOrigin,platformDomainSuffix:net.platformDomainSuffix,clock:()=>new Date(),audit:()=>undefined};
+   try{
+    if(mode!=='active')claim.lease.release();
+    if(mode==='committed'){const committed=await dependencies.tenantCore.createStarterTenant(claim.authority.tenantInput);assert.equal(committed.ok,true);}
+    const outcome=await completeOnboardingAttempt(crashed.id,createPersistentRegistrationCompletionService(dependencies),createPersistentRegistrationRecoveryService(dependencies));
+    if(mode==='active'){assert.equal(outcome.kind,'pending');assert.equal((await crashed.store.loadVerified(crashed.id)).completion.state,'creating');}
+    else{
+     assert.equal(outcome.kind,'completed');const final=await crashed.store.loadVerified(crashed.id);assert.equal(final.completion.state,'completed');assert.equal(final.completion.recoveryAbsentAt,undefined);
+     assert.equal(final.canonicalFingerprint,claim.authority.canonicalFingerprint);assert.equal(final.attempt.idempotencyKey,claim.authority.attempt.idempotencyKey);
+     const graphs=(await admin.query('SELECT (SELECT count(*) FROM saas.tenant_operations WHERE id=$1 AND status=\'committed\') AS operations,(SELECT count(*) FROM saas.stores WHERE id=$2) AS stores',[outcome.result.operationId,outcome.result.store.id])).rows[0];assert.equal(Number(graphs.operations),1);assert.equal(Number(graphs.stores),1);
+    }
+   }finally{claim.lease.release();}
+  }
+  console.info('PG16 crashed creating recovery PASS: committed replay, absent fenced completion, active session lease remains pending; original key/fingerprint and one tenant graph preserved');
 
   await assert.rejects(()=>admin.query(down()),/ONBOARDING_ROLLBACK_HAS_DURABLE_AUTHORITY/);await admin.query('ROLLBACK');
   console.info('PG16 PASS: up/down/up, assertion tamper checks, atomic verified enqueue, legacy fail closed, awaiting exclusion, NET/SITE isolation, SKIP LOCKED claims, restart/expired lease CAS, pending budget, 10 retries/backoff, heartbeat45s, RLS, guarded rollback');
