@@ -3,7 +3,7 @@ import test from "node:test";
 import { EventEmitter } from "node:events";
 import { request as httpsRequest, type RequestOptions } from "node:https";
 import { createSetupEdgeProbe, createSetupPlatformGet } from "./edge-client.ts";
-import { tenant } from "../setup-ui/fixtures.ts";
+import { tenant, executionAuthority } from "../setup-ui/fixtures.ts";
 const address="46.225.183.57",suffix="saas-staging.celebix.net",context=tenant();
 const scope={platformDomainSuffix:suffix,panelOrigin:`https://panel.${suffix}`,allowedAddresses:[address]};
 function response(url:URL){return {status:200,body:url.pathname==="/api/health"?JSON.stringify({schemaVersion:1,status:"ok",storeId:context.store.id,hostname:url.hostname,dependencies:{redisCache:{status:"disabled"}}}):url.pathname==="/api/setup-capabilities"?JSON.stringify({schemaVersion:1,storeId:context.store.id,hostname:url.hostname,payment:{kind:"disabled",providers:[]}}):"<html>fixture</html>"};}
@@ -35,4 +35,10 @@ test("platform transport pins approved DNS IP with exact TLS SNI and enforces bo
 test("an unresponsive DNS lookup has a five-second upper deadline",async()=>{
  const get=createSetupPlatformGet({allowedHosts:[`store.${suffix}`],allowedAddresses:[address],lookup:()=>new Promise(()=>undefined)}),started=Date.now();
  await assert.rejects(()=>get(new URL(`https://store.${suffix}/`)));assert.ok(Date.now()-started<6000);
+});
+test("capability evidence requires an exact safe execution version and digest",async()=>{
+ const current=executionAuthority();
+ function probe(provider:unknown){return createSetupEdgeProbe({...scope,get:async(url:URL)=>url.pathname==="/api/setup-capabilities"?{status:200,body:JSON.stringify({schemaVersion:1,storeId:context.store.id,hostname:url.hostname,payment:{kind:"ready",providers:[provider]}})}:response(url)});}
+ assert.deepEqual((await probe(current)(context,new Date())).payment.providers,[current]);
+ for(const invalid of[{providerCode:current.providerCode,environment:current.environment},{...current,adapterVersion:0},{...current,adapterVersion:1.5},{...current,adapterVersion:Number.MAX_SAFE_INTEGER+1},{...current,evidenceDigest:"sha256:"+"b".repeat(63)},{...current,evidenceDigest:"sha256:"+"B".repeat(64)},{...current,credential:"unexpected"}])await assert.rejects(()=>probe(invalid)(context,new Date()));
 });

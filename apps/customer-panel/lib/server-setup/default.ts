@@ -20,10 +20,10 @@ export function setupAdminPaymentAuthorities(runtime:ServerPaymentMethodsRuntime
  for(const entry of runtime.catalog){
   try{
    const authority=entry.executionAuthority,environment=entry.readiness==="production_ready"?"live":entry.readiness==="sandbox_ready"?"test":null;
-   if(!authority||!environment||authority.environment!==environment||!/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)||runtime.providerExecution===null)continue;
+   if(!authority||!environment||authority.environment!==environment||!Number.isSafeInteger(authority.adapterVersion)||authority.adapterVersion<1||!/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)||runtime.providerExecution===null)continue;
    const descriptor=runtime.providerExecution.registry.get(entry.providerCode,"payment_processing"),packet=runtime.providerExecution.adapters.packet(entry.providerCode),adapter=runtime.providerExecution.adapters.adapter(entry.providerCode);
    if(descriptor?.capability!=="payment_processing"||descriptor.adapterVersion!==authority.adapterVersion||descriptor.environments?.length!==1||descriptor.environments[0]!==environment||descriptor.executionAuthority?.environment!==environment||descriptor.executionAuthority.adapterVersion!==authority.adapterVersion||descriptor.executionAuthority.evidenceDigest!==authority.evidenceDigest||!packet||!adapter||adapter.packet!==packet||packet.providerCode!==entry.providerCode||packet.familyCode!==entry.familyCode||packet.modeCode!==entry.modeCode||packet.adapterVersion!==authority.adapterVersion||!["verification",entry.readiness].includes(packet.readiness[environment])||packet.endpoints[environment].length<1)continue;
-   authorities.push(Object.freeze({providerCode:entry.providerCode,environment}));
+   authorities.push(Object.freeze({providerCode:entry.providerCode,environment,adapterVersion:authority.adapterVersion,evidenceDigest:authority.evidenceDigest}));
   }catch{ /* Missing or inconsistent executable metadata cannot imply readiness. */ }
  }
  return Object.freeze(authorities);

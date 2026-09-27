@@ -42,12 +42,13 @@ export function setupStatus(context: TenantContext, input: SetupInputs): SetupSt
     else if(active.some(method=>method.kind==="provider") && (input.access.kind!=="value" || access.state!=="ready" || input.access.value.payment.kind==="unavailable")) payment=Object.freeze({...item("unavailable","read_unavailable"),kind:"unavailable"});
     else {
       const available=input.access.kind==="value" && access.state==="ready" && input.access.value.payment.kind==="ready" ? input.access.value.payment.providers : [];
+      if([...value.authorities,...available].some(authority=>!Number.isSafeInteger(authority.adapterVersion)||authority.adapterVersion<1||!/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest))) throw new Error("invalid");
       const matched=active.filter(method=>{
         if(method.kind!=="provider" || (method.providerCode!=="paytr_iframe" && method.providerCode!=="iyzico_iframe")) return false;
         const preferences=parseProviderPaymentMethodConfig(method.providerCode,method.config),profile=profiles.find(candidate=>candidate.id===method.profileId);
         return profile?.status==="active" && profile.capability==="payment_processing" && profile.providerCode===method.providerCode && profile.credentialVersion>0 && profile.lastValidatedAt!==null && profile.publicConfig.environment===preferences.environment
-          && value.authorities.some(authority=>authority.providerCode===method.providerCode && authority.environment===preferences.environment)
-          && available.some(authority=>authority.providerCode===method.providerCode && authority.environment===preferences.environment);
+          && value.authorities.some(authority=>authority.providerCode===method.providerCode && authority.environment===preferences.environment
+            && available.some(current=>current.providerCode===authority.providerCode && current.environment===authority.environment && current.adapterVersion===authority.adapterVersion && current.evidenceDigest===authority.evidenceDigest));
       });
       const live=matched.some(method=>method.config.environment==="live"),testing=matched.some(method=>method.config.environment==="test");
       payment=live ? Object.freeze({...item("ready","payment_live"),kind:"live"}) : testing ? Object.freeze({...item("action_required","payment_test"),kind:"test"}) : Object.freeze({...item("action_required",methods.length||profiles.length?"payment_configured":"payment_missing"),kind:methods.length||profiles.length?"configured":"none"});

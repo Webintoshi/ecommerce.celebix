@@ -71,3 +71,13 @@ Screenshots were emitted through the browser tool. The temporary viewport overri
 - Cross-host canonical redirects deliberately stay unavailable in this platform-only probe. Existing domain/canonical redirect behavior is unchanged.
 - The parent owns the final combined production build after Task5/6/7 completion and independent review. No concurrent Panel build was started here, following the explicit shared build-lock instruction. Typecheck and focused gates pass; production-build acceptance remains a parent gate.
 - No global database authority, jobs reader authority, payment flags, provider activation, preview values or merchant records were changed.
+
+## Independent-review follow-up: exact execution evidence
+
+The review identified a confirmed P2: the admin metadata helper and storefront capability DTO both reduced execution authority to provider/environment. A stale compiled admin adapter version or evidence digest could therefore match a different currently approved storefront tuple in the same environment. The regression first failed with actual `live` versus expected `configured`.
+
+The Panel now preserves `adapterVersion` and `evidenceDigest` from the agreeing admin catalog/descriptor/packet metadata and requires the exact provider/environment/version/digest tuple reported by the tenant-bound storefront capability read. Storefront already checks its compiled tuple with the existing current database authority function; the parent owns extending that safe foundation DTO with the two fields. No new SQL grants or provider requests are introduced. Old/malformed DTOs fail unavailable, while a valid mismatching tuple stays configured and cannot imply live readiness.
+
+Added regression gates cover independently stale version and digest, the actual admin helper feeding the model, matching evidence, and strict capability parsing (missing fields, zero/fractional/unsafe version, malformed digest or unexpected credential field). Final focused results are **12 pure/component tests and 9 server tests passed**. Panel typecheck passed after the final source/test changes. Foundation integration and the combined production build remain parent gates before release.
+
+Task-owned synthetic visual fixture is `/tmp/celebix-task6-visual` (1.9 MiB); its PID99100 server was confirmed stopped. No Task6 production build/cache was generated. The prior visual evidence remains valid because this follow-up changes only readiness evidence contracts, with the same presentation states and layout.
