@@ -21,6 +21,8 @@ import {
   type PersistentRegistrationCompletionStore,
 } from "./self-serve-registration-completion.ts";
 
+import * as completionModule from "./self-serve-registration-completion.ts";
+
 const now = new Date("2026-07-12T10:05:00.000Z");
 const attemptId = "attempt_A234567890123456";
 const fingerprint = "a".repeat(64);
@@ -615,5 +617,79 @@ test("safe audit remains non-blocking across completion transitions", async () =
       new Promise<{ kind: "blocked" }>((resolve) => setTimeout(() => resolve({ kind: "blocked" }), 40)),
     ]);
     assert.equal(result.kind, "tenant_created");
+  }
+});
+
+
+test("internal fenced recovery uses the persisted payload and releases the lease before finalization", async () => {
+  assert.equal(typeof completionModule.createPersistentRegistrationRecoveryService, "function");
+  const store = new WorkflowStore();
+  store.current.completion.recoveryAbsentAt = now.toISOString();
+  let claims = 0;
+  const recoveryStore = Object.assign(store, {
+    async claimTenantCompletionRecovery(input: { attemptId: string; expectedWorkflowVersion: number; expectedCompletionVersion: number }) {
+      assert.deepEqual(input, { attemptId, expectedWorkflowVersion: 2, expectedCompletionVersion: 1, now });
+      claims += 1;
+      store.current.completion.state = "creating";
+      store.current.completion.version = 2;
+      store.current.completion.startedAt = now.toISOString();
+      store.activeLease = true;
+      return { kind: "claimed" as const, authority: structuredClone(store.current), lease: { release() { store.activeLease = false; } } };
+    },
+  });
+  const finalize = store.finalizeTenantCompletion.bind(store);
+  store.finalizeTenantCompletion = async (input) => {
+    assert.equal(store.activeLease, false, "the finalizer must not wait on our session lease");
+    assert.equal(store.current.completion.recoveryAbsentAt, now.toISOString());
+    return finalize(input);
+  };
+  const ordinary = service({ store });
+  assert.deepEqual(await ordinary.completion.resumeTenantCreation(attemptId), { kind: "reconciliation_required" });
+  assert.equal(ordinary.creationCalls(), 0);
+  assert.equal("resumeRecoveredTenantCreation" in ordinary.completion, false);
+  const internal = completionModule.createPersistentRegistrationRecoveryService({
+    workflowStore: recoveryStore,
+    tenantCore: { async createStarterTenant(input) {
+      assert.deepEqual(input, tenantInput);
+      assert.equal(store.activeLease, true);
+      return { ok: true, value: { ...structuredClone(tenantResult), replayed: true } };
+    } },
+    recovery: { async recover(key, receivedFingerprint) {
+      assert.equal(key, tenantInput.idempotencyKey);
+      assert.equal(receivedFingerprint, fingerprint);
+      return { kind: "committed_match", result: { ...structuredClone(tenantResult), replayed: true } };
+    } },
+    panelOrigin: "https://panel.celebix.site", platformDomainSuffix: "celebix.site", clock: () => now, audit() {},
+  });
+  assert.equal((await internal.resumeRecoveredTenantCreation(attemptId)).kind, "tenant_replayed");
+  assert.equal(claims, 1);
+  assert.equal(store.finalizeCalls, 1);
+});
+
+test("internal recovery preserves rollback and uncertain commit classifications", async () => {
+  assert.equal(typeof completionModule.createPersistentRegistrationRecoveryService, "function");
+  for (const entry of [
+    { outcome: { ok: false, error: { code: "tenant_transaction_failed", retryable: true } }, kind: "rejected", release: 1, unknown: 0 },
+    { outcome: { ok: false, error: { code: "tenant_transaction_failed", retryable: false } }, kind: "commit_unknown", release: 0, unknown: 1 },
+    { outcome: undefined, kind: "completion_state_unknown", release: 0, unknown: 0 },
+  ]) {
+    const store = new WorkflowStore();
+    store.current.completion.recoveryAbsentAt = now.toISOString();
+    const recoveryStore = Object.assign(store, { async claimTenantCompletionRecovery() {
+      store.current.completion.state = "creating";
+      store.activeLease = true;
+      return { kind: "claimed" as const, authority: structuredClone(store.current), lease: { release() { store.activeLease = false; } } };
+    } });
+    const internal = completionModule.createPersistentRegistrationRecoveryService({
+      workflowStore: recoveryStore,
+      tenantCore: { async createStarterTenant() { if (!entry.outcome) throw new Error("lost transport"); return entry.outcome as any; } },
+      recovery: { async recover() { throw new Error("not expected"); } },
+      panelOrigin: "https://panel.celebix.site", platformDomainSuffix: "celebix.site", clock: () => now, audit() {},
+    });
+    assert.equal((await internal.resumeRecoveredTenantCreation(attemptId)).kind, entry.kind);
+    assert.equal(store.releaseCalls, entry.release);
+    assert.equal(store.commitUnknownCalls, entry.unknown);
+    assert.equal(store.activeLease, false);
+    assert.equal(store.finalizeCalls, 0);
   }
 });

@@ -448,3 +448,77 @@ test("unknown verified-identity fields and emailVerified false are rejected befo
     assert.equal(client.calls.length, 0);
   }
 });
+
+test("fenced recovery claims preserve the marker and acquire a nonblocking session lease", async () => {
+  const client = new FakeClient();
+  const fixture = await rows(client);
+  queuePreamble(client);
+  client.queued.push([{ attempt_id: attemptId }], [{ ...fixture.verified, completion_recovery_absent_at: now }], [{
+    state: "creating", version: 2, started_at: now, updated_at: now,
+    recovery_absent_at: now, commit_unknown_at: null, completed_at: null, tenant_operation_id: null,
+  }], [{ acquired: true }]);
+  const store = new PostgresRegistrationAttemptStore(fixture.dependencies);
+  assert.equal(typeof store.claimTenantCompletionRecovery, "function");
+  const result = await store.claimTenantCompletionRecovery({ attemptId, expectedWorkflowVersion: 2, expectedCompletionVersion: 1, now });
+  assert.equal(result.kind, "claimed");
+  assert.equal(result.authority.completion.recoveryAbsentAt, now.toISOString());
+  assert.equal(result.authority.completion.state, "creating");
+  assert.deepEqual(result.authority.tenantInput, fixture.authority.input);
+  assert.equal(result.authority.canonicalFingerprint, fixture.authority.canonicalFingerprint);
+  assert.ok(client.calls.some((call) => call.text.includes("pg_try_advisory_lock")));
+  assert.equal(client.calls.some((call) => call.text.includes("pg_advisory_lock(")), false);
+  if (result.kind === "claimed") result.lease.release();
+  assert.deepEqual(client.releases, [true]);
+});
+
+test("fenced recovery rejects stale workflow and completion versions before mutation", async () => {
+  for (const versions of [{ expectedWorkflowVersion: 1, expectedCompletionVersion: 1 }, { expectedWorkflowVersion: 2, expectedCompletionVersion: 2 }]) {
+    const client = new FakeClient();
+    const fixture = await rows(client);
+    queuePreamble(client);
+    client.queued.push([{ attempt_id: attemptId }], [{ ...fixture.verified, completion_recovery_absent_at: now }]);
+    const store = new PostgresRegistrationAttemptStore(fixture.dependencies);
+    assert.equal(typeof store.claimTenantCompletionRecovery, "function");
+    await assert.rejects(store.claimTenantCompletionRecovery({ attemptId, ...versions, now }),
+      (error) => error instanceof RegistrationPersistenceError && error.code === "registration_completion_conflict");
+    assert.equal(client.calls.some((call) => call.text.startsWith("UPDATE")), false);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});
+
+test("busy fenced recovery immediately rolls back its transition without waiting on the lease", async () => {
+  const client = new FakeClient();
+  const fixture = await rows(client);
+  queuePreamble(client);
+  client.queued.push([{ attempt_id: attemptId }], [{ ...fixture.verified, completion_recovery_absent_at: now }], [{
+    state: "creating", version: 2, started_at: now, updated_at: now,
+    recovery_absent_at: now, commit_unknown_at: null, completed_at: null, tenant_operation_id: null,
+  }], [{ acquired: false }]);
+  const store = new PostgresRegistrationAttemptStore(fixture.dependencies);
+  assert.equal(typeof store.claimTenantCompletionRecovery, "function");
+  const result = await store.claimTenantCompletionRecovery({ attemptId, expectedWorkflowVersion: 2, expectedCompletionVersion: 1, now });
+  assert.equal(result.kind, "in_progress");
+  assert.equal(result.authority.completion.state, "ready");
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.equal(client.calls.some((call) => call.text === "COMMIT"), false);
+});
+
+test("recovery claim requires a fenced ready authority and revalidates its immutable fingerprint", async () => {
+  for (const mutate of [
+    (row: Record<string, unknown>) => { row.completion_recovery_absent_at = null; },
+    (row: Record<string, unknown>) => { row.verified_canonical_fingerprint = "f".repeat(64); },
+    (row: Record<string, unknown>) => { row.completion_state = "creating"; row.completion_started_at = now; },
+  ]) {
+    const client = new FakeClient();
+    const fixture = await rows(client);
+    const row: Record<string, unknown> = { ...fixture.verified, completion_recovery_absent_at: now };
+    mutate(row);
+    queuePreamble(client);
+    client.queued.push([{ attempt_id: attemptId }], [row]);
+    const store = new PostgresRegistrationAttemptStore(fixture.dependencies);
+    assert.equal(typeof store.claimTenantCompletionRecovery, "function");
+    await assert.rejects(store.claimTenantCompletionRecovery({ attemptId, expectedWorkflowVersion: 2, expectedCompletionVersion: 1, now }));
+    assert.equal(client.calls.some((call) => call.text.startsWith("UPDATE")), false);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});

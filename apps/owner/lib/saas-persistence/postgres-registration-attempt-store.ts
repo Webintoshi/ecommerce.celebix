@@ -108,6 +108,11 @@ export interface ClaimTenantCompletionInput {
   now: Date;
 }
 
+export interface ClaimTenantCompletionRecoveryInput extends ClaimTenantCompletionInput {
+  expectedWorkflowVersion: number;
+  expectedCompletionVersion: number;
+}
+
 export interface CompletionTransitionInput {
   attemptId: string;
   expectedState: "ready" | "creating" | "commit_unknown";
@@ -570,6 +575,56 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     if (leased.result.kind !== "claimed") return leased.result;
     if (!leased.lease) throw new IdentityPersistenceError();
     return { ...leased.result, lease: leased.lease };
+  }
+
+  async claimTenantCompletionRecovery(input: ClaimTenantCompletionRecoveryInput): Promise<CompletionClaimOutcome> {
+    const validated = this.validateCompletionTransition({ ...input, expectedState: "ready" });
+    let busyAuthority: VerifiedRegistrationAuthority | undefined;
+    try {
+      const leased = await withIdentityTransactionLease(this.options, "registration", async (client) => {
+        const locked = await client.query(
+          "SELECT attempt_id FROM saas.registration_workflows WHERE attempt_id = $1 FOR UPDATE",
+          [validated.attemptId],
+        );
+        if (!locked.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+        const selected = await client.query(
+          `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
+          [validated.attemptId],
+        );
+        if (!selected.rows[0]) throw new RegistrationCompletionCorruptionError();
+        const authority = await this.parseVerifiedAuthority(selected.rows[0]);
+        this.assertExpectedCompletion(authority, validated);
+        if (!authority.completion.recoveryAbsentAt) {
+          throw new RegistrationPersistenceError("registration_workflow_invalid_transition");
+        }
+        // The fence survives retry. Only the immutable committed-proof finalizer clears it.
+        const updated = await client.query(
+          "UPDATE saas.registration_tenant_completions SET state = 'creating', version = version + 1, started_at = $2::timestamptz, updated_at = $2::timestamptz, commit_unknown_at = NULL WHERE attempt_id = $1 AND state = 'ready' AND version = $3 AND recovery_absent_at IS NOT NULL RETURNING state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at, tenant_operation_id",
+          [validated.attemptId, validated.now.toISOString(), validated.expectedCompletionVersion],
+        );
+        if (!updated.rows[0]) throw new RegistrationPersistenceError("registration_completion_conflict");
+        const claimed = { ...authority, completion: this.parseCompletion(updated.rows[0], validated.attemptId, authority.canonicalFingerprint) };
+        // Never wait for a session lease while holding the workflow row lock: its
+        // owner can need that row to record its result. Busy must roll back immediately.
+        const probe = await client.query(
+          "SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtextextended($1, $2)) AS acquired",
+          [validated.attemptId, IDENTITY_COMPLETION_LEASE_SEED],
+        );
+        if (probe.rows[0]?.acquired === false) {
+          busyAuthority = authority;
+          throw new RegistrationPersistenceError("registration_completion_lease_busy");
+        }
+        if (probe.rows[0]?.acquired !== true) throw new IdentityPersistenceError();
+        return { result: claimed, leaseKey: validated.attemptId };
+      });
+      if (!leased.lease) throw new IdentityPersistenceError();
+      return { kind: "claimed", authority: leased.result, lease: leased.lease };
+    } catch (error) {
+      if (busyAuthority && error instanceof RegistrationPersistenceError && error.code === "registration_completion_lease_busy") {
+        return { kind: "in_progress", authority: busyAuthority };
+      }
+      throw error;
+    }
   }
 
   async isTenantCompletionActive(attemptId: string): Promise<boolean> {

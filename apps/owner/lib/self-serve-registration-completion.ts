@@ -17,6 +17,7 @@ import {
 import { validateTenantCompletionResult } from "./saas-persistence/tenant-completion-result.ts";
 import type {
   ClaimTenantCompletionInput,
+  ClaimTenantCompletionRecoveryInput,
   CompletionClaimOutcome,
   CompletionTransitionInput,
   FinalizeTenantCompletionInput,
@@ -34,6 +35,17 @@ export interface PersistentRegistrationCompletionStore {
   releaseTenantCompletion(input: CompletionTransitionInput): Promise<VerifiedRegistrationAuthority>;
   finalizeTenantCompletion(input: FinalizeTenantCompletionInput): Promise<VerifiedRegistrationAuthority>;
   recoverAbsentTenantCompletion(input: CompletionTransitionInput): Promise<VerifiedRegistrationAuthority>;
+}
+
+/** Internal worker/operator capability; never part of the HTTP completion service. */
+export interface PersistentRegistrationRecoveryPort {
+  resumeRecoveredTenantCreation(attemptId: string): Promise<ResumeTenantResult>;
+}
+
+export interface PersistentRegistrationRecoveryDependencies extends PersistentRegistrationCompletionDependencies {
+  workflowStore: PersistentRegistrationCompletionStore & {
+    claimTenantCompletionRecovery(input: ClaimTenantCompletionRecoveryInput): Promise<CompletionClaimOutcome>;
+  };
 }
 
 export interface TenantOperationRecoveryPort {
@@ -218,9 +230,13 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
   }
 
   async resumeTenantCreation(rawAttemptId: string): Promise<ResumeTenantResult> {
+    return this.resumeClaim(() => this.dependencies.workflowStore.claimTenantCompletion({ attemptId: attemptId(rawAttemptId), now: now(this.dependencies) }));
+  }
+
+  protected async resumeClaim(acquire: () => Promise<CompletionClaimOutcome>): Promise<ResumeTenantResult> {
     let claim: CompletionClaimOutcome;
     try {
-      claim = await this.dependencies.workflowStore.claimTenantCompletion({ attemptId: attemptId(rawAttemptId), now: now(this.dependencies) });
+      claim = await acquire();
     } catch (error) {
       auditSafely(this.dependencies, { operation: "resume_tenant_creation", outcome: "rejected" });
       return { kind: "rejected", error: safeError(error) };
@@ -421,4 +437,29 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
 
 export function createPersistentRegistrationCompletionService(dependencies: PersistentRegistrationCompletionDependencies): PersistentRegistrationCompletionService {
   return new DefaultPersistentRegistrationCompletionService(dependencies);
+}
+
+class InternalRegistrationRecoveryService extends DefaultPersistentRegistrationCompletionService {
+  constructor(private readonly recoveryDependencies: PersistentRegistrationRecoveryDependencies) {
+    super(recoveryDependencies);
+    if (typeof recoveryDependencies.workflowStore.claimTenantCompletionRecovery !== "function") throw new IdentityPersistenceError();
+  }
+
+  async resumeRecoveredTenantCreation(rawAttemptId: string): Promise<ResumeTenantResult> {
+    return this.resumeClaim(async () => {
+      const id = attemptId(rawAttemptId);
+      const authority = await this.recoveryDependencies.workflowStore.loadVerified(id);
+      return this.recoveryDependencies.workflowStore.claimTenantCompletionRecovery({
+        attemptId: id,
+        expectedWorkflowVersion: authority.version,
+        expectedCompletionVersion: authority.completion.version,
+        now: now(this.recoveryDependencies),
+      });
+    });
+  }
+}
+
+export function createPersistentRegistrationRecoveryService(dependencies: PersistentRegistrationRecoveryDependencies): PersistentRegistrationRecoveryPort {
+  const service = new InternalRegistrationRecoveryService(dependencies);
+  return Object.freeze({ resumeRecoveredTenantCreation: (attemptId: string) => service.resumeRecoveredTenantCreation(attemptId) });
 }
