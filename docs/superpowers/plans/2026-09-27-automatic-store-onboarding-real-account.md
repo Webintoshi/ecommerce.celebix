@@ -65,8 +65,16 @@
 - [ ] Complete the pending browser signup; verify admin, setup/design, public storefront, console and media availability with no real commerce transaction.
 - [ ] Preserve the deliverable admin tab; report actual account URLs, changes, tests and any remaining user verification requirement.
 
-## Current continuation boundary
+## Earlier continuation boundary (superseded below)
 
 User accepted required registration texts and supplied the replacement mailbox's real verification code. The normal Logto UI accepted the code and created the initial password; exactly one Alpler Spor store and verified active owner now exist. Subscription, modern/legacy domains, schema4 publishable starter, media namespace and committed ready operation are verified. One handoff has been redeemed and one active panel session row exists, but browser admin/storefront E2E is pending because both new NET hostnames return NXDOMAIN.
 
 The proxy has no staging wildcard certificates or slug routers. A private backup of proxy compose/dynamic/ACME state and existing SITE DNS was taken. Current Cloudflare API credential has SITE read-only access, no NET zone access and DNS creation returned403 without changes. User is manually signing in to Cloudflare. Do not re-register or bypass verification. Complete DNS01 certificates and exact-host-safe shared routes, preserve existing services, then verify the existing account in the normal browser. An unknown admin host gate is being tested before wildcard rollout. No proxy/DNS live changes yet.
+
+## Latest continuation and completion plan
+
+The NET storefront/admin wildcard DNS and missing SITE admin wildcard records are now present. Both Alpler addresses resolve to the Celebix server; TLS validation still fails. NET/SITE shared panel/storefront releases at b583d710 all finished; runtime/source/payment-authority checks and eight existing health URLs passed. Dedicated host gates are live and unknown tenant wire probes return404.
+
+Wildcard TLS/routing candidates remain uninstalled. The new narrowly scoped Cloudflare token needs the pending explicit approval for the server's IPv4 and observed IPv6 egress, and Chrome currently requires its ChatGPT extension update. Do not re-register Alpler or create status/session authority for the old attempt without browser proof. Details: [current release evidence](../../qa/automatic-store-onboarding-release-2026-09-27.md).
+
+Remaining recovery/status/setup/operations and final live access gates are specified in [the completion plan](2026-09-27-automatic-store-onboarding-completion.md) and its linked design. Those new task checkboxes represent future work, not completed fixes.
