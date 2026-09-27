@@ -98,6 +98,18 @@ function healthyInput(environment = "staging") {
   };
 }
 
+test('runner rejects probe results attributed to a different requested host or certificate role',async()=>{
+ const fixture=healthyInput('staging_net');
+ const args=['--environment','staging_net','--known-admin',fixture.http.knownAdmin.hostname,'--known-storefront',fixture.http.knownStorefront.hostname];
+ for(const mismatch of ['http','certificate']){
+  const result=await runTenantWildcardReadiness(args,{
+   probeHttp:async hostname=>{const entry=Object.values(fixture.http).find(row=>row.hostname===hostname)??(hostname.includes('.admin.')?fixture.http.unknownAdmin:fixture.http.unknownStorefront);return {...entry,hostname:mismatch==='http'&&hostname===fixture.http.knownAdmin.hostname?'different.admin.saas-staging.celebix.net':hostname};},
+   probeCertificate:async(role,hostname)=>({...fixture.certificates.find(row=>row.role===role),hostname,role:mismatch==='certificate'&&role==='admin'?'storefront':role,validTo:'2099-01-01T00:00:00Z'}),
+  });
+  assert.equal(result.ok,false,mismatch);assert.ok(result.errors.some(error=>error.endsWith('_probe_failed')),mismatch);
+ }
+});
+
 test("parses and matches exact and one-label wildcard certificate SANs", () => {
   assert.deepEqual(
     parseSubjectAlternativeNames("DNS:*.admin.saas-staging.celebix.site, DNS:panel.saas-staging.celebix.site"),

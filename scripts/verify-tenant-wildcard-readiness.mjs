@@ -291,7 +291,13 @@ export async function runTenantWildcardReadiness(rawArguments, dependencies = {}
     httpProbe(config.auth, "/sign-in"),
   ]);
   const failures = settled.flatMap((result, index) => {
-    if (result.status === "fulfilled") return [];
+    if (result.status === "fulfilled") {
+      const expectedHosts = [config.unknownAdmin, config.unknownStorefront, config.knownAdmin,
+        config.knownStorefront, config.unknownAdmin, config.unknownStorefront, config.panel, config.auth];
+      if (result.value?.hostname === expectedHosts[index] &&
+          (index > 1 || result.value?.role === (index === 0 ? "admin" : "storefront"))) return [];
+      return [Object.freeze({probe:labels[index],code:"probe_authority_mismatch"})];
+    }
     const candidate = result.reason?.cause?.code ?? result.reason?.code ?? result.reason?.name;
     const code = typeof candidate === "string" && /^[A-Z0-9_]{2,80}$/i.test(candidate)
       ? candidate
