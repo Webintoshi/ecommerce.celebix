@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { bindOriginalRegistrationScope } from "../onboarding-jobs/postgres-repository.ts";
+import { normalizeOnboardingScope, type RegistrationAuthorityScope } from "../onboarding-jobs/types.ts";
 
 import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
 
@@ -278,6 +280,7 @@ function sameVerifiedIdentity(left: VerifiedIdentitySnapshot, right: VerifiedIde
 
 export class PostgresRegistrationAttemptStore implements RegistrationAttemptStore {
   private readonly options: IdentityStoreDependencies;
+  private readonly onboardingScope?: Readonly<RegistrationAuthorityScope>;
   private readonly resultAuthorities?: TenantCompletionResultAuthorities;
   private readonly callbackRecoveryAuthorities?: ConsumedCallbackRecoveryAuthorities;
 
@@ -285,12 +288,17 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     options: IdentityStoreDependencies,
     resultAuthorities?: TenantCompletionResultAuthorities,
     callbackRecoveryAuthorities?: ConsumedCallbackRecoveryAuthorities,
+    onboardingScope?: RegistrationAuthorityScope,
   ) {
     this.options = validateDependencies(options);
     if (resultAuthorities) {
       const normalized = normalizeTenantCompletionResultAuthorities(resultAuthorities);
       if (!normalized) throw new IdentityPersistenceError();
       this.resultAuthorities = normalized;
+    }
+    if (onboardingScope) {
+      this.onboardingScope = normalizeOnboardingScope(onboardingScope);
+      if (!this.resultAuthorities || this.resultAuthorities.panelOrigin !== this.onboardingScope.panelOrigin || this.resultAuthorities.platformDomainSuffix !== this.onboardingScope.platformDomainSuffix) throw new IdentityPersistenceError();
     }
     if (callbackRecoveryAuthorities) {
       if (typeof callbackRecoveryAuthorities.oidcStateDigester?.digest !== "function") {
@@ -324,6 +332,7 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
           "INSERT INTO saas.registration_workflows (attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, requested_at, created_at, updated_at, expires_at, tenant_idempotency_digest) VALUES ($1, $2, $3, $4, $5, $6, 'awaiting_identity', 1, $7::timestamptz, $8::timestamptz, $8::timestamptz, $9::timestamptz, $10)",
           [validated.id, digest, Buffer.from(sealed.ciphertext), Buffer.from(sealed.iv), sealed.keyId, SCHEMA_VERSION, validated.requestedAt, validated.createdAt, validated.expiresAt, tenantIdempotencyDigest(validated.idempotencyKey)],
         );
+        if (this.onboardingScope) await bindOriginalRegistrationScope(client, validated.id, this.onboardingScope, validated.createdAt);
       } catch (error) {
         if ((error as { code?: unknown })?.code === "23505") throw new RegistrationPersistenceError("registration_attempt_conflict");
         throw error;

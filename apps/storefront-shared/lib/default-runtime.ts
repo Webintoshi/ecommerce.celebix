@@ -1,3 +1,5 @@
+import { createRetryingInitialization } from "./runtime-initialization.ts";
+import type { StorefrontSetupPaymentAvailability } from "./setup-capabilities.ts";
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import process from "node:process";
@@ -82,7 +84,7 @@ export type PublicStorefrontRuntime = Readonly<{
   warmPromotions(hostname: string): Promise<void>;
   mediaOrigin: string;
 }>;
-let initialization: Promise<PublicStorefrontRuntime | null> | undefined;
+const resolveInitializedRuntime = createRetryingInitialization(initialize);
 type HostedPaymentInfrastructure = Readonly<{
   runtime: HostedPaymentRuntime;
   attempts: PaymentAttemptRepository;
@@ -319,8 +321,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
 }
 
 export async function resolveDefaultPublicStorefrontRuntime(): Promise<PublicStorefrontRuntime | null> {
-  initialization ??= initialize();
-  return initialization;
+  return resolveInitializedRuntime();
 }
 
 export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymentRuntime | null> {
@@ -587,4 +588,32 @@ export async function resolveDefaultQuickOrderHostedPaymentBridgeRuntime(): Prom
     quickOrderHostedBridgeInitialization = undefined;
   }
   return runtime;
+}
+
+/** Safe execution availability for setup UI. This performs no provider request. */
+export async function resolveStorefrontSetupPaymentAvailability(): Promise<StorefrontSetupPaymentAvailability> {
+  const unavailable = { kind: 'unavailable' as const, providers: [] };
+  try {
+    const source = Object.freeze({
+      CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
+      CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+    });
+    const paytrMode = resolveStorefrontHostedPaymentActivationMode(source, 'paytr_iframe');
+    const iyzicoMode = resolveStorefrontHostedPaymentActivationMode(source, 'iyzico_iframe');
+    if (paytrMode === 'disabled' && iyzicoMode === 'disabled') return { kind: 'disabled', providers: [] };
+    const executable = executableCompiledAuthorities(compiledHostedPaymentAuthorities(), source);
+    if (executable.length === 0) return unavailable;
+    if (paytrMode !== 'disabled' && !executable.some(item => item.providerCode === 'paytr_iframe')) return unavailable;
+    if (iyzicoMode !== 'disabled' && !executable.some(item => item.providerCode === 'iyzico_iframe')) return unavailable;
+    const publicRuntime = await resolveDefaultPublicStorefrontRuntime();
+    if (publicRuntime?.hostedCheckout == null) return unavailable;
+    const infrastructure = await resolveDefaultHostedPaymentInfrastructure();
+    if (!infrastructure) return unavailable;
+    for (const entry of executable) {
+      if (!await currentExecutionAuthorityMatches(infrastructure.pool, {
+        providerCode: entry.providerCode, capability: 'payment_processing', ...entry.authority,
+      })) return unavailable;
+    }
+    return { kind: 'ready', providers: executable.map(entry => ({ providerCode: entry.providerCode, environment: entry.authority.environment })) };
+  } catch { return unavailable; }
 }

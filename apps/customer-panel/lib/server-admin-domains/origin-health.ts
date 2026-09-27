@@ -1,4 +1,5 @@
 import process from "node:process";
+import { createRetryingInitialization } from "./initialization.ts";
 
 import { PostgresAdminDomainOriginHealthRepository } from "@celebix/saas-data";
 import pg from "pg";
@@ -11,7 +12,7 @@ import {
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
-let initialized: Promise<PostgresAdminDomainOriginHealthRepository | null> | undefined;
+const resolveInitialized = createRetryingInitialization(initialize);
 
 async function initialize(): Promise<PostgresAdminDomainOriginHealthRepository | null> {
   if (resolveCustomerPanelStagingAuthMode(process.env) !== "approved_staging") return null;
@@ -45,7 +46,6 @@ async function initialize(): Promise<PostgresAdminDomainOriginHealthRepository |
 }
 
 export async function resolveAdminDomainOriginHealth(hostname: string, now: Date) {
-  initialized ??= initialize().catch(() => null);
-  const repository = await initialized;
+  const repository = await resolveInitialized();
   return repository ? repository.get({ hostname, now }) : null;
 }

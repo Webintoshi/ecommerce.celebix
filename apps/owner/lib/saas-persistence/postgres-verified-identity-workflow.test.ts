@@ -522,3 +522,18 @@ test("recovery claim requires a fenced ready authority and revalidates its immut
     assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
   }
 });
+
+test('original registration save persists immutable onboarding scope within the same transaction', async () => {
+ const client = new FakeClient(); const fixture = setup(client);
+ const scope = {ownerOrigin:'https://owner.saas-staging.celebix.net',panelOrigin:'https://panel.saas-staging.celebix.net',platformDomainSuffix:'saas-staging.celebix.net'};
+ const store = new PostgresRegistrationAttemptStore(fixture.dependencies,scope,undefined,scope);
+ await store.save({...registrationPayload,state:registrationState,status:'awaiting_identity'});
+ const insert=client.calls.findIndex(call=>call.text.startsWith('INSERT INTO saas.registration_workflows'));
+ const bind=client.calls.findIndex(call=>call.text.includes('bind_registration_onboarding_scope'));
+ const commit=client.calls.findIndex(call=>call.text==='COMMIT');
+ assert.ok(insert>=0 && bind>insert && commit>bind,'scope must be inserted atomically before commit');
+});
+test('registration scope cannot mismatch tenant completion authority', () => {
+ const client = new FakeClient(); const fixture = setup(client);
+ assert.throws(()=>new PostgresRegistrationAttemptStore(fixture.dependencies,{panelOrigin:'https://panel.saas-staging.celebix.net',platformDomainSuffix:'saas-staging.celebix.net'},undefined,{ownerOrigin:'https://owner.saas-staging.celebix.net',panelOrigin:'https://panel.saas-staging.celebix.site',platformDomainSuffix:'saas-staging.celebix.site'}));
+});
