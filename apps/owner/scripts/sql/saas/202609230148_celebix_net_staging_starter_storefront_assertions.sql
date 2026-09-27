@@ -21,7 +21,7 @@ BEGIN
       AND is_primary AND verified_at IS NOT NULL
   ) OR NOT EXISTS (
     SELECT 1 FROM saas.storefront_designs
-    WHERE store_id=selected_store_id AND published_version=1
+    WHERE store_id=selected_store_id AND published_version>=1
   ) THEN
     RAISE EXCEPTION 'SIORA_STARTER_AUTHORITY_INCOMPLETE';
   END IF;

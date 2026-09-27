@@ -38,6 +38,7 @@ function fixture(options: { repositoryKind?: PanelBrowserBootstrapResult["kind"]
         url.searchParams.set("code_challenge", input.codeChallenge);
         url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
         url.searchParams.set("redirect_uri", input.redirectUri);
+        if (input.prompt) url.searchParams.set("prompt", input.prompt);
         url.searchParams.set("response_type", "code");
         url.searchParams.set("response_mode", "query");
         exactProviderUrl = options.providerUrlMutation?.(url) ?? url.toString();

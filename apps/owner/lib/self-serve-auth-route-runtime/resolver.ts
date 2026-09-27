@@ -25,22 +25,30 @@ export function createOwnerStagingAuthRouteSetResolver<T extends RouteSet>(optio
       typeof options.diagnostic !== "function") throw new Error("owner_staging_auth_resolver_invalid");
   let disabled: T | undefined;
   let initialization: Promise<T> | undefined;
+  let unavailable: T | undefined;
+  let retryAt = 0;
+  let retryDelayMs = 1_000;
   const resolve = async (): Promise<T> => {
     if (resolveOwnerStagingAuthMode(options.source) !== "approved_staging") {
       disabled ??= options.disabled();
       return disabled;
     }
-    initialization ??= (async () => {
+    if (!initialization && unavailable && Date.now() < retryAt) return unavailable;
+    initialization ??= Promise.resolve().then(async () => {
       try {
         const snapshot = Object.fromEntries(
           OWNER_STAGING_AUTH_ENVIRONMENT_FIELDS.map((name) => [name, options.source[name]]),
         ) as Environment;
         return await options.initialize(parseOwnerStagingAuthConfig(snapshot));
       } catch {
+        initialization = undefined;
+        retryAt = Date.now() + retryDelayMs;
+        retryDelayMs = Math.min(retryDelayMs * 2, 30_000);
         try { options.diagnostic("owner_staging_auth_initialization_failed"); } catch { /* Diagnostic is best effort. */ }
-        return options.unavailable();
+        unavailable ??= options.unavailable();
+        return unavailable;
       }
-    })();
+    });
     return initialization;
   };
   return Object.freeze({ resolve });

@@ -68,17 +68,18 @@ test("route-owned CSP mode preserves the exact registration bridge policy and ev
 });
 
 test("default Owner, admin, and storefront CSP behavior remains unchanged", () => {
+  const normalizeWhitespace = (value) => value?.replace(/\s+/g, " ").trim();
   const owner = applySecurityHeaders(securityRequest(), new Response(), "owner");
   const admin = applySecurityHeaders(securityRequest(), new Response(), "admin");
   const storefront = applySecurityHeaders(securityRequest(), new Response(), "storefront");
   assert.equal(
-    owner.headers.get("content-security-policy"),
+    normalizeWhitespace(owner.headers.get("content-security-policy")),
     "base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self';",
   );
   assert.equal(admin.headers.get("content-security-policy"), owner.headers.get("content-security-policy"));
   assert.equal(
-    storefront.headers.get("content-security-policy"),
-    "base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self' https:;",
+    normalizeWhitespace(storefront.headers.get("content-security-policy")),
+    "base-uri 'self'; frame-ancestors 'none'; object-src 'none'; frame-src 'self' https://www.paytr.com; child-src 'self' https://www.paytr.com; form-action 'self' https:;",
   );
 });
 

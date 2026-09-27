@@ -1,4 +1,4 @@
-import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from "jose";
+import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet } from "jose";
 
 import {
   OidcFlowError,
@@ -15,6 +15,10 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const MEDIA_TYPE = /^([!#$%&'*+\-.^_`|~A-Za-z0-9]+)\/([!#$%&'*+\-.^_`|~A-Za-z0-9]+)(?:[ \t]*;[ \t]*[!#$%&'*+\-.^_`|~A-Za-z0-9]+[ \t]*=[ \t]*(?:[!#$%&'*+\-.^_`|~A-Za-z0-9]+|"(?:[\t !#-\[\]-~]|\\[\t -~])*"))*[ \t]*$/;
 const JSON_MEDIA_TYPES = Object.freeze(["application/json"]);
 const JWKS_MEDIA_TYPES = Object.freeze(["application/jwk-set+json", "application/json"]);
+const JWKS_TTL_MS = 300_000;
+const JWKS_REFRESH_COOLDOWN_MS = 30_000;
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_MAXIMUM_DELAY_MS = 30_000;
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -202,9 +206,20 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
       ? "unavailable"
       : "rejected";
   safeClock(options.clock);
+  const metadataFailure = (error: unknown): OidcFlowError => {
+    const code = failedOutcome(error) === "unavailable" ? "oidc_provider_unavailable" : "oidc_provider_rejected";
+    return new OidcFlowError(code, code);
+  };
 
   let discoveryPromise: Promise<Discovery> | undefined;
+  let discoveryFailure: OidcFlowError | undefined;
+  let discoveryRetryAt = 0;
+  let discoveryRetryDelayMs = RETRY_INITIAL_DELAY_MS;
   const loadDiscovery = (): Promise<Discovery> => {
+    if (discoveryPromise) return discoveryPromise;
+    if (discoveryFailure && safeClock(options.clock).getTime() < discoveryRetryAt) {
+      return Promise.reject(discoveryFailure);
+    }
     discoveryPromise ??= (async () => {
       const document = await fetchJson(fetcher, options.discoveryUrl, {
         method: "GET",
@@ -220,21 +235,57 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
       if (!stringArray(document.token_endpoint_auth_methods_supported).includes(options.tokenAuthMethod)) rejected();
       const providerAlgorithms = stringArray(document.id_token_signing_alg_values_supported);
       if (algorithms.some((algorithm) => !providerAlgorithms.includes(algorithm))) rejected();
+      discoveryFailure = undefined;
+      discoveryRetryDelayMs = RETRY_INITIAL_DELAY_MS;
       return Object.freeze({ issuer, authorizationEndpoint, tokenEndpoint, jwksUri });
-    })();
+    })().catch((error: unknown) => {
+      discoveryPromise = undefined;
+      discoveryFailure = metadataFailure(error);
+      discoveryRetryAt = safeClock(options.clock).getTime() + discoveryRetryDelayMs;
+      discoveryRetryDelayMs = Math.min(discoveryRetryDelayMs * 2, RETRY_MAXIMUM_DELAY_MS);
+      throw discoveryFailure;
+    });
     return discoveryPromise;
   };
 
-  let jwksPromise: Promise<ReturnType<typeof createLocalJWKSet>> | undefined;
-  const loadJwks = async (discovery: Discovery): Promise<ReturnType<typeof createLocalJWKSet>> => {
-    jwksPromise ??= (async () => {
+  type LocalJwks = ReturnType<typeof createLocalJWKSet>;
+  let jwks: LocalJwks | undefined;
+  let jwksPromise: Promise<LocalJwks> | undefined;
+  let jwksExpiresAt = 0;
+  let jwksRefreshAt = 0;
+  let jwksFailure: OidcFlowError | undefined;
+  let jwksRetryAt = 0;
+  let jwksRetryDelayMs = RETRY_INITIAL_DELAY_MS;
+  const loadJwks = async (discovery: Discovery, missingFrom?: LocalJwks): Promise<LocalJwks> => {
+    if (jwksPromise) return jwksPromise;
+    const now = safeClock(options.clock).getTime();
+    if (jwks && now < jwksExpiresAt) {
+      // Another callback may already have refreshed the set this verification used.
+      if (!missingFrom || jwks !== missingFrom) return jwks;
+      if (now < jwksRefreshAt) rejected();
+    }
+    if (jwksFailure && now < jwksRetryAt) throw jwksFailure;
+    if (jwks) jwksRefreshAt = now + JWKS_REFRESH_COOLDOWN_MS;
+    jwksPromise = (async () => {
       const document = await fetchJson(fetcher, discovery.jwksUri, {
         method: "GET",
         headers: { accept: "application/jwk-set+json, application/json" },
       }, timeoutMs, maximumResponseBytes, JWKS_MEDIA_TYPES);
       if (!Array.isArray(document.keys) || document.keys.length < 1 || document.keys.length > 32) rejected();
-      return createLocalJWKSet(document as unknown as JSONWebKeySet);
-    })();
+      const loaded = createLocalJWKSet(document as unknown as JSONWebKeySet);
+      const loadedAt = safeClock(options.clock).getTime();
+      jwks = loaded;
+      jwksExpiresAt = loadedAt + JWKS_TTL_MS;
+      jwksRefreshAt = loadedAt + JWKS_REFRESH_COOLDOWN_MS;
+      jwksFailure = undefined;
+      jwksRetryDelayMs = RETRY_INITIAL_DELAY_MS;
+      return loaded;
+    })().catch((error: unknown) => {
+      jwksFailure = metadataFailure(error);
+      jwksRetryAt = safeClock(options.clock).getTime() + jwksRetryDelayMs;
+      jwksRetryDelayMs = Math.min(jwksRetryDelayMs * 2, RETRY_MAXIMUM_DELAY_MS);
+      throw jwksFailure;
+    }).finally(() => { jwksPromise = undefined; });
     return jwksPromise;
   };
 
@@ -297,17 +348,31 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
       }
       audit({ stage: "jwks_response", outcome: "accepted" });
       let verified: Awaited<ReturnType<typeof jwtVerify>>;
-      const currentDate = safeClock(options.clock);
+      let currentDate = safeClock(options.clock);
+      const verifyToken = (keys: LocalJwks) => jwtVerify(idToken, keys, {
+        issuer,
+        audience: clientId,
+        algorithms: [...algorithms],
+        currentDate,
+        clockTolerance: 0,
+      });
       try {
-        verified = await jwtVerify(idToken, localJwks, {
-          issuer,
-          audience: clientId,
-          algorithms: [...algorithms],
-          currentDate,
-          clockTolerance: 0,
-        });
-      } catch {
+        try {
+          verified = await verifyToken(localJwks);
+        } catch (error) {
+          if (!(error instanceof errors.JWKSNoMatchingKey)) throw error;
+          try {
+            localJwks = await loadJwks(discovery, localJwks);
+          } catch (refreshError) {
+            audit({ stage: "jwks_response", outcome: failedOutcome(refreshError) });
+            throw refreshError;
+          }
+          currentDate = safeClock(options.clock);
+          verified = await verifyToken(localJwks);
+        }
+      } catch (error) {
         audit({ stage: "id_token_verification", outcome: "rejected" });
+        if (error instanceof OidcFlowError) throw error;
         return rejected();
       }
       audit({ stage: "id_token_verification", outcome: "accepted" });

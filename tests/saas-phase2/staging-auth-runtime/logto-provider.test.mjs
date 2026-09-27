@@ -15,6 +15,8 @@ const CALLBACK = "https://panel-auth.staging.example.test/auth/callback";
 const NOW = new Date("2026-07-15T12:00:00.000Z");
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const publicJwk = { ...publicKey.export({ format: "jwk" }), use: "sig", alg: "RS256", kid: "staging-rsa-v1" };
+const { privateKey: rotatedPrivateKey, publicKey: rotatedPublicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const rotatedPublicJwk = { ...rotatedPublicKey.export({ format: "jwk" }), use: "sig", alg: "RS256", kid: "staging-rsa-v2" };
 const { privateKey: es384PrivateKey, publicKey: es384PublicKey } = generateKeyPairSync("ec", { namedCurve: "P-384" });
 const es384PublicJwk = { ...es384PublicKey.export({ format: "jwk" }), use: "sig", alg: "ES384", kid: "staging-es384-v1" };
 
@@ -22,7 +24,7 @@ function base64url(value) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
 
-function idToken(overrides = {}, headerOverrides = {}) {
+function idToken(overrides = {}, headerOverrides = {}, signingKey = privateKey) {
   const header = { alg: "RS256", typ: "JWT", kid: "staging-rsa-v1", ...headerOverrides };
   const payload = {
     iss: ISSUER,
@@ -37,7 +39,7 @@ function idToken(overrides = {}, headerOverrides = {}) {
     ...overrides,
   };
   const signingInput = `${base64url(header)}.${base64url(payload)}`;
-  const signature = createSign("RSA-SHA256").update(signingInput).end().sign(privateKey).toString("base64url");
+  const signature = createSign("RSA-SHA256").update(signingInput).end().sign(signingKey).toString("base64url");
   return `${signingInput}.${signature}`;
 }
 
@@ -379,4 +381,199 @@ test("Logto failures expose only stable safe errors and never include code, toke
   catch (error) { message = String(error); }
   assert.match(message, /oidc_provider_rejected|oidc_provider_unavailable/);
   for (const value of sensitive) assert.equal(message.includes(value), false);
+});
+
+test("Logto discovery recovers after transient failure with throttled and coalesced retries", async () => {
+  let now = NOW.getTime();
+  let attempts = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const source = fixture();
+  const instance = provider(source, {
+    clock: () => new Date(now),
+    fetch: async (input, init) => {
+      if (String(input) === DISCOVERY) {
+        attempts += 1;
+        if (attempts === 1) throw new Error("temporary network failure");
+        await gate;
+      }
+      return source.fetch(input, init);
+    },
+  });
+  await assert.rejects(() => instance.buildAuthorizationUrl(authorizationInput), /oidc_provider_unavailable/);
+  await assert.rejects(() => instance.buildAuthorizationUrl(authorizationInput), /oidc_provider_unavailable/);
+  assert.equal(attempts, 1);
+  now += 1_000;
+  const pending = Array.from({ length: 4 }, () => instance.buildAuthorizationUrl(authorizationInput));
+  release();
+  for (const url of await Promise.all(pending)) assert.equal(url.origin + url.pathname, AUTHORIZATION);
+  assert.equal(attempts, 2);
+});
+
+test("Logto JWKS recovers after transient failure without repeating a callback token exchange", async () => {
+  let now = NOW.getTime();
+  let attempts = 0;
+  const source = fixture();
+  const instance = provider(source, {
+    clock: () => new Date(now),
+    fetch: async (input, init) => {
+      if (String(input) === JWKS) {
+        attempts += 1;
+        if (attempts === 1) throw new Error("temporary JWKS failure");
+      }
+      return source.fetch(input, init);
+    },
+  });
+  await assert.rejects(() => instance.verifyCallback(callbackInput), /oidc_provider_unavailable/);
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "second-code" }), /oidc_provider_unavailable/);
+  assert.equal(attempts, 1);
+  now += 1_000;
+  const identities = await Promise.all(Array.from({ length: 4 }, (_, index) =>
+    instance.verifyCallback({ ...callbackInput, code: `retry-code-${index}` })));
+  for (const identity of identities) assert.equal(identity.subject, "logto-subject-123");
+  assert.equal(attempts, 2);
+  assert.equal(source.calls.filter(({ url }) => url === TOKEN).length, 6);
+  assert.equal(source.calls.filter(({ url }) => url === DISCOVERY).length, 1);
+});
+
+test("Logto coalesces signing-key rotation refresh and throttles repeated unknown keys", async () => {
+  let now = NOW.getTime();
+  const options = {};
+  const source = fixture(options);
+  const instance = provider(source, { clock: () => new Date(now) });
+  await instance.verifyCallback(callbackInput);
+  options.token = idToken({}, { kid: "staging-rsa-v2" }, rotatedPrivateKey);
+  options.jwksKeys = [rotatedPublicJwk];
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "rotation-before-cooldown" }), /oidc_provider_rejected/);
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 1);
+  now += 30_000;
+  const identities = await Promise.all(Array.from({ length: 8 }, (_, index) =>
+    instance.verifyCallback({ ...callbackInput, code: `rotation-code-${index}` })));
+  for (const identity of identities) assert.equal(identity.subject, "logto-subject-123");
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 2);
+  options.token = idToken({}, { kid: "unknown-attacker-key" });
+  const rejected = await Promise.allSettled(Array.from({ length: 8 }, (_, index) =>
+    instance.verifyCallback({ ...callbackInput, code: `unknown-code-${index}` })));
+  for (const result of rejected) {
+    assert.equal(result.status, "rejected");
+    assert.match(String(result.reason), /oidc_provider_rejected/);
+  }
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 2);
+  now += 30_000;
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "unknown-after-cooldown" }), /oidc_provider_rejected/);
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 3);
+});
+
+test("Logto refreshes expired JWKS and rejects a removed signing key", async () => {
+  let now = NOW.getTime();
+  const options = {};
+  const source = fixture(options);
+  const instance = provider(source, { clock: () => new Date(now) });
+  await instance.verifyCallback(callbackInput);
+  now += 300_000;
+  const claims = { iat: Math.floor(now / 1000) - 30, exp: Math.floor(now / 1000) + 300 };
+  options.token = idToken(claims);
+  options.jwksKeys = [rotatedPublicJwk];
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "removed-key-code" }), /oidc_provider_rejected/);
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 2);
+  options.token = idToken(claims, { kid: "staging-rsa-v2" }, rotatedPrivateKey);
+  assert.equal((await instance.verifyCallback({ ...callbackInput, code: "current-key-code" })).subject, "logto-subject-123");
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 2);
+});
+
+test("Logto rejects bad signatures and claims without fetching JWKS again", async () => {
+  let now = NOW.getTime();
+  const options = {};
+  const source = fixture(options);
+  const instance = provider(source, { clock: () => new Date(now) });
+  await instance.verifyCallback(callbackInput);
+  now += 30_000;
+  for (const token of [
+    idToken({}, {}, rotatedPrivateKey),
+    idToken({ iss: "https://wrong-issuer.example.test" }),
+    idToken({ aud: "wrong-audience" }),
+    idToken({ nonce: "wrong-nonce" }),
+    idToken({}, { alg: "HS256", kid: "unknown-attacker-key" }),
+  ]) {
+    options.token = token;
+    await assert.rejects(() => instance.verifyCallback(callbackInput), /oidc_provider_rejected/);
+  }
+  assert.equal(source.calls.filter(({ url }) => url === JWKS).length, 1);
+});
+
+test("Logto discovery bounds repeated-failure backoff and eventually recovers", async () => {
+  let now = NOW.getTime();
+  let attempts = 0;
+  let healthy = false;
+  const source = fixture();
+  const instance = provider(source, {
+    clock: () => new Date(now),
+    fetch: async (input, init) => {
+      if (String(input) === DISCOVERY) {
+        attempts += 1;
+        if (!healthy) throw new Error("provider outage");
+      }
+      return source.fetch(input, init);
+    },
+  });
+  await assert.rejects(() => instance.buildAuthorizationUrl(authorizationInput), /oidc_provider_unavailable/);
+  let expectedAttempts = 1;
+  for (const delay of [1_000, 2_000, 4_000, 8_000, 16_000, 30_000, 30_000]) {
+    now += delay - 1;
+    await assert.rejects(() => instance.buildAuthorizationUrl(authorizationInput), /oidc_provider_unavailable/);
+    assert.equal(attempts, expectedAttempts);
+    now += 1;
+    await assert.rejects(() => instance.buildAuthorizationUrl(authorizationInput), /oidc_provider_unavailable/);
+    expectedAttempts += 1;
+    assert.equal(attempts, expectedAttempts);
+  }
+  healthy = true;
+  now += 30_000;
+  const url = await instance.buildAuthorizationUrl(authorizationInput);
+  assert.equal(url.origin + url.pathname, AUTHORIZATION);
+  assert.equal(attempts, expectedAttempts + 1);
+});
+
+test("Logto rejects expired cached JWKS during an outage and coalesces its recovery", async () => {
+  let now = NOW.getTime();
+  let jwksAttempts = 0;
+  let healthy = true;
+  const options = {};
+  const source = fixture(options);
+  const instance = provider(source, {
+    clock: () => new Date(now),
+    fetch: async (input, init) => {
+      if (String(input) === JWKS) {
+        jwksAttempts += 1;
+        if (!healthy) throw new Error("provider outage");
+      }
+      return source.fetch(input, init);
+    },
+  });
+  await instance.verifyCallback(callbackInput);
+  now += 300_000;
+  const claims = { iat: Math.floor(now / 1000) - 30, exp: Math.floor(now / 1000) + 300 };
+  options.token = idToken(claims);
+  healthy = false;
+  const failures = await Promise.allSettled(Array.from({ length: 6 }, (_, index) =>
+    instance.verifyCallback({ ...callbackInput, code: `expired-code-${index}` })));
+  for (const failure of failures) {
+    assert.equal(failure.status, "rejected");
+    assert.match(String(failure.reason), /oidc_provider_unavailable/);
+  }
+  assert.equal(jwksAttempts, 2);
+  now += 999;
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "before-jwks-retry" }), /oidc_provider_unavailable/);
+  assert.equal(jwksAttempts, 2);
+  now += 1;
+  healthy = true;
+  options.jwksKeys = [rotatedPublicJwk];
+  options.token = idToken(claims, { kid: "staging-rsa-v2" }, rotatedPrivateKey);
+  const identities = await Promise.all(Array.from({ length: 6 }, (_, index) =>
+    instance.verifyCallback({ ...callbackInput, code: `healthy-code-${index}` })));
+  for (const identity of identities) assert.equal(identity.subject, "logto-subject-123");
+  assert.equal(jwksAttempts, 3);
+  options.token = idToken({ ...claims, nonce: "wrong-nonce" }, { kid: "staging-rsa-v2" }, rotatedPrivateKey);
+  await assert.rejects(() => instance.verifyCallback({ ...callbackInput, code: "bad-current-key-nonce" }), /oidc_provider_rejected/);
+  assert.equal(jwksAttempts, 3);
 });

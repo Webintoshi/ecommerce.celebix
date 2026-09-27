@@ -5,7 +5,7 @@ interface SelfServeDirectRegistrationFormProps {
 
 export function SelfServeDirectRegistrationForm({
   enabled,
-  domainSuffix = "celebix.site",
+  domainSuffix,
 }: SelfServeDirectRegistrationFormProps) {
   return (
     <form
@@ -37,7 +37,7 @@ export function SelfServeDirectRegistrationForm({
             maxLength={48}
             pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
           />
-          <b>.{domainSuffix}</b>
+          {domainSuffix && <b>.{domainSuffix}</b>}
         </div>
       </label>
 

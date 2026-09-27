@@ -69,7 +69,7 @@ test("approved staging initialization receives exact known fields once and is me
   }
 });
 
-test("initialization failure is memoized and remains controlled unavailable", async () => {
+test("initialization failure is throttled and remains controlled unavailable", async () => {
   let initialized = 0;
   const diagnostics = [];
   const unavailable = routeSet("unavailable");
@@ -85,4 +85,65 @@ test("initialization failure is memoized and remains controlled unavailable", as
   assert.equal(initialized, 1);
   assert.deepEqual(diagnostics, ["owner_staging_auth_initialization_failed"]);
   assert.equal(JSON.stringify(diagnostics).includes("secret database details"), false);
+});
+
+test("owner initialization recovers after a transient failure and coalesces the retry", async (t) => {
+  let now = 0;
+  t.mock.method(Date, "now", () => now);
+  let initialized = 0;
+  let release;
+  const retry = new Promise((resolve) => { release = resolve; });
+  const unavailable = routeSet("unavailable");
+  const healthy = routeSet("healthy");
+  const resolver = createOwnerStagingAuthRouteSetResolver({
+    source: validOwnerEnvironment(),
+    disabled: () => routeSet("disabled"),
+    unavailable: () => unavailable,
+    initialize: async () => {
+      initialized += 1;
+      if (initialized === 1) throw new Error("transient preflight failure");
+      await retry;
+      return healthy;
+    },
+    diagnostic: () => {},
+  });
+  assert.equal(await resolver.resolve(), unavailable);
+  assert.equal(await resolver.resolve(), unavailable);
+  assert.equal(initialized, 1);
+  now = 1_000;
+  const pending = [resolver.resolve(), resolver.resolve(), resolver.resolve()];
+  release();
+  assert.deepEqual(await Promise.all(pending), [healthy, healthy, healthy]);
+  assert.equal(await resolver.resolve(), healthy);
+  assert.equal(initialized, 2);
+});
+
+test("owner initialization backs off repeated failures and remains disabled outside approved staging", async (t) => {
+  let now = 0;
+  t.mock.method(Date, "now", () => now);
+  let initialized = 0;
+  const source = validOwnerEnvironment();
+  const unavailable = routeSet("unavailable");
+  const disabled = routeSet("disabled");
+  const resolver = createOwnerStagingAuthRouteSetResolver({
+    source,
+    disabled: () => disabled,
+    unavailable: () => unavailable,
+    initialize: async () => { initialized += 1; throw new Error("unavailable"); },
+    diagnostic: () => {},
+  });
+  assert.equal(await resolver.resolve(), unavailable);
+  now = 1_000;
+  assert.equal(await resolver.resolve(), unavailable);
+  assert.equal(initialized, 2);
+  now = 2_999;
+  assert.equal(await resolver.resolve(), unavailable);
+  assert.equal(initialized, 2);
+  now = 3_000;
+  assert.equal(await resolver.resolve(), unavailable);
+  assert.equal(initialized, 3);
+  source.CELEBIX_DEPLOYMENT_TIER = "production";
+  now = 100_000;
+  assert.equal(await resolver.resolve(), disabled);
+  assert.equal(initialized, 3);
 });

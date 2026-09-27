@@ -46,6 +46,7 @@ function fixture() {
         url.searchParams.set("code_challenge", input.codeChallenge);
         url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
         url.searchParams.set("redirect_uri", input.redirectUri);
+        if (input.prompt) url.searchParams.set("prompt", input.prompt);
         return url;
       },
       async verifyCallback(): Promise<never> { throw new Error("unused"); },

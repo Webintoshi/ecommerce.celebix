@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { approvedRegistrationEnvironment, registrationUiFixture } from "./registration-ui-test-fixture.ts";
 
 const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
 const rootLayoutSource = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
@@ -10,32 +11,75 @@ const formSource = readFileSync(
   "utf8",
 );
 
-test("/kayit is a single direct registration screen, not the old onboarding landing", () => {
-  assert.match(pageSource, /E-Ticaret sitenizi açın!/);
-  assert.match(pageSource, /Sanal POS, kargo ve yönetim paneliniz hazır\./);
-  assert.match(pageSource, /Zaten hesabınız var mı\?/);
-  assert.match(pageSource, /Giriş Yap/);
-
-  assert.doesNotMatch(pageSource, /self-serve-direct-shell/);
-  assert.doesNotMatch(pageSource, /self-serve-direct-copy/);
-  assert.doesNotMatch(pageSource, /self-serve-trust-list/);
-  assert.doesNotMatch(pageSource, /self-serve-direct-note/);
-  assert.doesNotMatch(pageSource, /Komisyonsuz e-ticaret altyapısı/);
-  assert.doesNotMatch(pageSource, /Kurulum sonrası/);
+test("enabled /kayit explains verified store creation and exposes an active submit", () => {
+  const ui = registrationUiFixture(approvedRegistrationEnvironment());
+  const page = ui.page();
+  const nodes = ui.elements(page);
+  const state = nodes.find((node) => node.props.id === "self-serve-registration-state");
+  const button = nodes.find((node) => node.type === "button");
+  assert.ok(state);
+  assert.match(ui.text(state), /Kimliğinizi doğrulayın/);
+  assert.match(ui.text(page), /doğrulama.*mağazanız.*oluşturul/i);
+  assert.doesNotMatch(ui.text(page), /altyapısı hazırlanıyor|canlı mağaza oluşturmaz|entegrasyon onayı/i);
+  assert.equal(nodes.find((node) => node.props["data-state"])?.props["data-state"], "enabled");
+  assert.equal(button?.props.disabled, false);
+  assert.equal(button?.props["aria-disabled"], false);
+  assert.equal(nodes.find((node) => node.type === "form")?.props["aria-describedby"], state.props.id);
 });
 
-test("/kayit renders the safe direct registration form from one server-derived boolean", () => {
-  assert.match(pageSource, /resolveSelfServeRegistrationUiEnabled\(process\.env\)/);
-  assert.doesNotMatch(pageSource, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
-  assert.match(pageSource, /Kayıt altyapısı hazırlanıyor/);
-  assert.match(pageSource, /canlı mağaza oluşturmaz/);
-  assert.match(pageSource, /SelfServeDirectRegistrationForm/);
-  assert.match(formSource, /name="storeName"/);
-  assert.match(formSource, /name="storeSlug"/);
-  assert.match(formSource, /name="privacyConsent"/);
-  assert.match(formSource, /name="marketingConsent"/);
-  assert.match(formSource, /Kimliğimi doğrula ve mağazamı kur/);
-  assert.match(formSource, /disabled/);
+test("disabled /kayit shows the preparation notice and prevents submission", () => {
+  const ui = registrationUiFixture({});
+  const page = ui.page();
+  const nodes = ui.elements(page);
+  assert.match(ui.text(page), /Kayıt altyapısı hazırlanıyor/);
+  assert.doesNotMatch(ui.text(page), /Kimliğinizi doğrulayın/);
+  assert.equal(nodes.find((node) => node.props["data-state"])?.props["data-state"], "disabled");
+  assert.equal(nodes.find((node) => node.type === "button")?.props.disabled, true);
+  assert.equal(nodes.find((node) => node.type === "button")?.props["aria-disabled"], true);
+});
+
+test("/kayit describes payment and shipping as settings the merchant completes", () => {
+  for (const environment of [{}, approvedRegistrationEnvironment()]) {
+    const ui = registrationUiFixture(environment);
+    const text = ui.text(ui.page());
+    assert.doesNotMatch(text, /Sanal POS, kargo ve yönetim paneliniz hazır/);
+    assert.match(text, /[Öö]deme ve kargo ayarlarınızı.*tamamlay/i);
+  }
+});
+
+test("enabled /kayit previews the configured NET and SITE domain suffixes", () => {
+  for (const suffix of ["saas-staging.celebix.net", "saas-staging.celebix.site"]) {
+    const ui = registrationUiFixture(approvedRegistrationEnvironment(suffix));
+    const page = ui.page();
+    const nodes = ui.elements(page);
+    assert.equal(ui.text(nodes.find((node) => node.type === "b")), `.${suffix}`);
+    assert.equal(nodes.find((node) => node.type === "button")?.props.disabled, false);
+  }
+});
+
+test("disabled /kayit does not advertise an unconfigured default store address", () => {
+  const ui = registrationUiFixture({ CELEBIX_PLATFORM_DOMAIN_SUFFIX: "untrusted.example.test" });
+  const page = ui.page();
+  assert.doesNotMatch(ui.text(page), /\.celebix\.site|untrusted\.example\.test/);
+  assert.equal(ui.elements(page).find((node) => node.type === "button")?.props.disabled, true);
+});
+
+test("direct registration preserves required store fields and explicit consent choices", () => {
+  const ui = registrationUiFixture(approvedRegistrationEnvironment());
+  const nodes = ui.elements(ui.page());
+  const inputs = nodes.filter((node) => node.type === "input");
+  assert.deepEqual(inputs.map((node) => node.props.name), ["storeName", "storeSlug", "marketingConsent", "privacyConsent"]);
+  assert.equal(inputs.find((node) => node.props.name === "storeName")?.props.required, true);
+  assert.equal(inputs.find((node) => node.props.name === "storeSlug")?.props.required, true);
+  const privacy = inputs.find((node) => node.props.name === "privacyConsent");
+  const marketing = inputs.find((node) => node.props.name === "marketingConsent");
+  assert.equal(privacy?.props.required, true);
+  assert.equal(marketing?.props.required, undefined);
+  for (const input of [privacy, marketing]) {
+    assert.equal(input?.props.checked ?? input?.props.defaultChecked ?? false, false);
+  }
+  assert.equal(nodes.find((node) => node.type === "form")?.props.action, "/api/self-serve/register");
+  assert.equal(nodes.find((node) => node.type === "form")?.props.method, "post");
 });
 
 test("/kayit does not consume browser authority or render staging secrets", () => {

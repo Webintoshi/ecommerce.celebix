@@ -116,13 +116,29 @@ test("creates opaque state, nonce and an S256 challenge without exposing the PKC
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.deepEqual(url.searchParams.getAll("response_type"), ["code"]);
   assert.deepEqual(url.searchParams.getAll("response_mode"), ["query"]);
-  assert.equal(url.searchParams.has("prompt"), false);
+  assert.deepEqual(url.searchParams.getAll("prompt"), ["login"]);
   assert.match(url.searchParams.get("state") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("nonce") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.match(url.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{40,}$/);
   assert.equal(url.searchParams.has("code_verifier"), false);
   assert.equal(JSON.stringify(result).toLowerCase().includes("verifier"), false);
   assert.equal(result.authorizationUrl.includes("/kayit"), false);
+});
+
+test("new store registration requires fresh login instead of silently using another existing browser identity", async () => {
+  const provider = new FakeProvider();
+  const { result } = await begin(provider);
+  assert.equal(provider.lastAuthorizationRequest?.prompt, "login");
+  assert.deepEqual(new URL(result.authorizationUrl).searchParams.getAll("prompt"), ["login"]);
+});
+
+test("new store registration rejects a provider that drops the fresh login requirement", async () => {
+  const provider = new FakeProvider();
+  provider.mutateAuthorizationUrl = (url) => {
+    url.searchParams.delete("prompt");
+    return url;
+  };
+  await assert.rejects(() => begin(provider), /authorization/i);
 });
 
 test("completes a callback once and passes the verifier only through the provider port", async () => {

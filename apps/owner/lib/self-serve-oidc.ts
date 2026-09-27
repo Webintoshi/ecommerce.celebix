@@ -363,7 +363,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     codeChallenge,
     codeChallengeMethod: "S256",
     redirectUri: input.redirectUri,
-    ...(panelLoginBinding ? { prompt: "login" as const } : {}),
+    prompt: "login",
   };
   let authorizationUrl: URL;
   try {
