@@ -2,7 +2,7 @@ import type { MerchantAdminRecord } from "@celebix/saas-contracts";
 import { merchantAdminApi, MerchantAdminApiError } from "../merchant-admin-ui/client.ts";
 import { buildCheckoutDeliveryConfig, readCheckoutDeliverySettings, selectCheckoutDeliveryRecord, selectActiveCheckoutDeliveryRecord, type CheckoutDeliverySettings } from "./model.ts";
 
-export type CheckoutDeliveryWorkspace = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings | null; activeRecord?: MerchantAdminRecord | null }>;
+export type CheckoutDeliveryWorkspace = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings | null; activeRecord?: MerchantAdminRecord | null; activeStatus?: "known" | "unknown" }>;
 export type CheckoutDeliverySave = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings; status: "draft" | "active"; operationId: string }>;
 export function createCheckoutDeliveryClient(api: Pick<typeof merchantAdminApi, "records" | "save"> = merchantAdminApi) {
   return Object.freeze({
@@ -13,7 +13,10 @@ export function createCheckoutDeliveryClient(api: Pick<typeof merchantAdminApi, 
       const record = selectCheckoutDeliveryRecord(records);
       const activeRecord = selectActiveCheckoutDeliveryRecord(records);
       if (activeRecord) readCheckoutDeliverySettings(activeRecord.config);
-      return Object.freeze({ record, settings: record === null ? null : readCheckoutDeliverySettings(record.config), activeRecord });
+      // SQL's newest-first list is bounded at200. A full draft-only window
+      // cannot establish the absence of an older active checkout record.
+      const activeStatus = activeRecord !== null || records.length < 200 ? "known" : "unknown";
+      return Object.freeze({ record, settings: record === null ? null : readCheckoutDeliverySettings(record.config), activeRecord, activeStatus });
     },
     async save(input: CheckoutDeliverySave) {
       const record = input.record;

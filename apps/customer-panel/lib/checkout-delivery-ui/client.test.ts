@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createMerchantAdminApi, MerchantAdminApiError } from "../merchant-admin-ui/client.ts";
 import { createCheckoutDeliveryClient } from "./client.ts";
+import { checkoutDeliveryPresentation } from "./presentation.ts";
 const ID="71000000-0000-4000-8000-000000000001",OP="72000000-0000-4000-8000-000000000001",DATE="2026-09-27T00:00:00.000Z";
 const record={id:ID,kind:"shipping_setting" as const,name:"Teslimat",config:{regions:"Türkiye",freeShippingThresholdCents:50000,shippingPriceCents:1000,estimatedDays:2},status:"active" as const,version:7,createdAt:DATE,updatedAt:DATE};
 test("delivery save carries preserved config exact version and retry operation through the authenticated transport",async()=>{
@@ -30,4 +31,15 @@ test("load failures and wrong-kind responses remain unavailable rather than appe
   const api=createCheckoutDeliveryClient(createMerchantAdminApi(async()=>response));
   await assert.rejects(()=>api.current());
  }
+});
+test("a full window of newer drafts cannot prove that checkout has no older active fee",async()=>{
+ const drafts=Array.from({length:200},(_,index)=>({...record,id:`71000000-0000-4000-8000-${String(index+2).padStart(12,"0")}`,status:"draft" as const}));
+ const api=createCheckoutDeliveryClient(createMerchantAdminApi(async()=>Response.json({items:drafts})));
+ const view=checkoutDeliveryPresentation(await api.current());
+ assert.equal(view.label,"Taslak");
+ assert.equal(view.checkoutDetail,"Ödeme adımındaki etkin teslimat ayarı şu anda doğrulanamıyor.");
+ const knownEmpty=createCheckoutDeliveryClient(createMerchantAdminApi(async()=>Response.json({items:drafts.slice(1)})));
+ assert.equal(checkoutDeliveryPresentation(await knownEmpty.current()).checkoutDetail,"Ödeme adımında etkin teslimat ayarı yok.");
+ const active=createCheckoutDeliveryClient(createMerchantAdminApi(async()=>Response.json({items:[...drafts.slice(1),record]})));
+ assert.equal(checkoutDeliveryPresentation(await active.current()).checkoutDetail,"Ödeme adımında 10,00 TL kullanılıyor.");
 });

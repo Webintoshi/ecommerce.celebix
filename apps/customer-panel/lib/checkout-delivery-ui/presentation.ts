@@ -10,7 +10,7 @@ export function checkoutDeliveryPresentation(workspace: CheckoutDeliveryWorkspac
   const detail = settings === null ? "Teslimat ücretini açıkça tanımlayın." : workspace.record?.status === "active" ? "Ödeme adımında kullanılıyor." : "Taslak ayar ödeme adımında kullanılmaz.";
   const active = workspace.activeRecord === undefined ? workspace.record?.status === "active" ? workspace.record : null : workspace.activeRecord;
   const activeSettings = active ? readCheckoutDeliverySettings(active.config) : null;
-  const checkoutDetail = active?.id === workspace.record?.id ? "" : active === null ? "Ödeme adımında etkin teslimat ayarı yok." : activeSettings === null ? "Ödeme adımındaki etkin kayıtta ücret tanımlanmadı." : activeSettings.shippingPriceCents === 0 ? "Ödeme adımında ücretsiz teslimat kullanılıyor." : `Ödeme adımında ${deliveryPriceInput(activeSettings.shippingPriceCents)} TL kullanılıyor.`;
+  const checkoutDetail = active?.id === workspace.record?.id && active !== null ? "" : active === null ? workspace.activeStatus === "unknown" ? "Ödeme adımındaki etkin teslimat ayarı şu anda doğrulanamıyor." : "Ödeme adımında etkin teslimat ayarı yok." : activeSettings === null ? "Ödeme adımındaki etkin kayıtta ücret tanımlanmadı." : activeSettings.shippingPriceCents === 0 ? "Ödeme adımında ücretsiz teslimat kullanılıyor." : `Ödeme adımında ${deliveryPriceInput(activeSettings.shippingPriceCents)} TL kullanılıyor.`;
   return Object.freeze({ label, fee, detail, checkoutDetail });
 }
 export function checkoutDeliveryDaysInput(workspace: CheckoutDeliveryWorkspace): string {
