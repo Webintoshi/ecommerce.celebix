@@ -1,3 +1,4 @@
+import {createOnboardingStatusCredentialCodec} from "../../../apps/owner/lib/self-serve-status/credential-codec.ts";
 import { createPanelBrowserBindingAuthorityCodec } from "../../../apps/owner/lib/panel-browser-binding/credential-codec.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../../../apps/owner/lib/self-serve-http/runtime.ts";
 import { createOwnerSelfServeAuthCompositionApproval } from "../../../apps/owner/lib/self-serve-auth-composition/activation.ts";
@@ -49,7 +50,7 @@ export function cookieValue(response, name) {
   return cookie.slice(name.length + 1, cookie.indexOf(";"));
 }
 
-export function composeApprovedStagingFlow() {
+export function composeApprovedStagingFlow(options = {}) {
   const counts = {
     gate: 0,
     registration: 0,
@@ -68,6 +69,8 @@ export function composeApprovedStagingFlow() {
   let transaction;
   let attempt;
   let ownerRoutes;
+  let statusDigest;
+  const statusCodec=createOnboardingStatusCredentialCodec({key:new Uint8Array(32).fill(0x61),randomBytes:size=>new Uint8Array(size).fill(0x62)});
   const browserAuthority = { version: 0, state: "", bootstrap: "", provider: "", binding: "" };
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("approved_staging"),
@@ -96,7 +99,7 @@ export function composeApprovedStagingFlow() {
           result: {
             store: { slug: "verified-store" },
             storefrontUrl: "https://verified-store.celebix.site",
-            panelUrl: "https://panel.celebix.site",
+            panelUrl: "https://verified-store.admin.celebix.site",
             operationId: "operation",
             replayed: false,
           },
@@ -115,6 +118,7 @@ export function composeApprovedStagingFlow() {
         url.searchParams.set("code_challenge", input.codeChallenge);
         url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
         url.searchParams.set("redirect_uri", input.redirectUri);
+        if (input.prompt) url.searchParams.set("prompt", input.prompt);
         return url;
       },
       async verifyCallback(input) {
@@ -158,6 +162,7 @@ export function composeApprovedStagingFlow() {
       });
       return { kind: "browser_bootstrap_created", expiresAt: input.expiresAt.toISOString() };
     },
+    async issueBootstrapWithStatus(input, binding) { const result=await repository.createBootstrap(input);statusDigest=binding.digest;return result; },
     async bindBrowserCredential(input) {
       counts.bind += 1;
       if (
@@ -205,6 +210,7 @@ export function composeApprovedStagingFlow() {
   const owner = createDisabledOwnerSelfServeAuthComposition({
     activationApproval: createOwnerSelfServeAuthCompositionApproval("approved_staging"),
     runtime,
+    ...(options.onboarding?{onboarding:{codec:statusCodec,repository:{async readStatus({digest}){return digest===statusDigest?{kind:"status",projection:{stage:"checking_access",updatedAt:NOW.toISOString()}}:{kind:"unauthorized"};},async readCachedReady(){return options.snapshotReady===true;}}}}:{}),
     stateDigester: { digest() { return "a".repeat(64); } },
     browserBindingCredentialCodec: codec,
     browserBindingRepository: repository,

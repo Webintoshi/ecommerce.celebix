@@ -14,6 +14,10 @@ import type {
   PostgresPanelBrowserBindingRepository,
 } from "./postgres-repository.ts";
 
+import type { OnboardingStatusCredentialCodec } from "../self-serve-status/credential-codec.ts";
+import { ONBOARDING_STATUS_TTL_MS } from "../self-serve-status/cookie.ts";
+import type { RegistrationAuthorityScope } from "../onboarding-jobs/types.ts";
+
 const DIGEST = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAXIMUM_BOOTSTRAP_MS = 5 * 60_000;
@@ -28,6 +32,7 @@ export type PanelBrowserBindingRegistrationStartResult = Readonly<{
   providerAuthorizationUrl: string;
   panelBootstrapAuthority: string;
   bootstrapExpiresAt: string;
+  onboardingStatus?: { credential: string; issuedAt: Date };
 }>;
 
 function invalid(): never {
@@ -82,7 +87,8 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
   runtime: PersistentSelfServeRuntime;
   stateDigester: OpaqueStateDigester;
   credentialCodec: PanelBrowserBindingAuthorityCodec;
-  repository: Pick<PostgresPanelBrowserBindingRepository, "createBootstrap">;
+  repository: Pick<PostgresPanelBrowserBindingRepository, "createBootstrap" | "issueBootstrapWithStatus">;
+  onboarding?: { codec: OnboardingStatusCredentialCodec; scope: RegistrationAuthorityScope };
   panelBootstrapAuthority: string;
   panelCallbackAuthority?: string;
   clock(): Date;
@@ -112,6 +118,8 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
       bootstrap.origin !== callback.origin
     ) invalid();
   } catch { return invalid(); }
+  if (input.onboarding && typeof input.repository.issueBootstrapWithStatus !== "function") invalid();
+  const onboarding = input.onboarding;
   const runtime = input.runtime;
   const digestState = input.stateDigester.digest.bind(input.stateDigester);
   const generateBootstrapCredential = input.credentialCodec.generateBootstrapCredential.bind(input.credentialCodec);
@@ -155,15 +163,21 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
       }
 
       let persisted: PanelBrowserBootstrapResult;
+      let statusCredential: string | undefined;
       try {
-        persisted = await createBootstrap({
+        const status = onboarding?.codec.issue();
+        statusCredential = status?.credential;
+        const bootstrapInput = {
           rawState: provider.state,
           bootstrapCredential: candidate.credential,
           providerAuthorizationUrl: provider.url,
           bindingId,
           issuedAt,
           expiresAt: bootstrapExpiresAt,
-        });
+        };
+        persisted = status && onboarding
+          ? await input.repository.issueBootstrapWithStatus!(bootstrapInput, {digest:status.digest,scope:onboarding.scope,expiresAt:new Date(issuedAt.getTime()+ONBOARDING_STATUS_TTL_MS)})
+          : await createBootstrap(bootstrapInput);
       } catch {
         auditSafely(audit, { stage: "bootstrap", outcome: "unavailable" });
         return invalid();
@@ -182,6 +196,7 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
         providerAuthorizationUrl: provider.url,
         panelBootstrapAuthority,
         bootstrapExpiresAt: persisted.expiresAt,
+        ...(statusCredential ? {onboardingStatus:{credential:statusCredential,issuedAt}} : {}),
       });
     },
   });

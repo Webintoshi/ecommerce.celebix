@@ -33,6 +33,7 @@ export type OwnerPanelSessionFreshLoginCode =
   | "handoff_unavailable";
 
 export type OwnerPanelSessionHandoffInternalResult = Readonly<
+  | { status: 202; body: Readonly<{schemaVersion:1;kind:"onboarding_pending";statusUrl:string}> }
   | {
       status: 200;
       body: Readonly<{
@@ -175,13 +176,29 @@ export function createFreshLoginRequiredResult(
   return Object.freeze({ status, body });
 }
 
+export function createOnboardingPendingResult(ownerOrigin: string): OwnerPanelSessionHandoffInternalResult {
+  const url = new URL(ownerOrigin);
+  if (url.protocol !== "https:" || url.origin !== ownerOrigin || url.username || url.password || url.port) invalid();
+  return Object.freeze({status:202,body:Object.freeze({schemaVersion:1,kind:"onboarding_pending",statusUrl:`${ownerOrigin}/onboarding/status`})});
+}
+function canonicalStatusUrl(value: unknown): string {
+  if (typeof value !== "string") invalid();
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || value !== `${url.origin}/onboarding/status`) invalid();
+  return value;
+}
+
 export function canonicalOwnerPanelSessionHandoffResult(
   result: OwnerPanelSessionHandoffInternalResult,
 ): string {
   if (!result || typeof result !== "object" || !result.body || typeof result.body !== "object") invalid();
   const body = result.body as unknown as Record<string, unknown>;
   let canonical: string;
-  if (result.status === 200) {
+  if (result.status === 202) {
+    exactKeys(body, ["schemaVersion", "kind", "statusUrl"]);
+    if (body.schemaVersion !== 1 || body.kind !== "onboarding_pending") invalid();
+    canonical = JSON.stringify({schemaVersion:1,kind:"onboarding_pending",statusUrl:canonicalStatusUrl(body.statusUrl)});
+  } else if (result.status === 200) {
     if (body.kind === "session_ready") {
       exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
@@ -227,7 +244,7 @@ export function ownerPanelSessionHandoffResponseSignaturePreimage(input: {
 }): string {
   if (
     !/^\d{13}$/.test(input.requestTimestamp) || !DIGEST.test(input.requestBodyDigest) ||
-    ![200, 400, 409, 503].includes(input.status) || !DIGEST.test(input.responseBodyDigest)
+    ![200, 202, 400, 409, 503].includes(input.status) || !DIGEST.test(input.responseBodyDigest)
   ) invalid();
   return [
     PANEL_SESSION_HANDOFF_RESPONSE_SIGNATURE_DOMAIN,

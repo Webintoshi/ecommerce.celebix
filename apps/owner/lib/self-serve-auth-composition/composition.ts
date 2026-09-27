@@ -47,6 +47,10 @@ import {
   type OwnerSelfServeAuthCompositionApproval,
 } from "./activation.ts";
 
+import {createOnboardingStatusHandler} from "../self-serve-status/handler.ts";
+import type {OnboardingStatusCredentialCodec} from "../self-serve-status/credential-codec.ts";
+import type {PostgresOnboardingStatusRepository} from "../self-serve-status/postgres-repository.ts";
+
 const compositions = new WeakSet<object>();
 
 type Environment = OwnerSelfServeAuthCompositionApproval["environment"];
@@ -120,6 +124,7 @@ function authorityBoundSessionGateway(options: {
           new Request(`${PANEL_OIDC_CALLBACK_URL}${new URL(callback.callbackUrl).search}`, { method: "GET" }),
           context,
           browserBindingCredential,
+          Number(authenticated.timestamp)+5000,
         ));
       try { void Promise.resolve(options.audit(Object.freeze({ stage: "callback", outcome: "completed" }))).catch(() => undefined); }
       catch { /* Observability only. */ }
@@ -154,6 +159,7 @@ export type DisabledOwnerSelfServeAuthComposition = Readonly<{
   browserBoundRegistrationHandler: ReturnType<typeof createBrowserBoundSelfServeRegistrationHandler>;
   browserBindingInternalGateway: ReturnType<typeof createOwnerPanelBrowserBindingInternalGateway>;
   sessionHandoffInternalGateway: ReturnType<typeof createOwnerPanelSessionHandoffInternalGateway>;
+  onboardingStatusHandler?: (request:Request)=>Promise<Response>;
   readiness: OwnerSelfServeAuthReadiness;
 }>;
 
@@ -197,6 +203,7 @@ export function assertDisabledOwnerSelfServeAuthComposition(
 
 export function createDisabledOwnerSelfServeAuthComposition(options: {
   activationApproval: unknown;
+  onboarding?: {codec:OnboardingStatusCredentialCodec;repository:Pick<PostgresOnboardingStatusRepository,"readStatus"|"readCachedReady">};
   runtime: PersistentSelfServeRuntime;
   authorityProfile?: SaaSAuthAuthorityProfile;
   stateDigester: OpaqueStateDigester;
@@ -242,6 +249,7 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     stateDigester,
     credentialCodec: options.browserBindingCredentialCodec,
     repository,
+    ...(options.onboarding ? {onboarding:{codec:options.onboarding.codec,scope:authority}} : {}),
     panelBootstrapAuthority: authority.panelBootstrapUrl,
     panelCallbackAuthority: authority.panelCallbackUrl,
     clock,
@@ -284,6 +292,7 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     edgeTrustBoundary,
     initialCallbackGrantBoundary,
     issuer,
+    ...(options.onboarding ? {onboarding:{ownerOrigin:authority.ownerOrigin,readCachedReady:(rawState:string)=>options.onboarding!.repository.readCachedReady({rawState,scope:authority,now:clock()})}} : {}),
     browserBindingRepository: repository,
     ...(options.returningLogin ? { returningLogin: options.returningLogin } : {}),
     clock,
@@ -315,6 +324,7 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     browserBoundRegistrationHandler,
     browserBindingInternalGateway,
     sessionHandoffInternalGateway,
+    ...(options.onboarding ? {onboardingStatusHandler:createOnboardingStatusHandler({scope:authority,codec:options.onboarding.codec,repository:options.onboarding.repository,clock})} : {}),
     readiness: readiness(),
   };
   compositions.add(composition);

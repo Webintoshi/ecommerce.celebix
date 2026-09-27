@@ -26,8 +26,12 @@ import { PostgresOidcTransactionStore } from "../saas-persistence/postgres-oidc-
 import { PostgresRegistrationAttemptStore } from "../saas-persistence/postgres-registration-attempt-store.ts";
 import { createOwnerTenantCoreAdapter } from "../saas-tenant-core/adapter.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../self-serve-http/runtime.ts";
+import {createRegistrationCompletionAudit} from "../onboarding-jobs/audit.ts";
 import { createPersistentRegistrationCompletionService } from "../self-serve-registration-completion.ts";
 import { createOwnerStagingCallbackAudit, createOwnerStagingOidcAudit } from "./staging-callback-audit.ts";
+
+import {createOnboardingStatusCredentialCodec} from "../self-serve-status/credential-codec.ts";
+import {PostgresOnboardingStatusRepository} from "../self-serve-status/postgres-repository.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -73,6 +77,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
 
 export async function initializeOwnerStagingAuthRouteSet(
   config: OwnerStagingAuthConfig,
+  rollout: {onboardingStatusEnabled?:boolean} = {},
 ): Promise<OwnerSelfServeAuthRouteSet> {
   const pool = new Pool({
     ...createOwnerStagingDatabasePoolConfig(config.database),
@@ -108,6 +113,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     identityDependencies("registration-attempt-state"),
     { panelOrigin: config.authority.panelOrigin, platformDomainSuffix: config.authority.platformDomainSuffix },
     { oidcStateDigester },
+    {ownerOrigin:config.authority.ownerOrigin,panelOrigin:config.authority.panelOrigin,platformDomainSuffix:config.authority.platformDomainSuffix},
   );
   const oidcStore = new PostgresOidcTransactionStore(
     identityDependencies("oidc-transaction-state"),
@@ -139,7 +145,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     panelOrigin: config.authority.panelOrigin,
     platformDomainSuffix: config.authority.platformDomainSuffix,
     clock,
-    audit: () => undefined,
+    audit: createRegistrationCompletionAudit(event => console.info(JSON.stringify(event))),
   });
   const oidcAudit = createOwnerStagingOidcAudit();
   const provider = createLogtoOidcProvider({
@@ -212,6 +218,10 @@ export async function initializeOwnerStagingAuthRouteSet(
   const composition = createDisabledOwnerSelfServeAuthComposition({
     activationApproval: createOwnerSelfServeAuthCompositionApproval("approved_staging"),
     runtime,
+    ...(rollout.onboardingStatusEnabled === true ? {onboarding:{
+      codec:createOnboardingStatusCredentialCodec({key:config.keys.identityHmac,randomBytes:bytes}),
+      repository:new PostgresOnboardingStatusRepository(identityDependencies("registration-attempt-state")),
+    }} : {}),
     authorityProfile: config.authority,
     stateDigester,
     browserBindingCredentialCodec: browserCodec,

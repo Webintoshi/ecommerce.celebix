@@ -35,19 +35,20 @@ function snapshotCallback(callback: OidcCallbackInput): Readonly<OidcCallbackInp
   return Object.freeze({ state, code, ...(responseIssuer ? { responseIssuer } : {}) });
 }
 
-export interface InitialCallbackPanelSessionHandoffResult {
-  completion: InitialVerifiedCallbackCompletion;
-  handoff: PanelSessionHandoffIssuerResult;
-}
+export type InitialCallbackPanelSessionHandoffResult = Readonly<
+ | {kind:"handoff_ready";completion:InitialVerifiedCallbackCompletion;handoff:PanelSessionHandoffIssuerResult}
+ | {kind:"onboarding_pending";completion:InitialVerifiedCallbackCompletion;handoff?:never}
+>;
 
 export interface InitialCallbackPanelSessionHandoffExecutor {
-  execute(callback: OidcCallbackInput): Promise<InitialCallbackExecutionResult<InitialCallbackPanelSessionHandoffResult>>;
+  execute(callback: OidcCallbackInput, budget?: {remainingBudgetMs():number}): Promise<InitialCallbackExecutionResult<InitialCallbackPanelSessionHandoffResult>>;
 }
 
 export function createInitialCallbackPanelSessionHandoffExecutor(input: {
   runtime: PersistentSelfServeRuntime;
   boundary: InitialVerifiedCallbackGrantBoundary;
   issuer: PostgresPanelSessionHandoffIssuer;
+  onboarding?: {readCachedReady(rawState:string):Promise<boolean>};
 }): InitialCallbackPanelSessionHandoffExecutor {
   if (!input) throw new Error("initial_callback_handoff_executor_invalid");
   assertPersistentSelfServeRuntime(input.runtime);
@@ -61,9 +62,20 @@ export function createInitialCallbackPanelSessionHandoffExecutor(input: {
   const issuer = input.issuer;
 
   return Object.freeze({
-    execute(callback: OidcCallbackInput) {
+    execute(callback: OidcCallbackInput, budget?: {remainingBudgetMs():number}) {
       const callbackSnapshot = snapshotCallback(callback);
-      return boundary.executeInitialCallback(callbackSnapshot, async (initialCallbackGrant, completion) => {
+      return boundary.executeInitialCallback<InitialCallbackPanelSessionHandoffResult>(callbackSnapshot, async (initialCallbackGrant, completion) => {
+        if (input.onboarding) {
+          const remaining=budget?.remainingBudgetMs() ?? 0;
+          const milliseconds=Math.min(100, Math.floor(remaining));
+          let timer:ReturnType<typeof setTimeout>|undefined;
+          let ready=false;
+          if(milliseconds>0) {
+            try { ready=await Promise.race([Promise.resolve().then(()=>input.onboarding!.readCachedReady(callbackSnapshot.state)),new Promise<boolean>(resolve=>{timer=setTimeout(()=>resolve(false),milliseconds);})]); }
+            catch { ready=false; } finally {if(timer!==undefined)clearTimeout(timer);}
+          }
+          if(ready !== true || (budget?.remainingBudgetMs() ?? 0)<=0) return Object.freeze({kind:"onboarding_pending",completion});
+        }
         const handoff = await issuer.issueHandoff({
           rawState: callbackSnapshot.state,
           initialCallbackGrant,
@@ -75,7 +87,7 @@ export function createInitialCallbackPanelSessionHandoffExecutor(input: {
             initialCallbackGrant,
           })
           : handoff;
-        return Object.freeze({ completion, handoff: recovered });
+        return Object.freeze({ kind:"handoff_ready", completion, handoff: recovered });
       });
     },
   });

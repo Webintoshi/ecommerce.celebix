@@ -5,6 +5,7 @@ import test from "node:test";
 import { createOwnerInternalCallbackRequestAuthenticator } from "../self-serve-http/internal-callback-gateway.ts";
 import {
   canonicalOwnerPanelSessionHandoffResult,
+  createOnboardingPendingResult,
   createFreshLoginRequiredResult,
   createSessionReadyResult,
   createSessionHandoffReadyResult,
@@ -119,4 +120,13 @@ test("response construction rejects malformed credentials, timestamps, digests, 
     () => createSignedOwnerPanelSessionHandoffResponse(createSessionHandoffReadyResult(HANDOFF, EXPIRES, DESTINATION_STORE_ID, DESTINATION_ORIGIN), { ...authenticated } as never),
     /owner_internal_callback_authenticated_request_invalid/,
   );
+});
+
+test("pending202 preserves canonical schema and signs HTTP status", async()=>{
+ const result=createOnboardingPendingResult(new URL(ENDPOINT).origin);
+ assert.equal(result.status,202);assert.equal(canonicalOwnerPanelSessionHandoffResult(result),JSON.stringify({schemaVersion:1,kind:"onboarding_pending",statusUrl:`${new URL(ENDPOINT).origin}/onboarding/status`}));
+ const response=createSignedOwnerPanelSessionHandoffResponse(result,await authority());assert.equal(response.status,202);assert.ok(response.headers.get("x-celebix-session-response-signature"));
+ assert.throws(()=>canonicalOwnerPanelSessionHandoffResult({status:202,body:{kind:"onboarding_pending",schemaVersion:1,statusUrl:`${new URL(ENDPOINT).origin}/onboarding/status`}} as never));
+ assert.throws(()=>canonicalOwnerPanelSessionHandoffResult({status:200,body:result.body} as never));
+ assert.throws(()=>createOnboardingPendingResult("http://owner.example.test"));
 });

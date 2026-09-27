@@ -231,3 +231,14 @@ test("schema-v2 completion refuses missing, malformed, whitespace, or percent-en
     assert.equal(calls, 0);
   }
 });
+
+test("signed canonical pending202 is accepted only for configured Owner status URL", async () => {
+ const body=JSON.stringify({schemaVersion:1,kind:"onboarding_pending",statusUrl:`${OWNER_ORIGIN}/onboarding/status`});
+ const current=fixture(async request=>signedResponse(request,{body,status:202}));
+ assert.deepEqual(await current.complete(CALLBACK,BINDING),JSON.parse(body));
+ for(const candidate of [JSON.stringify({kind:"onboarding_pending",schemaVersion:1,statusUrl:`${OWNER_ORIGIN}/onboarding/status`}),JSON.stringify({schemaVersion:1,kind:"onboarding_pending",statusUrl:"https://evil.example.test/onboarding/status"})]){
+  await assert.rejects(()=>fixture(async request=>signedResponse(request,{body:candidate,status:202})).complete(CALLBACK,BINDING));
+ }
+ await assert.rejects(()=>fixture(async request=>signedResponse(request,{body,status:202,signature:null})).complete(CALLBACK,BINDING));
+ await assert.rejects(()=>fixture(async request=>signedResponse(request,{body,status:200,signedStatus:202})).complete(CALLBACK,BINDING));
+});

@@ -9,6 +9,8 @@ import type { SelfServeRuntime } from "../self-serve-http/runtime.ts";
 import { assertBrowserBoundRegistrationBridgeApproval } from "./activation.ts";
 import { createOwnerPanelBootstrapAutoPostResponse } from "./auto-post-html.ts";
 
+import {createOnboardingStatusCookie} from "../self-serve-status/cookie.ts";
+
 type BridgeAudit = (event: Readonly<{
   stage: "request" | "bootstrap" | "browser_response";
   outcome: "completed" | "rejected" | "unavailable";
@@ -120,6 +122,10 @@ export function createBrowserBoundSelfServeRegistrationHandler(options: {
         panelBootstrapAuthority,
         randomBytes,
       });
+      if (started.onboardingStatus) {
+        const cookie = createOnboardingStatusCookie(started.onboardingStatus.credential, started.onboardingStatus.issuedAt);
+        response.headers.append("set-cookie", `${cookie.name}=${cookie.value}; Max-Age=${cookie.maxAge}; Expires=${cookie.expires.toUTCString()}; Path=/; HttpOnly; Secure; SameSite=Lax`);
+      }
       auditSafely(audit, { stage: "browser_response", outcome: "completed" });
       return response;
     } catch {

@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import type { OpaqueStateDigester } from "../saas-persistence/identity-crypto.ts";
 import type { PanelBrowserBindingAuthorityCodec } from "./credential-codec.ts";
 
+import { normalizeOnboardingScope, type RegistrationAuthorityScope } from "../onboarding-jobs/types.ts";
+
 const DIGEST = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAXIMUM_TIMEOUT_MS = 60_000;
@@ -48,7 +50,9 @@ export interface PostgresPanelBrowserBindingRepository {
     bindingId: string;
     issuedAt: Date;
     expiresAt: Date;
+    statusBinding?: { digest: string; scope: RegistrationAuthorityScope; expiresAt: Date };
   }): Promise<PanelBrowserBootstrapResult>;
+  issueBootstrapWithStatus?(input: Parameters<PostgresPanelBrowserBindingRepository["createBootstrap"]>[0], statusBinding: {digest:string;scope:RegistrationAuthorityScope;expiresAt:Date}): Promise<PanelBrowserBootstrapResult>;
   bindBrowserCredential(input: {
     bootstrapCredential: string;
     providerAuthorizationUrl: string;
@@ -245,9 +249,20 @@ export function createPostgresPanelBrowserBindingRepository(raw: Dependencies): 
         issuedAt = canonicalDate(input.issuedAt);
         expiresAt = canonicalDate(input.expiresAt);
       } catch { return finish(dependencies, "create", { kind: "durable_authority_invalid" }); }
+      let statusArgs: unknown[] | undefined;
+      try {
+        if (input.statusBinding) {
+          const scope = normalizeOnboardingScope(input.statusBinding.scope);
+          const statusExpiry = canonicalDate(input.statusBinding.expiresAt);
+          if (statusExpiry.getTime() !== issuedAt.getTime() + 86_400_000) invalid();
+          statusArgs = [canonicalDigest(input.statusBinding.digest), scope.ownerOrigin, scope.panelOrigin, scope.platformDomainSuffix, statusExpiry];
+        }
+      } catch { return finish(dependencies, "create", { kind: "durable_authority_invalid" }); }
       const executed = await transaction(dependencies, async (client) => oneRow(await client.query(
-        "SELECT outcome, authority FROM saas.create_panel_browser_bootstrap($1,$2,$3,$4,$5,$6,$7,$8)",
-        [stateDigest, oidcStateDigest, proof.keyId, proof.digest, urlDigest, bindingId, issuedAt, expiresAt],
+        statusArgs
+          ? "SELECT outcome, authority FROM saas.issue_panel_bootstrap_with_registration_status($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)"
+          : "SELECT outcome, authority FROM saas.create_panel_browser_bootstrap($1,$2,$3,$4,$5,$6,$7,$8)",
+        [stateDigest, oidcStateDigest, proof.keyId, proof.digest, urlDigest, bindingId, issuedAt, expiresAt, ...(statusArgs ?? [])],
       )));
       if (executed.status !== "ok") return finish(dependencies, "create", { kind: executed.status });
       const allowed = ["browser_bootstrap_created", "browser_bootstrap_replayed", "operation_mismatch", "expired", "durable_authority_invalid"];
@@ -270,6 +285,10 @@ export function createPostgresPanelBrowserBindingRepository(raw: Dependencies): 
         canonicalString(authority.attemptId, 136);
         return finish(dependencies, "create", { kind: executed.value.outcome, expiresAt: persistedExpiry });
       } catch { return finish(dependencies, "create", { kind: "durable_authority_invalid" }); }
+    },
+
+    async issueBootstrapWithStatus(input, statusBinding) {
+      return repository.createBootstrap({ ...input, statusBinding });
     },
 
     async bindBrowserCredential(input) {

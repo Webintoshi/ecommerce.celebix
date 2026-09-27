@@ -154,6 +154,11 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
   if (!value || typeof value !== "object" || !Object.isFrozen(value)) invalid();
   const row = value as Record<string, unknown>;
   if (row.schemaVersion !== 1) invalid();
+  if (row.kind === "onboarding_pending") {
+    exact(row,["schemaVersion","kind","statusUrl"]);
+    if(row.schemaVersion!==1 || typeof row.statusUrl!=="string") invalid();
+    return Object.freeze({schemaVersion:1 as const,kind:"onboarding_pending" as const,statusUrl:row.statusUrl});
+  }
   if (row.kind === "session_handoff_ready") {
     exact(row, ["schemaVersion", "kind", "handoffCredential", "handoffExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
     if (row.redirectPath !== "/") invalid();
@@ -185,6 +190,7 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
 export function createPanelSessionCompletionHandler(options: {
   activationApproval: unknown;
   publicCallbackAuthority: string;
+  onboardingStatusUrl?: string;
   panelHomeAuthority?: string;
   maximumQueryBytes: number;
   transport: { complete(callbackUrl: string, browserBindingCredential: string): Promise<unknown> };
@@ -213,6 +219,11 @@ export function createPanelSessionCompletionHandler(options: {
   audit: CompletionAudit;
 }) {
   assertPanelSessionCompletionApproval(options?.activationApproval);
+  const statusUrl = options.onboardingStatusUrl;
+  if (statusUrl !== undefined) {
+    const url=new URL(statusUrl);
+    if(url.protocol!=="https:" || url.username || url.password || url.port || statusUrl!==`${url.origin}/onboarding/status`) invalid();
+  }
   let authority: string;
   try { authority = validateCustomerPanelCallbackAuthority(options.publicCallbackAuthority); }
   catch { return invalid(); }
@@ -302,6 +313,10 @@ export function createPanelSessionCompletionHandler(options: {
     if (callback.kind === "provider_error") {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });
       return failure("panel_session_provider_rejected", 400);
+    }
+    if (result.kind === "onboarding_pending") {
+      if (!statusUrl || result.statusUrl !== statusUrl) return failure("panel_session_transport_unavailable",503);
+      return new Response(null,{status:303,headers:{location:statusUrl,"cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff","set-cookie":PANEL_BROWSER_BINDING_DELETION_COOKIE}});
     }
     if (result.kind === "fresh_login_required") {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });

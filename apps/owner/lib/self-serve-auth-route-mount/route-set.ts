@@ -43,6 +43,7 @@ export type OwnerSelfServeAuthRouteReadiness = Readonly<{
 
 export type OwnerSelfServeAuthRouteSet = Readonly<{
   publicRegistration: RouteHandler;
+  publicStatus?: RouteHandler;
   internalBrowserBinding: RouteHandler;
   internalCallback: RouteHandler;
   readiness: OwnerSelfServeAuthRouteReadiness;
@@ -174,6 +175,7 @@ export function createDisabledOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRo
   const internalCallback = secureDisabled(createDisabledOwnerInternalSelfServeCallbackGateway());
   const routeSet: OwnerSelfServeAuthRouteSet = {
     publicRegistration,
+    publicStatus: async () => controlled("onboarding_status_unavailable",503),
     internalBrowserBinding: async (request) => request.method === "POST"
       ? controlled("owner_browser_binding_disabled", 503)
       : controlled("owner_browser_binding_method_not_allowed", 405),
@@ -186,6 +188,7 @@ export function createDisabledOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRo
 
 export function createUnavailableOwnerStagingAuthRouteSet(): OwnerSelfServeAuthRouteSet {
   const routeSet: OwnerSelfServeAuthRouteSet = {
+    publicStatus: async () => controlled("onboarding_status_unavailable",503),
     publicRegistration: async (request) => preserveRegistrationCsp(request.method === "POST"
       ? controlled("owner_auth_route_unavailable", 503)
       : controlled("owner_registration_method_not_allowed", 405)),
@@ -211,6 +214,7 @@ export function createApprovedStagingOwnerSelfServeAuthRouteSet(options: {
   assertDisabledOwnerSelfServeAuthComposition(options.composition);
   const routeSet: OwnerSelfServeAuthRouteSet = {
     publicRegistration: safeRegistrationDelegate(options.composition.browserBoundRegistrationHandler),
+    publicStatus: options.composition.onboardingStatusHandler ? safeDelegate(options.composition.onboardingStatusHandler) : async () => controlled("onboarding_status_unavailable",503),
     internalBrowserBinding: safeDelegate(options.composition.browserBindingInternalGateway),
     internalCallback: safeDelegate(options.composition.sessionHandoffInternalGateway),
     readiness: approvedStagingReadiness(),
@@ -223,6 +227,7 @@ const defaultRouteSet: OwnerSelfServeAuthRouteSet = (() => {
   const resolve = async () => (await import("../self-serve-auth-route-runtime/default.ts"))
     .resolveDefaultOwnerStagingAuthRouteSet();
   const routeSet: OwnerSelfServeAuthRouteSet = {
+    publicStatus: async (request) => (await resolve()).publicStatus?.(request) ?? controlled("onboarding_status_unavailable",503),
     publicRegistration: async (request) => preserveRegistrationCsp(
       await (await resolve()).publicRegistration(request),
     ),

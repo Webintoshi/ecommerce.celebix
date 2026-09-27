@@ -12,7 +12,7 @@ const NOW = new Date("2026-07-15T12:00:00.000Z");
 const BS1 = `bs1.active.${Buffer.alloc(32, 9).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?response_type=code&response_mode=query&state=opaque_state_1234567890&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback";
 
-function fixture(options: { executeFailure?: boolean; randomFailure?: boolean } = {}) {
+function fixture(options: { executeFailure?: boolean; randomFailure?: boolean; onboarding?:boolean } = {}) {
   let gateCalls = 0;
   let executorCalls = 0;
   let randomCalls = 0;
@@ -64,6 +64,7 @@ function fixture(options: { executeFailure?: boolean; randomFailure?: boolean } 
           providerAuthorizationUrl: PROVIDER,
           panelBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap" as const,
           bootstrapExpiresAt: "2026-07-15T12:05:00.000Z",
+          ...(options.onboarding?{onboardingStatus:{credential:`os1.${Buffer.alloc(32,11).toString("base64url")}`,issuedAt:NOW}}:{}),
         });
       },
     }),
@@ -132,4 +133,9 @@ test("bootstrap and nonce failures are controlled, secret-free, non-retryable, a
     assert.equal(counts().executorCalls, 1);
     assert.ok(counts().randomCalls <= 1);
   }
+});
+
+test("committed bootstrap/status sets Owner-only fixed24h cookie without disclosing status token in HTML",async()=>{
+ const current=fixture({onboarding:true});const response=await current.handler(request());const cookie=response.headers.get("set-cookie")!;assert.match(cookie,/__Host-celebix_onboarding_status=os1\./);assert.match(cookie,/Max-Age=86400/);assert.match(cookie,/HttpOnly; Secure; SameSite=Lax/);assert.doesNotMatch(cookie,/Domain=/);assert.doesNotMatch(await response.text(),/os1\./);
+ const failed=await fixture({onboarding:true,executeFailure:true}).handler(request());assert.equal(failed.status,503);assert.equal(failed.headers.has("set-cookie"),false);
 });

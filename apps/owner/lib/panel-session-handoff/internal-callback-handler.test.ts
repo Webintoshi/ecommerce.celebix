@@ -26,6 +26,7 @@ const BINDING = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 
 function fixture(options: {
   completion?: "tenant_created" | "in_progress";
+  readCachedReady?: ()=>Promise<boolean>;
   commitUnknown?: boolean;
   handlerNow?: Date;
   audit?: (event: unknown) => void | Promise<void>;
@@ -152,6 +153,7 @@ function fixture(options: {
   const handler = createOwnerPanelSessionInitialCallbackHandler({
     runtime, edgeTrustBoundary: edgeBoundary, initialCallbackGrantBoundary: grantBoundary, issuer,
     browserBindingRepository,
+    ...(options.readCachedReady?{onboarding:{ownerOrigin:"https://ecommerce.celebix.co",readCachedReady:options.readCachedReady}}:{}),
     ...(options.returningLogin ? { returningLogin: {
       async tryComplete() {
         order.push("returning_login");
@@ -372,4 +374,16 @@ test("audit failure or non-settlement cannot alter callback authority", async ()
     async () => { throw new Error("state code credential private"); },
     () => new Promise<never>(() => undefined),
   ]) assert.equal((await invoke(fixture({ audit }))).status, 200);
+});
+
+test("enabled callback pending and exhausted original transport deadline issue no handoff",async()=>{
+ for(const completion of ["tenant_created","in_progress"] as const){
+  let reads=0;const current=fixture({completion,readCachedReady:async()=>{reads++;return false;}});const result=await invoke(current);
+  assert.deepEqual(result,{status:202,body:{schemaVersion:1,kind:"onboarding_pending",statusUrl:"https://ecommerce.celebix.co/onboarding/status"}});
+  assert.equal(current.issueCalls,0);assert.equal(reads,completion==="tenant_created"?1:0);assert.equal(current.providerCalls,1);
+  assert.equal((await invoke(current)).body.kind,"fresh_login_required");assert.equal(current.providerCalls,1);
+ }
+ let reads=0;const current=fixture({readCachedReady:async()=>{reads++;return true;}});
+ const result=await current.edgeBoundary.invokeWithVerifiedContext(context=>current.handler.handle(new Request(`${CALLBACK}?state=${STATE}&code=verified-code`),context,BINDING,NOW.getTime()));
+ assert.equal(result.status,202);assert.equal(reads,0);assert.equal(current.issueCalls,0);
 });

@@ -18,6 +18,7 @@ import {
 } from "./initial-callback-grant.ts";
 import {
   createFreshLoginRequiredResult,
+  createOnboardingPendingResult,
   createSessionReadyResult,
   createSessionHandoffReadyResult,
   type OwnerPanelSessionHandoffInternalResult,
@@ -42,6 +43,7 @@ export interface OwnerPanelSessionInitialCallbackHandler {
     request: Request,
     edgeTrustContext: unknown,
     browserBindingCredential: string,
+    transportDeadlineAt?: number,
   ): Promise<OwnerPanelSessionHandoffInternalResult>;
 }
 
@@ -107,6 +109,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
     >>;
   }>;
+  onboarding?: {ownerOrigin:string;readCachedReady(rawState:string):Promise<boolean>};
   clock(): Date;
   audit: HandlerAudit;
 }): OwnerPanelSessionInitialCallbackHandler {
@@ -132,6 +135,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
     runtime,
     boundary: input.initialCallbackGrantBoundary,
     issuer: input.issuer,
+    ...(input.onboarding ? {onboarding:input.onboarding} : {}),
   });
 
   const handler: OwnerPanelSessionInitialCallbackHandler = Object.freeze({
@@ -139,7 +143,11 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       request: Request,
       edgeTrustContext: unknown,
       browserBindingCredential: string,
+      transportDeadlineAt?: number,
     ): Promise<OwnerPanelSessionHandoffInternalResult> {
+      const started=performance.now();
+      const budgetMs=Math.max(0,Math.min(5000,(transportDeadlineAt ?? trustedNow(clock).getTime()+5000)-trustedNow(clock).getTime()));
+      const remainingBudgetMs=()=>budgetMs-(performance.now()-started);
       const gateInput = { kind: "callback_completion" as const, request, edgeTrustContext };
       try {
         const runtimeDecision = await runtime.verifyRequest(gateInput);
@@ -242,7 +250,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
           state: callback.state,
           code: callback.code,
           ...(callback.responseIssuer ? { responseIssuer: callback.responseIssuer } : {}),
-        });
+        },{remainingBudgetMs});
       }
       catch {
         auditSafely(audit, { stage: "callback", outcome: "unavailable" });
@@ -261,8 +269,10 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
             ? { completionErrorCode: executed.completion.error.code }
             : {}),
         });
+        if (input.onboarding && ["in_progress","commit_unknown","reconciliation_required","completion_state_unknown"].includes(executed.completion.kind)) return createOnboardingPendingResult(input.onboarding.ownerOrigin);
         return createFreshLoginRequiredResult("callback_not_granted");
       }
+      if (executed.value.kind === "onboarding_pending") return createOnboardingPendingResult(input.onboarding!.ownerOrigin);
       const handoff = executed.value.handoff;
       if (handoff.kind !== "handoff_created" && handoff.kind !== "handoff_replayed") {
         auditSafely(audit, { stage: "handoff", outcome: handoff.kind === "unavailable" ? "unavailable" : "rejected" });

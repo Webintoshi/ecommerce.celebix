@@ -159,6 +159,7 @@ export function createOwnerPanelSessionHandoffInternalGateway(options: {
         new Request(envelope.callbackUrl, { method: "GET" }),
         context,
         envelope.browserBindingCredential,
+        Number(authenticated.timestamp)+5000,
       ));
       auditSafely(audit, { stage: "callback", outcome: "completed" });
     } catch {

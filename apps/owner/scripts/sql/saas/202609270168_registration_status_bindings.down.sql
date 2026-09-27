@@ -1,0 +1,10 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $f$ BEGIN IF EXISTS(SELECT 1 FROM saas.registration_status_bindings) THEN RAISE EXCEPTION 'STATUS_ROLLBACK_HAS_DURABLE_AUTHORITY'; END IF; END $f$;
+DROP FUNCTION saas.cleanup_registration_status_bindings(timestamptz,integer);
+DROP FUNCTION saas.read_registration_callback_access_ready(text,text,text,text,timestamptz);
+DROP FUNCTION saas.read_registration_status(text,text,text,text,timestamptz);
+DROP FUNCTION saas.registration_onboarding_status_projection(text,timestamptz);
+DROP FUNCTION saas.issue_panel_bootstrap_with_registration_status(text,text,text,text,text,uuid,timestamptz,timestamptz,text,text,text,text,timestamptz);
+DROP TABLE saas.registration_status_bindings;
+COMMIT;

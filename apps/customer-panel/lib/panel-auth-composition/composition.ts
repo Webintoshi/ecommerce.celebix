@@ -216,6 +216,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   const panelSessionCompletionHandler = createPanelSessionCompletionHandler({
     activationApproval: sessionApproval,
     publicCallbackAuthority: authority.panelCallbackUrl,
+    onboardingStatusUrl: `${authority.ownerOrigin}/onboarding/status`,
     panelHomeAuthority: authority.panelHomeUrl,
     maximumQueryBytes: options.sessionCompletion.maximumQueryBytes,
     transport: sessionTransport,

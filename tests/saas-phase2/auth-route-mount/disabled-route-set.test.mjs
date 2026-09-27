@@ -44,6 +44,7 @@ test("disabled Owner route set is exact, genuine, frozen, and always the default
   const routeSet = createDisabledOwnerSelfServeAuthRouteSet();
   assert.deepEqual(Object.keys(routeSet), [
     "publicRegistration",
+    "publicStatus",
     "internalBrowserBinding",
     "internalCallback",
     "readiness",

@@ -62,6 +62,7 @@ function sessionReady(overrides: Record<string, unknown> = {}) {
 function fixture(options: {
   transportResult?: object;
   transportError?: boolean;
+  onboardingStatusUrl?: string;
   redeemResult?: object;
   recoverResult?: object;
   crossHostTransfer?: boolean;
@@ -79,6 +80,7 @@ function fixture(options: {
   const handler = createPanelSessionCompletionHandler({
     activationApproval: createPanelSessionCompletionApproval("disposable_test"),
     publicCallbackAuthority: CALLBACK,
+    onboardingStatusUrl: options.onboardingStatusUrl,
     maximumQueryBytes: 2_048,
     transport: {
       async complete(callbackUrl: string, browserBindingCredential: string) {
@@ -292,4 +294,12 @@ test("audit throw, rejection, or non-settlement never changes session authority 
     async () => { throw new Error(`private ${HANDOFF} ${CREDENTIAL}`); },
     () => new Promise<never>(() => undefined),
   ]) assert.equal((await fixture({ audit }).handler(callback(`state=${STATE}&code=code`))).status, 303);
+});
+
+test("pending redirects only to fixed Owner status and clears only Panel pre-auth cookie",async()=>{
+ const statusUrl="https://owner.saas-staging.celebix.net/onboarding/status";
+ const result=Object.freeze({schemaVersion:1,kind:"onboarding_pending",statusUrl});
+ const current=fixture({onboardingStatusUrl:statusUrl,transportResult:result});
+ const response=await current.handler(callback());assert.equal(response.status,303);assert.equal(response.headers.get("location"),statusUrl);assert.match(response.headers.get("set-cookie")!,/__Host-celebix_panel_pre_auth=;/);assert.doesNotMatch(response.headers.get("set-cookie")!,/onboarding_status/);assert.equal(current.redeemCalls,0);
+ const rejected=fixture({onboardingStatusUrl:statusUrl,transportResult:Object.freeze({...result,statusUrl:"https://evil.example.test/onboarding/status"})});assert.equal((await rejected.handler(callback())).status,503);assert.equal(rejected.redeemCalls,0);
 });

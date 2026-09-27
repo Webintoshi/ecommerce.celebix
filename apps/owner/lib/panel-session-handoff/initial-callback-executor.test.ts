@@ -167,7 +167,7 @@ test("unmounted executor snapshots caller input and issues only through the genu
   releaseProvider();
   const first = await pending;
   assert.equal(first.kind, "initial_callback_granted");
-  if (first.kind === "initial_callback_granted") assert.equal(first.value.handoff.kind, "handoff_created");
+  if (first.kind === "initial_callback_granted") { if(first.value.kind!=="handoff_ready") assert.fail("unexpected pending"); assert.equal(first.value.handoff.kind, "handoff_created"); }
   assert.deepEqual(genuine.states, [STATE]);
   assert.deepEqual(fixture.providerInputs, [{ state: STATE, code: "verified-code" }]);
   assert.deepEqual(fixture.attemptStates, [STATE]);
@@ -202,6 +202,29 @@ test("commit-unknown recovery uses the exact snapshotted callback state", async 
   const executor = createInitialCallbackPanelSessionHandoffExecutor({ runtime: fixture.runtime, boundary, issuer: genuine.issuer });
   const result = await executor.execute({ state: STATE, code: "verified-code" });
   assert.equal(result.kind, "initial_callback_granted");
-  if (result.kind === "initial_callback_granted") assert.equal(result.value.handoff.kind, "handoff_replayed");
+  if (result.kind === "initial_callback_granted") { if(result.value.kind!=="handoff_ready") assert.fail("unexpected pending"); assert.equal(result.value.handoff.kind, "handoff_replayed"); }
   assert.deepEqual(genuine.states, [STATE, STATE]);
+});
+
+test("enabled pending or exhausted readiness budget disposes initial grant without issuing handoff", async () => {
+ for(const readiness of [async()=>false,async()=>new Promise<boolean>(()=>{})]){
+  const current=runtimeFixture();const boundary=createInitialVerifiedCallbackGrantBoundary(current.runtime);const issuer=issuerFixture(boundary);
+  const executor=createInitialCallbackPanelSessionHandoffExecutor({runtime:current.runtime,boundary,issuer:issuer.issuer,onboarding:{readCachedReady:readiness}});
+  const result=await executor.execute({state:STATE,code:"code"},{remainingBudgetMs:()=>1000});
+  assert.equal(result.kind,"initial_callback_granted");if(result.kind==="initial_callback_granted")assert.equal(result.value.kind,"onboarding_pending");assert.equal(issuer.queries.length,0);
+  assert.equal((await executor.execute({state:STATE,code:"code"})).kind,"initial_callback_replayed");
+ }
+ const current=runtimeFixture();const boundary=createInitialVerifiedCallbackGrantBoundary(current.runtime);const issuer=issuerFixture(boundary);
+ let reads=0;const executor=createInitialCallbackPanelSessionHandoffExecutor({runtime:current.runtime,boundary,issuer:issuer.issuer,onboarding:{readCachedReady:async()=>{reads++;return true;}}});
+ const result=await executor.execute({state:STATE,code:"code"},{remainingBudgetMs:()=>0});assert.equal(issuer.queries.length,0);assert.equal(reads,0);assert.equal(result.kind,"initial_callback_granted");
+});
+
+test("enabled cached ready permits one handoff within budget and never accepts truthy substitutes", async () => {
+ for(const ready of [true,"ready"]){
+  const current=runtimeFixture();const boundary=createInitialVerifiedCallbackGrantBoundary(current.runtime);const issuer=issuerFixture(boundary);
+  const executor=createInitialCallbackPanelSessionHandoffExecutor({runtime:current.runtime,boundary,issuer:issuer.issuer,onboarding:{readCachedReady:async()=>ready as boolean}});
+  const result=await executor.execute({state:STATE,code:"code"},{remainingBudgetMs:()=>1000});
+  assert.equal(result.kind,"initial_callback_granted");if(result.kind!=="initial_callback_granted")assert.fail("grant expected");
+  assert.equal(result.value.kind,ready===true?"handoff_ready":"onboarding_pending");assert.equal(issuer.queries.some(query=>query.includes("create_panel_session_handoff")),ready===true);
+ }
 });

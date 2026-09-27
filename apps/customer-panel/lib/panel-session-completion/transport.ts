@@ -38,6 +38,7 @@ export type PanelSessionCompletionFreshLoginCode =
   | "handoff_unavailable";
 
 export type PanelSessionCompletionInternalResult = Readonly<
+  | {schemaVersion:1;kind:"onboarding_pending";statusUrl:string}
   | {
       schemaVersion: 1;
       kind: "session_handoff_ready";
@@ -129,14 +130,18 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) invalid();
 }
 
-function parseCanonicalResult(raw: string, status: number): PanelSessionCompletionInternalResult {
+function parseCanonicalResult(raw: string, status: number, ownerOrigin: string): PanelSessionCompletionInternalResult {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); }
   catch { return invalid(); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
   const body = parsed as Record<string, unknown>;
   let result: PanelSessionCompletionInternalResult;
-  if (status === 200) {
+  if (status === 202) {
+    exactKeys(body,["schemaVersion","kind","statusUrl"]);
+    if(body.schemaVersion!==1 || body.kind!=="onboarding_pending" || body.statusUrl!==`${ownerOrigin}/onboarding/status`) invalid();
+    result=Object.freeze({schemaVersion:1,kind:"onboarding_pending",statusUrl:body.statusUrl});
+  } else if (status === 200) {
     if (body.kind === "session_ready") {
       exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
@@ -227,7 +232,7 @@ export function panelSessionHandoffResponseSignaturePreimage(input: {
 }): string {
   if (
     !/^\d{13}$/.test(input.requestTimestamp) || !DIGEST.test(input.requestBodyDigest) ||
-    ![200, 400, 409, 503].includes(input.status) || !DIGEST.test(input.responseBodyDigest)
+    ![200, 202, 400, 409, 503].includes(input.status) || !DIGEST.test(input.responseBodyDigest)
   ) invalid();
   return [
     PANEL_SESSION_HANDOFF_RESPONSE_SIGNATURE_DOMAIN,
@@ -334,7 +339,7 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
         if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
         auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
         const raw = new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
-        const result = parseCanonicalResult(raw, response.status);
+        const result = parseCanonicalResult(raw, response.status, ownerOrigin);
         auditSafely(audit, { stage: "response_projection", outcome: "completed" });
         return result;
       } catch {
