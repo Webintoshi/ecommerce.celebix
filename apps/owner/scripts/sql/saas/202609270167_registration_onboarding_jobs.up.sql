@@ -16,6 +16,7 @@ CREATE TABLE saas.registration_onboarding_jobs (
  state text NOT NULL DEFAULT 'pending' CHECK(state IN('pending','leased','ready','attention_required')),
  due_at timestamptz NOT NULL,
  failure_count integer NOT NULL DEFAULT 0 CHECK(failure_count BETWEEN 0 AND 10),
+ version bigint NOT NULL DEFAULT 1 CHECK(version>=1),
  lease_token uuid,
  lease_expires_at timestamptz,
  safe_code text NOT NULL DEFAULT 'completion_pending' CHECK(safe_code IN('access_ready','access_pending','access_unavailable','authority_invalid','completion_pending','completion_unavailable','completion_failed')),
@@ -84,7 +85,7 @@ BEGIN
  AND (job.lease_expires_at IS NULL OR job.lease_expires_at<=p_now)
  ORDER BY job.due_at,job.attempt_id FOR UPDATE OF job SKIP LOCKED LIMIT p_limit
  ) UPDATE saas.registration_onboarding_jobs job
- SET state='leased',lease_token=pg_catalog.gen_random_uuid(),lease_expires_at=p_now+interval '60 seconds',updated_at=p_now
+ SET state='leased',lease_token=pg_catalog.gen_random_uuid(),lease_expires_at=p_now+interval '60 seconds',updated_at=p_now,version=job.version+1
  FROM due WHERE job.attempt_id=due.attempt_id
  RETURNING job.attempt_id,job.lease_token,job.failure_count,job.created_at;
 END $f$;
@@ -121,7 +122,7 @@ BEGIN
  delay_seconds:=CASE WHEN p_state='ready' THEN 300 WHEN p_state='retry' THEN (ARRAY[15,30,60,120,300])[least(failures,5)] ELSE 15 END;
  UPDATE saas.registration_onboarding_jobs SET
  state=CASE WHEN p_state='attention_required' OR failures>=10 THEN 'attention_required' WHEN p_state='ready' THEN 'ready' ELSE 'pending' END,
- failure_count=failures,due_at=p_now+pg_catalog.make_interval(secs=>delay_seconds),lease_token=NULL,lease_expires_at=NULL,safe_code=p_code,updated_at=p_now
+ failure_count=failures,due_at=p_now+pg_catalog.make_interval(secs=>delay_seconds),lease_token=NULL,lease_expires_at=NULL,safe_code=p_code,updated_at=p_now,version=version+1
  WHERE attempt_id=p_attempt AND lease_token=p_token;
  RETURN FOUND;
 END $f$;
@@ -219,9 +220,43 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,sa
  AND completion.canonical_fingerprint=proof.payload_fingerprint AND identity.canonical_fingerprint=proof.payload_fingerprint
  AND w.tenant_idempotency_digest=proof.tenant_idempotency_digest
 $f$;
+CREATE FUNCTION saas.list_registration_onboarding_operations(p_owner text,p_panel text,p_suffix text,p_now timestamptz,p_limit integer)
+RETURNS TABLE(attempt_id text,state text,safe_code text,failure_count integer,due_at timestamptz,created_at timestamptz,updated_at timestamptz,version bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+BEGIN
+ IF p_now IS NULL OR p_limit IS NULL OR p_limit<1 OR p_limit>50 THEN RAISE EXCEPTION 'ONBOARDING_INVALID_INPUT'; END IF;
+ RETURN QUERY SELECT j.attempt_id,j.state,j.safe_code,j.failure_count,j.due_at,j.created_at,j.updated_at,j.version
+ FROM saas.registration_onboarding_jobs j JOIN saas.registration_authority_scopes s USING(attempt_id)
+ WHERE s.owner_origin=p_owner AND s.panel_origin=p_panel AND s.platform_domain_suffix=p_suffix
+ ORDER BY (j.state='ready'),j.created_at,j.attempt_id LIMIT p_limit;
+END $f$;
+CREATE FUNCTION saas.retry_registration_onboarding_job(p_attempt text,p_owner text,p_panel text,p_suffix text,p_version bigint,p_now timestamptz)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE job saas.registration_onboarding_jobs%ROWTYPE;
+BEGIN
+ IF p_now IS NULL OR p_version IS NULL OR p_version<1 THEN RAISE EXCEPTION 'ONBOARDING_INVALID_INPUT'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM saas.registration_authority_scopes s WHERE s.attempt_id=p_attempt
+ AND s.owner_origin=p_owner AND s.panel_origin=p_panel AND s.platform_domain_suffix=p_suffix) THEN RETURN 'conflict'; END IF;
+ -- Same immutable completion lease as Tenant Core. A nonblocking transaction lock
+ -- also closes the race after the service's read; it never steals a session lock.
+ IF NOT pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtextextended(p_attempt,2607120012)) THEN RETURN 'busy'; END IF;
+ SELECT j.* INTO job FROM saas.registration_onboarding_jobs j
+ JOIN saas.registration_authority_scopes s USING(attempt_id)
+ JOIN saas.registration_verified_identities identity USING(attempt_id)
+ JOIN saas.registration_workflows w USING(attempt_id)
+ WHERE j.attempt_id=p_attempt AND s.owner_origin=p_owner AND s.panel_origin=p_panel AND s.platform_domain_suffix=p_suffix
+ AND w.status IN('identity_verified','tenant_created','session_created') FOR UPDATE OF j;
+ IF NOT FOUND OR job.version<>p_version THEN RETURN 'conflict'; END IF;
+ IF job.state='leased' AND job.lease_expires_at>p_now THEN RETURN 'busy'; END IF;
+ IF job.state='ready' THEN RETURN 'conflict'; END IF;
+ UPDATE saas.registration_onboarding_jobs SET state='pending',failure_count=0,due_at=p_now,
+ lease_token=NULL,lease_expires_at=NULL,safe_code='completion_pending',updated_at=p_now,version=version+1
+ WHERE attempt_id=p_attempt AND version=p_version;
+ RETURN CASE WHEN FOUND THEN 'queued' ELSE 'conflict' END;
+END $f$;
 DO $grants$ DECLARE f regprocedure; BEGIN
  FOR f IN SELECT p.oid::regprocedure FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname='saas' AND p.proname IN('bind_registration_onboarding_scope','enqueue_registration_onboarding_job','claim_registration_onboarding_jobs','finish_registration_onboarding_job','read_registration_onboarding_access','touch_registration_onboarding_heartbeat','read_registration_onboarding_health','verify_registration_onboarding_access_proof','backfill_registration_onboarding_jobs','read_registration_onboarding_tenant') LOOP
+ WHERE n.nspname='saas' AND p.proname IN('bind_registration_onboarding_scope','enqueue_registration_onboarding_job','claim_registration_onboarding_jobs','finish_registration_onboarding_job','read_registration_onboarding_access','touch_registration_onboarding_heartbeat','read_registration_onboarding_health','verify_registration_onboarding_access_proof','backfill_registration_onboarding_jobs','read_registration_onboarding_tenant','list_registration_onboarding_operations','retry_registration_onboarding_job') LOOP
   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator',f);
   IF f::text NOT LIKE '%enqueue_registration_onboarding_job%' THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO celebix_saas_identity',f); END IF;
  END LOOP;

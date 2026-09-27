@@ -13,6 +13,7 @@ import {PostgresOnboardingStatusRepository} from '../self-serve-status/postgres-
 import {createBoundedPlatformGet,probeTenantAccess} from './access-probe.ts';
 import {runOnboardingTick,type CompletionOutcome,type OnboardingTickDependencies} from './worker.ts';
 import {normalizeOnboardingScope,type RegistrationAuthorityScope} from './types.ts';
+import {createOnboardingAudit,createRegistrationCompletionAudit} from './audit.ts';
 type CompletionPort=Pick<PersistentRegistrationCompletionService,'resumeTenantCreation'|'reconcileUnknownCommit'>;
 function mapResume(result:ResumeTenantResult):CompletionOutcome{
  if('result' in result)return {kind:'completed',result:result.result};
@@ -63,9 +64,10 @@ export async function initializeDefaultOnboardingWorker(source:Record<string,str
   const repository=new PostgresOnboardingJobRepository(identity);
   const adminOriginEnvironment=adminOriginEnvironmentFromPanelOrigin(scope.panelOrigin);
   const options={pool,generateId:()=>randomUUID(),audit:()=>undefined,timeouts,bootstrapRole:'celebix_saas_bootstrap' as const,panelOrigin:scope.panelOrigin,adminOriginEnvironment};
-  const completionDependencies={workflowStore:store,tenantCore:createOwnerTenantCoreAdapter(createStarterTenantService({repository:new PostgresSaaSDataRepository(options),platformDomainSuffix:scope.platformDomainSuffix,panelBaseUrl:scope.panelOrigin,adminOriginEnvironment})),recovery:new PostgresTenantOperationRecovery(options),panelOrigin:scope.panelOrigin,platformDomainSuffix:scope.platformDomainSuffix,clock,audit:()=>undefined};
+  const writeAudit=(event:Readonly<Record<string,string|number>>)=>console.info(JSON.stringify(event));
+  const completionDependencies={workflowStore:store,tenantCore:createOwnerTenantCoreAdapter(createStarterTenantService({repository:new PostgresSaaSDataRepository(options),platformDomainSuffix:scope.platformDomainSuffix,panelBaseUrl:scope.panelOrigin,adminOriginEnvironment})),recovery:new PostgresTenantOperationRecovery(options),panelOrigin:scope.panelOrigin,platformDomainSuffix:scope.platformDomainSuffix,clock,audit:createRegistrationCompletionAudit(writeAudit)};
   const statusRepository=new PostgresOnboardingStatusRepository(identity);
-  const worker=createDefaultOnboardingWorker({scope,repository,clock,cleanup:source.CELEBIX_ONBOARDING_STATUS_ENABLED==='true'?async()=>{await statusRepository.cleanup(clock(),100);}:undefined,diagnostic:code=>console.error(code),readCompletedTenant:attemptId=>repository.readCompletedTenant(scope,attemptId),completion:createPersistentRegistrationCompletionService(completionDependencies),recovery:createPersistentRegistrationRecoveryService(completionDependencies),
+  const worker=createDefaultOnboardingWorker({scope,repository,clock,audit:createOnboardingAudit({key:config.keys.identityHmac,write:writeAudit}),cleanup:source.CELEBIX_ONBOARDING_STATUS_ENABLED==='true'?async()=>{await statusRepository.cleanup(clock(),100);}:undefined,diagnostic:code=>console.error(code),readCompletedTenant:attemptId=>repository.readCompletedTenant(scope,attemptId),completion:createPersistentRegistrationCompletionService(completionDependencies),recovery:createPersistentRegistrationRecoveryService(completionDependencies),
    probe:(authority,result,attemptId)=>probeTenantAccess(authority,result,{attemptId,now:clock(),verifyProof:proof=>repository.verifyTenantProof(proof.scope,proof.attemptId,proof.storeId,proof.adminHost,proof.storefrontHost,proof.now),get:createBoundedPlatformGet({allowedHosts:[new URL(scope.panelOrigin).hostname,new URL(createCanonicalAdminOriginFromPanelOrigin(scope.panelOrigin,result.store.slug)).hostname,`${result.store.slug}.${scope.platformDomainSuffix}`],allowedAddresses:addresses})})});
   return {...worker,heartbeat:()=>repository.heartbeat(scope,clock()),close:()=>pool.end()};
  }catch(error){await pool.end().catch(()=>undefined);throw error;}

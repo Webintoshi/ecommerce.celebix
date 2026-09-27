@@ -1,4 +1,5 @@
 import type {CreateStarterTenantResult} from '@celebix/saas-contracts';
+import type {OnboardingOperationRow,RetryOutcome} from '../onboarding-operations/service.ts';
 import { withIdentityTransaction, type IdentityPostgresClient, type IdentityStoreDependencies } from '../saas-persistence/postgres-identity-common.ts';
 import { normalizeOnboardingScope, SAFE_CODES, type RegistrationAuthorityScope, type OnboardingAccessSnapshot, type OnboardingJobRepository, type FinishOnboardingJob, type OnboardingSafeCode } from './types.ts';
 function args(scope:RegistrationAuthorityScope){const s=normalizeOnboardingScope(scope);return [s.ownerOrigin,s.panelOrigin,s.platformDomainSuffix];}
@@ -44,6 +45,19 @@ export class PostgresOnboardingJobRepository implements OnboardingJobRepository 
   });
  }
  async readHealth(scope:RegistrationAuthorityScope,now:Date){return withIdentityTransaction(this.dependencies,'registration',async client=>(await client.query('SELECT saas.read_registration_onboarding_health($1,$2,$3,$4::timestamptz) AS health',[...args(scope),now.toISOString()])).rows[0]?.health);}
+ async listOperations(input:{scope:RegistrationAuthorityScope;now:Date;limit:number}):Promise<OnboardingOperationRow[]>{
+  return withIdentityTransaction(this.dependencies,'registration',async client=>{
+   const result=await client.query('SELECT * FROM saas.list_registration_onboarding_operations($1,$2,$3,$4::timestamptz,$5)',[...args(input.scope),input.now.toISOString(),input.limit]);
+   return result.rows.map(row=>({attemptId:String(row.attempt_id),state:row.state as OnboardingOperationRow['state'],safeCode:row.safe_code as OnboardingOperationRow['safeCode'],failureCount:Number(row.failure_count),dueAt:timestamp(row.due_at),createdAt:timestamp(row.created_at),updatedAt:timestamp(row.updated_at),version:Number(row.version)}));
+  });
+ }
+ async requestRetry(input:{scope:RegistrationAuthorityScope;attemptId:string;expectedVersion:number;now:Date}):Promise<RetryOutcome>{
+  return withIdentityTransaction(this.dependencies,'registration',async client=>{
+   const outcome=(await client.query('SELECT saas.retry_registration_onboarding_job($1,$2,$3,$4,$5::bigint,$6::timestamptz) AS outcome',[input.attemptId,...args(input.scope),input.expectedVersion,input.now.toISOString()])).rows[0]?.outcome;
+   if(!['queued','busy','conflict'].includes(String(outcome)))throw new Error('onboarding_retry_invalid');
+   return outcome as RetryOutcome;
+  });
+ }
  async verifyTenantProof(scope:RegistrationAuthorityScope,attemptId:string,storeId:string,adminHost:string,storefrontHost:string,now:Date):Promise<boolean>{
   return withIdentityTransaction(this.dependencies,'registration',async client=>(await client.query('SELECT saas.verify_registration_onboarding_access_proof($1,$2,$3,$4,$5::uuid,$6,$7,$8::timestamptz) AS valid',[attemptId,...args(scope),storeId,adminHost,storefrontHost,now.toISOString()])).rows[0]?.valid===true);
  }

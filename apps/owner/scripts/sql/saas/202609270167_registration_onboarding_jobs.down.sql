@@ -10,6 +10,8 @@ DO $guard$ BEGIN
 END $guard$;
 DROP FUNCTION saas.backfill_registration_onboarding_jobs(text,text,text,timestamptz,integer);
 DROP FUNCTION saas.read_registration_onboarding_tenant(text,text,text,text);
+DROP FUNCTION saas.list_registration_onboarding_operations(text,text,text,timestamptz,integer);
+DROP FUNCTION saas.retry_registration_onboarding_job(text,text,text,text,bigint,timestamptz);
 DROP TRIGGER registration_identity_onboarding_job ON saas.registration_verified_identities;
 DROP FUNCTION saas.enqueue_registration_onboarding_job();
 DROP FUNCTION saas.bind_registration_onboarding_scope(text,text,text,text,timestamptz);

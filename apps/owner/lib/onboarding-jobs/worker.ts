@@ -1,11 +1,13 @@
 import type { CreateStarterTenantResult } from '@celebix/saas-contracts';
 import { normalizeOnboardingScope, type RegistrationAuthorityScope, type OnboardingAccessSnapshot, type OnboardingJobRepository, type FinishOnboardingJob } from './types.ts';
+import type {OnboardingAuditInput} from './audit.ts';
 export type CompletionOutcome = {kind:'completed';result:CreateStarterTenantResult}|{kind:'pending'|'retry'|'attention_required'};
 export interface OnboardingTickDependencies {
  repository: OnboardingJobRepository;
  complete(attemptId:string):Promise<CompletionOutcome>;
  probe(scope:RegistrationAuthorityScope,result:CreateStarterTenantResult,attemptId:string):Promise<OnboardingAccessSnapshot>;
  clock?:()=>Date;
+ audit?:(event:OnboardingAuditInput)=>void;
 }
 export async function runOnboardingTick(input:{scope:RegistrationAuthorityScope;now:Date;limit?:number},dependencies:OnboardingTickDependencies) {
  const scope=normalizeOnboardingScope(input.scope);const limit=input.limit??25;
@@ -28,6 +30,7 @@ export async function runOnboardingTick(input:{scope:RegistrationAuthorityScope;
    }catch{snapshot=undefined;}
    const now=dependencies.clock?.()??input.now;
    const saved=await dependencies.repository.finish({scope,attemptId:job.attemptId,leaseToken:job.leaseToken,now,state,safeCode,snapshot});
+   if(saved)try{dependencies.audit?.({attemptId:job.attemptId,stage:snapshot?'access_probe':'tenant_completion',code:safeCode,retry:state==='retry'?Math.min(10,job.failureCount+1):job.failureCount,ageSeconds:Math.max(0,Math.floor((+now-Date.parse(job.createdAt))/1000))});}catch{/* Diagnostics cannot change the committed job. */}
    if(!saved)counts.stale++;else if(state==='attention_required'||(state==='retry'&&job.failureCount>=9))counts.attentionRequired++;else counts[state]++;
   }
  }

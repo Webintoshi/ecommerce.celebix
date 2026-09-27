@@ -44,3 +44,8 @@ test('wrong-tenant access proof requests attention instead of retrying an author
  await runOnboardingTick({scope,now},{...f,complete:async()=>({kind:'completed',result:{store:{id:storeId}} as import('@celebix/saas-contracts').CreateStarterTenantResult}),probe:async(_scope,_result,attemptId)=>({attemptId,storeId,checkedAt:now.toISOString(),state:'unavailable',safeCodes:['authority_invalid']})});
  assert.equal(f.finished[0].state,'attention_required');assert.equal(f.finished[0].safeCode,'authority_invalid');
 });
+test('job audit uses only final safe code and bounded age/retry; failed logging cannot reverse saved state',async()=>{
+ const {runOnboardingTick}=await worker();const f=fixture();const observed:unknown[]=[];
+ const counts=await runOnboardingTick({scope,now},{...f,complete:async()=>({kind:'pending'}),probe:async()=>assert.fail(),audit:event=>{observed.push(event);throw new Error('private sink');}});
+ assert.equal(counts.pending,1);assert.deepEqual(observed,[{attemptId:'attempt_0000000000000000',stage:'tenant_completion',code:'completion_pending',retry:0,ageSeconds:0}]);
+});

@@ -2,6 +2,7 @@ import { formatDateTime } from "@/lib/formatters";
 import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { getOperationsSummary } from "@/lib/control-plane";
+import Link from 'next/link';
 
 export default async function OperationsPage() {
   const auth = await requireOwnerAuth("/operations");
@@ -17,6 +18,9 @@ export default async function OperationsPage() {
         </div>
       </div>
 
+      {superAdmin ? (
+        <div className="card"><div className="section-head"><div><div className="card-title">Mağaza kurulumları</div><p className="section-copy">Bekleyen otomatik kurulumları ve erişim kontrollerini izleyin.</p></div><Link className="btn btn-primary" href="/onboarding/operations">Kurulumları aç</Link></div></div>
+      ) : null}
       {superAdmin ? (
         <div className="card surface-alert">
           <div className="section-head">
