@@ -57,8 +57,22 @@ SELECT 'saas.merchant_admin_config_valid_without_delivery_days(text,jsonb)',
 FROM pg_catalog.pg_proc WHERE oid='saas.merchant_admin_config_valid_without_delivery_days(text,jsonb)'::regprocedure;
 
 CREATE OR REPLACE FUNCTION saas.merchant_admin_config_valid(p_kind text,p_config jsonb)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $function$
- SELECT CASE WHEN p_kind='shipping_setting' THEN
+RETURNS boolean LANGUAGE plpgsql VOLATILE STRICT SET search_path=pg_catalog,saas AS $function$
+BEGIN
+ -- Hold this fence through the caller's transaction, including persistence.
+ -- VOLATILE prevents constant folding from moving validation before the lock.
+ PERFORM pg_catalog.pg_advisory_xact_lock_shared(
+  pg_catalog.hashtextextended('saas.checkout_delivery_days.validation',0));
+ -- A call may have entered this body before rollback obtained its exclusive
+ -- fence. After waiting, reject if rollback removed this generation's delegate:
+ -- an already cached function body must not validate against the retired rules.
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc
+  WHERE pronamespace='saas'::regnamespace
+   AND proname='merchant_admin_config_valid_without_delivery_days'
+   AND proargtypes='25 3802'::oidvector) THEN
+  RETURN false;
+ END IF;
+ RETURN CASE WHEN p_kind='shipping_setting' THEN
   CASE WHEN pg_catalog.jsonb_typeof(p_config)<>'object' THEN false ELSE
    saas.merchant_admin_config_valid_without_delivery_days(p_kind,p_config-'estimatedDays')
    AND CASE WHEN NOT p_config?'estimatedDays' THEN true
@@ -66,7 +80,8 @@ RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS
     ELSE (p_config->>'estimatedDays')~'^[1-9][0-9]{0,2}$'
       AND (p_config->>'estimatedDays')::numeric BETWEEN 1 AND 365 END
   END
- ELSE saas.merchant_admin_config_valid_without_delivery_days(p_kind,p_config) END
+ ELSE saas.merchant_admin_config_valid_without_delivery_days(p_kind,p_config) END;
+END
 $function$;
 UPDATE saas.checkout_delivery_days_backup
 SET migrated_definition=pg_catalog.pg_get_functiondef('saas.merchant_admin_config_valid(text,jsonb)'::regprocedure)

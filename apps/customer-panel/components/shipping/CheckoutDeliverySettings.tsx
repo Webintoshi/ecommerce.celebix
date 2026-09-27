@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { checkoutDeliveryApi, type CheckoutDeliverySave, type CheckoutDeliveryWorkspace } from "@/lib/checkout-delivery-ui/client";
 import { parseCheckoutDeliveryForm } from "@/lib/checkout-delivery-ui/model";
-import { checkoutDeliveryPresentation, deliveryPriceInput } from "@/lib/checkout-delivery-ui/presentation";
+import { checkoutDeliveryPresentation, checkoutDeliveryDaysInput, deliveryPriceInput } from "@/lib/checkout-delivery-ui/presentation";
 import styles from "./checkout-delivery-settings.module.css";
 
 export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canRead: boolean; canManage: boolean }>) {
@@ -27,7 +27,7 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
       if (!mounted.current) return false;
       setWorkspace(next);
       setPrice(next.settings === null ? "" : deliveryPriceInput(next.settings.shippingPriceCents));
-      setDays(next.settings?.estimatedDays === undefined ? "" : String(next.settings.estimatedDays));
+      setDays(checkoutDeliveryDaysInput(next));
       setConflict(false); setError(""); setLoadState("loaded");
       return true;
     } catch {
@@ -76,10 +76,10 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
   const editable = canManage && loadState === "loaded" && !busy && !pending.current && !conflict;
   const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void save("active"); };
   return (
-    <section id="checkout-delivery" className={styles.section} aria-labelledby="checkout-delivery-title" aria-busy={canRead && (loadState === "loading" || busy)} data-settings-dirty={editable && (price !== (workspace.settings === null ? "" : deliveryPriceInput(workspace.settings.shippingPriceCents)) || days !== String(workspace.settings?.estimatedDays ?? "")) ? "true" : undefined}>
+    <section id="checkout-delivery" className={styles.section} aria-labelledby="checkout-delivery-title" aria-busy={canRead && (loadState === "loading" || busy)} data-settings-dirty={editable && (price !== (workspace.settings === null ? "" : deliveryPriceInput(workspace.settings.shippingPriceCents)) || days !== checkoutDeliveryDaysInput(workspace)) ? "true" : undefined}>
       <div className={styles.heading}><h2 id="checkout-delivery-title">Teslimat ücreti</h2><p>Mağazanın ödeme adımında kullanılan teslimat ayarı.</p></div>
       {!canRead ? <p className={styles.state}>Bu ayarı görüntüleme yetkiniz yok.</p> : loadState === "loading" ? <p className={styles.state} role="status">Yükleniyor…</p> : loadState === "loaded" ? <>
-        <div className={styles.summary}><strong>{view.label}</strong>{view.fee ? <span>{view.fee}</span> : null}<small>{view.detail}</small></div>
+        <div className={styles.summary}><strong>{view.label}</strong>{view.fee ? <span>{view.fee}</span> : null}<small>{view.detail}</small>{view.checkoutDetail ? <small>{view.checkoutDetail}</small> : null}</div>
         <form className={styles.form} onSubmit={submit} noValidate>
           <div className={styles.fields}>
             <label htmlFor="checkout-delivery-price">Teslimat ücreti (TL)<input id="checkout-delivery-price" name="price" inputMode="decimal" value={price} onInput={(event) => { if (editable) { setPrice(event.currentTarget.value); setError(""); } }} disabled={!editable} aria-describedby="checkout-delivery-price-help checkout-delivery-feedback" /><small id="checkout-delivery-price-help">Ücretsiz teslimat için 0 girin. Örnek: 14,89</small></label>
@@ -87,7 +87,7 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
           </div>
           {canManage ? <div className={styles.actions}>
             {pending.current && !busy ? <button type="button" onClick={() => void save(pending.current!.status)}>Yeniden dene</button> : conflict ? <button type="button" onClick={() => void load()}>Güncel ayarı yükle</button> : <>
-              <button type="button" disabled={!editable} onClick={() => void save("draft")}>{workspace.record?.status === "active" ? "Teslimatı kapat ve taslak kaydet" : "Taslağı kaydet"}</button>
+              <button type="button" disabled={!editable} onClick={() => void save("draft")}>Taslağı kaydet</button>
               <button className={styles.primary} type="submit" disabled={!editable}>{busy ? "Kaydediliyor…" : workspace.record?.status === "active" ? "Kaydet ve etkinleştir" : "Teslimatı etkinleştir"}</button>
             </>}
           </div> : <p className={styles.state}>Bu ayarı düzenleme yetkiniz yok.</p>}

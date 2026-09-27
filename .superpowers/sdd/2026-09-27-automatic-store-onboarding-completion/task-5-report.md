@@ -107,3 +107,35 @@ The first synthetic GET fixture accidentally retained request-only `recordId` / 
 - No subagents were used for Task5. Only Task5 paths are included in the commit; concurrent task source/index entries are excluded via `git commit --only --`.
 
 Commit subject: `feat: configure checkout delivery fees in shipping settings`.
+
+## Independent review follow-up — 2026-09-28
+
+The original report above describes commit `f51c951c`. Root authorized these bounded corrections after the independent Task5 review:
+
+- **Rollback concurrency:**169's validator now uses a shared transaction advisory fence before validation; down takes the matching exclusive fence before its table lock. The wrapper is deliberately `VOLATILE STRICT` to prevent constant folding around the lock. A fresh `pg_proc` query after the fence rejects a call whose private delegate was retired while waiting. A simple `to_regprocedure` cache lookup was insufficient in the actual nested save path; the real two-connection gate caught that intermediate implementation. Other configs still delegate to the preserved installed validator. Down still restores the exact original OID, definition (including original volatility), owner and ACL.
+- **Existing optional days:** a fee-absent legacy record's valid day value now loads independently of fee readiness. Entering only a fee retains day2; explicitly clearing the day removes it.
+- **Multiple active records:** the draft action promises only to save this record as draft. Current reads separately select the latest active record using the checkout ordering and show its actual remaining fee after the newer record becomes draft. No silent bulk record changes were added.
+- **Lost new-create response:** root explicitly extended ownership to `packages/saas-data/src/merchant-admin/repository.ts`. Only new `shipping_setting` creates derive a UUIDv8 from SHA256 of the fixed JSON tuple `[purpose namespace, validated storeId, principalId, membershipId, operationId]`. Time, plan and mutable data are excluded. Existing updates and all other kinds keep their existing IDs/protocol. API payloads, operation key, canonical fingerprint and SQL actor/tenant/version authority are unchanged.
+
+### Red → green evidence
+
+- Actual component regressions initially failed on blank legacy day and inaccurate global-close text. After correction, the component/model/client/presentation command passed **15/15**.
+- The new repository scope test initially failed on the old generated UUIDv4. The corrected repository plus migration tests pass **21/21**; tenant, principal, membership and operation key alter the create ID, while generic creates retain the existing generator.
+- Real PG16 lost-response test physically commits the new record, throws after the COMMIT response and rejects the recovery transport. Retrying the same create with a new repository call initially returned `operation_mismatch`; after correction it returns `replayed:true`, with exactly one record/version1. Changed payload remains `operation_mismatch`.
+- Two connections test both UPDATE and INSERT in both orderings: an already validated save forces down to wait and reject the incompatible committed setting; a writer arriving behind down cannot commit365 after old-rule restoration. The actual installed save implementation is used; the writer-first seam uses a private QA-only copy with a one-second pause immediately after validation and before record access. The down-first case uses the real public save function and pauses down before its compatibility snapshot. The private instrumented function is removed afterward. Synthetic fixture cleanup is limited to this run's store IDs.
+- The initial fence test failed because the old validator held no shared transaction fence. The down-first gate then caught a cached retired validator body still accepting365; the fresh-catalog generation check made all gates pass.
+- QA up/assertions/down/up passed with exact original OID/definition/owner/ACL equality. No global roles, live database, customer records, provider calls or checkout orders were changed.
+
+Commands:
+
+```sh
+node --experimental-transform-types --test apps/customer-panel/lib/checkout-delivery-ui/*.test.ts apps/customer-panel/components/shipping/CheckoutDeliverySettings.behavior.test.ts
+node --experimental-transform-types --test packages/saas-data/src/merchant-admin/repository.test.ts apps/owner/scripts/sql/saas/checkout-delivery-days-migration.test.ts
+CELEBIX_DELIVERY_QA_DATABASE_URL=postgres://postgres@127.0.0.1:56417/onboarding_delivery_qa_20260927 node --experimental-transform-types --test packages/saas-data/src/merchant-admin/checkout-delivery.postgres.test.ts
+npm run typecheck --workspace=@celebix/saas-data
+npm run typecheck --workspace=@celebix/customer-panel
+```
+
+The bounded local migration runner (outside the repository) checks the exact disposable database/comment, runs up/assertions/down/up, and compares original function metadata in memory. Focused PG command: **3/3 passed**. Both package typechecks passed. Parent's Task4 final Panel/Owner production builds passed after the earlier concurrent type error was fixed; these follow-up edits still require the parent's final combined production build. No concurrent production build was started here. Existing rendered screenshots remain valid for the layout; new copy/day/fallback behavior is covered by actual-component regressions.
+
+Follow-up commit uses exact owned paths with `git commit --only --`; Task6 and other agents' files remain excluded.

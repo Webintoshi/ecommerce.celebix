@@ -1,8 +1,8 @@
 import type { MerchantAdminRecord } from "@celebix/saas-contracts";
 import { merchantAdminApi, MerchantAdminApiError } from "../merchant-admin-ui/client.ts";
-import { buildCheckoutDeliveryConfig, readCheckoutDeliverySettings, selectCheckoutDeliveryRecord, type CheckoutDeliverySettings } from "./model.ts";
+import { buildCheckoutDeliveryConfig, readCheckoutDeliverySettings, selectCheckoutDeliveryRecord, selectActiveCheckoutDeliveryRecord, type CheckoutDeliverySettings } from "./model.ts";
 
-export type CheckoutDeliveryWorkspace = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings | null }>;
+export type CheckoutDeliveryWorkspace = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings | null; activeRecord?: MerchantAdminRecord | null }>;
 export type CheckoutDeliverySave = Readonly<{ record: MerchantAdminRecord | null; settings: CheckoutDeliverySettings; status: "draft" | "active"; operationId: string }>;
 export function createCheckoutDeliveryClient(api: Pick<typeof merchantAdminApi, "records" | "save"> = merchantAdminApi) {
   return Object.freeze({
@@ -11,7 +11,9 @@ export function createCheckoutDeliveryClient(api: Pick<typeof merchantAdminApi, 
       const records = await api.records("shipping_setting");
       if (records.some((record) => record.kind !== "shipping_setting")) throw new MerchantAdminApiError("unavailable", 503);
       const record = selectCheckoutDeliveryRecord(records);
-      return Object.freeze({ record, settings: record === null ? null : readCheckoutDeliverySettings(record.config) });
+      const activeRecord = selectActiveCheckoutDeliveryRecord(records);
+      if (activeRecord) readCheckoutDeliverySettings(activeRecord.config);
+      return Object.freeze({ record, settings: record === null ? null : readCheckoutDeliverySettings(record.config), activeRecord });
     },
     async save(input: CheckoutDeliverySave) {
       const record = input.record;

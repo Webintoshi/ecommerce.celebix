@@ -8,6 +8,11 @@ BEGIN
   OR pg_catalog.to_regprocedure('saas.merchant_admin_config_valid_without_delivery_days(text,jsonb)') IS NULL THEN
   RAISE EXCEPTION 'CHECKOUT_DELIVERY_DAYS_ARTIFACT_MISSING';
  END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc
+  WHERE oid='saas.merchant_admin_config_valid(text,jsonb)'::regprocedure
+   AND provolatile='v' AND proisstrict AND NOT prosecdef) THEN
+  RAISE EXCEPTION 'CHECKOUT_DELIVERY_DAYS_VALIDATION_FENCE_INVALID';
+ END IF;
  IF saas.merchant_admin_config_valid('shipping_setting','{"shippingPriceCents":1489,"estimatedDays":1}') IS NOT TRUE
   OR saas.merchant_admin_config_valid('shipping_setting','{"shippingPriceCents":0,"estimatedDays":365}') IS NOT TRUE
   OR saas.merchant_admin_config_valid('shipping_setting','{"shippingPriceCents":100000000}') IS NOT TRUE THEN

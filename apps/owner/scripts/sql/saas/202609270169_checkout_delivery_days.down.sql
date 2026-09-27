@@ -3,6 +3,10 @@ SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL search_path=pg_catalog,saas;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
+-- Acquire before any relation lock: an already validated save must finish before
+-- the compatibility snapshot, and no new validation may cross the restoration.
+SELECT pg_catalog.pg_advisory_xact_lock(
+ pg_catalog.hashtextextended('saas.checkout_delivery_days.validation',0));
 LOCK TABLE saas.merchant_admin_records IN SHARE ROW EXCLUSIVE MODE;
 DO $rollback$
 DECLARE original text; selected record; installed record;

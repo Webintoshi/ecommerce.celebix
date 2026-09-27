@@ -20,6 +20,21 @@ function providerKindTypeBoundary(api:MerchantAdminRepository){if(false){
  void api.cancelProviderJob({tenantContext:tenant(),now:NOW,operationId:OP,jobId:RECORD,expectedVersion:1,kind:"discount"});
 }}
 void providerKindTypeBoundary;
+test("shipping creates keep one server-scoped entity across retries while other kinds retain generated IDs",async()=>{
+ const captured:string[]=[];
+ const run=async(context=tenant(),operationId=OP,kind="shipping_setting" as "shipping_setting"|"discount")=>{
+  const writer=new Client((text,values)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{id:values[9],kind,status:"active",version:1,updatedAt:NOW.toISOString()}}]:[]);
+  const saved=await repository(new Pool([writer])).save({tenantContext:context,now:NOW,operationId,kind,name:"Synthetic",config:kind==="shipping_setting"?{shippingPriceCents:1489}:{discountType:"percent",value:15},status:"active"});
+  captured.push(saved.id);return saved.id;
+ };
+ const first=await run();assert.equal(await run(),first);assert.match(first,/^[0-9a-f-]{14}8[0-9a-f-]{3}-[89ab]/);
+ assert.notEqual(await run({...tenant(),store:{...tenant().store,id:"33333333-3333-4333-8333-333333333334"}}),first);
+ assert.notEqual(await run({...tenant(),principal:{...tenant().principal,id:"44444444-4444-4444-8444-444444444445"}}),first);
+ assert.notEqual(await run({...tenant(),membership:{...tenant().membership,id:"55555555-5555-4555-8555-555555555556"}}),first);
+ assert.notEqual(await run(tenant(),"72000000-0000-4000-8000-000000000002"),first);
+ assert.equal(await run(tenant(),OP,"discount"),RECORD);
+ assert.equal(new Set(captured.slice(2)).size,5);
+});
 
 test("reads the exact effective starter presentation through durable merchant authority",async()=>{
  const presentation={schemaVersion:1,displayName:"Güzide",theme:{colorScheme:"warm",headingStyle:"sans",productCardStyle:"compact",productImageRatio:"square",homeProductLimit:12,showBrandStory:false},hero:{enabled:true,headline:"Yeni sezon",body:"Koleksiyonu keşfedin.",destination:"/products"},seo:{allowIndex:false}};
@@ -63,7 +78,7 @@ test("rejects secret-bearing config before SQL",async()=>{
 test("shipping checkout fees reach the versioned SQL boundary without losing legacy configuration",async()=>{
  for(const shippingPriceCents of [0,1489,100000000]){
   const config={shippingPriceCents,estimatedDays:365,regions:"Türkiye",freeShippingThresholdCents:50000};
-  const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind:"shipping_setting"}}]:[]);
+  const writer=new Client((text,values)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),id:values[9],kind:"shipping_setting"}}]:[]);
   const result=await repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"shipping_setting",name:"Teslimat",config,status:"active"});
   assert.equal(result.kind,"shipping_setting");
   assert.deepEqual(JSON.parse(call(writer,"merchant_admin_save").values[13] as string),config);

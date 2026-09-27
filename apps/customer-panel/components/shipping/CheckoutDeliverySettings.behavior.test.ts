@@ -14,12 +14,13 @@ import * as presentation from "../../lib/checkout-delivery-ui/presentation.ts";
 import type { MerchantAdminRecord } from "@celebix/saas-contracts";
 const ID="71000000-0000-4000-8000-000000000001",DATE="2026-09-27T00:00:00.000Z";
 const record:MerchantAdminRecord={id:ID,kind:"shipping_setting",name:"Teslimat",config:{regions:"Türkiye",freeShippingThresholdCents:50000,shippingPriceCents:1000,estimatedDays:2},status:"active",version:7,createdAt:DATE,updatedAt:DATE};
-type Options={canRead?:boolean;canManage?:boolean;empty?:boolean;failure?:409|503};
+type Options={canRead?:boolean;canManage?:boolean;empty?:boolean;failure?:409|503;records?:MerchantAdminRecord[]};
 async function mounted(options:Options,verify:(element:HTMLElement,browser:Window,writes:{body:Record<string,unknown>;key:string|null}[])=>Promise<void>){
- let saved:MerchantAdminRecord|null=options.empty?null:structuredClone(record),failure=options.failure;
+ let saved:MerchantAdminRecord|null=options.empty?null:structuredClone(options.records?.[0]??record),failure=options.failure;
+ const remaining=structuredClone(options.records?.slice(1)??[]);
  const writes:{body:Record<string,unknown>;key:string|null}[]=[];
  const api=createCheckoutDeliveryClient(createMerchantAdminApi(async(_path,init)=>{
-  if(init?.method!=="POST")return Response.json({items:saved?[saved]:[]});
+  if(init?.method!=="POST")return Response.json({items:saved?[saved,...remaining]:remaining});
   const body=JSON.parse(String(init.body));writes.push({body,key:new Headers(init.headers).get("idempotency-key")});
   if(failure){const status=failure;failure=undefined;return Response.json({code:status===409?"version_conflict":"unavailable"},{status});}
   saved={...(saved??record),name:body.name,config:body.config,status:body.status,version:(saved?.version??0)+1};
@@ -52,3 +53,24 @@ test("stale version keeps entered values until the merchant explicitly reloads",
 test("uncertain save retries the same payload and operation without allowing input changes",async()=>{await mounted({failure:503},async(element,browser,writes)=>{
  await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet ve etkinleştir").click());assert.equal(element.querySelector<HTMLInputElement>('input[name="price"]')?.disabled,true);await act(async()=>button(element,"Yeniden dene").click());assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);assert.match(element.textContent??"",/14,89 TL/);
 });});
+test("adding a fee preserves the valid existing day until the merchant clears it",async()=>{
+ const legacy={...record,config:{regions:"Türkiye",estimatedDays:2}};
+ await mounted({records:[legacy]},async(element,browser,writes)=>{
+  assert.equal(element.querySelector<HTMLInputElement>('input[name="days"]')?.value,"2");
+  await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet ve etkinleştir").click());
+  assert.deepEqual(writes[0].body.config,{regions:"Türkiye",shippingPriceCents:1489,estimatedDays:2});
+ });
+ await mounted({records:[legacy]},async(element,browser,writes)=>{
+  await input(element,browser,"price","14,89");await input(element,browser,"days","");await act(async()=>button(element,"Kaydet ve etkinleştir").click());
+  assert.deepEqual(writes[0].body.config,{regions:"Türkiye",shippingPriceCents:1489});
+ });
+});
+test("saving one draft shows the older active checkout fee without promising global closure",async()=>{
+ const older={...record,id:"71000000-0000-4000-8000-000000000002",config:{shippingPriceCents:2500},updatedAt:"2026-09-26T00:00:00.000Z"};
+ await mounted({records:[record,older]},async(element,_browser,writes)=>{
+  assert.doesNotMatch(element.textContent??"",/Teslimatı kapat/);
+  await act(async()=>button(element,"Taslağı kaydet").click());
+  assert.equal(writes.length,1);assert.equal(writes[0].body.recordId,ID);assert.equal(writes[0].body.status,"draft");
+  assert.match(element.textContent??"",/Ödeme adımında 25,00 TL kullanılıyor/);
+ });
+});

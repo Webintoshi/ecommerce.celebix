@@ -37,3 +37,6 @@ export function selectCheckoutDeliveryRecord(records: readonly MerchantAdminReco
   return records.filter((record) => record.kind === "shipping_setting" && record.status !== "archived")
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id))[0] ?? null;
 }
+export function selectActiveCheckoutDeliveryRecord(records: readonly MerchantAdminRecord[]): MerchantAdminRecord | null {
+  return selectCheckoutDeliveryRecord(records.filter((record) => record.status === "active"));
+}
