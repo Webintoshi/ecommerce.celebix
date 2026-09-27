@@ -1,0 +1,43 @@
+{
+  "checkedAtUtc": "2026-09-27T19:27:36.948233+00:00",
+  "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+  "deploymentStatusSource": "official Coolify queue helper status after all owned deployments finished",
+  "targets": [
+    {
+      "target": "panel_net",
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "deploymentUuid": "c2i3qmczk1sa22qexp3k8ijd",
+      "status": "finished"
+    },
+    {
+      "target": "storefront_net",
+      "applicationUuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "deploymentUuid": "fhx8ia5nslsl8pa608r0ad9e",
+      "status": "finished"
+    },
+    {
+      "target": "panel_site",
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "deploymentUuid": "h12qio4va1oipxbmkqi241pv",
+      "status": "finished"
+    },
+    {
+      "target": "storefront_site",
+      "applicationUuid": "vtc2aah63jbqnmtxmvykn6jl",
+      "deploymentUuid": "az5rxgbumij7l7y4xq1back1",
+      "status": "finished"
+    }
+  ],
+  "finalConfigurationGuard": {
+    "status": "verified",
+    "targetCount": 4,
+    "globalIdle": true,
+    "unrelatedSettingsPreserved": true,
+    "previewValuesPreserved": true,
+    "paymentApprovalFlagsPreserved": true
+  },
+  "testDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48",
+  "existingSiteLiveDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985",
+  "privateEncryptedSnapshotSha256": "c0a3a5a73bd523f53bd8d7e92be536dbdfcbcc8dfb71e6b1955881c71c3107ab",
+  "paymentProviderCallsPerformed": false
+}

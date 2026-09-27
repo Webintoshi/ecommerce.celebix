@@ -1,0 +1,420 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-27T19:26:53.730050+00:00",
+  "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+  "targets": {
+    "panel_net": {
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "app": "customer-panel",
+      "identity": {
+        "containerId": "1b66bb5cc367d0ae1f9032ed425610ca95e6a9ce0f166020905f6b737a0e516b",
+        "containerName": "/e4xe74cmii7jucbkyor0o412-190006233475",
+        "imageId": "sha256:072eb519d15986d4f23a35a622fb2502b6ffe1d47a629c560879bd3ad7a7602e",
+        "image": "e4xe74cmii7jucbkyor0o412:b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "running": true
+      },
+      "runtime": {
+        "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "metadata": {
+          "iyzico": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+            "candidateExecutionDigest": "sha256:f086b82c91ee11ee8399c15cdcf89e43fbe3d85f19f228f6fdb63cccce4b47a2"
+          },
+          "paytrTest": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48"
+          },
+          "paytrLive": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985"
+          }
+        },
+        "authorities": {
+          "iyzicoExecutionAllowed": false,
+          "iyzicoLiveAllowed": false,
+          "paytrExecutionAllowed": false,
+          "paytrLiveAllowed": false
+        },
+        "flags": {
+          "paytrTestApprovalModeApproved": false,
+          "paytrLiveApprovalModeApproved": false,
+          "iyzicoApprovalModeApproved": false
+        },
+        "sourceHashes": {
+          "apps/customer-panel/proxy.ts": "sha256:d12a45e487815c29cb0d8730a2f8ebdb5c199a93f67e798f25cb42724785fc75",
+          "apps/customer-panel/lib/server-admin-host-auth/default.ts": "sha256:fcd55f9aa2bfa75ffd8e9c3eb8239bf8754fd2d8e9345e8c00b07774136753e7"
+        },
+        "compiled": {
+          "appPathsManifestPresent": true,
+          "routes": {
+            "/(panel)/page": true,
+            "/login/page": true
+          },
+          "middlewareManifestPresent": true,
+          "middlewarePresent": false,
+          "functionsPresent": false,
+          "proxyFilePresent": true,
+          "proxyMarkerMatches": {
+            "Admin host not found": true,
+            "Admin host unavailable": true
+          },
+          "paymentCandidateDigestMatches": {
+            "iyzico": true,
+            "paytrTest": true,
+            "paytrLive": true
+          },
+          "approvedAuthorityLiteralMatches": {
+            "iyzicoExecutionAllowed": false,
+            "iyzicoLiveAllowed": false,
+            "paytrExecutionAllowed": false,
+            "paytrLiveAllowed": false
+          },
+          "artifactHashes": {
+            "chunks/5563.js": "sha256:0bdca1e1ce01f77f1d6c55de90d66babc3b836263a500b11319a1c3251dd555e",
+            "chunks/69.js": "sha256:117b4384b72784c73d198dc305ad6a57965543b30f2a1f3fed0be6c3b1b42e8d",
+            "middleware.js": "sha256:a04418378cf5a5ce26e65a4739f926786b67f698b6cec7519be9980e569187c4"
+          }
+        },
+        "generatedMetadataHashes": {
+          "paytr": "sha256:61948583db70d0e6519db58dccf2764cf543f7d59142a9e7ab575aee3684bc8a",
+          "iyzico": "sha256:05c8e9b0496eaf3cf63aa28645b4e9854938ab3442911957948b3bf9dc3acd71"
+        }
+      }
+    },
+    "panel_site": {
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "app": "customer-panel",
+      "identity": {
+        "containerId": "6a4e0ee9d181250c2cb88737f9cb657670a7903f67d17dde10d02987ed1ca182",
+        "containerName": "/yk1h6d97z7ex0h74ok3zrj5c-191737317222",
+        "imageId": "sha256:456de7953e992745afd0aa01fa59e98904ddb80ccbc34dba7c25d05a6b89849e",
+        "image": "yk1h6d97z7ex0h74ok3zrj5c:b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "running": true
+      },
+      "runtime": {
+        "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "metadata": {
+          "iyzico": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+            "candidateExecutionDigest": "sha256:f086b82c91ee11ee8399c15cdcf89e43fbe3d85f19f228f6fdb63cccce4b47a2"
+          },
+          "paytrTest": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48"
+          },
+          "paytrLive": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985"
+          }
+        },
+        "authorities": {
+          "iyzicoExecutionAllowed": false,
+          "iyzicoLiveAllowed": false,
+          "paytrExecutionAllowed": true,
+          "paytrLiveAllowed": true
+        },
+        "flags": {
+          "paytrTestApprovalModeApproved": true,
+          "paytrLiveApprovalModeApproved": true,
+          "iyzicoApprovalModeApproved": false
+        },
+        "sourceHashes": {
+          "apps/customer-panel/proxy.ts": "sha256:d12a45e487815c29cb0d8730a2f8ebdb5c199a93f67e798f25cb42724785fc75",
+          "apps/customer-panel/lib/server-admin-host-auth/default.ts": "sha256:fcd55f9aa2bfa75ffd8e9c3eb8239bf8754fd2d8e9345e8c00b07774136753e7"
+        },
+        "compiled": {
+          "appPathsManifestPresent": true,
+          "routes": {
+            "/(panel)/page": true,
+            "/login/page": true
+          },
+          "middlewareManifestPresent": true,
+          "middlewarePresent": false,
+          "functionsPresent": false,
+          "proxyFilePresent": true,
+          "proxyMarkerMatches": {
+            "Admin host not found": true,
+            "Admin host unavailable": true
+          },
+          "paymentCandidateDigestMatches": {
+            "iyzico": true,
+            "paytrTest": true,
+            "paytrLive": true
+          },
+          "approvedAuthorityLiteralMatches": {
+            "iyzicoExecutionAllowed": false,
+            "iyzicoLiveAllowed": false,
+            "paytrExecutionAllowed": true,
+            "paytrLiveAllowed": true
+          },
+          "artifactHashes": {
+            "chunks/5563.js": "sha256:48fd904525dc4300b69f02c2fb6ed87520f8407fe3027ba27ccc2b23b9c61af7",
+            "chunks/69.js": "sha256:bc78cfeb8825474d1c4411e9c298685119c37b840fafd3dc0ace5976f47fbea1",
+            "middleware.js": "sha256:a04418378cf5a5ce26e65a4739f926786b67f698b6cec7519be9980e569187c4"
+          }
+        },
+        "generatedMetadataHashes": {
+          "paytr": "sha256:aa2cf4b8e5baf641b1b5eb28483e3621ced8094c960d33cc8b9f9d6c4a82a8e9",
+          "iyzico": "sha256:05c8e9b0496eaf3cf63aa28645b4e9854938ab3442911957948b3bf9dc3acd71"
+        }
+      }
+    },
+    "storefront_net": {
+      "applicationUuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "app": "storefront-shared",
+      "identity": {
+        "containerId": "b6022cd9f8e302327dddae8c54f571548e9eea89af3b51c1c9d8e07bf76ac89d",
+        "containerName": "/h55zoba9jh6ij8g6irpqzd9i-190949647722",
+        "imageId": "sha256:3ab616b1b1212aa3c27a0894865b26cf8796d31575b0f5ce96f389dfa32dc7ac",
+        "image": "h55zoba9jh6ij8g6irpqzd9i:b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "running": true
+      },
+      "runtime": {
+        "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "metadata": {
+          "iyzico": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+            "candidateExecutionDigest": "sha256:f086b82c91ee11ee8399c15cdcf89e43fbe3d85f19f228f6fdb63cccce4b47a2"
+          },
+          "paytrTest": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48"
+          },
+          "paytrLive": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985"
+          }
+        },
+        "authorities": {
+          "iyzicoExecutionAllowed": false,
+          "iyzicoLiveAllowed": false,
+          "paytrExecutionAllowed": false,
+          "paytrLiveAllowed": false
+        },
+        "flags": {
+          "paytrTestApprovalModeApproved": false,
+          "paytrLiveApprovalModeApproved": false,
+          "iyzicoApprovalModeApproved": false
+        },
+        "sourceHashes": {
+          "apps/storefront-shared/proxy.ts": "sha256:eb800f8946704e7ddddcc9f3d168f33048de73113b4311b2fd8da42cdb4e72b6",
+          "apps/storefront-shared/lib/custom-domain-canonicalization.ts": "sha256:6feff67c770cec314b6843fb5e2a715817c6ab1713cc3e3a1f360dd1cc63d43d"
+        },
+        "compiled": {
+          "appPathsManifestPresent": true,
+          "routes": {
+            "/page": true,
+            "/api/health/route": true,
+            "/api/payments/paytr/callback/route": true
+          },
+          "middlewareManifestPresent": true,
+          "middlewarePresent": false,
+          "functionsPresent": false,
+          "proxyFilePresent": true,
+          "proxyMarkerMatches": {
+            "Storefront not found": true
+          },
+          "paymentCandidateDigestMatches": {
+            "iyzico": true,
+            "paytrTest": true,
+            "paytrLive": true
+          },
+          "approvedAuthorityLiteralMatches": {
+            "iyzicoExecutionAllowed": false,
+            "iyzicoLiveAllowed": false,
+            "paytrExecutionAllowed": false,
+            "paytrLiveAllowed": false
+          },
+          "artifactHashes": {
+            "chunks/8947.js": "sha256:dd93a364f2d8c331c9bce55ccca5ee319d98ad50feb73c76fe2b287c73c3aa7c",
+            "middleware.js": "sha256:cd4a00670ce181db62d79ca600adccd70674e7be6136fe86b2ffd381b353b4e6"
+          }
+        },
+        "generatedMetadataHashes": {
+          "paytr": "sha256:61948583db70d0e6519db58dccf2764cf543f7d59142a9e7ab575aee3684bc8a",
+          "iyzico": "sha256:05c8e9b0496eaf3cf63aa28645b4e9854938ab3442911957948b3bf9dc3acd71"
+        }
+      }
+    },
+    "storefront_site": {
+      "applicationUuid": "vtc2aah63jbqnmtxmvykn6jl",
+      "app": "storefront-shared",
+      "identity": {
+        "containerId": "19628d0920d755afa56b855b3f6012dc4ba7845fa42ff92544b06051d98ce478",
+        "containerName": "/vtc2aah63jbqnmtxmvykn6jl-192342660871",
+        "imageId": "sha256:bb12ff56d6250919b3f7ad09927537b48a036caf0e980dc67bccefc495e25bc1",
+        "image": "vtc2aah63jbqnmtxmvykn6jl:b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "running": true
+      },
+      "runtime": {
+        "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "metadata": {
+          "iyzico": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+            "candidateExecutionDigest": "sha256:f086b82c91ee11ee8399c15cdcf89e43fbe3d85f19f228f6fdb63cccce4b47a2"
+          },
+          "paytrTest": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48"
+          },
+          "paytrLive": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985"
+          }
+        },
+        "authorities": {
+          "iyzicoExecutionAllowed": false,
+          "iyzicoLiveAllowed": false,
+          "paytrExecutionAllowed": true,
+          "paytrLiveAllowed": true
+        },
+        "flags": {
+          "paytrTestApprovalModeApproved": true,
+          "paytrLiveApprovalModeApproved": true,
+          "iyzicoApprovalModeApproved": false
+        },
+        "sourceHashes": {
+          "apps/storefront-shared/proxy.ts": "sha256:eb800f8946704e7ddddcc9f3d168f33048de73113b4311b2fd8da42cdb4e72b6",
+          "apps/storefront-shared/lib/custom-domain-canonicalization.ts": "sha256:6feff67c770cec314b6843fb5e2a715817c6ab1713cc3e3a1f360dd1cc63d43d"
+        },
+        "compiled": {
+          "appPathsManifestPresent": true,
+          "routes": {
+            "/page": true,
+            "/api/health/route": true,
+            "/api/payments/paytr/callback/route": true
+          },
+          "middlewareManifestPresent": true,
+          "middlewarePresent": false,
+          "functionsPresent": false,
+          "proxyFilePresent": true,
+          "proxyMarkerMatches": {
+            "Storefront not found": true
+          },
+          "paymentCandidateDigestMatches": {
+            "iyzico": true,
+            "paytrTest": true,
+            "paytrLive": true
+          },
+          "approvedAuthorityLiteralMatches": {
+            "iyzicoExecutionAllowed": false,
+            "iyzicoLiveAllowed": false,
+            "paytrExecutionAllowed": true,
+            "paytrLiveAllowed": true
+          },
+          "artifactHashes": {
+            "chunks/8947.js": "sha256:72aae78768a6ba846f85dfbbd7a3b6ac2e6c5599db1c0c55081fd26bc333e9f5",
+            "middleware.js": "sha256:4ac606da0ca1650652b8c5770e59f7cb513e84950f217717743e6b792f0f34c9"
+          }
+        },
+        "generatedMetadataHashes": {
+          "paytr": "sha256:aa2cf4b8e5baf641b1b5eb28483e3621ced8094c960d33cc8b9f9d6c4a82a8e9",
+          "iyzico": "sha256:05c8e9b0496eaf3cf63aa28645b4e9854938ab3442911957948b3bf9dc3acd71"
+        }
+      }
+    }
+  },
+  "verification": {
+    "paymentProviderCallsPerformed": false,
+    "environmentArraysEmitted": false,
+    "dockerLabelsEmitted": false,
+    "generatedImageMetadataValidated": true,
+    "applicationOrProviderModulesImported": false,
+    "compiledPaymentExecutionExportsInvoked": false
+  },
+  "comparison": {
+    "panel_net": {
+      "sameAuthorityFlags": true,
+      "sameSelectedEnvironmentFlags": true,
+      "sourceHashMatches": {
+        "apps/customer-panel/proxy.ts": true,
+        "apps/customer-panel/lib/server-admin-host-auth/default.ts": true
+      },
+      "sourceCommitMatches": true,
+      "generatedCandidateShasMatch": true,
+      "compiledRoutesPresent": true,
+      "compiledProxyMarkersPresent": true,
+      "compiledProxyArtifactPresent": true,
+      "compiledAuthorityLiteralsMatch": true,
+      "compiledPaymentCandidateDigestsPresent": {
+        "iyzico": true,
+        "paytrTest": true,
+        "paytrLive": true
+      },
+      "passed": true
+    },
+    "panel_site": {
+      "sameAuthorityFlags": true,
+      "sameSelectedEnvironmentFlags": true,
+      "sourceHashMatches": {
+        "apps/customer-panel/proxy.ts": true,
+        "apps/customer-panel/lib/server-admin-host-auth/default.ts": true
+      },
+      "sourceCommitMatches": true,
+      "generatedCandidateShasMatch": true,
+      "compiledRoutesPresent": true,
+      "compiledProxyMarkersPresent": true,
+      "compiledProxyArtifactPresent": true,
+      "compiledAuthorityLiteralsMatch": true,
+      "compiledPaymentCandidateDigestsPresent": {
+        "iyzico": true,
+        "paytrTest": true,
+        "paytrLive": true
+      },
+      "passed": true
+    },
+    "storefront_net": {
+      "sameAuthorityFlags": true,
+      "sameSelectedEnvironmentFlags": true,
+      "sourceHashMatches": {
+        "apps/storefront-shared/proxy.ts": true,
+        "apps/storefront-shared/lib/custom-domain-canonicalization.ts": true
+      },
+      "sourceCommitMatches": true,
+      "generatedCandidateShasMatch": true,
+      "compiledRoutesPresent": true,
+      "compiledProxyMarkersPresent": true,
+      "compiledProxyArtifactPresent": true,
+      "compiledAuthorityLiteralsMatch": true,
+      "compiledPaymentCandidateDigestsPresent": {
+        "iyzico": true,
+        "paytrTest": true,
+        "paytrLive": true
+      },
+      "passed": true
+    },
+    "storefront_site": {
+      "sameAuthorityFlags": true,
+      "sameSelectedEnvironmentFlags": true,
+      "sourceHashMatches": {
+        "apps/storefront-shared/proxy.ts": true,
+        "apps/storefront-shared/lib/custom-domain-canonicalization.ts": true
+      },
+      "sourceCommitMatches": true,
+      "generatedCandidateShasMatch": true,
+      "compiledRoutesPresent": true,
+      "compiledProxyMarkersPresent": true,
+      "compiledProxyArtifactPresent": true,
+      "compiledAuthorityLiteralsMatch": true,
+      "compiledPaymentCandidateDigestsPresent": {
+        "iyzico": true,
+        "paytrTest": true,
+        "paytrLive": true
+      },
+      "passed": true
+    }
+  },
+  "passed": true
+}

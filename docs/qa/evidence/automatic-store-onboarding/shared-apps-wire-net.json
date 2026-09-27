@@ -1,0 +1,134 @@
+{
+  "checkedAt": "2026-09-27T19:24:42.679124+00:00",
+  "expectedSourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+  "readOnly": true,
+  "environment": "staging_net",
+  "applications": [
+    {
+      "role": "panel",
+      "container": "1b66bb5cc367",
+      "image": "e4xe74cmii7jucbkyor0o412:b583d710eac3431e4d2f6f3977218203b27dc85b",
+      "ok": true,
+      "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+      "transport": "node:http.request",
+      "authorityHeader": "original Host",
+      "trustedStorefrontAuthority": false,
+      "checks": [
+        {
+          "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+          "path": "/",
+          "status": 307,
+          "expectedStatus": 307,
+          "location": "/login",
+          "title": "Celebix Müşteri Paneli",
+          "brandMatched": null,
+          "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+          "passed": true
+        },
+        {
+          "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+          "path": "/login",
+          "status": 200,
+          "expectedStatus": 200,
+          "location": null,
+          "title": "Celebix Müşteri Paneli",
+          "brandMatched": true,
+          "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+          "passed": true
+        },
+        {
+          "hostname": "butik-siora.admin.saas-staging.celebix.net",
+          "path": "/login",
+          "status": 200,
+          "expectedStatus": 200,
+          "location": null,
+          "title": "Celebix Müşteri Paneli",
+          "brandMatched": true,
+          "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+          "passed": true
+        },
+        {
+          "hostname": "panel.saas-staging.celebix.net",
+          "path": "/login",
+          "status": 200,
+          "expectedStatus": 200,
+          "location": null,
+          "title": "Celebix Müşteri Paneli",
+          "brandMatched": null,
+          "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+          "passed": true
+        },
+        {
+          "hostname": "wildcard-wire-unknown-muk7jrch.admin.saas-staging.celebix.net",
+          "path": "/",
+          "status": 404,
+          "expectedStatus": 404,
+          "location": null,
+          "title": null,
+          "brandMatched": null,
+          "cacheControl": "no-store",
+          "passed": true
+        },
+        {
+          "hostname": "wildcard-wire-unknown-muk7jrch.admin.saas-staging.celebix.net",
+          "path": "/login",
+          "status": 404,
+          "expectedStatus": 404,
+          "location": null,
+          "title": null,
+          "brandMatched": null,
+          "cacheControl": "no-store",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "role": "storefront",
+      "container": "b6022cd9f8e3",
+      "image": "h55zoba9jh6ij8g6irpqzd9i:b583d710eac3431e4d2f6f3977218203b27dc85b",
+      "ok": true,
+      "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+      "transport": "node:http.request",
+      "authorityHeader": "authenticated x-forwarded-host with matching original Host on wire",
+      "trustedStorefrontAuthority": true,
+      "checks": [
+        {
+          "hostname": "butik-siora.saas-staging.celebix.net",
+          "path": "/",
+          "status": 200,
+          "expectedStatus": 200,
+          "location": null,
+          "title": "Butik Siora",
+          "brandMatched": true,
+          "cacheControl": "private, no-store, no-transform",
+          "passed": true
+        },
+        {
+          "hostname": "alpler-spor.saas-staging.celebix.net",
+          "path": "/",
+          "status": 200,
+          "expectedStatus": 200,
+          "location": null,
+          "title": "Alpler Spor",
+          "brandMatched": true,
+          "cacheControl": "private, no-store, no-transform",
+          "passed": true
+        },
+        {
+          "hostname": "wildcard-wire-unknown-muk7jrmr.saas-staging.celebix.net",
+          "path": "/",
+          "status": 404,
+          "expectedStatus": 404,
+          "location": null,
+          "title": null,
+          "brandMatched": null,
+          "cacheControl": "private, no-store, no-transform",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "ok": true,
+  "secretHandling": "Storefront proxy authority was read only inside the container process and was never serialized."
+}
+

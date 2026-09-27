@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-27T19:21:59.173400+00:00",
+  "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+  "targets": {
+    "storefront_net": {
+      "applicationUuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "app": "storefront-shared",
+      "identity": {
+        "containerId": "b6022cd9f8e302327dddae8c54f571548e9eea89af3b51c1c9d8e07bf76ac89d",
+        "containerName": "/h55zoba9jh6ij8g6irpqzd9i-190949647722",
+        "imageId": "sha256:3ab616b1b1212aa3c27a0894865b26cf8796d31575b0f5ce96f389dfa32dc7ac",
+        "image": "h55zoba9jh6ij8g6irpqzd9i:b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "running": true
+      },
+      "runtime": {
+        "sourceCommit": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+        "metadata": {
+          "iyzico": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+            "candidateExecutionDigest": "sha256:f086b82c91ee11ee8399c15cdcf89e43fbe3d85f19f228f6fdb63cccce4b47a2"
+          },
+          "paytrTest": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:9cfbee01cdd5047d71cd3dd569f4d4ca1228c8a53be11c0d31ac67a9b02f6b48"
+          },
+          "paytrLive": {
+            "gitSha": "b583d710eac3431e4d2f6f3977218203b27dc85b",
+            "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+            "candidateExecutionDigest": "sha256:ab767fbd3dd55af587ba0dcc63028fc4d002b5bef6bd10618e9ad9a1cf5f9985"
+          }
+        },
+        "authorities": {
+          "iyzicoExecutionAllowed": false,
+          "iyzicoLiveAllowed": false,
+          "paytrExecutionAllowed": false,
+          "paytrLiveAllowed": false
+        },
+        "flags": {
+          "paytrTestApprovalModeApproved": false,
+          "paytrLiveApprovalModeApproved": false,
+          "iyzicoApprovalModeApproved": false
+        },
+        "sourceHashes": {
+          "apps/storefront-shared/proxy.ts": "sha256:eb800f8946704e7ddddcc9f3d168f33048de73113b4311b2fd8da42cdb4e72b6",
+          "apps/storefront-shared/lib/custom-domain-canonicalization.ts": "sha256:6feff67c770cec314b6843fb5e2a715817c6ab1713cc3e3a1f360dd1cc63d43d"
+        },
+        "compiled": {
+          "appPathsManifestPresent": true,
+          "routes": {
+            "/page": true,
+            "/api/health/route": true,
+            "/api/payments/paytr/callback/route": true
+          },
+          "middlewareManifestPresent": true,
+          "middlewarePresent": false,
+          "functionsPresent": false,
+          "proxyFilePresent": true,
+          "proxyMarkerMatches": {
+            "Storefront not found": true
+          },
+          "paymentCandidateDigestMatches": {
+            "iyzico": true,
+            "paytrTest": true,
+            "paytrLive": true
+          },
+          "approvedAuthorityLiteralMatches": {
+            "iyzicoExecutionAllowed": false,
+            "iyzicoLiveAllowed": false,
+            "paytrExecutionAllowed": false,
+            "paytrLiveAllowed": false
+          },
+          "artifactHashes": {
+            "chunks/8947.js": "sha256:dd93a364f2d8c331c9bce55ccca5ee319d98ad50feb73c76fe2b287c73c3aa7c",
+            "middleware.js": "sha256:cd4a00670ce181db62d79ca600adccd70674e7be6136fe86b2ffd381b353b4e6"
+          }
+        },
+        "generatedMetadataHashes": {
+          "paytr": "sha256:61948583db70d0e6519db58dccf2764cf543f7d59142a9e7ab575aee3684bc8a",
+          "iyzico": "sha256:05c8e9b0496eaf3cf63aa28645b4e9854938ab3442911957948b3bf9dc3acd71"
+        }
+      }
+    }
+  },
+  "verification": {
+    "paymentProviderCallsPerformed": false,
+    "environmentArraysEmitted": false,
+    "dockerLabelsEmitted": false,
+    "generatedImageMetadataValidated": true,
+    "applicationOrProviderModulesImported": false,
+    "compiledPaymentExecutionExportsInvoked": false
+  },
+  "comparison": {
+    "storefront_net": {
+      "sameAuthorityFlags": true,
+      "sameSelectedEnvironmentFlags": true,
+      "sourceHashMatches": {
+        "apps/storefront-shared/proxy.ts": true,
+        "apps/storefront-shared/lib/custom-domain-canonicalization.ts": true
+      },
+      "sourceCommitMatches": true,
+      "generatedCandidateShasMatch": true,
+      "compiledRoutesPresent": true,
+      "compiledProxyMarkersPresent": true,
+      "compiledProxyArtifactPresent": true,
+      "compiledAuthorityLiteralsMatch": true,
+      "compiledPaymentCandidateDigestsPresent": {
+        "iyzico": true,
+        "paytrTest": true,
+        "paytrLive": true
+      },
+      "passed": true
+    }
+  },
+  "passed": true
+}

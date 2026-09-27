@@ -1,0 +1,28 @@
+{
+  "checkedAtUtc": "2026-09-27T19:26:02.870377+00:00",
+  "readOnly": true,
+  "checks": [
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "dnsAddresses": [
+        "46.225.183.57"
+      ],
+      "tlsVerificationEnabled": true,
+      "tlsVerified": false,
+      "errorKind": "SSLCertVerificationError",
+      "verifyCode": 20
+    },
+    {
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "dnsAddresses": [
+        "46.225.183.57"
+      ],
+      "tlsVerificationEnabled": true,
+      "tlsVerified": false,
+      "errorKind": "SSLCertVerificationError",
+      "verifyCode": 20
+    }
+  ],
+  "browserE2eCompleted": false,
+  "wildcardProxyActivated": false
+}
