@@ -1,0 +1,39 @@
+{
+  "checkedAtUtc": "2026-09-27T18:25:38Z",
+  "version": "1.41.0",
+  "target": "Celebix shared staging Logto default tenant",
+  "backupSha256": "36563aaf74fe69aa151e548a400ca6fc69f3f50082e7eca0dd4e297dfab69184",
+  "initialConnectorCount": 0,
+  "connectorCount": 1,
+  "factory": "simple-mail-transfer-protocol",
+  "installedConfigGuard": "PASS",
+  "smtpAuthentication": "PASS",
+  "smtpPort": 2465,
+  "tls": true,
+  "debug": false,
+  "templates": 9,
+  "signUp": {"identifiers": ["email"], "password": true, "verify": true, "secondaryIdentifiers": []},
+  "signIn": {"methods": [
+    {"identifier": "username", "password": true, "verificationCode": false, "isPasswordPrimary": true},
+    {"identifier": "email", "password": true, "verificationCode": false, "isPasswordPrimary": true}
+  ]},
+  "preservation": {
+    "otherDefaultSettingsHash": "f37a06cae0d923a079168816e45eafde",
+    "adminExperienceHash": "9e7f4ea31c46be89ba17bd35b48e1b5b",
+    "applications": 5,
+    "applicationsHash": "88b177397a1901c0b52550f80de9d432",
+    "allMatchBaseline": true
+  },
+  "legalConsent": "explicitly accepted by user",
+  "marketingConsent": false,
+  "browserReachedEmailCodeVerification": true,
+  "inboxDeliveryVerified": false,
+  "currentBlocker": "user requested a replacement Gmail registration address; real email code pending",
+  "replacementMailboxCodeScreenVerified": true,
+  "replacementMailboxLogtoUserCount": 0,
+  "requestedLogtoUserCount": 0,
+  "requestedSaasPrincipalCount": 0,
+  "requestedStoreCount": 0,
+  "accountCompleted": false,
+  "adminAndStorefrontE2eCompleted": false
+}

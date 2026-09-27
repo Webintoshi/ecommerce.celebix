@@ -30,9 +30,9 @@
 
 ## Task 1 — Browser registration and actual error evidence (root)
 
-- [ ] Fill the normal signup form and obtain the required privacy/consent decision.
+- [x] Fill the normal signup form and obtain the required privacy/consent decision.
 - [ ] Complete actual Logto signup/sign-in with the user-supplied credentials and verified email; preserve the in-progress tab during user input.
-- [ ] Record sanitized error codes and follow each boundary to its root cause; add focused regression tests before fixes.
+- [x] Record sanitized observed errors and follow each boundary to its root cause; focused source regressions pass. Actual Logto identifier/connector configuration failures corrected and validated against installed1.41.0 schema.
 - [ ] Confirm exactly one intended tenant and active store-owner membership; do not bypass normal session creation.
 
 ## Task 2 — Consistent new storefront authority and valid starter seed (SQL worker)
@@ -64,3 +64,7 @@
 - [x] Apply final migration once and verify existing design/domain preservation.
 - [ ] Complete the pending browser signup; verify admin, setup/design, public storefront, console and media availability with no real commerce transaction.
 - [ ] Preserve the deliverable admin tab; report actual account URLs, changes, tests and any remaining user verification requirement.
+
+## Current continuation boundary
+
+User accepted required registration texts. Shared Logto signup was username-only with zero email connectors; real email entry failed. A private backup, installed SMTP schema validation, TLS/authentication on provider-supported2465, guarded single connector insertion and authorized Console signup update now bring the normal browser flow to email-code verification. Existing username signin and all unrelated settings/application rows remain preserved. User cannot access the initial mailbox and explicitly requested switching registration to a supplied Gmail address. Normal UI returned to email entry and sent a new code to that address; actual user-supplied code is pending. No password/code was entered and no Logto user/SaaS tenant exists yet for either address. Resume from the preserved tab, request a fresh code through normal UI if expired, then finish account/admin/storefront verification. Do not bypass email verification.

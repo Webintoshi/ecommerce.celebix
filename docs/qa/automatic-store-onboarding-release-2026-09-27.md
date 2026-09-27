@@ -25,7 +25,7 @@
 
 ## Gerçek kullanıcı akışı
 
-Salt okunur kontrolde istenen e-posta için principal/active owner membership ve istenen slug için mağaza bulunmadı. Gerçek kayıt sayfasında mağaza adı ve slug girildi. Gerekli gizlilik/metin kabulü için kullanıcı yanıtı bekleniyor; checkbox seçilmedi, kayıt gönderilmedi. Bu aşamada **hesap/tenant oluşturulduğu iddia edilmez**. Şifre, kod ve kimlik tokenları dosya veya raporlara yazılmaz.
+Salt okunur kontrolde istenen e-posta için principal/active owner membership ve istenen slug için mağaza bulunmadı. Kullanıcı gerekli kayıt metinlerini açıkça kabul etti; yalnız gerekli checkbox seçilip normal kayıt gönderildi. Logto e-postayı kullanıcı adı olarak reddetti. Aşağıdaki kimlik yapılandırması düzeltildikten sonra yeni normal kayıt denemesi gerçek e-posta doğrulama ekranına ulaştı. Kullanıcı şu anda posta kutusuna erişemediğini belirtti. **Hesap/tenant henüz oluşturulmadı.** Şifre, kod ve kimlik tokenları dosya veya raporlara yazılmaz.
 
 ## Yayın
 
@@ -46,6 +46,18 @@ NET `/kayit` tarayıcıda yeni etkin metin/form/domain suffix ile doğrulandı; 
 
 [Temizlik](evidence/automatic-store-onboarding/cleanup.json): yalnız bu çalışmanın QA veritabanı aktif bağlantı0 doğrulanıp FORCE kullanmadan kaldırıldı; Coolify geçici helper klasörü kaldırıldı. İki özel dump, tam şifreli ayar snapshot’ı ve deployment sahiplik makbuzu sunucuda0600korundu; hash’ler yeniden eşleşti. Canlı veritabanına drop, global container/image/volume/cache temizliği yapılmadı.
 
+### Gerçek denemede bulunan Logto eksikleri
+
+- Ortak Celebix Logto **1.41.0**, `default` tenant, yalnız kullanıcı adıyla kayıt/giriş yapılandırılmış; e-posta connector sayısı **0**. Gerçek hata: “Kullanıcı adı yalnızca harf,sayı veya alt çizgi içermeli.” Diğer projelerin Logto servislerine dokunulmadı.
+- Mevcut merkezi Celebix Resend göndericisi `hesap@noreply.celebix.net` ve aynı doğrulanmış alan adına ait gönderim anahtarı kullanıldı. Anahtar rapora/repoya/loglara yazılmadı. SMTP465 bağlantı zaman aşımına uğradı; sağlayıcının resmi alternatif **2465** portunda TLS ve SMTP kimlik doğrulaması başarılı oldu. Bu kontrol e-posta göndermedi.
+- Tam özel Logto yedeği0600 alındı: SHA256 `36563aaf74fe69aa151e548a400ca6fc69f3f50082e7eca0dd4e297dfab69184`. Kurulu SMTP factory configGuard doğrulamasından geçen tek connector, başlangıç connector sayısı0 ve deneyim hash’i doğrulanan işlemde eklendi. Dokuz kullanım şablonu Türkçe ve `{{code}}` içerir; debug/logger kapalı, TLS doğrulaması açık, URL/dosya erişimi kapalı.
+- Yetkili mevcut Logto Console oturumunda desteklenen kayıt ayarı kaydedildi: yeni kayıt **email + password + verify**; mevcut username/password giriş yöntemi korunup email/password eklendi. Username+email birlikte seçilmedi: bu sürümde username önceliği doğrulanmış e-posta zorunluluğunu sağlamaz. Eksik e-postası olan eski hesaplar girişte doğrulama tamamlamak zorunda kalabilir; gereklilik ortak tenant’taki uygulamalar için geçerlidir.
+- Console’un ilgisiz pasif renk/social/passkey varsayılanlarını normalize ettiği görüldü; bu üç alan yedekten guard ile birebir geri alındı. Diğer `default` ayarlarının hash’i **f37a06cae0d923a079168816e45eafde**, `admin` deneyim hash’i **9e7f4ea31c46be89ba17bd35b48e1b5b** ve5 uygulamanın hash’i **88b177397a1901c0b52550f80de9d432** başlangıçla aynı. MFA, parola politikası, hukuki metinler ve diğer güvenlik ayarları korunur.
+- Yeni normal `/kayit` akışı e-posta formunu ve gerçek altı haneli kod ekranını gösterdi: “Doğrulama kodu … adresinize gönderildi.” Bu, Logto gönderim adımının başarılı olduğunu gösterir; **gelen kutusuna teslimat kanıtı değildir**. Kullanıcı posta kutusuna şu anda erişemiyor. E-posta içeriği veya backend doğrulama kodu okunmadı; doğrulama atlanmadı.
+- Son salt okunur kontrol18:25UTC: istenen Logto kullanıcı0, SaaS principal0, istenen slug mağaza0. Yeni admin/storefront E2E henüz yapılamadı.
+
+Resmi kaynaklar: [Logto signup](https://docs.logto.io/end-user-flows/sign-up-and-sign-in/sign-up), [Logto1.41.0 validation](https://github.com/logto-io/logto/blob/v1.41.0/packages/core/src/routes/experience/classes/libraries/sign-in-experience-validator.ts), [SMTP](https://resend.com/docs/send-with-smtp). Bağımsız ajan incelemesi kurulu sürümün mandatory identifier, connector ve cache koşullarını doğruladı. Bu adım kaynak uygulama derlemesi/deploy gerektirmeyen canlı kimlik yapılandırması düzeltmesidir.
+
 ### Bekleyen gerçek hesap adımı
 
-Gerekli KVKK/gizlilik/metin kabulü için kullanıcının açık yanıtı hâlâ bekleniyor. Chrome gerçek kayıt tabı sonraki tur için korunur. **Alpler Spor hesabı henüz oluşturulmadı; e-posta doğrulaması, admin oturumu ve yeni mağaza storefrontE2E kontrolü tamamlanmış sayılmaz.** Devam için aynı normal signup tabı kullanılacak; sözleşme/email doğrulaması atlanmayacak.
+Gerekli metin kabulü alınmıştır. Kullanıcı ilk posta kutusuna erişemediği için kayıt adresini kendi belirttiği Gmail adresine değiştirmeyi istedi; normal ekranda geri dönülüp bu adrese yeni kod gönderildi ve altı haneli kod ekranı doğrulandı. İki adres için de Logto kullanıcı sayısı0. **Alpler Spor hesabı henüz oluşturulmadı; kullanıcıdan gerçek e-posta doğrulama kodu bekleniyor.** Chrome kayıt tabı korunur. Gerekirse normal ekrandan yeni kod gönderilip kullanıcıdan alınacak; ardından verilen şifreyle ilk hesap kurulumu, admin oturumu ve yeni storefront E2E tamamlanacak. Pazarlama checkbox’ı kapalıdır. Kişisel posta adresi ve şifre rapora eklenmez.
