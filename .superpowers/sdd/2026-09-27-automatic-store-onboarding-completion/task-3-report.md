@@ -62,3 +62,17 @@ No payment metadata/flags were changed to make those tests pass. Root was notifi
 - Task7 root requested list/retry ports and owns their extension after this commit. Add `version bigint NOT NULL DEFAULT1 CHECK>=1` to jobs, increment on claim/finish, bounded scoped `listOperations(limit<=50)`, and scoped `requestRetry` CAS on exact version, state pending/attention and idle/expired lease. Root service must check the existing completion advisory lease; SQL should use the same nonblocking advisory lock to close the race. Retry changes only scheduling/failure count/version, never completion state, identity, idempotency key or recovery proof. Extend SQL function catalogue assertions from10 to12 and down signatures, then repeat final QA on a fresh schema-only fixture.
 - Root owns final build/payment-metadata alignment, release backup/gates, staged rollout and live verification. No live application configuration, domain, payment flags, credentials or merchant records were modified by this task.
 - Down migration intentionally refuses any persisted scope/job/access row; disabling worker is the nondestructive rollback. Synthetic QA data remains in task-owned databases for root teardown, with no production cleanup command.
+
+## Root integration follow-up — ecff40f5
+
+Independent review identified and root corrected stale creating reconciliation, queued lease expiration and early Promise.all rejection. Stale creating now enters the unchanged existing reconciler; it neither age-resets a fence nor clears an active completion advisory lease. Worker claims fresh-clock immediately executable waves at most2 within a25 total budget. Promise.allSettled prevents a rejected finish from starting another tick atop a still-running sibling. Independent correction tests14/14 passed.
+
+Final root command:
+
+```sh
+CELEBIX_ONBOARDING_JOBS_QA=onboarding_completion_qa_20260928 node --conditions=react-server --experimental-transform-types --test tests/saas-phase2/onboarding-jobs/postgres.test.mjs
+```
+
+Result1/1 PASS, no skips,100.176s. Database is marker-protected, task-owned PG16.14, schema-only base166 plus canonical2plans/26plan_features/10plan_limits; no production/customer rows were copied to this fixture. SQL167 now includes Task7's version/list/retry extension and12-function catalogue. Tests cover up/down/up, atomic enqueue, exact original scope, expired lease/CAS,10 retry/backoff, TTL, legacy proof, Tenant Core publication, and actual committed/absent/active abandoned-creating cases. Every repeated completion retains one original key/fingerprint and one store/operation. Synthetic verification-to-ready12632ms uses realPG and injected healthyHTTP, not liveTLS/OIDC/email evidence.
+
+The fixture initially lacked canonical plan_features; root copied26 unchanged published seed rows to this disposable database before the full successful rerun. No production grants, Tenant Core validation, SQL authority, or payment scope was weakened. Live schema is still through166. Final integrated builds/deployment/HTTPS/heartbeat remain separate Task8 gates. Full Owner test fixture alignment was committed separately as faaad0f2 without altering generated payment metadata.
