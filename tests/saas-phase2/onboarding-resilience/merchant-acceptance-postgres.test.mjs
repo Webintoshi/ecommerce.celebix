@@ -14,7 +14,8 @@ import { createProductMediaUploadService } from '../../../apps/customer-panel/li
 import { createSetupLoader } from '../../../apps/customer-panel/lib/server-setup/loader.ts';
 import { merchantAdminFingerprint } from '../../../packages/saas-data/src/merchant-admin/canonical.ts';
 
-const DATABASE='onboarding_merchant_qa_20260928';
+const DATABASES=['onboarding_merchant_qa_20260928','onboarding_merchant_fresh_qa_20260928'];
+const DATABASE=process.env.CELEBIX_MERCHANT_ACCEPTANCE_DATABASE??DATABASES[0];
 const MARKER='celebix-task-owned-disposable-onboarding-20260927';
 const OPT_IN='merchant-acceptance-20260928';
 const MEDIA_ORIGIN='https://media.merchant-acceptance.invalid';
@@ -23,10 +24,11 @@ const AUTHORITY={panelOrigin:'https://panel.saas-staging.celebix.net',platformDo
 const EXPECTED_GRAPH={stores:1,principals:1,operations:1,owners:1,subscriptions:1,domains:1,admindomains:1,storefrontdomains:1,medianamespaces:1,designs:1};
 const EXPECTED_SALES={draft_products:1,active_media:1,delivery_records:1,orders:0,payment_methods:0,payment_attempts:0,provider_profiles:0};
 function qaConfig(env){
- if(env.CELEBIX_MERCHANT_ACCEPTANCE_QA!==OPT_IN||env.CELEBIX_MERCHANT_ACCEPTANCE_DATABASE!==DATABASE||env.CELEBIX_MERCHANT_ACCEPTANCE_MARKER!==MARKER)throw new Error('explicit_disposable_merchant_qa_authority_required');
- if(env.CELEBIX_MERCHANT_ACCEPTANCE_MODE!==undefined&&!['fresh','preflight','continue-delivery'].includes(env.CELEBIX_MERCHANT_ACCEPTANCE_MODE))throw new Error('merchant_qa_mode_invalid');
+ if(env.CELEBIX_MERCHANT_ACCEPTANCE_QA!==OPT_IN||!DATABASES.includes(env.CELEBIX_MERCHANT_ACCEPTANCE_DATABASE)||env.CELEBIX_MERCHANT_ACCEPTANCE_MARKER!==MARKER)throw new Error('explicit_disposable_merchant_qa_authority_required');
+ if(env.CELEBIX_MERCHANT_ACCEPTANCE_MODE!==undefined&&!['fresh','preflight','continue-delivery','continue-merchant'].includes(env.CELEBIX_MERCHANT_ACCEPTANCE_MODE))throw new Error('merchant_qa_mode_invalid');
+ if(env.CELEBIX_MERCHANT_ACCEPTANCE_MODE==='continue-merchant'&&env.CELEBIX_MERCHANT_ACCEPTANCE_DATABASE!=='onboarding_merchant_fresh_qa_20260928')throw new Error('merchant_continuation_database_denied');
  if(Object.keys(env).some(key=>/^PG/i.test(key)||/SUPABASE/i.test(key)||/DATABASE_URL$/i.test(key)||/^POSTGRES.*URL$/i.test(key)))throw new Error('ambient_database_authority_denied');
- return{host:'127.0.0.1',port:56417,user:'postgres',database:DATABASE,max:4,connectionTimeoutMillis:3000,application_name:'onboarding-merchant-acceptance-qa'};
+ return{host:'127.0.0.1',port:56417,user:'postgres',database:env.CELEBIX_MERCHANT_ACCEPTANCE_DATABASE,max:4,connectionTimeoutMillis:3000,application_name:'onboarding-merchant-acceptance-qa'};
 }
 function assertQaDatabase(proof){
  assert.equal(proof.database,DATABASE);assert.equal(proof.marker,MARKER);assert.equal(Math.floor(proof.version/10000),16);
@@ -38,8 +40,11 @@ function assertQaAuthority(proof){
 const optIn={CELEBIX_MERCHANT_ACCEPTANCE_QA:OPT_IN,CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:DATABASE,CELEBIX_MERCHANT_ACCEPTANCE_MARKER:MARKER};
 test('merchant acceptance refuses implicit, ambient, wrong database or missing-marker authority',()=>{
  assert.deepEqual(qaConfig(optIn),{host:'127.0.0.1',port:56417,user:'postgres',database:DATABASE,max:4,connectionTimeoutMillis:3000,application_name:'onboarding-merchant-acceptance-qa'});
+ for(const database of['onboarding_merchant_qa_20260928','onboarding_merchant_fresh_qa_20260928'])assert.equal(qaConfig({...optIn,CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:database}).database,database);
+ assert.equal(qaConfig({...optIn,CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'onboarding_merchant_fresh_qa_20260928',CELEBIX_MERCHANT_ACCEPTANCE_MODE:'continue-merchant'}).database,'onboarding_merchant_fresh_qa_20260928');
+ assert.throws(()=>qaConfig({...optIn,CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'onboarding_merchant_qa_20260928',CELEBIX_MERCHANT_ACCEPTANCE_MODE:'continue-merchant'}));
  for(const key of['DATABASE_URL','OWNER_DATABASE_URL','POSTGRES_URL','POSTGRES_PRISMA_URL','PGHOST','PGPASSWORD','SUPABASE_DB_URL','OWNER_SUPABASE_URL'])assert.throws(()=>qaConfig({...optIn,[key]:''}));
- for(const override of[{CELEBIX_MERCHANT_ACCEPTANCE_QA:undefined},{CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'postgres'},{CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'onboarding_migrations_qa_20260928'},{CELEBIX_MERCHANT_ACCEPTANCE_MARKER:'other'},{CELEBIX_MERCHANT_ACCEPTANCE_MODE:'unsafe'}])assert.throws(()=>qaConfig({...optIn,...override}));
+ for(const override of[{CELEBIX_MERCHANT_ACCEPTANCE_QA:undefined},{CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'postgres'},{CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'onboarding_migrations_qa_20260928'},{CELEBIX_MERCHANT_ACCEPTANCE_DATABASE:'onboarding_merchant_fresh_qa_20260928_extra'},{CELEBIX_MERCHANT_ACCEPTANCE_MARKER:'other'},{CELEBIX_MERCHANT_ACCEPTANCE_MODE:'unsafe'}])assert.throws(()=>qaConfig({...optIn,...override}));
  const proof={database:DATABASE,marker:MARKER,version:160014,stores:0};assertQaAuthority(proof);
  for(const override of[{database:'other'},{marker:null},{version:150000},{version:170000},{stores:1}])assert.throws(()=>assertQaAuthority({...proof,...override}));
 });
@@ -114,6 +119,7 @@ async function preservedRows(pool,storeId){
 const enabled=Object.keys(optIn).some(key=>Object.hasOwn(process.env,key));
 const preflight=process.env.CELEBIX_MERCHANT_ACCEPTANCE_MODE==='preflight';
 const continuation=process.env.CELEBIX_MERCHANT_ACCEPTANCE_MODE==='continue-delivery';
+const merchantContinuation=process.env.CELEBIX_MERCHANT_ACCEPTANCE_MODE==='continue-merchant';
 test('READ ONLY existing synthetic merchant graph satisfies remaining repository and projection prerequisites',{skip:!enabled||!preflight,timeout:60000},async t=>{
  const pool=new pg.Pool(qaConfig(process.env));t.after(()=>pool.end());const repositories=merchantRepositories(pool);
  const proof=(await pool.query("SELECT current_database() AS database,current_setting('server_version_num')::int AS version,shobj_description(oid,'pg_database') AS marker,(SELECT count(*)::int FROM saas.stores) AS stores FROM pg_database WHERE datname=current_database()")).rows[0];assertQaDatabase(proof);assert.equal(proof.stores,1);
@@ -148,24 +154,8 @@ test('bounded continuation activates only the existing draft fee after uncertain
  assert.deepEqual(await graph(pool,result.store.id),EXPECTED_GRAPH);assert.deepEqual(await salesSnapshot(pool,result.store.id),EXPECTED_SALES);assert.deepEqual(await preservedRows(pool,result.store.id),before);assert.equal(externalNetworkCalls,0);
  console.info(JSON.stringify({database:DATABASE,continuedExistingGraph:true,registrationCreate:false,objectRecreation:false,changedDeliveryRecords:1,uncertainCommitRetryReplayed:true,changedPayloadRejected:true,deliveryVersion:2,internalOwnerProjection:true,shippingCents:1489,estimatedDays:365,...EXPECTED_SALES,setup:{products:final.products.state,design:final.design.state,delivery:final.delivery.state,payment:final.payment.kind,access:final.access.state},preservedMerchantTables:Object.keys(before).length,externalNetworkCalls}));
 });
-test('PG16 one registered tenant can create a draft product, scoped media, published design and checkout delivery fee',{skip:!enabled||preflight||continuation,timeout:120000},async t=>{
- const pool=new pg.Pool(qaConfig(process.env));t.after(()=>pool.end());const {catalog,design,merchant,domains,methods,media:mediaRepo}=merchantRepositories(pool);
- const proof=(await pool.query("SELECT current_database() AS database,current_setting('server_version_num')::int AS version,shobj_description(oid,'pg_database') AS marker,(SELECT count(*)::int FROM saas.stores) AS stores FROM pg_database WHERE datname=current_database()")).rows[0];assertQaAuthority(proof);
- assert.deepEqual((await pool.query("SELECT has_function_privilege('celebix_saas_owner','saas.storefront_shipping_projection(uuid)','EXECUTE') AS owner,has_function_privilege('celebix_saas_workflow','saas.storefront_shipping_projection(uuid)','EXECUTE') AS workflow")).rows[0],{owner:true,workflow:false});
- assert.equal(await shippingProjection(pool,randomUUID()),null,'verify the real internal read port before creating any fixture');
- for(const relation of['registration_verified_identities','registration_onboarding_jobs','registration_status_bindings','checkout_delivery_days_backup'])assert.ok((await pool.query('SELECT to_regclass($1) AS relation',[`saas.${relation}`])).rows[0].relation);
- const schemaRoles=(await pool.query("SELECT md5(string_agg(rolname||':'||rolsuper::text||':'||rolbypassrls::text,',' ORDER BY rolname)) AS digest FROM pg_roles")).rows[0].digest;
- let externalNetworkCalls=0;t.mock.method(globalThis,'fetch',()=>{externalNetworkCalls++;assert.fail('external network/provider execution is not part of merchant acceptance');});
- const clock=()=>new Date(),key=randomBytes(32),attempts=new PostgresRegistrationAttemptStore({pool,stateDigester:createOpaqueStateDigester({key:randomBytes(32),context:'registration-attempt-state'}),payloadCipher:createAes256GcmPayloadCipher({currentKeyId:'synthetic-merchant-qa',resolveKey:()=>key}),timeouts:TIMEOUTS,clock,audit(){},identityRole:'celebix_saas_identity'},AUTHORITY);
- const core=createOwnerTenantCoreAdapter(createStarterTenantService({repository:new PostgresSaaSDataRepository({pool,timeouts:TIMEOUTS,bootstrapRole:'celebix_saas_bootstrap',panelOrigin:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net',generateId:()=>randomUUID(),audit(){}}),...AUTHORITY,panelBaseUrl:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net',diagnostic(stage,failure){t.diagnostic(`Tenant Core ${stage}: ${failure}`);}}));
- const completion=createPersistentRegistrationCompletionService({workflowStore:attempts,tenantCore:core,recovery:new PostgresTenantOperationRecovery({pool,timeouts:TIMEOUTS,bootstrapRole:'celebix_saas_bootstrap',panelOrigin:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net'}),...AUTHORITY,clock,audit(){}});
- const suffix=randomBytes(8).toString('hex'),now=clock().toISOString(),registration={id:`attempt_${suffix}${suffix}`,state:randomBytes(32).toString('base64url'),details:{storeName:'Synthetic merchant acceptance',storeSlug:`qa-merchant-${suffix}`,locale:'tr',currency:'TRY',themeKey:'starter',privacyAcceptedAt:now},idempotencyKey:`ssik_${suffix}${suffix}`,requestedAt:now,createdAt:now,expiresAt:new Date(Date.parse(now)+600000).toISOString(),status:'awaiting_identity'};
- await attempts.save(registration);await attempts.consume(registration.state);
- const identity={issuer:'https://merchant-acceptance.invalid/oidc',subject:`synthetic-${suffix}`,email:`synthetic-${suffix}@merchant-acceptance.invalid`,emailVerified:true};
- assert.equal((await completion.recordVerifiedIdentity({attemptId:registration.id,expectedVersion:1,identity})).kind,'identity_recorded');
- const created=await completion.resumeTenantCreation(registration.id);assert.equal(created.kind,'tenant_created');const result=created.result;
- assert.equal(result.provisioningStatus,'ready');const replay=await completion.resumeTenantCreation(registration.id);assert.equal(replay.kind,'tenant_already_created');assert.equal(replay.result.operationId,result.operationId);
- const expectedGraph={stores:1,principals:1,operations:1,owners:1,subscriptions:1,domains:1,admindomains:1,storefrontdomains:1,medianamespaces:1,designs:1};assert.deepEqual(await graph(pool,result.store.id),expectedGraph);
+async function merchantStages({pool,result,identity,clock,schemaRoles,networkCalls,registrationReplayTested}){
+ const {catalog,design,merchant,domains,methods,media:mediaRepo,publicStorefront}=merchantRepositories(pool);
  const context=tenantContext(result,identity),load=setupLoader({catalog,design,merchant,domains,methods},clock);
  const initial=await load(context);assert.equal(initial.access.state,'unavailable');assert.equal(initial.products.state,'action_required');assert.equal(initial.design.state,'ready');assert.equal(initial.delivery.state,'action_required');assert.equal(initial.payment.kind,'none');
  const productInput={tenantContext:context,now:clock(),operationId:randomUUID(),product:{slug:'synthetic-first-product',title:'Synthetic draft product',description:'Task-owned acceptance fixture',status:'draft',currency:'TRY'},initialVariant:{title:'Default',sku:'QA-MERCHANT-1',priceCents:10000,stockTracking:true,stockQuantity:3,attributes:{}}};
@@ -183,9 +173,63 @@ test('PG16 one registered tenant can create a draft product, scoped media, publi
  const activeInput={...feeInput,now:clock(),operationId:randomUUID(),recordId:draftFee.id,expectedVersion:draftFee.version,status:'active'},active=await merchant.save(activeInput);assert.equal((await merchant.save({...activeInput,now:clock()})).replayed,true);assert.equal(active.version,2);
  assert.deepEqual(await shippingProjection(pool,result.store.id),{shippingCents:1489,estimatedDays:365});assert.deepEqual((await merchant.list({tenantContext:context,now:clock(),kind:'shipping_setting'}))[0].config,feeInput.config);
  const final=await load(context);assert.equal(final.products.state,'action_required','one draft is not a sellable active product');assert.equal(final.design.state,'ready');assert.equal(final.design.recommendation,'optional_logo');assert.equal(final.delivery.state,'ready');assert.equal(final.payment.kind,'none');assert.equal(final.access.state,'unavailable','local SQL cannot prove public TLS/route access');
+ const storefront=await publicStorefront.getPublicStorefront({hostname:result.primaryDomain.hostname,now:clock()}),publicDesign=await publicStorefront.getPublicStorefrontDesign({storefront,now:clock()});assert.equal(publicDesign.publicationVersion,2);assert.equal(publicDesign.brand.primaryColor,'#224466');assert.equal((await publicStorefront.listPublicProducts({storefront,now:clock(),limit:10})).items.length,0);
  const sales=await salesSnapshot(pool,result.store.id);
- assert.deepEqual(sales,{draft_products:1,active_media:1,delivery_records:1,orders:0,payment_methods:0,payment_attempts:0,provider_profiles:0});assert.deepEqual(await graph(pool,result.store.id),expectedGraph);
+ assert.deepEqual(sales,{draft_products:1,active_media:1,delivery_records:1,orders:0,payment_methods:0,payment_attempts:0,provider_profiles:0});assert.deepEqual(await graph(pool,result.store.id),EXPECTED_GRAPH);
  assert.equal((await pool.query("SELECT md5(string_agg(rolname||':'||rolsuper::text||':'||rolbypassrls::text,',' ORDER BY rolname)) AS digest FROM pg_roles")).rows[0].digest,schemaRoles);
- assert.equal(externalNetworkCalls,0);console.info(JSON.stringify({database:DATABASE,pg16:true,oneTenantGraph:true,registrationReplay:true,...sales,publishedVersion:finalDesign.publishedVersion,shippingCents:1489,estimatedDays:365,localObjectWrites:storage.counts.put,setup:{products:final.products.state,design:final.design.state,delivery:final.delivery.state,payment:final.payment.kind,access:final.access.state},externalNetworkCalls,objectStorage:'memory_fixture_only'}));
+ const externalNetworkCalls=networkCalls();assert.equal(externalNetworkCalls,0);console.info(JSON.stringify({database:DATABASE,pg16:true,oneTenantGraph:true,...(registrationReplayTested?{registrationReplay:true}:{registrationReplayTested:false,continuedExistingGraph:true,registrationCreate:false}),...sales,publishedVersion:finalDesign.publishedVersion,publicDesignVersion:publicDesign.publicationVersion,publicActiveProducts:0,shippingCents:1489,estimatedDays:365,localObjectWrites:storage.counts.put,setup:{products:final.products.state,design:final.design.state,delivery:final.delivery.state,payment:final.payment.kind,access:final.access.state},externalNetworkCalls,objectStorage:'memory_fixture_only'}));
+}
+async function registeredGraphRows(client,storeId){
+ const snapshots={};
+ for(const table of['stores','principals','tenant_operations','registration_tenant_completions','memberships','subscriptions','domains','admin_domains','store_domains','store_media_namespaces'])snapshots[table]=(await client.query(`SELECT count(*)::int AS count,md5(coalesce(string_agg(md5(to_jsonb(row)::text),'' ORDER BY md5(to_jsonb(row)::text)),'')) AS digest FROM saas.${table} row`)).rows[0];
+ snapshots.notification_setting=(await client.query("SELECT count(*)::int AS count,md5(coalesce(string_agg(md5(to_jsonb(row)::text),'' ORDER BY md5(to_jsonb(row)::text)),'')) AS digest FROM saas.merchant_admin_records row WHERE store_id=$1 AND record_kind='notification_setting'",[storeId])).rows[0];
+ return snapshots;
+}
+test('bounded same-graph merchant continuation preserves registration and seeded notification setting',{skip:!enabled||!merchantContinuation,timeout:120000},async t=>{
+ const pool=new pg.Pool(qaConfig(process.env));t.after(()=>pool.end());const repositories=merchantRepositories(pool);
+ let externalNetworkCalls=0;t.mock.method(globalThis,'fetch',()=>{externalNetworkCalls++;assert.fail('same-graph merchant continuation cannot call external services');});
+ const client=await pool.connect();let result,identity,before,schemaRoles;
+ try{
+  await client.query('BEGIN READ ONLY');
+  const proof=(await client.query("SELECT current_database() AS database,current_setting('server_version_num')::int AS version,shobj_description(oid,'pg_database') AS marker,(SELECT count(*)::int FROM saas.stores) AS stores FROM pg_database WHERE datname=current_database()")).rows[0];assertQaDatabase(proof);assert.equal(proof.database,'onboarding_merchant_fresh_qa_20260928');assert.equal(proof.stores,1);
+  const operations=await client.query("SELECT result_payload FROM saas.tenant_operations WHERE status='committed'");assert.equal(operations.rowCount,1);assert.equal((await client.query('SELECT count(*)::int AS count FROM saas.tenant_operations')).rows[0].count,1);result=operations.rows[0].result_payload;
+  assert.match(result.store.slug,/^qa-merchant-[a-f0-9]{16}$/);assert.equal(result.primaryDomain.hostname,`${result.store.slug}.${AUTHORITY.platformDomainSuffix}`);
+  const actualStore=(await client.query('SELECT slug,status FROM saas.stores WHERE id=$1',[result.store.id])).rows[0];assert.deepEqual(actualStore,{slug:result.store.slug,status:'active'});
+  identity=(await client.query('SELECT issuer,subject FROM saas.principals WHERE id=$1',[result.membership.principalId])).rows[0];assert.equal(identity.issuer,'https://merchant-acceptance.invalid/oidc');assert.match(identity.subject,/^synthetic-[a-f0-9]{16}$/);
+  assert.deepEqual((await client.query('SELECT role,status FROM saas.memberships WHERE id=$1 AND store_id=$2 AND principal_id=$3',[result.membership.id,result.store.id,result.membership.principalId])).rows[0],{role:'store_owner',status:'active'});
+  assert.deepEqual(await graph(client,result.store.id),EXPECTED_GRAPH);
+  assert.equal((await client.query("SELECT count(*)::int AS count FROM saas.registration_tenant_completions WHERE state='completed' AND tenant_operation_id=$1",[result.operationId])).rows[0].count,1);assert.equal((await client.query('SELECT count(*)::int AS count FROM saas.registration_tenant_completions')).rows[0].count,1);
+  const sales=(await client.query("SELECT (SELECT count(*)::int FROM saas.products) AS products,(SELECT count(*)::int FROM saas.product_variants) AS variants,(SELECT count(*)::int FROM saas.product_media) AS media,(SELECT count(*)::int FROM saas.merchant_admin_records) AS merchant_records,(SELECT count(*)::int FROM saas.merchant_admin_records WHERE store_id=$1 AND record_kind='notification_setting' AND status='active' AND version=1) AS seeded_notification_records,(SELECT count(*)::int FROM saas.merchant_admin_records WHERE record_kind='shipping_setting') AS delivery_records,(SELECT count(*)::int FROM saas.orders) AS orders,(SELECT count(*)::int FROM saas.payment_methods) AS payment_methods,(SELECT count(*)::int FROM saas.payment_attempts) AS payment_attempts,(SELECT count(*)::int FROM saas.merchant_provider_profiles) AS provider_profiles",[result.store.id])).rows[0];assert.deepEqual(sales,{products:0,variants:0,media:0,merchant_records:1,seeded_notification_records:1,delivery_records:0,orders:0,payment_methods:0,payment_attempts:0,provider_profiles:0});
+  assert.deepEqual((await client.query("SELECT has_function_privilege('celebix_saas_app','saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)','EXECUTE') AS save,has_function_privilege('celebix_saas_owner','saas.storefront_shipping_projection(uuid)','EXECUTE') AS owner,has_function_privilege('celebix_saas_workflow','saas.storefront_shipping_projection(uuid)','EXECUTE') AS workflow")).rows[0],{save:true,owner:true,workflow:false});
+  before=await registeredGraphRows(client,result.store.id);schemaRoles=(await client.query("SELECT md5(string_agg(rolname||':'||rolsuper::text||':'||rolbypassrls::text,',' ORDER BY rolname)) AS digest FROM pg_roles")).rows[0].digest;
+  await client.query('COMMIT');
+ }finally{await client.query('ROLLBACK').catch(()=>{});client.release();}
+ const context=tenantContext(result,identity),initial=await setupLoader(repositories)(context),workspace=await repositories.design.getWorkspace({tenantContext:context,now:new Date()});
+ assert.equal(initial.products.state,'action_required');assert.equal(initial.delivery.state,'action_required');assert.equal(initial.design.state,'ready');assert.equal(initial.payment.kind,'none');assert.equal(initial.access.state,'unavailable');assert.equal(workspace.draftVersion,1);assert.equal(workspace.publishedVersion,1);assert.equal(await shippingProjection(pool,result.store.id),null);
+ await merchantStages({pool,result,identity,clock:()=>new Date(),schemaRoles,networkCalls:()=>externalNetworkCalls,registrationReplayTested:false});
+ const afterClient=await pool.connect();let after;
+ try{await afterClient.query('BEGIN READ ONLY');after=await registeredGraphRows(afterClient,result.store.id);assert.deepEqual(after,before);await afterClient.query('COMMIT');}finally{await afterClient.query('ROLLBACK').catch(()=>{});afterClient.release();}
+ assert.equal(externalNetworkCalls,0);console.info(JSON.stringify({database:DATABASE,continuedExistingGraph:true,registrationCreate:false,registrationReplayTested:false,registrationGraphTablesPreserved:10,notificationSettingPreserved:true,preservedRowDigests:after,externalNetworkCalls}));
+});
+test('PG16 one registered tenant can create a draft product, scoped media, published design and checkout delivery fee',{skip:!enabled||preflight||continuation||merchantContinuation,timeout:120000},async t=>{
+ const pool=new pg.Pool(qaConfig(process.env));t.after(()=>pool.end());merchantRepositories(pool);
+ const proof=(await pool.query("SELECT current_database() AS database,current_setting('server_version_num')::int AS version,shobj_description(oid,'pg_database') AS marker,(SELECT count(*)::int FROM saas.stores) AS stores FROM pg_database WHERE datname=current_database()")).rows[0];assertQaAuthority(proof);
+ assert.deepEqual((await pool.query("SELECT has_function_privilege('celebix_saas_owner','saas.storefront_shipping_projection(uuid)','EXECUTE') AS owner,has_function_privilege('celebix_saas_workflow','saas.storefront_shipping_projection(uuid)','EXECUTE') AS workflow")).rows[0],{owner:true,workflow:false});
+ assert.equal(await shippingProjection(pool,randomUUID()),null,'verify the real internal read port before creating any fixture');
+ for(const relation of['registration_verified_identities','registration_onboarding_jobs','registration_status_bindings','checkout_delivery_days_backup'])assert.ok((await pool.query('SELECT to_regclass($1) AS relation',[`saas.${relation}`])).rows[0].relation);
+ const schemaRoles=(await pool.query("SELECT md5(string_agg(rolname||':'||rolsuper::text||':'||rolbypassrls::text,',' ORDER BY rolname)) AS digest FROM pg_roles")).rows[0].digest;
+ let externalNetworkCalls=0;t.mock.method(globalThis,'fetch',()=>{externalNetworkCalls++;assert.fail('external network/provider execution is not part of merchant acceptance');});
+ const clock=()=>new Date(),key=randomBytes(32),attempts=new PostgresRegistrationAttemptStore({pool,stateDigester:createOpaqueStateDigester({key:randomBytes(32),context:'registration-attempt-state'}),payloadCipher:createAes256GcmPayloadCipher({currentKeyId:'synthetic-merchant-qa',resolveKey:()=>key}),timeouts:TIMEOUTS,clock,audit(){},identityRole:'celebix_saas_identity'},AUTHORITY);
+ const core=createOwnerTenantCoreAdapter(createStarterTenantService({repository:new PostgresSaaSDataRepository({pool,timeouts:TIMEOUTS,bootstrapRole:'celebix_saas_bootstrap',panelOrigin:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net',generateId:()=>randomUUID(),audit(){}}),...AUTHORITY,panelBaseUrl:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net',diagnostic(stage,failure){t.diagnostic(`Tenant Core ${stage}: ${failure}`);}}));
+ const completion=createPersistentRegistrationCompletionService({workflowStore:attempts,tenantCore:core,recovery:new PostgresTenantOperationRecovery({pool,timeouts:TIMEOUTS,bootstrapRole:'celebix_saas_bootstrap',panelOrigin:AUTHORITY.panelOrigin,adminOriginEnvironment:'staging_net'}),...AUTHORITY,clock,audit(){}});
+ const suffix=randomBytes(8).toString('hex'),now=clock().toISOString(),registration={id:`attempt_${suffix}${suffix}`,state:randomBytes(32).toString('base64url'),details:{storeName:'Synthetic merchant acceptance',storeSlug:`qa-merchant-${suffix}`,locale:'tr',currency:'TRY',themeKey:'starter',privacyAcceptedAt:now},idempotencyKey:`ssik_${suffix}${suffix}`,requestedAt:now,createdAt:now,expiresAt:new Date(Date.parse(now)+600000).toISOString(),status:'awaiting_identity'};
+ await attempts.save(registration);await attempts.consume(registration.state);
+ const identity={issuer:'https://merchant-acceptance.invalid/oidc',subject:`synthetic-${suffix}`,email:`synthetic-${suffix}@merchant-acceptance.invalid`,emailVerified:true};
+ assert.equal((await completion.recordVerifiedIdentity({attemptId:registration.id,expectedVersion:1,identity})).kind,'identity_recorded');
+ const created=await completion.resumeTenantCreation(registration.id);assert.equal(created.kind,'tenant_created');const result=created.result;
+ assert.equal(result.provisioningStatus,'ready');const replay=await completion.resumeTenantCreation(registration.id);assert.equal(replay.kind,'tenant_already_created');assert.equal(replay.result.operationId,result.operationId);
+ const expectedGraph={stores:1,principals:1,operations:1,owners:1,subscriptions:1,domains:1,admindomains:1,storefrontdomains:1,medianamespaces:1,designs:1};assert.deepEqual(await graph(pool,result.store.id),expectedGraph);
+ await merchantStages({pool,result,identity,clock,schemaRoles,networkCalls:()=>externalNetworkCalls,registrationReplayTested:true});
+ assert.equal(externalNetworkCalls,0);
  // Preserve the synthetic graph and immutable operation evidence in this disposable DB.
 });
