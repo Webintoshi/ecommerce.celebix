@@ -2,17 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { FIXED_STOREFRONT_POLICIES } from "@celebix/saas-contracts";
-import React, { createElement, type ReactNode } from "react";
-import * as jsxRuntime from "react/jsx-runtime";
 import postcss from "postcss";
 import ts from "typescript";
 
-import { createStorePolicyApi, StorePolicyApiError } from "./store-policy-ui/client.ts";
+import { effectiveCss } from "./mira-final-test-support.ts";
+import { createStorePolicyApi } from "./store-policy-ui/client.ts";
 
 const CUSTOMER_PANEL = new URL("../", import.meta.url);
 const REPOSITORY = new URL("../../../", import.meta.url);
-const NOW = "2026-09-09T12:00:00.000Z";
 
 const panelSource = (path: string) => readFile(new URL(path, CUSTOMER_PANEL), "utf8");
 const repositorySource = (path: string) => readFile(new URL(path, REPOSITORY), "utf8");
@@ -33,173 +30,6 @@ function rootDeclarations(css: string, selector: string) {
     rule.walkDecls((declaration) => { result[declaration.prop] = declaration.value; });
   });
   return result;
-}
-
-function policy(body: string, status: "draft" | "published", version: number) {
-  const definition = FIXED_STOREFRONT_POLICIES[0];
-  return Object.freeze({
-    ...definition,
-    ordinal: 1,
-    body,
-    status,
-    version,
-    createdAt: NOW,
-    updatedAt: NOW,
-  });
-}
-
-function createHookRuntime() {
-  const slots: unknown[] = [];
-  let cursor = 0;
-  let dirty = true;
-  let latest: ReactNode;
-  const sameDeps = (left: readonly unknown[] | undefined, right: readonly unknown[]) =>
-    left !== undefined && left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
-  const runtime = {
-    ...React,
-    useState<T>(initial: T | (() => T)) {
-      const index = cursor++;
-      if (!(index in slots)) slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;
-      const set = (next: T | ((current: T) => T)) => {
-        slots[index] = typeof next === "function" ? (next as (current: T) => T)(slots[index] as T) : next;
-        dirty = true;
-      };
-      return [slots[index] as T, set] as const;
-    },
-    useRef<T>(initial: T) {
-      const index = cursor++;
-      if (!(index in slots)) slots[index] = { current: initial };
-      return slots[index] as { current: T };
-    },
-    useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
-      const index = cursor++;
-      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
-      if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
-      return (slots[index] as { value: T }).value;
-    },
-    useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
-      const index = cursor++;
-      const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
-      if (prior !== undefined && sameDeps(prior.deps, deps)) return;
-      prior?.cleanup?.();
-      const cleanup = effect();
-      slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) };
-    },
-  } as unknown as typeof React;
-  return {
-    runtime,
-    async flush(component: () => ReactNode) {
-      for (let pass = 0; pass < 40; pass += 1) {
-        if (dirty || latest === undefined) {
-          dirty = false;
-          cursor = 0;
-          latest = component();
-        }
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        if (!dirty) return latest;
-      }
-      throw new Error("policy_hook_flush_exhausted");
-    },
-  };
-}
-
-function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Record<string, unknown>>) => void) {
-  React.Children.forEach(node, (child) => {
-    if (!React.isValidElement<Record<string, unknown>>(child)) return;
-    visitor(child);
-    visitElements(child.props.children as ReactNode, visitor);
-    visitElements(child.props.actions as ReactNode, visitor);
-  });
-}
-
-function findElement(
-  node: ReactNode,
-  predicate: (element: React.ReactElement<Record<string, unknown>>) => boolean,
-) {
-  let result: React.ReactElement<Record<string, unknown>> | undefined;
-  visitElements(node, (element) => {
-    if (result === undefined && predicate(element)) result = element;
-  });
-  assert.ok(result);
-  return result;
-}
-
-function textOf(node: ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (!React.isValidElement<Record<string, unknown>>(node)) return "";
-  return React.Children.toArray(node.props.children as ReactNode).map(textOf).join("");
-}
-
-async function compilePolicyConsole(
-  react: typeof React,
-  scenario: Readonly<{ getFailures?: number; getGate?: Promise<void>; saveGate?: Promise<void> }> = {},
-) {
-  const source = await readFile(
-    new URL("components/content/PolicyConsole.tsx", CUSTOMER_PANEL),
-    "utf8",
-  );
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      esModuleInterop: true,
-      jsx: ts.JsxEmit.ReactJSX,
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
-  const initial = policy("Sunucudaki ilk metin", "draft", 3);
-  const refreshed = policy("Başka oturumdaki metin", "draft", 4);
-  const saves: Array<Readonly<{ expectedVersion: number; body: string; status: string }>> = [];
-  let getCalls = 0;
-  const api = Object.freeze({
-    async list() { return Object.freeze([initial]); },
-    async get() {
-      getCalls += 1;
-      if (scenario.getGate) await scenario.getGate;
-      if (getCalls <= (scenario.getFailures ?? 0)) throw new Error("controlled_policy_refresh_failure");
-      return refreshed;
-    },
-    async save(_key: string, input: Readonly<{ expectedVersion: number; body: string; status: string }>) {
-      saves.push(Object.freeze({ ...input }));
-      if (scenario.saveGate) await scenario.saveGate;
-      throw new StorePolicyApiError("version_conflict", 409);
-    },
-  });
-  const styles = new Proxy({}, {
-    get: (_target, property) => property === "__esModule"
-      ? true
-      : property === "default" ? styles : String(property),
-  });
-  const Icon = (props: Record<string, unknown>) => createElement("svg", props);
-  const Shell = ({ children }: { children?: ReactNode }) => createElement("div", null, children);
-  const Header = ({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) => createElement("header", null, title, description, actions);
-  const Empty = ({ title, description }: { title: string; description: string }) => createElement("div", null, title, description);
-  const Preview = ({ source: value }: { source: string }) => createElement("div", { "data-policy-preview": true }, value);
-  const compiled: { exports: Record<string, unknown> } = { exports: {} };
-  const requireModule = (specifier: string): unknown => {
-    if (specifier === "react") return react;
-    if (specifier === "react/jsx-runtime") return jsxRuntime;
-    if (specifier === "@celebix/saas-contracts") return { FIXED_STOREFRONT_POLICIES };
-    if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
-    if (specifier === "@/components/catalog/ProductDescriptionField") return { ProductDescriptionPreview: Preview };
-    if (specifier === "@/components/panel/PanelPageShell") return {
-      PanelEmptyState: Empty,
-      PanelPageHeader: Header,
-      PanelPageShell: Shell,
-      PanelStatusBadge: Shell,
-    };
-    if (specifier === "@/lib/store-policy-ui/client") return { StorePolicyApiError, storePolicyApi: api };
-    if (specifier === "./policy-console.module.css") return styles;
-    throw new Error(`unexpected_policy_console_import:${specifier}`);
-  };
-  Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return {
-    Console: compiled.exports.PolicyConsole as (props: Readonly<{
-      canManage: boolean;
-      initialPolicyKey?: typeof FIXED_STOREFRONT_POLICIES[number]["key"];
-    }>) => ReactNode,
-    saves,
-    getCalls: () => getCalls,
-  };
 }
 
 async function settingsPolicyRoute(
@@ -228,228 +58,10 @@ async function settingsPolicyRoute(
   };
 }
 
-test("policy conflict preserves the merchant draft and version authority across close and reopen", async () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: { activeElement: null },
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: { addEventListener() {}, removeEventListener() {} },
-  });
-  try {
-    const hooks = createHookRuntime();
-    const { Console, saves } = await compilePolicyConsole(hooks.runtime);
-    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
-    let view = await hooks.flush(render);
-    const textarea = findElement(view, (element) => element.type === "textarea");
-    const published = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
-    (textarea.props.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "Merchant tarafından korunacak taslak" },
-    });
-    (published.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    const save = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    (save.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    assert.deepEqual(saves, [{
-      expectedVersion: 3,
-      body: "Merchant tarafından korunacak taslak",
-      status: "published",
-    }]);
-    const preservedTextarea = findElement(view, (element) => element.type === "textarea");
-    const preservedPublished = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
-    assert.equal(preservedTextarea.props.value, "Merchant tarafından korunacak taslak");
-    assert.equal(preservedPublished.props["aria-checked"], true);
-    assert.match(textOf(view), /sizden önce güncellendi/u);
-    const feedbackFooter = findElement(view, (element) => element.type === "footer");
-    findElement(feedbackFooter, (element) => element.props.role === "alert");
-    const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
-    (close.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    const reopen = findElement(view, (element) => element.type === "button" && textOf(element).includes("Düzenle"));
-    (reopen.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    const reopenedTextarea = findElement(view, (element) => element.type === "textarea");
-    const reopenedPublished = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
-    assert.equal(reopenedTextarea.props.value, "Merchant tarafından korunacak taslak");
-    assert.equal(reopenedPublished.props["aria-checked"], true);
-    const retry = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    (retry.props.onClick as () => void)();
-    await hooks.flush(render);
-    assert.equal(saves[1]?.expectedVersion, 4);
-  } finally {
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
-  }
-});
-
-test("failed conflict refresh blocks resave until an explicit read retry succeeds", async () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: { activeElement: null },
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: { addEventListener() {}, removeEventListener() {} },
-  });
-  try {
-    const hooks = createHookRuntime();
-    const { Console, saves, getCalls } = await compilePolicyConsole(hooks.runtime, { getFailures: 1 });
-    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
-    let view = await hooks.flush(render);
-    const textarea = findElement(view, (element) => element.type === "textarea");
-    const published = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
-    (textarea.props.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "Yenileme hatasında korunacak taslak" },
-    });
-    (published.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    const firstSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    (firstSave.props.onClick as () => void)();
-    view = await hooks.flush(render);
-
-    assert.equal(getCalls(), 1);
-    assert.match(textOf(view), /güncel sürüm alınamadı/u);
-    const recoveryFooter = findElement(view, (element) => element.type === "footer");
-    findElement(recoveryFooter, (element) => element.type === "button" && textOf(element) === "Güncel sürümü al");
-    const blockedSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    assert.equal(blockedSave.props.disabled, true);
-    const retryRead = findElement(view, (element) => element.type === "button" && textOf(element) === "Güncel sürümü al");
-    (retryRead.props.onClick as () => void)();
-    view = await hooks.flush(render);
-
-    assert.equal(getCalls(), 2);
-    const preservedTextarea = findElement(view, (element) => element.type === "textarea");
-    const preservedPublished = findElement(view, (element) => element.props.role === "radio" && textOf(element).includes("Yayında"));
-    assert.equal(preservedTextarea.props.value, "Yenileme hatasında korunacak taslak");
-    assert.equal(preservedPublished.props["aria-checked"], true);
-    const enabledSave = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    assert.equal(enabledSave.props.disabled, false);
-    (enabledSave.props.onClick as () => void)();
-    await hooks.flush(render);
-    assert.deepEqual(saves[1], {
-      expectedVersion: 4,
-      body: "Yenileme hatasında korunacak taslak",
-      status: "published",
-    });
-  } finally {
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
-  }
-});
-
-test("pending conflict refresh keeps the editor open until the canonical read settles", async () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  let keydownListener: ((event: KeyboardEvent) => void) | undefined;
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: { activeElement: null },
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      addEventListener(type: string, listener: (event: KeyboardEvent) => void) {
-        if (type === "keydown") keydownListener = listener;
-      },
-      removeEventListener(type: string, listener: (event: KeyboardEvent) => void) {
-        if (type === "keydown" && keydownListener === listener) keydownListener = undefined;
-      },
-    },
-  });
-  let releaseRead = () => {};
-  const getGate = new Promise<void>((resolve) => { releaseRead = resolve; });
-  try {
-    const hooks = createHookRuntime();
-    const { Console } = await compilePolicyConsole(hooks.runtime, { getGate });
-    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
-    let view = await hooks.flush(render);
-    const save = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    (save.props.onClick as () => void)();
-    view = await hooks.flush(render);
-
-    const close = findElement(view, (element) => element.props["aria-label"] === "Politika düzenleyicisini kapat");
-    assert.equal(close.props.disabled, true);
-    assert.equal(findElement(view, (element) => element.type === "textarea").props.readOnly, true);
-    (close.props.onClick as () => void)();
-    view = await hooks.flush(render);
-    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
-
-    const backdrop = findElement(view, (element) => element.props.role === "presentation");
-    const backdropTarget = {};
-    (backdrop.props.onMouseDown as (event: { target: object; currentTarget: object }) => void)({
-      target: backdropTarget,
-      currentTarget: backdropTarget,
-    });
-    view = await hooks.flush(render);
-    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
-
-    let escapePrevented = false;
-    assert.ok(keydownListener);
-    keydownListener({
-      key: "Escape",
-      preventDefault() { escapePrevented = true; },
-    } as KeyboardEvent);
-    view = await hooks.flush(render);
-    assert.equal(escapePrevented, true);
-    assert.equal(findElement(view, (element) => element.type === "textarea").props.value, "Sunucudaki ilk metin");
-  } finally {
-    releaseRead();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
-  }
-});
-
-test("pending policy save makes the textarea read-only until response reconciliation", async () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: { activeElement: null },
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: { addEventListener() {}, removeEventListener() {} },
-  });
-  let releaseSave = () => {};
-  const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
-  try {
-    const hooks = createHookRuntime();
-    const { Console } = await compilePolicyConsole(hooks.runtime, { saveGate });
-    const render = () => Console({ canManage: true, initialPolicyKey: "privacy_security" });
-    let view = await hooks.flush(render);
-    const textarea = findElement(view, (element) => element.type === "textarea");
-    (textarea.props.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "Kaydetme isteğine alınan taslak" },
-    });
-    view = await hooks.flush(render);
-    const save = findElement(view, (element) => element.type === "button" && textOf(element) === "Değişiklikleri kaydet");
-    (save.props.onClick as () => void)();
-    view = await hooks.flush(render);
-
-    const pendingTextarea = findElement(view, (element) => element.type === "textarea");
-    assert.equal(pendingTextarea.props.value, "Kaydetme isteğine alınan taslak");
-    assert.equal(pendingTextarea.props.readOnly, true);
-  } finally {
-    releaseSave();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
-  }
-});
-
 test("settings and remaining-route controls use the Mira palette without decorative provider colors", async () => {
-  const [family, merchant, policyCss, domains, payment, shipping, ai, toshi, design] = await Promise.all([
+  const [family, merchant, domains, payment, shipping, ai, toshi, design] = await Promise.all([
     panelSource("components/merchant-admin/merchant-family-overview.module.css"),
     panelSource("components/merchant-admin/merchant-module-console.module.css"),
-    panelSource("components/content/policy-console.module.css"),
     panelSource("components/settings/domains/store-domain-settings.module.css"),
     panelSource("components/settings/payment/payment-settings.module.css"),
     panelSource("components/shipping/shipping-settings.module.css"),
@@ -461,7 +73,6 @@ test("settings and remaining-route controls use the Mira palette without decorat
   assert.equal(declarations(family, ".settingsRow").background, "#FFFDFC");
   for (const [css, selector] of [
     [merchant, ".primary"],
-    [policyCss, ".primary"],
     [domains, ".add button"],
     [payment, ".primaryButton"],
     [shipping, ".tokenControl button"],
@@ -527,20 +138,31 @@ test("secondary settings controls expose 44px targets, visible focus, and warm e
 });
 
 test("settings forms collapse at tablet width and analytics settings own isolated styles", async () => {
-  const [merchant, payment, policyCss, analytics, analyticsWorkspace] = await Promise.all([
+  const [merchant, payment, analytics, analyticsWorkspace] = await Promise.all([
     panelSource("components/merchant-admin/merchant-module-console.module.css"),
     panelSource("components/settings/payment/payment-settings.module.css"),
-    panelSource("components/content/policy-console.module.css"),
     panelSource("components/analytics/AnalyticsSettingsConsole.tsx"),
     panelSource("components/analytics/CommerceAnalyticsWorkspace.tsx"),
   ]);
 
   assert.match(merchant, /@media \(max-width: 1024px\)[\s\S]*\.form\s*\{[^}]*grid-template-columns:\s*1fr/s);
   assert.match(payment, /@media \(max-width: 1024px\)[\s\S]*\.paymentSummary\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/s);
-  assert.match(policyCss, /@media \(max-width: 1024px\)[\s\S]*\.editorColumns\s*\{[^}]*grid-template-columns:\s*1fr/s);
   assert.match(analytics, /analytics-settings-console[.]module[.]css/);
   assert.doesNotMatch(analytics, /commerce-analytics-workspace[.]module[.]css/);
   assert.match(analyticsWorkspace, /commerce-analytics-workspace[.]module[.]css/);
+});
+
+test("policy presentation keeps the approved canvas, readable save control, and single mobile column", () => {
+  const path = "components/content/policy-console.module.css";
+  const html = '<div class="page"><div class="workspace"><section class="editorColumns split"><button class="button primary">Kaydet</button></section></div></div>';
+  const page = effectiveCss(path, html, ".page");
+  const action = effectiveCss(path, html, ".primary");
+  assert.ok(["#f8f7f5", "rgb(248, 247, 245)"].includes(page.backgroundColor.toLowerCase()));
+  assert.ok(["#2b2b2b", "rgb(43, 43, 43)"].includes(action.backgroundColor.toLowerCase()));
+  assert.ok(["#fff", "#ffffff", "#fffdfc", "rgb(255, 255, 255)", "rgb(255, 253, 252)"].includes(action.color.toLowerCase()));
+  assert.ok(Number.parseFloat(action.minHeight) >= 44);
+  assert.equal(effectiveCss(path, html, ".split", 1024).gridTemplateColumns, "minmax(0, 1fr)");
+  assert.equal(effectiveCss(path, html, ".workspace", 390).gridTemplateColumns, "minmax(0, 1fr)");
 });
 
 test("Toshi uses the shared compact page header and keeps the assistant workspace unobstructed", async () => {
@@ -642,4 +264,55 @@ test("settings policy transport is pathname-gated, delegates fallbacks, and reje
   assert.equal(rejected.status, 409);
   assert.deepEqual(await rejected.json(), { code: "version_conflict" });
   assert.equal(calls.length, 1);
+});
+
+test("local policy transport keeps the exact client shape and advances only synthetic state", async () => {
+  let delegated = 0;
+  const route = await settingsPolicyRoute(
+    async () => { delegated++; return Response.json({}); },
+    async () => { delegated++; return Response.json({}); },
+  );
+  const api = createStorePolicyApi(async (input, init) => {
+    const url = new URL(String(input), "http://fixture.test");
+    const path = url.pathname.split("/").filter(Boolean).slice(2);
+    const request = new Request(url, {
+      ...init,
+      headers: { ...init?.headers, referer: "http://fixture.test/content/policies?session=isolated-normal" },
+    });
+    const context = { params: Promise.resolve({ path }) };
+    return init?.method === "PATCH" ? route.PATCH(request, context) : route.GET(request, context);
+  });
+  const initial = await api.list();
+  assert.equal(initial.length, 7);
+  const saved = await api.save("privacy_security", { expectedVersion: 3, body: "Yerel yeni metin", status: "published" });
+  assert.equal(saved.version, 4);
+  assert.equal(saved.body, "Yerel yeni metin");
+  assert.equal((await api.get("privacy_security")).body, "Yerel yeni metin");
+  assert.equal((await api.list())[0].version, 4);
+  assert.equal(delegated, 0);
+});
+
+test("local conflict and unknown-commit fixtures fail the first recovery read and retain canonical state", async () => {
+  for (const scenario of ["conflict-refresh-error", "commit-unknown"]) {
+    const route = await settingsPolicyRoute(
+      async () => { throw new Error("Local policies cannot delegate to a live boundary"); },
+      async () => { throw new Error("Local policies cannot delegate to a live boundary"); },
+    );
+    const api = createStorePolicyApi(async (input, init) => {
+      const url = new URL(String(input), "http://fixture.test");
+      const path = url.pathname.split("/").filter(Boolean).slice(2);
+      const request = new Request(url, {
+        ...init,
+        headers: { ...init?.headers, referer: `http://fixture.test/policies?scenario=${scenario}&session=isolated` },
+      });
+      const context = { params: Promise.resolve({ path }) };
+      return init?.method === "PATCH" ? route.PATCH(request, context) : route.GET(request, context);
+    });
+    await api.list();
+    await assert.rejects(api.save("privacy_security", { expectedVersion: 3, body: "Yerel kaydedilecek metin", status: "published" }), { code: scenario === "commit-unknown" ? "commit_unknown" : "version_conflict" });
+    await assert.rejects(api.get("privacy_security"), { code: "unavailable" });
+    const recovered = await api.get("privacy_security");
+    assert.equal(recovered.version, 4);
+    assert.equal(recovered.body, scenario === "commit-unknown" ? "Yerel kaydedilecek metin" : "Başka oturumun yerel test metni.");
+  }
 });

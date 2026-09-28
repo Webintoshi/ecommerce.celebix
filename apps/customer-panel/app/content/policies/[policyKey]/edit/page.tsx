@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   FIXED_STOREFRONT_POLICIES,
   isMerchantActionAllowed,
@@ -12,6 +13,8 @@ export default async function EditPolicyPage({ params }: { params: Promise<{ pol
   const { policyKey } = await params;
   const definition = FIXED_STOREFRONT_POLICIES.find(({ key }) => key === policyKey);
   if (!definition) notFound();
-  const { tenantContext } = await requireServerPanelAccess();
-  return <PolicyConsole initialPolicyKey={definition.key as StorefrontPolicyKey} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  const { session, tenantContext } = await requireServerPanelAccess();
+  // Opaque presentation scope for browser-memory drafts; never sent to a policy API.
+  const recoveryScope = createHash("sha256").update(JSON.stringify([session.id, tenantContext.principal.id, tenantContext.store.id])).digest("hex");
+  return <PolicyConsole key={recoveryScope} recoveryScope={recoveryScope} initialPolicyKey={definition.key as StorefrontPolicyKey} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }
