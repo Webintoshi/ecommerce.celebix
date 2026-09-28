@@ -4,7 +4,7 @@
 
 - New helper: `/tmp/celebix-onboarding-public-health-20260928.py` (mode `0600`).
 - This report only. No application source, deployment, provider/auth action or real HTTP request was performed.
-- Helper SHA256: `df2e56cc6434e00ab170fc8facabe38692b34f7c31725e34d5f9a59971db62b6`.
+- Final helper SHA256: `50c2bcb1e9d9a04559eab2db342287891870f38c4f13887faf8073187fed9f59` (27,277 bytes).
 
 The eight URLs are copied exactly from `/tmp/celebix-owner-onboarding-health.py`. The new helper does not accept URL/host/path overrides or query strings.
 
@@ -27,7 +27,7 @@ Connection/socket timeouts are at most 25 seconds. The monotonic deadline decrea
 
 Owner health requires HTTP 200, JSON `status: ok` and `cache-control: no-store`. Each known merchant admin/storefront health also requires integer `schemaVersion: 1` (boolean rejected), exact hostname and a valid version 1–8/variant UUID. Siora and Guzide admin/storefront IDs must each match within their pair. IDs are retained only inside the check invocation and are stripped from serialized output; pair mismatches fail both otherwise valid members.
 
-Registration checks parse actual HTML rather than matching an unrelated submit button. The enabled section must contain a POST form with exact action `/api/self-serve/register`, enabled submit, required store name/slug/privacy inputs and its expected `.saas-staging.celebix.net` or `.saas-staging.celebix.site` suffix. The opposite suffix is rejected within the form. The approved creation text must be visible; script/style/template/hidden text is excluded. Nothing is submitted and no external page resource is fetched.
+Registration checks parse actual HTML rather than matching an unrelated submit button. Duplicate normalized HTML attribute names are rejected before dictionary conversion, preventing first/last duplicate ambiguity from reporting a false enabled/internal POST form. The enabled section must contain a POST form with exact action `/api/self-serve/register`, enabled submit, required store name/slug/privacy inputs and its expected `.saas-staging.celebix.net` or `.saas-staging.celebix.site` suffix. The opposite suffix is rejected within the form. The approved creation text must be visible; script/style/template/hidden text is excluded. Nothing is submitted and no external page resource is fetched.
 
 Output contains only fixed named targets/URLs, HTTP status, boolean checks/pass and sanitized error categories, plus aggregate read-only/public-health/pass booleans. Optional output uses a new selected parent directory with mode `0700` (or requires an existing current-user-owned `0700` parent), an exclusive no-follow new file and mode `0600`. Existing files and symlinks are refused; no existing directory permissions are changed.
 
@@ -37,7 +37,11 @@ Output contains only fixed named targets/URLs, HTTP status, boolean checks/pass 
 python3 /tmp/celebix-onboarding-public-health-20260928.py --self-test
 ```
 
-**11/11 fake-only unit tests passed**, exit 0. Coverage includes fixed allowlist/TLS settings; successful sanitized payloads; all common redirects with same/external Location and private cookies; schema/host/UUID/cache failures; pair mismatch; disabled/wrong-action/wrong-suffix/decoy registration content; JSON/form limits/content encoding/type; timeout/deadline and 404/503 errors; exactly eight concurrent targets; and exclusive private output files/directories. The initial stub run failed on the unimplemented transport/check/output seams before implementation. Final AST syntax check passed. Running with no mode exits 2 before a request: explicit `--run-public` is required.
+**12/12 fake-only unit tests passed**, exit 0. Coverage includes fixed allowlist/TLS settings; successful sanitized payloads; all common redirects with same/external Location and private cookies; schema/host/UUID/cache failures; pair mismatch; disabled/wrong-action/wrong-suffix/decoy registration content; duplicate HTML attributes; JSON/form limits/content encoding/type; timeout/deadline and 404/503 errors; exactly eight concurrent targets; and exclusive private output files/directories. The initial stub run failed on the unimplemented transport/check/output seams before implementation. Final AST syntax check passed. Running with no mode exits 2 before a request: explicit `--run-public` is required.
+
+### Peer-review correction
+
+The first independently reviewed version was `df2e56cc6434e00ab170fc8facabe38692b34f7c31725e34d5f9a59971db62b6`, with 11 passing tests. A P3 synthetic parser false positive was confirmed: duplicate method/action attributes let the parser's last dictionary value disagree with HTML's first attribute. No duplicate live/generated markup was established. The focused regression first reproduced six false passes (method with mixed-case duplicate, action, aria-disabled, data-state, input name, and identical duplicate method); the narrow rejection before dictionary conversion then passed all six cases and the full 12-test offline suite. Default CLI and AST checks were rerun against the final hash above. No public HTTP, SSH or Docker call occurred during this correction.
 
 **Real public HTTP execution: not run.** This report is source preparation evidence, not a new public health pass. The prior eight-target health baseline belongs to the parent evidence.
 
