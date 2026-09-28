@@ -99,3 +99,11 @@ test("traffic dimension parser preserves bounded valid rows", () => {
     [{ label: "/urunler", value: 3 }],
   );
 });
+
+
+test("event outage stays distinct from a measured empty cohort", async () => {
+  const {analyticsTrafficEvents} = await import("./traffic.ts");
+  assert.equal(analyticsTrafficEvents({summary: {visitors: 12}, events: null}), null);
+  assert.deepEqual(analyticsTrafficEvents({events: {items: []}}), {});
+  assert.deepEqual(analyticsTrafficEvents({events: {items: [{label: "add_to_cart", value: 20}, {label: "product_view", value: 10}]}}), {add_to_cart: 20, product_view: 10});
+});

@@ -35,7 +35,7 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
     "Grafik para birimi",
     "Trafik verisi alınamıyor",
     "Satış ve sepet verileri güncel",
-    "Ölçüm durumu",
+    "Veri ve ölçüm",
     "Hatalı",
     "İlk temasta ziyaretçi adımları ölçülmüyor",
     "Oturum",
@@ -139,7 +139,7 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(component, /<SalesTrendChart/);
   assert.match(component, /key=\{`\$\{tab\}:\$\{serialized\}`\}/);
   assert.match(component, /<h1 className="sr-only">Analizler<\/h1>/);
-  assert.match(component, /Ölçüm durumu/);
+  assert.match(component, /Veri ve ölçüm/);
   assert.match(component, /setFrom\(customFrom \?\? ""\)/);
   assert.match(component, /current[.]find\(\(row\) => row[.]currency === chartCurrency\) \?\? current\[0\]/);
   assert.match(component, /<nav aria-label="Ürün listesi sayfaları"/);
@@ -147,9 +147,9 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(css, /overflow-x:\s*auto/);
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /focus-visible/);
-  assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--ink:\s*#292929;[^}]*--line:\s*#e7e7e3;/);
+  assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--analytics-ink:\s*var\(--cp-text-primary,[^)]+\);[^}]*--analytics-line:\s*var\(--cp-border,[^)]+\);/);
   assert.match(css, /[.]topbarLiveMetric > article \{[^}]*min-height: 44px;/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
   assert.doesNotMatch(css, /[.]topbarLiveMetric > article span\s*\{\s*display:\s*none;/);
   assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
   assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dailySalesPointsForCurrency, largestFunnelDrop, salesPointsForCurrency } from "./commerce-insights.ts";
+import { dailySalesPointsForCurrency, largestFunnelDrop, previousAnalyticsRange, salesPointsForCurrency } from "./commerce-insights.ts";
 
 test("largestFunnelDrop uses measured adjacent steps rather than inventing a trend", () => {
   assert.deepEqual(
@@ -58,4 +58,22 @@ test("dailySalesPointsForCurrency fills measured zero-sale days in the store tim
     { day: "2026-09-04", value: 9000, paidOrders: 1 },
     { day: "2026-09-05", value: 0, paidOrders: 0 },
   ]);
+});
+
+
+test("preceding comparison retains a partial first calendar-day bucket", () => {
+  const current = {start: "2026-09-02T21:00:00.000Z", end: "2026-09-05T12:00:00.000Z", timezone: "Europe/Istanbul"};
+  const prior = previousAnalyticsRange(current)!;
+  assert.deepEqual(prior, {start: "2026-08-31T06:00:00.000Z", end: current.start, timezone: current.timezone});
+  const points = dailySalesPointsForCurrency([
+    {startsAt: "2026-08-30T21:00:00.000Z", currency: "TRY", grossRevenueMinor: 1200, paidOrders: 1},
+    {startsAt: "2026-08-31T21:00:00.000Z", currency: "TRY", grossRevenueMinor: 3400, paidOrders: 2},
+    {startsAt: "2026-09-02T21:00:00.000Z", currency: "TRY", grossRevenueMinor: 9999, paidOrders: 3},
+  ], "TRY", prior);
+  assert.deepEqual(points, [
+    {day: "2026-08-31", value: 1200, paidOrders: 1},
+    {day: "2026-09-01", value: 3400, paidOrders: 2},
+    {day: "2026-09-02", value: 0, paidOrders: 0},
+  ]);
+  assert.equal(previousAnalyticsRange({...current, end: current.start}), null);
 });

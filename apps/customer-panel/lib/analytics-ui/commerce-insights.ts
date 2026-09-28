@@ -78,8 +78,11 @@ export function dailySalesPointsForCurrency(
   for (const point of series) {
     if (point.currency !== currency) continue;
     const instant = Date.parse(point.startsAt);
-    if (!Number.isFinite(instant) || instant < start || instant >= end) continue;
+    if (!Number.isFinite(instant)) continue;
     const day = dayOf(instant);
+    // Endpoint series are scoped daily buckets. A partial first day has a
+    // midnight bucket before the window's instant, but still belongs to it.
+    if (day < dayOf(start) || day > dayOf(end - 1)) continue;
     const previous = values.get(day) ?? { value: 0, paidOrders: 0 };
     values.set(day, { value: previous.value + point.grossRevenueMinor, paidOrders: previous.paidOrders + point.paidOrders });
   }
@@ -88,4 +91,11 @@ export function dailySalesPointsForCurrency(
     const day = new Date(first + index * 86_400_000).toISOString().slice(0, 10);
     return { day, ...(values.get(day) ?? { value: 0, paidOrders: 0 }) };
   });
+}
+
+/** Matches the existing endpoint's preceding equal-duration comparison window. */
+export function previousAnalyticsRange(range: Readonly<{ start: string; end: string; timezone: string }>) {
+  const start = Date.parse(range.start), end = Date.parse(range.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return Object.freeze({ start: new Date(start - (end - start)).toISOString(), end: range.start, timezone: range.timezone });
 }

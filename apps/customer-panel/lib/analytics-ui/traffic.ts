@@ -44,6 +44,13 @@ export function analyticsTrafficSources(
   return analyticsTrafficRows((value as Record<string, unknown>).sources);
 }
 
+/** Null means the event measurement failed; an empty map is a measured empty result. */
+export function analyticsTrafficEvents(value: unknown): Readonly<Record<string, number>> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rows = analyticsTrafficRows((value as Record<string, unknown>).events);
+  return rows === null ? null : Object.freeze(Object.fromEntries(rows.map((row) => [row.label, row.value])));
+}
+
 export function analyticsProductMetricCount(
   value: unknown,
   type: "views" | "adds",
