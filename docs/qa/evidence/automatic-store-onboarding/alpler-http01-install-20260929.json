@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-28T22:43:00.150462+00:00",
+  "pass": true,
+  "runtime": {
+    "proxy": {
+      "containerId": "167e81da23c83fa46e6aaa02f053e6ee3f36f68badca85af58a84088684a0cd4",
+      "imageId": "sha256:3de33707981b5ed4632b0e2ddccd0561d5ef981e49709b8a07da814b637f3975",
+      "healthy": true
+    },
+    "applications": {
+      "e4xe74cmii7jucbkyor0o412": {
+        "containerId": "e0b4d8547207b16371b5b3bfc262e798e9818eec697cc36f355fbad851b32b6d",
+        "imageId": "sha256:7b2fb4455296fe61e10ac9483d4676e6bf6daa9e0ddd6332e534a62a0a8adc5a",
+        "sourceCommit": "e6a1cc9f95369475a0addd24f4847509050c6777",
+        "criticalSources": {
+          "apps/customer-panel/proxy.ts": "d12a45e487815c29cb0d8730a2f8ebdb5c199a93f67e798f25cb42724785fc75",
+          "apps/customer-panel/lib/server-admin-host-auth/runtime.ts": "724642e3ecf7dde3c0e29ea1e8906d0a20a9ac94dea46593086c4797cd8dc4a7",
+          "apps/customer-panel/app/api/health/route.ts": "724e095aac637ce11cc9edc21adba03d2470142d9bce7dff63cdcec9ece8b3bf"
+        }
+      },
+      "h55zoba9jh6ij8g6irpqzd9i": {
+        "containerId": "c7e83bb4b89a48f8e7589edfbdfa6cc32df3b3966ba2402c621c0ab58577d4f6",
+        "imageId": "sha256:82f8f6d4377421f9bb4ced00834c4cfcd466f34e095c7cb78f850caaa3bcda13",
+        "sourceCommit": "3de4bbcdb2808a97e4add42023356b0af2dae046",
+        "criticalSources": {
+          "apps/storefront-shared/proxy.ts": "eb800f8946704e7ddddcc9f3d168f33048de73113b4311b2fd8da42cdb4e72b6",
+          "apps/storefront-shared/lib/trusted-host-authority.ts": "e72055d1dd9022e5eb616156ad517cf4eb86a1a9896ea1db58d71d5828298755",
+          "apps/storefront-shared/app/api/health/route.ts": "388268885c1256a454b9fa7e97815576a1da8d303962babbc99917d8c1ee57b4"
+        }
+      }
+    }
+  },
+  "candidateSha256": "93bc1a222f0214c204efec0d8d4bf2887225b70dc063d37c23a9800665d8b588",
+  "candidateBytes": 1957,
+  "beforeFiles": {
+    "docker-compose.yml": {
+      "sha256": "021c97644706e29748ca22c182a3bc8a6bbffcf0ded5a30dd4904458c8a4d0ea",
+      "bytes": 1762,
+      "stat": [
+        2049,
+        6770461,
+        1762,
+        1771469266891527880,
+        1771469266891527880,
+        33188,
+        0,
+        0
+      ]
+    },
+    "acme.json": {
+      "sha256": "fa574b887dbab76289358c18d8d1fa924144a0e786510b9dcace04c3a9d9fe3c",
+      "bytes": 1541127,
+      "stat": [
+        2049,
+        6770465,
+        1541127,
+        1790597086185172317,
+        1790597086185172317,
+        33152,
+        0,
+        0
+      ]
+    },
+    "dynamic/Caddyfile": {
+      "sha256": "bf4028895ff3970d5fb2adf7493fbee3c4030021185550fe0702b456ae5b570c",
+      "bytes": 24,
+      "stat": [
+        2049,
+        6770462,
+        24,
+        1771469267161526579,
+        1771469267161526579,
+        33188,
+        0,
+        0
+      ]
+    },
+    "dynamic/default_redirect_503.yaml": {
+      "sha256": "88c2a2923a7939139e5448c65bd25d4df434d4b6f0c6bc6ad8f40b7c29065dfb",
+      "bytes": 406,
+      "stat": [
+        2049,
+        6770466,
+        406,
+        1771469278872471235,
+        1771469278872471235,
+        33188,
+        0,
+        0
+      ]
+    }
+  },
+  "scope": "only_existing_alpler_net_exact_hosts",
+  "wildcardTlsProven": false,
+  "restartExecuted": false,
+  "envMutated": false,
+  "dbMutated": false,
+  "dnsCredentialsCreated": false,
+  "mode": "apply",
+  "installed": true,
+  "tlsIssuanceOrPublicHealthProven": false,
+  "backupCompleted": true
+}

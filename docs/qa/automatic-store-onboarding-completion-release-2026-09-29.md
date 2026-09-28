@@ -1,6 +1,6 @@
 # Otomatik mağaza kurulumu — tamamlama yayını
 
-Uygulama kaynağı: `3de4bbcdb2808a97e4add42023356b0af2dae046`. Sonraki commit'ler QA ve rapor değişiklikleridir; dağıtım bu sabit kaynağı kullanır.
+Bu onboarding yayınının uygulama kaynağı: `3de4bbcdb2808a97e4add42023356b0af2dae046`. Bu daldaki sonraki commit'ler QA ve rapor değişiklikleridir. Sonraki bağımsız Analizler yayını iki Panel'i bunun doğrudan çocuğu e6a1 sürümüne taşıdı; auth/kurulum kaynakları korunuyor. **Son güncelleme:** [Alpler'in HTTPS ve gerçek hesap erişimi düzeltildi](alpler-exact-host-tls-remediation-2026-09-29.md); ortak wildcard/aktivasyon kapısı aşağıda bekliyor.
 
 ## Uygulanan değişiklikler
 
@@ -40,7 +40,7 @@ Canlı public GET kontrolleri **8/8 başarılı**: iki Owner health, Siora ve G�
 
 Çalışan Owner NET imajının worker paketi ağsız, ortamı temizlenmiş, salt okunur ayrı container'da `--check-runtime` ile **768 ms / exit0** doğrulandı. [Paket kanıtı](evidence/automatic-store-onboarding/worker-runtime-import-final-20260929.json). Initializer, job tick, veritabanı veya sağlayıcı çalıştırılmadı; bu sonuç canlı worker heartbeat değildir.
 
-Normal worker/status bayrakları **false**. Auto Deploy, Preview Deploy, preview ortam değerleri ve mevcut ödeme kapsamları korundu. **Son altı runtime kontrolü başarılıdır:** exact çalışan imaj/source commit, zorunlu kaynak byte hash'leri, derlenmiş yollar, generated/compiled ödeme scope'ları ve Owner kapalı bayrakları eşleşti. [Altı runtime kanıtı](evidence/automatic-store-onboarding/runtime-all-six-final-20260929.json).
+Normal worker/status bayrakları **false**. Bu onboarding yayınında Auto Deploy, Preview Deploy, preview ortam değerleri ve mevcut ödeme kapsamları korundu. **28 Eylül22:00:04UTC onboarding yayınının altı runtime kontrolü başarılıdır:** exact çalışan imaj/source commit, zorunlu kaynak byte hash'leri, derlenmiş yollar, generated/compiled ödeme scope'ları ve Owner kapalı bayrakları eşleşti. [Tarihli altı runtime kanıtı](evidence/automatic-store-onboarding/runtime-all-six-final-20260929.json). Sonraki Analizler yayını Panel'leri e6a1'e taşıdı; Alpler düzeltmesinin güncel ve daha dar kaynak/koruma kanıtı ayrı rapordadır.
 
 | İki NET/SITE hedefi | Gerçek Node | Eşleşen zorunlu kaynak / plan | Paketleme gereği eksik build betiği | Derlenmiş yol |
 |---|---|---|---|---|
@@ -56,15 +56,15 @@ Yerel geçici runtime araçları bulunamadığında yeni araçlar kalıcı özel
 
 ## Kalan canlı kabul kapısı
 
-Cloudflare son incelemesi hazır: `celebix-staging-wildcard-tls`, yalnız `celebix.net` ve `celebix.site`, **DNS Write + Zone Read**, yalnız sunucu IPv4 `46.225.183.57` ve IPv6 `2a01:4f8:1c19:75b5::1`; sertifika yenilemesi için son kullanma tarihi yok.
+Daha önce incelenen önerilen Cloudflare kapsamı: `celebix-staging-wildcard-tls`, yalnız `celebix.net` ve `celebix.site`, **DNS Write + Zone Read**, yalnız sunucu IPv4 `46.225.183.57` ve IPv6 `2a01:4f8:1c19:75b5::1`; sertifika yenilemesi için son kullanma tarihi yok. Güncel giriş sonrasında kapsam incelemesi yeniden doğrulanmalıdır.
 
-Bu yeni kalıcı güvenlik erişimi oluşturduğu için tarayıcı kuralı işlem anında açık kapsam onayı gerektirir. Önceden sorulan onay henüz gelmedi; bu çalışmada token oluşturulmadı ve wildcard proxy adayı kurulmadı. Son inceleme görüldükten sonra Chrome bağlantısı araç envanterinden kayboldu; canlı tarayıcı kabulü için bağlantının da dönmesi gerekir.
+Bu yeni kalıcı güvenlik erişimi oluşturduğu için tarayıcı kuralı işlem anında açık kapsam onayı gerektirir. Önceden sorulan onay henüz gelmedi; token oluşturulmadı ve wildcard proxy adayı kurulmadı. Önceki Chrome bağlantısı envanterden kayboldu; Alpler tarayıcı kabulü artık in-app browser ile geçti. Güncel Cloudflare sekmesi giriş ekranında; bu oturuma erişim gerekiyor.
 
-Son salt okunur Alpler erişim kontrolünde admin ve mağaza adresleri geçerli TLS zinciri doğrulamasından geçmedi (`certificate_verify_failed`, kod20). [İki adresin güncel erişim kanıtı](evidence/automatic-store-onboarding/alpler-public-access-final-20260929.json). Sertifika doğrulaması atlanmadı; HTTP gövdesi, çerez veya giriş bilgisi kullanılmadı.
+Önceki Alpler kontrolündeki TLS kod20 hatası [tarihsel önce kanıtıdır](evidence/automatic-store-onboarding/alpler-public-access-final-20260929.json). Sonraki dar HTTP01 kurulumu iki exact adresin sertifika ve route eksikliğini düzeltti: [güncel Alpler7/7](evidence/automatic-store-onboarding/alpler-http01-public-final-20260929.json), [gerçek mevcut hesap girişi ve ekranlar](evidence/automatic-store-onboarding/alpler-http01-native-browser-20260929.json). Sertifika doğrulaması hiçbir aşamada atlanmadı.
 
-Onaydan sonra sertifikalar kurulup doğrulanacak; ardından worker/status normal ortamda kontrollü açılacak. Mevcut Alpler Spor hesabı normal girişle admin, ürünler, tasarım, `/setup` ve mağaza başlangıcında doğrulanacak. Hesap yeniden oluşturulmayacak. Gerçek wildcard TLS, worker heartbeat/recovery ve doğrulama→hazır gecikmesi bu adımlar tamamlanmadan başarılı sayılmaz.
+Cloudflare erişimi/kapsam onayı sonrasında ortak wildcard sertifikalar kurulup doğrulanacak; ardından worker/status normal ortamda kontrollü açılacak. Mevcut Alpler Spor hesabı normal girişle admin, ürün formu, tasarım, teslimat, `/setup` ve mağazada doğrulandı; yeniden kayıt yapılmadı. Gerçek wildcard TLS, worker heartbeat/recovery, pending/signed202 ve doğrulama→hazır gecikmesi kalan adımlar tamamlanmadan başarılı sayılmaz.
 
-Canlı DB ve Coolify yedeklerine ek olarak proxy'nin mevcut compose, ACME ve dynamic düzeninden dört dosyalık kararlı özel yedek alındı. Arşiv 786862 byte; hash `102963e196e5c4d07865d26aba0eff693a2be3517b8fbb7aa60bbed543482d5b`; arşiv ve receipt mode0600. [İçeriksiz yedek kanıtı](evidence/automatic-store-onboarding/proxy-backup-final-20260929.json). Proxy kurulmadı veya yeniden başlatılmadı.
+İlk yayın aşamasında canlı DB ve Coolify yedeklerine ek olarak proxy'nin compose, ACME ve dynamic düzeninden dört dosyalık kararlı özel yedek alındı. Arşiv786862 byte; hash `102963e196e5c4d07865d26aba0eff693a2be3517b8fbb7aa60bbed543482d5b`; arşiv ve receipt mode0600. [İçeriksiz yedek kanıtı](evidence/automatic-store-onboarding/proxy-backup-final-20260929.json). Sonraki Alpler dosyası kurulmadan ayrıca taze dört özel yedek doğrulandı; proxy yeniden başlatılmadı.
 
 Yedekler ve tam şifreli yapılandırma snapshot'ları sunucuda özel izinlerle tutulur; parola, e-posta kodu, token, ACME özel anahtarları ve özel merchant satırları bu rapora/repoya alınmaz. [Devam kayıtlarının korunma kanıtı](evidence/automatic-store-onboarding/resumability-artifacts-final-20260929.json): dört mevcut reviewed helper/spec kopyası birebir doğrulandı, iki dağıtım sahiplik receipt'i Coolify geçici klasöründen sunucunun özel0700 klasörüne yeni0600 kopyalarla saklandı. Yayın yeniden kuyruğa alınmadı ve yapılandırma değiştirilmedi.
 
