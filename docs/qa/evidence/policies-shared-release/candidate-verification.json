@@ -1,0 +1,30 @@
+{
+  "source": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+  "baseline": "e6a1cc9f95369475a0addd24f4847509050c6777",
+  "policyTests": {
+    "total": 35,
+    "passed": 35,
+    "failed": 0
+  },
+  "policyFixtureTests": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "customerPanelProductionBuild": {
+    "exitCode": 0,
+    "compiled": true,
+    "typecheck": true,
+    "staticPages": 90,
+    "policyIndexAndEditRoutes": true
+  },
+  "broaderSettingsRun": {
+    "total": 45,
+    "passed": 41,
+    "failed": 4,
+    "failureScope": "unchanged settings/domain static expectations",
+    "proof": "unchanged-settings-assertions.json"
+  },
+  "independentPoliciesReview": "approved; no concrete production finding",
+  "paymentAdapterGeneratorSources": "byte identical to live baseline; official generate/check passed; existing source bindings only"
+}
