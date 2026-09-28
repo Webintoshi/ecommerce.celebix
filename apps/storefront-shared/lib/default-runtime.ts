@@ -614,6 +614,9 @@ export async function resolveStorefrontSetupPaymentAvailability(): Promise<Store
         providerCode: entry.providerCode, capability: 'payment_processing', ...entry.authority,
       })) return unavailable;
     }
-    return { kind: 'ready', providers: executable.map(entry => ({ providerCode: entry.providerCode, environment: entry.authority.environment })) };
+    return { kind: 'ready', providers: executable.map(entry => ({
+      providerCode: entry.providerCode, environment: entry.authority.environment,
+      adapterVersion: entry.authority.adapterVersion, evidenceDigest: entry.authority.evidenceDigest,
+    })) };
   } catch { return unavailable; }
 }

@@ -7,14 +7,25 @@ test("setup capability reader checks tenant health before reading payment availa
   const route = createStorefrontSetupCapabilitiesRoute({
     selectAuthority:()=>({kind:"trusted",hostname:"shop.saas-staging.celebix.net"}),
     resolveRepository:async()=>({get:async()=>({schemaVersion:1,status:"ok",storeId:"fixture-store",hostname:"shop.saas-staging.celebix.net"})}),
-    paymentAvailability:async()=>{paymentReads++;return {kind:"ready",providers:[{providerCode:"paytr_iframe",environment:"test"}]};},
+    paymentAvailability:async()=>{paymentReads++;return {kind:"ready",providers:[{providerCode:"paytr_iframe",environment:"test",adapterVersion:2,evidenceDigest:`sha256:${"a".repeat(64)}`}]};},
     now:()=>new Date(),
   });
   const response=await route(new Request("https://shop.saas-staging.celebix.net/api/setup-capabilities"));
   assert.equal(response.status,200);
-  assert.deepEqual(await response.json(),{schemaVersion:1,storeId:"fixture-store",hostname:"shop.saas-staging.celebix.net",payment:{kind:"ready",providers:[{providerCode:"paytr_iframe",environment:"test"}]}});
+  assert.deepEqual(await response.json(),{schemaVersion:1,storeId:"fixture-store",hostname:"shop.saas-staging.celebix.net",payment:{kind:"ready",providers:[{providerCode:"paytr_iframe",environment:"test",adapterVersion:2,evidenceDigest:`sha256:${"a".repeat(64)}`} ]}});
   assert.equal(response.headers.get("cache-control"),"no-store");
   assert.equal(paymentReads,1);
+});
+test("missing or malformed execution tuples cannot be projected as current payment readiness",async()=>{
+ for(const extra of [{},{adapterVersion:0,evidenceDigest:`sha256:${"a".repeat(64)}`},{adapterVersion:1,evidenceDigest:"private_detail"}]){
+  const route=createStorefrontSetupCapabilitiesRoute({
+   selectAuthority:()=>({kind:"trusted",hostname:"shop.saas-staging.celebix.net"}),
+   resolveRepository:async()=>({get:async()=>({schemaVersion:1,status:"ok",storeId:"fixture-store",hostname:"shop.saas-staging.celebix.net"})}),
+   paymentAvailability:async()=>({kind:"ready",providers:[{providerCode:"paytr_iframe",environment:"test",...extra}]}) as never,now:()=>new Date(),
+  });
+  const dto=await(await route(new Request("https://shop.saas-staging.celebix.net/api/setup-capabilities"))).json();
+  assert.deepEqual(dto.payment,{kind:"unavailable",providers:[]});
+ }
 });
 
 test("unknown host and mismatching health never read capability or report ready",async()=>{

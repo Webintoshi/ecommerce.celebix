@@ -3,7 +3,7 @@ import type { TrustedStorefrontHostAuthority } from "./trusted-host-authority.ts
 
 export type StorefrontSetupPaymentAvailability = Readonly<{
   kind: "ready" | "disabled" | "unavailable";
-  providers: readonly Readonly<{ providerCode: "paytr_iframe" | "iyzico_iframe"; environment: "test" | "live" }>[];
+  providers: readonly Readonly<{ providerCode: "paytr_iframe" | "iyzico_iframe"; environment: "test" | "live"; adapterVersion: number; evidenceDigest: string }>[];
 }>;
 const UNAVAILABLE = Object.freeze({ kind: "unavailable" as const, providers: Object.freeze([]) });
 const HEADERS = Object.freeze({"cache-control":"no-store", "referrer-policy":"no-referrer", "x-content-type-options":"nosniff"});
@@ -13,11 +13,12 @@ function safeAvailability(value: StorefrontSetupPaymentAvailability): Storefront
   const pairs = new Set<string>();
   for (const entry of value.providers) {
     if (!entry || !["paytr_iframe","iyzico_iframe"].includes(entry.providerCode) || !["test","live"].includes(entry.environment)
-      || (entry.providerCode === "iyzico_iframe" && entry.environment === "live") || pairs.has(`${entry.providerCode}:${entry.environment}`)) return UNAVAILABLE;
+      || (entry.providerCode === "iyzico_iframe" && entry.environment === "live") || pairs.has(`${entry.providerCode}:${entry.environment}`)
+      || !Number.isSafeInteger(entry.adapterVersion) || entry.adapterVersion < 1 || typeof entry.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(entry.evidenceDigest)) return UNAVAILABLE;
     pairs.add(`${entry.providerCode}:${entry.environment}`);
   }
   if ((value.kind === "ready") !== (value.providers.length > 0)) return UNAVAILABLE;
-  return Object.freeze({kind:value.kind,providers:Object.freeze(value.providers.map(({providerCode,environment})=>Object.freeze({providerCode,environment})))});
+  return Object.freeze({kind:value.kind,providers:Object.freeze(value.providers.map(({providerCode,environment,adapterVersion,evidenceDigest})=>Object.freeze({providerCode,environment,adapterVersion,evidenceDigest})))});
 }
 
 export function createStorefrontSetupCapabilitiesRoute(dependencies: Readonly<{
