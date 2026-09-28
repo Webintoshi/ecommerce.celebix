@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-28T21:48:36.444846+00:00",
+  "release": "3de4bbcdb2808a97e4add42023356b0af2dae046",
+  "readSource": "selected-readonly-Coolify-PostgreSQL-query-over-SSH",
+  "selectedFields": [
+    "uuid",
+    "build_pack",
+    "dockerfile_location"
+  ],
+  "targetCount": 6,
+  "rows": [
+    {
+      "uuid": "bpsgdwfiswna06mooguu2mr3",
+      "build_pack": "nixpacks",
+      "dockerfile_location": null
+    },
+    {
+      "uuid": "e4xe74cmii7jucbkyor0o412",
+      "build_pack": "nixpacks",
+      "dockerfile_location": null
+    },
+    {
+      "uuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "build_pack": "dockerfile",
+      "dockerfile_location": "/Dockerfile.storefront"
+    },
+    {
+      "uuid": "kfpz000ahmt6w3c13eu34cs2",
+      "build_pack": "nixpacks",
+      "dockerfile_location": null
+    },
+    {
+      "uuid": "vtc2aah63jbqnmtxmvykn6jl",
+      "build_pack": "dockerfile",
+      "dockerfile_location": "/Dockerfile.storefront"
+    },
+    {
+      "uuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "build_pack": "nixpacks",
+      "dockerfile_location": null
+    }
+  ],
+  "envOrLabelsRead": false,
+  "appOrProviderImported": false,
+  "persistentMutationPerformed": false
+}
