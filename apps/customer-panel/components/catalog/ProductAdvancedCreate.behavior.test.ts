@@ -15,6 +15,8 @@ import * as attributes from "../../lib/catalog-onboarding-ui/attribute-variants.
 import * as skuPrefix from "../../lib/catalog-ui/sku-prefix.ts";
 import * as dirtyNavigation from "../../lib/catalog-ui/dirty-navigation.ts";
 
+class HarnessApiError extends Error { constructor(public code: string) { super(code); } }
+
 const categoryId = "10000000-0000-4000-8000-000000000001";
 const channelId = "20000000-0000-4000-8000-000000000001";
 const attributeId = "30000000-0000-4000-8000-000000000001";
@@ -53,7 +55,7 @@ type Harness = Readonly<{
   stage(rows: readonly drafts.ProductDraftVariant[]): Promise<void>;
   remount(session: drafts.ProductDraftSession): Promise<void>;
 }>;
-async function withAdvanced(supplied: Record<string, unknown>, verify: (harness: Harness) => Promise<void>, reserve = async () => "9800000000007") {
+async function withAdvanced(supplied: Record<string, unknown>, verify: (harness: Harness) => Promise<void>, reserve = async () => "9800000000007", authoringPanel: React.ComponentType<any> = () => null) {
   const browser = new Window({ url: "https://panel.example.test/products/new?mode=advanced" });
   Reflect.set(browser, "confirm", () => true);
   const globals = new Map<string, PropertyDescriptor | undefined>();
@@ -72,8 +74,11 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   const builder = await compile(new URL("../catalog-onboarding/ProductVariantBuilder.tsx", import.meta.url), { "@/components/catalog/SkuInput": sku, "@/components/catalog/BarcodeInput": barcode, "@/lib/catalog-onboarding-ui/attribute-variants": attributes, "@/lib/catalog-onboarding-ui/forms": forms, "@/components/catalog/ProductMeasurementFields": measurements });
   const classification = await compile(new URL("../catalog-onboarding/ProductClassificationPicker.tsx", import.meta.url), {});
   let stagedRows: readonly drafts.ProductDraftVariant[] = [];
-  class ApiError extends Error {}
+  const ApiError = HarnessApiError;
+  const textAuthoring = await compile(new URL("../content-authoring/ContentAuthoringTextField.tsx", import.meta.url), {"@/lib/content-authoring-ui/state": await import("../../lib/content-authoring-ui/state.ts")});
   const advanced = await compile(new URL("../catalog-onboarding/ProductAdvancedEditor.tsx", import.meta.url), {
+    "@/components/content-authoring/ContentAuthoringTextField": textAuthoring,
+    "@/components/content-authoring/ContentAuthoringPanel": {ContentAuthoringPanel:authoringPanel},
     "next/link": ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode),
     "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: {} },
     "@/lib/catalog-onboarding-ui/category-tree": categoryTree,
@@ -83,6 +88,7 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
     "@/lib/catalog-ui/product-draft-session": drafts,
     "@/lib/catalog-ui/dirty-navigation": dirtyNavigation,
     "@/lib/catalog-onboarding-ui/attribute-variants": attributes,
+    "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [{ id: attributeId, kind: "attribute", name: "Beden", slug: "beden", status: "active", config: { values: ["S", "M", "L"] } }] } },
     "@/lib/catalog-ui/media-client": { productMediaApi: {} },
     "@/components/catalog/ProductDescriptionField": { ProductDescriptionField: ({ defaultValue, onValueChange, readOnly }: { defaultValue: string; onValueChange(value: string): void; readOnly: boolean }) => createElement("textarea", { name: "description", defaultValue, readOnly, onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => onValueChange(event.currentTarget.value) }) },
     "./ProductClassificationPicker": classification,
@@ -228,4 +234,133 @@ test("a delayed barcode reservation survives price and stock edits on the same c
     assert.deepEqual([latest().current.variants[0]!.price, latest().current.variants[0]!.stockQuantity, latest().current.variants[0]!.barcode], ["275,00", "3", "9800000000007"]);
     assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, false);
   }, () => new Promise<string>((done) => { resolve = done; }));
+});
+
+const authoringGeneration = {
+  id: "40000000-0000-4000-8000-000000000001", draftId: "40000000-0000-4000-8000-000000000002",
+  draft: { seoTitle: "Generated SEO", seoDescription: "Generated summary" },
+};
+function ApplyingPanel({bridge}: {bridge: {capture(): unknown; apply(field: string, generation: unknown, selection: null): boolean}}) {
+  return createElement("button", {type:"button", onClick: () => {
+    assert.equal(bridge.apply("seoTitle", authoringGeneration, null), true);
+    assert.equal(bridge.apply("seoDescription", authoringGeneration, null), true);
+  }}, "Apply SEO fixture");
+}
+const existingEditor = {
+  product: { id: "50000000-0000-4000-8000-000000000001", title: "Saved product", description: "Saved description", version: 7 },
+  profile: { productType: "physical", minimumPurchaseQuantity: 1, version: 9, seoTitle: "Manual SEO", seoDescription: "Manual summary" },
+  variants: [], categoryIds: [categoryId], channelIds: [channelId], resourceIds: { collections: [], tags: [], attributes: [], extras: [], definitions: [] },
+  contentOrigins: {description: {generationId:"60000000-0000-4000-8000-000000000001",draftId:"60000000-0000-4000-8000-000000000002"}},
+};
+for (const layout of ["create", "default", "rail"] as const) test(`AI SEO applies both real fields with undo/redo and saves their origins in ${layout} editor`, async () => {
+  const requests: any[] = [];
+  const dirty: boolean[] = [];
+  const initial = drafts.updateProductDraft(draft(), {seoTitle:"Manual SEO",seoDescription:"Manual summary"});
+  const supplied = layout === "create" ? {draftSession: initial} : {draftSession:undefined,editor:existingEditor,presentation:layout};
+  await withAdvanced({...supplied,onDirtyChange:(value:boolean)=>dirty.push(value),api:{
+    createProduct: async (payload:unknown)=>{requests.push(payload);return created;},
+    updateMerchandising: async (_id:string,payload:unknown)=>{requests.push(payload);return created;},
+  }}, async ({container,browser,latest,remount}) => {
+    assert.deepEqual(dirty, [], "mount must not mark fields dirty");
+    await click(container,"AI ile SEO oluştur");
+    await click(container,"Apply SEO fixture");
+    assert.equal(requests.length,0,"applying is not saving");
+    const title = container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;
+    assert.equal(title.value,"Generated SEO");
+    assert.equal(container.querySelector<HTMLTextAreaElement>('[name="seoDescription"]')!.value,"Generated summary");
+    await act(async()=>title.dispatchEvent(new browser.KeyboardEvent("keydown",{key:"z",ctrlKey:true,bubbles:true,cancelable:true}) as unknown as Event));
+    assert.equal(title.value,"Manual SEO");
+    if(layout==="create") assert.equal(latest().current.contentOrigins?.seoTitle,null);
+    await act(async()=>title.dispatchEvent(new browser.KeyboardEvent("keydown",{key:"z",ctrlKey:true,shiftKey:true,bubbles:true,cancelable:true}) as unknown as Event));
+    assert.equal(title.value,"Generated SEO");
+    if(layout==="create") { const saved=latest(); await remount(saved); assert.equal(container.querySelector<HTMLInputElement>('[name="seoTitle"]')!.value,"Generated SEO"); }
+    await submit(container,browser);
+    assert.equal(requests.length,1);
+    assert.deepEqual(requests[0].contentOrigins.seoTitle,{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId});
+    assert.deepEqual(requests[0].contentOrigins.seoDescription,requests[0].contentOrigins.seoTitle);
+    assert.equal(requests[0].profile.seoTitle,"Generated SEO");
+    if(layout!=="create") {assert.equal(requests[0].expectedProfileVersion,9);assert.equal(Object.hasOwn(requests[0].contentOrigins,"description"),false);assert.equal(dirty.at(-1),false);}
+  }, undefined, ApplyingPanel);
+});
+
+
+test("SEO generation captures the current unsaved general product draft and rejects its later revision", async()=>{
+  let title="Unsaved product",description="Unsaved description",revision="first";
+  let bridge:any;
+  const snapshots=await import("../../lib/content-authoring-ui/state.ts");
+  await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",captureProductAuthoringDraft:()=>({currentDraft:{title,description,variants:[]},productVersion:8,draftRevision:revision})},async({container})=>{
+    await click(container,"AI ile SEO oluştur");
+    const current=bridge.capture();
+    assert.equal(current.request.currentDraft.title,title);
+    assert.equal(current.request.currentDraft.description,description);
+    assert.equal(current.request.productVersion,8);
+    const captured=snapshots.captureAuthoringSnapshot(current.request,{...current.lifecycle,storeKey:"shop"});
+    const result={...authoringGeneration,productId:current.request.productId,status:"completed",sourceFingerprint:"a".repeat(64),draft:{...authoringGeneration.draft,sourceFingerprint:"a".repeat(64)}};
+    result.draftId=current.request.draftId;
+    assert.equal(snapshots.canApplyAuthoringDraft(captured,captured,result as any),true);
+    description="Later manual description";revision="second";
+    const next=bridge.capture();
+    assert.equal(next.request.currentDraft.description,description);
+    assert.equal(snapshots.canApplyAuthoringDraft(captured,snapshots.captureAuthoringSnapshot(next.request,{...next.lifecycle,storeKey:"shop"}),result as any),false);
+  },undefined,(props:any)=>{bridge=props.bridge;return null;});
+});
+
+for(const code of ["version_conflict","unavailable"] as const) test(`SEO ${code} keeps applied text, origin and dirty state until an acknowledged save`,async()=>{
+ let failed=true,updates=0;const requests:any[]=[],dirty:boolean[]=[];
+ await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value),onUpdated:()=>updates++,api:{updateMerchandising:async(_id:string,payload:unknown)=>{requests.push(payload);if(failed)throw new HarnessApiError(code);return created;}}},async({container,browser})=>{
+  await click(container,"AI ile SEO oluştur");await click(container,"Apply SEO fixture");await submit(container,browser);
+  assert.equal(updates,0);assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLInputElement>('[name="seoTitle"]')!.value,"Generated SEO");
+  assert.equal(requests[0].expectedProfileVersion,9);assert.deepEqual(requests[0].contentOrigins,{seoTitle:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId},seoDescription:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId}});
+  assert.match(container.textContent??"",code==="version_conflict"?/Yerel alanlarınız korunuyor/:/unavailable/);
+  failed=false;await submit(container,browser);assert.equal(updates,1);assert.equal(dirty.at(-1),false);assert.deepEqual(requests[1],requests[0]);
+ },undefined,ApplyingPanel);
+});
+
+
+test("advanced AI capture maps saved variant slug keys to verified selected resource UUIDs and refuses unknown metadata",async()=>{
+ const contract=await import("@celebix/saas-contracts");let bridge:any;
+ const matrixDraft=drafts.updateProductDraft(draft(),{kind:"variant",variants:[newSmall],resourceAttributeIds:[attributeId]});
+ await withAdvanced({draftSession:matrixDraft},async({container,remount})=>{
+  await click(container,"AI ile SEO oluştur");
+  const captured=bridge.capture();
+  assert.deepEqual(captured.request.currentDraft.variants[0].attributes,[{attributeId,value:"S"}]);
+  const parsed=contract.parseContentAuthoringRequest(captured.request);assert.equal(parsed.currentDraft.variants?.[0]?.attributes?.[0]?.attributeId,attributeId);
+  const invalid=drafts.updateProductDraft(matrixDraft,{variants:[{...newSmall,attributes:{missing:"S"}}]});
+  await remount(invalid);await click(container,"AI ile SEO oluştur");
+  assert.throws(()=>bridge.capture(),/attribute_metadata_unavailable/,"unknown slugs must never become client-invented references");
+ },undefined,(props:any)=>{bridge=props.bridge;return null;});
+});
+
+
+test("existing rail exposes its real SEO controllers to a shared description bundle without opening a second panel",async()=>{
+ let bridge:any;const dirty:boolean[]=[],requests:any[]=[];
+ await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onAuthoringBridgeChange:(value:any)=>{bridge=value;},onDirtyChange:(value:boolean)=>dirty.push(value),api:{updateMerchandising:async(_id:string,payload:unknown)=>{requests.push(payload);return created;}}},async({container,browser})=>{
+  assert.ok(bridge);assert.equal(dirty.at(-1)??false,false);
+  const before=bridge.capture();assert.equal(before.request.currentDraft.seoTitle,"Manual SEO");
+  await act(async()=>assert.equal(bridge.apply("seoDescription",authoringGeneration,null),true));
+  assert.equal(container.querySelector<HTMLInputElement>('[name="seoTitle"]')!.value,"Manual SEO");assert.equal(container.querySelector<HTMLTextAreaElement>('[name="seoDescription"]')!.value,"Generated summary");assert.equal(dirty.at(-1),true);assert.equal(requests.length,0);
+  assert.notEqual(bridge.capture().lifecycle.draftRevision,before.lifecycle.draftRevision);
+  await submit(container,browser);assert.equal(requests[0].expectedProfileVersion,9);assert.deepEqual(requests[0].contentOrigins,{seoDescription:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId}});
+ });
+ assert.equal(bridge,null,"unmounted rail must remove its controller bridge");
+});
+
+
+test("existing SEO rail request controls do not dirty saved fields and ordinary SEO typing still does",async()=>{
+ const compiled=await compile(new URL("../content-authoring/ContentAuthoringPanel.tsx",import.meta.url),{
+  "@/components/panel/PanelLayoutClient":{usePanelChromeModel:()=>({activeStoreSelectionKey:"fixture-store"})},
+  "@/lib/content-authoring-ui/client":await import("../../lib/content-authoring-ui/client.ts"),
+  "@/lib/content-authoring-ui/state":await import("../../lib/content-authoring-ui/state.ts"),
+  "@/lib/server-content-authoring/render":await import("../../lib/server-content-authoring/render.ts"),
+ });
+ const dirty:boolean[]=[];
+ await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value)},async({container,browser})=>{
+  await click(container,"AI ile SEO oluştur");const panel=container.querySelector('[aria-label="AI ile içerik"]')!;
+  await act(async()=>panel.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1].click());
+  await act(async()=>panel.querySelector('details summary')!.dispatchEvent(new browser.MouseEvent("click",{bubbles:true}) as unknown as Event));
+  const tone=panel.querySelectorAll<HTMLSelectElement>('select')[1];await act(async()=>{tone.value="professional";tone.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
+  assert.equal(dirty.at(-1)??false,false);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,true);
+  const seo=container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,"value")!.set!.call(seo,"Manually edited SEO");seo.dispatchEvent(new browser.Event("input",{bubbles:true}) as unknown as Event);});
+  assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,false);assert.equal(seo.value,"Manually edited SEO");
+ },undefined,compiled.ContentAuthoringPanel as React.ComponentType<any>);
 });

@@ -1,4 +1,6 @@
 import {
+  parseContentAuthoringFieldOrigins,
+  type ContentAuthoringFieldOriginsInput,
   parseCatalogProductListQuery,
   parseCatalogBulkProductIntent,
   parseCatalogProductPageSize,
@@ -414,8 +416,12 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       return Object.freeze({ product: parseProduct(body.product), initialVariant: parseProductVariant(body.initialVariant), replayed: replayed(body.replayed) });
     },
 
-    async updateProduct(id: string, input: Readonly<{ expectedVersion: number; product: CatalogProductFields }>): Promise<ProductMutationResult> {
+    async updateProduct(id: string, input: Readonly<{ expectedVersion: number; product: CatalogProductFields; contentOrigins?: ContentAuthoringFieldOriginsInput }>): Promise<ProductMutationResult> {
+      let contentOrigins: ContentAuthoringFieldOriginsInput | undefined;
+      try { contentOrigins = input.contentOrigins === undefined ? undefined : parseContentAuthoringFieldOrigins(input.contentOrigins, ["description"]); }
+      catch { throw new TypeError("catalog_client_invalid"); }
       const body = record(await mutation(`/api/catalog/products/${productId(id)}`, "PATCH", {
+        ...(contentOrigins === undefined ? {} : { contentOrigins }),
         expectedVersion: version(input.expectedVersion),
         product: input.product,
       }));

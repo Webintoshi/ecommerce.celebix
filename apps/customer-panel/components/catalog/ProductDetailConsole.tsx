@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
+import type { ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, Trash2 } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
   buildVariantUpdatePayload,
 } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
+import type { ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
 import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { AttributeVariantPicker } from "@/components/catalog-onboarding/AttributeVariantPicker";
 import { ProductVariantBuilder, type VariantDraft } from "@/components/catalog-onboarding/ProductVariantBuilder";
@@ -91,6 +92,10 @@ export function ProductDetailConsole({
   canReadPricing = false,
   canManagePricing = false,
 }: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canDelete?: boolean; canReadPricing?: boolean; canManagePricing?: boolean }>) {
+  const authoringIdentity = useRef<string>(crypto.randomUUID());
+  const pendingOrigins = useRef<ContentAuthoringFieldOriginsInput>({});
+  const savedDescriptionOrigin = useRef<ContentAuthoringFieldOriginsInput>({});
+  const generalFormRef = useRef<HTMLFormElement>(null);
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [merchandisingState, setMerchandisingState] = useState<"loading" | "ready" | "error">("loading");
@@ -126,12 +131,19 @@ export function ProductDetailConsole({
   const archiveTriggerRef = useRef<HTMLElement>(null);
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
+  const seoAuthoringBridge = useRef<ContentAuthoringBridge | null>(null);
+  const receiveSeoAuthoringBridge = useCallback((bridge: ContentAuthoringBridge | null) => { seoAuthoringBridge.current = bridge; }, []);
   const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-batch", "variant-edit", "sales"] as const));
 
   usePanelTopbarChrome({ title: "", hideHeading: true });
   const receiveActiveMedia = useCallback((items: readonly ProductMediaLifecycle[]) => setActiveMedia(items), []);
 
-  useEffect(() => { setSeoPreviewDraft(undefined); }, [productId]);
+  useEffect(() => {
+    setSeoPreviewDraft(undefined);
+    authoringIdentity.current = crypto.randomUUID();
+    pendingOrigins.current = {};
+    savedDescriptionOrigin.current = {};
+  }, [productId]);
 
   const load = useCallback(async () => {
     setError("");
@@ -178,6 +190,9 @@ export function ProductDetailConsole({
         catalogOnboardingClient.getOptions(),
         catalogOnboardingClient.getProductEditor(productId),
       ]);
+      if (!Object.hasOwn(savedDescriptionOrigin.current, "description")) {
+        savedDescriptionOrigin.current = { description: editor.contentOrigins?.description ?? null };
+      }
       setOnboarding(Object.freeze({ options, editor }));
       setMerchandisingState("ready");
       if (close) {
@@ -218,6 +233,8 @@ export function ProductDetailConsole({
   }
 
   function resetProductDraft() {
+    pendingOrigins.current = {};
+    authoringIdentity.current = crypto.randomUUID();
     dirtyEditorsRef.current.clear("product");
     setProductDirty(false);
     setProductFormRevision((current) => current + 1);
@@ -343,6 +360,10 @@ export function ProductDetailConsole({
   async function loadServerSnapshot() {
     const replaced = await load();
     if (!replaced) return;
+    authoringIdentity.current = crypto.randomUUID();
+    pendingOrigins.current = {};
+    savedDescriptionOrigin.current = {};
+    await reloadMerchandising();
     dirtyEditorsRef.current.clearAll();
     setProductDirty(false);
     setProductFormRevision((current) => current + 1);
@@ -366,9 +387,13 @@ export function ProductDetailConsole({
     }, detail.product.version);
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("product", async () => {
-      const result = await catalogApi.updateProduct(productId, parsed.value);
+      const result = await catalogApi.updateProduct(productId, {...parsed.value,...(Object.hasOwn(pendingOrigins.current,"description") ? {contentOrigins:{description:pendingOrigins.current.description}} : {})});
       setDetail((current) => current && Object.freeze({ ...current, product: result.product }));
+      if (Object.hasOwn(pendingOrigins.current, "description")) {
+        savedDescriptionOrigin.current = { description: pendingOrigins.current.description };
+      }
       dirtyEditorsRef.current.clear("product");
+      pendingOrigins.current = {};
       setProductDirty(false);
       setProductFormRevision((current) => current + 1);
       setNotice("Ürün bilgileri güncellendi.");
@@ -624,11 +649,15 @@ export function ProductDetailConsole({
               </div>
               <div className={styles.productMain}>
                 {canManage && !archived ? (
-                  <form className={styles.generalForm} onSubmit={updateProduct} onChange={() => markDetailDirty("product")} key={productFormRevision}>
+                  <form ref={generalFormRef} className={styles.generalForm} onSubmit={updateProduct} onChange={() => markDetailDirty("product")} key={productFormRevision}>
                     <fieldset disabled={busy !== ""}>
                       <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
                       <input type="hidden" name="currency" value={product.currency} readOnly />
-                      <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} />
+                      <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{fields:["description","seoTitle","seoDescription"],applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
+                        const data = generalFormRef.current ? new FormData(generalFormRef.current) : new FormData();
+                        const seo = seoAuthoringBridge.current?.capture();
+                        return {sessionId:authoringIdentity.current,draftRevision:JSON.stringify([[...data.entries()],seo?.lifecycle.draftRevision]),request:{draftId:authoringIdentity.current,productId:product.id,productVersion:product.version,profileVersion:onboarding?.editor.profile.version ?? null,currentDraft:{...seo?.request.currentDraft,title:generalFormRef.current ? value(data,"title") : product.title,description:value(data,"description"),seoTitle:seo?.request.currentDraft.seoTitle ?? seoPreviewDraft?.title ?? onboarding?.editor.profile.seoTitle ?? null,seoDescription:seo?.request.currentDraft.seoDescription ?? seoPreviewDraft?.description ?? onboarding?.editor.profile.seoDescription ?? null,categoryIds:seo?.request.currentDraft.categoryIds ?? onboarding?.editor.categoryIds ?? [],brandId:seo ? seo.request.currentDraft.brandId : onboarding?.editor.resourceIds.brand ?? null,variants:detail.variants.map(variant=>({id:variant.id,title:variant.title,measurements:variant.measurements ?? null}))},action:"improve",fields:["description","seoTitle","seoDescription"],locale:"tr-TR",tone:"neutral",length:"medium",note:"",selection:null}};
+                      }}} />
                     </fieldset>
                     <div className={styles.summaryStrip}>
                       <div><small>Başlangıç fiyatı</small><strong>{salePrice}</strong></div>
@@ -728,6 +757,15 @@ export function ProductDetailConsole({
                 onConflictReload={async () => { const refreshed = await reloadMerchandising(); if (refreshed) { dirtyEditorsRef.current.clear("sales"); setSalesRevision((current) => current + 1); setSeoPreviewDraft(undefined); } return refreshed; }}
                 onDirtyChange={(dirty) => { if (dirty) dirtyEditorsRef.current.mark("sales"); else dirtyEditorsRef.current.clear("sales"); }}
                 onBusyChange={(saving) => { salesSavingRef.current = saving; setSalesSaving(saving); }}
+                onAuthoringBridgeChange={receiveSeoAuthoringBridge}
+                captureProductAuthoringDraft={() => {
+                  const data = generalFormRef.current ? new FormData(generalFormRef.current) : null;
+                  return {
+                    productVersion: product.version,
+                    currentDraft: { title: data ? value(data, "title") : product.title, description: data ? value(data, "description") : product.description ?? null, variants: detail.variants.map(variant => ({ id: variant.id, title: variant.title, measurements: variant.measurements ?? null })) },
+                    draftRevision: JSON.stringify(data ? [...data.entries()] : [product.title, product.description]),
+                  };
+                }}
                 onSeoPreviewChange={setSeoPreviewDraft}
               />
               <dl className={styles.asideFacts}><div><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div></dl>

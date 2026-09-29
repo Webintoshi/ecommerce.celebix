@@ -24,7 +24,12 @@ import {
   type ProductDraftSession,
 } from "@/lib/catalog-ui/product-draft-session";
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
-import { variantAttributeKey } from "@/lib/catalog-onboarding-ui/attribute-variants";
+import { attributeChoices, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
+import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
+import { ContentAuthoringTextField, type TextAuthoringController } from "@/components/content-authoring/ContentAuthoringTextField";
+import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
+import type { ContentAuthoringFieldOriginsInput, ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
+import { parseProductMeasurements as parseAuthoringMeasurements } from "@/lib/catalog-ui/product-measurements";
 import { ProductDescriptionField } from "@/components/catalog/ProductDescriptionField";
 import { ProductClassificationPicker } from "./ProductClassificationPicker";
 import { AttributeVariantPicker } from "./AttributeVariantPicker";
@@ -48,6 +53,8 @@ type ProductAdvancedEditorProps = Readonly<{
   onConflictReload?(): boolean | void | Promise<boolean | void>;
   onDirtyChange?(dirty: boolean): void;
   onBusyChange?(busy: boolean): void;
+  onAuthoringBridgeChange?(bridge: ContentAuthoringBridge | null): void;
+  captureProductAuthoringDraft?(): Readonly<{ currentDraft: ContentAuthoringRequest["currentDraft"]; productVersion: number; draftRevision: string }>;
   onSeoPreviewChange?(preview: Readonly<{ title: string; description: string }>): void;
   draftSession?: ProductDraftSession;
   onDraftSessionChange?(session: ProductDraftSession): void;
@@ -112,12 +119,28 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
+  const [authoringDraftId] = useState(() => draftSession?.current.authoringDraftId ?? crypto.randomUUID());
+  const [authoringSessionId] = useState(() => crypto.randomUUID());
+  const [contentOrigins,setContentOrigins] = useState<ContentAuthoringFieldOriginsInput>(draftSession?.current.contentOrigins ?? editor?.contentOrigins ?? {});
+  const [seoAiOpen,setSeoAiOpen] = useState(false);
+  const seoFieldControllers = useRef<Partial<Record<string,TextAuthoringController>>>({});
+  const seoAiTrigger = useRef<HTMLButtonElement>(null);
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
   const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
-  const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? []);
+  const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? editor?.resourceIds.attributes ?? []);
+  const [authoringAttributeChoices, setAuthoringAttributeChoices] = useState<readonly CatalogAttributeChoice[]>([]);
+  const needsAuthoringAttributes = !captureProductAuthoringDraft && variants.some(variant => Object.keys(variant.attributes).length > 0);
+  useEffect(() => {
+    if (!needsAuthoringAttributes) return;
+    let current = true;
+    void catalogAdminApi.resources("attribute").then(resources => {
+      if (current) setAuthoringAttributeChoices(attributeChoices(resources));
+    }).catch(() => { if (current) setAuthoringAttributeChoices([]); });
+    return () => { current = false; };
+  }, [needsAuthoringAttributes]);
   const [titleValue, setTitleValue] = useState(draftSession?.current.title ?? editor?.product.title ?? "");
   const [descriptionValue, setDescriptionValue] = useState(draftSession?.current.description ?? editor?.product.description ?? "");
   const [busy, setBusy] = useState(false);
@@ -192,6 +215,8 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       productType,
       title: titleValue,
       description: descriptionValue,
+      contentOrigins,
+      authoringDraftId,
       variants,
       standardVariant: kind === "variant" ? simpleVariantRef.current : undefined,
       categoryIds,
@@ -213,7 +238,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     }));
   // Parent session updates are projections of these local fields.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision]);
+  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision, contentOrigins, authoringDraftId]);
 
   function markEditingDirty() {
     if (editing) {
@@ -232,6 +257,33 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     onSeoPreviewChange?.({ title: text(values, "seoTitle"), description: text(values, "seoDescription") });
   }
 
+  useEffect(()=>{updateSeoPreview(formRef.current);},[contentOrigins]);
+
+  function captureAuthoring() {
+    const data = formRef.current ? new FormData(formRef.current) : new FormData();
+    const productDraft = editing ? captureProductAuthoringDraft?.() : undefined;
+    const currentVariants = productDraft?.currentDraft.variants ?? variants.map(variant => {
+      const measurements = parseAuthoringMeasurements(variant.measurements);
+      if (!measurements.ok) throw new Error("invalid_measurements");
+      return {title:variant.title || "Varsayılan",attributes:Object.entries(variant.attributes).map(([key,value])=>{
+        const choice = authoringAttributeChoices.find(choice => choice.key === key && selectedVariantAttributeIds.includes(choice.id) && choice.values.includes(value));
+        if (!choice) throw new Error("attribute_metadata_unavailable");
+        return {attributeId:choice.id,value};
+      }),measurements:measurements.value ?? null};
+    });
+    const request:ContentAuthoringRequest = {draftId:authoringDraftId,productId:editor?.product.id ?? null,productVersion:productDraft?.productVersion ?? editor?.product.version ?? null,profileVersion:editor?.profile.version ?? null,currentDraft:{...productDraft?.currentDraft,title:productDraft?.currentDraft.title ?? titleValue,description:productDraft ? productDraft.currentDraft.description : descriptionValue,seoTitle:text(data,"seoTitle"),seoDescription:text(data,"seoDescription"),categoryIds,brandId:text(data,"resource-brand") || null,variants:productDraft?.currentDraft.variants ?? currentVariants},action:"improve",fields:["description"],locale:"tr-TR",tone:"neutral",length:"medium",note:"",selection:null};
+    return {request,sessionId:authoringSessionId,draftRevision:JSON.stringify({product:productDraft?.draftRevision,form:[...data.entries()],variants,categoryIds,productType})};
+  }
+  function applyAuthoringField(field:ContentAuthoringField,generation:ContentGenerationView) {
+    if(field === "description" || !generation.draft || generation.draft[field] === undefined || !formRef.current)return false;
+    const controller = seoFieldControllers.current[field];
+    if(!controller)return false;
+    controller.apply(generation.draft[field],{generationId:generation.id,draftId:generation.draftId});
+    markEditingDirty();updateSeoPreview(formRef.current);return true;
+  }
+  const seoAuthoringBridge:ContentAuthoringBridge={capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},apply:applyAuthoringField};
+  useEffect(()=>{onAuthoringBridgeChange?.(seoAuthoringBridge);return ()=>onAuthoringBridgeChange?.(null);},[onAuthoringBridgeChange,seoAuthoringBridge]);
+  const seoAuthoringControls = <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>AI ile SEO oluştur</button>{seoAiOpen?<ContentAuthoringPanel fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</>;
   function requestCancel() {
     if (!editing && (lock.current || pendingBarcodeCountRef.current > 0 || attributeSavingRef.current)) return;
     if (editing) {
@@ -406,7 +458,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     lock.current = true; setBusy(true); onBusyChange?.(true); setError(""); setConflict(false);
     try {
       if (editor) {
-        const updated = await api.updateMerchandising(editor.product.id, { expectedProfileVersion: editor.profile.version, profile, categoryIds: submittedCategoryIds, resourceIds, channelIds });
+        const updated = await api.updateMerchandising(editor.product.id, { expectedProfileVersion: editor.profile.version, profile, categoryIds: submittedCategoryIds, resourceIds, channelIds, ...(Object.keys(contentOrigins).some(field=>field!=="description") ? {contentOrigins: Object.fromEntries(Object.entries(contentOrigins).filter(([field])=>field !== "description"))} : {}) });
         editingDirtyRef.current = false;
         setRailDirty(false);
         onDirtyChange?.(false);
@@ -415,7 +467,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       }
       const candidate: CatalogAdvancedCreateIntent = {
         kind: "advanced", productType, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
-        variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile,
+        variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile, ...(Object.keys(contentOrigins).length ? {contentOrigins} : {}),
       };
       const parsed = buildAdvancedCreateIntent(candidate);
       if (!parsed.ok) { setError(parsed.error); return; }
@@ -475,7 +527,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy} defaultValue={descriptionValue} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
+          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} /></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
@@ -485,7 +537,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div> : null}
           </section>
           <div className={createStyles.additionalSettings}>
-            <details className={createStyles.details}><summary><span>SEO</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><div className={createStyles.fieldGrid}><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO başlığı</span><input name="seoTitle" maxLength={200} defaultValue={draftSession?.current.seoTitle ?? ""} /></label><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO açıklaması</span><textarea name="seoDescription" maxLength={500} rows={3} defaultValue={draftSession?.current.seoDescription ?? ""} /></label></div></div></details>
+            <details className={createStyles.details}><summary><span>SEO</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}>{seoAuthoringControls}<div className={createStyles.fieldGrid}><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO başlığı</span><ContentAuthoringTextField name="seoTitle" maxLength={200} defaultValue={draftSession?.current.seoTitle ?? ""} initialOrigin={contentOrigins.seoTitle} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoTitle:origin}))} onValueChange={markEditingDirty} /></label><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO açıklaması</span><ContentAuthoringTextField name="seoDescription" multiline maxLength={500} rows={3} defaultValue={draftSession?.current.seoDescription ?? ""} initialOrigin={contentOrigins.seoDescription} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoDescription:origin}))} onValueChange={markEditingDirty} /></label></div></div></details>
             <details ref={salesLimitsRef} className={createStyles.details}><summary><span>Sipariş sınırları ve Google kategori</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><div className={createStyles.fieldGrid}><label className={createStyles.field}><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.minimumOrderQuantity || "1"} /></label><label className={createStyles.field}><span>Maksimum sipariş</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.maximumOrderQuantity ?? ""} /></label><label className={`${createStyles.field} ${createStyles.wide}`}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={draftSession?.current.googleProductCategoryId ?? ""} /></label></div></div></details>
             <details className={createStyles.details}><summary><span>Nitelikler ve ekstralar</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}>{(["attribute", "extra", "definition"] as const).map((resourceKind) => <div key={resourceKind} className={createStyles.resourceGroup}><h3>{resourceKind === "attribute" ? "Nitelikler" : resourceKind === "extra" ? "Ekstralar" : "Tanımlar"}</h3><div className={createStyles.optionList}>{activeResources(resourceKind).map((resource) => <label key={resource.id} className={createStyles.check}><input type="checkbox" name={`resource-${resourceKind}`} value={resource.id} defaultChecked={has(draftSession?.current[`resource${resourceKind[0].toUpperCase()}${resourceKind.slice(1)}Ids` as "resourceAttributeIds" | "resourceExtraIds" | "resourceDefinitionIds"] ?? [], resource.id)} /><span>{resource.name}</span></label>)}{!activeResources(resourceKind).length ? <p className={createStyles.quiet}>Seçenek bulunmuyor.</p> : null}</div></div>)}</div></details>
           </div>
@@ -500,7 +552,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     <footer className={createStyles.actions}><button type="button" className={createStyles.cancel} onClick={requestCancel} disabled={createBlocked}>Vazgeç</button><div>{createPending ? <span className={createStyles.pendingStatus} role="status">{pendingBarcodeCount ? "Barkod oluşturuluyor…" : "Nitelik kaydediliyor…"}</span> : null}<button type="submit" name="intent" value="draft" className={createStyles.secondary} disabled={createBlocked || variantBuilderOpen}>Taslak kaydet</button><button type="submit" name="intent" value="publish" className={createStyles.primary} disabled={createBlocked || variantBuilderOpen}>{busy ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button></div></footer>
   </form>;
 
-  if (presentation === "rail" && editor) return <form className={`${styles.advancedEditor} ${styles.editSettings} ${styles.railSettings}`} onSubmit={submit} onChange={(event) => {
+  if (presentation === "rail" && editor) return <form ref={formRef} className={`${styles.advancedEditor} ${styles.editSettings} ${styles.railSettings}`} onSubmit={submit} onChange={(event) => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest(`.${styles.classificationSearch}`)) markEditingDirty();
   }} aria-busy={busy} noValidate>
     <div className={styles.railHeading}><h2>Yayın ve sınıflandırma</h2></div>
@@ -526,8 +578,8 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       <details ref={railAdvancedRef} className={styles.railAdvanced}>
         <summary>SEO ve gelişmiş alanlar</summary>
         <div className={styles.railAdvancedBody}>
-          <label className={styles.editField}><span>SEO başlığı</span><input name="seoTitle" maxLength={200} defaultValue={editor.profile.seoTitle ?? ""} onChange={(event) => updateSeoPreview(event.currentTarget.form)} /></label>
-          <label className={styles.editField}><span>SEO açıklaması</span><textarea name="seoDescription" maxLength={500} rows={3} defaultValue={editor.profile.seoDescription ?? ""} onChange={(event) => updateSeoPreview(event.currentTarget.form)} /></label>
+          {seoAuthoringControls}<label className={styles.editField}><span>SEO başlığı</span><ContentAuthoringTextField name="seoTitle" maxLength={200} defaultValue={editor.profile.seoTitle ?? ""} initialOrigin={contentOrigins.seoTitle} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoTitle:origin}))} onValueChange={markEditingDirty} /></label>
+          <label className={styles.editField}><span>SEO açıklaması</span><ContentAuthoringTextField name="seoDescription" multiline maxLength={500} rows={3} defaultValue={editor.profile.seoDescription ?? ""} initialOrigin={contentOrigins.seoDescription} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoDescription:origin}))} onValueChange={markEditingDirty} /></label>
           <label className={styles.editField}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={editor.profile.googleProductCategoryId ?? ""} /></label>
           <label className={styles.editField}><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={editor.profile.supplierName ?? ""} /></label>
           <label className={styles.editField}><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.minimumPurchaseQuantity} /></label>
@@ -551,7 +603,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   const editPanels = ["catalog", "seo", "channels"] as const;
   const editPanelNames = { catalog: "Katalog", seo: "SEO", channels: "Kanallar" } as const;
 
-  return <form className={`${styles.advancedEditor} ${styles.editSettings}`} onSubmit={submit} onChange={(event) => {
+  return <form ref={formRef} className={`${styles.advancedEditor} ${styles.editSettings}`} onSubmit={submit} onChange={(event) => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest(`.${styles.classificationSearch}`)) markEditingDirty();
   }} aria-busy={busy} noValidate>
     {error ? <div className={styles.error} role="alert"><span>{error}</span>{conflict ? <button type="button" className={styles.secondary} onClick={reloadConflict}>Sunucudaki sürümü yükle</button> : null}{createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}</div> : null}
@@ -578,10 +630,10 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
           <label className={`${styles.editField} ${styles.editFieldWide}`}><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={editor.profile.supplierName ?? ""} /></label>
         </div></div>
       </section>
-      <section id="sales-panel-seo" role="tabpanel" aria-labelledby="sales-tab-seo" tabIndex={0} className={styles.editPanel} hidden={activeEditPanel !== "seo"}>
+      <section id="sales-panel-seo" role="tabpanel" aria-labelledby="sales-tab-seo" tabIndex={0} className={styles.editPanel} hidden={activeEditPanel !== "seo"}>{seoAuthoringControls}
         <div className={styles.editGroup}><h3>Arama görünümü</h3><div className={styles.editFieldGrid}>
-          <label className={`${styles.editField} ${styles.editFieldWide}`}><span>SEO başlığı</span><input name="seoTitle" maxLength={200} defaultValue={editor.profile.seoTitle ?? ""} /></label>
-          <label className={`${styles.editField} ${styles.editFieldWide}`}><span>SEO açıklaması</span><textarea name="seoDescription" maxLength={500} rows={4} defaultValue={editor.profile.seoDescription ?? ""} /></label>
+          <label className={`${styles.editField} ${styles.editFieldWide}`}><span>SEO başlığı</span><ContentAuthoringTextField name="seoTitle" maxLength={200} defaultValue={editor.profile.seoTitle ?? ""} initialOrigin={contentOrigins.seoTitle} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoTitle:origin}))} onValueChange={markEditingDirty} /></label>
+          <label className={`${styles.editField} ${styles.editFieldWide}`}><span>SEO açıklaması</span><ContentAuthoringTextField name="seoDescription" multiline maxLength={500} rows={4} defaultValue={editor.profile.seoDescription ?? ""} initialOrigin={contentOrigins.seoDescription} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoDescription:origin}))} onValueChange={markEditingDirty} /></label>
           <label className={`${styles.editField} ${styles.editFieldWide}`}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={editor.profile.googleProductCategoryId ?? ""} /></label>
         </div></div>
         <div className={styles.editGroup}><h3>Sipariş sınırları</h3><div className={styles.editFieldGrid}>

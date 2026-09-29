@@ -1,0 +1,18 @@
+.panel { padding: 16px; border: 1px solid var(--catalog-border, var(--border, #E7E2DD)); border-radius: 8px; background: var(--catalog-surface, var(--surface, #FFFDFC)); color: var(--catalog-text, var(--text, #2B2B2B)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.panel label { display: grid; gap: 4px; font-size: 13px; }
+.panel button, .panel input, .panel select, .panel textarea { font: inherit; color: inherit; }
+.panel button, .panel select, .panel textarea { min-height: 44px; border: 1px solid var(--catalog-border, var(--border, #E7E2DD)); background: var(--catalog-surface, var(--surface, #FFFDFC)); border-radius: 8px; padding: 8px 12px; max-width: 100%; box-sizing: border-box; min-width: 0; }
+.panel button { cursor: pointer; overflow-wrap: anywhere; }
+.panel select, .panel textarea { width: 100%; }
+.panel input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; margin: 0; accent-color: var(--catalog-text, #2B2B2B); }
+.panel button:disabled { opacity: .6; cursor: default; }
+.panel :is(button,select,textarea,input,summary,a):focus-visible { outline: 2px solid var(--catalog-text, #2B2B2B); outline-offset: 2px; }
+.controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.controls label { flex: 1 1 160px; min-width: 0; }
+.fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.fields label { display: flex; align-items: center; min-height: 44px; }
+.preview { padding: 12px 0; border-bottom: 1px solid var(--catalog-border, var(--border, #E7E2DD)); overflow-wrap: anywhere; }
+.preview table { display: block; overflow: auto; max-width: 100%; }
+.panel summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.panel details > label { margin-top: 8px; }
+@media (max-width: 600px) { .controls { align-items: stretch; } .controls label { flex-basis: 100%; } }

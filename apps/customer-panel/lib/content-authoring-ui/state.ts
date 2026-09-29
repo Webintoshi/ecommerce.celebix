@@ -1,0 +1,9 @@
+import type { ContentAuthoringRequest, ContentGenerationView } from '@celebix/saas-contracts';
+export type AuthoringLifecycle = Readonly<{storeKey:string;sessionId:string;selection:Readonly<{from:number;to:number}>|null;draftRevision:string}>;
+export function captureAuthoringSnapshot(request:ContentAuthoringRequest,lifecycle:AuthoringLifecycle){return JSON.parse(JSON.stringify({request,lifecycle})) as Readonly<{request:ContentAuthoringRequest;lifecycle:AuthoringLifecycle}>;}
+export function canApplyAuthoringDraft(_captured:ReturnType<typeof captureAuthoringSnapshot>,_current:ReturnType<typeof captureAuthoringSnapshot>,_result:ContentGenerationView){return JSON.stringify(_captured) === JSON.stringify(_current) && _result.status === "completed" && _result.draft !== null && _result.productId === _captured.request.productId && _result.draftId === _captured.request.draftId && _result.sourceFingerprint === _result.draft.sourceFingerprint;}
+import type {PendingContentOrigin} from './editor.ts';
+export type TextOriginHistory=Readonly<{entries:readonly Readonly<{text:string;origin:PendingContentOrigin|null}>[];index:number}>;
+export function createTextOriginHistory(text:string,origin:PendingContentOrigin|null):TextOriginHistory{return {entries:[{text,origin}],index:0};}
+export function changeTextOrigin(history:TextOriginHistory,text:string,origin:PendingContentOrigin|null=history.entries[history.index].origin):TextOriginHistory{if(text===history.entries[history.index].text && JSON.stringify(origin)===JSON.stringify(history.entries[history.index].origin))return history;return {entries:[...history.entries.slice(0,history.index+1),{text,origin}],index:history.index+1};}
+export function moveTextOriginHistory(history:TextOriginHistory,direction:-1|1):TextOriginHistory{const index=Math.max(0,Math.min(history.entries.length-1,history.index+direction));return index===history.index?history:{...history,index};}

@@ -537,3 +537,16 @@ test("finite API errors become safe Turkish messages and retain conflict identit
     },
   );
 });
+
+test("product normal-save request forwards validated description origins and explicit manual restoration while legacy saves omit them",async()=>{
+ const bodies:any[]=[];const client=createCatalogApiClient({randomUUID:()=>OPERATION_ID,fetch:async(_url,init)=>{bodies.push(JSON.parse(init!.body as string));return jsonResponse({product:PRODUCT,replayed:false});}});
+ const input={expectedVersion:3,product:{title:"Atlas Kupa",slug:"atlas-kupa",description:"Generated",status:"draft",currency:"TRY"}} as const;
+ const origin={generationId:OPERATION_ID,draftId:VARIANT_ID};
+ await client.updateProduct(PRODUCT_ID,{...input,contentOrigins:{description:origin}});
+ await client.updateProduct(PRODUCT_ID,{...input,contentOrigins:{description:null}});
+ await client.updateProduct(PRODUCT_ID,input);
+ assert.deepEqual(bodies,[{...input,contentOrigins:{description:origin}},{...input,contentOrigins:{description:null}},input]);
+ const before=bodies.length;
+ for(const contentOrigins of [{seoTitle:origin},{description:{...origin,draftId:"hostile"}},{description:{...origin,storeId:PRODUCT.storeId}}]) await assert.rejects(client.updateProduct(PRODUCT_ID,{...input,contentOrigins} as any));
+ assert.equal(bodies.length,before,"invalid or foreign field origins must fail before sending a save");
+});

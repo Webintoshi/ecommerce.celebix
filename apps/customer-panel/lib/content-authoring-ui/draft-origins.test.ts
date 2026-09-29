@@ -1,0 +1,4 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createEmptyProductDraftSession,updateProductDraft,productDraftIsDirty} from '../catalog-ui/product-draft-session.ts';
+test('AI origin is part of the pending draft and cannot mark untouched fields saved',()=>{const session=createEmptyProductDraftSession();const origins={description:{generationId:'generation',draftId:'draft'}};const applied=updateProductDraft(session,{description:'Generated',contentOrigins:origins});assert.deepEqual(applied.current.contentOrigins,origins);assert.equal(productDraftIsDirty(applied),true);assert.equal(applied.initial.description,'');assert.equal(applied.current.seoTitle,'');assert.ok(Object.isFrozen(applied.current.contentOrigins));assert.ok(Object.isFrozen(applied.current.contentOrigins.description));});

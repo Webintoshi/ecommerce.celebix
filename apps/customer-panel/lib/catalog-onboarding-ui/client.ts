@@ -1,4 +1,6 @@
 import {
+  parseContentAuthoringFieldOrigins,
+  type ContentAuthoringFieldOriginsInput,
   parseCatalogOnboardingIntent,
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
@@ -81,6 +83,7 @@ export class CatalogOnboardingApiError extends Error {
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type RandomUUID = () => string;
 export type CatalogMerchandisingUpdate = Readonly<{
+  contentOrigins?: ContentAuthoringFieldOriginsInput;
   expectedProfileVersion: number;
   profile: CatalogProductMerchandisingFields;
   categoryIds: readonly string[];
@@ -214,8 +217,15 @@ export function createCatalogOnboardingClient(options?: Readonly<{ fetch?: Fetch
     },
 
     async updateMerchandising(productId: string, input: CatalogMerchandisingUpdate): Promise<CatalogOnboardingResult> {
+      let contentOrigins: ContentAuthoringFieldOriginsInput | undefined;
+      try { contentOrigins = input.contentOrigins === undefined ? undefined : parseContentAuthoringFieldOrigins(input.contentOrigins, ["seoTitle", "seoDescription"]); }
+      catch { throw new TypeError("catalog_onboarding_client_invalid"); }
       const body = await mutation(`/api/catalog/products/${selectedId(productId)}/merchandising`, "PATCH", {
-        ...input,
+        profile: input.profile,
+        categoryIds: input.categoryIds,
+        resourceIds: input.resourceIds,
+        channelIds: input.channelIds,
+        ...(contentOrigins === undefined ? {} : { contentOrigins }),
         expectedProfileVersion: positiveInteger(input.expectedProfileVersion),
       });
       try { return parseCatalogOnboardingResult(body); }
