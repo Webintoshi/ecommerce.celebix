@@ -306,7 +306,7 @@ const pilotSourceClauses = [
 const pilotSourceHtml = `<p>${pilotSourceClauses[0]}</p><ul>${pilotSourceClauses.slice(1).map(text=>`<li><p>${text}</p></li>`).join('')}</ul><p><br class="ProseMirror-trailingBreak"></p>`;
 const pilotSourceRequest={...request,action:'improve' as const,fields:['description','seoTitle','seoDescription'] as const,note:'',currentDraft:{title:pilotSourceClauses[0],description:pilotSourceHtml,seoTitle:'',seoDescription:'',variants:[{title:'Varsayılan',attributes:[],measurements:null}]}};
 function sourceOutput(sent:any){const spans=sent.facts.sourcePreservation.clauses,summary=sent.facts.sourcePreservation.seoSummary,v5Intro=spans[0].value===`${sent.facts.title} için ürün bilgileri:`;return {description:v5Intro?[{type:'paragraph',children:[{type:'fact',factRef:spans[0].ref,value:spans[0].value}]},{type:'list',ordered:false,items:spans.slice(1).map((span:any)=>[{type:'fact',factRef:span.ref,value:span.value}])}]:[{type:'list',ordered:false,items:spans.map((span:any)=>[{type:'fact',factRef:span.ref,value:span.value}])}],seoTitle:sent.facts.title,seoDescription:summary.text,suggestions:[],claims:[...spans.map((span:any)=>({field:'description',factRef:span.ref,value:span.value})),...summary.refs.map((ref:string)=>{const span=spans.find((span:any)=>span.ref===ref);return {field:'seoDescription',factRef:ref,value:span.value};})],sourceFingerprint:sent.facts.sourceFingerprint};}
-async function sourceServiceRun(candidate:any=pilotSourceRequest,mutate:(output:any,sent:any)=>void=()=>{}){
+async function sourceServiceRun(candidate:any=pilotSourceRequest,mutate:(output:any,sent:any)=>void=()=>{},rawText?:string){
  const s=setup();let sent:any,fetches=0;
  const begin=s.dependencies.repository.beginGeneration,complete=s.dependencies.repository.completeGeneration;
  s.dependencies.repository.beginGeneration=async(value:any)=>{const begun=await begin(value);begun.generation.sourceFingerprint=value.envelope.sourceFingerprint;begun.generation.requestFingerprint=value.requestFingerprint;return begun;};
@@ -316,7 +316,7 @@ async function sourceServiceRun(candidate:any=pilotSourceRequest,mutate:(output:
   fetches++;const messages=JSON.parse(String(init.body)).messages;sent=JSON.parse(messages.find((message:any)=>message.role==='user').content);
   assert.equal(JSON.parse(String(init.body)).max_tokens,4096);assert.ok(Buffer.byteLength(messages.find((message:any)=>message.role==='user').content,'utf8')<=32768);
   const output=sourceOutput(sent);for(const field of ['description','seoTitle','seoDescription'])if(!candidate.fields.includes(field))delete (output as any)[field];output.claims=output.claims.filter((claim:any)=>candidate.fields.includes(claim.field));mutate(output,sent);
-  return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify(output)}}],usage:{prompt_tokens:100,completion_tokens:20}});
+  return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:rawText??JSON.stringify(output)}}],usage:{prompt_tokens:100,completion_tokens:20}});
  }});
  const result=await createContentAuthoringService(s.dependencies).generateContent({...input,request:candidate});return {result,sent,fetches};
 }
@@ -381,6 +381,22 @@ for(const [label,mutate] of [
 });
 test('source preservation works for separately selected description or SEO without extra output fields',async()=>{
  for(const fields of [['description'],['seoTitle','seoDescription']] as const){const {result,fetches}=await sourceServiceRun({...pilotSourceRequest,fields});assert.equal(fetches,1);assert.equal(result.status,'completed');for(const field of ['description','seoTitle','seoDescription'])assert.equal(Object.hasOwn(result.draft!,field),fields.includes(field as never));}
+});
+test('SEO-only source extract recovers from invalid model JSON and unsupported claims without retry',async()=>{
+ const candidate={...pilotSourceRequest,fields:['seoDescription'] as const};
+ const expected=[pilotSourceClauses[0],pilotSourceClauses[3],pilotSourceClauses[5]].join(' ');
+ for(const run of [
+  ()=>sourceServiceRun(candidate,()=>{},'{'),
+  ()=>sourceServiceRun(candidate,output=>{output.seoDescription='This ring cures illness';output.claims=[];}),
+ ]){
+  const {result,fetches}=await run();assert.equal(fetches,1);assert.equal(result.status,'completed');assert.equal(result.draft!.seoDescription,expected);
+  assert.deepEqual(Object.keys(result.draft!).filter(key=>['description','seoTitle','seoDescription'].includes(key)),['seoDescription']);
+  assert.deepEqual(result.usage,{inputTokens:100,outputTokens:20,totalTokens:120});
+ }
+});
+test('SEO-only source extract does not accept an empty provider response',async()=>{
+ const {result,fetches}=await sourceServiceRun({...pilotSourceRequest,fields:['seoDescription']},()=>{},'  ');
+ assert.equal(fetches,1);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
 });
 
 test('source title can introduce a bounded readable list without duplicating or changing any source clause',async()=>{
