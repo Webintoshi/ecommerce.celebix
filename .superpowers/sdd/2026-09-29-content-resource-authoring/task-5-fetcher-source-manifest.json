@@ -1,0 +1,17 @@
+{
+  "scope": "Phase2 Task5 local content-research authority, fetcher, extractor and offline tests only",
+  "baseHeadAtReview": "cb369d3794339bcbb26fb5ce4dabdb69ff0da1b6",
+  "files": {
+    "apps/customer-panel/lib/content-research/authority.ts": "c1d4f1e92ddbcf676ce4fb58a05213253dc842d65e7ec1a7d40dca8315dfe3f4",
+    "apps/customer-panel/lib/content-research/extract.ts": "944111ec570974ee98174c435b84cd01cbe2749ef3fca364f021b49dc0bee837",
+    "apps/customer-panel/lib/content-research/fetcher.ts": "b374120518f61a83f39a8e3dcda60cbc17b2262f0e60b30bffdf4fb8c5a3ed1a",
+    "apps/customer-panel/lib/content-research/extract.test.ts": "70f399cb623987f1f2fa5e5c176ff64e8decfbd5683dd73c284781dfc7bfceff",
+    "apps/customer-panel/lib/content-research/fetcher.test.ts": "8f5db94326d244a4846283595ed744d2e91810a138c1d6038a3199506ea3ad35"
+  },
+  "tests": {
+    "red": "2 module-not-found failures before source files existed; independent-review regression tests then failed 3 of 14 before fixes",
+    "green": "14 of 14 offline Node tests passed",
+    "targetedTypecheck": "exit 0"
+  },
+  "liveRequests": false
+}
