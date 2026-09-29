@@ -1,0 +1,10 @@
+{
+  "status": "durable_private_preimage_verified",
+  "targetCount": 2,
+  "hostAndContainerHashMatch": true,
+  "fileMode": "0600",
+  "directoryMode": "0700",
+  "owner": 9999,
+  "rawEncryptedAttributes": true,
+  "bytes": 326953
+}

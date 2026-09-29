@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+    "testDigest": "sha256:b85e8d95202ac93cca9d83119a36ced659b835f2c2c1889a679e668729d719a7",
+    "liveDigest": "sha256:4797d63e042cd6a06294c40a5fac0f0763d51b8b0cc1949b7ec66fbf3c1d3787"
+  },
+  "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+  "baseline": {
+    "test": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "test",
+      "adapterVersion": 1,
+      "gitSha": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:4e79fd0340598a2633f7bd5666aab91db74b1a5a9fa5c5134202142c631237a8"
+    },
+    "live": {
+      "buildMetadataSchemaVersion": 1,
+      "evidenceSchemaVersion": 1,
+      "providerCode": "paytr_iframe",
+      "capability": "payment_processing",
+      "environment": "live",
+      "adapterVersion": 1,
+      "gitSha": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+      "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+      "candidateExecutionDigest": "sha256:fd14e56c9071cdca71f8ef6cee50e2a3ea83c4a56c6858e48ab115dd13b511b7"
+    }
+  },
+  "officialGenerateAndCheck": true,
+  "activeBaselineMatches": true
+}

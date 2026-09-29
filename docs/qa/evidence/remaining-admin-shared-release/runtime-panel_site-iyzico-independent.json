@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "readOnly": true,
+  "sourceCommitMatches": true,
+  "metadata": {
+    "exactKeys": true,
+    "gitSha": true,
+    "sourceDigest": true,
+    "candidateExecutionDigest": true,
+    "provider": true,
+    "capability": true,
+    "environment": true,
+    "adapterVersion": true,
+    "schema": true,
+    "independentDigest": true
+  },
+  "approvedExecutionAuthorityNull": true,
+  "passed": true,
+  "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+  "containerName": "yk1h6d97z7ex0h74ok3zrj5c-112615255635",
+  "image": "yk1h6d97z7ex0h74ok3zrj5c:eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "imageMatches": true,
+  "containerRunning": true,
+  "expectedMetadata": {
+    "sourceDigest": "sha256:71d1778a16b403d23aba1e87a6a26132ac8eccb91af68a8e922246a4f610c915",
+    "candidateExecutionDigest": "sha256:482a613404a2187250550d4222948ba71f9288dab7f7e32fece868ac8f4e6b34"
+  },
+  "verifiedAt": "2026-09-29T11:33:50.628Z"
+}

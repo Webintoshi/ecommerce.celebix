@@ -2,7 +2,7 @@
 
 ## Request and scope
 
-The user authorized revising all remaining merchant screens with the existing Mira design language. The runtime target is the shared `apps/customer-panel`, used by the NET and SITE admin deployments. This task implements presentation changes; it does not publish a release.
+The user authorized revising all remaining merchant screens with the existing Mira design language. The runtime target is the shared `apps/customer-panel`, used by the NET and SITE admin deployments. This record describes implementation verification; the completed deployment is recorded in [shared admin release](remaining-admin-shared-release-2026-09-29.md).
 
 | Area | Preserved primary tasks |
 | --- | --- |
@@ -64,7 +64,7 @@ Atlas reviews found and closed: duplicate embedded policy heading; settings retr
 
 Production backend files changed: **NONE**. Contracts, auth/tenant resolution, repositories, SQL, calculation models, environment and infrastructure are unchanged. The fixture-only GET additions provide bounded synthetic browser evidence and keep production routes untouched.
 
-Release status: **implementation only, not deployed**.
+Release status: **deployed to both shared admin applications**. See the [release record](remaining-admin-shared-release-2026-09-29.md) for exact source, runtime and public acceptance evidence.
 
 ## Saved evidence
 

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "sourceBranch": "codex/remaining-admin-ux",
+  "baselineSha": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+  "scope": "apps/customer-panel frontend presentation",
+  "productionBackendFilesChanged": 0,
+  "combinedTests": {
+    "passed": 301,
+    "total": 301
+  },
+  "typecheckExitCode": 0,
+  "productionBuildExitCode": 0,
+  "diffWhitespace": "clean",
+  "independentSourceReview": "accepted",
+  "verificationRecord": "docs/qa/remaining-admin-ui-2026-09-29.md",
+  "authenticatedLiveBrowserAcceptance": false
+}

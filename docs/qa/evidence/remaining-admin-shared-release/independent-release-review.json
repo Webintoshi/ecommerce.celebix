@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS",
+  "reviewer": "release_safety_audit",
+  "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "ownedDeployments": {
+    "panel_net": "sfg2zyf3q6z5vnq3ow0yt0rs",
+    "panel_site": "yr939w7kn82lpc23c50857at"
+  },
+  "runtimeProofs": {
+    "perApplicationSourceFiles": 70,
+    "perApplicationCompiledRoutes": 88,
+    "allSixProofsPassed": true,
+    "exactImagesSourcesContainersMatch": true
+  },
+  "configurationPreservationGuard": "PASS",
+  "paytrApprovalScopesPreserved": true,
+  "iyzicoExecutionAuthorityNull": true,
+  "globalQueueIdleAtAcceptance": true,
+  "publicChecks": {
+    "before": {
+      "passed": 392,
+      "total": 392
+    },
+    "after": {
+      "passed": 392,
+      "total": 392
+    },
+    "sameHostPathSets": true,
+    "observableDifferences": 0,
+    "tlsValidationBypassed": false
+  },
+  "authenticatedLiveInteractionsClaimed": false,
+  "productionMutationsByReviewer": false
+}
