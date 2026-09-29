@@ -50,9 +50,19 @@ export interface ProductFact {
     readonly variantId?: string;
     readonly source: "current_draft" | "tenant_reference";
 }
+/** Internal server-built exact source group; never ordinary fact authority. */
+export interface ProductSourcePreservation {
+    readonly sourceHash: string;
+    readonly textHash: string;
+    readonly text: string;
+    readonly clauses: readonly Readonly<{ref:string;value:string;ordinal:number;start:number;end:number}>[];
+    /** Server-selected whole-clause SEO copy; refs are in source order. */
+    readonly seoSummary: Readonly<{text:string;refs:readonly string[]}>;
+}
 export interface ProductFactPacket {
     readonly title: string;
     readonly facts: readonly ProductFact[];
+    readonly sourcePreservation?: ProductSourcePreservation;
     readonly sourceFingerprint: string;
 }
 export type ContentAuthoringTextNode = Readonly<{

@@ -240,8 +240,12 @@ const authoringGeneration = {
   id: "40000000-0000-4000-8000-000000000001", draftId: "40000000-0000-4000-8000-000000000002",
   draft: { seoTitle: "Generated SEO", seoDescription: "Generated summary" },
 };
-function ApplyingPanel({bridge}: {bridge: {capture(): unknown; apply(field: string, generation: unknown, selection: null): boolean}}) {
+function ApplyingPanel({bridge}: {bridge: {capture(): unknown; canApply(field: string, generation: unknown, selection: null): boolean; apply(field: string, generation: unknown, selection: null): boolean}}) {
   return createElement("button", {type:"button", onClick: () => {
+    assert.equal(bridge.canApply("description",authoringGeneration,null),false);
+    assert.equal(bridge.canApply("seoTitle",{draft:{}},null),false);
+    assert.equal(bridge.canApply("seoTitle",authoringGeneration,null),true);
+    assert.equal(bridge.canApply("seoDescription",authoringGeneration,null),true);
     assert.equal(bridge.apply("seoTitle", authoringGeneration, null), true);
     assert.equal(bridge.apply("seoDescription", authoringGeneration, null), true);
   }}, "Apply SEO fixture");

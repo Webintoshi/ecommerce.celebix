@@ -83,7 +83,7 @@ function parseDraft(v: unknown, fingerprint: string, selected: readonly ContentA
     if (r.sourceFingerprint !== fingerprint || selected.some(f => !Object.hasOwn(r, f)))
         bad();
     let count = 0;
-    function support(ref: unknown, value: unknown, unit: unknown) { text(ref,200,1);text(value,1000,1);if(unit!==undefined)text(unit,20,1);if(!packet)return; const fact = packet.facts.find(f => f.ref === ref); if (!fact || fact.value !== value || fact.unit !== unit)
+    function support(ref: unknown, value: unknown, unit: unknown) { text(ref,200,1);text(value,1000,1);if(unit!==undefined)text(unit,20,1);if(!packet)return; const source = packet.sourcePreservation?.clauses.find(span => span.ref === ref); if (source) { if (source.value !== value || unit !== undefined) bad(); return source; } const fact = packet.facts.find(f => f.ref === ref); if (!fact || fact.value !== value || fact.unit !== unit)
         bad(); return fact; }
     function nodes(v: unknown): ContentAuthoringTextNode[] { return arr(v, 100).map(n => { if (++count > 1000)
         bad(); const kind = (n as {

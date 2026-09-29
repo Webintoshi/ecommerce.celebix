@@ -57,6 +57,43 @@ function variantIsNamed(text: string, id: string | undefined, packet: ProductFac
  * never evidence. The public response parser intentionally does not invoke this function.
  */
 export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet: ProductFactPacket): void {
+  if (packet.sourcePreservation) {
+    const source=packet.sourcePreservation;
+    const summary=source.seoSummary;
+    const selected=summary.refs.map(ref=>source.clauses.findIndex(span=>span.ref===ref));
+    if(!selected.length||selected[0]!==0||selected.some((index,ordinal)=>index<0||(ordinal>0&&index<=selected[ordinal-1])))unsupported();
+    const v5Intro=source.clauses[0]?.value===`${packet.title} için ürün bilgileri:`;
+    const exactExtract=selected.map((index,ordinal)=>ordinal===0&&v5Intro&&summary.text!==source.text?packet.title:source.clauses[index].value).join(' ');
+    if(summary.text!==exactExtract||(summary.text!==source.text&&summary.text.length>160))unsupported();
+    if(draft.suggestions.length)unsupported();
+    if(draft.seoTitle!==undefined&&draft.seoTitle!==packet.title)unsupported();
+    if(draft.seoDescription!==undefined&&draft.seoDescription!==summary.text)unsupported();
+    const nodes:ContentAuthoringTextNode[]=[];
+    if(draft.description!==undefined){
+      for(const block of draft.description){
+        if(block.type==='paragraph'){
+          const lead=nodes.length===0&&block===draft.description[0]&&source.clauses[0]?.value===packet.title&&block.children.length===2&&block.children[1].type==='text'&&block.children[1].text===' için ürün bilgileri:';
+          if(block.children.length!==1&&!lead)unsupported();nodes.push(block.children[0]);
+        }
+        else if(block.type==='list'&&!block.ordered){for(const item of block.items){if(item.length!==1)unsupported();nodes.push(item[0]);}}
+        else unsupported();
+      }
+      if(nodes.length!==source.clauses.length)unsupported();
+      nodes.forEach((node,index)=>{const span=source.clauses[index];if(node.type!=='fact'||node.factRef!==span.ref||node.value!==span.value||node.unit!==undefined)unsupported();});
+    }
+    // Claims must cite every consumed clause per selected destination exactly
+    // once. No unused refs, title-derived quantities or substring evidence.
+    const expected=new Set<string>();
+    if(draft.description!==undefined)for(const span of source.clauses)expected.add(`description:${span.ref}`);
+    if(draft.seoDescription!==undefined)for(const ref of summary.refs)expected.add(`seoDescription:${ref}`);
+    if(draft.claims.length!==expected.size)unsupported();
+    for(const claim of draft.claims){
+      const span=source.clauses.find(value=>value.ref===claim.factRef);
+      if(!span||claim.value!==span.value||claim.unit!==undefined||!expected.delete(`${claim.field}:${claim.factRef}`))unsupported();
+    }
+    if(expected.size)unsupported();
+    return;
+  }
   function check(raw: string, nodes: readonly ContentAuthoringTextNode[] = []): void {
     const text = normalize(raw);
     const eligible = packet.facts.filter(f => f.scope === 'product' || variantIsNamed(text, f.variantId, packet));

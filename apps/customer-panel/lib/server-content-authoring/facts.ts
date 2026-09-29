@@ -42,5 +42,5 @@ export function buildProductFactPacket(savedProduct: ContentAuthoringSavedProduc
     const reference = resolver.variant(variant.id);
     if (!reference || reference.id !== variant.id || !savedProduct?.id || reference.productId !== savedProduct.id)
         throw new TypeError('content_authoring_reference_invalid');
-} const scope = variant.id ?? `draft-${i}`; add('title', variant.title, 'current_draft', undefined, scope); attributes(variant.attributes, scope); measurements(variant.measurements, scope); }); const source = { snapshot, facts }; if (Buffer.byteLength(canonicalContentAuthoringValue(source), 'utf8') > 32768)
+} const scope = variant.id ?? `draft-${i}`; const emptyPlaceholder = variant.title.trim().toLocaleLowerCase('tr-TR') === 'varsayılan' && !variant.attributes?.length && !Object.keys(variant.measurements ?? {}).length; if (emptyPlaceholder) return; add('title', variant.title, 'current_draft', undefined, scope); attributes(variant.attributes, scope); measurements(variant.measurements, scope); }); const source = { snapshot, facts }; if (Buffer.byteLength(canonicalContentAuthoringValue(source), 'utf8') > 32768)
     throw new TypeError('content_authoring_input_too_large'); return { title: snapshot.title, facts, sourceFingerprint: digest(source) }; }

@@ -34,3 +34,8 @@ test('slow input reduces remaining server generation budget',async()=>{
  let received:any;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>{await new Promise(r=>setTimeout(r,15));return {access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},membership:{status:'active',role:'editor'}}})},enabled:()=>true,service:{generateContent:async(input:any)=>{received=input;return generation;}}}as any;},now:()=>NOW,requestId:()=>ID,requestBudgetMs:100}as any);
  const r=await h.post(req());assert.equal(r.status,200);assert.ok(received.deadlineAt-performance.now()<90);assert.ok(received.deadlineAt-performance.now()>0);
 });
+
+test('protected existing source is an actionable conflict without exposing source text',async()=>{
+ const f=fixture(true,Object.assign(Error('private product text'),{code:'source_preservation_required'}));const response=await f.h.post(req());
+ assert.equal(response.status,409);assert.deepEqual(await response.json(),{code:'source_preservation_required'});
+});

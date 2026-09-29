@@ -37,14 +37,14 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  const Description=({defaultValue,initialOrigin,onOriginChange,onValueChange,authoring}:any)=>{
   descriptionAuthoring=authoring;
   const [text,setText]=useState(defaultValue);const [aiOpen,setAiOpen]=useState(false);
-  const bridge={capture:()=>{const capture=authoring.capture();return {request:capture.request,lifecycle:{sessionId:capture.sessionId,draftRevision:capture.draftRevision,selection:null}};},apply:(field:string,generation:any)=>{if(field!=="description")return authoring.applyField(field,generation);setText("Generated description");onOriginChange({generationId:generation.id,draftId:generation.draftId});onValueChange("Generated description");return true;}};
+  const bridge={capture:()=>{const capture=authoring.capture();return {request:capture.request,lifecycle:{sessionId:capture.sessionId,draftRevision:capture.draftRevision,selection:null}};},canApply:(field:string,generation:any)=>field==="description"||authoring.canApplyField(field,generation),apply:(field:string,generation:any)=>{if(field!=="description")return authoring.applyField(field,generation);setText("Generated description");onOriginChange({generationId:generation.id,draftId:generation.draftId});onValueChange("Generated description");return true;}};
   return createElement("div",{"data-description-origin":JSON.stringify(initialOrigin)},createElement("textarea",{name:"description",value:text,onChange:(e:any)=>{setText(e.currentTarget.value);onValueChange(e.currentTarget.value);}}),createElement("button",{type:"button",onClick:()=>{setText("Generated description");onOriginChange(generatedOrigin);onValueChange("Generated description");}},"Apply description fixture"),createElement("button",{type:"button",onClick:()=>setAiOpen(true)},"Open authoring preview"),aiOpen?createElement(panel.ContentAuthoringPanel,{bridge,fields:authoring.fields,api:generationApi,preferencesApi,onClose:()=>setAiOpen(false)}):null);
  };
  const Sales=({onDirtyChange,onUpdated,onAuthoringBridgeChange,captureProductAuthoringDraft}:any)=>{
   productCapture=captureProductAuthoringDraft;
   const [seoDescription,setSeoDescription]=useState("Unsaved SEO summary");
   React.useEffect(()=>{
-   onAuthoringBridgeChange?.({capture:()=>({request:{currentDraft:{...captureProductAuthoringDraft().currentDraft,seoTitle:"Unsaved SEO title",seoDescription,categoryIds:[],brandId:null}},lifecycle:{draftRevision:seoDescription}}),apply:(field:string,generation:any)=>{if(field!=="seoDescription")return false;setSeoDescription(generation.draft.seoDescription);onDirtyChange(true);return true;}});
+   onAuthoringBridgeChange?.({capture:()=>({request:{currentDraft:{...captureProductAuthoringDraft().currentDraft,seoTitle:"Unsaved SEO title",seoDescription,categoryIds:[],brandId:null}},lifecycle:{draftRevision:seoDescription}}),canApply:(field:string,generation:any)=>field==="seoDescription"&&typeof generation.draft?.seoDescription==="string",apply:(field:string,generation:any)=>{if(field!=="seoDescription")return false;setSeoDescription(generation.draft.seoDescription);onDirtyChange(true);return true;}});
    return ()=>onAuthoringBridgeChange?.(null);
   },[onAuthoringBridgeChange,captureProductAuthoringDraft,seoDescription]);
   return createElement("div",null,createElement("span",{"data-seo-description":true},seoDescription),
@@ -128,6 +128,7 @@ test("existing detail offers one three-field bundle with current unsaved SEO cap
  const bridge=h.authoring();assert.deepEqual(bridge.fields,["description","seoTitle","seoDescription"]);
  const captured=bridge.capture();assert.deepEqual(captured.request.fields,bridge.fields);assert.equal(captured.request.productVersion,7);assert.equal(captured.request.profileVersion,9);
  assert.equal(captured.request.currentDraft.title,"Unsaved general title");assert.equal(captured.request.currentDraft.description,"Saved description");assert.equal(captured.request.currentDraft.seoTitle,"Unsaved SEO title");assert.equal(captured.request.currentDraft.seoDescription,"Unsaved SEO summary");
+ assert.equal(bridge.canApplyField("seoTitle",{draft:{seoTitle:"Missing controller"}}),false);assert.equal(bridge.canApplyField("seoDescription",{draft:{seoDescription:"Chosen AI summary"}}),true);assert.equal(h.container.querySelector('[data-seo-description]')!.textContent,"Unsaved SEO summary");
  await act(async()=>assert.equal(bridge.applyField("seoDescription",{id:generatedOrigin.generationId,draftId:generatedOrigin.draftId,draft:{seoDescription:"Chosen AI summary"}}),true));
  assert.equal(h.container.querySelector('[data-seo-description]')!.textContent,"Chosen AI summary");assert.equal(h.container.querySelector<HTMLTextAreaElement>('[name="description"]')!.value,"Saved description");assert.equal(h.requests.length,0);
  assert.notEqual(h.authoring().capture().draftRevision,captured.draftRevision,"SEO changes invalidate a prior bundled snapshot");
