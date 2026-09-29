@@ -2,6 +2,30 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
+-- Product UUIDs are immutable audit references, like record_deletion_operations.resource_id.
+-- A physical FK would make the established SQL144 permanent-delete dependency scan reject
+-- any product with a generation/history. Preserve the records, and validate scope at insert.
+ALTER TABLE saas.content_authoring_operations DROP CONSTRAINT IF EXISTS content_authoring_operations_product_id_store_id_fkey;
+ALTER TABLE saas.content_authoring_origin_history DROP CONSTRAINT IF EXISTS content_authoring_origin_history_product_id_store_id_fkey;
+CREATE OR REPLACE FUNCTION saas.content_authoring_product_reference_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
+BEGIN
+ IF TG_OP='UPDATE' THEN
+  IF NEW.product_id IS DISTINCT FROM OLD.product_id OR NEW.store_id<>OLD.store_id
+  THEN RAISE EXCEPTION 'CONTENT_AUTHORING_PRODUCT_REFERENCE_IMMUTABLE' USING ERRCODE='22023'; END IF;
+  -- Finalizing an in-flight request remains possible after controlled product deletion.
+  RETURN NEW;
+ END IF;
+ IF NEW.product_id IS NOT NULL THEN
+  PERFORM 1 FROM saas.products WHERE id=NEW.product_id AND store_id=NEW.store_id AND status<>'archived' FOR KEY SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'CONTENT_AUTHORING_PRODUCT_REFERENCE_INVALID' USING ERRCODE='22023'; END IF;
+ END IF;
+ RETURN NEW;
+END $f$;
+DROP TRIGGER IF EXISTS content_authoring_product_reference ON saas.content_authoring_operations;
+CREATE TRIGGER content_authoring_product_reference BEFORE INSERT OR UPDATE ON saas.content_authoring_operations
+ FOR EACH ROW EXECUTE FUNCTION saas.content_authoring_product_reference_guard();
+REVOKE ALL ON FUNCTION saas.content_authoring_product_reference_guard() FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
+
 -- Both digests are computed from durable field content. Retained on rollback with history.
 ALTER TABLE saas.content_authoring_origin_history ADD COLUMN IF NOT EXISTS generated_content_digest text
  CHECK(generated_content_digest IS NULL OR generated_content_digest ~ '^sha256:[a-f0-9]{64}$');
@@ -9,6 +33,8 @@ ALTER TABLE saas.content_authoring_origin_history ADD COLUMN IF NOT EXISTS gener
 CREATE OR REPLACE FUNCTION saas.content_authoring_origin_binding_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
 DECLARE generation saas.content_authoring_operations; latest saas.content_authoring_origin_history;
 BEGIN
+ PERFORM 1 FROM saas.products WHERE store_id=NEW.store_id AND id=NEW.product_id FOR KEY SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'CONTENT_AUTHORING_PRODUCT_REFERENCE_INVALID' USING ERRCODE='22023'; END IF;
  IF NEW.generation_id IS NULL THEN RETURN NEW; END IF;
  SELECT * INTO generation FROM saas.content_authoring_operations WHERE id=NEW.generation_id FOR UPDATE;
  SELECT * INTO latest FROM saas.content_authoring_origin_history
@@ -59,11 +85,17 @@ CREATE FUNCTION saas.content_authoring_normalize(p_field text,p_value text) RETU
 DECLARE v text:=btrim(coalesce(p_value,''));
 BEGIN
  IF p_field='description' THEN
+  v:=replace(v,chr(160),'&nbsp;');
   v:=regexp_replace(v,'<(table|tbody|tr|td|th|li)([[:space:]][^>]*)?>','<\1>','g');
   v:=regexp_replace(v,'<(li|td|th)><p>([^<]*)</p></(li|td|th)>','<\1>\2</\3>','g');
   -- DOM serialization emits literal quotes/apostrophes in text nodes.
   v:=regexp_replace(v,'<(p|h2|h3|h4|blockquote|li)>([[:space:]]|<br[[:space:]]*/?>|&nbsp;)*</\1>','','gi');
   v:=replace(replace(v,'&quot;','"'),'&#39;','''');
+  -- ProseMirror's default whitespace parser collapses ASCII HTML whitespace and
+  -- trims it at block boundaries. Preserve nonbreaking spaces and escaped markup.
+  v:=regexp_replace(v,E'[ \t\r\n\f]+',' ','g');
+  v:=regexp_replace(v,'<(p|h2|h3|h4|li|td|th)> +','<\1>','g');
+  v:=regexp_replace(v,' +</(p|h2|h3|h4|li|td|th)>','</\1>','g');
  END IF;
  RETURN v;
 END $f$;
@@ -84,6 +116,9 @@ BEGIN
   IF p_origins ? field_name THEN ref:=p_origins->field_name;
   ELSIF latest.generation_id IS NOT NULL THEN ref:=jsonb_build_object('generationId',latest.generation_id,'draftId',latest.draft_id);
   ELSE ref:='null'::jsonb; END IF;
+  -- Never-AI manual fields need no provenance row. Explicit manual restore of existing
+  -- lineage remains durable, including subsequent manual saves.
+  IF ref='null'::jsonb AND latest.id IS NULL THEN CONTINUE; END IF;
   IF field_name='description' THEN
    SELECT description,version INTO saved,saved_version FROM saas.products WHERE store_id=p_store_id AND id=p_product_id;
   ELSE

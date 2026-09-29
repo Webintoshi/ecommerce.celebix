@@ -20,3 +20,18 @@ test('public V1 and V2 reject private origin references',async()=>{
  assert.throws(()=>parsePublicProduct({...product,contentOrigins:{description:origin}}));
  assert.throws(()=>parsePublicProductV2({...product,seoTitle:null,seoDescription:null,contentOrigins:{description:origin}}));
 });
+
+test('origin references reject accessors, symbols and nonenumerable properties without invoking getters', () => {
+  let reads = 0;
+  for (const nested of [false, true]) {
+    for (const decorate of [
+      (v: object) => Object.defineProperty(v, nested ? 'generationId' : 'description', { enumerable: true, configurable: true, get() { reads++; return nested ? origin.generationId : origin; } }),
+      (v: object) => Object.defineProperty(v, 'hidden', { value: 'forbidden', enumerable: false }),
+      (v: object) => Object.defineProperty(v, Symbol('hidden'), { value: 'forbidden', enumerable: true }),
+    ]) {
+      const value = nested ? { description: decorate({ ...origin }) } : decorate({ description: origin });
+      assert.throws(() => contracts.parseContentAuthoringFieldOrigins(value), TypeError);
+      assert.equal(reads, 0);
+    }
+  }
+});

@@ -7,7 +7,15 @@ function object(value: unknown): Record<string, unknown> {
     !value || typeof value !== "object" || Array.isArray(value)
     || ![Object.prototype, null].includes(Object.getPrototypeOf(value))
   ) throw new TypeError("invalid_content_origins");
-  return value as Record<string, unknown>;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const parsed: Record<string, unknown> = Object.create(null);
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== "string") throw new TypeError("invalid_content_origins");
+    const descriptor = descriptors[key]!;
+    if (!descriptor.enumerable || !("value" in descriptor)) throw new TypeError("invalid_content_origins");
+    parsed[key] = descriptor.value;
+  }
+  return parsed;
 }
 
 /** Accept only references to generated fields. Authority and content hashes never come from a caller. */

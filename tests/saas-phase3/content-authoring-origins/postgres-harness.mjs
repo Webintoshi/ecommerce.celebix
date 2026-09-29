@@ -77,7 +77,7 @@ function psql(box, source, database = DB, allowFailure = false) {
     return command(box.tools.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], source, allowFailure);
 }
 function apply(box, file, database = DB) {
-    psql(box, readFileSync(path.join(SQL, file), "utf8"), database);
+    psql(box, readFileSync(file === "202609290172_content_authoring_origins.up.sql" && process.env.CONTENT_ORIGINS_UP_OVERRIDE ? process.env.CONTENT_ORIGINS_UP_OVERRIDE : path.join(SQL, file), "utf8"), database);
 }
 function migrations() {
     const accepted = /(?:[.]up|[.]seed|[.]freeze|_grants|_assertions|catalog_assertions)[.]sql$/;
@@ -105,7 +105,7 @@ async function main() {
   psql(box, `CREATE DATABASE ${DB};`, 'postgres');
   const files = readdirSync(SQL).filter(f => {
    const n = Number.parseInt(f.slice(8,12),10);
-   return (n <= 80 || [114,149,150,162,163,164,170].includes(n)) && !f.includes('seed_guzide') && /(?:[.]up|[.]seed|[.]freeze|_grants)[.]sql$/.test(f);
+   return (n <= 80 || [114,117,118,123,130,142,144,149,150,162,163,164,170].includes(n)) && !f.includes('seed_guzide') && /(?:[.]up|[.]seed|[.]freeze|_grants)[.]sql$/.test(f);
   }).sort((a,b)=> Number.parseInt(a.slice(8,12),10)-Number.parseInt(b.slice(8,12),10)||a.localeCompare(b));
   for(const f of files) apply(box,f);
         psql(box, `SET ROLE celebix_saas_owner;
@@ -117,9 +117,6 @@ async function main() {
   const signature='saas.catalog_update_product_with_origins(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,text,jsonb)';
   assert.equal(psql(box,`SELECT to_regprocedure('${signature}') IS NULL;`).stdout.trim(),'t');
   console.log('RED origin save RPC absent before SQL172');
-  apply(box,'202609290172_content_authoring_origins.up.sql');
-  apply(box,'202609290172_content_authoring_origins.down.sql');
-  apply(box,'202609290172_content_authoring_origins.up.sql');
   const now='2026-09-29T12:00:00.000Z', fp='a'.repeat(64), source='b'.repeat(64), config='80000000-0000-4000-8000-000000000075';
   const uuid=n=>`a0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   const quote=v=>v===null?'NULL':`'${String(v).replaceAll("'","''")}'`;
@@ -133,9 +130,31 @@ async function main() {
   const identity=(id=++operation)=>`${quote(uuid(id))},${quote(fp)}`;
   const resources={collections:[],tags:[],attributes:[],extras:[],definitions:[]};
   const quick=(product,title,id=++operation)=>`catalog_onboard_product_with_origins(${auth()},${identity(id)},${quote(product)},ARRAY[${quote(uuid(id+10000))}]::uuid[],${json({kind:'quick',title,priceCents:100,publish:false})})`;
+  const advancedManual=(product,title,legacy=false)=>`catalog_onboard_product_${legacy?'v3':'with_origins'}(${auth()},${identity()},'${product}',ARRAY['${uuid(++operation+10000)}']::uuid[],${json({kind:'advanced',productType:'physical',title,publish:false,variants:[{title:'Default',priceCents:100,stockTracking:false,stockQuantity:0,attributes:{},continueSellingWhenOutOfStock:false,inventory:[]}],profile:{minimumPurchaseQuantity:1},categoryIds:[],resourceIds:resources,channelIds:[]})})`;
+  const baselineDeletion=[];
+  for(const [id,title,call] of [[uuid(208),'Quick Baseline',quick(uuid(208),'Quick Baseline').replace('with_origins','v3')],[uuid(209),'Advanced Baseline',advancedManual(uuid(209),'Advanced Baseline',true)]]) {
+   assert.equal(run(call).outcome,'created');
+   baselineDeletion.push(run(`delete_product(${auth()},${identity()},'${id}',1,${quote(title)})`).outcome);
+  }
+  assert.deepEqual(baselineDeletion,['cleanup_failed','cleanup_failed'],'SQL144 existing inventory guard baseline');
+  apply(box,'202609290172_content_authoring_origins.up.sql');
+  apply(box,'202609290172_content_authoring_origins.down.sql');
+  apply(box,'202609290172_content_authoring_origins.up.sql');
+  // This existing no-variant product is otherwise deletable under the actual SQL144 path.
+  const earlyProduct=uuid(212);
+  psql(box,`SET ROLE celebix_saas_owner;INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES('${earlyProduct}','${STORE_A}','early-manual','Early Manual','draft','TRY',1,'${now}','${now}');`);
+  assert.equal(run(`catalog_update_product_with_origins(${auth()},${identity()},'${earlyProduct}',1,'early-manual','Early Manual','<p>Manual</p>','draft','TRY','{}'::jsonb)`).outcome,'updated');
+  assert.equal(run(`delete_product(${auth()},${identity()},'${earlyProduct}',2,'Early Manual')`).outcome,'deleted','ordinary manual save must not introduce a new deletion dependency');
   const invalidQuick=quick(uuid(200),'Invalid Quick').replace(/\}('::jsonb\))$/,',"contentOrigins":{}}$1');
   assert.equal(run(invalidQuick).outcome,'invalid_input','quick create cannot accept an advanced origin envelope');
   assert.equal(run(quick(PRODUCT,'Origin Product')).outcome,'created');
+  const manualDeleteProduct=uuid(210);
+  assert.equal(run(quick(manualDeleteProduct,'Manual Delete')).outcome,'created');
+  const deleteCall=`delete_product(${auth()},${identity()},'${manualDeleteProduct}',1,'Manual Delete')`;
+  assert.equal(run(deleteCall).outcome,'cleanup_failed','existing inventory dependency guard remains effective');
+  const advancedDelete=uuid(211);assert.equal(run(advancedManual(advancedDelete,'Advanced Delete')).outcome,'created');
+  assert.equal(run(`delete_product(${auth()},${identity()},'${advancedDelete}',1,'Advanced Delete')`).outcome,baselineDeletion[1]);
+  assert.equal(psql(box,`SELECT count(*) FROM saas.content_authoring_origin_history;`).stdout.trim(),'0','never-AI onboarding does not append manual provenance');
   const SECOND=uuid(20); assert.equal(run(quick(SECOND,'Second Product')).outcome,'created');
   const sealed={algorithm:'A256GCM',ciphertext:'Y3JlZGVudGlhbA',iv:'MTIzNDU2Nzg5MDEy',keyId:'qa',tag:'MTIzNDU2Nzg5MDEyMzQ1Ng',version:1};
   const providerAuth=auth().replace(',100,',',');
@@ -151,6 +170,13 @@ async function main() {
   const browser=new Window();const globals=new Map();
   for(const [key,value] of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,HTMLElement:browser.HTMLElement,Node:browser.Node,getComputedStyle:browser.getComputedStyle.bind(browser)})) {globals.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,value});}
   let editorHtml;
+  const serializationCases=[];
+  for (const text of ['Burgu\u00a0bileklik','Burgu\n bileklik',' Burgu bileklik ','Burgu\t  bileklik','<literal> &nbsp; "quoted"']) {
+   const blocks=[{type:'paragraph',children:[{type:'text',text}]}];
+   const generated=renderContentAuthoringDescription(blocks);
+   const probe=new Editor({element:browser.document.createElement('div'),extensions:[StarterKit.configure({heading:{levels:[2,3,4]}}),TableKit],content:generated});
+   try {serializationCases.push({blocks,generated,stored:normalizeStoredProductDescription(probe.getHTML())});} finally {probe.destroy();}
+  }
   const editor=new Editor({element:browser.document.createElement('div'),extensions:[StarterKit.configure({heading:{levels:[2,3,4]}}),TableKit],content:generatedHtml});
   try { editorHtml=normalizeStoredProductDescription(editor.getHTML());assert.match(editorHtml,/<li><p>14,89 g<\/p><\/li>/);assert.match(editorHtml,/<h4>Details<\/h4>/); }
   finally {editor.destroy();for(const [key,value] of globals)value?Object.defineProperty(globalThis,key,value):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
@@ -161,9 +187,10 @@ async function main() {
     VALUES(${quote(uuid(id))},${quote(store)},${quote(actor)},${quote(uuid(id+100))},${quote(product)},'${fp}','${source}','${config}','deepseek','deepseek-flash',1,'v1',${quote(status)},${status==='completed'?json(draft):'NULL'},'${now}','${now}',${status==='pending'?'NULL':quote(now)});`);
    return {generationId:uuid(id),draftId:uuid(id+100)};
   };
-  const emptyBlocks=[{type:'paragraph',children:[]},{type:'heading',level:2,children:[{type:'text',text:' '}]},{type:'paragraph',children:[{type:'text',text:'Visible'}]}];
+  const emptyBlocks=[{type:'paragraph',children:[]},{type:'heading',level:2,children:[{type:'text',text:' '}]},{type:'paragraph',children:[{type:'text',text:'\u00a0'}]},{type:'paragraph',children:[{type:'text',text:'Visible'}]}];
   const emptyHtml=renderContentAuthoringDescription(emptyBlocks);
   assert.equal(psql(box,`SELECT saas.content_authoring_normalize('description',${quote(emptyHtml)});`).stdout.trim(),normalizeStoredProductDescription(emptyHtml),'generated empty blocks normalize like stored HTML');
+  for(const sample of serializationCases) assert.equal(psql(box,`SELECT saas.content_authoring_normalize('description',${quote(sample.generated)})=saas.content_authoring_normalize('description',${quote(sample.stored)});`).stdout.trim(),'t',`unedited editor serialization: ${JSON.stringify(sample.generated)}`);
   const origin=seedGeneration(40);
   const callUpdate=(version,origins={},text=editorHtml,product=PRODUCT,a=auth(),id=++operation)=>`catalog_update_product_with_origins(${a},${identity(id)},${quote(product)},${version},${quote(product===PRODUCT?'origin-product':'second-product')},'Origin Product',${quote(text)},'draft','TRY',${json(origins)})`;
   const history=product=>JSON.parse(psql(box,`SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY field,product_version),'[]') FROM saas.content_authoring_origin_history h WHERE product_id=${quote(product)};`).stdout.trim());
@@ -179,10 +206,10 @@ async function main() {
   assert.equal(h.content_digest,'sha256:'+createHash('sha256').update(generatedHtml.replaceAll('&quot;','"').replaceAll('&#39;',"'")).digest('hex'));
   assert.equal(run(okCall).outcome,'operation_replayed');assert.equal(history(PRODUCT).length,initialCount+1);
   assert.equal(run(callUpdate(1,{description:origin})).outcome,'version_conflict');assert.equal(history(PRODUCT).length,initialCount+1);
-  assert.equal(history(PRODUCT).filter(x=>x.field==='seoTitle').at(-1).origin,'manual','description save must not mark SEO saved');
+  assert.equal(history(PRODUCT).filter(x=>x.field==='seoTitle').length,0,'never-AI SEO has no redundant manual history');
   const updateSEO=(version,origins={},title='Generated title',a=auth())=>`catalog_update_merchandising_with_origins(${a},${identity()},'${PRODUCT}',${version},${json({profile:{minimumPurchaseQuantity:1,seoTitle:title,seoDescription:'Generated description'},categoryIds:[],resourceIds:resources,channelIds:[]})},${json(origins)})`;
   assert.equal(run(updateSEO(1,{seoTitle:origin,seoDescription:origin})).outcome,'updated');
-  assert.equal(history(PRODUCT).filter(x=>x.field==='description').length,2);
+  assert.equal(history(PRODUCT).filter(x=>x.field==='description').length,1);
   assert.equal(run(updateSEO(1,{seoTitle:origin})).outcome,'version_conflict');
   const before=history(PRODUCT).length;
   assert.equal(run(updateSEO(2,{seoTitle:origin,seoDescription:{...origin,draftId:uuid(999)}})).outcome,'invalid_input');
@@ -226,14 +253,69 @@ async function main() {
   const winner=results[0].outcome==='created'?NEW_A:NEW_B,loser=winner===NEW_A?NEW_B:NEW_A;
   assert.equal(history(winner).filter(x=>x.generation_id===newOrigin.generationId).length,2);assert.equal(history(loser).length,0);
   assert.equal(psql(box,`SELECT count(*) FROM saas.products WHERE id='${loser}';`).stdout.trim(),'0');
+  // Legitimate pre-existing products without variants are deletable. Current create RPCs
+  // always make variants/inventory, so do not fabricate a deletion capability for onboarding.
+  const bare=(id,title='Deletion Product')=>{
+   const product=uuid(id);psql(box,`SET ROLE celebix_saas_owner;INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES('${product}','${STORE_A}','deletion-${id}',${quote(title)},'draft','TRY',1,'${now}','${now}');`);return product;
+  };
+  const del=(product,version=1,title='Deletion Product',a=auth(),id=++operation)=>`delete_product(${a},${identity(id)},'${product}',${version},${quote(title)})`;
+  const bareSave=(product,version,origins={},text='<p>Manual</p>')=>`catalog_update_product_with_origins(${auth()},${identity()},'${product}',${version},'deletion-${Number(product.slice(-12))}','Deletion Product',${quote(text)},'draft','TRY',${json(origins)})`;
+  const manual=bare(300);assert.equal(run(bareSave(manual,1)).outcome,'updated');assert.equal(history(manual).length,0);
+  assert.equal(run(del(manual,2,'Wrong')).outcome,'invalid_confirmation');
+  assert.equal(run(del(manual,1)).outcome,'version_conflict');
+  assert.equal(run(del(manual,2,'Deletion Product',auth(EDITOR,MEMBER))).outcome,'membership_denied');
+  assert.equal(run(del(manual,2,'Deletion Product',auth(PRINCIPAL_B,MEMBERSHIP_B,STORE_B))).outcome,'product_not_found');
+  const manualRemoval=del(manual,2);assert.equal(run(manualRemoval).outcome,'deleted');assert.equal(run(manualRemoval).outcome,'operation_replayed');
+  for(const mode of ['unapplied','applied','restored']) {
+   const product=bare(301+['unapplied','applied','restored'].indexOf(mode)),ref=seedGeneration(400+['unapplied','applied','restored'].indexOf(mode),product);
+   let version=1;
+   if(mode!=='unapplied'){assert.equal(run(bareSave(product,version++,{description:ref},editorHtml)).outcome,'updated');}
+   if(mode==='restored'){assert.equal(run(bareSave(product,version++,{description:null})).outcome,'updated');}
+   const retained=history(product);const operationBefore=psql(box,`SELECT row_to_json(o) FROM saas.content_authoring_operations o WHERE id='${ref.generationId}';`).stdout;
+   const remove=del(product,version);assert.equal(run(remove).outcome,'deleted',mode);assert.equal(run(remove).outcome,'operation_replayed');
+   assert.equal(psql(box,`SELECT count(*) FROM saas.products WHERE id='${product}';`).stdout.trim(),'0');
+   assert.deepEqual(history(product),retained);assert.equal(psql(box,`SELECT row_to_json(o) FROM saas.content_authoring_operations o WHERE id='${ref.generationId}';`).stdout,operationBefore);
+   assert.notEqual(psql(box,`SET ROLE celebix_saas_owner;UPDATE saas.content_authoring_operations SET product_id='${PRODUCT}' WHERE id='${ref.generationId}';`,DB,true).status,0,'logical product reference remains immutable');
+   assert.equal(run(callUpdate(6,{description:ref})).outcome,'invalid_input','deleted-product generation cannot move to another product');
+  }
+  for(const [index,sample] of serializationCases.entries()){
+   const product=bare(320+index),ref=seedGeneration(420+index,product,PRINCIPAL_A,STORE_A,{description:sample.blocks});
+   assert.equal(run(bareSave(product,1,{description:ref},sample.stored)).outcome,'updated');
+   const saved=history(product).at(-1);assert.equal(saved.origin,'ai');assert.equal(saved.content_digest,saved.generated_content_digest);
+   assert.equal(run(bareSave(product,2,{},sample.stored.replace('</p>',' actual edit</p>'))).outcome,'updated');assert.equal(history(product).at(-1).origin,'edited_ai');
+  }
+  const mediaProduct=bare(331),mediaId=uuid(431),mediaKey=`stores/${STORE_A}/products/${mediaProduct}/${mediaId}.jpg`;
+  psql(box,`SET ROLE celebix_saas_owner;INSERT INTO saas.product_media(id,store_id,product_id,object_key,public_url,media_type,byte_size,sort_order,status,created_at,updated_at) VALUES('${mediaId}','${STORE_A}','${mediaProduct}',${quote(mediaKey)},${quote('https://media.example.test/'+mediaKey)},'image/jpeg',100,0,'active','${now}','${now}');`);
+  assert.equal(run(del(mediaProduct)).outcome,'cleanup_pending','retained media must still be cleaned by existing workflow');
+  assert.equal(psql(box,`SELECT count(*) FROM saas.products WHERE id='${mediaProduct}';`).stdout.trim(),'1');
+  // A historical unsaved-draft association retains first-product binding after deletion.
+  const oldBound=bare(332),oldRef=seedGeneration(432,null);
+  psql(box,`SET ROLE celebix_saas_owner;INSERT INTO saas.content_authoring_origin_history(id,store_id,product_id,draft_id,field,origin,generation_id,source_fingerprint,content_digest,product_version,principal_id,created_at) VALUES('${uuid(533)}','${STORE_A}','${oldBound}','${oldRef.draftId}','description','ai','${oldRef.generationId}','${source}','sha256:${fp}',1,'${PRINCIPAL_A}','${now}');`);
+  const oldAssociation=history(oldBound);assert.equal(run(del(oldBound)).outcome,'deleted');assert.deepEqual(history(oldBound),oldAssociation);
+  assert.equal(run(advanced(uuid(333),2333).replaceAll(newOrigin.generationId,oldRef.generationId).replaceAll(newOrigin.draftId,oldRef.draftId)).outcome,'invalid_input','deleted first binding cannot be reused to create another product');
+  // Actual begin/claim/complete can preserve usage after a concurrent controlled delete.
+  assert.equal(run(`content_authoring_fail(${providerAuth},'${pending.generationId}',NULL,1,'cancelled','not_dispatched')`).outcome,'failed');
+  const inFlight=bare(334),inFlightId=uuid(434),later='2026-09-29T13:00:00.000Z',laterProvider=providerAuth.replace(now,later);
+  const begin=(product,id)=>`content_authoring_begin(${laterProvider},'${id}','${fp}','${uuid(534)}','${product}','${source}','${config}','deepseek','deepseek-flash',1,'v1')`;
+  assert.equal(run(begin(uuid(99999),uuid(435))).outcome,'invalid_input','unknown product rejected at operation reservation');
+  assert.equal(run(begin(inFlight,inFlightId)).outcome,'pending');
+  const claimed=run(`content_authoring_claim(${laterProvider},'${inFlightId}',1)`);assert.equal(claimed.outcome,'claimed');
+  assert.equal(run(del(inFlight,1,'Deletion Product',auth().replace(now,later))).outcome,'deleted');
+  const finished=run(`content_authoring_complete(${laterProvider},'${inFlightId}','${claimed.payload.claimToken}',${claimed.payload.version},${json({description,suggestions:[],claims:[],sourceFingerprint:source})},${json({inputTokens:5,outputTokens:7,totalTokens:12})})`);
+  assert.equal(finished.outcome,'completed');assert.equal(finished.payload.productId,inFlight);assert.deepEqual(finished.payload.usage,{inputTokens:5,outputTokens:7,totalTokens:12});
+  const guardedProduct=bare(330);
+  psql(box,`SET ROLE celebix_saas_owner;CREATE TABLE saas.qa_unknown_product_dependency(store_id uuid,product_id uuid REFERENCES saas.products(id));INSERT INTO saas.qa_unknown_product_dependency VALUES('${STORE_A}','${guardedProduct}');`);
+  assert.equal(run(del(guardedProduct)).outcome,'cleanup_failed','unrecognized FK dependencies remain blocked');
+  console.log('PASS real SQL144 quick+advanced inventory baseline preserved; dependency-free manual/AI unapplied/applied/manualrestore delete+replay retains all durable operations/history; editor whitespace classification');
   for(const role of ['celebix_saas_app','celebix_saas_workflow','celebix_saas_host_resolver']){
    assert.notEqual(psql(box,`SET ROLE ${role};SELECT * FROM saas.content_authoring_origin_history;`,DB,true).status,0);
    assert.equal(psql(box,`SELECT has_function_privilege('${role}','saas.content_authoring_append_origins(uuid,uuid,uuid,text[],jsonb,timestamptz,boolean)','EXECUTE');`).stdout.trim(),'f');
   }
   assert.equal(psql(box,`SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='saas.content_authoring_origin_history'::regclass;`).stdout.trim(),'t');
   assert.notEqual(psql(box,`SET ROLE celebix_saas_owner;UPDATE saas.content_authoring_origin_history SET origin='manual';`,DB,true).status,0);
+  const retainedHistory=psql(box,`SELECT jsonb_agg(to_jsonb(h) ORDER BY id) FROM saas.content_authoring_origin_history h;`).stdout;
   const durable=history(PRODUCT);apply(box,'202609290172_content_authoring_origins.down.sql');assert.deepEqual(history(PRODUCT),durable);
-  apply(box,'202609290172_content_authoring_origins.up.sql');assert.deepEqual(history(PRODUCT),durable);assert.equal(read().payload.contentOrigins.description.generationId,partial.generationId);
+  apply(box,'202609290172_content_authoring_origins.up.sql');assert.deepEqual(history(PRODUCT),durable);assert.equal(psql(box,`SELECT jsonb_agg(to_jsonb(h) ORDER BY id) FROM saas.content_authoring_origin_history h;`).stdout,retainedHistory,'down/up preserves histories for deleted products too');assert.equal(read().payload.contentOrigins.description.generationId,partial.generationId);
   console.log('PASS PostgreSQL16 atomic rollback, replay/CAS, per-field versions, server digests, current authority, cross-actor latest lineage/manual restore, strict generation binding, concurrent create binding, private reload, RLS, down/up preservation');
  } finally { stop(box); }
 }
