@@ -35,7 +35,7 @@ import {
   normalizeStoredProductDescription,
 } from "@/lib/product-description-editor";
 import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
-import { ContentAuthoringOrigin, applyDescriptionDraft, captureDescriptionSelection, descriptionOrigin, type PendingContentOrigin } from "@/lib/content-authoring-ui/editor";
+import { ContentAuthoringOrigin, applyDescriptionDraft, canApplyDescriptionDraft, captureDescriptionSelection, descriptionOrigin, type PendingContentOrigin } from "@/lib/content-authoring-ui/editor";
 import { renderContentAuthoringDescription } from "@/lib/server-content-authoring/render";
 import type { ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
 import styles from "./product-description-editor.module.css";
@@ -53,6 +53,7 @@ type ProductDescriptionFieldProps = Readonly<{
   onOriginChange?(origin: PendingContentOrigin | null): void;
   authoring?: Readonly<{
     capture(): Readonly<{request: ContentAuthoringRequest; draftRevision: string; sessionId: string}>;
+    canApplyField?(field: ContentAuthoringField, generation: ContentGenerationView): boolean;
     applyField?(field: ContentAuthoringField, generation: ContentGenerationView): boolean;
     fields?: readonly ContentAuthoringField[];
   }>;
@@ -241,6 +242,11 @@ export function ProductDescriptionField({
       const selection = editor.state.selection;
       const selected = captureDescriptionSelection(editor);
       return {request:{...captured.request,currentDraft:{...captured.request.currentDraft,description:normalizeStoredProductDescription(editor.getHTML())},selection:selected?{field:"description",text:selected.text}:null},lifecycle:{sessionId:captured.sessionId,draftRevision:JSON.stringify([captured.draftRevision,selection.from,selection.to]),selection:selected ? {from:selected.from,to:selected.to} : null}};
+    },
+    canApply(field,generation,selection) {
+      if(field !== "description") return callbacks.current.authoring?.canApplyField?.(field,generation) ?? false;
+      if(readOnly || !editor || !generation.draft?.description) return false;
+      return canApplyDescriptionDraft(editor,renderContentAuthoringDescription(generation.draft.description),selection);
     },
     apply(field,generation,selection) {
       if(field !== "description") return callbacks.current.authoring?.applyField?.(field,generation) ?? false;

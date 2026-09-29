@@ -2,6 +2,12 @@ import {Extension,type Editor} from '@tiptap/core';
 import {closeHistory} from '@tiptap/pm/history';
 export type PendingContentOrigin=Readonly<{generationId:string;draftId:string}>;
 export const ContentAuthoringOrigin=Extension.create({name:'contentAuthoringOrigin',addGlobalAttributes(){return [{types:['doc'],attributes:{contentAuthoringOrigin:{default:null,rendered:false}}}];}});
+export function canApplyDescriptionDraft(editor:Editor,html:string,selection:Readonly<{from:number;to:number}>|null){
+ if(editor.isDestroyed||!editor.isEditable)return false;
+ const range=selection??{from:0,to:editor.state.doc.content.size};
+ if(range.from<0||range.to>editor.state.doc.content.size||range.from>range.to)return false;
+ return editor.can().insertContentAt(range,html);
+}
 export function applyDescriptionDraft(_editor:Editor,_html:string,_origin:PendingContentOrigin,_selection:Readonly<{from:number;to:number}>|null){const range=_selection??{from:0,to:_editor.state.doc.content.size};
  if(range.from<0||range.to>_editor.state.doc.content.size||range.from>range.to)return false;
  _editor.view.dispatch(closeHistory(_editor.state.tr));

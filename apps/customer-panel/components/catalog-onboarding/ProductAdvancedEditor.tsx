@@ -274,6 +274,9 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     const request:ContentAuthoringRequest = {draftId:authoringDraftId,productId:editor?.product.id ?? null,productVersion:productDraft?.productVersion ?? editor?.product.version ?? null,profileVersion:editor?.profile.version ?? null,currentDraft:{...productDraft?.currentDraft,title:productDraft?.currentDraft.title ?? titleValue,description:productDraft ? productDraft.currentDraft.description : descriptionValue,seoTitle:text(data,"seoTitle"),seoDescription:text(data,"seoDescription"),categoryIds,brandId:text(data,"resource-brand") || null,variants:productDraft?.currentDraft.variants ?? currentVariants},action:"improve",fields:["description"],locale:"tr-TR",tone:"neutral",length:"medium",note:"",selection:null};
     return {request,sessionId:authoringSessionId,draftRevision:JSON.stringify({product:productDraft?.draftRevision,form:[...data.entries()],variants,categoryIds,productType})};
   }
+  function canApplyAuthoringField(field:ContentAuthoringField,generation:ContentGenerationView) {
+    return !busy && field !== "description" && generation.draft?.[field] !== undefined && !!formRef.current && !!seoFieldControllers.current[field];
+  }
   function applyAuthoringField(field:ContentAuthoringField,generation:ContentGenerationView) {
     if(field === "description" || !generation.draft || generation.draft[field] === undefined || !formRef.current)return false;
     const controller = seoFieldControllers.current[field];
@@ -281,7 +284,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     controller.apply(generation.draft[field],{generationId:generation.id,draftId:generation.draftId});
     markEditingDirty();updateSeoPreview(formRef.current);return true;
   }
-  const seoAuthoringBridge:ContentAuthoringBridge={capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},apply:applyAuthoringField};
+  const seoAuthoringBridge:ContentAuthoringBridge={capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},canApply:canApplyAuthoringField,apply:applyAuthoringField};
   useEffect(()=>{onAuthoringBridgeChange?.(seoAuthoringBridge);return ()=>onAuthoringBridgeChange?.(null);},[onAuthoringBridgeChange,seoAuthoringBridge]);
   const seoAuthoringControls = <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>AI ile SEO oluştur</button>{seoAiOpen?<ContentAuthoringPanel fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</>;
   function requestCancel() {
@@ -527,7 +530,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
+          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} /></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
