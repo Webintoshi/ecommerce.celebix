@@ -21,7 +21,7 @@ export type PromotionDraft = Readonly<{
 export type PromotionCheckState = Readonly<{ conflictsReady: boolean; conflictsBlocking: boolean; marginReady: boolean }>;
 
 export const WIZARD_STEPS = Object.freeze([
-  "Müşteri ne kazanacak?", "Nerede geçerli olacak?", "Kimler kullanabilecek?", "Ne zaman ve hangi sınırlarla?", "Sonucu kontrol edin ve yayınlayın",
+  "Avantaj", "Hedef ve koşullar", "Kontrol ve yayın",
 ] as const);
 
 const benefit = (kind: PromotionBenefit["kind"], percentageBps = 1_000): PromotionBenefit => {
@@ -136,7 +136,7 @@ export function promotionDraftFromDetail(detail: Readonly<{ name: string; ruleDo
 
 export function updatePromotionDraft(draft: PromotionDraft, update: Partial<PromotionDraft>): PromotionDraft {
   const step = update.step === undefined ? draft.step : update.step;
-  if (!Number.isSafeInteger(step) || step < 0 || step > 4 || !Number.isSafeInteger(update.priority ?? draft.priority) || (update.priority ?? draft.priority) < 0 || (update.priority ?? draft.priority) > 1_000) throw new TypeError("promotion_draft_invalid");
+  if (!Number.isSafeInteger(step) || step < 0 || step >= WIZARD_STEPS.length || !Number.isSafeInteger(update.priority ?? draft.priority) || (update.priority ?? draft.priority) < 0 || (update.priority ?? draft.priority) > 1_000) throw new TypeError("promotion_draft_invalid");
   return frozen({ ...draft, ...update, step, selectedTargets: frozen([...(update.selectedTargets ?? draft.selectedTargets)]), excludedTargets: frozen([...(update.excludedTargets ?? draft.excludedTargets)]), rewardTargets: frozen([...(update.rewardTargets ?? draft.rewardTargets)]), audienceIds: frozen([...(update.audienceIds ?? draft.audienceIds)]), codes: frozen([...(update.codes ?? draft.codes)]), tiers: frozen([...(update.tiers ?? draft.tiers)]), combinationBenefitClasses: frozen([...(update.combinationBenefitClasses ?? draft.combinationBenefitClasses)]), paymentMethodIds: frozen([...(update.paymentMethodIds ?? draft.paymentMethodIds)]), shippingMethodIds: frozen([...(update.shippingMethodIds ?? draft.shippingMethodIds)]), salesChannels: frozen([...(update.salesChannels ?? draft.salesChannels)]) });
 }
 
@@ -237,10 +237,22 @@ export function validatePromotionDraft(draft: PromotionDraft): readonly string[]
   return frozen(issues);
 }
 
+export function promotionBenefitSummary(draft: PromotionDraft): string {
+  const current = draft.benefit;
+  switch (current.kind) {
+    case "percentage": return `%${current.percentageBps / 100} indirim`;
+    case "fixed_amount": return `${new Intl.NumberFormat("tr-TR", { style: "currency", currency: current.currency }).format(current.amountMinor / 100)} indirim`;
+    case "free_shipping": return "ücretsiz kargo";
+    case "buy_x_get_y": return `${current.buyQuantity} al, ${current.receiveQuantity} ürüne %${current.discountPercentageBps / 100} indirim${current.reward.strategy === "selected_products_cheapest" ? ` · ${current.reward.productIds.length} ödül ürünü` : current.reward.strategy === "specific_variant" ? " · seçili varyant" : " · aynı ürün"}`;
+    case "quantity_tiers": return draft.tiers.map((tier) => `${tier.minimumQuantity} adette %${tier.percentageBps / 100}`).join(" · ");
+    case "bundle_price": return current.items.length ? `${current.items.reduce((sum, item) => sum + item.quantity, 0)} ürünlü paket · ${new Intl.NumberFormat("tr-TR", { style: "currency", currency: current.currency }).format(current.bundlePriceMinor / 100)}` : "paket · ürün seçimi bekleniyor";
+    case "gift": return `${current.quantity} adet hediye · ${current.giftVariantId === UNSELECTED_GIFT_VARIANT ? "seçim bekleniyor" : "seçili varyant"}`;
+  }
+}
+
 export function promotionSummary(draft: PromotionDraft): string {
   const who = draft.audience === "everyone" ? "herkes için" : draft.audience === "first_paid_order" ? "ilk alışverişte" : draft.audience === "abandoned_cart" ? "yarım kalan sepeti olan müşteriler için" : "seçtiğiniz müşteriler için";
-  const reward = draft.benefit.kind === "free_shipping" ? "ücretsiz kargo" : draft.benefit.kind === "percentage" ? `%${draft.benefit.percentageBps / 100} indirim` : draft.benefit.kind === "fixed_amount" ? `${draft.benefit.amountMinor / 100} TL indirim` : draft.benefit.kind === "gift" ? "ücretsiz hediye" : "özel avantaj";
-  return `${draft.name}: ${who} ${reward}.`;
+  return `${draft.name}: ${who} ${promotionBenefitSummary(draft)}.`;
 }
 
 export function publishEligibility(draft: PromotionDraft, checks: PromotionCheckState): Readonly<{ canPublish: boolean; reason: string | null }> {
