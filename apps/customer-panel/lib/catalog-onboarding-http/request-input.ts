@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCatalogCategoryFields, parseCatalogCategoryOrderFields, parseCatalogOnboardingIntent, parsePermanentDeletionCommand, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
+import { parseContentAuthoringFieldOrigins, parseCatalogCategoryFields, parseCatalogCategoryOrderFields, parseCatalogOnboardingIntent, parsePermanentDeletionCommand, type CatalogOnboardingIntent } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BODY_LIMIT = 131_072;
@@ -14,9 +14,9 @@ function object(value: unknown): Record<string, unknown> | null {
   return prototype === Object.prototype || prototype === null ? value as Record<string, unknown> : null;
 }
 
-function exact(value: unknown, keys: readonly string[]): Record<string, unknown> | null {
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> | null {
   const parsed = object(value);
-  return parsed !== null && Object.keys(parsed).sort().join(",") === [...keys].sort().join(",") ? parsed : null;
+  return parsed !== null && keys.every(key => Object.hasOwn(parsed, key)) && Object.keys(parsed).every(key => [...keys, ...optional].includes(key)) ? parsed : null;
 }
 
 async function json(request: Request): Promise<unknown | null> {
@@ -65,7 +65,7 @@ export async function readCatalogOnboardingCreateInput(request: Request): Promis
 export async function readCatalogMerchandisingUpdateInput(request: Request) {
   const operationId = operation(request);
   const raw = await json(request);
-  const parsed = exact(raw, ["expectedProfileVersion", "profile", "categoryIds", "resourceIds", "channelIds"]);
+  const parsed = exact(raw, ["expectedProfileVersion", "profile", "categoryIds", "resourceIds", "channelIds"], ["contentOrigins"]);
   if (operationId === null || parsed === null || !Number.isSafeInteger(parsed.expectedProfileVersion) || (parsed.expectedProfileVersion as number) < 1) return INVALID;
   try {
     const synthetic = parseCatalogOnboardingIntent({
@@ -75,6 +75,7 @@ export async function readCatalogMerchandisingUpdateInput(request: Request) {
     });
     if (synthetic.kind !== "advanced") return INVALID;
     return Object.freeze({
+      ...(Object.hasOwn(parsed, "contentOrigins") ? { contentOrigins: parseContentAuthoringFieldOrigins(parsed.contentOrigins, ["seoTitle", "seoDescription"]) } : {}),
       kind: "valid" as const, operationId, expectedProfileVersion: parsed.expectedProfileVersion as number,
       profile: synthetic.profile, categoryIds: synthetic.categoryIds, resourceIds: synthetic.resourceIds, channelIds: synthetic.channelIds,
     });

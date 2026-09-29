@@ -40,6 +40,7 @@ export interface CatalogMerchandisingPayload {
 }
 
 export interface UpdateCatalogMerchandisingInput extends CatalogOnboardingAuthorityInput, CatalogMerchandisingPayload {
+  readonly contentOrigins?: import("@celebix/saas-contracts").ContentAuthoringFieldOriginsInput;
   readonly operationId: string;
   readonly productId: string;
   readonly expectedProfileVersion: number;

@@ -1,3 +1,4 @@
+import { parseContentAuthoringFieldOrigins } from "../content-authoring/origins.ts";
 import { parseProduct, parseProductVariant, parseProductMeasurements } from "../catalog/validation.ts";
 import {
   CATALOG_ONBOARDING_CHANNEL_KINDS,
@@ -210,11 +211,12 @@ function parseQuick(value: Record<string, unknown>): CatalogQuickCreateIntent {
 function parseAdvanced(value: Record<string, unknown>): CatalogAdvancedCreateIntent {
   const parsed = exact(value, [
     "kind", "productType", "title", "publish", "variants", "categoryIds", "resourceIds", "channelIds", "profile",
-  ], ["description"]);
+  ], ["description", "contentOrigins"]);
   if (parsed.kind !== "advanced") invalid();
   const productType = enumValue(parsed.productType, CATALOG_ONBOARDING_PRODUCT_TYPES);
   return Object.freeze({
     kind: "advanced",
+    ...(Object.hasOwn(parsed, "contentOrigins") ? { contentOrigins: parseContentAuthoringFieldOrigins(parsed.contentOrigins) } : {}),
     productType,
     title: text(parsed.title, 1, 200),
     ...(Object.hasOwn(parsed, "description") ? { description: optionalText(parsed, "description", 1, 10_000)! } : {}),
@@ -285,11 +287,11 @@ function editorVariant(value: unknown): CatalogProductEditorVariant {
 }
 
 export function parseCatalogProductEditorProjection(value: unknown): CatalogProductEditorProjection {
-  const parsed = exact(value, ["product", "variants", "profile", "categoryIds", "resourceIds", "channelIds", "mediaCount"]);
+  const parsed = exact(value, ["product", "variants", "profile", "categoryIds", "resourceIds", "channelIds", "mediaCount"], ["contentOrigins"]);
   const product = parseProduct(parsed.product);
   const variants = Object.freeze(denseArray(parsed.variants, 1, 100).map(editorVariant));
   if (variants.some(({ variant }) => variant.productId !== product.id || variant.storeId !== product.storeId)) invalid();
-  return Object.freeze({ product, variants, profile: profile(parsed.profile), categoryIds: uniqueIds(parsed.categoryIds, 8), resourceIds: resourceIds(parsed.resourceIds), channelIds: uniqueIds(parsed.channelIds, 32), mediaCount: integer(parsed.mediaCount, 0, 100) });
+  return Object.freeze({ ...(Object.hasOwn(parsed, "contentOrigins") ? { contentOrigins: parseContentAuthoringFieldOrigins(parsed.contentOrigins) } : {}), product, variants, profile: profile(parsed.profile), categoryIds: uniqueIds(parsed.categoryIds, 8), resourceIds: resourceIds(parsed.resourceIds), channelIds: uniqueIds(parsed.channelIds, 32), mediaCount: integer(parsed.mediaCount, 0, 100) });
 }
 
 export function parseCatalogOnboardingResult(value: unknown): CatalogOnboardingResult {

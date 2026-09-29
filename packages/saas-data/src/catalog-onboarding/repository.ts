@@ -4,6 +4,7 @@ import {
   parseCatalogOnboardingOptions,
   parseCatalogOnboardingResult,
   parseCatalogProductEditorProjection,
+  parseContentAuthoringFieldOrigins,
   parseCatalogCategoryList,
   parseCatalogCategoryMutationResult,
   parseCatalogCategoryOrderFields,
@@ -340,7 +341,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     if (new Set([productId, ...variantIds]).size !== variantIds.length + 1) throw new CatalogOnboardingRepositoryError("invalid_input");
     const fingerprint = catalogOnboardingFingerprint("create_product", authority.storeId, intent);
     return this.mutate(authority, operationId, fingerprint, "created", {
-      text: `SELECT outcome,result_payload FROM saas.${intent.kind === "quick" ? intent.measurements === undefined ? "catalog_onboard_product_v2" : "catalog_onboard_product_v3" : intent.variants.some(({ measurements }) => measurements !== undefined) ? "catalog_onboard_product_v3" : "catalog_onboard_product_v2"}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)`,
+      text: `SELECT outcome,result_payload FROM saas.catalog_onboard_product_with_origins($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::uuid[],$13::jsonb)`,
       values: [...authorityValues(authority), operationId, fingerprint, productId, variantIds, JSON.stringify(intent)],
     }, parseResult);
   }
@@ -350,7 +351,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     authorizeProduct(authority, "read");
     const productId = catalogOnboardingUuid(parsed.productId);
     return this.read({
-      text: "SELECT outcome,result_payload FROM saas.catalog_get_product_editor_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
+      text: "SELECT outcome,result_payload FROM saas.catalog_get_product_editor_with_origins($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",
       values: [...authorityValues(authority), productId],
     }, "found", (value) => {
       try { return parseCatalogProductEditorProjection(value); } catch { throw unavailable(); }
@@ -361,7 +362,7 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
     const { parsed, authority } = this.authority(input, [
       "tenantContext", "now", "operationId", "productId", "expectedProfileVersion",
       "profile", "categoryIds", "resourceIds", "channelIds",
-    ]);
+    ], ["contentOrigins"]);
     authorizeProduct(authority, "manage_merchandising");
     const operationId = catalogOnboardingUuid(parsed.operationId);
     const productId = catalogOnboardingUuid(parsed.productId);
@@ -372,12 +373,15 @@ export class PostgresCatalogOnboardingRepository implements CatalogOnboardingRep
       resourceIds: parsed.resourceIds,
       channelIds: parsed.channelIds,
     });
+    let contentOrigins;
+    try { contentOrigins = Object.hasOwn(parsed, "contentOrigins") ? parseContentAuthoringFieldOrigins(parsed.contentOrigins, ["seoTitle", "seoDescription"]) : undefined; }
+    catch { throw new CatalogOnboardingRepositoryError("invalid_input"); }
     const fingerprint = catalogOnboardingFingerprint("update_merchandising", authority.storeId, {
-      productId, expectedProfileVersion, payload,
+      productId, expectedProfileVersion, payload, ...(contentOrigins === undefined ? {} : { contentOrigins }),
     });
     return this.mutate(authority, operationId, fingerprint, "updated", {
-      text: "SELECT outcome,result_payload FROM saas.catalog_update_merchandising_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::jsonb)",
-      values: [...authorityValues(authority), operationId, fingerprint, productId, expectedProfileVersion, JSON.stringify(payload)],
+      text: "SELECT outcome,result_payload FROM saas.catalog_update_merchandising_with_origins($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::jsonb,$14::jsonb)",
+      values: [...authorityValues(authority), operationId, fingerprint, productId, expectedProfileVersion, JSON.stringify(payload), JSON.stringify(contentOrigins ?? {})],
     }, parseResult);
   }
 

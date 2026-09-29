@@ -5,6 +5,7 @@ import {
   parsePermanentDeletionCommand,
   parsePermanentDeletionImpact,
   parsePermanentDeletionResult,
+  parseContentAuthoringFieldOrigins,
   parseProduct,
   parseProductVariant,
   type CatalogProductOperation,
@@ -784,20 +785,23 @@ export class PostgresCatalogRepository implements CatalogRepository {
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ProductMutationResult> {
-    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion", "product"]);
+    const exact = exactInput(input, ["tenantContext", "now", "operationId", "productId", "expectedVersion", "product"], ["contentOrigins"]);
     const authority = catalogAuthority(exact.tenantContext as UpdateProductInput["tenantContext"], exact.now as Date);
     authorizeOperation(authority, "update");
     const operationId = catalogUuid(exact.operationId);
     const productId = catalogUuid(exact.productId);
     const expectedVersion = positiveVersion(exact.expectedVersion);
     const product = productFields(exact.product);
-    const fingerprint = catalogFingerprint("update_product", authority.storeId, { productId, expectedVersion, product });
+    let contentOrigins;
+    try { contentOrigins = Object.hasOwn(exact, "contentOrigins") ? parseContentAuthoringFieldOrigins(exact.contentOrigins, ["description"]) : undefined; }
+    catch { throw new CatalogRepositoryError("invalid_input"); }
+    const fingerprint = catalogFingerprint("update_product", authority.storeId, { productId, expectedVersion, product, ...(contentOrigins === undefined ? {} : { contentOrigins }) });
     return this.mutate(authority, operationId, fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.catalog_update_product(
+      text: `SELECT outcome, result_payload FROM saas.catalog_update_product_with_origins(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
-        $9::uuid,$10::text,$11::uuid,$12::bigint,$13::text,$14::text,$15::text,$16::text,$17::text
+        $9::uuid,$10::text,$11::uuid,$12::bigint,$13::text,$14::text,$15::text,$16::text,$17::text,$18::jsonb
       )`,
-      values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion, product.slug, product.title, product.description ?? null, product.status, product.currency],
+      values: [...authorityValues(authority), operationId, fingerprint, productId, expectedVersion, product.slug, product.title, product.description ?? null, product.status, product.currency, JSON.stringify(contentOrigins ?? {})],
     }, ["updated"], productResult);
   }
 

@@ -240,6 +240,7 @@ export function createCatalogOnboardingHttpHandlers(dependencies: Dependencies) 
         operationId: input.operationId,
         productId: selectedProductId,
         expectedProfileVersion: input.expectedProfileVersion,
+        ...(input.contentOrigins === undefined ? {} : { contentOrigins: input.contentOrigins }),
         profile: input.profile,
         categoryIds: input.categoryIds,
         resourceIds: input.resourceIds,

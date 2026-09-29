@@ -1,6 +1,8 @@
 import "server-only";
 
 import {
+  parseContentAuthoringFieldOrigins,
+  type ContentAuthoringFieldOriginsInput,
   parseCatalogProductListQuery,
   parseCatalogBulkProductIntent,
   parseProduct,
@@ -38,7 +40,7 @@ export type CatalogMutationKind =
 
 export type CatalogMutationBodies = Readonly<{
   create_product: Readonly<{ product: CatalogProductFields; initialVariant: CatalogVariantFields }>;
-  update_product: Readonly<{ expectedVersion: number; product: CatalogProductFields }>;
+  update_product: Readonly<{ expectedVersion: number; product: CatalogProductFields; contentOrigins?: ContentAuthoringFieldOriginsInput }>;
   archive_product: Readonly<{ expectedVersion: number }>;
   restore_product: Readonly<{ expectedVersion: number }>;
   remove_product: Readonly<{ expectedVersion: number }>;
@@ -144,12 +146,19 @@ function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): C
       : null;
   }
   if (kind === "update_product") {
-    const parsed = exact(value, ["expectedVersion", "product"]);
-    const expectedVersion = version(parsed?.expectedVersion);
-    const product = productFields(parsed?.product);
-    return parsed && expectedVersion !== null && product
-      ? Object.freeze({ expectedVersion, product }) as CatalogMutationBodies[K]
-      : null;
+    try {
+      const parsed = exact(value, ["expectedVersion", "product"], ["contentOrigins"]);
+      const expectedVersion = version(parsed?.expectedVersion);
+      const product = productFields(parsed?.product);
+      if (!parsed || expectedVersion === null || !product) return null;
+      return Object.freeze({
+        expectedVersion,
+        product,
+        ...(Object.hasOwn(parsed, "contentOrigins") ? {
+          contentOrigins: parseContentAuthoringFieldOrigins(parsed.contentOrigins, ["description"]),
+        } : {}),
+      }) as CatalogMutationBodies[K];
+    } catch { return null; }
   }
   if (kind === "archive_product" || kind === "restore_product" || kind === "remove_product" || kind === "archive_variant") {
     const parsed = exact(value, ["expectedVersion"]);

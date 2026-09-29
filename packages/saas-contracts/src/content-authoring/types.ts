@@ -98,3 +98,7 @@ export interface ContentGenerationView {
  readonly usage: Readonly<{inputTokens:number;outputTokens:number;totalTokens:number}> | null;
  readonly safeCode: string | null; readonly createdAt: string; readonly updatedAt: string; readonly finishedAt: string | null;
 }
+
+/** Private normal-save references; hashes and origin classification are server derived. */
+export type ContentAuthoringFieldOriginInput = Readonly<{ generationId: string; draftId: string }>;
+export type ContentAuthoringFieldOriginsInput = Readonly<Partial<Record<ContentAuthoringField, ContentAuthoringFieldOriginInput | null>>>;

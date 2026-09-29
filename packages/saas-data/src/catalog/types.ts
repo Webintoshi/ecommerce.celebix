@@ -87,6 +87,7 @@ export type CatalogVariantChoice = Readonly<{
 }>;
 
 export interface UpdateProductInput extends CatalogAuthorityInput {
+  readonly contentOrigins?: import("@celebix/saas-contracts").ContentAuthoringFieldOriginsInput;
   readonly operationId: string;
   readonly productId: string;
   readonly expectedVersion: number;
