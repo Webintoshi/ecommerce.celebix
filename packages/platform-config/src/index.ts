@@ -17,6 +17,7 @@ export * from "./product-pricing";
 export * from "./policy-pages";
 export * from "./floating-contact";
 export * from "./content-pages";
+export { normalizeMerchantContentBody, merchantContentBodyBytes, renderMerchantContentBody } from "./merchant-content-body";
 export * from "./saas";
 export * from "./storefront-proxy";
 
