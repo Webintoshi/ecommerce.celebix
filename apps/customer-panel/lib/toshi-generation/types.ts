@@ -6,6 +6,7 @@ export type ToshiGenerationTool = Readonly<{ name: string; description: string; 
 export type ToshiGenerationToolCall = Readonly<{ callId: string; name: string; arguments: unknown }>;
 export type ToshiGenerationToolResult = Readonly<{ callId: string; name: string; result: unknown }>;
 export type ToshiGenerationInput = Readonly<{
+  authoringProfile?: "content_resource";
   outputFormat?: "json_object";
   maxOutputTokens?: number;
   model: string;

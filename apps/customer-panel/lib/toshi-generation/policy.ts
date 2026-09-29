@@ -12,6 +12,9 @@ import {
 const ENCODER = new TextEncoder();
 const MAX_RESPONSE_BYTES = 524_288;
 const MAX_REQUEST_BYTES = 163_840;
+const RESOURCE_MAX_RESPONSE_BYTES = 786_432;
+const RESOURCE_MAX_REQUEST_BYTES = 393_216;
+const RESOURCE_MAX_TEXT_BYTES = 131_072;
 const NAME = /^[a-zA-Z0-9_-]{1,64}$/u;
 type Code = "invalid_input" | "provider_unavailable";
 export function fail(code: Code = "provider_unavailable", outcome?: "empty" | "truncated"): never { throw new ToshiGenerationError(code, outcome); }
@@ -67,10 +70,21 @@ export function usage(inputTokens: unknown, outputTokens: unknown): ToshiGenerat
   return Object.freeze({ inputTokens: inputTokens as number, outputTokens: outputTokens as number });
 }
 
+/** The application ceiling is below the current official Flash context/output limits.
+ * https://api-docs.deepseek.com/quick_start/pricing/ (checked 2026-09-29)
+ */
+export function contentResourceGenerationCapability(provider: ToshiProvider, model: string): Readonly<{ maxInputBytes: 131072; maxOutputTokens: 8192 }> | null {
+  return provider === "deepseek" && model === "deepseek-flash" ? Object.freeze({ maxInputBytes: 131072, maxOutputTokens: 8192 }) : null;
+}
+
 function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): void {
   record(input, "invalid_input");
+  const resource = input.authoringProfile === "content_resource";
+  if (input.authoringProfile !== undefined && !resource) fail("invalid_input");
+  if (resource && (input.outputFormat !== "json_object" || input.tools.length !== 0 || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
+  if (resource && !contentResourceGenerationCapability(provider, input.model)) throw new ToshiGenerationError("model_unavailable");
   if (input.outputFormat !== undefined && input.outputFormat !== "json_object") fail("invalid_input");
-  if (input.maxOutputTokens !== undefined && (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > 4096)) fail("invalid_input");
+  if (input.maxOutputTokens !== undefined && (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > (resource ? 8192 : 4096))) fail("invalid_input");
   if (input.outputFormat && (input.tools.length || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
   const model = text(input.model, 160, "invalid_input");
   if (!/^[a-zA-Z0-9_.:-]{1,160}$/u.test(model)) throw new ToshiGenerationError("model_unavailable");
@@ -84,18 +98,19 @@ function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): vo
   ) throw new ToshiGenerationError("model_unavailable");
   if (!(input.signal instanceof AbortSignal)) fail("invalid_input");
   if (input.signal.aborted) throw new ToshiGenerationError("provider_timeout");
-  if (!text(input.system, 24_000, "invalid_input").trim()) fail("invalid_input");
+  if (!text(input.system, resource ? 131_072 : 24_000, "invalid_input").trim()) fail("invalid_input");
   const contentMode = input.outputFormat === "json_object";
   let historyLength = 0;
   for (const raw of array(input.history, 20, "invalid_input")) {
     const message = record(raw, "invalid_input");
     if (!["user", "assistant"].includes(message.role as string) || Object.keys(message).some((key) => !["role", "text"].includes(key))) fail("invalid_input");
-    const value = text(message.text, contentMode ? 32_768 : 12_000, "invalid_input");
+    const value = text(message.text, resource ? 131_072 : contentMode ? 32_768 : 12_000, "invalid_input");
     // Content authoring sends one serialized fact packet; its contract is a UTF-8 byte budget.
     // Chat retains the existing per-message and aggregate character budgets.
     historyLength += contentMode ? ENCODER.encode(value).byteLength : value.length;
   }
-  if (!input.history.length || historyLength > (contentMode ? 32_768 : 24_000)) fail("invalid_input");
+  if (!input.history.length || historyLength > (resource ? 131_072 : contentMode ? 32_768 : 24_000)) fail("invalid_input");
+  if (resource && ENCODER.encode(input.system).byteLength + historyLength > RESOURCE_MAX_TEXT_BYTES) fail("invalid_input");
   const names = new Set<string>();
   for (const raw of array(input.tools, 20, "invalid_input")) {
     const tool = record(raw, "invalid_input");
@@ -108,9 +123,9 @@ function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): vo
   }
 }
 
-async function readJson(response: Response, signal: AbortSignal): Promise<unknown> {
+async function readJson(response: Response, signal: AbortSignal, maxBytes = MAX_RESPONSE_BYTES): Promise<unknown> {
   const length = response.headers.get("content-length");
-  if (length !== null && (!/^\d+$/u.test(length) || Number(length) > MAX_RESPONSE_BYTES)) { void response.body?.cancel().catch(() => {}); fail(); }
+  if (length !== null && (!/^\d+$/u.test(length) || Number(length) > maxBytes)) { void response.body?.cancel().catch(() => {}); fail(); }
   if (!/^application\/json(?:\s*;|$)/iu.test(response.headers.get("content-type") ?? "")) { void response.body?.cancel().catch(() => {}); fail(); }
   if (!response.body) fail();
   const reader = response.body.getReader();
@@ -128,7 +143,7 @@ async function readJson(response: Response, signal: AbortSignal): Promise<unknow
       if (chunk.done) break;
       if (!(chunk.value instanceof Uint8Array)) fail();
       size += chunk.value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) { void reader.cancel().catch(() => {}); fail(); }
+      if (size > maxBytes) { void reader.cancel().catch(() => {}); fail(); }
       chunks.push(chunk.value);
     }
     const joined = new Uint8Array(size);
@@ -151,7 +166,7 @@ async function readJson(response: Response, signal: AbortSignal): Promise<unknow
 
 export async function request(fetcher: ToshiProviderFetch, input: ToshiGenerationInput, url: string, headers: (key: string) => HeadersInit, body: unknown): Promise<Record<string, unknown>> {
   const encoded = JSON.stringify(data(body, input.continuation === undefined ? "invalid_input" : "provider_unavailable"));
-  if (ENCODER.encode(encoded).byteLength > MAX_REQUEST_BYTES) fail(input.continuation === undefined ? "invalid_input" : "provider_unavailable");
+  if (ENCODER.encode(encoded).byteLength > (input.authoringProfile === "content_resource" ? RESOURCE_MAX_REQUEST_BYTES : MAX_REQUEST_BYTES)) fail(input.continuation === undefined ? "invalid_input" : "provider_unavailable");
   try {
     return await withApiKey(input.secret, async (key) => {
       let response: Response;
@@ -170,7 +185,7 @@ export async function request(fetcher: ToshiProviderFetch, input: ToshiGeneratio
         throw new ToshiGenerationError(["insufficient_quota", "quota_exceeded"].includes(code) ? "quota_exceeded" : "rate_limited");
       }
       if (!response.ok) { void response.body?.cancel().catch(() => {}); fail(); }
-      const result = record(await readJson(response, input.signal));
+      const result = record(await readJson(response, input.signal, input.authoringProfile === "content_resource" ? RESOURCE_MAX_RESPONSE_BYTES : MAX_RESPONSE_BYTES));
       if (JSON.stringify(result).includes(JSON.stringify(key).slice(1, -1))) fail();
       return result;
     });
@@ -213,7 +228,8 @@ export function adapter(provider: ToshiProvider, protocol: Protocol): ToshiGener
       let output: ProtocolResult;
       try { output = await protocol(input, state?.messages ?? [], results); }
       catch (error) { if (error instanceof ToshiGenerationError) throw error; throw new ToshiGenerationError(input.signal.aborted ? "provider_timeout" : "provider_unavailable"); }
-      const content = text(output.text).trim();
+      const content = text(output.text, input.authoringProfile === "content_resource" ? RESOURCE_MAX_TEXT_BYTES : 12_000).trim();
+      if (input.authoringProfile === "content_resource" && ENCODER.encode(content).byteLength > RESOURCE_MAX_TEXT_BYTES) fail();
       const toolCalls = array(output.toolCalls, 6).map((raw) => { const selected = record(raw); return call(input, selected.callId, selected.name, selected.arguments); });
       if (!content && toolCalls.length === 0) fail("provider_unavailable", input.outputFormat ? "empty" : undefined);
       const ids = new Set(state?.callIds ?? []);

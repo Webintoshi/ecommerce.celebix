@@ -31,6 +31,8 @@ import {
   PostgresToshiProviderRepository,
   PostgresToshiConversationRepository,
   PostgresContentAuthoringRepository,
+  PostgresContentResourceAuthoringRepository,
+  PostgresContentResearchRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
 import {
@@ -72,6 +74,8 @@ import { registerServerPromotionsRepository } from "../server-promotions/runtime
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
 import { registerServerContentAuthoringRuntime } from "../server-content-authoring/runtime.ts";
+import { registerServerContentResourceAuthoringRuntime } from "../server-content-resource-authoring/runtime.ts";
+import { registerServerContentResearchRuntime } from "../server-content-research/runtime.ts";
 import { registerServerToshiChatRuntime } from "../server-toshi-chat/runtime.ts";
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
@@ -1097,6 +1101,11 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       archive: ["promotions"],
     }));
     registerServerContentAuthoringRuntime(access, new PostgresContentAuthoringRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined}));
+    if (typedMerchantContentReady) {
+      const researchRepository = new PostgresContentResearchRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined});
+      registerServerContentResearchRuntime(access, researchRepository);
+      registerServerContentResourceAuthoringRuntime(access, new PostgresContentResourceAuthoringRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined}), researchRepository);
+    }
     registerServerToshiChatRuntime(access, toshiConversationRepository, {
       catalog: catalogRepository,
       orders: orderRepository,

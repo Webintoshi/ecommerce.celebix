@@ -29,6 +29,6 @@ export function createDeepSeekGenerationAdapter(fetcher: ToshiProviderFetch) {
     });
     if ((choice.finish_reason === "tool_calls") !== (toolCalls.length > 0)) fail();
     const measured = response.usage == null ? undefined : record(response.usage);
-    return { text: message.content == null ? "" : text(message.content), toolCalls, messages: [...messages, message], usage: measured ? usage(measured.prompt_tokens, measured.completion_tokens) : undefined };
+    return { text: message.content == null ? "" : text(message.content, input.authoringProfile === "content_resource" ? 131_072 : 12_000), toolCalls, messages: [...messages, message], usage: measured ? usage(measured.prompt_tokens, measured.completion_tokens) : undefined };
   });
 }
