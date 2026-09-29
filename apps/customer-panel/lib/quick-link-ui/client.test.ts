@@ -145,19 +145,24 @@ function createHookRuntime(deferEffects = false) {
   };
 }
 
-function mount(node: ReactNode, focusLog: string[], path = "root"): readonly (MountedNode | string)[] {
+function mount(node: ReactNode, focusLog: string[], path = "root", hiddenAncestor = false): readonly (MountedNode | string)[] {
   if (node === null || node === undefined || typeof node === "boolean") return [];
   if (typeof node === "string" || typeof node === "number") return [String(node)];
-  if (Array.isArray(node)) return node.flatMap((child, index) => mount(child, focusLog, `${path}.${index}`));
+  if (Array.isArray(node)) return node.flatMap((child, index) => mount(child, focusLog, `${path}.${index}`, hiddenAncestor));
   if (!React.isValidElement<Record<string, unknown>>(node)) return [];
-  if (node.type === React.Fragment) return mount(node.props.children as ReactNode, focusLog, `${path}.fragment`);
+  if (node.type === React.Fragment) return mount(node.props.children as ReactNode, focusLog, `${path}.fragment`, hiddenAncestor);
   if (typeof node.type === "function") {
     const Component = node.type as (props: Record<string, unknown>) => ReactNode;
-    return mount(Component(node.props), focusLog, `${path}.${Component.name || "component"}`);
+    return mount(Component(node.props), focusLog, `${path}.${Component.name || "component"}`, hiddenAncestor);
   }
   if (typeof node.type !== "string") return [];
+  const hidden = hiddenAncestor || node.props.hidden === true;
   const target = {
     focused: false,
+    closest(selector: string) {
+      assert.equal(selector, "[hidden]", "the hook harness models inherited hidden ancestors for recovery focus");
+      return hidden ? { hidden: true } : null;
+    },
     focus() { this.focused = true; focusLog.push(path); },
   };
   const ref = (node.props as { ref?: unknown }).ref;
@@ -166,7 +171,7 @@ function mount(node: ReactNode, focusLog: string[], path = "root"): readonly (Mo
   return [{
     type: node.type,
     props: node.props,
-    children: mount(node.props.children as ReactNode, focusLog, `${path}.${node.type}`),
+    children: mount(node.props.children as ReactNode, focusLog, `${path}.${node.type}`, hidden),
     target,
   }];
 }
