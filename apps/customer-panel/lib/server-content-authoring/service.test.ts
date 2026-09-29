@@ -125,3 +125,41 @@ test('only claimed invalid output receives known usage; binding loss and adapter
   const r=await createContentAuthoringService(s.dependencies).generateContent(input);assert.equal(r.safeCode,'invalid_output');assert.equal(r.usage,null);
  }
 });
+
+
+import { readFileSync } from 'node:fs';
+import { validateProductDraftOutput } from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
+const diagnosticPacket=buildProductFactPacket(null,{title:'Burgu Bileklik',measurements:{weight:{valueMilli:14890,unit:'g'}}},{category:()=>null,brand:()=>null,attribute:()=>null,variant:()=>null});
+const diagnosticSelected=['description','seoTitle','seoDescription'] as const;
+// Actual synthetic response: only its derived fingerprint is omitted from the
+// checked-in fixture, then rebuilt locally; there are no operation/tenant IDs.
+const diagnosticPayload=()=>({...JSON.parse(readFileSync(new URL('./fixtures/claim-destination-diagnostic.json',import.meta.url),'utf8')),sourceFingerprint:diagnosticPacket.sourceFingerprint});
+test('captured diagnostic rejects source claim fields; correcting only destinations preserves exact measurement',()=>{
+ const original=diagnosticPayload();assert.deepEqual(original.claims.map((x:any)=>x.field),['title','weight']);
+ assert.throws(()=>validateProductDraftOutput(original,diagnosticPacket,diagnosticSelected),/content_authoring_contract_invalid/);
+ const corrected=structuredClone(original);corrected.claims.forEach((x:any)=>{x.field='description';});
+ assert.deepEqual({...corrected,claims:corrected.claims.map((x:any,i:number)=>({...x,field:original.claims[i].field}))},original);
+ const accepted=validateProductDraftOutput(corrected,diagnosticPacket,diagnosticSelected);
+ assert.equal(renderContentAuthoringDescription(accepted.description!),'<p>Burgu Bileklik</p><p>Ağırlık: 14.89 g</p>');
+ for(let i=0;i<original.claims.length;i++){const restored=structuredClone(corrected);restored.claims[i].field=original.claims[i].field;assert.throws(()=>validateProductDraftOutput(restored,diagnosticPacket,diagnosticSelected),/content_authoring_contract_invalid/);}
+ const comma=structuredClone(corrected);comma.claims[1].value='14,89';assert.throws(()=>validateProductDraftOutput(comma,diagnosticPacket,diagnosticSelected));
+});
+test('prompt v2 separates claim destinations from source names and supplies a valid nonempty multi-destination example',async()=>{
+ const s=setup();let binding:any,system='';const begin=s.dependencies.repository.beginGeneration;
+ s.dependencies.repository.beginGeneration=async(value:any)=>{binding=value.providerBinding;return begin(value);};
+ const adapter=s.dependencies.generations.get();s.dependencies.generations={get:()=>({generate:async(value:any)=>{system=value.system;return adapter.generate(value);}})};
+ await createContentAuthoringService(s.dependencies).generateContent(input);
+ assert.equal(binding.promptVersion,'content-authoring-v2');
+ assert.match(system,/claims\[\]\.field is the selected OUTPUT destination/);
+ assert.match(system,/description\|seoTitle\|seoDescription/);
+ assert.match(system,/never a source fact.*title.*weight/);
+ assert.match(system,/factRef, value and unit.*byte-for-byte/);
+ assert.match(system,/Decimal comma.*display prose.*never.*structured/);
+ const exampleText=system.split('Nonempty fact-and-claims example: ')[1]?.split('\n')[0];assert.ok(exampleText);
+ const substitutions:Record<string,string>={'<facts.title>':diagnosticPacket.title,'<fact.ref>':'product:weight:1','<fact.value>':'14.89','<fact.unit>':'g','<facts.sourceFingerprint>':diagnosticPacket.sourceFingerprint};
+ const example=JSON.parse(exampleText.replace(/<[^>]+>/g,(key)=>{assert.ok(Object.hasOwn(substitutions,key));return substitutions[key];}));
+ assert.deepEqual(example.claims.map((x:any)=>x.field),diagnosticSelected);
+ assert.ok(example.description.some((block:any)=>block.children.some((child:any)=>child.type==='fact')));
+ assert.doesNotThrow(()=>validateProductDraftOutput(example,diagnosticPacket,diagnosticSelected));
+ assert.equal(renderContentAuthoringDescription(example.description),'<p>Burgu Bileklik</p><p>14.89 g</p>');
+});

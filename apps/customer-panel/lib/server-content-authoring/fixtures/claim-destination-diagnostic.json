@@ -1,0 +1,50 @@
+{
+  "description": [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "type": "text",
+          "text": "Burgu Bileklik"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "type": "text",
+          "text": "Ağırlık: "
+        },
+        {
+          "type": "fact",
+          "factRef": "product:weight:1",
+          "value": "14.89",
+          "unit": "g"
+        }
+      ]
+    }
+  ],
+  "seoTitle": "Burgu Bileklik",
+  "seoDescription": "Burgu Bileklik. Ağırlık: 14.89 g.",
+  "suggestions": [
+    "Bakım ve saklama koşullarını ürün açıklamasına ekleyin.",
+    "Bileklik ölçülerini ve beden seçeneklerini belirtin.",
+    "Kullanılan malzeme ve yüzey işlemi bilgisini ekleyin.",
+    "Varsa renk ve model seçeneklerini varyant olarak tanımlayın.",
+    "Kutu içeriği ve garanti bilgisini paylaşın."
+  ],
+  "claims": [
+    {
+      "factRef": "product:title:0",
+      "value": "Burgu Bileklik",
+      "field": "title"
+    },
+    {
+      "factRef": "product:weight:1",
+      "value": "14.89",
+      "unit": "g",
+      "field": "weight"
+    }
+  ]
+}
