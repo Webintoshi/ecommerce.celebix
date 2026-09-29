@@ -74,6 +74,7 @@ export interface CatalogQuickCreateIntent {
 }
 
 export interface CatalogAdvancedCreateIntent {
+  readonly contentOrigins?: import("../content-authoring/types.ts").ContentAuthoringFieldOriginsInput;
   readonly kind: "advanced";
   readonly productType: CatalogOnboardingProductType;
   readonly title: string;
@@ -192,6 +193,7 @@ export interface CatalogProductEditorVariant {
 }
 
 export interface CatalogProductEditorProjection {
+  readonly contentOrigins?: import("../content-authoring/types.ts").ContentAuthoringFieldOriginsInput;
   readonly product: Product;
   readonly variants: readonly CatalogProductEditorVariant[];
   readonly profile: CatalogProductMerchandisingProfile;

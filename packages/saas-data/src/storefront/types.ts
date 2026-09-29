@@ -1,4 +1,4 @@
-import type { PublicProduct, PublicProductList, PublicProductMedia, PublicStarterThemePresentation, PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
+import type { PublicProduct, PublicProductV2, PublicProductList, PublicProductMedia, PublicStarterThemePresentation, PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import type { PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import type { TenantContext } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
@@ -42,6 +42,7 @@ export interface PublicStorefrontRepository {
   queryPublicCatalog?(input: PublicCatalogQuery): Promise<PublicCatalogPage>;
   listPublicProductsByCategory(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string; limit: number }>): Promise<PublicStorefrontCategoryProductList>;
   getPublicProductBySlug(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProduct>;
+  getPublicProductWithSeoBySlug?(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProductV2>;
   listPublicProductMedia(input: TrustedStorefrontContext & Readonly<{ now: Date; productId: string }>): Promise<readonly PublicProductMedia[]>;
   getPublicStorefrontDesign(input: TrustedStorefrontContext & Readonly<{ now: Date }>): Promise<PublicStorefrontDesign>;
   resolveCampaignHome?(input: TrustedStorefrontContext & Readonly<{ now: Date }>): Promise<CampaignHomeProjection>;

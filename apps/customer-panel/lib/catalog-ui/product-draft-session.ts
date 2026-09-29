@@ -1,3 +1,4 @@
+import type { ContentAuthoringFieldOriginsInput } from "@celebix/saas-contracts";
 import type { ProductMeasurementDraft } from "./product-measurements.ts";
 
 export type ProductDraftMedia = Readonly<{
@@ -22,6 +23,8 @@ export type ProductDraftVariant = Readonly<{
 }>;
 
 export type ProductDraft = Readonly<{
+  contentOrigins?: ContentAuthoringFieldOriginsInput;
+  authoringDraftId?: string;
   kind: "simple" | "variant";
   productType: "physical" | "digital";
   title: string;
@@ -115,6 +118,7 @@ function freezeDraft(draft: ProductDraft): ProductDraft {
 
   return Object.freeze({
     ...fields,
+    ...(draft.contentOrigins === undefined ? {} : {contentOrigins:Object.freeze(Object.fromEntries(Object.entries(draft.contentOrigins).map(([field,origin])=>[field,origin === null?null:Object.freeze({...origin})])))}),
     variants: Object.freeze(variants),
     ...(standardVariant === undefined ? {} : { standardVariant: freezeVariant(standardVariant) }),
     ...(channelSelectionTouched ? { channelSelectionTouched: true } : {}),

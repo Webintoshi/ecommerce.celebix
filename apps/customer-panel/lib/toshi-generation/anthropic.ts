@@ -9,11 +9,12 @@ export function createAnthropicGenerationAdapter(fetcher: ToshiProviderFetch) {
       model: input.model,
       system: input.system,
       messages,
-      tools: input.tools.map(({ name, description, parameters }) => ({ name, description, input_schema: parameters })),
-      tool_choice: { type: "auto" },
-      max_tokens: 4096,
+      ...(input.outputFormat ? {} : { tools: input.tools.map(({ name, description, parameters }) => ({ name, description, input_schema: parameters })) }),
+      ...(input.outputFormat ? {} : { tool_choice: { type: "auto" } }),
+      max_tokens: input.maxOutputTokens ?? 4096,
       stream: false,
     });
+    if (input.outputFormat && (response.stop_reason === "max_tokens")) fail("provider_unavailable", "truncated");
     if (response.role !== "assistant" || !["end_turn", "tool_use", "stop_sequence"].includes(response.stop_reason as string)) fail();
     const content = array(response.content);
     const texts: string[] = [];

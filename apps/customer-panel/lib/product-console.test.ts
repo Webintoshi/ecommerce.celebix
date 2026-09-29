@@ -1281,7 +1281,8 @@ test("detail and media surfaces retain versioned target commands", async () => {
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const media = await source("components/catalog/ProductMediaManager.tsx");
   assert.match(detail, /data-presentation="hemenaku-product-detail"/);
-  assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
+  assert.match(detail, /updateProduct\(productId,\s*\{\s*\.\.\.parsed\.value/);
+  assert.match(detail, /buildProductUpdatePayload\([\s\S]*?detail\.product\.version\)/);
   assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
   assert.match(
     detail,
@@ -1392,7 +1393,8 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
   assert.match(create, /finish\(`\/products\/\$\{result\.product\.id\}`\)/);
   assert.match(list, /archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(list, /filter\(\(item\) => item\.product\.id !== archiveCandidate\.id\)/);
-  assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
+  assert.match(detail, /updateProduct\(productId,\s*\{\s*\.\.\.parsed\.value/);
+  assert.match(detail, /buildProductUpdatePayload\([\s\S]*?detail\.product\.version\)/);
   assert.match(detail, /setProductStatus\(productId, detail\.product\.version, status\)/);
   assert.doesNotMatch(detail, /name="status"/);
   assert.match(detail, /Satıştan kaldır/);
@@ -1477,7 +1479,9 @@ test("basic variant and sales editors guard dirty browser and close navigation",
   assert.match(description, /onValueChange\?\.\(nextSource\)/);
   for (const surface of [detail, create]) assert.match(surface, /bindApplicationNavigation\(document, \(\) => window\.location\.href\)/);
   assert.match(list, /href="\/products\/new"/);
-  assert.match(detail, /const replaced = await load\(\);\s*if \(!replaced\) return;\s*dirtyEditorsRef\.current\.clearAll\(\)/);
+  const reload = detail.slice(detail.indexOf("async function loadServerSnapshot()"), detail.indexOf("async function updateProduct("));
+  assert.match(reload, /const replaced = await load\(\);\s*if \(!replaced\) return;/);
+  assert.ok(reload.indexOf("if (!replaced) return;") < reload.indexOf("dirtyEditorsRef.current.clearAll()"), "failed reload must return before clearing dirty editors");
   assert.match(detail, /if \(!canDiscardDetailChanges\(\)\) return;\s*resetProductDraft\(\);\s*setSalesRevision\(\(current\) => current \+ 1\);\s*setSeoPreviewDraft\(undefined\);\s*closeDetailEditors\(\);\s*await mutation\("archive-product"/);
   assert.match(detail, /Kaydedilmemiş ürün değişiklikleriniz var/);
   assert.match(advanced, /createDirtyNavigationGuard/);

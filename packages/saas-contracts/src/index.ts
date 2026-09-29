@@ -501,6 +501,7 @@ export {
   parsePublicPolicyIndex,
   parsePublicPolicyPage,
   parsePublicProduct,
+  parsePublicProductV2,
   parsePublicProductMedia,
   parsePublicProductSearch,
   parsePublicProductVariant,
@@ -526,6 +527,7 @@ export type {
   PublicPaymentMethod,
   PublicPolicyPage,
   PublicProduct,
+  PublicProductV2,
   PublicProductList,
   PublicProductMedia,
   PublicProductMerchandising,
@@ -665,3 +667,5 @@ export { parseOrderArchiveResult, parseOrderArchiveEligibility } from "./orders/
 
 export { parseToshiSource, parseToshiMessage, parseToshiConversationSummary, parseToshiConversation, parseToshiConversationListResponse } from "./toshi/conversations.ts";
 export type { ToshiSource, ToshiMessage, ToshiConversationSummary, ToshiConversation, ToshiConversationListResponse } from "./toshi/conversations.ts";
+
+export * from "./content-authoring/index.ts";

@@ -199,7 +199,7 @@ test("createProduct validates, fingerprints, and sends one SQL mutation", async 
 
 test("quick create reports a cross-product SKU ownership rejection without exposing SQL", async () => {
   const writer = new Client((text) => {
-    if (text.includes("catalog_onboard_product_v2")) {
+    if (text.includes("catalog_onboard_product_with_origins")) {
       throw { code: "23505", constraint: "product_variants_store_sku_owner_key", detail: "private database detail" };
     }
     return [];
@@ -416,4 +416,15 @@ test("unknown category reorder COMMIT recovers from only its immutable order led
   assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
   assert.equal(recovery.calls.filter(({ text }) => text.includes("catalog_recover_category_order")).length, 1);
   assert.equal(recovery.calls.some(({ text }) => text.includes("catalog_reorder_categories") || text.includes("catalog_recover_onboarding_operation")), false);
+});
+
+test('merchandising passes only SEO origins with profile CAS and retains reload references',async()=>{
+ const contentOrigins={seoTitle:{generationId:OPERATION,draftId:VARIANT},seoDescription:null};
+ const writer=new Client(text=>text.includes('catalog_update_merchandising_with_origins')?[{outcome:'updated',result_payload:onboardingResult()}]:[]);
+ await repository(new Pool([writer])).updateMerchandising({tenantContext:tenant(),now:NOW,operationId:OPERATION,productId:PRODUCT,expectedProfileVersion:7,profile:{minimumPurchaseQuantity:1},categoryIds:[],resourceIds:{collections:[],tags:[],attributes:[],extras:[],definitions:[]},channelIds:[],contentOrigins});
+ const call=sqlCall(writer,'catalog_update_merchandising_with_origins');assert.equal(call.values[11],7);assert.deepEqual(JSON.parse(String(call.values[13])),contentOrigins);
+ const {replayed,...base}=onboardingResult();
+ const projection={...base,variants:base.variants.map(variant=>({variant,continueSellingWhenOutOfStock:false,inventory:[]})),contentOrigins};
+ const reader=new Client(text=>text.includes('catalog_get_product_editor_with_origins')?[{outcome:'found',result_payload:projection}]:[]);
+ assert.deepEqual((await repository(new Pool([reader])).getProductEditor({tenantContext:tenant('editor'),now:NOW,productId:PRODUCT})).contentOrigins,contentOrigins);
 });

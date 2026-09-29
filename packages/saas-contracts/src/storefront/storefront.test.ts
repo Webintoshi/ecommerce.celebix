@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildDefaultStarterPresentation, starterMarqueeTokens, starterThemeTokens } from "./presentation.ts";
-import { parsePublicProduct, parsePublicStarterThemePresentation, parsePublicStorefront } from "./validation.ts";
+import { parsePublicProductV2, parsePublicProduct, parsePublicStarterThemePresentation, parsePublicStorefront } from "./validation.ts";
 
 const STORE_ID = "10000000-0000-4000-8000-000000000001";
 const PRODUCT_ID = "20000000-0000-4000-8000-000000000001";
@@ -163,4 +163,13 @@ test("public product contract preserves bounded multiline Markdown descriptions"
   assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\u0000olmayan açıklama" }));
   assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\tolmayan açıklama" }));
   assert.throws(() => parsePublicProduct({ ...product, description: "Güvenli\rolmayan açıklama" }));
+});
+
+const seoProduct = { id: PRODUCT_ID, slug: "pilot-product", title: "Pilot", currency: "TRY", status: "active", priceCents: 100, available: true, variants: [{ id: VARIANT_ID, title: "Default", priceCents: 100, stockTracking: false, stockQuantity: 0, available: true, attributes: {} }], media: [] };
+test("V2 accepts nullable SEO only while V1 remains strict", () => {
+  const value = { ...seoProduct, seoTitle: "Saved title", seoDescription: null };
+  assert.equal(parsePublicProductV2(value).seoTitle, "Saved title");
+  assert.throws(() => parsePublicProduct(value));
+  assert.throws(() => parsePublicProductV2(seoProduct));
+  for (const extra of [{ supplierName: "private" }, { seoTitle: 123 }, { seoDescription: "x".repeat(501) }, { seoTitle: "unsafe\u0000" }]) assert.throws(() => parsePublicProductV2({ ...value, ...extra }));
 });

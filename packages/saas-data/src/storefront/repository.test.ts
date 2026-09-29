@@ -83,3 +83,11 @@ test("catalog available discounted conjunction is sent to the authority before p
   assert.deepEqual(selected.items, [product]);
   assert.equal(fixture.queries.filter((sql) => sql.includes("public_catalog_query_v2")).length, 1);
 });
+
+test("SEO detail opts into V2 and V1 rejects its added fields", async () => {
+  const fixture = repository("found", { ...product, seoTitle: "Saved title", seoDescription: null });
+  const input = { storefront, now: new Date(), slug: product.slug };
+  assert.equal((await fixture.value.getPublicProductWithSeoBySlug(input)).seoTitle, "Saved title");
+  assert.ok(fixture.queries.some((sql) => sql.includes("public_starter_product_detail_v2")));
+  await assert.rejects(fixture.value.getPublicProductBySlug(input), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
+});

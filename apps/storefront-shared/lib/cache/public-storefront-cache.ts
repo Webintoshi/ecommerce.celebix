@@ -75,6 +75,8 @@ export function createCachedPublicStorefrontRepository(
     ...(repository.queryPublicCatalog ? { queryPublicCatalog: (input: PublicCatalogQuery) => repository.queryPublicCatalog!(input) } : {}),
     listPublicProductsByCategory: (input: Parameters<PublicStorefrontRepository["listPublicProductsByCategory"]>[0]) => repository.listPublicProductsByCategory(input),
     getPublicProductBySlug: (input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]) => repository.getPublicProductBySlug(input),
+    // SEO is committed profile authority; never retain it across merchant saves.
+    ...(repository.getPublicProductWithSeoBySlug ? { getPublicProductWithSeoBySlug: (input: Parameters<NonNullable<PublicStorefrontRepository["getPublicProductWithSeoBySlug"]>>[0]) => repository.getPublicProductWithSeoBySlug!(input) } : {}),
     listPublicProductMedia: (input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]) => cached({ storeId: input.storefront.id, dataClass: "catalog", scope: "product-media", input: { productId: input.productId }, ttlSeconds: ttl.catalogSeconds, parser: parseMediaList, load: () => repository.listPublicProductMedia(input) }),
     // Design and composition are read from committed authority on every request.
     // Publication succeeds even if best-effort cache invalidation fails.

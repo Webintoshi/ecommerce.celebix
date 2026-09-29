@@ -51,6 +51,8 @@ test("detail batch submission reveals invalid optional measurements and blank fi
   class ApiError extends Error {}
   const detail = await compile("./ProductDetailConsole.tsx", {
     "next/link": ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode),
+    "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [] } },
+    "@/lib/catalog-onboarding-ui/attribute-variants": attributeVariants,
     "@/lib/catalog-ui/client": { CatalogApiError: ApiError, catalogApi: { getProduct: async () => ({ product, variants: [] }), createVariantBatch: async (_id: string, payload: unknown) => { requests.push(payload); return {}; } } },
     "@/lib/catalog-ui/forms": forms,
     "@/lib/catalog-ui/money": money,

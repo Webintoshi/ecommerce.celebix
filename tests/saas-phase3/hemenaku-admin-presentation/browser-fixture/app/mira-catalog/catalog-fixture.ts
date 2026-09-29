@@ -6,6 +6,8 @@ export const CATEGORY_ID = "91000000-0000-4000-8000-000000000004";
 export const BRAND_ID = "91000000-0000-4000-8000-000000000005";
 export const COLLECTION_ID = "91000000-0000-4000-8000-000000000006";
 export const EXTRA_ID = "91000000-0000-4000-8000-000000000007";
+export const SIZE_ATTRIBUTE_ID = "91000000-0000-4000-8000-000000000009";
+export const COLOR_ATTRIBUTE_ID = "91000000-0000-4000-8000-000000000014";
 export const CHANNEL_ID = "91000000-0000-4000-8000-000000000008";
 
 export const PRODUCT = Object.freeze({
@@ -49,6 +51,8 @@ export const OPTIONS = Object.freeze({
   resources: Object.freeze([
     { id: BRAND_ID, kind: "brand", name: "Celebix Atelier" },
     { id: COLLECTION_ID, kind: "collection", name: "Sonbahar Seçkisi" },
+    { id: SIZE_ATTRIBUTE_ID, kind: "attribute", name: "Beden" },
+    { id: COLOR_ATTRIBUTE_ID, kind: "attribute", name: "Renk" },
     { id: EXTRA_ID, kind: "extra", name: "Hediye paketi" },
   ]),
   locations: Object.freeze([{ id: STORE_ID, name: "Merkez depo", isDefault: true }]),
@@ -70,7 +74,7 @@ export const RESOURCE_IDS = Object.freeze({
   brand: BRAND_ID,
   collections: Object.freeze([COLLECTION_ID]),
   tags: Object.freeze([]),
-  attributes: Object.freeze([]),
+  attributes: Object.freeze([SIZE_ATTRIBUTE_ID, COLOR_ATTRIBUTE_ID]),
   extras: Object.freeze([EXTRA_ID]),
   definitions: Object.freeze([]),
 });
@@ -93,9 +97,11 @@ export const RESOURCES = Object.freeze({
   brand: resource(BRAND_ID, "brand", "Celebix Atelier", "celebix-atelier"),
   collection: resource(COLLECTION_ID, "collection", "Sonbahar Seçkisi", "sonbahar-seckisi", { featured: true }),
   extra: resource(EXTRA_ID, "extra", "Hediye paketi", "hediye-paketi", { options: ["Kraft", "Krem"], priceAdjustmentCents: 2_500 }),
-  attribute: resource("91000000-0000-4000-8000-000000000009", "attribute", "Beden", "beden", { values: ["S", "M", "L"] }),
+  attribute: resource(SIZE_ATTRIBUTE_ID, "attribute", "Beden", "beden", { values: ["S", "M", "L"] }),
   definition: resource("91000000-0000-4000-8000-000000000010", "definition", "Kumaş", "kumas", { key: "material", value: "Keten" }),
   tag: resource("91000000-0000-4000-8000-000000000011", "tag", "Yeni sezon", "yeni-sezon"),
 });
+
+export const ATTRIBUTE_RESOURCES = Object.freeze([RESOURCES.attribute, resource(COLOR_ATTRIBUTE_ID, "attribute", "Renk", "renk", { values: ["Taş", "Siyah", "Krem"] })]);
 
 export const MODEL = Object.freeze({ analyticsAvailable: false, storeSlug: "mira-katalog-fixture", membershipLabel: "QA fixture — canlı değil", planCode: "growth", planVersion: 3, entitlementStatus: "active" as const, storefrontHostname: "fixture.invalid", locale: "tr-TR" });

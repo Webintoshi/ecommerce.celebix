@@ -1126,3 +1126,31 @@ test("measurement-aware detail read preserves exact metadata and dynamic-price f
   const result = await repository(new FakePool(client)).getProductDetails({tenantContext:tenantContext(),now:NOW,productId:PRODUCT_ID});
   assert.deepEqual(result.variants[0]?.measurements, measurements);assert.equal(result.variants[0]?.pricingMethod,"gold_gram");assert.equal(result.variants[0]?.effectivePriceCents,15000);
 });
+
+test('product save binds lineage into its operation fingerprint and sends no caller digest authority', async () => {
+  const origin = {generationId:OPERATION_ID,draftId:VARIANT_ID};
+  const fingerprints:string[]=[];
+  for(const contentOrigins of [undefined,{description:origin},{description:null}]) {
+    const writer=new FakeClient(text=>text.includes('saas.catalog_update_product_with_origins')?[{outcome:'updated',result_payload:{product:product({version:2})}}]:[]);
+    const result=await repository(new FakePool(writer)).updateProduct({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:1,product:createInput().product,...(contentOrigins===undefined?{}:{contentOrigins})});
+    assert.equal(result.product.version,2);
+    const call=writer.calls.find(call=>call.text.includes('saas.catalog_update_product_with_origins'))!;
+    assert.equal(call.values[11],1);assert.deepEqual(JSON.parse(String(call.values[17])),contentOrigins??{});fingerprints.push(String(call.values[9]));
+    assert.equal(writer.calls.filter(call=>call.text==='COMMIT').length,1);
+  }
+  assert.equal(new Set(fingerprints).size,3,'references and manual restore are part of replay identity');
+  const pool=new FakePool();
+  await assert.rejects(repository(pool).updateProduct({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:1,product:createInput().product,contentOrigins:{seoTitle:origin}}),error=>error instanceof CatalogRepositoryError&&error.code==='invalid_input');
+  assert.equal(pool.connects,0);
+});
+
+test('failed origin save rolls back once; uncertain commit is recovered without repeating mutation',async()=>{
+ const input={tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:1,product:createInput().product,contentOrigins:{description:{generationId:OPERATION_ID,draftId:VARIANT_ID}}};
+ const writer=new FakeClient(text=>text.includes('saas.catalog_update_product_with_origins')?[{outcome:'invalid_input',result_payload:null}]:[]);
+ await assert.rejects(repository(new FakePool(writer)).updateProduct(input),error=>error instanceof CatalogRepositoryError&&error.code==='invalid_input');
+ assert.equal(writer.calls.some(call=>call.text==='COMMIT'),false);assert.equal(writer.calls.filter(call=>call.text==='ROLLBACK').length,1);
+ const uncertain=new FakeClient(text=>{if(text==='COMMIT')throw Error('connection lost');return text.includes('saas.catalog_update_product_with_origins')?[{outcome:'updated',result_payload:{product:product({version:2})}}]:[];});
+ const recovery=new FakeClient(text=>text.includes('saas.catalog_recover_operation')?[{outcome:'operation_not_found',result_payload:null}]:[]);
+ await assert.rejects(repository(new FakePool(uncertain,recovery)).updateProduct(input));
+ assert.deepEqual(uncertain.releases,[true]);assert.equal(recovery.calls.some(call=>call.text.includes('catalog_update_product_with_origins')),false);
+});

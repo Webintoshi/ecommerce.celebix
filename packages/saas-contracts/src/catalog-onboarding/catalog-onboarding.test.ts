@@ -237,3 +237,14 @@ test("category contracts preserve exact hierarchy and archive authority", () => 
   assert.throws(() => parseCatalogCategoryFields({ name: "Kupalar", position: 2, storeId: STORE_ID }), /catalog_onboarding_contract_invalid/);
   assert.throws(() => parseCatalogCategoryMutationResult({ category: active, replayed: false, sql: "private" }), /catalog_onboarding_contract_invalid/);
 });
+
+test('advanced intent and private editor reload retain safe field origins without making them public product fields', () => {
+  const origin = {generationId:PRODUCT_ID,draftId:VARIANT_ID};
+  const intent={kind:'advanced',productType:'physical',title:'Product',publish:false,variants:[{title:'Default',priceCents:100,stockTracking:true,stockQuantity:0,attributes:{},continueSellingWhenOutOfStock:false,inventory:[]}],profile:{minimumPurchaseQuantity:1},categoryIds:[],resourceIds:resources(),channelIds:[],contentOrigins:{description:origin,seoTitle:null}};
+  assert.deepEqual((parseCatalogOnboardingIntent(intent) as typeof intent).contentOrigins,intent.contentOrigins);
+  const projection={product:product(),variants:[{variant:variant(),continueSellingWhenOutOfStock:false,inventory:[]}],profile:profile(),categoryIds:[],resourceIds:resources(),channelIds:[],mediaCount:0,contentOrigins:intent.contentOrigins};
+  assert.deepEqual(parseCatalogProductEditorProjection(projection).contentOrigins,intent.contentOrigins);
+  assert.equal(Object.hasOwn(parseCatalogProductEditorProjection(projection).product,'contentOrigins'),false);
+  assert.throws(()=>parseCatalogProductEditorProjection({...projection,contentOrigins:{description:{...origin,sourceFingerprint:'private'}}}));
+  assert.throws(()=>parseCatalogOnboardingIntent({kind:'quick',title:'Quick',priceCents:100,publish:false,contentOrigins:{description:origin}}));
+});

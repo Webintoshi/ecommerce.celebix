@@ -333,3 +333,5 @@ export type PublicProduct = Readonly<{
 }>;
 
 export type PublicProductList = Readonly<{ items: readonly PublicProduct[] }>;
+
+export type PublicProductV2 = Readonly<PublicProduct & { seoTitle: string | null; seoDescription: string | null }>;

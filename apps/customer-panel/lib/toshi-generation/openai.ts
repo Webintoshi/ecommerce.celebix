@@ -9,13 +9,15 @@ export function createOpenAIGenerationAdapter(fetcher: ToshiProviderFetch) {
       model: input.model,
       instructions: input.system,
       input: messages,
-      tools: input.tools.map(({ name, description, parameters }) => ({ type: "function", name, description, parameters, strict: true })),
+      ...(input.outputFormat ? {} : { tools: input.tools.map(({ name, description, parameters }) => ({ type: "function", name, description, parameters, strict: true })) }),
       parallel_tool_calls: false,
+      ...(input.outputFormat ? { text: { format: { type: "json_object" } } } : {}),
       store: false,
       stream: false,
-      max_output_tokens: 4096,
+      max_output_tokens: input.maxOutputTokens ?? 4096,
       ...(/^(?:o\d(?:[.-]|$)|gpt-(?:5|6)(?:[.-]|$))/u.test(input.model) && !/-pro(?:[.-]|$)/u.test(input.model) ? { reasoning: { effort: "low" } } : {}),
     });
+    if (input.outputFormat && (response.status === "incomplete" && response.incomplete_details != null && record(response.incomplete_details).reason === "max_output_tokens")) fail("provider_unavailable", "truncated");
     if (response.status !== "completed" || response.error != null || response.incomplete_details != null) fail();
     const output = array(response.output);
     const toolCalls = [];

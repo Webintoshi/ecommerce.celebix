@@ -27,12 +27,17 @@ import {
   Trash2,
   Underline as UnderlineIcon,
   Undo2,
+  Sparkles,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   normalizePastedProductDescriptionHtml,
   normalizeStoredProductDescription,
 } from "@/lib/product-description-editor";
+import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
+import { ContentAuthoringOrigin, applyDescriptionDraft, captureDescriptionSelection, descriptionOrigin, type PendingContentOrigin } from "@/lib/content-authoring-ui/editor";
+import { renderContentAuthoringDescription } from "@/lib/server-content-authoring/render";
+import type { ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
 import styles from "./product-description-editor.module.css";
 export { ProductDescriptionPreview } from "./ProductDescriptionPreview";
 
@@ -44,6 +49,14 @@ type ProductDescriptionFieldProps = Readonly<{
   compact?: boolean;
   previewCollapsed?: boolean;
   onValueChange?(value: string): void;
+  initialOrigin?: PendingContentOrigin | null;
+  onOriginChange?(origin: PendingContentOrigin | null): void;
+  authoring?: Readonly<{
+    capture(): Readonly<{request: ContentAuthoringRequest; draftRevision: string; sessionId: string}>;
+    applyField?(field: ContentAuthoringField, generation: ContentGenerationView): boolean;
+    fields?: readonly ContentAuthoringField[];
+  }>;
+
 }>;
 
 type ToolbarButtonProps = Readonly<{
@@ -73,6 +86,7 @@ function safeLinkHref(value: string) {
 function blockType(editor: Editor | null) {
   if (editor?.isActive("heading", { level: 2 })) return "h2";
   if (editor?.isActive("heading", { level: 3 })) return "h3";
+  if (editor?.isActive("heading", { level: 4 })) return "h4";
   return "paragraph";
 }
 
@@ -101,8 +115,18 @@ export function ProductDescriptionField({
   className = "",
   compact = false,
   onValueChange,
+  authoring,
+  initialOrigin = null,
+  onOriginChange,
 }: ProductDescriptionFieldProps) {
   const initialValue = useMemo(() => normalizeStoredProductDescription(defaultValue), [defaultValue]);
+  const [aiOpen, setAiOpen] = useState(false);
+  const aiTrigger = useRef<HTMLButtonElement>(null);
+  const edited = useRef(false);
+  const loadedOrigin = useRef(initialOrigin);
+  const originHistoryChanged = useRef(false);
+  const callbacks = useRef({authoring,onOriginChange,onValueChange,initialOrigin});
+  callbacks.current={authoring,onOriginChange,onValueChange,initialOrigin};
   const [source, setSource] = useState(initialValue);
   const [focusMode, setFocusMode] = useState(false);
   const [linkPanel, setLinkPanel] = useState(false);
@@ -113,7 +137,7 @@ export function ProductDescriptionField({
     editable: !readOnly,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: [2, 3, 4] },
         link: false,
         underline: false,
       }),
@@ -130,8 +154,10 @@ export function ProductDescriptionField({
       TableKit.configure({ table: { resizable: false } }),
       CharacterCount.configure({ limit: MAX_DESCRIPTION_LENGTH }),
       PasteSanitizer,
+      ContentAuthoringOrigin,
     ],
     content: initialValue || "<p></p>",
+    onCreate: ({editor: created}) => { loadedOrigin.current = callbacks.current.initialOrigin; created.view.dispatch(created.state.tr.setDocAttribute("contentAuthoringOrigin", callbacks.current.initialOrigin).setMeta("addToHistory", false).setMeta("preventUpdate", true)); },
     editorProps: {
       attributes: {
         class: styles.editorContent,
@@ -139,11 +165,21 @@ export function ProductDescriptionField({
       },
     },
     onUpdate: ({ editor: nextEditor }) => {
+      edited.current = true;
+      if (JSON.stringify(descriptionOrigin(nextEditor)) !== JSON.stringify(loadedOrigin.current)) originHistoryChanged.current = true;
       const nextSource = normalizeStoredProductDescription(nextEditor.getHTML());
       setSource(nextSource);
-      onValueChange?.(nextSource);
+      callbacks.current.onValueChange?.(nextSource);
+      callbacks.current.onOriginChange?.(descriptionOrigin(nextEditor));
     },
   });
+
+  useEffect(() => {
+    if (!editor || originHistoryChanged.current || JSON.stringify(descriptionOrigin(editor)) === JSON.stringify(initialOrigin)) return;
+    loadedOrigin.current = initialOrigin;
+    editor.view.dispatch(editor.state.tr.setDocAttribute("contentAuthoringOrigin", initialOrigin).setMeta("addToHistory", false).setMeta("preventUpdate", true));
+    if (edited.current) callbacks.current.onOriginChange?.(initialOrigin);
+  }, [editor, initialOrigin]);
 
   useEffect(() => {
     editor?.setEditable(!readOnly, false);
@@ -167,6 +203,7 @@ export function ProductDescriptionField({
     if (!editor) return;
     if (next === "h2") editor.chain().focus().setHeading({ level: 2 }).run();
     else if (next === "h3") editor.chain().focus().setHeading({ level: 3 }).run();
+    else if (next === "h4") editor.chain().focus().setHeading({ level: 4 }).run();
     else editor.chain().focus().setParagraph().run();
   }
 
@@ -197,6 +234,21 @@ export function ProductDescriptionField({
     setLinkError("");
   }
 
+  const bridge: ContentAuthoringBridge = {
+    capture() {
+      if (!editor || !callbacks.current.authoring) throw new Error("editor_unavailable");
+      const captured = callbacks.current.authoring.capture();
+      const selection = editor.state.selection;
+      const selected = captureDescriptionSelection(editor);
+      return {request:{...captured.request,currentDraft:{...captured.request.currentDraft,description:normalizeStoredProductDescription(editor.getHTML())},selection:selected?{field:"description",text:selected.text}:null},lifecycle:{sessionId:captured.sessionId,draftRevision:JSON.stringify([captured.draftRevision,selection.from,selection.to]),selection:selected ? {from:selected.from,to:selected.to} : null}};
+    },
+    apply(field,generation,selection) {
+      if(field !== "description") return callbacks.current.authoring?.applyField?.(field,generation) ?? false;
+      if(!editor || !generation.draft?.description) return false;
+      return applyDescriptionDraft(editor,renderContentAuthoringDescription(generation.draft.description),{generationId:generation.id,draftId:generation.draftId},selection);
+    },
+  };
+  function closeAi() { setAiOpen(false); requestAnimationFrame(()=>aiTrigger.current?.focus()); }
   const characterCount = editor?.storage.characterCount.characters() ?? 0;
   const htmlLength = source.length;
   const invalidLength = htmlLength > MAX_DESCRIPTION_LENGTH;
@@ -220,6 +272,7 @@ export function ProductDescriptionField({
       <div className={`${styles.editor} ${editor?.isFocused ? styles.editorFocused : ""}`}>
         {!readOnly ? (
           <div className={styles.toolbar} role="toolbar" aria-label="Açıklama biçimlendirme araçları">
+            {authoring ? <button ref={aiTrigger} type="button" className={styles.focusButton} aria-expanded={aiOpen} onClick={() => setAiOpen(current=>!current)}><Sparkles aria-hidden="true" /> AI</button> : null}
             <select
               className={styles.blockSelect}
               aria-label="Metin biçimi"
@@ -229,6 +282,7 @@ export function ProductDescriptionField({
               <option value="paragraph">Paragraf</option>
               <option value="h2">Başlık 2</option>
               <option value="h3">Başlık 3</option>
+              <option value="h4">Başlık 4</option>
             </select>
             <span className={styles.toolbarGroup}>
               <ToolbarButton label="Kalın" active={editor?.isActive("bold")} onPress={() => editor?.chain().focus().toggleBold().run()}><Bold /></ToolbarButton>
@@ -252,6 +306,8 @@ export function ProductDescriptionField({
             </span>
           </div>
         ) : null}
+
+        {aiOpen && authoring ? <ContentAuthoringPanel bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
 
         {linkPanel ? (
           <div className={styles.linkPanel} role="dialog" aria-label="Bağlantı düzenle">

@@ -238,3 +238,16 @@ test("malformed success retains category proof but a permanent API rejection cle
   assert.equal(new Headers(calls[0]?.headers).get("idempotency-key"), new Headers(calls[1]?.headers).get("idempotency-key"));
   assert.notEqual(new Headers(calls[1]?.headers).get("idempotency-key"), new Headers(calls[2]?.headers).get("idempotency-key"));
 });
+
+test("merchandising request forwards only valid SEO origins with manual null restoration and preserves legacy omission",async()=>{
+ const bodies:any[]=[];const client=createCatalogOnboardingClient({randomUUID:()=>OPERATION,fetch:async(_url,init)=>{bodies.push(JSON.parse(init!.body as string));return Response.json(result());}});
+ const input={expectedProfileVersion:9,profile:{minimumPurchaseQuantity:1,seoTitle:"Generated"},categoryIds:[],channelIds:[],resourceIds:{collections:[],tags:[],attributes:[],extras:[],definitions:[]}};
+ const origin={generationId:OPERATION,draftId:VARIANT};
+ await client.updateMerchandising(PRODUCT,{...input,contentOrigins:{seoTitle:origin,seoDescription:origin}});
+ await client.updateMerchandising(PRODUCT,{...input,contentOrigins:{seoTitle:null}});
+ await client.updateMerchandising(PRODUCT,input);
+ assert.deepEqual(bodies,[{...input,contentOrigins:{seoTitle:origin,seoDescription:origin}},{...input,contentOrigins:{seoTitle:null}},input]);
+ const before=bodies.length;
+ for(const contentOrigins of [{description:origin},{seoTitle:{...origin,draftId:"hostile"}},{seoTitle:{...origin,storeId:STORE}}]) await assert.rejects(client.updateMerchandising(PRODUCT,{...input,contentOrigins} as any));
+ assert.equal(bodies.length,before,"invalid origins must fail before sending a merchandising mutation");
+});

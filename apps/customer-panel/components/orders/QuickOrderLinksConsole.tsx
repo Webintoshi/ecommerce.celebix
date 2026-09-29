@@ -312,7 +312,7 @@ export function QuickOrderLinksConsole() {
   const resultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const customerSearchInputRef = useRef<HTMLInputElement>(null);
   const customerResultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const listSearchInputRef = useRef<HTMLInputElement>(null);
   const searchSequence = useRef(0);
   const customerSearchSequence = useRef(0);
   const activeSearchAbort = useRef<AbortController | undefined>(undefined);
@@ -797,7 +797,8 @@ export function QuickOrderLinksConsole() {
       } catch (error) {
         if (error instanceof QuickLinkUiApiError && error.code === "version_conflict") {
           await loadLinks();
-          listHeadingRef.current?.focus();
+          const recoveryInput = listSearchInputRef.current;
+          if (recoveryInput && !recoveryInput.closest("[hidden]")) recoveryInput.focus();
         }
         throw error;
       }
@@ -1052,12 +1053,11 @@ export function QuickOrderLinksConsole() {
         title="Oluşturulan Linkler"
         icon={<Link2 aria-hidden="true" />}
         id="quick-order-links-title"
-        headingRef={listHeadingRef}
         hideHeading
       >
         <div className={styles.linksBody}>
           <div className={styles.linkToolbar}>
-            <label className={styles.searchField}><span className="sr-only">Yüklenen bağlantılarda ara</span><Search aria-hidden="true" /><input type="search" value={linkSearch} onChange={(event) => setLinkSearch(event.target.value)} placeholder="Müşteri veya ürün ara" /></label>
+            <label className={styles.searchField}><span className="sr-only">Yüklenen bağlantılarda ara</span><Search aria-hidden="true" /><input ref={listSearchInputRef} type="search" value={linkSearch} onChange={(event) => setLinkSearch(event.target.value)} placeholder="Müşteri veya ürün ara" /></label>
             <label className={styles.statusFilter}><span className="sr-only">Bağlantı durumu</span><select aria-label="Bağlantı durumu" value={linkStatus} onChange={(event) => setLinkStatus(event.target.value as QuickOrderLinkStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           </div>
           {hasLinkFilters ? <div className={styles.appliedFilters}><span>{visibleLinks.length} eşleşme · yüklenen {links.length} bağlantı{linkStatus !== "all" ? ` · ${STATUS_LABELS[linkStatus]}` : ""}{normalizedLinkSearch ? ` · “${linkSearch.trim()}”` : ""}</span><button className={styles.secondaryButton} type="button" onClick={() => { setLinkSearch(""); setLinkStatus("all"); }}>Temizle</button></div> : null}
