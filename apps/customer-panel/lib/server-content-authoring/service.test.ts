@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { ProductMeasurements } from '../../../../packages/saas-contracts/src/catalog/types.ts';
 import { sealMerchantProviderCredential } from '@celebix/saas-data';
 import { createContentAuthoringService } from './service.ts';
 import { renderContentAuthoringDescription } from './render.ts';
@@ -144,22 +145,79 @@ test('captured diagnostic rejects source claim fields; correcting only destinati
  for(let i=0;i<original.claims.length;i++){const restored=structuredClone(corrected);restored.claims[i].field=original.claims[i].field;assert.throws(()=>validateProductDraftOutput(restored,diagnosticPacket,diagnosticSelected),/content_authoring_contract_invalid/);}
  const comma=structuredClone(corrected);comma.claims[1].value='14,89';assert.throws(()=>validateProductDraftOutput(comma,diagnosticPacket,diagnosticSelected));
 });
-test('prompt v2 separates claim destinations from source names and supplies a valid nonempty multi-destination example',async()=>{
- const s=setup();let binding:any,system='';const begin=s.dependencies.repository.beginGeneration;
+async function promptFromActualAdapter() {
+ const s=setup();let binding:any,system='',fetches=0;const begin=s.dependencies.repository.beginGeneration;
  s.dependencies.repository.beginGeneration=async(value:any)=>{binding=value.providerBinding;return begin(value);};
- const adapter=s.dependencies.generations.get();s.dependencies.generations={get:()=>({generate:async(value:any)=>{system=value.system;return adapter.generate(value);}})};
- await createContentAuthoringService(s.dependencies).generateContent(input);
- assert.equal(binding.promptVersion,'content-authoring-v2');
- assert.match(system,/claims\[\]\.field is the selected OUTPUT destination/);
- assert.match(system,/description\|seoTitle\|seoDescription/);
- assert.match(system,/never a source fact.*title.*weight/);
- assert.match(system,/factRef, value and unit.*byte-for-byte/);
- assert.match(system,/Decimal comma.*display prose.*never.*structured/);
- const exampleText=system.split('Nonempty fact-and-claims example: ')[1]?.split('\n')[0];assert.ok(exampleText);
- const substitutions:Record<string,string>={'<facts.title>':diagnosticPacket.title,'<fact.ref>':'product:weight:1','<fact.value>':'14.89','<fact.unit>':'g','<facts.sourceFingerprint>':diagnosticPacket.sourceFingerprint};
- const example=JSON.parse(exampleText.replace(/<[^>]+>/g,(key)=>{assert.ok(Object.hasOwn(substitutions,key));return substitutions[key];}));
- assert.deepEqual(example.claims.map((x:any)=>x.field),diagnosticSelected);
- assert.ok(example.description.some((block:any)=>block.children.some((child:any)=>child.type==='fact')));
- assert.doesNotThrow(()=>validateProductDraftOutput(example,diagnosticPacket,diagnosticSelected));
- assert.equal(renderContentAuthoringDescription(example.description),'<p>Burgu Bileklik</p><p>14.89 g</p>');
+ s.dependencies.generations=createToshiGenerationRegistry({deepseek:async(_url,init)=>{
+  fetches++;const messages=JSON.parse(String(init.body)).messages;system=messages.find((message:any)=>message.role==='system').content;
+  return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify({description:[{type:'paragraph',children:[{type:'text',text:'A product.'}]}],suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint})}}]});
+ }});
+ const result=await createContentAuthoringService(s.dependencies).generateContent(input);
+ assert.equal(result.status,'completed');assert.equal(fetches,1);return {system,binding};
+}
+function promptExample(system:string,label:string,substitutions:Record<string,string>) {
+ const line=system.split(label+': ')[1]?.split('\n')[0];assert.ok(line,label);
+ const replace=(value:any):any=>typeof value==='string'?value.replace(/<[^>]+>/g,key=>{assert.ok(Object.hasOwn(substitutions,key),key);return substitutions[key];}):Array.isArray(value)?value.map(replace):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,replace(item)])):value;
+ return replace(JSON.parse(line));
+}
+const dimensionPacket=buildProductFactPacket(null,{title:'Masa Lambası',measurements:{width:{valueMilli:14000,unit:'cm'},height:{valueMilli:35000,unit:'cm'}}},{category:()=>null,brand:()=>null,attribute:()=>null,variant:()=>null});
+const variantPacket=buildProductFactPacket(null,{title:'Halka Küpe',variants:[{title:'Küçük',measurements:{weight:{valueMilli:2200,unit:'g'}}},{title:'Büyük',measurements:{weight:{valueMilli:4800,unit:'g'}}}]},{category:()=>null,brand:()=>null,attribute:()=>null,variant:()=>null});
+function substitutions(source:typeof packet) {
+ const result:Record<string,string>={'<facts.title>':source.title,'<facts.sourceFingerprint>':source.sourceFingerprint};
+ for(const fact of source.facts){const prefix=fact.scope==='variant'?`variant${Number(fact.variantId!.split('-').at(-1))+1}.${fact.field}`:fact.field;result[`<${prefix}.ref>`]=fact.ref;result[`<${prefix}.value>`]=fact.value;if(fact.unit)result[`<${prefix}.unit>`]=fact.unit;}
+ return result;
+}
+test('prompt v3 reaches actual adapter with useful labeled prose and retained strict protocol',async()=>{
+ const {system,binding}=await promptFromActualAdapter();assert.equal(binding.promptVersion,'content-authoring-v3');
+ for(const pattern of [/claims\[\]\.field is the selected OUTPUT destination/,/description\|seoTitle\|seoDescription/,/never a source fact.*title.*weight/,/factRef, value and unit.*byte-for-byte/,/Decimal comma.*display prose.*never.*structured/,/same paragraph, list item or table row/,/untrusted style-only/,/No tools, links, HTML or markdown fences/,/hard limits are 200\/500/])assert.match(system,pattern);
+ assert.match(system,/Label every measurement with its source field/);assert.match(system,/Never output an unlabeled fact-only paragraph/);
+ assert.match(system,/short neutral lead-in/);assert.match(system,/seoTitle.*compact product name/);assert.match(system,/seoDescription.*readable factual summary/);
+ assert.match(system,/Suggestions must be optional questions/);assert.match(system,/not promotional copy/);assert.match(system,/already supplied/);
+ assert.match(system,/Omit every unselected content field and its claims/);assert.match(system,/examples are not additional facts/);
+});
+test('dimension table example preserves visible width and height labels and distinct factual SEO roles',async()=>{
+ const {system}=await promptFromActualAdapter();const example=promptExample(system,'Labeled dimensions example',substitutions(dimensionPacket));
+ const accepted=validateProductDraftOutput(example,dimensionPacket,diagnosticSelected),html=renderContentAuthoringDescription(accepted.description!);
+ assert.match(html,/<p>Masa Lambası için ölçü bilgileri:<\/p>/);assert.match(html,/<tr><td>Genişlik<\/td><td>14 cm<\/td><\/tr>/);assert.match(html,/<tr><td>Yükseklik<\/td><td>35 cm<\/td><\/tr>/);
+ assert.notEqual(accepted.seoTitle,accepted.seoDescription);assert.match(accepted.seoDescription!,/genişlik 14 cm, yükseklik 35 cm/);
+ assert.deepEqual(accepted.suggestions,['Ürünün malzemesi nedir?']);
+ const wrong=structuredClone(example);wrong.description[1].rows[1][1][0].value='15';assert.throws(()=>validateProductDraftOutput(wrong,dimensionPacket,diagnosticSelected));
+});
+test('complete multi-variant list example keeps every measurement in its own explicit variant scope',async()=>{
+ const {system}=await promptFromActualAdapter();const example=promptExample(system,'Labeled variants example',substitutions(variantPacket));
+ const accepted=validateProductDraftOutput(example,variantPacket,diagnosticSelected),html=renderContentAuthoringDescription(accepted.description!);
+ assert.match(html,/<li>Küçük varyantı — Ağırlık: 2\.2 g<\/li>/);assert.match(html,/<li>Büyük varyantı — Ağırlık: 4\.8 g<\/li>/);assert.notEqual(accepted.seoTitle,accepted.seoDescription);
+ assert.match(accepted.seoDescription!,/Küçük varyantı ağırlığı 2\.2 g; Büyük varyantı ağırlığı 4\.8 g/);
+ assert.deepEqual(accepted.suggestions,['Ürünün malzemesi nedir?']);
+ const unscoped=structuredClone(example);unscoped.description[1].items[0][0].text='Ağırlık: ';assert.throws(()=>validateProductDraftOutput(unscoped,variantPacket,diagnosticSelected));
+ const wrongClaim=structuredClone(example);wrongClaim.claims[0].field='weight';assert.throws(()=>validateProductDraftOutput(wrongClaim,variantPacket,diagnosticSelected));
+});
+test('both complete examples support selected-field omission without claims for omitted destinations',async()=>{
+ const {system}=await promptFromActualAdapter();
+ for(const [label,source]of [['Labeled dimensions example',dimensionPacket],['Labeled variants example',variantPacket]] as const){
+  for(const selected of [['description'],['seoTitle'],['seoDescription'],['description','seoTitle']] as const){
+   const example=promptExample(system,label,substitutions(source));for(const field of diagnosticSelected)if(!(selected as readonly string[]).includes(field))delete example[field];example.claims=example.claims.filter((claim:any)=>(selected as readonly string[]).includes(claim.field));
+   assert.doesNotThrow(()=>validateProductDraftOutput(example,source,selected));assert.ok(example.claims.every((claim:any)=>(selected as readonly string[]).includes(claim.field)));
+  }
+ }
+});
+
+test('prompt labels cover every supported measurement key and preserve package-content semantics',async()=>{
+ const {system}=await promptFromActualAdapter();
+ const labels={weight:['Ağırlık','Weight'],volume:['Hacim','Volume'],length:['Uzunluk','Length'],width:['Genişlik','Width'],depth:['Boy','Depth'],height:['Yükseklik','Height'],area:['Alan','Area'],packageCount:['Paket içeriği','Package contents']} satisfies Record<keyof ProductMeasurements,readonly [string,string]>;
+ for(const [key,[tr,en]] of Object.entries(labels)){assert.ok(system.includes(`${key}=${tr}`),`${key} Turkish label`);assert.ok(system.includes(`${key}=${en}`),`${key} English label`);}
+ assert.doesNotMatch(system,/Paket adedi|Package count/);assert.match(system,/contents per package, not the number of packages/);
+});
+test('package-contents example keeps the exact unitless count in description and both SEO destinations',async()=>{
+ const {system}=await promptFromActualAdapter();
+ const source=buildProductFactPacket(null,{title:'Servis Seti',measurements:{packageCount:6}},{category:()=>null,brand:()=>null,attribute:()=>null,variant:()=>null});
+ const fact=source.facts.find(fact=>fact.field==='packageCount')!;assert.equal(fact.value,'6');assert.equal(fact.unit,undefined);
+ const example=promptExample(system,'Package contents example',substitutions(source));
+ const accepted=validateProductDraftOutput(example,source,diagnosticSelected);
+ assert.equal(renderContentAuthoringDescription(accepted.description!),'<p>Servis Seti — Paket içeriği: 6</p>');
+ assert.equal(accepted.seoTitle,'Servis Seti | Paket içeriği: 6');assert.equal(accepted.seoDescription,'Servis Seti için paket içeriği: 6.');
+ assert.deepEqual(accepted.claims,diagnosticSelected.map(field=>({field,factRef:fact.ref,value:'6'})));
+ assert.equal(Object.hasOwn(example.description[0].children[1],'unit'),false);
+ for(const field of diagnosticSelected){const single=structuredClone(example);for(const other of diagnosticSelected)if(other!==field)delete single[other];single.claims=single.claims.filter((claim:any)=>claim.field===field);assert.doesNotThrow(()=>validateProductDraftOutput(single,source,[field]));}
+ for(const mutation of ['value','unit'] as const){const wrong=structuredClone(example);wrong.description[0].children[1][mutation]=mutation==='value'?'7':'g';assert.throws(()=>validateProductDraftOutput(wrong,source,diagnosticSelected));}
 });
