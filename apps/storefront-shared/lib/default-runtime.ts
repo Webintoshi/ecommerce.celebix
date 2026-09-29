@@ -65,6 +65,7 @@ import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
 import { createStorefrontIdentityRuntime, type StorefrontIdentityRuntime } from "./account/runtime.ts";
 import { createCachedPublicStorefrontRepository } from "./cache/public-storefront-cache.ts";
+import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -217,6 +218,8 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const row = result.rows[0];
     const identityMigration = identityConfig === null ? true : (await pool.query("SELECT to_regprocedure('saas.public_account_auth_start_v2(text,timestamp with time zone,uuid,text,text,text,text,text,text,timestamp with time zone,uuid,text,jsonb,text)') IS NOT NULL AND to_regprocedure('saas.public_account_auth_verify_v2(text,timestamp with time zone,uuid,text,text,text,text,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL AS ready")).rows[0]?.ready === true;
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== checkoutConfig.database.name || row.is_superuser !== false || row.resolver_member !== true || row.workflow_member !== true || row.migration_020 !== true || row.migration_027 !== true || row.migration_028 !== true || row.migration_032 !== true || row.migration_103 !== true || row.migration_071 !== true || row.migration_072 !== true || !isStorefrontCheckoutReadinessMigrationCompatible({ direct: row.migration_073_direct, wrapped: row.migration_073_wrapped }) || row.migration_075 !== true || row.migration_081 !== true || row.migration_088 !== true || row.migration_124 !== true || row.migration_126 !== true || (analyticsCollector !== null && row.migration_039 !== true)) throw new Error("storefront_database_preflight_failed");
+    const contentReadiness = await pool.query(PUBLIC_CONTENT_READINESS_SQL);
+    if (!publicContentReadiness(contentReadiness)) throw new Error("storefront_content_preflight_failed");
     const repository = new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
     const cacheRuntime = resolveDefaultCacheRuntime();
     const publicRepository = cacheRuntime.enabled && cacheRuntime.cache !== null && cacheRuntime.ttl !== null

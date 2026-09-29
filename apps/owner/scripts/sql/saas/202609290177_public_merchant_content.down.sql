@@ -1,0 +1,18 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='120s';
+REVOKE ALL ON FUNCTION saas.public_content_locale_get(text,timestamptz),saas.public_content_page_get_v2(text,timestamptz,text,text),saas.public_blog_get(text,timestamptz,text,text),saas.public_blog_list(text,timestamptz,text,integer,jsonb),saas.public_content_sitemap_index(text,timestamptz),saas.public_content_sitemap_page(text,timestamptz,text,integer) FROM celebix_saas_host_resolver;
+DROP FUNCTION saas.public_content_sitemap_page(text,timestamptz,text,integer);
+DROP FUNCTION saas.public_content_sitemap_index(text,timestamptz);
+DROP FUNCTION saas.public_content_sitemap_rows(uuid,text,timestamptz,text,jsonb,text,text);
+DROP FUNCTION saas.public_blog_list(text,timestamptz,text,integer,jsonb);
+DROP FUNCTION saas.public_blog_get(text,timestamptz,text,text);
+DROP FUNCTION saas.public_content_page_get_v2(text,timestamptz,text,text);
+DROP FUNCTION saas.public_content_get_v2(text,timestamptz,text,text,text);
+DROP FUNCTION saas.public_content_locale_get(text,timestamptz);
+DROP FUNCTION saas.public_content_projection(uuid,uuid,text,boolean);
+DROP FUNCTION saas.public_content_index_allowed(uuid,text,timestamptz);
+DROP FUNCTION saas.public_content_sitemap_config(uuid);
+DROP FUNCTION saas.public_content_locale_config(uuid);
+COMMIT;

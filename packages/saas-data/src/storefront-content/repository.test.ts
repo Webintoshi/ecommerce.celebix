@@ -212,3 +212,39 @@ test("public custom pages reject traversal private fields and unpublished outcom
   const hostile = new Client((text) => text.includes("public_content_page_get") ? [{ outcome: "found", result_payload: { id: PRODUCT, slug: "hakkimizda", title: "Page", body: "Text", updatedAt: NOW.toISOString(), storeId: STORE } }] : []);
   await assert.rejects(publicRepository(new Pool([hostile])).getPage({ hostname: HOST, now: NOW, slug: "hakkimizda" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
 });
+
+test("V2 public readers pass exact tenant hostname, locale and approved keyset", async () => {
+  const record = { id: PRODUCT, kind: "blog_post", slug: "duyuru", locale: "en-US", title: "News", body: "<p>News</p>", excerpt: "Summary", seoTitle: "News SEO", seoDescription: "Search summary", publishedAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+  const client = new Client((text) => {
+    if (text.includes("public_content_locale_get")) return [{ outcome: "found", result_payload: { defaultLocale: "tr", enabledLocales: ["tr", "en-US"] } }];
+    if (text.includes("public_blog_get")) return [{ outcome: "found", result_payload: record }];
+    if (text.includes("public_blog_list")) { const { body: _body, ...summary } = record; return [{ outcome: "listed", result_payload: { items: [summary], nextCursor: null } }]; }
+    return [];
+  });
+  const reader = publicRepository(new Pool([client, client, client]));
+  assert.deepEqual(await reader.getLocales({ hostname: HOST, now: NOW }), { defaultLocale: "tr", enabledLocales: ["tr", "en-US"] });
+  assert.deepEqual(await reader.getBlogPost({ hostname: HOST, now: NOW, slug: "duyuru", locale: "en-US" }), record);
+  assert.equal((await reader.listBlogPosts({ hostname: HOST, now: NOW, locale: "en-US", limit: 20 })).items[0]?.slug, "duyuru");
+  assert.deepEqual(call(client, "public_blog_get").values, [HOST, NOW, "duyuru", "en-US"]);
+  assert.deepEqual(call(client, "public_blog_list").values, [HOST, NOW, "en-US", 20, null]);
+});
+
+test("sitemap repository preserves every allowlisted frequency and rejects unknown or absent fields", async () => {
+  for (const changeFrequency of ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]) {
+    const client = new Client((text) => text.includes("public_content_sitemap_page") ? [{ outcome: "found", result_payload: { items: [{ path: "/pages/about?lang=en-US", updatedAt: NOW.toISOString(), changeFrequency }] } }] : []);
+    const entries = await publicRepository(new Pool([client])).getSitemapPage({ hostname: HOST, now: NOW, kind: "content", page: 0 });
+    assert.equal(entries[0]?.changeFrequency, changeFrequency);
+    assert.deepEqual(call(client, "public_content_sitemap_page").values, [HOST, NOW, "content", 0]);
+  }
+  for (const entry of [{ path: "/pages/about", updatedAt: NOW.toISOString() }, { path: "/pages/about", updatedAt: NOW.toISOString(), changeFrequency: "daily", privateOrigin: true }, { path: "/pages/about", updatedAt: NOW.toISOString(), changeFrequency: "<xml>" }]) {
+    const client = new Client((text) => text.includes("public_content_sitemap_page") ? [{ outcome: "found", result_payload: { items: [entry] } }] : []);
+    await assert.rejects(publicRepository(new Pool([client])).getSitemapPage({ hostname: HOST, now: NOW, kind: "content", page: 0 }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+  }
+});
+
+test("sitemap index rejects duplicate shards and content locale rejects invalid active settings", async () => {
+  const index = new Client((text) => text.includes("public_content_sitemap_index") ? [{ outcome: "found", result_payload: { items: [{ kind: "products", page: 0 }, { kind: "content", page: 0 }] } }] : []);
+  assert.deepEqual(await publicRepository(new Pool([index])).getSitemapIndex({ hostname: HOST, now: NOW }), [{ kind: "products", page: 0 }, { kind: "content", page: 0 }]);
+  const bad = new Client((text) => text.includes("public_content_locale_get") ? [{ outcome: "found", result_payload: { defaultLocale: "tr", enabledLocales: ["en-US"] } }] : []);
+  await assert.rejects(publicRepository(new Pool([bad])).getLocales({ hostname: HOST, now: NOW }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+});

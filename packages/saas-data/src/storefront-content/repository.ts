@@ -12,6 +12,16 @@ import type {
 import {
   exactStorefrontContentInput,
   parsePublicContentPage,
+  parsePublicContentV2,
+  parsePublicContentLocales,
+  parsePublicBlogList,
+  parsePublicSitemapIndex,
+  parsePublicSitemapPage,
+  storefrontContentLocale,
+  storefrontContentBlogLimit,
+  storefrontContentBlogCursor,
+  storefrontContentSitemapKind,
+  storefrontContentSitemapPage,
   storefrontContentPageSlug,
   parsePolicyIndexPayload,
   parseProductSearchPayload,
@@ -145,6 +155,47 @@ export class PostgresPublicStorefrontContentRepository extends PostgresStorefron
       text: "SELECT outcome,result_payload FROM saas.public_content_page_get($1::text,$2::timestamptz,$3::text)",
       values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), storefrontContentPageSlug(parsed.slug)],
     }, "found", parsePublicContentPage);
+  }
+
+  async getLocales(input: Readonly<{ hostname: string; now: Date }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now"]);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_content_locale_get($1::text,$2::timestamptz)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now)] }, "found", parsePublicContentLocales);
+  }
+
+  async getPageV2(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "slug", "locale"]);
+    const slug = storefrontContentPageSlug(parsed.slug), locale = storefrontContentLocale(parsed.locale);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_content_page_get_v2($1::text,$2::timestamptz,$3::text,$4::text)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), slug, locale] }, "found", (value) => {
+      const page = parsePublicContentV2(value);
+      if (page.kind !== "page" || page.slug !== slug || page.locale !== locale) throw failure();
+      return page;
+    });
+  }
+
+  async getBlogPost(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "slug", "locale"]);
+    const slug = storefrontContentPageSlug(parsed.slug), locale = storefrontContentLocale(parsed.locale);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_blog_get($1::text,$2::timestamptz,$3::text,$4::text)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), slug, locale] }, "found", (value) => {
+      const page = parsePublicContentV2(value);
+      if (page.kind !== "blog_post" || page.slug !== slug || page.locale !== locale) throw failure();
+      return page;
+    });
+  }
+
+  async listBlogPosts(input: Readonly<{ hostname: string; now: Date; locale: string; limit: number; cursor?: string }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "locale", "limit"], ["cursor"]);
+    const locale = storefrontContentLocale(parsed.locale);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_blog_list($1::text,$2::timestamptz,$3::text,$4::integer,$5::jsonb)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), locale, storefrontContentBlogLimit(parsed.limit), storefrontContentBlogCursor(parsed.cursor, locale)] }, "listed", (value) => parsePublicBlogList(value, locale));
+  }
+
+  async getSitemapIndex(input: Readonly<{ hostname: string; now: Date }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now"]);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_content_sitemap_index($1::text,$2::timestamptz)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now)] }, "found", parsePublicSitemapIndex);
+  }
+
+  async getSitemapPage(input: Readonly<{ hostname: string; now: Date; kind: "products" | "content"; page: number }>) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "kind", "page"]);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_content_sitemap_page($1::text,$2::timestamptz,$3::text,$4::integer)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), storefrontContentSitemapKind(parsed.kind), storefrontContentSitemapPage(parsed.page)] }, "found", parsePublicSitemapPage);
   }
 
   async listPolicies(input: Parameters<PublicStorefrontContentRepository["listPolicies"]>[0]) {

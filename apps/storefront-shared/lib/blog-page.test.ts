@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { buildPublicBlogPage, publicContentSeo } from "./blog-page.ts";
+
+const article = { id: "11000000-0000-4000-8000-000000000001", kind: "blog_post", slug: "duyuru", locale: "en-US", title: "News", body: "<p>Helpful content</p>", excerpt: "Short excerpt", seoTitle: "News | Store", seoDescription: "A saved description", publishedAt: "2026-09-29T00:00:00.000Z", updatedAt: "2026-09-29T00:00:00.000Z" } as const;
+test("blog detail uses exact locale canonical, saved SEO and safe rich body", () => {
+  const page = buildPublicBlogPage(article, "duyuru", "tr");
+  assert.equal(page.route, "/blog/duyuru?lang=en-US");
+  assert.match(page.html, /Helpful content/);
+  assert.deepEqual(publicContentSeo(article, "Store"), { title: "News | Store", description: "A saved description" });
+  assert.throws(() => buildPublicBlogPage(article, "other", "tr"));
+});
+test("content SEO strips markup from legacy text and adds brand once", () => {
+  assert.deepEqual(publicContentSeo({ ...article, seoTitle: null, seoDescription: null, excerpt: null, body: "<p>Soft &amp; kind</p><script>secret()</script>" }, "Store"), { title: "News | Store", description: "Soft & kind" });
+});

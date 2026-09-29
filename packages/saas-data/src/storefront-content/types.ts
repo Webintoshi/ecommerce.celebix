@@ -39,8 +39,37 @@ export type PublicContentPage = Readonly<{
   updatedAt: string;
 }>;
 
+export type PublicContentV2 = Readonly<{
+  id: string;
+  kind: "page" | "blog_post";
+  slug: string;
+  locale: string;
+  title: string;
+  body: string;
+  excerpt: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+}>;
+export type PublicContentList = Readonly<{
+  items: readonly Omit<PublicContentV2, "body">[];
+  nextCursor: string | null;
+}>;
+export type PublicContentLocales = Readonly<{ defaultLocale: string; enabledLocales: readonly string[] }>;
+export type SitemapKind = "products" | "content";
+export type SitemapChangeFrequency = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+export type PublicSitemapShard = Readonly<{ kind: SitemapKind; page: number }>;
+export type PublicSitemapEntry = Readonly<{ path: string; updatedAt: string; changeFrequency: SitemapChangeFrequency }>;
+
 export interface PublicStorefrontContentRepository {
   getPage?(input: Readonly<{ hostname: string; now: Date; slug: string }>): Promise<PublicContentPage>;
+  getLocales?(input: Readonly<{ hostname: string; now: Date }>): Promise<PublicContentLocales>;
+  getPageV2?(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>): Promise<PublicContentV2>;
+  getBlogPost?(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>): Promise<PublicContentV2>;
+  listBlogPosts?(input: Readonly<{ hostname: string; now: Date; locale: string; limit: number; cursor?: string }>): Promise<PublicContentList>;
+  getSitemapIndex?(input: Readonly<{ hostname: string; now: Date }>): Promise<readonly PublicSitemapShard[]>;
+  getSitemapPage?(input: Readonly<{ hostname: string; now: Date; kind: SitemapKind; page: number }>): Promise<readonly PublicSitemapEntry[]>;
   listPolicies(input: Readonly<{ hostname: string; now: Date }>): Promise<readonly PublicPolicyPage[]>;
   getPolicy(input: Readonly<{ hostname: string; now: Date; key: StorefrontPolicyKey }>): Promise<PublicPolicySourcePage>;
   search(input: Readonly<{ hostname: string; now: Date; query: string; limit: number; cursor?: string }>): Promise<PublicProductSearch>;

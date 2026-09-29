@@ -13,7 +13,7 @@ import {
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { StorefrontContentRepositoryError, type StorefrontContentErrorCode } from "./errors.ts";
-import type { PublicContentPage, PublicPolicySourcePage, StorePolicyAdminPage, StorePolicyStatus } from "./types.ts";
+import type { PublicContentList, PublicContentLocales, PublicContentPage, PublicContentV2, PublicPolicySourcePage, PublicSitemapEntry, PublicSitemapShard, SitemapChangeFrequency, SitemapKind, StorePolicyAdminPage, StorePolicyStatus } from "./types.ts";
 
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -72,8 +72,8 @@ export function storefrontContentDate(value: unknown): Date {
   return new Date(value.getTime());
 }
 
-export function storefrontContentUuid(value: unknown): string {
-  if (typeof value !== "string" || !UUID.test(value)) fail();
+export function storefrontContentUuid(value: unknown, code: StorefrontContentErrorCode = "invalid_input"): string {
+  if (typeof value !== "string" || !UUID.test(value)) fail(code);
   return value;
 }
 
@@ -122,7 +122,7 @@ export function storefrontContentProductIds(value: unknown): readonly string[] {
   if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 100) fail();
   const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
   if (Reflect.ownKeys(descriptors).length !== value.length + 1) fail();
-  const ids = value.map(storefrontContentUuid);
+  const ids = value.map((item) => storefrontContentUuid(item));
   if (new Set(ids).size !== ids.length) fail();
   return Object.freeze(ids);
 }
@@ -232,4 +232,109 @@ export function parsePublicContentPage(value: unknown): PublicContentPage {
     body: parsed.body,
     updatedAt: timestamp(parsed.updatedAt, "unavailable"),
   });
+}
+
+const CONTENT_LOCALE = /^[a-z]{2,3}(?:-[A-Z]{2})?$/;
+const SITEMAP_FREQUENCIES = new Set<SitemapChangeFrequency>(["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]);
+const SITEMAP_PATH = /^\/(?:pages|blog|urun|products)\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\?lang=[a-z]{2,3}(?:-[A-Z]{2})?)?$/;
+
+export function storefrontContentLocale(value: unknown, code: StorefrontContentErrorCode = "invalid_input"): string {
+  const locale = text(value, 2, 6, code);
+  if (!CONTENT_LOCALE.test(locale)) fail(code);
+  return locale;
+}
+
+export function storefrontContentBlogLimit(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 20) fail();
+  return value as number;
+}
+
+export function storefrontContentSitemapKind(value: unknown): SitemapKind {
+  if (value !== "products" && value !== "content") fail();
+  return value;
+}
+
+export function storefrontContentSitemapPage(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0 || (value as number) >= 10_000) fail();
+  return value as number;
+}
+
+export function storefrontContentBlogCursor(value: unknown, locale: string): Readonly<{ kind: "blog_post"; locale: string; updatedAt: string; id: string }> | null {
+  if (value === undefined) return null;
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > 512 || !/^[A-Za-z0-9_-]+$/.test(value)) fail();
+  let decoded: unknown;
+  try { decoded = JSON.parse(Buffer.from(value, "base64url").toString("utf8")); } catch { fail(); }
+  const parsed = exactStorefrontContentInput(decoded, ["kind", "locale", "updatedAt", "id"]);
+  if (parsed.kind !== "blog_post" || parsed.locale !== locale) fail();
+  return Object.freeze({ kind: "blog_post", locale, updatedAt: timestamp(parsed.updatedAt, "invalid_input"), id: storefrontContentUuid(parsed.id) });
+}
+
+function nullablePlain(value: unknown, maxBytes: number): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > maxBytes || CONTROL.test(value)) fail("unavailable");
+  return value;
+}
+
+function parseContentV2(value: unknown, includeBody: boolean): PublicContentV2 | Omit<PublicContentV2, "body"> {
+  const required = ["id", "kind", "slug", "locale", "title", "excerpt", "seoTitle", "seoDescription", "publishedAt", "updatedAt", ...(includeBody ? ["body"] : [])];
+  const parsed = exactStorefrontContentInput(value, required, [], "unavailable");
+  const kind = parsed.kind;
+  if (kind !== "page" && kind !== "blog_post") fail("unavailable");
+  const common = {
+    id: storefrontContentUuid(parsed.id, "unavailable"), kind: kind as "page" | "blog_post",
+    slug: storefrontContentPageSlug(parsed.slug, "unavailable"),
+    locale: storefrontContentLocale(parsed.locale, "unavailable"),
+    title: text(parsed.title, 1, 800, "unavailable"),
+    excerpt: nullablePlain(parsed.excerpt, 4000),
+    seoTitle: nullablePlain(parsed.seoTitle, 160),
+    seoDescription: nullablePlain(parsed.seoDescription, 4000),
+    publishedAt: parsed.publishedAt === null ? null : timestamp(parsed.publishedAt, "unavailable"),
+    updatedAt: timestamp(parsed.updatedAt, "unavailable"),
+  };
+  if (!includeBody) return Object.freeze(common);
+  // Legacy HTML is normalized by the shared renderer; rejecting it here would hide published historical pages.
+  if (typeof parsed.body !== "string" || Buffer.byteLength(parsed.body, "utf8") > 80_000 || CONTROL.test(parsed.body)) fail("unavailable");
+  return Object.freeze({ ...common, body: parsed.body });
+}
+
+export function parsePublicContentV2(value: unknown): PublicContentV2 { return parseContentV2(value, true) as PublicContentV2; }
+export function parsePublicContentLocales(value: unknown): PublicContentLocales {
+  const parsed = exactStorefrontContentInput(value, ["defaultLocale", "enabledLocales"], [], "unavailable");
+  const defaultLocale = storefrontContentLocale(parsed.defaultLocale, "unavailable");
+  if (!Array.isArray(parsed.enabledLocales) || parsed.enabledLocales.length < 1 || parsed.enabledLocales.length > 20) fail("unavailable");
+  const enabledLocales = Object.freeze(parsed.enabledLocales.map((item) => storefrontContentLocale(item, "unavailable")));
+  if (new Set(enabledLocales).size !== enabledLocales.length || !enabledLocales.includes(defaultLocale)) fail("unavailable");
+  return Object.freeze({ defaultLocale, enabledLocales });
+}
+export function parsePublicBlogList(value: unknown, expectedLocale: string): PublicContentList {
+  const parsed = exactStorefrontContentInput(value, ["items", "nextCursor"], [], "unavailable");
+  if (!Array.isArray(parsed.items) || parsed.items.length > 20) fail("unavailable");
+  const items = Object.freeze(parsed.items.map((item) => parseContentV2(item, false) as Omit<PublicContentV2, "body">));
+  if (items.some((item) => item.kind !== "blog_post" || item.locale !== expectedLocale)) fail("unavailable");
+  if (parsed.nextCursor !== null) {
+    try { storefrontContentBlogCursor(parsed.nextCursor, expectedLocale); } catch { fail("unavailable"); }
+  }
+  return Object.freeze({ items, nextCursor: parsed.nextCursor as string | null });
+}
+export function parsePublicSitemapIndex(value: unknown): readonly PublicSitemapShard[] {
+  const parsed = exactStorefrontContentInput(value, ["items"], [], "unavailable");
+  if (!Array.isArray(parsed.items) || parsed.items.length > 10_000) fail("unavailable");
+  const items = parsed.items.map((item) => {
+    const row = exactStorefrontContentInput(item, ["kind", "page"], [], "unavailable");
+    if (row.kind !== "products" && row.kind !== "content" || !Number.isSafeInteger(row.page) || (row.page as number) < 0 || (row.page as number) >= 10_000) fail("unavailable");
+    return Object.freeze({ kind: row.kind as SitemapKind, page: row.page as number });
+  });
+  if (new Set(items.map(({ kind, page }) => `${kind}:${page}`)).size !== items.length) fail("unavailable");
+  return Object.freeze(items);
+}
+export function parsePublicSitemapPage(value: unknown): readonly PublicSitemapEntry[] {
+  const parsed = exactStorefrontContentInput(value, ["items"], [], "unavailable");
+  if (!Array.isArray(parsed.items) || parsed.items.length > 1000) fail("unavailable");
+  const items = parsed.items.map((item) => {
+    const row = exactStorefrontContentInput(item, ["path", "updatedAt", "changeFrequency"], [], "unavailable");
+    if (typeof row.path !== "string" || !SITEMAP_PATH.test(row.path) || !SITEMAP_FREQUENCIES.has(row.changeFrequency as SitemapChangeFrequency)) fail("unavailable");
+    return Object.freeze({ path: row.path, updatedAt: timestamp(row.updatedAt, "unavailable"), changeFrequency: row.changeFrequency as SitemapChangeFrequency });
+  });
+  if (new Set(items.map(({ path }) => path)).size !== items.length) fail("unavailable");
+  return Object.freeze(items);
 }
