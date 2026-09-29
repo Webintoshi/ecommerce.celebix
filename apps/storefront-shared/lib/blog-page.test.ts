@@ -13,3 +13,13 @@ test("blog detail uses exact locale canonical, saved SEO and safe rich body", ()
 test("content SEO strips markup from legacy text and adds brand once", () => {
   assert.deepEqual(publicContentSeo({ ...article, seoTitle: null, seoDescription: null, excerpt: null, body: "<p>Soft &amp; kind</p><script>secret()</script>" }, "Store"), { title: "News | Store", description: "Soft & kind" });
 });
+test("content SEO keeps a long rich body out of the meta description", () => {
+  const body = `<p>${"kelime ".repeat(11_428)}</p>`;
+  const seo = publicContentSeo({ ...article, seoDescription: null, excerpt: null, body }, "Store");
+  assert.equal(seo.description, "kelime ".repeat(34).trim());
+  assert.ok(seo.description.length <= 240);
+});
+test("content SEO leaves a saved description untouched when the body is long", () => {
+  const saved = "Kaydedilmiş açıklama ".repeat(25).trim();
+  assert.equal(publicContentSeo({ ...article, seoDescription: saved, body: "kelime ".repeat(11_428) }, "Store").description, saved);
+});

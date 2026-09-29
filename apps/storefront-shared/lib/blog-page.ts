@@ -13,6 +13,14 @@ function plain(value: string | null | undefined): string {
     }).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function bodySummary(value: string): string {
+  const characters = Array.from(value);
+  if (characters.length <= 240) return value;
+  const prefix = characters.slice(0, 241).join("");
+  const wordBreak = prefix.lastIndexOf(" ");
+  return wordBreak >= 120 ? prefix.slice(0, wordBreak).trimEnd() : characters.slice(0, 240).join("");
+}
+
 export function publicContentSeo(source: Pick<PublicContentV2, "title" | "body" | "excerpt" | "seoTitle" | "seoDescription">, brand: string) {
   const cleanBrand = plain(brand);
   let title = plain(source.seoTitle) || plain(source.title);
@@ -21,7 +29,7 @@ export function publicContentSeo(source: Pick<PublicContentV2, "title" | "body" 
     while (title.endsWith(suffix)) title = title.slice(0, -suffix.length).trimEnd();
     title = `${title || plain(source.title)}${suffix}`;
   }
-  const description = plain(source.seoDescription) || plain(source.excerpt) || plain(normalizeProductDescriptionHtml(source.body, source.title)) || plain(source.title);
+  const description = plain(source.seoDescription) || plain(source.excerpt) || bodySummary(plain(normalizeProductDescriptionHtml(source.body, source.title))) || plain(source.title);
   return Object.freeze({ title, description });
 }
 
