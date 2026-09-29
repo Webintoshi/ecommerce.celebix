@@ -344,6 +344,19 @@ test('saved V5 pilot intro and full SEO copy regenerate the same short SEO witho
  assert.equal(second.result.status,'completed');assert.equal(second.result.draft!.seoDescription,first.result.draft!.seoDescription);
  assert.equal(second.sent.facts.sourcePreservation.sourceHash,first.sent.facts.sourcePreservation.sourceHash);
 });
+test('a later box campaign limit remains in SEO; omitting it fails provider output validation',async()=>{
+ const title='Yüzük',box='Şık ve zarif bir kutu içerisinde teslim edilmektedir.';
+ const limit='Kutu yalnızca ilk 10 siparişe dahildir; bu sayı kampanya dönemlerinde ve mağaza stok koşullarına bağlı olarak değişiklik gösterebilir.';
+ const description=`<p>${title}</p><p>${box}</p><p>${limit}</p>`;
+ const candidate={...pilotSourceRequest,currentDraft:{title,description,seoTitle:'',seoDescription:''}};
+ const accepted=await sourceServiceRun(candidate);assert.equal(accepted.result.status,'completed');
+ assert.equal(accepted.result.draft!.seoDescription,[title,box,limit].join(' '));
+ const omitted=await sourceServiceRun(candidate,output=>{
+  output.seoDescription=[title,box].join(' ');
+  output.claims=output.claims.filter((claim:any)=>claim.field!=='seoDescription'||claim.factRef!=='source:2');
+ });
+ assert.equal(omitted.result.status,'failed');assert.equal(omitted.result.safeCode,'invalid_output');assert.equal(omitted.fetches,1);
+});
 for(const [label,mutate] of [
  ['dropped-negation',(o:any)=>{o.description[0].items.pop();}],
  ['changed-weight',(o:any)=>{o.description[0].items[1][0].value=o.description[0].items[1][0].value.replace('2.28','2.29');}],

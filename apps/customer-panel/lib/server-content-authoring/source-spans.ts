@@ -61,6 +61,18 @@ function clauses(source:string):readonly string[] {
  return result;
 }
 type SourceSpan=Readonly<{ref:string;value:string;ordinal:number;start:number;end:number}>;
+/** Only these complete, self-contained clause forms may be omitted from a
+ * short SEO extract. An unfamiliar sentence might qualify an earlier claim,
+ * so it stays in the full-source fallback. No tenant name is encoded here. */
+const independentlyOmittable:readonly RegExp[]=[
+ /^Ürün %100 gerçek \d+ ayar altın ve \d+(?:[.,]\d+)? gramdır\.$/u,
+ /^Ürünlerimizde \d+ ayar \(\d+k\) altın damga ve patenti bulunmaktadır\.$/u,
+ /^\d+ ayar altın damga ve patenti bulunmaktadır\.$/u,
+ /^\d+ ayar altın damgalıdır\.$/u,
+ /^Belirtilen ağırlıkta üretimden kaynaklı \(\+\/-\) %\d+ sapma oluşabilmektedir\.$/u,
+ /^Kesinlikle altın kaplama ya da altın suyu değildir\.$/u,
+ /^Ürünlerimiz kargo firması size teslim edene kadar [\p{L}]+(?: [\p{L}]+){0,3} sorumluluğu ve güvencesi altındadır\.$/u,
+];
 /** A short meta description is safe only when it consists of standalone,
  * unqualified source blocks. Numeric and negative claims stay in the full
  * description; in particular a weight cannot lose a later tolerance. */
@@ -72,6 +84,11 @@ function seoSummary(spans:readonly SourceSpan[],title:string,text:string):Readon
  // dropped from SEO. The complete clause remains in the description group.
  const v5Intro=spans[0]?.value===`${title} için ürün bilgileri:`;
  if((spans[0]?.value!==title&&!v5Intro)||title.length>160||/\d+(?:[.,]\d+)?\s*(?:mg|g|gr|gram|kg|kilogram)(?:dır|dir|tır|tir)?\b/iu.test(title))return full();
+ // A later campaign, stock, quantity or eligibility limit can qualify an
+ // earlier attractive clause. If any such limit is present, do not summarize
+ // by omission, even when the limiting clause itself is too long for SEO.
+ const conditionalLimit=/(?:^|[^\p{L}])(?:yalnızca|sadece|hariç|dışında|kampanya\p{L}*|promosyon\p{L}*|stok\p{L}*|koşul\p{L}*|şart\p{L}*|dahil\p{L}*|geçerli\p{L}*|değişebilir|değişiklik\s+göster\p{L}*|only|limited|except|unless|campaign\p{L}*|promotion\p{L}*|stock\p{L}*|condition\p{L}*|eligible|eligibility)(?=$|[^\p{L}])|(?:^|[^\p{L}])(?:ilk|first|en\s+az|en\s+fazla|at\s+least|at\s+most|up\s+to)\s+\d+|\d+\s*(?:sipariş|order|adet|pieces?|tl|₺)\p{L}*/iu;
+ if(spans.some(span=>conditionalLimit.test(span.value)))return full();
  // A sentence that explicitly changes the scope or truth of a preceding one
  // makes any subset ambiguous. Preserve the complete source instead.
  if(spans.slice(1).some(span=>/^(?:ama|ancak|fakat|lakin|oysa|halbuki|buna\s+karşın|bununla\s+birlikte|bu|bunun|bunlar|onlar|yalnızca|sadece|aksi\s+halde|but|however|except|unless|this|that|these|those|it)\b/iu.test(span.value)||(/\b(?:değil(?:dir)?|not|never|no)\b/iu.test(span.value)&&span.value.split(/\s+/u).length<5)||/(?:^|[^\p{L}])\p{L}+(?:(?:ma|me)(?:z|yacak|yecek|dı|di|du|dü|mış|miş|muş|müş|malı|meli|makta|mekte|maktadır|mektedir)|(?:mı|mi|mu|mü)yor)(?=$|[^\p{L}])/iu.test(span.value)))return full();
@@ -84,6 +101,8 @@ function seoSummary(spans:readonly SourceSpan[],title:string,text:string):Readon
   selected.push(span);length+=1+span.value.length;
  }
  if(selected.length===1)return full();
+ const selectedRefs=new Set(selected.map(span=>span.ref));
+ if(spans.some(span=>!selectedRefs.has(span.ref)&&!independentlyOmittable.some(pattern=>pattern.test(span.value))))return full();
  return Object.freeze({text:[title,...selected.slice(1).map(span=>span.value)].join(' '),refs:Object.freeze(selected.map(span=>span.ref))});
 }
 /** Server-only preservation evidence, never independently reusable product facts.

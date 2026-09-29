@@ -47,9 +47,9 @@ test('SEO extracts exact safe clauses in source order while leaving the full des
 });
 test('a safe extract can serve a source longer than the SEO hard limit, but no safe extract still refuses',()=>{
  const title='Yüzük',safe='Şık ve zarif bir kutu içerisinde teslim edilmektedir.';
- const long=`<p>${title}</p><p>${'14 ayar altın damgalıdır. '.repeat(22)}</p><p>${safe}</p>`;
+ const long=`<p>${title}</p>${Array.from({length:20},()=>'<p>14 ayar altın damgalıdır.</p>').join('')}<p>${safe}</p>`;
  const p=build(request(long,{fields:['seoDescription']})).sourcePreservation!;
- assert.ok(p.text.length>500);assert.deepEqual(p.seoSummary,{text:`${title} ${safe}`,refs:['source:0','source:2']});
+ assert.ok(p.text.length>500);assert.deepEqual(p.seoSummary,{text:`${title} ${safe}`,refs:['source:0','source:21']});
  const unsafe=`<p>${title}</p><p>${'14 ayar altın damgalıdır. '.repeat(22)}</p>`;
  assert.throws(()=>build(request(unsafe,{fields:['seoDescription']})),(error:any)=>error.code==='source_preservation_required');
 });
@@ -64,6 +64,30 @@ test('cross-clause negation and a weight-bearing title fall back to complete sou
  const verbNegation='<p>Yüzük</p><p>Sigortalı ve faturalı olarak gönderilmektedir.</p><p>Sigortalı ve faturalı olarak gönderilmemektedir.</p><p>Şık ve zarif bir kutu içerisinde teslim edilmektedir.</p><p>Yumuşak kutusunda gönderilir ve kuru bezle temizlenir.</p>';
  const v=build(request(verbNegation,{fields:['seoDescription']})).sourcePreservation!;
  assert.ok(v.text.length>160);assert.equal(v.seoSummary.text,v.text);
+});
+test('a later numeric campaign limit cannot be omitted from a box claim in SEO',()=>{
+ const title='Yüzük',box='Şık ve zarif bir kutu içerisinde teslim edilmektedir.';
+ const limit='Kutu yalnızca ilk 10 siparişe dahildir; bu sayı kampanya dönemlerinde ve mağaza stok koşullarına bağlı olarak değişiklik gösterebilir.';
+ const description=`<p>${title}</p><p>${box}</p><p>${limit}</p>`;
+ const p=build(request(description,{fields:['description','seoDescription']})).sourcePreservation!;
+ assert.ok(p.text.length>160);assert.equal(p.seoSummary.text,p.text);
+ assert.deepEqual(p.seoSummary.refs,p.clauses.map(span=>span.ref));
+ for(const otherLimit of ['Kutu ilk 10 siparişe dahildir.','Kutu kampanya süresince sunulur.','Kutu stok durumuna göre gönderilir.']){
+  const otherDescription=`<p>${title}</p><p>${box}</p><p>${otherLimit}</p><p>${'Yumuşak kutusunda gönderilir. '.repeat(3)}</p>`;
+  const other=build(request(otherDescription,{fields:['seoDescription']})).sourcePreservation!;
+  assert.ok(other.text.length>160);assert.equal(other.seoSummary.text,other.text,otherLimit);
+ }
+ const longDescription=`<p>${title}</p><p>${box}</p><p>${limit}</p>${Array.from({length:7},()=>`<p>${box}</p>`).join('')}`;
+ assert.ok(build(request(longDescription,{fields:['description']})).sourcePreservation);
+ assert.throws(()=>build(request(longDescription,{fields:['seoDescription']})),(error:any)=>error.code==='source_preservation_required');
+});
+test('an unrecognized nonnumeric qualifier cannot be omitted from a short SEO extract',()=>{
+ const title='Yüzük',box='Şık ve zarif bir kutu içerisinde teslim edilmektedir.';
+ const unknown='Kutu belirli müşterilere verilir; uygulama mağazanın seçimine bağlıdır ve siparişe göre farklılık gösterebilir.';
+ const description=`<p>${title}</p><p>${box}</p><p>${unknown}</p><p>Sigortalı ve faturalı olarak gönderilmektedir.</p>`;
+ const p=build(request(description,{fields:['seoDescription']})).sourcePreservation!;
+ assert.ok(p.text.length>160);assert.equal(p.seoSummary.text,p.text);
+ assert.deepEqual(p.seoSummary.refs,p.clauses.map(span=>span.ref));
 });
 test('a prior exact full-source SEO copy can be safely replaced by the bounded source extract',()=>{
  const title='Yüzük',clauses=[title,'Şık ve zarif bir kutu içerisinde teslim edilmektedir.','Sigortalı ve faturalı olarak gönderilmektedir.', '14 ayar altın damga ve patenti bulunmaktadır.','Ürün %100 gerçek 14 ayar altın ve 2.28 gramdır.'];
