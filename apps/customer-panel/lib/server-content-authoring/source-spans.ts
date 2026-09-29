@@ -60,8 +60,34 @@ function clauses(source:string):readonly string[] {
  if(!result.length||result.length>32||result.some(value=>Buffer.byteLength(value,'utf8')>1000))refuse();
  return result;
 }
+type SourceSpan=Readonly<{ref:string;value:string;ordinal:number;start:number;end:number}>;
+/** A short meta description is safe only when it consists of standalone,
+ * unqualified source blocks. Numeric and negative claims stay in the full
+ * description; in particular a weight cannot lose a later tolerance. */
+function seoSummary(spans:readonly SourceSpan[],title:string,text:string):Readonly<{text:string;refs:readonly string[]}> {
+ const full=()=>Object.freeze({text,refs:Object.freeze(spans.map(span=>span.ref))});
+ if(text.length<=160)return full();
+ // V5 could save its only bounded lead-in as the first paragraph. The exact
+ // title is already present there; only this known connective suffix may be
+ // dropped from SEO. The complete clause remains in the description group.
+ const v5Intro=spans[0]?.value===`${title} için ürün bilgileri:`;
+ if((spans[0]?.value!==title&&!v5Intro)||title.length>160||/\d+(?:[.,]\d+)?\s*(?:mg|g|gr|gram|kg|kilogram)(?:dır|dir|tır|tir)?\b/iu.test(title))return full();
+ // A sentence that explicitly changes the scope or truth of a preceding one
+ // makes any subset ambiguous. Preserve the complete source instead.
+ if(spans.slice(1).some(span=>/^(?:ama|ancak|fakat|lakin|oysa|halbuki|buna\s+karşın|bununla\s+birlikte|bu|bunun|bunlar|onlar|yalnızca|sadece|aksi\s+halde|but|however|except|unless|this|that|these|those|it)\b/iu.test(span.value)||(/\b(?:değil(?:dir)?|not|never|no)\b/iu.test(span.value)&&span.value.split(/\s+/u).length<5)||/(?:^|[^\p{L}])\p{L}+(?:(?:ma|me)(?:z|yacak|yecek|dı|di|du|dü|mış|miş|muş|müş|malı|meli|makta|mekte|maktadır|mektedir)|(?:mı|mi|mu|mü)yor)(?=$|[^\p{L}])/iu.test(span.value)))return full();
+ const selected=[spans[0]];let length=title.length;
+ for(const span of spans.slice(1)){
+  // Only entire clauses enter SEO. Skip measurements, numeric purity claims,
+  // negation, tolerances, and clauses that refer to another assertion.
+  if(/[\p{N}%±∓]|\+\s*\/\s*-|\b(?:değil(?:dir)?|not|never|without|yaklaşık|tahmini|ortalama|belirtilen|sapma|tolerans|değişebilir|approximately|about|estimated|average|tolerance|varies|ağırlık|weight)\b/iu.test(span.value))continue;
+  if(length+1+span.value.length>160)continue;
+  selected.push(span);length+=1+span.value.length;
+ }
+ if(selected.length===1)return full();
+ return Object.freeze({text:[title,...selected.slice(1).map(span=>span.value)].join(' '),refs:Object.freeze(selected.map(span=>span.ref))});
+}
 /** Server-only preservation evidence, never independently reusable product facts.
- * The first increment keeps the whole description in one dependency group. */
+ * Description retains every source block; SEO is a bounded exact extract. */
 export function attachProductSourcePreservation(packet:ProductFactPacket,request:ContentAuthoringRequest):ProductFactPacket {
  const source=request.currentDraft.description??'';
  if(/[\p{Cs}\p{Cf}\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(source))refuse();
@@ -85,17 +111,21 @@ export function attachProductSourcePreservation(packet:ProductFactPacket,request
  if(request.currentDraft.attributes?.length||Object.keys(request.currentDraft.measurements??{}).length||packet.facts.some(fact=>fact.scope==='variant'))refuse();
  if(/\b(?:ignore|disregard|override|system|assistant|instructions?|prompt|secret|api[_ -]?key)\b|talimat|yok\s*say|anahtar|komut|varyant|variant|seçenek|option/iu.test(visible))refuse();
  const values=clauses(source);const text=values.join(' ');
- if(text.length>10000||(request.fields.includes('seoDescription')&&text.length>500))refuse();
+ if(text.length>10000)refuse();
  if(request.fields.includes('seoTitle')&&(packet.title.length>200||/[<>\r\n]/.test(packet.title)))refuse();
  if(request.action==='rewrite_selection'&&(request.fields.length!==1||request.fields[0]!=='description'||request.selection?.field!=='description'||request.selection.text.replace(/\s+/gu,' ').trim()!==text))refuse();
- for(const field of request.fields){
-  if(field==='description')continue;
-  const previous=request.currentDraft[field];const next=field==='seoTitle'?packet.title:text;
-  if(previous&&previous!==next&&sensitive(extractPlainTextFromProductDescription(previous)))refuse();
- }
  const sourceHash=sha(source),textHash=sha(text);let offset=0;
  const spans=Object.freeze(values.map((value,ordinal)=>{const start=offset;offset+=value.length+1;return Object.freeze({ref:`source:${ordinal}`,value,ordinal,start,end:start+value.length});}));
- const sourcePreservation=Object.freeze({sourceHash,textHash,text,clauses:spans});
+ const summary=seoSummary(spans,packet.title,text);
+ const v5OriginalText=values[0]===`${packet.title} için ürün bilgileri:`?[packet.title,...values.slice(1)].join(' '):null;
+ if(request.fields.includes('seoDescription')&&summary.text.length>500)refuse();
+ for(const field of request.fields){
+  if(field==='description')continue;
+  const previous=request.currentDraft[field];const next=field==='seoTitle'?packet.title:summary.text;
+  // An earlier full-source SEO copy is known evidence for this same group.
+  if(previous&&previous!==next&&!(field==='seoDescription'&&(previous===text||previous===v5OriginalText))&&sensitive(extractPlainTextFromProductDescription(previous)))refuse();
+ }
+ const sourcePreservation=Object.freeze({sourceHash,textHash,text,clauses:spans,seoSummary:summary});
  const result=Object.freeze({...packet,sourcePreservation,sourceFingerprint:sha(canonicalContentAuthoringValue({base:packet.sourceFingerprint,sourcePreservation}))});
  // This envelope includes more fields than the actual model input. Fail before
  // credentials/admission rather than truncate either copy of the source.

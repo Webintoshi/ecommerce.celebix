@@ -167,8 +167,8 @@ function substitutions(source:typeof packet) {
  for(const fact of source.facts){const prefix=fact.scope==='variant'?`variant${Number(fact.variantId!.split('-').at(-1))+1}.${fact.field}`:fact.field;result[`<${prefix}.ref>`]=fact.ref;result[`<${prefix}.value>`]=fact.value;if(fact.unit)result[`<${prefix}.unit>`]=fact.unit;}
  return result;
 }
-test('prompt v4 reaches actual adapter with useful labeled prose and retained strict protocol',async()=>{
- const {system,binding}=await promptFromActualAdapter();assert.equal(binding.promptVersion,'content-authoring-v5');
+test('prompt v6 reaches actual adapter with useful labeled prose and retained strict protocol',async()=>{
+ const {system,binding}=await promptFromActualAdapter();assert.equal(binding.promptVersion,'content-authoring-v6');
  for(const pattern of [/claims\[\]\.field is the selected OUTPUT destination/,/description\|seoTitle\|seoDescription/,/never a source fact.*title.*weight/,/factRef, value and unit.*byte-for-byte/,/Decimal comma.*display prose.*never.*structured/,/same paragraph, list item or table row/,/untrusted style-only/,/No tools, links, HTML or markdown fences/,/hard limits are 200\/500/])assert.match(system,pattern);
  assert.match(system,/Label every measurement with its source field/);assert.match(system,/Never output an unlabeled fact-only paragraph/);
  assert.match(system,/short neutral lead-in/);assert.match(system,/seoTitle.*compact product name/);assert.match(system,/seoDescription.*readable factual summary/);
@@ -305,7 +305,7 @@ const pilotSourceClauses = [
 ];
 const pilotSourceHtml = `<p>${pilotSourceClauses[0]}</p><ul>${pilotSourceClauses.slice(1).map(text=>`<li><p>${text}</p></li>`).join('')}</ul><p><br class="ProseMirror-trailingBreak"></p>`;
 const pilotSourceRequest={...request,action:'improve' as const,fields:['description','seoTitle','seoDescription'] as const,note:'',currentDraft:{title:pilotSourceClauses[0],description:pilotSourceHtml,seoTitle:'',seoDescription:'',variants:[{title:'Varsayılan',attributes:[],measurements:null}]}};
-function sourceOutput(sent:any){const spans=sent.facts.sourcePreservation.clauses;return {description:[{type:'list',ordered:false,items:spans.map((span:any)=>[{type:'fact',factRef:span.ref,value:span.value}])}],seoTitle:sent.facts.title,seoDescription:sent.facts.sourcePreservation.text,suggestions:[],claims:['description','seoDescription'].flatMap(field=>spans.map((span:any)=>({field,factRef:span.ref,value:span.value}))),sourceFingerprint:sent.facts.sourceFingerprint};}
+function sourceOutput(sent:any){const spans=sent.facts.sourcePreservation.clauses,summary=sent.facts.sourcePreservation.seoSummary,v5Intro=spans[0].value===`${sent.facts.title} için ürün bilgileri:`;return {description:v5Intro?[{type:'paragraph',children:[{type:'fact',factRef:spans[0].ref,value:spans[0].value}]},{type:'list',ordered:false,items:spans.slice(1).map((span:any)=>[{type:'fact',factRef:span.ref,value:span.value}])}]:[{type:'list',ordered:false,items:spans.map((span:any)=>[{type:'fact',factRef:span.ref,value:span.value}])}],seoTitle:sent.facts.title,seoDescription:summary.text,suggestions:[],claims:[...spans.map((span:any)=>({field:'description',factRef:span.ref,value:span.value})),...summary.refs.map((ref:string)=>{const span=spans.find((span:any)=>span.ref===ref);return {field:'seoDescription',factRef:ref,value:span.value};})],sourceFingerprint:sent.facts.sourceFingerprint};}
 async function sourceServiceRun(candidate:any=pilotSourceRequest,mutate:(output:any,sent:any)=>void=()=>{}){
  const s=setup();let sent:any,fetches=0;
  const begin=s.dependencies.repository.beginGeneration,complete=s.dependencies.repository.completeGeneration;
@@ -320,17 +320,29 @@ async function sourceServiceRun(candidate:any=pilotSourceRequest,mutate:(output:
  }});
  const result=await createContentAuthoringService(s.dependencies).generateContent({...input,request:candidate});return {result,sent,fetches};
 }
-test('actual pilot whole-source improvement preserves all eight clauses and complete487-character SEO through the actual adapter contract',async()=>{
+test('actual pilot preserves all eight description clauses and emits a concise exact-clause SEO summary through the adapter',async()=>{
  const {result,sent,fetches}=await sourceServiceRun();assert.equal(fetches,1);assert.equal(result.status,'completed');
  assert.ok(Buffer.byteLength(JSON.stringify(sourceOutput(sent)),'utf8')<4096,'complete expected JSON fits a conservative byte-count envelope below the output-token ceiling; no token estimate is treated as measured usage');
  assert.equal(pilotSourceClauses.join(' ').length,487);assert.deepEqual(sent.facts.sourcePreservation.clauses.map((span:any)=>span.value),pilotSourceClauses);
  assert.deepEqual(sent.facts.facts.map((fact:any)=>fact.field),['title']);assert.equal(sent.facts.sourcePreservation.text,pilotSourceClauses.join(' '));
- assert.equal(result.draft!.seoDescription,pilotSourceClauses.join(' '));assert.equal(result.draft!.seoTitle,pilotSourceClauses[0]);assert.deepEqual(result.draft!.suggestions,[]);
+ assert.equal(result.draft!.seoDescription,[pilotSourceClauses[0],pilotSourceClauses[3],pilotSourceClauses[5]].join(' '));assert.ok(result.draft!.seoDescription!.length<=160);
+ assert.deepEqual(sent.facts.sourcePreservation.seoSummary.refs,['source:0','source:3','source:5']);assert.equal(result.draft!.seoTitle,pilotSourceClauses[0]);assert.deepEqual(result.draft!.suggestions,[]);
  assert.equal(renderContentAuthoringDescription(result.draft!.description!),`<ul>${pilotSourceClauses.map(text=>`<li>${text}</li>`).join('')}</ul>`);
  assert.deepEqual(result.usage,{inputTokens:100,outputTokens:20,totalTokens:120});
  const publicFields=['id','draftId','productId','status','draft','sourceFingerprint','usage','safeCode','createdAt','updatedAt','finishedAt'] as const;
  const publicView=parseContentGenerationView(Object.fromEntries(publicFields.map(key=>[key,result[key]])));
  assert.deepEqual(publicView.draft,result.draft,'existing public DTO parses source refs without new response keys');
+});
+test('saved V5 pilot intro and full SEO copy regenerate the same short SEO without changing description text',async()=>{
+ const intro=`${pilotSourceClauses[0]} için ürün bilgileri:`;
+ const description=`<p>${intro}</p><ul>${pilotSourceClauses.slice(1).map(text=>`<li><p>${text}</p></li>`).join('')}</ul>`;
+ const candidate={...pilotSourceRequest,currentDraft:{...pilotSourceRequest.currentDraft,description,seoDescription:pilotSourceClauses.join(' ')}};
+ const first=await sourceServiceRun(candidate);assert.equal(first.result.status,'completed');assert.equal(first.fetches,1);
+ assert.equal(first.result.draft!.seoDescription,[pilotSourceClauses[0],pilotSourceClauses[3],pilotSourceClauses[5]].join(' '));
+ assert.equal(renderContentAuthoringDescription(first.result.draft!.description!),`<p>${intro}</p><ul>${pilotSourceClauses.slice(1).map(text=>`<li>${text}</li>`).join('')}</ul>`);
+ const second=await sourceServiceRun({...candidate,currentDraft:{...candidate.currentDraft,seoDescription:first.result.draft!.seoDescription}});
+ assert.equal(second.result.status,'completed');assert.equal(second.result.draft!.seoDescription,first.result.draft!.seoDescription);
+ assert.equal(second.sent.facts.sourcePreservation.sourceHash,first.sent.facts.sourcePreservation.sourceHash);
 });
 for(const [label,mutate] of [
  ['dropped-negation',(o:any)=>{o.description[0].items.pop();}],
@@ -342,6 +354,9 @@ for(const [label,mutate] of [
  ['unsigned-claim',(o:any)=>{o.claims.pop();}],
  ['unit-injection',(o:any)=>{o.description[0].items[1][0].unit='g';}],
  ['partial-seo',(o:any)=>{o.seoDescription='2.28 gram altın yüzük';}],
+ ['weight-without-tolerance',(o:any)=>{o.seoDescription=[pilotSourceClauses[0],pilotSourceClauses[1]].join(' ');o.claims=o.claims.filter((c:any)=>c.field!=='seoDescription');for(const index of [0,1])o.claims.push({field:'seoDescription',factRef:`source:${index}`,value:pilotSourceClauses[index]});}],
+ ['other-exact-clauses',(o:any)=>{o.seoDescription=[pilotSourceClauses[0],pilotSourceClauses[3]].join(' ');o.claims=o.claims.filter((c:any)=>c.field!=='seoDescription');for(const index of [0,3])o.claims.push({field:'seoDescription',factRef:`source:${index}`,value:pilotSourceClauses[index]});}],
+ ['seo-claim-for-omitted-clause',(o:any)=>{o.claims.push({field:'seoDescription',factRef:'source:1',value:pilotSourceClauses[1]});}],
  ['reversed-seo',(o:any)=>{o.seoDescription='Değil: '+o.seoDescription;}],
  ['generated-negation',(o:any)=>{o.description[0].items[1].unshift({type:'text',text:'Doğru değildir: '});}],
  ['arbitrary-source-substring',(o:any)=>{o.description[0].items[1]=[{type:'text',text:'Ürün 100 gramdır.'}];}],

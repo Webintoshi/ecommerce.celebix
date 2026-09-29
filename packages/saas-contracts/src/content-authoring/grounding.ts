@@ -59,9 +59,15 @@ function variantIsNamed(text: string, id: string | undefined, packet: ProductFac
 export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet: ProductFactPacket): void {
   if (packet.sourcePreservation) {
     const source=packet.sourcePreservation;
+    const summary=source.seoSummary;
+    const selected=summary.refs.map(ref=>source.clauses.findIndex(span=>span.ref===ref));
+    if(!selected.length||selected[0]!==0||selected.some((index,ordinal)=>index<0||(ordinal>0&&index<=selected[ordinal-1])))unsupported();
+    const v5Intro=source.clauses[0]?.value===`${packet.title} için ürün bilgileri:`;
+    const exactExtract=selected.map((index,ordinal)=>ordinal===0&&v5Intro&&summary.text!==source.text?packet.title:source.clauses[index].value).join(' ');
+    if(summary.text!==exactExtract||(summary.text!==source.text&&summary.text.length>160))unsupported();
     if(draft.suggestions.length)unsupported();
     if(draft.seoTitle!==undefined&&draft.seoTitle!==packet.title)unsupported();
-    if(draft.seoDescription!==undefined&&draft.seoDescription!==source.text)unsupported();
+    if(draft.seoDescription!==undefined&&draft.seoDescription!==summary.text)unsupported();
     const nodes:ContentAuthoringTextNode[]=[];
     if(draft.description!==undefined){
       for(const block of draft.description){
@@ -78,7 +84,8 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     // Claims must cite every consumed clause per selected destination exactly
     // once. No unused refs, title-derived quantities or substring evidence.
     const expected=new Set<string>();
-    for(const field of ['description','seoDescription'] as const)if(draft[field]!==undefined)for(const span of source.clauses)expected.add(`${field}:${span.ref}`);
+    if(draft.description!==undefined)for(const span of source.clauses)expected.add(`description:${span.ref}`);
+    if(draft.seoDescription!==undefined)for(const ref of summary.refs)expected.add(`seoDescription:${ref}`);
     if(draft.claims.length!==expected.size)unsupported();
     for(const claim of draft.claims){
       const span=source.clauses.find(value=>value.ref===claim.factRef);

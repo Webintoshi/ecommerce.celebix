@@ -35,6 +35,59 @@ test('SEO overflow rejects only the selected SEO transformation before dispatch,
  const r=request(`<p>2.28 gram ${'a'.repeat(500)}</p>`);assert.ok(build(r).sourcePreservation);
  assert.throws(()=>build({...r,fields:['seoDescription']}),(error:any)=>error.code==='source_preservation_required');
 });
+test('SEO extracts exact safe clauses in source order while leaving the full description group intact',()=>{
+ const title='14 Ayar Altın Ortası Sıralı Taşlı Yüzük 518';
+ const values=[title,'Ürün %100 gerçek 14 ayar altın ve 2.28 gramdır.','Ürünlerimizde 14 ayar (585k) altın damga ve patenti bulunmaktadır.','Şık ve zarif bir kutu içerisinde teslim edilmektedir.','Sigortalı ve faturalı olarak gönderilmektedir.','Belirtilen ağırlıkta üretimden kaynaklı (+/-) %10 sapma oluşabilmektedir.','Kesinlikle altın kaplama ya da altın suyu değildir.'];
+ const description=`<p>${title}</p><ul>${values.slice(1).map(value=>`<li><p>${value}</p></li>`).join('')}</ul>`;
+ const p=build(request(description,{fields:['description','seoTitle','seoDescription'],currentDraft:{title,description}})).sourcePreservation!;
+ assert.deepEqual(p.clauses.map(span=>span.value),values);
+ assert.deepEqual(p.seoSummary,{text:[values[0],values[3],values[4]].join(' '),refs:['source:0','source:3','source:4']});
+ assert.ok(p.seoSummary.text.length<=160);
+ assert.equal(p.text,values.join(' '));
+});
+test('a safe extract can serve a source longer than the SEO hard limit, but no safe extract still refuses',()=>{
+ const title='Yüzük',safe='Şık ve zarif bir kutu içerisinde teslim edilmektedir.';
+ const long=`<p>${title}</p><p>${'14 ayar altın damgalıdır. '.repeat(22)}</p><p>${safe}</p>`;
+ const p=build(request(long,{fields:['seoDescription']})).sourcePreservation!;
+ assert.ok(p.text.length>500);assert.deepEqual(p.seoSummary,{text:`${title} ${safe}`,refs:['source:0','source:2']});
+ const unsafe=`<p>${title}</p><p>${'14 ayar altın damgalıdır. '.repeat(22)}</p>`;
+ assert.throws(()=>build(request(unsafe,{fields:['seoDescription']})),(error:any)=>error.code==='source_preservation_required');
+});
+test('cross-clause negation and a weight-bearing title fall back to complete source text',()=>{
+ const negation='<p>Yüzük</p><p>2.28 gramdır.</p><p>Değildir.</p><p>Şık ve zarif bir kutu içerisinde teslim edilmektedir.</p><p>Sigortalı ve faturalı olarak gönderilmektedir.</p><p>Yumuşak kutusunda gönderilir ve kuru bezle temizlenir.</p>';
+ const n=build(request(negation,{fields:['seoDescription']})).sourcePreservation!;
+ assert.ok(n.text.length>160);
+ assert.equal(n.seoSummary.text,n.text);assert.deepEqual(n.seoSummary.refs,n.clauses.map(span=>span.ref));
+ const title='2.28 gram Altın Yüzük';const description=`<p>${title}</p><p>Şık ve zarif bir kutu içerisinde teslim edilmektedir.</p><p>${'Ürün bilgisi. '.repeat(13)}</p><p>Ağırlıkta (+/-) %10 sapma olabilir.</p>`;
+ const w=build(request(description,{fields:['seoDescription'],currentDraft:{title,description}})).sourcePreservation!;
+ assert.equal(w.seoSummary.text,w.text);assert.deepEqual(w.seoSummary.refs,w.clauses.map(span=>span.ref));
+ const verbNegation='<p>Yüzük</p><p>Sigortalı ve faturalı olarak gönderilmektedir.</p><p>Sigortalı ve faturalı olarak gönderilmemektedir.</p><p>Şık ve zarif bir kutu içerisinde teslim edilmektedir.</p><p>Yumuşak kutusunda gönderilir ve kuru bezle temizlenir.</p>';
+ const v=build(request(verbNegation,{fields:['seoDescription']})).sourcePreservation!;
+ assert.ok(v.text.length>160);assert.equal(v.seoSummary.text,v.text);
+});
+test('a prior exact full-source SEO copy can be safely replaced by the bounded source extract',()=>{
+ const title='Yüzük',clauses=[title,'Şık ve zarif bir kutu içerisinde teslim edilmektedir.','Sigortalı ve faturalı olarak gönderilmektedir.', '14 ayar altın damga ve patenti bulunmaktadır.','Ürün %100 gerçek 14 ayar altın ve 2.28 gramdır.'];
+ const description=clauses.map(value=>`<p>${value}</p>`).join('');
+ const p=build(request(description,{fields:['seoDescription'],currentDraft:{title,description,seoDescription:clauses.join(' ')}})).sourcePreservation!;
+ assert.notEqual(p.seoSummary.text,p.text);assert.equal(p.seoSummary.text,[...clauses.slice(0,3)].join(' '));
+});
+test('exact V5 title lead-in preserves current text and yields an idempotent title-first extract',()=>{
+ const title='14 Ayar Altın Ortası Sıralı Taşlı Yüzük 518';
+ const values=[title,'Ürün %100 gerçek 14 ayar altın ve 2.28 gramdır.','Ürünlerimizde 14 ayar (585k) altın damga ve patenti bulunmaktadır.','Şık ve zarif bir kutu içerisinde teslim edilmektedir.','Sigortalı ve faturalı olarak gönderilmektedir.','Belirtilen ağırlıkta üretimden kaynaklı (+/-) %10 sapma oluşabilmektedir.','Kesinlikle altın kaplama ya da altın suyu değildir.'];
+ const description=`<p>${title} için ürün bilgileri:</p><ul>${values.slice(1).map(value=>`<li><p>${value}</p></li>`).join('')}</ul>`;
+ const currentDraft={title,description,seoDescription:values.join(' ')};
+ const r=request(description,{fields:['description','seoTitle','seoDescription'],currentDraft});
+ const first=build(r),p=first.sourcePreservation!;
+ assert.equal(p.clauses[0].value,`${title} için ürün bilgileri:`);
+ assert.deepEqual(p.seoSummary,{text:[values[0],values[3],values[4]].join(' '),refs:['source:0','source:3','source:4']});
+ assert.equal(p.text,[`${title} için ürün bilgileri:`,...values.slice(1)].join(' '));
+ const second=build({...r,currentDraft:{...currentDraft,seoDescription:p.seoSummary.text}});
+ assert.deepEqual(second.sourcePreservation?.seoSummary,p.seoSummary);assert.equal(second.sourcePreservation?.sourceHash,p.sourceHash);
+ const changed=description.replace(' için ürün bilgileri:',' için ürün bilgisi:');
+ const unknown=build({...r,currentDraft:{...currentDraft,description:changed,seoDescription:''}}).sourcePreservation!;
+ assert.equal(unknown.seoSummary.text,unknown.text);
+ assert.throws(()=>build({...r,currentDraft:{...currentDraft,description:changed}}),(error:any)=>error.code==='source_preservation_required');
+});
 test('partial selection refuses; exact full-group selection keeps all source clauses and only description',()=>{
  const r=request('<p>2.28 gramdır.</p><p>(+/-) %10 sapma.</p>',{action:'rewrite_selection',selection:{field:'description',text:'2.28 gramdır.'}});
  assert.throws(()=>build(r),(error:any)=>error.code==='source_preservation_required');

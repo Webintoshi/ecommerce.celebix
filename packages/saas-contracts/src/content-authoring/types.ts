@@ -56,6 +56,8 @@ export interface ProductSourcePreservation {
     readonly textHash: string;
     readonly text: string;
     readonly clauses: readonly Readonly<{ref:string;value:string;ordinal:number;start:number;end:number}>[];
+    /** Server-selected whole-clause SEO copy; refs are in source order. */
+    readonly seoSummary: Readonly<{text:string;refs:readonly string[]}>;
 }
 export interface ProductFactPacket {
     readonly title: string;
