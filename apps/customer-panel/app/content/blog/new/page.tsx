@@ -7,5 +7,5 @@ import { contentResourceAuthoringEnabled, contentResearchEnabled } from "@/lib/s
 
 export default async function NewBlogPostPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantContentEditor kind="blog_post" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo="/content/blog" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  return <MerchantContentEditor storeId={tenantContext.store.id} kind="blog_post" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo="/content/blog" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }

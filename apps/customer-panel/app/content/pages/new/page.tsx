@@ -7,5 +7,5 @@ import { contentResourceAuthoringEnabled, contentResearchEnabled } from "@/lib/s
 
 export default async function NewContentPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantContentEditor kind="page" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo="/content/pages" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  return <MerchantContentEditor storeId={tenantContext.store.id} kind="page" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo="/content/pages" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }
