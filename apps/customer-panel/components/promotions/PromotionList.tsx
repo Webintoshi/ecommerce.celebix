@@ -31,7 +31,11 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive }: R
   const [phase, setPhase] = useState<"loading" | "loaded" | "empty" | "error">("loading");
   const [items, setItems] = useState<readonly PromotionAdminListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [appendError, setAppendError] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [overviewRetry, setOverviewRetry] = useState(0);
+  const [busy, setBusy] = useState<readonly string[]>([]);
   const [message, setMessage] = useState("");
   const [overview, setOverview] = useState<PromotionOverviewResult | null>(null);
   const [overviewPhase, setOverviewPhase] = useState<"loading" | "loaded" | "error">("loading");
@@ -44,25 +48,41 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive }: R
     ...(from && to ? { scheduleFrom: dateStart(from, timezone), scheduleTo: dateEnd(to, timezone) } : {}),
   });
   const load = (selectedQuery: ListQuery, cursor?: string, preserveMessage = false) => {
-    if (!cursor) setPhase("loading"); if (!preserveMessage) setMessage("");
+    if (cursor && loadingMore) return;
+    if (!cursor) setPhase("loading"); else setLoadingMore(true);
+    setAppendError(false); if (!preserveMessage) setMessage("");
     void loader.load({ ...selectedQuery, ...(cursor ? { cursor } : {}) }).then((page) => {
       if (!page) return;
       setItems((current) => cursor ? [...current, ...page.items] : page.items); setNextCursor(page.nextCursor); setPhase(cursor || page.items.length ? "loaded" : "empty");
-    }).catch(() => setPhase("error"));
+    }).catch(() => { if (cursor) setAppendError(true); else setPhase("error"); }).finally(() => setLoadingMore(false));
   };
   useEffect(() => { load({}); return () => loader.dispose(); }, []);
   useEffect(() => {
     const controller = new AbortController(); setOverviewPhase("loading");
     void promotionApi.overview(range, controller.signal).then((value) => { setOverview(value); setOverviewPhase("loaded"); }).catch(() => { if (!controller.signal.aborted) setOverviewPhase("error"); });
     return () => controller.abort();
-  }, [range]);
+  }, [range, overviewRetry]);
+
+  const filterCount = Object.keys(appliedQuery).filter((key) => key !== "scheduleTo").length;
+  const appliedLabels = [
+    ...(appliedQuery.search ? [`“${appliedQuery.search}”`] : []),
+    ...(appliedQuery.effectiveStatuses ?? []).map((value) => STATUS[value] ?? value),
+    ...(appliedQuery.triggerKinds ?? []).map((value) => value === "automatic" ? "Otomatik" : "Kodlu"),
+    ...(appliedQuery.benefitKinds ?? []).map((value) => BENEFIT[value] ?? value),
+    ...(appliedQuery.audienceModes ?? []).map((value) => AUDIENCE[value] ?? value),
+    ...(appliedQuery.scheduleFrom ? ["Tarih aralığı"] : []),
+  ];
+  const clearFilters = () => {
+    setSearch(""); setStatusFilter(""); setTrigger(""); setBenefit(""); setAudience(""); setFrom(""); setTo("");
+    appliedQueryRef.current = {}; setAppliedQuery({}); setNextCursor(null); load({});
+  };
 
   const action = (item: PromotionAdminListItem, selected: "pause" | "resume" | "archive" | "duplicate") => {
-    if (busy) return;
+    if (busy.includes(item.id)) return;
     if (selected === "archive" && !window.confirm("Kampanya arşivlensin mi? Geçmiş siparişler korunur.")) return;
     const replacementCode = selected === "duplicate" && item.triggerKind === "code" ? window.prompt("Kopya kampanya için kullanılmamış yeni kupon kodunu yazın.", "") : "";
     if (replacementCode === null || (selected === "duplicate" && item.triggerKind === "code" && replacementCode.trim() === "")) { if (replacementCode !== null) setMessage("Kodlu kampanya kopyası için yeni bir kupon kodu gerekir."); return; }
-    setBusy(item.id); setMessage("");
+    setBusy((current) => [...current, item.id]); setMessage("");
     const operation = selected === "duplicate" ? promotionApi.duplicate(item.id, item.version, `${item.name} — Kopya`, replacementCode ? [replacementCode] : []) : promotionApi.lifecycle(item.id, item.version, selected, item.startsAt && item.startsAt > new Date().toISOString() ? "scheduled" : "active");
     void operation.then((result) => {
       if (result.kind === "saved") {
@@ -71,10 +91,10 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive }: R
       } else if (result.kind === "version_conflict") { setMessage("Kampanya başka bir kullanıcı tarafından güncellendi. Liste yenilendi."); load(appliedQueryRef.current, undefined, true); }
       else if (result.kind === "publish_blocked") setMessage("Kampanya yeniden etkinleştirilemedi; ayarlarını kontrol edin.");
       else setMessage(result.message);
-    }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy(null));
+    }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy((current) => current.filter((id) => id !== item.id)));
   };
 
-  const rowActions = (item: PromotionAdminListItem) => <div className={styles.rowActions}><Link href={`/discounts/${item.id}`}>Görüntüle</Link><Link href={`/discounts/${item.id}/analytics`}>Analiz</Link><Link href={`/discounts/${item.id}/codes`}>Kuponlar</Link>{canManage && item.status !== "archived" ? <Link href={`/discounts/${item.id}/edit`}>Düzenle</Link> : null}{canManage ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "duplicate")}>Çoğalt</button> : null}{canPublish && (item.status === "active" || item.status === "scheduled") ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "pause")}>Duraklat</button> : null}{canPublish && item.status === "paused" ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "resume")}>Devam ettir</button> : null}{canArchive && item.status !== "archived" ? <button type="button" disabled={busy === item.id} onClick={() => action(item, "archive")}>Arşivle</button> : null}</div>;
+  const rowActions = (item: PromotionAdminListItem) => <div className={styles.rowActions}><Link href={`/discounts/${item.id}`}>Görüntüle</Link><details className={styles.rowMenu}><summary>İşlemler</summary><div><Link href={`/discounts/${item.id}/analytics`}>Analiz</Link><Link href={`/discounts/${item.id}/codes`}>Kuponlar</Link>{canManage && item.status !== "archived" ? <Link href={`/discounts/${item.id}/edit`}>Düzenle</Link> : null}{canManage ? <button type="button" disabled={busy.includes(item.id)} onClick={() => action(item, "duplicate")}>Çoğalt</button> : null}{canPublish && (item.status === "active" || item.status === "scheduled") ? <button type="button" disabled={busy.includes(item.id)} onClick={() => action(item, "pause")}>Duraklat</button> : null}{canPublish && item.status === "paused" ? <button type="button" disabled={busy.includes(item.id)} onClick={() => action(item, "resume")}>Devam ettir</button> : null}{canArchive && item.status !== "archived" ? <button type="button" disabled={busy.includes(item.id)} onClick={() => action(item, "archive")}>Arşivle</button> : null}</div></details></div>;
 
   return <section className={styles.list}>
     <PanelPageHeader title="İndirimler ve Kampanyalar" description="Satışlarınızı artıracak kampanyaları kolayca oluşturun, takip edin ve yönetin." actions={canManage ? <div className={styles.headerPrimary}><PanelActionButton primary href="/discounts/new">Yeni kampanya</PanelActionButton></div> : undefined} />
@@ -85,14 +105,15 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive }: R
       <article><span>Kampanyalı sipariş</span><strong>{overviewPhase === "loaded" ? overview?.currencies.reduce((sum, row) => sum + row.affectedOrders, 0) ?? 0 : overviewPhase === "error" ? "—" : "…"}</strong><small>Son {range} günde ödemesi tamamlanan</small></article>
       <article><span>Sağlanan toplam indirim</span><strong>{overviewPhase === "loaded" ? overviewMoney(overview, "discountMinor") : overviewPhase === "error" ? "—" : "…"}</strong><small>Para birimine göre ayrı</small></article>
       <article><span>Kampanyalardan gelen ciro</span><strong>{overviewPhase === "loaded" ? overviewMoney(overview, "revenueMinor") : overviewPhase === "error" ? "—" : "…"}</strong><small>Ödemesi tamamlanan siparişler</small></article>
-      <article><span>Geri kazanılan sepet cirosu</span><strong>{overviewPhase === "loaded" ? overviewMoney(overview, "recoveredRevenueMinor") : overviewPhase === "error" ? "—" : "…"}</strong><small>Dayanıklı sepet kaynağına bağlı</small></article>
+      <article><span>Geri kazanılan sepet cirosu</span><strong>{overviewPhase === "loaded" ? overviewMoney(overview, "recoveredRevenueMinor") : overviewPhase === "error" ? "—" : "…"}</strong><small>Kurtarılan sepetlerden</small></article>
     </div>
-    {overviewPhase === "error" ? <p role="alert" className={styles.error}>Kampanya özeti yüklenemedi. Dönemi değiştirerek tekrar deneyin.</p> : null}
-    <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); if ((from && !to) || (!from && to) || (from && to && from > to)) { setMessage("Tarih filtresinde başlangıç ve bitişi doğru sırayla seçin."); return; } let selected: ListQuery; try { selected = query(); } catch { setMessage("Tarih filtresi mağaza saat diliminde geçerli değil."); return; } appliedQueryRef.current = selected; setAppliedQuery(selected); setItems([]); setNextCursor(null); load(selected); }}><label className={styles.search}>Kampanya ara<input type="search" value={search} placeholder="Kampanya adı veya kupon kodu ara" onChange={(event) => setSearch(event.target.value)} /></label><label>Durum<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Tümü</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Uygulama<select value={trigger} onChange={(event) => setTrigger(event.target.value)}><option value="">Tümü</option><option value="automatic">Otomatik</option><option value="code">Kodlu</option></select></label><label>Kampanya türü<select value={benefit} onChange={(event) => setBenefit(event.target.value)}><option value="">Tümü</option>{Object.entries(BENEFIT).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Hedef kitle<select value={audience} onChange={(event) => setAudience(event.target.value)}><option value="">Tümü</option>{Object.entries(AUDIENCE).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label>Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label><button className={styles.secondaryButton} type="submit">Filtrele</button></form>
+    {overviewPhase === "error" ? <p role="alert" className={styles.error}>Kampanya özeti yüklenemedi. <button className={styles.textButton} type="button" onClick={() => setOverviewRetry((value) => value + 1)}>Yeniden dene</button></p> : null}
+    <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); if ((from && !to) || (!from && to) || (from && to && from > to)) { setMessage("Tarih filtresinde başlangıç ve bitişi doğru sırayla seçin."); return; } let selected: ListQuery; try { selected = query(); } catch { setMessage("Tarih filtresi mağaza saat diliminde geçerli değil."); return; } appliedQueryRef.current = selected; setAppliedQuery(selected); setItems([]); setNextCursor(null); load(selected); }}><label className={styles.search}>Kampanya ara<input type="search" value={search} placeholder="Kampanya adı veya kupon kodu ara" onChange={(event) => setSearch(event.target.value)} /></label><details className={styles.filterDetails} open={filtersOpen} onToggle={(event) => setFiltersOpen(event.currentTarget.open)}><summary>Filtreler{filterCount ? ` · ${filterCount} uygulandı` : ""}</summary><div className={styles.filterFields}><label>Durum<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Tümü</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Uygulama<select value={trigger} onChange={(event) => setTrigger(event.target.value)}><option value="">Tümü</option><option value="automatic">Otomatik</option><option value="code">Kodlu</option></select></label><label>Kampanya türü<select value={benefit} onChange={(event) => setBenefit(event.target.value)}><option value="">Tümü</option>{Object.entries(BENEFIT).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Hedef kitle<select value={audience} onChange={(event) => setAudience(event.target.value)}><option value="">Tümü</option>{Object.entries(AUDIENCE).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label>Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label></div></details><button className={styles.secondaryButton} type="submit">Filtrele</button></form>
+    {filterCount > 0 ? <div className={styles.appliedFilters}><span>{filterCount} filtre · {appliedLabels.join(" · ")}</span><button type="button" className={styles.textButton} onClick={clearFilters}>Filtreleri temizle</button></div> : null}
     {message ? <p role="status" className={styles.toast}>{message}</p> : null}
     {phase === "loading" ? <PanelLoadingState label="Kampanyalar yükleniyor…" /> : null}
     {phase === "error" ? <div role="alert" className={styles.error}>Kampanyalar yüklenemedi. <button type="button" onClick={() => load(appliedQuery)}>Yeniden dene</button></div> : null}
-    {phase === "empty" ? <PanelEmptyState title="Henüz kampanya yok" description="İlk kampanyanızı 2 dakikada oluşturun." action={canManage ? <PanelActionButton primary href="/discounts/new">İlk kampanyayı oluştur</PanelActionButton> : undefined} /> : null}
-    {phase === "loaded" ? <><div className={styles.desktopTable}><table aria-label="Kampanyalar"><thead><tr><th>Kampanya</th><th>Nasıl çalışır?</th><th>Durum</th><th>Kullanım</th><th>Sağlanan indirim</th><th>Kampanyalı ciro</th><th>Başlangıç / bitiş</th><th>Aksiyonlar</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><Link href={`/discounts/${item.id}`}>{item.name}</Link><small>{item.triggerKind === "code" ? `${item.activeCodeCount} aktif kod` : "Otomatik"}</small></td><td>{item.humanMechanic}</td><td><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></td><td>{item.usage.used}</td><td>{amounts(item, "discountMinor")}</td><td>{amounts(item, "revenueMinor")}</td><td>{dates(item, timezone)}</td><td>{rowActions(item)}</td></tr>)}</tbody></table></div><div className={styles.mobileCards}>{items.map((item) => <article key={item.id}><div><Link href={`/discounts/${item.id}`}>{item.name}</Link><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></div><p>{item.humanMechanic}</p><dl><div><dt>Kullanım</dt><dd>{item.usage.used}</dd></div><div><dt>İndirim</dt><dd>{amounts(item, "discountMinor")}</dd></div><div><dt>Ciro</dt><dd>{amounts(item, "revenueMinor")}</dd></div><div><dt>Tarih</dt><dd>{dates(item, timezone)}</dd></div></dl>{rowActions(item)}</article>)}</div>{nextCursor ? <button type="button" className={styles.secondaryButton} onClick={() => load(appliedQuery, nextCursor)}>Daha fazla göster</button> : null}</> : null}
+    {phase === "empty" ? <PanelEmptyState title={filterCount ? "Filtrelerle eşleşen kampanya yok" : "Henüz kampanya yok"} description={filterCount ? "Aramayı veya filtreleri değiştirin." : "İlk kampanyanız oluşturulduğunda burada görünür."} action={filterCount ? <button className={styles.secondaryButton} type="button" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? <PanelActionButton href="/discounts/new">İlk kampanyayı oluştur</PanelActionButton> : undefined} /> : null}
+    {phase === "loaded" ? <><div className={styles.desktopTable} role="region" aria-label="Kampanya tablosu" tabIndex={0}><table aria-label="Kampanyalar"><thead><tr><th scope="col">Kampanya</th><th scope="col">Nasıl çalışır?</th><th scope="col">Durum</th><th scope="col">Kullanım</th><th scope="col">Sağlanan indirim</th><th scope="col">Kampanyalı ciro</th><th scope="col">Başlangıç / bitiş</th><th scope="col">Aksiyonlar</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><Link href={`/discounts/${item.id}`}>{item.name}</Link><small>{item.triggerKind === "code" ? `${item.activeCodeCount} aktif kod` : "Otomatik"}</small></td><td>{item.humanMechanic}</td><td><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></td><td>{item.usage.used}</td><td>{amounts(item, "discountMinor")}</td><td>{amounts(item, "revenueMinor")}</td><td>{dates(item, timezone)}</td><td>{rowActions(item)}</td></tr>)}</tbody></table></div><div className={styles.mobileCards}>{items.map((item) => <article key={item.id}><div><Link href={`/discounts/${item.id}`}>{item.name}</Link><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></div><p>{item.humanMechanic}</p><dl><div><dt>Kullanım</dt><dd>{item.usage.used}</dd></div><div><dt>İndirim</dt><dd>{amounts(item, "discountMinor")}</dd></div><div><dt>Ciro</dt><dd>{amounts(item, "revenueMinor")}</dd></div><div><dt>Tarih</dt><dd>{dates(item, timezone)}</dd></div></dl>{rowActions(item)}</article>)}</div>{appendError ? <p className={styles.error} role="alert">Sonraki kampanyalar yüklenemedi. Mevcut liste korunuyor.</p> : null}{nextCursor ? <button type="button" className={styles.secondaryButton} disabled={loadingMore} onClick={() => load(appliedQuery, nextCursor)}>{loadingMore ? "Yükleniyor…" : appendError ? "Yeniden dene" : "Daha fazla göster"}</button> : null}<p className={styles.loadedCount} role="status">{items.length} kampanya gösteriliyor{nextCursor ? " · Devamı var" : ""}</p></> : null}
   </section>;
 }

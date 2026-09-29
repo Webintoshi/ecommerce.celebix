@@ -1,0 +1,75 @@
+[
+  {
+    "view": "drafts",
+    "width": 1024,
+    "overflow": 0,
+    "text": 355,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "view": "draft-new",
+    "width": 1024,
+    "overflow": 0,
+    "text": 786,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "view": "draft-edit",
+    "width": 1024,
+    "overflow": 0,
+    "text": 832,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "view": "quick-links",
+    "width": 1024,
+    "overflow": 0,
+    "text": 750,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "view": "quick-create",
+    "width": 1024,
+    "overflow": 0,
+    "focused": null,
+    "valuesPreserved": true
+  },
+  {
+    "view": "abandoned-carts",
+    "width": 1024,
+    "overflow": 0,
+    "text": 526,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "view": "abandoned-cart-detail",
+    "width": 1024,
+    "overflow": 0,
+    "text": 497,
+    "h1": 1,
+    "visibleH1": [],
+    "overlay": false,
+    "errors": [],
+    "failed": []
+  }
+]

@@ -297,3 +297,89 @@
     padding: 8px;
   }
 }
+
+/* Fixed prices use open sections; rows retain every persisted field. */
+.desktopTable, .preview, .mobileCards, .editor {
+  --pricing-accent: var(--cp-brand);
+  --pricing-text: var(--cp-text-primary);
+  --pricing-sidebar: var(--cp-action-primary-hover);
+  --pricing-canvas: var(--cp-canvas);
+  --pricing-surface: var(--cp-surface);
+  --pricing-border: var(--cp-border);
+  min-width: 0;
+}
+.desktopTable[hidden], .mobileCards[hidden] { display: none !important; }
+.listToolbar { display: flex; flex-wrap: wrap; min-width: 0; align-items: center; gap: 12px; margin-bottom: 16px; }
+.searchField { width: min(100%, 420px); min-width: 0; }
+.listToolbar :is(input, select, button) { min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 14px; }
+.searchField input { width: 100%; }
+.listToolbar button { font-size: 13px; cursor: pointer; }
+.resultCount { color: var(--cp-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.desktopTable { max-width: 100%; border-radius: 8px; }
+.desktopTable :is(th, td), .preview :is(th, td) { padding: 12px 16px; font-size: 13px; }
+.desktopTable th, .preview th { color: var(--cp-text-secondary); font-weight: 500; }
+.desktopTable a, .cardHeading a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 600; }
+.editor { max-width: 1080px; gap: 24px; }
+.editor fieldset { min-width: 0; gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
+.editor legend { padding: 0 0 16px; font-size: 16px; font-weight: 600; }
+.editor label { min-width: 0; gap: 8px; font-size: 14px; font-weight: 500; }
+.editor :is(input, select, button), .actions button { min-width: 0; min-height: 44px; font-size: 14px; }
+.editor :is(input, select) { width: 100%; }
+.editor button, .actions button { font-size: 13px; font-weight: 600; justify-self: start; padding: 0 16px; }
+.editor :is(input, select, button, summary):focus-visible, .actions button:focus-visible, .tableScroll:focus-visible { outline: 2px solid var(--cp-text-primary); outline-offset: 2px; }
+.ruleRows { gap: 20px; }
+.ruleRow { min-width: 0; gap: 16px; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0 0; }
+.ruleRow:first-child { border-top: 0; padding-top: 0; }
+.ruleHeading { grid-column: 1 / -1; color: var(--cp-text-secondary); font-size: 12px; }
+.ruleHeading strong { font-weight: 500; }
+.ruleDetails { grid-column: 1 / -1; border-top: 1px solid var(--cp-border); }
+.ruleDetails summary { display: flex; min-height: 44px; align-items: center; font-size: 14px; cursor: pointer; }
+.ruleDetails summary::after { margin-left: auto; content: "+"; color: var(--cp-text-secondary); }
+.ruleDetails[open] > summary::after { content: "−"; }
+.ruleDetails > .grid { padding-top: 12px; }
+.itemRows { gap: 0; }
+.itemRow { min-width: 0; gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0; }
+.itemRow:last-child { border-bottom: 0; }
+.itemRow > span { overflow-wrap: anywhere; color: var(--cp-text-primary); font-size: 14px; line-height: 1.5; }
+.summary { align-items: center; gap: 12px 24px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 20px; color: var(--cp-text-secondary); font-size: 13px; }
+.summary > span { display: inline-flex; align-items: center; gap: 8px; }
+.summary strong { color: var(--cp-text-primary); font-weight: 600; }
+.readOnly { margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.preview { overflow: visible; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
+.preview h2 { margin: 0; padding: 0; font-size: 16px; font-weight: 600; }
+.preview > p { margin: 8px 0 16px; padding: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.tableScroll { max-width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
+.actions { gap: 8px; }
+:is(.state, .denied, .error, .notice, .errorNotice, .conflict, .empty) { min-width: 0; padding: 12px 16px; border-radius: 8px; font-size: 14px; line-height: 1.5; }
+.state, .denied { border-color: var(--cp-border); background: transparent; color: var(--cp-text-secondary); }
+.empty { border-color: var(--cp-border); background: transparent; color: var(--cp-text-secondary); }
+.error, .errorNotice { border-color: color-mix(in srgb, var(--cp-danger) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-danger) 5%, var(--cp-surface)); color: var(--cp-danger); }
+.notice { border-color: color-mix(in srgb, var(--cp-success) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-success) 5%, var(--cp-surface)); color: var(--cp-success); }
+.conflict { border-color: color-mix(in srgb, var(--cp-warning) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-warning) 5%, var(--cp-surface)); color: var(--cp-warning); }
+@media (max-width: 1024px) {
+  .editor { padding-bottom: 0; }
+  .editor > .actions { background: var(--cp-surface); }
+  .grid, .ruleRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .itemRow { grid-template-columns: minmax(0, 1fr) 180px auto; }
+}
+@media (max-width: 760px) {
+  .listToolbar { gap: 8px; }
+  .searchField { width: 100%; }
+  .statusFilter { flex: 1; min-width: 0; }
+  .statusFilter select { width: 100%; }
+  .grid, .ruleRow, .itemRow { grid-template-columns: minmax(0, 1fr); }
+  .editor fieldset { padding: 0 0 20px; }
+  .editor button, .actions button { min-width: 44px; }
+  .itemRow button { width: 100%; }
+  .mobileCards { border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; background: transparent; }
+  .mobileCard { padding: 16px 0; }
+  .mobileCard dl { gap: 8px; }
+  .mobileCard dt { color: var(--cp-text-secondary); font-size: 12px; }
+  .mobileCard dd { color: var(--cp-text-primary); font-size: 13px; }
+  .cardHeading { gap: 8px; }
+}
+.tableScroll[hidden] { display: none !important; }
+.cardHeading a { min-width: 0; overflow-wrap: anywhere; }
+.ruleDetails summary span { margin-left: 12px; color: var(--cp-text-secondary); font-size: 12px; }
+.empty a { border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); }
+.empty a:hover { border-color: var(--cp-text-secondary); background: var(--cp-soft); }

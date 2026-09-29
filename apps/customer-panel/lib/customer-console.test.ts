@@ -116,6 +116,7 @@ async function compileCustomerDetailPresentation() {
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "@/components/panel/PanelPageShell") return {
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+      PanelPageHeader: () => null,
       PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children),
     };
     if (specifier === "@/lib/customer-ui/client") return { CustomerApiError: class extends Error {}, customerApi: {} };
@@ -191,9 +192,9 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(taxonomy, /müşteri/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
   assert.match(styles, /min-height:\s*44px/);
-  assert.match(styles, /--customer-canvas:\s*#f8f7f5/i);
-  assert.match(styles, /--customer-border:\s*#e7e2dd/i);
-  assert.match(styles, /[.]workspacePrimaryAction\s+:global\(a\)[\s\S]*background:\s*#2b2b2b/i);
+  assert.match(styles, /--customer-canvas:\s*var\(--cp-canvas\)/i);
+  assert.match(styles, /--customer-border:\s*var\(--cp-border\)/i);
+  assert.match(styles, /[.]workspacePrimaryAction\s+:global\(a\)[\s\S]*background:\s*var\(--cp-action-primary\)/i);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /position:\s*sticky/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/);

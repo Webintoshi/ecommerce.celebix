@@ -117,9 +117,11 @@ export function ProviderConnectionPanel({ capability, canManage }: ProviderConne
   }
 
   return (
-    <section className={styles.panel} aria-labelledby={`provider-connection-${capability}`}>
+    <details className={styles.panel}>
+      <summary><span id={`provider-connection-${capability}`}>Sağlayıcı bağlantıları</span><small>{state.phase === "loading" ? "Yükleniyor…" : state.phase === "unavailable" ? "Kullanılamıyor" : `${state.profiles.filter(profile => profile.status === "active").length} aktif`}</small></summary>
+      <section aria-labelledby={`provider-connection-${capability}`}>
       <header>
-        <div><span>Harici sağlayıcı</span><h2 id={`provider-connection-${capability}`}>Sağlayıcı bağlantıları</h2></div>
+        <div><h2>Bağlantı yönetimi</h2></div>
         <button type="button" onClick={() => void load()} disabled={busy || state.phase === "loading"}>Yenile</button>
       </header>
 
@@ -152,6 +154,7 @@ export function ProviderConnectionPanel({ capability, canManage }: ProviderConne
           </article>
         );
       }) : null}
-    </section>
+      </section>
+    </details>
   );
 }

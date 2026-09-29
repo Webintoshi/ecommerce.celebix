@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight, FileText, LayoutList, NotebookPen } from "lucide-react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import {
@@ -34,14 +35,16 @@ export function MerchantFamilyOverview({ family, canManage, embedded = false }: 
   return (
     <PanelPageShell embedded={embedded}>
       <PanelPageHeader title={presentation.title} description={presentation.description} embedded={embedded} />
+      {!embedded ? <h1 className="sr-only">{presentation.title}</h1> : null}
       <nav className={styles.grid} aria-label={`${presentation.title} bölümleri`}>
         {definitions.map((definition) => (
           <Link className={styles.card} key={definition.route} href={definition.route}>
+            {definition.kind === "blog_post" ? <NotebookPen aria-hidden="true" /> : definition.kind === "page" ? <LayoutList aria-hidden="true" /> : <FileText aria-hidden="true" />}
             <span className={styles.cardCopy}>
               <strong>{definition.title}</strong>
-              <span>{definition.description}</span>
+              <span className="sr-only">{definition.description}</span>
             </span>
-            <small>{canManage ? "Yönet" : "Görüntüle"}</small>
+            <ArrowUpRight className={styles.arrow} aria-hidden="true" /><small className="sr-only">{canManage ? "Yönet" : "Görüntüle"}</small>
           </Link>
         ))}
       </nav>

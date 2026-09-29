@@ -26,6 +26,9 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
   const [items, setItems] = useState<readonly PromotionTarget[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+  const [retry, setRetry] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [appendFailed, setAppendFailed] = useState(false);
   const [displaySelected, setDisplaySelected] = useState<readonly PromotionTarget[]>(selected);
   const pageLoader = useMemo(() => new PromotionTargetPageLoader(promotionApi), []);
   const requestKey = useRef(0);
@@ -50,7 +53,7 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
     pageLoader.invalidate();
     const controller = new AbortController();
     const generation = ++requestKey.current;
-    setPhase("loading"); setItems([]); setNextCursor(null);
+    setPhase("loading"); setItems([]); setNextCursor(null); setLoadingMore(false); setAppendFailed(false);
     const timer = window.setTimeout(() => {
       void Promise.all([
         promotionApi.targets(kind, search.trim() ? { search: search.trim() } : {}, controller.signal),
@@ -68,7 +71,7 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
       });
     }, 180);
     return () => { window.clearTimeout(timer); controller.abort(); pageLoader.invalidate(); };
-  }, [kind, search, selectedIdentity, pageLoader]);
+  }, [kind, search, selectedIdentity, pageLoader, retry]);
 
   useEffect(() => () => pageLoader.dispose(), [pageLoader]);
 
@@ -79,7 +82,8 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
   };
 
   const loadMore = () => {
-    if (!nextCursor) return;
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true); setAppendFailed(false);
     const cursor = nextCursor;
     const selectedKind = kind;
     const selectedSearch = search.trim();
@@ -88,7 +92,7 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
       setItems((current) => promotionApi.mergeTargetSelections(current, page.items));
       setNextCursor(page.nextCursor);
       setPhase("ready");
-    }).catch(() => setPhase("error"));
+    }).catch(() => setAppendFailed(true)).finally(() => setLoadingMore(false));
   };
 
   return <section className={styles.picker}>
@@ -96,15 +100,16 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
     {kinds.length > 1 ? <label>Ne seçmek istiyorsunuz?<select value={kind} onChange={(event) => setKind(event.target.value as PromotionPickerKind)}>{kinds.map((value) => <option key={value} value={value}>{KIND_LABELS[value]}</option>)}</select></label> : null}
     <label>Listede ara<input type="search" value={search} placeholder={`Örnek: ${KIND_LABELS[kind].toLocaleLowerCase("tr-TR")} adı`} onChange={(event) => setSearch(event.target.value)} /></label>
     <p aria-live="polite"><strong>{selected.length}</strong> kayıt seçildi</p>
-    {displaySelected.length > 0 ? <div className={styles.chips} aria-label="Seçilen kayıtlar">{displaySelected.map((item) => <button key={`${item.kind}:${item.id}`} type="button" className={item.status === "unavailable" ? styles.unavailable : undefined} onClick={() => toggle(item)}>{item.status === "unavailable" ? "Artık kullanılamıyor — kaldır" : item.label}<span aria-hidden="true"> ×</span></button>)}</div> : null}
+    {displaySelected.length > 0 ? <div className={styles.chips} aria-label="Seçilen kayıtlar">{displaySelected.map((item) => <button key={`${item.kind}:${item.id}`} type="button" className={item.status === "unavailable" ? styles.unavailable : undefined} aria-label={`${item.label} seçimini kaldır`} onClick={() => toggle(item)}>{item.label}{item.status === "unavailable" ? " · Artık kullanılamıyor — kaldır" : ""}<span aria-hidden="true"> ×</span></button>)}</div> : null}
     {phase === "loading" ? <p role="status">Seçenekler yükleniyor…</p> : null}
-    {phase === "error" ? <p role="alert">Seçenekler yüklenemedi. Aramanızı değiştirip tekrar deneyin.</p> : null}
+    {phase === "error" ? <div role="alert"><p>Seçenekler yüklenemedi. Seçimleriniz korunuyor.</p><button type="button" className={styles.secondaryButton} onClick={() => setRetry((value) => value + 1)}>Yeniden dene</button></div> : null}
     {phase === "ready" && items.length === 0 ? <p>Aramanızla eşleşen aktif kayıt bulunamadı.</p> : null}
     {phase === "ready" ? <div className={styles.pickerResults}>{items.map((item) => {
       const checked = selectedForKind.some((current) => current.id === item.id);
       return <label key={item.id}><input type="checkbox" checked={checked} disabled={item.status !== "active"} onChange={() => toggle(item)} />{item.label}</label>;
     })}</div> : null}
-    {phase === "ready" && nextCursor ? <button type="button" className={styles.secondaryButton} onClick={loadMore}>Daha fazla göster</button> : null}
+    {appendFailed ? <p role="alert">Diğer seçenekler yüklenemedi. Mevcut liste korunuyor.</p> : null}
+    {phase === "ready" && nextCursor ? <button type="button" className={styles.secondaryButton} disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Yükleniyor…" : appendFailed ? "Yeniden dene" : "Daha fazla göster"}</button> : null}
   </section>;
 }
 

@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
+import { attributeSlug } from "../../lib/catalog-onboarding-ui/attribute-resource.ts";
 
 test("attribute editor saves a name and selected values without asking for a technical key", async () => {
   const saved: unknown[] = [];
@@ -35,6 +36,7 @@ test("attribute editor saves a name and selected values without asking for a tec
     if (name === "@/components/panel/PanelPageShell") return { PanelPageShell: ({ children }: { children: React.ReactNode }) => children, PanelPageHeader: () => null };
     if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resource() { return selectedResource; }, async saveResource(_kind: string, input: unknown) { if (failSave) throw new StubApiError("Bu URL anahtarı başka bir kayıtta kullanılıyor."); saved.push(input); } }, CatalogAdminApiError: StubApiError };
     if (name === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: () => undefined, loadBrandProductDirectory: async () => [] };
+    if (name === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeSlug };
     if (name === "@/lib/catalog-ui/client") return { catalogApi: {} };
     if (name === "@/lib/catalog-admin-ui/resource-route") return { getCatalogResourceRouteDefinitionForKind: () => ({ title: "Nitelik", segment: "attributes" }) };
     if (name === "./catalog-admin-console.module.css") return styles;

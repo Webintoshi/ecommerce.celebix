@@ -33,6 +33,7 @@ export function PanelWorkspaceShell({
 
   return (
     <PanelPageShell>
+      <h1 className="sr-only">{title}</h1>
       <PanelPageHeader title={title} description={description} actions={actions} />
       {tabs.length ? (
         <nav className={styles.tabs} aria-label={`${title} bölümleri`}>

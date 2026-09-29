@@ -231,28 +231,29 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
   const loadedProductIds = new Set(productOptions.map(({ id }) => id));
   const unseenSelectedProductIds = selectedProductIds.filter((id) => !loadedProductIds.has(id));
-  if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
+  if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
-  return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><section className={styles.surface}>
+  return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace}`}>
     {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
-    {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {!loading && (kind === "attribute" ? resourceId === undefined || resource !== undefined : !error) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : ""}`} onSubmit={submit}>
+    {!loading && error ? <p className={styles.error} role="alert">{error}{resourceId && !resource ? <> <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></> : null}</p> : null}
+    {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : ""}`} onSubmit={submit}>
       {kind === "brand" ? <div className={`${styles.wide} ${styles.brandEditorIntro}`}><CatalogBrandLogoPicker value={selectedLogoAssetId} brandName={brandName} canManage={canManage} onChange={setSelectedLogoAssetId} /><input type="hidden" name="logoAssetId" value={selectedLogoAssetId ?? ""} /></div> : null}
-      {kind === "attribute" ? <div className={`${styles.wide} ${styles.attributeFormIntro}`}><span>ÜRÜN SEÇENEĞİ</span><h2>{resource ? "Niteliği düzenle" : "Yeni nitelik"}</h2><p>Bir ad verin, ardından müşterinin seçeceği değerleri ekleyin.</p></div> : null}
+      <fieldset className={`${styles.wide} ${styles.formSection}`}><legend>{kind === "attribute" ? "Nitelik bilgileri" : "Temel bilgiler"}</legend><div className={styles.fieldGrid}>
       <label className={kind === "attribute" ? styles.wide : undefined}>{kind === "attribute" ? "Nitelik adı" : "Ad"}<input name="name" required maxLength={120} placeholder={kind === "attribute" ? "Örn. Renk veya Beden" : undefined} {...(kind === "brand" ? { value: brandName, onChange: (event) => setBrandName(event.currentTarget.value) } : { defaultValue: resource?.name ?? "" })} /></label>
       {kind !== "attribute" ? <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={resource?.slug ?? ""} /></label> : null}
       {kind !== "attribute" ? <label className={styles.wide}>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label> : null}
-      {kind === "collection" ? <label><span>Vitrinde öne çıkar</span><input name="featured" type="checkbox" defaultChecked={resource?.config.featured === true} /></label> : null}
+      </div></fieldset>
+      {kind === "collection" ? <label className={styles.toggleField}><span>Vitrinde öne çıkar</span><input name="featured" type="checkbox" defaultChecked={resource?.config.featured === true} /></label> : null}
       {kind === "brand" ? <label>Marka sitesi<input name="website" type="url" maxLength={1000} defaultValue={configValue(resource, "website")} /></label> : null}
       {kind === "attribute" ? <>
         <div className={`${styles.wide} ${styles.attributeValueField}`}>
           <label htmlFor="attribute-value-draft">Seçenek değerleri</label>
-          <p>Örneğin Renk için Siyah, Beyaz; Beden için S, M, L ekleyin.</p>
+          <p id="attribute-values-help">Değerleri tek tek ekleyin.</p>
           <div className={styles.attributeValueEntry}>
-            <input ref={attributeValueInput} id="attribute-value-draft" placeholder="Örn. Siyah" maxLength={120} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAttributeValue(); } }} />
+            <input ref={attributeValueInput} id="attribute-value-draft" aria-describedby={attributeValueError ? "attribute-values-help attribute-values-error" : "attribute-values-help"} aria-invalid={Boolean(attributeValueError)} placeholder="Örn. Siyah" maxLength={120} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAttributeValue(); } }} />
             <button className={styles.button} type="button" onClick={addAttributeValue}>Değer ekle</button>
           </div>
-          {attributeValueError ? <p className={styles.error} role="alert">{attributeValueError}</p> : null}
+          {attributeValueError ? <p id="attribute-values-error" className={styles.error} role="alert">{attributeValueError}</p> : null}
           {attributeValues.length ? <ul className={styles.attributeValueList}>{attributeValues.map((entry) => <li key={entry}><span>{entry}</span><button type="button" aria-label={`${entry} değerini kaldır`} onClick={() => setAttributeValues((current) => Object.freeze(current.filter((value) => value !== entry)))}>×</button></li>)}</ul> : <p className={styles.attributeValueEmpty}>Henüz değer eklenmedi.</p>}
         </div>
         <details className={`${styles.wide} ${styles.attributeDetails}`}><summary>Ek açıklama</summary><label>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label></details>
@@ -262,6 +263,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       {hasProductRelations(kind) ? <fieldset className={`${styles.wide} ${styles.checks}`}>
         <legend>Bağlı ürünler <span>{selectedProductIds.length} seçili</span></legend>
         <label className={styles.productSearch}>Ürün adı veya SKU ile ara<input type="search" value={productSearch} placeholder="Örn. Altın kolye veya KLY-1293" onChange={(event) => { setProductSearch(event.currentTarget.value); setVisibleProductLimit(100); }} /></label>
+        {!visibleProducts.length && !unseenSelectedProductIds.length ? <p className={styles.productEmpty}>{productSearch ? "Aramanızla eşleşen ürün yok." : "Bağlanabilecek ürün yok."}</p> : null}
         {unseenSelectedProductIds.map((productId) => <label className={styles.check} key={productId}>
           <input name="productId" type="checkbox" value={productId} checked onChange={(event) => toggleProduct(productId, event.currentTarget.checked)} />
           <span><strong>Ürün bilgisi artık katalogda okunamıyor</strong><small>Bağı koruyabilir veya kaldırabilirsiniz.</small></span>
@@ -273,7 +275,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         {kind === "brand" && visibleProducts.length < filteredProducts.length ? <button className={styles.button} type="button" onClick={() => setVisibleProductLimit((current) => current + 100)}>Daha fazla ürün göster</button> : null}
         {kind !== "brand" && productCursor ? <button className={styles.button} type="button" disabled={loadingProducts} onClick={() => { void loadMoreProducts(); }}>{loadingProducts ? "Ürünler yükleniyor…" : "Daha fazla ürün yükle"}</button> : null}
       </fieldset> : null}
-      <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : ""}`}>{kind === "attribute" ? <a className={styles.button} href="/products/attributes">Vazgeç</a> : null}<button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
+      <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : ""}`}><a className={styles.button} href={`/products/${route.segment}`}>Vazgeç</a><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
     </form> : null}
   </section></PanelPageShell>;
 }

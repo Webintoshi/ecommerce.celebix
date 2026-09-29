@@ -21,6 +21,7 @@ export function CustomerTaxonomyConsole({
       [],
     ),
     [loading, setLoading] = useState(true),
+    [loadFailed, setLoadFailed] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [nameError, setNameError] = useState(""),
@@ -28,6 +29,8 @@ export function CustomerTaxonomyConsole({
     [tagColor, setTagColor] = useState(DEFAULT_TAG_COLOR);
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
+    setError("");
     try {
       setItems(
         kind === "tags"
@@ -35,6 +38,7 @@ export function CustomerTaxonomyConsole({
           : await customerApi.segments(),
       );
     } catch (e) {
+      setLoadFailed(true);
       setError(
         e instanceof CustomerApiError ? e.message : `${title} yüklenemedi.`,
       );
@@ -88,6 +92,7 @@ export function CustomerTaxonomyConsole({
   }
   return (
     <PanelPageShell embedded={embedded}>
+      {!embedded ? <h1 className="sr-only">{title}</h1> : null}
       <PanelPageHeader
         title={title}
         embedded={embedded}
@@ -174,7 +179,7 @@ export function CustomerTaxonomyConsole({
                     <i style={{ backgroundColor: tagColor }} aria-hidden="true" />
                     {tagName.trim() || "Etiket önizleme"}
                   </span>
-                  <small>Yalnız frontend önizlemesidir.</small>
+                  <small>Listede böyle görünür.</small>
                 </div>
                 <button className={styles.tagCreateButton} disabled={busy}>
                   {busy ? "Oluşturuluyor…" : "Etiket oluştur"}
@@ -188,11 +193,12 @@ export function CustomerTaxonomyConsole({
             {error}
           </p>
         ) : null}
+        {loadFailed && !loading ? <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button> : null}
         {loading ? (
           <div className={kind === "segments" ? styles.segmentLoading : styles.tagLoading} role="status">
             {kind === "segments" ? "Segmentler yükleniyor…" : "Etiketler yükleniyor…"}
           </div>
-        ) : items.length === 0 ? (
+        ) : loadFailed && items.length === 0 ? null : items.length === 0 ? (
           kind === "segments" ? (
             <section className={styles.segmentListPanel} aria-labelledby="segments-list-title">
               <header className={styles.segmentListTitle}><div><h2 id="segments-list-title">Segmentler</h2><p>Manuel müşteri gruplarınız burada listelenir.</p></div><span>0 kayıt</span></header>

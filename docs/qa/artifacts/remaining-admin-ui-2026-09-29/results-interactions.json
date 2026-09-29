@@ -1,0 +1,37 @@
+[
+  {
+    "interaction": "draft dialog focus/Escape/restore",
+    "focusedCancel": true,
+    "restoredFocus": true
+  },
+  {
+    "interaction": "link status filter",
+    "matched": 1,
+    "unpaidHidden": true
+  },
+  {
+    "interaction": "draft save error preserves values",
+    "retained": true
+  },
+  {
+    "interaction": "archive success focus fallback",
+    "focusedBack": true
+  },
+  {
+    "interaction": "cart pagination error preserves records",
+    "retainedRow": true,
+    "retryVisible": true
+  },
+  {
+    "interaction": "cart pagination retry",
+    "newRecordVisible": true
+  },
+  {
+    "interaction": "applied search and filtered empty",
+    "clearVisible": true
+  },
+  {
+    "interaction": "clear cart search",
+    "restoredRecord": true
+  }
+]

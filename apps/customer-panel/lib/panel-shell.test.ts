@@ -631,11 +631,11 @@ test("topbar chrome exposes a provider, page bridge, and dedicated action portal
   assert.doesNotMatch(topbar, /publish\(\{[^}]*actions/s);
 });
 
-test("analytics can suppress route copy and right-align its sticky topbar context", async () => {
+test("working screens suppress route copy by default and right-align their sticky topbar context", async () => {
   const layout = await source("components/panel/PanelLayoutClient.tsx");
   const styles = await source("components/panel/panel-shell.module.css");
 
-  assert.match(layout, /const hideTopbarHeading = activeChrome[?][.]hideHeading \?\? \(pathname === "\/analytics" \|\| pathname === "\/products\/new"\)/);
+  assert.match(layout, /const hideTopbarHeading = pathname[.]startsWith\("\/settings"\) \|\| \(activeChrome[?][.]hideHeading \?\? true\)/);
   assert.match(layout, /hideTopbarHeading \? styles[.]desktopTopbarRight : ""/);
   assert.match(layout, /hideTopbarHeading \? null : \(/);
   assert.match(styles, /[.]desktopTopbarRight\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
@@ -1332,7 +1332,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   Object.defineProperty(globalThis, "document", { configurable: true, value: documentState });
 
   let pathname = "/";
-  type ChromePublisher = (state: { title: string; subtitle?: string } | null) => void;
+  type ChromePublisher = (state: { title: string; subtitle?: string; hideHeading?: boolean } | null) => void;
   const bridge = { publish: null as ChromePublisher | null };
   const EmptyRoot: HookTestComponent = () => null;
   const harness = createPanelInteractionHarness(EmptyRoot, {
@@ -1379,38 +1379,34 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
       harness.flush();
     };
 
-    for (const [nextPathname, expectedTitle] of [
-      ["/", "Özet"],
-      ["/products", "Ürün kataloğu"],
-      ["/products/new", undefined],
-      ["/products/product-123", "Ürün ayrıntısı"],
-      ["/orders", "Siparişler"],
-      ["/orders/quick-links", "Mağaza satışı"],
-      ["/orders/order-123", "Sipariş ayrıntısı"],
-      ["/setup", "Kurulum durumu"],
-    ] as const) {
+    for (const nextPathname of ["/", "/products", "/products/new", "/products/product-123", "/orders", "/orders/quick-links", "/orders/order-123", "/setup", "/marketing", "/content/blog", "/marketplaces", "/accounting", "/seo"] as const) {
       renderRoute(nextPathname);
-      assert.equal(topbarText("strong"), expectedTitle);
+      assert.equal(topbarText("strong"), undefined);
+      assert.equal(topbarText("span"), undefined);
     }
 
     renderRoute("/products");
     assert.ok(bridge.publish);
     bridge.publish({ title: "Köprü başlığı", subtitle: "Köprü açıklaması" });
     harness.flush();
+    assert.equal(topbarText("strong"), undefined);
+    assert.equal(topbarText("span"), undefined);
+
+    bridge.publish({ title: "Köprü başlığı", subtitle: "Köprü açıklaması", hideHeading: false });
+    harness.flush();
     assert.equal(topbarText("strong"), "Köprü başlığı");
-    assert.equal(topbarText("span"), "ORTAK ADMİN");
 
     renderRoute("/setup");
-    assert.equal(topbarText("strong"), "Kurulum durumu");
-    assert.equal(topbarText("span"), "ORTAK ADMİN");
+    assert.equal(topbarText("strong"), undefined);
+    assert.equal(topbarText("span"), undefined);
 
     assert.ok(bridge.publish);
     bridge.publish({ title: "Kurulum köprüsü" });
     harness.flush();
-    assert.equal(topbarText("strong"), "Kurulum köprüsü");
+    assert.equal(topbarText("strong"), undefined);
     bridge.publish(null);
     harness.flush();
-    assert.equal(topbarText("strong"), "Kurulum durumu");
+    assert.equal(topbarText("strong"), undefined);
   } finally {
     harness.unmount();
     if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);

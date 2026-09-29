@@ -1,5 +1,5 @@
 import { getToshiFixture, postToshiFixture } from "../toshi-fixture.ts";
-import { getSettingsPresentationFixture, postSettingsPresentationFixture } from "../settings-presentation-fixture";
+import { getSettingsPresentationFixture, postSettingsPresentationFixture } from "../settings-presentation-fixture.ts";
 
 const NOW = "2026-07-24T12:00:00.000Z";
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";

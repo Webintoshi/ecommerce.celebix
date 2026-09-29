@@ -87,22 +87,22 @@ export function CatalogImportPreparationConsole({ format, title, description, ca
   return (
     <PanelPageShell embedded={embedded}>
       <PanelPageHeader title={title} description={description} embedded={embedded} />
-      <h1 className={styles.srOnly}>{title}</h1>
-      <section className={styles.surface}>
+      {!embedded ? <h1 className={styles.srOnly}>{title}</h1> : null}
+      <section className={`${styles.surface} ${styles.workspace}`}>
         {!canImport ? <p className={styles.warning} role="status" aria-live="polite">Bu işlem için katalog içe aktarma yetkiniz yok.</p> : (
           <form ref={formRef} className={styles.upload} onSubmit={prepare}>
             <p>{guide}</p>
             <label className={styles.fileField}><span>CSV dosyası</span><input name="file" type="file" accept=".csv,text/csv" required disabled={busy} onChange={() => controllerRef.current?.resetSelection()} /></label>
-            <button className={styles.primary} disabled={busy}>{snapshot.phase === "preparing" ? "Önizleme oluşturuluyor…" : "Önizleme oluştur"}</button>
+            <button className={preview ? styles.button : styles.primary} disabled={busy}>{snapshot.phase === "preparing" ? "Önizleme oluşturuluyor…" : "Önizleme oluştur"}</button>
           </form>
         )}
         {snapshot.notice ? <p className={styles.notice} role="status" aria-live="polite">{snapshot.notice}</p> : null}
         {snapshot.error ? <p ref={errorRef} className={styles.error} role="alert" tabIndex={-1}>{snapshot.error}</p> : null}
         {preview ? (
           <section className={styles.preview} aria-labelledby="catalog-import-preview-title">
-            <div className={styles.previewHeader}><div><h2 ref={previewHeadingRef} id="catalog-import-preview-title" tabIndex={-1}>Kalıcı önizleme</h2><p>{preview.totalRows} satır doğrulandı · sürüm {preview.version}</p></div><span className={styles.status}>{preview.status}</span></div>
+            <div className={styles.previewHeader}><div><h2 ref={previewHeadingRef} id="catalog-import-preview-title" tabIndex={-1}>Ürün önizlemesi</h2><p>{preview.totalRows} satır doğrulandı · sürüm {preview.version}</p></div><span className={styles.status}>{{ prepared: "Onay bekliyor", consumed: "Aktarıldı", expired: "Süresi doldu" }[preview.status]}</span></div>
             <p className={styles.previewMeta}>{preview.fileName} · Son onay zamanı {new Date(preview.expiresAt).toLocaleString("tr-TR")}</p>
-            <div className={styles.tableScroll}><table className={styles.previewTable} aria-label="Doğrulanan ürün önizlemesi"><thead><tr><th>Ürün</th><th>URL anahtarı</th><th>SKU</th><th>Fiyat</th><th>Stok</th></tr></thead><tbody>{preview.rows.map((row, index) => <tr key={`${row.slug}-${index}`}><td>{row.title}</td><td>{row.slug}</td><td>{row.sku ?? "—"}</td><td>{price(row.priceCents)}</td><td>{row.stockQuantity}</td></tr>)}</tbody></table></div>
+            <div className={styles.tableScroll} role="region" aria-label="Doğrulanan ürünler" tabIndex={0}><table className={styles.previewTable} aria-label="Doğrulanan ürün önizlemesi"><thead><tr><th>Ürün</th><th>URL anahtarı</th><th>SKU</th><th>Fiyat</th><th>Stok</th></tr></thead><tbody>{preview.rows.map((row, index) => <tr key={`${row.slug}-${index}`}><td>{row.title}</td><td>{row.slug}</td><td>{row.sku ?? "—"}</td><td>{price(row.priceCents)}</td><td>{row.stockQuantity}</td></tr>)}</tbody></table></div>
             {canImport ? <div className={styles.actions}><button className={styles.primary} type="button" disabled={!snapshot.canCommit} onClick={() => void controllerRef.current?.commit()}>{snapshot.phase === "committing" || snapshot.phase === "verifying" ? "Aktarım doğrulanıyor…" : "Kataloğa aktar"}</button>{snapshot.phase === "prepared" && !snapshot.canCommit ? <small>Önizleme süresi doldu; yeniden hazırlayın.</small> : null}</div> : null}
           </section>
         ) : null}

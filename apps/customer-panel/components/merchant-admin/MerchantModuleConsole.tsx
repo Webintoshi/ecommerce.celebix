@@ -41,7 +41,6 @@ import {
   PanelPageHeader,
   PanelPageShell,
   PanelStatusBadge,
-  PanelToolbar,
 } from "@/components/panel/PanelPageShell";
 import { ProviderConnectionPanel } from "@/components/merchant-admin/ProviderConnectionPanel";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
@@ -62,6 +61,7 @@ import {
 
 import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
 import styles from "./merchant-module-console.module.css";
+import operations from "./merchant-operations.module.css";
 
 function inputValue(record: MerchantAdminRecord | null, key: string) {
   const current = record?.config[key];
@@ -203,7 +203,7 @@ function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
   return values.length ? (
     <dl className={styles.configSummary}>
       {values.map(({ label, value }) => (
-        <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+        <div key={label}><dt>{label}</dt><dd>{value.length > 120 ? <details><summary>{value.slice(0, 96)}…</summary><span>{value}</span></details> : value}</dd></div>
       ))}
     </dl>
   ) : <span className={styles.muted}>Ek yapılandırma yok</span>;
@@ -286,6 +286,7 @@ export function MerchantModuleConsole({
   embedded?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
+  const operational = definition.family !== "settings";
   const compactAdministrators = kind === "administrator_invite";
   const quietSettings = kind === "general_setting" || kind === "language_setting" || kind === "notification_setting";
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -384,7 +385,7 @@ export function MerchantModuleConsole({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeEditor();
+        if (activeSubmissionRef.current === null) closeEditor();
         return;
       }
       if (event.key !== "Tab") return;
@@ -557,12 +558,12 @@ export function MerchantModuleConsole({
     const waiting = waitingJobs.get(record.id);
     const unknown = unknownJobs.get(record.id);
     if (unknown) return (
-      <div className={styles.workflowSummary} data-workflow-state={unknown.status}>
+      <div className={styles.workflowSummary} data-provider-workflow="" data-workflow-state={unknown.status}>
         <div><CircleDashed aria-hidden="true" /><span>{providerJobStatus(unknown).label}</span></div>
       </div>
     );
     return (
-      <div className={styles.workflowSummary} data-workflow-state={waiting ? "awaiting_provider_activation" : workflow.code}>
+      <div className={styles.workflowSummary} data-provider-workflow="" data-workflow-state={waiting ? "awaiting_provider_activation" : workflow.code}>
         <div><CircleDashed aria-hidden="true" /><span>{waiting ? "Sağlayıcı aktivasyonu bekleniyor" : workflow.label}</span></div>
         {workflow.missingFields.length ? <small>Eksik: {workflow.missingFields.join(", ")}</small> : null}
         {canManage && waiting && activeProviderProfile ? (
@@ -578,12 +579,18 @@ export function MerchantModuleConsole({
 
   const createLabel = `${definition.singular[0]?.toLocaleUpperCase("tr-TR")}${definition.singular.slice(1)} oluştur`;
   const createRoute = createRouteFor(definition.kind);
+  const filtersActive = query.trim().length > 0 || statusFilter !== "all";
+  const newLabel = kind === "blog_post" ? "Yazı ekle" : kind === "page" ? "Sayfa ekle" : kind === "marketplace_connection" || kind === "invoice_integration" ? "Bağlantı ekle" : kind === "lucky_wheel" ? "Çark ekle" : definition.family === "marketing" ? "Kampanya ekle" : "Yeni kayıt";
+
+  function clearFilters() { setQuery(""); setStatusFilter("all"); }
 
   return (
+    <div className={operational ? operations.workspace : undefined} data-merchant-kind={kind}>
     <PanelPageShell embedded={embedded}>
+      {!embedded ? <h1 className={styles.srOnly}>{definition.title}</h1> : null}
       <PanelPageHeader
         title={definition.title}
-        description={quietSettings || compactAdministrators ? undefined : definition.description}
+        description={operational || quietSettings || compactAdministrators ? undefined : definition.description}
         embedded={embedded}
         actions={(
           <div className={styles.headerActions}>
@@ -592,7 +599,7 @@ export function MerchantModuleConsole({
             </button>
             {canManage && !singleton ? createRoute ? (
               <Link href={createRoute} className={styles.primary}>
-                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : "Yeni kayıt"}
+                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : newLabel}
               </Link>
             ) : singletonEditorRecord ? (
               <button type="button" className={styles.primary} onClick={(event) => openEdit(singletonEditorRecord, event)}>
@@ -600,21 +607,28 @@ export function MerchantModuleConsole({
               </button>
             ) : (
               <button type="button" className={styles.primary} onClick={openCreate}>
-                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : singletonModule ? "Ayar oluştur" : "Yeni kayıt"}
+                <Plus aria-hidden="true" /> {compactAdministrators ? "Yönetici ekle" : singletonModule ? "Ayar oluştur" : newLabel}
               </button>
             ) : null}
           </div>
         )}
       />
 
-      {!singleton && !compactAdministrators ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
+      {!singleton && !compactAdministrators && operational ? <section className={operations.metrics} aria-label={`${definition.title} özeti`} aria-busy={loading}>
+        {([
+          ["all", "Toplam", summary.total, ""],
+          ["active", definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
+          ["draft", "Taslak", summary.draft, ""],
+          ["archived", "Arşiv", summary.archived, ""],
+        ] as const).map(([filter, label, count, detail]) => <button type="button" className={operations.metric} key={filter} aria-pressed={statusFilter === filter} onClick={() => setStatusFilter(filter)}><span>{label}</span><strong>{hasLoaded ? count.toLocaleString("tr-TR") : "—"}</strong>{detail ? <small>{detail}</small> : null}</button>)}
+      </section> : !singleton && !compactAdministrators ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
         <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
       </section> : null}
 
-      {definition.execution === "provider_required" ? (
+      {operational && definition.execution === "provider_required" ? <aside className={operations.providerNotice} aria-label="Sağlayıcı durumu"><ShieldCheck aria-hidden="true" /><details><summary>Harici işlem için doğrulanmış bağlantı gerekli</summary><p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p></details></aside> : definition.execution === "provider_required" ? (
         <aside className={styles.providerNotice} aria-label="Sağlayıcı durumu">
           <ShieldCheck aria-hidden="true" />
           <div>
@@ -627,7 +641,7 @@ export function MerchantModuleConsole({
       {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
 
       {message ? <p className={styles.success} role="status">{message}</p> : null}
-      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      {error && !editorOpen ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}</p>{!quietSettings || !hasLoaded ? <button type="button" className={styles.button} disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
 
       <section className={styles.surface} data-merchant-workspace={singleton ? "singleton" : "collection"}>
         {quietSettings ? (
@@ -691,7 +705,7 @@ export function MerchantModuleConsole({
             ) : null}
           </div>
         ) : <>
-        <PanelToolbar>
+        <div data-merchant-toolbar="">
           <label className={styles.search}>
             <Search aria-hidden="true" />
             <span className={styles.srOnly}>Kayıt ara</span>
@@ -717,21 +731,23 @@ export function MerchantModuleConsole({
               <option value="archived">Arşiv</option>
             </select>
           </label>
-        </PanelToolbar>
+          {filtersActive ? <button type="button" className={operations.clear} onClick={clearFilters}><X aria-hidden="true" /> Temizle</button> : null}
+        </div>
+        <div className={operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} kayıt` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div>
 
         {loading ? (
           <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
-        ) : summary.visible.length === 0 ? (
+        ) : !hasLoaded && error ? null : summary.visible.length === 0 ? (
           <PanelEmptyState
             title={items.length ? "Filtreyle eşleşen kayıt yok" : `Henüz ${definition.singular} yok`}
-            description={items.length ? "Arama veya durum filtresini değiştirin." : "İlk kalıcı kayıt oluşturulduğunda burada görünecek."}
-            action={canManage && !items.length ? createRoute ? (
-              <Link href={createRoute} className={styles.primary}>{createLabel}</Link>
-            ) : <button type="button" className={styles.primary} onClick={openCreate}>{createLabel}</button> : undefined}
+            description={items.length ? "Aramayı veya filtreyi temizleyin." : "Eklediğiniz kayıtlar burada görünür."}
+            action={items.length ? <button type="button" className={styles.button} onClick={clearFilters}>Filtreleri temizle</button> : canManage ? createRoute ? (
+              <Link href={createRoute} className={styles.button}>{createLabel}</Link>
+            ) : <button type="button" className={styles.button} onClick={openCreate}>{createLabel}</button> : undefined}
           />
         ) : (
           <>
-            <div className={styles.desktopTable}>
+            <div className={styles.desktopTable} data-merchant-desktop="">
               <PanelDataTable label={`${definition.title} kayıtları`}>
                 <thead><tr><th>Ad</th><th>Durum</th><th>Yapılandırma</th><th>Güncelleme</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead>
                 <tbody>
@@ -747,7 +763,7 @@ export function MerchantModuleConsole({
                         <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
                         <td>
                           {canManage ? (
-                            <div className={styles.rowActions}>
+                            <div className={styles.rowActions} data-record-actions="">
                               {editRoute ? <Link href={editRoute} className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`}><Pencil aria-hidden="true" /></Link> : <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>}
                               <button type="button" className={styles.iconDanger} aria-label={`${record.name} kaydını arşivle`} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /></button>
                             </div>
@@ -760,7 +776,7 @@ export function MerchantModuleConsole({
               </PanelDataTable>
             </div>
 
-            <div className={styles.mobileCards}>
+            <div className={styles.mobileCards} data-merchant-mobile="">
               {summary.visible.map((record) => {
                 const status = statusPresentation(record.status);
                 const singletonState = singletonRecordState(kind, record, items);
@@ -769,9 +785,10 @@ export function MerchantModuleConsole({
                   <article className={styles.mobileCard} key={record.id}>
                     <header><div><h2>{record.name}</h2><small>v{record.version}</small>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
                     <ConfigSummary record={record} />
+                    <time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time>
                     {providerControls(record)}
                     {canManage ? (
-                      <div className={styles.rowActions}>
+                      <div className={styles.rowActions} data-record-actions="">
                         {editRoute ? <Link href={editRoute} className={styles.button}><Pencil aria-hidden="true" /> Düzenle</Link> : <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>}
                         <button type="button" className={styles.danger} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /> Arşivle</button>
                       </div>
@@ -791,7 +808,7 @@ export function MerchantModuleConsole({
           ) : <p>Henüz kalıcı işlem kaydı yok.</p>}
         </details>
         {definition.workflow ? (
-          <section className={styles.providerHistory} aria-labelledby="provider-preparation-title">
+          <section className={styles.providerHistory} data-provider-history="" aria-labelledby="provider-preparation-title">
             <header><div><span>Harici iş akışı</span><h2 id="provider-preparation-title">Hazırlık kayıtları</h2></div><strong>{providerJobs.length.toLocaleString("tr-TR")}</strong></header>
             {providerJobs.length ? (
               <ul>{providerJobs.map((job) => { const status = providerJobStatus(job); return <li key={job.id}><div><strong>{definition.workflow?.actionLabel}</strong><time dateTime={job.updatedAt}>{new Date(job.updatedAt).toLocaleString("tr-TR")}</time></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></li>; })}</ul>
@@ -802,21 +819,22 @@ export function MerchantModuleConsole({
 
       {editorOpen ? (
         <div className={styles.editorLayer}>
-          <button type="button" className={styles.editorBackdrop} aria-label="Düzenleyiciyi kapat" onClick={closeEditor} />
+          <button type="button" className={styles.editorBackdrop} aria-label="Düzenleyiciyi kapat" disabled={busy} onClick={closeEditor} />
           <section ref={editorRef} className={styles.editor} role="dialog" aria-modal="true" aria-labelledby="merchant-module-editor-title">
             <header>
               <div><span>{definition.title}</span><h2 id="merchant-module-editor-title">{editing ? "Kaydı düzenle" : createLabel}</h2></div>
-              <button ref={closeButtonRef} type="button" className={styles.iconButton} aria-label="Düzenleyiciyi kapat" onClick={closeEditor}><X aria-hidden="true" /></button>
+              <button ref={closeButtonRef} type="button" className={styles.iconButton} aria-label="Düzenleyiciyi kapat" disabled={busy} onClick={closeEditor}><X aria-hidden="true" /></button>
             </header>
-            <form key={editing?.id ?? "new"} className={styles.form} onSubmit={submit}>
-              <label>Ad<input autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
-              <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+            {error ? <p className={styles.error} role="alert">{error} Bilgileriniz korundu.</p> : null}
+            <form key={editing?.id ?? "new"} className={styles.form} aria-busy={busy} onSubmit={submit}>
+              <label>Ad<input disabled={busy} autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
+              <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
               {definition.fields.map((field) => field.type === "enum-list" ? (
-                <fieldset className={styles.wide} key={field.key}>
+                <fieldset disabled={busy} className={styles.wide} key={field.key}>
                   <legend>{field.label}</legend>
                   {field.allowedValues?.map((value) => (
                     <label key={value}>
-                      <input name={field.key} type="checkbox" value={value} defaultChecked={enumListDefaultChecked(editing, field.key, value)} />
+                      <input disabled={busy} name={field.key} type="checkbox" value={value} defaultChecked={enumListDefaultChecked(editing, field.key, value)} />
                       <span>{field.optionLabels?.[value] ?? value}</span>
                     </label>
                   ))}
@@ -825,18 +843,18 @@ export function MerchantModuleConsole({
                 <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                   {field.label}
                   {field.type === "textarea" || field.type === "string-list" ? (
-                    <textarea name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                    <textarea disabled={busy} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   ) : field.type === "boolean" ? (
-                    <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
+                    <span className={styles.switchField}><input disabled={busy} name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
                   ) : field.type === "enum" || field.type === "number" && field.allowedValues ? (
-                    <select name={field.key} required={field.required} defaultValue={inputValue(editing, field.key)}>
+                    <select disabled={busy} name={field.key} required={field.required} defaultValue={inputValue(editing, field.key)}>
                       <option value="">Seçin</option>
                       {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                     </select>
                   ) : field.type === "datetime" ? (
-                    <input name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(editing, field.key)} />
+                    <input disabled={busy} name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(editing, field.key)} />
                   ) : (
-                    <input name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                    <input disabled={busy} name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   )}
                 </label>
               ))}
@@ -849,5 +867,6 @@ export function MerchantModuleConsole({
         </div>
       ) : null}
     </PanelPageShell>
+    </div>
   );
 }

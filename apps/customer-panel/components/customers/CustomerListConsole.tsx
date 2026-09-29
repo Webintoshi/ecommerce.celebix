@@ -48,6 +48,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     [status, setStatus] = useState<CustomerStatus | "all">("all"),
     [cursor, setCursor] = useState<string>(),
     [error, setError] = useState(""),
+    [exporting, setExporting] = useState(false),
     [loadingMore, setLoadingMore] = useState(false),
     [appendError, setAppendError] = useState("");
   const queryGeneration = useRef(0);
@@ -111,6 +112,8 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     void load(false);
   }, [search, status]);
   async function exportCsv() {
+    if (exporting) return;
+    setExporting(true);
     setError("");
     try {
       const x = await customerApi.export(),
@@ -139,10 +142,19 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
       URL.revokeObjectURL(url);
     } catch (e) {
       setError(message(e));
+    } finally {
+      setExporting(false);
     }
   }
+  function clearFilters() {
+    setSearchInput("");
+    setSearch("");
+    setStatus("all");
+  }
+  const activeFilters = Number(Boolean(search)) + Number(status !== "all");
   return (
     <PanelPageShell embedded={embedded}>
+      {!embedded ? <h1 className="sr-only">Müşteriler</h1> : null}
       <PanelPageHeader
         title="Müşteriler"
         description="Müşteri kayıtlarını, izinleri, etiketleri ve segmentleri tek yerden yönetin."
@@ -190,6 +202,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             <span className="sr-only">Müşteri ara</span>
             <Search aria-hidden="true" />
             <input
+              aria-label="Müşteri ara"
               placeholder="Ad, e-posta veya telefon ara"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -214,11 +227,13 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           <button
             className={styles.customerExport}
             type="button"
+            disabled={exporting}
             onClick={() => void exportCsv()}
           >
-            <Download aria-hidden="true" />CSV Dışa Aktar
+            <Download aria-hidden="true" />{exporting ? "CSV hazırlanıyor…" : "CSV Dışa Aktar"}
           </button>
         </form>
+        {activeFilters > 0 ? <div className={styles.appliedFilters} aria-label="Uygulanan filtreler"><span>{activeFilters} filtre{search ? ` · “${search}”` : ""}{status !== "all" ? ` · ${status === "active" ? "Aktif" : "Arşiv"}` : ""}</span><button type="button" onClick={clearFilters}>Filtreleri temizle</button></div> : null}
         {error && state !== "error" ? (
           <p className={styles.customerInlineError} role="alert">
             {error}
@@ -240,20 +255,21 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             <strong>{search || status !== "all" ? "Filtrelerle eşleşen müşteri bulunamadı." : "Henüz müşteri yok."}</strong>
             <p>{search || status !== "all" ? "Arama veya müşteri filtresini değiştirerek yeniden deneyin." : "İlk müşteri kaydı oluşturulduğunda burada görünecek."}</p>
             {canManage && !search && status === "all" ? <Link className={styles.customerEmptyAction} href="/customers/new"><UserPlus aria-hidden="true" />Yeni Müşteri</Link> : null}
+            {activeFilters > 0 ? <button className={styles.button} type="button" onClick={clearFilters}>Filtreleri temizle</button> : null}
           </div>
         ) : (
           <>
-            <div className={styles.customerTableWrap}>
+            <div className={styles.customerTableWrap} role="region" aria-label="Müşteri tablosu" tabIndex={0}>
               <table className={styles.customerTable} aria-label="Müşteri listesi">
                 <thead>
                   <tr>
-                    <th>Müşteri</th>
-                    <th>İletişim</th>
-                    <th>Etiketler</th>
-                    <th className={styles.customerNumericHeading}>Sipariş</th>
-                    <th className={styles.customerNumericHeading}>Toplam</th>
-                    <th>Durum</th>
-                    <th>Güncelleme</th>
+                    <th scope="col">Müşteri</th>
+                    <th scope="col">İletişim</th>
+                    <th scope="col">Etiketler</th>
+                    <th scope="col" className={styles.customerNumericHeading}>Sipariş</th>
+                    <th scope="col" className={styles.customerNumericHeading}>Toplam</th>
+                    <th scope="col">Durum</th>
+                    <th scope="col">Güncelleme</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -303,7 +319,8 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
                     >
                       {c.displayName}
                     </Link>
-                      <small>{c.email ?? c.phone ?? "İletişim bilgisi yok"}</small>
+                      <small>{c.email ?? "E-posta yok"}</small>
+                      <small>{c.phone ?? "Telefon yok"}</small>
                     </div>
                     <PanelStatusBadge
                       tone={c.status === "active" ? "success" : "neutral"}
@@ -319,7 +336,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
                     <div className={styles.fact}><dt>Sipariş</dt><dd>{c.orderCount.toLocaleString("tr-TR")}</dd></div>
                     <div className={styles.fact}><dt>Güncelleme</dt><dd><time dateTime={c.updatedAt}>{date(c.updatedAt)}</time></dd></div>
                   </dl>
-                  {c.tags.length > 0 ? <div className={styles.customerTags}>{c.tags.slice(0, 2).map((tag) => <span key={tag.id}>{tag.name}</span>)}{c.tags.length > 2 ? <span>+{c.tags.length - 2}</span> : null}</div> : null}
+                  {c.tags.length > 0 ? <div className={styles.customerTags}>{c.tags.map((tag) => <span key={tag.id}>{tag.name}</span>)}</div> : null}
                   <Link className={styles.customerDetailAction} href={`/customers/${c.id}`}>İncele<ArrowRight aria-hidden="true" /></Link>
                 </article>
               ))}
@@ -337,6 +354,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
                 </button>
               </div>
             ) : null}
+            <p className={styles.loadedCount} role="status">{items.length.toLocaleString("tr-TR")} müşteri gösteriliyor{cursor ? " · Devamı var" : ""}</p>
           </>
         )}
       </section>

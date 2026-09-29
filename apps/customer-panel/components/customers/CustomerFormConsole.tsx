@@ -60,6 +60,8 @@ export function CustomerFormConsole() {
     }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
+      const firstInvalid = form.elements?.namedItem?.(Object.keys(nextErrors)[0]!) as HTMLInputElement | null;
+      firstInvalid?.focus?.();
       return;
     }
 
@@ -110,6 +112,7 @@ export function CustomerFormConsole() {
   }
   return (
     <PanelPageShell>
+      <h1 className="sr-only">Yeni müşteri</h1>
       <PanelPageHeader
         title="Yeni Müşteri"
         description="Müşteri bilgilerini, varsayılan adresini ve iletişim tercihlerini tek kayıtta oluşturun."
@@ -127,7 +130,6 @@ export function CustomerFormConsole() {
         <section className={styles.createCustomerSection}>
           <header className={styles.createCustomerSectionHeader}>
             <h2>Müşteri bilgileri</h2>
-            <p>Müşterinin temel kimlik ve iletişim bilgilerini girin.</p>
           </header>
           <div className={styles.createCustomerGrid}>
             <label className={styles.createCustomerField}>
@@ -205,7 +207,7 @@ export function CustomerFormConsole() {
         <section className={styles.createCustomerSection}>
           <header className={styles.createCustomerSectionHeader}>
             <h2>Varsayılan adres</h2>
-            <p>İsteğe bağlıdır. Bu adres müşteri kaydının varsayılan teslimat adresi olarak kullanılır.</p>
+            <p>İsteğe bağlı teslimat adresi.</p>
           </header>
           <div className={styles.createCustomerAddressGrid}>
             <label className={`${styles.createCustomerField} ${styles.createCustomerAddressLine}`}>
@@ -273,7 +275,7 @@ export function CustomerFormConsole() {
         <section className={styles.createCustomerSection}>
           <header className={styles.createCustomerSectionHeader}>
             <h2>İletişim izinleri</h2>
-            <p>Müşterinin iletişim kurulmasına izin verdiği kanalları seçin.</p>
+            <p>Yalnız müşterinin izin verdiği kanalları seçin.</p>
           </header>
           <div className={styles.createCustomerConsents}>
             <label className={styles.createCustomerConsent}>
