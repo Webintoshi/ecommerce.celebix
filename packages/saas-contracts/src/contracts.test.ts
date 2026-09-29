@@ -510,6 +510,7 @@ test("keeps the public runtime export surface frozen", () => {
     "barcodeLabelListQueryDigest",
     "buildDefaultStarterPresentation",
     "calculateInStoreTotals",
+    "canonicalContentAuthoringValue",
     "catalogProductAction",
     "catalogProductListQueryBinding",
     "catalogProductListQueryDigest",
@@ -576,6 +577,9 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCatalogProductPageSize",
     "parseCommerceAnalyticsSettings",
     "parseCommerceAnalyticsSnapshot",
+    "parseContentAuthoringProductSnapshot",
+    "parseContentAuthoringRequest",
+    "parseContentGenerationView",
     "parseCustomerDetail",
     "parseCustomerListItem",
     "parseCustomerMutationResult",
@@ -697,6 +701,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parsePublicProduct",
     "parsePublicProductMedia",
     "parsePublicProductSearch",
+    "parsePublicProductV2",
     "parsePublicProductVariant",
     "parsePublicStarterThemePresentation",
     "parsePublicStorefront",
@@ -736,6 +741,7 @@ test("keeps the public runtime export surface frozen", () => {
     "sanitizeAnalyticsSearchTerm",
     "starterMarqueeTokens",
     "starterThemeTokens",
+    "validateProductDraftOutput",
   ]);
 });
 
