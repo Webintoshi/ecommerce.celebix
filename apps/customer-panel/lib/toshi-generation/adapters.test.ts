@@ -281,3 +281,26 @@ for(const selected of CASES)test(`${selected.provider} content truncation and em
   await assert.rejects(a.generate(input(selected.model,{tools:[],outputFormat:'json_object'})),(error:any)=>error.code==='provider_unavailable'&&error.outcome===(empty?'empty':'truncated'));
  }
 });
+
+for (const selected of CASES) test(`${selected.provider} content input uses a UTF-8 byte bound while chat keeps its character limits`, async () => {
+  const sent: string[] = [];
+  const adapter = createToshiGenerationRegistry({[selected.provider]: async (_url: Parameters<ToshiProviderFetch>[0], init: Parameters<ToshiProviderFetch>[1]) => {
+    sent.push(String(init.body));
+    return Response.json(final(selected.provider));
+  }}).get(selected.provider);
+  const serialized = JSON.stringify({currentDraft:{description:'a'.repeat(10000)},selection:{field:'description',text:'a'.repeat(3000)},note:'Rewrite the selection.'});
+  assert.ok(serialized.length > 12000 && Buffer.byteLength(serialized) < 32768);
+  for (const text of [serialized, 'a'.repeat(32768), 'ı'.repeat(16384)]) {
+    await adapter.generate(input(selected.model,{tools:[],outputFormat:'json_object',history:[{role:'user',text}]}));
+    const body = JSON.parse(sent.at(-1)!);
+    const actual = selected.provider === 'gemini' ? body.contents[0].parts[0].text : selected.provider === 'openai' ? body.input[0].content : body.messages.find((message: {role:string}) => message.role === 'user').content;
+    assert.equal(actual,text,'the exact admitted prompt reaches the provider adapter');
+  }
+  const sentCount=sent.length;
+  for (const history of [[{role:'user' as const,text:'ı'.repeat(16385)}],[{role:'user' as const,text:'a'.repeat(16385)},{role:'assistant' as const,text:'b'.repeat(16384)}]]) {
+    await assert.rejects(adapter.generate(input(selected.model,{tools:[],outputFormat:'json_object',history})),{code:'invalid_input'});
+  }
+  await assert.rejects(adapter.generate(input(selected.model,{history:[{role:'user',text:'a'.repeat(12001)}]})),{code:'invalid_input'});
+  await assert.rejects(adapter.generate(input(selected.model,{history:[{role:'user',text:'a'.repeat(12000)},{role:'assistant',text:'b'.repeat(12000)},{role:'user',text:'c'}]})),{code:'invalid_input'});
+  assert.equal(sent.length,sentCount,'all oversized prompts fail before fetch');
+});

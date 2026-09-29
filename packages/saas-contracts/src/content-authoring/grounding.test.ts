@@ -105,3 +105,9 @@ test('an explicitly named variant cannot authorize a later unlabelled paragraph 
   ] }, variants, ['description']));
   assert.doesNotThrow(() => validate('Kırmızı varyantı — 14,89 g', variants, 'seoTitle'));
 });
+
+for(const field of ['description','seoTitle','seoDescription'] as const)test(`positive measurement cannot authorize Unicode numeric signs in ${field}`,()=>{
+ const source=packet([fact('weight','14.89','g')]);
+ for(const sign of ['−','﹣','－','⁻','₋','➖','＋','⁺','₊','➕','±','∓'])for(const gap of ['',' ','\u2009'])assert.throws(()=>validate(`${sign}${gap}14.89 g`,source,field),`${JSON.stringify(sign+gap)} must not change the source quantity`);
+ for(const text of ['(14.89 g)','Ağırlık: 14,89 g.','Burgu Bileklik – 14.89 gram','Burgu Bileklik — 14.89 g'])assert.doesNotThrow(()=>validate(text,source,field));
+});

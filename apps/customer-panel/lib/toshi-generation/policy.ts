@@ -85,13 +85,17 @@ function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): vo
   if (!(input.signal instanceof AbortSignal)) fail("invalid_input");
   if (input.signal.aborted) throw new ToshiGenerationError("provider_timeout");
   if (!text(input.system, 24_000, "invalid_input").trim()) fail("invalid_input");
+  const contentMode = input.outputFormat === "json_object";
   let historyLength = 0;
   for (const raw of array(input.history, 20, "invalid_input")) {
     const message = record(raw, "invalid_input");
     if (!["user", "assistant"].includes(message.role as string) || Object.keys(message).some((key) => !["role", "text"].includes(key))) fail("invalid_input");
-    historyLength += text(message.text, 12_000, "invalid_input").length;
+    const value = text(message.text, contentMode ? 32_768 : 12_000, "invalid_input");
+    // Content authoring sends one serialized fact packet; its contract is a UTF-8 byte budget.
+    // Chat retains the existing per-message and aggregate character budgets.
+    historyLength += contentMode ? ENCODER.encode(value).byteLength : value.length;
   }
-  if (!input.history.length || historyLength > 24_000) fail("invalid_input");
+  if (!input.history.length || historyLength > (contentMode ? 32_768 : 24_000)) fail("invalid_input");
   const names = new Set<string>();
   for (const raw of array(input.tools, 20, "invalid_input")) {
     const tool = record(raw, "invalid_input");

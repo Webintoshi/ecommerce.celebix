@@ -56,6 +56,27 @@ export function parseContentAuthoringRequest(v: unknown): ContentAuthoringReques
 export function canonicalContentAuthoringValue(v: unknown): string { if (Array.isArray(v))
     return '[' + v.map(canonicalContentAuthoringValue).join(',') + ']'; if (v && typeof v === 'object')
     return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonicalContentAuthoringValue((v as Record<string, unknown>)[k])).join(',') + '}'; return JSON.stringify(v); }
+/** Text nodes are escaped by the renderer, so their literal text is the visible content.
+ * Ignore spacing, control/formatting and invisible Unicode fillers, including standalone marks.
+ */
+function hasVisibleText(value: string): boolean {
+    return value.replace(/[\p{White_Space}\p{Default_Ignorable_Code_Point}\p{Cc}\p{M}\u2800]/gu, '').length > 0;
+}
+function assertVisibleDraft(draft: ContentAuthoringDraft): void {
+    if (draft.description !== undefined) {
+        const visibleNodes = (nodes: readonly ContentAuthoringTextNode[]) => nodes.some(node =>
+            hasVisibleText(node.type === 'text' ? node.text : `${node.value}${node.unit ?? ''}`));
+        const visible = draft.description.some(block => {
+            if (block.type === 'paragraph' || block.type === 'heading') return visibleNodes(block.children);
+            if (block.type === 'list') return block.items.some(visibleNodes);
+            return block.rows.some(row => row.some(visibleNodes));
+        });
+        if (!visible) bad();
+    }
+    for (const field of ['seoTitle', 'seoDescription'] as const) {
+        if (draft[field] !== undefined && !hasVisibleText(draft[field])) bad();
+    }
+}
 function parseDraft(v: unknown, fingerprint: string, selected: readonly ContentAuthoringField[], packet?: ProductFactPacket): ContentAuthoringDraft {
     const r = record(v, ['suggestions', 'claims', 'sourceFingerprint'], [...selected]);
     if (r.sourceFingerprint !== fingerprint || selected.some(f => !Object.hasOwn(r, f)))
@@ -99,7 +120,9 @@ function parseDraft(v: unknown, fingerprint: string, selected: readonly ContentA
         }
     if (JSON.stringify(out.description ?? '').length > 20000)
         bad();
-    return out as unknown as ContentAuthoringDraft;
+    const draft = out as unknown as ContentAuthoringDraft;
+    assertVisibleDraft(draft);
+    return draft;
 }
 
 export function validateProductDraftOutput(v: unknown, packet: ProductFactPacket, selected: readonly ContentAuthoringField[]): ContentAuthoringDraft {

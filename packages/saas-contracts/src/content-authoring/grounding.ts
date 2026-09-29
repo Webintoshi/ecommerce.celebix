@@ -6,6 +6,10 @@ function unsupported(): never { throw new TypeError('content_authoring_contract_
 function normalize(text: string): string {
   return text.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFD')
     .replace(/\p{M}|\p{Cf}/gu, '').replace(/ı/g, 'i').replace(/(?<=\d),(?=\d)/g, '.')
+    // NFKC already folds fullwidth/small/superscript signs. Fold the remaining
+    // mathematical/heavy signs, including a spaced sign before a number.
+    .replace(/[−➖]/g, '-').replace(/[➕﬩]/g, '+')
+    .replace(/([+\-±∓])\s+(?=\p{N})/gu, '$1')
     .replace(/\s+/g, ' ').trim();
 }
 function escape(text: string): string { return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -28,7 +32,7 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
 
 /** Match complete source fragments; never let "250" in ZX-250 authorize a new weight. */
 function occurrence(fragment: string): RegExp {
-  return new RegExp(`(?<![\\p{L}\\p{N}.,+\\-])${escape(normalize(fragment))}(?![\\p{L}\\p{N}])`, 'gu');
+  return new RegExp(`(?<![\\p{L}\\p{N}.,+\\-±∓])${escape(normalize(fragment))}(?![\\p{L}\\p{N}])`, 'gu');
 }
 function fragments(fact: ProductFact): string[] {
   if (fact.unit) return (units[normalize(fact.unit)] ?? [fact.unit]).flatMap(unit =>
