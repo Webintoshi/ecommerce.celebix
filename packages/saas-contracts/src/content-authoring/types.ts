@@ -32,6 +32,8 @@ export interface ContentAuthoringRequest {
     readonly fields: readonly ContentAuthoringField[];
     readonly locale: string;
     readonly tone: "neutral" | "friendly" | "professional";
+    /** Untrusted store writing style; never a source of product facts. */
+    readonly brandVoice?: string | null;
     readonly length: "short" | "medium" | "long";
     readonly note: string;
     readonly selection: Readonly<{

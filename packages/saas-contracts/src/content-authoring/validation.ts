@@ -40,7 +40,8 @@ export function parseContentAuthoringProductSnapshot(v: unknown): ContentAuthori
     out.attributes = attributes(r.attributes); if (Object.hasOwn(r, 'measurements'))
     out.measurements = r.measurements === null ? null : parseProductMeasurements(r.measurements); if (Object.hasOwn(r, 'variants'))
     out.variants = arr(r.variants).map(v => { const x = record(v, ['title'], ['id', 'attributes', 'measurements']); return { title: text(x.title, 200, 1), ...(Object.hasOwn(x, 'id') ? { id: uuid(x.id) } : {}), ...(Object.hasOwn(x, 'attributes') ? { attributes: attributes(x.attributes) } : {}), ...(Object.hasOwn(x, 'measurements') ? { measurements: x.measurements === null ? null : parseProductMeasurements(x.measurements) } : {}) }; }); return out as unknown as ContentAuthoringProductSnapshot; }
-export function parseContentAuthoringRequest(v: unknown): ContentAuthoringRequest { const r = record(v, ['draftId', 'productId', 'productVersion', 'profileVersion', 'currentDraft', 'action', 'fields', 'locale', 'tone', 'length', 'note', 'selection']); const versions = (v: unknown) => { if (v === null)
+function brandVoiceText(v: unknown): string { const value = text(v, 160); if (/\p{Cc}/u.test(value)) bad(); return value; }
+export function parseContentAuthoringRequest(v: unknown): ContentAuthoringRequest { const r = record(v, ['draftId', 'productId', 'productVersion', 'profileVersion', 'currentDraft', 'action', 'fields', 'locale', 'tone', 'length', 'note', 'selection'], ['brandVoice']); const versions = (v: unknown) => { if (v === null)
     return null; if (!Number.isSafeInteger(v) || (v as number) < 1)
     bad(); return v as number; }; const fs = arr(r.fields, 3).map(f => choice(f, fields)); if (!fs.length || new Set(fs).size !== fs.length)
     bad(); const action = choice(r.action, ['create', 'improve', 'shorten', 'rewrite_selection'] as const); let selection = null; if (r.selection !== null) {
@@ -51,7 +52,7 @@ export function parseContentAuthoringRequest(v: unknown): ContentAuthoringReques
 } if ((action === 'rewrite_selection') !== (selection !== null))
     bad(); const locale = text(r.locale, 35, 2); if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(locale))
     bad(); const productId = r.productId === null ? null : uuid(r.productId); const productVersion = versions(r.productVersion), profileVersion = versions(r.profileVersion); if (productId === null && (productVersion !== null || profileVersion !== null))
-    bad(); return { draftId: uuid(r.draftId), productId, productVersion, profileVersion, currentDraft: parseContentAuthoringProductSnapshot(r.currentDraft), action, fields: fs, locale, tone: choice(r.tone, ['neutral', 'friendly', 'professional']), length: choice(r.length, ['short', 'medium', 'long']), note: text(r.note, 2000), selection }; }
+    bad(); return { draftId: uuid(r.draftId), productId, productVersion, profileVersion, currentDraft: parseContentAuthoringProductSnapshot(r.currentDraft), action, fields: fs, locale, tone: choice(r.tone, ['neutral', 'friendly', 'professional']), ...(Object.hasOwn(r, 'brandVoice') ? { brandVoice: r.brandVoice === null ? null : brandVoiceText(r.brandVoice) } : {}), length: choice(r.length, ['short', 'medium', 'long']), note: text(r.note, 2000), selection }; }
 /** Canonical JSON distinguishes absent, empty and null; integer milli measurements never float-convert. */
 export function canonicalContentAuthoringValue(v: unknown): string { if (Array.isArray(v))
     return '[' + v.map(canonicalContentAuthoringValue).join(',') + ']'; if (v && typeof v === 'object')

@@ -26,3 +26,15 @@ test('selected generated fields require visible content in their rendered text c
  for(const description of [[{type:'list',ordered:false,items:[[{type:'text',text:'Burgu'}]]}],[{type:'table',rows:[[[{type:'text',text:'Burgu'}]]]}]])assert.doesNotThrow(()=>validateProductDraftOutput({...output,description},packet,['description']));
  assert.throws(()=>validateProductDraftOutput({...output,seoTitle:'\u200b'},packet,['description','seoTitle']),'each selected field must be usable');
 });
+
+test('optional brand voice preserves omitted null and exact bounded plain text',()=>{
+ assert.equal(Object.hasOwn(parseContentAuthoringRequest(request),'brandVoice'),false);
+ for(const brandVoice of [null,'',' Sade, ölçülü ve sıcak; kısa cümleler. ','ı'.repeat(160)])assert.equal(parseContentAuthoringRequest({...request,brandVoice}).brandVoice,brandVoice);
+ for(const brandVoice of [undefined,12,{},[],true,'a'.repeat(161),'line\nbreak','tab\there','\u0000','\u007f','\u0085'])assert.throws(()=>parseContentAuthoringRequest({...request,brandVoice}));
+ assert.throws(()=>parseContentAuthoringRequest({...request,tone:'custom'}),'preset enum is unchanged');
+ assert.throws(()=>parseContentAuthoringRequest({...request,currentDraft:{title:'Burgu',brandVoice:'custom'}}),'style must not enter fact snapshot');
+ let reads=0;const getter=Object.defineProperty({...request},'brandVoice',{enumerable:true,get(){reads++;return 'custom';}});
+ assert.throws(()=>parseContentAuthoringRequest(getter));assert.equal(reads,0);
+ assert.throws(()=>parseContentAuthoringRequest(Object.defineProperty({...request},'brandVoice',{value:'custom',enumerable:false})));
+ assert.throws(()=>parseContentAuthoringRequest({...request,[Symbol('brandVoice')]:'custom'}));
+});
