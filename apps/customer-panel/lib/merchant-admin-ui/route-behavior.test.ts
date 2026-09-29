@@ -801,252 +801,71 @@ test("merchant route matrix invokes every actual page, production console, clien
   assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kampanya kaydı Kampanyaları gör/u);
 });
 
-test("merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay", async () => {
-  type SaveMode = "success" | "version_conflict" | "replayed";
-  type RouteCase = Readonly<{
-    route: string;
-    kind: contracts.MerchantAdminRecordKind;
-    returnTo: string;
-    mode: "create" | "edit";
-    component: "console" | "editor";
-  }>;
-  const cases: readonly RouteCase[] = Object.freeze([
-    { route: "/content/blog/new", kind: "blog_post", returnTo: "/content/blog", mode: "create", component: "editor" },
-    { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
-    { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },
-    { route: "/content/pages/[recordId]/edit", kind: "page", returnTo: "/content/pages", mode: "edit", component: "editor" },
-  ]);
-  let activeCase = cases[0]!;
-  let saveMode: SaveMode = "success";
-  let stored: contracts.MerchantAdminRecord | undefined;
-  const reads: Array<Readonly<{ kind: contracts.MerchantAdminRecordKind; recordId: string }>> = [];
-  const writes: Array<Readonly<{
-    kind: contracts.MerchantAdminRecordKind;
-    recordId?: string;
-    expectedVersion?: number;
-    operationId: string;
-    replayed: boolean;
-  }>> = [];
-  const paths: string[] = [];
-  const repository: MerchantAdminRepository = {
-    async getEffectiveStarterPresentation() { throw new Error("unexpected"); },
-    async list(input) {
-      assert.equal(input.kind, activeCase.kind);
-      return stored ? [stored] : [];
-    },
-    async get(input) {
-      reads.push({ kind: input.kind, recordId: input.recordId });
-      assert.equal(input.kind, activeCase.kind);
-      assert.equal(input.recordId, RECORD_ID);
-      if (!stored) throw new MerchantAdminRepositoryError("record_not_found");
-      return stored;
-    },
-    async listEvents() { return []; },
-    async listProviderJobs() { return []; },
-    async save(input) {
-      if (saveMode === "version_conflict") throw new MerchantAdminRepositoryError("version_conflict");
-      assert.equal(input.kind, activeCase.kind);
-      assert.equal(input.recordId, activeCase.mode === "edit" ? RECORD_ID : undefined);
-      assert.equal(input.expectedVersion, activeCase.mode === "edit" ? 7 : undefined);
-      const next: contracts.MerchantAdminRecord = {
-        id: input.recordId ?? RECORD_ID,
-        kind: input.kind,
-        name: input.name,
-        config: input.config,
-        status: input.status,
-        version: (input.expectedVersion ?? 0) + 1,
-        createdAt: stored?.createdAt ?? NOW,
-        updatedAt: NOW,
-      };
-      stored = next;
-      const replayed = saveMode === "replayed";
-      writes.push({
-        kind: input.kind,
-        ...(input.recordId ? { recordId: input.recordId, expectedVersion: input.expectedVersion } : {}),
-        operationId: input.operationId,
-        replayed,
-      });
-      return {
-        id: next.id,
-        kind: next.kind,
-        status: next.status,
-        version: next.version,
-        updatedAt: next.updatedAt,
-        replayed,
-      };
-    },
-    async archive() { throw new Error("unexpected_non_default_archive"); },
-    async prepareProviderJob() { throw new Error("unexpected_non_default_prepare"); },
-    async queueProviderJob() { throw new Error("unexpected_non_default_queue"); },
-    async cancelProviderJob() { throw new Error("unexpected_non_default_cancel"); },
-  };
-  const handlers = createMerchantAdminHttpHandlers({
-    async resolveRuntime() {
-      return {
-        merchantAdmin: repository,
-        access: {
-          readiness: { mode: "approved_staging" },
-          panelOrigin: ORIGIN,
-          async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant("store_owner") }; },
-          async rotateCredential() { return { kind: "unavailable" }; },
-          async revokeCredential() { return { kind: "unavailable" }; },
-        },
-      } as never;
-    },
-    now: () => new Date(NOW),
-    requestId: () => REQUEST_ID,
-  });
-  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const path = String(input);
-    paths.push(path);
-    let match = /^\/api\/merchant-admin\/records\/([^/]+)\/([^/]+)$/u.exec(path);
-    if (match) return handlers.record(request(path, init), match[1]!, match[2]!);
-    match = /^\/api\/merchant-admin\/records\/([^/]+)$/u.exec(path);
-    if (match) return init?.method === "POST"
-      ? handlers.save(request(path, init), match[1]!)
-      : handlers.records(request(path, init), match[1]!);
-    match = /^\/api\/merchant-admin\/events\/([^/]+)$/u.exec(path);
-    if (match) return handlers.events(request(path, init), match[1]!);
-    throw new Error(`unexpected_non_default_route_path:${path}`);
-  }) as typeof fetch;
-  const api = createMerchantAdminApi(fetcher, () => OPERATION_ID);
-  const pushes: string[] = [];
-  let refreshes = 0;
-
-  const originalFormData = globalThis.FormData;
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  class TestFormData {
-    readonly values: Readonly<Record<string, string | readonly string[]>>;
-    constructor(target: { values: Readonly<Record<string, string | readonly string[]>> }) {
-      this.values = target.values;
-    }
-    get(name: string) {
-      const value = this.values[name];
-      return Array.isArray(value) ? value[0] ?? null : value ?? null;
-    }
-    getAll(name: string) {
-      const value = this.values[name];
-      return value === undefined ? [] : Array.isArray(value) ? [...value] : [value];
-    }
-  }
-  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: { activeElement: null, body: { style: { overflow: "" } } },
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: { addEventListener() {}, removeEventListener() {} },
-  });
-  try {
-    for (const routeCase of cases) {
-      for (const mode of ["success", "version_conflict", "replayed"] as const) {
-        activeCase = routeCase;
-        saveMode = mode;
-        stored = routeCase.mode === "edit"
-          ? { ...recordFor({ kind: routeCase.kind, records: "loaded", failure: "none", archive: "success", save: "success", role: "store_owner", recordName: `${routeCase.kind} durable record`, recordStatus: "active", recordVersion: 7, jobs: [] }), version: 7 }
-          : undefined;
-        reads.length = 0;
-        writes.length = 0;
-        paths.length = 0;
-        pushes.length = 0;
-        refreshes = 0;
-        const hooks = createHookRuntime();
-        let component: (props: Record<string, unknown>) => ReactNode;
-        let routeElement: React.ReactElement<Record<string, unknown>>;
-        if (routeCase.component === "console") {
-          const Console = await compileConsole(hooks.runtime, api);
-          const Page = await compilePage(routeCase.route, Console, "store_owner");
-          const pageTree = await Page();
-          routeElement = findElement(pageTree, (element) => element.type === Console);
-          assert.deepEqual(
-            { kind: routeElement.props.kind, canManage: routeElement.props.canManage, createFirst: routeElement.props.createFirst },
-            { kind: routeCase.kind, canManage: true, createFirst: true },
-            `${routeCase.route}:${mode}:page-binding`,
-          );
-          component = Console as (props: Record<string, unknown>) => ReactNode;
-        } else {
-          const Editor = await compileComponent(
-            "../../components/merchant-admin/MerchantRecordEditor.tsx",
-            "MerchantRecordEditor",
-            hooks.runtime,
-            {
-              "@celebix/saas-contracts": contracts,
-              "next/navigation": { useRouter: () => ({ push: (path: string) => { pushes.push(path); }, refresh: () => { refreshes += 1; } }) },
-              "@/components/panel/PanelPageShell": panelComponents(),
-              "@/lib/merchant-admin-ui/client": { MerchantAdminApiError, merchantAdminApi: api },
-              "@/lib/merchant-admin-ui/presentation": presentation,
-            },
-          );
-          const Page = await compileBoundPage(
-            routeCase.route,
-            "@/components/merchant-admin/MerchantRecordEditor",
-            "MerchantRecordEditor",
-            Editor,
-            "store_owner",
-          );
-          const pageTree = await Page(routeCase.mode === "edit" ? { params: Promise.resolve({ recordId: RECORD_ID }) } : undefined);
-          routeElement = findElement(pageTree, (element) => element.type === Editor);
-          assert.deepEqual(
-            {
-              kind: routeElement.props.kind,
-              recordId: routeElement.props.recordId,
-              returnTo: routeElement.props.returnTo,
-              canManage: routeElement.props.canManage,
-            },
-            {
-              kind: routeCase.kind,
-              recordId: routeCase.mode === "edit" ? RECORD_ID : undefined,
-              returnTo: routeCase.returnTo,
-              canManage: true,
-            },
-            `${routeCase.route}:${mode}:page-binding`,
-          );
-          component = Editor;
-        }
-        const render = () => component(routeElement.props);
-        let view = await hooks.flush(render);
-        const form = findElement(view, (element) => element.type === "form" || typeof element.props.onSubmit === "function");
-        const values: Record<string, string> = { name: `${routeCase.kind} persisted`, status: "active" };
-        const definition = MERCHANT_MODULE_DEFINITIONS.find(({ kind }) => kind === routeCase.kind);
-        assert.ok(definition);
-        for (const field of definition.fields) {
-          values[field.key] = field.type === "number" ? "5" : field.type === "boolean" ? "on" : `${field.key} configured`;
-        }
-        await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
-          preventDefault() {},
-          currentTarget: { values, reset() {} },
-        });
-        view = await hooks.flush(render);
-        assert.ok(paths.includes(`/api/merchant-admin/records/${routeCase.kind}`), `${routeCase.route}:${mode}:save-handler`);
-        if (routeCase.mode === "edit") {
-          assert.deepEqual(reads, [{ kind: routeCase.kind, recordId: RECORD_ID }], `${routeCase.route}:${mode}:exact-read`);
-          assert.ok(paths.includes(`/api/merchant-admin/records/${routeCase.kind}/${RECORD_ID}`), `${routeCase.route}:${mode}:record-handler`);
-        } else {
-          assert.deepEqual(reads, [], `${routeCase.route}:${mode}:no-create-read`);
-        }
-        if (mode === "version_conflict") {
-          assert.deepEqual(writes, [], `${routeCase.route}:${mode}:no-commit`);
-          assert.match(textOf(view), /sizden önce güncellendi/u, `${routeCase.route}:${mode}:visible-conflict`);
-          assert.deepEqual(pushes, [], `${routeCase.route}:${mode}:no-redirect`);
-        } else {
-          assert.equal(writes.length, 1, `${routeCase.route}:${mode}:one-commit`);
-          assert.equal(writes[0]?.replayed, mode === "replayed", `${routeCase.route}:${mode}:replay-truth`);
-          assert.equal(stored?.name, `${routeCase.kind} persisted`, `${routeCase.route}:${mode}:stateful-save`);
-          if (routeCase.component === "editor") {
-            assert.deepEqual(pushes, [routeCase.returnTo], `${routeCase.route}:${mode}:redirect`);
-            assert.equal(refreshes, 1, `${routeCase.route}:${mode}:refresh`);
-          } else {
-            assert.match(textOf(view), /Kayıt kalıcı olarak kaydedildi/u, `${routeCase.route}:${mode}:visible-save`);
-          }
-        }
+test("content blog and page routes bind the typed editor with store locale, role and flags", async () => {
+  const Editor = (_props: Record<string, unknown>) => createElement("section", null);
+  const routes = [
+    { route: "/content/blog/new", kind: "blog_post", mode: "create", returnTo: "/content/blog" },
+    { route: "/content/blog/[recordId]/edit", kind: "blog_post", mode: "edit", returnTo: "/content/blog" },
+    { route: "/content/pages/new", kind: "page", mode: "create", returnTo: "/content/pages" },
+    { route: "/content/pages/[recordId]/edit", kind: "page", mode: "edit", returnTo: "/content/pages" },
+  ] as const;
+  const flagCases = [
+    { ai: false, research: false },
+    { ai: true, research: false },
+    { ai: false, research: true },
+  ] as const;
+  for (const routeCase of routes) {
+    for (const role of ["store_owner", "editor", "analyst"] as const) {
+      for (const flags of flagCases) {
+        const currentTenant = tenant(role);
+        const calls = { access: 0, locale: 0, aiStoreIds: [] as string[], researchStoreIds: [] as string[] };
+        const compiled = { exports: {} as Record<string, unknown> };
+        const source = await compiledPageSource(routeCase.route);
+        const requireModule = (specifier: string): unknown => {
+          if (specifier === "react/jsx-runtime") return jsxRuntime;
+          if (specifier === "@celebix/saas-contracts") return contracts;
+          if (specifier === "@/components/content/MerchantContentEditor") return { MerchantContentEditor: Editor };
+          if (specifier === "@/lib/server-access") return { requireServerPanelAccess: async () => { calls.access += 1; return { tenantContext: currentTenant }; } };
+          if (specifier === "@/lib/server-content-resource-authoring/locale") return { resolveInitialContentLocale: async (context: contracts.TenantContext) => {
+            assert.equal(context, currentTenant);
+            calls.locale += 1;
+            return "en-US";
+          } };
+          if (specifier === "@/lib/server-content-resource-authoring/runtime") return {
+            contentResourceAuthoringEnabled: (storeId: string) => { calls.aiStoreIds.push(storeId); return flags.ai; },
+            contentResearchEnabled: (storeId: string) => { calls.researchStoreIds.push(storeId); return flags.research; },
+          };
+          throw new Error(`unexpected_content_route_import:${routeCase.route}:${specifier}`);
+        };
+        Function("require", "module", "exports", source)(requireModule, compiled, compiled.exports);
+        const Page = compiled.exports.default as (props?: { params: Promise<{ recordId: string }> }) => Promise<ReactNode>;
+        const tree = await Page(routeCase.mode === "edit" ? { params: Promise.resolve({ recordId: RECORD_ID }) } : undefined);
+        const element = findElement(tree, (candidate) => candidate.type === Editor);
+        assert.deepEqual({
+          kind: element.props.kind,
+          returnTo: element.props.returnTo,
+          canManage: element.props.canManage,
+          aiEnabled: element.props.aiEnabled,
+          researchEnabled: element.props.researchEnabled,
+        }, {
+          kind: routeCase.kind,
+          returnTo: routeCase.returnTo,
+          canManage: role !== "analyst",
+          aiEnabled: flags.ai,
+          researchEnabled: flags.research,
+        }, `${routeCase.route}:${role}:${JSON.stringify(flags)}:typed-editor`);
+        assert.equal(element.props.recordId, routeCase.mode === "edit" ? RECORD_ID : undefined);
+        assert.equal(Object.hasOwn(element.props, "recordId"), routeCase.mode === "edit");
+        assert.equal(element.props.initialLocale, routeCase.mode === "create" ? "en-US" : undefined);
+        assert.equal(Object.hasOwn(element.props, "initialLocale"), routeCase.mode === "create");
+        assert.deepEqual(calls, {
+          access: 1,
+          locale: routeCase.mode === "create" ? 1 : 0,
+          aiStoreIds: [currentTenant.store.id],
+          researchStoreIds: [currentTenant.store.id],
+        }, `${routeCase.route}:${role}:${JSON.stringify(flags)}:authority`);
       }
     }
-  } finally {
-    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
-    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
-    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
   }
 });
 
