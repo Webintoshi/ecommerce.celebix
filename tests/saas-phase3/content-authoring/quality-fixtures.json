@@ -1,0 +1,740 @@
+{
+  "schemaVersion": 1,
+  "fixtureSource": "Synthetic seller-entered facts for authorized model evaluation; no live product/customer/order data.",
+  "fixtures": [
+    {
+      "id": "jewellery-weight-1489",
+      "sector": "takı",
+      "currentDraft": {
+        "title": "Burgu Bileklik",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "weight": {
+            "valueMilli": 14890,
+            "unit": "g"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "jewellery-title-only",
+      "sector": "takı",
+      "currentDraft": {
+        "title": "İnce Yüzük",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "jewellery-cleared-material",
+      "sector": "takı",
+      "currentDraft": {
+        "title": "Günlük Kolye",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "length": {
+            "valueMilli": 19000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "Eski açıklamada geçen malzeme ve taş bilgileri silindi; eksik bilgiyi ekleme.",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "jewellery-two-measures",
+      "sector": "takı",
+      "currentDraft": {
+        "title": "Katmanlı Bileklik",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "weight": {
+            "valueMilli": 7300,
+            "unit": "g"
+          },
+          "length": {
+            "valueMilli": 19000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "jewellery-variant-weights",
+      "sector": "takı",
+      "currentDraft": {
+        "title": "Halka Küpe",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [
+          {
+            "title": "Küçük",
+            "attributes": [],
+            "measurements": {
+              "weight": {
+                "valueMilli": 2200,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "title": "Büyük",
+            "attributes": [],
+            "measurements": {
+              "weight": {
+                "valueMilli": 4800,
+                "unit": "g"
+              }
+            }
+          }
+        ],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "fashion-title-only",
+      "sector": "moda",
+      "currentDraft": {
+        "title": "Basic Tişört",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "fashion-no-material",
+      "sector": "moda",
+      "currentDraft": {
+        "title": "Keten Görünümlü Gömlek",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "fashion-variant-colours",
+      "sector": "moda",
+      "currentDraft": {
+        "title": "Günlük Elbise",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [
+          {
+            "title": "Kırmızı / S",
+            "attributes": [],
+            "measurements": null
+          },
+          {
+            "title": "Siyah / M",
+            "attributes": [],
+            "measurements": null
+          }
+        ],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "fashion-belt-dimensions",
+      "sector": "moda",
+      "currentDraft": {
+        "title": "Kemer",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "length": {
+            "valueMilli": 110000,
+            "unit": "cm"
+          },
+          "width": {
+            "valueMilli": 3500,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "fashion-scarf-dimensions",
+      "sector": "moda",
+      "currentDraft": {
+        "title": "Atkı",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "width": {
+            "valueMilli": 70000,
+            "unit": "cm"
+          },
+          "length": {
+            "valueMilli": 180000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "food-quarter-kilo",
+      "sector": "gıda",
+      "currentDraft": {
+        "title": "Kavrulmuş Fındık",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "weight": {
+            "valueMilli": 250,
+            "unit": "kg"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "food-no-health",
+      "sector": "gıda",
+      "currentDraft": {
+        "title": "Baharat Karışımı",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "food-oil-volume",
+      "sector": "gıda",
+      "currentDraft": {
+        "title": "Zeytinyağı",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "volume": {
+            "valueMilli": 500000,
+            "unit": "ml"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "food-package-no-total",
+      "sector": "gıda",
+      "currentDraft": {
+        "title": "Filtre Kahve",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "weight": {
+            "valueMilli": 125000,
+            "unit": "g"
+          },
+          "packageCount": 2
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "food-variant-weights",
+      "sector": "gıda",
+      "currentDraft": {
+        "title": "Çay",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [
+          {
+            "title": "Küçük Paket",
+            "attributes": [],
+            "measurements": {
+              "weight": {
+                "valueMilli": 100000,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "title": "Büyük Paket",
+            "attributes": [],
+            "measurements": {
+              "weight": {
+                "valueMilli": 250000,
+                "unit": "g"
+              }
+            }
+          }
+        ],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "electronics-cable-length",
+      "sector": "elektronik",
+      "currentDraft": {
+        "title": "USB-C Kablo",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "length": {
+            "valueMilli": 1500,
+            "unit": "m"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "electronics-no-performance",
+      "sector": "elektronik",
+      "currentDraft": {
+        "title": "Kablosuz Kulaklık",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "electronics-lamp-size",
+      "sector": "elektronik",
+      "currentDraft": {
+        "title": "Masa Lambası",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "width": {
+            "valueMilli": 14000,
+            "unit": "cm"
+          },
+          "height": {
+            "valueMilli": 35000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "electronics-variant-colours",
+      "sector": "elektronik",
+      "currentDraft": {
+        "title": "Klavye",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [
+          {
+            "title": "Türkçe Q / Siyah",
+            "attributes": [],
+            "measurements": null
+          },
+          {
+            "title": "Türkçe Q / Beyaz",
+            "attributes": [],
+            "measurements": null
+          }
+        ],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "electronics-weight",
+      "sector": "elektronik",
+      "currentDraft": {
+        "title": "Taşınabilir Hoparlör",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "weight": {
+            "valueMilli": 680000,
+            "unit": "g"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "decor-vase-size",
+      "sector": "dekorasyon",
+      "currentDraft": {
+        "title": "Vazo",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "height": {
+            "valueMilli": 24500,
+            "unit": "cm"
+          },
+          "width": {
+            "valueMilli": 12500,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "decor-wall-art",
+      "sector": "dekorasyon",
+      "currentDraft": {
+        "title": "Duvar Tablosu",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "width": {
+            "valueMilli": 40000,
+            "unit": "cm"
+          },
+          "height": {
+            "valueMilli": 60000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "decor-area",
+      "sector": "dekorasyon",
+      "currentDraft": {
+        "title": "Halı",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "area": {
+            "valueMilli": 2250,
+            "unit": "m2"
+          },
+          "length": {
+            "valueMilli": 1500,
+            "unit": "m"
+          },
+          "width": {
+            "valueMilli": 1500,
+            "unit": "m"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "decor-box-volume",
+      "sector": "dekorasyon",
+      "currentDraft": {
+        "title": "Saklama Kutusu",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": {
+          "volume": {
+            "valueMilli": 12000,
+            "unit": "l"
+          },
+          "length": {
+            "valueMilli": 32000,
+            "unit": "cm"
+          },
+          "depth": {
+            "valueMilli": 21000,
+            "unit": "cm"
+          },
+          "height": {
+            "valueMilli": 18000,
+            "unit": "cm"
+          }
+        }
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    },
+    {
+      "id": "decor-title-only",
+      "sector": "dekorasyon",
+      "currentDraft": {
+        "title": "Dekoratif Mum",
+        "description": null,
+        "seoTitle": null,
+        "seoDescription": null,
+        "categoryIds": [],
+        "brandId": null,
+        "attributes": [],
+        "variants": [],
+        "measurements": null
+      },
+      "note": "",
+      "review": {
+        "numericValuesAndUnits": "Must match supplied scoped measurement values; no arithmetic or unit conversion invented.",
+        "criticalClaims": "No absent material, karat, stone, certification, health, warranty, delivery, performance or origin claims.",
+        "variantScope": "Variant-only values must not become common product claims.",
+        "missingInformation": "Optional facts remain optional; neutral short draft acceptable."
+      }
+    }
+  ]
+}
