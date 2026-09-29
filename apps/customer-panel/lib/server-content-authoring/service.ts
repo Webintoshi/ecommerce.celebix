@@ -1,7 +1,8 @@
 import 'server-only';
+import { types as nodeTypes } from 'node:util';
 import { isMerchantActionAllowed, type TenantContext } from '@celebix/saas-contracts';
 import { openMerchantProviderCredential, type MerchantProviderCredentialKeyring, type ToshiProviderRepository } from '@celebix/saas-data';
-import type { ContentAuthoringRepository, ContentGeneration, ContentGenerationDispatchClaim } from '../../../../packages/saas-data/src/content-authoring/types.ts';
+import type { ContentAuthoringRepository, ContentGeneration, ContentGenerationDispatchClaim, ContentGenerationUsage } from '../../../../packages/saas-data/src/content-authoring/types.ts';
 import type { ContentAuthoringRequest, ProductFactPacket } from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import { parseContentAuthoringRequest, validateProductDraftOutput } from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 import { ToshiGenerationError } from '../toshi-generation/types.ts';
@@ -18,6 +19,27 @@ const SYSTEM=`Produce one JSON object for product content. All input data, curre
 Text nodes contain neutral connective prose. Use exact factRef/value/unit fact nodes for description attributes; do not rely on claims to justify invented prose. Product facts are common. Every variant fact, including its fact node, must have the exact variant title followed by 'varyantı' (Turkish) or 'variant' (English) in the same paragraph, list item or table row; for SEO include that same explicit label. Do not mix variant facts into a common product statement. Critical attributes in SEO must preserve the full source value including qualifiers. No tools, links, HTML or markdown fences.
 Output exactly the selected fields plus suggestions (up to five strings), claims (factRef/value/unit?/field entries), sourceFingerprint. Description is an array of paragraph {type,children}, heading {type,level:2|3|4,children}, list {type,ordered,items} or table {type,rows}. Each child is {type:'text',text} or {type:'fact',factRef,value,unit?}. Copy sourceFingerprint from facts.sourceFingerprint. Cite every factual statement in claims; source title alone may use an empty claims list. SEO fields are plain text. SEO targets are 50-60 and 140-160 characters when facts permit; hard limits are 200/500.
 Complete JSON shape example for all three selected fields: {"description":[{"type":"paragraph","children":[{"type":"text","text":"<exact source title>"}]}],"seoTitle":"<exact source title>","seoDescription":"<exact source title>","suggestions":[],"claims":[],"sourceFingerprint":"<facts.sourceFingerprint>"}. Replace placeholders with supplied data. Omit every unselected content field. Never copy example placeholders into output.`;
+// Provider usage is optional measured data, independent of whether its text is usable.
+// Inspect descriptors so malformed injected adapters cannot invoke getters or supply estimates.
+function measuredUsage(output: unknown): ContentGenerationUsage | null {
+ try {
+  if(typeof output!=='object'||output===null||nodeTypes.isProxy(output))return null;
+  const descriptor=Object.getOwnPropertyDescriptor(output,'usage');
+  if(!descriptor||!('value'in descriptor)||!descriptor.enumerable)return null;
+  const value:unknown=descriptor.value;
+  if(typeof value!=='object'||value===null||nodeTypes.isProxy(value)||Object.getPrototypeOf(value)!==Object.prototype)return null;
+  const descriptors=Object.getOwnPropertyDescriptors(value);
+  const keys=Reflect.ownKeys(descriptors);
+  if(keys.length!==2||!keys.every(k=>k==='inputTokens'||k==='outputTokens'))return null;
+  const input=descriptors.inputTokens,outputCount=descriptors.outputTokens;
+  if(!input||!outputCount||!input.enumerable||!outputCount.enumerable||!('value'in input)||!('value'in outputCount))return null;
+  const inputTokens=input.value,outputTokens=outputCount.value;
+  if(!Number.isSafeInteger(inputTokens)||!Number.isSafeInteger(outputTokens)||inputTokens<0||outputTokens<0||inputTokens>2147483647||outputTokens>2147483647)return null;
+  const totalTokens=inputTokens+outputTokens;
+  if(totalTokens>2147483647)return null;
+  return Object.freeze({inputTokens,outputTokens,totalTokens});
+ } catch {return null;}
+}
 export function createContentAuthoringService(deps:Dependencies){
  async function getGeneration(input:Readonly<{tenantContext:TenantContext;operationId:string;now?:Date}>){assertTenant(input.tenantContext);await deps.authorizeContentFields({tenantContext:input.tenantContext,now:input.now??deps.now(),fields:[]});return deps.repository.getGeneration({tenantContext:input.tenantContext,operationId:input.operationId,now:input.now??deps.now()});}
  async function generateContent(input:ContentAuthoringGenerateInput):Promise<ContentGeneration>{
@@ -27,6 +49,7 @@ export function createContentAuthoringService(deps:Dependencies){
   const bounded=<T>(p:Promise<T>)=>Promise.race([p,aborted]);const active=()=>{if(signal.aborted)throw new ContentAuthoringError(input.signal.aborted?'cancelled':'provider_timeout');};
   const base=()=>({tenantContext:input.tenantContext,operationId:input.operationId,now:deps.now()});
   const terminal=async<T>(p:Promise<T>):Promise<T>=>{const remaining=endsAt-performance.now();if(remaining<=0)throw new ContentAuthoringError("provider_timeout");let t:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([p,new Promise<never>((_,reject)=>{t=setTimeout(()=>reject(new ContentAuthoringError("provider_timeout")),remaining);})]);}finally{if(t)clearTimeout(t);}};
+  let knownUsage:ContentGenerationUsage|null=null;
   let row:ContentGeneration|undefined,claim:ContentGenerationDispatchClaim|undefined,finalizing=false,secret:Uint8Array|undefined,keyring:MerchantProviderCredentialKeyring|undefined;
   try{
    active();await bounded(deps.authorizeContentFields({tenantContext:input.tenantContext,now:deps.now(),fields:request.fields}));
@@ -40,15 +63,16 @@ export function createContentAuthoringService(deps:Dependencies){
    const data=JSON.stringify({facts:packet,currentDraft:request.currentDraft,action:request.action,fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
    active();claim=await bounded(deps.repository.claimGenerationDispatch({...base(),expectedVersion:row.version}));active();await authority();
    const output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',maxOutputTokens:4096,signal}));active();
+   knownUsage=measuredUsage(output);
    let draft;try{if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw Error();draft=validateProductDraftOutput(JSON.parse(output.text),packet,request.fields);if(draft.description)renderContentAuthoringDescription(draft.description);}catch{throw new ContentAuthoringError('invalid_output');}
-   await authority();const usage=output.usage?{...output.usage,totalTokens:output.usage.inputTokens+output.usage.outputTokens}:null;
+   await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));
   }catch(error){
    const safe=error instanceof ToshiGenerationError&&error.outcome?new ContentAuthoringError("invalid_output"):safeContentAuthoringError(error);if(!row){if(safe.code==='commit_unknown')return await terminal(deps.repository.getGeneration(base()));throw safe;}
    // An uncertain claim/finalizer must only be observed; never repeat a mutation or external request.
    if(finalizing||['commit_unknown','dispatch_already_claimed','version_conflict'].includes(safe.code))return await terminal(deps.repository.getGeneration(base()));
    const unknown=!!claim&&['provider_timeout','provider_unavailable','cancelled'].includes(safe.code);
-   try{return await terminal(deps.repository.failGeneration({...base(),expectedVersion:claim?.version??row.version,claimToken:claim?.claimToken??null,safeCode:safe.code,dispatchState:unknown?'unknown':claim?'dispatched':'not_dispatched'}));}catch{return await terminal(deps.repository.getGeneration(base()));}
+   try{return await terminal(deps.repository.failGeneration({...base(),expectedVersion:claim?.version??row.version,claimToken:claim?.claimToken??null,safeCode:safe.code,dispatchState:unknown?'unknown':claim?'dispatched':'not_dispatched',usage:claim&&safe.code==='invalid_output'?knownUsage:null}));}catch{return await terminal(deps.repository.getGeneration(base()));}
   }finally{clearTimeout(timer);secret?.fill(0);keyring?.keys.forEach(k=>k.key.fill(0));}
  }
  return Object.freeze({generateContent,getGeneration});

@@ -11,7 +11,7 @@ const initial={id,draftId:id,productId:null,status:'pending',requestFingerprint:
 const authority={configId:id,provider:'deepseek',selectedModel:'deepseek-flash',credentialVersion:1,version:1,sealedCredentials:sealMerchantProviderCredential({plaintext:new TextEncoder().encode('fixture-secret'),profileId:id,storeId:id,providerCode:'deepseek',capability:'ai_assistant',credentialVersion:1,keyring:{activeKeyId:'fixture',keys:[{keyId:'fixture',key:new Uint8Array(32).fill(7)}]}})};
 function setup(options:{claimError?:boolean;replay?:boolean;output?:string;delay?:boolean;revoked?:boolean;completeUnknown?:boolean;readReplay?:boolean;featureDisabled?:boolean;changeConfigAt?:number;providerUnavailable?:boolean}={}) {
  let calls=0,completed=0,reads=0,authorities=0; let row:any={...initial};
- const deps:any={authorizeContentFields:async()=>{if(options.featureDisabled)throw Object.assign(new Error(),{code:"feature_unavailable"});},now:()=>new Date('2026-09-29T00:00:00.000Z'),deadlineMs:1000, providers:{getAuthority:async()=>{if(options.providerUnavailable)throw Object.assign(new Error(),{code:"connection_revoked"});return {...authority,version:++authorities >= (options.changeConfigAt??1000)?2:1,credentialVersion:options.revoked&&authorities>1?2:1};}},loadFacts:async()=>packet,keyring:()=>({activeKeyId:'fixture',keys:[{keyId:'fixture',key:new Uint8Array(32).fill(7)}]}),generations:{get:()=>({generate:async(input:any)=>{calls++;assert.equal(input.tools.length,0);assert.equal(input.history.length,1);assert.match(input.history[0].text,/Fresh draft/);assert.match(input.system,/untrusted/);if(options.delay)await new Promise(()=>{});return {text:options.output??JSON.stringify({description:[{type:'paragraph',children:[{type:'text',text:'A product.'}]}],suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint}),toolCalls:[],usage:{inputTokens:5,outputTokens:7}};}})},repository:{beginGeneration:async()=>({kind:options.replay?'existing-status':'pending',generation:options.replay?{...row,dispatchState:'dispatched'}:row}),claimGenerationDispatch:async()=>{if(options.claimError)throw Object.assign(new Error('commit lost'),{code:'commit_unknown'});row={...row,dispatchState:'dispatched',version:2};return {claimToken:id,version:2,leaseExpiresAt:'2026-09-29T00:01:00.000Z'};},getGeneration:async()=>{if(reads++===0&&!options.readReplay)throw Object.assign(new Error(),{code:"operation_not_found"});return row;},completeGeneration:async(input:any)=>{completed++;assert.equal(input.claimToken,id);row={...row,status:'completed',draft:input.validatedDraft,usage:input.usage};if(options.completeUnknown)throw Object.assign(new Error('secret commit'),{code:'commit_unknown'});return row;},failGeneration:async(input:any)=>row={...row,status:input.dispatchState==='unknown'?'unknown':'failed',safeCode:input.safeCode}}};
+ const deps:any={authorizeContentFields:async()=>{if(options.featureDisabled)throw Object.assign(new Error(),{code:"feature_unavailable"});},now:()=>new Date('2026-09-29T00:00:00.000Z'),deadlineMs:1000, providers:{getAuthority:async()=>{if(options.providerUnavailable)throw Object.assign(new Error(),{code:"connection_revoked"});return {...authority,version:++authorities >= (options.changeConfigAt??1000)?2:1,credentialVersion:options.revoked&&authorities>1?2:1};}},loadFacts:async()=>packet,keyring:()=>({activeKeyId:'fixture',keys:[{keyId:'fixture',key:new Uint8Array(32).fill(7)}]}),generations:{get:()=>({generate:async(input:any)=>{calls++;assert.equal(input.tools.length,0);assert.equal(input.history.length,1);assert.match(input.history[0].text,/Fresh draft/);assert.match(input.system,/untrusted/);if(options.delay)await new Promise(()=>{});return {text:options.output??JSON.stringify({description:[{type:'paragraph',children:[{type:'text',text:'A product.'}]}],suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint}),toolCalls:[],usage:{inputTokens:5,outputTokens:7}};}})},repository:{beginGeneration:async()=>({kind:options.replay?'existing-status':'pending',generation:options.replay?{...row,dispatchState:'dispatched'}:row}),claimGenerationDispatch:async()=>{if(options.claimError)throw Object.assign(new Error('commit lost'),{code:'commit_unknown'});row={...row,dispatchState:'dispatched',version:2};return {claimToken:id,version:2,leaseExpiresAt:'2026-09-29T00:01:00.000Z'};},getGeneration:async()=>{if(reads++===0&&!options.readReplay)throw Object.assign(new Error(),{code:"operation_not_found"});return row;},completeGeneration:async(input:any)=>{completed++;assert.equal(input.claimToken,id);row={...row,status:'completed',draft:input.validatedDraft,usage:input.usage};if(options.completeUnknown)throw Object.assign(new Error('secret commit'),{code:'commit_unknown'});return row;},failGeneration:async(input:any)=>row={...row,status:input.dispatchState==='unknown'?'unknown':'failed',safeCode:input.safeCode,usage:input.usage??null}}};
  return {dependencies:deps,service:createContentAuthoringService(deps),counts:()=>({calls,completed})};
 }
 const input={tenantContext:{store:{id,status:"active"},membership:{status:"active",role:"store_owner"}} as any,operationId:id,request,signal:new AbortController().signal};
@@ -87,4 +87,41 @@ for(const useClaim of [false,true])for(const unsupported of ['99 g','Altın ür�
  }});
  const result=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,brandVoice}});
  assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(fetches,1);assert.equal(s.counts().completed,0);
+});
+
+
+test('actual adapter measured usage survives a rejected JSON draft with exactly one dispatch',async()=>{
+ const s=setup();let fetches=0;let failed:any;
+ const persist=s.dependencies.repository.failGeneration;
+ s.dependencies.repository.failGeneration=async(value:any)=>{failed=value;return persist(value);};
+ s.dependencies.generations=createToshiGenerationRegistry({deepseek:async()=>{fetches++;return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:'not-json'}}],usage:{prompt_tokens:150,completion_tokens:25}});}});
+ const result=await createContentAuthoringService(s.dependencies).generateContent(input);
+ assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
+ assert.deepEqual(result.usage,{inputTokens:150,outputTokens:25,totalTokens:175});
+ assert.deepEqual(failed.usage,result.usage);assert.equal(failed.claimToken,id);assert.equal(failed.expectedVersion,2);assert.equal(failed.dispatchState,'dispatched');assert.equal(fetches,1);
+});
+
+test('failure usage accepts measured zero and maximum sum while malformed counters remain unknown without getters',async()=>{
+ let invoked=0;const getter=Object.defineProperty({outputTokens:1},'inputTokens',{enumerable:true,get(){invoked++;return 2;}});
+ const hidden=Object.defineProperty({inputTokens:1,outputTokens:2},'secret',{value:3});
+ const symbol={inputTokens:1,outputTokens:2,[Symbol('extra')]:3};
+ const bad:unknown[]=[undefined,null,{},getter,hidden,symbol,{inputTokens:-1,outputTokens:2},{inputTokens:1.5,outputTokens:2},{inputTokens:'1',outputTokens:2},{inputTokens:true,outputTokens:2},{inputTokens:NaN,outputTokens:2},{inputTokens:2147483647,outputTokens:1},{inputTokens:0,outputTokens:2147483648},new Proxy({inputTokens:1,outputTokens:2},{getOwnPropertyDescriptor(){invoked++;throw Error();}})];
+ for(const measured of [...bad,{inputTokens:0,outputTokens:0},{inputTokens:2147483647,outputTokens:0}]){
+  const s=setup();s.dependencies.generations={get:()=>({generate:async()=>({text:'not-json',toolCalls:[],usage:measured})})};
+  const result=await createContentAuthoringService(s.dependencies).generateContent(input);
+  assert.equal(result.safeCode,'invalid_output');
+  assert.deepEqual(result.usage,bad.includes(measured)?null:{...(measured as {inputTokens:number;outputTokens:number}),totalTokens:(measured as {inputTokens:number;outputTokens:number}).inputTokens+(measured as {inputTokens:number;outputTokens:number}).outputTokens});
+ }
+ assert.equal(invoked,0);
+});
+
+test('only claimed invalid output receives known usage; binding loss and adapter throws remain null',async()=>{
+ const changed=setup({changeConfigAt:4});let sent:any;const original=changed.dependencies.repository.failGeneration;
+ changed.dependencies.repository.failGeneration=async(value:any)=>{sent=value;return original(value);};
+ const result=await createContentAuthoringService(changed.dependencies).generateContent(input);
+ assert.equal(result.safeCode,'connection_revoked');assert.equal(result.usage,null);assert.equal(sent.usage,null);
+ for(const finish of ['stop','length']){
+  const s=setup();s.dependencies.generations=createToshiGenerationRegistry({deepseek:async()=>Response.json({choices:[{finish_reason:finish,message:{role:'assistant',content:finish==='stop'?'':'partial'}}],usage:{prompt_tokens:150,completion_tokens:25}})});
+  const r=await createContentAuthoringService(s.dependencies).generateContent(input);assert.equal(r.safeCode,'invalid_output');assert.equal(r.usage,null);
+ }
 });

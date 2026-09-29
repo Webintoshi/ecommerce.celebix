@@ -21,9 +21,10 @@ const generation: any = {
 };
 function setup(commitError = false, outcome = "pending") {
     const calls: string[] = [];
+    const parameters: unknown[][] = [];
     const client = {
-        async query(text: string) {
-            calls.push(text);
+        async query(text: string, values: unknown[] = []) {
+            calls.push(text); parameters.push(values);
             if (text === "COMMIT" && commitError)
                 throw Error("lost");
             return text.includes("saas.content_authoring_") ? {
@@ -37,7 +38,7 @@ function setup(commitError = false, outcome = "pending") {
         }
     };
     return {
-        calls, repo: new PostgresContentAuthoringRepository({
+        calls, parameters, repo: new PostgresContentAuthoringRepository({
             pool: {
                 async connect() {
                     return client;
@@ -186,3 +187,22 @@ test("service reservation and provider limit errors can fail durably, arbitrary 
     }), e => e instanceof ContentAuthoringRepositoryError && e.code === 'invalid_input');
     assert.equal(calls.length, 0);
 });
+
+
+const failInput=()=>({tenantContext,now,operationId:id,expectedVersion:2,claimToken:id,safeCode:'invalid_output',dispatchState:'dispatched' as const});
+test('failure v2 preserves optional NULL and measured usage in exact thirteen SQL parameters',async()=>{
+ for(const measured of [undefined,null,{inputTokens:0,outputTokens:0,totalTokens:0},{inputTokens:2147483647,outputTokens:0,totalTokens:2147483647}]){
+  const {repo,calls,parameters}=setup();await repo.failGeneration({...failInput(),...(measured===undefined?{}:{usage:measured})} as any);
+  const pos=calls.findIndex(x=>x.includes('content_authoring_fail_v2('));assert.ok(pos>=0);assert.equal(parameters[pos].length,13);
+  assert.deepEqual(parameters[pos].slice(7),[id,id,2,'invalid_output','dispatched',measured==null?null:JSON.stringify(measured)]);
+ }
+});
+test('failure usage rejects malformed descriptor range sum and unauthorized dispatch before checkout',async()=>{
+ let invoked=0;const getter=Object.defineProperty({outputTokens:1,totalTokens:2},'inputTokens',{enumerable:true,get(){invoked++;return 1;}});
+ const hidden=Object.defineProperty({inputTokens:1,outputTokens:1,totalTokens:2},'raw',{value:'x'});
+ const bad=[getter,hidden,{inputTokens:1,outputTokens:1,totalTokens:2,[Symbol('extra')]:1},{inputTokens:1,outputTokens:1,totalTokens:3},{inputTokens:2147483647,outputTokens:1,totalTokens:2147483648},{inputTokens:-1,outputTokens:2,totalTokens:1},{inputTokens:1.5,outputTokens:0,totalTokens:1.5},{inputTokens:'1',outputTokens:1,totalTokens:2},{inputTokens:null,outputTokens:1,totalTokens:1},{inputTokens:NaN,outputTokens:0,totalTokens:0},new Proxy({inputTokens:1,outputTokens:1,totalTokens:2},{getOwnPropertyDescriptor(){invoked++;throw Error();}})];
+ for(const measured of bad){const{repo,calls}=setup();await assert.rejects(()=>repo.failGeneration({...failInput(),usage:measured}as any),e=>e instanceof ContentAuthoringRepositoryError&&e.code==='invalid_input');assert.equal(calls.length,0);}
+ for(const change of [{claimToken:null},{safeCode:'cancelled'},{dispatchState:'not_dispatched'},{dispatchState:'unknown'}]){const{repo,calls}=setup();await assert.rejects(()=>repo.failGeneration({...failInput(),...change,usage:{inputTokens:1,outputTokens:1,totalTokens:2}}as any),/invalid_input/);assert.equal(calls.length,0);}
+ const {repo,calls}=setup();const accessor=Object.defineProperty(failInput(),'usage',{enumerable:true,get(){invoked++;return null;}});await assert.rejects(()=>repo.failGeneration(accessor),/invalid_input/);assert.equal(calls.length,0);assert.equal(invoked,0);
+});
+test('failure v2 COMMIT uncertainty is never retried',async()=>{const{repo,calls}=setup(true);await assert.rejects(()=>repo.failGeneration({...failInput(),usage:{inputTokens:1,outputTokens:2,totalTokens:3}}as any),/commit_unknown/);assert.equal(calls.filter(x=>x.includes('content_authoring_fail_v2')).length,1);});

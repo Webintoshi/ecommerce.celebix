@@ -1,3 +1,4 @@
+import { types as nodeTypes } from 'node:util';
 import { ToshiProviderRepositoryError } from '../toshi-providers/errors.ts';
 import { parseContentGenerationView } from '../../../saas-contracts/src/content-authoring/validation.ts';
 import { acquirePostgresClient, type PostgresClientLike } from '../postgres/pool.ts';
@@ -218,9 +219,17 @@ export class PostgresContentAuthoringRepository implements ContentAuthoringRepos
         return this.generation('complete', [...this.authority(i), toshiUuid(i.operationId), toshiUuid(i.claimToken), toshiVersion(i.expectedVersion, 1), JSON.stringify(i.validatedDraft), i.usage === null ? null : JSON.stringify(i.usage)]);
     }
     async failGeneration(i: FailContentGenerationInput): Promise<ContentGeneration> {
-        if (!['not_dispatched', 'dispatched', 'unknown'].includes(i.dispatchState))
-            fail();
-        return this.generation('fail', [...this.authority(i), toshiUuid(i.operationId), i.claimToken === null ? null : toshiUuid(i.claimToken), toshiVersion(i.expectedVersion, 1), safeCode(i.safeCode), i.dispatchState]);
+        if (typeof i !== 'object' || i === null || nodeTypes.isProxy(i)) fail();
+        const parsed = exactToshiInput(i, ['tenantContext', 'now', 'operationId', 'expectedVersion', 'claimToken', 'safeCode', 'dispatchState', ...(Object.hasOwn(i, 'usage') ? ['usage'] : [])]);
+        const measured = parsed.usage === undefined || parsed.usage === null ? null : parsed.usage;
+        if (!['not_dispatched', 'dispatched', 'unknown'].includes(parsed.dispatchState as string)) fail();
+        let validated = null;
+        if (measured !== null) {
+            if (typeof measured !== 'object' || nodeTypes.isProxy(measured) || Object.getPrototypeOf(measured) !== Object.prototype) fail();
+            validated = usage(measured);
+            if (parsed.safeCode !== 'invalid_output' || parsed.dispatchState !== 'dispatched' || parsed.claimToken === null) fail();
+        }
+        return this.generation('fail_v2', [...this.authority(i), toshiUuid(parsed.operationId), parsed.claimToken === null ? null : toshiUuid(parsed.claimToken), toshiVersion(parsed.expectedVersion, 1), safeCode(parsed.safeCode), parsed.dispatchState, validated === null ? null : JSON.stringify(validated)]);
     }
     async setDailyLimit(i: ContentGenerationAuthorityInput & Readonly<{
         dailyLimit: number;

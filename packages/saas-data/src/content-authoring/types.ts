@@ -61,6 +61,7 @@ export interface CompleteContentGenerationInput extends ClaimContentGenerationIn
     readonly usage: ContentGenerationUsage | null;
 }
 export interface FailContentGenerationInput extends ClaimContentGenerationInput {
+    readonly usage?: ContentGenerationUsage | null;
     readonly claimToken: string | null;
     readonly safeCode: string;
     readonly dispatchState: ContentGeneration['dispatchState'];
