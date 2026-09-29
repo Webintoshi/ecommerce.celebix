@@ -1,5 +1,6 @@
 import type { PublicContentV2 } from "@celebix/saas-data";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text.ts";
+import { renderMerchantContentBody } from "@celebix/platform-config/src/merchant-content-body.ts";
 import { contentPath } from "./content-locale.ts";
 
 function plain(value: string | null | undefined): string {
@@ -21,7 +22,7 @@ function bodySummary(value: string): string {
   return wordBreak >= 120 ? prefix.slice(0, wordBreak).trimEnd() : characters.slice(0, 240).join("");
 }
 
-export function publicContentSeo(source: Pick<PublicContentV2, "title" | "body" | "excerpt" | "seoTitle" | "seoDescription">, brand: string) {
+export function publicContentSeo(source: Pick<PublicContentV2, "title" | "body" | "bodyFormat" | "excerpt" | "seoTitle" | "seoDescription">, brand: string) {
   const cleanBrand = plain(brand);
   let title = plain(source.seoTitle) || plain(source.title);
   const suffix = ` | ${cleanBrand}`;
@@ -29,11 +30,12 @@ export function publicContentSeo(source: Pick<PublicContentV2, "title" | "body" 
     while (title.endsWith(suffix)) title = title.slice(0, -suffix.length).trimEnd();
     title = `${title || plain(source.title)}${suffix}`;
   }
-  const description = plain(source.seoDescription) || plain(source.excerpt) || bodySummary(plain(normalizeProductDescriptionHtml(source.body, source.title))) || plain(source.title);
+  const description = plain(source.seoDescription) || plain(source.excerpt) || bodySummary(plain(source.bodyFormat === "normalized_html" ? source.body : normalizeProductDescriptionHtml(source.body, source.title))) || plain(source.title);
   return Object.freeze({ title, description });
 }
 
 export function buildPublicBlogPage(source: PublicContentV2, slug: string, defaultLocale: string) {
   if (source.kind !== "blog_post" || source.slug !== slug) throw new TypeError("public_blog_invalid");
-  return Object.freeze({ ...source, route: contentPath("blog_post", slug, source.locale, defaultLocale), html: source.body.trim() ? normalizeProductDescriptionHtml(source.body, source.title) : "" });
+  const html = source.bodyFormat === "normalized_html" ? renderMerchantContentBody(source.body, source.bodyFormat) : source.body.trim() ? normalizeProductDescriptionHtml(source.body, source.title) : "";
+  return Object.freeze({ ...source, route: contentPath("blog_post", slug, source.locale, defaultLocale), html });
 }

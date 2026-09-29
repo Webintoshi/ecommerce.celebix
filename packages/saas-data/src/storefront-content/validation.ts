@@ -276,15 +276,17 @@ function nullablePlain(value: unknown, maxBytes: number): string | null {
 }
 
 function parseContentV2(value: unknown, includeBody: boolean): PublicContentV2 | Omit<PublicContentV2, "body"> {
-  const required = ["id", "kind", "slug", "locale", "title", "excerpt", "seoTitle", "seoDescription", "publishedAt", "updatedAt", ...(includeBody ? ["body"] : [])];
+  const required = ["id", "kind", "slug", "locale", "title", "bodyFormat", "excerpt", "seoTitle", "seoDescription", "publishedAt", "updatedAt", ...(includeBody ? ["body"] : [])];
   const parsed = exactStorefrontContentInput(value, required, [], "unavailable");
   const kind = parsed.kind;
   if (kind !== "page" && kind !== "blog_post") fail("unavailable");
+  if (parsed.bodyFormat !== "legacy" && parsed.bodyFormat !== "normalized_html") fail("unavailable");
   const common = {
     id: storefrontContentUuid(parsed.id, "unavailable"), kind: kind as "page" | "blog_post",
     slug: storefrontContentPageSlug(parsed.slug, "unavailable"),
     locale: storefrontContentLocale(parsed.locale, "unavailable"),
     title: text(parsed.title, 1, 800, "unavailable"),
+    bodyFormat: parsed.bodyFormat as "legacy" | "normalized_html",
     excerpt: nullablePlain(parsed.excerpt, 4000),
     seoTitle: nullablePlain(parsed.seoTitle, 160),
     seoDescription: nullablePlain(parsed.seoDescription, 4000),

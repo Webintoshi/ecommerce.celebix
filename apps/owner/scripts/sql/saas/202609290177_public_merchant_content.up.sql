@@ -58,6 +58,7 @@ CREATE FUNCTION saas.public_content_projection(p_store_id uuid,p_record_id uuid,
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
  SELECT jsonb_build_object('id',r.id,'kind',r.record_kind,'slug',r.config->>'slug',
   'locale',coalesce(r.config->>'locale',p_default_locale),'title',r.name,
+  'bodyFormat',coalesce(b.body_format,'legacy'),
   'excerpt',CASE WHEN b.record_id IS NULL THEN r.config->>'excerpt' ELSE b.excerpt END,'seoTitle',b.seo_title,'seoDescription',b.seo_description,
   'publishedAt',saas.merchant_admin_timestamp(r.updated_at),'updatedAt',saas.merchant_admin_timestamp(r.updated_at))
   || CASE WHEN p_include_body THEN jsonb_build_object('body',coalesce(b.body,r.config->>'body','')) ELSE '{}'::jsonb END

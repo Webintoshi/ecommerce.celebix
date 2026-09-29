@@ -179,6 +179,24 @@ async function main(){
    assert.match(publicContentSeo(detail,'Content fixture').description,/Fresh body/);
    assert.doesNotMatch(publicContentSeo(detail,'Content fixture').description,/Stale generic excerpt/);
   });
+  await check('SQL format reaches V2 readers and preserves normalized page and blog empty paragraphs',async()=>{
+   seedRecord(32,STORE,'page','blank-line','tr','active',true,'2026-09-29T10:00:00.000Z','Blank line');
+   seedRecord(33,STORE,'blog_post','separated','tr','active',true,'2026-09-29T10:00:00.000Z','Separated');
+   owner(`INSERT INTO saas.merchant_content_bodies(store_id,record_id,version,body,body_format,origins)
+     VALUES('${STORE}','${id(32)}',1,'<p><br /></p>','normalized_html','{}'::jsonb),
+           ('${STORE}','${id(33)}',1,'<p>A</p><p></p><p>B</p>','normalized_html','{}'::jsonb)`);
+   const pool=new pg.Pool({host:socket,port,user:'postgres',database:DB,max:2});
+   try{
+    const repo=new PostgresPublicStorefrontContentRepository({pool,role:'celebix_saas_host_resolver',timeouts:{poolCheckoutMs:1000,statementMs:5000,lockMs:2000,idleTransactionMs:5000}});
+    const page=await repo.getPageV2({hostname:HOST,now:new Date(NOW),slug:'blank-line',locale:'tr'});
+    const blog=await repo.getBlogPost({hostname:HOST,now:new Date(NOW),slug:'separated',locale:'tr'});
+    assert.equal(page.bodyFormat,'normalized_html');assert.equal(blog.bodyFormat,'normalized_html');
+    assert.equal(buildPublicContentPageV2(page,'blank-line','tr').html,'<p><br /></p>');
+    assert.equal(buildPublicBlogPage(blog,'separated','tr').html,'<p>A</p><p></p><p>B</p>');
+    const legacy=await repo.getPageV2({hostname:HOST,now:new Date(NOW),slug:'legacy',locale:'tr'});
+    assert.equal(legacy.bodyFormat,'legacy');assert.match(buildPublicContentPageV2(legacy,'legacy','tr').html,/Plain legacy content/);
+   }finally{await pool.end();}
+  });
   await check('language and frequency settings fail closed while absent settings use defaults',()=>{
    for(const frequency of ['always','hourly','daily','weekly','monthly','yearly','never']){owner(`UPDATE saas.merchant_admin_records SET config=${json({includeProducts:true,includeContent:true,changeFrequency:frequency})} WHERE id='${id(2)}'`);assert.equal(publicCall('public_content_sitemap_page',HOST,`,'products',0`).payload.items[0].changeFrequency,frequency);}
    for(const bad of [null,'','<xml>']){owner(`UPDATE saas.merchant_admin_records SET config=${json({changeFrequency:bad})} WHERE id='${id(2)}'`);assert.notEqual(sql(`BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT * FROM saas.public_content_sitemap_index('${HOST}','${NOW}');COMMIT;`,DB,true).status,0);}

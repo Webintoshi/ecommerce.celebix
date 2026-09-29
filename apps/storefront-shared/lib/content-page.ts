@@ -1,6 +1,7 @@
 import { FIXED_STOREFRONT_POLICIES } from "@celebix/saas-contracts";
 import type { PublicContentPage, PublicContentV2 } from "@celebix/saas-data";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text.ts";
+import { renderMerchantContentBody } from "@celebix/platform-config/src/merchant-content-body.ts";
 import { contentPath } from "./content-locale.ts";
 
 export function buildPublicContentPage(source: PublicContentPage, expectedSlug: string) {
@@ -12,7 +13,8 @@ export function buildPublicContentPage(source: PublicContentPage, expectedSlug: 
 
 export function buildPublicContentPageV2(source: PublicContentV2, expectedSlug: string, defaultLocale: string) {
   if (source.kind !== "page" || source.slug !== expectedSlug) throw new TypeError("storefront_content_page_invalid");
-  return Object.freeze({ ...source, route: contentPath("page", source.slug, source.locale, defaultLocale), html: source.body.trim() ? normalizeProductDescriptionHtml(source.body, source.title) : "" });
+  const html = source.bodyFormat === "normalized_html" ? renderMerchantContentBody(source.body, source.bodyFormat) : source.body.trim() ? normalizeProductDescriptionHtml(source.body, source.title) : "";
+  return Object.freeze({ ...source, route: contentPath("page", source.slug, source.locale, defaultLocale), html });
 }
 
 

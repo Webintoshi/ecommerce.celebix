@@ -46,6 +46,7 @@ export type PublicContentV2 = Readonly<{
   locale: string;
   title: string;
   body: string;
+  bodyFormat: "legacy" | "normalized_html";
   excerpt: string | null;
   seoTitle: string | null;
   seoDescription: string | null;

@@ -214,7 +214,7 @@ test("public custom pages reject traversal private fields and unpublished outcom
 });
 
 test("V2 public readers pass exact tenant hostname, locale and approved keyset", async () => {
-  const record = { id: PRODUCT, kind: "blog_post", slug: "duyuru", locale: "en-US", title: "News", body: "<p>News</p>", excerpt: "Summary", seoTitle: "News SEO", seoDescription: "Search summary", publishedAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+  const record = { id: PRODUCT, kind: "blog_post", slug: "duyuru", locale: "en-US", title: "News", body: "<p>News</p>", bodyFormat: "normalized_html", excerpt: "Summary", seoTitle: "News SEO", seoDescription: "Search summary", publishedAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
   const client = new Client((text) => {
     if (text.includes("public_content_locale_get")) return [{ outcome: "found", result_payload: { defaultLocale: "tr", enabledLocales: ["tr", "en-US"] } }];
     if (text.includes("public_blog_get")) return [{ outcome: "found", result_payload: record }];
@@ -227,6 +227,11 @@ test("V2 public readers pass exact tenant hostname, locale and approved keyset",
   assert.equal((await reader.listBlogPosts({ hostname: HOST, now: NOW, locale: "en-US", limit: 20 })).items[0]?.slug, "duyuru");
   assert.deepEqual(call(client, "public_blog_get").values, [HOST, NOW, "duyuru", "en-US"]);
   assert.deepEqual(call(client, "public_blog_list").values, [HOST, NOW, "en-US", 20, null]);
+});
+
+test("V2 public reader rejects an unknown body format", async () => {
+  const client = new Client((text) => text.includes("public_blog_get") ? [{ outcome:"found",result_payload:{ id:PRODUCT,kind:"blog_post",slug:"duyuru",locale:"tr",title:"News",body:"<p>News</p>",bodyFormat:"unsafe",excerpt:null,seoTitle:null,seoDescription:null,publishedAt:null,updatedAt:NOW.toISOString() } }] : []);
+  await assert.rejects(publicRepository(new Pool([client])).getBlogPost({hostname:HOST,now:NOW,slug:"duyuru",locale:"tr"}), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
 });
 
 test("sitemap repository preserves every allowlisted frequency and rejects unknown or absent fields", async () => {
