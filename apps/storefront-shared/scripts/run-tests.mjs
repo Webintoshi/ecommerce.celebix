@@ -1,0 +1,26 @@
+import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import path from "node:path";
+
+const browserTest = "components/CampaignSectionContent.test.ts";
+const directories = [
+  "lib", "lib/account", "lib/cart", "lib/checkout", "lib/payment-adapters",
+  "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",
+];
+const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
+  .map((entry) => path.posix.join(directory, entry.name)))
+  .filter((file) => file !== browserTest)
+  .concat(["scripts/healthcheck.test.mjs", "scripts/reconcile-standard-checkouts.test.mjs"])
+  .sort();
+
+function run(tests, nodeOptions) {
+  const child = spawnSync(process.execPath, ["--experimental-transform-types", "--test", ...tests], {
+    stdio: "inherit", env: { ...process.env, NODE_OPTIONS: nodeOptions },
+  });
+  if (child.error) throw child.error;
+  if (child.status !== 0) process.exit(child.status ?? 1);
+}
+
+run(serverTests, "--conditions=react-server");
+run([browserTest], "");
