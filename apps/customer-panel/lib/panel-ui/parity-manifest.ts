@@ -76,7 +76,7 @@ const EVIDENCE = Object.freeze({
   legacy: "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable",
   merchantHub: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links",
   merchant: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
-  merchantRecord: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay",
+  merchantRecord: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#content blog and page routes bind the typed editor with store locale, role and flags",
   fixedPolicies: "apps/customer-panel/components/content/PolicyConsole.test.ts#fixed policy console owns no create delete archive or tenant authority",
   paymentSettings: "apps/customer-panel/lib/routes.test.ts#dedicated payment settings route validates hints and retires generic editors",
   marketing: "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states",
