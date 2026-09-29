@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const dir=new URL('.',import.meta.url);
+const up=readFileSync(new URL('202609290176_content_research_evidence.up.sql',dir),'utf8');
+const down=readFileSync(new URL('202609290176_content_research_evidence.down.sql',dir),'utf8');
+test('research migration creates private evidence and grants only fenced RPC entry points',()=>{assert.match(up,/CREATE TABLE IF NOT EXISTS saas\.content_research_operations/);assert.match(up,/CREATE TABLE IF NOT EXISTS saas\.content_research_sources/);assert.match(up,/FORCE ROW LEVEL SECURITY/g);assert.match(up,/REVOKE ALL ON saas\.content_research_operations,saas\.content_research_sources/);assert.match(up,/content_research_transition/);assert.match(up,/GRANT EXECUTE ON FUNCTION/);assert.match(up,/content_research_source_valid/);assert.match(up,/sha256\(convert_to\(content,'UTF8'\)\)/);});
+test('research admission shares active lock but retains separate retrieval quota and model calculations',()=>{assert.match(up,/hashtextextended\('content_authoring\.store:'/);assert.match(up,/content_research_operations WHERE store_id=p_store AND principal_id=p_actor AND status='pending'/);assert.match(up,/IF n>=10 THEN RETURN 'quota_exceeded'/);assert.match(up,/IF n>=6 THEN RETURN 'rate_limited'/);assert.match(up,/SELECT created_at FROM saas\.content_authoring_operations WHERE store_id=p_store UNION ALL SELECT created_at FROM saas\.content_resource_authoring_operations/);});
+test('down disables new dispatch but retains private evidence and restores Task4 admission',()=>{assert.match(down,/content_research_begin[\s\S]*?'unavailable'/);assert.match(down,/content_research_claim[\s\S]*?'unavailable'/);assert.match(down,/CREATE OR REPLACE FUNCTION saas\.content_authoring_shared_admission/);assert.doesNotMatch(down,/DROP TABLE|DELETE FROM saas\.content_research/);});

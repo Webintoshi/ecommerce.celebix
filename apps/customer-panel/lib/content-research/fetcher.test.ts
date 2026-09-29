@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { ContentResearchError, createContentResearchFetcher, type ContentResearchAddress, type ContentResearchRawResponse, type ContentResearchRequestInput } from "./fetcher.ts";
+import { ContentResearchError, createContentResearchFetcher, verifyContentResearchServerIdentity, type ContentResearchAddress, type ContentResearchRawResponse, type ContentResearchRequestInput } from "./fetcher.ts";
 
 const encoder = new TextEncoder();
 const url = "https://research.example.com/article";
@@ -53,6 +53,12 @@ test("every DNS answer must be public and family-correct; transport gets one pin
   assert.equal(result.originalUrl, url);
   assert.equal(result.finalUrl, url);
   assert.match(result.fetchedAt, /^\d{4}-\d\d-\d\dT/);
+});
+
+test("TLS name validation rejects a certificate for the pinned address's other DNS name", () => {
+  const otherName = { subjectaltname: "DNS:other.example.com" } as never;
+  assert.ok(verifyContentResearchServerIdentity("research.example.com", otherName) instanceof Error);
+  assert.equal(verifyContentResearchServerIdentity("other.example.com", otherName), undefined);
 });
 
 test("redirects revalidate and resolve every destination, cap at three hops, and discard intermediate responses", async () => {

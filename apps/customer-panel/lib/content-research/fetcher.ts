@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
-import { checkServerIdentity } from "node:tls";
+import { checkServerIdentity, type PeerCertificate } from "node:tls";
 
 import { isPublicContentResearchAddress, validateContentResearchUrl } from "./authority.ts";
 import { ContentResearchExtractError, extractContentResearchText, type ContentResearchMediaType } from "./extract.ts";
@@ -65,6 +65,11 @@ async function defaultLookup(hostname: string): Promise<readonly ContentResearch
   return Object.freeze(answers.map((answer) => Object.freeze({ address: answer.address, family: answer.family as 4 | 6 })));
 }
 
+/** Verify the requested DNS name, never the pinned numeric socket address. */
+export function verifyContentResearchServerIdentity(hostname: string, certificate: PeerCertificate): Error | undefined {
+  return checkServerIdentity(hostname, certificate);
+}
+
 /** Connect to the verified numeric address; preserve the original host for Host, SNI and certificate verification. */
 function defaultRequest(input: ContentResearchRequestInput): Promise<ContentResearchRawResponse> {
   return new Promise((resolve, reject) => {
@@ -81,7 +86,7 @@ function defaultRequest(input: ContentResearchRequestInput): Promise<ContentRese
       headers: { ...input.headers, host: selected.host },
       signal: input.signal,
       rejectUnauthorized: true,
-      checkServerIdentity: (_hostname, certificate) => checkServerIdentity(selected.hostname, certificate),
+      checkServerIdentity: (_hostname, certificate) => verifyContentResearchServerIdentity(selected.hostname, certificate),
     }, (response) => {
       const headers = new Headers();
       for (let index = 0; index < response.rawHeaders.length; index += 2) headers.append(response.rawHeaders[index]!, response.rawHeaders[index + 1] ?? "");

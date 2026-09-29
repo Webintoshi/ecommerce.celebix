@@ -1,0 +1,3 @@
+export const CONTENT_RESEARCH_ERROR_CODES = Object.freeze(['invalid_input','unauthenticated','membership_denied','store_inactive','feature_not_enabled','rate_limited','quota_exceeded','operation_busy','operation_not_found','operation_mismatch','version_conflict','dispatch_already_claimed','record_not_found','unavailable','commit_unknown'] as const);
+export type ContentResearchErrorCode = typeof CONTENT_RESEARCH_ERROR_CODES[number];
+export class ContentResearchRepositoryError extends Error { constructor(readonly code: ContentResearchErrorCode) { super(code); this.name='ContentResearchRepositoryError'; } }
