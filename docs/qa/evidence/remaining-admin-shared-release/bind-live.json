@@ -1,0 +1,11 @@
+{
+  "status": "existing_site_live_source_bound",
+  "targets": [
+    "panel_site"
+  ],
+  "commit": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "liveDigest": "sha256:4797d63e042cd6a06294c40a5fac0f0763d51b8b0cc1949b7ec66fbf3c1d3787",
+  "approvalFlagsPreserved": true,
+  "netLiveValuesPreserved": true,
+  "previewValuesPreserved": true
+}

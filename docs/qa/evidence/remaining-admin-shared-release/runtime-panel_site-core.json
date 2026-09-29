@@ -1,0 +1,830 @@
+{
+  "schemaVersion": 1,
+  "readOnly": true,
+  "sourceCommit": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "sourceMatches": true,
+  "files": [
+    {
+      "path": "apps/customer-panel/app/analytics/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/content/policies/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/globals.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/CommerceAnalyticsWorkspace.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/SalesTrendChart.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/commerce-analytics-workspace.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/sales-trend-chart.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogBrandLogoPicker.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogBulkImportConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogExtraPreview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogImportPreparationConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogResourceConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/CatalogResourceEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/ProductReviewConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-admin/catalog-admin-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDescriptionField.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDescriptionPreview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/PolicyBodyField.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/PolicyConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-body-field.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-navigation-recovery.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/CustomerDetailConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/CustomerEditConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/CustomerFormConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/CustomerListConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/CustomerTaxonomyConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/customers/customer-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/InventoryCountConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/InventoryLocationConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/InventoryOperationForm.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/InventoryTransferConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/PurchasingConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/inventory/inventory-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/MerchantFamilyOverview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/MerchantMarketingOverview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/MerchantModuleConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/MerchantRecordEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/ProviderConnectionPanel.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/merchant-family-overview.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/merchant-operations.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/merchant-admin/provider-connection-panel.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/AbandonedCartConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/OrderDraftEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/OrderDraftListConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/QuickOrderLinksConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/abandoned-cart-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/order-drafts.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/quick-order-links.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelLayoutClient.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelPageShell.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelWorkspaceShell.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/panel-workspace-shell.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/pricing/PriceListConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/pricing/price-list-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionAnalytics.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionCodes.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionList.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionSimulator.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionStudio.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionTargetPicker.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionTemplatePicker.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-studio.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-template-picker.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/analytics-ui/commerce-insights.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/analytics-ui/traffic.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/policy-body-editor.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/proxy.ts",
+      "matches": true
+    }
+  ],
+  "routes": [
+    {
+      "path": "/accounting/invoicing-integration/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/accounting/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/analytics/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/blog/[recordId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/blog/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/blog/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/pages/[recordId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/pages/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/pages/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/policies/[policyKey]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/policies/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/[customerId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/[customerId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/segments/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/customers/tags/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/[promotionId]/analytics/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/[promotionId]/codes/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/[promotionId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/[promotionId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/lucky-wheel/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/discounts/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/marketing/email/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/marketing/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/marketing/phone/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/marketing/whatsapp/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/marketplaces/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/abandoned-carts/[cartId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/abandoned-carts/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/drafts/[draftId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/drafts/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/drafts/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/payment-links/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/orders/quick-links/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/attributes/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/attributes/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/attributes/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/auto-import/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/brands/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/brands/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/brands/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/bulk-upload/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/collections/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/collections/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/collections/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/definitions/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/definitions/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/definitions/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/extras/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/extras/[resourceId]/preview/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/extras/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/extras/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/inventory-counts/[countId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/inventory-counts/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/inventory-counts/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/price-lists/[priceListId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/price-lists/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/price-lists/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/purchasing/[purchaseOrderId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/purchasing/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/purchasing/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/reviews/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/shopify-converter/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/tags/[resourceId]/edit/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/tags/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/tags/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/transfers/[transferId]/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/transfers/new/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/products/transfers/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/categories/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/code-integrations/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/content/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/fast-indexing/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/geo-optimization/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/internal-linking/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/pages/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/products/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/sitemap/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/seo/social-preview/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/settings/administrators/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/settings/general/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/settings/language/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/settings/notifications/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/settings/page",
+      "manifestEntry": true,
+      "manifestTargetSafe": true,
+      "compiledFile": true
+    }
+  ],
+  "passed": true,
+  "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+  "container": "yk1h6d97z7ex0h74ok3zrj5c-112615255635",
+  "image": "yk1h6d97z7ex0h74ok3zrj5c:eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "imageMatches": true,
+  "containerRunning": true,
+  "expectedSourceFiles": 70,
+  "expectedRoutes": 88,
+  "hashSetDigest": "e03a0ac15c4e75905fdf2b408a69f779f39e4aa88d6f80150522dfac8820ce15",
+  "routeSetDigest": "804fc01dcf504826bdc8141f437984d68c1fa7b92b2192dd26f8fcb8072e32cf",
+  "checkedAt": "2026-09-29T11:31:48.777Z"
+}

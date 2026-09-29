@@ -1,0 +1,44 @@
+{
+  "status": "private_artifact_owner_corrected_and_verified",
+  "files": {
+    "helper.php": {
+      "hash": "340b24dc329ad55f2fddb78f43b8464e6fbedf33ffc06901f16b2589576ddf20",
+      "owner": 9999,
+      "group": 9999,
+      "mode": "600",
+      "symlink": false
+    },
+    "monitor.php": {
+      "hash": "6d3d88b21db0c144af006aab64236fb4b69fa63a9c3da3052ff59b94db6574b7",
+      "owner": 9999,
+      "group": 9999,
+      "mode": "600",
+      "symlink": false
+    },
+    "source-test.json": {
+      "hash": "21cf2348126dbbbeb282113cd2bd6bf4d6e9d20cac1d1660b2289d16a9c5112a",
+      "owner": 9999,
+      "group": 9999,
+      "mode": "600",
+      "symlink": false
+    },
+    "spec.json": {
+      "hash": "fd0074d5adb6abb465c2f0f94b8f0ff8d445fd041d3dc12760a4a9ddbbedc256",
+      "owner": 9999,
+      "group": 9999,
+      "mode": "600",
+      "symlink": false
+    }
+  },
+  "dirOwner": 9999,
+  "dirGroup": 9999,
+  "dirMode": "700",
+  "beforeExists": false,
+  "contents": [
+    "helper.php",
+    "monitor.php",
+    "source-test.json",
+    "spec.json"
+  ],
+  "sharedLockUnchanged": true
+}

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceCommitMatches": true,
+  "metadata": {
+    "test": {
+      "gitSha": true,
+      "candidateDigest": true,
+      "sourceDigest": true,
+      "provider": true,
+      "environment": true,
+      "schema": true
+    },
+    "live": {
+      "gitSha": true,
+      "candidateDigest": true,
+      "sourceDigest": true,
+      "provider": true,
+      "environment": true,
+      "schema": true
+    }
+  },
+  "authorities": {
+    "test": {
+      "populated": false,
+      "expectedPopulation": true,
+      "evidenceDigest": null,
+      "environment": null,
+      "adapterVersion": null
+    },
+    "live": {
+      "populated": false,
+      "expectedPopulation": true,
+      "evidenceDigest": null,
+      "environment": null,
+      "adapterVersion": null
+    }
+  },
+  "runtimeApproval": {
+    "test": {
+      "modePresent": false,
+      "expectedMode": true,
+      "digestPresent": false,
+      "expectedDigest": true
+    },
+    "live": {
+      "modePresent": false,
+      "expectedMode": true,
+      "digestPresent": false,
+      "expectedDigest": true
+    }
+  },
+  "metadataMatches": true,
+  "authoritiesMatch": true,
+  "runtimeApprovalMatches": true,
+  "passed": true,
+  "releaseSha": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+  "deploymentUuid": "sfg2zyf3q6z5vnq3ow0yt0rs",
+  "containerName": "e4xe74cmii7jucbkyor0o412-111509679620",
+  "image": "e4xe74cmii7jucbkyor0o412:eaceed77b4976cd2c98b43d492fe15cdce09083a",
+  "imageMatches": true,
+  "verifiedAt": "2026-09-29T11:24:11.995Z",
+  "readOnly": true
+}

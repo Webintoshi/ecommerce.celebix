@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "globalActiveDeployments": 0,
+  "deployments": [
+    {
+      "target": "panel_net",
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "deploymentUuid": "sfg2zyf3q6z5vnq3ow0yt0rs",
+      "commit": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+      "status": "finished",
+      "createdAt": "2026-09-29T11:15:09.000000Z",
+      "finishedAt": "2026-09-29T11:20:02.000000Z",
+      "container": "e4xe74cmii7jucbkyor0o412-111509679620",
+      "image": "e4xe74cmii7jucbkyor0o412:eaceed77b4976cd2c98b43d492fe15cdce09083a",
+      "runtimePassed": true,
+      "sourceFiles": 70,
+      "compiledRoutes": 88
+    },
+    {
+      "target": "panel_site",
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "deploymentUuid": "yr939w7kn82lpc23c50857at",
+      "commit": "eaceed77b4976cd2c98b43d492fe15cdce09083a",
+      "status": "finished",
+      "createdAt": "2026-09-29T11:26:15.000000Z",
+      "finishedAt": "2026-09-29T11:30:53.000000Z",
+      "container": "yk1h6d97z7ex0h74ok3zrj5c-112615255635",
+      "image": "yk1h6d97z7ex0h74ok3zrj5c:eaceed77b4976cd2c98b43d492fe15cdce09083a",
+      "runtimePassed": true,
+      "sourceFiles": 70,
+      "compiledRoutes": 88
+    }
+  ]
+}
