@@ -11,6 +11,7 @@ import {
   PostgresCatalogOnboardingRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresMerchantContentRepository,
   PostgresStorePolicyAdminRepository,
   PostgresMerchantProviderProfileRepository,
   PostgresPaymentMethodRepository,
@@ -54,6 +55,8 @@ import { registerServerBarcodeLabelRepository } from "../server-barcode-labels/r
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
+import { registerServerMerchantContentRepository } from "../server-merchant-content/runtime.ts";
+import { merchantContentReady } from "../server-merchant-content/readiness.ts";
 import { registerServerStorePolicyRepository } from "../server-store-policy/runtime.ts";
 import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
 import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
@@ -782,6 +785,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
   pool.on("error", () => undefined);
   try {
     await preflight(pool, config.database.name);
+    const typedMerchantContentReady = await merchantContentReady(pool);
     const quickLinksConfig = parseQuickLinkServerConfig(Object.fromEntries(
       QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.map((field) => [field, process.env[field]]),
     ));
@@ -1037,6 +1041,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerMerchantAdminRepository(access, createPostCommitInvalidatingRepository(merchantAdminRepository, {
       save: ["catalog", "settings"], archive: ["catalog", "settings"],
     }));
+    if (typedMerchantContentReady) {
+      registerServerMerchantContentRepository(access, createPostCommitInvalidatingRepository(
+        new PostgresMerchantContentRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, audit: () => undefined }),
+        { save: ["catalog", "settings"] },
+      ));
+    }
     registerServerStorePolicyRepository(access, storePolicyRepository);
     registerServerPaymentMethodRepository(access, paymentMethodRepository);
     registerServerProviderExecutionRuntime(

@@ -1,9 +1,9 @@
 import { isMerchantActionAllowed } from "@celebix/saas-contracts";
 
-import { MerchantRecordEditor } from "@/components/merchant-admin/MerchantRecordEditor";
+import { MerchantContentEditor } from "@/components/content/MerchantContentEditor";
 import { requireServerPanelAccess } from "@/lib/server-access";
 
 export default async function NewBlogPostPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantRecordEditor kind="blog_post" returnTo="/content/blog" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  return <MerchantContentEditor kind="blog_post" initialLocale={tenantContext.locale} returnTo="/content/blog" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }
