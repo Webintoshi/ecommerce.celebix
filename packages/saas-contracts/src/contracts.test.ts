@@ -582,6 +582,12 @@ test("keeps the public runtime export surface frozen", () => {
     "parseContentAuthoringRequest",
     "parseContentGenerationView",
     "parseContentOutline",
+    "parseContentResearchRequest",
+    "parseContentResearchResult",
+    "parseContentResearchSource",
+    "parseContentResearchStoredOperation",
+    "parseContentResearchUrl",
+    "parseContentResearchUsage",
     "parseContentResourceAuthoringRequest",
     "parseContentResourceDraft",
     "parseContentResourceGeneration",
@@ -752,6 +758,7 @@ test("keeps the public runtime export surface frozen", () => {
     "sanitizeAnalyticsSearchTerm",
     "starterMarqueeTokens",
     "starterThemeTokens",
+    "toContentResearchResult",
     "validateProductDraftOutput",
   ]);
 });
