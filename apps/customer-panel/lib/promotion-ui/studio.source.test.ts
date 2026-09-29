@@ -5,20 +5,32 @@ import test from "node:test";
 const app = new URL("../../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, app), "utf8"); }
 
-test("PromotionStudio renders exactly twelve template cards, five primary steps, closed advanced settings, help, and a sticky story", async () => {
+test("PromotionStudio renders twelve templates and three focused creation steps with contextual help", async () => {
   const studio = await source("components/promotions/PromotionStudio.tsx");
   const editor = await source("components/promotions/PromotionEditor.tsx");
   const stylesheet = await source("components/promotions/promotion-studio.module.css");
   // Actual twelve-card rendering and exact callbacks are exercised by template-picker.test.ts.
   assert.match(studio, /<PromotionTemplatePicker templates=\{PROMOTION_TEMPLATES\} onSelect=\{setTemplate\}/);
   assert.match(editor, /WIZARD_STEPS[.]map/);
-  assert.match(editor, /WIZARD_STEPS[.]length === 5/);
+  assert.match(editor, /aria-label="Kampanya oluşturma adımları"/);
   assert.match(editor, /<details open=\{draft[.]advancedOpen\}/);
-  for (const step of [0, 1, 2, 3, 4]) assert.match(editor, new RegExp(`draft[.]step === ${step}`));
+  for (const step of [0, 1, 2]) assert.match(editor, new RegExp(`draft[.]step === ${step}`));
   assert.match(editor, /Örnek:/);
   assert.match(editor, /className=\{styles[.]sticky\}/);
   assert.match(stylesheet, /[.]sticky\s*\{\s*position:\s*sticky/);
   assert.doesNotMatch(`${studio}\n${editor}`, /evaluator|minor unit|stacking policy|rule tree|reservation/i);
+});
+
+test("editor saves and checks the current draft before offering the separate publish action", async () => {
+  const editor = await source("components/promotions/PromotionEditor.tsx");
+  assert.match(editor, /const publishReady = Boolean\(currentId && version && currentSnapshot === savedSnapshot && checkKey === authorityKey && eligibility[.]canPublish && errors[.]length === 0 && status === "draft"\)/);
+  assert.match(editor, /const saved = dirty \|\| !currentId [?] await persistDraft\(draft\) :/);
+  assert.match(editor, /promotionDraftSnapshot\(saved[.]draft\)/);
+  assert.match(editor, /promotionApi[.]check\(saved[.]draft, saved[.]id, saved[.]version, controller[.]signal\)/);
+  assert.match(editor, /if \(key !== liveKey \|\| controller[.]signal[.]aborted\) return/);
+  assert.match(editor, /publishReady [?] runLifecycle\("publish"\) : preparePublish\(\)/);
+  assert.match(editor, /publishReady [?] "Yayınla" : errors[.]length [?] "Eksikleri tamamla" : "Yayına hazırla"/);
+  assert.match(editor, /const change = .*resetChecks\(\)/);
 });
 
 test("PromotionList loads truthful server KPI values, has range controls, table/cards, and actionable states", async () => {
@@ -86,14 +98,14 @@ test("editor keeps dirty protection through unload, links, cancel and close, and
   assert.match(editor, /result[.]kind === "saved"/);
   assert.doesNotMatch(editor, /catch[\s\S]{0,160}setSavedSnapshot/);
   assert.match(editor, /disabled=\{effectiveReadOnly \|\| mutating\}/);
-  assert.match(editor, /if \(!controller[.]signal[.]aborted && key === liveKey\)/);
+  assert.match(editor, /if \(key !== liveKey \|\| controller[.]signal[.]aborted\) return/);
   assert.doesNotMatch(editor, /<main\b/);
   assert.match(editor, /className=\{styles[.]editorWorkspace\}/);
-  assert.match(editor, /eligibility[.]canPublish && status === "draft"/);
+  assert.match(editor, /publishReady = Boolean\(/);
   assert.match(editor, /status === "active" \|\| status === "scheduled"/);
   assert.match(editor, /scheduleInvalid/);
   assert.match(editor, /Bu yerel saat mağazanın saat diliminde mevcut değil/);
-  assert.match(editor, /checksController[.]current[?][.]abort\(\); const controller/);
+  assert.match(editor, /checksController[.]current[?][.]abort\(\); controller = new AbortController\(\)/);
   assert.doesNotMatch(editor, /Number\(value\) \* 100/);
   const simulator = await source("components/promotions/PromotionSimulator.tsx");
   assert.match(simulator, /promotionId, expectedVersion/);

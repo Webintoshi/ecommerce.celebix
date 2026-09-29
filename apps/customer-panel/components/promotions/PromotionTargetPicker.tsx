@@ -16,12 +16,13 @@ type PickerProps = Readonly<{
   title: string;
   help: string;
   kinds: readonly PromotionPickerKind[];
+  preferredKind?: PromotionPickerKind;
   selected: readonly PromotionTarget[];
   onChange(next: readonly PromotionTarget[]): void;
 }>;
 
-export function PromotionPicker({ title, help, kinds, selected, onChange }: PickerProps) {
-  const [kind, setKind] = useState<PromotionPickerKind>(kinds[0] ?? "product");
+export function PromotionPicker({ title, help, kinds, preferredKind, selected, onChange }: PickerProps) {
+  const [kind, setKind] = useState<PromotionPickerKind>(() => preferredKind && kinds.includes(preferredKind) ? preferredKind : kinds[0] ?? "product");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<readonly PromotionTarget[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -46,8 +47,8 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
   }, [allSelectedIdentity]);
 
   useEffect(() => {
-    if (!kinds.includes(kind)) setKind(kinds[0] ?? "product");
-  }, [kind, kinds]);
+    if (!kinds.includes(kind)) setKind(preferredKind && kinds.includes(preferredKind) ? preferredKind : kinds[0] ?? "product");
+  }, [kind, kinds, preferredKind]);
 
   useEffect(() => {
     pageLoader.invalidate();
@@ -115,12 +116,22 @@ export function PromotionPicker({ title, help, kinds, selected, onChange }: Pick
 
 const CATALOG_KINDS = PROMOTION_PICKER_KINDS.filter((kind) => ["product", "variant", "category", "brand", "collection"].includes(kind));
 
-export function PromotionTargetPicker({ draft, mode, onChange }: Readonly<{ draft: PromotionDraft; mode: "include" | "exclude"; onChange(next: PromotionDraft): void }>) {
+export function PromotionTargetPicker({ draft, mode, onChange, preferredKind, restrictKinds, title, help }: Readonly<{
+  draft: PromotionDraft;
+  mode: "include" | "exclude";
+  onChange(next: PromotionDraft): void;
+  preferredKind?: PromotionPickerKind;
+  restrictKinds?: readonly PromotionPickerKind[];
+  title?: string;
+  help?: string;
+}>) {
   const selected = mode === "include" ? draft.selectedTargets : draft.excludedTargets;
+  const allowedKinds = restrictKinds?.filter((kind) => CATALOG_KINDS.includes(kind));
   return <PromotionPicker
-    title={mode === "include" ? "Dahil edilecek ürünler" : "Hariç tutulacak ürünler"}
-    help={mode === "include" ? "Boş bırakırsanız kampanya tüm mağazada geçerli olur." : "İndirim uygulanmamasını istediğiniz kayıtları seçin."}
-    kinds={CATALOG_KINDS}
+    title={title ?? (mode === "include" ? "Dahil edilecek ürünler" : "Hariç tutulacak ürünler")}
+    help={help ?? (mode === "include" ? "Boş bırakırsanız kampanya tüm mağazada geçerli olur." : "İndirim uygulanmamasını istediğiniz kayıtları seçin.")}
+    kinds={allowedKinds?.length ? allowedKinds : CATALOG_KINDS}
+    preferredKind={preferredKind}
     selected={selected}
     onChange={(next) => onChange(updatePromotionDraft(draft, mode === "include" ? { selectedTargets: next } : { excludedTargets: next }))}
   />;
