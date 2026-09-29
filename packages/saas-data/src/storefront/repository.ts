@@ -1,4 +1,4 @@
-import { parsePublicProduct, parsePublicProductMedia, parsePublicStarterThemePresentation, parsePublicStorefront, type PublicProduct, type PublicProductMedia, type PublicStarterThemePresentation, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
+import { parsePublicProduct, parsePublicProductV2, parsePublicProductMedia, parsePublicStarterThemePresentation, parsePublicStorefront, type PublicProduct, type PublicProductV2, type PublicProductMedia, type PublicStarterThemePresentation, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import { parsePublicStorefrontDesign, type PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { PublicStorefrontRepositoryError } from "./errors.ts";
@@ -138,6 +138,11 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
     const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
     try { return parsePublicProduct(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
+  }
+  async getPublicProductWithSeoBySlug(input: Parameters<NonNullable<PublicStorefrontRepository["getPublicProductWithSeoBySlug"]>>[0]): Promise<PublicProductV2> {
+    const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail_v2($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
+    try { return parsePublicProductV2(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async listPublicProductMedia(input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]): Promise<readonly PublicProductMedia[]> {
     const parsed = exact(input, ["storefront", "now", "productId"]); const store = context({ storefront: parsed.storefront });

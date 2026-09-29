@@ -97,3 +97,14 @@ test("published design changes are immediately authoritative when namespace rota
   assert.equal(fresh.brand.primaryColor,"#FF5A00");
   assert.equal(reads,2);
 });
+
+test("SEO reads see committed profile saves immediately and keep tenants separate", async () => {
+  let title = "Before";
+  const selected = fixture({ async getPublicProductWithSeoBySlug(input) { return { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", slug: "product", title: "Visible", currency: "TRY", status: "active", priceCents: 100, available: true, variants: [], media: [], seoTitle: input.storefront.id === STOREFRONT.id ? title : "Other", seoDescription: null }; } });
+  const input = { storefront: STOREFRONT, now: NOW, slug: "product" };
+  assert.equal((await selected.repository.getPublicProductWithSeoBySlug!(input)).seoTitle, "Before");
+  title = "After";
+  assert.equal((await selected.repository.getPublicProductWithSeoBySlug!(input)).seoTitle, "After");
+  assert.equal((await selected.repository.getPublicProductWithSeoBySlug!({ ...input, storefront: { ...STOREFRONT, id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" } })).seoTitle, "Other");
+  assert.equal(selected.backend.values.size, 0);
+});

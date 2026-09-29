@@ -9,6 +9,7 @@ import type {
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
+import { resolveProductSeo } from "@/lib/product-seo.ts";
 import { productViewEvent } from "@/lib/analytics/events.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -51,7 +52,7 @@ async function product(slug: string) {
       campaign,
       design,
       tracker,
-      product: await runtime.repository.getPublicProductBySlug({
+      product: await (runtime.repository.getPublicProductWithSeoBySlug?.bind(runtime.repository) ?? runtime.repository.getPublicProductBySlug.bind(runtime.repository))({
         storefront,
         now: new Date(),
         slug,
@@ -73,27 +74,24 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const selected = await product((await params).slug);
   const { presentation } = selected.storefront;
+  const seo = resolveProductSeo(selected.product, presentation.displayName);
+  const canonical = new URL(productPath(selected.storefront.locale, selected.product.slug), selected.storefront.canonicalUrl).toString();
+  const images = selected.product.media[0]?.url ? [selected.product.media[0].url] : [];
   return {
-    title: `${selected.product.title} | ${presentation.displayName}`,
-    description:
-      selected.product.description ??
-      `${selected.product.title} ürün ayrıntıları`,
+    title: { absolute: seo.title },
+    description: seo.description,
     robots: {
       index: presentation.seo.allowIndex,
       follow: presentation.seo.allowIndex,
     },
-    alternates: {
-      canonical: new URL(
-        productPath(selected.storefront.locale, selected.product.slug),
-        selected.storefront.canonicalUrl,
-      ).toString(),
-    },
+    alternates: { canonical },
+    twitter: { card: images.length ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images },
     openGraph: {
-      title: selected.product.title,
+      title: seo.title,
+      description: seo.description,
+      url: canonical,
       type: "website",
-      images: selected.product.media[0]?.url
-        ? [selected.product.media[0].url]
-        : [],
+      images,
     },
   };
 }
