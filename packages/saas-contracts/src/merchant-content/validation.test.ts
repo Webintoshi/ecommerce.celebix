@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseMerchantAdminRecord } from '../merchant-admin/index.ts';
+import { acceptedMerchantContentHrefs, rejectedMerchantContentHrefs } from './href-vectors.fixture.ts';
 const api = await import('./index.ts') as Record<string, (value: unknown) => any>;
 function parse(name: string, value: unknown) { assert.equal(typeof api[name], 'function', `${name} is required`); return api[name]!(value); }
 const id = '11111111-1111-4111-8111-111111111111', generationId = '22222222-2222-4222-8222-222222222222', digest = `sha256:${'a'.repeat(64)}`, time = '2026-09-29T12:00:00.000Z';
 const values = () => ({ name: 'Örnek içerik', slug: 'ornek-icerik', locale: 'tr-TR', body: '<p>İçerik 😀</p>', excerpt: null, seoTitle: null, seoDescription: null, published: false, status: 'draft' });
 const request = () => ({ draftId: id, recordId: null, expectedVersion: null, expectedBodyDigest: null, kind: 'blog_post', bodyAction: 'replace', values: values(), origins: {} });
 const document = () => ({ ...values(), id, kind: 'page', version: 1, publishedAt: null, createdAt: time, updatedAt: time, bodyFormat: 'normalized_html', bodyDigest: digest, origins: {} });
+test('typed normalized body applies the portable href vectors on write and read', () => {
+    const canonical = (href: string) => `<a href="${href}"${/^https?:\/\//i.test(href) ? ' target="_blank" rel="noopener noreferrer nofollow"' : ''}>link</a>`;
+    for (const href of acceptedMerchantContentHrefs) {
+        const body = canonical(href);
+        assert.equal(parse('parseSaveMerchantContentRequest', { ...request(), values: { ...values(), body } }).values.body, body, href);
+        assert.equal(parse('parseMerchantContentDocument', { ...document(), body }).body, body, href);
+    }
+    for (const href of rejectedMerchantContentHrefs) {
+        const body = canonical(href);
+        assert.throws(() => parse('parseSaveMerchantContentRequest', { ...request(), values: { ...values(), body } }), { message: 'merchant_content_contract_invalid' }, href);
+        assert.throws(() => parse('parseMerchantContentDocument', { ...document(), body }), { message: 'merchant_content_contract_invalid' }, href);
+    }
+});
 test('full snapshot retains explicit empty body and nullable clears, deeply frozen', () => { const input = request(); input.values.body = ''; const out = parse('parseSaveMerchantContentRequest', input); assert.equal(out.values.body, ''); assert.equal(out.values.excerpt, null); assert.ok(Object.isFrozen(out)); assert.ok(Object.isFrozen(out.values)); assert.ok(Object.isFrozen(out.origins)); });
 test('normalized Turkish/emoji exact80000 UTF8 bytes passes and80001 fails', () => { const body = '<p>' + ('ı😀'.repeat(13332)) + 'a</p>'; assert.equal(new TextEncoder().encode(body).length, 80000); const input = request(); input.values.body = body; assert.equal(parse('parseSaveMerchantContentRequest', input).values.body, body); input.values.body = body.replace('</p>', 'a</p>'); assert.throws(() => parse('parseSaveMerchantContentRequest', input)); });
 test('canonical safe headings, lists, tables and LF/CR remain exact', () => { const input = request(); input.values.body = '<h2>Başlık</h2>\n<h3>Alt</h3>\r<h4>Detay</h4><ul><li><p>Bir <strong>özellik</strong></p></li></ul><table><thead><tr><th><p>Ad</p></th></tr></thead><tbody><tr><td>😀<br /></td></tr></tbody></table>'; assert.equal(parse('parseSaveMerchantContentRequest', input).values.body, input.values.body); });

@@ -2,8 +2,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeProductDescriptionHtml } from '../../../packages/platform-config/src/product-description-rich-text.ts';
 import { parseSaveMerchantContentRequest } from '../../../packages/saas-contracts/src/merchant-content/index.ts';
+import { acceptedMerchantContentHrefs, rejectedMerchantContentHrefs } from '../../../packages/saas-contracts/src/merchant-content/href-vectors.fixture.ts';
 const api = await import('../../../packages/platform-config/src/merchant-content-body.ts') as Record<string, (...args: any[]) => any>;
 function call(name: string, ...args: any[]) { assert.equal(typeof api[name], 'function', `${name} is required`); return api[name]!(...args); }
+test('portable href vectors normalize to a strict typed save without stripping rejected links', () => {
+    const save = (body: string) => parseSaveMerchantContentRequest({ draftId: '11111111-1111-4111-8111-111111111111', recordId: null, expectedVersion: null, expectedBodyDigest: null, kind: 'page', bodyAction: 'replace', values: { name: 'Test', slug: 'test', locale: 'en', body, excerpt: null, seoTitle: null, seoDescription: null, published: false, status: 'draft' }, origins: {} });
+    for (const href of acceptedMerchantContentHrefs) {
+        const source = `<a href="${href}">link</a>`;
+        const body = call('normalizeMerchantContentBody', source);
+        assert.match(body, /^<a href=/, href);
+        assert.equal(save(body).values.body, body, href);
+    }
+    for (const href of rejectedMerchantContentHrefs)
+        assert.throws(() => call('normalizeMerchantContentBody', `<a href="${href}">link</a>`), { message: 'merchant_content_body_invalid' }, href);
+    const source = '<a href="https://example.test/a?x=&quot;q&quot;&amp;y=1">link</a>';
+    const body = call('normalizeMerchantContentBody', source);
+    assert.equal(body, '<a href="https://example.test/a?x=&quot;q&quot;&amp;y=1" target="_blank" rel="noopener noreferrer nofollow">link</a>');
+    assert.equal(save(body).values.body, body);
+    assert.equal(call('renderMerchantContentBody', '<a href="https://[::1]/">legacy</a>', 'legacy'), normalizeProductDescriptionHtml('<a href="https://[::1]/">legacy</a>'));
+});
 test('normalization preserves whitespace/table/list/heading semantics with canonical aliases', () => { const input = '\n<h2>  Başlık </h2>\r\n<p>A <b>B</b>  <i>C</i></p><ol><li><p>Bir</p></li></ol><table><tbody><tr><td><p>😀</p></td></tr></tbody></table> '; assert.equal(call('normalizeMerchantContentBody', input), '\n<h2>  Başlık </h2>\r\n<p>A <strong>B</strong>  <em>C</em></p><ol><li><p>Bir</p></li></ol><table><tbody><tr><td><p>😀</p></td></tr></tbody></table> '); });
 test('plain text becomes safe paragraphs with preserved spaces and line breaks', () => { assert.equal(call('normalizeMerchantContentBody', '  Türkçe & 😀\r\nsatır  '), '<p>  Türkçe &amp; 😀<br />satır  </p>'); assert.equal(call('normalizeMerchantContentBody', ''), ''); });
 test('byte accounting measures normalized escaping growth and exact80000 ceiling', () => { const raw = '<p>' + ('&'.repeat(15998)) + 'abc</p>'; const out = call('normalizeMerchantContentBody', raw); assert.equal(new TextEncoder().encode(out).length, 80000); assert.equal(call('merchantContentBodyBytes', raw), 80000); assert.throws(() => call('normalizeMerchantContentBody', raw.replace('</p>', 'x</p>'))); const emoji = '<p>' + ('ı😀'.repeat(13332)) + 'a</p>'; assert.equal(call('merchantContentBodyBytes', emoji), 80000); assert.throws(() => call('normalizeMerchantContentBody', emoji.replace('</p>', 'a</p>'))); });

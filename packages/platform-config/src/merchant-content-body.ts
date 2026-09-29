@@ -24,7 +24,7 @@ function decode(source: string): string {
     return decoded;
 }
 function safeHref(value: string): boolean {
-    if (!value || /[\u0000-\u0020\u007f-\u009f\\]/.test(value))
+    if (!value || /[\s\u0000-\u001f\u007f-\u009f\\]/u.test(value))
         return false;
     if (value.startsWith('/'))
         return !value.startsWith('//');
@@ -32,13 +32,15 @@ function safeHref(value: string): boolean {
         return value.length > 1;
     if (/^mailto:[^@\s]+@[^@\s]+$/i.test(value) || /^tel:\+?[\d().-]+(?:;ext=\d+)?$/i.test(value))
         return true;
-    try {
-        const u = new URL(value);
-        return /^https?:\/\//i.test(value) && !!u.hostname && !u.username && !u.password;
-    }
-    catch {
+    const http = value.match(/^https?:\/\/([^/?#]+)([/?#][\s\S]*)?$/i);
+    if (!http)
         return false;
-    }
+    const authority = http[1]!.match(/^([^:]+)(?::([0-9]{1,5}))?$/);
+    if (!authority)
+        return false;
+    const host = authority[1]!;
+    return host.length <= 253 && /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(host)
+        && (authority[2] === undefined || Number(authority[2]) <= 65535);
 }
 function attributes(source: string): Record<string, string> {
     const out: Record<string, string> = {};
@@ -116,7 +118,7 @@ export function normalizeMerchantContentBody(source: string): string {
                 invalid();
             if (a.rel !== undefined && a.rel.split(/\s+/).some(r => !['noopener', 'noreferrer', 'nofollow'].includes(r)))
                 invalid();
-            if (a.href) {
+            if (a.href !== undefined) {
                 if (!safeHref(a.href))
                     invalid();
                 attr = ' href="' + escape(a.href) + '"' + (/^https?:\/\//i.test(a.href) ? ' target="_blank" rel="noopener noreferrer nofollow"' : '');

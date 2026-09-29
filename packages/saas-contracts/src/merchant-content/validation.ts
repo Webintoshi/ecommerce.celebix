@@ -45,7 +45,7 @@ function timestamp(value: unknown): string { const s = text(value, 24, 24), d = 
 function canonicalText(value: string): boolean { return !/[<>&"']/.test(value.replace(/&(?:amp|lt|gt|quot|#39);/g, '')); }
 function decode(value: string): string { return value.replace(/&(amp|lt|gt|quot|#39);/g, (_, e: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]!); }
 function safeHref(value: string): boolean {
-    if (!value || /[\u0000-\u0020\u007f-\u009f\\]/.test(value))
+    if (!value || /[\s\u0000-\u001f\u007f-\u009f\\]/u.test(value))
         return false;
     if (value.startsWith('/'))
         return !value.startsWith('//');
@@ -53,13 +53,15 @@ function safeHref(value: string): boolean {
         return value.length > 1;
     if (/^mailto:[^@\s]+@[^@\s]+$/i.test(value) || /^tel:\+?[\d().-]+(?:;ext=\d+)?$/i.test(value))
         return true;
-    try {
-        const url = new URL(value);
-        return /^https?:\/\//i.test(value) && !!url.hostname && !url.username && !url.password;
-    }
-    catch {
+    const http = value.match(/^https?:\/\/([^/?#]+)([/?#][\s\S]*)?$/i);
+    if (!http)
         return false;
-    }
+    const authority = http[1]!.match(/^([^:]+)(?::([0-9]{1,5}))?$/);
+    if (!authority)
+        return false;
+    const host = authority[1]!;
+    return host.length <= 253 && /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(host)
+        && (authority[2] === undefined || Number(authority[2]) <= 65535);
 }
 /** Exact serialized grammar mirrored by the normalizer and the storage RPC, without DOM repair. */
 function normalizedBody(value: unknown): string {
