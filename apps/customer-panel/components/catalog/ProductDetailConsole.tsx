@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
+import type { ContentAuthoringRequest, ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, Trash2 } from "lucide-react";
 
@@ -25,8 +25,10 @@ import { ProductVariantBuilder, type VariantDraft } from "@/components/catalog-o
 import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { ProductMeasurementFields } from "./ProductMeasurementFields";
-import { measurementsToDraft, measurementSummary, readProductMeasurementForm } from "@/lib/catalog-ui/product-measurements";
+import { measurementsToDraft, measurementSummary, readProductMeasurementForm, parseProductMeasurements } from "@/lib/catalog-ui/product-measurements";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
+import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
+import { attributeChoices, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
@@ -95,6 +97,9 @@ export function ProductDetailConsole({
   const authoringIdentity = useRef<string>(crypto.randomUUID());
   const pendingOrigins = useRef<ContentAuthoringFieldOriginsInput>({});
   const savedDescriptionOrigin = useRef<ContentAuthoringFieldOriginsInput>({});
+  const editedVariantFormRef = useRef<HTMLFormElement>(null);
+  const newVariantFormRef = useRef<HTMLFormElement>(null);
+  const variantContentRevision = useRef(0);
   const generalFormRef = useRef<HTMLFormElement>(null);
   const [detail, setDetail] = useState<ProductDetailResult>();
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
@@ -115,6 +120,8 @@ export function ProductDetailConsole({
   const [showMeasurementValidation, setShowMeasurementValidation] = useState(false);
   const [creatingAttributeVariants, setCreatingAttributeVariants] = useState(false);
   const [attributeVariants, setAttributeVariants] = useState<readonly VariantDraft[]>([]);
+  const [authoringAttributeChoices, setAuthoringAttributeChoices] = useState<readonly CatalogAttributeChoice[]>([]);
+  const [attributeDraftIds, setAttributeDraftIds] = useState<readonly string[]>([]);
   const [editingVariant, setEditingVariant] = useState<string>();
   const [pricingVariantId, setPricingVariantId] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
@@ -134,6 +141,50 @@ export function ProductDetailConsole({
   const seoAuthoringBridge = useRef<ContentAuthoringBridge | null>(null);
   const receiveSeoAuthoringBridge = useCallback((bridge: ContentAuthoringBridge | null) => { seoAuthoringBridge.current = bridge; }, []);
   const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-batch", "variant-edit", "sales"] as const));
+
+  const needsAuthoringAttributes = Boolean(detail?.variants.some(variant => variant.status !== "archived" && Object.keys(variant.attributes).length) || attributeVariants.some(variant => Object.keys(variant.attributes).length));
+  useEffect(() => {
+    if (!needsAuthoringAttributes) return;
+    let current = true;
+    void catalogAdminApi.resources("attribute").then(resources => { if (current) setAuthoringAttributeChoices(attributeChoices(resources)); }).catch(() => { if (current) setAuthoringAttributeChoices([]); });
+    return () => { current = false; };
+  }, [needsAuthoringAttributes, productId]);
+
+  function captureCurrentVariantFacts(): NonNullable<ContentAuthoringRequest["currentDraft"]["variants"]> {
+    const selectedIds = [...(onboarding?.editor.resourceIds.attributes ?? []), ...(creatingAttributeVariants ? attributeDraftIds : [])];
+    const attributes = (source: Readonly<Record<string,string>>) => Object.entries(source).map(([key,value]) => {
+      const matches = authoringAttributeChoices.filter(choice => (choice.key === key || choice.name === key) && selectedIds.includes(choice.id) && choice.values.includes(value));
+      if (matches.length !== 1) throw new Error("attribute_metadata_unavailable");
+      return {attributeId:matches[0].id,value};
+    });
+    const fromForm = (form: HTMLFormElement | null) => {
+      if (!form) throw new Error("variant_editor_unavailable");
+      const data = new FormData(form);
+      const title = value(data,"title").trim();
+      if (!title) throw new Error("invalid_variant_draft");
+      const parsed = parseProductMeasurements(readProductMeasurementForm(data));
+      if (!parsed.ok) throw new Error("invalid_measurements");
+      return {title,measurements:parsed.value ?? null};
+    };
+    const current = (detail?.variants ?? []).filter(variant => variant.status !== "archived").map(variant => ({
+      id:variant.id,
+      ...(editingVariant === variant.id ? fromForm(editedVariantFormRef.current) : {title:variant.title,measurements:variant.measurements ?? null}),
+      attributes:attributes(variant.attributes),
+    }));
+    const fresh = creatingVariant ? [{...fromForm(newVariantFormRef.current),attributes:[]}] : [];
+    const batch = creatingAttributeVariants ? attributeVariants.map(variant => {
+      const title = variant.title.trim();if (!title) throw new Error("invalid_variant_draft");
+      const parsed = parseProductMeasurements(variant.measurements);if (!parsed.ok) throw new Error("invalid_measurements");
+      return {title,measurements:parsed.value ?? null,attributes:attributes(variant.attributes)};
+    }) : [];
+    return [...current,...fresh,...batch];
+  }
+  function captureCurrentProductDraft() {
+    if (!detail) throw new Error("product_unavailable");
+    const data = generalFormRef.current ? new FormData(generalFormRef.current) : null;
+    const variants = captureCurrentVariantFacts();
+    return {productVersion:detail.product.version,currentDraft:{title:data ? value(data,"title") : detail.product.title,description:data ? value(data,"description") : detail.product.description ?? null,variants},draftRevision:JSON.stringify([data ? [...data.entries()] : [detail.product.title,detail.product.description],variants,variantContentRevision.current])};
+  }
 
   usePanelTopbarChrome({ title: "", hideHeading: true });
   const receiveActiveMedia = useCallback((items: readonly ProductMediaLifecycle[]) => setActiveMedia(items), []);
@@ -229,6 +280,7 @@ export function ProductDetailConsole({
 
   function markDetailDirty(editor: "product" | "variant-create" | "variant-batch" | "variant-edit") {
     dirtyEditorsRef.current.mark(editor);
+    if (editor !== "product") variantContentRevision.current++;
     if (editor === "product") setProductDirty(true);
   }
 
@@ -261,6 +313,7 @@ export function ProductDetailConsole({
     setCreatingVariant(false);
     setCreatingAttributeVariants(false);
     setAttributeVariants([]);
+    setAttributeDraftIds([]);
     setEditingVariant(undefined);
     setPricingVariantId(undefined);
   }
@@ -656,7 +709,8 @@ export function ProductDetailConsole({
                       <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{fields:["description","seoTitle","seoDescription"],applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
                         const data = generalFormRef.current ? new FormData(generalFormRef.current) : new FormData();
                         const seo = seoAuthoringBridge.current?.capture();
-                        return {sessionId:authoringIdentity.current,draftRevision:JSON.stringify([[...data.entries()],seo?.lifecycle.draftRevision]),request:{draftId:authoringIdentity.current,productId:product.id,productVersion:product.version,profileVersion:onboarding?.editor.profile.version ?? null,currentDraft:{...seo?.request.currentDraft,title:generalFormRef.current ? value(data,"title") : product.title,description:value(data,"description"),seoTitle:seo?.request.currentDraft.seoTitle ?? seoPreviewDraft?.title ?? onboarding?.editor.profile.seoTitle ?? null,seoDescription:seo?.request.currentDraft.seoDescription ?? seoPreviewDraft?.description ?? onboarding?.editor.profile.seoDescription ?? null,categoryIds:seo?.request.currentDraft.categoryIds ?? onboarding?.editor.categoryIds ?? [],brandId:seo ? seo.request.currentDraft.brandId : onboarding?.editor.resourceIds.brand ?? null,variants:detail.variants.map(variant=>({id:variant.id,title:variant.title,measurements:variant.measurements ?? null}))},action:"improve",fields:["description","seoTitle","seoDescription"],locale:"tr-TR",tone:"neutral",length:"medium",note:"",selection:null}};
+                        const current = captureCurrentProductDraft();
+                        return {sessionId:authoringIdentity.current,draftRevision:JSON.stringify([current.draftRevision,seo?.lifecycle.draftRevision]),request:{draftId:authoringIdentity.current,productId:product.id,productVersion:product.version,profileVersion:onboarding?.editor.profile.version ?? null,currentDraft:{...seo?.request.currentDraft,title:generalFormRef.current ? value(data,"title") : product.title,description:value(data,"description"),seoTitle:seo?.request.currentDraft.seoTitle ?? seoPreviewDraft?.title ?? onboarding?.editor.profile.seoTitle ?? null,seoDescription:seo?.request.currentDraft.seoDescription ?? seoPreviewDraft?.description ?? onboarding?.editor.profile.seoDescription ?? null,categoryIds:seo?.request.currentDraft.categoryIds ?? onboarding?.editor.categoryIds ?? [],brandId:seo ? seo.request.currentDraft.brandId : onboarding?.editor.resourceIds.brand ?? null,variants:current.currentDraft.variants},action:"improve",fields:["description","seoTitle","seoDescription"],locale:"tr-TR",tone:"neutral",length:"medium",note:"",selection:null}};
                       }}} />
                     </fieldset>
                     <div className={styles.summaryStrip}>
@@ -691,14 +745,14 @@ export function ProductDetailConsole({
             </div>
 
             {creatingVariant && canManage && !archived ? (
-              <form className="catalog-form inset-form" onSubmit={createVariant} onChange={() => markDetailDirty("variant-create")}>
+              <form ref={newVariantFormRef} className="catalog-form inset-form" onSubmit={createVariant} onChange={() => markDetailDirty("variant-create")}>
                 <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend>Yeni varyant</legend><VariantFields showMeasurementValidation={showMeasurementValidation} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
                 <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-create")) setCreatingVariant(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
               </form>
             ) : null}
 
             {creatingAttributeVariants && canManage && !archived ? <form className="catalog-form inset-form" onSubmit={(event) => void createAttributeVariants(event)}>
-              <AttributeVariantPicker value={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
+              <AttributeVariantPicker onAttributeIdsChange={setAttributeDraftIds} value={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
               {attributeVariants.length ? <ProductVariantBuilder showValidation={showMeasurementValidation} variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}
@@ -708,7 +762,7 @@ export function ProductDetailConsole({
                 <article className={styles.variantRow} role="listitem" key={variant.id}>
                   <div className={styles.variantIdentity}><span className="variant-mark" aria-hidden="true">V</span><div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
                   {editingVariant === variant.id && canManage && !archived ? (
-                    <form className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
+                    <form ref={editedVariantFormRef} className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
                       <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
                       <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-edit")) setEditingVariant(undefined); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "variant-" + variant.id ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
                     </form>
@@ -758,14 +812,7 @@ export function ProductDetailConsole({
                 onDirtyChange={(dirty) => { if (dirty) dirtyEditorsRef.current.mark("sales"); else dirtyEditorsRef.current.clear("sales"); }}
                 onBusyChange={(saving) => { salesSavingRef.current = saving; setSalesSaving(saving); }}
                 onAuthoringBridgeChange={receiveSeoAuthoringBridge}
-                captureProductAuthoringDraft={() => {
-                  const data = generalFormRef.current ? new FormData(generalFormRef.current) : null;
-                  return {
-                    productVersion: product.version,
-                    currentDraft: { title: data ? value(data, "title") : product.title, description: data ? value(data, "description") : product.description ?? null, variants: detail.variants.map(variant => ({ id: variant.id, title: variant.title, measurements: variant.measurements ?? null })) },
-                    draftRevision: JSON.stringify(data ? [...data.entries()] : [product.title, product.description]),
-                  };
-                }}
+                captureProductAuthoringDraft={captureCurrentProductDraft}
                 onSeoPreviewChange={setSeoPreviewDraft}
               />
               <dl className={styles.asideFacts}><div><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div></dl>

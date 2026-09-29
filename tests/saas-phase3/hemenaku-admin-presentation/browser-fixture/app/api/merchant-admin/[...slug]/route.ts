@@ -47,6 +47,7 @@ async function segments(context: { params: Promise<{ slug: string[] }> }) { retu
 export async function GET(_request: Request, context: { params: Promise<{ slug: string[] }> }) {
   const slug = await segments(context);
   const route = slug.join("/");
+  if (route === "records/ai_setting") return Response.json({ items: [] }, { headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } });
   const settings = getSettingsMerchantFixture(route);
   if (settings) return settings;
   const providerMatch = /^(records|events|provider-jobs)\/([^/]+)$/.exec(route);

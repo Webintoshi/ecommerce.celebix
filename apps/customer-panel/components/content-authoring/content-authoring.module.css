@@ -1,4 +1,5 @@
 .panel { padding: 16px; border: 1px solid var(--catalog-border, var(--border, #E7E2DD)); border-radius: 8px; background: var(--catalog-surface, var(--surface, #FFFDFC)); color: var(--catalog-text, var(--text, #2B2B2B)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.panel small { overflow-wrap: anywhere; }
 .panel label { display: grid; gap: 4px; font-size: 13px; }
 .panel button, .panel input, .panel select, .panel textarea { font: inherit; color: inherit; }
 .panel button, .panel select, .panel textarea { min-height: 44px; border: 1px solid var(--catalog-border, var(--border, #E7E2DD)); background: var(--catalog-surface, var(--surface, #FFFDFC)); border-radius: 8px; padding: 8px 12px; max-width: 100%; box-sizing: border-box; min-width: 0; }
@@ -12,6 +13,7 @@
 .fields { display: flex; flex-wrap: wrap; gap: 12px; }
 .fields label { display: flex; align-items: center; min-height: 44px; }
 .preview { padding: 12px 0; border-bottom: 1px solid var(--catalog-border, var(--border, #E7E2DD)); overflow-wrap: anywhere; }
+.preview > label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .preview table { display: block; overflow: auto; max-width: 100%; }
 .panel summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .panel details > label { margin-top: 8px; }

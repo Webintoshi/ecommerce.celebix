@@ -349,6 +349,7 @@ test("existing rail exposes its real SEO controllers to a shared description bun
 test("existing SEO rail request controls do not dirty saved fields and ordinary SEO typing still does",async()=>{
  const compiled=await compile(new URL("../content-authoring/ContentAuthoringPanel.tsx",import.meta.url),{
   "@/components/panel/PanelLayoutClient":{usePanelChromeModel:()=>({activeStoreSelectionKey:"fixture-store"})},
+  "@/lib/content-authoring-ui/store-writing-preferences":await import("../../lib/content-authoring-ui/store-writing-preferences.ts"),
   "@/lib/content-authoring-ui/client":await import("../../lib/content-authoring-ui/client.ts"),
   "@/lib/content-authoring-ui/state":await import("../../lib/content-authoring-ui/state.ts"),
   "@/lib/server-content-authoring/render":await import("../../lib/server-content-authoring/render.ts"),
@@ -362,5 +363,5 @@ test("existing SEO rail request controls do not dirty saved fields and ordinary 
   assert.equal(dirty.at(-1)??false,false);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,true);
   const seo=container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,"value")!.set!.call(seo,"Manually edited SEO");seo.dispatchEvent(new browser.Event("input",{bubbles:true}) as unknown as Event);});
   assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,false);assert.equal(seo.value,"Manually edited SEO");
- },undefined,compiled.ContentAuthoringPanel as React.ComponentType<any>);
+ },undefined,(props:any)=>createElement(compiled.ContentAuthoringPanel as React.ComponentType<any>,{...props,preferencesApi:{records:async()=>[]}}));
 });

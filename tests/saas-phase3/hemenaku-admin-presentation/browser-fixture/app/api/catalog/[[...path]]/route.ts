@@ -1,4 +1,4 @@
-import { CATEGORIES, EDITOR, EXTRA_ID, NOW, OPTIONS, PRODUCT, PRODUCT_ID, RESOURCES, VARIANT, VARIANT_ID } from "../../../mira-catalog/catalog-fixture";
+import { ATTRIBUTE_RESOURCES, CATEGORIES, EDITOR, EXTRA_ID, NOW, OPTIONS, PRODUCT, PRODUCT_ID, RESOURCES, VARIANT, VARIANT_ID } from "../../../mira-catalog/catalog-fixture";
 import { VARIANT_CHOICE } from "../../../mira-stock/stock-fixture";
 import { GET as fallbackGET, PATCH as fallbackPATCH } from "../../[...slug]/route";
 import { MEASUREMENT_PRODUCT_ID, measurementCreate, measurementDetail, measurementEditor, measurementUpdate } from "../../../measurements-fixture/state";
@@ -47,7 +47,7 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
       variantSummaries: matches ? { [PRODUCT_ID]: { variantId: VARIANT_ID, sku: VARIANT.sku, priceCents: VARIANT.priceCents, compareAtCents: VARIANT.compareAtCents, stockTracking: true, stockQuantity: VARIANT.stockQuantity } } : {},
     });
   }
-  if (path === `products/${PRODUCT_ID}`) return Response.json({ product: PRODUCT, variants: [VARIANT] });
+  if (path === `products/${PRODUCT_ID}` || path === `products/v2/${PRODUCT_ID}`) return Response.json({ product: PRODUCT, variants: [VARIANT] });
   if (path === `products/${PRODUCT_ID}/merchandising`) return Response.json(EDITOR);
   if (path === `products/${PRODUCT_ID}/media`) return Response.json({ media: [] });
   if (path === "variant-choices") return Response.json({ items: [VARIANT_CHOICE] });
@@ -59,6 +59,12 @@ export async function GET(request: Request, context: { params: Promise<{ path?: 
   if (path === "admin/reviews") return Response.json({ items: [{ id: "91000000-0000-4000-8000-000000000012", productId: PRODUCT_ID, productTitle: PRODUCT.title, reviewerName: "Ada Yılmaz", rating: 5, title: "Dokusu çok iyi", body: "Kesimi ve kumaşı beklediğim gibi.", status: "pending", version: 1, createdAt: NOW, updatedAt: NOW }] });
   const resourceMatch = /^admin\/resources\/(collection|brand|attribute|extra|definition|tag)(?:\/([0-9a-f-]+))?$/.exec(path);
   if (resourceMatch) {
+    if (resourceMatch[1] === "attribute") {
+      if (!resourceMatch[2]) return Response.json({ items: ATTRIBUTE_RESOURCES });
+      const attribute = ATTRIBUTE_RESOURCES.find(item => item.id === resourceMatch[2]);
+      if (attribute) return Response.json(attribute);
+      return Response.json({ code: "resource_not_found" }, { status: 404 });
+    }
     const item = RESOURCES[resourceMatch[1] as keyof typeof RESOURCES];
     if (!resourceMatch[2]) return Response.json({ items: [item] });
     if (resourceMatch[2] === item.id || resourceMatch[2] === EXTRA_ID) return Response.json(item);
