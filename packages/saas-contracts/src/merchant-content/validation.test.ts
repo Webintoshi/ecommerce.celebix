@@ -22,6 +22,13 @@ test('typed normalized body applies the portable href vectors on write and read'
     }
 });
 test('full snapshot retains explicit empty body and nullable clears, deeply frozen', () => { const input = request(); input.values.body = ''; const out = parse('parseSaveMerchantContentRequest', input); assert.equal(out.values.body, ''); assert.equal(out.values.excerpt, null); assert.ok(Object.isFrozen(out)); assert.ok(Object.isFrozen(out.values)); assert.ok(Object.isFrozen(out.origins)); });
+test('legacy generic tag-shaped metadata remains literal on read but cannot be newly typed', () => {
+    const name = '<b>Heading</b>', excerpt = '<b>Excerpt</b>';
+    const read = parse('parseMerchantContentDocument', { ...document(), name, excerpt });
+    assert.equal(read.name, name);
+    assert.equal(read.excerpt, excerpt);
+    assert.throws(() => parse('parseSaveMerchantContentRequest', { ...request(), values: { ...values(), name, excerpt } }), { message: 'merchant_content_contract_invalid' });
+});
 test('normalized Turkish/emoji exact80000 UTF8 bytes passes and80001 fails', () => { const body = '<p>' + ('ı😀'.repeat(13332)) + 'a</p>'; assert.equal(new TextEncoder().encode(body).length, 80000); const input = request(); input.values.body = body; assert.equal(parse('parseSaveMerchantContentRequest', input).values.body, body); input.values.body = body.replace('</p>', 'a</p>'); assert.throws(() => parse('parseSaveMerchantContentRequest', input)); });
 test('canonical safe headings, lists, tables and LF/CR remain exact', () => { const input = request(); input.values.body = '<h2>Başlık</h2>\n<h3>Alt</h3>\r<h4>Detay</h4><ul><li><p>Bir <strong>özellik</strong></p></li></ul><table><thead><tr><th><p>Ad</p></th></tr></thead><tbody><tr><td>😀<br /></td></tr></tbody></table>'; assert.equal(parse('parseSaveMerchantContentRequest', input).values.body, input.values.body); });
 test('unsafe, noncanonical or structurally broken replacement bodies fail', () => { for (const body of ['plain source', '<script>x</script>', '<p onclick="x">a</p>', '<p style="color:red">a</p>', '<a href="javascript:x">x</a>', '<a href="//evil.test">x</a>', '<p>&#x3c;script&#x3e;</p>', '<p>a', '<p><table><tr><td>x</td></tr></table></p>', '<table><td>x</td></table>']) {

@@ -141,7 +141,7 @@ function normalizedBody(value: unknown): string {
         invalid();
     return source;
 }
-function plain(value: unknown, max: number, min = 0): string { const s = text(value, max, min); if (PLAIN_CONTROL.test(s) || PLAIN_EDGE.test(s) || /<\/?[a-z!][\s\S]*>/i.test(s) || (min > 0 && !s.trim()))
+function plain(value: unknown, max: number, min = 0, legacyRead = false): string { const s = text(value, max, min); if (PLAIN_CONTROL.test(s) || PLAIN_EDGE.test(s) || (!legacyRead && /<\/?[a-z!][\s\S]*>/i.test(s)) || (min > 0 && !s.trim()))
     invalid(); return s; }
 type ContentSnapshot = Omit<MerchantContentValues, 'status'> & {
     status: MerchantContentDocument['status'];
@@ -149,13 +149,15 @@ type ContentSnapshot = Omit<MerchantContentValues, 'status'> & {
 function values(value: unknown, mode: 'replace' | 'preserve'): MerchantContentValues;
 function values(value: unknown, mode: 'replace' | 'preserve', archived: true): ContentSnapshot;
 function values(value: unknown, mode: 'replace' | 'preserve', archived = false): ContentSnapshot {
-    const r = record(value, VALUE_KEYS), name = plain(r.name, 160, 1), slug = text(r.slug, 100, 1), locale = text(r.locale, 35, 2);
+    // A legacy generic edit can store tag-shaped name/excerpt as literal text.
+    // Reads preserve those bytes; new typed writes still refuse markup.
+    const r = record(value, VALUE_KEYS), name = plain(r.name, 160, 1, archived), slug = text(r.slug, 100, 1), locale = text(r.locale, 35, 2);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(locale) || typeof r.published !== 'boolean')
         invalid();
     const status = choice(r.status, archived ? ['draft', 'active', 'archived'] : ['draft', 'active']);
     if (!archived && r.published && status !== 'active')
         invalid();
-    return Object.freeze({ name, slug, locale, body: mode === 'replace' ? normalizedBody(r.body) : text(r.body, 80000), excerpt: r.excerpt === null ? null : plain(r.excerpt, 4000), seoTitle: r.seoTitle === null ? null : plain(r.seoTitle, 160), seoDescription: r.seoDescription === null ? null : plain(r.seoDescription, 4000), published: r.published, status });
+    return Object.freeze({ name, slug, locale, body: mode === 'replace' ? normalizedBody(r.body) : text(r.body, 80000), excerpt: r.excerpt === null ? null : plain(r.excerpt, 4000, 0, archived), seoTitle: r.seoTitle === null ? null : plain(r.seoTitle, 160), seoDescription: r.seoDescription === null ? null : plain(r.seoDescription, 4000), published: r.published, status });
 }
 export function parseMerchantContentOrigins(value: unknown): MerchantContentOrigins {
     const r = record(value, [], FIELDS);
