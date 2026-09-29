@@ -87,6 +87,39 @@ async function main(){
     const request={draftId:id(90),recordId:null,expectedVersion:null,expectedBodyDigest:null,kind:'page',bodyAction:'replace',values:{name:'Integrated page',slug:'integrated-page',locale:'tr',body,excerpt:null,seoTitle:'Integrated SEO',seoDescription:'Integrated description',published:true,status:'active'},origins:{}};
     const operation=randomUUID();const saved=rpc(`saas.merchant_content_save(${authority},'${operation}','${digest(JSON.stringify(request))}',${json(request)})`);
     check('typed 80000-byte page save and public body exact',()=>{assert.equal(saved.outcome,'saved');assert.equal(saved.payload.body,body);assert.equal(page(saved.payload.id).payload.body,body);assert.equal(publicPage().payload.body,body);assert.equal(publicPage().payload.bodyFormat,'normalized_html');});
+    check('legacy locale-less page and blog follow active default locale and refuse duplicate publication',()=>{
+      owner(`UPDATE saas.merchant_admin_records SET config=${json({defaultLocale:'en-US',enabledLocales:['en-US']})} WHERE id='${id(2)}';
+        INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at) VALUES
+        ('${id(60)}','${STORE}','page','Original page',${json({slug:'legacy-default-page',body:'Original page body',published:true})},'active',1,'2026-01-01','2026-01-01'),
+        ('${id(61)}','${STORE}','blog_post','Original blog',${json({slug:'legacy-default-blog',body:'Original blog body',published:true})},'active',1,'2026-01-01','2026-01-01');`);
+      for(const [kind,record,slug] of [['page',id(60),'legacy-default-page'],['blog_post',id(61),'legacy-default-blog']]){
+        const existing=rpc(`saas.merchant_content_get(${authority},'${kind}','${record}')`);
+        assert.equal(existing.payload.locale,'en-US');
+        const publicName=kind==='page'?'public_content_page_get_v2':'public_blog_get';
+        const publicCall=()=>rpc(`saas.${publicName}('${HOST}','${NOW}'::timestamptz,'${slug}','en-US')`,'celebix_saas_host_resolver');
+        assert.equal(publicCall().payload.id,record);
+        const duplicate={...request,draftId:randomUUID(),kind,values:{...request.values,name:'Duplicate',slug,locale:'en-US',body:'<p>Duplicate</p>'}};
+        const attempt=rpc(`saas.merchant_content_save(${authority},'${randomUUID()}','${digest(JSON.stringify(duplicate))}',${json(duplicate)})`);
+        assert.equal(attempt.outcome,'version_conflict');
+        assert.equal(publicCall().payload.id,record);
+      }
+      owner(`UPDATE saas.merchant_admin_records SET config=${json({defaultLocale:'tr',enabledLocales:['tr']})} WHERE id='${id(2)}'`);
+    });
+    check('absent and ambiguous language settings use shared fallback or fail closed',()=>{
+      owner(`UPDATE saas.merchant_admin_records SET status='draft' WHERE id='${id(2)}'`);
+      assert.equal(page(id(60)).payload.locale,'tr');
+      assert.equal(rpc(`saas.public_content_page_get_v2('${HOST}','${NOW}'::timestamptz,'legacy-default-page','tr')`,'celebix_saas_host_resolver').payload.id,id(60));
+      owner(`UPDATE saas.merchant_admin_records SET status='active',config='{}'::jsonb WHERE id='${id(2)}'`);
+      const appRead=()=>sql(`BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT * FROM saas.merchant_content_get(${authority},'page','${id(60)}');COMMIT;`,DB,true).status;
+      const publicRead=()=>sql(`BEGIN;SET LOCAL ROLE celebix_saas_host_resolver;SELECT * FROM saas.public_content_page_get_v2('${HOST}','${NOW}'::timestamptz,'legacy-default-page','tr');COMMIT;`,DB,true).status;
+      assert.notEqual(appRead(),0);assert.notEqual(publicRead(),0);
+      owner(`UPDATE saas.merchant_admin_records SET config=${json({defaultLocale:'en-US',enabledLocales:['en-US']})} WHERE id='${id(2)}';
+        INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,version,created_at,updated_at) VALUES
+        ('${id(62)}','${STORE}','language_setting','Ambiguous',${json({defaultLocale:'tr',enabledLocales:['tr']})},'active',1,'2026-01-01','2026-01-01')`);
+      assert.notEqual(appRead(),0);assert.notEqual(publicRead(),0);
+      owner(`UPDATE saas.merchant_admin_records SET status='draft' WHERE id='${id(62)}';
+        UPDATE saas.merchant_admin_records SET config=${json({defaultLocale:'tr',enabledLocales:['tr']})} WHERE id='${id(2)}'`);
+    });
     const target={kind:'page',draftId:id(91),recordId:null,recordVersion:null};
     const researchId=randomUUID();const started=rpc(`saas.content_research_begin(${authority},'${researchId}','${'b'.repeat(64)}',${json(target)})`);
     assert.equal(started.outcome,'pending');const claimed=rpc(`saas.content_research_claim(${authority},'${researchId}',${started.payload.version})`);assert.equal(claimed.outcome,'claimed');

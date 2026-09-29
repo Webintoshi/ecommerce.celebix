@@ -85,10 +85,33 @@ BEGIN
  RETURN cardinality(stack)=0 AND tags>0;
 END $f$;
 
+-- The admin document and route guard must resolve legacy locale-less content
+-- with the same active setting as the public reader installed by migration 177.
+CREATE OR REPLACE FUNCTION saas.merchant_content_locale_config(p_store_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,saas AS $f$
+DECLARE settings jsonb;n integer;selected_default text;locales jsonb;
+BEGIN
+ SELECT count(*) INTO n FROM saas.merchant_admin_records
+ WHERE store_id=p_store_id AND record_kind='language_setting' AND status='active';
+ IF n>1 THEN RAISE EXCEPTION 'PUBLIC_CONTENT_LANGUAGE_AMBIGUOUS';END IF;
+ IF n=0 THEN RETURN jsonb_build_object('defaultLocale','tr','enabledLocales',jsonb_build_array('tr'));END IF;
+ SELECT config INTO settings FROM saas.merchant_admin_records
+ WHERE store_id=p_store_id AND record_kind='language_setting' AND status='active';
+ selected_default:=settings->>'defaultLocale';locales:=settings->'enabledLocales';
+ IF selected_default IS NULL OR selected_default!~'^[a-z]{2,3}(-[A-Z]{2})?$'
+ OR jsonb_typeof(locales) IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'PUBLIC_CONTENT_LANGUAGE_INVALID';END IF;
+ IF jsonb_array_length(locales) NOT BETWEEN 1 AND 20
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(locales) e WHERE jsonb_typeof(e.value)<>'string' OR e.value#>>'{}'!~'^[a-z]{2,3}(-[A-Z]{2})?$')
+ OR (SELECT count(DISTINCT e.value#>>'{}') FROM jsonb_array_elements(locales) e)<>jsonb_array_length(locales)
+ OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(locales) e WHERE e.value#>>'{}'=selected_default)
+ THEN RAISE EXCEPTION 'PUBLIC_CONTENT_LANGUAGE_INVALID';END IF;
+ RETURN jsonb_build_object('defaultLocale',selected_default,'enabledLocales',locales);
+END $f$;
+
 CREATE OR REPLACE FUNCTION saas.merchant_content_document(p_store_id uuid,p_record_id uuid) RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
- SELECT jsonb_build_object('id',r.id,'kind',r.record_kind,'name',r.name,'slug',coalesce(r.config->>'slug',r.id::text),'locale',coalesce(r.config->>'locale',s.locale),'body',coalesce(b.body,r.config->>'body',''),'excerpt',CASE WHEN b.record_id IS NULL THEN r.config->>'excerpt' ELSE b.excerpt END,'seoTitle',b.seo_title,'seoDescription',b.seo_description,'published',coalesce(r.config->>'published'='true',false) AND r.config?'slug','status',r.status,'version',r.version,'publishedAt',CASE WHEN r.status='active' AND r.config->>'published'='true' AND r.config?'slug' THEN saas.merchant_admin_timestamp(r.updated_at) ELSE NULL END,'createdAt',saas.merchant_admin_timestamp(r.created_at),'updatedAt',saas.merchant_admin_timestamp(r.updated_at),'bodyFormat',coalesce(b.body_format,'legacy'),'bodyDigest','sha256:'||encode(sha256(convert_to(coalesce(b.body,r.config->>'body',''),'UTF8')),'hex'),'origins',coalesce(b.origins,'{}'::jsonb))
- FROM saas.merchant_admin_records r JOIN saas.stores s ON s.id=r.store_id LEFT JOIN saas.merchant_content_bodies b ON b.store_id=r.store_id AND b.record_id=r.id
- WHERE r.store_id=p_store_id AND r.id=p_record_id AND r.record_kind IN('page','blog_post') AND coalesce(r.config->>'locale',s.locale)~'^[a-z]{2,3}(-[A-Z]{2})?$'
+ SELECT jsonb_build_object('id',r.id,'kind',r.record_kind,'name',r.name,'slug',coalesce(r.config->>'slug',r.id::text),'locale',coalesce(r.config->>'locale',language.config->>'defaultLocale'),'body',coalesce(b.body,r.config->>'body',''),'excerpt',CASE WHEN b.record_id IS NULL THEN r.config->>'excerpt' ELSE b.excerpt END,'seoTitle',b.seo_title,'seoDescription',b.seo_description,'published',coalesce(r.config->>'published'='true',false) AND r.config?'slug','status',r.status,'version',r.version,'publishedAt',CASE WHEN r.status='active' AND r.config->>'published'='true' AND r.config?'slug' THEN saas.merchant_admin_timestamp(r.updated_at) ELSE NULL END,'createdAt',saas.merchant_admin_timestamp(r.created_at),'updatedAt',saas.merchant_admin_timestamp(r.updated_at),'bodyFormat',coalesce(b.body_format,'legacy'),'bodyDigest','sha256:'||encode(sha256(convert_to(coalesce(b.body,r.config->>'body',''),'UTF8')),'hex'),'origins',coalesce(b.origins,'{}'::jsonb))
+ FROM saas.merchant_admin_records r CROSS JOIN LATERAL (SELECT saas.merchant_content_locale_config(p_store_id) config) language LEFT JOIN saas.merchant_content_bodies b ON b.store_id=r.store_id AND b.record_id=r.id
+ WHERE r.store_id=p_store_id AND r.id=p_record_id AND r.record_kind IN('page','blog_post') AND coalesce(r.config->>'locale',language.config->>'defaultLocale')~'^[a-z]{2,3}(-[A-Z]{2})?$'
 $f$;
 CREATE OR REPLACE FUNCTION saas.merchant_content_snapshot(p_store_id uuid,p_record_id uuid,p_operation_id uuid,p_principal_id uuid,p_source text) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
  INSERT INTO saas.merchant_content_versions(store_id,record_id,version,operation_id,principal_id,write_source,snapshot)
@@ -96,14 +119,14 @@ CREATE OR REPLACE FUNCTION saas.merchant_content_snapshot(p_store_id uuid,p_reco
 $f$;
 -- All writers lock a record before taking the sorted old/new route locks. No peer-record locks.
 CREATE OR REPLACE FUNCTION saas.merchant_content_route_available(p_store_id uuid,p_record_id uuid,p_kind text,p_config jsonb,p_status text,p_old_config jsonb,p_old_status text) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE route text; store_locale text; new_locale text; old_locale text; BEGIN
- SELECT locale INTO store_locale FROM saas.stores WHERE id=p_store_id;new_locale:=coalesce(p_config->>'locale',store_locale);old_locale:=coalesce(p_old_config->>'locale',store_locale);
+DECLARE route text; default_locale text; new_locale text; old_locale text; BEGIN
+ default_locale:=saas.merchant_content_locale_config(p_store_id)->>'defaultLocale';new_locale:=coalesce(p_config->>'locale',default_locale);old_locale:=coalesce(p_old_config->>'locale',default_locale);
  FOR route IN SELECT DISTINCT key COLLATE "C" FROM unnest(ARRAY[p_kind||':'||new_locale||':'||coalesce(p_config->>'slug',''),p_kind||':'||old_locale||':'||coalesce(p_old_config->>'slug','')]) key ORDER BY key COLLATE "C" LOOP
   PERFORM pg_advisory_xact_lock(hashtextextended('saas.merchant.content.route:'||p_store_id::text||':'||route,0));
  END LOOP;
  IF p_status<>'active' OR coalesce(p_config->>'published','false')<>'true' THEN RETURN true;END IF;
  IF p_old_status='active' AND p_old_config->>'published'='true' AND p_old_config->>'slug'=p_config->>'slug' AND old_locale IS NOT DISTINCT FROM new_locale THEN RETURN true;END IF;
- RETURN NOT EXISTS(SELECT 1 FROM saas.merchant_admin_records r WHERE r.store_id=p_store_id AND r.id<>p_record_id AND r.record_kind=p_kind AND r.status='active' AND r.config->>'published'='true' AND r.config->>'slug'=p_config->>'slug' AND coalesce(r.config->>'locale',store_locale) IS NOT DISTINCT FROM new_locale);
+ RETURN NOT EXISTS(SELECT 1 FROM saas.merchant_admin_records r WHERE r.store_id=p_store_id AND r.id<>p_record_id AND r.record_kind=p_kind AND r.status='active' AND r.config->>'published'='true' AND r.config->>'slug'=p_config->>'slug' AND coalesce(r.config->>'locale',default_locale) IS NOT DISTINCT FROM new_locale);
 END $f$;
 
 CREATE OR REPLACE FUNCTION saas.merchant_content_get(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_record_id uuid) RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
@@ -278,6 +301,7 @@ END $f$;
 REVOKE ALL ON FUNCTION saas.merchant_content_text_valid(text,integer) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.merchant_content_href_valid(text) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.merchant_content_html_valid(text) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+REVOKE ALL ON FUNCTION saas.merchant_content_locale_config(uuid) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.merchant_content_document(uuid,uuid) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.merchant_content_snapshot(uuid,uuid,uuid,uuid,text) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 REVOKE ALL ON FUNCTION saas.merchant_content_route_available(uuid,uuid,text,jsonb,text,jsonb,text) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;

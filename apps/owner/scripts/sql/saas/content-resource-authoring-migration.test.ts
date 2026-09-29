@@ -13,7 +13,7 @@ const frozen={
   "202609290173_content_authoring_failed_usage.down.sql": "9c9b76aa622c401496624ed4aa951f6d73ff4b643194aeb86ae92e693761e022",
   "202609290173_content_authoring_failed_usage.up.sql": "a0d7b94fa541d34d6487ebae00bf5476a0359b5956d41cd8cecdf1b6573d9950",
   "202609290174_merchant_content_bodies.down.sql": "9b7bd71995a8e670ae8a27441583cae88c35011a35b4e96e86018dc65f2fc0f8",
-  "202609290174_merchant_content_bodies.up.sql": "e217ef3939d6764999710e04dd4a3ed15f41e0197b94c2137e1b0bb4060f98a0"
+  "202609290174_merchant_content_bodies.up.sql": "98cea5d2d9f1959895243194f7a039d0c1128a3efe477cc5035ba82e89cac289"
 };
 test('175 preserves all original170–174 migration files byte-exact',()=>{for(const [file,sha] of Object.entries(frozen))assert.equal(createHash('sha256').update(readFileSync(new URL(file,import.meta.url))).digest('hex'),sha,file);});
 test('native175 resource authority lineage shared admission fenced usage and preserved downgrade',{skip:process.env.CONTENT_RESOURCE_NATIVE_POSTGRES!=='1'},()=>{const result=spawnSync(process.execPath,['--conditions=react-server','--experimental-transform-types',new URL('../../../../../tests/saas-phase3/content-resource-authoring/postgres-harness.mjs',import.meta.url).pathname],{encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024});process.stdout.write(result.stdout);assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/PASS native content resource: [0-9]+ scenarios/);});

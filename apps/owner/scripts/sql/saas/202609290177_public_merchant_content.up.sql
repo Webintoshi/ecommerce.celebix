@@ -5,24 +5,9 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 
 CREATE FUNCTION saas.public_content_locale_config(p_store_id uuid)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE settings jsonb; n integer; selected_default text; locales jsonb;
-BEGIN
- SELECT count(*) INTO n FROM saas.merchant_admin_records
- WHERE store_id=p_store_id AND record_kind='language_setting' AND status='active';
- IF n>1 THEN RAISE EXCEPTION 'PUBLIC_CONTENT_LANGUAGE_AMBIGUOUS';END IF;
- IF n=0 THEN RETURN jsonb_build_object('defaultLocale','tr','enabledLocales',jsonb_build_array('tr'));END IF;
- SELECT config INTO settings FROM saas.merchant_admin_records
- WHERE store_id=p_store_id AND record_kind='language_setting' AND status='active';
- selected_default:=settings->>'defaultLocale';locales:=settings->'enabledLocales';
- IF selected_default IS NULL OR selected_default!~'^[a-z]{2,3}(-[A-Z]{2})?$'
- OR jsonb_typeof(locales) IS DISTINCT FROM 'array' OR jsonb_array_length(locales) NOT BETWEEN 1 AND 20
- OR EXISTS(SELECT 1 FROM jsonb_array_elements(locales) e WHERE jsonb_typeof(e.value)<>'string' OR e.value#>>'{}'!~'^[a-z]{2,3}(-[A-Z]{2})?$')
- OR (SELECT count(DISTINCT e.value#>>'{}') FROM jsonb_array_elements(locales) e)<>jsonb_array_length(locales)
- OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(locales) e WHERE e.value#>>'{}'=selected_default)
- THEN RAISE EXCEPTION 'PUBLIC_CONTENT_LANGUAGE_INVALID';END IF;
- RETURN jsonb_build_object('defaultLocale',selected_default,'enabledLocales',locales);
-END $f$;
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+ SELECT saas.merchant_content_locale_config(p_store_id)
+$f$;
 
 CREATE FUNCTION saas.public_content_sitemap_config(p_store_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
