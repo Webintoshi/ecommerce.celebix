@@ -2,6 +2,8 @@ import type { MerchantContentDocument, MerchantContentKind, MerchantContentOrigi
 const encoder = new TextEncoder();
 const BAD_UNICODE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/;
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
+const PLAIN_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const PLAIN_EDGE = /^[\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]|[\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]$/;
 const VALUE_KEYS = ['name', 'slug', 'locale', 'body', 'excerpt', 'seoTitle', 'seoDescription', 'published', 'status'] as const;
 const FIELDS = ['name', 'body', 'excerpt', 'seoTitle', 'seoDescription'] as const;
 const TAGS = new Set(['p', 'br', 'strong', 'em', 'u', 'del', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote', 'a', 'pre', 'code', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td']);
@@ -139,7 +141,7 @@ function normalizedBody(value: unknown): string {
         invalid();
     return source;
 }
-function plain(value: unknown, max: number, min = 0): string { const s = text(value, max, min); if (/<\/?[a-z!][\s\S]*>/i.test(s) || (min > 0 && !s.trim()))
+function plain(value: unknown, max: number, min = 0): string { const s = text(value, max, min); if (PLAIN_CONTROL.test(s) || PLAIN_EDGE.test(s) || /<\/?[a-z!][\s\S]*>/i.test(s) || (min > 0 && !s.trim()))
     invalid(); return s; }
 type ContentSnapshot = Omit<MerchantContentValues, 'status'> & {
     status: MerchantContentDocument['status'];

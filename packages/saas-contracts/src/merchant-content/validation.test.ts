@@ -35,6 +35,21 @@ test('new/existing ID-version-digest tuples and preserve guard are inseparable',
 test('required bodyDigest/format in documents rejects omission, wrong shape and unsafe normalized reads', () => { const input = document(); assert.equal(parse('parseMerchantContentDocument', input).bodyDigest, digest); for (const bodyDigest of [undefined, null, 'SHA256:' + 'a'.repeat(64), 'sha256:' + 'A'.repeat(64)])
     assert.throws(() => parse('parseMerchantContentDocument', { ...input, bodyDigest })); assert.throws(() => parse('parseMerchantContentDocument', { ...input, body: '<script>x</script>' })); });
 test('legacy documents preserve exact source bytes and archived publication metadata', () => { const body = '  Legacy\r\n<div class="old">Text & words</div>  '; const out = parse('parseMerchantContentDocument', { ...document(), body, bodyFormat: 'legacy', status: 'archived', published: true }); assert.equal(out.body, body); assert.equal(out.bodyFormat, 'legacy'); assert.equal(out.published, true); });
+test('typed plain metadata fits generic record text rules while body retains line breaks', () => {
+    const body = '<pre>satır 1\nsatır 2\rsatır 3</pre>';
+    const compatible = { name: 'İçerik başlığı', excerpt: 'A\u00a0B', seoTitle: 'SEO başlığı', seoDescription: 'Açıklama metni' };
+    const valuesInput = { ...values(), ...compatible, body };
+    assert.equal(parse('parseSaveMerchantContentRequest', { ...request(), values: valuesInput }).values.body, body);
+    assert.equal(parse('parseMerchantContentDocument', { ...document(), ...valuesInput }).body, body);
+    assert.equal(parseMerchantAdminRecord({ id, kind: 'blog_post', name: compatible.name, config: { excerpt: compatible.excerpt, seoTitle: compatible.seoTitle, seoDescription: compatible.seoDescription }, status: 'draft', version: 1, createdAt: time, updatedAt: time }).config.excerpt, compatible.excerpt);
+    for (const field of ['name', 'excerpt', 'seoTitle', 'seoDescription'] as const) {
+        for (const bad of ['a\nb', 'a\rb', 'a\tb', 'a\u0080b', ' leading', 'trailing ', '\u00a0edge', 'edge\u3000', '\ufeffedge']) {
+            const invalidValues = { ...valuesInput, [field]: bad };
+            assert.throws(() => parse('parseSaveMerchantContentRequest', { ...request(), values: invalidValues }), { message: 'merchant_content_contract_invalid' }, `${field}:${JSON.stringify(bad)}`);
+            assert.throws(() => parse('parseMerchantContentDocument', { ...document(), ...invalidValues }), { message: 'merchant_content_contract_invalid' }, `${field}:${JSON.stringify(bad)}`);
+        }
+    }
+});
 test('origins strictly retain manual/AI lineage without invoking getters or accepting hidden fields', () => { const out = parse('parseMerchantContentOrigins', { body: { generationId, state: 'edited_ai' }, name: { state: 'manual' } }); assert.deepEqual(out, { body: { generationId, state: 'edited_ai' }, name: { state: 'manual' } }); assert.ok(Object.isFrozen(out.body)); let invoked = 0; const getter = {}; Object.defineProperty(getter, 'body', { enumerable: true, get() { invoked++; return { state: 'manual' }; } }); assert.throws(() => parse('parseMerchantContentOrigins', getter)); const hidden = {}; Object.defineProperty(hidden, 'unknown', { value: { state: 'manual' }, enumerable: false }); assert.throws(() => parse('parseMerchantContentOrigins', hidden)); assert.equal(invoked, 0); for (const bad of [{ body: { state: 'manual', generationId } }, { body: { state: 'ai' } }, { slug: { state: 'manual' } }, { body: { state: 'manual', [Symbol('x')]: 1 } }, Object.create({ body: { state: 'manual' } })])
     assert.throws(() => parse('parseMerchantContentOrigins', bad)); });
 test('all request objects reject accessors/symbols/nonenumerable extras/prototypes without reads', () => { let invoked = 0; const base = request(); Object.defineProperty(base, 'values', { enumerable: true, get() { invoked++; return values(); } }); assert.throws(() => parse('parseSaveMerchantContentRequest', base)); assert.equal(invoked, 0); for (const level of ['root', 'values', 'origins'] as const) {
