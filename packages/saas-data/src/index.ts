@@ -176,3 +176,5 @@ export type {
 } from "./types.ts";
 
 export * from "./toshi-conversations/index.ts";
+
+export * from "./content-authoring/index.ts";
