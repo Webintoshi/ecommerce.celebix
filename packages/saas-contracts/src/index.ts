@@ -672,3 +672,5 @@ export * from "./content-authoring/index.ts";
 
 export type { MerchantContentKind, MerchantContentField, MerchantContentValues, MerchantContentDocument, MerchantContentOrigins, MerchantContentVersion, SaveMerchantContentRequest } from "./merchant-content/index.ts";
 export { parseMerchantContentDocument, parseSaveMerchantContentRequest, parseMerchantContentOrigins } from "./merchant-content/index.ts";
+
+export * from "./content-resource-authoring/index.ts";

@@ -60,7 +60,7 @@ const begin = () => ({
 test("begin persists exactly once and preserves unknown usage", async () => {
     const { repo, calls } = setup();
     assert.equal((await repo.beginGeneration(begin())).generation.usage, null);
-    assert.equal(calls.filter(t => t.includes("content_authoring_begin")).length, 1);
+    assert.equal(calls.filter(t => t.includes("content_authoring_begin_shared(")).length, 1);
     assert.equal(calls.at(-1), "COMMIT");
 });
 test("claim commit uncertainty never grants dispatch or retries mutation", async () => {

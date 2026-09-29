@@ -180,3 +180,5 @@ export * from "./toshi-conversations/index.ts";
 export * from "./content-authoring/index.ts";
 
 export * from "./merchant-content/index.ts";
+
+export * from "./content-resource-authoring/index.ts";

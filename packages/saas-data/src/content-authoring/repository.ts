@@ -184,7 +184,7 @@ export class PostgresContentAuthoringRepository implements ContentAuthoringRepos
                 throw e;
             fail();
         }
-        const r = await this.run('begin', values);
+        const r = await this.run('begin_shared', values);
         if (!['pending', 'replayed-result', 'existing-status'].includes(r.outcome))
             fail('unavailable');
         return {
