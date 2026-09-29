@@ -8,14 +8,16 @@ export function createDeepSeekGenerationAdapter(fetcher: ToshiProviderFetch) {
     const response = await request(fetcher, input, "https://api.deepseek.com/chat/completions", (key) => ({ authorization: `Bearer ${key}` }), {
       model: input.model,
       messages,
-      tools: input.tools.map(({ name, description, parameters }) => ({ type: "function", function: { name, description, parameters } })),
+      ...(input.outputFormat ? {} : { tools: input.tools.map(({ name, description, parameters }) => ({ type: "function", function: { name, description, parameters } })) }),
       thinking: { type: "disabled" },
-      max_tokens: 4096,
+      max_tokens: input.maxOutputTokens ?? 4096,
+      ...(input.outputFormat ? { response_format: { type: "json_object" } } : {}),
       stream: false,
     });
     const choices = array(response.choices, 1);
     if (choices.length !== 1) fail();
     const choice = record(choices[0]);
+    if (input.outputFormat && (choice.finish_reason === "length")) fail("provider_unavailable", "truncated");
     if (!["stop", "tool_calls"].includes(choice.finish_reason as string)) fail();
     const message = record(choice.message);
     if (message.role !== "assistant" || message.refusal != null) fail();

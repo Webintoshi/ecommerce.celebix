@@ -6,6 +6,8 @@ export type ToshiGenerationTool = Readonly<{ name: string; description: string; 
 export type ToshiGenerationToolCall = Readonly<{ callId: string; name: string; arguments: unknown }>;
 export type ToshiGenerationToolResult = Readonly<{ callId: string; name: string; result: unknown }>;
 export type ToshiGenerationInput = Readonly<{
+  outputFormat?: "json_object";
+  maxOutputTokens?: number;
   model: string;
   secret: Uint8Array;
   system: string;
@@ -33,7 +35,7 @@ export type ToshiGenerationFetchers = Partial<Readonly<Record<ToshiProvider, Tos
 
 export class ToshiGenerationError extends Error {
   readonly code: ToshiProviderErrorCode;
-  constructor(code: ToshiProviderErrorCode) {
+  constructor(code: ToshiProviderErrorCode, readonly outcome?: "empty" | "truncated") {
     super(code);
     this.name = "ToshiGenerationError";
     this.code = code;

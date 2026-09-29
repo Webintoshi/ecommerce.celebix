@@ -260,3 +260,24 @@ test("older Gemini calls without a provider id do not fabricate an id on functio
   await adapter.generate(input("gemini-2.5-flash", { continuation: first.continuation, toolResults: [{ callId: call.callId, name: call.name, result: { items: [] } }] }));
   assert.deepEqual(bodies[1]!.contents.at(-1).parts[0].functionResponse, { name: TOOL.name, response: { items: [] } });
 });
+
+for (const selected of CASES) test(`${selected.provider} content requests have bounded output and no tools`, async () => {
+  const fetcher: ToshiProviderFetch = async (_url, init) => {
+    const body = JSON.parse(String(init.body));
+    assert.equal(body.max_tokens ?? body.max_output_tokens ?? body.generationConfig?.maxOutputTokens, 1024);
+    assert.equal(Object.hasOwn(body, 'tools'), false);
+    if (selected.provider === 'deepseek') assert.deepEqual(body.response_format, {type:'json_object'});
+    if (selected.provider === 'openai') assert.deepEqual(body.text, {format:{type:'json_object'}});
+    if (selected.provider === 'gemini') assert.equal(body.generationConfig.responseMimeType,'application/json');
+    return Response.json(final(selected.provider));
+  };
+  await createToshiGenerationRegistry({[selected.provider]:fetcher}).get(selected.provider).generate(input(selected.model,{tools:[],outputFormat:'json_object',maxOutputTokens:1024}));
+});
+
+for(const selected of CASES)test(`${selected.provider} content truncation and empty results are distinguishable safe failures`,async()=>{
+ for(const empty of [true,false]){
+  const response=empty? final(selected.provider,selected.provider==='deepseek'?{choices:[{finish_reason:'stop',message:{role:'assistant',content:''}}]}:selected.provider==='openai'?{output:[{type:'message',role:'assistant',content:[{type:'output_text',text:''}]}]}:selected.provider==='gemini'?{candidates:[{finishReason:'STOP',content:{role:'model',parts:[{text:''}]}}]}:{content:[{type:'text',text:''}]}):final(selected.provider,selected.provider==='deepseek'?{choices:[{finish_reason:'length',message:{role:'assistant',content:'partial'}}]}:selected.provider==='openai'?{status:'incomplete',incomplete_details:{reason:'max_output_tokens'}}:selected.provider==='gemini'?{candidates:[{finishReason:'MAX_TOKENS'}]}:{stop_reason:'max_tokens'});
+  const a=createToshiGenerationRegistry({[selected.provider]:async()=>Response.json(response)}).get(selected.provider);
+  await assert.rejects(a.generate(input(selected.model,{tools:[],outputFormat:'json_object'})),(error:any)=>error.code==='provider_unavailable'&&error.outcome===(empty?'empty':'truncated'));
+ }
+});

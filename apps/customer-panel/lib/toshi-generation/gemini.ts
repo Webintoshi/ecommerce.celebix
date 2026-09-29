@@ -17,13 +17,14 @@ export function createGeminiGenerationAdapter(fetcher: ToshiProviderFetch) {
     const response = await request(fetcher, input, `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent`, (key) => ({ "x-goog-api-key": key }), {
       systemInstruction: { parts: [{ text: input.system }] },
       contents,
-      tools: [{ functionDeclarations: input.tools.map(({ name, description, parameters }) => ({ name, description, parametersJsonSchema: parameters })) }],
-      generationConfig: { candidateCount: 1, maxOutputTokens: 4096, ...(/^gemini-2\.5-flash/u.test(input.model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
+      ...(input.outputFormat ? {} : { tools: [{ functionDeclarations: input.tools.map(({ name, description, parameters }) => ({ name, description, parametersJsonSchema: parameters })) }] }),
+      generationConfig: { candidateCount: 1, maxOutputTokens: input.maxOutputTokens ?? 4096, ...(input.outputFormat ? { responseMimeType: "application/json" } : {}), ...(/^gemini-2\.5-flash/u.test(input.model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
     });
     if (response.promptFeedback != null && record(response.promptFeedback).blockReason != null) fail();
     const candidates = array(response.candidates, 1);
     if (candidates.length !== 1) fail();
     const candidate = record(candidates[0]);
+    if (input.outputFormat && (candidate.finishReason === "MAX_TOKENS")) fail("provider_unavailable", "truncated");
     if (candidate.finishReason !== "STOP") fail();
     const content = record(candidate.content);
     if (content.role !== "model") fail();

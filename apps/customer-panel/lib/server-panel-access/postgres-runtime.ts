@@ -29,6 +29,7 @@ import {
   PostgresShippingWorkflowRepository,
   PostgresToshiProviderRepository,
   PostgresToshiConversationRepository,
+  PostgresContentAuthoringRepository,
   parseMerchantProviderCredentialKeyring,
 } from "@celebix/saas-data";
 import {
@@ -67,6 +68,7 @@ import { registerServerReferencePricingRepository } from "../server-reference-pr
 import { registerServerPromotionsRepository } from "../server-promotions/runtime.ts";
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
+import { registerServerContentAuthoringRuntime } from "../server-content-authoring/runtime.ts";
 import { registerServerToshiChatRuntime } from "../server-toshi-chat/runtime.ts";
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
@@ -1084,6 +1086,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       duplicate: ["promotions"],
       archive: ["promotions"],
     }));
+    registerServerContentAuthoringRuntime(access, new PostgresContentAuthoringRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined}));
     registerServerToshiChatRuntime(access, toshiConversationRepository, {
       catalog: catalogRepository,
       orders: orderRepository,

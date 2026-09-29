@@ -14,7 +14,7 @@ const MAX_RESPONSE_BYTES = 524_288;
 const MAX_REQUEST_BYTES = 163_840;
 const NAME = /^[a-zA-Z0-9_-]{1,64}$/u;
 type Code = "invalid_input" | "provider_unavailable";
-export function fail(code: Code = "provider_unavailable"): never { throw new ToshiGenerationError(code); }
+export function fail(code: Code = "provider_unavailable", outcome?: "empty" | "truncated"): never { throw new ToshiGenerationError(code, outcome); }
 
 export function record(value: unknown, code: Code = "provider_unavailable"): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) fail(code);
@@ -69,6 +69,9 @@ export function usage(inputTokens: unknown, outputTokens: unknown): ToshiGenerat
 
 function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): void {
   record(input, "invalid_input");
+  if (input.outputFormat !== undefined && input.outputFormat !== "json_object") fail("invalid_input");
+  if (input.maxOutputTokens !== undefined && (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > 4096)) fail("invalid_input");
+  if (input.outputFormat && (input.tools.length || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
   const model = text(input.model, 160, "invalid_input");
   if (!/^[a-zA-Z0-9_.:-]{1,160}$/u.test(model)) throw new ToshiGenerationError("model_unavailable");
   const rejected = provider === "openai" ? /audio|dall-e|embedding|image|moderation|realtime|search|transcri|tts|whisper/iu
@@ -208,7 +211,7 @@ export function adapter(provider: ToshiProvider, protocol: Protocol): ToshiGener
       catch (error) { if (error instanceof ToshiGenerationError) throw error; throw new ToshiGenerationError(input.signal.aborted ? "provider_timeout" : "provider_unavailable"); }
       const content = text(output.text).trim();
       const toolCalls = array(output.toolCalls, 6).map((raw) => { const selected = record(raw); return call(input, selected.callId, selected.name, selected.arguments); });
-      if (!content && toolCalls.length === 0) fail();
+      if (!content && toolCalls.length === 0) fail("provider_unavailable", input.outputFormat ? "empty" : undefined);
       const ids = new Set(state?.callIds ?? []);
       for (const entry of toolCalls) { if (ids.has(entry.callId)) fail(); ids.add(entry.callId); }
       const continuation = Object.freeze(Object.create(null)) as object;

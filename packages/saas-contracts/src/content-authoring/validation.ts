@@ -1,3 +1,4 @@
+import { assertProductDraftGrounding } from './grounding.ts';
 import { parseProductMeasurements } from '../catalog/validation.ts';
 import type { ContentAuthoringRequest, ContentAuthoringProductSnapshot, ContentAuthoringField, ContentAuthoringDraft, ProductFactPacket, ContentAuthoringBlock, ContentAuthoringTextNode, ContentGenerationView } from './types.ts';
 function bad(): never { throw new TypeError('content_authoring_contract_invalid'); }
@@ -102,7 +103,9 @@ function parseDraft(v: unknown, fingerprint: string, selected: readonly ContentA
 }
 
 export function validateProductDraftOutput(v: unknown, packet: ProductFactPacket, selected: readonly ContentAuthoringField[]): ContentAuthoringDraft {
- return parseDraft(v,packet.sourceFingerprint,selected,packet);
+ const draft = parseDraft(v,packet.sourceFingerprint,selected,packet);
+ assertProductDraftGrounding(draft, packet);
+ return draft;
 }
 function fingerprint(v:unknown):string {const s=text(v,64,64);if(!/^[a-f0-9]{64}$/.test(s))bad();return s;}
 function timestamp(v:unknown):string {const s=text(v,24,24);if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(s))bad();const date=new Date(s);if(!Number.isFinite(date.getTime())||date.toISOString()!==s)bad();return s;}
