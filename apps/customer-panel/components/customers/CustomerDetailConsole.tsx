@@ -11,7 +11,7 @@ import type {
   OrderStatus,
 } from "@celebix/saas-contracts";
 
-import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
 
@@ -68,12 +68,14 @@ export function CustomerDetailPresentation({
   const partialHistory = data.orderCount > workspace.orders.length;
   return (
     <PanelPageShell>
+      <PanelPageHeader title="Müşteri ayrıntısı" />
       <header className={styles.customerDetailTopbar}>
         <Link className={styles.detailBack} href="/customers" aria-label="Müşteri listesine dön">←</Link>
         <div className={styles.detailIdentity}>
           <p>Müşteriler / {data.displayName}</p>
           <div className={styles.detailTitleRow}>
-            <h1>{data.displayName}</h1>
+            <h1 className="sr-only">{data.displayName} müşteri kaydı</h1>
+            <strong className={styles.detailName}>{data.displayName}</strong>
             <PanelStatusBadge tone={data.status === "active" ? "success" : "neutral"}>
               {data.status === "active" ? "Aktif" : "Arşiv"}
             </PanelStatusBadge>
@@ -100,7 +102,7 @@ export function CustomerDetailPresentation({
         <div className={styles.customerWorkspaceMain}>
           <section className={styles.detail} aria-label="Müşteri iletişim bilgileri">
             <div className={styles.heading}>
-              <div><h2>İletişim bilgileri</h2><p>Mağaza müşterisinin güncel iletişim kaydı</p></div>
+              <div><h2>İletişim bilgileri</h2></div>
             </div>
             <dl className={styles.contactGrid}>
               <div><dt>E-posta</dt><dd>{data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : "—"}</dd></div>
@@ -156,7 +158,7 @@ export function CustomerDetailPresentation({
             {canManage && data.status === "active" ? (
               <form className={styles.noteForm} onSubmit={onAddNote}>
                 <label>Yeni dahili not<textarea name="text" required maxLength={2000} placeholder="Müşteri hakkında not ekleyin" /></label>
-                <button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Not ekle"}</button>
+                <button className={styles.button} disabled={busy}>{busy ? "Kaydediliyor…" : "Not ekle"}</button>
               </form>
             ) : null}
             <div className={styles.noteList}>
@@ -205,7 +207,7 @@ export function CustomerDetailPresentation({
 
           <section className={styles.summaryCard} aria-label="Müşteri işlemleri">
             <div className={styles.summaryHeading}><h2>İşlemler</h2><span>Yetkiye göre</span></div>
-            {canManage && data.status === "active" ? <Link className={styles.primary} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Müşteri bilgilerini düzenle</Link> : null}
+            {canManage && data.status === "active" ? <Link className={styles.button} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Müşteri bilgilerini düzenle</Link> : null}
             {canArchive && data.status === "active" ? (
               <details className={styles.archiveConfirm}>
                 <summary>Müşteriyi Arşivle</summary>
@@ -296,9 +298,9 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
     finally { setBusy(false); }
   }
 
-  if (state === "loading") return <PanelPageShell><div className={styles.state} role="status">Müşteri yükleniyor…</div></PanelPageShell>;
+  if (state === "loading") return <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="status">Müşteri yükleniyor…</div></PanelPageShell>;
   if (state === "error" || !data || !workspace) return (
-    <PanelPageShell><div className={styles.state} role="alert"><div><p className={styles.error}>{error}</p><button className={styles.button} onClick={() => void load()}>Tekrar dene</button></div></div></PanelPageShell>
+    <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="alert"><div><p className={styles.error}>{error}</p><button className={styles.button} onClick={() => void load()}>Tekrar dene</button></div></div></PanelPageShell>
   );
   return <CustomerDetailPresentation data={data} workspace={workspace} tags={tags} segments={segments} canManage={canManage} canArchive={canArchive} busy={busy} notice={notice} error={error} onAddNote={addNote} onAssign={(kind, ids) => void assign(kind, ids)} onArchive={() => void archive()} />;
 }

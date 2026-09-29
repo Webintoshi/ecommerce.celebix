@@ -30,7 +30,7 @@ test("mutations send only expectedVersion with one idempotency identity", async 
 test("recovery-link request is bodyless and accepts only a canonical opaque storefront URL", async () => {
   const token = Buffer.alloc(32, 0x42).toString("base64url");
   let observed: RequestInit | undefined;
-  const client = createAbandonedCartApiClient({ fetch: async (_input, init) => { observed = init; return Response.json({ url: `https://shop.example.test/api/cart/recover?token=${token}`, expiresAt: NOW }); } });
+  const client = createAbandonedCartApiClient({ fetch: async (_input, init) => { observed = init; return Response.json({ url: `https://shop.example.test/cart/recover#token=${token}`, expiresAt: NOW }); } });
   const result = await client.issueRecoveryLink(ID);
   assert.match(result.url, /shop[.]example[.]test/u);
   assert.equal(observed?.method, "POST"); assert.equal(observed?.body, undefined); assert.equal(observed?.headers, undefined);

@@ -79,7 +79,7 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
     } catch (failure) {
       if (request !== requestSequence.current) return;
       setError(errorMessage(failure));
-      setPhase("error");
+      setPhase(cursor ? "loaded" : "error");
     } finally {
       if (request === requestSequence.current) setLoadingMore(false);
     }
@@ -92,26 +92,25 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
 
   return (
     <PanelPageShell>
-      <PanelPageHeader
-        title="Taslak Siparişler"
-        description="Telefon, e-posta veya mağaza içi talepleri kaydedin; hazır olduğunda gerçek siparişe dönüştürün."
-        actions={canManage ? <Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" size={15} /><span>Yeni taslak sipariş</span></Link> : undefined}
-      />
+      <PanelPageHeader title="Taslak Siparişler" />
+      <h1 className="sr-only">Taslak Siparişler</h1>
+      <div className={styles.listToolbar}>
+        <span>{phase === "loaded" ? `${items.length.toLocaleString("tr-TR")} taslak${nextCursor ? " · daha fazla kayıt var" : ""}` : ""}</span>
+        {canManage ? <Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" size={16} />Yeni taslak</Link> : null}
+      </div>
       <section className={styles.listSurface} aria-label="Taslak sipariş çalışma alanı" data-panel-surface="open">
-        {phase === "loading" ? <div className={styles.stateSurface}><div className={styles.loadingState} role="status"><span className={styles.contextIcon}><FileText aria-hidden="true" size={16} /></span><div><strong>Taslak siparişler yükleniyor</strong><small>Müşteri ve toplam bilgileri hazırlanıyor.</small></div></div><div className={styles.loadingRows} aria-hidden="true"><span /><span /><span /></div></div> : null}
+        {phase === "loading" ? <div className={styles.stateSurface}><div className={styles.loadingState} role="status"><span className={styles.contextIcon}><FileText aria-hidden="true" size={16} /></span><div><strong>Taslak siparişler yükleniyor</strong></div></div><div className={styles.loadingRows} aria-hidden="true"><span /><span /><span /></div></div> : null}
         {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Taslaklar yüklenemedi</h2><p>{error}</p></div><button type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
         {phase === "loaded" && items.length === 0 ? (
           <div className={styles.emptyState}>
             <span className={styles.emptyIcon}><FileText aria-hidden="true" size={20} /></span>
             <h2>Henüz taslak sipariş yok</h2>
             <p>Müşteri talebini ürün ve teslimat bilgileriyle kaydettiğinizde burada görünecek.</p>
-            {canManage ? <Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" size={15} /><span>İlk taslağı oluştur</span></Link> : null}
           </div>
         ) : null}
         {phase === "loaded" && items.length > 0 ? (
           <div className={styles.tableSurface}>
-            <div className={styles.tableContext}><span className={styles.contextIcon}><FileText aria-hidden="true" size={16} /></span><div><strong>Taslak sipariş kayıtları</strong></div></div>
-            <div className={styles.desktopTable}>
+            <div className={styles.desktopTable} tabIndex={0} role="region" aria-label="Taslak kayıtları">
               <table aria-label="Taslak sipariş listesi">
                 <thead><tr><th className={styles.draftColumn}>Taslak</th><th className={styles.customerColumn}>Müşteri</th><th className={styles.statusColumn}>Durum</th><th className={styles.linesColumn}>Satır</th><th className={styles.inventoryColumn}>Stok politikası</th><th className={styles.totalColumn}>Toplam</th><th className={styles.updatedColumn}>Güncellendi</th><th className={styles.actionColumn}>İşlem</th></tr></thead>
                 <tbody>{items.map((draft) => <tr key={draft.id}>
@@ -122,11 +121,12 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
                   <td className={styles.inventoryCell}><span className={styles.inventoryPolicy}>{draft.adjustInventory ? "Siparişe dönüşünce düş" : "Stok değiştirme"}</span></td>
                   <td className={styles.totalCell}><strong>{money(draft.totalCents)}</strong></td>
                   <td className={styles.updatedCell}>{date(draft.updatedAt)}</td>
-                  <td className={styles.actionCell}><Link className={styles.recordLink} href={`/orders/drafts/${draft.id}`} aria-label="Taslağı aç">Aç<ChevronRight aria-hidden="true" size={14} /></Link></td>
+                  <td className={styles.actionCell}><Link className={styles.recordLink} href={`/orders/drafts/${draft.id}`} aria-label={`${draft.draftNumber} taslağını aç`}>Aç<ChevronRight aria-hidden="true" size={14} /></Link></td>
                 </tr>)}</tbody>
               </table>
             </div>
             <div className={styles.mobileCards}>{items.map((draft) => <DraftCard key={draft.id} draft={draft} />)}</div>
+            {error ? <p className={styles.formError} role="alert">{error}</p> : null}
             {nextCursor ? <button className={styles.loadMore} type="button" disabled={loadingMore} onClick={() => void load(nextCursor)}>{loadingMore ? "Yükleniyor…" : "Daha fazla taslak yükle"}</button> : null}
           </div>
         ) : null}

@@ -23,6 +23,7 @@ export function PanelPageHeader(props: {
       <PanelTopbarBridge
         title={props.title}
         subtitle={props.description}
+        hideHeading
         actions={props.actions}
       />
       {props.actions ? <div className={styles.pageActions}>{props.actions}</div> : null}

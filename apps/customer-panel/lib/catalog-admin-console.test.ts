@@ -13,7 +13,7 @@ test("tag and barcode consoles use fixed tenant-safe catalog surfaces", async ()
     source("app/products/barcode-labels/page.tsx"),
   ]);
   assert.match(resource, /tag:\s*\{\s*title:\s*"Etiketler"/);
-  for (const marker of ["Ürünleri seç", "Etiketi düzenle", "Önizle ve yazdır", "Dahili barkod oluştur", "ZPL 203", "ZPL 300"]) assert.match(studio, new RegExp(marker));
+  for (const marker of ["Ürünleri seç", "Etiketi düzenle", "Yazdır", "Dahili barkod oluştur", "ZPL 203", "ZPL 300"]) assert.match(studio, new RegExp(marker));
   assert.match(studio, /\/api\/catalog\/barcode-labels/);
   assert.match(studio, /type="search"/);
   assert.match(studio, /pushState/);
@@ -23,7 +23,7 @@ test("tag and barcode consoles use fixed tenant-safe catalog surfaces", async ()
   assert.match(studio, /displayedRows = showSelectedOnly \? selectedRows : rows/);
   assert.match(studio, /validateBarcodeValue\(config[.]barcodeFormat, selectedValue\)/);
   assert.match(studio, /EAN-13 checksum hatalı/);
-  assert.match(studio, /disabled=\{!canManage \|\| busy === `history-/);
+  assert.match(studio, /disabled=\{!canManage \|\| !!busy\}/);
   assert.match(studio, /defaultTemplateApplied[.]current/);
   assert.match(studio, /template[.]status === "active" && template[.]isDefault/);
   assert.match(studio, /setShowSelectedOnly\(true\)/);
@@ -58,7 +58,7 @@ test("bulk import console exposes the complete four-step file and feed workflow"
   assert.match(component, /compileWooCommerceMigration/);
   assert.match(component, /runWooCommerceMigration/);
   assert.match(component, /migrationManifestRef/);
-  assert.match(component, /iki eşzamanlı işçiyle/);
+  assert.match(component, /migrationProgress/);
   assert.match(component, /role="status" aria-live="polite"/);
   assert.match(component, /role="alert"/);
   assert.match(component, /role="status"/);

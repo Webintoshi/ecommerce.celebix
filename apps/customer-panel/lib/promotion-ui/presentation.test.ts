@@ -19,15 +19,18 @@ async function fixtureSource(path: string) {
 
 test("promotions use the approved neutral operations palette without legacy blue presentation", async () => {
   const stylesheet = (await source("components/promotions/promotion-studio.module.css")).toLowerCase();
+  const tokens = (await source("app/globals.css")).toLowerCase();
 
-  for (const color of ["#2b2b2b", "#f8f7f5", "#fffdfc", "#e7e2dd", "#fe6100"]) {
-    assert.match(stylesheet, new RegExp(color), `missing approved color ${color}`);
+  for (const [token, color] of [["text-primary", "#2b2b2b"], ["canvas", "#f8f7f5"], ["surface", "#fffdfc"], ["border", "#e7e2dd"], ["brand", "#fe6100"]]) {
+    assert.match(stylesheet, new RegExp(`var\\(--cp-${token}\\)`), `missing shared token ${token}`);
+    assert.match(tokens, new RegExp(`--cp-${token}:\\s*${color};`), `missing approved color ${color}`);
   }
   for (const legacyColor of ["#172033", "#25324a", "#243552", "#1d4d92", "#2f5d9f", "#eef4ff"]) {
     assert.doesNotMatch(stylesheet, new RegExp(legacyColor), `legacy presentation color ${legacyColor}`);
   }
-  assert.match(stylesheet, /[.]eyebrow\s*\{[^}]*color:\s*#667085/s);
-  assert.match(stylesheet, /[.]primarybutton\s*\{[^}]*background:\s*#2b2b2b/s);
+  assert.match(stylesheet, /[.]eyebrow\s*\{[^}]*color:\s*var\(--cp-text-secondary\)/s);
+  assert.match(stylesheet, /[.]primarybutton\s*\{[^}]*background:\s*var\(--cp-action-primary\)/s);
+  assert.match(tokens, /--cp-action-primary:\s*#2b2b2b;/);
 });
 
 test("promotion editor collapses at tablet and keeps complete step and choice labels at 390px", async () => {
@@ -52,7 +55,7 @@ test("promotion list owns the shell topbar and keeps its one primary action grap
   assert.match(list, /title="İndirimler ve Kampanyalar"/);
   assert.match(list, /actions=\{canManage \? <div className=\{styles[.]headerPrimary\}>/);
   assert.doesNotMatch(list, /<header className=\{styles[.]pageHeader\}>/);
-  assert.match(stylesheet, /[.]headerPrimary a\s*\{[^}]*border-color:\s*#2B2B2B;[^}]*background:\s*#2B2B2B;[^}]*color:\s*#FFFDFC;/s);
+  assert.match(stylesheet, /[.]headerPrimary a\s*\{[^}]*border-color:\s*var\(--cp-text-primary\);[^}]*background:\s*var\(--cp-text-primary\);[^}]*color:\s*var\(--cp-surface\);/s);
 });
 
 test("Taslak stays neutral and desktop and mobile use the same promotion status tone", async () => {

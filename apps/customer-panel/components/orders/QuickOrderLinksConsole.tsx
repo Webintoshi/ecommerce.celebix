@@ -145,7 +145,7 @@ function tone(status: QuickOrderLinkStatus): "neutral" | "success" | "danger" {
   return "neutral";
 }
 
-function Panel({ title, description, icon, children, actions, id, headingRef }: {
+function Panel({ title, description, icon, children, actions, id, headingRef, hideHeading }: {
   title: string;
   description?: string;
   icon?: ReactNode;
@@ -153,10 +153,11 @@ function Panel({ title, description, icon, children, actions, id, headingRef }: 
   actions?: ReactNode;
   id?: string;
   headingRef?: RefObject<HTMLHeadingElement | null>;
+  hideHeading?: boolean;
 }) {
   return (
     <section className={styles.panel} aria-labelledby={id}>
-      <div className={styles.panelHeader}>
+      <div className={hideHeading ? "sr-only" : styles.panelHeader}>
         <div className={styles.panelHeading}>
           {icon ? <span className={styles.panelIcon}>{icon}</span> : null}
           <div><h2 ref={headingRef} id={id} tabIndex={headingRef ? -1 : undefined}>{title}</h2>{description ? <p>{description}</p> : null}</div>
@@ -176,7 +177,7 @@ function AddressFields({ prefix, value, onChange }: {
   return (
     <div className={styles.addressGrid}>
       <label><span>Alıcı adı soyadı</span><input value={value.recipientName} onChange={(event) => onChange("recipientName", event.target.value)} autoComplete={`${prefix} name`} maxLength={200} required /></label>
-      <label><span>Telefon</span><input value={value.phone} onChange={(event) => onChange("phone", event.target.value)} autoComplete={`${prefix} tel`} maxLength={32} required /></label>
+      <label><span>Telefon</span><input type="tel" value={value.phone} onChange={(event) => onChange("phone", event.target.value)} autoComplete={`${prefix} tel`} maxLength={32} required /></label>
       <label><span>Şehir</span><input value={value.city} onChange={(event) => onChange("city", event.target.value)} autoComplete={`${prefix} address-level2`} maxLength={200} required /></label>
       <label><span>İlçe</span><input value={value.district} onChange={(event) => onChange("district", event.target.value)} autoComplete={`${prefix} address-level3`} maxLength={200} /></label>
       <label><span>Posta kodu</span><input value={value.postalCode} onChange={(event) => onChange("postalCode", event.target.value)} autoComplete={`${prefix} postal-code`} maxLength={32} /></label>
@@ -255,15 +256,20 @@ function LinkActions({ link, busy, onCopy, onOpen, onDuplicate, onCancel }: {
   const cancellable = link.status === "active" || link.status === "opened";
   return (
     <div className={styles.linkActions}>
-      <button type="button" disabled={busy} onClick={() => onCopy(link)} aria-label="Linki kopyala"><Copy aria-hidden="true" /></button>
-      <button type="button" disabled={busy} onClick={() => onOpen(link)} aria-label="Ödeme sayfasını aç"><ExternalLink aria-hidden="true" /></button>
-      <button type="button" disabled={busy} onClick={() => onDuplicate(link)} aria-label="Kopyasını oluştur"><Link2 aria-hidden="true" /></button>
-      {cancellable ? <button className={styles.dangerAction} type="button" disabled={busy} onClick={() => onCancel(link)} aria-label="Linki iptal et"><XCircle aria-hidden="true" /></button> : null}
+      <button type="button" disabled={busy} onClick={() => onCopy(link)} aria-label="Linki kopyala" title={`${link.customerName} bağlantısını kopyala`}><Copy aria-hidden="true" /><span>Kopyala</span></button>
+      <button type="button" disabled={busy} onClick={() => onOpen(link)} aria-label="Ödeme sayfasını aç" title="Ödeme sayfasını aç"><ExternalLink aria-hidden="true" /></button>
+      <button type="button" disabled={busy} onClick={() => onDuplicate(link)} aria-label="Kopyasını oluştur" title="Kopyasını oluştur"><Link2 aria-hidden="true" /></button>
+      {cancellable ? <button className={styles.dangerAction} type="button" disabled={busy} onClick={() => onCancel(link)} aria-label="Linki iptal et" title="Linki iptal et"><XCircle aria-hidden="true" /></button> : null}
     </div>
   );
 }
 
 export function QuickOrderLinksConsole() {
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const previousView = useRef<"links" | "create">("links");
+  const [view, setView] = useState<"links" | "create">("links");
+  const [linkSearch, setLinkSearch] = useState("");
+  const [linkStatus, setLinkStatus] = useState<QuickOrderLinkStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [searchResults, setSearchResults] = useState<readonly CatalogSearchProduct[]>([]);
@@ -334,6 +340,13 @@ export function QuickOrderLinksConsole() {
     });
     return () => { active = false; };
   }, [hostedPickerAvailable]);
+
+  useEffect(() => {
+    if (previousView.current === view) return;
+    previousView.current = view;
+    if (view === "create") searchInputRef.current?.focus();
+    else createButtonRef.current?.focus();
+  }, [view]);
 
   const loadLinks = useCallback(async (cursor?: string) => {
     const sequence = ++listSequence.current;
@@ -709,6 +722,9 @@ export function QuickOrderLinksConsole() {
       setProviderState("ready");
       await loadLinks();
       resetBuilder();
+      setLinkSearch("");
+      setLinkStatus("all");
+      setView("links");
       try {
         await navigator.clipboard.writeText(result.url);
         setFeedback(`Ödeme linki oluşturuldu ve panoya kopyalandı. ${date(result.expiresAt)} tarihine kadar geçerli.`);
@@ -832,18 +848,27 @@ export function QuickOrderLinksConsole() {
     </div>
   ) : null;
 
+  const normalizedLinkSearch = linkSearch.trim().toLocaleLowerCase("tr-TR");
+  const visibleLinks = links.filter((link) => (linkStatus === "all" || link.status === linkStatus)
+    && (!normalizedLinkSearch || [link.customerName, link.customerEmail, link.firstProductName].some((value) => value?.toLocaleLowerCase("tr-TR").includes(normalizedLinkSearch))));
+  const hasLinkFilters = normalizedLinkSearch !== "" || linkStatus !== "all";
+
   return (
     <PanelPageShell>
-      <PanelPageHeader title="Hızlı Sipariş Linkleri" description="Katalogdan ürün ve müşteri seçerek güvenli, süreli bir ödeme bağlantısı hazırlayın." />
-      <form className={styles.console} data-presentation="quick-order-workspace" onSubmit={createLink}>
-        {feedback ? <p className={styles.feedback} role="status" aria-live="polite">{feedback}</p> : null}
+      <PanelPageHeader title="Hızlı Sipariş Linkleri" />
+      <h1 className="sr-only">Hızlı Sipariş Linkleri</h1>
+      <div className={styles.workspaceToolbar}>
+        {view === "create" ? <button className={styles.secondaryButton} type="button" onClick={() => setView("links")}>Bağlantılara dön</button> : <span>{listState === "loaded" ? `${links.length.toLocaleString("tr-TR")} bağlantı${nextCursor ? " · daha fazla kayıt var" : ""}` : ""}</span>}
+        {view === "links" ? <div className={styles.workspaceActions}><button className={styles.refreshButton} type="button" onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button><button ref={createButtonRef} className={styles.primaryButton} type="button" onClick={() => setView("create")}><Plus aria-hidden="true" />Yeni bağlantı</button></div> : null}
+      </div>
+      {feedback ? <p className={styles.feedback} role="status" aria-live="polite">{feedback}</p> : null}
+      <form hidden={view !== "create"} className={styles.console} data-presentation="quick-order-workspace" onSubmit={createLink}>
         {formError ? <p className={styles.formError} role="alert">{formError}</p> : null}
 
         <div className={styles.builderGrid}>
           <div className={styles.mainColumn}>
             <Panel
               title="Ürünler"
-              description="Linke eklenecek gerçek katalog varyantlarını seçin."
               icon={<ShoppingBag aria-hidden="true" />}
               id="quick-order-detail-title"
             >
@@ -871,7 +896,7 @@ export function QuickOrderLinksConsole() {
                 </div>
                 <section className={styles.selectedLines} aria-label="Seçilen sipariş kalemleri" aria-describedby={fieldErrors.items ? "quick-order-items-error" : undefined}>
                   <div className={styles.linesHeader}>
-                    <div><strong>Seçilen ürünler</strong><span>Varyant, adet ve fiyat özeti</span></div>
+                    <div><strong>Seçilen ürünler</strong></div>
                     <span className={styles.itemCount}>{selectedLines.length} kalem</span>
                   </div>
                   {selectedLines.length === 0 ? (
@@ -899,7 +924,6 @@ export function QuickOrderLinksConsole() {
 
             <Panel
               title="Müşteri"
-              description="Kayıtlı müşteriyi seçin veya bilgileri manuel girin."
               icon={<UserRound aria-hidden="true" />}
               id="quick-order-customer-title"
             >
@@ -945,14 +969,13 @@ export function QuickOrderLinksConsole() {
                 <div className={styles.customerGrid}>
                   <label><span>Ad soyad</span><input value={customerName} onChange={(event) => setCustomerName(event.target.value)} autoComplete="name" maxLength={200} required /></label>
                   <label><span>E-posta</span><input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} autoComplete="email" maxLength={320} required /></label>
-                  <label><span>Telefon</span><input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} autoComplete="tel" maxLength={32} required /></label>
+                  <label><span>Telefon</span><input type="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} autoComplete="tel" maxLength={32} required /></label>
                 </div>
               </div>
             </Panel>
 
             <Panel
               title="Teslimat"
-              description="Gönderim ve fatura adresini düzenleyin."
               icon={<MapPin aria-hidden="true" />}
               id="quick-order-shipping-title"
             >
@@ -974,7 +997,7 @@ export function QuickOrderLinksConsole() {
               <div className={styles.summarySection}>
                 <label className={styles.expiryField}>
                   <span><Clock3 aria-hidden="true" />Link geçerliliği</span>
-                  <select value={expiryHours} onChange={(event) => setExpiryHours(Number(event.target.value) as typeof expiryHours)}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+                  <select aria-label="Link geçerliliği" value={expiryHours} onChange={(event) => setExpiryHours(Number(event.target.value) as typeof expiryHours)}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
                 </label>
               </div>
 
@@ -985,7 +1008,7 @@ export function QuickOrderLinksConsole() {
                   <div><dt>İndirim</dt><dd>− {money(discountCents)}</dd></div>
                   <div className={styles.grandTotal}><dt>Toplam</dt><dd>Bağlantıda kesinleşir</dd></div>
                 </dl>
-                <p className={styles.helpText}>Kesin ürün fiyatı, seçilen müşteri ve hızlı sipariş fiyat listesiyle bağlantı oluşturulurken sunucuda hesaplanır. Geçersiz indirim veya eksik referans bağlantı oluşturmayı engeller.</p>
+                <p className={styles.helpText}>Ürün fiyatları bağlantı oluşturulurken kesinleşir.</p>
                 <div className={styles.amountGrid}>
                   <label className={styles.field}><span><Truck aria-hidden="true" />Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => { setShippingInput(event.target.value); setFieldErrors((current) => { const { shipping: _shipping, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.shipping ? true : undefined} aria-describedby={fieldErrors.shipping ? "quick-order-shipping-error" : undefined} />{fieldErrors.shipping ? <small id="quick-order-shipping-error" className={styles.fieldError} role="alert">{fieldErrors.shipping}</small> : null}</label>
                   <label className={styles.field}><span><Percent aria-hidden="true" />İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setFieldErrors((current) => { const { discount: _discount, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.discount ? true : undefined} aria-describedby={fieldErrors.discount ? "quick-order-discount-error" : undefined} />{fieldErrors.discount ? <small id="quick-order-discount-error" className={styles.fieldError} role="alert">{fieldErrors.discount}</small> : null}</label>
@@ -993,15 +1016,15 @@ export function QuickOrderLinksConsole() {
               </div>
 
               <div className={styles.summarySection}>
-                <div className={styles.summarySectionTitle}><CreditCard aria-hidden="true" /><div><h3>Ödeme</h3><p>Bağlantıda kullanılacak yöntemi seçin.</p></div></div>
+                <div className={styles.summarySectionTitle}><CreditCard aria-hidden="true" /><div><h3>Ödeme</h3></div></div>
                 <div className={styles.providerBody}>
                 {hostedPickerAvailable ? <>
                   <label className={styles.field}><span>Aktif ödeme yöntemi</span><select aria-label="Ödeme yöntemi" value={selectedPaymentMethodId} onChange={(event) => { setSelectedPaymentMethodId(event.target.value); setIdentityNumber(""); setSelectedLines((current) => Object.freeze(current.map((line) => Object.freeze({ ...line, itemType: undefined })))); setFieldErrors((current) => { const { paymentMethod: _method, identity: _identity, ...remaining } = current; return remaining; }); }} required><option value="">Ödeme yöntemi seçin</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>{fieldErrors.paymentMethod ? <small className={styles.fieldError} role="alert">{fieldErrors.paymentMethod}</small> : null}</label>
                   {paymentMethodsError ? <p className={styles.inlineError} role="alert">{paymentMethodsError}</p> : null}
                   {selectedPaymentMethod?.requiresIdentity ? <label className={styles.field}><span>Alıcı kimlik numarası</span><input aria-label="Alıcı kimlik numarası" inputMode="numeric" autoComplete="off" value={identityNumber} onChange={(event) => { setIdentityNumber(event.target.value.trim()); setFieldErrors((current) => { const { identity: _identity, ...remaining } = current; return remaining; }); }} minLength={5} maxLength={50} pattern="[0-9]+" required />{fieldErrors.identity ? <small className={styles.fieldError} role="alert">{fieldErrors.identity}</small> : null}</label> : null}
-                  <p className={styles.helpText}>Yalnız etkin ve bu mağazaya bağlı yöntemler listelenir; sağlayıcı yetkisi sunucuda doğrulanır.</p>
+
                 </> : <>
-                  <div className={styles.providerHeading}><span className={styles.providerMark}>P</span><div><strong>PayTR</strong><small>Sunucu, link oluşturulurken güncel hazırlığı doğrular.</small></div></div>
+                  <div className={styles.providerHeading}><span className={styles.providerMark}>P</span><div><strong>PayTR</strong><small>Bağlantı oluşturulurken doğrulanır.</small></div></div>
                   <p className={styles[`provider-${providerState}`]} role={providerState === "error" ? "alert" : "status"}>
                     {providerState === "ready" ? "PayTR hazır" : providerState === "activating" ? "PayTR hazırlanıyor…" : providerState === "not-ready" ? "PayTR henüz hazır değil" : providerState === "error" ? providerError : "PayTR durumu henüz doğrulanmadı"}
                   </p>
@@ -1017,35 +1040,42 @@ export function QuickOrderLinksConsole() {
 
               <div className={styles.summaryActions}>
                 <button className={styles.primaryButton} type="submit" disabled={submitting}><Link2 aria-hidden="true" />{submitting ? "Oluşturuluyor…" : "Ödeme linki oluştur"}</button>
-                <button className={styles.secondaryButton} type="button" onClick={resetBuilder}><Trash2 aria-hidden="true" />Formu temizle</button>
+                <button className={styles.secondaryButton} type="button" disabled={submitting} onClick={resetBuilder}><Trash2 aria-hidden="true" />Formu temizle</button>
               </div>
             </section>
           </aside>
         </div>
       </form>
 
+      <div hidden={view !== "links"}>
       <Panel
         title="Oluşturulan Linkler"
-        description="Aktif ve geçmiş ödeme bağlantılarını tek yerden yönetin."
         icon={<Link2 aria-hidden="true" />}
         id="quick-order-links-title"
         headingRef={listHeadingRef}
-        actions={<button className={styles.refreshButton} type="button" onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button>}
+        hideHeading
       >
         <div className={styles.linksBody}>
+          <div className={styles.linkToolbar}>
+            <label className={styles.searchField}><span className="sr-only">Yüklenen bağlantılarda ara</span><Search aria-hidden="true" /><input type="search" value={linkSearch} onChange={(event) => setLinkSearch(event.target.value)} placeholder="Müşteri veya ürün ara" /></label>
+            <label className={styles.statusFilter}><span className="sr-only">Bağlantı durumu</span><select aria-label="Bağlantı durumu" value={linkStatus} onChange={(event) => setLinkStatus(event.target.value as QuickOrderLinkStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          </div>
+          {hasLinkFilters ? <div className={styles.appliedFilters}><span>{visibleLinks.length} eşleşme · yüklenen {links.length} bağlantı{linkStatus !== "all" ? ` · ${STATUS_LABELS[linkStatus]}` : ""}{normalizedLinkSearch ? ` · “${linkSearch.trim()}”` : ""}</span><button className={styles.secondaryButton} type="button" onClick={() => { setLinkSearch(""); setLinkStatus("all"); }}>Temizle</button></div> : null}
           {listError && listState !== "error" ? <p className={styles.inlineError} role="alert">{listError}</p> : null}
           {listState === "loading" ? (
-            <div className={styles.listState} role="status" aria-live="polite"><RefreshCw aria-hidden="true" /><span><strong>Linkler yükleniyor</strong><small>Aktif ve geçmiş bağlantılar hazırlanıyor.</small></span></div>
+            <div className={styles.listState} role="status" aria-live="polite"><RefreshCw aria-hidden="true" /><span><strong>Linkler yükleniyor</strong></span></div>
           ) : listState === "error" ? (
             <div className={styles.listError} role="alert"><div><strong>Linkler yüklenemedi</strong><p>{listError}</p></div><button type="button" onClick={() => { void loadLinks(); }}>Tekrar dene</button></div>
           ) : links.length === 0 ? (
-            <div className={styles.listState}><Link2 aria-hidden="true" /><span><strong>Henüz hızlı sipariş linki oluşturulmadı</strong><small>İlk bağlantıyı hazırlamak için yukarıdaki ürün ve müşteri adımlarını tamamlayın.</small></span></div>
+            <div className={styles.listState}><Link2 aria-hidden="true" /><span><strong>Henüz hızlı sipariş linki oluşturulmadı</strong><small>Yeni bağlantı ile ürün ve müşteri seçin.</small></span></div>
+          ) : visibleLinks.length === 0 ? (
+            <div className={styles.listState}><Search aria-hidden="true" /><span><strong>Eşleşen bağlantı yok</strong><small>Aramayı veya durum filtresini değiştirin.</small></span></div>
           ) : (
             <>
-              <div className={styles.desktopTable}>
+              <div className={styles.desktopTable} role="region" aria-label="Bağlantı kayıtları" tabIndex={0}>
                 <table aria-label="Oluşturulan hızlı sipariş linkleri">
-                  <thead><tr><th>Müşteri</th><th>Ürün</th><th>Durum</th><th>Geçerlilik</th><th>Toplam</th><th>Aksiyon</th></tr></thead>
-                  <tbody>{links.map((link) => <tr key={link.id}>
+                  <thead><tr><th>Müşteri</th><th>Ürün</th><th>Durum</th><th>Geçerlilik</th><th>Toplam</th><th>İşlem</th></tr></thead>
+                  <tbody>{visibleLinks.map((link) => <tr key={link.id}>
                     <td><strong>{link.customerName}</strong><small>{link.customerEmail}</small></td>
                     <td><strong>{link.firstProductName}</strong><small>{link.itemCount > 1 ? `+ ${link.itemCount - 1} ürün` : "1 ürün"}</small></td>
                     <td><PanelStatusBadge tone={tone(link.status)}>{STATUS_LABELS[link.status]}</PanelStatusBadge></td>
@@ -1055,17 +1085,18 @@ export function QuickOrderLinksConsole() {
                   </tr>)}</tbody>
                 </table>
               </div>
-              <div className={styles.mobileCards}>{links.map((link) => <article className={styles.linkCard} key={link.id}>
+              <div className={styles.mobileCards}>{visibleLinks.map((link) => <article className={styles.linkCard} key={link.id}>
                 <div className={styles.cardHeading}><div><strong>{link.customerName}</strong><small>{link.customerEmail}</small></div><PanelStatusBadge tone={tone(link.status)}>{STATUS_LABELS[link.status]}</PanelStatusBadge></div>
                 <dl><div><dt>Ürün</dt><dd>{link.firstProductName}{link.itemCount > 1 ? ` + ${link.itemCount - 1}` : ""}</dd></div><div><dt>Geçerlilik</dt><dd>{date(link.expiresAt)}</dd></div><div><dt>Toplam</dt><dd>{money(link.totalCents)}</dd></div></dl>
                 <LinkActions link={link} busy={busyLinkId === link.id} onCopy={copyLink} onOpen={openLink} onDuplicate={duplicateLink} onCancel={cancelLink} />
               </article>)}</div>
-              {paginationError && nextCursor ? <div className={styles.paginationError} role="alert"><span>{paginationError}</span><button type="button" onClick={() => { void loadLinks(nextCursor); }}>Sayfayı tekrar dene</button></div> : null}
-              {nextCursor && !paginationError ? <button className={styles.loadMore} type="button" disabled={loadingMore} onClick={() => { void loadLinks(nextCursor); }}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
             </>
           )}
+          {listState === "loaded" && paginationError && nextCursor ? <div className={styles.paginationError} role="alert"><span>{paginationError}</span><button type="button" disabled={loadingMore} onClick={() => { void loadLinks(nextCursor); }}>Sayfayı tekrar dene</button></div> : null}
+          {listState === "loaded" && nextCursor && !paginationError ? <button className={styles.loadMore} type="button" disabled={loadingMore} onClick={() => { void loadLinks(nextCursor); }}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
         </div>
       </Panel>
+      </div>
     </PanelPageShell>
   );
 }

@@ -71,7 +71,7 @@ export function InventoryLocationRenameDialog(props: Readonly<{
       aria-describedby={feedback ? "inventory-location-rename-feedback" : undefined}
     >
       <h3 id="inventory-location-rename-title">Konum adını düzenle</h3>
-      <p><code>{props.location.id}</code> konumunun görünen adını güncelleyin.</p>
+      <p>{props.location.name} · <code>{props.location.id}</code></p>
       <form onSubmit={(event) => { event.preventDefault(); props.onSubmit(); }}>
         <label htmlFor="inventory-location-rename-name">Yeni konum adı</label>
         <input
@@ -111,7 +111,8 @@ export function InventoryLocationPresentation(props: Readonly<{
   if (props.state.phase === "loading") return <section className={styles.state} role="status">Konumlar yükleniyor…</section>;
   if (props.state.phase === "error") return <section className={styles.error} role="alert">{props.state.message}</section>;
   return <section className={styles.locationManager} aria-labelledby="inventory-locations-title">
-    <header><div><h2 id="inventory-locations-title">Envanter konumları</h2><p>Transferlerde kullanılacak kalıcı aktif depoları yönetin.</p></div></header>
+    <div className={styles.locationContent} inert={Boolean(props.rename)}>
+    <header><div><h2 id="inventory-locations-title">Konumlar <span className={styles.fieldCount}>{props.state.items.length}</span></h2></div></header>
     {props.state.message ? <p className={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? styles.errorNotice : styles.notice} role={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? "alert" : "status"}>{props.state.message}</p> : null}
     {props.canManage ? <form className={styles.locationCreate} onSubmit={(event) => { event.preventDefault(); props.onCreate(); }}>
       <label htmlFor="inventory-location-name">Yeni konum adı</label>
@@ -133,6 +134,7 @@ export function InventoryLocationPresentation(props: Readonly<{
         </div> : null}
       </article>;
     })}</div>}
+    </div>
     {props.rename ? <InventoryLocationRenameDialog
       location={props.rename.location}
       name={props.rename.name}

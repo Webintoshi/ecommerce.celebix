@@ -11,7 +11,7 @@ export function PromotionTemplatePicker<T extends string>({ templates, onSelect 
 }) {
   return <section className={styles.picker}>
     <header className={styles.heading}>
-      <h1>Kampanyanıza uygun bir başlangıç seçin</h1>
+      <h1 className="sr-only">Kampanyanıza uygun bir başlangıç seçin</h1><h2>Başlangıç şablonu</h2>
       <p>Hazır şablonlarla başlayın, kuralları mağazanıza göre düzenleyin.</p>
     </header>
     <div className={styles.grid}>

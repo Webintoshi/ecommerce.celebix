@@ -47,9 +47,10 @@ export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
         title="Ekstra önizlemesi"
         description="Müşteri tarafında görünen seçenekleri güvenli biçimde kontrol edin."
       />
-      <section className={styles.surface}>
+      <h1 className={styles.srOnly}>Ekstra önizlemesi</h1>
+      <section className={`${styles.surface} ${styles.workspace}`}>
         {loading ? <p className={styles.state} role="status">Ekstra yükleniyor…</p> : null}
-        {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
+        {!loading && error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
         {!loading && resource ? (
           <article className={styles.preview}>
             <header className={styles.previewHero}>

@@ -202,6 +202,8 @@ export function AbandonedCartListPresentation(
     summary?: AbandonedCartSummary;
     error: string;
     search: string;
+    appliedSearch?: string;
+    paginationError?: string;
     status: AbandonedCartStatus | "all";
     sort: AbandonedCartSort;
     nextCursor?: string;
@@ -215,13 +217,12 @@ export function AbandonedCartListPresentation(
     onClear(): void;
   }>,
 ) {
-  const hasFilters = props.search.trim() !== "" || props.status !== "all";
+  const appliedSearch = props.appliedSearch ?? props.search;
+  const hasFilters = appliedSearch.trim() !== "" || props.status !== "all";
   return (
     <PanelPageShell>
-      <PanelPageHeader
-        title="Terk Edilen Sepetler"
-        description="Kayıp geliri görün, sepetleri önceliklendirin ve kurtarma sürecini yönetin."
-      />
+      <PanelPageHeader title="Terk Edilen Sepetler" />
+      <h1 className="sr-only">Terk Edilen Sepetler</h1>
 
       {props.summary ? (
         <section className={styles.metrics} aria-label="Sepet özeti">
@@ -274,6 +275,7 @@ export function AbandonedCartListPresentation(
             <span className="sr-only">Sepet ara</span>
             <Search aria-hidden="true" />
             <input
+              aria-label="Sepet ara"
               value={props.search}
               onChange={(event) => props.onSearch(event.target.value)}
               placeholder="Müşteri, e-posta, telefon veya ürün"
@@ -285,6 +287,7 @@ export function AbandonedCartListPresentation(
             <span className="sr-only">Sepet durumu</span>
             <Filter aria-hidden="true" />
             <select
+              aria-label="Sepet durumu"
               value={props.status}
               onChange={(event) =>
                 props.onStatus(
@@ -304,6 +307,7 @@ export function AbandonedCartListPresentation(
             <span className="sr-only">Sıralama</span>
             <ArrowDownUp aria-hidden="true" />
             <select
+              aria-label="Sıralama"
               value={props.sort}
               onChange={(event) =>
                 props.onSort(event.target.value as AbandonedCartSort)
@@ -315,7 +319,7 @@ export function AbandonedCartListPresentation(
               <option value="lowest">Tutar: düşükten yükseğe</option>
             </select>
           </label>
-          {hasFilters ? <div className={styles.appliedFilters}><span>{(props.search.trim() ? 1 : 0) + (props.status !== "all" ? 1 : 0)} filtre etkin</span><button type="button" onClick={props.onClear}>Temizle</button></div> : null}
+          {hasFilters ? <div className={styles.appliedFilters}><span>{(appliedSearch.trim() ? 1 : 0) + (props.status !== "all" ? 1 : 0)} filtre etkin{props.status !== "all" ? ` · ${STATUS[props.status]}` : ""}{appliedSearch.trim() ? ` · “${appliedSearch.trim()}”` : ""}</span><button type="button" onClick={props.onClear}>Temizle</button></div> : null}
         </form>
 
         {props.state === "loading" ? (
@@ -323,7 +327,6 @@ export function AbandonedCartListPresentation(
             <RefreshCcw aria-hidden="true" />
             <div>
               <strong>Sepetler yükleniyor</strong>
-              <span>Gelir kurtarma kayıtları hazırlanıyor.</span>
             </div>
             <div className={styles.loadingRows} aria-hidden="true"><i /><i /><i /></div>
           </div>
@@ -356,7 +359,7 @@ export function AbandonedCartListPresentation(
           </div>
         ) : (
           <>
-            <div className={styles.desktopTable}>
+            <div className={styles.desktopTable} role="region" aria-label="Sepet kayıtları" tabIndex={0}>
               <table aria-label="Terk edilen sepet listesi">
                 <thead>
                   <tr>
@@ -409,6 +412,7 @@ export function AbandonedCartListPresentation(
                 <CartCard key={cart.id} cart={cart} />
               ))}
             </div>
+            {props.paginationError ? <p className={styles.inlineError} role="alert">{props.paginationError}</p> : null}
             {props.nextCursor ? (
               <button
                 className={styles.loadMore}
@@ -437,12 +441,14 @@ export function AbandonedCartConsole() {
   const [sort, setSort] = useState<AbandonedCartSort>("newest");
   const [nextCursor, setNextCursor] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [paginationError, setPaginationError] = useState("");
   const sequence = useRef(0);
   const load = useCallback(
     async (cursor?: string) => {
       const current = ++sequence.current;
       cursor ? setLoadingMore(true) : setState("loading");
       setError("");
+      setPaginationError("");
       try {
         const [list, latestSummary] = await Promise.all([
           abandonedCartApi.list({
@@ -468,8 +474,13 @@ export function AbandonedCartConsole() {
             setSummary(undefined);
             setNextCursor(undefined);
           }
-          setError(message(failure));
-          setState("error");
+          if (cursor) {
+            setPaginationError(message(failure));
+            setState("loaded");
+          } else {
+            setError(message(failure));
+            setState("error");
+          }
         }
       } finally {
         if (current === sequence.current) setLoadingMore(false);
@@ -490,6 +501,8 @@ export function AbandonedCartConsole() {
       summary={summary}
       error={error}
       search={searchInput}
+      appliedSearch={search}
+      paginationError={paginationError}
       status={status}
       sort={sort}
       nextCursor={nextCursor}
@@ -535,56 +548,35 @@ export function AbandonedCartDetailPresentation(
 ) {
   if (props.state === "loading")
     return (
-      <div className={styles.detailLoading} role="status"><RefreshCcw aria-hidden="true" /><div><strong>Sepet ayrıntısı yükleniyor</strong><span>Ürün ve müşteri anlık görüntüsü hazırlanıyor.</span></div></div>
+      <PanelPageShell><PanelPageHeader title="Sepet ayrıntısı" /><h1 className="sr-only">Sepet ayrıntısı</h1><Link className={styles.back} href="/orders/abandoned-carts">Sepetlere dön</Link><div className={styles.detailLoading} role="status"><RefreshCcw aria-hidden="true" /><strong>Sepet ayrıntısı yükleniyor</strong></div></PanelPageShell>
     );
   if (props.state === "error" || !props.detail)
     return (
-      <section className={styles.detailState}>
+      <PanelPageShell><PanelPageHeader title="Sepet ayrıntısı" /><h1 className="sr-only">Sepet ayrıntısı</h1><Link className={styles.back} href="/orders/abandoned-carts">Sepetlere dön</Link><section className={styles.detailState}>
         <div className={styles.error} role="alert">
           <div>
-            <h1>Sepet ayrıntısı açılamadı</h1>
+            <h2>Sepet ayrıntısı açılamadı</h2>
             <p>{props.error || "Sepet bulunamadı."}</p>
           </div>
           <button type="button" onClick={props.onRetry}>
             Tekrar dene
           </button>
         </div>
-      </section>
+      </section></PanelPageShell>
     );
   const cart = props.detail;
   return (
     <PanelPageShell>
-      <Link className={styles.back} href="/orders/abandoned-carts">
-        Terk Edilen Sepetlere dön
-      </Link>
-      <PanelPageHeader
-        title="Sepet ayrıntısı"
-        description={`${customer(cart)} · sürüm ${cart.version}`}
-        actions={
-          props.canManage && cart.status !== "archived" ? (
-            <div className={styles.actions}>
-              {cart.status === "abandoned" ? (
-                <button
-                  type="button"
-                  disabled={props.busy}
-                  onClick={props.onIssueRecoveryLink}
-                >
-                  <Link2 aria-hidden="true" />
-                  Kurtarma bağlantısı oluştur
-                </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={props.busy}
-                onClick={props.onArchive}
-              >
-                <Archive aria-hidden="true" />
-                Arşivle
-              </button>
-            </div>
-          ) : null
-        }
-      />
+      <PanelPageHeader title="Sepet ayrıntısı" />
+      <h1 className="sr-only">Sepet ayrıntısı</h1>
+      <div className={styles.detailToolbar}>
+        <Link className={styles.back} href="/orders/abandoned-carts">Sepetlere dön</Link>
+        <span className={styles.detailIdentity}>{customer(cart)}<small>Sürüm {cart.version}</small></span>
+        {props.canManage && cart.status !== "archived" ? <div className={styles.actions}>
+          {cart.status === "abandoned" ? <button className={styles.primaryAction} type="button" disabled={props.busy} onClick={props.onIssueRecoveryLink}><Link2 aria-hidden="true" />Kurtarma bağlantısı oluştur</button> : null}
+          <button type="button" disabled={props.busy} onClick={props.onArchive}><Archive aria-hidden="true" />Arşivle</button>
+        </div> : null}
+      </div>
       {props.error ? (
         <div className={styles.inlineError} role="alert">
           {props.error}
@@ -596,9 +588,8 @@ export function AbandonedCartDetailPresentation(
         </div>
       ) : null}
       {props.recoveryUrl ? (
-        <div className={styles.notice}>
-          <strong>Süreli kurtarma bağlantısı</strong>
-          <span>Dönüşüm tamamlanana kadar bağlantı yeniden açılabilir.</span>
+        <div className={styles.recoveryLink}>
+          <strong>Kurtarma bağlantısı</strong>
           <input
             aria-label="Kurtarma bağlantısı"
             readOnly
@@ -617,24 +608,24 @@ export function AbandonedCartDetailPresentation(
       ) : null}
       <section className={styles.detailHero} aria-label="Sepet özeti">
         <div>
-          <ShoppingCart />
+          <ShoppingCart aria-hidden="true" />
           <span>Durum</span>
           <PanelStatusBadge tone={tone(cart.status)}>
             {STATUS[cart.status]}
           </PanelStatusBadge>
         </div>
         <div>
-          <Wallet />
+          <Wallet aria-hidden="true" />
           <span>Toplam</span>
           <strong>{money(cart.totalCents, cart.currency)}</strong>
         </div>
         <div>
-          <Package2 />
+          <Package2 aria-hidden="true" />
           <span>Ürün</span>
           <strong>{cart.itemCount}</strong>
         </div>
         <div>
-          <Clock3 />
+          <Clock3 aria-hidden="true" />
           <span>Son etkinlik</span>
           <strong>{date(cart.lastActivityAt)}</strong>
         </div>
@@ -644,7 +635,7 @@ export function AbandonedCartDetailPresentation(
           <header>
             <div>
               <h2>Sepet ürünleri</h2>
-              <p>Kalıcı katalog anlık görüntüsü</p>
+
             </div>
           </header>
           <div className={styles.items}>
@@ -654,7 +645,7 @@ export function AbandonedCartDetailPresentation(
                   <img src={item.imageUrl} alt="" />
                 ) : (
                   <i>
-                    <Package2 />
+                    <Package2 aria-hidden="true" />
                   </i>
                 )}
                 <div>
@@ -690,48 +681,48 @@ export function AbandonedCartDetailPresentation(
           <header>
             <div>
               <h2>Müşteri ve zaman</h2>
-              <p>Sepette bırakılan gerçek iletişim bilgileri</p>
+
             </div>
           </header>
           <dl className={styles.customer}>
             <div>
               <dt>
-                <UserRound />
+                <UserRound aria-hidden="true" />
                 Müşteri
               </dt>
               <dd>{cart.customerName ?? "Anonim sepet"}</dd>
             </div>
             <div>
               <dt>
-                <Mail />
+                <Mail aria-hidden="true" />
                 E-posta
               </dt>
               <dd>{cart.customerEmail ?? "Belirtilmedi"}</dd>
             </div>
             <div>
               <dt>
-                <Phone />
+                <Phone aria-hidden="true" />
                 Telefon
               </dt>
               <dd>{cart.customerPhone ?? "Belirtilmedi"}</dd>
             </div>
             <div>
               <dt>
-                <Clock3 />
+                <Clock3 aria-hidden="true" />
                 Sepet başlangıcı
               </dt>
               <dd>{date(cart.checkoutStartedAt)}</dd>
             </div>
             <div>
               <dt>
-                <RefreshCcw />
+                <RefreshCcw aria-hidden="true" />
                 Son etkinlik
               </dt>
               <dd>{date(cart.lastActivityAt)}</dd>
             </div>
           </dl>
           {props.canManage && cart.status === "abandoned" ? (
-            <div className={styles.actions}>
+            <div className={styles.contactActions}>
               <button
                 type="button"
                 disabled={props.busy}
@@ -740,7 +731,7 @@ export function AbandonedCartDetailPresentation(
                 İletişim kuruldu
               </button>
               <label className={styles.noteField}>
-                <span>Merchant notu</span>
+                <span>Ekip notu</span>
                 <input
                   value={props.note}
                   maxLength={1000}
@@ -857,7 +848,7 @@ export function AbandonedCartDetailConsole({
       setNotice(
         kind === "contacted"
           ? "İletişim kuruldu olarak kaydedildi."
-          : "Merchant notu kaydedildi.",
+          : "Ekip notu kaydedildi.",
       );
       if (kind === "note") setNote("");
     } catch (failure) {

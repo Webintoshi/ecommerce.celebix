@@ -566,3 +566,139 @@
     padding: 8px;
   }
 }
+
+/* Open operational sections and compact scanning across inventory tasks. */
+.desktopTable,
+.lineTable,
+.desktopFormTable,
+.detailSummary,
+.actions,
+.operationForm,
+.receiptForm,
+.locationManager,
+.locationRenameDialog {
+  --inventory-accent: var(--cp-brand);
+  --inventory-text: var(--cp-text-primary);
+  --inventory-sidebar: var(--cp-action-primary-hover);
+  --inventory-canvas: var(--cp-canvas);
+  --inventory-surface: var(--cp-surface);
+  --inventory-border: var(--cp-border);
+  min-width: 0;
+}
+.desktopTable[hidden], .mobileCards[hidden] { display: none !important; }
+:is(.desktopTable, .lineTable, .desktopFormTable) { max-width: 100%; border-radius: 8px; }
+:is(.desktopTable, .lineTable, .desktopFormTable) :is(th, td) { padding: 12px 16px; font-size: 13px; }
+:is(.desktopTable, .lineTable, .desktopFormTable) th { color: var(--cp-text-secondary); font-weight: 500; }
+:is(.desktopTable, .lineTable, .desktopFormTable) td { color: var(--cp-text-primary); }
+.desktopTable a, .cardHeading a { font-weight: 600; }
+:is(.desktopTable, .lineTable, .desktopFormTable, .operationForm, .receiptForm, .locationManager, .locationRenameDialog, .actions) :is(button, a, input, select, summary):focus-visible,
+:is(.lineTable, .desktopFormTable):focus-visible {
+  outline: 2px solid var(--cp-text-primary);
+  outline-offset: 2px;
+}
+.listToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.searchField { width: min(100%, 360px); min-width: 0; }
+.listToolbar :is(input, select, button) {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--cp-border);
+  border-radius: 8px;
+  background: var(--cp-surface);
+  padding: 0 12px;
+  color: var(--cp-text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+.searchField input { width: 100%; }
+.listToolbar button { font-size: 13px; font-weight: 500; cursor: pointer; }
+.resultCount { color: var(--cp-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.detailSummary { gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--cp-border); padding-bottom: 20px; }
+.detailSummary > div { min-width: 0; min-height: 64px; border: 0; border-right: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 16px; gap: 8px; }
+.detailSummary > div:first-child { padding-left: 0; }
+.detailSummary > div:last-child { border-right: 0; }
+.detailSummary span { color: var(--cp-text-secondary); font-size: 12px; }
+.detailSummary strong { font-size: 15px; font-weight: 600; }
+.detailSummary code { color: var(--cp-text-primary); font-size: 12px; }
+.actions { gap: 8px; }
+.actions button, .error button, .desktopFormTable button, .mobileFormCards button, .receiptForm button, .secondaryAction { min-width: 44px; min-height: 44px; padding: 0 16px; font-size: 13px; font-weight: 600; }
+.operationForm, .receiptForm { gap: 16px; margin-top: 24px; padding-top: 24px; }
+.operationFormCreate { margin-top: 0; padding-top: 0; border-top: 0; }
+.operationForm header h2 { color: var(--cp-text-primary); font-size: 16px; font-weight: 600; }
+.operationForm form { gap: 24px; }
+.operationForm fieldset, .receiptForm fieldset { gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
+.operationForm legend, .receiptForm legend { padding: 0 0 16px; font-size: 14px; font-weight: 600; }
+.operationFields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+:is(.operationFields, .mobileFormCards, .receiptForm) label { min-width: 0; gap: 8px; font-size: 14px; font-weight: 500; }
+:is(.operationFields, .desktopFormTable, .mobileFormCards, .receiptForm) :is(input, select) { min-height: 44px; color: var(--cp-text-primary); font-size: 14px; }
+.operationForm .secondaryAction { margin: 0; justify-self: start; }
+.fieldCount { margin-left: 8px; color: var(--cp-text-secondary); font-size: 12px; font-weight: 500; }
+.lineHeading { color: var(--cp-text-secondary); font-size: 12px; font-weight: 500; }
+.locationManager { margin-bottom: 24px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
+.locationContent { display: grid; min-width: 0; gap: 16px; }
+.locationManager h2 { font-size: 16px; font-weight: 600; }
+.locationCreate { max-width: 640px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.locationCreate label { font-size: 14px; font-weight: 500; }
+.locationCreate :is(input, button), .locationActions button, .locationRenameDialog input, .locationRenameActions button { min-width: 0; min-height: 44px; padding: 0 12px; font-size: 14px; font-weight: 500; }
+.locationCreate button { border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); }
+.locationGrid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.locationCard { min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0; }
+.locationCard:last-child { border-bottom: 0; padding-bottom: 0; }
+.locationCard > div:first-child { min-width: 0; gap: 12px; justify-content: flex-start; }
+.locationCard strong { color: var(--cp-text-primary); font-size: 14px; font-weight: 600; }
+.locationCard :is(code, p) { grid-column: 1; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
+.locationActions { grid-column: 2; grid-row: 1 / span 4; align-self: center; }
+.locationActions button { color: var(--cp-text-primary); font-size: 13px; }
+.locationRenameDialog { padding: 24px; }
+.locationRenameDialog h3 { color: var(--cp-text-primary); font-size: 18px; font-weight: 600; }
+.locationRenameDialog > p { margin-top: 8px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.locationRenameDialog label { color: var(--cp-text-primary); font-size: 14px; font-weight: 500; }
+:is(.state, .denied, .error, .notice, .errorNotice, .conflict) { min-width: 0; border-radius: 8px; padding: 12px 16px; font-size: 14px; line-height: 1.5; }
+.state, .denied { border-color: var(--cp-border); background: transparent; color: var(--cp-text-secondary); }
+.error, .errorNotice { border-color: color-mix(in srgb, var(--cp-danger) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-danger) 5%, var(--cp-surface)); color: var(--cp-danger); }
+.notice { border-color: color-mix(in srgb, var(--cp-success) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-success) 5%, var(--cp-surface)); color: var(--cp-success); }
+.conflict { border-color: color-mix(in srgb, var(--cp-warning) 28%, var(--cp-border)); background: color-mix(in srgb, var(--cp-warning) 5%, var(--cp-surface)); color: var(--cp-warning); }
+@media (max-width: 1024px) {
+  .operationFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operationForm { padding-bottom: 0; }
+  .operationForm form > .actions { background: var(--cp-surface); }
+  .detailSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .detailSummary > div { border: 0; padding: 0; }
+}
+@media (max-width: 760px) {
+  .listToolbar { gap: 8px; }
+  .searchField { width: 100%; }
+  .statusFilter { flex: 1; min-width: 0; }
+  .statusFilter select { width: 100%; }
+  .operationFields { grid-template-columns: minmax(0, 1fr); }
+  .mobileCard { padding: 16px 0; border-color: var(--cp-border); }
+  .mobileCard dl { gap: 8px; }
+  .mobileCard dt { color: var(--cp-text-secondary); font-size: 12px; }
+  .mobileCard dd { color: var(--cp-text-primary); font-size: 13px; }
+  .cardHeading { gap: 8px; }
+  .mobileFormCards { gap: 16px; }
+  .mobileFormCards article { min-width: 0; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 16px; }
+  .operationForm fieldset, .receiptForm fieldset { padding: 0 0 20px; }
+  .locationCreate { grid-template-columns: minmax(0, 1fr); }
+  .locationCard { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .locationActions { grid-column: 1; grid-row: auto; grid-template-columns: 1fr 1fr; margin-top: 4px; }
+  .locationManager { padding: 0 0 20px; }
+  .locationRenameDialog { padding: 20px; }
+}
+.locationSection { min-width: 0; margin-bottom: 20px; border-top: 1px solid var(--cp-border); border-bottom: 1px solid var(--cp-border); }
+.locationSection > summary { display: flex; min-height: 44px; align-items: center; color: var(--cp-text-primary); font-size: 14px; font-weight: 500; cursor: pointer; }
+.locationSection > summary::after { margin-left: auto; content: "+"; color: var(--cp-text-secondary); }
+.locationSection[open] > summary::after { content: "−"; }
+.locationSection > summary:focus-visible { outline: 2px solid var(--cp-text-primary); outline-offset: 2px; }
+.locationSection .locationManager { margin: 16px 0 0; border-bottom: 0; }
+.cardHeading a { min-width: 0; overflow-wrap: anywhere; }
+.locationCard strong { min-width: 0; overflow-wrap: anywhere; }
+.locationCreate input, .locationRenameDialog input { min-width: 0; max-width: 100%; }
+.mobileCards { --inventory-accent: var(--cp-brand); --inventory-text: var(--cp-text-primary); }
+.cardHeading a { color: var(--cp-text-primary); }

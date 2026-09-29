@@ -2,6 +2,24 @@
 
 :root {
   color-scheme: light;
+  --cp-brand: #FE6100;
+  --cp-brand-soft: rgba(254, 97, 0, 0.06);
+  --cp-canvas: #F8F7F5;
+  --cp-surface: #FFFDFC;
+  --cp-soft: #F0EDE8;
+  --cp-border: #E7E2DD;
+  --cp-graphite: #2B2B2B;
+  --cp-text-primary: #2B2B2B;
+  --cp-text-secondary: #69635E;
+  --cp-text-muted: #69635E;
+  --cp-text-inverse: #FFFDFC;
+  --cp-action-primary: #2B2B2B;
+  --cp-action-primary-hover: #201C19;
+  --cp-action-primary-text: #FFFDFC;
+  --cp-success: #287452;
+  --cp-danger: #B0473F;
+  --cp-warning: #8A6019;
+  --cp-overlay: rgba(43, 43, 43, 0.4);
   --hemenaku-orange: #FF6A00;
   --hemenaku-orange-dark: #E85D04;
   --hemenaku-canvas: #F9F9F9;

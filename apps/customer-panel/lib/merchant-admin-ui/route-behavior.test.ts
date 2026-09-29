@@ -312,7 +312,7 @@ async function compileConsole(react: typeof React, api: ReturnType<typeof create
     if (specifier === "@/lib/provider-execution-ui/client") return { providerExecutionApi: { async profiles() { return Object.freeze([]); } } };
     if (specifier === "@/lib/merchant-admin-ui/record-route") return recordRoute;
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
-    if (specifier === "./merchant-module-console.module.css") return styles;
+    if (specifier.endsWith(".module.css")) return styles;
     throw new Error(`unexpected_merchant_console_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -644,7 +644,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     const trigger = definition.cardinality === "collection" ? (() => {
       try { return findElement(mounted.view, (element) => element.type === "button" && (
       action === "create"
-        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur")
+        ? textOf(element).includes("Yeni kayıt") || textOf(element).includes("Ayar oluştur") || textOf(element).includes("Bağlantı ekle") || textOf(element).includes("Kampanya ekle") || textOf(element).includes("Çark ekle") || textOf(element).includes("Yazı ekle") || textOf(element).includes("Sayfa ekle")
           || (definition.kind === "administrator_invite" && textOf(element).includes("Yönetici ekle"))
           || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
         : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
@@ -781,7 +781,7 @@ test("merchant route matrix invokes every actual page, production console, clien
   for (const kind of ["email_campaign", "phone_campaign", "whatsapp_campaign"] as const) {
     assert.ok(paths.includes(`/api/merchant-admin/records/${kind}`), `/marketing:${kind}`);
   }
-  assert.match(textOf(marketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Yönet/u);
+  assert.match(textOf(marketingView).replace(/\s+/gu, " "), /E-posta 1 Kampanya kaydı Kampanyaları yönet/u);
   const readOnlyMarketingHooks = createHookRuntime();
   const ReadOnlyMarketingOverview = await compileComponent(
     "../../components/merchant-admin/MerchantMarketingOverview.tsx",
@@ -798,7 +798,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     if (typeof element.props.href === "string") readOnlyDestinations.push(element.props.href);
   });
   assert.deepEqual(readOnlyDestinations, ["/marketing/email", "/marketing/phone", "/marketing/whatsapp"]);
-  assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Görüntüle/u);
+  assert.match(textOf(readOnlyMarketingView).replace(/\s+/gu, " "), /E-posta 1 Kampanya kaydı Kampanyaları gör/u);
 });
 
 test("merchant non-default route matrix invokes generic record pages and exact create update handlers across success conflict and replay", async () => {

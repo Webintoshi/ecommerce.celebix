@@ -1,4 +1,5 @@
 import { merchantAdminConfig } from "@celebix/saas-data";
+import { MERCHANT_MODULE_DEFINITIONS } from "@/lib/merchant-admin-ui/presentation";
 import { getSettingsMerchantFixture, postSettingsMerchantFixture } from "../../settings-presentation-fixture";
 
 const NOW = "2026-07-22T19:00:00.000Z";
@@ -61,6 +62,15 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   if (slug.join("/") === "events/seo_product_entry") return Response.json({ items: [] });
   if (slug.join("/") === "records/general_setting") return Response.json({ items: [generalRecord()] });
   if (slug.join("/") === "events/general_setting") return Response.json({ items: [] });
+  const fixtureDefinition = MERCHANT_MODULE_DEFINITIONS.find(definition => definition.kind === slug[1] && definition.family !== "settings" && definition.kind !== "policy");
+  if (fixtureDefinition && (slug[0] === "records" || slug[0] === "events")) {
+    if (slug[0] === "events") return Response.json({ items: [] });
+    if (Object.hasOwn(PROVIDER_RECORDS, fixtureDefinition.kind)) return Response.json(providerRecord(fixtureDefinition.kind as ProviderRecordKind));
+    const sample: Record<string, unknown> = { metaTitle: "Yeni sezon koleksiyonu", metaDescription: "Günlük kullanım için özenle seçilen ürünler.", body: "Yeni sezon koleksiyonumuz mağazada.", excerpt: "Yeni koleksiyonu keşfedin.", slug: "yeni-sezon", locale: "tr-TR", legalName: "Örnek Mağazacılık", taxNumber: "1234567890", taxOffice: "Örnek vergi dairesi", invoiceEmail: "fatura@example.test", campaignMessage: "Şansını dene", prizeLabels: "Ücretsiz kargo", terms: "Günde bir katılım.", canonicalPath: "/urunler/yeni-sezon", title: "Yeni sezon", description: "Koleksiyonu keşfedin.", provider: "Yerel test", businessName: "Örnek Mağaza", businessCategory: "Perakende", sourcePath: "/koleksiyonlar", targetPath: "/urunler", anchorText: "Koleksiyonu keşfet", publicIdentifier: "demo-public-id", resourceId: PRODUCT_RESOURCE, reason: "Yeni yayın", changeFrequency: "weekly" };
+    const config = Object.fromEntries(fixtureDefinition.fields.map(field => [field.key, sample[field.key] ?? (field.type === "boolean" ? true : field.type === "number" ? 1 : field.type === "string-list" ? ["İstanbul"] : field.type === "enum" ? field.allowedValues?.[0] : "Yerel test")]));
+    const item = { id: RECORD, kind: fixtureDefinition.kind, name: `${fixtureDefinition.title} örnek kaydı`, config, status: "draft", version: 1, createdAt: NOW, updatedAt: NOW };
+    return Response.json(slug[2] ? item : { items: [item] });
+  }
   return Response.json({ code: "invalid_input" }, { status: 400 });
 }
 

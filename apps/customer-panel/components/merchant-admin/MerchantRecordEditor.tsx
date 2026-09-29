@@ -1,18 +1,51 @@
 "use client";
 
 import type { MerchantAdminJson, MerchantAdminRecord, MerchantAdminRecordKind } from "@celebix/saas-contracts";
+import { ArrowLeft, FileText, Mail, MessageCircle, Search, Unplug } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import {
+  formatMerchantAdminConfig,
   getMerchantModuleDefinition,
   type MerchantModuleFieldDefinition,
 } from "@/lib/merchant-admin-ui/presentation";
 
 import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
 import styles from "./merchant-module-console.module.css";
+import operations from "./merchant-operations.module.css";
+
+function RecordPreview({ kind, config, name }: { kind: MerchantAdminRecordKind; config: Readonly<Record<string, MerchantAdminJson>>; name: string }) {
+  const text = (key: string) => typeof config[key] === "string" ? String(config[key]) : "";
+  const definition = getMerchantModuleDefinition(kind);
+  const isSeo = definition.family === "seo";
+  const isCampaign = definition.family === "marketing";
+  const visualPreview = isCampaign || isSeo && definition.fields.some(field => field.key === "metaTitle" || field.key === "title") || ["blog_post", "page", "lucky_wheel"].includes(kind);
+  const summary = visualPreview ? [] : formatMerchantAdminConfig(definition, config);
+  const title = text("metaTitle") || text("subject") || text("title") || text("campaignMessage") || name || (visualPreview ? "Başlık" : "Kayıt");
+  const body = text("metaDescription") || text("description") || text("excerpt") || text("message") || text("script") || text("content") || text("body");
+  const Icon = isSeo ? Search : isCampaign ? kind === "email_campaign" ? Mail : MessageCircle : definition.execution === "provider_required" ? Unplug : FileText;
+  const prizes = text("prizeLabels").split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+  return <aside className={operations.preview} aria-label="Kayıt önizlemesi">
+    <h2>{kind === "lucky_wheel" ? "Ödül havuzu" : visualPreview ? "Önizleme" : "Kayıt özeti"}</h2>
+    <div className={operations.previewBody}>
+      {kind === "lucky_wheel" ? <svg className={operations.wheel} viewBox="0 0 160 160" aria-hidden="true"><circle cx="80" cy="80" r="68" fill="var(--cp-soft)" stroke="var(--cp-border)" strokeWidth="2"/><path d="M80 80V12a68 68 0 0 1 59 34Z" fill="var(--cp-brand-soft)"/><path d="M80 12v136M12 80h136M32 32l96 96M32 128l96-96" stroke="var(--cp-border)" strokeWidth="2"/><circle cx="80" cy="80" r="16" fill="var(--cp-surface)" stroke="var(--cp-graphite)" strokeWidth="2"/><path d="m72 4 8 16 8-16" fill="var(--cp-brand)"/></svg> : <Icon aria-hidden="true" />}
+      <h3>{title}</h3>
+      {isSeo && visualPreview && (text("canonicalPath") || text("sourcePath")) ? <small>{text("canonicalPath") || text("sourcePath")}</small> : null}
+      {body && visualPreview ? <p>{body.length > 360 ? `${body.slice(0, 360)}…` : body}</p> : null}
+      {summary.length ? <dl className={operations.previewSummary}>{summary.map(({label, value}) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : null}
+      {kind === "lucky_wheel" ? prizes.length ? <ol>{prizes.map((prize, index) => <li key={`${index}:${prize}`}>{prize}</li>)}</ol> : <p>Eklediğiniz ödüller burada görünür.</p> : null}
+      {text("provider") && visualPreview ? <p>{text("provider")}{text("merchantReference") || text("accountReference") ? ` · ${text("merchantReference") || text("accountReference")}` : ""}</p> : null}
+      {text("audience") ? <small>{text("audience")}</small> : null}
+      {text("scheduledAt") ? <small>{text("scheduledAt")}</small> : null}
+    </div>
+    {text("metaTitle") || text("metaDescription") ? <p className={operations.previewCaption}><span>Başlık {text("metaTitle").length}</span><span>Açıklama {text("metaDescription").length}</span></p> : null}
+    {definition.execution === "provider_required" ? <p className={operations.previewCaption}>Kaydetmek harici işlemi başlatmaz.</p> : null}
+  </aside>;
+}
 
 function inputValue(record: MerchantAdminRecord | undefined, key: string) {
   const value = record?.config[key];
@@ -145,6 +178,8 @@ export function MerchantRecordEditor({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [preview, setPreview] = useState<Readonly<{ name: string; config: Readonly<Record<string, MerchantAdminJson>> }> | null>(null);
   const requestSequence = useRef(0);
   const activeSubmission = useRef<number | undefined>(undefined);
   const submissionSequence = useRef(0);
@@ -158,6 +193,8 @@ export function MerchantRecordEditor({
     setError("");
     setRecord(undefined);
     setLoadSucceeded(false);
+    setDirty(false);
+    setPreview(null);
     try {
       const selected = recordId === undefined ? undefined : await merchantAdminApi.record(kind, recordId);
       if (requestSequence.current !== sequence) return;
@@ -174,6 +211,13 @@ export function MerchantRecordEditor({
     void load();
     return () => { requestSequence.current += 1; };
   }, [load]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -194,6 +238,7 @@ export function MerchantRecordEditor({
         status: data.get("status") === "active" ? "active" : "draft",
       });
       if (requestSequence.current === sequence) {
+        setDirty(false);
         router.push(returnTo);
         router.refresh();
       }
@@ -216,6 +261,44 @@ export function MerchantRecordEditor({
   </PanelPageShell>;
 
   const title = recordId === undefined ? `Yeni ${definition.singular}` : `${definition.singular} düzenle`;
+
+  if (definition.family !== "settings") {
+    const contentFields = definition.fields.filter(field => field.type === "textarea" || field.type === "string-list");
+    const optionFields = definition.fields.filter(field => field.type === "boolean" || field.type === "enum-list");
+    const otherFields = definition.fields.filter(field => !contentFields.includes(field) && !optionFields.includes(field));
+    const renderField = (field: MerchantModuleFieldDefinition) => field.type === "enum-list" ? <fieldset disabled={busy} className={operations.wide} key={field.key}>
+      <legend>{field.label}</legend>{field.allowedValues?.map(value => <label className={operations.checkLabel} key={value}><input disabled={busy} name={field.key} type="checkbox" value={value} defaultChecked={enumListDefaultChecked(record, field.key, value)} /><span>{field.optionLabels?.[value] ?? value}</span></label>)}
+    </fieldset> : <label className={field.type === "textarea" || field.type === "string-list" ? operations.wide : undefined} key={field.key}>
+      {field.label}{field.required ? <span className="sr-only"> zorunlu</span> : null}
+      {field.type === "textarea" || field.type === "string-list" ? <textarea disabled={busy} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} /> : field.type === "boolean" ? <span className={operations.toggle}><input disabled={busy} name={field.key} type="checkbox" defaultChecked={record?.config[field.key] === true} /><span>Etkin</span></span> : field.type === "enum" || field.type === "number" && field.allowedValues ? <select disabled={busy} name={field.key} required={field.required} defaultValue={inputValue(record, field.key)}><option value="">Seçin</option>{field.allowedValues?.map(value => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select> : <input disabled={busy} name={field.key} required={field.required} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : field.type === "datetime" ? "0.001" : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={field.type === "datetime" ? dateTimeInputValue(record, field.key) : inputValue(record, field.key)} />}
+    </label>;
+    const previewValue = preview ?? { name: record?.name ?? "", config: record?.config ?? {} };
+    return <div className={operations.workspace}><PanelPageShell>
+      <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
+      <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> {definition.title}</Link>
+      {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+        {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
+        {loadSucceeded ? <div className={operations.editLayout}>
+          <form key={`${kind}:${recordId ?? "new"}`} className={operations.form} aria-busy={busy} onSubmit={submit} onInput={event => {
+            const data = new FormData(event.currentTarget);
+            const config: Record<string, MerchantAdminJson> = {};
+            for (const field of definition.fields) config[field.key] = field.type === "boolean" ? data.get(field.key) === "on" : field.type === "enum-list" ? data.getAll(field.key).filter((value): value is string => typeof value === "string") : String(data.get(field.key) ?? "");
+            setPreview({ name: String(data.get("name") ?? ""), config }); setDirty(true);
+          }}>
+            <section><h2>{recordId ? record?.name || "Kayıt" : "Kayıt bilgileri"}</h2><div className={operations.fields}>
+              <label>Ad<input disabled={busy} name="name" required maxLength={160} defaultValue={record?.name ?? ""} /></label>
+              <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+              {otherFields.map(renderField)}
+            </div></section>
+            {contentFields.length ? <section><h2>{definition.family === "marketing" ? "Mesaj" : kind === "lucky_wheel" ? "Ödüller ve koşullar" : "İçerik"}</h2><div className={operations.fields}>{contentFields.map(renderField)}</div></section> : null}
+            {optionFields.length ? <section><h2>Tercihler</h2><div className={operations.fields}>{optionFields.map(renderField)}</div></section> : null}
+            <footer className={operations.saveBar}><span role="status">{busy ? "Kaydediliyor…" : dirty ? "Kaydedilmedi" : record ? `v${record.version}` : "Taslak"}</span><div><Link href={returnTo} className={styles.button} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div></footer>
+          </form>
+          <RecordPreview kind={kind} config={previewValue.config} name={previewValue.name} />
+        </div> : null}
+      </>}
+    </PanelPageShell></div>;
+  }
   if (!canManage) {
     return <PanelPageShell><PanelPageHeader title={title} description={definition.description} /><p className={styles.error} role="alert">Bu kayıt için düzenleme yetkiniz yok.</p></PanelPageShell>;
   }

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-28T23:08:28.083Z",
+  "readOnly": true,
+  "image": "e4xe74cmii7jucbkyor0o412:cae4871c6619ce222c69bc599414df48b1b96b8e",
+  "container": "e4xe74cmii7jucbkyor0o412-230413292468",
+  "sourceCommit": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+  "sourceMatches": true,
+  "files": [
+    {
+      "path": "apps/customer-panel/app/analytics/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/content/policies/page.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/CommerceAnalyticsWorkspace.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/SalesTrendChart.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/commerce-analytics-workspace.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/sales-trend-chart.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDescriptionField.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDescriptionPreview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/PolicyBodyField.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/PolicyConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-body-field.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-console.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/policy-navigation-recovery.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/analytics-ui/commerce-insights.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/analytics-ui/traffic.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/policy-body-editor.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/proxy.ts",
+      "matches": true
+    }
+  ],
+  "routes": [
+    {
+      "path": "/content/policies/page",
+      "manifestEntry": true,
+      "compiledFile": true
+    },
+    {
+      "path": "/content/policies/[policyKey]/edit/page",
+      "manifestEntry": true,
+      "compiledFile": true
+    }
+  ],
+  "passed": true
+}

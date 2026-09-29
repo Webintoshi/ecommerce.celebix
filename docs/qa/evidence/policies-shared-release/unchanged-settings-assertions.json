@@ -1,0 +1,195 @@
+{
+  "baseline": "e6a1cc9f95369475a0addd24f4847509050c6777",
+  "candidate": "cae4871c6619ce222c69bc599414df48b1b96b8e",
+  "testFile": "apps/customer-panel/lib/mira-settings-presentation.test.ts",
+  "assertions": [
+    {
+      "name": "settings and remaining-route controls use the Mira palette without decorative provider colors",
+      "callbackByteIdentical": false,
+      "candidateCallbackSha256": "b35bf033bebc560bfb4622316011939fe0eef13d5c36c6b926795c329dbaef0d",
+      "equivalentAfterOnlyRemovingObsoletePolicyCssChecks": true,
+      "candidateAssertionCount": 10,
+      "allCandidateAssertCallsByteIdenticalToBaseline": true,
+      "inputs": [
+        {
+          "path": "apps/customer-panel/components/merchant-admin/merchant-family-overview.module.css",
+          "baselineBlob": "91b3f7f0da128b5be3148a4b42e42fc5ed793112",
+          "candidateBlob": "91b3f7f0da128b5be3148a4b42e42fc5ed793112",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/merchant-admin/merchant-module-console.module.css",
+          "baselineBlob": "7f6bbe5812236530d9ac3fd86b2e93245d22e9b0",
+          "candidateBlob": "7f6bbe5812236530d9ac3fd86b2e93245d22e9b0",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/design-settings.module.css",
+          "baselineBlob": "6b4a2199376a9571a4357a7e0696af56f659c5b8",
+          "candidateBlob": "6b4a2199376a9571a4357a7e0696af56f659c5b8",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/domains/store-domain-settings.module.css",
+          "baselineBlob": "465e8a088753c3159c7b901152f1add2bd2b7a47",
+          "candidateBlob": "465e8a088753c3159c7b901152f1add2bd2b7a47",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/payment/payment-settings.module.css",
+          "baselineBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "candidateBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/shipping/shipping-settings.module.css",
+          "baselineBlob": "14b297ba256d348f91dc993169e77336183c66ec",
+          "candidateBlob": "14b297ba256d348f91dc993169e77336183c66ec",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/toshi-settings/artificial-intelligence-settings.module.css",
+          "baselineBlob": "9e161978410b52c51fa5b2de31e6fb9f5942c000",
+          "candidateBlob": "9e161978410b52c51fa5b2de31e6fb9f5942c000",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/toshi/toshi.module.css",
+          "baselineBlob": "ea08bbe8cfd864541ff0b01f47c9094ceaf6f46c",
+          "candidateBlob": "ea08bbe8cfd864541ff0b01f47c9094ceaf6f46c",
+          "byteIdentical": true
+        }
+      ]
+    },
+    {
+      "name": "secondary settings controls expose 44px targets, visible focus, and warm editor chrome",
+      "callbackByteIdentical": true,
+      "candidateCallbackSha256": "8060ffbcde70265a00fbf8b54ad9beea74b6a79c782b80feb3ba770cd8e2f461",
+      "equivalentAfterOnlyRemovingObsoletePolicyCssChecks": true,
+      "candidateAssertionCount": 10,
+      "allCandidateAssertCallsByteIdenticalToBaseline": true,
+      "inputs": [
+        {
+          "path": "apps/customer-panel/components/merchant-admin/provider-connection-panel.module.css",
+          "baselineBlob": "4521a158a887e5ffc8cdca98fc2ed23bbb62694d",
+          "candidateBlob": "4521a158a887e5ffc8cdca98fc2ed23bbb62694d",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/design-settings.module.css",
+          "baselineBlob": "6b4a2199376a9571a4357a7e0696af56f659c5b8",
+          "candidateBlob": "6b4a2199376a9571a4357a7e0696af56f659c5b8",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/domains/store-domain-settings.module.css",
+          "baselineBlob": "465e8a088753c3159c7b901152f1add2bd2b7a47",
+          "candidateBlob": "465e8a088753c3159c7b901152f1add2bd2b7a47",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/payment/payment-settings.module.css",
+          "baselineBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "candidateBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/shipping/shipping-settings.module.css",
+          "baselineBlob": "14b297ba256d348f91dc993169e77336183c66ec",
+          "candidateBlob": "14b297ba256d348f91dc993169e77336183c66ec",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/toshi-settings/artificial-intelligence-settings.module.css",
+          "baselineBlob": "9e161978410b52c51fa5b2de31e6fb9f5942c000",
+          "candidateBlob": "9e161978410b52c51fa5b2de31e6fb9f5942c000",
+          "byteIdentical": true
+        }
+      ]
+    },
+    {
+      "name": "settings forms collapse at tablet width and analytics settings own isolated styles",
+      "callbackByteIdentical": false,
+      "candidateCallbackSha256": "8d803e32294abce6e2525efcc19950d5fb91bc2b08b621c986648bc99086b9a4",
+      "equivalentAfterOnlyRemovingObsoletePolicyCssChecks": true,
+      "candidateAssertionCount": 5,
+      "allCandidateAssertCallsByteIdenticalToBaseline": true,
+      "inputs": [
+        {
+          "path": "apps/customer-panel/components/analytics/AnalyticsSettingsConsole.tsx",
+          "baselineBlob": "8ca6c5c04b97dc29c8e9de5fa5b68adceaae11b1",
+          "candidateBlob": "8ca6c5c04b97dc29c8e9de5fa5b68adceaae11b1",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/analytics/CommerceAnalyticsWorkspace.tsx",
+          "baselineBlob": "80247a60ed5b3eeb170e8dc008e28365f625a332",
+          "candidateBlob": "80247a60ed5b3eeb170e8dc008e28365f625a332",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/merchant-admin/merchant-module-console.module.css",
+          "baselineBlob": "7f6bbe5812236530d9ac3fd86b2e93245d22e9b0",
+          "candidateBlob": "7f6bbe5812236530d9ac3fd86b2e93245d22e9b0",
+          "byteIdentical": true
+        },
+        {
+          "path": "apps/customer-panel/components/settings/payment/payment-settings.module.css",
+          "baselineBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "candidateBlob": "205e40ae1228800a97f3a242fa06d269d43bc27d",
+          "byteIdentical": true
+        }
+      ]
+    },
+    {
+      "name": "domain failure is not rendered as an empty domain collection or a duplicate page hero",
+      "callbackByteIdentical": true,
+      "candidateCallbackSha256": "2866185d73cac3c516ed53d5b3dc28f0e65d184766af84cd7db8b1246f787451",
+      "equivalentAfterOnlyRemovingObsoletePolicyCssChecks": true,
+      "candidateAssertionCount": 3,
+      "allCandidateAssertCallsByteIdenticalToBaseline": true,
+      "inputs": [
+        {
+          "path": "apps/customer-panel/components/settings/domains/StoreDomainSettings.tsx",
+          "baselineBlob": "c8d455980ac725598546b0a3a9aba892d2f1788b",
+          "candidateBlob": "c8d455980ac725598546b0a3a9aba892d2f1788b",
+          "byteIdentical": true
+        }
+      ]
+    }
+  ],
+  "helpers": [
+    {
+      "name": "CUSTOMER_PANEL",
+      "byteIdentical": true
+    },
+    {
+      "name": "REPOSITORY",
+      "byteIdentical": true
+    },
+    {
+      "name": "panelSource",
+      "byteIdentical": true
+    },
+    {
+      "name": "repositorySource",
+      "byteIdentical": true
+    },
+    {
+      "name": "declarations",
+      "byteIdentical": true
+    },
+    {
+      "name": "rootDeclarations",
+      "byteIdentical": true
+    }
+  ],
+  "sharedTestSupport": {
+    "path": "apps/customer-panel/lib/mira-final-test-support.ts",
+    "baselineBlob": "3c95abb77e405e65e1a77c9c342aa115d4fe62cc",
+    "candidateBlob": "3c95abb77e405e65e1a77c9c342aa115d4fe62cc",
+    "byteIdentical": true
+  },
+  "conclusion": "Two callbacks are byte-identical; the other two differ only by removal of obsolete Policy CSS inputs/checks, separately replaced by new Policy presentation coverage. All remaining assertion calls, every referenced production input, the six reading/CSS helpers and shared test support are byte-identical to live Analytics baseline. Four settings/domain failures are pre-existing source assertion mismatches, not introduced by Policies.",
+  "equivalenceMethod": "TypeScript AST structure and literal/identifier contents after deleting only obsolete policyCss binding, source-read/loop entries and direct policyCss assertion; position/trivia excluded. Assertion call text and input git blobs compared exactly."
+}

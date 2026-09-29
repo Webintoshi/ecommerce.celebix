@@ -1072,19 +1072,20 @@ test("mounted cancel conflict refreshes authoritative rows and moves focus to re
   assert.equal(console.focusLog.length > 0, true);
 });
 
-test("responsive table/cards, 48px targets, and visible focus stay in the accepted panel tokens", async () => {
+test("responsive table/cards, touch targets, and visible focus use shared panel tokens", async () => {
   const styles = await source("components/orders/quick-order-links.module.css");
-  assert.match(styles, /#F8F7F5/i);
-  assert.match(styles, /#FE6100/i);
-  assert.match(styles, /#E7E2DD/i);
-  assert.match(styles, /min-height:\s*48px/);
+  assert.match(styles, /var\(--cp-canvas\)/);
+  assert.match(styles, /var\(--cp-graphite\)/);
+  assert.match(styles, /var\(--cp-border\)/);
+  assert.match(styles, /min-height:\s*44px/);
   assert.match(styles, /:focus-visible/);
-  assert.match(styles, /@media\s*\(max-width:\s*1024px\)[^]*\.desktopTable\s*\{\s*display:\s*none/s);
-  assert.match(styles, /@media\s*\(min-width:\s*1025px\)[^]*\.mobileCards\s*\{\s*display:\s*none/s);
+  assert.match(styles, /@media\s*\(max-width:\s*760px\)[^]*\.desktopTable\s*\{\s*display:\s*none/s);
+  assert.match(styles, /\.mobileCards\s*\{\s*display:\s*none/);
+  assert.match(styles, /@media\s*\(max-width:\s*760px\)[^]*\.mobileCards\s*\{\s*display:\s*grid/s);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(
     styles,
-    /[.]console [.]searchField input\s*\{[\s\S]*?padding-left:\s*2[.]5rem;/,
+    /[.]searchField\s*\{[\s\S]*?display:\s*flex;/,
   );
 });
 

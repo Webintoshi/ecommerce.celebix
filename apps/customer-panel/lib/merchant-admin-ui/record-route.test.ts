@@ -116,6 +116,8 @@ async function compileMerchantRecordEditor(overrides: Readonly<{
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return overrides.react;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => (props: Record<string, unknown>) => createElement("svg", props) });
+    if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "next/navigation") return { useRouter: () => ({ push: overrides.push, refresh() {} }) };
     if (specifier === "@/components/panel/PanelPageShell") return {
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
@@ -123,7 +125,8 @@ async function compileMerchantRecordEditor(overrides: Readonly<{
     };
     if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError: CompiledMerchantAdminApiError, merchantAdminApi: Object.freeze({ record: overrides.record, save: overrides.save }) };
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
-    if (specifier === "./merchant-module-console.module.css") return styles;
+    if (specifier === "@/components/settings/SettingsRecordForm") return { SettingsRecordForm: () => null };
+    if (specifier.endsWith(".module.css")) return styles;
     throw new Error(`unexpected_merchant_record_editor_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);

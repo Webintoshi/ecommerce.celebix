@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-28T23:14:14.235Z",
+  "client": "curl defaultTLS Mozilla/5.0; no authentication or cookies",
+  "results": [
+    {
+      "host": "alpler-spor.admin.saas-staging.celebix.net",
+      "central": false,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "ok",
+          "redis": "ready"
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://alpler-spor.admin.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://alpler-spor.admin.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "butik-siora.admin.saas-staging.celebix.net",
+      "central": false,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "ok",
+          "redis": "ready"
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://butik-siora.admin.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://butik-siora.admin.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "central": false,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "ok",
+          "redis": "ready"
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "admin.guzidekuyumcu.com",
+      "central": false,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "ok",
+          "redis": "ready"
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://admin.guzidekuyumcu.com/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://admin.guzidekuyumcu.com/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "admin.guzidekuyumcu.com.tr",
+      "central": false,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "ok",
+          "redis": "ready"
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://admin.guzidekuyumcu.com.tr/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://admin.guzidekuyumcu.com.tr/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "panel.saas-staging.celebix.net",
+      "central": true,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 404,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "not_found",
+          "redis": null
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://panel.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://panel.saas-staging.celebix.net/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    },
+    {
+      "host": "panel.saas-staging.celebix.site",
+      "central": true,
+      "checks": [
+        {
+          "path": "/api/health",
+          "httpStatus": 404,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null,
+          "status": "not_found",
+          "redis": null
+        },
+        {
+          "path": "/content/policies",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://panel.saas-staging.celebix.site/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/content/policies/privacy_security/edit",
+          "httpStatus": 307,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": "https://panel.saas-staging.celebix.site/login",
+          "loginGuard": true
+        },
+        {
+          "path": "/login",
+          "httpStatus": 200,
+          "transportOK": true,
+          "curlExit": 0,
+          "redirect": null
+        }
+      ]
+    }
+  ]
+}

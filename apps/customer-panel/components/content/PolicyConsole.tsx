@@ -269,7 +269,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   return <PanelPageShell embedded={embedded}>
     {!embedded ? <PanelTopbarBridge title="Politikalar" /> : null}
     <div className={styles.page}>
-      <h1 className={styles.srOnly}>Politikalar</h1>
+      {!embedded ? <h1 className={styles.srOnly}>Politikalar</h1> : null}
       <div className={styles.overview}>
         <dl className={styles.summary} aria-label="Politika özeti">
           <div className={styles.total}><dt className={styles.srOnly}>Mağaza metinleri</dt><dd>{items.length}<span>metin</span></dd></div>

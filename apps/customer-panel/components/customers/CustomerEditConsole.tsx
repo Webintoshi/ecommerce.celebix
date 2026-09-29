@@ -135,17 +135,18 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
     } finally { if (requestSequence.current === sequence) setBusy(false); }
   }
 
-  if (error && (!customer || customer.id !== customerId)) return <PanelPageShell><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
-  if (!customer || customer.id !== customerId) return <PanelPageShell><p className={styles.state} role="status">Müşteri hazırlanıyor…</p></PanelPageShell>;
+  if (error && (!customer || customer.id !== customerId)) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
+  if (!customer || customer.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.state} role="status">Müşteri hazırlanıyor…</p></PanelPageShell>;
   return (
     <PanelPageShell>
       <Link className={styles.back} href={`/customers/${encodeURIComponent(customer.id)}`}>← Müşteri ayrıntılarına dön</Link>
-      <PanelPageHeader title="Müşteriyi Düzenle" description="İletişim, izin ve adres defterini güvenli kayıt sürümüyle güncelleyin." />
+      <h1 className="sr-only">{customer.displayName} müşteri kaydını düzenle</h1>
+      <PanelPageHeader title="Müşteriyi Düzenle" />
       <form className={styles.form} onSubmit={submit}>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <section className={styles.section} aria-labelledby="customer-edit-contact-title">
           <div className={styles.sectionHeader}>
-            <div><h2 id="customer-edit-contact-title">Müşteri bilgileri</h2><p>Kimlik ve iletişim bilgilerini güncelleyin.</p></div>
+            <div><h2 id="customer-edit-contact-title">Müşteri bilgileri</h2><p>{customer.displayName}</p></div>
           </div>
           <div className={styles.grid}>
             <label>Ad<input name="firstName" autoComplete="given-name" defaultValue={customer.firstName} required maxLength={100} /></label>
@@ -182,7 +183,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
         </section>
 
         <section className={styles.section} aria-labelledby="customer-edit-consent-title">
-          <div className={styles.sectionHeader}><div><h2 id="customer-edit-consent-title">İletişim izinleri</h2><p>Kanal izinleri açık ve kalıcı kayıtla güncellenir.</p></div></div>
+          <div className={styles.sectionHeader}><div><h2 id="customer-edit-consent-title">İletişim izinleri</h2><p>Yalnız müşterinin izin verdiği kanalları seçin.</p></div></div>
           <div className={styles.checks}>{(["email", "phone", "whatsapp"] as const).map((channel) => <label className={styles.check} key={channel}><input name={`${channel}Consent`} type="checkbox" defaultChecked={customer.consents.some((consent) => consent.channel === channel && consent.status === "granted")} />{channel === "email" ? "E-posta" : channel === "phone" ? "Telefon" : "WhatsApp"}</label>)}</div>
         </section>
         <footer className={styles.actions}><Link className={styles.button} href={`/customers/${encodeURIComponent(customer.id)}`}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}</button></footer>
