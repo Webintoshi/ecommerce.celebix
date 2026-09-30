@@ -56,3 +56,5 @@ Meaningful failing tests before implementation; real PostgreSQL authority/versio
 - Fresh final verification before source commit: native PostgreSQL17/17; storefront606 server +8 preview tests; focused admin/HTTP/supervisor20/20; contract validation +client compatibility9/9. Panel and storefront typechecks pass. Narrow independent review closed both findings.
 - Backup prepared remotely before180, private mode0600,10,466,796 bytes; source specs and snapshots remain private.
 - Preserved incoming Güzide checkout release c632f554; source test conflict resolved by retaining the real empty product-row render test, rather than the incoming literal source assertion.
+- Live SQL180 applied with71 protected rows unchanged,1,704 native resources; no migration conflicts or fill changes in this deployment.
+- Additional SQL181 guards canonical targets that later become noindex. Four native scenarios passed including four target kinds, atomic rejection and public/sitemap fallback. SQL180 source checksum remains frozen.
