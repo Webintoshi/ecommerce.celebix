@@ -66,6 +66,16 @@ export type HomepageSectionId = `home_${string}`;
 type WithHomepageSectionId<T> = T extends object ? Readonly<T & { sectionId: HomepageSectionId }> : never;
 export type StarterThemeSectionConfigV3 = WithHomepageSectionId<StarterThemeSectionConfigV2>;
 
+export type HomepageSectionStyle = Readonly<{ background: "theme" | "light" | "dark" | "brand"; width: "contained" | "full"; spacing: "small" | "normal" | "large" }>;
+export type BannerMediaReference = Readonly<{ kind: "media"; mediaId: string } | { kind: "asset"; assetId: string } | { kind: "legacy_https"; url: string }> | null;
+export type BannerDestination = Readonly<{ kind: "none" } | { kind: "product" | "collection" | "page"; resourceId: string } | { kind: "path"; path: string }>;
+export type HomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: BannerMediaReference; mobileImage: BannerMediaReference; destination: BannerDestination; eyebrow?: string; productId?: string }>;
+export type StarterThemeSectionConfigV4 = Readonly<(
+  | Exclude<StarterThemeSectionConfigV3, { kind: "hero" }>
+  | { kind: "product_row"; sectionId: HomepageSectionId; enabled: boolean; heading: string; source: "manual"; productIds: readonly string[]; limit: 4 | 8 | 12 }
+  | { kind: "banner"; sectionId: HomepageSectionId; enabled: boolean; layout: "single" | "slider" | "stacked"; autoplay: boolean; presentation: "image_only" | "overlay"; slides: readonly HomepageBannerSlide[] }
+) & { style?: HomepageSectionStyle }>;
+
 export type StarterFixedPolicyKey = "privacy_security" | "distance_sales" | "kvkk" | "payment_delivery" | "cookie_usage" | "returns_exchange" | "membership";
 export type StarterFooterLinkConfig =
   | Readonly<{ kind: "fixed_policy"; policyKey: StarterFixedPolicyKey }>
@@ -136,7 +146,8 @@ export type StarterThemeCompositionConfigV3 = Readonly<{
   footer: StarterFooterConfig;
 }>;
 
-export type StarterThemeComposition = StarterThemeCompositionConfig | StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3;
+export type StarterThemeCompositionConfigV4 = Readonly<Omit<StarterThemeCompositionConfigV3, "schemaVersion" | "sections"> & { schemaVersion: 4; sections: readonly StarterThemeSectionConfigV4[] }>;
+export type StarterThemeComposition = StarterThemeCompositionConfig | StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 | StarterThemeCompositionConfigV4;
 
 export type PublicStarterNavigationItem = Readonly<{
   name: string;
@@ -170,7 +181,10 @@ type PublicStarterHomeSectionContent =
   | Readonly<{ kind: "value_propositions"; items: readonly Readonly<{ icon: StarterValueIcon; heading: string; body: string }>[] }>
   | Readonly<{ kind: "testimonials"; heading: string; items: readonly PublicStarterReview[] }>;
 
-export type PublicStarterHomeSection = PublicStarterHomeSectionContent & Readonly<{ sectionId?: HomepageSectionId }>;
+export type PublicHomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: PublicStorefrontAsset | null; mobileImage: PublicStorefrontAsset | null; destination: string | null; eyebrow?: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number; currency: "TRY" }> }>;
+export type PublicStarterHomeSection = (PublicStarterHomeSectionContent
+  | Readonly<{ kind: "banner"; layout: "single" | "slider" | "stacked"; autoplay: boolean; presentation: "image_only" | "overlay"; slides: readonly PublicHomepageBannerSlide[] }>
+  | Readonly<{ kind: "product_row"; key: string; heading: string; source: "manual"; limit: 4 | 8 | 12; productIds?: readonly string[] }>) & Readonly<{ sectionId?: HomepageSectionId; style?: HomepageSectionStyle }>;
 
 export type PublicStarterFooter = Readonly<{
   tone: "light" | "dark";
@@ -268,7 +282,8 @@ export type PublicStarterThemePresentationV3 = Readonly<{
   seo: PublicStarterThemePresentationV1["seo"];
 }>;
 
-export type PublicStarterThemePresentation = PublicStarterThemePresentationV1 | PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+export type PublicStarterThemePresentationV4 = Readonly<Omit<PublicStarterThemePresentationV3, "schemaVersion"> & { schemaVersion: 4 }>;
+export type PublicStarterThemePresentation = PublicStarterThemePresentationV1 | PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
 
 export type PublicStorefront = Readonly<{
   schemaVersion: 2;

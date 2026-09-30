@@ -1,4 +1,4 @@
-import type { StarterThemeCompositionConfigV3 } from "../storefront/types.ts";
+import type { StarterThemeCompositionConfigV3, StarterThemeCompositionConfigV4 } from "../storefront/types.ts";
 
 export function createDefaultStarterThemeComposition(): StarterThemeCompositionConfigV3 {
   return Object.freeze({
@@ -19,4 +19,9 @@ export function createDefaultStarterThemeComposition(): StarterThemeCompositionC
       social: Object.freeze([]),
     }),
   });
+}
+
+export function createDefaultStarterThemeCompositionV4(): StarterThemeCompositionConfigV4 {
+  const legacy = createDefaultStarterThemeComposition();
+  return Object.freeze({ ...legacy, schemaVersion: 4, sections: Object.freeze(legacy.sections.filter((section) => section.kind !== "hero")) });
 }

@@ -2,6 +2,10 @@ import {
   parsePublicStorefrontDesign,
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,
+  parseStorefrontDesignEditorWorkspace,
+  parseStorefrontDesignApplyMutation,
+  type StorefrontDesignEditorWorkspace,
+  type StorefrontDesignApplyMutation,
   type StorefrontDesignDraftMutation,
   type StorefrontDesignPublicationMutation,
   type StorefrontDesignWorkspace,
@@ -22,6 +26,7 @@ import {
 } from "./canonical.ts";
 import { StorefrontDesignRepositoryError } from "./errors.ts";
 import type {
+  ApplyStorefrontDesignInput,
   PostgresStorefrontDesignRepositoryOptions,
   PublishStorefrontDesignInput,
   ReserveStorefrontDesignMediaInput,
@@ -139,6 +144,20 @@ export class PostgresStorefrontDesignRepository implements StorefrontDesignRepos
   async getWorkspace(input: StorefrontDesignAuthorityInput): Promise<StorefrontDesignWorkspace> {
     const { authority } = this.authority(input, ["tenantContext", "now"]);
     return this.read({ text: "SELECT outcome,result_payload FROM saas.storefront_design_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)", values: authorityValues(authority) }, "found", (value) => { try { return parseStorefrontDesignWorkspace(value); } catch { fail(); } });
+  }
+  async getEditor(input: StorefrontDesignAuthorityInput): Promise<StorefrontDesignEditorWorkspace> {
+    const { authority } = this.authority(input, ["tenantContext", "now"]);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.storefront_design_editor_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)", values: authorityValues(authority) }, "found", (value) => { try { return parseStorefrontDesignEditorWorkspace(value); } catch { fail(); } });
+  }
+  async apply(input: ApplyStorefrontDesignInput): Promise<StorefrontDesignApplyMutation> {
+    const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "expectedPublishedVersion", "design"]);
+    const operationId = designUuid(parsed.operationId);
+    const expectedPublishedVersion = designVersion(parsed.expectedPublishedVersion);
+    let design; try { design = parseStorefrontDesignDocument(parsed.design); if (design.schemaVersion !== 5) fail("invalid_input"); } catch { fail("invalid_input"); }
+    const fingerprint = designFingerprint("apply", authority.storeId, { expectedPublishedVersion, design });
+    const parser = (value: unknown) => { try { return parseStorefrontDesignApplyMutation(value); } catch { fail(); } };
+    return this.mutate({ text: "SELECT outcome,result_payload FROM saas.storefront_design_apply($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::bigint,$11::jsonb)", values: [...authorityValues(authority), operationId, fingerprint, expectedPublishedVersion, designJson(design)] }, "applied", parser, async () =>
+      this.read({ text: "SELECT outcome,result_payload FROM saas.storefront_design_apply_operation_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)", values: [...authorityValues(authority), operationId, fingerprint] }, "found", parser));
   }
   async saveDraft(input: SaveStorefrontDesignDraftInput): Promise<StorefrontDesignDraftMutation> {
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "expectedDraftVersion", "design"]);

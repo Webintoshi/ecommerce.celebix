@@ -1180,12 +1180,12 @@ test("sidebar search reveals deep product and SEO links without losing the acces
     assert.ok(!hrefs().includes("/products/new"));
 
     setSearch("seo");
-    assert.ok(hrefs().includes("/seo/products"));
+    assert.ok(hrefs().includes("/seo/content"));
     assert.equal(hrefs().filter((href) => href === "/seo").length, 1);
     assert.ok(!hrefs().includes("/analytics"));
 
-    setSearch("iç bağlantılar");
-    assert.ok(hrefs().includes("/seo/internal-linking"));
+    setSearch("ayarlar");
+    assert.ok(hrefs().includes("/seo/settings"));
 
     setSearch("ürünler");
     assert.ok(hrefs().includes("/products"));

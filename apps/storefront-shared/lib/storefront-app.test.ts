@@ -305,7 +305,6 @@ test("starter storefront consumes the public presentation and exposes no inert c
   assert.match(category, /PublicStorefrontRepositoryError/);
   assert.match(category, /error[.]code === "not_found" \|\| error[.]code === "invalid_input"/);
   assert.match(category, /notFound\(\)/);
-  assert.match(category, /new URL\(categoryPath\(selected[.]storefront[.]locale, selected[.]category[.]slug\)/);
   assert.match(categoryShowcase, /href=\{categoryPath\(locale, item[.]slug\)\}/);
   assert.match(categoryShowcase, /showcase[.]heading/);
   assert.match(categoryShowcase, /item[.]image[.]url/);
@@ -455,14 +454,6 @@ test("public homepage projection removes sold-out products from merchant-managed
   assert.match(homepage, /pg_catalog[.]jsonb_array_elements\(items\) WITH ORDINALITY AS filtered\(value,ordinality\)/u);
   assert.match(homepage, /WHERE COALESCE\(\(filtered[.]value->>'available'\)::boolean,false\)/u);
   assert.match(homepage, /pg_catalog[.]jsonb_agg\(filtered[.]value ORDER BY filtered[.]ordinality\)/u);
-});
-
-test("storefront metadata is presentation-owned and defaults to noindex", async () => {
-  const home = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(home, /presentation[.]seo[.]allowIndex/);
-  assert.match(home, /robots/);
-  assert.match(home, /presentation[.]seo[.]title/);
-  assert.match(home, /presentation[.]seo[.]description/);
 });
 
 test("document language follows the resolved storefront locale", async () => {

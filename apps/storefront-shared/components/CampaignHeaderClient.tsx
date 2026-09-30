@@ -108,12 +108,14 @@ export function CampaignHeaderClient({
     <>
       <span className={styles.sentinel} ref={sentinelRef} aria-hidden="true" />
       <div
+        data-storefront-header-bar
         className={`${styles.bar} ${opaque && !nonHome ? styles.opaque : ""} ${nonHome}`}
       >
-        <div className={styles.container}>
+        <div className={styles.container} data-storefront-header-container>
           {desktopNavigation}
           <Link
             className={styles.wordmark}
+            data-storefront-wordmark
             href="/"
             aria-label={`${displayName} ana sayfa`}
           >
@@ -128,7 +130,7 @@ export function CampaignHeaderClient({
               displayName
             )}
           </Link>
-          <div className={styles.actions}>
+          <div className={styles.actions} data-storefront-header-actions>
             <StoreUtilities />
             <button
               className={styles.menuButton}

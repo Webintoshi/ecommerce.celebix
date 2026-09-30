@@ -15,3 +15,9 @@ test("sitemap renderer rejects hostile paths, invalid frequency and duplicate en
   assert.throws(() => renderSitemapPage("https://shop.example.test/", [{ path: "/pages/about", updatedAt: time, changeFrequency: "weekly" }, { path: "/pages/about", updatedAt: time, changeFrequency: "weekly" }]));
   assert.throws(() => renderSitemapIndex("http://shop.example.test/", []));
 });
+
+test("home catalog and categories preserve persisted lastmod in the existing content shard", () => {
+  const result = renderSitemapPage("https://shop.example.test/", ["/", "/urunler", "/products", "/kategori/takilar", "/categories/rings"].map((path) => ({ path, updatedAt: time, changeFrequency: "weekly" as const })));
+  assert.equal((result.match(/<lastmod>2026-09-29T12:00:00.000Z<\/lastmod>/g) ?? []).length, 5);
+  assert.match(result, /<loc>https:\/\/shop\.example\.test\/kategori\/takilar<\/loc>/);
+});

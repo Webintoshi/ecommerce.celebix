@@ -27,7 +27,7 @@ export function createStorefrontDesignPreviewRequestCoordinator(input: Readonly<
 }
 
 function hasLoadingResource(resources: StorefrontDesignPreviewResources): boolean {
-  return resources.productDetail?.status === "loading" || resources.testimonials?.status === "loading" || resources.categoryShowcase.status === "loading" || resources.productSources.some(({ status }) => status === "loading") || resources.assets.some(({ status }) => status === "loading") || resources.hotspots.some(({ status }) => status === "loading");
+  return resources.productDetail?.status === "loading" || resources.testimonials?.status === "loading" || resources.categoryShowcase.status === "loading" || resources.productSources.some(({ status }) => status === "loading") || resources.assets.some(({ status }) => status === "loading") || resources.hotspots.some(({ status }) => status === "loading") || resources.media?.some(({ status }) => status === "loading") === true || resources.categorySections?.some(({ status }) => status === "loading") === true;
 }
 
 export function useStorefrontDesignPreviewResources(composition: StarterThemeComposition, initial: StorefrontDesignPreviewResources, api: StorefrontDesignPreviewApi = storefrontDesignPreviewApi, previewProductId?: string): StorefrontDesignPreviewResources {

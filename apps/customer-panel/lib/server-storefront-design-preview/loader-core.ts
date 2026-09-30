@@ -1,11 +1,12 @@
 import {
-  normalizeStarterThemeCompositionV3,
+  normalizeStarterThemeCompositionV4,
   type PublicProduct,
   type PublicStarterNavigationItem,
   type PublicStorefront,
-  type StarterThemeCompositionConfigV3,
+  type StarterThemeCompositionConfigV4,
   type StarterThemeComposition,
   type StorefrontDesignWorkspace,
+  type StorefrontDesignEditorWorkspace,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import type { CatalogAdminRepository, CatalogOnboardingRepository, MerchantAdminRepository, PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
@@ -45,14 +46,14 @@ function canonicalStorefront(tenantContext: TenantContext, storefront: PublicSto
   if (storefront.id !== tenantContext.store.id || storefront.slug !== tenantContext.store.slug || storefront.hostname !== resolved.canonicalHostname || storefront.primaryHostname !== resolved.canonicalHostname) throw failure();
 }
 
-function collectionSlug(workspace: StorefrontDesignWorkspace, categoryId: string): string | null {
+function collectionSlug(workspace: StorefrontDesignWorkspace | StorefrontDesignEditorWorkspace, categoryId: string): string | null {
   const destination = workspace.destinations.find((entry) => entry.kind === "collection" && entry.resourceId === categoryId);
   if (!destination) return null;
   const slug = destination.path.match(/^\/(?:collections|categories|kategori)\/([a-z0-9-]+)$/)?.[1] ?? "";
   return SLUG.test(slug) ? slug : null;
 }
 
-function productSlug(workspace: StorefrontDesignWorkspace, productId: string): string | null {
+function productSlug(workspace: StorefrontDesignWorkspace | StorefrontDesignEditorWorkspace, productId: string): string | null {
   const destination = workspace.destinations.find((entry) => entry.kind === "product" && entry.resourceId === productId);
   if (!destination || !destination.path.startsWith("/products/")) return null;
   const slug = destination.path.slice("/products/".length);
@@ -102,19 +103,19 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
     async load(input: Readonly<{
       tenantContext: TenantContext;
       now: Date;
-      workspace: StorefrontDesignWorkspace;
+      workspace: StorefrontDesignWorkspace | StorefrontDesignEditorWorkspace;
       composition: StarterThemeComposition;
       previewProductId?: string;
     }>): Promise<StorefrontDesignPreviewResources> {
       const parsed = exact(input, ["tenantContext", "now", "workspace", "composition"], ["previewProductId"]);
       const tenantContext = parsed.tenantContext as TenantContext;
-      const workspace = parsed.workspace as StorefrontDesignWorkspace;
+      const workspace = parsed.workspace as StorefrontDesignWorkspace | StorefrontDesignEditorWorkspace;
       if (!(parsed.now instanceof Date) || !Number.isFinite(parsed.now.getTime())) throw failure("invalid_input");
       const now = new Date(parsed.now);
       const previewProductId = parsed.previewProductId as string | undefined;
       if (previewProductId !== undefined && (typeof previewProductId !== "string" || !UUID.test(previewProductId))) throw failure("invalid_input");
-      let composition: StarterThemeCompositionConfigV3;
-      try { composition = normalizeStarterThemeCompositionV3(parsed.composition as StarterThemeCompositionConfigV3); }
+      let composition: StarterThemeCompositionConfigV4;
+      try { composition = normalizeStarterThemeCompositionV4(parsed.composition as StarterThemeCompositionConfigV4); }
       catch { throw failure("invalid_input"); }
       const resolved = tenantContext.resolvedHost;
       if (!resolved || resolved.status !== "active" || resolved.hostname !== resolved.canonicalHostname || resolved.storeId !== tenantContext.store.id || resolved.storeSlug !== tenantContext.store.slug || !HOSTNAME.test(resolved.canonicalHostname)) throw failure();
@@ -128,17 +129,20 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       const assetIds = new Set<string>();
       if (composition.navigation.featuredAssetId) assetIds.add(composition.navigation.featuredAssetId);
       const hotspotIds = new Set<string>();
+      const mediaIds = new Set<string>();
       const selectedCategoryIds = [...new Set(composition.sections.flatMap((section) =>
-        section.enabled && section.kind === "category_grid" ? section.categoryIds : []))].slice(0, 8);
+        section.enabled && section.kind === "category_grid" ? section.categoryIds : []))];
       for (const section of composition.sections) {
         if (!section.enabled) continue;
         if (section.kind === "product_row") {
           const key = previewProductSourceKey(section);
           sourceLimits.set(key, Math.max(sourceLimits.get(key) ?? 0, section.limit));
-        } else if (section.kind === "hero") {
-          for (const slide of section.slides) {
-            assetIds.add(slide.desktopAssetId);
-            if (slide.mobileAssetId) assetIds.add(slide.mobileAssetId);
+        } else if (section.kind === "banner") {
+          for (const slide of section.slides.filter((slide) => slide.enabled)) {
+            for (const reference of [slide.desktopImage, slide.mobileImage]) {
+              if (reference?.kind === "asset") assetIds.add(reference.assetId);
+              if (reference?.kind === "media") mediaIds.add(reference.mediaId);
+            }
             if (slide.productId) hotspotIds.add(slide.productId);
           }
         } else if (section.kind === "split_campaign") {
@@ -149,7 +153,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       const legacyCategoryIds = new Set(composition.sections.flatMap((section) => section.enabled && section.kind === "category_grid" && !Object.hasOwn(section, "categoryImages") ? section.categoryIds : []));
       const categoryAssets = new Map<string, string>();
       for (const section of composition.sections) if (section.enabled && section.kind === "category_grid") {
-        for (const mapping of section.categoryImages ?? []) if (section.categoryIds.includes(mapping.categoryId)) categoryAssets.set(mapping.categoryId, mapping.assetId);
+        for (const mapping of section.categoryImages ?? []) if (section.categoryIds.includes(mapping.categoryId)) assetIds.add(mapping.assetId);
       }
       let categoryReadUnavailable = false;
       if (legacyCategoryIds.size) {
@@ -175,16 +179,29 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       }
 
       for (const assetId of categoryAssets.values()) assetIds.add(assetId);
+      const categoryReads = new Map<string, ReturnType<PublicStorefrontRepository["listPublicProductsByCategory"]>>();
+      function authorizedCategory(id: string, slug: string) {
+        const key = `${id}:${slug}`;
+        let selected = categoryReads.get(key);
+        if (!selected) { selected = dependencies.publicStorefront.listPublicProductsByCategory({ storefront, now, slug, limit: 1 }); categoryReads.set(key, selected); }
+        return selected;
+      }
       const fullProducts = new Map<string, PublicProduct>();
+      const productReads = new Map<string, Promise<PublicProduct | undefined>>();
       async function authorizedProduct(id: string, detail = false): Promise<PublicProduct | undefined> {
         const slug = productSlug(workspace, id);
         if (!slug) return undefined;
         const reusable = fullProducts.get(id);
         if (!detail && reusable?.slug === slug) return reusable;
-        const product = await dependencies.publicStorefront.getPublicProductBySlug({ storefront, now, slug });
-        if (product.id !== id || product.slug !== slug || product.status !== "active") return undefined;
-        fullProducts.set(id, product);
-        return product;
+        let pending = !detail ? productReads.get(id) : undefined;
+        if (!pending) {
+          pending = dependencies.publicStorefront.getPublicProductBySlug({ storefront, now, slug }).then((product) => {
+            if (product.id !== id || product.slug !== slug || product.status !== "active") return undefined;
+            fullProducts.set(id, product); return product;
+          });
+          if (!detail) productReads.set(id, pending);
+        }
+        return pending;
       }
       async function catalogProducts(limit: number, filter: "available" | "available_discounted", categorySlug: string | null = null): Promise<readonly PublicProduct[]> {
         const query = dependencies.publicStorefront.queryPublicCatalog;
@@ -214,7 +231,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         const slug = collectionSlug(workspace, categoryId);
         if (!slug) { productSources.push(sourceResult(key, "missing")); continue; }
         try {
-          const result = await dependencies.publicStorefront.listPublicProductsByCategory({ storefront, now, slug, limit: 1 });
+          const result = await authorizedCategory(categoryId, slug);
           if (result.category.id !== categoryId || result.category.slug !== slug) { productSources.push(sourceResult(key, "missing")); continue; }
           const items = await catalogProducts(limit, "available", slug);
           for (const product of items) fullProducts.set(product.id, product);
@@ -286,25 +303,38 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         } catch { hotspots.push(Object.freeze({ productId, status: "unavailable" })); }
       }
 
-      const categoryItems = await Promise.all(selectedCategoryIds.map(async (id) => {
+      const categoryIdentities = new Map<string, { id: string; name: string; slug: string }>();
+      const unavailableCategoryIds = new Set<string>();
+      await Promise.all(selectedCategoryIds.map(async (id) => {
         const slug = collectionSlug(workspace, id);
-        const asset = selectedAssets.get(categoryAssets.get(id) ?? "");
-        const image = asset?.kind === "category" ? safeAssetImage(asset) : undefined;
-        if (!slug || !image) return null;
+        if (!slug) return;
         try {
-          const result = await dependencies.publicStorefront.listPublicProductsByCategory({ storefront, now, slug, limit: 1 });
-          return result.category.id === id && result.category.slug === slug
-            ? Object.freeze({ id, name: result.category.name, slug, image }) : null;
-        } catch { return null; }
+          const result = await authorizedCategory(id, slug);
+          if (result.category.id === id && result.category.slug === slug) categoryIdentities.set(id, result.category);
+        } catch { unavailableCategoryIds.add(id); }
       }));
-      const resolvedCategories = Object.freeze(categoryItems.filter((item): item is NonNullable<typeof item> => item !== null));
-      const firstCategorySection = composition.sections.find((section) => section.enabled && section.kind === "category_grid");
-      const categoryShowcase = firstCategorySection?.kind === "category_grid" && resolvedCategories.length
-        ? Object.freeze({ status: "ready" as const, value: Object.freeze({
-          heading: firstCategorySection.heading, layout: firstCategorySection.layout,
-          items: resolvedCategories,
-        }) })
-        : Object.freeze({ status: categoryReadUnavailable ? "unavailable" as const : "missing" as const });
+      const categorySections = Object.freeze(composition.sections.flatMap((section) => {
+        if (!section.enabled || section.kind !== "category_grid") return [];
+        const items = Object.freeze(section.categoryIds.flatMap((id) => {
+          const category = categoryIdentities.get(id);
+          const selectedId = Object.hasOwn(section, "categoryImages") ? section.categoryImages?.find((mapping) => mapping.categoryId === id)?.assetId : categoryAssets.get(id);
+          const selected = selectedId ? selectedAssets.get(selectedId) : undefined;
+          const image = selected?.kind === "category" ? assets.get(selected.id)?.image : undefined;
+          return category && image ? [Object.freeze({ ...category, image })] : [];
+        }));
+        const unavailable = section.categoryIds.some((id) => unavailableCategoryIds.has(id)) || (!Object.hasOwn(section, "categoryImages") && categoryReadUnavailable);
+        const status: StorefrontDesignPreviewResourceStatus = items.length ? items.length === section.categoryIds.length ? "ready" : "partial" : section.categoryIds.length === 0 ? "empty" : unavailable ? "unavailable" : "missing";
+        return [Object.freeze({ sectionId: section.sectionId, status, ...(items.length ? { value: Object.freeze({ heading: section.heading, layout: section.layout, items }) } : {}) })];
+      }));
+      const firstCategories = categorySections[0];
+      const categoryShowcase = firstCategories?.value
+        ? Object.freeze({ status: "ready" as const, value: firstCategories.value })
+        : Object.freeze({ status: firstCategories?.status ?? "missing" as const });
+      const designMedia = workspace.schemaVersion === 1 ? workspace.media.filter((option) => option.reference.kind === "media") : workspace.media;
+      const media = Object.freeze([...mediaIds].sort().map((id) => {
+        const selected = designMedia.find((option) => option.id === id);
+        return selected ? Object.freeze({ id, status: "ready" as const, image: Object.freeze({ url: selected.url, altText: selected.altText, mediaType: selected.mediaType, width: selected.width, height: selected.height }) }) : Object.freeze({ id, status: "missing" as const });
+      }));
       const representativeId = previewProductId ?? workspace.destinations.find((item) => item.kind === "product")?.resourceId;
       let productDetail: NonNullable<StorefrontDesignPreviewResources["productDetail"]> = Object.freeze({ status: "empty" });
       let relatedProducts: StorefrontDesignPreviewResources["relatedProducts"] = Object.freeze([]);
@@ -344,6 +374,8 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         assets: Object.freeze([...assets.values()]),
         hotspots: Object.freeze(hotspots),
         categoryShowcase,
+        categorySections,
+        media,
       });
     },
   });

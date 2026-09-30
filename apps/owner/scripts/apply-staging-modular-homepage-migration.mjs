@@ -71,11 +71,13 @@ export async function runModularHomepageMigration({ client, databaseName, readSq
         OR pg_catalog.to_regprocedure('saas.storefront_theme_composition_with_home_ids(jsonb)') IS NOT NULL AS has_objects,
       pg_catalog.to_regprocedure('saas.storefront_design_document_with_home_ids(jsonb)') IS NOT NULL
         AND pg_catalog.to_regprocedure('saas.storefront_theme_composition_with_home_ids(jsonb)') IS NOT NULL
-        AND NOT EXISTS(SELECT 1 FROM saas.storefront_designs WHERE schema_version <> 4) AS ready`);
+        AND NOT EXISTS(SELECT 1 FROM saas.storefront_designs WHERE schema_version NOT IN(4,5)) AS ready,
+      pg_catalog.to_regprocedure('saas.storefront_design_normalize_v5(jsonb)') IS NOT NULL
+        AND pg_catalog.to_regprocedure('saas.storefront_design_v5_publishable(uuid,jsonb,jsonb)') IS NOT NULL AS section_ready`);
     const state = probe.rowCount === 1 ? probe.rows[0] : null;
     if (state?.has_objects === true && state.ready !== true) throw new Error("modular_homepage_staging_partial");
     if (state?.ready !== true) await query(client, readSql(UP_FILE), "apply");
-    await query(client, readSql(ASSERTIONS_FILE), "assertions");
+    await query(client, readSql(state?.section_ready === true ? "202609300178_section_homepage_v4_assertions.sql" : ASSERTIONS_FILE), "assertions");
     write(`modular_homepage_migration=${state?.ready === true ? "already_applied" : "applied"}`);
   } finally {
     await client.end();

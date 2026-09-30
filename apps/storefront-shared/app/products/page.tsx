@@ -4,6 +4,8 @@ import { permanentRedirect } from "next/navigation";
 import { ProductExplorer } from "@/components/ProductExplorer";
 import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
+import { buildPublicSeoMetadata } from "@/lib/public-seo.ts";
+import { loadPublicSeoSettings } from "@/lib/public-seo-read.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import {
@@ -16,18 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const selected = await resolveStorefrontPage();
   if (selected.kind !== "active")
     return { title: "Ürünler", robots: { index: false, follow: false } };
-  const { storefront } = selected.context;
-  return {
-    title: `Ürünler | ${storefront.presentation.displayName}`,
-    description: `${storefront.presentation.displayName} aktif ürün koleksiyonu`,
-    robots: {
-      index: storefront.presentation.seo.allowIndex,
-      follow: storefront.presentation.seo.allowIndex,
-    },
-    alternates: {
-      canonical: new URL(productIndexPath(storefront.locale), storefront.canonicalUrl).toString(),
-    },
-  };
+  const { storefront, runtime } = selected.context;
+  const settings = await loadPublicSeoSettings(runtime.seo, storefront.hostname);
+  return buildPublicSeoMetadata({ storefront, fallback: { title: "Ürünler", description: `${storefront.presentation.displayName} aktif ürün koleksiyonu`, path: productIndexPath(storefront.locale) }, settings });
 }
 
 export async function renderProductsPage(routeVariant: StorefrontRouteVariant, searchParams: Promise<Readonly<Record<string,string | string[] | undefined>>> = Promise.resolve({})) {

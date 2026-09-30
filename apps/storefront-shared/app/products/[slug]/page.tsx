@@ -9,12 +9,17 @@ import type {
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
+import { SeoStructuredData } from "@/components/SeoStructuredData";
+import { SeoRelatedLinks } from "@/components/SeoRelatedLinks";
+import { buildPublicSeoMetadata, effectivePublicSeo, buildProductStructuredData, buildBreadcrumbStructuredData } from "@/lib/public-seo.ts";
+import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { resolveProductSeo } from "@/lib/product-seo.ts";
 import { productViewEvent } from "@/lib/analytics/events.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { buildPublicPolicyPage } from "@/lib/policy-page.ts";
 import {
+  categoryPath,
   productPath,
   storefrontRouteVariant,
   type StorefrontRouteVariant,
@@ -46,17 +51,16 @@ async function product(slug: string) {
     await resolveStorefrontPage(),
   );
   try {
+    const item = await (runtime.repository.getPublicProductWithSeoBySlug?.bind(runtime.repository) ?? runtime.repository.getPublicProductBySlug.bind(runtime.repository))({ storefront, now: new Date(), slug });
+    const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "product", item.id);
     return {
+      seoSelection,
       runtime,
       storefront,
       campaign,
       design,
       tracker,
-      product: await (runtime.repository.getPublicProductWithSeoBySlug?.bind(runtime.repository) ?? runtime.repository.getPublicProductBySlug.bind(runtime.repository))({
-        storefront,
-        now: new Date(),
-        slug,
-      }),
+      product: item,
     };
   } catch (error) {
     if (
@@ -73,27 +77,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const selected = await product((await params).slug);
-  const { presentation } = selected.storefront;
-  const seo = resolveProductSeo(selected.product, presentation.displayName);
-  const canonical = new URL(productPath(selected.storefront.locale, selected.product.slug), selected.storefront.canonicalUrl).toString();
-  const images = selected.product.media[0]?.url ? [selected.product.media[0].url] : [];
-  return {
-    title: { absolute: seo.title },
-    description: seo.description,
-    robots: {
-      index: presentation.seo.allowIndex,
-      follow: presentation.seo.allowIndex,
-    },
-    alternates: { canonical },
-    twitter: { card: images.length ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images },
-    openGraph: {
-      title: seo.title,
-      description: seo.description,
-      url: canonical,
-      type: "website",
-      images,
-    },
-  };
+  const fallback = resolveProductSeo(selected.product, selected.storefront.presentation.displayName);
+  return buildPublicSeoMetadata({ storefront: selected.storefront, fallback: { ...fallback, path: productPath(selected.storefront.locale, selected.product.slug), imageUrl: selected.product.media[0]?.url }, selection: selected.seoSelection });
 }
 export async function renderProductPage({
   params,
@@ -110,7 +95,7 @@ export async function renderProductPage({
   const presentation =
     selected.campaign?.presentation ?? storefront.presentation;
   const options: StarterProductDetailConfigV2 =
-    presentation.schemaVersion === 3
+    (presentation.schemaVersion === 3 || presentation.schemaVersion === 4)
       ? presentation.productDetail
       : presentation.schemaVersion === 2
         ? Object.freeze({
@@ -154,8 +139,12 @@ export async function renderProductPage({
         )
       : Promise.resolve([]),
   ]);
+  const seo = effectivePublicSeo({ storefront, fallback: { ...resolveProductSeo(item, storefront.presentation.displayName), path: productPath(storefront.locale, item.slug), imageUrl: item.media[0]?.url }, selection: selected.seoSelection });
+  const breadcrumbs = [{ name: storefront.presentation.displayName, path: "/" }, ...(item.categoryPath ?? []).map(({ name, slug }) => ({ name, path: categoryPath(storefront.locale, slug) })), { name: item.title, path: seo.path }];
   return (
     <StorefrontFrame storefront={storefront} design={selected.design}>
+      <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description)} />
+      <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
         event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
@@ -168,8 +157,9 @@ export async function renderProductPage({
         options={options}
         cardStyle={presentation.theme.productCardStyle}
         imageRatio={presentation.theme.productImageRatio}
-        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 ? presentation.cart.showQuantitySelector : true}
+        showQuantitySelector={presentation.schemaVersion === 2 || (presentation.schemaVersion === 3 || presentation.schemaVersion === 4) ? presentation.cart.showQuantitySelector : true}
       />
+      <SeoRelatedLinks links={selected.seoSelection?.links ?? []} locale={storefront.locale} />
     </StorefrontFrame>
   );
 }

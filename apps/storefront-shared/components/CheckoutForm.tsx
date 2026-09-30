@@ -25,6 +25,10 @@ import {
   resolveCheckoutSummaryState,
 } from "./checkout-readiness";
 import { useHydrated } from "./use-hydrated";
+import Link from "next/link";
+import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
+import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
+import { GuzideCheckoutSummary } from "../themes/guzide/GuzideCheckoutSummary";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
   name: "",
@@ -42,10 +46,14 @@ export function CheckoutForm({
   intentKind,
   initialDraft,
   initialNormalizedCodes = [],
+  visualTheme,
+  locale = "tr",
 }: Readonly<{
   intentKind: CheckoutIntentKind;
   initialDraft?: Partial<CheckoutFormDraft>;
   initialNormalizedCodes?: readonly string[];
+  visualTheme?: GuzideVisualTheme;
+  locale?: string;
 }>) {
   const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
@@ -330,6 +338,14 @@ export function CheckoutForm({
     }
   };
 
+  const summary = summaryState.kind === "summary" ? (
+    <CheckoutSummary summary={summaryState.cart} promotionQuote={quote && "promotionStatus" in quote ? quote : null} />
+  ) : summaryState.kind === "loading" ? (
+    <aside className="checkout-summary" aria-busy="true"><span>SİPARİŞ ÖZETİ</span><h2>Yükleniyor</h2></aside>
+  ) : (
+    <aside className="checkout-summary checkout-summary-unavailable"><span>SİPARİŞ ÖZETİ</span><h2>Özet kullanılamıyor</h2><p>{status}</p></aside>
+  );
+
   return (
     <form
       ref={formRef}
@@ -338,6 +354,7 @@ export function CheckoutForm({
       noValidate
     >
       <div className="checkout-form-main">
+        {visualTheme ? <header className="guzide-checkout-intro"><h1>Siparişinizi tamamlayın</h1><p>İletişim ve teslimat bilgilerinizi girin.</p></header> : null}
         <section
           className="checkout-section checkout-contact"
           aria-labelledby="checkout-contact-title"
@@ -458,7 +475,7 @@ export function CheckoutForm({
                   {...field("note")}
                   name="note"
                   maxLength={500}
-                  rows={3}
+                  rows={visualTheme ? 2 : 3}
                 />
                 {error("note")}
               </label>
@@ -552,23 +569,7 @@ export function CheckoutForm({
           </fieldset>
         </section>
       </div>
-      {summaryState.kind === "summary" ? (
-        <CheckoutSummary
-          summary={summaryState.cart}
-          promotionQuote={quote && "promotionStatus" in quote ? quote : null}
-        />
-      ) : summaryState.kind === "loading" ? (
-        <aside className="checkout-summary" aria-busy="true">
-          <span>SİPARİŞ ÖZETİ</span>
-          <h2>Yükleniyor</h2>
-        </aside>
-      ) : (
-        <aside className="checkout-summary checkout-summary-unavailable">
-          <span>SİPARİŞ ÖZETİ</span>
-          <h2>Özet kullanılamıyor</h2>
-          <p>{status}</p>
-        </aside>
-      )}
+      {visualTheme ? <GuzideCheckoutSummary totalCents={summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined} unavailable={summaryState.kind === "unavailable"}>{summary}<p className="guzide-checkout-promotion-link">İndirim kodunuzu <Link href={localizeStorefrontPath("/cart", locale)}>sepetinizde uygulayabilirsiniz</Link>.</p></GuzideCheckoutSummary> : summary}
       <footer className="checkout-terminal">
         <p className="checkout-status" aria-live="polite">
           {status}
@@ -584,6 +585,7 @@ export function CheckoutForm({
               ? "Güvenli ödemeye geç"
               : "Siparişi tamamla"}
         </button>
+        {visualTheme ? <Link className="guzide-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link> : null}
       </footer>
     </form>
   );

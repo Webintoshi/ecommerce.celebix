@@ -1,29 +1,30 @@
-import type { StorefrontDesignDocument, StorefrontDesignDraftMutation, StorefrontDesignWorkspace } from "@celebix/saas-contracts";
+import type { StorefrontDesignDocument, StorefrontDesignApplyMutation, StorefrontDesignEditorMediaOption, StorefrontDesignAssetOption } from "@celebix/saas-contracts";
 import type { HomepageUndo } from "./homepage-command-model.ts";
 
-export type DesignEditorStatus = "saved" | "dirty" | "saving" | "publishing" | "error" | "conflict";
-export type DesignEditorState = Readonly<{ design: StorefrontDesignDocument; draftVersion: number; publishedVersion: number; revision: number; savedRevision: number; status: DesignEditorStatus; homepageUndo?: HomepageUndo }>;
-export type DesignSaveToken = Readonly<{ revision: number; design: StorefrontDesignDocument }>;
-
-export function createDesignEditorState(workspace: Pick<StorefrontDesignWorkspace, "draft" | "draftVersion" | "publishedVersion">): DesignEditorState {
-  return Object.freeze({ design: workspace.draft, draftVersion: workspace.draftVersion, publishedVersion: workspace.publishedVersion, revision: 0, savedRevision: 0, status: "saved" });
+export type DesignEditorStatus = "applied" | "dirty" | "applying" | "error" | "conflict";
+export type DesignApplyToken = Readonly<{ revision: number; design: StorefrontDesignDocument; expectedPublishedVersion: number; operationId: string }>;
+export type DesignEditorState = Readonly<{ baseline: StorefrontDesignDocument; design: StorefrontDesignDocument; publishedVersion: number; revision: number; status: DesignEditorStatus; pending?: DesignApplyToken; homepageUndo?: HomepageUndo }>;
+export function editorAssetOptions(media:readonly StorefrontDesignEditorMediaOption[]):readonly StorefrontDesignAssetOption[] {
+ return media.flatMap(option=>option.reference.kind==="asset"&&option.assetKind?[{id:option.reference.assetId,kind:option.assetKind,url:option.url,altText:option.altText,mediaType:option.mediaType,width:option.width,height:option.height}]:[]);
 }
-
-export function applyDesignEdit(state: DesignEditorState, design: StorefrontDesignDocument, homepageUndo?: HomepageUndo): DesignEditorState {
-  return Object.freeze({ ...state, design, revision: state.revision + 1, status: "dirty" as const, ...(homepageUndo ? { homepageUndo } : {}) });
+export function createDesignEditorState(workspace: Readonly<{design:StorefrontDesignDocument;publishedVersion:number}>): DesignEditorState {
+ return Object.freeze({baseline:workspace.design,design:workspace.design,publishedVersion:workspace.publishedVersion,revision:0,status:"applied"});
 }
-
-export function clearHomepageUndo(state: DesignEditorState): DesignEditorState {
-  const { homepageUndo: _homepageUndo, ...rest } = state;
-  return Object.freeze(rest);
+export function applyDesignEdit(state:DesignEditorState, design:StorefrontDesignDocument, homepageUndo?:HomepageUndo):DesignEditorState {
+ if(JSON.stringify(state.design)===JSON.stringify(design))return state;
+ const {pending:_pending,...rest}=state;
+ return Object.freeze({...rest,design,revision:state.revision+1,status:"dirty",...(homepageUndo?{homepageUndo}:{})});
 }
-
-export function beginDesignSave(state: DesignEditorState): Readonly<{ state: DesignEditorState; token: DesignSaveToken }> {
-  return Object.freeze({ state: Object.freeze({ ...state, status: "saving" as const }), token: Object.freeze({ revision: state.revision, design: state.design }) });
+export function cancelDesignEdit(state:DesignEditorState):DesignEditorState {return createDesignEditorState({design:state.baseline,publishedVersion:state.publishedVersion});}
+export function clearHomepageUndo(state:DesignEditorState):DesignEditorState {const {homepageUndo:_undo,...rest}=state;return Object.freeze(rest);}
+export function beginDesignApply(state:DesignEditorState,operationId:string):Readonly<{state:DesignEditorState;token:DesignApplyToken}> {
+ const token=state.pending??Object.freeze({revision:state.revision,design:state.design,expectedPublishedVersion:state.publishedVersion,operationId});
+ return Object.freeze({state:Object.freeze({...state,status:"applying",pending:token}),token});
 }
-
-export function completeDesignSave(state: DesignEditorState, token: DesignSaveToken, mutation: StorefrontDesignDraftMutation): DesignEditorState {
-  return Object.freeze({ ...state, draftVersion: mutation.draftVersion, savedRevision: Math.max(state.savedRevision, token.revision), status: state.revision === token.revision ? "saved" as const : "dirty" as const });
+export function failDesignApply(state:DesignEditorState,status:"error"|"conflict"):DesignEditorState {return Object.freeze({...state,status});}
+export function completeDesignApply(state:DesignEditorState,token:DesignApplyToken,mutation:StorefrontDesignApplyMutation):DesignEditorState {
+ if(state.revision!==token.revision)return Object.freeze({...state,baseline:mutation.design,publishedVersion:mutation.publishedVersion,status:"dirty",pending:undefined});
+ return createDesignEditorState({design:mutation.design,publishedVersion:mutation.publishedVersion});
 }
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {

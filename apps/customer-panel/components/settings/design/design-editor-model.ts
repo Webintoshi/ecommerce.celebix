@@ -1,8 +1,9 @@
 import {normalizeStarterThemeCompositionV3, type StorefrontDesignDocument} from "@celebix/saas-contracts";
 
 export function synchronizeCompositionAnnouncement(design:StorefrontDesignDocument,composition:StorefrontDesignDocument["composition"]):StorefrontDesignDocument {
- if(design.composition.announcement.enabled===composition.announcement.enabled && JSON.stringify(design.composition.announcement.items)===JSON.stringify(composition.announcement.items)) return {...design,composition};
- return {...design,composition,announcement:{...design.announcement,enabled:composition.announcement.enabled,items:composition.announcement.items.every(item => item.length <= 120) ? composition.announcement.items : design.announcement.items}};
+ const nextComposition={...composition,schemaVersion:design.composition.schemaVersion,sections:design.composition.sections} as StorefrontDesignDocument["composition"];
+ if(design.composition.announcement.enabled===composition.announcement.enabled && JSON.stringify(design.composition.announcement.items)===JSON.stringify(composition.announcement.items)) return {...design,composition:nextComposition};
+ return {...design,composition:nextComposition,announcement:{...design.announcement,enabled:composition.announcement.enabled,items:composition.announcement.items.every(item => item.length <= 120) ? composition.announcement.items : design.announcement.items}};
 }
 export function updateDesignAnnouncement(design:StorefrontDesignDocument,patch:Partial<StorefrontDesignDocument["announcement"]>):StorefrontDesignDocument {
  const content={...design.composition.announcement,...("enabled" in patch?{enabled:patch.enabled}:{}),...("items" in patch?{items:patch.items}:{})};

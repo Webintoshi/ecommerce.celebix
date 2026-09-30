@@ -9,9 +9,12 @@ import { compile } from "../../customer-panel/components/settings/design/design-
 import * as routes from "../lib/storefront-routes.ts";
 import * as format from "../lib/format.ts";
 
-const { CampaignSectionContent } = compile<{ CampaignSectionContent: (props: Record<string, unknown>) => ReactNode }>(new URL("./CampaignSectionContent.tsx", import.meta.url), { "../lib/storefront-routes.ts": routes, "../lib/format.ts": format });
+const banner = compile<Record<string, unknown>>(new URL("../../../packages/storefront-design-ui/src/StorefrontBanner.tsx", import.meta.url));
+const sectionContainer = compile<Record<string, unknown>>(new URL("../../../packages/storefront-design-ui/src/HomepageSectionContainer.tsx", import.meta.url));
+const { CampaignSectionContent } = compile<{ CampaignSectionContent: (props: Record<string, unknown>) => ReactNode }>(new URL("./CampaignSectionContent.tsx", import.meta.url), { "../lib/storefront-routes.ts": routes, "../lib/format.ts": format, "@celebix/storefront-design-ui": { ...banner, ...sectionContainer } });
 // Expand module-global selectors and media whitespace for Happy DOM's CSS parser.
 const css = readFileSync(new URL("./campaign-home.module.css", import.meta.url), "utf8").replace(/:global\(([^)]+)\)/g, "$1").replace(/@media\(/g, "@media (");
+const designCss = readFileSync(new URL("../../../packages/storefront-design-ui/src/storefront-design.css", import.meta.url), "utf8");
 const image = { url: "https://fixture.invalid/category.webp", mediaType: "image/webp", altText: "Category", width: 800, height: 800 } as const;
 const sections: readonly PublicStarterHomeSection[] = [
  { kind:"category_grid",heading:"Duo",layout:"duo",items:[{name:"Category",slug:"category",image}] },
@@ -44,4 +47,44 @@ test("desktop preview and live desktop keep their original campaign section layo
  assert.deepEqual(await layout(1440,"desktop"),live);
  assert.doesNotMatch(markup("desktop"),/data-campaign-preview-mode/);
  assert.doesNotMatch(markup(),/data-campaign-preview-mode/);
+});
+
+test("optional section styling preserves the legacy wrapper and matches mobile preview spacing", async () => {
+  const section = sections[0]!;
+  const render = (styled: boolean, mode?: "desktop" | "mobile") => renderToStaticMarkup(React.createElement(CampaignSectionContent, {
+    section: { ...section, ...(styled ? { style: { background: "dark", width: "contained", spacing: "small" } } : {}) },
+    presentation: {}, productRows: [], locale: "tr", previewMode: mode, renderProductRow: () => null,
+  }));
+  assert.doesNotMatch(render(false), /celebix-store-section/);
+  const spacing = async (width: number, mode?: "desktop" | "mobile") => {
+    const window = new Window(); window.happyDOM.setWindowSize({ width, height: 900 });
+    window.document.head.innerHTML = `<style>${designCss}</style>`;
+    window.document.body.innerHTML = `<div class="celebix-store-design"${mode ? ` data-preview-mode="${mode}"` : ""}>${render(true, mode)}</div>`;
+    const element = window.document.querySelector(".celebix-store-section"); assert.ok(element);
+    const selected = window.getComputedStyle(element);
+    try { return [selected.getPropertyValue("padding-block"), selected.backgroundColor, selected.color]; }
+    finally { await window.happyDOM.close(); }
+  };
+  assert.deepEqual(await spacing(1440), ["16px", "#171717", "#fff"]);
+  assert.deepEqual(await spacing(1024), ["16px", "#171717", "#fff"]);
+  assert.deepEqual(await spacing(390), ["8px", "#171717", "#fff"]);
+  assert.deepEqual(await spacing(1440, "mobile"), await spacing(390));
+});
+
+test("explicit section widths override the Güzide tenant gutters for full and contained layouts", async () => {
+  // Happy DOM drops min(calc(...)) values; preserve the real theme selectors
+  // with a supported gutter width to verify their actual cascade precedence.
+  const themeCss = readFileSync(new URL("../themes/guzide/guzide.css", import.meta.url), "utf8").replace("width: min(calc(100% - var(--guzide-gutter) * 2), 1328px);", "width: 80%;");
+  for (const width of [1440, 390]) for (const sectionWidth of ["full", "contained"] as const) {
+    const window = new Window(); window.happyDOM.setWindowSize({ width, height: 900 });
+    window.document.head.innerHTML = `<style>${css}${designCss}${themeCss}</style>`;
+    window.document.body.innerHTML = `<div data-storefront-theme="guzide-deniz">${renderToStaticMarkup(React.createElement(CampaignSectionContent, {
+      section: { ...sections[0]!, style: { background: "theme", width: sectionWidth, spacing: "normal" } },
+      presentation: {}, productRows: [], locale: "tr", renderProductRow: () => null,
+    }))}</div>`;
+    const content = window.document.querySelector(".celebix-store-section-content > *"); assert.ok(content);
+    const style = window.getComputedStyle(content);
+    try { assert.equal(style.width, "100%", `${width}px ${sectionWidth} child uses its selected container width`); assert.equal(style.getPropertyValue("margin-inline"), "0"); }
+    finally { await window.happyDOM.close(); }
+  }
 });

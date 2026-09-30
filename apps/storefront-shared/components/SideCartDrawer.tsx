@@ -10,10 +10,11 @@ import { productIndexPath, productPath } from "@/lib/storefront-routes.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { sideCartPresentation } from "./campaign-ui-model";
 import { mutateSideCartLine } from "./side-cart-mutation";
+import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function SideCartDrawer({ presentation, locale }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string }>) {
+export function SideCartDrawer({ presentation, locale, visualTheme }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: GuzideVisualTheme }>) {
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export function SideCartDrawer({ presentation, locale }: Readonly<{ presentation
   const checkoutBlockedByStock = cart?.checkoutBlocker === "stock_unavailable" || cart?.checkoutBlocker === "empty_cart";
   const configurationBlocked = cart?.checkoutBlocker === "shipping_unavailable" || cart?.checkoutBlocker === "payment_unavailable";
   const campaignPresentation = sideCartPresentation(presentation);
-  return <div className="side-cart-backdrop" data-state="open" data-campaign-cart="true" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
+  return <div className="side-cart-backdrop" data-state="open" data-campaign-cart="true" data-storefront-theme={visualTheme} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
     <section className="side-cart-dialog campaign-side-cart" role="dialog" aria-modal="true" aria-labelledby="side-cart-title" onKeyDown={trapKeyboard}>
       <header className="side-cart-header"><div><h2 id="side-cart-title">Sepetim</h2>{cart ? <span className="side-cart-header-count">{cart.itemCount} ürün</span> : null}</div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
       {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)} onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>

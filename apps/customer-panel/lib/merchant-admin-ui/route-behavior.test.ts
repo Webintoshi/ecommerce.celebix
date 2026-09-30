@@ -566,7 +566,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     return { hooks, render, view: await hooks.flush(render) };
   }
 
-  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => ![
+  const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind, family }) => family !== "seo" && ![
     "ai_setting",
     "discount",
     "payment_setting",
@@ -732,7 +732,7 @@ test("merchant route matrix invokes every actual page, production console, clien
     await submitInlineRecord(definition, "update", "replayed");
   }
 
-  for (const definition of MERCHANT_MODULE_DEFINITIONS.filter(({ workflow }) => workflow !== undefined)) {
+  for (const definition of MERCHANT_MODULE_DEFINITIONS.filter(({ workflow, family }) => workflow !== undefined && family !== "seo")) {
     const mounted = await mount(definition, {});
     let prepare: React.ReactElement<Record<string, unknown>> | undefined;
     const buttons: string[] = [];

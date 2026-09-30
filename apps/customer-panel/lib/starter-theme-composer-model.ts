@@ -37,7 +37,7 @@ export function buildStarterThemeCompositionFromSession(
     cart: { ...session.state.cart, ...patch.cart },
     schemaVersion: session.schemaVersion,
   });
-  if (parsed.schemaVersion === 1) throw new Error("starter_theme_editor_version_invalid");
+  if (parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) throw new Error("starter_theme_editor_version_invalid");
   return parsed;
 }
 
@@ -84,6 +84,7 @@ function defaultFooter(): StarterThemeEditorState["footer"] {
 export function upgradeStarterThemeComposition(
   input: StarterThemeComposition,
 ): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
+  if (input.schemaVersion === 4) throw new Error("starter_theme_editor_version_invalid");
   if (input.schemaVersion === 2) return input;
   if (input.schemaVersion === 3) return input;
   return buildStarterThemeComposition({

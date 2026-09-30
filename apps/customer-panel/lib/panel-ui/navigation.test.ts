@@ -97,16 +97,8 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/accounting",
       "/accounting/invoicing-integration",
       "/seo",
-      "/seo/sitemap",
-      "/seo/social-preview",
-      "/seo/code-integrations",
-      "/seo/fast-indexing",
-      "/seo/geo-optimization",
-      "/seo/internal-linking",
       "/seo/content",
-      "/seo/categories",
-      "/seo/pages",
-      "/seo/products",
+      "/seo/settings",
       "/setup",
     ],
   );
@@ -133,7 +125,7 @@ test("navigation exposes approved workspace shortcuts and keeps unsafe detail ro
     "/settings/design",
     "/marketplaces",
     "/accounting/invoicing-integration",
-    "/seo/products",
+    "/seo/content",
   ] as const) assert.equal(hrefs.includes(href), true, href);
   for (const forbidden of [
     "/products/shopify-converter",
@@ -346,20 +338,10 @@ test("contains every completed merchant administration family", () => {
   for (const label of ["İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO"]) assert.match(labels, new RegExp(label));
 });
 
-test("SEO navigation exposes each advanced fixed-kind page without near-match activation", () => {
+test("SEO navigation exposes exactly three working screens without near-match activation", () => {
   const seo = PANEL_NAVIGATION.find(({ key }) => key === "seo");
-  assert.deepEqual(
-    seo?.children?.slice(-6).map(({ href }) => href),
-    [
-      "/seo/geo-optimization",
-      "/seo/internal-linking",
-      "/seo/content",
-      "/seo/categories",
-      "/seo/pages",
-      "/seo/products",
-    ],
-  );
-  for (const href of seo?.children?.slice(-6).map(({ href }) => href) ?? []) {
+  assert.deepEqual(seo?.children?.map(({ href }) => href), ["/seo", "/seo/content", "/seo/settings"]);
+  for (const href of seo?.children?.map(({ href }) => href) ?? []) {
     assert.equal(isPanelNavigationPathActive(href, href), true);
     assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);
     assert.equal(isPanelNavigationPathActive(`${href}?next=/seo/products`, href), false);

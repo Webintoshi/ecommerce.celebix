@@ -227,7 +227,7 @@ export function StarterThemeComposer({
   }, [session]);
   const productTitles = useMemo(() => Object.freeze(products.slice(0, 3).map(({ title }) => title)), [products]);
   if (!session) return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
-    <p className={styles.error} role="alert">Kayıtlı tema verisi açılamadı. Taslak değiştirilmedi; yeniden deneyin veya destek alın.</p>
+    <p className={styles.error} role="alert">Kayıtlı tema verisi açılamadı. Tasarım korundu; yeniden deneyin veya destek alın.</p>
   </section>;
   const editorSession = session;
   const state = editorSession.state;
@@ -239,7 +239,7 @@ export function StarterThemeComposer({
       onChange(next);
       setError("");
     } catch {
-      setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+      setError("Tema alanı geçersiz. Değeri kontrol edin; tasarım korundu.");
     }
   };
   const featuredPair = featuredSelection ?? { categoryId: state.navigation.featuredCategoryId ?? "", assetId: state.navigation.featuredAssetId ?? "" };
@@ -269,7 +269,7 @@ export function StarterThemeComposer({
       onChange(appendStarterThemeSection(editorSession, section));
       setError("");
     } catch {
-      setError("Tema alanı geçersiz. Değeri kontrol edin; taslak değiştirilmedi.");
+      setError("Tema alanı geçersiz. Değeri kontrol edin; tasarım korundu.");
     }
   }
 
@@ -278,7 +278,7 @@ export function StarterThemeComposer({
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
     {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
       <div className={styles.editor}>
-        <p className={styles.notice}>Bu alanlar aynı tasarım taslağına otomatik kaydedilir. Vitrine çıkarmak için üstteki tek Yayınla düğmesini kullanın.</p>
+        <p className={styles.notice}>Değişiklikleri önizleyin. Uygula ile mağazaya yansır.</p>
         <section
           className={styles.themePanel}
           role="region"
@@ -308,7 +308,7 @@ export function StarterThemeComposer({
           <label>Duyuru metni<textarea maxLength={1452} value={announcementText ?? state.announcement.items.join("\n")} aria-invalid={Boolean(announcementError)} aria-describedby={announcementError ? "starter-announcement-error" : undefined} onChange={(event) => {
             setAnnouncementText(event.currentTarget.value);
             const items=event.currentTarget.value.split(/\n|·/).map(item=>item.trim()).filter(Boolean);
-            if(!items.length||items.length>12||items.some(item=>item.length>120)){setAnnouncementError("1–12 mesaj yazın; her mesaj en fazla 120 karakter olmalı. Son geçerli taslak korunuyor.");return;}
+            if(!items.length||items.length>12||items.some(item=>item.length>120)){setAnnouncementError("1–12 mesaj yazın; her mesaj en fazla 120 karakter olmalı. Girişleriniz korunuyor.");return;}
             lastAnnouncementWrite.current=JSON.stringify(items);setAnnouncementError("");patch({announcement:{...state.announcement,items:Object.freeze(items)}});
           }} />{announcementError?<small id="starter-announcement-error" className={styles.error} role="alert">{announcementError}</small>:null}</label>
           <label>Duyuru hedefi<input maxLength={500} placeholder="/pages/odeme-teslimat" value={state.announcement.destination ?? ""} onChange={(event) => { const announcement = { ...state.announcement }; if (event.currentTarget.value) announcement.destination = event.currentTarget.value; else delete announcement.destination; patch({ announcement }); }} /></label>

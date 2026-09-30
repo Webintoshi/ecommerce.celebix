@@ -7,7 +7,7 @@ type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{ readiness: Readonly<
 
 export type ServerStorefrontDesignPreviewRuntime = Readonly<{
   access: ApprovedAccess;
-  design: Pick<StorefrontDesignRepository, "getWorkspace">;
+  design: Pick<StorefrontDesignRepository, "getEditor">;
   loader: ServerStorefrontDesignPreviewLoader;
 }>;
 
@@ -15,13 +15,13 @@ function invalid(): never { throw new Error("server_storefront_design_preview_ru
 
 export function createServerStorefrontDesignPreviewRuntime(input: Readonly<{
   access: ServerPanelAccessRuntime;
-  design: Pick<StorefrontDesignRepository, "getWorkspace">;
+  design: Pick<StorefrontDesignRepository, "getEditor">;
   loader: ServerStorefrontDesignPreviewLoader;
 }>): ServerStorefrontDesignPreviewRuntime {
-  if (!input || input.access?.readiness.mode !== "approved_staging" || typeof input.access.panelOrigin !== "string" || typeof input.design?.getWorkspace !== "function" || typeof input.loader?.load !== "function") invalid();
+  if (!input || input.access?.readiness.mode !== "approved_staging" || typeof input.access.panelOrigin !== "string" || typeof input.design?.getEditor !== "function" || typeof input.loader?.load !== "function") invalid();
   return Object.freeze({
     access: input.access as ApprovedAccess,
-    design: Object.freeze({ getWorkspace: input.design.getWorkspace.bind(input.design) }),
+    design: Object.freeze({ getEditor: input.design.getEditor.bind(input.design) }),
     loader: Object.freeze({ load: input.loader.load.bind(input.loader) }),
   });
 }

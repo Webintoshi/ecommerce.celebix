@@ -1,10 +1,9 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const TARGET_LOGO = resolve(
-  process.cwd(),
-  "apps/customer-panel/public/Logo/celebix-beyaz-logo.svg",
-);
+const repositoryRoot=existsSync(resolve(process.cwd(),"apps/customer-panel/public"))?process.cwd():resolve(process.cwd(),"../../../..");
+const TARGET_LOGO=resolve(repositoryRoot,"apps/customer-panel/public/Logo/celebix-beyaz-logo.svg");
 
 export async function GET() {
   const svg = await readFile(TARGET_LOGO);

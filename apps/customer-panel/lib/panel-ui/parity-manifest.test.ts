@@ -49,10 +49,10 @@ test("every donor route has a final evidenced decision", () => {
 test("provider-gated and legacy-rejected rows retain truthful canonical targets", () => {
   for (const entry of HEMENAKU_DONOR_PARITY) {
     if (entry.status === "provider_gated") {
-      assert.match(entry.evidenceTest, /merchant-admin-ui[/](?:client|presentation|route-behavior)[.]test|advanced-seo-console[.]test|merchant-admin-console[.]test/);
+      if (!entry.donorPath.startsWith("/seo-killer")) assert.match(entry.evidenceTest, /merchant-admin-ui[/](?:client|presentation|route-behavior)[.]test|advanced-seo-console[.]test|merchant-admin-console[.]test/);
       assert.equal(entry.actionSet.some((action) => /execute|send|deliver|synchron|index/u.test(action)), false);
-      assert.ok(entry.actionSet.includes("prepare_provider_action"), entry.donorPath);
-      assert.ok(entry.actionSet.includes("cancel_provider_preparation"), entry.donorPath);
+      if (!entry.donorPath.startsWith("/seo-killer")) assert.ok(entry.actionSet.includes("prepare_provider_action"), entry.donorPath);
+      if (!entry.donorPath.startsWith("/seo-killer")) assert.ok(entry.actionSet.includes("cancel_provider_preparation"), entry.donorPath);
     }
     if (entry.status === "legacy_rejected") {
       assert.match(entry.rejectionRationale ?? "", /canonical safe target/);
@@ -64,7 +64,7 @@ test("provider-gated and legacy-rejected rows retain truthful canonical targets"
 
 const ROOT = new URL("../../../../", import.meta.url);
 const targetPage = (targetPath: string) => new URL(
-  targetPath === "/" ? "apps/customer-panel/app/(panel)/page.tsx" : `apps/customer-panel/app${targetPath}/page.tsx`,
+  targetPath === "/" ? "apps/customer-panel/app/(panel)/page.tsx" : `apps/customer-panel/app${targetPath.split("?",1)[0]}/page.tsx`,
   ROOT,
 );
 
@@ -126,6 +126,8 @@ test("all 48 merchant rows retain their exact route status evidence and action c
   const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain fail-closed without approved staging auth authority";
   const legacyEvidence = "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable";
   const promotionsEvidence = "apps/customer-panel/lib/merchant-admin-console.test.ts#dedicated promotions pages use one server-owned context and never mount the generic discount console";
+  const seoEvidence = "apps/customer-panel/lib/seo-ui/routes.test.ts#three canonical SEO pages resolve server capability and pass only safe view state";
+  const seoEdit = ["list_records", "read_exact_record", "update_record"] as const;
   const crud = ["list_records", "read_exact_record", "create_record", "update_record", "archive_record"] as const;
   const provider = [...crud, "prepare_provider_action", "cancel_provider_preparation"] as const;
   const edit = ["read_exact_record", "update_record"] as const;
@@ -168,17 +170,17 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     ["/pazarlama/lucky-wheel", "/discounts/lucky-wheel", "legacy_rejected", legacyEvidence, ["legacy_rejected"]],
     ["/pazarlama/phone", "/marketing/phone", "provider_gated", merchantRouteEvidence, provider],
     ["/pazarlama/whatsapp", "/marketing/whatsapp", "provider_gated", merchantRouteEvidence, provider],
-    ["/seo-killer", "/seo", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/geo-optimizasyon", "/seo/geo-optimization", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/hizli-index", "/seo/fast-indexing", "provider_gated", merchantRouteEvidence, provider],
-    ["/seo-killer/ic-linkleme", "/seo/internal-linking", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/icerikler", "/seo/content", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/kategoriler", "/seo/categories", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/kod-entegrasyonlari", "/seo/code-integrations", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/sayfalar", "/seo/pages", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/sitemap", "/seo/sitemap", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/sosyal-onizleme", "/seo/social-preview", "complete", merchantRouteEvidence, crud],
-    ["/seo-killer/urunler", "/seo/products", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer", "/seo", "complete", seoEvidence, ["read_dashboard", "run_seo_check"]],
+    ["/seo-killer/geo-optimizasyon", "/seo/settings", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/hizli-index", "/seo?tab=notifications", "provider_gated", seoEvidence, ["list_records", "notify_search_engines"]],
+    ["/seo-killer/ic-linkleme", "/seo?tab=links", "complete", seoEvidence, crud],
+    ["/seo-killer/icerikler", "/seo/content?kind=blog", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/kategoriler", "/seo/content?kind=category", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/kod-entegrasyonlari", "/seo/settings", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/sayfalar", "/seo/content?kind=page", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/sitemap", "/seo?tab=sitemap", "complete", seoEvidence, ["read_dashboard", "read_preview"]],
+    ["/seo-killer/sosyal-onizleme", "/seo/settings", "complete", seoEvidence, seoEdit],
+    ["/seo-killer/urunler", "/seo/content?kind=product", "complete", seoEvidence, seoEdit],
     ["/yoneticiler", "/settings/administrators", "complete", merchantRouteEvidence, crud],
   ] as const;
   const merchantRows = HEMENAKU_DONOR_PARITY.filter(({ authority }) => authority === "merchant_admin");
@@ -187,7 +189,7 @@ test("all 48 merchant rows retain their exact route status evidence and action c
     expected,
   );
   assert.equal(new Set(merchantRows.map(({ donorPath }) => donorPath)).size, 48);
-  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, fixedPolicyEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence, promotionsEvidence].includes(evidenceTest)), true);
+  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, fixedPolicyEvidence, paymentSettingsEvidence, merchantHubEvidence, loginEvidence, legacyEvidence, promotionsEvidence, seoEvidence].includes(evidenceTest)), true);
   assert.equal(merchantRows.some(({ evidenceTest }) => /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u.test(evidenceTest)), false);
 });
 

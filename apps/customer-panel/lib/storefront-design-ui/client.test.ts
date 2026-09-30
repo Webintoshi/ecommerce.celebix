@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, normalizeStorefrontDesignDocumentV5 } from "@celebix/saas-contracts";
 import { StorefrontDesignApiError, createStorefrontDesignApi } from "./client.ts";
 
 const OPERATION = "60000000-0000-4000-8000-000000000001";
@@ -12,6 +12,22 @@ const PUBLIC = { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, bran
 const WORKSPACE = { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: DESIGN, published: PUBLIC, store: { name: "Güzide Kuyumcu", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as const;
 
 function json(value: unknown, status = 200) { return Response.json(value, { status, headers: { "cache-control": "no-store" } }); }
+
+test("apply retry preserves the caller operation key after an uncertain network result", async () => {
+  const requests: RequestInit[] = [];
+  const design = normalizeStorefrontDesignDocumentV5(DESIGN);
+  const api = createStorefrontDesignApi(async (_input, init) => {
+    requests.push(init!);
+    if (requests.length === 1) throw new Error("connection lost");
+    return json({ code: "applied", result: { publishedVersion: 2, publishedAt: NOW, design, published: { ...PUBLIC, publicationVersion: 2 } } });
+  }, () => { throw new Error("must use supplied key"); });
+  const input = { expectedPublishedVersion: 1, design };
+  await assert.rejects(api.apply(input, { operationId: OPERATION }));
+  assert.equal((await api.apply(input, { operationId: OPERATION })).publishedVersion, 2);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0]?.body, requests[1]?.body);
+  for (const init of requests) assert.equal(new Headers(init.headers).get("idempotency-key"), OPERATION);
+});
 
 test("design API parses the workspace envelope and sends no tenant authority", async () => {
   let observed: { input: string; init?: RequestInit } | undefined;

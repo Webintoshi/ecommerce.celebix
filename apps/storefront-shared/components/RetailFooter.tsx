@@ -1,4 +1,4 @@
-import type { PublicStarterThemePresentationV3, PublicStorefront } from "@celebix/saas-contracts";
+import type { PublicStarterThemePresentationV3, PublicStarterThemePresentationV4, PublicStorefront } from "@celebix/saas-contracts";
 import Link from "next/link";
 
 import { NewsletterForm } from "./NewsletterForm";
@@ -6,7 +6,7 @@ import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
 export function RetailFooter({ groups, presentation, storefront }: Readonly<{
   groups: PublicStarterThemePresentationV3["footer"]["groups"];
-  presentation: PublicStarterThemePresentationV3;
+  presentation: PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   storefront: PublicStorefront;
 }>) {
   return <footer className="store-footer retail-footer" data-footer-tone={presentation.footer.tone}>

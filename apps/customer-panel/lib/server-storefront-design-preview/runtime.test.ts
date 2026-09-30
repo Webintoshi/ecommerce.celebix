@@ -10,16 +10,16 @@ function authority() {
 
 test("preview runtime exposes only access, workspace read, and projection load", () => {
   const access = createApprovedStagingServerPanelAccessRuntime(authority(), "https://panel.saas-staging.celebix.site");
-  const selected = createServerStorefrontDesignPreviewRuntime({ access, design: { async getWorkspace() { throw new Error("unused"); }, private: true } as never, loader: { async load() { throw new Error("unused"); }, private: true } as never });
+  const selected = createServerStorefrontDesignPreviewRuntime({ access, design: { async getEditor() { throw new Error("unused"); }, private: true } as never, loader: { async load() { throw new Error("unused"); }, private: true } as never });
   assert.deepEqual(Object.keys(selected).sort(), ["access", "design", "loader"]);
-  assert.deepEqual(Object.keys(selected.design), ["getWorkspace"]);
+  assert.deepEqual(Object.keys(selected.design), ["getEditor"]);
   assert.deepEqual(Object.keys(selected.loader), ["load"]);
   assert.equal("private" in selected.design, false);
   assert.equal("private" in selected.loader, false);
 });
 
 test("preview runtime rejects disabled access or mutable dependencies", () => {
-  const design = { async getWorkspace() { throw new Error("unused"); } } as never;
+  const design = { async getEditor() { throw new Error("unused"); } } as never;
   const loader = { async load() { throw new Error("unused"); } } as never;
   assert.throws(() => createServerStorefrontDesignPreviewRuntime({ access: createDisabledServerPanelAccessRuntime(), design, loader }), /runtime_invalid/);
   const access = createApprovedStagingServerPanelAccessRuntime(authority(), "https://panel.saas-staging.celebix.site");

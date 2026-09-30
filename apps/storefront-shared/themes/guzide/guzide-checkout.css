@@ -1,0 +1,220 @@
+/* This checkout presentation is enabled only by Güzide's server-side tenant guard. */
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] {
+  --checkout-line: #dedede;
+  --checkout-muted: #666;
+  --checkout-surface: #f6f6f6;
+  color: #202020;
+  background: #fff;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-container,
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-page-body {
+  width: min(100% - 64px, 1140px);
+  margin-inline: auto;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-header {
+  border-bottom: 1px solid var(--checkout-line);
+  background: #fff;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-header .guzide-checkout-container {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  gap: 24px;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-brand {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+  font-size: 22px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-brand img {
+  display: block;
+  width: 168px;
+  height: 60px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--checkout-muted);
+  font-size: 12px;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] :is(.guzide-checkout-secure, .guzide-checkout-cart-link, .guzide-checkout-summary-toggle) svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-cart-link {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 7px;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-page {
+  min-height: 0;
+  overflow: clip;
+  background: #fff;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-page-body { padding-block: 0; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-layout {
+  grid-template-areas: "main summary" "terminal summary";
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 0 56px;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-form-main { padding-top: 40px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-intro { margin-bottom: 32px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-intro h1 {
+  margin: 0 0 9px;
+  font-family: inherit;
+  font-size: 29px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-intro p { margin: 0; color: var(--checkout-muted); font-size: 13px; line-height: 1.6; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-section { gap: 17px; padding-bottom: 28px; border-bottom: 0; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-section + .checkout-section { padding-top: 0; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-section > header > span { display: none; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-section h2 { font-family: inherit; font-size: 20px; font-weight: 500; letter-spacing: -.02em; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields { grid-template-columns: 1fr 1fr; gap: 15px 12px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-wide { grid-column: 1 / -1; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields label { gap: 6px; color: #333; font-size: 12px; font-weight: 500; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields label small { color: var(--checkout-muted); font-size: 11px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields label:has(> small:not(.checkout-field-error)) { grid-template-columns: auto 1fr; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields label:has(> small:not(.checkout-field-error)) > :is(input, textarea, .checkout-field-error) { grid-column: 1 / -1; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields .checkout-field-error { color: #9b2c2c; font-size: 12px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] :is(.checkout-fields input, .checkout-fields textarea, .checkout-identity input) {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #cfcfcf;
+  border-radius: 7px;
+  padding: 12px 14px;
+  background: #fff;
+  color: #202020;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] :is(.checkout-fields input, .checkout-fields textarea, .checkout-identity input):focus { border-color: #202020; outline-color: #202020; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] :is(.checkout-fields input, .checkout-fields textarea)[aria-invalid="true"] { border-color: #9b2c2c; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields textarea { min-height: 80px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-identity { display: grid; gap: 7px; margin-top: 16px; font-size: 12px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-shipping-method { min-height: 60px; border-color: #bcbcbc; border-radius: 7px; padding: 15px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-shipping-method > span { width: 17px; height: 17px; border-color: #202020; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-shipping-method strong { font-size: 13px; font-weight: 500; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-shipping-method small { color: var(--checkout-muted); font-size: 12px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods { gap: 10px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods label { min-height: 76px; gap: 12px; border-color: var(--checkout-line); border-radius: 7px; padding: 16px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods label:has(input:checked) { border-color: #202020; box-shadow: inset 0 0 0 1px #202020; background: #fafafa; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods input { width: 18px; height: 18px; margin: 0; accent-color: #202020; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods b { font-size: 13px; font-weight: 500; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .payment-methods :is(small, em) { color: var(--checkout-muted); font-size: 12px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-unavailable { border-radius: 7px; font-size: 12px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail {
+  grid-area: summary;
+  position: relative;
+  align-self: stretch;
+  padding: 40px 0 40px 36px;
+  border-left: 1px solid var(--checkout-line);
+  background: var(--checkout-surface);
+}
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail::after { content: ""; position: absolute; top: 0; bottom: 0; left: 100%; width: 100vw; background: var(--checkout-surface); }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-toggle { display: none; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-panel { position: sticky; top: 24px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary { position: static; gap: 24px; border: 0; padding: 0; background: transparent; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary > span { display: none; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary h2 { font-family: inherit; font-size: 20px; font-weight: 500; letter-spacing: -.02em; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary ul { gap: 20px; border-color: var(--checkout-line); padding-bottom: 24px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-line { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 14px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-media { width: 72px; height: 72px; border-color: #d8d8d8; border-radius: 8px; background: #fff; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-copy b { overflow: visible; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; text-overflow: clip; white-space: normal; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary li small { color: var(--checkout-muted); font-size: 11px; line-height: 1.5; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-line > strong { display: grid; gap: 4px; font-size: 13px; font-weight: 500; text-align: right; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-line del { color: var(--checkout-muted); font-size: 11px; font-weight: 400; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary dl { gap: 15px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary dl > div { color: #555; font-size: 13px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary dl > div:last-child { border-color: var(--checkout-line); padding-top: 20px; color: #202020; font-size: 20px; font-weight: 500; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary dl > div:last-child dd { font-size: 24px; letter-spacing: -.035em; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-unavailable p { color: var(--checkout-muted); font-size: 13px; line-height: 1.6; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-promotion-link { margin: 24px 0 0; color: var(--checkout-muted); font-size: 12px; line-height: 1.7; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-promotion-link a { color: #333; text-underline-offset: 3px; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-terminal { gap: 12px; padding: 0 0 32px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-status { color: var(--checkout-muted); font-size: 12px; line-height: 1.65; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-submit { min-height: 56px; border: 1px solid #202020; border-radius: 7px; background: #202020; color: #fff; font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-submit:disabled { border-color: #d8d8d8; background: #e9e9e9; color: #767676; opacity: 1; cursor: not-allowed; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-return { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; color: #444; font-size: 13px; text-decoration: none; }
+
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer { border-top: 1px solid var(--checkout-line); padding-block: 20px 24px; background: #fff; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer nav a { display: flex; min-height: 44px; align-items: center; color: #555; font-size: 12px; text-decoration: none; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer p { margin: 12px 0 0; color: var(--checkout-muted); font-size: 11px; line-height: 1.8; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer p a { color: inherit; }
+[data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] :is(.guzide-checkout-cart-link, .guzide-checkout-return, .guzide-checkout-summary-toggle):focus-visible { outline: 2px solid #202020; outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-container { width: calc(100% - 40px); }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-header .guzide-checkout-container { min-height: 80px; gap: 12px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-brand img { width: 138px; height: 52px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-page-body { width: 100%; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-layout { grid-template-areas: "summary" "main" "terminal"; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail { padding: 0; border-left: 0; border-bottom: 1px solid var(--checkout-line); box-shadow: none; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail::after { display: none; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-toggle { display: flex; width: 100%; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; border: 0; padding: 16px 20px; background: transparent; color: #333; font-family: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-toggle > span { display: inline-flex; align-items: center; gap: 6px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-toggle strong { font-size: 16px; font-weight: 500; white-space: nowrap; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-panel { position: static; padding: 8px 20px 24px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail[data-expanded="false"] .guzide-checkout-summary-panel { display: none; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-rail[data-expanded="true"] .guzide-checkout-summary-toggle svg { transform: rotate(180deg); }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-form-main { padding: 28px 20px 0; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-intro { margin-bottom: 28px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-intro h1 { font-size: 25px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-contact .checkout-fields { grid-template-columns: minmax(0, 1fr); }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-terminal { padding: 0 20px 28px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-footer nav { gap: 0 18px; }
+}
+
+@media (max-width: 480px) {
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-secure { font-size: 0; gap: 0; }
+}
+
+@media (max-width: 360px) {
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-fields { grid-template-columns: minmax(0, 1fr); }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-line { grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .checkout-summary-media { width: 56px; height: 56px; }
+  [data-storefront-theme="guzide-deniz"][data-storefront-checkout="true"] .guzide-checkout-summary-toggle { gap: 8px; font-size: 11px; }
+}

@@ -17,6 +17,7 @@ import {
   PostgresPublicAbandonedCartRepository,
   PostgresPublicStorefrontRepository,
   PostgresPublicStorefrontContentRepository,
+  PostgresPublicSeoRepository,
   PostgresNewsletterRepository,
   PostgresStorefrontCommerceRepository,
   PostgresStorefrontHostedCheckoutRepository,
@@ -27,6 +28,7 @@ import {
   parseMerchantProviderCredentialKeyring,
   type PaymentAttemptRepository,
   type PublicStorefrontContentRepository,
+  type PublicSeoRepository,
   type PublicStorefrontRepository,
   type NewsletterRepository,
   type StorefrontCommerceRepository,
@@ -72,6 +74,7 @@ const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lock
 export type PublicStorefrontRuntime = Readonly<{
   repository: PublicStorefrontRepository;
   content: PublicStorefrontContentRepository;
+  seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
   hostedCheckout: StandardHostedCheckoutRuntime | null;
@@ -243,6 +246,8 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       });
     };
     const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const seoReady = (await pool.query("SELECT to_regprocedure('saas.seo_public_settings(text,timestamptz)') IS NOT NULL AS ready")).rows[0]?.ready === true;
+    const seo = seoReady ? new PostgresPublicSeoRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }) : undefined;
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
     const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
     const hostedMigration = await queryAsWorkflowRole(pool, `SELECT
@@ -307,6 +312,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     return Object.freeze({
       repository: publicRepository,
       content,
+      ...(seo ? { seo } : {}),
       commerce,
       cart,
       hostedCheckout,

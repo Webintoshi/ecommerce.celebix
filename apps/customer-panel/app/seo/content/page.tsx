@@ -1,9 +1,4 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
-
-import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
-import { requireServerPanelAccess } from "@/lib/server-access";
-
-export default async function SeoContentPage() {
-  const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantModuleConsole kind="seo_content_entry" canManage={isMerchantActionAllowed(tenantContext.membership.role, "integrations.manage")} />;
-}
+import {isMerchantActionAllowed} from '@celebix/saas-contracts';
+import {SeoContent} from '@/components/seo/SeoContent';
+import {requireServerPanelAccess} from '@/lib/server-access';
+export default async function SeoContentPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){const{tenantContext}=await requireServerPanelAccess();const query=await searchParams;const initialKind=query.kind==='category'||query.kind==='page'||query.kind==='blog'?query.kind:'product';const resourceId=typeof query.resourceId==='string'&&/^[0-9a-f-]{36}$/i.test(query.resourceId)?query.resourceId:undefined;return <SeoContent canManage={isMerchantActionAllowed(tenantContext.membership.role,'integrations.manage')} initialKind={initialKind} resourceId={resourceId} initialQuery={typeof query.query==='string'?query.query.slice(0,100):''} initialMissing={query.missing==='1'}/>;}

@@ -58,6 +58,7 @@ export type PanelNavigationHref =
   | "/accounting"
   | "/accounting/invoicing-integration"
   | "/seo"
+  | "/seo/settings"
   | "/seo/sitemap"
   | "/seo/social-preview"
   | "/seo/code-integrations"
@@ -215,17 +216,9 @@ const ACCOUNTING_CHILDREN = Object.freeze([
 ]);
 
 const SEO_CHILDREN = Object.freeze([
-  item("seo-control", "SEO Kontrol", "/seo", "seo"),
-  item("sitemap", "Site Haritası", "/seo/sitemap", "sitemap"),
-  item("social-preview", "Sosyal Önizleme", "/seo/social-preview", "social-preview"),
-  item("code-integrations", "Kod Entegrasyonları", "/seo/code-integrations", "code"),
-  item("fast-indexing", "Hızlı İndeksleme", "/seo/fast-indexing", "indexing"),
-  item("geo-optimization", "Coğrafi SEO", "/seo/geo-optimization", "seo"),
-  item("internal-linking", "İç Bağlantılar", "/seo/internal-linking", "seo"),
+  item("seo-control", "Kontroller", "/seo", "seo"),
   item("content-seo", "İçerik SEO", "/seo/content", "seo"),
-  item("category-seo", "Kategori SEO", "/seo/categories", "seo"),
-  item("page-seo", "Sayfa SEO", "/seo/pages", "seo"),
-  item("product-seo", "Ürün SEO", "/seo/products", "seo"),
+  item("seo-settings", "Ayarlar", "/seo/settings", "settings"),
 ]);
 
 export const PANEL_WORKSPACE_ROUTE_DESTINATIONS = Object.freeze<readonly PanelNavigationItem[]>([
@@ -324,7 +317,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
   "/accounting/invoicing-integration": presentation("Fatura Entegrasyonu"),
-  "/seo": presentation("SEO Kontrol"),
+  "/seo": presentation("SEO Kontrolleri"),
   "/seo/sitemap": presentation("Site Haritası"),
   "/seo/social-preview": presentation("Sosyal Önizleme"),
   "/seo/code-integrations": presentation("Kod Entegrasyonları"),
@@ -332,6 +325,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/seo/geo-optimization": presentation("Coğrafi SEO"),
   "/seo/internal-linking": presentation("İç Bağlantılar"),
   "/seo/content": presentation("İçerik SEO"),
+  "/seo/settings": presentation("SEO Ayarları"),
   "/seo/categories": presentation("Kategori SEO"),
   "/seo/pages": presentation("Sayfa SEO"),
   "/seo/products": presentation("Ürün SEO"),

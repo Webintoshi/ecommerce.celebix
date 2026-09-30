@@ -1,0 +1,22 @@
+.workspace { display:grid; min-width:0; gap:24px; color:var(--cp-text-primary); }
+.nav,.tabs,.toolbar,.actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.nav { border-bottom:1px solid var(--cp-border); }
+.nav a,.tabs a { display:inline-flex; align-items:center; min-height:44px; padding:8px 12px; color:var(--cp-text-secondary); border-bottom:2px solid transparent; }
+.nav a[aria-current="page"],.tabs a[aria-current="page"] { color:var(--cp-text-primary); border-bottom-color:var(--cp-brand); }
+.workspace button,.dialogButton { min-height:44px; padding:8px 16px; border:1px solid var(--cp-border); border-radius:8px; background:var(--cp-surface); color:var(--cp-text-primary); cursor:pointer; }
+.workspace button:disabled,.dialogButton:disabled { opacity:.5; cursor:default; }
+.workspace .primary,.primary { background:var(--cp-action-primary); color:var(--cp-action-primary-text); border-color:var(--cp-action-primary); }
+.card { display:grid; min-width:0; gap:16px; padding:24px; border:1px solid var(--cp-border); border-radius:12px; background:var(--cp-surface); }
+.card h2 { margin:0; font-size:16px; }.card p { margin:0; }
+.stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }.stats strong { font-size:28px; font-weight:650; }.stats small,.muted { color:var(--cp-text-secondary); }
+.form { display:grid; gap:20px; min-width:0; }.form label,.toolbar label,.picker label { display:grid; min-width:0; gap:8px; font-size:13px; }
+.form input:not([type="checkbox"]),.form textarea,.form select,.toolbar input,.toolbar select,.picker input,.picker select { width:100%; min-width:0; min-height:44px; padding:8px 12px; border:1px solid var(--cp-border); border-radius:8px; background:var(--cp-surface); color:var(--cp-text-primary); }
+.form textarea { min-height:96px; resize:vertical; }.form .checkbox,.toolbar .checkbox { display:flex; align-items:center; gap:12px; min-height:44px; }
+.form input[type="checkbox"],.toolbar input[type="checkbox"] { width:20px; height:20px; accent-color:var(--cp-brand); }
+.columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }.picker { display:grid; gap:12px; min-width:0; }.pickerFilters { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr); gap:12px; }
+.search { flex:1; min-width:200px; }.tableWrap { min-width:0; max-width:100%; overflow:auto; border:1px solid var(--cp-border); border-radius:12px; background:var(--cp-surface); }.table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }.table th { padding:12px 16px; color:var(--cp-text-secondary); font-weight:550; background:var(--cp-canvas); }.table td { padding:12px 16px; border-top:1px solid var(--cp-border); vertical-align:top; }.table td small { display:block; margin-top:4px; color:var(--cp-text-secondary); overflow-wrap:anywhere; }.table td strong { font-weight:550; }.table a { text-decoration:underline; text-underline-offset:3px; }
+.table .rowActions { white-space:nowrap; }.table .rowActions button { margin:0 4px; }
+.error { padding:12px 16px; border:1px solid var(--cp-danger); border-radius:8px; color:var(--cp-danger); }.status { padding:12px 16px; background:var(--cp-soft); border-radius:8px; }
+.preview { display:grid; gap:8px; padding:16px; border:1px solid var(--cp-border); border-radius:8px; overflow-wrap:anywhere; }.preview strong { font-size:18px; }.preview p { margin:0; color:var(--cp-text-secondary); }.preview img,.image { max-width:100%; max-height:160px; object-fit:contain; }
+.issue { display:flex; justify-content:space-between; align-items:center; gap:16px; border-top:1px solid var(--cp-border); padding:16px 0; }.issue a { min-height:44px; display:inline-flex; align-items:center; text-decoration:underline; }.issue p { margin:4px 0 0; }.empty { padding:24px; color:var(--cp-text-secondary); }.progress { width:100%; accent-color:var(--cp-brand); }.url { overflow-wrap:anywhere; text-decoration:underline; }
+@media(max-width:700px) { .columns,.stats { grid-template-columns:1fr; }.workspace { gap:20px; }.card { padding:16px; }.nav { gap:4px; }.nav a,.tabs a { padding:8px; }.toolbar { align-items:stretch; }.toolbar label,.toolbar button { flex:1; }.search { flex-basis:100%; }.table { min-width:620px; }.issue { align-items:flex-start; }.pickerFilters { grid-template-columns:1fr; } }

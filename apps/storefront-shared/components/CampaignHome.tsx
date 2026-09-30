@@ -13,6 +13,7 @@ import {
 import { campaignAnnouncement } from "./campaign-ui-model";
 import { localizePublicStorefrontDesign, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-home.module.css";
+import { guzideThemeFor } from "../themes/guzide/theme.ts";
 
 export function CampaignHome({
   storefront,
@@ -24,7 +25,7 @@ export function CampaignHome({
   projection: CampaignHomeProjection;
 }>) {
   const presentation = projection.presentation;
-  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3)
+  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3 && presentation.schemaVersion !== 4)
     return null;
   const effective = Object.freeze({ ...storefront, presentation });
   const customized = design.publicationVersion > 1;
@@ -34,7 +35,7 @@ export function CampaignHome({
   const announcement = campaignAnnouncement(presentation);
   const sections = composeCampaignHomeSections(presentation, designHeroActive);
   const campaignSections = (
-    <div className={styles.home} aria-label="Mağaza ana sayfası" data-empty-home={sections.length === 0 ? "true" : undefined}>
+    <div className={styles.home} data-campaign-home aria-label="Mağaza ana sayfası" data-empty-home={sections.length === 0 ? "true" : undefined}>
       {sections.map((section, index) => (
         <CampaignSectionContent
           key={campaignHomeSectionKey(section, index)}
@@ -42,7 +43,8 @@ export function CampaignHome({
           presentation={presentation}
           productRows={projection.productRows}
           locale={storefront.locale}
-          renderProductRow={(input) => <CampaignProductRow {...input} />}
+          priority={index === 0}
+          renderProductRow={(input) => <CampaignProductRow {...input} visualTheme={guzideThemeFor(storefront)} />}
         />
       ))}
     </div>

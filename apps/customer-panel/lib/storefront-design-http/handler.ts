@@ -6,8 +6,10 @@ import {
   isMerchantActionAllowed,
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,
+  parseStorefrontDesignEditorWorkspace,
   type StorefrontDesignDocument,
   type StorefrontDesignWorkspace,
+  type StorefrontDesignEditorWorkspace,
   type TenantContext,
 } from "@celebix/saas-contracts";
 import {
@@ -112,10 +114,10 @@ function exact(value: unknown, keys: readonly string[]): Record<string, unknown>
   } catch { return null; }
 }
 
-async function jsonBody(request: Request): Promise<unknown | null> {
+async function jsonBody(request: Request, maximum = MAX_JSON_BYTES): Promise<unknown | null> {
   if (request.headers.get("content-type") !== "application/json" || request.headers.has("transfer-encoding") || request.body === null) return null;
   const declared = request.headers.get("content-length");
-  if (declared === null || !/^[1-9]\d*$/.test(declared) || Number(declared) > MAX_JSON_BYTES) return null;
+  if (declared === null || !/^[1-9]\d*$/.test(declared) || Number(declared) > maximum) return null;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -124,7 +126,7 @@ async function jsonBody(request: Request): Promise<unknown | null> {
       const next = await reader.read();
       if (next.done) break;
       total += next.value.byteLength;
-      if (total > MAX_JSON_BYTES) { await reader.cancel().catch(() => undefined); return null; }
+      if (total > maximum) { await reader.cancel().catch(() => undefined); return null; }
       chunks.push(new Uint8Array(next.value));
     }
     if (total < 2) return null;
@@ -193,7 +195,7 @@ export function validateStorefrontDesignWorkspaceReferences(
   const mediaIds = new Set(workspace.media.map(({ id }) => id));
   const destinations = new Set(workspace.destinations.map(({ kind, resourceId }) => `${kind}:${resourceId}`));
   const destinationPaths = new Set(workspace.destinations.map(({ path }) => path));
-  const media = (reference: StorefrontDesignDocument["brand"]["logo"]): boolean => reference === null || mediaIds.has(reference.mediaId);
+  const media = (reference: StorefrontDesignDocument["brand"]["logo"]): boolean => reference === null || (reference.kind === "media" && mediaIds.has(reference.mediaId));
   const destination = (reference: StorefrontDesignDocument["hero"]["slides"][number]["destination"]): boolean =>
     reference.kind === "none" || destinations.has(`${reference.kind}:${reference.resourceId}`);
   const path = (value: string | undefined): boolean => value === undefined || SYSTEM_DESTINATIONS.has(value) || destinationPaths.has(value);
@@ -233,8 +235,72 @@ export function validateStorefrontDesignWorkspaceReferences(
   return true;
 }
 
+export function validateStorefrontDesignEditorReferences(design: StorefrontDesignDocument, workspace: StorefrontDesignEditorWorkspace): boolean {
+  const references = new Set(workspace.media.map(({ reference }) => reference.kind === "media" ? `media:${reference.mediaId}` : `asset:${reference.assetId}`));
+  const resources = new Set(workspace.destinations.map(({ kind, resourceId }) => `${kind}:${resourceId}`));
+  const paths = new Set([...SYSTEM_DESTINATIONS, ...workspace.destinations.map(({ path }) => path)]);
+  const retainedUrls = new Set<string>();
+  function collect(value: unknown): void {
+    if (Array.isArray(value)) { value.forEach(collect); return; }
+    if (!value || typeof value !== "object") return;
+    const selected = value as Record<string, unknown>;
+    if (selected.kind === "legacy_https" && typeof selected.url === "string") retainedUrls.add(selected.url);
+    Object.values(selected).forEach(collect);
+  }
+  collect(workspace.design);
+  function valid(value: unknown, key = ""): boolean {
+    if (Array.isArray(value)) {
+      if (key === "productIds") return value.every((id) => resources.has(`product:${id}`));
+      if (key === "categoryIds" || key === "rootCategoryIds") return value.every((id) => resources.has(`collection:${id}`));
+      return value.every((item) => valid(item));
+    }
+    if (value === null || value === undefined) return true;
+    if (typeof value !== "object") {
+      if (key === "destination") return typeof value === "string" && paths.has(value);
+      if (key === "productId") return resources.has(`product:${value}`);
+      if (key === "categoryId" || key === "featuredCategoryId") return resources.has(`collection:${value}`);
+      if (key === "pageId") return resources.has(`page:${value}`);
+      return true;
+    }
+    const selected = value as Record<string, unknown>;
+    if (selected.kind === "media") return references.has(`media:${selected.mediaId}`);
+    if (selected.kind === "asset") return references.has(`asset:${selected.assetId}`);
+    if (selected.kind === "legacy_https") return retainedUrls.has(selected.url as string);
+    if (selected.kind === "path") return paths.has(selected.path as string);
+    if (["product", "collection", "page"].includes(selected.kind as string) && "resourceId" in selected) return resources.has(`${selected.kind}:${selected.resourceId}`);
+    return Object.entries(selected).every(([name, item]) => valid(item, name));
+  }
+  return valid(design);
+}
+
 export function createStorefrontDesignHttpHandlers(deps: Dependencies) {
   return Object.freeze({
+    async editor(request: Request): Promise<Response> {
+      const authorized = await authorize(deps, request, "GET", "/api/storefront-design/editor");
+      if (isResponse(authorized)) return authorized;
+      try {
+        const workspace = parseStorefrontDesignEditorWorkspace(await authorized.runtime.repository.getEditor({ tenantContext: authorized.tenantContext, now: authorized.now }));
+        return response("ok", 200, { workspace });
+      } catch (error) { return repositoryFailure(error); }
+    },
+    async apply(request: Request): Promise<Response> {
+      const authorized = await authorize(deps, request, "POST", "/api/storefront-design/apply");
+      if (isResponse(authorized)) return authorized;
+      const operation = operationId(request);
+      const parsed = exact(await jsonBody(request, 524_288), ["expectedPublishedVersion", "design"]);
+      const expectedPublishedVersion = parsed ? version(parsed.expectedPublishedVersion) : null;
+      if (!parsed || !operation || expectedPublishedVersion === null) return response("invalid_input", 400);
+      let design;
+      try { design = parseStorefrontDesignDocument(parsed.design); if (design.schemaVersion !== 5) return response("invalid_input", 400); }
+      catch { return response("invalid_input", 400); }
+      try {
+        // PostgreSQL checks references after replay and version checks under the
+        // store lock. A successful retry must remain valid if resources changed
+        // after the original commit.
+        const result = await authorized.runtime.repository.apply({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, expectedPublishedVersion, design });
+        return response("applied", 200, { result });
+      } catch (error) { return repositoryFailure(error); }
+    },
     async workspace(request: Request): Promise<Response> {
       const authorized = await authorize(deps, request, "GET", "/api/storefront-design");
       if (isResponse(authorized)) return authorized;

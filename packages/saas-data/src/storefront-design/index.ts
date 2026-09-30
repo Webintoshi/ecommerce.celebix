@@ -3,6 +3,7 @@ export { STOREFRONT_DESIGN_REPOSITORY_ERROR_CODES, StorefrontDesignRepositoryErr
 export type { StorefrontDesignRepositoryErrorCode } from "./errors.ts";
 export { PostgresStorefrontDesignRepository } from "./repository.ts";
 export type {
+  ApplyStorefrontDesignInput,
   PostgresStorefrontDesignRepositoryOptions,
   PublishStorefrontDesignInput,
   ReserveStorefrontDesignMediaInput,

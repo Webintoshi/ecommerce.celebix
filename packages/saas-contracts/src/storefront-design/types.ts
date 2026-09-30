@@ -21,7 +21,7 @@ export type DesignDestination = Readonly<
   | { kind: "product" | "collection" | "catalog_collection" | "page"; resourceId: string }
 >;
 
-export type DesignMediaReference = Readonly<{ kind: "media"; mediaId: string }> | null;
+export type DesignMediaReference = Readonly<{ kind: "media"; mediaId: string } | { kind: "legacy_https"; url: string }> | null;
 
 export type StorefrontDesignFontOption = Readonly<{
   family: string;
@@ -82,14 +82,16 @@ export type StorefrontDesignAnnouncement = Readonly<{
 }>;
 
 export type StorefrontDesignDocument = Readonly<{
-  schemaVersion: 3 | 4;
+  schemaVersion: 3 | 4 | 5;
   brand: StorefrontDesignBrand;
   hero: StorefrontDesignHero;
   promotion: StorefrontDesignPromotion;
   announcement: StorefrontDesignAnnouncement;
   typography: StorefrontDesignTypography;
-  composition: StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3;
+  composition: StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 | StarterThemeCompositionConfigV4;
 }>;
+
+export type StorefrontDesignDocumentV5 = Readonly<Omit<StorefrontDesignDocument, "schemaVersion" | "composition"> & { schemaVersion: 5; composition: StarterThemeCompositionConfigV4 }>;
 
 export type PublicDesignMedia = Readonly<{ url: string; altText: string }> | null;
 export type PublicDesignDestination = Readonly<{ path: string }> | null;
@@ -139,6 +141,13 @@ export type StorefrontDesignMediaOption = Readonly<{
   width: number;
   height: number;
 }>;
+
+export type StorefrontDesignEditorMediaOption = Readonly<StorefrontDesignMediaOption & (
+  | { reference: Extract<BannerMediaReference, { kind: "media" }>; assetKind?: never }
+  | { reference: Extract<BannerMediaReference, { kind: "asset" }>; assetKind: StorefrontDesignAssetOption["kind"] }
+)>;
+export type StorefrontDesignEditorWorkspace = Readonly<{ schemaVersion: 1; publishedVersion: number; publishedAt: string; design: StorefrontDesignDocumentV5; store: StorefrontDesignWorkspace["store"]; media: readonly StorefrontDesignEditorMediaOption[]; destinations: readonly StorefrontDesignDestinationOption[] }>;
+export type StorefrontDesignApplyMutation = Readonly<{ publishedVersion: number; publishedAt: string; design: StorefrontDesignDocumentV5; published: PublicStorefrontDesign }>;
 
 export type StorefrontDesignAssetOption = Readonly<StorefrontDesignMediaOption & {
   kind: "logo" | "hero" | "social" | "favicon" | "category" | "collection";
@@ -190,4 +199,4 @@ export type StorefrontDesignPublishIssue = Readonly<{
   sectionId?: string;
   categoryId?: string;
 }>;
-import type { StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3 } from "../storefront/types.ts";
+import type { BannerMediaReference, StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3, StarterThemeCompositionConfigV4 } from "../storefront/types.ts";

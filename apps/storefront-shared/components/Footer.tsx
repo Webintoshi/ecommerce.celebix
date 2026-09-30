@@ -2,6 +2,7 @@ import type {
   PublicPolicyPage,
   PublicStarterThemePresentationV3,
   PublicStorefront,
+  PublicDesignMedia,
 } from "@celebix/saas-contracts";
 import Link from "next/link";
 
@@ -10,6 +11,9 @@ import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
 import { RetailFooter } from "./RetailFooter";
+import { GuzideFooter } from "../themes/guzide/GuzideFooter";
+import { guzideThemeFor } from "../themes/guzide/theme.ts";
+import { GuzideCheckoutFooter } from "../themes/guzide/GuzideCheckoutChrome";
 
 const EMPTY_POLICY_INDEX = Object.freeze([]) as readonly PublicPolicyPage[];
 const LEGACY_GROUPS = Object.freeze([
@@ -35,12 +39,17 @@ async function publicPolicyIndex(storefront: PublicStorefront) {
   }).catch(() => Object.freeze([]) as readonly PublicPolicyPage[]);
 }
 
-export async function Footer({ storefront }: { storefront: PublicStorefront }) {
+export async function Footer({ storefront, logo, checkout = false }: { storefront: PublicStorefront; logo?: PublicDesignMedia; checkout?: boolean }) {
   const policies = await publicPolicyIndex(storefront);
-  if (storefront.presentation.schemaVersion === 3) {
+  if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
+    const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
+    if (guzideThemeFor(storefront)) {
+      if (checkout) return <GuzideCheckoutFooter groups={groups} storefront={storefront} />;
+      return <GuzideFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} />;
+    }
     return (
       <RetailFooter
-        groups={mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies)}
+        groups={groups}
         presentation={storefront.presentation}
         storefront={storefront}
       />

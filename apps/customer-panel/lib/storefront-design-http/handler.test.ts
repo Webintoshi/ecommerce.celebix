@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition, parseStorefrontDesignDocument, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, normalizeStorefrontDesignDocumentV5, parseStorefrontDesignDocument, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
 import { StorefrontDesignRepositoryError, type StorefrontDesignRepository } from "@celebix/saas-data";
 
 import { createStorefrontDesignHttpHandlers, validateStorefrontDesignWorkspaceReferences } from "./handler.ts";
@@ -75,6 +75,8 @@ function workspace(input: Readonly<{
 
 function repository(overrides: Partial<StorefrontDesignRepository> = {}): StorefrontDesignRepository {
   return {
+    async getEditor() { return { schemaVersion: 1, publishedVersion: 1, publishedAt: NOW.toISOString(), design: normalizeStorefrontDesignDocumentV5(DESIGN), store: workspace().store, media: [], destinations: [] }; },
+    async apply(selected) { return { publishedVersion: 2, publishedAt: NOW.toISOString(), design: selected.design as any, published: { ...PUBLIC, publicationVersion: 2 } }; },
     async getWorkspace() { return workspace(); },
     async saveDraft() { return { draftVersion: 2, draftUpdatedAt: NOW.toISOString(), draft: DESIGN }; },
     async publish() { return { draftVersion: 2, publishedVersion: 2, publishedAt: NOW.toISOString(), published: { ...PUBLIC, publicationVersion: 2 } }; },
@@ -96,6 +98,8 @@ function png(): Buffer {
 function fixture(input: Readonly<{ role?: TenantContext["membership"]["role"]; repository?: StorefrontDesignRepository }> = {}) {
   const calls: Array<Readonly<{ method: string; input?: any }>> = [];
   const design = input.repository ?? repository({
+    async getEditor(selected) { calls.push({ method: "editor", input: selected }); return { schemaVersion: 1, publishedVersion: 1, publishedAt: NOW.toISOString(), design: normalizeStorefrontDesignDocumentV5(DESIGN), store: workspace().store, media: [], destinations: [] }; },
+    async apply(selected) { calls.push({ method: "apply", input: selected }); return { publishedVersion: 2, publishedAt: NOW.toISOString(), design: selected.design as any, published: { ...PUBLIC, publicationVersion: 2 } }; },
     async getWorkspace(selected) { calls.push({ method: "get", input: selected }); return workspace(); },
     async saveDraft(selected) { calls.push({ method: "save", input: selected }); return { draftVersion: 2, draftUpdatedAt: NOW.toISOString(), draft: DESIGN }; },
     async publish(selected) { calls.push({ method: "publish", input: selected }); return { draftVersion: 1, publishedVersion: 2, publishedAt: NOW.toISOString(), published: { ...PUBLIC, publicationVersion: 2 } }; },
@@ -140,6 +144,36 @@ test("workspace authority comes only from the authenticated persistent session",
   assert.equal(selected.calls[0]?.method, "get");
   assert.equal(selected.calls[0]?.input.tenantContext.store.id, STORE);
   assert.equal(JSON.stringify(body).includes(PRINCIPAL), false);
+});
+
+test("live editor omits obsolete draft and direct apply binds the exact version and operation", async () => {
+  const selected = fixture();
+  const editor = await selected.handlers.editor(request("/api/storefront-design/editor"));
+  assert.equal(editor.status, 200);
+  const body = await editor.json();
+  assert.equal(body.workspace.design.schemaVersion, 5);
+  assert.equal("draft" in body.workspace, false);
+  const design = normalizeStorefrontDesignDocumentV5(DESIGN);
+  const applied = await selected.handlers.apply(request("/api/storefront-design/apply", "POST", {expectedPublishedVersion: 1, design}, {"idempotency-key": OPERATION}));
+  assert.equal(applied.status, 200);
+  const written = selected.calls.find(({method}) => method === "apply")?.input;
+  assert.equal(written.operationId, OPERATION);
+  assert.equal(written.expectedPublishedVersion, 1);
+  assert.equal(written.tenantContext.store.id, STORE);
+  assert.deepEqual(written.design, design);
+});
+
+test("direct apply requires mutation origin, configuration authority, version, and a stable key", async () => {
+  const design = normalizeStorefrontDesignDocumentV5(DESIGN);
+  for (const [headers,expected] of [[{},400],[{"idempotency-key":OPERATION,origin:"https://foreign.test"},403]] as const) {
+    const selected = fixture();
+    assert.equal((await selected.handlers.apply(request("/api/storefront-design/apply","POST",{expectedPublishedVersion:1,design},headers))).status,expected);
+    assert.equal(selected.calls.some(({method})=>method==="apply"),false);
+  }
+  const selected = fixture({repository:repository({async apply(){throw new StorefrontDesignRepositoryError("version_conflict");}})});
+  const response = await selected.handlers.apply(request("/api/storefront-design/apply","POST",{expectedPublishedVersion:1,design},{"idempotency-key":OPERATION}));
+  assert.equal(response.status,409);
+  assert.deepEqual(await response.json(),{code:"version_conflict"});
 });
 
 test("draft save parses the exact document and binds the idempotency key and expected version", async () => {

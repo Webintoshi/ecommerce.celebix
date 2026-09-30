@@ -107,3 +107,13 @@ test("campaign home rejects malformed hostnames and dates before SQL", async () 
   await assert.rejects(selected.repository.resolveCampaignHome({ storefront, now: new Date("invalid") }), invalidInput);
   assert.equal(selected.checkoutCount(), 0);
 });
+
+test("V4 campaign projection accepts fifty independent product rows without truncation", async () => {
+  const sections = Array.from({ length: 50 }, (_, index) => ({ ...presentation.sections[0], sectionId: `home_products_${index + 1}`, key: `home_products_${index + 1}` }));
+  const publicPresentation = { ...presentation, schemaVersion: 4, visual: { ...presentation.visual, headerWidth: "wide", headerLayout: "menu_logo_actions", sectionSpacing: "balanced" }, sections,
+    productDetail: { ...presentation.productDetail, showBreadcrumbs: true, showApprovedReviews: true, showSizeGuide: true, informationSections: ["description"] },
+    footer: { tone: "dark", groups: [{ heading: "Mağaza", links: [{ label: "Ürünler", destination: "/products" }] }, { heading: "Hesap", links: [{ label: "Hesabım", destination: "/account" }] }], newsletter: { enabled: false, heading: "Haberler", body: "Yeni ürünler", consentLabel: "Onaylıyorum" }, social: [] } };
+  const result = await fixture({ presentation: publicPresentation, productRows: sections.map(({ key }) => ({ key, items: [product] })) }).repository.resolveCampaignHome({ storefront, now: NOW });
+  assert.equal(result.productRows.length, 50);
+  assert.equal(result.productRows[49]?.key, "home_products_50");
+});

@@ -59,16 +59,14 @@ test("campaign browser sources contain no private tenant or donor authority", as
 });
 
 test("empty sections and missing media resolve to truthful bounded fallbacks", async () => {
-  const [sections, row, card, quickView] = await Promise.all([
+  const [sections, card, quickView] = await Promise.all([
     read("apps/storefront-shared/components/CampaignSectionContent.tsx"),
-    read("apps/storefront-shared/components/CampaignProductRow.tsx"),
     read("apps/storefront-shared/components/ProductCardContent.tsx"),
     read("apps/storefront-shared/components/ProductQuickView.tsx"),
   ]);
   assert.match(sections, /section[.]slides[.]length\s*\?[^:]+:\s*null/u);
   assert.match(sections, /section[.]items[.]length\s*\?[^:]+:\s*null/u);
   assert.match(sections, /section[.]panels[.]length\s*\?[^:]+:\s*null/u);
-  assert.match(row, /if\s*\(!products[.]length\)\s*return null/u);
   assert.match(card, /Görsel yakında/u);
   assert.match(quickView, /Görsel yakında/u);
 });

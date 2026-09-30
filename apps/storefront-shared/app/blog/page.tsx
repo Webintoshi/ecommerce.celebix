@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { StorefrontContentRepositoryError } from "@celebix/saas-data";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { blogIndexPath, contentPath, selectContentLocale } from "@/lib/content-locale.ts";
+import { buildPublicSeoMetadata } from "@/lib/public-seo.ts";
+import { loadPublicSeoSettings } from "@/lib/public-seo-read.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage, StorefrontUnavailableError } from "@/lib/page-resolution.ts";
 
@@ -18,7 +20,8 @@ async function listing(rawLang: unknown, rawCursor: unknown) {
     const locale = selectContentLocale(locales, rawLang);
     if (locale === null || rawCursor !== undefined && typeof rawCursor !== "string") throw new StorefrontContentRepositoryError("not_found");
     const list = await runtime.content.listBlogPosts({ hostname: storefront.hostname, now, locale, limit: 20, ...(rawCursor ? { cursor: rawCursor } : {}) });
-    return Object.freeze({ storefront, design, locales, locale, list });
+    const seoSettings = await loadPublicSeoSettings(runtime.seo, storefront.hostname);
+    return Object.freeze({ storefront, design, locales, locale, list, seoSettings });
   } catch (error) {
     if (error instanceof StorefrontContentRepositoryError && (error.code === "not_found" || error.code === "invalid_input")) notFound();
     throw new StorefrontUnavailableError();
@@ -30,7 +33,7 @@ export async function generateMetadata({ searchParams }: Params): Promise<Metada
   const query = await searchParams;
   const selected = await listing(query.lang, query.cursor);
   const title = `Blog | ${selected.storefront.presentation.displayName}`;
-  return { title: { absolute: title }, description: `${selected.storefront.presentation.displayName} blog yazıları`, robots: { index: selected.storefront.presentation.seo.allowIndex, follow: selected.storefront.presentation.seo.allowIndex }, alternates: { canonical: new URL(blogIndexPath(selected.locale, selected.locales.defaultLocale), selected.storefront.canonicalUrl).toString() } };
+  return buildPublicSeoMetadata({ storefront: selected.storefront, fallback: { title, description: `${selected.storefront.presentation.displayName} blog yazıları`, path: blogIndexPath(selected.locale, selected.locales.defaultLocale) }, settings: selected.seoSettings });
 }
 
 export default async function BlogIndex({ searchParams }: Params) {

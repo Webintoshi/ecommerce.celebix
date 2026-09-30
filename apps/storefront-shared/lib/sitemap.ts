@@ -1,6 +1,6 @@
 import type { PublicSitemapEntry, PublicSitemapShard } from "@celebix/saas-data";
 
-const PATH = /^\/(?:pages|blog|urun|products)\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\?lang=[a-z]{2,3}(?:-[A-Z]{2})?)?$/;
+const PATH = /^(?:\/|\/(?:urunler|products|blog)|\/(?:pages|blog|urun|products|kategori|categories)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?lang=[a-z]{2,3}(?:-[A-Z]{2})?)?$/;
 const FREQUENCIES = new Set(["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]);
 const xml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 
