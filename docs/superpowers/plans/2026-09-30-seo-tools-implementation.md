@@ -53,5 +53,6 @@ Meaningful failing tests before implementation; real PostgreSQL authority/versio
 - IndexNow key location changed to `/<key>.txt` at host root, because official protocol limits nested keys to their directory. Legacy nested route remains compatible.
 - Latest independent SITE release c632f554 will be merged before deployment to preserve checkout updates.
 
-- Fresh final verification before source commit: native PostgreSQL17/17; storefront606 server +8 preview tests; focused admin/HTTP/supervisor20/20; contract validation +client compatibility7/7. Panel and storefront typechecks pass. Narrow independent review closed both findings.
+- Fresh final verification before source commit: native PostgreSQL17/17; storefront606 server +8 preview tests; focused admin/HTTP/supervisor20/20; contract validation +client compatibility9/9. Panel and storefront typechecks pass. Narrow independent review closed both findings.
 - Backup prepared remotely before180, private mode0600,10,466,796 bytes; source specs and snapshots remain private.
+- Preserved incoming Güzide checkout release c632f554; source test conflict resolved by retaining the real empty product-row render test, rather than the incoming literal source assertion.

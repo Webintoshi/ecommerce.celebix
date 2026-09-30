@@ -7,6 +7,7 @@ import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { readCouponCandidateCookie } from "@/lib/promotions/cookie.ts";
+import { guzideThemeFor } from "@/themes/guzide/theme.ts";
 
 export const metadata: Metadata = {
   title: "Ödeme",
@@ -24,6 +25,7 @@ export default async function CheckoutPage({
   const cookieHeader = (await cookies()).toString() || null;
   const account = runtime.identity ? await runtime.identity.session(storefront.hostname, cookieHeader).catch(() => null) : null;
   const candidateCodes = readCouponCandidateCookie(cookieHeader);
+  const visualTheme = guzideThemeFor(storefront);
   const address = account?.outcome === "found" ? account.snapshot.addresses.find((item) => item.isDefault) ?? account.snapshot.addresses[0] : undefined;
   const initialDraft = account?.outcome === "found" ? {
     name: `${account.snapshot.profile.firstName} ${account.snapshot.profile.lastName}`.trim(),
@@ -36,15 +38,15 @@ export default async function CheckoutPage({
     postalCode: address?.postalCode ?? "",
   } : undefined;
   return (
-    <StorefrontFrame storefront={storefront} design={design}>
+    <StorefrontFrame storefront={storefront} design={design} checkout>
       <div className="checkout-page">
-        <header className="checkout-page-header store-container">
+        {!visualTheme ? <header className="checkout-page-header store-container">
           <span>GÜVENLİ ÖDEME</span>
           <h1>Siparişinizi tamamlayın</h1>
           <p>Teslimat ve ödeme bilgilerinizi tek ekranda güvenle tamamlayın.</p>
-        </header>
+        </header> : null}
         <section className="checkout-page-body store-container">
-          <CheckoutForm intentKind={intent((await searchParams).intent)} initialDraft={initialDraft} initialNormalizedCodes={candidateCodes} />
+          <CheckoutForm intentKind={intent((await searchParams).intent)} initialDraft={initialDraft} initialNormalizedCodes={candidateCodes} visualTheme={visualTheme} locale={storefront.locale} />
         </section>
       </div>
     </StorefrontFrame>

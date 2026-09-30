@@ -7,6 +7,7 @@ import { resolveStorefrontPage } from "../lib/page-context.ts";
 import "./globals.css";
 import "../themes/guzide/guzide.css";
 import "../themes/guzide/guzide-footer.css";
+import "../themes/guzide/guzide-checkout.css";
 
 export const metadata: Metadata = {
   title: "Celebix Mağaza",
