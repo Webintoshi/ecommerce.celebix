@@ -501,6 +501,20 @@
 .canvasStage { width: 100%; min-width: 0; padding-block: 16px 24px; }
 .orderButton { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid var(--settings-border); border-radius: 8px; background: var(--settings-surface); color: var(--cp-text-primary, #2B2B2B); padding: 8px 12px; cursor: pointer; }
 .canvasResolvedSections { display: grid; gap: 0; }
+.canvasThemeFrame { --ink: var(--store-text); --muted: color-mix(in srgb, var(--store-text) 68%, var(--store-background)); --paper: var(--store-background); --white: var(--store-background); --line: color-mix(in srgb, var(--store-text) 16%, var(--store-background)); --dark: var(--store-primary); --accent: var(--store-accent); --accent-ink: var(--store-background); --media-surface: color-mix(in srgb, var(--store-text) 6%, var(--store-background)); --campaign-width: 1440px; --jewelry-gold: #8a6534; --jewelry-ink: #171717; --jewelry-muted: #716f6a; color: var(--ink); font-family: var(--store-body-font); font-size: var(--store-body-size, 16px); font-weight: var(--store-body-weight, 400); }
+.canvasThemeFrame :where(p, a, button, input, label, span, li, small) { font-family: var(--store-body-font); font-weight: var(--store-body-weight, 400); }
+.canvasThemeFrame :where(h1, h2, h3, h4, h5, h6) { font-family: var(--store-heading-font); font-weight: var(--store-heading-weight, 600); }
+.canvasSharedProductGrid :global(.product-card) { position: relative; display: grid; gap: 16px; min-width: 0; }
+.canvasSharedProductGrid :global(.product-card-link) { display: grid; gap: inherit; min-width: 0; color: inherit; text-decoration: none; }
+.canvasSharedProductGrid :global(.product-image-shell) { position: relative; display: grid; overflow: hidden; aspect-ratio: 1 / 1.13; place-items: center; background: var(--media-surface); color: var(--muted); font-size: 12px; }
+.canvasSharedProductGrid :global(.product-image-shell img) { width: 100%; height: 100%; object-fit: cover; }
+.canvasSharedProductGrid :global(.product-image-secondary) { position: absolute; inset: 0; opacity: 0; }
+.canvasSharedProductGrid :global(.product-card-copy) { display: grid; gap: 8px; }
+.canvasSharedProductGrid :global(.product-card-brand) { color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+.canvasSharedProductGrid :global(.product-card h3) { min-height: 2.6em; margin: 0; font-weight: 400; }
+.canvasSharedProductGrid :global(.price-row) { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.canvasSharedProductGrid :global(.product-card-cart) { min-height: 48px; border: 1px solid var(--ink); background: var(--white); color: var(--ink); }
+.canvasSharedProductGrid :global(.favorite-button) { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--white); color: var(--ink); font-size: 24px; }
 .canvasInsertGap { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; border: 0; background: var(--settings-canvas); color: var(--cp-text-primary, #2B2B2B); cursor: pointer; padding: 8px 16px; }
 .canvasInsertGap::before, .canvasInsertGap::after { content: ""; flex: 1; height: 1px; background: var(--settings-border); }
 .canvasInsertGap span { margin-inline: 12px; border: 1px solid var(--settings-border); border-radius: 8px; background: var(--settings-surface); padding: 8px 12px; font-size: 12px; }

@@ -13,6 +13,7 @@ import {
 import { campaignAnnouncement } from "./campaign-ui-model";
 import { localizePublicStorefrontDesign, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-home.module.css";
+import { guzideThemeFor } from "../themes/guzide/theme.ts";
 
 export function CampaignHome({
   storefront,
@@ -34,7 +35,7 @@ export function CampaignHome({
   const announcement = campaignAnnouncement(presentation);
   const sections = composeCampaignHomeSections(presentation, designHeroActive);
   const campaignSections = (
-    <div className={styles.home} aria-label="Mağaza ana sayfası" data-empty-home={sections.length === 0 ? "true" : undefined}>
+    <div className={styles.home} data-campaign-home aria-label="Mağaza ana sayfası" data-empty-home={sections.length === 0 ? "true" : undefined}>
       {sections.map((section, index) => (
         <CampaignSectionContent
           key={campaignHomeSectionKey(section, index)}
@@ -43,7 +44,7 @@ export function CampaignHome({
           productRows={projection.productRows}
           locale={storefront.locale}
           priority={index === 0}
-          renderProductRow={(input) => <CampaignProductRow {...input} />}
+          renderProductRow={(input) => <CampaignProductRow {...input} visualTheme={guzideThemeFor(storefront)} />}
         />
       ))}
     </div>

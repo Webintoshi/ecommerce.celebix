@@ -18,11 +18,16 @@ import type {
   StorefrontDesignDocument,
   StorefrontDesignMediaOption,
   HomepageSectionId,
+  PublicStorefront,
 } from "@celebix/saas-contracts";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text.ts";
 import { normalizeStorefrontDesignDocumentV5 } from "@celebix/saas-contracts";
 import { CampaignSectionContent } from "../../../../storefront-shared/components/CampaignSectionContent";
 import { ProductCardContent } from "../../../../storefront-shared/components/ProductCardContent";
+import { CampaignProductRowFrame } from "../../../../storefront-shared/components/CampaignProductRowFrame";
+import { GuzideFooter } from "../../../../storefront-shared/themes/guzide/GuzideFooter";
+import { guzideThemeFor } from "../../../../storefront-shared/themes/guzide/theme.ts";
+import "../../../../storefront-shared/themes/guzide/guzide.css";
 import { composeCampaignHomeSections } from "../../../../storefront-shared/components/campaign-home-sections";
 
 import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
@@ -31,9 +36,12 @@ import styles from "../design-settings.module.css";
 import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
 import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
 
+export type StorefrontPreviewIdentity = Pick<PublicStorefront, "id" | "hostname" | "canonicalUrl" | "locale" | "currency">;
+
 interface VisualStorefrontCanvasProps {
   readonly design: StorefrontDesignDocument;
   readonly storeName: string;
+  readonly storefront?: StorefrontPreviewIdentity;
   readonly publishedVersion: number;
   readonly publishedAt: string;
   readonly media: readonly StorefrontDesignMediaOption[];
@@ -156,7 +164,7 @@ function hasPreviewSectionContent(
 ): boolean {
   switch (section.kind) {
     case "hero": return section.slides.length > 0;
-    case "banner": return section.slides.some(slide => slide.desktopImage);
+    case "banner": return section.slides.some(slide => slide.enabled && (slide.desktopImage || section.presentation === "overlay"));
     case "category_grid": return section.items.length > 0;
     case "product_row": return productRows.find((row) => row.key === section.key)?.items.some(({ available }) => available) ?? false;
     case "split_campaign": return section.panels.length > 0;
@@ -213,8 +221,11 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
   const campaignById = new Map(campaignSections.flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
   const projectedById = new Map((resolved?.projection.presentation.sections ?? []).flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
   const resolvedStates = new Map(resolved?.sectionStates.map((state) => [state.sectionId, state.status]) ?? []);
+  const visualTheme = props.storefront ? guzideThemeFor(props.storefront) : undefined;
+  const locale = props.storefront?.locale ?? "tr";
+  const renderPreviewNewsletter = () => <form className="retail-newsletter-form" onSubmit={event => event.preventDefault()} aria-label="Bülten formu önizlemesi"><label><span>E-posta adresi</span><span><input type="email" placeholder="E-posta adresi" readOnly/><button type="submit" disabled>Kaydol</button></span></label><label className="retail-newsletter-consent"><input type="checkbox" disabled/><span>{composition.footer.newsletter.consentLabel}</span></label></form>;
 
-  return <div className={styles.previewViewport} data-mode={props.mode} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("a")) event.preventDefault(); }}>
+  return <div className={styles.previewViewport} data-mode={props.mode} data-storefront-theme={visualTheme} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("a")) event.preventDefault(); }}>
     <div className={styles.previewNotice} role="note"><strong>Mağaza önizlemesi</strong><span>Penceredeki değişiklikler Uygula ile mağazaya yansır.</span></div>
     <StorefrontDesignRenderer
       design={preview}
@@ -229,8 +240,9 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
         onSelectSurface: (surface, trigger) => props.onSelectSurface(editorSurface(surface), trigger),
       }}
     >
+      <div className={`${styles.canvasThemeFrame} starter-storefront campaign-storefront corners-${composition.visual.cornerStyle} theme-${composition.visual.colorScheme} heading-${composition.visual.headingStyle}`} data-preview-mode={props.mode} data-published-design="true">
       <section data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
-        <div className={styles.canvasResolvedSections}>
+        <div className={styles.canvasResolvedSections} data-campaign-home>
           {visibleSections.map((config, index) => {
             const section = campaignById.get(config.sectionId) ?? projectedById.get(config.sectionId);
             const status = resolvedStates.get(config.sectionId) ?? "unavailable";
@@ -238,7 +250,7 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
             return <div key={config.sectionId} className={styles.canvasSectionWithGap}>
               <button type="button" className={styles.canvasInsertGap} aria-label={`${index + 1}. konuma bölüm ekle`} data-insert-index={index} onClick={event => props.onInsertSection?.(index, event.currentTarget)}><span>＋ Bölüm ekle</span></button>
               <section className={styles.canvasSurface} data-preview-section-kind={config.kind} data-preview-section-id={config.sectionId} data-preview-resource-status={status} data-section-hidden={!config.enabled ? "true" : undefined}>
-                {!config.enabled ? <div className={styles.canvasSectionSummary}><strong>{SECTION_LABELS[config.kind]}</strong><p>Gizli bölüm</p></div> : hasContent && section && resolved ? <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale="tr" prefetch={false} previewMode={props.mode} renderProductRow={input => <PreviewProductRow {...input} />} /> : <HomepagePreviewSection section={config} destinations={props.destinations} />}
+                {!config.enabled ? <div className={styles.canvasSectionSummary}><strong>{SECTION_LABELS[config.kind]}</strong><p>Gizli bölüm</p></div> : hasContent && section && resolved ? <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale={locale} prefetch={false} previewMode={props.mode} renderProductRow={input => visualTheme ? <CampaignProductRowFrame {...input} visualTheme={visualTheme} prefetch={false} renderProductGrid={() => <div className={`product-grid ${styles.canvasSharedProductGrid}`}>{input.products.map(product => <article className={`product-card card-${input.presentation.visual.productCardStyle} image-${input.presentation.visual.productImageRatio}`} data-preview-product-card="true" key={product.id}><ProductCardContent product={product} locale={locale} cardStyle={input.presentation.visual.productCardStyle} imageRatio={input.presentation.visual.productImageRatio} prefetch={false}/><button className="product-card-cart" type="button" disabled>{product.available?"Sepete ekle":"Tükendi"}</button><button className="favorite-button" type="button" disabled aria-label={`${product.title} favori önizlemesi`}>♡</button></article>)}</div>}/> : <PreviewProductRow {...input} />} /> : <HomepagePreviewSection section={config} destinations={props.destinations} />}
                 {config.enabled && status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}
                 <button type="button" className={styles.canvasSurfaceButton} aria-label={`${SECTION_LABELS[config.kind]} ${index + 1} bölümünü düzenle`} aria-pressed={props.selectedSectionId===config.sectionId} onClick={event => props.onSelectSection?.(config.sectionId,event.currentTarget)}><span>{SECTION_LABELS[config.kind]}</span></button>
               </section>
@@ -266,14 +278,17 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
         <SurfaceButton surface="cart" label="Yan sepet" selected={props.selectedSurface === "cart"} onSelect={props.onSelectSurface} />
       </section>
 
-      <footer className={`${styles.canvasSurface} ${styles.canvasFooterPreview}`} data-design-surface="footer" data-tone={composition.footer.tone} aria-label="Footer önizlemesi">
+      <section className={`${styles.canvasSurface} ${visualTheme ? "" : styles.canvasFooterPreview}`} data-design-surface="footer" data-tone={composition.footer.tone} aria-label="Footer önizlemesi">
+        {visualTheme && props.storefront && resolved ? <GuzideFooter storefront={props.storefront} presentation={resolved.projection.presentation} groups={resolved.projection.presentation.footer.groups} logo={preview.brand.logo} renderNewsletter={renderPreviewNewsletter} prefetch={false}/> : <>
         <div><strong>{props.storeName}</strong><small>Mağaza bilgileri</small></div>
         <div className={styles.canvasFooterGroups}>{composition.footer.groups.map((group, index) => <section key={`${group.heading}-${index}`}><strong>{group.heading}</strong><ul>{group.links.map((link, linkIndex) => { const resolved = footerLink(link, props.destinations); return <li key={`${link.kind}-${linkIndex}`}><span>{resolved.label}</span><small>{resolved.detail}</small></li>; })}</ul></section>)}</div>
         {composition.footer.newsletter.enabled ? <section className={styles.canvasFooterNewsletter}><strong>{composition.footer.newsletter.heading}</strong><p>{composition.footer.newsletter.body}</p><small>{composition.footer.newsletter.consentLabel}</small></section> : null}
         {composition.footer.social.length ? <div className={styles.canvasFooterSocial} aria-label="Sosyal medya">{composition.footer.social.map(({ network, url }) => <span key={network}><strong>{network}</strong><small>{url}</small></span>)}</div> : null}
         <small>© {props.now.getFullYear()} {props.storeName}</small>
+        </>}
         <SurfaceButton surface="footer" label="Footer" selected={props.selectedSurface === "footer"} onSelect={props.onSelectSurface} />
-      </footer>
+      </section>
+      </div>
     </StorefrontDesignRenderer>
   </div>;
 }

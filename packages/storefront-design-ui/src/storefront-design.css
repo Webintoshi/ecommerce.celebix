@@ -26,7 +26,7 @@
 .celebix-store-section[data-section-spacing="large"] { --section-padding: 48px; }
 .celebix-store-section-content { min-width: 0; }
 .celebix-store-section[data-section-width="contained"] > .celebix-store-section-content { width: min(100% - 48px, var(--campaign-width, 1440px)); margin-inline: auto; }
-.celebix-store-section-content > * { width: 100%; max-width: none; margin-inline: 0; }
+.celebix-store-section[data-section-width] > .celebix-store-section-content > * { width: 100%; max-width: none; margin-inline: 0; }
 .celebix-store-banner { position: relative; min-width: 0; overflow: hidden; }
 .celebix-store-banner-track { position: relative; }
 .celebix-store-banner-slide { position: relative; min-width: 0; overflow: hidden; border-radius: var(--campaign-corner, 0); background: #eeeae5; }

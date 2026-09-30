@@ -97,7 +97,7 @@ test("durable showcase never invents a category section outside the merchant ord
   assert.deepEqual(sections.map((section, index) => module.campaignHomeSectionKey(section, index)), ["home_product_row_one", "home_product_row_two"]);
   assert.equal(sections.some(({ kind }) => kind === "category_grid"), false);
 });
-test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
+test("product rows bind exact projection keys to canonical product cards", async () => { const [source, frame] = await Promise.all([read("CampaignProductRow.tsx"), read("CampaignProductRowFrame.tsx")]); assert.match(frame, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(`${source}\n${frame}`, /Math[.]random|fake|mock/); });
 test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
 test("published design banner augments campaign sections without a duplicate hero", async () => {
   const [source, sections] = await Promise.all([

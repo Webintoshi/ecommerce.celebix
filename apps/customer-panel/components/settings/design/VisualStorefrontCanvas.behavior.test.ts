@@ -10,12 +10,29 @@ const NOW="2026-09-30T10:00:00.000Z";
 const options={
  "@celebix/storefront-design-ui":{createPreviewStorefrontDesign,StorefrontDesignRenderer:({children}:{children:ReactNode})=>React.createElement("div",{"data-renderer":true},children),ProductDetailPreview:()=>React.createElement("div",null,"Product preview"),RepresentativeCartPreview:()=>React.createElement("div",null,"Cart preview")},
  "@celebix/platform-config/src/product-description-rich-text.ts":{normalizeProductDescriptionHtml},
- "../../../../storefront-shared/components/CampaignSectionContent":{CampaignSectionContent:({section,productRows,presentation,renderProductRow}:{section:PublicStarterHomeSection;productRows:{key:string;items:unknown[]}[];presentation:unknown;renderProductRow:(props:unknown)=>ReactNode})=>section.kind==="product_row"?renderProductRow({section,presentation,locale:"tr",products:productRows.find(row=>row.key===section.key)?.items??[]}):React.createElement("article",null,"heading" in section?section.heading:section.kind)},
+ "../../../../storefront-shared/components/CampaignSectionContent":{CampaignSectionContent:({section,productRows,presentation,renderProductRow}:{section:PublicStarterHomeSection;productRows:{key:string;items:unknown[]}[];presentation:unknown;renderProductRow:(props:unknown)=>ReactNode})=>section.kind==="product_row"?renderProductRow({section,presentation,locale:"tr",products:productRows.find(row=>row.key===section.key)?.items??[]}):React.createElement("article",{"data-shared-section":section.kind},"heading" in section?section.heading:section.kind)},
  "../../../../storefront-shared/components/ProductCardContent":{ProductCardContent:({product}:{product:{title:string;slug:string}})=>React.createElement("a",{href:`/products/${product.slug}`},product.title)},
+ "../../../../storefront-shared/components/CampaignProductRowFrame":{CampaignProductRowFrame:({section,visualTheme,renderProductGrid}:{section:{heading:string};visualTheme:string;renderProductGrid:()=>ReactNode})=>React.createElement("section",{"data-shared-product-row":visualTheme},React.createElement("h2",null,section.heading),renderProductGrid())},
+ "../../../../storefront-shared/themes/guzide/GuzideFooter":{GuzideFooter:({storefront,renderNewsletter}:{storefront:{hostname:string};renderNewsletter:()=>ReactNode})=>React.createElement("footer",{"data-shared-guzide-footer":true},storefront.hostname,renderNewsletter())},
 };
 const {VisualStorefrontCanvas}=compile<{VisualStorefrontCanvas:(props:Record<string,unknown>)=>ReactNode}>(new URL("./VisualStorefrontCanvas.tsx",import.meta.url),options);
 function props(design:StorefrontDesignDocument,extra:Record<string,unknown>={}){return{design,storeName:"Fixture",publishedVersion:4,publishedAt:NOW,media:[],destinations:[],mode:"desktop",now:new Date(NOW),onSelectSurface:()=>{},...extra};}
 const baseline=()=>normalizeStorefrontDesignDocumentV5(DESIGN);
+test("enabled text-only overlay banner uses the live section renderer without requiring an image",()=>{
+ const base=baseline(),design={...base,composition:{...base.composition,sections:[{kind:"banner" as const,sectionId:"home_text_banner" as const,enabled:true,layout:"single" as const,autoplay:false,presentation:"overlay" as const,slides:[{slideId:"slide_text_banner",enabled:true,headline:"Text-only banner",body:"Details",desktopImage:null,mobileImage:null,destination:{kind:"none" as const}}]}]}};
+ const resources={schemaVersion:1,dependencyKey:"text-banner",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};
+ const markup=renderToStaticMarkup(React.createElement(VisualStorefrontCanvas,props(design,{previewResources:resources})));
+ assert.match(markup,/data-shared-section="banner"/);
+});
+test("resolved Güzide identity scopes the real theme and uses shared rail/footer without subscription writes",async()=>withEditor(async({container,render})=>{
+ const base=baseline(),identity={id:"a828862c-4cc1-475a-89cc-5fbee31eb43f",hostname:"www.guzidekuyumcu.com",canonicalUrl:"https://www.guzidekuyumcu.com/",locale:"tr",currency:"TRY"};
+ const product={id:"40000000-0000-4000-8000-000000000001",slug:"product",title:"Real product",currency:"TRY",priceCents:10000,available:true,media:[]};
+ const resources={schemaVersion:1,dependencyKey:"row",productSources:[{key:"latest",status:"ready",items:[product]}],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};
+ await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:identity,previewResources:resources})));
+ assert.ok(container.querySelector('[data-storefront-theme="guzide-deniz"]'));assert.ok(container.querySelector('[data-campaign-home]'));assert.ok(container.querySelector('[data-shared-product-row="guzide-deniz"] .product-grid'));assert.ok(container.querySelector('[data-shared-guzide-footer]'));assert.equal(container.querySelector('.retail-newsletter-form button')?.getAttribute("disabled"),"");
+ await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:{...identity,id:"another-store"},previewResources:resources})));
+ assert.equal(container.querySelector('[data-storefront-theme="guzide-deniz"]'),null);assert.equal(container.querySelector('[data-shared-guzide-footer]'),null);
+}));
 test("canvas has insertion gaps at start, between all fifty sections and before footer",()=>{
  const base=baseline(),design={...base,composition:{...base.composition,sections:Array.from({length:50},(_,index)=>({kind:"brand_story" as const,sectionId:`home_story_${index}` as const,enabled:index!==2,heading:`Story ${index}`,body:"Body"}))}};
  const markup=renderToStaticMarkup(React.createElement(VisualStorefrontCanvas,props(design)));

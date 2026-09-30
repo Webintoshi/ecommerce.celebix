@@ -105,7 +105,7 @@ test("linked products load on first details open, recover after a failed request
     assert.match(container.textContent ?? "", /2 \/ 2 marka/);
     const details = container.querySelector("details");
     assert.ok(details);
-    await act(async () => { details.open = true; details.dispatchEvent(new browser.Event("toggle", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await act(async () => { details.open = true; details.dispatchEvent(new browser.Event("toggle", { bubbles: true }) as unknown as Event); await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.equal(directoryCalls(), 1);
     assert.match(container.textContent ?? "", /Ürün adları yüklenemedi/);
     const retry = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Tekrar dene");
@@ -117,7 +117,7 @@ test("linked products load on first details open, recover after a failed request
     assert.ok(search);
     await act(async () => {
       Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype, "value")?.set?.call(search, "B-77");
-      search.dispatchEvent(new browser.Event("input", { bubbles: true }));
+      search.dispatchEvent(new browser.Event("input", { bubbles: true }) as unknown as Event);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await settle();

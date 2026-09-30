@@ -26,5 +26,12 @@ export default async function DesignSettingsPage({ searchParams }: Readonly<{ se
   // Non-authoritative frontend identity, never sent to a mutation API. Hashing
   // avoids exposing the underlying session identifier in the client props.
   const recoveryScope = createHash("sha256").update(JSON.stringify([session.id, tenantContext.principal.id, tenantContext.store.id])).digest("hex");
-  return <DesignWorkspace key={recoveryScope} recoveryScope={recoveryScope} workspace={workspace} initialPreviewResources={initialPreviewResources} canManage={isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage")} initialLocation={initialLocation} />;
+  const storefront = tenantContext.resolvedHost ? {
+    id: tenantContext.store.id,
+    hostname: tenantContext.resolvedHost.canonicalHostname,
+    canonicalUrl: `https://${tenantContext.resolvedHost.canonicalHostname}/`,
+    locale: "tr" as const,
+    currency: "TRY" as const,
+  } : undefined;
+  return <DesignWorkspace key={recoveryScope} recoveryScope={recoveryScope} storefront={storefront} workspace={workspace} initialPreviewResources={initialPreviewResources} canManage={isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage")} initialLocation={initialLocation} />;
 }
