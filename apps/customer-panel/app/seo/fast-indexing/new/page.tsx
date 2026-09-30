@@ -1,2 +1,2 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default function NewIndexingRequestPage() { return renderMerchantRecordPage({ kind: "indexing_request", permission: "integrations.manage", returnTo: "/seo/fast-indexing" }); }
+import {redirectLegacySeo} from '@/lib/seo-ui/legacy-route';
+export default async function LegacySeoPage(input:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return redirectLegacySeo({route:'fast-indexing',kind:'indexing_request',searchParams:await input.searchParams});}

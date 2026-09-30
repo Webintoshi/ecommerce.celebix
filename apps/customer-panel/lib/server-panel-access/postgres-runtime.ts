@@ -12,6 +12,7 @@ import {
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
   PostgresMerchantContentRepository,
+  PostgresSeoRepository,
   PostgresStorePolicyAdminRepository,
   PostgresMerchantProviderProfileRepository,
   PostgresPaymentMethodRepository,
@@ -58,6 +59,7 @@ import { registerServerCatalogOnboardingRepository } from "../server-catalog-onb
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
 import { registerServerMerchantContentRepository } from "../server-merchant-content/runtime.ts";
+import { registerServerSeoRepository } from "../server-seo/runtime.ts";
 import { merchantContentReady } from "../server-merchant-content/readiness.ts";
 import { registerServerStorePolicyRepository } from "../server-store-policy/runtime.ts";
 import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
@@ -790,6 +792,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
   try {
     await preflight(pool, config.database.name);
     const typedMerchantContentReady = await merchantContentReady(pool);
+    const seoReady = (await pool.query("SELECT to_regprocedure('saas.seo_admin_overview(uuid,uuid,uuid,uuid,text,bigint,timestamptz)') IS NOT NULL AS ready")).rows[0]?.ready === true;
     const quickLinksConfig = parseQuickLinkServerConfig(Object.fromEntries(
       QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.map((field) => [field, process.env[field]]),
     ));
@@ -1045,6 +1048,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerMerchantAdminRepository(access, createPostCommitInvalidatingRepository(merchantAdminRepository, {
       save: ["catalog", "settings"], archive: ["catalog", "settings"],
     }));
+    if (seoReady) {
+      registerServerSeoRepository(access, createPostCommitInvalidatingRepository(
+        new PostgresSeoRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, audit: () => undefined }),
+        { saveResource: ["catalog", "settings"], saveSettings: ["catalog", "settings"], saveLink: ["settings"] },
+      ));
+    }
     if (typedMerchantContentReady) {
       registerServerMerchantContentRepository(access, createPostCommitInvalidatingRepository(
         new PostgresMerchantContentRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, audit: () => undefined }),

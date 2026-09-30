@@ -679,3 +679,4 @@ export { normalizeStarterThemeCompositionV4, parseHomepageSectionStyle, parseBan
 export type { BannerDestination, BannerMediaReference, HomepageBannerSlide, HomepageSectionStyle, PublicHomepageBannerSlide, PublicStarterThemePresentationV4, StarterThemeCompositionConfigV4, StarterThemeSectionConfigV4 } from "./storefront/index.ts";
 export { createDefaultStarterThemeCompositionV4, normalizeStorefrontDesignDocumentV5, parseStorefrontDesignEditorWorkspace, parseStorefrontDesignApplyMutation } from "./storefront-design/index.ts";
 export type { StorefrontDesignDocumentV5, StorefrontDesignEditorWorkspace, StorefrontDesignEditorMediaOption, StorefrontDesignApplyMutation } from "./storefront-design/index.ts";
+export * from './seo/index.ts';

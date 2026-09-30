@@ -1,1 +1,2 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function SeoFastIndexingPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="indexing_request" canManage={isMerchantActionAllowed(tenantContext.membership.role,"integrations.manage")}/>}
+import {redirectLegacySeo} from '@/lib/seo-ui/legacy-route';
+export default async function LegacySeoPage(input:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return redirectLegacySeo({route:'fast-indexing',kind:'indexing_request',searchParams:await input.searchParams});}

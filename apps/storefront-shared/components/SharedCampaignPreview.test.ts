@@ -51,3 +51,13 @@ test("Güzide preview disables prefetch for every shared footer navigation link"
   }));
   assert.deepEqual(values, [false, false, false]);
 });
+
+
+test("the shared product row renders no section or heading for an empty projection", () => {
+  const { CampaignProductRowFrame } = compile<{ CampaignProductRowFrame: (props: Record<string, unknown>) => ReactNode }>(new URL("./CampaignProductRowFrame.tsx", import.meta.url));
+  const markup = renderToStaticMarkup(React.createElement(CampaignProductRowFrame, {
+    section: { kind: "product_row", key: "empty_row", source: "manual", heading: "Selected products", limit: 4 }, products: [], locale: "tr",
+    renderProductGrid: () => React.createElement("div", null, "Empty grid"),
+  }));
+  assert.equal(markup, "");
+});

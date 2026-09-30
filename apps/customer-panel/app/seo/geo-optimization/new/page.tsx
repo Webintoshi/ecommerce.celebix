@@ -1,2 +1,2 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default function NewGeoSeoPage() { return renderMerchantRecordPage({ kind: "seo_geo_profile", permission: "integrations.manage", returnTo: "/seo/geo-optimization" }); }
+import {redirectLegacySeo} from '@/lib/seo-ui/legacy-route';
+export default async function LegacySeoPage(input:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return redirectLegacySeo({route:'geo-optimization',kind:'seo_geo_profile',searchParams:await input.searchParams});}

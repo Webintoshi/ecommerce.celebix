@@ -92,21 +92,13 @@ test("analytics mounts one shared shell while orders keep their existing page-ow
   assert.doesNotMatch(printPage, /PanelShell|createPanelChromeModel/);
 });
 
-test("advanced SEO pages expose only fixed server-authorized kinds", async () => {
-  const pages = [
-    ["../app/seo/geo-optimization/page.tsx", "seo_geo_profile", "integrations.manage"],
-    ["../app/seo/internal-linking/page.tsx", "seo_internal_link", "integrations.manage"],
-    ["../app/seo/content/page.tsx", "seo_content_entry", "integrations.manage"],
-    ["../app/seo/categories/page.tsx", "seo_category_entry", "integrations.manage"],
-    ["../app/seo/pages/page.tsx", "seo_page_entry", "integrations.manage"],
-    ["../app/seo/products/page.tsx", "seo_product_entry", "integrations.manage"],
-  ] as const;
-  for (const [path, kind, capability] of pages) {
-    const source = await readFile(new URL(path, import.meta.url), "utf8");
+test("SEO pages bind dedicated screens with server authorization", async () => {
+  for (const [path, name] of [["../app/seo/page.tsx", "SeoOverview"], ["../app/seo/content/page.tsx", "SeoContent"], ["../app/seo/settings/page.tsx", "SeoSettings"]]) {
+    const source = await readFile(new URL(path!, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
-    assert.match(source, new RegExp(`kind=["']${kind}["']`));
-    assert.match(source, new RegExp(capability.replace(".", "\\.")));
-    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+    assert.match(source, new RegExp(name!));
+    assert.match(source, /integrations[.]manage/);
+    assert.doesNotMatch(source, /x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
 });
 
@@ -451,7 +443,7 @@ test("completed index and configuration routes have literal navigation destinati
     "/marketing/email",
     "/marketplaces",
     "/accounting/invoicing-integration",
-    "/seo/products",
+    "/seo/content",
   ]) assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
   for (const href of ["/customers/new", "/products/new", "/discounts/new"]) {
     assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);

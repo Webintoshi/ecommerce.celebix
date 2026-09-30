@@ -1,2 +1,2 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default function NewCodeIntegrationPage() { return renderMerchantRecordPage({ kind: "code_integration", permission: "integrations.manage", returnTo: "/seo/code-integrations" }); }
+import {redirectLegacySeo} from '@/lib/seo-ui/legacy-route';
+export default async function LegacySeoPage(input:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return redirectLegacySeo({route:'code-integrations',kind:'code_integration',searchParams:await input.searchParams});}

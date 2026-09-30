@@ -705,3 +705,9 @@ img { display: block; max-width: 100%; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.seo-related-links { border-top: 1px solid var(--color-border, #e5e5e5); padding-block: 1.5rem; margin-block: 1rem 2rem; }
+.seo-related-links h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.seo-related-links ul { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; list-style: none; margin: 0; padding: 0; }
+.seo-related-links a { text-decoration: underline; text-underline-offset: .2em; }
+.seo-related-links a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }

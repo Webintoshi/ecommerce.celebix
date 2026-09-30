@@ -7,6 +7,8 @@ import { ProductGrid } from "@/components/ProductGrid";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { CampaignHome } from "@/components/CampaignHome";
+import { buildPublicSeoMetadata } from "@/lib/public-seo.ts";
+import { loadPublicSeoSettings } from "@/lib/public-seo-read.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import {
@@ -22,32 +24,16 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Mağaza bulunamadı",
       robots: { index: false, follow: false },
     };
-  const { storefront, design } = selected.context;
+  const { storefront, design, runtime } = selected.context;
+  const settings = await loadPublicSeoSettings(runtime.seo, storefront.hostname);
   const { presentation } = storefront;
-  const title = presentation.seo.title ?? presentation.displayName;
+  const title = settings?.metaTitle ?? presentation.seo.title ?? presentation.displayName;
   const description =
-    presentation.seo.description ??
+    settings?.metaDescription ?? presentation.seo.description ??
     `${presentation.displayName} yeni ve aktif ürünleri`;
   return {
-    title,
-    description,
-    robots: {
-      index: presentation.seo.allowIndex,
-      follow: presentation.seo.allowIndex,
-    },
-    alternates: { canonical: storefront.canonicalUrl },
-    icons: design.brand.favicon
-      ? { icon: design.brand.favicon.url }
-      : undefined,
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      url: storefront.canonicalUrl,
-      images: presentation.seo.socialImage
-        ? [presentation.seo.socialImage.url]
-        : [],
-    },
+    ...buildPublicSeoMetadata({ storefront, fallback: { title, description, path: "/" }, settings, suffixBrand: false }),
+    icons: design.brand.favicon ? { icon: design.brand.favicon.url } : undefined,
   };
 }
 

@@ -1,2 +1,2 @@
-import { renderMerchantRecordPage } from "@/components/merchant-admin/render-merchant-record-page";
-export default function NewContentSeoPage() { return renderMerchantRecordPage({ kind: "seo_content_entry", permission: "integrations.manage", returnTo: "/seo/content" }); }
+import {redirectLegacySeo} from '@/lib/seo-ui/legacy-route';
+export default async function LegacySeoPage(input:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return redirectLegacySeo({route:'content',kind:'seo_content_entry',searchParams:await input.searchParams});}

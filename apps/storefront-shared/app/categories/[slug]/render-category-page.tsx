@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 
+import { SeoRelatedLinks } from "@/components/SeoRelatedLinks";
+import { SeoStructuredData } from "@/components/SeoStructuredData";
+import { buildPublicSeoMetadata, effectivePublicSeo, buildBreadcrumbStructuredData } from "@/lib/public-seo.ts";
+import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { ProductGrid } from "@/components/ProductGrid";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -25,7 +29,9 @@ async function category(slug: string) {
       slug,
       limit: 48,
     });
+    const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "category", selected.category.id);
     return {
+      seoSelection,
       storefront,
       design,
       category: selected.category,
@@ -47,19 +53,7 @@ export async function generateCategoryMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const selected = await category((await params).slug);
-  const title = `${selected.category.name} | ${selected.storefront.presentation.displayName}`;
-  const description = `${selected.category.name} kategorisindeki aktif ürünler`;
-  return {
-    title,
-    description,
-    robots: {
-      index: selected.storefront.presentation.seo.allowIndex,
-      follow: selected.storefront.presentation.seo.allowIndex,
-    },
-    alternates: {
-      canonical: new URL(categoryPath(selected.storefront.locale, selected.category.slug), selected.storefront.canonicalUrl).toString(),
-    },
-  };
+  return buildPublicSeoMetadata({ storefront: selected.storefront, fallback: { title: selected.category.name, description: `${selected.category.name} kategorisindeki aktif ürünler`, path: categoryPath(selected.storefront.locale, selected.category.slug) }, selection: selected.seoSelection });
 }
 
 export async function renderCategoryPage({
@@ -76,8 +70,10 @@ export async function renderCategoryPage({
     );
   }
   const { presentation } = selected.storefront;
+  const seo = effectivePublicSeo({ storefront: selected.storefront, fallback: { title: selected.category.name, description: `${selected.category.name} kategorisindeki aktif ürünler`, path: categoryPath(selected.storefront.locale, selected.category.slug) }, selection: selected.seoSelection });
   return (
     <StorefrontFrame storefront={selected.storefront} design={selected.design}>
+      <SeoStructuredData value={buildBreadcrumbStructuredData(selected.storefront.canonicalUrl, [{ name: presentation.displayName, path: "/" }, { name: selected.category.name, path: seo.path }])} />
       <CommercePageEvent
         event={{
           name: "category_view",
@@ -102,6 +98,7 @@ export async function renderCategoryPage({
           imageRatio={presentation.theme.productImageRatio}
         />
       </section>
+      <SeoRelatedLinks links={selected.seoSelection?.links ?? []} locale={selected.storefront.locale} />
     </StorefrontFrame>
   );
 }

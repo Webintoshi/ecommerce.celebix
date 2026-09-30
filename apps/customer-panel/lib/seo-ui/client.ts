@@ -1,0 +1,22 @@
+import { parseStorefrontAsset, type SeoOverview, type SeoResource, type SeoResourceKind, type SeoSettings, type SeoLink, type SeoNotification, type StorefrontAsset, type SaveSeoResourceRequest, type SaveSeoSettingsRequest, type SaveSeoLinkRequest, type NotifySeoRequest } from '@celebix/saas-contracts';
+const messages:Record<string,string>={version_conflict:'Bu içerik başka bir işlemde değişti. Değerleriniz korunuyor. Güncel kaydı yükleyip değişiklikleri yeniden değerlendirin.',invalid_input:'Alanları kontrol edin.',unauthenticated:'Oturumunuz sona erdi.',membership_denied:'Bu işlem için yetkiniz yok.',store_inactive:'Mağaza işlemlere kapalı.',feature_not_enabled:'SEO bu mağaza için etkin değil.',record_not_found:'İçerik artık bulunamıyor.',operation_mismatch:'İşlem güvenle tekrarlanamadı.',commit_unknown:'İşlem sonucu doğrulanamadı. Aynı değerlerle yeniden deneyin.',unavailable:'SEO verileri şu anda yüklenemiyor. Yeniden deneyin.'};
+export class SeoApiError extends Error {constructor(readonly code:string,readonly status:number){super(messages[code]??messages.unavailable);this.name='SeoApiError';}}
+const id=(value:string)=>{if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))throw new SeoApiError('invalid_input',400);return value;};
+const kind=(value:SeoResourceKind)=>{if(!['product','category','page','blog'].includes(value))throw new SeoApiError('invalid_input',400);return value;};
+export type ResourceQuery=Readonly<{kind?:SeoResourceKind;query?:string;missing?:boolean;cursor?:string;limit?:number}>;
+export function createSeoClient(fetcher:typeof fetch=fetch){
+ async function request<T>(path:string,init?:RequestInit):Promise<T>{let response:Response;try{response=await fetcher(path,{credentials:'same-origin',cache:'no-store',...init});}catch{throw new SeoApiError('unavailable',503);}let value:unknown;try{if(!response.headers.get('content-type')?.startsWith('application/json'))throw new Error();value=await response.json();}catch{throw new SeoApiError('unavailable',503);}if(!response.ok){const code=typeof value==='object'&&value!==null&&'code'in value?String(value.code):'unavailable';throw new SeoApiError(code,response.status);}if(typeof value!=='object'||value===null)throw new SeoApiError('unavailable',503);return value as T;}
+ function mutate<T>(path:string,payload:unknown,key:string,method='POST'){return request<T>(path,{method,headers:{'content-type':'application/json','idempotency-key':id(key)},body:JSON.stringify(payload)});}
+ return Object.freeze({
+ overview:()=>request<SeoOverview>('/api/seo/overview'),settings:()=>request<SeoSettings>('/api/seo/settings'),
+ resources:(input:ResourceQuery={})=>{const query=new URLSearchParams();if(input.kind)query.set('kind',kind(input.kind));if(input.query)query.set('query',input.query);if(input.missing)query.set('missing','1');if(input.cursor)query.set('cursor',input.cursor);query.set('limit',String(input.limit??50));return request<{items:SeoResource[];nextCursor:string|null;total:number}>(`/api/seo/resources?${query}`);},
+ saveResource:(resourceKind:SeoResourceKind,resourceId:string,payload:Omit<SaveSeoResourceRequest,'kind'|'id'>,key:string)=>mutate<{resource:SeoResource;replayed:boolean}>(`/api/seo/resources/${kind(resourceKind)}/${id(resourceId)}`,payload,key,'PATCH'),
+ saveSettings:(payload:SaveSeoSettingsRequest,key:string)=>mutate<{settings:SeoSettings;replayed:boolean}>('/api/seo/settings',payload,key),
+ links:()=>request<{items:SeoLink[]}>('/api/seo/links'),saveLink:(payload:SaveSeoLinkRequest,key:string)=>mutate<{link:SeoLink|null;replayed:boolean}>('/api/seo/links',payload,key),
+ notifications:()=>request<{items:SeoNotification[]}>('/api/seo/notifications'),notify:(payload:NotifySeoRequest,key:string)=>mutate<{queued:number;replayed:boolean}>('/api/seo/notifications',payload,key),
+ startCheck:(key:string)=>mutate<{checked:number;total:number;status:string;replayed:boolean}>('/api/seo/checks',{},key),
+ async assets():Promise<readonly StorefrontAsset[]>{const value=await request<{assets:unknown[]}>('/api/storefront-assets');if(!Array.isArray(value.assets))throw new SeoApiError('unavailable',503);try{return value.assets.map(parseStorefrontAsset).filter(asset=>asset.status==='active');}catch{throw new SeoApiError('unavailable',503);}},
+ });
+}
+export type SeoClient=ReturnType<typeof createSeoClient>;
+export const seoClient=createSeoClient();

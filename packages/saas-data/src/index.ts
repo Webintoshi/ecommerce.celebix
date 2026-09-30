@@ -183,3 +183,4 @@ export * from "./merchant-content/index.ts";
 
 export * from "./content-resource-authoring/index.ts";
 export * from './content-research/index.ts';
+export * from './seo/index.ts';

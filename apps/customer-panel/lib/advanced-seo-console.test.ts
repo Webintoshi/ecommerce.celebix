@@ -2,23 +2,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const ADVANCED_SEO_ROUTES = [
-  ["../app/seo/geo-optimization/page.tsx", "seo_geo_profile", "integrations.manage"],
-  ["../app/seo/internal-linking/page.tsx", "seo_internal_link", "integrations.manage"],
-  ["../app/seo/content/page.tsx", "seo_content_entry", "integrations.manage"],
-  ["../app/seo/categories/page.tsx", "seo_category_entry", "integrations.manage"],
-  ["../app/seo/pages/page.tsx", "seo_page_entry", "integrations.manage"],
-  ["../app/seo/products/page.tsx", "seo_product_entry", "integrations.manage"],
-] as const;
-
-test("advanced SEO routes bind fixed server-owned kinds and capabilities", async () => {
-  for (const [path, kind, capability] of ADVANCED_SEO_ROUTES) {
-    const source = await readFile(new URL(path, import.meta.url), "utf8");
+test("canonical SEO screens retain server capability gates and legacy routes redirect safely", async () => {
+  for (const [path, component] of [["../app/seo/page.tsx", "SeoOverview"], ["../app/seo/content/page.tsx", "SeoContent"], ["../app/seo/settings/page.tsx", "SeoSettings"]]) {
+    const source = await readFile(new URL(path!, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
-    assert.match(source, /MerchantModuleConsole/);
-    assert.match(source, new RegExp(`kind=["']${kind}["']`));
-    assert.match(source, new RegExp(capability.replace(".", "\\.")));
-    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin/i);
+    assert.match(source, new RegExp(component!));
+    assert.match(source, /integrations[.]manage/);
+    assert.doesNotMatch(source, /x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin/i);
+  }
+  for (const route of ["geo-optimization", "internal-linking", "categories", "pages", "products", "social-preview", "code-integrations", "sitemap", "fast-indexing"]) {
+    const source = await readFile(new URL(`../app/seo/${route}/page.tsx`, import.meta.url), "utf8");
+    assert.match(source, /redirectLegacySeo/);
+    assert.doesNotMatch(source, /MerchantModuleConsole/);
   }
 });
 
