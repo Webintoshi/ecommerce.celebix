@@ -37,6 +37,10 @@ function storefrontNotFound(): NextResponse {
   return new NextResponse("Storefront not found", { status: 404, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
 }
 
+function collectionNotFound(): NextResponse {
+  return new NextResponse("Koleksiyon bulunamadı", { status: 404, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, "content-type": "text/plain; charset=utf-8" } });
+}
+
 type ProxyAuthority = ReturnType<typeof selectTrustedStorefrontHostAuthority>;
 type StorefrontProxyDependencies = Readonly<{
   selectAuthority: (headers: Headers) => ProxyAuthority;
@@ -45,6 +49,7 @@ type StorefrontProxyDependencies = Readonly<{
   authorizeStandardHostedIframe?: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   now: () => Date;
   resolveCanonicalHostname?: (input: Readonly<{hostname:string;now:Date}>) => Promise<string|null>;
+  resolveCollectionAvailability?: (input: Readonly<{hostname:string;slug:string;now:Date}>) => Promise<boolean>;
   resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
 }>;
 
@@ -110,6 +115,21 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
     const tracker = await runtime.analytics.getTrackerConfig({ hostname: input.hostname, now: new Date(input.now) });
     return tracker ? Object.freeze({ scriptOrigin: new URL(runtime.analyticsCollector.trackerScriptUrl).origin, collectorOrigin: runtime.analyticsCollector.collectorOrigin }) : null;
   },
+  async resolveCollectionAvailability(input) {
+    const [{ resolveDefaultPublicStorefrontRuntime }, { PublicStorefrontRepositoryError }] = await Promise.all([
+      import("./lib/default-runtime.ts"), import("@celebix/saas-data"),
+    ]);
+    const runtime = await resolveDefaultPublicStorefrontRuntime();
+    if (!runtime?.repository.queryPublicCollection) throw new Error("public_collection_query_unavailable");
+    try {
+      const storefront = await runtime.repository.getPublicStorefront({ hostname: input.hostname, now: new Date(input.now) });
+      await runtime.repository.queryPublicCollection({ storefront, now: new Date(input.now), slug: input.slug, query: "", filter: "all", order: "featured", limit: 1, offset: 0 });
+      return true;
+    } catch (error) {
+      if (error instanceof PublicStorefrontRepositoryError && (error.code === "not_found" || error.code === "invalid_input")) return false;
+      throw error;
+    }
+  },
 });
 
 export function createStorefrontProxy(dependencies: StorefrontProxyDependencies) {
@@ -133,6 +153,16 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         if (primaryHostname === null) return storefrontNotFound();
         const location = createCanonicalStorefrontLocation({ requestedHostname: authority.hostname, primaryHostname, pathname, search: request.nextUrl.search });
         if (location !== null) return new NextResponse(null, { status: 308, headers: { ...SECURITY_HEADERS, "content-security-policy": FALLBACK_CSP, location } });
+      } catch { return unavailable(); }
+    }
+    // Root loading.tsx can commit HTTP200 before page-level notFound().
+    // Check only collection routes through the same public visibility query.
+    const collectionMatch = /^\/(?:collections|koleksiyon)\/([^/]+)\/?$/u.exec(pathname);
+    if (collectionMatch && dependencies.resolveCollectionAvailability) {
+      let slug: string;
+      try { slug = decodeURIComponent(collectionMatch[1]!); } catch { return collectionNotFound(); }
+      try {
+        if (await dependencies.resolveCollectionAvailability({ hostname: authority.hostname, slug, now: dependencies.now() }) !== true) return collectionNotFound();
       } catch { return unavailable(); }
     }
     if (exactTarget && pathname === "/checkout/payment") return NextResponse.next();
