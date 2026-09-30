@@ -197,10 +197,10 @@ test("unit price dialog validates decimal input, applies one price to all quanti
     for(const invalid of ["","0","-10","1,005","1e3"]){await fillInput(input,invalid);assert.equal(button(dialog,"Uygula").disabled,true,invalid);}
     await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(dialog.open,true);
     await fillInput(input,"1800,50");await act(async()=>button(dialog,"Uygula").click());await act(async()=>{await new Promise(r=>setTimeout(r,10));});
-    assert.equal(dialog.open,false);assert.equal(browser.document.activeElement,trigger);assert.match(container.querySelector(".identity")?.textContent??"",/Fiyat değiştirildi/);assert.equal(container.querySelector(".lineTotal")?.textContent,"₺1.800,50");
+    assert.equal(dialog.open,false);assert.equal(browser.document.activeElement,trigger);assert.match(container.querySelector(".identity")?.textContent??"",/Satışa özel fiyat/);assert.equal(container.querySelector(".lineTotal")?.textContent,"₺1.800,50");
     await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Ürün adedini artır"]')!.click());assert.equal(container.querySelector(".lineTotal")?.textContent,"₺3.601,00");
     await act(async()=>trigger.click());await act(async()=>button(dialog,"Katalog fiyatına dön").click());assert.equal(container.querySelector(".lineTotal")?.textContent,"₺4.000,00");
-    assert.equal(container.querySelector(".identity")?.textContent?.includes("Fiyat değiştirildi"),false);
+    assert.equal(container.querySelector(".identity")?.textContent?.includes("Satışa özel fiyat"),false);
   });
 });
 test("unit price action is absent without price permission and in a prepared sale",async()=>{
