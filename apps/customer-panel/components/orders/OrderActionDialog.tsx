@@ -11,10 +11,11 @@ export interface OrderActionDialogProps {
   readonly busy?: boolean;
   readonly children: ReactNode;
   readonly footer?: ReactNode;
+  readonly className?: string;
 }
 
 /** Native modal semantics provide focus containment, Escape and an inert background. */
-export function OrderActionDialog({ open, title, onClose, busy = false, children, footer }: OrderActionDialogProps) {
+export function OrderActionDialog({ open, title, onClose, busy = false, children, footer, className }: OrderActionDialogProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -43,7 +44,7 @@ export function OrderActionDialog({ open, title, onClose, busy = false, children
   return (
     <dialog
       ref={dialogRef}
-      className={styles.dialog}
+      className={`${styles.dialog}${className ? ` ${className}` : ""}`}
       aria-labelledby={titleId}
       aria-busy={busy || undefined}
       onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}
