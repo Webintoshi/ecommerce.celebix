@@ -138,6 +138,18 @@
   border-color: var(--guzide-footer-ink);
 }
 
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-form > label:first-child > span:first-child {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  margin-bottom: 4px;
+  color: var(--guzide-footer-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 [data-storefront-theme="guzide-deniz"] .guzide-footer__form input[type="email"] {
   min-width: 0;
   width: 100%;
