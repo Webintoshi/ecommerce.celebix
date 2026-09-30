@@ -84,7 +84,12 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const [brandProducts, setBrandProducts] = useState<readonly BrandProductDirectoryEntry[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<readonly string[]>([]);
   const [selectedLogoAssetId, setSelectedLogoAssetId] = useState<string>();
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoUploadFailed, setLogoUploadFailed] = useState(false);
   const [brandName, setBrandName] = useState("");
+  const [brandSlug, setBrandSlug] = useState("");
+  const [brandSlugEdited, setBrandSlugEdited] = useState(false);
+  const [brandSelectedOnly, setBrandSelectedOnly] = useState(false);
   const [attributeValues, setAttributeValues] = useState<readonly string[]>([]);
   const [attributeValueError, setAttributeValueError] = useState("");
   const attributeValueInput = useRef<HTMLInputElement>(null);
@@ -107,7 +112,12 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setBrandProducts([]);
     setSelectedProductIds([]);
     setSelectedLogoAssetId(undefined);
+    setLogoBusy(false);
+    setLogoUploadFailed(false);
     setBrandName("");
+    setBrandSlug("");
+    setBrandSlugEdited(resourceId !== undefined);
+    setBrandSelectedOnly(false);
     setAttributeValues([]);
     setAttributeValueError("");
     setProductCursor(undefined);
@@ -128,6 +138,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       setSelectedProductIds(selected?.productIds ?? []);
       setSelectedLogoAssetId(selected ? brandLogoAssetId(selected.config) : undefined);
       setBrandName(selected?.name ?? "");
+      setBrandSlug(selected?.slug ?? "");
       setAttributeValues(Array.isArray(selected?.config.values) ? selected.config.values.filter((entry): entry is string => typeof entry === "string") : []);
       setProductCursor(catalog.nextCursor);
     } catch (caught) {
@@ -144,7 +155,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManage || busy) return;
+    if (!canManage || busy || logoBusy || logoUploadFailed) return;
     if (resourceId === undefined ? resource !== undefined : resource === undefined || resource.id !== resourceId || resource.kind !== kind) return;
     const sequence = requestSequence.current;
     const data = new FormData(event.currentTarget);
@@ -227,24 +238,25 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const selectedProductIdSet = new Set(selectedProductIds);
   const filteredProducts = [...(normalizedSearch
     ? productOptions.filter((product) => product.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || product.representativeSku?.toLocaleLowerCase("tr-TR").includes(normalizedSearch))
-    : productOptions)].sort((left, right) => Number(selectedProductIdSet.has(right.id)) - Number(selectedProductIdSet.has(left.id)) || left.title.localeCompare(right.title, "tr-TR"));
+    : productOptions)].filter((product) => kind !== "brand" || !brandSelectedOnly || selectedProductIdSet.has(product.id)).sort((left, right) => Number(selectedProductIdSet.has(right.id)) - Number(selectedProductIdSet.has(left.id)) || left.title.localeCompare(right.title, "tr-TR"));
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
   const loadedProductIds = new Set(productOptions.map(({ id }) => id));
   const unseenSelectedProductIds = selectedProductIds.filter((id) => !loadedProductIds.has(id));
   if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
-  return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace}`}>
+  return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
     {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}{resourceId && !resource ? <> <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></> : null}</p> : null}
-    {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : ""}`} onSubmit={submit}>
-      {kind === "brand" ? <div className={`${styles.wide} ${styles.brandEditorIntro}`}><CatalogBrandLogoPicker value={selectedLogoAssetId} brandName={brandName} canManage={canManage} onChange={setSelectedLogoAssetId} /><input type="hidden" name="logoAssetId" value={selectedLogoAssetId ?? ""} /></div> : null}
-      <fieldset className={`${styles.wide} ${styles.formSection}`}><legend>{kind === "attribute" ? "Nitelik bilgileri" : "Temel bilgiler"}</legend><div className={styles.fieldGrid}>
-      <label className={kind === "attribute" ? styles.wide : undefined}>{kind === "attribute" ? "Nitelik adı" : "Ad"}<input name="name" required maxLength={120} placeholder={kind === "attribute" ? "Örn. Renk veya Beden" : undefined} {...(kind === "brand" ? { value: brandName, onChange: (event) => setBrandName(event.currentTarget.value) } : { defaultValue: resource?.name ?? "" })} /></label>
-      {kind !== "attribute" ? <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={resource?.slug ?? ""} /></label> : null}
+    {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : kind === "brand" ? styles.brandForm : ""}`} onSubmit={submit}>
+      <fieldset className={`${styles.wide} ${styles.formSection} ${kind === "brand" ? styles.brandBasics : ""}`}><legend>{kind === "attribute" ? "Nitelik bilgileri" : "Temel bilgiler"}</legend><div className={styles.fieldGrid}>
+      <label className={kind === "attribute" ? styles.wide : undefined}>{kind === "attribute" ? "Nitelik adı" : "Ad"}<input name="name" required maxLength={120} placeholder={kind === "attribute" ? "Örn. Renk veya Beden" : undefined} {...(kind === "brand" ? { value: brandName, onChange: (event) => { const next = event.currentTarget.value; setBrandName(next); if (!brandSlugEdited) setBrandSlug(attributeSlug(next)); } } : { defaultValue: resource?.name ?? "" })} /></label>
+      {kind !== "attribute" ? <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" {...(kind === "brand" ? { value: brandSlug, onChange: (event) => { setBrandSlugEdited(true); setBrandSlug(event.currentTarget.value); } } : { defaultValue: resource?.slug ?? "" })} /></label> : null}
       {kind !== "attribute" ? <label className={styles.wide}>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label> : null}
       </div></fieldset>
+      {kind === "brand" ? <div className={`${styles.wide} ${styles.brandEditorIntro}`}><CatalogBrandLogoPicker value={selectedLogoAssetId} brandName={brandName} canManage={canManage && !busy} onChange={setSelectedLogoAssetId} onBusyChange={setLogoBusy} onUploadErrorChange={setLogoUploadFailed} /><input type="hidden" name="logoAssetId" value={selectedLogoAssetId ?? ""} /></div> : null}
+
       {kind === "collection" ? <label className={styles.toggleField}><span>Vitrinde öne çıkar</span><input name="featured" type="checkbox" defaultChecked={resource?.config.featured === true} /></label> : null}
-      {kind === "brand" ? <label>Marka sitesi<input name="website" type="url" maxLength={1000} defaultValue={configValue(resource, "website")} /></label> : null}
+      {kind === "brand" ? <label className={styles.brandWebsite}>Marka sitesi<input name="website" type="url" maxLength={1000} defaultValue={configValue(resource, "website")} /></label> : null}
       {kind === "attribute" ? <>
         <div className={`${styles.wide} ${styles.attributeValueField}`}>
           <label htmlFor="attribute-value-draft">Seçenek değerleri</label>
@@ -260,10 +272,11 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       </> : null}
       {kind === "extra" ? <><label>Seçenekler (virgülle ayırın)<input name="options" required maxLength={1000} defaultValue={configValue(resource, "options")} /></label><label>Fiyat farkı (kuruş)<input name="priceAdjustmentCents" type="number" min={0} step={1} defaultValue={configValue(resource, "priceAdjustmentCents") || "0"} /></label></> : null}
       {kind === "definition" ? <><label>Tanım anahtarı<input name="definitionKey" required maxLength={64} defaultValue={configValue(resource, "key")} /></label><label>Tanım değeri<input name="definitionValue" required maxLength={1000} defaultValue={configValue(resource, "value")} /></label></> : null}
-      {hasProductRelations(kind) ? <fieldset className={`${styles.wide} ${styles.checks}`}>
+      {hasProductRelations(kind) ? <fieldset className={`${styles.wide} ${styles.checks} ${kind === "brand" ? styles.brandProductPicker : ""}`}>
         <legend>Bağlı ürünler <span>{selectedProductIds.length} seçili</span></legend>
+        {kind === "brand" ? <div className={styles.brandFilters} role="group" aria-label="Ürün görünümü"><button type="button" aria-pressed={!brandSelectedOnly} onClick={() => setBrandSelectedOnly(false)}>Tüm ürünler</button><button type="button" aria-pressed={brandSelectedOnly} onClick={() => setBrandSelectedOnly(true)}>Seçilenler ({selectedProductIds.length})</button></div> : null}
         <label className={styles.productSearch}>Ürün adı veya SKU ile ara<input type="search" value={productSearch} placeholder="Örn. Altın kolye veya KLY-1293" onChange={(event) => { setProductSearch(event.currentTarget.value); setVisibleProductLimit(100); }} /></label>
-        {!visibleProducts.length && !unseenSelectedProductIds.length ? <p className={styles.productEmpty}>{productSearch ? "Aramanızla eşleşen ürün yok." : "Bağlanabilecek ürün yok."}</p> : null}
+        {!visibleProducts.length && !unseenSelectedProductIds.length ? <p className={styles.productEmpty}>{productSearch ? "Aramanızla eşleşen ürün yok." : kind === "brand" && brandSelectedOnly ? "Henüz ürün seçilmedi." : "Bağlanabilecek ürün yok."}</p> : null}
         {unseenSelectedProductIds.map((productId) => <label className={styles.check} key={productId}>
           <input name="productId" type="checkbox" value={productId} checked onChange={(event) => toggleProduct(productId, event.currentTarget.checked)} />
           <span><strong>Ürün bilgisi artık katalogda okunamıyor</strong><small>Bağı koruyabilir veya kaldırabilirsiniz.</small></span>
@@ -275,7 +288,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         {kind === "brand" && visibleProducts.length < filteredProducts.length ? <button className={styles.button} type="button" onClick={() => setVisibleProductLimit((current) => current + 100)}>Daha fazla ürün göster</button> : null}
         {kind !== "brand" && productCursor ? <button className={styles.button} type="button" disabled={loadingProducts} onClick={() => { void loadMoreProducts(); }}>{loadingProducts ? "Ürünler yükleniyor…" : "Daha fazla ürün yükle"}</button> : null}
       </fieldset> : null}
-      <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : ""}`}><a className={styles.button} href={`/products/${route.segment}`}>Vazgeç</a><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
+      <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : kind === "brand" ? styles.brandFormActions : ""}`}><a className={styles.button} href={`/products/${route.segment}`}>Vazgeç</a><button className={styles.primary} disabled={busy || logoBusy || logoUploadFailed}>{busy ? "Kaydediliyor…" : logoBusy ? "Logo yükleniyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
     </form> : null}
   </section></PanelPageShell>;
 }

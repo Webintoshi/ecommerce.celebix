@@ -110,7 +110,7 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
     throw new Error(`unexpected_catalog_resource_editor_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId: string; canManage: boolean }) => ReactNode;
+  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId?: string; canManage: boolean }) => ReactNode;
 }
 
 test("binds catalog route segments to fixed resource kinds", async () => {
@@ -236,6 +236,17 @@ test("brand editor binds an uploaded tenant logo to the saved brand configuratio
   });
   assert.ok(logoPicker);
   assert.equal(logoPicker.props.value, oldLogo);
+  (logoPicker.props.onBusyChange as (value: boolean) => void)(true);
+  view = await hookRuntime.flush(Console);
+  let saveDisabled = false;
+  visitElements(view, (element) => { if (element.type === "button" && element.props.children === "Logo yükleniyor…") saveDisabled = element.props.disabled === true; });
+  assert.ok(saveDisabled, "save waits for the uploaded logo to be bound");
+  await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void }) => Promise<void>)({ preventDefault() {} });
+  (logoPicker.props.onBusyChange as (value: boolean) => void)(false);
+  (logoPicker.props.onUploadErrorChange as (value: boolean) => void)(true);
+  view = await hookRuntime.flush(Console);
+  visitElements(view, (element) => { if (element.type === "button" && element.props.children === "Kaydet") assert.equal(element.props.disabled, true, "failed upload must be retried or discarded before save"); });
+  (logoPicker.props.onUploadErrorChange as (value: boolean) => void)(false);
   (logoPicker.props.onChange as (value: string) => void)(nextLogo);
   view = await hookRuntime.flush(Console);
   let hiddenLogo = "";
@@ -243,6 +254,25 @@ test("brand editor binds an uploaded tenant logo to the saved brand configuratio
     if (element.type === "input" && element.props.name === "logoAssetId") hiddenLogo = String(element.props.value);
   });
   assert.equal(hiddenLogo, nextLogo);
+  visitElements(view, (element) => { if (element.type === "input" && element.props.name === "name") (element.props.onChange as (event: unknown) => void)({ currentTarget: { value: "Yeni marka adı" } }); });
+  view = await hookRuntime.flush(Console);
+  visitElements(view, (element) => { if (element.type === "input" && element.props.name === "slug") assert.equal(element.props.value, "guzide", "existing brand URL is stable after renaming"); });
+});
+
+test("new brand generates a Turkish slug until the user customizes it", async () => {
+  const hooks = createHookRuntime();
+  const Editor = await compileCatalogResourceEditor({ react: hooks.runtime, resource: async () => ({}), save: async () => ({}), push() {} });
+  const render = () => Editor({ kind: "brand", canManage: true });
+  let view = await hooks.flush(render);
+  const change = (field: string, value: string) => visitElements(view, (element) => { if (element.type === "input" && element.props.name === field) (element.props.onChange as (event: unknown) => void)({ currentTarget: { value } }); });
+  change("name", "Çiçek Dünyası");
+  view = await hooks.flush(render);
+  visitElements(view, (element) => { if (element.type === "input" && element.props.name === "slug") assert.equal(element.props.value, "cicek-dunyasi"); });
+  change("slug", "cicek");
+  view = await hooks.flush(render);
+  change("name", "Yeni İsim");
+  view = await hooks.flush(render);
+  visitElements(view, (element) => { if (element.type === "input" && element.props.name === "slug") assert.equal(element.props.value, "cicek"); });
 });
 
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {

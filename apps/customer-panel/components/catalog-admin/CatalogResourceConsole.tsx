@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseStorefrontAsset, type CatalogAdminResource, type CatalogAdminResourceKind, type StorefrontAsset } from "@celebix/saas-contracts";
-import { ImageOff, Search } from "lucide-react";
+import { ImageOff, Search, Pencil, Archive } from "lucide-react";
 
 import { PanelEmptyState, PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CatalogAdminApiError, catalogAdminApi } from "@/lib/catalog-admin-ui/client";
@@ -38,6 +38,9 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
   const [brandProducts, setBrandProducts] = useState<readonly BrandProductDirectoryEntry[]>([]);
   const [brandLogos, setBrandLogos] = useState<readonly StorefrontAsset[]>([]);
   const [search, setSearch] = useState("");
+  const [brandFilter, setBrandFilter] = useState<"all" | "unlinked" | "no-logo">("all");
+  const [brandSort, setBrandSort] = useState("name");
+  const [archivingIds, setArchivingIds] = useState<readonly string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,23 +76,25 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
   useEffect(() => { void load(); }, [load]);
 
   async function archive(resource: CatalogAdminResource) {
-    setBusy(true);
+    if (kind === "brand" && (archivingIds.includes(resource.id) || !window.confirm(`${resource.name} arşivlensin mi? Marka aktif listeden kaldırılacak.`))) return;
+    if (kind === "brand") setArchivingIds((current) => [...current, resource.id]); else setBusy(true);
     setError("");
     try {
       await catalogAdminApi.archiveResource(kind, resource.id, resource.version);
-      await load();
+      if (kind === "brand") setItems((current) => current.filter((item) => item.id !== resource.id)); else await load();
     } catch (caught) {
       setError(caught instanceof CatalogAdminApiError ? caught.message : "Kayıt arşivlenemedi.");
     } finally {
-      setBusy(false);
+      if (kind === "brand") setArchivingIds((current) => current.filter((id) => id !== resource.id)); else setBusy(false);
     }
   }
 
-  const productById = new Map(brandProducts.map((product) => [product.id, product]));
-  const logoById = new Map(brandLogos.map((asset) => [asset.id, asset]));
+  const productById = useMemo(() => new Map(brandProducts.map((product) => [product.id, product])), [brandProducts]);
+  const logoById = useMemo(() => new Map(brandLogos.map((asset) => [asset.id, asset])), [brandLogos]);
   const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
-  const visibleItems = !normalizedSearch ? items : kind === "brand"
-    ? items.filter((resource) => resource.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || resource.productIds.some((id) => productById.get(id)?.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch)))
+  const visibleItems = kind === "brand"
+    ? items.filter((resource) => (brandFilter === "all" || (brandFilter === "unlinked" ? resource.productCount === 0 : !logoById.has(brandLogoAssetId(resource.config) ?? ""))) && (!normalizedSearch || [resource.name, resource.slug].some((entry) => entry.toLocaleLowerCase("tr-TR").includes(normalizedSearch)) || resource.productIds.some((id) => { const product = productById.get(id); return [product?.title, product?.representativeSku].some((entry) => entry?.toLocaleLowerCase("tr-TR").includes(normalizedSearch)); }))).sort((left, right) => brandSort === "products" ? right.productCount - left.productCount || left.name.localeCompare(right.name, "tr-TR") : left.name.localeCompare(right.name, "tr-TR"))
+    : !normalizedSearch ? items
     : items.filter((resource) => [resource.name, resource.slug, resource.description ?? "", ...attributeValues(resource)].some((entry) => entry.toLocaleLowerCase("tr-TR").includes(normalizedSearch)));
 
   function brandCard(resource: CatalogAdminResource) {
@@ -98,11 +103,11 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     return <article className={styles.brandCard} key={resource.id}>
       <div className={styles.brandCardLogo}>{logo ? <>{/* eslint-disable-next-line @next/next/no-img-element -- tenant R2 URLs are runtime data */}<img src={logo.publicUrl} alt={logo.altText || `${resource.name} logosu`} /></> : <span aria-label="Marka görseli yok">{resource.name[0]?.toLocaleUpperCase("tr-TR") || <ImageOff aria-hidden="true" />}</span>}</div>
       <div className={styles.brandCardBody}>
-        <div className={styles.brandCardTitle}><div><h2>{resource.name}</h2><p>/{resource.slug}</p></div><span>{resource.productCount.toLocaleString("tr-TR")} ürün</span></div>
+        <div className={styles.brandCardTitle}><div><h2>{canManage ? <Link href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>{resource.name}</Link> : resource.name}</h2><p>/{resource.slug}</p></div><span>{resource.productCount.toLocaleString("tr-TR")} ürün</span></div>
         {resource.description ? <p className={styles.brandDescription}>{resource.description}</p> : null}
-        <div className={styles.brandProducts}><strong>Bağlı ürünler</strong>{linkedProducts.length ? <ul>{linkedProducts.slice(0, 4).map((product) => <li key={product.id}><span>{product.title}</span>{product.representativeSku ? <small>{product.representativeSku}</small> : null}</li>)}</ul> : <p>Bağlı ürün adı bulunamadı.</p>}{resource.productCount > 4 ? <small>+{(resource.productCount - 4).toLocaleString("tr-TR")} ürün daha</small> : null}</div>
+        <details className={styles.brandProducts}><summary>Bağlı ürünler</summary>{linkedProducts.length ? <ul>{linkedProducts.slice(0, 4).map((product) => <li key={product.id}><span>{product.title}</span>{product.representativeSku ? <small>{product.representativeSku}</small> : null}</li>)}</ul> : <p>{resource.productCount ? "Ürün adları okunamadı." : "Ürün bağlanmamış."}</p>}{resource.productCount > 4 ? <small>+{(resource.productCount - 4).toLocaleString("tr-TR")} ürün daha</small> : null}</details>
       </div>
-      <div className={styles.brandCardActions}><span className={styles.status}>v{resource.version}</span>{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div>
+      <div className={styles.brandCardActions}><span className={styles.status}>v{resource.version}</span>{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}><Pencil aria-hidden="true" /> Düzenle</Link><button className={styles.danger} type="button" aria-label={`${resource.name} markasını arşivle`} disabled={archivingIds.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" /><span className={styles.srOnly}>{archivingIds.includes(resource.id) ? "Arşivleniyor" : "Arşivle"}</span></button></> : null}</div>
     </article>;
   }
 
@@ -119,13 +124,14 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     </article>;
   }
 
-  return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <span className={styles.workspace}><Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link></span> : undefined} /><h1 className={styles.srOnly}>{meta.title}</h1><section className={`${styles.surface} ${styles.workspace}`}>
+  return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <span className={styles.workspace}><Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link></span> : undefined} /><h1 className={styles.srOnly}>{meta.title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
     {error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button></p> : null}
     {!loading && items.length ? <div className={styles.resourceToolbar}>
       <label className={styles.resourceSearch}><Search aria-hidden="true" /><span className={styles.srOnly}>{kind === "brand" ? "Marka veya bağlı ürün ara" : kind === "attribute" ? "Nitelik veya değer ara" : `${meta.title} içinde ara`}</span><input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder={kind === "brand" ? "Marka veya bağlı ürün ara" : kind === "attribute" ? "Nitelik veya değer ara" : "Ad veya URL anahtarı ara"} /></label>
-      <span className={styles.resultCount} role="status">{visibleItems.length} / {items.length} kayıt</span>
+      {kind === "brand" ? <><div className={styles.brandFilters} role="group" aria-label="Marka filtresi">{([["all", "Tümü"], ["unlinked", "Ürünsüz"], ["no-logo", "Görselsiz"]] as const).map(([filter, label]) => <button type="button" key={filter} aria-pressed={brandFilter === filter} onClick={() => setBrandFilter(filter)}>{label}</button>)}</div><label className={styles.brandSort}><span className={styles.srOnly}>Markaları sırala</span><select value={brandSort} onChange={(event) => setBrandSort(event.currentTarget.value)}><option value="name">Ada göre</option><option value="products">Ürün sayısına göre</option></select></label></> : null}
+      <span className={styles.resultCount} role="status">{visibleItems.length} / {items.length} {kind === "brand" ? "marka" : "kayıt"}</span>
       {search ? <button className={styles.button} type="button" onClick={() => setSearch("")}>Temizle</button> : null}
     </div> : null}
-    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? error ? null : kind === "attribute" ? <PanelEmptyState title="Henüz nitelik yok" description="Renk veya beden ekleyerek başlayın; değerleri ürün varyantlarında seçebilirsiniz." action={canManage ? <Link className={styles.button} href="/products/attributes/new">İlk niteliği oluştur</Link> : undefined} /> : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title="Eşleşen marka yok" description="Arama ifadenizi değiştirip yeniden deneyin." /> : kind === "attribute" ? visibleItems.length ? <div className={styles.attributeList}>{visibleItems.map(attributeCard)}</div> : <PanelEmptyState title="Eşleşen nitelik yok" description="Başka bir ad veya değer arayın." /> : !visibleItems.length ? <PanelEmptyState title="Eşleşen kayıt yok" description="Aramanızı değiştirin veya temizleyin." /> : <div className={styles.list}>{visibleItems.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
+    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? error ? null : kind === "attribute" ? <PanelEmptyState title="Henüz nitelik yok" description="Renk veya beden ekleyerek başlayın; değerleri ürün varyantlarında seçebilirsiniz." action={canManage ? <Link className={styles.button} href="/products/attributes/new">İlk niteliği oluştur</Link> : undefined} /> : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title="Eşleşen marka yok" description="Arama veya filtreyi değiştirin." action={<button className={styles.button} type="button" onClick={() => { setSearch(""); setBrandFilter("all"); }}>Filtreleri temizle</button>} /> : kind === "attribute" ? visibleItems.length ? <div className={styles.attributeList}>{visibleItems.map(attributeCard)}</div> : <PanelEmptyState title="Eşleşen nitelik yok" description="Başka bir ad veya değer arayın." /> : !visibleItems.length ? <PanelEmptyState title="Eşleşen kayıt yok" description="Aramanızı değiştirin veya temizleyin." /> : <div className={styles.list}>{visibleItems.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
   </section></PanelPageShell>;
 }
