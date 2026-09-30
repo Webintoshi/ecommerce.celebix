@@ -11,6 +11,7 @@ import { CartStatusProvider } from "./CartStatusProvider";
 import { FavoriteStatusProvider } from "./FavoriteStatusProvider";
 import { campaignFrameSettings } from "./campaign-ui-model";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
+import { GuzideCheckoutHeader } from "../themes/guzide/GuzideCheckoutChrome";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -19,17 +20,21 @@ export function StorefrontFrame({
   design,
   children,
   hasAnnouncement = false,
+  checkout = false,
 }: {
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
   children: React.ReactNode;
   hasAnnouncement?: boolean;
+  checkout?: boolean;
 }) {
   const tokens = starterThemeTokens(storefront.presentation);
   const campaign = campaignFrameSettings(storefront.presentation);
   const customized = design.publicationVersion > 1;
   const typography = createStorefrontTypographyResources(design.typography);
   const visualTheme = guzideThemeFor(storefront);
+  const guzideCheckout = Boolean(visualTheme && checkout);
+  const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
   const style: DesignStyle = {
     ...typography.style,
     "--store-section-spacing": storefront.presentation.schemaVersion !== 3 ? "clamp(64px, 7vw, 112px)" : storefront.presentation.visual.sectionSpacing === "compact" ? "40px" : storefront.presentation.visual.sectionSpacing === "airy" ? "112px" : "clamp(64px, 7vw, 112px)",
@@ -51,12 +56,13 @@ export function StorefrontFrame({
             className={`starter-storefront ${campaign.campaignClass} ${campaign.cornerClass} ${hasAnnouncement ? "has-announcement" : ""} ${tokens.schemeClass} ${tokens.headingClass} ${tokens.cardClass} ${tokens.imageClass}`}
             data-published-design={customized ? "true" : "false"}
             data-storefront-theme={visualTheme}
+            data-storefront-checkout={guzideCheckout ? "true" : undefined}
             data-font={customized ? design.brand.fontFamily : undefined}
             style={style}
           >
-            <Header storefront={storefront} design={design} />
+            {guzideCheckout ? <GuzideCheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
             <main>{children}</main>
-            <Footer storefront={storefront} logo={customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo} />
+            <Footer storefront={storefront} logo={logo} checkout={guzideCheckout} />
           </div>
         </FavoriteStatusProvider>
       </CartStatusProvider>
