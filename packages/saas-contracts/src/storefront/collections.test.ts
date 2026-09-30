@@ -12,6 +12,13 @@ test("public collection pages expose bounded public metadata and a dedicated cov
  assert.ok(Object.isFrozen(result.collection));
  assert.ok(Object.isFrozen(result.items));
 });
+test("public collection descriptions retain multiline copy and match collection asset bounds", () => {
+ const description = "Yeni sezon\nÖzel seçki\r\nSınırlı ürünler";
+ const result = parsePublicCollectionPage({ ...page, collection: { ...page.collection, description, cover: { ...page.collection.cover, altText: "a".repeat(500), width: 8192, height: 8192 } } });
+ assert.equal(result.collection.description, description);
+ assert.equal(result.collection.cover?.altText.length, 500);
+ assert.throws(() => parsePublicCollectionPage({ ...page, collection: { ...page.collection, description: "Yeni\u0000sezon" } }));
+});
 test("public collection pages reject private fields, unsafe covers and invalid pagination", () => {
  for (const value of [
   { ...page, collection: { ...page.collection, productIds: [ID] } },

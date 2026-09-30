@@ -68,7 +68,7 @@ export type StarterThemeSectionConfigV3 = WithHomepageSectionId<StarterThemeSect
 
 export type HomepageSectionStyle = Readonly<{ background: "theme" | "light" | "dark" | "brand"; width: "contained" | "full"; spacing: "small" | "normal" | "large" }>;
 export type BannerMediaReference = Readonly<{ kind: "media"; mediaId: string } | { kind: "asset"; assetId: string } | { kind: "legacy_https"; url: string }> | null;
-export type BannerDestination = Readonly<{ kind: "none" } | { kind: "product" | "collection" | "page"; resourceId: string } | { kind: "path"; path: string }>;
+export type BannerDestination = Readonly<{ kind: "none" } | { kind: "product" | "collection" | "catalog_collection" | "page"; resourceId: string } | { kind: "path"; path: string }>;
 export type HomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: BannerMediaReference; mobileImage: BannerMediaReference; destination: BannerDestination; eyebrow?: string; productId?: string }>;
 export type StarterThemeSectionConfigV4 = Readonly<(
   | Exclude<StarterThemeSectionConfigV3, { kind: "hero" }>

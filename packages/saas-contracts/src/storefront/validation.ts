@@ -359,7 +359,7 @@ export function parseBannerDestination(value: unknown): BannerDestination {
   if (candidate.kind === "none") { exact(candidate, ["kind"]); return Object.freeze({ kind: "none" }); }
   if (candidate.kind === "path") { const parsed = exact(candidate, ["kind", "path"]); return Object.freeze({ kind: "path", path: destination(parsed.path) }); }
   const parsed = exact(candidate, ["kind", "resourceId"]);
-  return Object.freeze({ kind: oneOf(parsed.kind, ["product", "collection", "page"] as const), resourceId: uuid(parsed.resourceId) });
+  return Object.freeze({ kind: oneOf(parsed.kind, ["product", "collection", "catalog_collection", "page"] as const), resourceId: uuid(parsed.resourceId) });
 }
 
 function parseBannerSlide(value: unknown): HomepageBannerSlide {

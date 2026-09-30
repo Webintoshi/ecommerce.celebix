@@ -1,0 +1,30 @@
+{
+  "bundleId": "catalog-collections-202609300182",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Exact predecessor rollback is available before feature writes. Existing collection configuration, collection assets, expanded positions or restore operations require feature data recovery first. No legacy membership rows are rewritten by up.",
+  "artifacts": [
+    {
+      "id": "202609300182_catalog_collections_up",
+      "direction": "up",
+      "file": "202609300182_catalog_collections.up.sql",
+      "sha256": "0c3ce51d0caea14ed64cbfcf9bef95cc7265dd56e13a3f90261698981086bf60",
+      "purpose": "Shared validated collections, canonical membership, paginated reads and versioned ordering."
+    },
+    {
+      "id": "202609300182_catalog_collections_down",
+      "direction": "down",
+      "file": "202609300182_catalog_collections.down.sql",
+      "sha256": "47e8499aa2e65f3a01ceaa5d8ec4e266e52db0fe364ec60987030f1d15f1e6ca",
+      "purpose": "Shared validated collections, canonical membership, paginated reads and versioned ordering."
+    },
+    {
+      "id": "202609300182_catalog_collections_assertions",
+      "direction": "assertions",
+      "file": "202609300182_catalog_collections_assertions.sql",
+      "sha256": "459d1432e95c7a5367e03581255192b779839f9bdb0fd725ebe324d34a29a718",
+      "purpose": "Shared validated collections, canonical membership, paginated reads and versioned ordering."
+    }
+  ]
+}

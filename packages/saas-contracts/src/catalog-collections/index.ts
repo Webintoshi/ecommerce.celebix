@@ -68,11 +68,11 @@ export function parseCatalogCollectionSummary(value: unknown): CatalogCollection
 export function parseCatalogCollectionDetail(value: unknown): CatalogCollectionDetail { return summary(value,true) as CatalogCollectionDetail; }
 export function parseCatalogCollectionListQuery(value: unknown): CatalogCollectionListQuery {
   const parsed=exact(value,[],["page","pageSize","search","state","sort"]);
-  return Object.freeze({page:integer(parsed.page??1,1,100000),pageSize:integer(parsed.pageSize??20,1,50),...(parsed.search!==undefined?{search:text(parsed.search,1,200)}:{}),state:oneOf(parsed.state??"all",["all","published","draft","archived"] as const),sort:oneOf(parsed.sort??"updated",["title","products","updated"] as const)});
+  return Object.freeze({page:integer(parsed.page??1,1,100000),pageSize:integer(parsed.pageSize??20,1,50),...(parsed.search!==undefined?{search:text(parsed.search,1,100)}:{}),state:oneOf(parsed.state??"all",["all","published","draft","archived"] as const),sort:oneOf(parsed.sort??"updated",["title","products","updated"] as const)});
 }
 export function parseCatalogCollectionMembersQuery(value: unknown): CatalogCollectionMembersQuery {
   const parsed=exact(value,[],["page","pageSize","search","categoryId","brandId","tagId","mode","productIds"]);
-  return Object.freeze({page:integer(parsed.page??1,1,100000),pageSize:integer(parsed.pageSize??20,1,50),mode:oneOf(parsed.mode??"members",["members","catalog"] as const),...(parsed.search!==undefined?{search:text(parsed.search,1,200)}:{}),...(parsed.categoryId!==undefined?{categoryId:uuid(parsed.categoryId)}:{}),...(parsed.brandId!==undefined?{brandId:uuid(parsed.brandId)}:{}),...(parsed.tagId!==undefined?{tagId:uuid(parsed.tagId)}:{}),...(parsed.productIds!==undefined?{productIds:parseCatalogCollectionProductIds(parsed.productIds,100000)}:{})});
+  return Object.freeze({page:integer(parsed.page??1,1,100000),pageSize:integer(parsed.pageSize??20,1,50),mode:oneOf(parsed.mode??"members",["members","catalog"] as const),...(parsed.search!==undefined?{search:text(parsed.search,1,100)}:{}),...(parsed.categoryId!==undefined?{categoryId:uuid(parsed.categoryId)}:{}),...(parsed.brandId!==undefined?{brandId:uuid(parsed.brandId)}:{}),...(parsed.tagId!==undefined?{tagId:uuid(parsed.tagId)}:{}),...(parsed.productIds!==undefined?{productIds:parseCatalogCollectionProductIds(parsed.productIds,100000)}:{})});
 }
 export function parseCatalogCollectionListPage(value: unknown): CatalogCollectionListPage {
   const parsed=exact(value,["items","page","pageSize","totalCount","counts"]),counts=exact(parsed.counts,["all","published","draft","archived"]);

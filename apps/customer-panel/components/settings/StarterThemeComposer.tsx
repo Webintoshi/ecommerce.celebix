@@ -34,7 +34,6 @@ import {
   removeStarterSection,
   updateStarterCampaignPanel,
   updateStarterHeroSlide,
-  updateStarterNavigationRoots,
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
 import { type ThemePanelKey } from "./starter-theme-subnavigation-model";

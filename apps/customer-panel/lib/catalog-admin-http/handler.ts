@@ -16,7 +16,7 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const ATTRIBUTE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
-const STATUS: Readonly<Record<CatalogAdminErrorCode, number>> = Object.freeze({ invalid_input: 400, unauthenticated: 401, membership_denied: 403, store_inactive: 403, feature_not_enabled: 403, resource_not_found: 404, review_not_found: 404, slug_conflict: 409, product_limit_reached: 409, import_conflict: 409, invalid_transition: 409, version_conflict: 409, operation_mismatch: 409, durable_authority_invalid: 409, unavailable: 503 });
+const STATUS: Readonly<Record<CatalogAdminErrorCode, number>> = Object.freeze({ invalid_input: 400, unauthenticated: 401, membership_denied: 403, store_inactive: 403, feature_not_enabled: 403, resource_not_found: 404, review_not_found: 404, slug_conflict: 409, product_limit_reached: 409, capacity_exceeded: 409, import_conflict: 409, invalid_transition: 409, version_conflict: 409, operation_mismatch: 409, durable_authority_invalid: 409, unavailable: 503 });
 type FeedResult = Readonly<{ mediaType: CatalogFeedMediaType; body: string }>;
 type Deps = Readonly<{ resolveRuntime(): Promise<ServerCatalogAdminRuntime | null>; now(): Date; requestId(): string; fetchFeed?: (url: string) => Promise<FeedResult> }>;
 type Authorized = Readonly<{ runtime: ServerCatalogAdminRuntime; tenantContext: TenantContext; now: Date }>;

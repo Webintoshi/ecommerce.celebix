@@ -267,7 +267,8 @@ export function validateStorefrontDesignEditorReferences(design: StorefrontDesig
     if (selected.kind === "asset") return references.has(`asset:${selected.assetId}`);
     if (selected.kind === "legacy_https") return retainedUrls.has(selected.url as string);
     if (selected.kind === "path") return paths.has(selected.path as string);
-    if (["product", "collection", "page"].includes(selected.kind as string) && "resourceId" in selected) return resources.has(`${selected.kind}:${selected.resourceId}`);
+    if (selected.kind === "category" && "resourceId" in selected) return resources.has(`collection:${selected.resourceId}`);
+    if (["product", "collection", "catalog_collection", "page"].includes(selected.kind as string) && "resourceId" in selected) return resources.has(`${selected.kind}:${selected.resourceId}`);
     return Object.entries(selected).every(([name, item]) => valid(item, name));
   }
   return valid(design);

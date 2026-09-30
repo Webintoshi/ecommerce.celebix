@@ -81,6 +81,34 @@ function mutation(id: string, status = "active") {
   return { id, version: 1, status, updatedAt: NOW.toISOString() };
 }
 
+test("collection reads preserve full order and reject invalid authority before SQL", async () => {
+  const productIds = Array.from({ length: 125 }, (_, i) => `72000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`);
+  const reader = new Client((text) => text.includes("catalog_admin_collection_members") ? [{ outcome: "listed", result_payload: { items: [{ id: PRODUCT, title: "Keten", status: "active", priceCents: 12900 }], page: 1, pageSize: 20, totalCount: 125, orderedIds: productIds } }] : []);
+  const config = { schemaVersion: 1, mode: "manual", published: false, featured: false, match: "all", rules: [], sort: "custom" } as const;
+  const result = await repository(new Pool([reader])).collectionMembers({ tenantContext: tenant(), now: NOW, collectionId: RESOURCE, config, query: { page: 1, pageSize: 20, mode: "members" } });
+  assert.equal(result.items.length, 1);
+  assert.deepEqual(result.orderedIds, productIds);
+  assert.deepEqual(call(reader, "catalog_admin_collection_members").values.slice(0, 8), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, RESOURCE]);
+  const invalidTenant = { ...tenant(), membership: { ...tenant().membership, status: "revoked" as never } };
+  await assert.rejects(() => repository(new Pool([])).collectionMembers({ tenantContext: invalidTenant, now: NOW, collectionId: RESOURCE, query: { page: 1, pageSize: 20, mode: "members" } }), (error: unknown) => error instanceof Error && error.message === "membership_denied");
+  await assert.rejects(() => repository(new Pool([])).listCollections({ tenantContext: tenant(), now: NOW, query: { page: 1, pageSize: 20, state: "all", sort: "updated", search: "a".repeat(101) } }), (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "invalid_input");
+});
+
+test("collection restore uses one recovery after uncertain commit", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("catalog_admin_restore_collection")) return [{ outcome: "restored", result_payload: mutation(RESOURCE) }];
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("catalog_admin_recover_operation") ? [{ outcome: "operation_replayed", result_payload: mutation(RESOURCE) }] : []);
+  const result = await repository(new Pool([writer, recovery])).restoreCollection({ tenantContext: tenant(), now: NOW, operationId: OP, resourceId: RESOURCE, expectedVersion: 4 });
+  assert.equal(result.replayed, true);
+  assert.equal(writer.calls.filter(entry => entry.text.includes("catalog_admin_restore_collection")).length, 1);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls.some(entry => entry.text.includes("catalog_admin_restore_collection")), false);
+});
+
 test("resource reads and saves use exact durable authority", async () => {
   const reader = new Client((text) => text.includes("catalog_admin_list_resources") ? [{ outcome: "listed", result_payload: { items: [{ id: RESOURCE, kind: "collection", name: "Yeni Gelenler", slug: "yeni-gelenler", config: { featured: true }, status: "active", productIds: [PRODUCT], productCount: 1, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }] } }] : []);
   const result = await repository(new Pool([reader])).listResources({ tenantContext: tenant(), now: NOW, kind: "collection" });

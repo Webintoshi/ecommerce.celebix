@@ -81,6 +81,14 @@ function compileComposer(categories: readonly unknown[] = []): ComposerModule {
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@/components/settings/StarterThemePreview") return { StarterThemePreview: () => null };
     if (id === "@/components/settings/StarterFooterEditor") return { StarterFooterEditor: () => React.createElement("fieldset", null, React.createElement("legend", null, "Footer ayarları")) };
+    if (id === "@/components/settings/CollectionNavigationEditor") {
+      const navigationModule = { exports: {} };
+      const navigationOutput = ts.transpileModule(readFileSync(new URL("./CollectionNavigationEditor.tsx", import.meta.url), "utf8"), {
+        compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+      }).outputText;
+      new Function("require", "module", "exports", navigationOutput)(load, navigationModule, navigationModule.exports);
+      return navigationModule.exports;
+    }
     if (id === "@/components/settings/StarterRetailSectionEditors") return { StarterRetailSectionEditor: () => null };
     if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => categories } };
     if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => ({ items: [] }) } };
@@ -365,8 +373,8 @@ test("featured navigation pairs allow either selection order, atomic clearing an
     changes.length = 0;
     await choose("Öne çıkan görsel", ASSET);
     assert.equal(changes.length, 0); assert.equal(select("Öne çıkan görsel").value, ASSET);
-    const rootCategory = [...container.querySelectorAll('input[type="checkbox"]')].find((node) => node.parentElement?.textContent === "Kolyeler"); assert.ok(rootCategory);
-    await React.act(async () => rootCategory.dispatchEvent(new window.Event("click", { bubbles: true }))); await settle();
+    const removeRoot = container.querySelector('button[aria-label="Menüden kaldır"]'); assert.ok(removeRoot);
+    await React.act(async () => removeRoot.dispatchEvent(new window.Event("click", { bubbles: true }))); await settle();
     assert.equal(select("Öne çıkan görsel").value, ASSET, "valid root changes preserve an intentional incomplete pair");
     await choose("Öne çıkan kategori", CATEGORY);
     assert.equal(current.navigation.featuredCategoryId, CATEGORY); assert.equal(current.navigation.featuredAssetId, ASSET);

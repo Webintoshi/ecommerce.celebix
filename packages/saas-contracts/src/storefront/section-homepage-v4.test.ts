@@ -28,6 +28,20 @@ test("banner preserves media origins, internal paths and each selected layout", 
   assert.throws(() => storefront.parseStarterThemeCompositionConfig({ ...composition(), sections: [{ ...banner(), slides: [{ ...slide(), destination: { kind: "path", path: "//evil.test" } }] }] }));
   assert.throws(() => storefront.parseStarterThemeCompositionConfig({ ...composition(), sections: [{ ...banner(), slides: [slide(), slide()] }] }));
 });
+test("v4 preserves real collection banner, footer and ordered menu destinations beside legacy categories", () => {
+ const source = {
+  ...composition(),
+  navigation: { rootCategoryIds: [ID2], rootLinks: [{ kind: "catalog_collection", resourceId: ID }, { kind: "category", resourceId: ID2 }] },
+  footer: { ...composition().footer, groups: [{ heading: "Keşfet", links: [{ kind: "catalog_collection", resourceId: ID }] }, ...composition().footer.groups.slice(1)] },
+  sections: [{ ...banner(), slides: [{ ...slide(), destination: { kind: "catalog_collection", resourceId: ID } }] }],
+ };
+ const parsed = storefront.parseStarterThemeCompositionConfig(source);
+ assert.deepEqual(parsed.navigation.rootLinks, source.navigation.rootLinks);
+ assert.deepEqual(parsed.footer.groups, source.footer.groups);
+ assert.deepEqual((parsed.sections[0] as any).slides[0].destination, { kind: "catalog_collection", resourceId: ID });
+ assert.deepEqual(storefront.parseBannerDestination({ kind: "collection", resourceId: ID2 }), { kind: "collection", resourceId: ID2 });
+ assert.throws(() => storefront.parseBannerDestination({ kind: "catalog_collection", resourceId: "foreign" }));
+});
 
 test("manual rows retain merchant order and reject duplicate or mismatched product IDs", () => {
   const row = { kind: "product_row", sectionId: "home_manual_one", enabled: true, heading: "My products", source: "manual", productIds: [ID2, ID], limit: 4 };
