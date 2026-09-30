@@ -4,6 +4,18 @@ import test from "node:test";
 
 const read = (name: string) => readFile(new URL(name, import.meta.url), "utf8");
 
+test("V4 mixed sections remain visible in merchant order with independently resolved rows", async () => {
+  const module = await import("./campaign-home-sections.ts");
+  const presentation = { schemaVersion: 4, sections: [
+    { kind: "product_row", sectionId: "home_first", key: "home_first", heading: "Bir", source: "manual", limit: 4 },
+    { kind: "banner", sectionId: "home_banner", layout: "stacked", autoplay: false, presentation: "image_only", slides: [{ slideId: "slide_one", enabled: true, headline: "Banner", desktopImage: { url: "https://media.example/banner.webp" } }] },
+    { kind: "product_row", sectionId: "home_second", key: "home_second", heading: "İki", source: "latest", limit: 4 },
+  ] };
+  const projection = { presentation, productRows: [{ key: "home_first", items: [{ id: "a", available: true }] }, { key: "home_second", items: [{ id: "b", available: true }] }] } as never;
+  assert.deepEqual(module.visibleCampaignSectionKinds(projection), ["product_row", "banner", "product_row"]);
+  assert.deepEqual(module.composeCampaignHomeSections(presentation as never, false).map((section, index) => module.campaignHomeSectionKey(section, index)), ["home_first", "home_banner", "home_second"]);
+});
+
 test("home exhaustively renders the finite public retail section union through its shared pure section presenter", async () => { const [home, source] = await Promise.all([read("CampaignHome.tsx"), read("CampaignSectionContent.tsx")]); assert.match(home, /CampaignSectionContent/); for (const kind of ["hero", "category_grid", "product_row", "split_campaign", "brand_story", "value_propositions", "testimonials"]) assert.match(source, new RegExp(`case [\"']${kind}[\"']`)); assert.match(source, /CampaignValuePropositions/); assert.match(source, /CampaignTestimonials/); assert.match(source, /assertNever/); });
 test("empty optional sections do not create blank storefront bands", async () => { const module = await import("./campaign-home-sections.ts"); const presentation = { schemaVersion: 3, sections: [{ kind: "hero", slides: [{ heading: "Hero", destination: "/products" }] }, { kind: "category_grid", heading: "Kategoriler", layout: "grid", items: [] }, { kind: "product_row", key: "empty", heading: "Boş", source: "latest", limit: 4 }, { kind: "split_campaign", panels: [] }, { kind: "value_propositions", items: [] }, { kind: "testimonials", heading: "Yorumlar", items: [] }] }; assert.deepEqual(module.visibleCampaignSectionKinds({ presentation, productRows: [{ key: "empty", items: [] }] } as never), ["hero"]); });
 test("homepage product rows only render available products from the selected merchant source", async () => {
@@ -85,7 +97,7 @@ test("durable showcase never invents a category section outside the merchant ord
   assert.deepEqual(sections.map((section, index) => module.campaignHomeSectionKey(section, index)), ["home_product_row_one", "home_product_row_two"]);
   assert.equal(sections.some(({ kind }) => kind === "category_grid"), false);
 });
-test("product rows bind exact projection keys to canonical product cards", async () => { const source = await read("CampaignProductRow.tsx"); assert.match(source, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(source, /Math[.]random|fake|mock/); });
+test("product rows bind exact projection keys to canonical product cards", async () => { const [source, frame] = await Promise.all([read("CampaignProductRow.tsx"), read("CampaignProductRowFrame.tsx")]); assert.match(frame, /section[.]key/); assert.match(source, /ProductGrid/); assert.match(source, /products/); assert.doesNotMatch(`${source}\n${frame}`, /Math[.]random|fake|mock/); });
 test("home page resolves campaign projection only through server page context", async () => { const [page, context, campaignResolution] = await Promise.all([read("../app/page.tsx"), read("../lib/page-context.ts"), read("../lib/campaign-page-resolution.ts")]); assert.match(page, /context[.]campaign/); assert.match(context, /resolveCampaignPageProjection/); assert.match(campaignResolution, /resolveCampaignHome/); assert.doesNotMatch(`${page}\n${context}\n${campaignResolution}`, /localStorage|sessionStorage|x-store-id|tenantId/); });
 test("published design banner augments campaign sections without a duplicate hero", async () => {
   const [source, sections] = await Promise.all([

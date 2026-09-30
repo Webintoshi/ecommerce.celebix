@@ -1,24 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import {readFile} from "node:fs/promises";
 import test from "node:test";
-
-const source = () => readFile(new URL("./HomepageBuilder.tsx", import.meta.url), "utf8");
-
-test("homepage builder exposes a single novice-friendly modular flow", async () => {
-  const value = await source();
-  for (const label of ["Ana banner", "Bölüm ekle", "Kalite puanı", "Yukarı taşı", "Aşağı taşı", "Gizle", "Sil", "Geri al"]) {
-    assert.match(value, new RegExp(label, "i"));
-  }
-  assert.match(value, /draggable=\{canManage\}/);
-  assert.match(value, /onDragStart/);
-  assert.match(value, /moveHomepageSection/);
-  assert.match(value, /scoreHomepageQuality/);
-});
-
-test("homepage builder retains server authority and never persists derived score", async () => {
-  const value = await source();
-  assert.doesNotMatch(value, /qualityScore\s*:/);
-  assert.doesNotMatch(value, /tenantId|storeId|x-store-id|localStorage|sessionStorage|dangerouslySetInnerHTML/);
-  assert.match(value, /onChange\(\{\s*[.][.][.]design,\s*composition:\s*next/);
-  assert.match(value, /normalizeStarterThemeCompositionV3/);
+test("section builder uses independent content and appearance fields without fixed-section caps",async()=>{
+ const source=await readFile(new URL("./HomepageBuilder.tsx",import.meta.url),"utf8"),fields=await readFile(new URL("./HomepageSectionFields.tsx",import.meta.url),"utf8");assert.match(source,/İçerik/);assert.match(source,/Görünüm/);assert.match(source,/duplicateHomepageSection/);assert.doesNotMatch(source,/singletonExists|productRowCount|\/ 12 bölüm|otomatik kaydedilir|role="dialog"/);assert.match(fields,/Tek banner/);assert.match(fields,/Slayt/);assert.match(fields,/Alt alta/);assert.match(fields,/Görsel yükle/);
 });

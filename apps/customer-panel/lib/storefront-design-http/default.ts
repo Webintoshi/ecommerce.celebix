@@ -7,6 +7,9 @@ import { createStorefrontDesignHttpHandlers } from "./handler.ts";
 
 const handlers = createStorefrontDesignHttpHandlers({ resolveRuntime: resolveDefaultServerStorefrontDesignRuntime, now: () => new Date(), requestId: randomUUID, uuid: randomUUID });
 
+export const handleDefaultStorefrontDesignEditor = handlers.editor;
+export const handleDefaultStorefrontDesignApply = handlers.apply;
+
 export const handleDefaultStorefrontDesignWorkspace = handlers.workspace;
 export const handleDefaultStorefrontDesignSaveDraft = handlers.saveDraft;
 export const handleDefaultStorefrontDesignPublish = handlers.publish;

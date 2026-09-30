@@ -11,6 +11,7 @@ import {
   decimalToHundredths,
   formatPromotionMinor,
   isoToZonedLocalInput,
+  promotionBenefitSummary,
   promotionDraftSnapshot,
   promotionDraftFromDetail,
   promotionSummary,
@@ -27,14 +28,12 @@ import {
 
 const PRODUCT_ID = "00000000-0000-4000-8000-000000000011";
 
-test("ships the twelve merchant campaign templates and exactly five customer questions", () => {
+test("ships the twelve merchant campaign templates and three focused steps", () => {
   assert.deepEqual(PROMOTION_TEMPLATES.map((template) => template.id), [
     "first_paid_order_percentage", "basket_threshold_fixed_amount", "free_shipping", "buy_x_get_y",
     "quantity_tiers", "category_percentage", "bundle_price", "gift", "abandoned_cart", "vip", "influencer_code", "custom",
   ]);
-  assert.deepEqual(WIZARD_STEPS, [
-    "Müşteri ne kazanacak?", "Nerede geçerli olacak?", "Kimler kullanabilecek?", "Ne zaman ve hangi sınırlarla?", "Sonucu kontrol edin ve yayınlayın",
-  ]);
+  assert.deepEqual(WIZARD_STEPS, ["Avantaj", "Hedef ve koşullar", "Kontrol ve yayın"]);
 });
 
 test("template presets match the merchant-facing examples and keep the missing gift reference non-serializable", () => {
@@ -109,13 +108,22 @@ test("converts decimal form values to exact minor units without binary floating 
   assert.equal(decimalToHundredths("90071992547410"), undefined);
 });
 
-test("keeps an edited controlled value when the merchant moves between wizard steps", () => {
+test("keeps entered benefit, conditions, and schedule when the merchant reviews and returns", () => {
   const first = createPromotionDraft("first_paid_order_percentage");
-  const named = updatePromotionDraft(first, { name: "İlk alışverişe %15" });
-  const stepped = updatePromotionDraft(named, { step: 4 });
+  const entered = updatePromotionDraft(first, {
+    name: "İlk alışverişe %15",
+    benefit: { kind: "percentage", percentageBps: 1_500 },
+    minimumBasketMinor: 75_000,
+    startsAt: "2026-10-01T09:00:00.000Z",
+  });
+  const review = updatePromotionDraft(updatePromotionDraft(entered, { step: 1 }), { step: 2 });
+  const returned = updatePromotionDraft(review, { step: 0 });
 
-  assert.equal(stepped.name, "İlk alışverişe %15");
-  assert.equal(stepped.step, 4);
+  assert.equal(review.step, 2);
+  assert.equal(returned.name, "İlk alışverişe %15");
+  assert.deepEqual(returned.benefit, { kind: "percentage", percentageBps: 1_500 });
+  assert.equal(returned.minimumBasketMinor, 75_000);
+  assert.equal(returned.startsAt, "2026-10-01T09:00:00.000Z");
   assert.equal(first.name, "İlk alışveriş indirimi");
 });
 
@@ -291,12 +299,13 @@ test("serializes the complete rule surface through the shared strict parser", ()
 
 test("rejects fractional wizard steps and bounded numeric fields instead of silently clamping them", () => {
   assert.throws(() => updatePromotionDraft(createPromotionDraft("custom"), { step: 1.5 }), /promotion_draft_invalid/);
+  assert.throws(() => updatePromotionDraft(createPromotionDraft("custom"), { step: 3 }), /promotion_draft_invalid/);
   assert.throws(() => updatePromotionDraft(createPromotionDraft("custom"), { priority: 1_001 }), /promotion_draft_invalid/);
 });
 
 test("does not mark wizard navigation or collapsed settings as unsaved rule changes", () => {
   const draft = createPromotionDraft("custom");
-  assert.equal(promotionDraftSnapshot(draft), promotionDraftSnapshot(updatePromotionDraft(draft, { step: 4, advancedOpen: true })));
+  assert.equal(promotionDraftSnapshot(draft), promotionDraftSnapshot(updatePromotionDraft(draft, { step: 2, advancedOpen: true })));
 });
 
 test("hydrates a persisted detail into a lossless editable rule", () => {
@@ -350,4 +359,21 @@ test("creates a plain-language live story and blocks publishing until checks are
     canPublish: false,
     reason: "Çakışan bir kampanya varken yayınlayamazsınız.",
   });
+  assert.deepEqual(publishEligibility(draft, { conflictsReady: true, conflictsBlocking: false, marginReady: true }), {
+    canPublish: true,
+    reason: null,
+  });
+  const invalid = updatePromotionDraft(draft, { name: "" });
+  assert.deepEqual(publishEligibility(invalid, { conflictsReady: true, conflictsBlocking: false, marginReady: true }), {
+    canPublish: false,
+    reason: "Eksik veya hatalı alanları tamamlayın.",
+  });
+});
+
+test("live and final summaries name the actual complex benefit instead of a generic advantage", () => {
+  assert.match(promotionSummary(createPromotionDraft("buy_x_get_y")), /2 al, 1 ürüne %100 indirim/);
+  assert.equal(promotionBenefitSummary(createPromotionDraft("quantity_tiers")), "3 adette %15");
+  assert.match(promotionBenefitSummary(createPromotionDraft("bundle_price")), /ürün seçimi bekleniyor/);
+  assert.match(promotionBenefitSummary(createPromotionDraft("gift")), /1 adet hediye · seçim bekleniyor/);
+  assert.doesNotMatch(promotionSummary(createPromotionDraft("gift")), /özel avantaj/);
 });

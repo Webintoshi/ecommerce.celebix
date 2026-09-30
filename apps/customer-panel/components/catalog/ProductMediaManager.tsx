@@ -41,7 +41,7 @@ export function ProductMediaManager({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File>();
+  const [selectedFiles, setSelectedFiles] = useState<readonly File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [archiveTarget, setArchiveTarget] = useState<ProductMediaLifecycle>();
@@ -119,27 +119,34 @@ export function ProductMediaManager({
     }
   }
 
-  function selectFile(event: ChangeEvent<HTMLInputElement>) {
+  function selectFiles(event: ChangeEvent<HTMLInputElement>) {
     if (!canManage) return;
-    const file = event.currentTarget.files?.[0];
+    const files = Array.from(event.currentTarget.files ?? []);
     setError("");
     setUploadProgress(0);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    if (file === undefined) { setSelectedFile(undefined); setPreviewUrl(""); return; }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size < 1 || file.size > 5_242_880) {
+    if (files.length === 0) { setSelectedFiles([]); setPreviewUrl(""); return; }
+    if (files.length + activeMedia.length > 16) {
       event.currentTarget.value = "";
-      setSelectedFile(undefined);
+      setSelectedFiles([]);
       setPreviewUrl("");
-      setError("PNG, JPEG veya WebP biçiminde ve en fazla 5 MB bir görsel seçin.");
+      setError(`Bir ürüne en fazla 16 görsel eklenebilir. ${16 - activeMedia.length} görsel daha seçebilirsiniz.`);
       return;
     }
-    setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    if (files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size < 1 || file.size > 5_242_880)) {
+      event.currentTarget.value = "";
+      setSelectedFiles([]);
+      setPreviewUrl("");
+      setError("Tüm görseller PNG, JPEG veya WebP biçiminde ve en fazla 5 MB olmalı.");
+      return;
+    }
+    setSelectedFiles(files);
+    setPreviewUrl(URL.createObjectURL(files[0]!));
     setTab("active");
   }
 
-  function clearSelectedFile() {
-    setSelectedFile(undefined);
+  function clearSelectedFiles() {
+    setSelectedFiles([]);
     setPreviewUrl("");
     setUploadProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -149,18 +156,33 @@ export function ProductMediaManager({
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canManage) return;
-    if (selectedFile === undefined) { setError("Yüklenecek görseli seçin."); return; }
+    if (selectedFiles.length === 0) { setError("Yüklenecek görselleri seçin."); return; }
     const formElement = event.currentTarget;
-    const form = new FormData(formElement), altText = form.get("altText");
+    const form = new FormData(formElement), altText = selectedFiles.length === 1 ? form.get("altText") : "";
     if (typeof altText !== "string" || altText.trim() !== altText || altText.length > 500) { setError("Alt metin en fazla 500 karakter olmalı ve başında veya sonunda boşluk bulunmamalı."); return; }
     setBusy("upload"); setError(""); setNotice(""); setUploadProgress(0);
+    let uploaded = 0;
     try {
-      const result = await productMediaApi.upload(productId, { file: selectedFile, altText, onProgress: setUploadProgress });
-      setMedia((current) => Object.freeze([...current, result.media].sort((left, right) => left.sortOrder - right.sortOrder)));
-      setSelectedFile(undefined); setPreviewUrl(""); formElement.reset();
+      for (const file of selectedFiles) {
+        const result = await productMediaApi.upload(productId, {
+          file,
+          altText: selectedFiles.length === 1 ? altText : "",
+          onProgress: (value) => setUploadProgress(Math.round(((uploaded + value / 100) / selectedFiles.length) * 100)),
+        });
+        uploaded++;
+        setMedia((current) => Object.freeze([...current, result.media].sort((left, right) => left.sortOrder - right.sortOrder)));
+      }
+      setSelectedFiles([]); setPreviewUrl(""); formElement.reset();
       addImageButtonRef.current?.focus();
-      setNotice("Görsel yüklendi. İlk sıradaki görsel mağazada birincil görsel olarak kullanılır.");
-    } catch (failure) { setError(safeMessage(failure)); }
+      setNotice(`${uploaded} görsel yüklendi. İlk sıradaki görsel mağazada kapak olarak kullanılır.`);
+    } catch (failure) {
+      const remaining = selectedFiles.slice(uploaded + 1);
+      setSelectedFiles(remaining);
+      setPreviewUrl(remaining[0] ? URL.createObjectURL(remaining[0]) : "");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadProgress(0);
+      setError(`${uploaded} görsel yüklendi. ${uploaded + 1}. görsel yüklenemedi: ${safeMessage(failure)} Galeriyi kontrol edip yüklenmeyen görseli yeniden seçin.${remaining.length ? ` Kalan ${remaining.length} görsel seçili.` : ""}`);
+    }
     finally { setBusy(""); }
   }
 
@@ -286,7 +308,7 @@ export function ProductMediaManager({
         </div> : null}
       </div>
 
-      {error ? <div className={styles.error} role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Yeniden dene</button></div> : null}
+      {error ? <div className={styles.error} role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Galeriyi yenile</button></div> : null}
       {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
 
       {loading ? <div className={styles.grid} role="status" aria-label="Görseller yükleniyor"><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /></div> : tab === "archived" && visibleMedia.length === 0 ? (
@@ -317,16 +339,16 @@ export function ProductMediaManager({
               {canArchive && tab === "archived" ? <div className={styles.archiveActions}>{item.cleanupState === "retained" ? <button type="button" className={styles.quietButton} onClick={() => void restore(item)} disabled={busy !== ""}><RotateCcw aria-hidden="true" /> {busy === `restore-${item.id}` ? "Geri yükleniyor…" : "Geri yükle"}</button> : null}{item.cleanupState === "eligible" ? <button type="button" className={styles.dangerButton} onClick={() => void cleanup(item)} disabled={busy !== ""}><Trash2 aria-hidden="true" /> {busy === `cleanup-${item.id}` ? "Temizleniyor…" : "Kalıcı temizle"}</button> : null}</div> : null}
             </article>
           ))}
-          {canManage && tab === "active" ? <form ref={mediaUploadCardRef} className={styles.uploadForm} data-expanded={selectedFile ? "true" : "false"} onSubmit={upload} tabIndex={-1}>
-            <input ref={fileInputRef} className={styles.fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Ürün görseli seç" tabIndex={-1} onChange={selectFile} disabled={busy !== ""} />
-            <button ref={addImageButtonRef} className={styles.addButton} type="button" onClick={() => fileInputRef.current?.click()} disabled={busy !== ""}><ImagePlus aria-hidden="true" /><strong>{selectedFile ? "Başka görsel seç" : "Görsel ekle"}</strong><small>JPG, PNG, WebP · 5 MB</small></button>
-            {selectedFile ? <div className={styles.uploadDetails}>
+          {canManage && tab === "active" ? <form ref={mediaUploadCardRef} className={styles.uploadForm} data-expanded={selectedFiles.length ? "true" : "false"} onSubmit={upload} tabIndex={-1}>
+            <input ref={fileInputRef} className={styles.fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Ürün görsellerini seç" tabIndex={-1} onChange={selectFiles} disabled={busy !== "" || activeMedia.length >= 16} />
+            <button ref={addImageButtonRef} className={styles.addButton} type="button" onClick={() => fileInputRef.current?.click()} disabled={busy !== "" || activeMedia.length >= 16}><ImagePlus aria-hidden="true" /><strong>{selectedFiles.length ? "Başka görsel seç" : "Görsel ekle"}</strong><small>JPG, PNG, WebP · 5 MB · Çoklu seçim</small></button>
+            {selectedFiles.length ? <div className={styles.uploadDetails}>
               {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true"><ImageIcon /></span>}
               <div className={styles.uploadFields}>
-                <span className={styles.fileName} title={selectedFile.name}>{selectedFile.name}</span>
-                <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli kısaca açıklayın" disabled={busy !== ""} /></label>
+                <span className={styles.fileName} title={selectedFiles.map((file) => file.name).join(", ")}>{selectedFiles.length === 1 ? selectedFiles[0]!.name : `${selectedFiles.length} görsel seçildi`}</span>
+                {selectedFiles.length === 1 ? <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli kısaca açıklayın" disabled={busy !== ""} /></label> : <span className={styles.bulkHint}>Alt metinleri yükledikten sonra düzenleyebilirsiniz.</span>}
               </div>
-              <div className={styles.uploadActions}><button className={styles.quietButton} type="button" onClick={clearSelectedFile} disabled={busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={busy !== ""}>{busy === "upload" ? "Yükleniyor…" : "Yükle"}</button></div>
+              <div className={styles.uploadActions}><button className={styles.quietButton} type="button" onClick={clearSelectedFiles} disabled={busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={busy !== ""}>{busy === "upload" ? "Yükleniyor…" : selectedFiles.length === 1 ? "Yükle" : `${selectedFiles.length} görseli yükle`}</button></div>
               {busy === "upload" ? <div className={styles.progress}><span>Yükleme</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
             </div> : null}
           </form> : null}

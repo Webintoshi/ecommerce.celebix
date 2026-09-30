@@ -7,8 +7,9 @@ import {
   STOREFRONT_DESIGN_FONT_FAMILIES,
   STOREFRONT_DESIGN_FONT_WEIGHTS,
 } from "./types.ts";
+import { STOREFRONT_ASSET_KINDS } from "../storefront-assets/types.ts";
 import { createDefaultStarterThemeComposition } from "./defaults.ts";
-import { normalizeStarterThemeCompositionV3, parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
+import { normalizeStarterThemeCompositionV3, normalizeStarterThemeCompositionV4, parseBannerMediaReference, parseStarterThemeCompositionConfig } from "../storefront/validation.ts";
 import type {
   DesignDestination,
   DesignMediaReference,
@@ -18,6 +19,10 @@ import type {
   StorefrontDesignAnnouncement,
   StorefrontDesignDestinationOption,
   StorefrontDesignDocument,
+  StorefrontDesignDocumentV5,
+  StorefrontDesignEditorWorkspace,
+  StorefrontDesignEditorMediaOption,
+  StorefrontDesignApplyMutation,
   StorefrontDesignHeroSlide,
   StorefrontDesignFontOption,
   StorefrontDesignMediaOption,
@@ -162,8 +167,13 @@ function timezone(value: unknown): string {
   return parsed;
 }
 
-function parseMediaReference(value: unknown): DesignMediaReference {
+function parseMediaReference(value: unknown, allowRetainedLegacy = false): DesignMediaReference {
   if (value === null) return null;
+  if (allowRetainedLegacy && record(value).kind === "legacy_https") {
+    const parsed = parseBannerMediaReference(value);
+    if (parsed?.kind !== "legacy_https") invalid();
+    return parsed;
+  }
   const parsed = exact(value, ["kind", "mediaId"]);
   if (parsed.kind !== "media") invalid();
   return Object.freeze({ kind: "media", mediaId: uuid(parsed.mediaId) });
@@ -245,11 +255,12 @@ function parseTypography(value: unknown, legacyFontFamily: unknown): StorefrontD
 
 export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignDocument {
   const root = record(value);
-  const parsed = root.schemaVersion === 3 || root.schemaVersion === 4
+  const parsed = root.schemaVersion === 3 || root.schemaVersion === 4 || root.schemaVersion === 5
     ? exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement", "composition"], ["typography"])
     : exact(root, ["schemaVersion", "brand", "hero", "promotion", "announcement"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4 && parsed.schemaVersion !== 5) invalid();
 
+  if (parsed.schemaVersion === 5 && record(parsed.composition).schemaVersion !== 4) invalid();
   const brand = exact(parsed.brand, ["logo", "favicon", "primaryColor", "accentColor", "backgroundColor", "textColor", "fontFamily"]);
   const promotion = exact(parsed.promotion, ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]);
   const startsAt = optionalTimestamp(promotion.startsAt);
@@ -271,7 +282,8 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
   } else {
     const hero = exact(parsed.hero, ["enabled", "slides"]);
     heroEnabled = boolean(hero.enabled);
-    heroSlides = Object.freeze(array(hero.slides, 1, 3).map((value) => {
+    if (parsed.schemaVersion === 5 && heroEnabled) invalid();
+    heroSlides = Object.freeze(array(hero.slides, parsed.schemaVersion === 5 ? 0 : 1, parsed.schemaVersion === 5 ? 0 : 3).map((value) => {
       const slide = exact(value, ["headline", "body", "desktopImage", "mobileImage", "destination", "enabled"]);
       return Object.freeze({
         headline: text(slide.headline, 0, 120),
@@ -285,10 +297,10 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
   }
 
   return Object.freeze({
-    schemaVersion: 4,
+    schemaVersion: parsed.schemaVersion === 5 ? 5 : 4,
     brand: Object.freeze({
-      logo: parseMediaReference(brand.logo),
-      favicon: parseMediaReference(brand.favicon),
+      logo: parseMediaReference(brand.logo, parsed.schemaVersion === 5),
+      favicon: parseMediaReference(brand.favicon, parsed.schemaVersion === 5),
       primaryColor: color(brand.primaryColor),
       accentColor: color(brand.accentColor),
       backgroundColor: color(brand.backgroundColor),
@@ -306,14 +318,47 @@ export function parseStorefrontDesignDocument(value: unknown): StorefrontDesignD
     }),
     announcement: parseAnnouncement(parsed.announcement),
     typography: parseTypography(parsed.typography, brand.fontFamily),
-    composition: parsed.schemaVersion === 3 || parsed.schemaVersion === 4
+    composition: parsed.schemaVersion === 5
+      ? normalizeStarterThemeCompositionV4(parseStarterThemeCompositionConfig(parsed.composition))
+      : parsed.schemaVersion === 3 || parsed.schemaVersion === 4
       ? normalizeStarterThemeCompositionV3(parseStarterThemeCompositionConfig(parsed.composition))
       : createDefaultStarterThemeComposition(),
   });
 }
 
+export function normalizeStorefrontDesignDocumentV5(value: unknown): StorefrontDesignDocumentV5 {
+  const raw = record(value);
+  if (raw.schemaVersion === 5) {
+    const parsed = parseStorefrontDesignDocument(raw);
+    if (parsed.composition.schemaVersion !== 4) invalid();
+    return Object.freeze({ ...parsed, schemaVersion: 5, composition: parsed.composition });
+  }
+  // Legacy published documents can retain URL references that the old draft editor could not accept.
+  const heroRaw = record(raw.hero);
+  const legacySlides = raw.schemaVersion === 1
+    ? [{ headline: heroRaw.headline, body: heroRaw.body, desktopImage: heroRaw.image, mobileImage: null, destination: heroRaw.destination, enabled: true }]
+    : array(heroRaw.slides, 1, 3).map((entry) => record(entry));
+  const refs = legacySlides.map((entry) => ({ desktopImage: parseBannerMediaReference(entry.desktopImage), mobileImage: parseBannerMediaReference(entry.mobileImage) }));
+  const sanitizedHero = raw.schemaVersion === 1
+    ? { ...heroRaw, image: refs[0]!.desktopImage?.kind === "legacy_https" ? null : refs[0]!.desktopImage }
+    : { ...heroRaw, slides: legacySlides.map((slide, index) => ({ ...slide, desktopImage: refs[index]!.desktopImage?.kind === "legacy_https" ? null : refs[index]!.desktopImage, mobileImage: refs[index]!.mobileImage?.kind === "legacy_https" ? null : refs[index]!.mobileImage })) };
+  const brandRaw = record(raw.brand);
+  const retainedBrand = { logo: parseMediaReference(brandRaw.logo, true), favicon: parseMediaReference(brandRaw.favicon, true) };
+  const parsed = parseStorefrontDesignDocument({ ...raw, brand: { ...brandRaw, logo: retainedBrand.logo?.kind === "legacy_https" ? null : retainedBrand.logo, favicon: retainedBrand.favicon?.kind === "legacy_https" ? null : retainedBrand.favicon }, hero: sanitizedHero });
+  const composition = normalizeStarterThemeCompositionV4(parsed.composition);
+  const sections = [...composition.sections];
+  if (parsed.hero.enabled) {
+    let sectionId = "home_legacy_main_banner";
+    let suffix = 2;
+    while (sections.some((section) => section.sectionId === sectionId)) sectionId = `home_legacy_main_banner_${suffix++}`;
+    sections.unshift(Object.freeze({ kind: "banner", sectionId: sectionId as `home_${string}`, enabled: true, layout: "slider", autoplay: true, presentation: "image_only", slides: Object.freeze(parsed.hero.slides.map((slide, index) => Object.freeze({ ...slide, ...refs[index]!, slideId: `slide_legacy_${index + 1}` }))) }));
+  }
+  return Object.freeze({ ...parsed, brand: Object.freeze({ ...parsed.brand, ...retainedBrand }), schemaVersion: 5, hero: Object.freeze({ enabled: false, slides: Object.freeze([]) }), composition: Object.freeze({ ...composition, sections: Object.freeze(sections) }) });
+}
+
 export function getStorefrontDesignPublishIssue(value: StorefrontDesignDocument): StorefrontDesignPublishIssue | null {
   const design = parseStorefrontDesignDocument(value);
+  if (design.schemaVersion === 5) return null;
   const enabled = design.hero.slides
     .map((slide, slideIndex) => Object.freeze({ slide, slideIndex }))
     .filter(({ slide }) => slide.enabled);
@@ -473,4 +518,33 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
     ...(assets ? { assets } : {}),
     ...(Object.hasOwn(parsed, "publishedDraft") ? { publishedDraft: parseStorefrontDesignDocument(parsed.publishedDraft) } : {}),
   });
+}
+
+export function parseStorefrontDesignEditorWorkspace(value: unknown): StorefrontDesignEditorWorkspace {
+  const parsed = exact(value, ["schemaVersion", "publishedVersion", "publishedAt", "design", "store", "media", "destinations"]);
+  if (parsed.schemaVersion !== 1) invalid();
+  const store = exact(parsed.store, ["name", "timezone"]);
+  const media = Object.freeze(array(parsed.media, 0, Number.MAX_SAFE_INTEGER).map((entry): StorefrontDesignEditorMediaOption => {
+    const choice = exact(entry, ["id", "url", "altText", "mediaType", "width", "height", "reference"], ["assetKind"]);
+    const { reference: rawReference, assetKind, ...option } = choice;
+    const reference = parseBannerMediaReference(rawReference);
+    const selected = parseMediaOption(option);
+    if (!reference || reference.kind === "legacy_https" || selected.id !== (reference.kind === "media" ? reference.mediaId : reference.assetId)) invalid();
+    if (reference.kind === "asset") return Object.freeze({ ...selected, reference, assetKind: oneOf(assetKind, STOREFRONT_ASSET_KINDS) });
+    if (Object.hasOwn(choice, "assetKind")) invalid();
+    return Object.freeze({ ...selected, reference });
+  }));
+  if (new Set(media.map(({ reference }) => `${reference.kind}:${reference.kind === "media" ? reference.mediaId : reference.assetId}`)).size !== media.length) invalid();
+  const destinations = Object.freeze(array(parsed.destinations, 0, Number.MAX_SAFE_INTEGER).map(parseDestinationOption));
+  if (new Set(destinations.map((entry) => `${entry.kind}:${entry.resourceId}`)).size !== destinations.length) invalid();
+  return Object.freeze({ schemaVersion: 1, publishedVersion: positiveInteger(parsed.publishedVersion), publishedAt: timestamp(parsed.publishedAt), design: normalizeStorefrontDesignDocumentV5(parsed.design), store: Object.freeze({ name: text(store.name, 1, 160), timezone: timezone(store.timezone) }), media, destinations });
+}
+
+export function parseStorefrontDesignApplyMutation(value: unknown): StorefrontDesignApplyMutation {
+  const parsed = exact(value, ["publishedVersion", "publishedAt", "design", "published"]);
+  const publishedVersion = positiveInteger(parsed.publishedVersion);
+  const publishedAt = timestamp(parsed.publishedAt);
+  const published = parsePublicStorefrontDesign(parsed.published);
+  if (published.publicationVersion !== publishedVersion || published.publishedAt !== publishedAt) invalid();
+  return Object.freeze({ publishedVersion, publishedAt, design: normalizeStorefrontDesignDocumentV5(parsed.design), published });
 }

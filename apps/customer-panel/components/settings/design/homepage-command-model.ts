@@ -1,13 +1,13 @@
 import {
-  normalizeStarterThemeCompositionV3,
+  normalizeStarterThemeCompositionV4,
   type HomepageSectionId,
-  type StarterThemeCompositionConfigV3,
-  type StarterThemeSectionConfigV3,
+  type StarterThemeCompositionConfigV4,
+  type StarterThemeSectionConfigV4,
 } from "@celebix/saas-contracts";
 
 export type HomepageUndo = Readonly<{
   label: string;
-  section: StarterThemeSectionConfigV3;
+  section: StarterThemeSectionConfigV4;
   index: number;
 }>;
 
@@ -21,24 +21,22 @@ export class HomepageCommandError extends Error {
   }
 }
 
-const BODY_SECTION_LIMIT = 12;
-const PRODUCT_ROW_LIMIT = 4;
 
 function fail(code: string): never {
   throw new HomepageCommandError(code);
 }
 
-function sectionIndex(composition: StarterThemeCompositionConfigV3, sectionId: HomepageSectionId): number {
+function sectionIndex(composition: StarterThemeCompositionConfigV4, sectionId: HomepageSectionId): number {
   const index = composition.sections.findIndex((section) => section.sectionId === sectionId);
   if (index < 0) fail("homepage_section_not_found");
   return index;
 }
 
-function normalize(composition: StarterThemeCompositionConfigV3, sections: readonly StarterThemeSectionConfigV3[]): StarterThemeCompositionConfigV3 {
-  return normalizeStarterThemeCompositionV3({ ...composition, sections: Object.freeze(sections) });
+function normalize(composition: StarterThemeCompositionConfigV4, sections: readonly StarterThemeSectionConfigV4[]): StarterThemeCompositionConfigV4 {
+  return Object.freeze({ ...composition, sections: Object.freeze(sections.map(section=>Object.freeze(section))) });
 }
 
-function createSafeSection(kind: StarterThemeSectionConfigV3["kind"], sectionId: HomepageSectionId): StarterThemeSectionConfigV3 {
+function createSafeSection(kind: StarterThemeSectionConfigV4["kind"], sectionId: HomepageSectionId): StarterThemeSectionConfigV4 {
   switch (kind) {
     case "category_grid":
       return Object.freeze({ kind, sectionId, enabled: true, heading: "Kategorileri keşfedin", categoryIds: Object.freeze([]), layout: "grid" });
@@ -60,28 +58,21 @@ function createSafeSection(kind: StarterThemeSectionConfigV3["kind"], sectionId:
       });
     case "testimonials":
       return Object.freeze({ kind, sectionId, enabled: true, heading: "Müşterilerimiz ne diyor?", source: "approved_product_reviews", limit: 3, minimumRating: 5 });
-    case "hero":
-      return fail("homepage_section_kind_fixed");
+    case "banner":
+      return Object.freeze({ kind, sectionId, enabled: true, layout: "single", autoplay: false, presentation: "overlay", slides: Object.freeze([Object.freeze({ slideId: `slide_${sectionId}`, enabled: true, headline: "Yeni banner", body: "", desktopImage: null, mobileImage: null, destination: Object.freeze({ kind: "none" as const }) })]) });
   }
 }
 
-function ensureCanAdd(composition: StarterThemeCompositionConfigV3, kind: StarterThemeSectionConfigV3["kind"], sectionId: HomepageSectionId): void {
-  if (kind === "hero") fail("homepage_section_kind_fixed");
-  if (composition.sections.length >= BODY_SECTION_LIMIT) fail("homepage_section_total_limit");
+function ensureCanAdd(composition: StarterThemeCompositionConfigV4, kind: StarterThemeSectionConfigV4["kind"], sectionId: HomepageSectionId): void {
   if (composition.sections.some((section) => section.sectionId === sectionId)) fail("homepage_section_id_duplicate");
-  if (kind === "product_row") {
-    if (composition.sections.filter((section) => section.kind === "product_row").length >= PRODUCT_ROW_LIMIT) fail("homepage_product_row_limit");
-    return;
-  }
-  if (composition.sections.some((section) => section.kind === kind)) fail("homepage_section_singleton_exists");
 }
 
 export function addHomepageSection(
-  composition: StarterThemeCompositionConfigV3,
-  kind: StarterThemeSectionConfigV3["kind"],
+  composition: StarterThemeCompositionConfigV4,
+  kind: StarterThemeSectionConfigV4["kind"],
   sectionId: HomepageSectionId,
   insertAt = composition.sections.length,
-): StarterThemeCompositionConfigV3 {
+): StarterThemeCompositionConfigV4 {
   ensureCanAdd(composition, kind, sectionId);
   if (!Number.isInteger(insertAt) || insertAt < 0 || insertAt > composition.sections.length) fail("homepage_section_index_invalid");
   const sections = [...composition.sections];
@@ -90,24 +81,24 @@ export function addHomepageSection(
 }
 
 export function duplicateHomepageSection(
-  composition: StarterThemeCompositionConfigV3,
+  composition: StarterThemeCompositionConfigV4,
   sectionId: HomepageSectionId,
   nextId: HomepageSectionId,
-): StarterThemeCompositionConfigV3 {
+): StarterThemeCompositionConfigV4 {
   const index = sectionIndex(composition, sectionId);
   const section = composition.sections[index]!;
-  if (section.kind !== "product_row") fail("homepage_section_not_repeatable");
   ensureCanAdd(composition, section.kind, nextId);
   const sections = [...composition.sections];
-  sections.splice(index + 1, 0, Object.freeze({ ...section, sectionId: nextId }));
+  const clone = structuredClone(section);
+  sections.splice(index + 1, 0, Object.freeze({ ...clone, sectionId: nextId, ...(clone.kind === "banner" ? { slides: clone.slides.map((slide, index) => ({ ...slide, slideId: `slide_${nextId}_${index + 1}` })) } : {}) }) as StarterThemeSectionConfigV4);
   return normalize(composition, sections);
 }
 
 export function moveHomepageSection(
-  composition: StarterThemeCompositionConfigV3,
+  composition: StarterThemeCompositionConfigV4,
   sectionId: HomepageSectionId,
   toIndex: number,
-): StarterThemeCompositionConfigV3 {
+): StarterThemeCompositionConfigV4 {
   const fromIndex = sectionIndex(composition, sectionId);
   if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex >= composition.sections.length) fail("homepage_section_index_invalid");
   if (fromIndex === toIndex) return composition;
@@ -118,10 +109,10 @@ export function moveHomepageSection(
 }
 
 export function updateHomepageSection(
-  composition: StarterThemeCompositionConfigV3,
+  composition: StarterThemeCompositionConfigV4,
   sectionId: HomepageSectionId,
-  update: StarterThemeSectionConfigV3,
-): StarterThemeCompositionConfigV3 {
+  update: StarterThemeSectionConfigV4,
+): StarterThemeCompositionConfigV4 {
   const index = sectionIndex(composition, sectionId);
   const current = composition.sections[index]!;
   if (update.kind !== current.kind) fail("homepage_section_kind_mismatch");
@@ -132,20 +123,20 @@ export function updateHomepageSection(
 }
 
 export function setHomepageSectionVisibility(
-  composition: StarterThemeCompositionConfigV3,
+  composition: StarterThemeCompositionConfigV4,
   sectionId: HomepageSectionId,
   enabled: boolean,
-): StarterThemeCompositionConfigV3 {
+): StarterThemeCompositionConfigV4 {
   const index = sectionIndex(composition, sectionId);
   const sections = [...composition.sections];
-  sections[index] = Object.freeze({ ...sections[index]!, enabled }) as StarterThemeSectionConfigV3;
+  sections[index] = Object.freeze({ ...sections[index]!, enabled }) as StarterThemeSectionConfigV4;
   return normalize(composition, sections);
 }
 
 export function removeHomepageSection(
-  composition: StarterThemeCompositionConfigV3,
+  composition: StarterThemeCompositionConfigV4,
   sectionId: HomepageSectionId,
-): Readonly<{ composition: StarterThemeCompositionConfigV3; undo: HomepageUndo }> {
+): Readonly<{ composition: StarterThemeCompositionConfigV4; undo: HomepageUndo }> {
   const index = sectionIndex(composition, sectionId);
   const sections = composition.sections.filter((_, candidate) => candidate !== index);
   return Object.freeze({
@@ -154,12 +145,8 @@ export function removeHomepageSection(
   });
 }
 
-export function restoreRemovedHomepageSection(composition: StarterThemeCompositionConfigV3, undo: HomepageUndo): StarterThemeCompositionConfigV3 {
-  if (undo.section.kind === "hero") {
-    if (composition.sections.length >= BODY_SECTION_LIMIT) fail("homepage_section_total_limit");
-    if (composition.sections.some(section => section.sectionId === undo.section.sectionId)) fail("homepage_section_id_duplicate");
-    if (composition.sections.some(section => section.kind === "hero")) fail("homepage_section_singleton_exists");
-  } else ensureCanAdd(composition, undo.section.kind, undo.section.sectionId);
+export function restoreRemovedHomepageSection(composition: StarterThemeCompositionConfigV4, undo: HomepageUndo): StarterThemeCompositionConfigV4 {
+  ensureCanAdd(composition, undo.section.kind, undo.section.sectionId);
   const sections = [...composition.sections];
   sections.splice(Math.min(undo.index, sections.length), 0, undo.section);
   return normalize(composition, sections);

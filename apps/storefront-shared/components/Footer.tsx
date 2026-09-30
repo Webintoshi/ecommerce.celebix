@@ -41,7 +41,7 @@ async function publicPolicyIndex(storefront: PublicStorefront) {
 
 export async function Footer({ storefront, logo, checkout = false }: { storefront: PublicStorefront; logo?: PublicDesignMedia; checkout?: boolean }) {
   const policies = await publicPolicyIndex(storefront);
-  if (storefront.presentation.schemaVersion === 3) {
+  if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
     const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
     if (guzideThemeFor(storefront)) {
       if (checkout) return <GuzideCheckoutFooter groups={groups} storefront={storefront} />;

@@ -7,6 +7,7 @@ import ts from "typescript";
 
 import {
   createDefaultStarterThemeComposition,
+  normalizeStorefrontDesignDocumentV5,
   type StorefrontDesignDocument,
 } from "@celebix/saas-contracts";
 
@@ -77,6 +78,16 @@ test("typography resources deduplicate one family and fail closed for hostile ru
 
 test("preview fails closed when a draft references deleted media or destination", () => {
   assert.throws(() => createPreviewStorefrontDesign({ draft: DESIGN, publishedVersion: 3, publishedAt: NOW, media: [], destinations: [] }), /storefront_design_preview_invalid/);
+});
+
+test("V5 preview preserves retained brand URLs without media library entries", () => {
+  const draft = normalizeStorefrontDesignDocumentV5({ ...DESIGN, brand: { ...DESIGN.brand, logo: null }, hero: { enabled: false, slides: [{ ...DESIGN.hero.slides[0]!, desktopImage: null, destination: { kind: "none" } }] } });
+  const selected = createPreviewStorefrontDesign({
+    draft: { ...draft, brand: { ...draft.brand, logo: { kind: "legacy_https", url: "https://legacy.example/logo.png" }, favicon: { kind: "legacy_https", url: "https://legacy.example/favicon.png" } } },
+    publishedVersion: 3, publishedAt: NOW, media: [], destinations: [],
+  });
+  assert.deepEqual(selected.brand.logo, { url: "https://legacy.example/logo.png", altText: "" });
+  assert.deepEqual(selected.brand.favicon, { url: "https://legacy.example/favicon.png", altText: "" });
 });
 
 test("promotion activity uses the exact enabled UTC interval", () => {

@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
-const browserTest = "components/CampaignSectionContent.test.ts";
+const browserTests = ["components/CampaignSectionContent.test.ts", "components/SharedCampaignPreview.test.ts"];
 const directories = [
   "lib", "lib/account", "lib/cart", "lib/checkout", "lib/payment-adapters",
   "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",
@@ -10,7 +10,7 @@ const directories = [
 const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))
-  .filter((file) => file !== browserTest)
+  .filter((file) => !browserTests.includes(file))
   .concat(["scripts/healthcheck.test.mjs", "scripts/reconcile-standard-checkouts.test.mjs"])
   .sort();
 
@@ -23,4 +23,4 @@ function run(tests, nodeOptions) {
 }
 
 run(serverTests, "--conditions=react-server");
-run([browserTest], "");
+run(browserTests, "");

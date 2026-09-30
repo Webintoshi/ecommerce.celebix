@@ -1,5 +1,6 @@
 import {
-  normalizeStarterThemeCompositionV3,
+  normalizeStorefrontDesignDocumentV5,
+  type BannerDestination,
   type HomepageSectionId,
   type StorefrontDesignDestinationOption,
   type StorefrontDesignAssetOption,
@@ -41,7 +42,7 @@ export function scoreHomepageQuality(input: Readonly<{
   destinations: readonly StorefrontDesignDestinationOption[];
   assets?: readonly StorefrontDesignAssetOption[];
 }>): HomepageQualityResult {
-  const composition = normalizeStarterThemeCompositionV3(input.design.composition);
+  const composition = normalizeStorefrontDesignDocumentV5(input.design).composition;
   const visible = composition.sections.filter(({ enabled }) => enabled);
   const mediaById = new Map(input.media.map((item) => [item.id, item]));
   const assetsById = new Map((input.assets ?? []).map(item => [item.id,item]));
@@ -49,16 +50,16 @@ export function scoreHomepageQuality(input: Readonly<{
   const destinationPaths = new Set(["/", "/products", "/favorites", "/account", ...input.destinations.map(({ path }) => path)]);
   const recommendations: Recommendation[] = [];
 
-  const destinationExists = (destination: StorefrontDesignDocument["hero"]["slides"][number]["destination"]): boolean => destination.kind === "none" || destinationsById.has(`${destination.kind}:${destination.resourceId}`);
-  const enabledHeroSlides = input.design.hero.enabled ? input.design.hero.slides.filter(({ enabled }) => enabled) : [];
-  const legacyHero = !input.design.hero.enabled ? visible.find(section=>section.kind === "hero") : undefined;
-  const heroEnabled = input.design.hero.enabled || Boolean(legacyHero);
-  const heroReady = legacyHero?.kind === "hero" ? legacyHero.slides.length > 0 && legacyHero.slides.every(slide => slide.heading.trim().length > 0 && assetsById.get(slide.desktopAssetId)?.kind === "hero" && destinationPaths.has(slide.destination)) : enabledHeroSlides.length > 0 && enabledHeroSlides.every((slide) => slide.headline.trim().length > 0 && slide.desktopImage?.kind === "media" && mediaById.has(slide.desktopImage.mediaId) && destinationExists(slide.destination));
+  const destinationExists = (destination: BannerDestination): boolean => destination.kind === "none" || (destination.kind === "path" ? destinationPaths.has(destination.path) : destinationsById.has(`${destination.kind}:${destination.resourceId}`));
+  const banners=visible.filter(section=>section.kind==="banner");
+  const enabledHeroSlides=banners.flatMap(section=>section.slides.filter(slide=>slide.enabled));
+  const heroEnabled=banners.length>0;
+  const heroReady=enabledHeroSlides.length>0 && enabledHeroSlides.every(slide=>(slide.headline.trim().length>0 || banners.some(section=>section.presentation==="image_only"&&section.slides.includes(slide))) && Boolean(slide.desktopImage) && (slide.desktopImage?.kind==="media"?mediaById.has(slide.desktopImage.mediaId):slide.desktopImage?.kind==="asset"?assetsById.has(slide.desktopImage.assetId):slide.desktopImage?.kind==="legacy_https") && destinationExists(slide.destination));
   const hero = heroReady ? CATEGORY_POINTS.hero : 0;
   if (heroEnabled && !heroReady) recommendations.push(Object.freeze({ code: "homepage_add_hero", message: "Ana bannerı görseli ve hedefiyle tamamlayın.", points: 20 }));
 
   const categorySection = visible.find((section) => section.kind === "category_grid");
-  const categoriesReady = categorySection?.kind === "category_grid" && categorySection.categoryIds.length > 0 && categorySection.categoryIds.every((categoryId) => destinationsById.has(`collection:${categoryId}`) && assetsById.get(categorySection.categoryImages?.find(item => item.categoryId === categoryId)?.assetId ?? "")?.kind === "category");
+  const categoriesReady = categorySection?.kind === "category_grid" && categorySection.categoryIds.length > 0 && categorySection.categoryIds.every((categoryId) => destinationsById.has(`collection:${categoryId}`) && assetsById.has(categorySection.categoryImages?.find(item => item.categoryId === categoryId)?.assetId ?? ""));
   const categories = categoriesReady ? CATEGORY_POINTS.categories : 0;
   if (!categoriesReady) recommendations.push(Object.freeze({ code: "homepage_add_categories", message: "Müşterilerin keşfedebileceği kategori vitrini ekleyin.", points: 20, ...(categorySection ? { targetSectionId: categorySection.sectionId } : {}) }));
 
@@ -76,9 +77,9 @@ export function scoreHomepageQuality(input: Readonly<{
   if (!reviewsReady) recommendations.push(Object.freeze({ code: "homepage_add_reviews", message: "Onaylı müşteri yorumları bölümünü ekleyin.", points: 7, ...(reviews ? { targetSectionId: reviews.sectionId } : {}) }));
 
   const story = visible.find((section) => section.kind === "brand_story");
-  const storyReady = story?.kind === "brand_story" && story.heading.trim().length > 0 && story.body.trim().length > 0 && (!story.assetId || assetsById.get(story.assetId)?.kind === "hero") && (!story.destination || destinationPaths.has(story.destination));
+  const storyReady = story?.kind === "brand_story" && story.heading.trim().length > 0 && story.body.trim().length > 0 && (!story.assetId || assetsById.has(story.assetId)) && (!story.destination || destinationPaths.has(story.destination));
   const campaign = visible.find((section) => section.kind === "split_campaign");
-  const campaignReady = campaign?.kind === "split_campaign" && campaign.panels.length > 0 && campaign.panels.every(({ heading, assetId, destination }) => heading.trim().length > 0 && assetsById.get(assetId)?.kind === "hero" && destinationPaths.has(destination));
+  const campaignReady = campaign?.kind === "split_campaign" && campaign.panels.length > 0 && campaign.panels.every(({ heading, assetId, destination }) => heading.trim().length > 0 && assetsById.has(assetId) && destinationPaths.has(destination));
   const content = (storyReady ? 8 : 0) + (campaignReady ? 7 : 0);
   if (!storyReady) recommendations.push(Object.freeze({ code: "homepage_add_brand_story", message: "Markanızın hikâyesini kısa ve net biçimde anlatın.", points: 8, ...(story ? { targetSectionId: story.sectionId } : {}) }));
   if (!campaignReady) recommendations.push(Object.freeze({ code: "homepage_add_campaign", message: "Görsel ve hedefi doğrulanmış kampanya alanı ekleyin.", points: 7, ...(campaign ? { targetSectionId: campaign.sectionId } : {}) }));
@@ -90,7 +91,7 @@ export function scoreHomepageQuality(input: Readonly<{
   }
   const referencedAssetIds = new Set<string>();
   for (const section of visible) {
-    if (section.kind === "hero" && !input.design.hero.enabled) for(const slide of section.slides){referencedAssetIds.add(slide.desktopAssetId);if(slide.mobileAssetId)referencedAssetIds.add(slide.mobileAssetId);}
+    if (section.kind === "banner") for(const slide of section.slides.filter(slide=>slide.enabled)){if(slide.desktopImage?.kind==="asset")referencedAssetIds.add(slide.desktopImage.assetId);if(slide.mobileImage?.kind==="asset")referencedAssetIds.add(slide.mobileImage.assetId);}
     if (section.kind === "category_grid") for (const mapping of section.categoryImages ?? []) referencedAssetIds.add(mapping.assetId);
     if (section.kind === "brand_story" && section.assetId) referencedAssetIds.add(section.assetId);
     if (section.kind === "split_campaign") for (const panel of section.panels) referencedAssetIds.add(panel.assetId);

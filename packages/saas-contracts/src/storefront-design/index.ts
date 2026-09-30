@@ -48,3 +48,7 @@ export {
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,
 } from "./validation.ts";
+
+export { createDefaultStarterThemeCompositionV4 } from "./defaults.ts";
+export { normalizeStorefrontDesignDocumentV5, parseStorefrontDesignEditorWorkspace, parseStorefrontDesignApplyMutation } from "./validation.ts";
+export type { StorefrontDesignDocumentV5, StorefrontDesignEditorWorkspace, StorefrontDesignEditorMediaOption, StorefrontDesignApplyMutation } from "./types.ts";

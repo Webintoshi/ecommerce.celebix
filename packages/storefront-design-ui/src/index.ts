@@ -1,4 +1,6 @@
 export { StorefrontDesignRenderer } from "./StorefrontDesignRenderer.tsx";
+export { StorefrontBanner } from "./StorefrontBanner.tsx";
+export { HomepageSectionContainer } from "./HomepageSectionContainer.tsx";
 export type { StorefrontDesignEditorBridge, StorefrontRendererSurface } from "./StorefrontDesignRenderer.tsx";
 export { createPreviewStorefrontDesign, isStorefrontPromotionActive } from "./model.ts";
 export { createStorefrontTypographyResources } from "./typography.ts";

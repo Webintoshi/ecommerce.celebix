@@ -37,7 +37,7 @@ test("promotion editor collapses at tablet and keeps complete step and choice la
   const stylesheet = await source("components/promotions/promotion-studio.module.css");
 
   assert.match(stylesheet, /@media \(max-width:\s*1024px\)[\s\S]*?[.]editorLayout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.match(stylesheet, /@media \(max-width:\s*760px\)[\s\S]*?[.]steps\s*\{[^}]*overflow-x:\s*auto/);
+  assert.match(stylesheet, /@media \(max-width:\s*760px\)[\s\S]*?[.]steps\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.doesNotMatch(stylesheet, /@media \(max-width:\s*760px\)[\s\S]*?[.]steps em\s*\{[^}]*display:\s*none/);
   assert.match(stylesheet, /[.]radioLabel,\s*[.]checkLabel\s*\{[^}]*display:\s*grid\s*!important;[^}]*grid-template-columns:\s*1[.]25rem minmax\(0,\s*1fr\)\s*!important/s);
   assert.match(stylesheet, /@media \(max-width:\s*1024px\)[\s\S]*?[.]actionBar\s*\{[^}]*bottom:\s*calc\(5[.]25rem \+ env\(safe-area-inset-bottom,\s*0px\)\)/);

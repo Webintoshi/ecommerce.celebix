@@ -19,7 +19,7 @@ function fixture(role: TenantContext["membership"]["role"] = "analyst") {
   const calls: string[] = [];
   const resources = Object.freeze({ schemaVersion: 1 as const, dependencyKey: "key", productSources: Object.freeze([]), assets: Object.freeze([]), hotspots: Object.freeze([]), categoryShowcase: Object.freeze({ status: "missing" as const }) });
   const workspace = { schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW.toISOString(), publishedAt: NOW.toISOString(), draft: {}, published: {}, store: { name: "Atlas", timezone: "Europe/Istanbul" }, media: [], destinations: [] } as never;
-  const runtime = { access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant(role) }; } }, design: { async getWorkspace() { calls.push("getWorkspace"); return workspace; } }, loader: { async load(input: any) { calls.push("load"); assert.equal(input.tenantContext.store.id, STORE); return resources; } } };
+  const runtime = { access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant(role) }; } }, design: { async getEditor() { calls.push("getEditor"); return workspace; } }, loader: { async load(input: any) { calls.push("load"); assert.equal(input.tenantContext.store.id, STORE); return resources; } } };
   return { calls, resources, handler: createStorefrontDesignPreviewHttpHandler({ async resolveRuntime() { return runtime as never; }, now: () => new Date(NOW), requestId: () => REQUEST }) };
 }
 
@@ -34,7 +34,7 @@ test("authenticated configuration.read POST returns bounded resources without a 
   const response = await selected.handler(request({ composition: createDefaultStarterThemeComposition() }));
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { code: "ok", resources: selected.resources });
-  assert.deepEqual(selected.calls, ["getWorkspace", "load"]);
+  assert.deepEqual(selected.calls, ["getEditor", "load"]);
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 

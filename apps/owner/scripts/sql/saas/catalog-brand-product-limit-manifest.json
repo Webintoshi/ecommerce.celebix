@@ -1,0 +1,30 @@
+{
+  "bundleId": "catalog-brand-product-limit-202609300178",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback restores the 100 relation save limit. Existing brand relations and logo configuration are preserved; large brands require reapplying the migration to save again.",
+  "artifacts": [
+    {
+      "id": "202609300178_catalog_brand_product_limit_up",
+      "direction": "up",
+      "file": "202609300178_catalog_brand_product_limit.up.sql",
+      "sha256": "a6630ac446fc9df823ed1163a0d3fbac680761136e7584bc7594bc9956fae992",
+      "purpose": "Raise only brand relation saves to ten thousand while preserving existing mutation logic and authority."
+    },
+    {
+      "id": "202609300178_catalog_brand_product_limit_down",
+      "direction": "down",
+      "file": "202609300178_catalog_brand_product_limit.down.sql",
+      "sha256": "b48b5c23637b374071095a89f09f4961e5a9845f18794a9157091de217b91c5a",
+      "purpose": "Restore the exact previous relation guard without rewriting catalog rows."
+    },
+    {
+      "id": "202609300178_catalog_brand_product_limit_assertions",
+      "direction": "assertions",
+      "file": "202609300178_catalog_brand_product_limit_assertions.sql",
+      "sha256": "adde2ae50364f2960a51950d09f2c179b7c4e9bde771f8fb178afa60a4925f39",
+      "purpose": "Verify the brand relation bound and function authority."
+    }
+  ]
+}

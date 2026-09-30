@@ -1,10 +1,9 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const TARGET_ARTWORK = resolve(
-  process.cwd(),
-  "apps/customer-panel/public/toshi/toshi-profile.webp",
-);
+const repositoryRoot=existsSync(resolve(process.cwd(),"apps/customer-panel/public"))?process.cwd():resolve(process.cwd(),"../../../..");
+const TARGET_ARTWORK=resolve(repositoryRoot,"apps/customer-panel/public/toshi/toshi-profile.webp");
 
 export async function GET() {
   const artwork = await readFile(TARGET_ARTWORK);

@@ -1,14 +1,14 @@
-import type { PublicStarterNavigationItem, StarterThemeComposition, StorefrontDesignWorkspace } from "@celebix/saas-contracts";
-import { normalizeStarterThemeCompositionV3 } from "@celebix/saas-contracts";
+import type { PublicStarterNavigationItem, StarterThemeComposition, StorefrontDesignEditorWorkspace } from "@celebix/saas-contracts";
+import { normalizeStarterThemeCompositionV4 } from "@celebix/saas-contracts";
 import { previewProductSourceKey, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "../../../../../../apps/customer-panel/lib/storefront-design-preview-model";
 import { parseStorefrontDesignPreviewResources } from "../../../../../../apps/customer-panel/lib/storefront-design-preview-ui/client";
 import { fixtureAssets, fixtureCategoryIds, fixtureCategoryParents, fixtureProducts } from "./catalog-fixture";
 
 // Test-only catalog projection. The production composer, parser, editors and
 // workspace lifecycle stay real; SQL projection is verified by its own harness.
-export async function designFixturePreviewResources(workspace: StorefrontDesignWorkspace, composition: StarterThemeComposition = workspace.draft.composition, previewProductId?: string): Promise<StorefrontDesignPreviewResources> {
+export async function designFixturePreviewResources(workspace: StorefrontDesignEditorWorkspace, composition: StarterThemeComposition = workspace.design.composition, previewProductId?: string): Promise<StorefrontDesignPreviewResources> {
   const dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId);
-  const normalized = normalizeStarterThemeCompositionV3(composition);
+  const normalized = normalizeStarterThemeCompositionV4(composition);
   const sections = normalized.sections;
   const product = fixtureProducts.find(({ id }) => id === previewProductId) ?? fixtureProducts[0];
   const card = ({ id, slug, title, currency, priceCents, available, media, brand }: typeof product) => ({ id, slug, title, currency, priceCents, available, media: media.map(({ url, altText, width, height }) => ({ url, altText, width, height })), ...(brand ? { brand: { name: brand.name } } : {}) });
@@ -36,6 +36,8 @@ export async function designFixturePreviewResources(workspace: StorefrontDesignW
     navigation,
     productDetail: { status: "ready", value: product }, relatedProducts: fixtureProducts.filter(({ id }) => id !== product.id).map(card), testimonials: { status: "ready", items: product.reviews },
     assets: fixtureAssets.map((asset) => ({ id: asset.id, status: "ready", image: { url: asset.url, altText: asset.altText, mediaType: asset.mediaType, width: asset.width, height: asset.height } })), hotspots: [],
-    categoryShowcase: categories.length ? { status: "ready", value: { heading: "QA Kategoriler", layout: "grid", items: categories.map((id) => ({ id, slug: `kategori-${fixtureCategoryIds.indexOf(id) + 1}`, name: workspace.destinations.find(({ resourceId }) => resourceId === id)?.label ?? "QA Kategori", image: { url: fixtureAssets[1].url, mediaType: fixtureAssets[1].mediaType, altText: fixtureAssets[1].altText, width: 800, height: 1000 } })) } } : { status: "empty" },
+    media: workspace.media.filter(option=>option.reference.kind==="media").map(option=>({id:option.id,status:"ready",image:{url:option.url,altText:option.altText,mediaType:option.mediaType,width:option.width,height:option.height}})),
+    categorySections: sections.flatMap(section=>section.enabled&&section.kind==="category_grid"?[{sectionId:section.sectionId,status:section.categoryIds.length?"ready":"empty",...(section.categoryIds.length?{value:{heading:section.heading,layout:section.layout,items:section.categoryIds.map(id=>{const reference=section.categoryImages?.find(item=>item.categoryId===id);const image=fixtureAssets.find(item=>item.id===reference?.assetId)??fixtureAssets[1];return {id,slug:`kategori-${fixtureCategoryIds.indexOf(id)+1}`,name:workspace.destinations.find(item=>item.resourceId===id)?.label??"QA Kategori",image:{url:image.url,mediaType:image.mediaType,altText:image.altText,width:image.width,height:image.height}};})}}:{} )}]:[]),
+    categoryShowcase: {status:"empty"},
   }, dependencyKey);
 }

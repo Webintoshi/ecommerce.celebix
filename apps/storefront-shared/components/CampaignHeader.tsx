@@ -14,19 +14,19 @@ export function CampaignHeader({
   design,
 }: Readonly<{ storefront: PublicStorefront; design: PublicStorefrontDesign }>) {
   const presentation = storefront.presentation;
-  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3)
+  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3 && presentation.schemaVersion !== 4)
     return null;
   return (
     <header
       className={styles.header}
       data-header-style={presentation.visual.headerStyle}
       data-header-width={
-        presentation.schemaVersion === 3
+        (presentation.schemaVersion === 3 || presentation.schemaVersion === 4)
           ? presentation.visual.headerWidth
           : "wide"
       }
       data-header-layout={
-        presentation.schemaVersion === 3
+        (presentation.schemaVersion === 3 || presentation.schemaVersion === 4)
           ? presentation.visual.headerLayout
           : "menu_logo_actions"
       }

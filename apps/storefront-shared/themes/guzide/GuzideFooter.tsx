@@ -1,12 +1,13 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import type {
   PublicStarterThemePresentationV3,
+  PublicStarterThemePresentationV4,
   PublicStorefront,
 } from "@celebix/saas-contracts";
 
-import { NewsletterForm } from "@/components/NewsletterForm";
-import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
+import { NewsletterForm } from "../../components/NewsletterForm";
+import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
 
 import "./guzide-footer.css";
 
@@ -15,20 +16,23 @@ type FooterStyle = CSSProperties & { "--guzide-footer-columns": string };
 
 export type GuzideFooterProps = Readonly<{
   groups: FooterGroups;
-  presentation: PublicStarterThemePresentationV3;
-  storefront: PublicStorefront;
+  presentation: PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
+  storefront: Pick<PublicStorefront, "canonicalUrl" | "hostname" | "locale" | "currency">;
   logo?: Readonly<{ url: string; altText: string; width?: number; height?: number }> | null;
+  renderNewsletter?: (newsletter: PublicStarterThemePresentationV3["footer"]["newsletter"]) => ReactNode;
+  prefetch?: boolean;
 }>;
 
 function FooterLinks({
   links,
   locale,
-}: Readonly<{ links: FooterGroups[number]["links"]; locale: string }>) {
+  prefetch,
+}: Readonly<{ links: FooterGroups[number]["links"]; locale: string; prefetch?: boolean }>) {
   return (
     <ul className="guzide-footer__links">
       {links.map((link) => (
         <li key={`${link.destination}-${link.label}`}>
-          <Link href={localizeStorefrontPath(link.destination, locale)}>
+          <Link href={localizeStorefrontPath(link.destination, locale)} prefetch={prefetch}>
             {link.label}
           </Link>
         </li>
@@ -59,6 +63,8 @@ export function GuzideFooter({
   presentation,
   storefront,
   logo,
+  renderNewsletter,
+  prefetch,
 }: GuzideFooterProps) {
   const brandLogo = logo ?? presentation.logo;
   const newsletter = presentation.footer.newsletter;
@@ -79,6 +85,7 @@ export function GuzideFooter({
             <Link
               className="guzide-footer__logo"
               href="/"
+              prefetch={prefetch}
               aria-label={`${presentation.displayName} ana sayfa`}
             >
               {brandLogo ? (
@@ -113,7 +120,7 @@ export function GuzideFooter({
               key={`${group.heading}-${index}`}
             >
               <h2 className="guzide-footer__heading">{group.heading}</h2>
-              <FooterLinks links={group.links} locale={storefront.locale} />
+              <FooterLinks links={group.links} locale={storefront.locale} prefetch={prefetch} />
             </nav>
           ))}
 
@@ -125,7 +132,7 @@ export function GuzideFooter({
                   <Chevron />
                 </summary>
                 <nav aria-label={`${group.heading} mobil`}>
-                  <FooterLinks links={group.links} locale={storefront.locale} />
+                  <FooterLinks links={group.links} locale={storefront.locale} prefetch={prefetch} />
                 </nav>
               </details>
             ))}
@@ -138,7 +145,7 @@ export function GuzideFooter({
               </h2>
               <p className="guzide-footer__newsletter-copy">{newsletter.body}</p>
               <div className="guzide-footer__form">
-                <NewsletterForm consentLabel={newsletter.consentLabel} />
+                {renderNewsletter ? renderNewsletter(newsletter) : <NewsletterForm consentLabel={newsletter.consentLabel} />}
               </div>
             </section>
           ) : null}

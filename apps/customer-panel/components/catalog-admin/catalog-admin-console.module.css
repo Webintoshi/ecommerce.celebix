@@ -662,3 +662,71 @@
 .workspace .previewMeta { overflow-wrap: anywhere; }
 .workspace .reviewHeading h2 { min-width: 0; overflow-wrap: anywhere; }
 .workspace .reviewHeading .status { flex-shrink: 0; }
+
+/* Brands use the same open workspace as the dashboard. */
+.brandWorkspace .resourceSearch { flex: 1 1 240px; width: auto; }
+.brandFilters { display: flex; min-width: 0; gap: 4px; border-radius: 8px; background: var(--cp-soft); padding: 4px; }
+.brandFilters button { min-height: 44px; border: 0; border-radius: 6px; background: transparent; padding: 0 12px; color: var(--cp-text-secondary); cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; }
+.brandFilters button[aria-pressed="true"] { background: var(--cp-surface); color: var(--cp-text-primary); font-weight: 600; }
+.brandSort select { max-width: 100%; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; }
+.brandWorkspace .brandCard { grid-template-columns: 56px minmax(0, 1fr) auto; align-items: start; padding: 20px 0; }
+.brandWorkspace .brandCardLogo { width: 56px; font-size: 24px; font-weight: 600; }
+.brandWorkspace .brandCardBody { gap: 8px; }
+.brandWorkspace .brandCardTitle { flex-direction: row; gap: 12px; }
+.brandWorkspace .brandCardTitle > div { min-width: 0; }
+.brandWorkspace .brandCardTitle h2 a { color: inherit; text-decoration: none; }
+.brandWorkspace .brandCardTitle h2 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.brandWorkspace .brandDescription { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; }
+.brandWorkspace .brandProducts { display: block; }
+.brandProducts summary, .brandLogoLibrary summary { display: flex; min-height: 44px; align-items: center; gap: 8px; color: var(--cp-text-secondary); cursor: pointer; font-size: 13px; list-style: none; }
+.brandProducts summary::-webkit-details-marker, .brandLogoLibrary summary::-webkit-details-marker { display: none; }
+.brandProducts summary::after, .brandLogoLibrary summary::after { content: "+"; font-size: 16px; }
+.brandProducts[open] > summary::after, .brandLogoLibrary[open] > summary::after { content: "−"; }
+.brandWorkspace .brandProducts ul { display: grid; gap: 8px; padding: 0 0 8px; }
+.brandWorkspace .brandProducts li span { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.brandWorkspace .brandCardActions { display: flex; grid-column: auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; border: 0; padding: 0; }
+.brandWorkspace .brandCardActions svg { width: 16px; height: 16px; }
+.brandWorkspace .brandCardActions .danger { width: 44px; padding: 0; }
+.brandWorkspace .brandCardActions .status { display: none; }
+.brandWorkspace .brandForm { max-width: 1120px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px 40px; }
+.brandWorkspace .brandBasics { grid-column: 1; grid-row: 1; }
+.brandWorkspace .brandBasics .fieldGrid { grid-template-columns: minmax(0, 1fr); }
+.brandWorkspace .brandEditorIntro { grid-column: 1; grid-row: 2; }
+.brandWorkspace .brandWebsite { grid-column: 1; grid-row: 3; }
+.brandWorkspace .brandLogoPanel { grid-template-columns: 96px minmax(0, 1fr); gap: 16px; }
+.brandWorkspace .brandLogoPreview { width: 96px; border-color: var(--cp-border); }
+.brandWorkspace .brandLogoControls { gap: 8px; }
+.brandWorkspace .brandLogoUpload { gap: 8px; }
+.brandWorkspace .brandLogoUpload > label { border-style: solid; font-weight: 500; font-size: 13px; }
+.brandWorkspace .brandLogoChoices { flex-wrap: wrap; gap: 8px; overflow: visible; padding: 4px 0; }
+.brandWorkspace .brandLogoChoices button { width: 48px; height: 48px; flex-basis: 48px; }
+.brandWorkspace .brandLogoControls .error { margin: 8px 0 0; }
+.brandWorkspace .brandProductPicker { grid-column: 2; grid-row: 1 / span 3; grid-template-columns: minmax(0, 1fr); align-content: start; max-height: 680px; border-top: 0; padding: 0 0 16px; gap: 8px; }
+.brandWorkspace .brandProductPicker > .brandFilters { justify-self: start; }
+.brandWorkspace .brandProductPicker .productSearch { position: sticky; top: 0; z-index: 1; background: var(--cp-canvas); padding: 8px 0 16px; }
+.brandWorkspace .brandProductPicker .check { min-height: 64px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 12px 0; }
+.brandWorkspace .brandProductPicker .check:hover { background: var(--cp-soft); }
+.brandWorkspace .brandProductPicker .check strong { white-space: normal; overflow-wrap: anywhere; }
+.brandWorkspace .brandProductPicker .productEmpty { margin: 16px 0; }
+.brandWorkspace .brandFormActions { display: flex; flex-wrap: nowrap; grid-column: 1 / -1; position: sticky; bottom: 0; z-index: 2; justify-content: flex-end; border-top: 1px solid var(--cp-border); border-radius: 0; background: var(--cp-canvas); padding: 16px 0; }
+@media (max-width: 1024px) {
+  .brandWorkspace .brandCard { grid-template-columns: 56px minmax(0, 1fr); }
+  .brandWorkspace .brandCardActions { grid-column: 2; justify-content: flex-start; }
+  .brandWorkspace .brandForm { grid-template-columns: minmax(0, 1fr); padding-bottom: 96px; }
+  .brandWorkspace :is(.brandBasics, .brandEditorIntro, .brandWebsite, .brandProductPicker) { grid-column: 1; grid-row: auto; }
+  .brandWorkspace .brandForm > .brandFormActions:last-child { bottom: 76px; padding: 12px 0; background: var(--cp-canvas); }
+}
+@media (max-width: 700px) {
+  .brandWorkspace .resourceSearch { flex-basis: 100%; }
+  .brandWorkspace .resourceToolbar > .brandFilters { width: 100%; }
+  .brandWorkspace .resourceToolbar > .brandFilters button { flex: 1; }
+  .brandSort { flex: 1; min-width: 0; }
+  .brandSort select { width: 100%; }
+  .brandWorkspace .brandCard { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 16px 0; }
+  .brandWorkspace .brandCardLogo { width: 48px; }
+  .brandWorkspace .brandCardTitle { flex-wrap: wrap; }
+  .brandWorkspace .brandCardActions .button { width: auto; }
+  .brandWorkspace .brandLogoPanel { grid-template-columns: 64px minmax(0, 1fr); }
+  .brandWorkspace .brandLogoPreview { width: 64px; }
+  .brandWorkspace .brandFormActions > * { width: auto; flex: 1; }
+}

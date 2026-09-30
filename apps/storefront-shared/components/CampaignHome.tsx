@@ -25,7 +25,7 @@ export function CampaignHome({
   projection: CampaignHomeProjection;
 }>) {
   const presentation = projection.presentation;
-  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3)
+  if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3 && presentation.schemaVersion !== 4)
     return null;
   const effective = Object.freeze({ ...storefront, presentation });
   const customized = design.publicationVersion > 1;
@@ -43,6 +43,7 @@ export function CampaignHome({
           presentation={presentation}
           productRows={projection.productRows}
           locale={storefront.locale}
+          priority={index === 0}
           renderProductRow={(input) => <CampaignProductRow {...input} visualTheme={guzideThemeFor(storefront)} />}
         />
       ))}

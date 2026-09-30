@@ -1,11 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, normalizeStarterThemeCompositionV4 } from "@celebix/saas-contracts";
 import { storefrontDesignPreviewDependencyKey } from "../storefront-design-preview-model.ts";
-import { createStorefrontDesignPreviewApi, StorefrontDesignPreviewApiError } from "./client.ts";
+import { createStorefrontDesignPreviewApi, parseStorefrontDesignPreviewResources, StorefrontDesignPreviewApiError } from "./client.ts";
 
 function response(value: unknown, status = 200): Response { return Response.json(value, { status }); }
+
+test("preview response preserves fifty sources and independently resolved category sections and design media", () => {
+  const id = "71000000-0000-4000-8000-000000000001";
+  const store = "71000000-0000-4000-8000-000000000002";
+  const image = { url: `https://media.saas-staging.celebix.site/stores/${store}/storefront/category/${id}.webp`, mediaType: "image/webp", altText: "Kategori", width: 800, height: 800 };
+  const resources = { schemaVersion: 1, dependencyKey: "key", productSources: Array.from({ length: 50 }, (_, index) => ({ key: `manual:home_product_${index + 1}`, status: "empty", items: [] })), assets: [], hotspots: [], categoryShowcase: { status: "missing" },
+    media: [{ id, status: "ready", image: { ...image, url: `https://media.saas-staging.celebix.site/stores/${store}/design/${id}.webp`, altText: "" } }],
+    categorySections: ["home_categories_one", "home_categories_two"].map((sectionId, index) => ({ sectionId, status: "ready", value: { heading: String(index + 1), layout: "grid", items: [{ id, name: "Kategori", slug: "kategori", image }] } })) };
+  const parsed = parseStorefrontDesignPreviewResources(resources, "key");
+  assert.equal(parsed.productSources.length, 50);
+  assert.equal(parsed.media?.[0]?.image?.url, `https://media.saas-staging.celebix.site/stores/${store}/design/${id}.webp`);
+  assert.deepEqual(parsed.categorySections?.map(({ sectionId, value }) => [sectionId, value?.heading]), [["home_categories_one", "1"], ["home_categories_two", "2"]]);
+});
 
 test("preview client sends only normalized composition and parses a bounded no-store response", async () => {
   const composition = createDefaultStarterThemeComposition(); let selected: { path: unknown; init: RequestInit } | null = null;
@@ -14,7 +27,7 @@ test("preview client sends only normalized composition and parses a bounded no-s
   assert.deepEqual(await api.preview(composition), resources);
   const captured = selected as unknown as { path: unknown; init: RequestInit };
   assert.equal(captured.path, "/api/storefront-design/preview");
-  assert.deepEqual(JSON.parse(String(captured.init.body)), { composition });
+  assert.deepEqual(JSON.parse(String(captured.init.body)), { composition: normalizeStarterThemeCompositionV4(composition) });
   assert.equal(JSON.stringify(captured.init).includes("storeId"), false);
   assert.equal(captured.init.cache, "no-store");
 });
@@ -88,7 +101,7 @@ test("preview product selection is an optional read-only input tied to response 
   const resources = {schemaVersion:1,dependencyKey:storefrontDesignPreviewDependencyKey(composition,previewProductId),productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"missing"},productDetail:{status:"missing"}};
   const api = createStorefrontDesignPreviewApi(async (_path,init)=>{body=JSON.parse(String(init?.body));return response({code:"ok",resources});});
   assert.deepEqual(await api.preview(composition,undefined,previewProductId),resources);
-  assert.deepEqual(body,{composition,previewProductId});
+  assert.deepEqual(body,{composition:normalizeStarterThemeCompositionV4(composition),previewProductId});
   await assert.rejects(api.preview(composition,undefined,"foreign-authority"),StorefrontDesignPreviewApiError);
 });
 

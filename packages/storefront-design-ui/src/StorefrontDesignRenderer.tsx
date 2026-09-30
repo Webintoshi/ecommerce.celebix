@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
-import type { PublicStorefrontDesign, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "@celebix/saas-contracts";
+import type { PublicStorefrontDesign, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStarterThemePresentationV4 } from "@celebix/saas-contracts";
 
 import { isStorefrontPromotionActive } from "./model.ts";
 import { createStorefrontTypographyResources } from "./typography.ts";
@@ -36,11 +36,11 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   showHeader?: boolean;
   showHomeSurfaces?: boolean;
   editor?: StorefrontDesignEditorBridge;
-  presentation?: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+  presentation?: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   previewMode?: "desktop" | "mobile";
   navigationStatus?: "loading" | "ready" | "partial" | "empty" | "missing" | "unavailable";
 }>) {
-  const visual = presentation?.schemaVersion === 3 ? presentation.visual : undefined;
+  const visual = (presentation?.schemaVersion === 3 || presentation?.schemaVersion === 4) ? presentation.visual : undefined;
   const typography = createStorefrontTypographyResources(design.typography);
   const style: DesignStyle = {
     "--store-primary": design.brand.primaryColor,
@@ -85,7 +85,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
         </>)}
         {editorSurface(editor, "cart", "Yan sepet", <span className="celebix-store-bag">Çanta <b>0</b></span>)}
       </header> : null}
-      {showHomeSurfaces && design.hero.enabled && slides.length ? (
+      {showHomeSurfaces && presentation?.schemaVersion !== 4 && design.hero.enabled && slides.length ? (
         editorSurface(editor, "hero", "Ana banner", <section className="celebix-store-hero-slider" aria-roledescription="carousel" aria-label="Mağaza bannerları" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
           <div className="celebix-store-hero-track">
             {slides.map((slide, index) => {

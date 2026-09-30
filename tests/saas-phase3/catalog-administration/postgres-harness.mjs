@@ -47,7 +47,7 @@ INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,upd
 INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at) VALUES('70000000-0000-4000-8000-000000000001','${STORE}','${PLAN}','free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01'),('70000000-0000-4000-8000-000000000002','${STORE_B}','${PLAN}','free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01');
 INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES('${PRODUCT}','${STORE}','keten-gomlek','Keten Gomlek','active','TRY',1,'2026-01-01','2026-01-01'),('${PRODUCT_B}','${STORE_B}','baska-urun','Baska Urun','active','TRY',1,'2026-01-01','2026-01-01');
 INSERT INTO saas.product_reviews(id,store_id,product_id,reviewer_name,rating,review_title,review_body,status,version,created_at,updated_at) VALUES('${REVIEW}','${STORE}','${PRODUCT}','Ada',5,'Harika','Cok memnun kaldim.','pending',1,'2026-01-02','2026-01-02');COMMIT;`); }
-const TOTAL = 35;
+const TOTAL = 43;
 let count = 0;
 async function scenario(name, run) { await run(); count += 1; console.log(`PASS ${count}/${TOTAL} ${name}`); }
 
@@ -91,6 +91,48 @@ async function main() { let box; try { box = start(); psql(box, `CREATE DATABASE
   await scenario("only the application role has ambient import execution", () => { const signature = "saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)"; assert.equal(psql(box, `SELECT has_function_privilege('celebix_saas_app','${signature}','EXECUTE');`).stdout.trim(), "t"); for (const role of ["public","celebix_saas_migrator","celebix_saas_bootstrap","celebix_saas_workflow","celebix_saas_host_resolver","celebix_saas_observability"]) assert.equal(psql(box, `SELECT has_function_privilege('${role}','${signature}','EXECUTE');`).stdout.trim(), "f"); });
   await scenario("only the application role executes rich import and feed authority", () => { for (const signature of ["saas.catalog_admin_import_products_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)", "saas.catalog_admin_authorize_feed_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)"]) { assert.equal(psql(box, `SELECT has_function_privilege('celebix_saas_app','${signature}','EXECUTE');`).stdout.trim(), "t"); for (const role of ["public","celebix_saas_migrator","celebix_saas_bootstrap","celebix_saas_workflow","celebix_saas_host_resolver","celebix_saas_observability"]) assert.equal(psql(box, `SELECT has_function_privilege('${role}','${signature}','EXECUTE');`).stdout.trim(), "f"); } });
   await scenario("038, 037 and 035 rollback and reapply are clean", () => { apply(box, "202607260038_catalog_rich_import.down.sql"); assert.equal(psql(box, "SELECT to_regprocedure('saas.catalog_admin_import_products_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)') IS NULL;").stdout.trim(), "t"); assert.notEqual(psql(box, "SELECT to_regprocedure('saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)') IS NULL;").stdout.trim(), "t"); apply(box, "202607260037_catalog_import_authority.down.sql"); apply(box, "202607220035_catalog_administration.down.sql"); assert.equal(psql(box, "SELECT to_regclass('saas.catalog_admin_resources') IS NULL;").stdout.trim(), "t"); apply(box, "202607220035_catalog_administration.up.sql"); apply(box, "202607220035_catalog_administration_assertions.sql"); apply(box, "202607260037_catalog_import_authority.up.sql"); apply(box, "202607260037_catalog_import_authority_assertions.sql"); apply(box, "202607260038_catalog_rich_import.up.sql"); apply(box, "202607260038_catalog_rich_import_assertions.sql"); });
+  apply(box, "202607220042_catalog_product_tags.up.sql");
+  const brandId = "55000000-0000-4000-8000-000000000001", logoId = "cf2e7d54-80a2-4b27-9f7a-b9d193a3e921";
+  const brandProducts = (length) => `ARRAY[${Array.from({length},(_,index)=>`'45000000-0000-4000-8000-${String(index+1).padStart(12,'0')}'::uuid`).join(',')}]`;
+  psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) SELECT ('45000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'${STORE}','brand-product-'||lpad(n::text,5,'0'),'Imported product '||n,'active','TRY',1,'${NOW}','${NOW}' FROM generate_series(1,10001) n;
+INSERT INTO saas.catalog_admin_resources(id,store_id,resource_kind,name,slug,config,status,version,created_at,updated_at) VALUES('${brandId}','${STORE}','brand','Arpas','arpas','{}','active',1,'${NOW}','${NOW}');
+INSERT INTO saas.catalog_admin_resource_products(store_id,resource_id,product_id,position) SELECT '${STORE}','${brandId}',id,row_number() OVER(ORDER BY slug)-1 FROM saas.products WHERE store_id='${STORE}' AND slug LIKE 'brand-product-%' ORDER BY slug LIMIT 340;COMMIT;`);
+  let brandOperation = 0;
+  const brandSave = (length=340, kind='brand', expected=1, products=brandProducts(length)) => `'85000000-0000-4000-8000-${String(++brandOperation).padStart(12,'0')}'::uuid,'${"a".repeat(64)}','${brandId}'::uuid,${expected},'${kind}','Arpas','arpas',NULL,'{"logoAssetId":"${logoId}"}'::jsonb,${products}`;
+  const signature = 'saas.catalog_admin_save_resource(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,jsonb,uuid[])';
+  const originalDefinition = psql(box, `SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout;
+  const originalAuthority = psql(box, `SELECT jsonb_build_object('owner',proowner,'acl',proacl,'security',prosecdef,'settings',proconfig) FROM pg_proc WHERE oid='${signature}'::regprocedure;`).stdout;
+  await scenario("340-product imported brand logo save reproduces the legacy invalid_input", () => assert.equal(api(box,'catalog_admin_save_resource',brandSave()).outcome,'invalid_input'));
+  await scenario("178 changes only the brand count guard and preserves authority", () => {
+    apply(box,'202609300178_catalog_brand_product_limit.up.sql'); apply(box,'202609300178_catalog_brand_product_limit_assertions.sql');
+    assert.equal(psql(box, `SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout,originalDefinition.replace('COALESCE(pg_catalog.array_length(p_product_ids,1),0)>100',"COALESCE(pg_catalog.array_length(p_product_ids,1),0)>(CASE WHEN p_kind='brand' THEN 10000 ELSE 100 END)"));
+    assert.equal(psql(box, `SELECT jsonb_build_object('owner',proowner,'acl',proacl,'security',prosecdef,'settings',proconfig) FROM pg_proc WHERE oid='${signature}'::regprocedure;`).stdout,originalAuthority);
+  });
+  const importedBrandSave=brandSave();
+  await scenario("340-product imported brand saves its logo without dropping relations", () => {
+    assert.equal(api(box,'catalog_admin_save_resource',importedBrandSave).outcome,'saved');
+    const projection=api(box,'catalog_admin_list_resources',"'brand'").result.items.find(item=>item.id===brandId);
+    assert.equal(projection.productCount,340); assert.deepEqual(projection.productIds,Array.from({length:340},(_,index)=>`45000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`)); assert.equal(projection.config.logoAssetId,logoId); assert.equal(projection.version,2);
+  });
+  await scenario("brand logo save keeps durable replay behavior", () => assert.equal(api(box,'catalog_admin_save_resource',importedBrandSave).outcome,'operation_replayed'));
+  await scenario("brand over ten thousand and other resource kinds over one hundred remain denied", () => {
+    assert.equal(api(box,'catalog_admin_save_resource',brandSave(10001,'brand',2)).outcome,'invalid_input');
+    for(const kind of ['collection','attribute','extra','definition','tag']) assert.equal(api(box,'catalog_admin_save_resource',brandSave(101,kind,2)).outcome,'invalid_input');
+  });
+  await scenario("expanded brand saves retain duplicate cross-tenant and archived product denial", () => {
+    for(const products of [`ARRAY['${PRODUCT}'::uuid,'${PRODUCT}'::uuid]`,`ARRAY['${PRODUCT_B}'::uuid]`]) assert.equal(api(box,'catalog_admin_save_resource',brandSave(1,'brand',2,products)).outcome,'invalid_input');
+    psql(box,`SET ROLE celebix_saas_owner;UPDATE saas.products SET status='archived',archived_at='${NOW}' WHERE id='45000000-0000-4000-8000-000000010001';`);
+    assert.equal(api(box,'catalog_admin_save_resource',brandSave(1,'brand',2,"ARRAY['45000000-0000-4000-8000-000000010001'::uuid]")).outcome,'invalid_input');
+    assert.equal(api(box,'catalog_admin_save_resource',brandSave(),{principal:ANALYST,membership:MA}).outcome,'membership_denied');
+  });
+  await scenario("brand accepts the exact ten thousand product position boundary", () => assert.equal(api(box,'catalog_admin_save_resource',brandSave(10000,'brand',2)).outcome,'saved'));
+  await scenario("178 rollback and reapply preserve rows and restore exact predecessor", () => {
+    apply(box,'202609300178_catalog_brand_product_limit.down.sql');
+    assert.equal(psql(box,`SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout,originalDefinition);
+    assert.equal(psql(box,`SELECT count(*) FROM saas.catalog_admin_resource_products WHERE resource_id='${brandId}';`).stdout.trim(),'10000');
+    apply(box,'202609300178_catalog_brand_product_limit.up.sql');apply(box,'202609300178_catalog_brand_product_limit_assertions.sql');
+  });
   assert.equal(count, TOTAL); console.log(`${TOTAL}/${TOTAL} PASS`);
 } finally { stop(box); } }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

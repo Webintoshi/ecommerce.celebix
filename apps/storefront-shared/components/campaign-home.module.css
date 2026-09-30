@@ -8,6 +8,8 @@
   padding-bottom: clamp(72px, 9vw, 128px);
   background: #fff;
 }
+.home :global(.celebix-store-section-content) > :is(.story, .testimonials) { background: transparent; color: inherit; }
+.home :global(.celebix-store-section-content) .testimonials { padding-block: 0; }
 
 .announcement {
   display: flex;

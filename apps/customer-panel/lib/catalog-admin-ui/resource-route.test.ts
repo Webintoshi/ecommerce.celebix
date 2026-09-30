@@ -6,6 +6,7 @@ import { createElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 import { attributeSlug } from "../catalog-onboarding-ui/attribute-resource.ts";
+import { saveBrandResource } from "./brand-resource.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -81,6 +82,7 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
   react: typeof React;
   resource: (kind: string, resourceId: string) => Promise<Record<string, unknown>>;
   products?: (input?: Readonly<{ cursor?: string }>) => Promise<Readonly<{ items: readonly Record<string, unknown>[]; nextCursor?: string }>>;
+  resources?: () => Promise<readonly { slug: string }[]>;
   save: (kind: string, input: unknown) => Promise<unknown>;
   push: (path: string) => void;
 }>) {
@@ -100,17 +102,18 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
     if (specifier === "@/components/catalog-admin/CatalogBrandLogoPicker") return { CatalogBrandLogoPicker: () => createElement("div", { "data-brand-logo-picker": true }) };
-    if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, saveResource: overrides.save }) };
+    if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, resources: overrides.resources ?? (async () => []), saveResource: overrides.save }) };
     if (specifier === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: (config: Readonly<Record<string, unknown>>) => typeof config.logoAssetId === "string" ? config.logoAssetId : undefined, loadBrandProductDirectory: async () => [] };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: overrides.products ?? (async () => ({ items: [] })) }) };
     if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
+    if (specifier === "@/lib/catalog-admin-ui/brand-resource") return { saveBrandResource };
     if (specifier === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeSlug };
     if (specifier === "./catalog-admin-console.module.css") return styles;
     if (specifier === "@celebix/saas-contracts") return {};
     throw new Error(`unexpected_catalog_resource_editor_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId: string; canManage: boolean }) => ReactNode;
+  return compiled.exports.CatalogResourceEditor as (props: { kind: "collection" | "brand"; resourceId?: string; canManage: boolean }) => ReactNode;
 }
 
 test("binds catalog route segments to fixed resource kinds", async () => {
@@ -236,6 +239,17 @@ test("brand editor binds an uploaded tenant logo to the saved brand configuratio
   });
   assert.ok(logoPicker);
   assert.equal(logoPicker.props.value, oldLogo);
+  (logoPicker.props.onBusyChange as (value: boolean) => void)(true);
+  view = await hookRuntime.flush(Console);
+  let saveDisabled = false;
+  visitElements(view, (element) => { if (element.type === "button" && element.props.children === "Logo yükleniyor…") saveDisabled = element.props.disabled === true; });
+  assert.ok(saveDisabled, "save waits for the uploaded logo to be bound");
+  await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void }) => Promise<void>)({ preventDefault() {} });
+  (logoPicker.props.onBusyChange as (value: boolean) => void)(false);
+  (logoPicker.props.onUploadErrorChange as (value: boolean) => void)(true);
+  view = await hookRuntime.flush(Console);
+  visitElements(view, (element) => { if (element.type === "button" && element.props.children === "Kaydet") assert.equal(element.props.disabled, true, "failed upload must be retried or discarded before save"); });
+  (logoPicker.props.onUploadErrorChange as (value: boolean) => void)(false);
   (logoPicker.props.onChange as (value: string) => void)(nextLogo);
   view = await hookRuntime.flush(Console);
   let hiddenLogo = "";
@@ -243,6 +257,27 @@ test("brand editor binds an uploaded tenant logo to the saved brand configuratio
     if (element.type === "input" && element.props.name === "logoAssetId") hiddenLogo = String(element.props.value);
   });
   assert.equal(hiddenLogo, nextLogo);
+  visitElements(view, (element) => { if (element.type === "input" && element.props.name === "name") (element.props.onChange as (event: unknown) => void)({ currentTarget: { value: "Yeni marka adı" } }); });
+  view = await hookRuntime.flush(Console);
+  visitElements(view, (element) => { assert.ok(!(element.type === "input" && element.props.name === "slug"), "brand URL is not a user input"); });
+});
+
+test("new brand asks only for a name and generates an available URL during save", async () => {
+  const hooks = createHookRuntime();
+  const saved: unknown[] = [];
+  const Editor = await compileCatalogResourceEditor({ react: hooks.runtime, resource: async () => ({}), resources: async () => [{ slug: "cicek-dunyasi" }], save: async (_kind, input) => { saved.push(input); return {}; }, push() {} });
+  const render = () => Editor({ kind: "brand", canManage: true });
+  const view = await hooks.flush(render);
+  visitElements(view, (element) => { assert.ok(!(element.type === "input" && element.props.name === "slug"), "no technical URL field"); });
+  const originalFormData = globalThis.FormData;
+  class TestFormData { get(name: string) { return name === "name" ? "Çiçek Dünyası" : null; } }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    await (firstElement(view, "form").props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+  } finally {
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
+  assert.deepEqual(saved, [{ name: "Çiçek Dünyası", slug: "cicek-dunyasi-2", config: {}, productIds: [] }]);
 });
 
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {

@@ -1,366 +1,54 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
 import test from "node:test";
-import { setTimeout as pause } from "node:timers/promises";
-import { createDefaultStarterThemeComposition, type StorefrontDesignDocument, type StorefrontDesignWorkspace } from "@celebix/saas-contracts";
-import { Window } from "happy-dom";
-import React, { type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
-import ts from "typescript";
-import { StorefrontDesignApiError, type StorefrontDesignApi } from "../../../lib/storefront-design-ui/client.ts";
-
-const require = createRequire(import.meta.url);
-const NOW = "2026-09-14T09:00:00.000Z";
-const design: StorefrontDesignDocument = {
-  schemaVersion: 3,
-  brand: { logo: null, favicon: null, primaryColor: "#FF5A00", accentColor: "#171717", backgroundColor: "#FFFFFF", textColor: "#171717", fontFamily: "manrope" },
-  typography: { headingFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "700"], source: "google" }, bodyFont: { family: "Manrope", category: "sans-serif", availableWeights: ["400", "700"], source: "google" }, headingWeight: "700", bodyWeight: "400", headingSizePx: 40, bodySizePx: 16 },
-  hero: { enabled: false, slides: [{ headline: "Fixture", body: "", desktopImage: { kind: "media", mediaId: "40000000-0000-4000-8000-000000000001" }, mobileImage: null, destination: { kind: "none" }, enabled: true }] },
-  promotion: { headline: "Original", body: "", destination: { kind: "none" }, startsAt: null, endsAt: null, enabled: false },
-  announcement: { items: ["Fixture"], icon: "none", speed: "normal", direction: "left", animation: "continuous", enabled: false },
-  composition: createDefaultStarterThemeComposition(),
-};
-const workspace: StorefrontDesignWorkspace = {
-  schemaVersion: 3, draftVersion: 1, publishedVersion: 1, draftUpdatedAt: NOW, publishedAt: NOW, draft: design,
-  published: { schemaVersion: 2, publicationVersion: 1, publishedAt: NOW, brand: { ...design.brand, logo: null, favicon: null }, typography: design.typography, hero: { enabled: false, slides: [{ headline: "Fixture", body: "", desktopImage: null, mobileImage: null, destination: null }] }, promotion: { ...design.promotion, destination: null }, announcement: design.announcement },
-  store: { name: "Fixture", timezone: "UTC" }, media: [], destinations: [],
-};
-
-// The real workspace, state model, navigation guard and modal are mounted. Only
-// external API and heavyweight field/canvas presenters are controlled collaborators.
-// This is in-memory fixture persistence, not durable server persistence evidence.
-async function mount(canManage = true, publishedDraft?: StorefrontDesignDocument) {
-  const window = new Window({ url: "https://fixture.invalid/settings/design" });
-  const priorWindow = globalThis.window, priorDocument = globalThis.document;
-  globalThis.window = window as unknown as Window & typeof globalThis.window;
-  globalThis.document = window.document as unknown as Document;
-  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  let persisted = structuredClone({ ...workspace, ...(publishedDraft ? { publishedDraft } : {}) });
-  let failure: StorefrontDesignApiError | null = null;
-  let publishFailure: StorefrontDesignApiError | null = null;
-  let readFailure = false;
-  let release: (() => void) | undefined;
-  let hold: Promise<void> | undefined;
-  let saves = 0, publications = 0;
-  const api: StorefrontDesignApi = {
-    async workspace() { if (readFailure) { readFailure = false; throw new StorefrontDesignApiError(); } return structuredClone(persisted); },
-    async saveDraft(input, signal) {
-      saves += 1;
-      await hold;
-      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      if (failure) { const error = failure; failure = null; throw error; }
-      if (input.expectedDraftVersion !== persisted.draftVersion) throw new StorefrontDesignApiError("version_conflict", 409);
-      persisted = { ...persisted, draft: structuredClone(input.design), draftVersion: persisted.draftVersion + 1 };
-      return { draft: persisted.draft, draftVersion: persisted.draftVersion, draftUpdatedAt: NOW };
-    },
-    async publish(input) {
-      publications += 1;
-      if (publishFailure) throw publishFailure;
-      if (input.expectedDraftVersion !== persisted.draftVersion || input.expectedPublishedVersion !== persisted.publishedVersion) throw new StorefrontDesignApiError("version_conflict", 409);
-      persisted = { ...persisted, publishedVersion: persisted.publishedVersion + 1, published: { ...persisted.published, publicationVersion: persisted.publishedVersion + 1, promotion: { ...persisted.draft.promotion, destination: null } } };
-      return { draftVersion: persisted.draftVersion, publishedVersion: persisted.publishedVersion, publishedAt: NOW, published: persisted.published };
-    },
-    async uploadMedia() { throw new Error("Unused external upload"); },
-  };
-  function compile(path: URL): Record<string, unknown> {
-    const output = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    const module = { exports: {} };
-    const load = (id: string): unknown => {
-      if (id.endsWith(".css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
-      if (id === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: ({ subtitle }: { subtitle: string }) => React.createElement("p", { role: "status" }, subtitle) };
-      if (id.endsWith("storefront-design-ui/client")) return { StorefrontDesignApiError, storefrontDesignApi: api };
-      if (id.endsWith("storefront-design-preview-ui/use-preview-resources")) return { useStorefrontDesignPreviewResources: (_composition: unknown, initial: unknown) => initial };
-      if (id === "./DesignPreview") return { DesignPreview: ({ design, mode, previewProductId, onSelectPreviewProduct }: { design: StorefrontDesignDocument; mode: string; previewProductId?: string; onSelectPreviewProduct?: (id: string) => void }) => React.createElement(React.Fragment, null,
-        React.createElement("output", { "data-mode": mode, "data-preview-product": previewProductId ?? "" }, design.promotion.headline),
-        React.createElement("button", { onClick: () => onSelectPreviewProduct?.("40000000-0000-4000-8000-000000000099") }, "Fixture preview product")) };
-      if (id === "./DesignStepEditor") return { DesignStepEditor: ({ design, onChange, canManage }: { design: StorefrontDesignDocument; onChange: (design: StorefrontDesignDocument) => void; canManage: boolean }) => React.createElement("input", { "aria-label": "Fixture headline", value: design.promotion.headline, disabled: !canManage, onInput: (event: React.FormEvent<HTMLInputElement>) => onChange({ ...design, promotion: { ...design.promotion, headline: event.currentTarget.value } }) }) };
-      if (id.startsWith("@/")) return compile(new URL(`../../../${id.slice(2)}.ts`, import.meta.url));
-      if (id.startsWith(".")) return compile(new URL(/\.tsx?$/.test(id) ? id : `${id}${id === "./DesignSettingsDrawer" ? ".tsx" : ".ts"}`, path));
-      return require(id);
-    };
-    new Function("require", "module", "exports", output)(load, module, module.exports);
-    return module.exports;
-  }
-  const { DesignWorkspace } = compile(new URL("./DesignWorkspace.tsx", import.meta.url)) as { DesignWorkspace: (props: { workspace: StorefrontDesignWorkspace; canManage: boolean; recoveryScope: string }) => ReactNode };
-  const container = window.document.createElement("div");
-  window.document.body.append(container);
-  const root = createRoot(container as unknown as Element);
-  let recoveryScope = "synthetic-session-store-a";
-  window.history.replaceState({}, "", "/products");
-  window.history.pushState({}, "", "/settings/design");
-  // Minimal route host consumes real same-document popstate events. Navigation
-  // unmounts/remounts the real workspace, as the client router does.
-  function RouteHost() {
-    const [path, setPath] = React.useState(window.location.pathname);
-    React.useEffect(() => {
-      const changed = () => setPath(window.location.pathname);
-      window.addEventListener("popstate", changed);
-      return () => window.removeEventListener("popstate", changed);
-    }, []);
-    return path === "/settings/design" ? React.createElement(DesignWorkspace, { key: recoveryScope, workspace: persisted, canManage, recoveryScope }) : React.createElement("p", null, "Products route");
-  }
-  await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(RouteHost))));
-  async function click(label: string) {
-    const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent === label || item.querySelector("strong")?.textContent === label);
-    assert.ok(button, `Missing button: ${label}; UI: ${container.textContent}`);
-    await React.act(async () => button.dispatchEvent(new window.MouseEvent("click", { bubbles: true })));
-  }
-  async function edit(value: string) {
-    if (!container.querySelector("input")) await click("Logo ve marka");
-    const input = container.querySelector("input");
-    assert.ok(input);
-    await React.act(async () => { input.value = value; input.dispatchEvent(new window.Event("input", { bubbles: true })); });
-  }
-  return {
-    window, container, click, edit,
-    get persisted() { return persisted; }, get saves() { return saves; }, get publications() { return publications; },
-    failSave(code: "unavailable" | "version_conflict" = "unavailable") { failure = new StorefrontDesignApiError(code, code === "version_conflict" ? 409 : 503); },
-    forbidPublish() { publishFailure = new StorefrontDesignApiError("membership_denied", 403); },
-    failRead() { readFailure = true; },
-    remoteEdit() { persisted = { ...persisted, draftVersion: persisted.draftVersion + 1, draft: { ...persisted.draft, promotion: { ...persisted.draft.promotion, headline: "Remote" } } }; },
-    holdSave() { hold = new Promise<void>((resolve) => { release = resolve; }); },
-    async releaseSave() { await React.act(async () => { release?.(); hold = undefined; }); },
-    async debounce() { await React.act(async () => { await pause(760); }); },
-    async back() { await React.act(async () => { window.history.back(); await pause(30); }); },
-    async forward(scope = "synthetic-session-store-a") { recoveryScope = scope; await React.act(async () => { window.history.forward(); await pause(30); }); },
-    unload() { const event = new window.Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; },
-    async leave(allowed: boolean) {
-      Object.assign(window, { confirm: () => allowed });
-      const anchor = window.document.createElement("a"); anchor.href = "/products"; window.document.body.append(anchor);
-      const event = new window.MouseEvent("click", { bubbles: true, cancelable: true });
-      await React.act(async () => anchor.dispatchEvent(event));
-      anchor.remove(); return !event.defaultPrevented;
-    },
-    async close() { await React.act(async () => root.unmount()); await window.happyDOM.close(); globalThis.window = priorWindow; globalThis.document = priorDocument; },
-  };
+import React,{type ReactNode} from "react";
+import { normalizeStorefrontDesignDocumentV5,type StorefrontDesignDocument,type StorefrontDesignEditorWorkspace } from "@celebix/saas-contracts";
+import { StorefrontDesignApiError } from "../../../lib/storefront-design-ui/client.ts";
+import { compile,DESIGN,withEditor } from "./design-editor-test-utils.ts";
+const NOW="2026-09-30T10:00:00.000Z";
+function button(container:HTMLElement,label:string){const found=Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(item=>item.textContent?.trim()===label||item.getAttribute("aria-label")===label||item.querySelector("strong")?.textContent===label);assert.ok(found,`Missing ${label}: ${container.textContent}`);return found;}
+const baseline=()=>normalizeStorefrontDesignDocumentV5({...DESIGN,promotion:{...DESIGN.promotion,headline:"Published"}});
+const media={id:"40000000-0000-4000-8000-000000000001",url:"https://fixture.invalid/banner.webp",altText:"Banner image",mediaType:"image/webp" as const,width:1600,height:900,reference:{kind:"asset" as const,assetId:"40000000-0000-4000-8000-000000000001"},assetKind:"hero" as const};
+function fixture(canManage=true){
+ let live:StorefrontDesignEditorWorkspace={schemaVersion:1,publishedVersion:4,publishedAt:NOW,design:baseline(),store:{name:"Fixture",timezone:"UTC"},media:[media],destinations:[]};
+ let failure:string|undefined;let hold:Promise<void>|undefined;let release:(()=>void)|undefined;
+ const requests:{input:{expectedPublishedVersion:number;design:StorefrontDesignDocument};operationId:string}[]=[];
+ const api={editor:async()=>structuredClone(live),uploadMedia:async()=>{throw new Error("Unused");},apply:async(input:typeof requests[number]["input"],options:{operationId:string})=>{requests.push({input:structuredClone(input),operationId:options.operationId});await hold;if(failure){const code=failure;failure=undefined;throw new StorefrontDesignApiError(code as never,code==="version_conflict"?409:503);}if(input.expectedPublishedVersion!==live.publishedVersion)throw new StorefrontDesignApiError("version_conflict",409);live={...live,publishedVersion:live.publishedVersion+1,design:normalizeStorefrontDesignDocumentV5(input.design)};return{publishedVersion:live.publishedVersion,publishedAt:NOW,design:live.design,published:{} as never};}};
+ const {DesignWorkspace}=compile<{DesignWorkspace:(props:Record<string,unknown>)=>ReactNode}>(new URL("./DesignWorkspace.tsx",import.meta.url),{
+  "@/components/panel/PanelTopbarChrome":{PanelTopbarBridge:()=>null},
+  "@/lib/storefront-design-ui/client":{StorefrontDesignApiError,storefrontDesignApi:api},
+  "@/lib/storefront-design-preview-ui/use-preview-resources":{useStorefrontDesignPreviewResources:()=>({})},
+  "./DesignStepEditor":{DesignStepEditor:({design,onChange,canManage:allowed}:{design:StorefrontDesignDocument;onChange:(value:StorefrontDesignDocument)=>void;canManage:boolean})=>React.createElement("input",{"aria-label":"Fixture heading",value:design.promotion.headline,disabled:!allowed,onInput:(event:React.FormEvent<HTMLInputElement>)=>onChange({...design,promotion:{...design.promotion,headline:event.currentTarget.value}})})},
+  "./DesignPreview":{DesignPreview:({design,onSelectSurface,onInsertSection,onSelectSection}:{design:StorefrontDesignDocument;onSelectSurface:(surface:string,trigger:HTMLElement)=>void;onInsertSection:(index:number,trigger:HTMLElement)=>void;onSelectSection:(id:string,trigger:HTMLElement)=>void})=>React.createElement(React.Fragment,null,React.createElement("output",{"data-preview":true},JSON.stringify(design)),React.createElement("button",{onClick:(event:React.MouseEvent<HTMLButtonElement>)=>onSelectSurface("brand",event.currentTarget)},"Edit brand"),React.createElement("button",{onClick:(event:React.MouseEvent<HTMLButtonElement>)=>onInsertSection(0,event.currentTarget)},"Insert start"),...design.composition.sections.map((section,index)=>React.createElement("button",{key:index,onClick:(event:React.MouseEvent<HTMLButtonElement>)=>onSelectSection("sectionId" in section?section.sectionId:"",event.currentTarget)},`Edit section ${index+1}`)))},
+ });
+ return {DesignWorkspace,canManage,requests,get live(){return live;},fail(code="unavailable"){failure=code;},remote(){live={...live,publishedVersion:5,design:{...live.design,promotion:{...live.design.promotion,headline:"Remote"}}};},hold(){hold=new Promise<void>(resolve=>{release=resolve;});},release(){release?.();hold=undefined;}};
 }
-
-test("leaving before debounce warns, canceled navigation preserves input, deliberate discard cancels pending writes", async () => {
-  const app = await mount();
-  try {
-    await app.edit("Local"); assert.equal(app.unload(), true);
-    assert.equal(await app.leave(false), false);
-    assert.equal(app.container.querySelector("input")?.value, "Local");
-    assert.equal(await app.leave(true), true);
-    await app.debounce();
-    assert.equal(app.persisted.draft.promotion.headline, "Original"); assert.equal(app.saves, 0);
-  } finally { await app.close(); }
-});
-
-test("same-document Back/Forward recovers a pre-debounce draft and requires comparison before any write", async () => {
-  const app = await mount();
-  try {
-    await app.edit("History pending"); await app.back();
-    assert.match(app.container.textContent ?? "", /Products route/);
-    await app.forward();
-    assert.equal(app.container.querySelector("output")?.textContent, "History pending");
-    assert.match(app.container.textContent ?? "", /geri getirildi/);
-    assert.doesNotMatch(app.container.querySelector('[role="status"]')?.textContent ?? "", /Başka bir oturumda/);
-    await app.debounce(); assert.equal(app.saves, 0); assert.equal(app.persisted.draft.promotion.headline, "Original");
-    await app.click("Güncel taslakla karşılaştır"); await app.click("Yerel değişikliklerle üzerine yaz");
-    assert.equal(app.persisted.draft.promotion.headline, "History pending");
-  } finally { await app.close(); }
-});
-
-test("same-document history retains failed input without silently overwriting a fresher remote draft", async () => {
-  const app = await mount();
-  try {
-    app.failSave(); await app.edit("History failed"); await app.debounce();
-    assert.match(app.container.textContent ?? "", /Kaydedilemedi/);
-    await app.back(); app.remoteEdit(); await app.forward();
-    assert.equal(app.container.querySelector("output")?.textContent, "History failed");
-    await app.debounce(); assert.equal(app.persisted.draft.promotion.headline, "Remote"); assert.equal(app.saves, 1);
-    await app.click("Güncel taslakla karşılaştır");
-    assert.match(app.container.querySelector("table")?.textContent ?? "", /History failed/);
-    assert.match(app.container.querySelector("table")?.textContent ?? "", /Remote/);
-    await app.click("Yerel değişiklikleri bırak, günceli kullan");
-    await app.back(); await app.forward();
-    assert.equal(app.container.querySelector("output")?.textContent, "Remote");
-    assert.doesNotMatch(app.container.textContent ?? "", /geri getirildi/);
-  } finally { await app.close(); }
-});
-
-test("history recovery is isolated by frontend scope and deliberate navigation discard clears it", async () => {
-  const app = await mount();
-  try {
-    await app.edit("Only scope A"); await app.back(); await app.forward("synthetic-session-store-b");
-    assert.equal(app.container.querySelector("output")?.textContent, "Original");
-    assert.doesNotMatch(app.container.textContent ?? "", /Only scope A/);
-    await app.back(); await app.forward();
-    assert.equal(app.container.querySelector("output")?.textContent, "Only scope A");
-    assert.equal(await app.leave(true), true);
-    await app.back(); await app.forward();
-    assert.equal(app.container.querySelector("output")?.textContent, "Original");
-    await app.debounce(); assert.equal(app.saves, 0);
-  } finally { await app.close(); }
-});
-
-test("failed autosave preserves dirty input and explicit retry persists it", async () => {
-  const app = await mount();
-  try {
-    app.failSave(); await app.edit("Retry me"); await app.debounce();
-    assert.match(app.container.textContent ?? "", /Kaydedilemedi/); assert.equal(app.unload(), true);
-    assert.equal(app.persisted.draft.promotion.headline, "Original");
-    await app.click("Kaydetmeyi yeniden dene");
-    assert.equal(app.persisted.draft.promotion.headline, "Retry me"); assert.equal(app.unload(), false);
-    assert.match(app.container.textContent ?? "", /Taslak kaydedildi/);
-  } finally { await app.close(); }
-});
-
-test("409 recovery reads latest for comparison and requires deliberate overwrite while preserving edits", async () => {
-  const app = await mount();
-  try {
-    app.remoteEdit(); await app.edit("Local conflict"); await app.debounce();
-    assert.match(app.container.textContent ?? "", /Başka bir oturumda değişti/);
-    await app.edit("Local newer"); await app.debounce(); assert.equal(app.saves, 1);
-    await app.click("Güncel taslakla karşılaştır");
-    assert.ok(app.container.querySelector('table[aria-label="Taslak farkları"]'));
-    assert.match(app.container.textContent ?? "", /Remote/); assert.match(app.container.textContent ?? "", /Local newer/);
-    assert.equal(app.container.querySelector("input")?.value, "Local newer");
-    assert.equal(app.persisted.draft.promotion.headline, "Remote");
-    await app.click("Yerel değişikliklerle üzerine yaz");
-    assert.equal(app.persisted.draft.promotion.headline, "Local newer"); assert.equal(app.persisted.draftVersion, 3);
-    assert.equal(app.unload(), false);
-  } finally { await app.close(); }
-});
-
-test("failed conflict reload keeps local input and a later remote edit still rejects deliberate overwrite", async () => {
-  const app = await mount();
-  try {
-    app.remoteEdit(); await app.edit("Still local"); await app.debounce();
-    app.failRead(); await app.click("Güncel taslakla karşılaştır");
-    assert.match(app.container.textContent ?? "", /tamamlanamadı/);
-    assert.equal(app.container.querySelector("input")?.value, "Still local"); assert.equal(app.unload(), true);
-    await app.click("Güncel taslakla karşılaştır"); app.remoteEdit();
-    await app.click("Yerel değişikliklerle üzerine yaz");
-    assert.match(app.container.textContent ?? "", /Başka bir oturumda değişti/);
-    assert.equal(app.persisted.draft.promotion.headline, "Remote"); assert.equal(app.persisted.draftVersion, 3);
-    assert.equal(app.container.querySelector("input")?.value, "Still local");
-  } finally { await app.close(); }
-});
-
-test("unmount cancels queued saves and ignores the old in-flight result", async () => {
-  const app = await mount();
-  app.holdSave(); await app.edit("In flight"); await app.debounce();
-  await app.edit("Queued after unmount"); await app.debounce();
-  await app.close(); await app.releaseSave();
-  assert.equal(app.persisted.draft.promotion.headline, "Original"); assert.equal(app.saves, 1);
-});
-
-test("controlled conflict discard loads latest without writing the abandoned local draft", async () => {
-  const app = await mount();
-  try {
-    app.remoteEdit(); await app.edit("Discard me"); await app.debounce();
-    await app.click("Güncel taslakla karşılaştır"); await app.click("Yerel değişiklikleri bırak, günceli kullan");
-    await app.debounce(); assert.equal(app.container.querySelector("input")?.value, "Remote");
-    assert.equal(app.persisted.draftVersion, 2); assert.equal(app.unload(), false);
-  } finally { await app.close(); }
-});
-
-test("queued edits survive older responses, section and device changes; draft save never publishes", async () => {
-  const app = await mount();
-  try {
-    app.holdSave(); await app.edit("Older"); await app.debounce();
-    await app.edit("Newest");
-    assert.equal(app.container.querySelector('[role="dialog"]'), null);
-    assert.notEqual(app.window.document.body.style.overflow, "hidden");
-    assert.ok(app.container.querySelector("#design-inline-editor"));
-    await app.click("Mobil"); await app.click("Footer");
-    assert.equal(app.container.querySelector('[aria-current="step"] strong')?.textContent, "Footer");
-    assert.ok(app.container.querySelector("#design-inline-editor"));
-    await app.debounce(); assert.equal(app.unload(), true);
-    await app.releaseSave();
-    assert.equal(app.container.querySelector("input")?.value, "Newest");
-    assert.equal(app.container.querySelector("output")?.getAttribute("data-mode"), "mobile");
-    assert.equal(app.persisted.draft.promotion.headline, "Newest");
-    assert.equal(app.persisted.published.promotion.headline, "Original"); assert.equal(app.unload(), false);
-  } finally { await app.close(); }
-});
-
-test("publish-before-debounce flush failure stays handled and leaves a retryable dirty draft", async () => {
-  const app = await mount();
-  try {
-    app.failSave(); await app.edit("Publish pending"); await app.click("Yayınla");
-    assert.match(app.container.textContent ?? "", /Kaydedilemedi/);
-    assert.equal(app.persisted.draft.promotion.headline, "Original"); assert.equal(app.publications, 0);
-    assert.equal(app.unload(), true);
-    await app.click("Kaydetmeyi yeniden dene"); await app.click("Yayınla");
-    assert.equal(app.persisted.published.promotion.headline, "Publish pending");
-    assert.match(app.container.textContent ?? "", /Yayınlandı/);
-  } finally { await app.close(); }
-});
-
-test("forbidden publication reports permission failure without claiming a published draft", async () => {
-  const app = await mount();
-  try {
-    app.forbidPublish(); await app.edit("Private draft"); await app.debounce(); await app.click("Yayınla");
-    assert.match(app.container.textContent ?? "", /yetkiniz yok/);
-    assert.match(app.container.textContent ?? "", /Yayınlanamadı/);
-    assert.equal(app.persisted.draft.promotion.headline, "Private draft");
-    assert.equal(app.persisted.published.promotion.headline, "Original");
-  } finally { await app.close(); }
-});
-
-test("read-only workspace rejects field callbacks and publishing", async () => {
-  const app = await mount(false);
-  try {
-    await app.edit("Unauthorized"); await app.debounce(); await app.click("Yayınla");
-    assert.equal(app.container.querySelector("output")?.textContent, "Original");
-    assert.equal(app.persisted.draftVersion, 1); assert.equal(app.publications, 0);
-  } finally { await app.close(); }
-});
-
-test("in-flight flush locks publishing and blocks intentional navigation until settled", async () => {
-  const app = await mount();
-  try {
-    app.holdSave(); await app.edit("Publish once"); await app.click("Yayınla"); await app.click("Yayınla");
-    assert.equal(await app.leave(true), false);
-    await app.releaseSave();
-    assert.equal(app.publications, 1); assert.equal(app.persisted.published.promotion.headline, "Publish once");
-  } finally { await app.close(); }
-});
-
-test("reopening a saved unpublished draft shows publication differences without writing", async () => {
-  const published = { ...design, promotion: { ...design.promotion, headline: "Published baseline" } };
-  const app = await mount(true, published);
-  try {
-    assert.match(app.container.textContent ?? "", /Taslak kaydedildi.*Yayında değil/);
-    await app.click("Yayındaki tasarımla karşılaştır");
-    const table = app.container.querySelector('table[aria-label="Yayın farkları"]');
-    assert.ok(table);
-    assert.match(table.textContent ?? "", /Published baseline/);
-    assert.match(table.textContent ?? "", /Original/);
-    await app.debounce();
-    assert.equal(app.saves, 0);
-    assert.equal(app.publications, 0);
-  } finally { await app.close(); }
-});
-
-test("restoring the compared published design updates draft only through ordinary autosave", async () => {
-  const published = { ...design, promotion: { ...design.promotion, headline: "Published baseline" } };
-  const app = await mount(true, published);
-  try {
-    await app.edit("Newer unsaved draft");
-    await app.click("Yayındaki tasarımla karşılaştır");
-    await app.click("Yayındaki tasarıma dön");
-    await app.debounce();
-    assert.equal(app.persisted.draft.promotion.headline, "Published baseline");
-    assert.equal(app.saves, 1);
-    assert.equal(app.publications, 0);
-    assert.equal(app.persisted.publishedVersion, 1);
-  } finally { await app.close(); }
-});
-
-test("representative product selection is local preview state and never creates a design save", async () => {
-  const app = await mount(true, structuredClone(design));
-  try {
-    await app.click("Fixture preview product");
-    assert.equal(app.container.querySelector("output")?.getAttribute("data-preview-product"), "40000000-0000-4000-8000-000000000099");
-    await app.debounce();
-    assert.equal(app.saves, 0);
-    assert.equal(app.publications, 0);
-    assert.equal(app.persisted.draft.promotion.headline, "Original");
-    assert.equal(app.unload(), false);
-  } finally { await app.close(); }
-});
+test("global popup uses published baseline, performs no implicit save, and Cancel restores preview and focus",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));assert.equal(container.querySelector('[role="dialog"]'),null);
+ const trigger=button(container,"Edit brand");await click(trigger);const input=container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!;await change(input,"Local");assert.equal(app.requests.length,0);assert.match(container.querySelector("output")?.textContent??"",/Local/);
+ await click(button(container,"Vazgeç"));assert.equal(container.querySelector('[role="dialog"]'),null);assert.match(container.querySelector("output")?.textContent??"",/Published/);assert.equal(app.requests.length,0);assert.equal(window.document.activeElement,trigger);assert.doesNotMatch(container.textContent??"",/Taslak|Yayınla|otomatik/);
+}));
+test("Apply commits once to live and a failed Apply preserves inputs and retries the same operation",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>("input")!,"Local");app.fail();await click(button(container,"Uygula"));
+ assert.equal(app.requests.length,1);assert.equal(app.live.design.promotion.headline,"Published");assert.equal(container.querySelector<HTMLInputElement>("input")?.value,"Local");assert.ok(container.querySelector('[role="dialog"]'));
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,2);assert.equal(app.requests[0]?.operationId,app.requests[1]?.operationId);assert.deepEqual(app.requests[0]?.input,app.requests[1]?.input);assert.equal(app.live.design.promotion.headline,"Local");assert.equal(app.live.publishedVersion,5);assert.equal(container.querySelector('[role="dialog"]'),null);
+}));
+test("conflict compares latest while preserving inputs and requires explicit latest-version Apply",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>("input")!,"Local");app.remote();await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(app.live.design.promotion.headline,"Remote");assert.equal(button(container,"Uygula").disabled,true);
+ await click(button(container,"Güncel sürümle karşılaştır"));assert.match(container.querySelector("table")?.textContent??"",/Remote/);assert.match(container.querySelector("table")?.textContent??"",/Local/);assert.equal(app.requests.length,1);
+ await click(button(container,"Bu değişiklikleri güncel sürüme uygula"));assert.equal(app.requests.length,2);assert.equal(app.requests[1]?.input.expectedPublishedVersion,5);assert.notEqual(app.requests[1]?.operationId,app.requests[0]?.operationId);assert.equal(app.live.design.promotion.headline,"Local");
+}));
+test("insertion uses the same modal, preserves asset reference, and publishes only on Apply",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Insert start"));await click(button(container,"Banner"));assert.equal(container.querySelectorAll('[role="dialog"]').length,1);assert.ok(button(container,"İçerik"));assert.ok(button(container,"Görünüm"));
+ const desktop=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Masaüstü görseli"))?.querySelector("select");assert.ok(desktop);await change(desktop,`asset:${media.id}`);assert.equal(app.requests.length,0);
+ await click(button(container,"Görünüm"));const background=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Arka plan"))?.querySelector("select");assert.ok(background);await change(background,"dark");await click(button(container,"Uygula"));assert.equal(app.requests.length,1);
+ const banner=app.live.design.composition.sections[0];assert.equal(banner?.kind,"banner");if(banner?.kind==="banner"){assert.deepEqual(banner.slides[0]?.desktopImage,{kind:"asset",assetId:media.id});assert.equal(banner.style?.background,"dark");}
+}));
+test("ordering and section visibility remain local until Apply; Cancel discards ordering",async()=>withEditor(async({container,render,click})=>{
+ const app=fixture();const second={kind:"brand_story" as const,sectionId:"home_story_fixture",enabled:true,heading:"Story",body:"Story body"};const workspace={...app.live,design:{...app.live.design,composition:{...app.live.design.composition,sections:[...app.live.design.composition.sections,second]}}};await render(React.createElement(app.DesignWorkspace,{workspace,initialPreviewResources:{},canManage:true}));
+ await click(button(container,"Sıralama"));await click(button(container,"Marka hikâyesi 2 yukarı taşı"));assert.match(container.querySelector("output")?.textContent??"",/Story/);assert.equal(app.requests.length,0);await click(button(container,"Vazgeç"));const preview=JSON.parse(container.querySelector("output")!.textContent!) as StorefrontDesignDocument;assert.equal(preview.composition.sections[0]?.kind,"product_row");
+ await click(button(container,"Edit section 1"));await click(button(container,"Gizle"));assert.equal(app.requests.length,0);await click(button(container,"Uygula"));assert.equal(app.live.design.composition.sections[0]?.enabled,false);
+}));
+test("permission denial preserves input; read-only callbacks cannot create an Apply",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>("input")!,"Preserved");app.fail("membership_denied");await click(button(container,"Uygula"));assert.equal(container.querySelector<HTMLInputElement>("input")?.value,"Preserved");assert.match(container.textContent??"",/yetkiniz yok/);
+ const readonly=fixture(false);await render(React.createElement(readonly.DesignWorkspace,{workspace:readonly.live,initialPreviewResources:{},canManage:false}));await click(button(container,"Edit brand"));assert.equal(container.querySelector<HTMLInputElement>("input")?.disabled,true);assert.equal(button(container,"Uygula").disabled,true);assert.equal(readonly.requests.length,0);
+}));

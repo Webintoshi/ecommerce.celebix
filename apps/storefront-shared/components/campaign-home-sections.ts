@@ -3,9 +3,10 @@ import type {
   PublicStarterHomeSection,
   PublicStarterThemePresentationV2,
   PublicStarterThemePresentationV3,
+  PublicStarterThemePresentationV4,
 } from "@celebix/saas-contracts";
 
-type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+type CampaignPresentation = PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
 type ProductRowItems = CampaignHomeProjection["productRows"][number]["items"];
 
 export function composeCampaignHomeSections(
@@ -32,10 +33,11 @@ export function homepageAvailableProducts<Product extends Readonly<{ available: 
 }
 
 export function visibleCampaignSectionKinds(projection: CampaignHomeProjection) {
-  if (projection.presentation.schemaVersion !== 2 && projection.presentation.schemaVersion !== 3) return Object.freeze([]);
+  if (projection.presentation.schemaVersion !== 2 && projection.presentation.schemaVersion !== 3 && projection.presentation.schemaVersion !== 4) return Object.freeze([]);
   const rows = new Map(projection.productRows.map((row) => [row.key, row.items]));
   return Object.freeze(projection.presentation.sections.flatMap((section) => {
     if (section.kind === "hero") return section.slides.length ? [section.kind] : [];
+    if (section.kind === "banner") return section.slides.some((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay")) ? [section.kind] : [];
     if (section.kind === "category_grid") return section.items.length ? [section.kind] : [];
     if (section.kind === "product_row") return homepageAvailableProducts(rows.get(section.key)).length ? [section.kind] : [];
     if (section.kind === "split_campaign") return section.panels.length ? [section.kind] : [];

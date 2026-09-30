@@ -16,7 +16,7 @@ export type ServerStorefrontDesignRuntime = Readonly<{
   storage: TenantMediaStorage;
 }>;
 
-const REPOSITORY_METHODS = Object.freeze(["getWorkspace", "saveDraft", "publish", "reserveMedia"] as const);
+const REPOSITORY_METHODS = Object.freeze(["getEditor", "apply", "getWorkspace", "saveDraft", "publish", "reserveMedia"] as const);
 const STORAGE_METHODS = Object.freeze(["publicUrl", "put", "publish", "unpublish", "head", "delete"] as const);
 
 function invalid(): never { throw new Error("server_storefront_design_runtime_invalid"); }

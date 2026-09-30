@@ -23,6 +23,7 @@ function invalid(): never { throw new TypeError("storefront_design_preview_inval
 
 function media(input: PreviewInput, reference: StorefrontDesignDocument["brand"]["logo"]): PublicDesignMedia {
   if (reference === null) return null;
+  if (reference.kind === "legacy_https") return Object.freeze({ url: reference.url, altText: "" });
   const selected = input.media.find(({ id }) => id === reference.mediaId);
   if (!selected) invalid();
   return Object.freeze({ url: selected.url, altText: selected.altText });
