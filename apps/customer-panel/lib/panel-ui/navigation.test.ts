@@ -341,6 +341,7 @@ test("contains every completed merchant administration family", () => {
 test("SEO navigation exposes exactly three working screens without near-match activation", () => {
   const seo = PANEL_NAVIGATION.find(({ key }) => key === "seo");
   assert.deepEqual(seo?.children?.map(({ href }) => href), ["/seo", "/seo/content", "/seo/settings"]);
+  assert.deepEqual(seo?.children?.map(({ label }) => label), ["SEO Kontrol", "İçerik SEO", "SEO Ayarları"]);
   for (const href of seo?.children?.map(({ href }) => href) ?? []) {
     assert.equal(isPanelNavigationPathActive(href, href), true);
     assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);

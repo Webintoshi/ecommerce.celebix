@@ -216,9 +216,9 @@ const ACCOUNTING_CHILDREN = Object.freeze([
 ]);
 
 const SEO_CHILDREN = Object.freeze([
-  item("seo-control", "Kontroller", "/seo", "seo"),
+  item("seo-control", "SEO Kontrol", "/seo", "seo"),
   item("content-seo", "İçerik SEO", "/seo/content", "seo"),
-  item("seo-settings", "Ayarlar", "/seo/settings", "settings"),
+  item("seo-settings", "SEO Ayarları", "/seo/settings", "settings"),
 ]);
 
 export const PANEL_WORKSPACE_ROUTE_DESTINATIONS = Object.freeze<readonly PanelNavigationItem[]>([
@@ -317,7 +317,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
   "/accounting/invoicing-integration": presentation("Fatura Entegrasyonu"),
-  "/seo": presentation("SEO Kontrolleri"),
+  "/seo": presentation("SEO Kontrol"),
   "/seo/sitemap": presentation("Site Haritası"),
   "/seo/social-preview": presentation("Sosyal Önizleme"),
   "/seo/code-integrations": presentation("Kod Entegrasyonları"),
