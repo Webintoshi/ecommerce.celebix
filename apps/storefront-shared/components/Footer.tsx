@@ -14,6 +14,8 @@ import { RetailFooter } from "./RetailFooter";
 import { GuzideFooter } from "../themes/guzide/GuzideFooter";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import { GuzideCheckoutFooter } from "../themes/guzide/GuzideCheckoutChrome";
+import { SioraFooter } from "../themes/siora/SioraFooter";
+import { sioraThemeFor } from "../themes/siora/theme.ts";
 
 const EMPTY_POLICY_INDEX = Object.freeze([]) as readonly PublicPolicyPage[];
 const LEGACY_GROUPS = Object.freeze([
@@ -43,6 +45,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
   const policies = await publicPolicyIndex(storefront);
   if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
     const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
+    if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} />;
     if (guzideThemeFor(storefront)) {
       if (checkout) return <GuzideCheckoutFooter groups={groups} storefront={storefront} />;
       return <GuzideFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} />;

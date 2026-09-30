@@ -12,6 +12,7 @@ import { FavoriteStatusProvider } from "./FavoriteStatusProvider";
 import { campaignFrameSettings } from "./campaign-ui-model";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import { GuzideCheckoutHeader } from "../themes/guzide/GuzideCheckoutChrome";
+import { sioraThemeFor } from "../themes/siora/theme.ts";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -32,8 +33,9 @@ export function StorefrontFrame({
   const campaign = campaignFrameSettings(storefront.presentation);
   const customized = design.publicationVersion > 1;
   const typography = createStorefrontTypographyResources(design.typography);
-  const visualTheme = guzideThemeFor(storefront);
-  const guzideCheckout = Boolean(visualTheme && checkout);
+  const guzideTheme = guzideThemeFor(storefront);
+  const visualTheme = sioraThemeFor(storefront) ?? guzideTheme;
+  const guzideCheckout = Boolean(guzideTheme && checkout);
   const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
   const style: DesignStyle = {
     ...typography.style,
@@ -62,7 +64,7 @@ export function StorefrontFrame({
           >
             {guzideCheckout ? <GuzideCheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
             <main>{children}</main>
-            <Footer storefront={storefront} logo={logo} checkout={guzideCheckout} />
+            <Footer storefront={storefront} logo={logo} checkout={checkout} />
           </div>
         </FavoriteStatusProvider>
       </CartStatusProvider>

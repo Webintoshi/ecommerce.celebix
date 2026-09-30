@@ -5,6 +5,8 @@ import type {
 } from "@celebix/saas-contracts";
 import { StoreUtilities } from "./StoreUtilities";
 import { CampaignHeader } from "./CampaignHeader";
+import { SioraHeader } from "../themes/siora/SioraHeader";
+import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { productIndexPath } from "@/lib/storefront-routes.ts";
 
 export function Header({
@@ -14,6 +16,7 @@ export function Header({
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
 }) {
+  if (sioraThemeFor(storefront)) return <SioraHeader storefront={storefront} design={design} />;
   if (
     storefront.presentation.schemaVersion === 2 ||
     storefront.presentation.schemaVersion === 3 ||

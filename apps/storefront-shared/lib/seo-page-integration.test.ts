@@ -10,6 +10,7 @@ import * as productSeo from "./product-seo.ts";
 import * as contentSeo from "./blog-page.ts";
 import * as contentPage from "./content-page.ts";
 import * as locales from "./content-locale.ts";
+import * as sioraTheme from "../themes/siora/theme.ts";
 
 type Node = { type: unknown; props: Record<string, unknown> };
 function nodes(value: unknown): Node[] {
@@ -37,6 +38,7 @@ async function pageModule(filename: string, kind: string, withSeo = true) {
     "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context }) }, "@/lib/page-resolution.ts": { requireStorefrontPage: (value: { context: unknown }) => value.context, StorefrontUnavailableError: class extends Error {} },
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError, StorefrontContentRepositoryError: RepositoryError }, "@celebix/saas-contracts": {}, "@celebix/storefront-design-ui": {},
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
+    "../../../themes/siora/theme.ts": sioraTheme,
   };
   Function("require", "module", "exports", output)((name: string) => {
     if (name in dependencies) return dependencies[name];

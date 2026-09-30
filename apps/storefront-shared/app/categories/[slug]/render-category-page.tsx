@@ -8,6 +8,7 @@ import { SeoStructuredData } from "@/components/SeoStructuredData";
 import { buildPublicSeoMetadata, effectivePublicSeo, buildBreadcrumbStructuredData } from "@/lib/public-seo.ts";
 import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { CommercePageEvent } from "@/components/CommercePageEvent";
+import { sioraThemeFor } from "../../../themes/siora/theme.ts";
 import { ProductGrid } from "@/components/ProductGrid";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
@@ -89,7 +90,7 @@ export async function renderCategoryPage({
         <span aria-current="page">{selected.category.name}</span>
       </nav>
       <section className="store-section store-container">
-        <h1 className="sr-only">{selected.category.name}</h1>
+        {sioraThemeFor(selected.storefront) ? <h1 className="siora-page-title">{selected.category.name}</h1> : <h1 className="sr-only">{selected.category.name}</h1>}
         <ProductGrid
           products={selected.products}
           preserveOrder
