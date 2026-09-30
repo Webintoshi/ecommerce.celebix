@@ -708,11 +708,11 @@
 .brandWorkspace .brandProductPicker .check:hover { background: var(--cp-soft); }
 .brandWorkspace .brandProductPicker .check strong { white-space: normal; overflow-wrap: anywhere; }
 .brandWorkspace .brandProductPicker .productEmpty { margin: 16px 0; }
-.brandWorkspace .brandFormActions { grid-column: 1 / -1; position: sticky; bottom: 0; z-index: 2; justify-content: flex-end; border-top: 1px solid var(--cp-border); background: var(--cp-canvas); padding: 16px 0; }
+.brandWorkspace .brandFormActions { display: flex; flex-wrap: nowrap; grid-column: 1 / -1; position: sticky; bottom: 0; z-index: 2; justify-content: flex-end; border-top: 1px solid var(--cp-border); border-radius: 0; background: var(--cp-canvas); padding: 16px 0; }
 @media (max-width: 1024px) {
   .brandWorkspace .brandCard { grid-template-columns: 56px minmax(0, 1fr); }
   .brandWorkspace .brandCardActions { grid-column: 2; justify-content: flex-start; }
-  .brandWorkspace .brandForm { grid-template-columns: minmax(0, 1fr); }
+  .brandWorkspace .brandForm { grid-template-columns: minmax(0, 1fr); padding-bottom: 96px; }
   .brandWorkspace :is(.brandBasics, .brandEditorIntro, .brandWebsite, .brandProductPicker) { grid-column: 1; grid-row: auto; }
   .brandWorkspace .brandForm > .brandFormActions:last-child { bottom: 76px; padding: 12px 0; background: var(--cp-canvas); }
 }
