@@ -21,7 +21,7 @@ import {
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+const ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category|collection)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
 export class StorefrontDesignPreviewLoaderError extends Error {
   constructor(readonly code: "invalid_input" | "unavailable") {
@@ -247,7 +247,8 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
 
       const reusableProducts = new Map(productSources.flatMap((source) => source.items).map((product) => [product.id, product]));
       let navigation: StorefrontDesignPreviewResources["navigation"];
-      if (composition.navigation.rootCategoryIds.length === 0) navigation = Object.freeze({ status: "ready", value: Object.freeze({ items: Object.freeze([]) }) });
+      const navigationRoots = composition.navigation.rootLinks ?? composition.navigation.rootCategoryIds.map(resourceId => ({ kind: "category" as const, resourceId }));
+      if (navigationRoots.length === 0) navigation = Object.freeze({ status: "ready", value: Object.freeze({ items: Object.freeze([]) }) });
       else if (dependencies.categories) try {
         const listed = await dependencies.categories.listCategories({ tenantContext, now });
         const active = new Map(listed.filter((category) => category.status === "active").map((category) => [category.id, category]));
@@ -262,9 +263,14 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
           const category = active.get(id); if (!category) return undefined;
           return Object.freeze({ name: category.name, slug: category.slug, children: Object.freeze(depth < 2 ? (children.get(id) ?? []).slice(0, 8).flatMap((child) => { const selected = item(child.id, depth + 1); return selected ? [selected] : []; }) : []), ...(id === composition.navigation.featuredCategoryId && featured?.status === "ready" && featured.image ? { featured: Object.freeze({ name: category.name, slug: category.slug, image: featured.image }) } : {}) });
         };
-        const items = Object.freeze(composition.navigation.rootCategoryIds.flatMap((id) => { const selected = item(id, 0); return selected ? [selected] : []; }));
+        const items = Object.freeze(navigationRoots.flatMap((link): PublicStarterNavigationItem[] => {
+          if (link.kind === "category") { const selected = item(link.resourceId, 0); return selected ? [selected] : []; }
+          const destination = workspace.destinations.find(entry => entry.kind === "catalog_collection" && entry.resourceId === link.resourceId);
+          const slug = destination?.path.match(/^\/collections\/([a-z0-9-]+)$/)?.[1];
+          return destination && slug ? [Object.freeze({ name: destination.label, slug, children: Object.freeze([]), kind: "catalog_collection", resourceId: link.resourceId, path: destination.path })] : [];
+        }));
         const featuredUnavailable = composition.navigation.featuredAssetId && featured?.status !== "ready";
-        navigation = items.length ? Object.freeze({ status: items.length === composition.navigation.rootCategoryIds.length && !featuredUnavailable ? "ready" : "partial", value: Object.freeze({ items }) }) : Object.freeze({ status: "missing" });
+        navigation = items.length ? Object.freeze({ status: items.length === navigationRoots.length && !featuredUnavailable ? "ready" : "partial", value: Object.freeze({ items }) }) : Object.freeze({ status: "missing" });
       } catch { navigation = Object.freeze({ status: "unavailable" }); }
       else navigation = Object.freeze({ status: "unavailable" });
       const hotspots: StorefrontDesignPreviewResources["hotspots"][number][] = [];

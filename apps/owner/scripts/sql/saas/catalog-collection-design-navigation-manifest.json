@@ -1,0 +1,30 @@
+{
+  "bundleId": "catalog-collection-design-navigation-202609300181",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback refuses while a draft or publication uses rootLinks or catalog_collection; remove those references first. Existing publications are never rewritten by up.",
+  "artifacts": [
+    {
+      "id": "202609300181_catalog_collection_design_navigation_up",
+      "direction": "up",
+      "file": "202609300181_catalog_collection_design_navigation.up.sql",
+      "sha256": "d9362db5d66ae74f9dda7bcc9fa2e14a28029db496d189f81c634a25ab3cbd45",
+      "purpose": "Preserve legacy category destinations and add explicit published catalog collection references."
+    },
+    {
+      "id": "202609300181_catalog_collection_design_navigation_down",
+      "direction": "down",
+      "file": "202609300181_catalog_collection_design_navigation.down.sql",
+      "sha256": "41909b445825873245676b1619eddece6c592f5df2a55fdfaba7d2590f61ad51",
+      "purpose": "Preserve legacy category destinations and add explicit published catalog collection references."
+    },
+    {
+      "id": "202609300181_catalog_collection_design_navigation_assertions",
+      "direction": "assertions",
+      "file": "202609300181_catalog_collection_design_navigation_assertions.sql",
+      "sha256": "e02192706ff933011a336ed5fd22594a44c7a8aebd396bd2953ea3e2527b75fd",
+      "purpose": "Preserve legacy category destinations and add explicit published catalog collection references."
+    }
+  ]
+}

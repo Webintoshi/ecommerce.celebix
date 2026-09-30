@@ -42,3 +42,8 @@ test("storefront asset contract rejects accessors without invoking them", () => 
   assert.throws(() => parseStorefrontAsset(candidate), /storefront_asset_contract_invalid/);
   assert.equal(invoked, false);
 });
+test("collection cover uses the dedicated kind and matching immutable tenant path", () => {
+  const collection = { ...value, kind: "collection", objectKey: `stores/${STORE}/storefront/collection/${ASSET}.webp`, publicUrl: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/collection/${ASSET}.webp` };
+  assert.equal(parseStorefrontAsset(collection).kind, "collection");
+  assert.throws(() => parseStorefrontAsset({...collection,objectKey:value.objectKey}));
+});

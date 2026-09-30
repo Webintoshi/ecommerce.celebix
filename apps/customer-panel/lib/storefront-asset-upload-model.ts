@@ -20,6 +20,7 @@ const RATIO_OPTIONS = Object.freeze({
 const OPTIONS_BY_KIND = Object.freeze({
   hero: Object.freeze([RATIO_OPTIONS["16:9"], RATIO_OPTIONS["3:4"]]),
   category: Object.freeze([RATIO_OPTIONS["1:1"], RATIO_OPTIONS["3:4"], RATIO_OPTIONS["4:5"]]),
+  collection: Object.freeze([RATIO_OPTIONS["3:4"]]),
   logo: Object.freeze([RATIO_OPTIONS["1:1"], RATIO_OPTIONS["16:9"]]),
   social: Object.freeze([RATIO_OPTIONS["1:1"], RATIO_OPTIONS["16:9"]]),
   favicon: Object.freeze([RATIO_OPTIONS["1:1"]]),

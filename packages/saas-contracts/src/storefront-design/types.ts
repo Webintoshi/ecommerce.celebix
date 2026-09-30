@@ -1,7 +1,7 @@
 export const STOREFRONT_DESIGN_FONT_FAMILIES = Object.freeze(["inter", "manrope", "playfair", "montserrat"] as const);
 export const STOREFRONT_DESIGN_FONT_CATEGORIES = Object.freeze(["sans-serif", "serif", "display", "handwriting", "monospace"] as const);
 export const STOREFRONT_DESIGN_FONT_WEIGHTS = Object.freeze(["400", "500", "600", "700", "800"] as const);
-export const STOREFRONT_DESIGN_DESTINATION_KINDS = Object.freeze(["none", "product", "collection", "page"] as const);
+export const STOREFRONT_DESIGN_DESTINATION_KINDS = Object.freeze(["none", "product", "collection", "catalog_collection", "page"] as const);
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_ICONS = Object.freeze(["none", "sparkle", "truck", "shield"] as const);
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_SPEEDS = Object.freeze(["slow", "normal", "fast"] as const);
 export const STOREFRONT_DESIGN_ANNOUNCEMENT_DIRECTIONS = Object.freeze(["left", "right"] as const);
@@ -18,7 +18,7 @@ export type StorefrontDesignAnnouncementAnimation = (typeof STOREFRONT_DESIGN_AN
 
 export type DesignDestination = Readonly<
   | { kind: "none" }
-  | { kind: "product" | "collection" | "page"; resourceId: string }
+  | { kind: "product" | "collection" | "catalog_collection" | "page"; resourceId: string }
 >;
 
 export type DesignMediaReference = Readonly<{ kind: "media"; mediaId: string }> | null;
@@ -141,11 +141,11 @@ export type StorefrontDesignMediaOption = Readonly<{
 }>;
 
 export type StorefrontDesignAssetOption = Readonly<StorefrontDesignMediaOption & {
-  kind: "logo" | "hero" | "social" | "favicon" | "category";
+  kind: "logo" | "hero" | "social" | "favicon" | "category" | "collection";
 }>;
 
 export type StorefrontDesignDestinationOption = Readonly<{
-  kind: "product" | "collection" | "page";
+  kind: "product" | "collection" | "catalog_collection" | "page";
   resourceId: string;
   label: string;
   path: string;

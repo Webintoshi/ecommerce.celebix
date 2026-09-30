@@ -197,7 +197,7 @@ export function validateStorefrontDesignWorkspaceReferences(
   const destination = (reference: StorefrontDesignDocument["hero"]["slides"][number]["destination"]): boolean =>
     reference.kind === "none" || destinations.has(`${reference.kind}:${reference.resourceId}`);
   const path = (value: string | undefined): boolean => value === undefined || SYSTEM_DESTINATIONS.has(value) || destinationPaths.has(value);
-  const resource = (kind: "product" | "collection" | "page", id: string | undefined): boolean =>
+  const resource = (kind: "product" | "collection" | "catalog_collection" | "page", id: string | undefined): boolean =>
     id === undefined || destinations.has(`${kind}:${id}`);
 
   if (!media(design.brand.logo) || !media(design.brand.favicon) || !destination(design.promotion.destination)) return false;
@@ -207,6 +207,7 @@ export function validateStorefrontDesignWorkspaceReferences(
 
   const composition = design.composition;
   if (!path(composition.announcement.destination)) return false;
+  if (composition.navigation.rootLinks?.some(link => !resource(link.kind === "category" ? "collection" : "catalog_collection", link.resourceId))) return false;
   if (composition.navigation.rootCategoryIds.some((id) => !resource("collection", id))) return false;
   if (!resource("collection", composition.navigation.featuredCategoryId)) return false;
   for (const section of composition.sections) {
@@ -225,6 +226,7 @@ export function validateStorefrontDesignWorkspaceReferences(
       for (const link of group.links) {
         if (link.kind === "category" && !resource("collection", link.categoryId)) return false;
         if (link.kind === "page" && !resource("page", link.pageId)) return false;
+        if (link.kind === "catalog_collection" && !resource("catalog_collection", link.resourceId)) return false;
       }
     }
   }

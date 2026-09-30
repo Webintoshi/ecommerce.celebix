@@ -10,12 +10,14 @@ import {
   type StarterThemeCompositionConfigV3,
   type StarterThemeSectionConfigV2,
   type StorefrontAsset,
+  type StorefrontDesignDestinationOption,
 } from "@celebix/saas-contracts";
 import { ArrowDown, ArrowUp, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { StarterThemePreview } from "@/components/settings/StarterThemePreview";
 import { StarterFooterEditor } from "@/components/settings/StarterFooterEditor";
+import { CollectionNavigationEditor } from "@/components/settings/CollectionNavigationEditor";
 import { StarterRetailSectionEditor } from "@/components/settings/StarterRetailSectionEditors";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
@@ -157,12 +159,14 @@ export function StarterThemeComposer({
   showPreview = true,
   value,
   onChange,
+  destinations = [],
 }: Readonly<{
   activePanel: ThemePanelKey;
   canManage: boolean;
   showPreview?: boolean;
   value: StarterThemeComposition;
   onChange: (value: StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3) => void;
+  destinations?: readonly StorefrontDesignDestinationOption[];
 }>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
@@ -308,8 +312,7 @@ export function StarterThemeComposer({
             lastAnnouncementWrite.current=JSON.stringify(items);setAnnouncementError("");patch({announcement:{...state.announcement,items:Object.freeze(items)}});
           }} />{announcementError?<small id="starter-announcement-error" className={styles.error} role="alert">{announcementError}</small>:null}</label>
           <label>Duyuru hedefi<input maxLength={500} placeholder="/pages/odeme-teslimat" value={state.announcement.destination ?? ""} onChange={(event) => { const announcement = { ...state.announcement }; if (event.currentTarget.value) announcement.destination = event.currentTarget.value; else delete announcement.destination; patch({ announcement }); }} /></label>
-          <p className={styles.label}>Ana menü kategorileri</p>
-          <div className={styles.choiceGrid}>{categories.length ? categories.map((category) => <label className={styles.check} key={category.id}><input type="checkbox" checked={state.navigation.rootCategoryIds.includes(category.id)} onChange={(event) => { const ids = event.currentTarget.checked ? [...state.navigation.rootCategoryIds, category.id].slice(0, 8) : state.navigation.rootCategoryIds.filter((id) => id !== category.id); patch({ navigation: updateStarterNavigationRoots(state.navigation, ids) }); }} />{category.name}</label>) : <p>Henüz etkin kategori yok.</p>}</div>
+          <CollectionNavigationEditor navigation={state.navigation} categories={categories} destinations={destinations} disabled={disabled} onChange={navigation => patch({ navigation })} />
           <div className={styles.fieldGrid}>
             <label>Öne çıkan kategori<select value={featuredPair.categoryId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("categoryId", event.currentTarget.value)}><option value="">Öne çıkan kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Öne çıkan görsel<select value={featuredPair.assetId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("assetId", event.currentTarget.value)}><option value="">Öne çıkan görsel yok</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
@@ -337,7 +340,7 @@ export function StarterThemeComposer({
         </section> : null}
         {activePanel === "product" ? <fieldset className={styles.panel} disabled={disabled}><legend>Ürün detayı</legend><label>Galeri<select value={state.productDetail.galleryStyle} onChange={(event) => patch({ productDetail: { ...state.productDetail, galleryStyle: event.currentTarget.value as "grid" | "rail" } })}><option value="grid">Izgara</option><option value="rail">Kaydırmalı</option></select></label><label className={styles.check}><input type="checkbox" checked={state.cart.showQuantitySelector} onChange={(event) => patch({ cart: { ...state.cart, showQuantitySelector: event.currentTarget.checked } })} /> Ürün ve yan sepette miktar değiştirmeyi göster</label>{(["showSku", "showBrand", "showBreadcrumbs", "showRelatedProducts", "showApprovedReviews", "mobileStickyPurchase", "showSizeGuide"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail[key]} onChange={(event) => patch({ productDetail: { ...state.productDetail, [key]: event.currentTarget.checked } })} />{{ showSku: "SKU göster", showBrand: "Marka göster", showBreadcrumbs: "İçerik yolunu göster", showRelatedProducts: "Benzer ürünleri göster", showApprovedReviews: "Onaylı yorumlar", mobileStickyPurchase: "Mobil sabit satın alma", showSizeGuide: "Boyut rehberi" }[key]}</label>)}<p className={styles.label}>Ürün bilgi blokları</p>{(["description", "materials_and_care", "certifications", "shipping_and_returns"] as const).map((key) => <label className={styles.check} key={key}><input type="checkbox" checked={state.productDetail.informationSections.includes(key)} onChange={(event) => { const informationSections = event.currentTarget.checked ? [...state.productDetail.informationSections, key] : state.productDetail.informationSections.filter((item) => item !== key); if (informationSections.length) patch({ productDetail: { ...state.productDetail, informationSections: Object.freeze(informationSections) } }); }} />{{ description: "Açıklama", materials_and_care: "Malzeme ve bakım", certifications: "Sertifikalar", shipping_and_returns: "Kargo ve iade" }[key]}</label>)}</fieldset> : null}
         {activePanel === "cart" ? <fieldset className={styles.panel} disabled={disabled}><legend>Sepet deneyimi</legend><label className={styles.check}><input type="checkbox" checked={state.cart.showCheckoutReadiness} onChange={(event) => patch({ cart: { ...state.cart, showCheckoutReadiness: event.currentTarget.checked } })} /> Ödeme hazırlığını göster</label><label className={styles.check}><input type="checkbox" checked={false} aria-describedby="shipping-progress-authority" disabled /> Kargo ilerlemesini göster</label><p className={styles.fieldHelp} id="shipping-progress-authority">Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli. Eşik authority’si sağlanana kadar bu seçenek kapalı kaydedilir ve vitrinde gösterilmez.</p><label>Güven mesajı<input maxLength={160} value={state.cart.trustMessage ?? ""} onChange={(event) => patch({ cart: { ...state.cart, trustMessage: event.currentTarget.value } })} /></label></fieldset> : null}
-        {activePanel === "footer" ? <StarterFooterEditor categories={categories} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} /> : null}
+        {activePanel === "footer" ? <StarterFooterEditor categories={categories} collections={destinations.filter(item => item.kind === "catalog_collection")} disabled={disabled} pages={pages} update={(footer) => patch({ footer })} value={state.footer} /> : null}
         </section>
       </div>
       {showPreview !== false ? <aside className={styles.preview}>{preview ? <StarterThemePreview composition={preview} productTitles={productTitles} storefrontHostname={null} /> : <p role="alert">Önizleme için zorunlu alanları tamamlayın.</p>}</aside> : null}

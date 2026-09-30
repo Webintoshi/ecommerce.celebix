@@ -51,6 +51,15 @@ test("preview resolves only tenant media and destination options into the public
   assert.equal(JSON.stringify(selected).includes(DESTINATION), false);
   assert.deepEqual(selected.typography, DESIGN.typography);
 });
+test("category and real collection menu items sharing a slug keep distinct paths", async () => {
+ const source = await readFile(new URL("./StorefrontNavigation.tsx", import.meta.url), "utf8");
+ const compiled = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext } }).outputText.replace('from "react"', `from "${import.meta.resolve("react")}"`).replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
+ const { StorefrontNavigationItems } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
+ const items = [{ name: "Kategori", slug: "yeni", children: [] }, { name: "Koleksiyon", slug: "yeni", kind: "catalog_collection", resourceId: DESTINATION, path: "/collections/yeni", children: [] }];
+ const html = renderToStaticMarkup(createElement(StorefrontNavigationItems, { items }));
+ assert.match(html, /href="\/categories\/yeni"/);
+ assert.match(html, /href="\/collections\/yeni"/);
+});
 
 test("typography resources combine only selected Google families and exact weights", () => {
   const resources = createStorefrontTypographyResources(DESIGN.typography);

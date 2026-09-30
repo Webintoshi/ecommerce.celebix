@@ -88,6 +88,7 @@ export function DesignStepEditor({
       canManage={canManage}
       showPreview={false}
       value={design.composition}
+      destinations={destinations}
       onChange={(value) => onChange(synchronizeCompositionAnnouncement(design, value))}
     />
   </ThemeEditorErrorBoundary>;

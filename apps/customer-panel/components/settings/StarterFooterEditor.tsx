@@ -1,6 +1,6 @@
 "use client";
 
-import type { CatalogCategory, MerchantAdminRecord, StarterFooterConfig, StarterFooterLinkConfig, StarterSocialNetwork } from "@celebix/saas-contracts";
+import type { CatalogCategory, MerchantAdminRecord, StarterFooterConfig, StarterFooterLinkConfig, StarterSocialNetwork, StorefrontDesignDestinationOption } from "@celebix/saas-contracts";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,15 +21,17 @@ function reviewedSocialUrl(network: StarterSocialNetwork, value: string): string
   } catch { return null; }
 }
 
-function replacement(kind: StarterFooterLinkConfig["kind"], categories: readonly CatalogCategory[], pages: readonly MerchantAdminRecord[]): StarterFooterLinkConfig | null {
+function replacement(kind: StarterFooterLinkConfig["kind"], categories: readonly CatalogCategory[], pages: readonly MerchantAdminRecord[], collections: readonly StorefrontDesignDestinationOption[]): StarterFooterLinkConfig | null {
   if (kind === "fixed_policy") return Object.freeze({ kind, policyKey: "privacy_security" });
   if (kind === "category") return categories[0] ? Object.freeze({ kind, categoryId: categories[0].id }) : null;
+  if (kind === "catalog_collection") return collections[0] ? Object.freeze({ kind, resourceId: collections[0].resourceId }) : null;
   if (kind === "page") return pages[0] ? Object.freeze({ kind, pageId: pages[0].id }) : null;
   return Object.freeze({ kind, destination: "/products" });
 }
 
-export function StarterFooterEditor({ categories, disabled, pages, update, value }: Readonly<{
+export function StarterFooterEditor({ categories, collections = [], disabled, pages, update, value }: Readonly<{
   categories: readonly CatalogCategory[];
+  collections?: readonly StorefrontDesignDestinationOption[];
   disabled: boolean;
   pages: readonly MerchantAdminRecord[];
   update: (footer: StarterFooterConfig) => void;
@@ -56,9 +58,10 @@ export function StarterFooterEditor({ categories, disabled, pages, update, value
       <legend>Bağlantı grubu {groupIndex + 1}</legend>
       <label>Grup başlığı<input maxLength={80} value={group.heading} onChange={(event) => patchGroup(groupIndex, { heading: event.currentTarget.value })} /></label>
       <div className={styles.footerLinks}>{group.links.map((link, linkIndex) => <div className={styles.footerLink} key={`${link.kind}-${linkIndex}`}>
-        <label>Bağlantı türü<select value={link.kind} onChange={(event) => { const next = replacement(event.currentTarget.value as StarterFooterLinkConfig["kind"], categories, pages); if (next) patchLink(groupIndex, linkIndex, next); }}><option value="fixed_policy">Sabit politika</option><option value="category" disabled={!categories.length}>Kategori</option><option value="page" disabled={!pages.length}>Sayfa</option><option value="system">Sistem sayfası</option></select></label>
+        <label>Bağlantı türü<select value={link.kind} onChange={(event) => { const next = replacement(event.currentTarget.value as StarterFooterLinkConfig["kind"], categories, pages, collections); if (next) patchLink(groupIndex, linkIndex, next); }}><option value="fixed_policy">Sabit politika</option><option value="category" disabled={!categories.length}>Kategori</option><option value="catalog_collection" disabled={!collections.length}>Koleksiyon</option><option value="page" disabled={!pages.length}>Sayfa</option><option value="system">Sistem sayfası</option></select></label>
         {link.kind === "fixed_policy" ? <label>Politika<select value={link.policyKey} onChange={(event) => patchLink(groupIndex, linkIndex, { kind: "fixed_policy", policyKey: event.currentTarget.value as typeof link.policyKey })}>{STARTER_FOOTER_POLICIES.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label> : null}
         {link.kind === "category" ? <label>Kategori<select value={link.categoryId} onChange={(event) => patchLink(groupIndex, linkIndex, { kind: "category", categoryId: event.currentTarget.value })}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label> : null}
+        {link.kind === "catalog_collection" ? <label>Koleksiyon<select value={link.resourceId} onChange={(event) => patchLink(groupIndex, linkIndex, { kind: "catalog_collection", resourceId: event.currentTarget.value })}>{collections.map((item) => <option key={item.resourceId} value={item.resourceId}>{item.label}</option>)}</select></label> : null}
         {link.kind === "page" ? <label>Sayfa<select value={link.pageId} onChange={(event) => patchLink(groupIndex, linkIndex, { kind: "page", pageId: event.currentTarget.value })}>{pages.map((page) => <option key={page.id} value={page.id}>{page.name}</option>)}</select></label> : null}
         {link.kind === "system" ? <label>Sistem hedefi<select value={link.destination} onChange={(event) => patchLink(groupIndex, linkIndex, { kind: "system", destination: event.currentTarget.value as typeof link.destination })}>{STARTER_FOOTER_SYSTEM_LINKS.map(([destination, label]) => <option key={destination} value={destination}>{label}</option>)}</select></label> : null}
         <button type="button" aria-label={`${group.heading} grubundan bağlantıyı kaldır`} onClick={() => patchGroup(groupIndex, { links: Object.freeze(group.links.filter((_, index) => index !== linkIndex)) })} disabled={group.links.length <= 1}><Trash2 aria-hidden="true" /></button>

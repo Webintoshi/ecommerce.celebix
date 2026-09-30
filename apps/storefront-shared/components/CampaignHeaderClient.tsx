@@ -15,7 +15,7 @@ import {
 } from "react";
 
 import { StoreUtilities } from "./StoreUtilities";
-import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
+import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-header.module.css";
 
 const focusable =
@@ -179,15 +179,15 @@ export function CampaignHeaderClient({
                 Ürünler
               </Link>
               {navigation.items.map((item) => (
-                <details key={item.slug}>
+                <details key={`${item.kind ?? "category"}:${item.resourceId ?? item.slug}`}>
                   <summary>{item.name}</summary>
                   <Link
                     aria-current={
-                      isActivePath(pathname, categoryPath(locale, item.slug))
+                      isActivePath(pathname, (item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug)))
                         ? "page"
                         : undefined
                     }
-                    href={categoryPath(locale, item.slug)}
+                    href={(item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug))}
                     onClick={close}
                   >
                     Tümünü gör
@@ -195,12 +195,12 @@ export function CampaignHeaderClient({
                   {item.children.map((child) => (
                     <Link
                       aria-current={
-                        isActivePath(pathname, categoryPath(locale, child.slug))
+                        isActivePath(pathname, (child.path ? localizeStorefrontPath(child.path, locale) : categoryPath(locale, child.slug)))
                           ? "page"
                           : undefined
                       }
-                      href={categoryPath(locale, child.slug)}
-                      key={child.slug}
+                      href={(child.path ? localizeStorefrontPath(child.path, locale) : categoryPath(locale, child.slug))}
+                      key={`${child.kind ?? "category"}:${child.resourceId ?? child.slug}`}
                       onClick={close}
                     >
                       {child.name}

@@ -61,6 +61,15 @@ test("global catalog pagination never retains a stale effective selling price", 
   await selected.repository.queryPublicCatalog!({ ...input, now: new Date(NOW.getTime() + 1_000) });
   assert.equal(reads, 2);
 });
+test("real collection order and membership are committed authority rather than cached projections", async () => {
+  let reads = 0;
+  const selected = fixture({ async queryPublicCollection() { reads += 1; return { collection: { id: STOREFRONT.id, name: "New", slug: "new" }, items: [], total: 0, nextOffset: null }; } });
+  const input = { storefront: STOREFRONT, now: NOW, slug: "new", query: "", filter: "all" as const, order: "featured" as const, limit: 24, offset: 0 };
+  await selected.repository.queryPublicCollection!(input);
+  await selected.repository.queryPublicCollection!({ ...input, now: new Date(NOW.getTime() + 1000) });
+  assert.equal(reads, 2);
+  assert.equal(selected.backend.values.size, 0);
+});
 
 test("not-found price-bearing projections stay live and preserve repository error semantics", async () => {
   let calls = 0;

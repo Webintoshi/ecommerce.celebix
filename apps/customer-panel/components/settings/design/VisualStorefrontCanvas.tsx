@@ -184,12 +184,12 @@ function footerLink(link: StarterFooterLinkConfig, destinations: readonly Storef
     const label = STARTER_FOOTER_POLICIES.find(([key]) => key === link.policyKey)?.[1] ?? link.policyKey;
     return { label, detail: `Politika: ${link.policyKey}` };
   }
-  const resourceId = link.kind === "category" ? link.categoryId : link.pageId;
-  const destinationKind = link.kind === "category" ? "collection" : "page";
+  const resourceId = link.kind === "category" ? link.categoryId : link.kind === "catalog_collection" ? link.resourceId : link.pageId;
+  const destinationKind = link.kind === "category" ? "collection" : link.kind === "catalog_collection" ? "catalog_collection" : "page";
   const resolved = destinations.find(({ kind, resourceId: candidate }) => kind === destinationKind && candidate === resourceId);
   return resolved
     ? { label: resolved.label, detail: resolved.path }
-    : { label: unresolvedResource(link.kind === "category" ? "Kategori" : "Sayfa", resourceId), detail: resourceId };
+    : { label: unresolvedResource(link.kind === "category" ? "Kategori" : link.kind === "catalog_collection" ? "Koleksiyon" : "Sayfa", resourceId), detail: resourceId };
 }
 
 function assertNever(value: never): never {

@@ -21,6 +21,7 @@ export function ProductExplorer({
   total,
   nextOffset,
   path,
+  preserveOrder = false,
 }: Readonly<{
   products: readonly PublicProduct[];
   locale: string;
@@ -30,6 +31,7 @@ export function ProductExplorer({
   total: number;
   nextOffset: number | null;
   path: string;
+  preserveOrder?: boolean;
 }>) {
   const router = useRouter();
   const [query, setQuery] = useState(selection.query);
@@ -54,7 +56,7 @@ export function ProductExplorer({
       {FILTERS.map(([value, label]) => <button aria-pressed={selection.filter === value} key={value} type="button" onClick={() => router.push(catalogHref(path, { ...selection, query: query.trim(), order, filter: value }, 0))}>{label}</button>)}
     </div>
     <p className="explorer-count" aria-live="polite">{total} ürün bulundu</p>
-    <ProductGrid products={products} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
+    <ProductGrid products={products} preserveOrder={preserveOrder} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
     {selection.offset > 0 || nextOffset !== null ? <nav aria-label="Ürün sayfaları" className="explorer-pagination">
       {selection.offset > 0 ? <a href={catalogHref(path,selection,Math.max(0,selection.offset-24))}>Önceki</a> : null}
       {nextOffset !== null ? <a href={catalogHref(path,selection,nextOffset)}>Sonraki</a> : null}

@@ -39,7 +39,7 @@ const SOCIAL_HOSTS = Object.freeze({
   x: Object.freeze(["x.com", "www.x.com"]),
 } as const);
 const STOREFRONT_ASSET_HOSTS = Object.freeze(["media.celebix.site", "media.saas-staging.celebix.site"] as const);
-const STOREFRONT_ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+const STOREFRONT_ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category|collection)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
 function invalid(): never { throw new TypeError("storefront_contract_invalid"); }
 function record(value: unknown): Record<string, unknown> {
@@ -411,6 +411,10 @@ function parseFooterLinkConfig(value: unknown): StarterFooterConfig["groups"][nu
     const parsed = exact(candidate, ["kind", "categoryId"]);
     return Object.freeze({ kind: "category", categoryId: uuid(parsed.categoryId) });
   }
+  if (candidate.kind === "catalog_collection") {
+    const parsed = exact(candidate, ["kind", "resourceId"]);
+    return Object.freeze({ kind: "catalog_collection", resourceId: uuid(parsed.resourceId) });
+  }
   if (candidate.kind === "page") {
     const parsed = exact(candidate, ["kind", "pageId"]);
     return Object.freeze({ kind: "page", pageId: uuid(parsed.pageId) });
@@ -456,7 +460,12 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const announcementItems = Object.freeze(arrayValues(announcementValue.items, 0, 12).map((item) => string(item, 1, 160)));
   const announcementEnabled = boolean(announcementValue.enabled);
   if (announcementEnabled && announcementItems.length === 0) invalid();
-  const navigationValue = exact(parsed.navigation, ["rootCategoryIds"], ["featuredCategoryId", "featuredAssetId"]);
+  const navigationValue = exact(parsed.navigation, ["rootCategoryIds"], ["featuredCategoryId", "featuredAssetId", "rootLinks"]);
+  const rootLinks = Object.hasOwn(navigationValue, "rootLinks") ? Object.freeze(arrayValues(navigationValue.rootLinks, 0, 8).map(value => {
+    const link = exact(value, ["kind", "resourceId"]);
+    return Object.freeze({ kind: oneOf(link.kind, ["category", "catalog_collection"] as const), resourceId: uuid(link.resourceId) });
+  })) : undefined;
+  if (rootLinks && new Set(rootLinks.map(link => `${link.kind}:${link.resourceId}`)).size !== rootLinks.length) invalid();
   const hasFeaturedCategory = Object.hasOwn(navigationValue, "featuredCategoryId");
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
@@ -488,7 +497,7 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
     : ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
   const common = {
     announcement: Object.freeze({ enabled: announcementEnabled, items: announcementItems, ...(Object.hasOwn(announcementValue, "destination") ? { destination: destination(announcementValue.destination) } : {}) }),
-    navigation: Object.freeze({ rootCategoryIds: uuidArray(navigationValue.rootCategoryIds, 0, 8), ...(hasFeaturedCategory ? { featuredCategoryId: uuid(navigationValue.featuredCategoryId), featuredAssetId: uuid(navigationValue.featuredAssetId) } : {}) }),
+    navigation: Object.freeze({ rootCategoryIds: uuidArray(navigationValue.rootCategoryIds, 0, 8), ...(rootLinks ? { rootLinks } : {}), ...(hasFeaturedCategory ? { featuredCategoryId: uuid(navigationValue.featuredCategoryId), featuredAssetId: uuid(navigationValue.featuredAssetId) } : {}) }),
     sections,
     cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
   };
@@ -499,24 +508,28 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
 }
 
 function parsePublicNavigationItem(value: unknown, depth: number): PublicStarterNavigationItem {
-  const parsed = exact(value, ["name", "slug", "children"], ["featured"]);
+  const parsed = exact(value, ["name", "slug", "children"], ["featured", "kind", "resourceId", "path"]);
   const rawChildren = arrayValues(parsed.children, 0, 8);
   if (depth >= 2 && rawChildren.length > 0) invalid();
   const children = Object.freeze(rawChildren.map((child) => parsePublicNavigationItem(child, depth + 1)));
-  const childSlugs = children.map((child) => child.slug);
+  const childSlugs = children.map((child) => `${child.kind ?? "category"}:${child.slug}`);
   if (new Set(childSlugs).size !== childSlugs.length) invalid();
   let featured: PublicStarterNavigationItem["featured"];
   if (Object.hasOwn(parsed, "featured")) {
     const selected = exact(parsed.featured, ["name", "slug", "image"]);
     featured = Object.freeze({ name: string(selected.name, 1, 160), slug: string(selected.slug, 1, 100, SLUG), image: parseStorefrontAsset(selected.image) });
   }
-  return Object.freeze({ name: string(parsed.name, 1, 160), slug: string(parsed.slug, 1, 100, SLUG), children, ...(featured ? { featured } : {}) });
+  const typed = Object.hasOwn(parsed, "kind") || Object.hasOwn(parsed, "path") || Object.hasOwn(parsed, "resourceId");
+  const kind = typed ? oneOf(parsed.kind, ["category", "catalog_collection"] as const) : undefined;
+  const selectedSlug = string(parsed.slug, 1, kind === "catalog_collection" ? 120 : 100, SLUG);
+  if (typed && parsed.path !== `${kind === "catalog_collection" ? "/collections/" : "/categories/"}${selectedSlug}`) invalid();
+  return Object.freeze({ name: string(parsed.name, 1, 160), slug: selectedSlug, children, ...(kind ? { kind, resourceId: uuid(parsed.resourceId), path: destination(parsed.path) } : {}), ...(featured ? { featured } : {}) });
 }
 
 function parseNavigation(value: unknown): PublicStarterNavigation {
   const parsed = exact(value, ["items"]);
   const items = Object.freeze(arrayValues(parsed.items, 0, 8).map((item) => parsePublicNavigationItem(item, 0)));
-  const slugs = items.map((item) => item.slug);
+  const slugs = items.map((item) => `${item.kind ?? "category"}:${item.slug}`);
   if (new Set(slugs).size !== slugs.length) invalid();
   return Object.freeze({ items });
 }
