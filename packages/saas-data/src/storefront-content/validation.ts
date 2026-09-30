@@ -236,7 +236,7 @@ export function parsePublicContentPage(value: unknown): PublicContentPage {
 
 const CONTENT_LOCALE = /^[a-z]{2,3}(?:-[A-Z]{2})?$/;
 const SITEMAP_FREQUENCIES = new Set<SitemapChangeFrequency>(["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]);
-const SITEMAP_PATH = /^\/(?:pages|blog|urun|products)\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\?lang=[a-z]{2,3}(?:-[A-Z]{2})?)?$/;
+const SITEMAP_PATH = /^(?:\/|\/(?:urunler|products|blog)|\/(?:pages|blog|urun|products|kategori|categories)\/[a-z0-9]+(?:-[a-z0-9]+)*)(?:\?lang=[a-z]{2,3}(?:-[A-Z]{2})?)?$/;
 
 export function storefrontContentLocale(value: unknown, code: StorefrontContentErrorCode = "invalid_input"): string {
   const locale = text(value, 2, 6, code);

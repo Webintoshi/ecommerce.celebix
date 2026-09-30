@@ -253,3 +253,19 @@ test("sitemap index rejects duplicate shards and content locale rejects invalid 
   const bad = new Client((text) => text.includes("public_content_locale_get") ? [{ outcome: "found", result_payload: { defaultLocale: "tr", enabledLocales: ["en-US"] } }] : []);
   await assert.rejects(publicRepository(new Pool([bad])).getLocales({ hostname: HOST, now: NOW }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
 });
+
+test("content sitemap accepts home catalog and localized categories alongside published content", async () => {
+  const paths = ["/", "/urunler", "/products", "/kategori/takilar", "/categories/rings", "/pages/about?lang=en-US", "/blog/news?lang=tr-TR"];
+  const items = paths.map((path) => ({ path, updatedAt: NOW.toISOString(), changeFrequency: "weekly" }));
+  const client = new Client((text) => text.includes("public_content_sitemap_page") ? [{ outcome: "found", result_payload: { items } }] : []);
+  const entries = await publicRepository(new Pool([client])).getSitemapPage({ hostname: HOST, now: NOW, kind: "content", page: 0 });
+  assert.deepEqual(entries, items);
+  assert.deepEqual(call(client, "public_content_sitemap_page").values, [HOST, NOW, "content", 0]);
+});
+
+test("expanded content sitemap paths still reject private routes and unsafe URL suffixes", async () => {
+  for (const path of ["/account", "//evil.test", "/kategori/rings?token=secret", "/categories/../rings", "/pages/about%2fsecret", "/kategori/Rings", "/products?sort=desc", "/urunler#fragment"]) {
+    const client = new Client((text) => text.includes("public_content_sitemap_page") ? [{ outcome: "found", result_payload: { items: [{ path, updatedAt: NOW.toISOString(), changeFrequency: "weekly" }] } }] : []);
+    await assert.rejects(publicRepository(new Pool([client])).getSitemapPage({ hostname: HOST, now: NOW, kind: "content", page: 0 }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable", path);
+  }
+});
