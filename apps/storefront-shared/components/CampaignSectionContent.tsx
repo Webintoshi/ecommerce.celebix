@@ -35,7 +35,14 @@ export function CampaignSectionContent<Product extends CampaignCardProduct = Pub
   };
   switch (section.kind) {
     case "hero": return present(section.slides.length ? <CampaignHero section={section} locale={locale} prefetch={prefetch} previewMode={previewMode} /> : null);
-    case "banner": return present(section.slides.some((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay")) ? <StorefrontBanner section={section} previewMode={previewMode} priority={priority} destinationHref={(path) => localizeStorefrontPath(path, locale)} /> : null);
+    case "banner": {
+      const paths = section.slides.flatMap((slide) => [
+        ...(slide.destination ? [slide.destination] : []),
+        ...(slide.hotspot ? [`/products/${slide.hotspot.productSlug}`] : []),
+      ]);
+      const destinationHrefs = Object.fromEntries(paths.map((path) => [path, localizeStorefrontPath(path, locale)]));
+      return present(section.slides.some((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay")) ? <StorefrontBanner section={section} previewMode={previewMode} priority={priority} destinationHrefs={destinationHrefs} /> : null);
+    }
     case "category_grid": return present(section.items.length ? <CampaignCategories section={section} locale={locale} prefetch={prefetch} /> : null);
     case "product_row": {
       const products = homepageAvailableProducts(productRows.find((row) => row.key === section.key)?.items);
