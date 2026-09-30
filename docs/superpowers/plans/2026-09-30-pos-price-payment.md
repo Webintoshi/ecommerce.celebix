@@ -34,3 +34,11 @@ User approved the in-chat plan: /orders/quick-links per-sale unit price editing,
 
 - SQL184 applied with verified fresh backup and unchanged protected data digests. First release407f20f59f63420c076517b90703179d0eef7b31 finished on NET kkr8u8f3he3ja6dxr568g2bm and SITE fbrepu6odl0obzy8h29yfgrn. Live Güzide draft override19260.89 +cash survived reload; original catalog19260.00 unchanged. Testing only a draft, no financial completion.
 - Final live copy review repaired the required visible label to “Satışa özel fiyat” (old “Fiyat değiştirildi”); mounted assertion RED→GREEN19/19. Small frontend followup will use fresh guarded source snapshot; SQL184 remains unchanged.
+
+## Final live acceptance
+
+- Final source dabec3f1f56e9d345b1546ff83f26a3978d682d9 is live on both shared admins: NET hoptf33wd2j54784f9ox2u2r and SITE hl91mslhykar8iafqhj0f4fg finished. Guarded configuration verification at 2026-09-30T17:44:21Z passed for both targets with the global queue idle. SQL184 checksum remains c28ac97c3b283463092dd91699c90aaa593ada289484102b24935fed5e11c9a5.
+- 36/36 HTTP smoke checks passed across six admin hostnames. Güzide live draft tests passed for decimal price entry, Cancel, catalog reset, cash persistence across reload, hold/reopen and the required price badge. Catalog price and stock remained unchanged.
+- Responsive checks passed at 1440, 1024 and 390 pixels without horizontal overflow. Mobile price dialog controls remained visible; Escape closed it and restored focus to the price trigger. Browser viewport overrides were reset.
+- Live draft was restored to its original empty cart, no payment choice, no discount or note; checkout disabled. Stock remained one and catalog price 19260.00. No live payment was collected or order completed. Payment completion and exactly-once stock behavior were verified in disposable native PostgreSQL fixtures.
+- Local screenshots: .tmp/pos-price-payment/live/pos-live-desktop.png and .tmp/pos-price-payment/live/price-mobile.png. Private release receipts and HTTP evidence remain under .tmp/pos-price-payment/release. This completion entry is documentation only and requires no deployment.
