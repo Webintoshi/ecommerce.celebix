@@ -33,12 +33,22 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
     globals.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
   }
   const source=await readFile(new URL("./InStoreSalesConsole.tsx",import.meta.url),"utf8");
+  const thumbnailSource=await readFile(new URL("../shared/ProductThumbnail.tsx",import.meta.url),"utf8");
+  const thumbnailOutput=ts.transpileModule(thumbnailSource,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+  const thumbnail:{exports:Record<string,unknown>}={exports:{}};
+  Function("require","module","exports",thumbnailOutput)((name:string)=>{
+    if(name==="react")return React;if(name==="react/jsx-runtime")return jsxRuntime;
+    if(name==="lucide-react")return new Proxy({},{get:()=>()=>createElement("svg",{"aria-hidden":true})});
+    if(name.endsWith(".module.css"))return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};
+    throw new Error(`unexpected_import:${name}`);
+  },thumbnail,thumbnail.exports);
   const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   const compiled:{exports:Record<string,unknown>}={exports:{}};
   Function("require","module","exports",output)((name:string)=>{
     if(name==="react")return React;if(name==="react/jsx-runtime")return jsxRuntime;
     if(name==="lucide-react")return new Proxy({},{get:()=>()=>createElement("svg",{"aria-hidden":true})});
     if(name==="@/components/panel/PanelPageShell")return {PanelPageShell:({children}:{children:React.ReactNode})=>createElement("section",null,children),PanelPageHeader:()=>null,PanelStatusBadge:({children}:{children:React.ReactNode})=>createElement("span",null,children)};
+    if(name==="@/components/shared/ProductThumbnail")return thumbnail.exports;
     if(name==="@/lib/in-store-sales-ui/client")return {inStoreSalesUi:api};
     if(name==="@/lib/in-store-sales-ui/model")return model;
     if(name==="./in-store-sales.module.css")return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};
@@ -50,6 +60,22 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
   finally{await act(async()=>root.unmount());for(const[key,descriptor]of globals)descriptor?Object.defineProperty(globalThis,key,descriptor):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
 }
 const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>x.textContent?.trim()===label)!;
+
+test("a cart product whose photo fails keeps its thumbnail frame and shows the package fallback",async()=>{
+  await mounted(async(container,browser)=>{
+    const thumbnail=container.querySelector<HTMLElement>(".cartRow .thumbnail")!;
+    const image=thumbnail.querySelector("img")!;
+    assert.equal(image.getAttribute("src"),"https://media.example.test/product.webp");
+    await act(async()=>image.dispatchEvent(new browser.Event("error") as unknown as Event));
+    assert.equal(thumbnail.querySelector("img")===null,true,"broken photos should not show a browser image error");
+    assert.ok(thumbnail.querySelector("svg"),"the existing package fallback stays available");
+    assert.equal(thumbnail.textContent,"","the product name is already spoken from its adjacent text");
+    assert.equal(container.querySelector(".cartRow .identity strong")?.textContent,"Ürün");
+  },"draft",async(api)=>{
+    const bootstrap=await api.bootstrap();
+    api.bootstrap=async()=>({...bootstrap,activeDraft:{...bootstrap.activeDraft!,items:bootstrap.activeDraft!.items.map(item=>({...item,imageUrl:"https://media.example.test/product.webp"}))}});
+  });
+});
 
 test("completed receipt and checkout footer show the order code while preserving legacy and missing-order fallbacks",async()=>{
   for(const [orderNumber,expected] of [["POS-0000001","POS-0000001"],["S-101","S-101"],[null,`POS-${ID}`]] as const){

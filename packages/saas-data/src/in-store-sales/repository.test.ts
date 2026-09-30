@@ -15,9 +15,9 @@ class Client implements PostgresClientLike {
         values?: unknown[];
     }[] = [];
     released: (boolean | Error | undefined)[] = [];
-    constructor(private response: unknown, private failCommit = false) { }
+    constructor(private response: unknown, private failCommit = false, private images: unknown = { images: [] }) { }
     async query(text: string, values?: unknown[]): Promise<QueryResult<Record<string, unknown>>> { this.queries.push({ text, values }); if (text === "COMMIT" && this.failCommit)
-        throw new Error("private socket detail"); const rows = text.includes("FROM saas.in_store_sales_") ? [this.response] : []; return { rows, rowCount: rows.length } as QueryResult<Record<string, unknown>>; }
+        throw new Error("private socket detail"); const rows = text.includes("FROM saas.in_store_sales_") ? [this.response] : text.includes("FROM saas.merchant_product_images") ? [{ outcome: "found", result_payload: this.images }] : []; return { rows, rowCount: rows.length } as QueryResult<Record<string, unknown>>; }
     release(destroy?: boolean | Error) { this.released.push(destroy); }
 }
 class Pool implements PostgresPoolLike {
@@ -65,4 +65,42 @@ test('v2 create uses separate durable RPC and carries price and payment without 
  assert.equal(result.sale.paymentMethod,'cash');
  const call=c.queries.find(q=>q.text.includes('FROM saas.in_store_sales_create_v2'));
  assert.ok(call);assert.equal(JSON.parse(call.values?.at(-1) as string).paymentMethod,'cash');
+});
+
+const PHOTO = `https://media.celebix.site/stores/${STORE}/products/${PRODUCT}/30000000-0000-4000-8000-000000000001.webp`;
+const thumbnailKey = `${PRODUCT}:${VARIANT}`;
+test("POS product search receives photos with one authorized batch and preserves stock and price", async () => {
+ const product = {productId:PRODUCT,variantId:VARIANT,productName:"Ürün",variantName:"M",sku:null,barcode:"000123",imageUrl:null,unitPriceCents:10000,pricingUnavailable:false,availableQuantity:5,stockTracking:true,discountEligible:true};
+ const client = new Client({outcome:"found",result_payload:{products:[product]}},false,{images:[{key:thumbnailKey,imageUrl:PHOTO}]});
+ const result = await repo(client).searchProducts({...authority("cashier"),locationId:LOCATION,query:"Ürün",limit:20});
+ assert.deepEqual(result.products[0],{...product,imageUrl:PHOTO});
+ const imageQueries=client.queries.filter(q=>q.text.includes("FROM saas.merchant_product_images"));
+ assert.equal(imageQueries.length,1);
+ assert.deepEqual(imageQueries[0]!.values?.slice(0,8),[STORE,PRINCIPAL,MEMBERSHIP,PLAN,"growth",2,NOW,"pos"]);
+ assert.equal(client.queries.at(-1)?.text,"COMMIT");
+});
+test("POS read hydration keeps v1 and v2 prices exact while operation replay stays immutable", async () => {
+ for (const contractVersion of [1,2] as const) {
+  const original = contractVersion===1?sale():{...sale(),paymentMethod:"cash",items:sale().items.map(line=>({...line,catalogUnitPriceCents:11000,unitPriceOverrideCents:10000,priceOverrideActorMembershipId:MEMBERSHIP}))};
+  const images={images:[{key:thumbnailKey,imageUrl:PHOTO}]};
+  const read=new Client({outcome:"found",result_payload:original},false,images);
+  const value=await repo(read).getSale({...authority(),contractVersion,saleId:SALE});
+  assert.deepEqual(value,{...original,items:original.items.map(line=>({...line,imageUrl:PHOTO}))});
+  const page=new Client({outcome:"found",result_payload:{sales:[original],nextCursor:null}},false,images);
+  assert.equal((await repo(page).listSales({...authority(),contractVersion,status:"draft",pageSize:50})).sales[0]?.items[0]?.imageUrl,PHOTO);
+  const replay=new Client({outcome:"found",result_payload:{sale:original,replayed:true,priceChanged:false}},false,images);
+  assert.deepEqual((await repo(replay).getOperation({...authority(),contractVersion,operationId:OP}))?.sale,original);
+  assert.ok(!replay.queries.some(q=>q.text.includes("merchant_product_images")));
+ }
+});
+test("POS bootstrap hydrates every sale group once for a repeated product variant", async () => {
+ const completed={...sale("completed"),paymentReceivedAt:NOW.toISOString(),completedAt:NOW.toISOString(),orderId:OP,orderNumber:"POS-0001"};
+ const original={scopeKey:`${STORE}:${MEMBERSHIP}`,locations:[{id:LOCATION,name:"Mağaza",isDefault:true}],permissions:{canSell:true,canDiscount:true,discountLimitBps:9999,canResolve:true,canManageStaff:true},activeDraft:sale(),heldSales:[sale("held")],pendingSales:[sale("payment_pending")],recentSales:[completed],summary:{completedCount:1,grossCents:10000,discountCents:0,netCents:10000,pendingPaymentCount:1}};
+ const client=new Client({outcome:"found",result_payload:original},false,{images:[{key:thumbnailKey,imageUrl:PHOTO}]});
+ const result=await repo(client).bootstrap(authority());
+ assert.equal(result.activeDraft?.items[0]?.imageUrl,PHOTO);
+ for(const group of [result.heldSales,result.pendingSales,result.recentSales])assert.equal(group[0]?.items[0]?.imageUrl,PHOTO);
+ const images=client.queries.filter(q=>q.text.includes("merchant_product_images"));assert.equal(images.length,1);
+ assert.deepEqual(JSON.parse(images[0]!.values?.at(-1) as string),[{key:thumbnailKey,productId:PRODUCT,variantId:VARIANT}]);
+ assert.deepEqual(result.summary,original.summary);
 });

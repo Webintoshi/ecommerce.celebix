@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { parseInStoreBootstrap, parseInStoreProduct, parseInStoreSale, parseInStoreSaleIntent, parseInStoreSalePage, parseInStoreSaleResult, parseInStoreStaffGrant, type TenantContext, type InStoreSaleResult } from "@celebix/saas-contracts";
+import { parseInStoreBootstrap, parseInStoreProduct, parseInStoreSale, parseInStoreSaleIntent, parseInStoreSalePage, parseInStoreSaleResult, parseInStoreStaffGrant, type TenantContext, type InStoreSaleResult, type InStoreSale } from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { merchantAuthority, type ValidatedOrderAuthority } from "../orders/validation.ts";
 import { OrderRepositoryError } from "../orders/errors.ts";
+import { resolveProductThumbnails, type ProductThumbnailReference } from "../product-thumbnails.ts";
 import { failure, IN_STORE_SALES_ERROR_CODES, inStoreSalesRepositoryErrorCode, type InStoreSalesErrorCode } from "./errors.ts";
 import type { InStoreSalesRepository, PostgresInStoreSalesRepositoryOptions, InStoreAuthorityInput, SearchInStoreProductsInput, ListInStoreSalesInput, GetInStoreSaleInput, GetInStoreOperationInput, CreateInStoreSaleInput, UpdateInStoreSaleInput, HoldInStoreSaleInput, PrepareInStoreSaleInput, ConfirmInStorePaymentInput, CancelInStoreSaleInput, VersionedInStoreSaleInput, SetInStoreStaffGrantInput } from "./types.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -83,7 +84,7 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
         fingerprint: string;
         staff?: boolean;
         contractVersion?:1|2;
-    }): Promise<T> { const client = await this.acquire(); let terminal = false, began = false; try {
+    }, hydrate?: (client: PostgresClientLike, value: T) => Promise<T>): Promise<T> { const client = await this.acquire(); let terminal = false, began = false; try {
         await client.query(write ? "BEGIN ISOLATION LEVEL READ COMMITTED" : "BEGIN READ ONLY");
         began = true;
         await this.configure(client);
@@ -98,7 +99,8 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
             failure(row.outcome as InStoreSalesErrorCode);
         if (!["found", "committed", "operation_replayed"].includes(row.outcome))
             failure("unavailable");
-        const value = parsed(parser, row.result_payload);
+        const initial = parsed(parser, row.result_payload);
+        const value = hydrate ? await hydrate(client, initial) : initial;
         try {
             await client.query("COMMIT");
             terminal = true;
@@ -132,16 +134,32 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
             throw error;
         failure("unavailable");
     } }
+    private async hydrateProducts<T extends {readonly productId:string;readonly variantId:string;readonly imageUrl:string|null}>(client:PostgresClientLike,a:ValidatedOrderAuthority,products:readonly T[]):Promise<readonly T[]> {
+        const key=(product:T)=>`${product.productId}:${product.variantId}`;
+        const references=new Map<string,ProductThumbnailReference>();
+        for(const product of products)if(product.imageUrl===null)references.set(key(product),{key:key(product),productId:product.productId,variantId:product.variantId});
+        const refs=[...references.values()],images=new Map<string,string|null>();
+        for(let offset=0;offset<refs.length;offset+=5000)for(const [id,image] of await resolveProductThumbnails(client,values(a),"pos",refs.slice(offset,offset+5000)))images.set(id,image);
+        return Object.freeze(products.map(product=>Object.freeze({...product,imageUrl:product.imageUrl??images.get(key(product))??null})));
+    }
+    private async hydrateSales(client:PostgresClientLike,a:ValidatedOrderAuthority,sales:readonly InStoreSale[]):Promise<readonly InStoreSale[]> {
+        const products=await this.hydrateProducts(client,a,sales.flatMap(sale=>sale.items));let offset=0;
+        return Object.freeze(sales.map(sale=>{const items=Object.freeze(products.slice(offset,offset+sale.items.length));offset+=sale.items.length;return Object.freeze({...sale,items});}));
+    }
     private operation(a: ValidatedOrderAuthority, operationId: string, expectedFingerprint: string | null, contractVersion:1|2=1) { return this.transact(a, { name: "in_store_sales_get_operation"+(contractVersion===2?"_v2":""), args: [operationId, expectedFingerprint], casts: ["uuid", "text"] }, v => v === null ? null : parseInStoreSaleResult(v,contractVersion)); }
     private mutate(input: VersionedInStoreSaleInput, kind: string, extra: Record<string, unknown> = {}, casts: string[] = [], args: unknown[] = []) { const { a, body, contractVersion } = this.validated(input, ["operationId", "saleId", "expectedVersion", ...Object.keys(extra)]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId), expectedVersion = integer(body.expectedVersion, 1); const hash = fingerprint(kind, a.storeId, { saleId, expectedVersion, ...extra },contractVersion); return this.transact(a, { name: `in_store_sales_${kind}${contractVersion===2?"_v2":""}`, args: [operationId, hash, saleId, expectedVersion, ...args], casts: ["uuid", "text", "uuid", "bigint", ...casts] }, v => { const result = parseInStoreSaleResult(v,contractVersion); if (result.sale.id !== saleId)
         failure("unavailable"); return result; }, true, { operationId, fingerprint: hash,contractVersion }); }
-    async bootstrap(input: InStoreAuthorityInput) { const { a, contractVersion } = this.validated(input); return this.transact(a, { name: "in_store_sales_bootstrap"+(contractVersion===2?"_v2":""), args: [], casts: [] }, v=>parseInStoreBootstrap(v,contractVersion)); }
+    async bootstrap(input: InStoreAuthorityInput) { const { a, contractVersion } = this.validated(input); return this.transact(a, { name: "in_store_sales_bootstrap"+(contractVersion===2?"_v2":""), args: [], casts: [] }, v=>parseInStoreBootstrap(v,contractVersion),false,undefined,async(client,value)=>{
+        const groups=[...(value.activeDraft?[value.activeDraft]:[]),...value.heldSales,...value.pendingSales,...value.recentSales];const sales=await this.hydrateSales(client,a,groups);let offset=0;
+        const activeDraft=value.activeDraft?sales[offset++]!:null;const heldSales=Object.freeze(sales.slice(offset,offset+=value.heldSales.length));const pendingSales=Object.freeze(sales.slice(offset,offset+=value.pendingSales.length));const recentSales=Object.freeze(sales.slice(offset));
+        return Object.freeze({...value,activeDraft,heldSales,pendingSales,recentSales});
+    }); }
     async searchProducts(input: SearchInStoreProductsInput) { const { a, body, contractVersion } = this.validated(input, ["locationId", "limit"], ["barcode", "query"]); if (Object.hasOwn(body, "barcode") === Object.hasOwn(body, "query"))
-        failure(); const locationId = uuid(body.locationId), limit = integer(body.limit, 1, 20), barcode = body.barcode === undefined ? null : text(body.barcode, 128), query = body.query === undefined ? null : text(body.query, 100); return this.transact(a, { name: "in_store_sales_search_products", args: [locationId, barcode, query, limit], casts: ["uuid", "text", "text", "integer"] }, envelope("products", parseInStoreProduct, 20)) as ReturnType<InStoreSalesRepository["searchProducts"]>; }
+        failure(); const locationId = uuid(body.locationId), limit = integer(body.limit, 1, 20), barcode = body.barcode === undefined ? null : text(body.barcode, 128), query = body.query === undefined ? null : text(body.query, 100); return this.transact(a, { name: "in_store_sales_search_products", args: [locationId, barcode, query, limit], casts: ["uuid", "text", "text", "integer"] }, envelope("products", parseInStoreProduct, 20),false,undefined,async(client,value)=>Object.freeze({products:await this.hydrateProducts(client,a,value.products)})) as ReturnType<InStoreSalesRepository["searchProducts"]>; }
     async listSales(input: ListInStoreSalesInput) { const { a, body, contractVersion } = this.validated(input, ["status", "pageSize"], ["cursor"]); if (!["draft", "held", "pending", "completed"].includes(body.status as string))
-        failure(); const pageSize = integer(body.pageSize, 1, 50); const cursor = body.cursor == null ? null : text(body.cursor, 512); return this.transact(a, { name: "in_store_sales_list"+(contractVersion===2?"_v2":""), args: [body.status, pageSize, cursor], casts: ["text", "integer", "text"] }, v=>parseInStoreSalePage(v,contractVersion)); }
+        failure(); const pageSize = integer(body.pageSize, 1, 50); const cursor = body.cursor == null ? null : text(body.cursor, 512); return this.transact(a, { name: "in_store_sales_list"+(contractVersion===2?"_v2":""), args: [body.status, pageSize, cursor], casts: ["text", "integer", "text"] }, v=>parseInStoreSalePage(v,contractVersion),false,undefined,async(client,value)=>Object.freeze({...value,sales:await this.hydrateSales(client,a,value.sales)})); }
     async getSale(input: GetInStoreSaleInput) { const { a, body, contractVersion } = this.validated(input, ["saleId"]); const saleId = uuid(body.saleId); return this.transact(a, { name: "in_store_sales_get"+(contractVersion===2?"_v2":""), args: [saleId], casts: ["uuid"] }, v => { const result = parseInStoreSale(v,contractVersion); if (result.id !== saleId)
-        failure("unavailable"); return result; }); }
+        failure("unavailable"); return result; },false,undefined,async(client,value)=>(await this.hydrateSales(client,a,[value]))[0]!); }
     async getOperation(input: GetInStoreOperationInput) { const { a, body, contractVersion } = this.validated(input, ["operationId"]); return this.operation(a, uuid(body.operationId), null,contractVersion); }
     async createSale(input: CreateInStoreSaleInput) { const { a, body, contractVersion } = this.validated(input, ["operationId", "saleId", "intent"]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId); let intent; try {
         intent = parseInStoreSaleIntent(body.intent,contractVersion);

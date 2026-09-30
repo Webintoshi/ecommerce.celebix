@@ -123,6 +123,7 @@ export interface AnalyticsDashboardViewModel {
   readonly topProducts: readonly Readonly<{
     productId: string;
     title: string;
+    imageUrl?: string | null;
     quantity: number;
     revenueCents: number;
   }>[];

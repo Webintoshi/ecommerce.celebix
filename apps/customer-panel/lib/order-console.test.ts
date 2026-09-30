@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { compile as compileRealComponent } from "./mira-final-test-support.ts";
 test("POS detail displays recorded card and cash while unknown methods retain manual POS", async () => {
  const Presentation=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation");
  for (const [inStorePaymentMethod, expected] of [["card", "Kart"], ["cash", "Nakit"], [null, "manuel POS"], [undefined, "manuel POS"]] as const) {
@@ -432,6 +433,7 @@ async function compileOrderModule(
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
+    if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     if (specifier === "@/components/shipping/OrderShipmentConsole") return {
       OrderShipmentConsole: () => createElement("div", { "data-testid": "order-shipment-console" }),
     };
@@ -560,6 +562,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
     if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
     if (specifier === "recharts") return new Proxy({}, { get: () => Chart });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
+    if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel() { return {}; } };
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({}) };

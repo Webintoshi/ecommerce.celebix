@@ -157,6 +157,8 @@
 .listProduct { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .productIcon { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-soft); color: var(--analytics-muted); }
 .productIcon svg { width: 16px; height: 16px; }
+.productIdentity { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.productIdentity > span:last-child { min-width: 0; }
 .compactState { display: flex; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
 .compactState p { max-width: 320px; color: var(--analytics-muted); font-size: 14px; }
 .emptyIllustration { width: 104px; height: 80px; }

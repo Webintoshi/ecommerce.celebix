@@ -93,6 +93,7 @@ export interface AnalyticsSeriesPoint {
 export interface AnalyticsTopProduct {
   readonly productId: string;
   readonly title: string;
+  readonly imageUrl?: string | null;
   readonly quantity: number;
   readonly revenueCents: number;
 }
@@ -219,6 +220,7 @@ export interface CommerceAnalyticsAttributionBucket {
 export interface CommerceAnalyticsProductBucket {
   readonly productId: string;
   readonly title: string;
+  readonly imageUrl?: string | null;
   readonly currency: string;
   readonly categoryId: string | null;
   readonly categoryName: string | null;

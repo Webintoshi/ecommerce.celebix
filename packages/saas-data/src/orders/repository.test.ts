@@ -72,6 +72,7 @@ const DRAFT_LINE_ID = "14141414-1414-4141-8141-141414141414";
 const PRODUCT_ID = "15151515-1515-4151-8151-151515151515";
 const VARIANT_ID = "16161616-1616-4161-8161-161616161616";
 const NOW = new Date("2026-07-21T08:00:00.000Z");
+const ORDER_PRODUCT_IMAGE = `https://media.example.test/stores/${STORE_ID}/products/${PRODUCT_ID}/80000000-0000-4000-8000-000000000001.jpg`;
 const PRIVATE_REQUEST_ID = "private-order-request";
 const PRIVATE_SUBJECT = "private-provider-subject";
 const PRIVATE_PROXY_SECRET = "private-proxy-secret";
@@ -313,7 +314,11 @@ class FakeClient {
 
   async query(text: string, values: unknown[] = []) {
     this.calls.push({ text, values });
-    const response = await this.responder(text, values);
+    let response = await this.responder(text, values);
+    if (text.includes("saas.merchant_product_images(") && Array.isArray(response) && response.length === 0) {
+      const references = JSON.parse(String(values[8])) as Array<{ key: string }>;
+      response = [{ outcome: "found", result_payload: { images: references.map(({ key }) => ({ key, imageUrl: null })) } }];
+    }
     const rows = Array.isArray(response) ? response : response.rows;
     const rowCount = Array.isArray(response) ? rows.length : (response.rowCount ?? rows.length);
     return { rows, rowCount, command: "", oid: 0, fields: [] };
@@ -579,6 +584,37 @@ test("list rejects unordered, oversized, private, or inconsistent cursor project
     });
     assert.deepEqual(result.items.map(({ id }) => id), items.map(({ id }) => id));
   }
+});
+
+test("order detail resolves item images by its exact store and order without changing frozen line money", async () => {
+  for (const inStoreVersion of [undefined, 2] as const) {
+    const giftId = "12121212-1212-4121-8121-121212121212";
+    const original = detail({ itemCount: 2 });
+    original.items.push({ ...original.items[0]!, id: giftId, position: 1, productName: "Gift", unitPriceCents: 0, lineTotalCents: 0 });
+    const itemId = original.items[0]!.id;
+    const client = new FakeClient((text) => text.includes("saas.orders_get_with_archive")
+      ? [{ outcome: "found", result_payload: original }]
+      : text.includes("merchant_product_images")
+        ? [{ outcome: "found", result_payload: { images: [{ key: itemId, imageUrl: ORDER_PRODUCT_IMAGE }, { key: giftId, imageUrl: null }] } }]
+        : []);
+    const result = await repository(new FakePool(client)).getOrder({ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID, ...(inStoreVersion === undefined ? {} : { inStoreVersion }) });
+    assert.deepEqual(result, { ...original, items: [{ ...original.items[0], imageUrl: ORDER_PRODUCT_IMAGE }, original.items[1]] });
+    assert.deepEqual(functionCall(client, "merchant_product_images").values, [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, "orders", JSON.stringify([{ key: itemId, orderId: ORDER_ID, orderItemId: itemId }, { key: giftId, orderId: ORDER_ID, orderItemId: giftId }])]);
+    assert.equal(Object.isFrozen(result.items[0]), true);
+    assert.equal(client.calls.filter(({ text }) => text.includes("merchant_product_images")).length, 1);
+    assert.equal(client.calls.at(-1)?.text, "COMMIT");
+  }
+});
+
+test("order detail rejects an unrelated item's thumbnail and rolls back the read", async () => {
+  const client = new FakeClient((text) => text.includes("saas.orders_get_with_archive(")
+    ? [{ outcome: "found", result_payload: detail() }]
+    : text.includes("merchant_product_images")
+      ? [{ outcome: "found", result_payload: { images: [{ key: OTHER_STORE_ID, imageUrl: "https://media.example.test/unrelated.jpg" }] } }]
+      : []);
+  await assert.rejects(repository(new FakePool(client)).getOrder({ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }), orderError("unavailable"));
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.equal(client.calls.some(({ text }) => text === "COMMIT"), false);
 });
 
 test("detail read strictly parses and deeply freezes the safe order contract", async () => {

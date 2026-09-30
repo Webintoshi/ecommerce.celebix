@@ -14,6 +14,7 @@ const STORE = "10000000-0000-4000-8000-000000000001",
   WEBSITE = "50000000-0000-4000-8000-000000000001",
   OP = "60000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-26T12:00:00.000Z");
+const PRODUCT_IMAGE = `https://media.example.test/stores/${STORE}/products/${CONNECTION}/80000000-0000-4000-8000-000000000001.jpg`;
 function tenant(): TenantContext {
   return {
     schemaVersion: 1,
@@ -45,7 +46,11 @@ class Client {
   }
   async query(text: string, values: unknown[] = []) {
     this.calls.push({ text, values });
-    const rows = await this.responder(text, values);
+    let rows = await this.responder(text, values);
+    if (text.includes("saas.merchant_product_images(") && rows.length === 0) {
+      const references = JSON.parse(String(values[8])) as Array<{ key: string }>;
+      rows = [{ outcome: "found", result_payload: { images: references.map(({ key }) => ({ key, imageUrl: null })) } }];
+    }
     return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
   }
   release(value?: unknown) {
@@ -186,6 +191,60 @@ function commercePayload(
     ...overrides,
   };
 }
+
+test("dashboard enriches top products with one tenant-authorized image read before commit", async () => {
+  const product = { productId: CONNECTION, title: "Atlas Mug", quantity: 2, revenueCents: 2400 };
+  const payload = {
+    period: "month", rangeStart: "2026-07-01T00:00:00.000Z", rangeEnd: "2026-07-26T00:00:00.000Z", generatedAt: NOW.toISOString(),
+    currency: "TRY", revenueCents: 2400,
+    orders: { total: 1, paid: 1, cancelled: 0, refunded: 0 }, customers: { total: 1, newInPeriod: 1 },
+    catalog: { activeProducts: 1, lowStockVariants: 0 }, series: [], topProducts: [product],
+  };
+  const client = new Client((text) => text.includes("merchant_analytics_dashboard")
+    ? [{ outcome: "resolved", result_payload: payload }]
+    : text.includes("merchant_product_images")
+      ? [{ outcome: "found", result_payload: { images: [{ key: CONNECTION, imageUrl: PRODUCT_IMAGE }] } }]
+      : []);
+  const result = await repo(new Pool([client])).dashboard({ tenantContext: tenant(), now: NOW, period: "month" });
+  assert.deepEqual(result.topProducts, [{ ...product, imageUrl: PRODUCT_IMAGE }]);
+  assert.equal(Object.isFrozen(result.topProducts[0]), true);
+  const images = call(client, "merchant_product_images");
+  assert.deepEqual(images.values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, "analytics", JSON.stringify([{ key: CONNECTION, productId: CONNECTION }])]);
+  assert.equal(client.calls.filter(({ text }) => text.includes("merchant_product_images")).length, 1);
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+  assert.equal(result.revenueCents, 2400);
+});
+
+test("commerce product images use one scoped batch without changing currency or measured revenue", async () => {
+  const start = new Date("2026-07-01T00:00:00.000Z"), end = new Date("2026-07-26T00:00:00.000Z");
+  const payload = commercePayload(start, end);
+  payload.products.push({ ...payload.products[0]!, currency: "USD", revenueMinor: 1250 });
+  payload.productPage.totalItems = 2;
+  const client = new Client((text) => text.includes("commerce_analytics_snapshot")
+    ? [{ outcome: "resolved", result_payload: payload }]
+    : text.includes("merchant_product_images")
+      ? [{ outcome: "found", result_payload: { images: [{ key: CONNECTION, imageUrl: PRODUCT_IMAGE }] } }]
+      : []);
+  const result = await repo(new Pool([client])).commerceSnapshot({ tenantContext: tenant(), now: NOW, rangeStart: start, rangeEnd: end });
+  assert.deepEqual(result.products, payload.products.map((product) => ({ ...product, imageUrl: PRODUCT_IMAGE })));
+  assert.deepEqual(result.currencies, payload.currencies);
+  assert.equal(Object.isFrozen(result.products[0]), true);
+  assert.deepEqual(call(client, "merchant_product_images").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, "analytics", JSON.stringify([{ key: CONNECTION, productId: CONNECTION }])]);
+  assert.equal(client.calls.filter(({ text }) => text.includes("merchant_product_images")).length, 1);
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("commerce rejects a thumbnail from an unrelated product and rolls back its read", async () => {
+  const start = new Date("2026-07-01T00:00:00.000Z"), end = new Date("2026-07-26T00:00:00.000Z");
+  const client = new Client((text) => text.includes("commerce_analytics_snapshot")
+    ? [{ outcome: "resolved", result_payload: commercePayload(start, end) }]
+    : text.includes("merchant_product_images")
+      ? [{ outcome: "found", result_payload: { images: [{ key: WEBSITE, imageUrl: "https://media.example.test/unrelated.jpg" }] } }]
+      : []);
+  await assert.rejects(repo(new Pool([client])).commerceSnapshot({ tenantContext: tenant(), now: NOW, rangeStart: start, rangeEnd: end }), (error) => error instanceof AnalyticsRepositoryError && error.code === "unavailable");
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.equal(client.calls.some(({ text }) => text === "COMMIT"), false);
+});
 
 test("connection read uses the exact seven-field authority and freezes its projection", async () => {
   const client = new Client((text) =>

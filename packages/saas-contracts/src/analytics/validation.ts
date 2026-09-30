@@ -76,6 +76,15 @@ function invalid(): never {
   throw new TypeError("analytics_contract_invalid");
 }
 
+function productImageUrl(value: unknown): string | null {
+  if (value === null) return null;
+  const result = string(value, 1, 2048);
+  let url: URL;
+  try { url = new URL(result); } catch { return invalid(); }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.toString() !== result) invalid();
+  return result;
+}
+
 export function parseAnalyticsSafeDimension(value: unknown): string {
   const dimension = string(value, 1, 128, SAFE_DIMENSION);
   if (
@@ -503,10 +512,11 @@ export function parseAnalyticsDashboard(
           "title",
           "quantity",
           "revenueCents",
-        ]);
+        ], ["imageUrl"]);
         return Object.freeze({
           productId: string(product.productId, 36, 36, UUID),
           title: string(product.title, 1, 200),
+          ...(Object.hasOwn(product, "imageUrl") ? { imageUrl: productImageUrl(product.imageUrl) } : {}),
           quantity: count(product.quantity),
           revenueCents: count(product.revenueCents),
         });
@@ -808,11 +818,13 @@ export function parseCommerceAnalyticsSnapshot(
           "paidOrders",
           "abandonedAppearances",
           "recoveredRevenueMinor",
+          "imageUrl",
         ],
       );
       return Object.freeze({
         productId: string(row.productId, 36, 36, UUID),
         title: string(row.title, 1, 200),
+        ...(Object.hasOwn(row, "imageUrl") ? { imageUrl: productImageUrl(row.imageUrl) } : {}),
         currency: string(row.currency, 3, 3, CURRENCY),
         categoryId: nullable(row.categoryId ?? null, (candidate) =>
           string(candidate, 36, 36, UUID),

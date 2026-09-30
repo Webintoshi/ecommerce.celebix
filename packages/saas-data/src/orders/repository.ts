@@ -30,6 +30,7 @@ import {
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { resolveProductThumbnails } from "../product-thumbnails.ts";
 import {
   canonicalOrderJson,
   decodeDraftCursor,
@@ -316,7 +317,7 @@ export class PostgresOrderRepository implements OrderRepository {
     authority: ValidatedOrderAuthority,
     spec: QuerySpec,
     expectedOutcome: string,
-    parser: (value: unknown) => T,
+    parser: (value: unknown, client: PostgresClientLike) => T | Promise<T>,
   ): Promise<T> {
     const client = await this.acquire();
     let began = false;
@@ -329,7 +330,7 @@ export class PostgresOrderRepository implements OrderRepository {
       const expected = this.expectedError(result.outcome);
       if (expected) throw expected;
       if (result.outcome !== expectedOutcome) throw unavailable();
-      const parsed = parser(result.resultPayload);
+      const parsed = await parser(result.resultPayload, client);
       try {
         await client.query("COMMIT");
         terminal = true;
@@ -538,10 +539,14 @@ export class PostgresOrderRepository implements OrderRepository {
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
       )`,
       values: [...authorityValues(authority), orderId],
-    }, "found", (value) => {
+    }, "found", async (value, client) => {
       const result = safeDetail(value);
       if (result.id !== orderId) throw unavailable();
-      return result;
+      const images = await resolveProductThumbnails(client, authorityValues(authority), "orders", result.items.map(({ id }) => ({ key: id, orderId, orderItemId: id })));
+      return safeDetail({ ...result, items: result.items.map((item) => {
+        const imageUrl = images.get(item.id);
+        return { ...item, ...(imageUrl ? { imageUrl } : {}) };
+      }) });
     });
   }
 

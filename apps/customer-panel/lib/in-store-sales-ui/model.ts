@@ -37,9 +37,11 @@ export class InStoreRegisterController {
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   private set(patch:Partial<RegisterSnapshot>){this.snapshot=Object.freeze({...this.snapshot,...patch});this.listeners.forEach(listener=>listener());}
   isEditable(){const s=this.snapshot;return s.phase==="ready"&&Boolean(s.bootstrap?.permissions.canSell)&&!s.conflict&&(!s.recovery||s.busy==="save")&&(!s.sale||s.sale.status==="draft")&&!["prepare","payment","complete","hold","cancel","takeover","recover"].includes(s.busy??"");}
-  private hydrate(sale:InStoreSale|null,resumed=false){
+  private hydrate(sale:InStoreSale|null,resumed=false,retainPhotos=false){
     this.newSaleId=null;this.revision++;
-    this.set({sale,cart:sale?.items.map(line=>({...line,pricingUnavailable:false,availableQuantity:9999,stockTracking:false}))??[],locationId:sale?.locationId??this.snapshot.locationId,paymentMethod:sale?.paymentMethod??null,discount:sale?.discount??null,customerName:sale?.customerName??"",note:sale?.note??"",dirty:false,priceChanged:false,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:resumed&&sale?.status==="payment_pending"});
+    // Mutation/replay snapshots stay immutable; retain only the known display photo.
+    const photos=new Map(retainPhotos?this.snapshot.cart.map(row=>[`${row.productId}:${row.variantId}`,row.imageUrl]):[]);
+    this.set({sale,cart:sale?.items.map(line=>({...line,imageUrl:line.imageUrl??photos.get(`${line.productId}:${line.variantId}`)??null,pricingUnavailable:false,availableQuantity:9999,stockTracking:false}))??[],locationId:sale?.locationId??this.snapshot.locationId,paymentMethod:sale?.paymentMethod??null,discount:sale?.discount??null,customerName:sale?.customerName??"",note:sale?.note??"",dirty:false,priceChanged:false,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:resumed&&sale?.status==="payment_pending"});
   }
   initialize(){
     if(this.initialization)return this.initialization;
@@ -93,7 +95,7 @@ export class InStoreRegisterController {
       const saleId=sale?.id??this.newSaleId??(this.newSaleId=this.api.newId());
       this.set({busy:"save"});
       try{const result=await this.mutate(sale?"update":"create",saleId,sale?.version??0,0,()=>sale?this.api.updateSale(saleId,{expectedVersion:sale.version,intent},this.snapshot.recovery!.operationId):this.api.createSale({saleId,intent},this.snapshot.recovery!.operationId),revision);
-        this.set({sale:result.sale,busy:null});if(this.revision===revision){this.hydrate(result.sale);}else this.set({dirty:true});
+        this.set({sale:result.sale,busy:null});if(this.revision===revision){this.hydrate(result.sale,false,true);}else this.set({dirty:true});
       }catch(error){this.fail(error);throw error;}
     }
   }
@@ -117,7 +119,7 @@ export class InStoreRegisterController {
       await this.flushInternal();const sale=this.snapshot.sale;if(!sale||!sale.items.length)return;
       if(totals.totalCents<1)throw new Error("Ödenecek tutar sıfır olamaz.");this.set({busy:"prepare",error:null});
       const result=await this.mutate("prepare",sale.id,sale.version,totals.totalCents,()=>this.api.prepareSale(sale.id,{expectedVersion:sale.version,expectedTotalCents:totals.totalCents},this.snapshot.recovery!.operationId));
-      this.hydrate(result.sale);this.set({busy:null,priceChanged:result.priceChanged,notice:result.priceChanged?"Fiyatlar güncellendi. Yeni toplamı kontrol edip yeniden ödemeye geç.":null});
+      this.hydrate(result.sale,false,true);this.set({busy:null,priceChanged:result.priceChanged,notice:result.priceChanged?"Fiyatlar güncellendi. Yeni toplamı kontrol edip yeniden ödemeye geç.":null});
     }catch(error){this.fail(error);}
   });}
   async finish(){return this.queue.run(async()=>{
@@ -126,25 +128,25 @@ export class InStoreRegisterController {
       if(this.api.contractVersion===2&&sale.paymentMethod==null&&!this.snapshot.paymentMethod)throw new Error("Tahsilatı kaydetmek için Kart veya Nakit seç.");
       this.set({busy:"payment"});const current=sale;const paymentMethod=current.paymentMethod==null?this.snapshot.paymentMethod:null;
       const result=await this.mutate("payment",current.id,current.version,current.totals.totalCents,()=>this.api.confirmPayment(current.id,{expectedVersion:current.version,slipReference:null,...(this.api.contractVersion===2?{paymentMethod}:{})},this.snapshot.recovery!.operationId));
-      this.hydrate(result.sale);sale=result.sale;
+      this.hydrate(result.sale,false,true);sale=result.sale;
     }
     if(sale.status==="payment_received"){this.set({busy:"complete"});const current=sale;
-      const result=await this.mutate("complete",current.id,current.version,current.totals.totalCents,()=>this.api.completeSale(current.id,{expectedVersion:current.version},this.snapshot.recovery!.operationId));this.hydrate(result.sale);
+      const result=await this.mutate("complete",current.id,current.version,current.totals.totalCents,()=>this.api.completeSale(current.id,{expectedVersion:current.version},this.snapshot.recovery!.operationId));this.hydrate(result.sale,false,true);
     }
     this.set({busy:null});if(this.snapshot.sale?.status==="completed")await this.refreshLists();
     }catch(error){this.fail(error);}
   });}
-  async cancelUnpaid(){return this.queue.run(async()=>{const sale=this.snapshot.sale;if(!sale||sale.status!=="payment_pending"||this.snapshot.recovery)return;try{this.set({busy:"cancel",error:null});const result=await this.mutate("cancel",sale.id,sale.version,sale.totals.totalCents,()=>this.api.cancelSale(sale.id,{expectedVersion:sale.version,confirmUnpaid:true},this.snapshot.recovery!.operationId));this.hydrate(result.sale);this.set({busy:null});}catch(error){this.fail(error);}});}
+  async cancelUnpaid(){return this.queue.run(async()=>{const sale=this.snapshot.sale;if(!sale||sale.status!=="payment_pending"||this.snapshot.recovery)return;try{this.set({busy:"cancel",error:null});const result=await this.mutate("cancel",sale.id,sale.version,sale.totals.totalCents,()=>this.api.cancelSale(sale.id,{expectedVersion:sale.version,confirmUnpaid:true},this.snapshot.recovery!.operationId));this.hydrate(result.sale,false,true);this.set({busy:null});}catch(error){this.fail(error);}});}
   async hold(){return this.queue.run(async()=>{if(!this.isEditable())return;try{await this.flushInternal();const sale=this.snapshot.sale;if(!sale||!sale.items.length)return;this.set({busy:"hold",error:null});const result=await this.mutate("hold",sale.id,sale.version,0,()=>this.api.holdSale(sale.id,{expectedVersion:sale.version,held:true},this.snapshot.recovery!.operationId),this.revision,true);if(result.sale.status!=="held")throw new Error("Sepet bekletilemedi.");this.hydrate(null);this.set({busy:null,notice:"Sepet bekletildi."});await this.refreshLists();}catch(error){this.fail(error);}});}
   async openSale(saleId:string){return this.queue.run(async()=>{
     if(this.snapshot.recovery||this.snapshot.conflict||!["draft","held","completed",undefined].includes(this.snapshot.sale?.status))return;
-    try{if(this.snapshot.sale?.status!=="completed"&&this.snapshot.cart.length){await this.flushInternal();const current=this.snapshot.sale;if(current?.status==="draft"){this.set({busy:"hold"});const held=await this.mutate("hold",current.id,current.version,0,()=>this.api.holdSale(current.id,{expectedVersion:current.version,held:true},this.snapshot.recovery!.operationId),this.revision,true);this.hydrate(held.sale);}}
+    try{if(this.snapshot.sale?.status!=="completed"&&this.snapshot.cart.length){await this.flushInternal();const current=this.snapshot.sale;if(current?.status==="draft"){this.set({busy:"hold"});const held=await this.mutate("hold",current.id,current.version,0,()=>this.api.holdSale(current.id,{expectedVersion:current.version,held:true},this.snapshot.recovery!.operationId),this.revision,true);this.hydrate(held.sale,false,true);}}
       this.set({busy:"recover",error:null});let sale=await this.api.getSale(saleId);
-      if(sale.status==="held"){const current=sale;const result=await this.mutate("hold",sale.id,sale.version,0,()=>this.api.holdSale(current.id,{expectedVersion:current.version,held:false},this.snapshot.recovery!.operationId),this.revision,false);sale=result.sale;}
-      this.hydrate(sale,true);this.set({busy:null});await this.refreshLists();
+      const wasHeld=sale.status==="held";if(wasHeld){this.hydrate(sale,true);const current=sale;const result=await this.mutate("hold",sale.id,sale.version,0,()=>this.api.holdSale(current.id,{expectedVersion:current.version,held:false},this.snapshot.recovery!.operationId),this.revision,false);sale=result.sale;}
+      this.hydrate(sale,true,wasHeld);this.set({busy:null});await this.refreshLists();
     }catch(error){this.fail(error);}
   });}
-  async takeover(){return this.queue.run(async()=>{const sale=this.snapshot.sale;if(!sale||!this.snapshot.bootstrap?.permissions.canResolve||this.snapshot.recovery)return;try{this.set({busy:"takeover",error:null});const result=await this.mutate("takeover",sale.id,sale.version,0,()=>this.api.takeoverSale(sale.id,{expectedVersion:sale.version},this.snapshot.recovery!.operationId));this.hydrate(result.sale);this.set({busy:null});}catch(error){this.fail(error);}});}
+  async takeover(){return this.queue.run(async()=>{const sale=this.snapshot.sale;if(!sale||!this.snapshot.bootstrap?.permissions.canResolve||this.snapshot.recovery)return;try{this.set({busy:"takeover",error:null});const result=await this.mutate("takeover",sale.id,sale.version,0,()=>this.api.takeoverSale(sale.id,{expectedVersion:sale.version},this.snapshot.recovery!.operationId));this.hydrate(result.sale,false,true);this.set({busy:null});}catch(error){this.fail(error);}});}
   async recover(retry=true){return this.queue.run(()=>this.recoverInternal(retry));}
   private async authoritativeSale(saleId:string):Promise<InStoreSale|null>{
     try{return await this.api.getSale(saleId);}catch(error){if(error instanceof InStoreSalesUiError&&error.code==="not_found"&&error.status===404)return null;throw error;}

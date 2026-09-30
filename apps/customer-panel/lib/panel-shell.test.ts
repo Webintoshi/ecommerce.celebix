@@ -18,6 +18,7 @@ import {
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
 import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
 import { createMerchantDashboardViewModel } from "./panel-ui/dashboard-model.ts";
+import { compile as compileRealComponent } from "./mira-final-test-support.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
@@ -556,6 +557,7 @@ async function renderPanelDashboard(
     if (specifier === "@/components/panel/PanelPageShell") {
       return { PanelActionButton, PanelMetricCard, PanelPageHeader, PanelPageShell, PanelPanel };
     }
+    if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     if (specifier === "@/components/panel/PanelLayoutClient") {
       return { usePanelChromeModel: () => model };
     }
@@ -2197,6 +2199,7 @@ test("dashboard home loads five newest orders through the existing same-origin o
       if (specifier === "recharts") return new Proxy({}, { get: () => Wrapper });
       if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
       if (specifier === "@/components/panel/PanelPageShell") return { PanelActionButton, PanelPageShell: Wrapper };
+      if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({ analyticsAvailable: false }) };
       if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: Wrapper };
       if (specifier === "@/lib/catalog-ui/client") return { catalogApi: { getDashboardSummary: async () => ({}) } };

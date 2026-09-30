@@ -135,6 +135,26 @@ function detail(overrides: Record<string, unknown> = {}) {
   };
 }
 
+test("order item images preserve frozen historical money and optional missing-image compatibility", () => {
+  const old = detail();
+  assert.equal(Object.hasOwn(parseOrderDetail(old).items[0]!, "imageUrl"), false);
+  for (const imageUrl of ["https://media.example.test/stores/atlas/product.jpg", null]) {
+    const value = { ...old, items: [{ ...old.items[0]!, imageUrl }] };
+    const parsed = parseOrderDetail(value);
+    assert.deepEqual(parsed, value);
+    assert.equal(Object.isFrozen(parsed.items[0]), true);
+    assert.equal(parsed.items[0]!.unitPriceCents, 12_000);
+    assert.equal(parsed.items[0]!.lineTotalCents, 11_500);
+  }
+});
+
+test("order item images reject malformed or unsafe media URLs", () => {
+  const old = detail();
+  for (const imageUrl of [undefined, "", 1, "javascript:alert(1)", "//media.example.test/product.jpg", "http://media.example.test/product.jpg", "https://user:secret@media.example.test/product.jpg", "https://media.example.test/product.jpg#private", " https://media.example.test/product.jpg"]) {
+    assert.throws(() => parseOrderDetail({ ...old, items: [{ ...old.items[0]!, imageUrl }] }), /order_contract_invalid/);
+  }
+});
+
 function draftListItem(overrides: Record<string, unknown> = {}) {
   return {
     id: DRAFT_ID,

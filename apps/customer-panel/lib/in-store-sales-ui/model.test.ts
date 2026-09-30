@@ -85,6 +85,38 @@ function fixture(barcode="000123",v2=false){
   return {api,p,calls,storage,getServer:()=>server,failCompletion:()=>{completeFailures=1;},changePrice:(newPrice:number)=>{price=newPrice;},controller:()=>new InStoreRegisterController(api,()=>storage)};
 }
 
+test("catalog photo survives immutable draft mutation snapshots without adding image authority to intent",async()=>{
+  const f=fixture("000123",true),photo="https://cdn.example.test/ring.webp",api=f.api as MutableClient;
+  const product={...f.p,imageUrl:photo};api.searchProducts=async()=>[product];
+  const update=api.updateSale;api.updateSale=async(id,input,key)=>{assert.equal(JSON.stringify(input).includes("imageUrl"),false);return update(id,input,key);};
+  const controller=f.controller();await controller.initialize();await controller.scan("000123");
+  assert.equal(f.getServer()?.items[0].imageUrl,null);
+  assert.equal(controller.getSnapshot().cart[0].imageUrl,photo);
+  controller.setQuantity(product.variantId,2);await controller.flush();
+  assert.equal(controller.getSnapshot().cart[0].imageUrl,photo);
+  controller.setUnitPrice(product.variantId,200001);controller.setPaymentMethod("cash");await controller.flush();
+  assert.equal(controller.getSnapshot().cart[0].imageUrl,photo);
+  assert.equal(controller.getSnapshot().cart[0].unitPriceOverrideCents,200001);
+  assert.equal(controller.getSnapshot().paymentMethod,"cash");
+});
+
+test("reopened held sale keeps the read photo when unhold returns its original null-image snapshot",async()=>{
+  const f=fixture("000123",true),photo="https://cdn.example.test/held-ring.webp",api=f.api as MutableClient;
+  const controller=f.controller();await controller.initialize();await controller.addProduct(f.p);const id=f.getServer()!.id;await controller.hold();
+  const get=api.getSale;api.getSale=async(saleId)=>{const value=await get(saleId);return {...value,items:value.items.map(item=>({...item,imageUrl:photo}))};};
+  const reopened=f.controller();await reopened.initialize();await reopened.openSale(id);
+  assert.equal(reopened.getSnapshot().cart[0].imageUrl,photo);
+  assert.equal(f.getServer()?.items[0].imageUrl,null);
+});
+
+test("authoritative reopening clears a photo removed from the current catalog",async()=>{
+  const f=fixture("000123",true),photo="https://cdn.example.test/archived-ring.webp";
+  const controller=f.controller();await controller.initialize();await controller.addProduct({...f.p,imageUrl:photo});
+  assert.equal(controller.getSnapshot().cart[0].imageUrl,photo);
+  await controller.openSale(f.getServer()!.id);
+  assert.equal(controller.getSnapshot().cart[0].imageUrl,null);
+});
+
 test("two real scans save two units with monotonically advancing draft version",async()=>{
   const f=fixture(),controller=f.controller();await controller.initialize();await Promise.all([controller.scan("000123"),controller.scan("000123")]);
   assert.equal(controller.getSnapshot().cart[0].quantity,2);assert.equal(f.getServer()?.items[0].quantity,2);

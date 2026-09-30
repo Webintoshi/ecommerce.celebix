@@ -8,6 +8,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 import type { OrderDetail } from "@celebix/saas-contracts";
+import { compile as compileRealComponent } from "./mira-final-test-support.ts";
 
 const ID = "93000000-0000-4000-8000-000000000001";
 const SECOND = "93000000-0000-4000-8000-000000000002";
@@ -39,6 +40,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
       if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
       if (name === "@/components/panel/PanelPageShell") return { PanelPageShell: ({ children }: any) => createElement("main", null, children), PanelStatusBadge: ({ children }: any) => createElement("span", null, children) };
       if (name === "@/components/shipping/OrderShipmentConsole") return { OrderShipmentConsole: () => null };
+      if (name === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (name === "@/lib/order-ui/client") return { orderApi: api, OrderApiError: ApiError };
       if (name === "./OrderActionDialog") return dialog;
       if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };

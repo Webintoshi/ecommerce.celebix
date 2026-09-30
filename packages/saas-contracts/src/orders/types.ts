@@ -61,6 +61,7 @@ export interface OrderItem {
   readonly id: string;
   readonly position: number;
   readonly productName: string;
+  readonly imageUrl?: string | null;
   readonly variantName?: string;
   readonly sku?: string;
   readonly unitPriceCents: number;

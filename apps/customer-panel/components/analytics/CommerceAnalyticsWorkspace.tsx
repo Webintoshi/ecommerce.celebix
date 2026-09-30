@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CircleAlert, GitCompareArrows, Package, Route, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, CircleAlert, GitCompareArrows, Route, SlidersHorizontal } from "lucide-react";
 import {
   useRouter,
   useSearchParams,
@@ -19,6 +19,7 @@ import {
 
 import { PanelPageShell } from "@/components/panel/PanelPageShell";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { ProductThumbnail } from "@/components/shared/ProductThumbnail";
 import {
   dailySalesPointsForCurrency,
   FUNNEL_STEPS,
@@ -84,6 +85,7 @@ type Attribution = Readonly<{
 type Product = Readonly<{
   productId: string;
   title: string;
+  imageUrl?: string | null;
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -1539,7 +1541,7 @@ function Overview({
         {(
           <section className={styles.listPanel}>
             <div className={styles.sectionHeading}><h2>Öne çıkan ürünler</h2><Link href={productsHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
-            {products.length ? products.map((row) => <div className={styles.listRow} key={`${row.productId}:${row.currency}`}><span className={styles.listProduct}><span className={styles.productIcon}><Package size={16} aria-hidden="true" /></span>{row.title}</span><strong>{money(row.revenueMinor, row.currency)}</strong></div>) : <p className={styles.quietState}>{!detailsData || detailsData.productsState === "loading" ? "Ürünler yükleniyor" : detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p>}
+            {products.length ? products.map((row) => <div className={styles.listRow} key={`${row.productId}:${row.currency}`}><span className={styles.listProduct}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} />{row.title}</span><strong>{money(row.revenueMinor, row.currency)}</strong></div>) : <p className={styles.quietState}>{!detailsData || detailsData.productsState === "loading" ? "Ürünler yükleniyor" : detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p>}
           </section>
         )}
         {!sources.length && !products.length ? (
@@ -1760,7 +1762,7 @@ function Products({
                   const added = analyticsProductMetricCount(data.traffic, "adds", row.productId);
                   return (
                     <tr key={`${row.productId}:${row.currency}`}>
-                      <td data-label="Ürün" data-primary="true"><strong>{row.title}</strong><small>{row.categoryName ?? "—"} · {row.brandName ?? "—"}</small></td>
+                      <td data-label="Ürün" data-primary="true"><div className={styles.productIdentity}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} /><span><strong>{row.title}</strong><small>{row.categoryName ?? "—"} · {row.brandName ?? "—"}</small></span></div></td>
                       <td data-label="Görüntüleme">{viewed?.toLocaleString("tr-TR") ?? "—"}</td>
                       <td data-label="Sepete ekleme">{added?.toLocaleString("tr-TR") ?? "—"}</td>
                       <td data-label="Ödeme">{row.checkoutStarts.toLocaleString("tr-TR")}</td>

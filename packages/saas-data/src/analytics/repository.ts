@@ -16,6 +16,7 @@ import {
   acquirePostgresClient,
   type PostgresClientLike,
 } from "../postgres/pool.ts";
+import { resolveProductThumbnails } from "../product-thumbnails.ts";
 import {
   ANALYTICS_ERROR_CODES,
   AnalyticsRepositoryError,
@@ -230,7 +231,11 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
       release(c, true);
     }
   }
-  private async read(spec: Spec, allowed: readonly string[]): Promise<Result> {
+  private async read(
+    spec: Spec,
+    allowed: readonly string[],
+    enrich?: (client: PostgresClientLike, result: Result) => Promise<Result>,
+  ): Promise<Result> {
     const c = await this.acquire();
     let began = false,
       terminal = false;
@@ -238,10 +243,11 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
       await c.query("BEGIN READ ONLY");
       began = true;
       await this.configure(c);
-      const result = row(await c.query(spec.text, spec.values));
+      let result = row(await c.query(spec.text, spec.values));
       const error = this.error(result.outcome);
       if (error && !allowed.includes(result.outcome)) throw error;
       if (!allowed.includes(result.outcome)) throw unavailable();
+      if (enrich) result = await enrich(c, result);
       try {
         await c.query("COMMIT");
         terminal = true;
@@ -367,6 +373,18 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         values: [...authorityValues(a), period],
       },
       ["resolved"],
+      async (client, value) => {
+        const dashboard = parseAnalyticsDashboard(value.payload);
+        if (dashboard.period !== period) throw unavailable();
+        const images = await resolveProductThumbnails(client, authorityValues(a), "analytics", dashboard.topProducts.map(({ productId }) => ({ key: productId, productId })));
+        return { ...value, payload: {
+          ...dashboard,
+          topProducts: dashboard.topProducts.map((product) => {
+            const imageUrl = images.get(product.productId);
+            return { ...product, ...(imageUrl ? { imageUrl } : {}) };
+          }),
+        } };
+      },
     );
     try {
       const dashboard = parseAnalyticsDashboard(result.payload);
@@ -434,6 +452,19 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         ],
       },
       ["resolved"],
+      async (client, value) => {
+        const snapshot = parseCommerceAnalyticsSnapshot(preserveNullableCommerceCartKeys(value.payload));
+        if (snapshot.rangeStart !== rangeStart.toISOString() || snapshot.rangeEnd !== rangeEnd.toISOString()) throw unavailable();
+        const productIds = [...new Set(snapshot.products.map(({ productId }) => productId))];
+        const images = await resolveProductThumbnails(client, authorityValues(a), "analytics", productIds.map((productId) => ({ key: productId, productId })));
+        return { ...value, payload: {
+          ...snapshot,
+          products: snapshot.products.map((product) => {
+            const imageUrl = images.get(product.productId);
+            return { ...product, ...(imageUrl ? { imageUrl } : {}) };
+          }),
+        } };
+      },
     );
     try {
       const snapshot = parseCommerceAnalyticsSnapshot(

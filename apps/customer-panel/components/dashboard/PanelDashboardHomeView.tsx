@@ -19,6 +19,7 @@ import {
 import { PanelActionButton, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { usePanelChromeModel } from "@/components/panel/PanelLayoutClient";
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { ProductThumbnail } from "@/components/shared/ProductThumbnail";
 import { catalogApi, type CatalogDashboardSummary } from "@/lib/catalog-ui/client";
 import { orderApi } from "@/lib/order-ui/client";
 import { abandonedCartApi } from "@/lib/abandoned-cart-ui/client";
@@ -497,7 +498,7 @@ function TopProductsCard({ analytics, state }: Readonly<{ analytics?: AnalyticsV
       {state === "loading" ? <p className={styles.inlineState} role="status">Ürünler yükleniyor…</p> : null}
       {state === "error" || state === "unsupported" ? <p className={styles.inlineState}>En çok satan ürünler şu anda kullanılamıyor.</p> : null}
       {state === "loaded" && analytics ? (
-        analytics.topProducts.length > 0 ? <ol className={styles.productList}>{analytics.topProducts.slice(0, 5).map((product, index) => <li key={product.productId}><span className={styles.productRank}>{index + 1}</span><span className={styles.productThumb} aria-hidden="true"><Package /></span><div><strong>{product.title}</strong><small>{product.quantity.toLocaleString("tr-TR")} adet</small></div><span>{formatMoney(product.revenueCents, analytics.currency)}</span></li>)}</ol>
+        analytics.topProducts.length > 0 ? <ol className={styles.productList}>{analytics.topProducts.slice(0, 5).map((product, index) => <li key={product.productId}><span className={styles.productRank}>{index + 1}</span><ProductThumbnail imageUrl={product.imageUrl} className={styles.productThumb} /><div><strong>{product.title}</strong><small>{product.quantity.toLocaleString("tr-TR")} adet</small></div><span>{formatMoney(product.revenueCents, analytics.currency)}</span></li>)}</ol>
           : <div className={styles.emptyState}><ProductsEmptyArtwork /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ürün satışı oluştuğunda liste burada görünür.</span></div>
       ) : null}
     </section>

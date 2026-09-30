@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, ArchiveRestore, ArrowLeft, Barcode, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, CircleDot, CreditCard, ExternalLink, History, Info, Mail, MapPin, MoreHorizontal, Package2, Pencil, Phone, Printer, RefreshCw, Send, StickyNote, Store, Trash2, Truck, UserRound } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Barcode, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, CircleDot, CreditCard, ExternalLink, History, Info, Mail, MapPin, MoreHorizontal, Pencil, Phone, Printer, RefreshCw, Send, StickyNote, Store, Trash2, Truck, UserRound } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
@@ -20,6 +20,7 @@ import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageSh
 import { OrderShipmentConsole } from "@/components/shipping/OrderShipmentConsole";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import { OrderActionDialog } from "./OrderActionDialog";
+import { ProductThumbnail } from "@/components/shared/ProductThumbnail";
 import styles from "./order-detail.module.css";
 
 export interface OrderUiCapabilities {
@@ -319,7 +320,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <div className={styles.workspace}>
       <div className={styles.main}>
         <section className={styles.itemsPanel} aria-labelledby="order-items-title"><header className={styles.sectionHeading}><h2 id="order-items-title">Ürünler <span>{order.itemCount}</span></h2><span className={styles.source}><Store size={14} aria-hidden="true" />{SOURCE_LABELS[order.source]}</span></header>
-          <table className={styles.itemsTable}><thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col" className={styles.unitPrice}>Birim fiyat</th><th scope="col">Toplam</th></tr></thead><tbody>{order.items.map(item => <tr key={item.id}><td><div className={styles.itemIdentity}><span className={styles.productPlaceholder}><Package2 size={20} aria-hidden="true" /></span><div><strong>{item.productName}</strong><small>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</small><small className={styles.mobileUnit}>Birim: {money(item.unitPriceCents, order.currency)}</small>{item.discountCents > 0 ? <small>İndirim: {money(item.discountCents, order.currency)}</small> : null}</div></div></td><td>{item.quantity}</td><td className={styles.unitPrice}>{money(item.unitPriceCents, order.currency)}</td><td>{money(item.lineTotalCents, order.currency)}</td></tr>)}</tbody></table>
+          <table className={styles.itemsTable}><thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col" className={styles.unitPrice}>Birim fiyat</th><th scope="col">Toplam</th></tr></thead><tbody>{order.items.map(item => <tr key={item.id}><td><div className={styles.itemIdentity}><ProductThumbnail imageUrl={item.imageUrl} className={styles.productPlaceholder} /><div><strong>{item.productName}</strong><small>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</small><small className={styles.mobileUnit}>Birim: {money(item.unitPriceCents, order.currency)}</small>{item.discountCents > 0 ? <small>İndirim: {money(item.discountCents, order.currency)}</small> : null}</div></div></td><td>{item.quantity}</td><td className={styles.unitPrice}>{money(item.unitPriceCents, order.currency)}</td><td>{money(item.lineTotalCents, order.currency)}</td></tr>)}</tbody></table>
           <dl className={styles.totals}><div><dt>Ara toplam</dt><dd>{money(order.subtotalCents, order.currency)}</dd></div><div><dt>Kargo</dt><dd>{money(order.shippingCents, order.currency)}</dd></div><div><dt>İndirim</dt><dd>− {money(order.discountCents, order.currency)}</dd></div><div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div></dl>
           <footer className={styles.paymentLine}><div><CreditCard size={16} aria-hidden="true" /><strong>Ödeme</strong><span className={styles.paymentStatus} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></div>{paymentOptions.length ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("payment")}>Durumu güncelle <ChevronRight size={16} aria-hidden="true" /></button> : null}</footer>
         </section>

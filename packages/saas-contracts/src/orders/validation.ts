@@ -41,6 +41,15 @@ function invalid(): never {
   throw new TypeError("order_contract_invalid");
 }
 
+function productImageUrl(value: unknown): string | null {
+  if (value === null) return null;
+  const result = string(value, 1, 2048);
+  let url: URL;
+  try { url = new URL(result); } catch { return invalid(); }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.toString() !== result) invalid();
+  return result;
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
   const prototype = Object.getPrototypeOf(value);
@@ -139,7 +148,7 @@ function parseItem(value: unknown): Readonly<OrderItem> {
   const parsed = exact(
     value,
     ["id", "position", "productName", "unitPriceCents", "quantity", "discountCents", "lineTotalCents"],
-    ["variantName", "sku"],
+    ["variantName", "sku", "imageUrl"],
   );
   const unitPriceCents = safeInteger(parsed.unitPriceCents, 0);
   const quantity = safeInteger(parsed.quantity, 1, 9_999);
@@ -150,6 +159,7 @@ function parseItem(value: unknown): Readonly<OrderItem> {
     id: uuid(parsed.id),
     position: safeInteger(parsed.position, 0, 99),
     productName: string(parsed.productName, 1, 200),
+    ...(Object.hasOwn(parsed, "imageUrl") ? { imageUrl: productImageUrl(parsed.imageUrl) } : {}),
     ...(Object.hasOwn(parsed, "variantName") ? { variantName: string(parsed.variantName, 1, 200) } : {}),
     ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 128) } : {}),
     unitPriceCents,
