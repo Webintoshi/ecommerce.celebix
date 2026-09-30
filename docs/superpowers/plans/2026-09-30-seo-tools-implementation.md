@@ -58,3 +58,26 @@ Meaningful failing tests before implementation; real PostgreSQL authority/versio
 - Preserved incoming Güzide checkout release c632f554; source test conflict resolved by retaining the real empty product-row render test, rather than the incoming literal source assertion.
 - Live SQL180 applied with71 protected rows unchanged,1,704 native resources; no migration conflicts or fill changes in this deployment.
 - Additional SQL181 guards canonical targets that later become noindex. Four native scenarios passed including four target kinds, atomic rejection and public/sitemap fallback. SQL180 source checksum remains frozen.
+- Release source b910b1c854f79d3942ce1af975b9ee62411c608d pushed; SQL181 applied with exact checksum. Shared source/payment binding helper preserved all previews, NET LIVE binding and all unrelated configuration.
+- storefront_net deployment nrvveu252rq4qgqjiofq1oqf finished; /api/health returns ok. storefront_site deployment om3qxlu0bhd07u3mal05g850 queued next. Private lock, snapshot/spec and receipts at Coolify /tmp/celebix-seo-tools-release-20260930.
+- Güzide current allowIndex/indexNowEnabled are false; acceptance must restore these preferences after temporary tests.
+
+- All four b910b1c8 deployments finished and shared release guard verified global idle. Both storefront worker runtime gates passed; NET/SITE health returned ok.
+- Live Güzide acceptance: product YZK-518 Cancel preserves fields; Apply updates real HTML title, then original title/description/canonical restored. Robots/schema verified against persisted product price/currency.
+- Settings enabled temporarily for protocol acceptance then restored allowIndex=false/indexNowEnabled=false. Robots again Disallow:/; manual IndexNow returned202 verification_pending, not an indexing claim.
+- Live category CETAŞ title reached HTML; clear attempt timed out under scan load. Root/data canceled only acceptance run1490f12b-488e-4bf8-bd91-431e2bcfc1b3 (544 processed,696 canceled) to relieve load. Semantic category rollback remains required.
+- Final acceptance found old content-sitemap path validator and transient polling stall. Source5e14e03e fixes both plus exact approved menu labels. Focused UI35/35 and repository/sitemap19/19 pass; panel typecheck passed.
+- At390px modal/buttons remain inside viewport; failed save retains entered fields. Reverted temporary viewport.
+- SQL182 scoped resource projections/materialized overview in progress to address real1672-resource5s timeouts before follow-up release.
+
+## Final acceptance follow-up
+- SQL182 applied atomically with the reviewed checksum and private database backup. Scoped native gate6/6 and canonical gate4/4 passed; independent authority/rollback review clear. At1,700 products, individual reads no longer project unrelated products; overview/check start project the catalog once and remain under5s.
+- All four shared NET/SITE storefront and panel deployments completed at9fd609fb; release guard verified source/payment bindings, unchanged previews and NET LIVE settings, and globally idle queue.
+- CETAŞ category SEO fields restored to original empty values; live title again `CETAŞ | Güzide Kuyumcu`. Product YZK-518 original fields also confirmed restored. Category both-fields-empty behavior passed native tests.
+- Sitemap acceptance with indexing temporarily enabled: content shard200 with52 URLs including home/catalog/category, product shard200 with1,000 URLs; persisted lastmod timestamps. Original allowIndex=false/indexNowEnabled=false restored; robots again Disallow:/.
+- Güzide has no native page/blog records. Four content kinds are exercised in native data/render tests; live controlled edits use the existing product/category, with no fabricated merchant content.
+- Scan87ec29e5-3b7d-49e1-b3d2-76b1b1219f95 checked1,240/1,240 URLs:1,232 without transport errors and8 transport_unavailable results. These failures must stay visible; bounded transport errors do not imply all HTML tests passed.
+- Follow-up UI adds safe affected-page links and explains the200-result cap;2/2 focused rendered behavior tests passed. Search Console is linked from the sitemap tab. NET-only intermediate a4c90dc8 rollout will be superseded by the final combined two-panel release.
+- SQL183 prioritizes global/indexing/canonical/link/live issues ahead of metadata warnings. Narrow review also required orphan links to remain visible and removable/disableable through the existing authenticated version/idempotency checks.
+- Final SQL183 focused native2/2 passed:1,700-product overview2,972ms,200cap retains important issues, orphan source/target visible, disable/remove and idempotent retry work, stale/foreign writes and unsafe create/enable reject. Down restores all3 SQL182 definitions byte-for-byte; frozen180/181/182 unchanged. Independent final review clear.
+- Final UI2/2 and panel typecheck passed. An accidental local pnpm invocation moved type dependencies; original dependencies were restored before the successful typecheck, generated pnpm lock removed, no tracked dependency changes.
