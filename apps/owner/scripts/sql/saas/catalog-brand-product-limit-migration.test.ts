@@ -21,5 +21,5 @@ test("178 native PostgreSQL reproduces and fixes imported brand logo saves", {sk
   const result = spawnSync(process.execPath,[new URL("../../../../../tests/saas-phase3/catalog-administration/postgres-harness.mjs",import.meta.url).pathname],{encoding:"utf8",timeout:180000,maxBuffer:8*1024*1024});
   process.stdout.write(result.stdout);
   assert.equal(result.status,0,result.stderr);
-  assert.match(result.stdout,/43\/43 PASS/);
+  assert.match(result.stdout,/51\/51 PASS/);
 });

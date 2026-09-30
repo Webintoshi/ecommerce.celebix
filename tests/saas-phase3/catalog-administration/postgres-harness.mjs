@@ -47,7 +47,7 @@ INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,upd
 INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at) VALUES('70000000-0000-4000-8000-000000000001','${STORE}','${PLAN}','free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01'),('70000000-0000-4000-8000-000000000002','${STORE_B}','${PLAN}','free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01');
 INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES('${PRODUCT}','${STORE}','keten-gomlek','Keten Gomlek','active','TRY',1,'2026-01-01','2026-01-01'),('${PRODUCT_B}','${STORE_B}','baska-urun','Baska Urun','active','TRY',1,'2026-01-01','2026-01-01');
 INSERT INTO saas.product_reviews(id,store_id,product_id,reviewer_name,rating,review_title,review_body,status,version,created_at,updated_at) VALUES('${REVIEW}','${STORE}','${PRODUCT}','Ada',5,'Harika','Cok memnun kaldim.','pending',1,'2026-01-02','2026-01-02');COMMIT;`); }
-const TOTAL = 43;
+const TOTAL = 51;
 let count = 0;
 async function scenario(name, run) { await run(); count += 1; console.log(`PASS ${count}/${TOTAL} ${name}`); }
 
@@ -132,6 +132,60 @@ INSERT INTO saas.catalog_admin_resource_products(store_id,resource_id,product_id
     assert.equal(psql(box,`SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout,originalDefinition);
     assert.equal(psql(box,`SELECT count(*) FROM saas.catalog_admin_resource_products WHERE resource_id='${brandId}';`).stdout.trim(),'10000');
     apply(box,'202609300178_catalog_brand_product_limit.up.sql');apply(box,'202609300178_catalog_brand_product_limit_assertions.sql');
+  });
+  const retainedBrandId='56000000-0000-4000-8000-000000000001', otherBrandId='56000000-0000-4000-8000-000000000002';
+  const retainedIds=Array.from({length:1187},(_,index)=>`45000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`);
+  const retainedArray=(ids)=>`ARRAY[${ids.map(id=>`'${id}'::uuid`).join(',')}]`;
+  psql(box,`BEGIN;SET LOCAL ROLE celebix_saas_owner;
+UPDATE saas.products SET status='draft' WHERE id=ANY(${retainedArray(retainedIds.slice(6,403))});
+UPDATE saas.products SET status='archived',archived_at='${NOW}' WHERE id=ANY(${retainedArray(retainedIds.slice(0,6))});
+INSERT INTO saas.catalog_admin_resources(id,store_id,resource_kind,name,slug,config,status,version,created_at,updated_at) VALUES('${retainedBrandId}','${STORE}','brand','Guzide Kuyumcu','guzide-kuyumcu','{}','active',1,'${NOW}','${NOW}'),('${otherBrandId}','${STORE}','brand','Other brand','other-brand','{}','active',1,'${NOW}','${NOW}');
+INSERT INTO saas.catalog_admin_resource_products(store_id,resource_id,product_id,position) SELECT '${STORE}','${retainedBrandId}',id,ordinality-1 FROM unnest(${retainedArray(retainedIds)}) WITH ORDINALITY item(id,ordinality);COMMIT;`);
+  const retainedSave=(ids=retainedIds,expected=1,resource=retainedBrandId,kind='brand')=>`'86000000-0000-4000-8000-${String(++brandOperation).padStart(12,'0')}'::uuid,'${"b".repeat(64)}','${resource}'::uuid,${expected===null?'NULL':expected},'${kind}','Guzide Kuyumcu','guzide-kuyumcu',NULL,'{"logoAssetId":"${logoId}"}'::jsonb,${retainedArray(ids)}`;
+  const before179=psql(box,`SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout;
+  const before179Authority=psql(box,`SELECT jsonb_build_object('owner',proowner,'acl',proacl,'security',prosecdef,'settings',proconfig) FROM pg_proc WHERE oid='${signature}'::regprocedure;`).stdout;
+  const retainedPredicate="AND (p.status<>'archived' OR (p_kind='brand' AND p_expected_version IS NOT NULL AND EXISTS(SELECT 1 FROM saas.catalog_admin_resource_products retained WHERE retained.store_id=p_store_id AND retained.resource_id=p_resource_id AND retained.product_id=p.id)))";
+  await scenario("1187-product brand with six retained archived products reproduces invalid_input",()=>{
+    const statusCounts=JSON.parse(psql(box,`SELECT jsonb_object_agg(status,total) FROM (SELECT p.status,count(*) total FROM saas.products p JOIN saas.catalog_admin_resource_products rp ON rp.store_id=p.store_id AND rp.product_id=p.id WHERE rp.resource_id='${retainedBrandId}' GROUP BY p.status) counts;`).stdout.trim());
+    assert.deepEqual(statusCounts,{active:784,draft:397,archived:6});
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave()).outcome,'invalid_input');
+  });
+  await scenario("179 changes only the archived product predicate with identical authority",()=>{
+    apply(box,'202609300179_catalog_brand_retained_archived_products.up.sql');apply(box,'202609300179_catalog_brand_retained_archived_products_assertions.sql');
+    assert.equal(psql(box,`SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout,before179.replace("AND p.status<>'archived'",retainedPredicate));
+    assert.equal(psql(box,`SELECT jsonb_build_object('owner',proowner,'acl',proacl,'security',prosecdef,'settings',proconfig) FROM pg_proc WHERE oid='${signature}'::regprocedure;`).stdout,before179Authority);
+  });
+  const fullRetainedSave=retainedSave();
+  await scenario("brand logo save preserves all1187 product IDs and ordering including archived",()=>{
+    assert.equal(api(box,'catalog_admin_save_resource',fullRetainedSave).outcome,'saved');
+    const projection=api(box,'catalog_admin_list_resources',"'brand'").result.items.find(item=>item.id===retainedBrandId);
+    assert.equal(projection.productCount,1187);assert.deepEqual(projection.productIds,retainedIds);assert.equal(projection.config.logoAssetId,logoId);assert.equal(projection.version,2);
+  });
+  await scenario("retained archived brand save preserves replay version and permission checks",()=>{
+    assert.equal(api(box,'catalog_admin_save_resource',fullRetainedSave).outcome,'operation_replayed');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave()).outcome,'version_conflict');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds,2),{principal:ANALYST,membership:MA}).outcome,'membership_denied');
+  });
+  await scenario("new archived additions creation otherbrand crossstore and nonbrand remain forbidden",()=>{
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave([...retainedIds,'45000000-0000-4000-8000-000000010001'],2)).outcome,'invalid_input');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds.slice(0,1),null,'56000000-0000-4000-8000-000000000003')).outcome,'invalid_input');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds.slice(0,1),1,otherBrandId)).outcome,'invalid_input');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave([...retainedIds,PRODUCT_B],2)).outcome,'invalid_input');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds.slice(0,1),1,RESOURCE,'collection')).outcome,'invalid_input');
+  });
+  await scenario("retained archived products may be removed and cannot be readded",()=>{
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds.slice(6),2)).outcome,'saved');
+    assert.equal(api(box,'catalog_admin_save_resource',retainedSave(retainedIds,3)).outcome,'invalid_input');
+    const projection=api(box,'catalog_admin_list_resources',"'brand'").result.items.find(item=>item.id===retainedBrandId);
+    assert.deepEqual(projection.productIds,retainedIds.slice(6));assert.equal(projection.version,3);assert.equal(projection.config.logoAssetId,logoId);
+  });
+  await scenario("retained archived exception does not allow duplicate retained assignments",()=>assert.equal(api(box,'catalog_admin_save_resource',retainedSave([retainedIds[6],retainedIds[6]],3)).outcome,'invalid_input'));
+  await scenario("179 rollback and reapply preserve relations logos and exact178 predecessor",()=>{
+    const dataBefore=psql(box,`SELECT jsonb_build_object('products',(SELECT jsonb_agg(product_id ORDER BY position) FROM saas.catalog_admin_resource_products WHERE resource_id='${retainedBrandId}'),'config',config,'version',version) FROM saas.catalog_admin_resources WHERE id='${retainedBrandId}';`).stdout;
+    apply(box,'202609300179_catalog_brand_retained_archived_products.down.sql');
+    assert.equal(psql(box,`SELECT pg_get_functiondef('${signature}'::regprocedure);`).stdout,before179);
+    assert.equal(psql(box,`SELECT jsonb_build_object('products',(SELECT jsonb_agg(product_id ORDER BY position) FROM saas.catalog_admin_resource_products WHERE resource_id='${retainedBrandId}'),'config',config,'version',version) FROM saas.catalog_admin_resources WHERE id='${retainedBrandId}';`).stdout,dataBefore);
+    apply(box,'202609300179_catalog_brand_retained_archived_products.up.sql');apply(box,'202609300179_catalog_brand_retained_archived_products_assertions.sql');
   });
   assert.equal(count, TOTAL); console.log(`${TOTAL}/${TOTAL} PASS`);
 } finally { stop(box); } }

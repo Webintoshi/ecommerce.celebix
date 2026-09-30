@@ -1,0 +1,30 @@
+{
+  "bundleId": "catalog-brand-retained-archived-products-202609300179",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback restores archived relation rejection without rewriting catalog relations or logos. Brands retaining archived links require reapplication before editing.",
+  "artifacts": [
+    {
+      "id": "202609300179_catalog_brand_retained_archived_products_up",
+      "direction": "up",
+      "file": "202609300179_catalog_brand_retained_archived_products.up.sql",
+      "sha256": "13a48035d65153b1833896bdface922ac9586da9845088676da4fc95455a23ed",
+      "purpose": "Preserve already-linked archived same-store products during brand edits, keeping new archived additions denied."
+    },
+    {
+      "id": "202609300179_catalog_brand_retained_archived_products_down",
+      "direction": "down",
+      "file": "202609300179_catalog_brand_retained_archived_products.down.sql",
+      "sha256": "505fe77224a5711f166cc5f854bbb855a4edc7679ae69ed2a065aa2f07757122",
+      "purpose": "Restore the original archived product predicate without modifying data."
+    },
+    {
+      "id": "202609300179_catalog_brand_retained_archived_products_assertions",
+      "direction": "assertions",
+      "file": "202609300179_catalog_brand_retained_archived_products_assertions.sql",
+      "sha256": "72ee46e708403594c38d04d40823331f8d1b080c5b01d80bf44a058a33c5ef82",
+      "purpose": "Verify the retained archived relation guard and existing function authority."
+    }
+  ]
+}
