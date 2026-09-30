@@ -37,3 +37,14 @@ test('barcode lookup preserves leading zeros and rejects ambiguous query authori
   for(const query of [`locationId=${id}&barcode=a&query=b`,`locationId=${id}&barcode=a&barcode=b`,`locationId=${id}&query=x&storeId=${id}`])assert.equal(readInStoreProductsInput(new Request(`https://panel.example/?${query}`)),null);
   assert.equal(readInStoreSalesInput(new Request('https://panel.example/?status=pending&pageSize=51')),null);
 });
+
+test('v2 intent, payment selection and price permission have exact versioned bodies',async()=>{
+  const v2={...intent,paymentMethod:'cash',items:[{variantId:id,quantity:1,unitPriceOverrideCents:1489}]};
+  assert.deepEqual(await readInStoreMutationInput(request({saleId:id,intent:v2}),'create',2),{operationId:id,value:{saleId:id,intent:v2}});
+  assert.equal(await readInStoreMutationInput(request({saleId:id,intent:v2}),'create'),null);
+  for(const paymentMethod of ['card','cash',null])assert.deepEqual(await readInStoreMutationInput(request({expectedVersion:1,slipReference:null,paymentMethod}),'payment',2),{operationId:id,value:{expectedVersion:1,slipReference:null,paymentMethod}});
+  assert.equal(await readInStoreMutationInput(request({expectedVersion:1,slipReference:null}),'payment',2),null);
+  assert.equal(await readInStoreMutationInput(request({expectedVersion:1,slipReference:null,paymentMethod:'split'}),'payment',2),null);
+  const staff={expectedVersion:0,enabled:true,locationIds:[id],discountLimitBps:1000,canEditPrice:false};
+  assert.deepEqual(await readInStoreMutationInput(request(staff),'staff',2),{operationId:id,value:staff});
+});

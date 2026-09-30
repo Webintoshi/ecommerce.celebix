@@ -1,0 +1,144 @@
+-- Run only against a disposable clone. Every fixture and mutation is rolled back.
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $test$
+DECLARE
+ before_payload jsonb;cashier uuid:='a1840000-0000-4000-8000-000000000040';cashier_pr uuid:='a1840000-0000-4000-8000-000000000041'; st uuid:='a1840000-0000-4000-8000-000000000001';pr uuid:='a1840000-0000-4000-8000-000000000002';mb uuid:='a1840000-0000-4000-8000-000000000003';pl uuid:='a1840000-0000-4000-8000-000000000004';
+ loc uuid:='a1840000-0000-4000-8000-000000000005';other_loc uuid:='a1840000-0000-4000-8000-000000000006';pd uuid:='a1840000-0000-4000-8000-000000000007';v uuid:='a1840000-0000-4000-8000-000000000008';v2 uuid:='a1840000-0000-4000-8000-000000000009';
+ sale uuid:='a1840000-0000-4000-8000-000000000010';sale2 uuid:='a1840000-0000-4000-8000-000000000011';op uuid:='a1840000-0000-4000-8000-000000000012';
+ now_at timestamptz:='2026-09-26T10:00:00Z';r record;intent jsonb;oid uuid;expected bigint;blocked boolean;
+BEGIN
+ INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES(st,'POS regression','pos-regression-184','active','tr','TRY','hemenaku',now_at,now_at);
+ INSERT INTO saas.principals VALUES(pr,'https://qa.celebix.invalid','pos184','pos184@qa.celebix.invalid',true,now_at,now_at);
+ INSERT INTO saas.memberships VALUES(mb,pr,st,'store_owner','active',now_at,now_at);
+ INSERT INTO saas.plans VALUES(pl,'pos184_qa',1,'active',now_at-interval '1 day',NULL,now_at,now_at);
+ ALTER TABLE saas.plan_features DISABLE TRIGGER plan_features_immutable;
+ INSERT INTO saas.plan_features VALUES(pl,'orders',2,true),(pl,'catalog',1,true);
+ ALTER TABLE saas.plan_features ENABLE TRIGGER plan_features_immutable;
+ INSERT INTO saas.subscriptions VALUES('a1840000-0000-4000-8000-000000000013',st,pl,'pos184_qa',1,'active',now_at-interval '1 day',NULL,now_at,now_at);
+ SELECT id INTO loc FROM saas.inventory_locations WHERE store_id=st AND is_default;
+ INSERT INTO saas.inventory_locations(id,store_id,name,is_default,status,created_at,updated_at) VALUES(other_loc,st,'Diğer depo',false,'active',now_at,now_at);
+ INSERT INTO saas.products(id,store_id,slug,title,status,currency,created_at,updated_at) VALUES(pd,st,'pos-regression-product','POS Ürün','active','TRY',now_at,now_at);
+ PERFORM set_config('saas.inventory.source_marker','catalog_adjustment',true);PERFORM set_config('saas.inventory.source_id',op::text,true);PERFORM set_config('saas.inventory.source_time',now_at::text,true);
+ INSERT INTO saas.product_variants(id,store_id,product_id,title,barcode,price_cents,stock_tracking,stock_quantity,status,created_at,updated_at) VALUES(v,st,pd,'Beden M','0000012345678',10000,true,3,'active',now_at,now_at),(v2,st,pd,'Beden L','0000012345678',10000,true,2,'active',now_at,now_at);
+
+ intent:=jsonb_build_object('locationId',loc,'items',jsonb_build_array(jsonb_build_object('variantId',v,'quantity',1,'unitPriceOverrideCents',9000)),'discount',NULL,'customerName',NULL,'note',NULL,'paymentMethod','cash');
+ IF to_regprocedure('saas.in_store_quote_v2(uuid,uuid,timestamp with time zone,jsonb,jsonb)') IS NULL THEN RAISE EXCEPTION 'v2 authoritative quote absent';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_create_v2(st,pr,mb,pl,'pos184_qa',1,now_at,op,repeat('a',64),sale,intent);
+ IF r.outcome<>'committed' OR r.result_payload#>>'{sale,paymentMethod}'<>'cash' OR r.result_payload#>>'{sale,items,0,catalogUnitPriceCents}'<>'10000' OR r.result_payload#>>'{sale,items,0,unitPriceCents}'<>'9000' OR r.result_payload#>>'{sale,items,0,priceOverrideActorMembershipId}'<>mb::text THEN RAISE EXCEPTION 'v2 price/payment persistence failed: %',r;END IF;
+ before_payload:=r.result_payload;
+ SELECT * INTO r FROM saas.in_store_sales_hold(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000015',repeat('b',64),sale,1,true);
+ IF r.outcome<>'client_upgrade_required' THEN RAISE EXCEPTION 'v1 overwrote v2 features: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_create_v2(st,pr,mb,pl,'pos184_qa',1,now_at,op,repeat('a',64),sale,intent);
+ IF r.outcome<>'operation_replayed' OR (r.result_payload-'replayed')<>(before_payload-'replayed') THEN RAISE EXCEPTION 'v2 replay changed price';END IF;
+ UPDATE saas.product_variants SET price_cents=11000 WHERE id=v;
+ SELECT * INTO r FROM saas.in_store_sales_prepare_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000016',repeat('c',64),sale,1,9000);
+ IF r.outcome<>'committed' OR r.result_payload->>'priceChanged'<>'true' OR r.result_payload#>>'{sale,status}'<>'draft' OR r.result_payload#>>'{sale,items,0,unitPriceOverrideCents}'<>'9000' THEN RAISE EXCEPTION 'catalog change did not reprice with retained override: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_prepare_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000017',repeat('d',64),sale,2,9000);
+ IF r.outcome<>'committed' OR r.result_payload#>>'{sale,status}'<>'payment_pending' OR saas.in_store_held_quantity(st,v)<>1 THEN RAISE EXCEPTION 'v2 preparation hold failed: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_get(st,pr,mb,pl,'pos184_qa',1,now_at,sale);
+ IF r.outcome<>'client_upgrade_required' THEN RAISE EXCEPTION 'v1 opened actionable v2 cash sale: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_list(st,pr,mb,pl,'pos184_qa',1,now_at,'pending',50,NULL);
+ IF r.outcome<>'client_upgrade_required' THEN RAISE EXCEPTION 'v1 pending list exposed v2 cash';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_bootstrap(st,pr,mb,pl,'pos184_qa',1,now_at);
+ IF r.outcome<>'client_upgrade_required' THEN RAISE EXCEPTION 'v1 bootstrap exposed v2 cash';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_confirm_payment_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000018',repeat('e',64),sale,3,NULL,'card');
+ IF r.outcome<>'invalid_transition' THEN RAISE EXCEPTION 'prepared method changed';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_confirm_payment_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000019',repeat('f',64),sale,3,NULL,NULL);
+ IF r.outcome<>'committed' THEN RAISE EXCEPTION 'v2 confirm failed: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_complete_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000020',repeat('0',64),sale,4);
+ IF r.outcome<>'committed' OR r.result_payload#>>'{sale,status}'<>'completed' OR r.result_payload#>>'{sale,orderNumber}'!~'^POS-[0-9]+$' THEN RAISE EXCEPTION 'v2 completion/161 number failed: %',r;END IF;
+ oid:=(r.result_payload#>>'{sale,orderId}')::uuid;
+ SELECT * INTO r FROM saas.orders_get_with_archive_v2(st,pr,mb,pl,'pos184_qa',1,now_at,oid);
+ IF r.result_payload->>'inStorePaymentMethod'<>'cash' THEN RAISE EXCEPTION 'order lost payment method: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_complete_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000020',repeat('0',64),sale,4);
+ IF r.outcome<>'operation_replayed' OR (SELECT count(*) FROM saas.inventory_movements WHERE store_id=st AND source_kind='in_store_sale')<>1 OR (SELECT stock_quantity FROM saas.product_variants WHERE id=v)<>2 THEN RAISE EXCEPTION 'duplicate completion stock';END IF;
+ INSERT INTO saas.principals VALUES(cashier_pr,'https://qa.celebix.invalid','pos184_cashier','cashier@qa.celebix.invalid',true,now_at,now_at);
+ INSERT INTO saas.memberships VALUES(cashier,cashier_pr,st,'cashier','active',now_at,now_at);
+ SELECT * INTO r FROM saas.in_store_sales_set_staff_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000042',repeat('1',64),cashier,0,true,ARRAY[loc],1000,false);
+ IF r.outcome<>'committed' OR r.result_payload->>'canEditPrice'<>'false' THEN RAISE EXCEPTION 'staff price permission failed: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent);
+ IF r.outcome<>'price_denied' THEN RAISE EXCEPTION 'cashier edited price without permission: %',r;END IF;
+ UPDATE saas.in_store_staff_grants SET can_edit_price=true WHERE membership_id=cashier;
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent);
+ IF r.outcome<>'discount_denied' THEN RAISE EXCEPTION 'combined reduction cap ignored: %',r;END IF;
+ intent:=jsonb_set(intent,'{items,0,unitPriceOverrideCents}','10000');
+ intent:=jsonb_set(intent,'{discount}','{"kind":"fixed_amount","amountCents":100}');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent);
+ IF r.outcome<>'found' THEN RAISE EXCEPTION 'exact combined budget rejected: %',r;END IF;
+ intent:=jsonb_set(intent,'{discount}','{"kind":"fixed_amount","amountCents":101}');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent);
+ IF r.outcome<>'discount_denied' THEN RAISE EXCEPTION 'combined cap exceeded';END IF;
+ intent:=jsonb_set(intent,'{items,0,unitPriceOverrideCents}','20000');
+ intent:=jsonb_set(intent,'{discount}','{"kind":"fixed_amount","amountCents":1101}');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent);
+ IF r.outcome<>'discount_denied' THEN RAISE EXCEPTION 'price increase enlarged discount cap';END IF;
+
+ UPDATE saas.in_store_staff_grants SET can_edit_price=false WHERE membership_id=cashier;
+ intent:=jsonb_set(intent,'{items,0,unitPriceOverrideCents}','null');intent:=jsonb_set(intent,'{discount}','null');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,cashier,now_at,intent,jsonb_build_array(jsonb_build_object('variantId',v,'unitPriceOverrideCents',20000,'priceOverrideActorMembershipId',mb)));
+ IF r.outcome<>'price_denied' THEN RAISE EXCEPTION 'cashier without permission reset existing override: %',r;END IF;
+ -- V2 requires payment before preparing; null remains a valid editable draft.
+ intent:=jsonb_build_object('locationId',loc,'items',jsonb_build_array(jsonb_build_object('variantId',v2,'quantity',1,'unitPriceOverrideCents',NULL)),'discount',NULL,'customerName',NULL,'note',NULL,'paymentMethod',NULL);
+ SELECT * INTO r FROM saas.in_store_sales_create_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000043',repeat('2',64),sale2,intent);
+ IF r.outcome<>'committed' THEN RAISE EXCEPTION 'unchosen draft denied';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_prepare_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000044',repeat('3',64),sale2,1,10000);
+ IF r.outcome<>'payment_method_required' OR saas.in_store_held_quantity(st,v2)<>0 THEN RAISE EXCEPTION 'unchosen method prepared';END IF;
+ -- Existing pending sales choose once in confirmation. Their old operation snapshot stays exact.
+ intent:=intent-'paymentMethod';intent:=jsonb_set(intent,'{items}','[{"variantId":"a1840000-0000-4000-8000-000000000009","quantity":1}]');
+ SELECT * INTO r FROM saas.in_store_sales_create(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000045',repeat('4',64),'a1840000-0000-4000-8000-000000000046',intent);
+ before_payload:=r.result_payload;
+ SELECT * INTO r FROM saas.in_store_sales_prepare(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000047',repeat('5',64),'a1840000-0000-4000-8000-000000000046',1,10000);
+ IF r.outcome<>'committed' THEN RAISE EXCEPTION 'legacy prepare failed';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_get(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000046');
+ IF r.outcome<>'found' OR r.result_payload->>'status'<>'payment_pending' OR r.result_payload ? 'paymentMethod' THEN RAISE EXCEPTION 'legacy pending reader ABI changed';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_list(st,pr,mb,pl,'pos184_qa',1,now_at,'pending',50,NULL);
+ IF r.outcome<>'found' THEN RAISE EXCEPTION 'legacy-only pending list blocked';END IF;
+
+ SELECT * INTO r FROM saas.in_store_sales_confirm_payment_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000048',repeat('6',64),'a1840000-0000-4000-8000-000000000046',2,NULL,'card');
+ IF r.outcome<>'committed' OR r.result_payload#>>'{sale,paymentMethod}'<>'card' THEN RAISE EXCEPTION 'legacy pending choose failed: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_complete_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000049',repeat('7',64),'a1840000-0000-4000-8000-000000000046',3);
+ IF r.outcome<>'committed' THEN RAISE EXCEPTION 'legacy pending v2 completion failed: %',r;END IF;
+ oid:=(r.result_payload#>>'{sale,orderId}')::uuid;
+ SELECT * INTO r FROM saas.orders_get_with_archive_v2(st,pr,mb,pl,'pos184_qa',1,now_at,oid);
+ IF r.result_payload->>'inStorePaymentMethod'<>'card' THEN RAISE EXCEPTION 'card order method missing';END IF;
+ SELECT * INTO r FROM saas.orders_get_with_archive(st,pr,mb,pl,'pos184_qa',1,now_at,oid);
+ IF r.result_payload ? 'inStorePaymentMethod' THEN RAISE EXCEPTION 'old order body changed';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_create(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000045',repeat('4',64),'a1840000-0000-4000-8000-000000000046',intent);
+ IF r.outcome<>'operation_replayed' OR r.result_payload-'replayed'<>before_payload-'replayed' THEN RAISE EXCEPTION 'legacy fingerprint/result replay changed';END IF;
+ -- Completed legacy records remain unknown even when read or completed again via V2.
+ SELECT * INTO r FROM saas.in_store_sales_create(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000050',repeat('8',64),'a1840000-0000-4000-8000-000000000051',intent);
+ SELECT * INTO r FROM saas.in_store_sales_prepare(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000052',repeat('9',64),'a1840000-0000-4000-8000-000000000051',1,10000);
+ SELECT * INTO r FROM saas.in_store_sales_confirm_payment(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000053',repeat('a',64),'a1840000-0000-4000-8000-000000000051',2,NULL);
+ SELECT * INTO r FROM saas.in_store_sales_complete_v2(st,pr,mb,pl,'pos184_qa',1,now_at,'a1840000-0000-4000-8000-000000000054',repeat('b',64),'a1840000-0000-4000-8000-000000000051',3);
+ IF r.outcome<>'committed' OR r.result_payload#>'{sale,paymentMethod}'<>'null'::jsonb THEN RAISE EXCEPTION 'legacy completed method invented: %',r;END IF;
+ oid:=(r.result_payload#>>'{sale,orderId}')::uuid;
+ SELECT * INTO r FROM saas.orders_get_with_archive_v2(st,pr,mb,pl,'pos184_qa',1,now_at,oid);
+ IF r.result_payload->'inStorePaymentMethod'<>'null'::jsonb THEN RAISE EXCEPTION 'order inferred legacy method';END IF;
+ SELECT * INTO r FROM saas.orders_get_with_archive_v2(st,cashier_pr,cashier,pl,'pos184_qa',1,now_at,oid);
+ IF r.outcome<>'membership_denied' THEN RAISE EXCEPTION 'order.read bypassed: %',r;END IF;
+ SELECT * INTO r FROM saas.in_store_sales_get_v2(st,cashier_pr,cashier,pl,'pos184_qa',1,now_at,sale);
+ IF r.outcome<>'membership_denied' THEN RAISE EXCEPTION 'foreign owner POS read allowed';END IF;
+ SELECT * INTO r FROM saas.in_store_sales_get_v2('a1840000-0000-4000-8000-000000009999',pr,mb,pl,'pos184_qa',1,now_at,sale);
+ IF r.outcome<>'store_inactive' THEN RAISE EXCEPTION 'foreign store POS read allowed';END IF;
+ -- Caller prices and unsafe cents fail at SQL, and protected gold cannot be reduced.
+ intent:=jsonb_build_object('locationId',loc,'items',jsonb_build_array(jsonb_build_object('variantId',v,'quantity',1,'unitPriceOverrideCents',0)),'discount',NULL,'customerName',NULL,'note',NULL,'paymentMethod','cash');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,mb,now_at,intent);
+ IF r.outcome<>'invalid_input' THEN RAISE EXCEPTION 'zero override accepted';END IF;
+ intent:=jsonb_set(intent,'{items,0,unitPriceOverrideCents}','9007199254740992');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,mb,now_at,intent);
+ IF r.outcome<>'invalid_input' THEN RAISE EXCEPTION 'unsafe override accepted';END IF;
+ INSERT INTO saas.pricing_reference_definitions(id,store_id,kind,label,created_by,created_at) VALUES('a1840000-0000-4000-8000-000000000030',st,'gold_gram','QA Gold',pr,now_at);
+ INSERT INTO saas.pricing_reference_sets VALUES('a1840000-0000-4000-8000-000000000031',st,1,pr,now_at);
+ INSERT INTO saas.pricing_reference_set_values VALUES(st,'a1840000-0000-4000-8000-000000000031','a1840000-0000-4000-8000-000000000030',20,true);
+ INSERT INTO saas.pricing_reference_state(store_id,active_set_id,version,last_set_version,updated_at) VALUES(st,'a1840000-0000-4000-8000-000000000031',1,1,now_at);
+ INSERT INTO saas.pricing_variant_policy_versions(store_id,variant_id,version,method,metal_grams,reference_id,purity_mode,labor_mode,labor_amount,uplift_percent,allow_full_discount,policy_payload,created_by,created_at)
+ VALUES(st,v2,1,'gold_gram',1,'a1840000-0000-4000-8000-000000000030','direct','none',0,0,false,jsonb_build_object('method','gold_gram','metalGrams','1','referenceId','a1840000-0000-4000-8000-000000000030','purityMode','direct','laborMode','none','upliftPercent','0','allowFullDiscount',false),pr,now_at);
+ INSERT INTO saas.pricing_variant_policy_state VALUES(st,v2,1);
+
+ intent:=jsonb_build_object('locationId',loc,'items',jsonb_build_array(jsonb_build_object('variantId',v2,'quantity',1,'unitPriceOverrideCents',1)),'discount',NULL,'customerName',NULL,'note',NULL,'paymentMethod','cash');
+ SELECT * INTO r FROM saas.in_store_quote_v2(st,mb,now_at,intent);
+ IF r.outcome<>'discount_denied' THEN RAISE EXCEPTION 'protected product price reduced: %',r;END IF;
+ IF has_function_privilege('celebix_saas_app','saas.in_store_sales_mutate_v2(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,jsonb)','EXECUTE') OR has_function_privilege('celebix_saas_app','saas.in_store_quote_v2(uuid,uuid,timestamptz,jsonb,jsonb)','EXECUTE') OR has_table_privilege('celebix_saas_app','saas.in_store_sales','UPDATE') THEN RAISE EXCEPTION 'v2 authority leaked';END IF;
+END $test$;
+ROLLBACK;

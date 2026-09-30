@@ -274,6 +274,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   if (props.detail === undefined) return <PanelPageShell><section className={styles.detailRoot}><h1 className="sr-only">Sipariş detayı</h1><Link className={styles.backLink} href="/orders"><ArrowLeft size={18} aria-hidden="true" />Siparişlere dön</Link><div className={styles.errorState} role="alert"><h2>Sipariş açılamadı</h2><p>{props.error || "Sipariş bulunamadı."}</p><button className={styles.secondaryButton} type="button" onClick={props.onRetry}>Tekrar dene</button></div></section></PanelPageShell>;
   const order = props.detail;
   const inStore = order.source === "in_store";
+  const inStorePaymentLabel = order.inStorePaymentMethod === "card" ? "Kart" : order.inStorePaymentMethod === "cash" ? "Nakit" : "manuel POS";
   const statusOptions = inStore ? [] : getAuthorizedOrderStatusOptions(order.status, props.capabilities).filter(status => status !== order.status);
   const paymentOptions = inStore ? [] : getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment).filter(status => status !== order.paymentStatus);
   const progress = !order.archive?.archived ? PROGRESS_ACTIONS[order.status] : undefined;
@@ -314,7 +315,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     </header>
     {!dialog && props.error ? <div className={styles.inlineError} role="alert">{props.error}<button type="button" className={styles.quietButton} onClick={props.onRetry}>Yenile</button></div> : null}
     {!dialog && props.notice ? <p className={styles.notice} role="status">{props.notice}</p> : null}
-    {!inStore && stage >= 0 ? <ol className={styles.journey} aria-label="Sipariş akışı">{stages.map((status, index) => <li key={status} data-stage={index < stage ? "done" : index === stage ? "current" : "future"} aria-current={index === stage ? "step" : undefined}><span>{index < stage ? <Check size={12} aria-hidden="true" /> : index === stage ? <CircleDot size={12} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}</span><span>{STATUS_LABELS[status]}</span></li>)}</ol> : inStore ? <p className={styles.storeDelivery}><Store size={16} aria-hidden="true" />Mağazadan teslim · manuel POS</p> : null}
+    {!inStore && stage >= 0 ? <ol className={styles.journey} aria-label="Sipariş akışı">{stages.map((status, index) => <li key={status} data-stage={index < stage ? "done" : index === stage ? "current" : "future"} aria-current={index === stage ? "step" : undefined}><span>{index < stage ? <Check size={12} aria-hidden="true" /> : index === stage ? <CircleDot size={12} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}</span><span>{STATUS_LABELS[status]}</span></li>)}</ol> : inStore ? <p className={styles.storeDelivery}><Store size={16} aria-hidden="true" />{`Mağazadan teslim · ${inStorePaymentLabel}`}</p> : null}
     <div className={styles.workspace}>
       <div className={styles.main}>
         <section className={styles.itemsPanel} aria-labelledby="order-items-title"><header className={styles.sectionHeading}><h2 id="order-items-title">Ürünler <span>{order.itemCount}</span></h2><span className={styles.source}><Store size={14} aria-hidden="true" />{SOURCE_LABELS[order.source]}</span></header>

@@ -599,6 +599,31 @@ test("detail read strictly parses and deeply freezes the safe order contract", a
   ]);
 });
 
+test("version two POS detail uses the additive read ABI and preserves unknown historic methods", async () => {
+  for (const inStorePaymentMethod of ["card", "cash", null] as const) {
+    const value = { ...detail(), source: "in_store" as const, inStorePaymentMethod };
+    const client = new FakeClient((sql) => sql.includes("saas.orders_get_with_archive_v2(")
+      ? [{ outcome: "found", result_payload: value }] : []);
+    const result = await repository(new FakePool(client)).getOrder({
+      tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID, inStoreVersion: 2,
+    });
+    assert.deepEqual(result, value);
+    assert.deepEqual(functionCall(client, "orders_get_with_archive_v2").values, [
+      STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW, ORDER_ID,
+    ]);
+  }
+});
+
+test("order detail rejects unsupported POS read versions before acquiring a connection", async () => {
+  const pool = new FakePool();
+  const repo = repository(pool);
+  for (const inStoreVersion of [1, 3, "2", null]) {
+    await assert.rejects(repo.getOrder({ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID, inStoreVersion } as never),
+      (error) => error instanceof OrderRepositoryError && error.code === "invalid_input");
+  }
+  assert.equal(pool.connects, 0);
+});
+
 test("draft list and detail use exact tenant authority, strict parsing, and a store-bound cursor", async () => {
   const cursorTimestamp = "2026-07-20T10:30:00.000000Z";
   const firstClient = new FakeClient((text) => {

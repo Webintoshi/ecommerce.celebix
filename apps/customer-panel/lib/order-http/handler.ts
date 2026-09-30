@@ -101,9 +101,10 @@ function repositoryError(value: unknown): Response {
   } catch { return error("unavailable", 503); }
 }
 
-function privateAuthorityPresent(request: Request): boolean {
+function privateAuthorityPresent(request: Request, allowInStoreVersion = false): boolean {
   try {
     for (const [name] of request.headers) {
+      if (allowInStoreVersion && name === "x-celebix-in-store-version") continue;
       if (
         name === "authorization" || name.startsWith("x-celebix") ||
         [
@@ -130,6 +131,7 @@ async function authorize(
   dependencies: Dependencies,
   request: Request,
   expectation: OrderRequestExpectation,
+  allowInStoreVersion = false,
 ): Promise<Response | AuthorizedRequest> {
   let runtime: ServerOrdersRuntime | null;
   try { runtime = await dependencies.resolveRuntime(); }
@@ -142,7 +144,7 @@ async function authorize(
   } catch { return error("unavailable", 503); }
   const denied = authorityFailure(decision, expectation.method);
   if (denied) return denied;
-  if (privateAuthorityPresent(request)) return error("invalid_input", 400);
+  if (privateAuthorityPresent(request, allowInStoreVersion)) return error("invalid_input", 400);
   let cookie;
   try { cookie = readOrderPanelSessionCookie(request); }
   catch { return error("unauthenticated", 401); }
@@ -483,15 +485,23 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
       if (isResponse(orderId)) return orderId;
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: `${ORDERS_PATH}/${orderId}`, query: "forbidden",
-      });
+      }, true);
       if (isResponse(authorized)) return authorized;
+      const inStoreVersion = request.headers.get("x-celebix-in-store-version");
+      if (inStoreVersion !== null && inStoreVersion !== "1" && inStoreVersion !== "2") return error("invalid_input", 400);
       return execute(
         () => authorized.runtime.orders.getOrder({
           tenantContext: authorized.tenantContext,
           now: authorized.now,
           orderId,
+          ...(inStoreVersion === "2" ? { inStoreVersion: 2 as const } : {}),
         }),
-        parseOrderDetail,
+        (value) => {
+          const detail = parseOrderDetail(value);
+          if (inStoreVersion === "2") return detail;
+          const { inStorePaymentMethod: _method, ...legacy } = detail;
+          return legacy;
+        },
       );
     },
 

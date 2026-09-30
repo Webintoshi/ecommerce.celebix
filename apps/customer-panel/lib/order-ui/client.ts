@@ -436,7 +436,7 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
 
     async getOrder(orderId: string): Promise<Readonly<OrderDetail>> {
       const order = local(() => id(orderId));
-      const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store", headers: { "X-Celebix-In-Store-Version": "2" } });
       return safeParse(() => parseOrderDetail(body));
     },
 

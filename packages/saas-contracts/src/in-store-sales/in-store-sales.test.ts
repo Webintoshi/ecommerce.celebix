@@ -54,3 +54,12 @@ test('payment-stage projections require a positive total while free drafts remai
     assert.equal(parseInStoreSale({...paymentSale,items:[{...line,unitPriceCents:1,lineSubtotalCents:1,lineNetCents:1}],totals:{subtotalCents:1,eligibleSubtotalCents:1,discountCents:0,totalCents:1}}).status,status);
   }
 });
+
+test('v2 draft intent persists explicit payment and validates positive override while v1 rejects additions', () => {
+ const value={locationId,items:[{variantId,quantity:2,unitPriceOverrideCents:9000}],discount:null,customerName:null,note:null,paymentMethod:'cash'};
+ assert.equal(parseInStoreSaleIntent(value,2).items[0]?.unitPriceOverrideCents,9000);
+ assert.equal(parseInStoreSaleIntent(value,2).paymentMethod,'cash');
+ assert.throws(()=>parseInStoreSaleIntent(value));
+ for(const unitPriceOverrideCents of [0,-1,1.2,Number.MAX_SAFE_INTEGER+1]) assert.throws(()=>parseInStoreSaleIntent({...value,items:[{variantId,quantity:1,unitPriceOverrideCents}]},2));
+ assert.throws(()=>parseInStoreSaleIntent({...value,paymentMethod:'transfer'},2));
+});

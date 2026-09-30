@@ -57,3 +57,12 @@ test("mutation rejects input accessors without invoking them", async () => {
  await assert.rejects(()=>repo().holdSale(input),error=>inStoreSalesRepositoryErrorCode(error)==="invalid_input");
  assert.equal(reads,0);
 });
+
+test('v2 create uses separate durable RPC and carries price and payment without changing legacy SQL', async()=>{
+ const old=sale();const saleV2={...old,paymentMethod:'cash',items:old.items.map(line=>({...line,catalogUnitPriceCents:10000,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null}))};
+ const c=new Client({outcome:'committed',result_payload:{sale:saleV2,replayed:false,priceChanged:false}});
+ const result=await repo(c).createSale({...authority(),contractVersion:2,operationId:OP,saleId:SALE,intent:{...intent,paymentMethod:'cash',items:[{variantId:VARIANT,quantity:1,unitPriceOverrideCents:null}]}});
+ assert.equal(result.sale.paymentMethod,'cash');
+ const call=c.queries.find(q=>q.text.includes('FROM saas.in_store_sales_create_v2'));
+ assert.ok(call);assert.equal(JSON.parse(call.values?.at(-1) as string).paymentMethod,'cash');
+});

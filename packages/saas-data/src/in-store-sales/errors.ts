@@ -1,4 +1,4 @@
-export const IN_STORE_SALES_ERROR_CODES = Object.freeze(["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied", "not_found", "ambiguous_barcode", "version_conflict", "operation_mismatch", "invalid_transition", "inventory_conflict", "pricing_unavailable", "discount_denied", "discount_invalid", "unavailable"] as const);
+export const IN_STORE_SALES_ERROR_CODES = Object.freeze(["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied", "not_found", "ambiguous_barcode", "version_conflict", "operation_mismatch", "invalid_transition", "inventory_conflict", "pricing_unavailable", "discount_denied", "price_denied", "client_upgrade_required", "payment_method_required", "discount_invalid", "unavailable"] as const);
 export type InStoreSalesErrorCode = (typeof IN_STORE_SALES_ERROR_CODES)[number];
 const trusted = new WeakSet<object>();
 export class InStoreSalesRepositoryError extends Error {

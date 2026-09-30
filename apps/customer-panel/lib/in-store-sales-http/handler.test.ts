@@ -34,3 +34,13 @@ test('operation lookup supports unknown commit recovery and rejects result secre
   const result=await unsafe.handlers.createSale(req('sales',{saleId:id,intent:{locationId:id,items:[],discount:null,customerName:null,note:null}}));
   assert.equal(result.status,503);assert.deepEqual(await result.json(),{code:'unavailable'});
 });
+
+test('v2 request forwards negotiated authority and rejects unsupported versions',async()=>{
+  const result={sale:{...sale,paymentMethod:null},replayed:false,priceChanged:false};const {handlers,calls}=harness(result);
+  const intent={locationId:id,items:[],discount:null,customerName:null,note:null,paymentMethod:null};
+  const response=await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'2'}));
+  assert.equal(response.status,200);assert.equal((calls[1] as {sale:{contractVersion:number}}).sale.contractVersion,2);
+  const count=calls.length;
+  assert.equal((await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'3'}))).status,400);
+  assert.equal(calls.length,count);
+});

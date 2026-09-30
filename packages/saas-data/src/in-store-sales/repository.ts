@@ -33,7 +33,7 @@ function text(value: unknown, max: number) { if (typeof value !== "string" || va
 function json(value: unknown): string { if (value === null || typeof value !== "object")
     return JSON.stringify(value); if (Array.isArray(value))
     return `[${value.map(json).join(",")}]`; return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${json((value as Record<string, unknown>)[k])}`).join(",")}}`; }
-function fingerprint(kind: string, store: string, body: unknown) { return createHash("sha256").update(json({ version: 1, kind, store, body })).digest("hex"); }
+function fingerprint(kind: string, store: string, body: unknown, version:1|2=1) { return createHash("sha256").update(json({ version, kind, store, body })).digest("hex"); }
 function authority(context: TenantContext, now: Date): ValidatedOrderAuthority { try {
     const role = context.membership?.role;
     if (!["store_owner", "admin", "cashier"].includes(role))
@@ -70,7 +70,7 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
     }).connect !== "function")
         failure(); const t = exact(o.timeouts, ["poolCheckoutMs", "statementMs", "lockMs", "idleTransactionMs"]); for (const value of Object.values(t))
         integer(value, 1, 60000); this.options = Object.freeze({pool:o.pool as PostgresInStoreSalesRepositoryOptions["pool"],role:"celebix_saas_app",timeouts:Object.freeze({poolCheckoutMs:t.poolCheckoutMs as number,statementMs:t.statementMs as number,lockMs:t.lockMs as number,idleTransactionMs:t.idleTransactionMs as number})}); }
-    private validated(input: InStoreAuthorityInput, required: readonly string[] = [], optional: readonly string[] = []) { const body = exact(input, ["tenantContext", "now", ...required], optional); const a = authority(body.tenantContext as TenantContext, body.now as Date); return { body, a }; }
+    private validated(input: InStoreAuthorityInput, required: readonly string[] = [], optional: readonly string[] = []) { const body = exact(input, ["tenantContext", "now", ...required], [...optional,"contractVersion"]); const contractVersion=body.contractVersion===undefined?1:integer(body.contractVersion,1,2) as 1|2; const a = authority(body.tenantContext as TenantContext, body.now as Date); return { body, a, contractVersion }; }
     private async acquire() { try {
         return await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs);
     }
@@ -82,6 +82,7 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
         operationId: string;
         fingerprint: string;
         staff?: boolean;
+        contractVersion?:1|2;
     }): Promise<T> { const client = await this.acquire(); let terminal = false, began = false; try {
         await client.query(write ? "BEGIN ISOLATION LEVEL READ COMMITTED" : "BEGIN READ ONLY");
         began = true;
@@ -108,7 +109,7 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
             terminal = true;
             client.release(true);
             if (write && recovery) {
-                const recovered = recovery.staff ? await this.transact(a, { name: "in_store_sales_recover_staff", args: [recovery.operationId, recovery.fingerprint], casts: ["uuid", "text"] }, v => v === null ? null : parseInStoreStaffGrant(v)) : await this.operation(a, recovery.operationId, recovery.fingerprint);
+                const recovered = recovery.staff ? await this.transact(a, { name: "in_store_sales_recover_staff"+(recovery.contractVersion===2?"_v2":""), args: [recovery.operationId, recovery.fingerprint], casts: ["uuid", "text"] }, v => v === null ? null : parseInStoreStaffGrant(v,recovery.contractVersion)) : await this.operation(a, recovery.operationId, recovery.fingerprint,recovery.contractVersion);
                 if (recovered === null)
                     failure("unavailable");
                 return parsed(parser, recovered);
@@ -131,26 +132,26 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
             throw error;
         failure("unavailable");
     } }
-    private operation(a: ValidatedOrderAuthority, operationId: string, expectedFingerprint: string | null) { return this.transact(a, { name: "in_store_sales_get_operation", args: [operationId, expectedFingerprint], casts: ["uuid", "text"] }, v => v === null ? null : parseInStoreSaleResult(v)); }
-    private mutate(input: VersionedInStoreSaleInput, kind: string, extra: Record<string, unknown> = {}, casts: string[] = [], args: unknown[] = []) { const { a, body } = this.validated(input, ["operationId", "saleId", "expectedVersion", ...Object.keys(extra)]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId), expectedVersion = integer(body.expectedVersion, 1); const hash = fingerprint(kind, a.storeId, { saleId, expectedVersion, ...extra }); return this.transact(a, { name: `in_store_sales_${kind}`, args: [operationId, hash, saleId, expectedVersion, ...args], casts: ["uuid", "text", "uuid", "bigint", ...casts] }, v => { const result = parseInStoreSaleResult(v); if (result.sale.id !== saleId)
-        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash }); }
-    async bootstrap(input: InStoreAuthorityInput) { const { a } = this.validated(input); return this.transact(a, { name: "in_store_sales_bootstrap", args: [], casts: [] }, parseInStoreBootstrap); }
-    async searchProducts(input: SearchInStoreProductsInput) { const { a, body } = this.validated(input, ["locationId", "limit"], ["barcode", "query"]); if (Object.hasOwn(body, "barcode") === Object.hasOwn(body, "query"))
+    private operation(a: ValidatedOrderAuthority, operationId: string, expectedFingerprint: string | null, contractVersion:1|2=1) { return this.transact(a, { name: "in_store_sales_get_operation"+(contractVersion===2?"_v2":""), args: [operationId, expectedFingerprint], casts: ["uuid", "text"] }, v => v === null ? null : parseInStoreSaleResult(v,contractVersion)); }
+    private mutate(input: VersionedInStoreSaleInput, kind: string, extra: Record<string, unknown> = {}, casts: string[] = [], args: unknown[] = []) { const { a, body, contractVersion } = this.validated(input, ["operationId", "saleId", "expectedVersion", ...Object.keys(extra)]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId), expectedVersion = integer(body.expectedVersion, 1); const hash = fingerprint(kind, a.storeId, { saleId, expectedVersion, ...extra },contractVersion); return this.transact(a, { name: `in_store_sales_${kind}${contractVersion===2?"_v2":""}`, args: [operationId, hash, saleId, expectedVersion, ...args], casts: ["uuid", "text", "uuid", "bigint", ...casts] }, v => { const result = parseInStoreSaleResult(v,contractVersion); if (result.sale.id !== saleId)
+        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash,contractVersion }); }
+    async bootstrap(input: InStoreAuthorityInput) { const { a, contractVersion } = this.validated(input); return this.transact(a, { name: "in_store_sales_bootstrap"+(contractVersion===2?"_v2":""), args: [], casts: [] }, v=>parseInStoreBootstrap(v,contractVersion)); }
+    async searchProducts(input: SearchInStoreProductsInput) { const { a, body, contractVersion } = this.validated(input, ["locationId", "limit"], ["barcode", "query"]); if (Object.hasOwn(body, "barcode") === Object.hasOwn(body, "query"))
         failure(); const locationId = uuid(body.locationId), limit = integer(body.limit, 1, 20), barcode = body.barcode === undefined ? null : text(body.barcode, 128), query = body.query === undefined ? null : text(body.query, 100); return this.transact(a, { name: "in_store_sales_search_products", args: [locationId, barcode, query, limit], casts: ["uuid", "text", "text", "integer"] }, envelope("products", parseInStoreProduct, 20)) as ReturnType<InStoreSalesRepository["searchProducts"]>; }
-    async listSales(input: ListInStoreSalesInput) { const { a, body } = this.validated(input, ["status", "pageSize"], ["cursor"]); if (!["draft", "held", "pending", "completed"].includes(body.status as string))
-        failure(); const pageSize = integer(body.pageSize, 1, 50); const cursor = body.cursor == null ? null : text(body.cursor, 512); return this.transact(a, { name: "in_store_sales_list", args: [body.status, pageSize, cursor], casts: ["text", "integer", "text"] }, parseInStoreSalePage); }
-    async getSale(input: GetInStoreSaleInput) { const { a, body } = this.validated(input, ["saleId"]); const saleId = uuid(body.saleId); return this.transact(a, { name: "in_store_sales_get", args: [saleId], casts: ["uuid"] }, v => { const result = parseInStoreSale(v); if (result.id !== saleId)
+    async listSales(input: ListInStoreSalesInput) { const { a, body, contractVersion } = this.validated(input, ["status", "pageSize"], ["cursor"]); if (!["draft", "held", "pending", "completed"].includes(body.status as string))
+        failure(); const pageSize = integer(body.pageSize, 1, 50); const cursor = body.cursor == null ? null : text(body.cursor, 512); return this.transact(a, { name: "in_store_sales_list"+(contractVersion===2?"_v2":""), args: [body.status, pageSize, cursor], casts: ["text", "integer", "text"] }, v=>parseInStoreSalePage(v,contractVersion)); }
+    async getSale(input: GetInStoreSaleInput) { const { a, body, contractVersion } = this.validated(input, ["saleId"]); const saleId = uuid(body.saleId); return this.transact(a, { name: "in_store_sales_get"+(contractVersion===2?"_v2":""), args: [saleId], casts: ["uuid"] }, v => { const result = parseInStoreSale(v,contractVersion); if (result.id !== saleId)
         failure("unavailable"); return result; }); }
-    async getOperation(input: GetInStoreOperationInput) { const { a, body } = this.validated(input, ["operationId"]); return this.operation(a, uuid(body.operationId), null); }
-    async createSale(input: CreateInStoreSaleInput) { const { a, body } = this.validated(input, ["operationId", "saleId", "intent"]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId); let intent; try {
-        intent = parseInStoreSaleIntent(body.intent);
+    async getOperation(input: GetInStoreOperationInput) { const { a, body, contractVersion } = this.validated(input, ["operationId"]); return this.operation(a, uuid(body.operationId), null,contractVersion); }
+    async createSale(input: CreateInStoreSaleInput) { const { a, body, contractVersion } = this.validated(input, ["operationId", "saleId", "intent"]); const operationId = uuid(body.operationId), saleId = uuid(body.saleId); let intent; try {
+        intent = parseInStoreSaleIntent(body.intent,contractVersion);
     }
     catch {
         failure();
-    } const hash = fingerprint("create", a.storeId, { saleId, intent }); return this.transact(a, { name: "in_store_sales_create", args: [operationId, hash, saleId, JSON.stringify(intent)], casts: ["uuid", "text", "uuid", "jsonb"] }, v => { const result = parseInStoreSaleResult(v); if (result.sale.id !== saleId)
-        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash }); }
+    } const hash = fingerprint("create", a.storeId, { saleId, intent },contractVersion); return this.transact(a, { name: "in_store_sales_create"+(contractVersion===2?"_v2":""), args: [operationId, hash, saleId, JSON.stringify(intent)], casts: ["uuid", "text", "uuid", "jsonb"] }, v => { const result = parseInStoreSaleResult(v,contractVersion); if (result.sale.id !== saleId)
+        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash,contractVersion }); }
     async updateSale(input: UpdateInStoreSaleInput) { let intent; try {
-        intent = parseInStoreSaleIntent(this.validated(input, ["operationId", "saleId", "expectedVersion", "intent"]).body.intent);
+        const validated=this.validated(input, ["operationId", "saleId", "expectedVersion", "intent"]);intent = parseInStoreSaleIntent(validated.body.intent,validated.contractVersion);
     }
     catch {
         failure();
@@ -158,14 +159,14 @@ export class PostgresInStoreSalesRepository implements InStoreSalesRepository {
     async holdSale(input: HoldInStoreSaleInput) { const held = this.validated(input, ["operationId", "saleId", "expectedVersion", "held"]).body.held; if (typeof held !== "boolean")
         failure(); return this.mutate(input, "hold", { held }, ["boolean"], [held]); }
     async prepareSale(input: PrepareInStoreSaleInput) { const expectedTotalCents = integer(this.validated(input, ["operationId", "saleId", "expectedVersion", "expectedTotalCents"]).body.expectedTotalCents, 1); return this.mutate(input, "prepare", { expectedTotalCents }, ["bigint"], [expectedTotalCents]); }
-    async confirmPayment(input: ConfirmInStorePaymentInput) { const value = this.validated(input, ["operationId", "saleId", "expectedVersion", "slipReference"]).body.slipReference; const slipReference = value === null ? null : text(value, 100); return this.mutate(input, "confirm_payment", { slipReference }, ["text"], [slipReference]); }
+    async confirmPayment(input: ConfirmInStorePaymentInput) { const {body,contractVersion}=this.validated(input, ["operationId", "saleId", "expectedVersion", "slipReference"],["paymentMethod"]);const value=body.slipReference; const slipReference = value === null ? null : text(value, 100);if(contractVersion===1){if(Object.hasOwn(body,"paymentMethod"))failure();return this.mutate(input,"confirm_payment",{slipReference},["text"],[slipReference]);}const paymentMethod=body.paymentMethod;if(paymentMethod!==null&&paymentMethod!=="card"&&paymentMethod!=="cash")failure();return this.mutate(input,"confirm_payment",{slipReference,paymentMethod},["text","text"],[slipReference,paymentMethod]); }
     async completeSale(input: VersionedInStoreSaleInput) { return this.mutate(input, "complete"); }
     async cancelSale(input: CancelInStoreSaleInput) { if (this.validated(input, ["operationId", "saleId", "expectedVersion", "confirmUnpaid"]).body.confirmUnpaid !== true)
         failure(); return this.mutate(input, "cancel", { confirmUnpaid: true }, ["boolean"], [true]); }
     async takeoverSale(input: VersionedInStoreSaleInput) { return this.mutate(input, "takeover"); }
-    async listStaff(input: InStoreAuthorityInput) { const { a } = this.validated(input); return this.transact(a, { name: "in_store_sales_list_staff", args: [], casts: [] }, envelope("staff", parseInStoreStaffGrant, 100)) as ReturnType<InStoreSalesRepository["listStaff"]>; }
-    async setStaffGrant(input: SetInStoreStaffGrantInput) { const { a, body } = this.validated(input, ["operationId", "membershipId", "expectedVersion", "enabled", "locationIds", "discountLimitBps"]); const operationId = uuid(body.operationId), membershipId = uuid(body.membershipId), expectedVersion = integer(body.expectedVersion, 0), discountLimitBps = integer(body.discountLimitBps, 0, 9999); if (typeof body.enabled !== "boolean" || !Array.isArray(body.locationIds) || body.locationIds.length > 100)
+    async listStaff(input: InStoreAuthorityInput) { const { a, contractVersion } = this.validated(input); return this.transact(a, { name: "in_store_sales_list_staff"+(contractVersion===2?"_v2":""), args: [], casts: [] }, envelope("staff", v=>parseInStoreStaffGrant(v,contractVersion), 100)) as ReturnType<InStoreSalesRepository["listStaff"]>; }
+    async setStaffGrant(input: SetInStoreStaffGrantInput) { const { a, body, contractVersion } = this.validated(input, ["operationId", "membershipId", "expectedVersion", "enabled", "locationIds", "discountLimitBps"],["canEditPrice"]); const operationId = uuid(body.operationId), membershipId = uuid(body.membershipId), expectedVersion = integer(body.expectedVersion, 0), discountLimitBps = integer(body.discountLimitBps, 0, 9999); if (typeof body.enabled !== "boolean" || !Array.isArray(body.locationIds) || body.locationIds.length > 100)
         failure(); const locationIds = body.locationIds.map(uuid); if (new Set(locationIds).size !== locationIds.length)
-        failure(); const hash = fingerprint("set_staff", a.storeId, { membershipId, expectedVersion, enabled: body.enabled, locationIds: [...locationIds].sort(), discountLimitBps }); return this.transact(a, { name: "in_store_sales_set_staff", args: [operationId, hash, membershipId, expectedVersion, body.enabled, locationIds, discountLimitBps], casts: ["uuid", "text", "uuid", "bigint", "boolean", "uuid[]", "integer"] }, v => { const result = parseInStoreStaffGrant(v); if (result.membershipId !== membershipId)
-        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash, staff: true }); }
+        failure(); const extra=contractVersion===2?{canEditPrice:body.canEditPrice}:{};if(contractVersion===2?typeof body.canEditPrice!=="boolean":Object.hasOwn(body,"canEditPrice"))failure();const hash = fingerprint("set_staff", a.storeId, { membershipId, expectedVersion, enabled: body.enabled, locationIds: [...locationIds].sort(), discountLimitBps,...extra },contractVersion); return this.transact(a, { name: "in_store_sales_set_staff"+(contractVersion===2?"_v2":""), args: [operationId, hash, membershipId, expectedVersion, body.enabled, locationIds, discountLimitBps,...(contractVersion===2?[body.canEditPrice]:[])], casts: ["uuid", "text", "uuid", "bigint", "boolean", "uuid[]", "integer",...(contractVersion===2?["boolean"]:[])] }, v => { const result = parseInStoreStaffGrant(v,contractVersion); if (result.membershipId !== membershipId)
+        failure("unavailable"); return result; }, true, { operationId, fingerprint: hash, staff: true,contractVersion }); }
 }

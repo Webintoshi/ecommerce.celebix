@@ -58,25 +58,25 @@ import { InStoreSalesUiError, type InStoreSalesUiClient } from "./client.ts";
 import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSaleResult } from "@celebix/saas-contracts";
 const LOCATION="9e000000-0000-4000-8000-000000000003";
 type MutableClient={-readonly[K in keyof InStoreSalesUiClient]:InStoreSalesUiClient[K]};
-function fixture(barcode="000123"){
+function fixture(barcode="000123",v2=false){
   let sequence=10,server:InStoreSale|null=null,completeFailures=0,price=200000;
   const calls:{kind:string;key:string;version?:number;total?:number}[]=[],operations=new Map<string,InStoreSaleResult>();
   const p:InStoreProduct={productId:"9e000000-0000-4000-8000-000000000004",variantId:"9e000000-0000-4000-8000-000000000005",productName:"Ürün",variantName:"Siyah M",sku:null,barcode,imageUrl:null,unitPriceCents:200000,pricingUnavailable:false,availableQuantity:10,stockTracking:true,discountEligible:true};
   const date="2026-09-26T00:00:00.000Z";
   function sale(intent:InStoreSaleIntent,version:number,status:InStoreSale["status"],id=server?.id??"9e000000-0000-4000-8000-000000000001"):InStoreSale{
-    const totals=previewTotals(intent.items.map(x=>({unitPriceCents:price,quantity:x.quantity,discountEligible:true})),intent.discount);
+    const totals=previewTotals(intent.items.map(x=>({unitPriceCents:v2?(x.unitPriceOverrideCents??price):price,quantity:x.quantity,discountEligible:true})),intent.discount);
     return {id,saleNumber:"MS-101",status,version,locationId:intent.locationId,locationName:"Mağaza",ownerMembershipId:LOCATION,ownerLabel:"Kasiyer",customerName:intent.customerName,note:intent.note,discount:intent.discount,
-      items:intent.items.map(x=>({...p,unitPriceCents:price,quantity:x.quantity,lineSubtotalCents:price*x.quantity,allocatedDiscountCents:totals.discountCents,lineNetCents:price*x.quantity-totals.discountCents})),totals,createdAt:date,updatedAt:date,paymentReceivedAt:["payment_received","completed"].includes(status)?date:null,completedAt:status==="completed"?date:null,orderId:status==="completed"?LOCATION:null,orderNumber:status==="completed"?"S-101":null};
+      items:intent.items.map(x=>({...p,unitPriceCents:v2?(x.unitPriceOverrideCents??price):price,...(v2?{catalogUnitPriceCents:price,unitPriceOverrideCents:x.unitPriceOverrideCents??null,priceOverrideActorMembershipId:x.unitPriceOverrideCents==null?null:LOCATION}:{}),quantity:x.quantity,lineSubtotalCents:(v2?(x.unitPriceOverrideCents??price):price)*x.quantity,allocatedDiscountCents:totals.discountCents,lineNetCents:(v2?(x.unitPriceOverrideCents??price):price)*x.quantity-totals.discountCents})),...(v2?{paymentMethod:intent.paymentMethod??null}:{}),totals,createdAt:date,updatedAt:date,paymentReceivedAt:["payment_received","completed"].includes(status)?date:null,completedAt:status==="completed"?date:null,orderId:status==="completed"?LOCATION:null,orderNumber:status==="completed"?"S-101":null};
   }
-  const intent=()=>({locationId:LOCATION,items:server?.items.map(x=>({variantId:x.variantId,quantity:x.quantity}))??[],discount:server?.discount??null,customerName:server?.customerName??null,note:server?.note??null});
+  const intent=()=>({locationId:LOCATION,items:server?.items.map(x=>({variantId:x.variantId,quantity:x.quantity,...(v2?{unitPriceOverrideCents:x.unitPriceOverrideCents??null}:{})}))??[],discount:server?.discount??null,customerName:server?.customerName??null,note:server?.note??null,...(v2?{paymentMethod:server?.paymentMethod??null}:{})});
   function result(key:string){const r={sale:server!,replayed:false,priceChanged:false};operations.set(key,r);return r;}
-  const bootstrap=():InStoreBootstrap=>({scopeKey:"fixture-actor",locations:[{id:LOCATION,name:"Mağaza",isDefault:true}],permissions:{canSell:true,canDiscount:true,discountLimitBps:9999,canResolve:true,canManageStaff:false},activeDraft:server?.status==="draft"?server:null,heldSales:server?.status==="held"?[server]:[],pendingSales:server&&["payment_pending","payment_received"].includes(server.status)?[server]:[],recentSales:server?.status==="completed"?[server]:[],summary:{completedCount:0,grossCents:0,discountCents:0,netCents:0,pendingPaymentCount:0}});
-  const api={newId:()=>`9e000000-0000-4000-8000-${String(sequence++).padStart(12,"0")}`,bootstrap:async()=>bootstrap(),searchProducts:async()=>[p],getSale:async()=>{if(!server)throw new InStoreSalesUiError("not_found",404,false);return server;},getOperation:async(key:string)=>operations.get(key)??null,
+  const bootstrap=():InStoreBootstrap=>({scopeKey:"fixture-actor",locations:[{id:LOCATION,name:"Mağaza",isDefault:true}],permissions:{canSell:true,canDiscount:true,discountLimitBps:9999,canResolve:true,canManageStaff:false,...(v2?{canEditPrice:true}:{})},activeDraft:server?.status==="draft"?server:null,heldSales:server?.status==="held"?[server]:[],pendingSales:server&&["payment_pending","payment_received"].includes(server.status)?[server]:[],recentSales:server?.status==="completed"?[server]:[],summary:{completedCount:0,grossCents:0,discountCents:0,netCents:0,pendingPaymentCount:0}});
+  const api={contractVersion:v2?2:1,newId:()=>`9e000000-0000-4000-8000-${String(sequence++).padStart(12,"0")}`,bootstrap:async()=>bootstrap(),searchProducts:async()=>[p],getSale:async()=>{if(!server)throw new InStoreSalesUiError("not_found",404,false);return server;},getOperation:async(key:string)=>operations.get(key)??null,
     createSale:async(input:{saleId:string;intent:InStoreSaleIntent},key:string)=>{calls.push({kind:"create",key});server=sale(input.intent,1,"draft",input.saleId);return result(key);},
     updateSale:async(_id:string,input:{expectedVersion:number;intent:InStoreSaleIntent},key:string)=>{assert.equal(input.expectedVersion,server!.version);calls.push({kind:"update",key,version:input.expectedVersion});server=sale(input.intent,input.expectedVersion+1,"draft");return result(key);},
     holdSale:async(_id:string,input:{expectedVersion:number;held:boolean},key:string)=>{calls.push({kind:"hold",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,input.held?"held":"draft");return result(key);},
     prepareSale:async(_id:string,input:{expectedVersion:number;expectedTotalCents:number},key:string)=>{if(input.expectedVersion!==server!.version)throw new InStoreSalesUiError("version_conflict",409,false);calls.push({kind:"prepare",key,total:input.expectedTotalCents});const changed=input.expectedTotalCents!==server!.totals.totalCents;server=sale(intent(),input.expectedVersion+1,changed?"draft":"payment_pending");const r={...result(key),priceChanged:changed};operations.set(key,r);return r;},
-    confirmPayment:async(_id:string,input:{expectedVersion:number;slipReference:null},key:string)=>{assert.equal(input.slipReference,null);calls.push({kind:"payment",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,"payment_received");return result(key);},
+    confirmPayment:async(_id:string,input:{expectedVersion:number;slipReference:null;paymentMethod?:"card"|"cash"|null},key:string)=>{assert.equal(input.slipReference,null);calls.push({kind:"payment",key,version:input.expectedVersion});server=sale({...intent(),...(v2?{paymentMethod:server?.paymentMethod??input.paymentMethod??null}:{})},input.expectedVersion+1,"payment_received");return result(key);},
     cancelSale:async(_id:string,input:{expectedVersion:number;confirmUnpaid:true},key:string)=>{calls.push({kind:"cancel",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,"draft");return result(key);},
     takeoverSale:async(_id:string,input:{expectedVersion:number},key:string)=>{calls.push({kind:"takeover",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,server!.status);return result(key);},
     completeSale:async(_id:string,input:{expectedVersion:number},key:string)=>{calls.push({kind:"complete",key,version:input.expectedVersion});if(completeFailures-->0)throw new InStoreSalesUiError("unavailable",503,true);server=sale(intent(),input.expectedVersion+1,"completed");return result(key);},
@@ -216,4 +216,55 @@ test("an uncommitted prepare with an advanced draft version offers explicit safe
   const current=f.getServer()!;await f.api.updateSale(current.id,{expectedVersion:current.version,intent:{locationId:LOCATION,items:[{variantId:f.p.variantId,quantity:3}],discount:null,customerName:null,note:null}},f.api.newId());first.dispose();
   const second=f.controller();await second.initialize();await second.recover(true);assert.equal(second.getSnapshot().canAcceptRecovery,true);assert.ok(second.getSnapshot().recovery);
   await second.acceptRecoveryCurrentSale();assert.equal(second.getSnapshot().recovery,null);assert.equal(second.getSnapshot().cart[0].quantity,3);assert.equal(second.isEditable(),true);second.dispose();
+});
+
+test("v2 price survives scan, quantities, hold/reopen and reload; removing resets it",async()=>{
+  const f=fixture("000123",true),c=f.controller();await c.initialize();await c.addProduct(f.p);
+  c.setUnitPrice(f.p.variantId,1489);c.setPaymentMethod("cash");await c.flush();await c.scan("000123");c.setQuantity(f.p.variantId,3);await c.flush();
+  assert.equal(c.getSnapshot().cart[0].unitPriceCents,1489);assert.equal(f.getServer()?.items[0].unitPriceOverrideCents,1489);assert.equal(f.getServer()?.totals.totalCents,4467);
+  const id=f.getServer()!.id;await c.hold();await c.openSale(id);assert.equal(c.getSnapshot().paymentMethod,"cash");c.dispose();
+  const next=f.controller();await next.initialize();assert.equal(next.getSnapshot().cart[0].unitPriceOverrideCents,1489);
+  next.setUnitPrice(f.p.variantId,null);await next.flush();assert.equal(next.getSnapshot().cart[0].unitPriceCents,200000);
+  next.setUnitPrice(f.p.variantId,1489);next.setQuantity(f.p.variantId,0);await next.flush();await next.addProduct(f.p);
+  assert.equal(next.getSnapshot().cart[0].unitPriceOverrideCents,null);assert.equal(next.getSnapshot().cart[0].unitPriceCents,200000);next.dispose();
+});
+test("v2 requires a method, then fixes price and method during payment",async()=>{
+  const f=fixture("000123",true),c=f.controller();await c.initialize();await c.addProduct(f.p);await c.prepare();
+  assert.equal(f.calls.some(x=>x.kind==="prepare"),false);assert.match(c.getSnapshot().error??"",/Kart|Nakit|ödeme/i);
+  c.setPaymentMethod("card");await c.prepare();assert.equal(c.getSnapshot().sale?.status,"payment_pending");
+  c.setPaymentMethod("cash");c.setUnitPrice(f.p.variantId,1);assert.equal(c.getSnapshot().paymentMethod,"card");assert.equal(c.getSnapshot().cart[0].unitPriceCents,200000);c.dispose();
+});
+
+test("legacy pending cash selection and unknown-result reload retain the exact v2 method",async()=>{
+  const f=fixture("000123",true),c=f.controller();await c.initialize();await c.addProduct(f.p);
+  const draft=f.getServer()!;await f.api.prepareSale(draft.id,{expectedVersion:draft.version,expectedTotalCents:200000},f.api.newId());c.dispose();const legacy=f.controller();await legacy.initialize();await legacy.openSale(draft.id);
+  const original=f.api.confirmPayment,attempts:unknown[]=[];let fail=true;
+  f.api.confirmPayment=async(id,body,key,...rest)=>{attempts.push({body,key,version:rest[0]});if(fail){fail=false;throw new InStoreSalesUiError("unavailable",503,true);}return original(id,body,key,...rest);};
+  legacy.setPaymentMethod("cash");await legacy.finish();const marker=legacy.getSnapshot().recovery!;
+  assert.equal(marker.contractVersion,2);assert.equal(marker.paymentMethod,"cash");legacy.dispose();
+  const next=f.controller();await next.initialize();await next.recover(true);
+  assert.equal(next.getSnapshot().sale?.paymentMethod,"cash");assert.equal(next.getSnapshot().sale?.status,"payment_received");
+  assert.deepEqual(attempts.map(x=>(x as {body:unknown}).body),[{expectedVersion:draft.version+1,slipReference:null,paymentMethod:"cash"},{expectedVersion:draft.version+1,slipReference:null,paymentMethod:"cash"}]);
+  assert.equal((attempts[1] as {version:number}).version,2);next.dispose();
+});
+test("v2 screen replays an old payment key with version1 and no invented method",async()=>{
+  const f=fixture("000123",true),c=f.controller();await c.initialize();await c.addProduct(f.p);c.setPaymentMethod("card");await c.prepare();c.dispose();
+  const sale=f.getServer()!,operationId=f.api.newId();writeRecoveryMarker(f.storage,{scopeKey:"fixture-actor",kind:"payment",saleId:sale.id,operationId,expectedVersion:sale.version,expectedTotalCents:sale.totals.totalCents});
+  let seen:unknown;const original=f.api.confirmPayment;f.api.confirmPayment=async(id,body,key,...rest)=>{seen={body,key,version:rest[0]};return original(id,body,key,...rest);};
+  const next=f.controller();await next.initialize();await next.recover(true);
+  assert.deepEqual(seen,{body:{expectedVersion:sale.version,slipReference:null},key:operationId,version:1});next.dispose();
+});
+test("price edits require permission and cannot lower a protected product",async()=>{
+  const f=fixture("000123",true),c=f.controller();const bootstrap=f.api.bootstrap;
+  f.api.bootstrap=async()=>{const b=await bootstrap();return {...b,permissions:{...b.permissions,canEditPrice:false}};};
+  await c.initialize();await c.addProduct(f.p);c.setUnitPrice(f.p.variantId,1);assert.equal(c.getSnapshot().cart[0].unitPriceCents,200000);c.dispose();
+  const g=fixture("000123",true),d=g.controller();Object.assign(g.p,{discountEligible:false});await d.initialize();await d.addProduct(g.p);d.setUnitPrice(g.p.variantId,1);assert.equal(d.getSnapshot().cart[0].unitPriceCents,200000);d.dispose();
+});
+
+test("obsolete prepare recovery can load an advanced unpaid v2 basket without replaying it",async()=>{
+  const f=fixture("000123",true),c=f.controller();await c.initialize();await c.addProduct(f.p);c.setPaymentMethod("cash");await c.flush();c.dispose();
+  const sale=f.getServer()!,operationId=f.api.newId();writeRecoveryMarker(f.storage,{scopeKey:"fixture-actor",kind:"prepare",saleId:sale.id,operationId,expectedVersion:1,expectedTotalCents:200000});
+  f.api.prepareSale=async()=>{throw new InStoreSalesUiError("client_upgrade_required",409,false);};
+  const next=f.controller();await next.initialize();await next.recover(true);assert.equal(next.getSnapshot().canAcceptRecovery,true);await next.acceptRecoveryCurrentSale();
+  assert.equal(next.getSnapshot().recovery,null);assert.equal(next.getSnapshot().paymentMethod,"cash");assert.equal(next.getSnapshot().sale?.status,"draft");next.dispose();
 });

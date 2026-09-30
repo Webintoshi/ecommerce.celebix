@@ -1,4 +1,24 @@
 import assert from "node:assert/strict";
+test("POS detail displays recorded card and cash while unknown methods retain manual POS", async () => {
+ const Presentation=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation");
+ for (const [inStorePaymentMethod, expected] of [["card", "Kart"], ["cash", "Nakit"], [null, "manuel POS"], [undefined, "manuel POS"]] as const) {
+  const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,source:"in_store",customerName:null,customerEmail:null,shippingAddress:null,status:"delivered",paymentStatus:"completed",...(inStorePaymentMethod===undefined?{}:{inStorePaymentMethod})},state:"loaded",error:"",notice:"",busy:"",capabilities:{fulfill:true,manage:true,payment:true,shipping:true,note:true},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
+  assert.match(html,new RegExp(`Mağazadan teslim · ${expected}`));
+  assert.doesNotMatch(html,/name="nextPaymentStatus"|Durumu güncelle/);
+  if (inStorePaymentMethod !== null && inStorePaymentMethod !== undefined) assert.doesNotMatch(html,/manuel POS/);
+ }
+});
+
+test("order detail client requests version two and preserves persisted POS metadata", async () => {
+ const {createOrderApiClient}=await import("./order-ui/client.ts");
+ const requests:Array<[RequestInfo|URL,RequestInit|undefined]>=[];
+ const pos={...detail,source:"in_store",inStorePaymentMethod:"cash"};
+ const api=createOrderApiClient({fetch:async(url,init)=>{requests.push([url,init]);return json(pos);}});
+ assert.deepEqual(await api.getOrder(ORDER_ID),pos);
+ assert.equal(new Headers(requests[0][1]?.headers).get("X-Celebix-In-Store-Version"),"2");
+ assert.equal(requests[0][1]?.cache,"no-store");
+});
+
 test('anonymous in-store detail shows manual payment and pickup without shipping or generic payment controls',async()=>{
  const Presentation=await compilePresentation('components/orders/OrderDetailConsole.tsx','OrderDetailPresentation');
  const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,source:'in_store',customerName:null,customerEmail:null,shippingAddress:null,status:'delivered',paymentStatus:'completed'},state:'loaded',error:'',notice:'',busy:'',capabilities:{fulfill:true,manage:true,payment:true,shipping:true,note:true},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));

@@ -7,7 +7,7 @@ export function inStoreRequestAuthorityDecision(request:Request,expectation:InSt
     if(expectation.method!=='GET'&&!hasApprovedPanelMutationOriginShape(request,panelOrigin))return 'origin_denied';
     const url=new URL(request.url);
     if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.hash||url.pathname!==expectation.pathname||(!expectation.query&&url.search))return 'invalid_input';
-    for(const [name] of request.headers)if(name==='authorization'||name.startsWith('x-celebix')||['x-panel-session-credential','x-store-id','x-tenant-id','x-principal-id','x-membership-id','x-plan-id','x-database-role','x-database-url'].includes(name))return 'invalid_input';
+    for(const [name] of request.headers)if(name==='authorization'||name.startsWith('x-celebix')&&name!=='x-celebix-in-store-version'||['x-panel-session-credential','x-store-id','x-tenant-id','x-principal-id','x-membership-id','x-plan-id','x-database-role','x-database-url'].includes(name))return 'invalid_input';
     return 'approved';
   }catch{return 'invalid_input';}
 }

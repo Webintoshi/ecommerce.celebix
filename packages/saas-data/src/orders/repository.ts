@@ -529,11 +529,12 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   async getOrder(input: GetOrderInput): Promise<OrderDetail> {
-    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"]);
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"], ["inStoreVersion"]);
+    if (exact.inStoreVersion !== undefined && exact.inStoreVersion !== 2) throw new OrderRepositoryError("invalid_input");
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const orderId = orderUuid(exact.orderId);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.orders_get_with_archive(
+      text: `SELECT outcome, result_payload FROM saas.${exact.inStoreVersion === 2 ? "orders_get_with_archive_v2" : "orders_get_with_archive"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
       )`,
       values: [...authorityValues(authority), orderId],

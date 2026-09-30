@@ -53,3 +53,17 @@ test("registered barcode boundary accepts 128 characters and rejects 129 before 
   let calls=0;const client=createInStoreSalesUiClient({fetch:async()=>{calls++;return reply({data:{products:[]}});}});
   await client.searchProducts({locationId:LOCATION,barcode:"A".repeat(128)});await assert.rejects(client.searchProducts({locationId:LOCATION,barcode:"A".repeat(129)}));assert.equal(calls,1);
 });
+
+test("v2 opts in explicitly and legacy payment replay preserves the original body",async()=>{
+  const attempts:{header:string|null;body:unknown}[]=[];
+  const client=createInStoreSalesUiClient({contractVersion:2,fetch:async(_url,init)=>{attempts.push({header:new Headers(init?.headers).get("x-celebix-in-store-version"),body:JSON.parse(String(init?.body))});return reply({code:"unavailable"},503);}});
+  await assert.rejects(client.confirmPayment(SALE_ID,{expectedVersion:3,slipReference:null,paymentMethod:"cash"},OP));
+  await assert.rejects(client.confirmPayment(SALE_ID,{expectedVersion:3,slipReference:null},OP,1));
+  assert.deepEqual(attempts,[{header:"2",body:{expectedVersion:3,slipReference:null,paymentMethod:"cash"}},{header:null,body:{expectedVersion:3,slipReference:null}}]);
+});
+test("v2 rejects missing method and invalid override before network",async()=>{
+  let calls=0;const client=createInStoreSalesUiClient({contractVersion:2,fetch:async()=>{calls++;return reply({data:null});}});
+  await assert.rejects(client.confirmPayment(SALE_ID,{expectedVersion:3,slipReference:null},OP));
+  await assert.rejects(client.createSale({saleId:SALE_ID,intent:{locationId:LOCATION,items:[{variantId:SALE_ID,quantity:1,unitPriceOverrideCents:0}],discount:null,customerName:null,note:null,paymentMethod:"card"}},OP));
+  assert.equal(calls,0);
+});

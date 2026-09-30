@@ -2,6 +2,7 @@ import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 export interface InStoreAuthorityInput {
     readonly tenantContext: TenantContext;
+    readonly contractVersion?: 1 | 2;
     readonly now: Date;
 }
 export interface SearchInStoreProductsInput extends InStoreAuthorityInput {
@@ -40,6 +41,7 @@ export interface PrepareInStoreSaleInput extends VersionedInStoreSaleInput {
 }
 export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
     readonly slipReference: string | null;
+    readonly paymentMethod?: "card" | "cash" | null;
 }
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
     readonly confirmUnpaid: true;
@@ -51,6 +53,7 @@ export interface SetInStoreStaffGrantInput extends InStoreAuthorityInput {
     readonly enabled: boolean;
     readonly locationIds: readonly string[];
     readonly discountLimitBps: number;
+    readonly canEditPrice?: boolean;
 }
 export interface InStoreSalesRepository {
     bootstrap(input: InStoreAuthorityInput): Promise<InStoreBootstrap>;

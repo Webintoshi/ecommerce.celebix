@@ -70,6 +70,8 @@
 .identity { display: grid; min-width: 0; gap: 4px; }
 .identity strong { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .identity small { font-size: 12px; color: var(--register-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.priceAction { justify-self: start; margin-left: -12px; }
+.identity .priceOverride { display: inline-flex; justify-self: start; border: 1px solid var(--register-border); border-radius: 4px; padding: 4px 8px; color: var(--register-graphite); background: var(--register-canvas); font-size: 11px; }
 .unitPrice, .lineTotal { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .quantity { display: flex; min-width: 0; align-items: center; border: 1px solid var(--register-border); border-radius: 8px; width: 132px; }
 .quantity .iconButton { border: 0; border-radius: 8px; width: 44px; }
@@ -93,6 +95,10 @@
 .totalBlock { border-top: 1px solid var(--register-border); padding-top: 20px; display: grid; gap: 8px; }
 .totalBlock > span, .totalBlock > small { color: var(--register-muted); font-size: 12px; }
 .totalBlock strong { font-size: 32px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.paymentChoice { border: 0; padding: 0; margin: 0 0 20px; min-width: 0; }
+.paymentChoice legend { font-size: 13px; font-weight: 550; margin-bottom: 8px; }
+.paymentChoice .segmented { margin-bottom: 0; }
+.paymentChoice .segmented button { display: flex; justify-content: center; align-items: center; gap: 8px; }
 .paymentMethod { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--register-muted); margin: 20px 0; }
 .checkoutFooter { display: grid; gap: 8px; }
 .checkoutFooter .primary { min-height: 48px; width: 100%; font-size: 13px; }
@@ -114,6 +120,7 @@
 .receiptTotals { max-width: 360px; margin: 24px auto; padding: 20px 0; border-top: 1px solid var(--register-border); border-bottom: 1px solid var(--register-border); }
 .daySummary { margin: 0; font-size: 12px; color: var(--register-muted); line-height: 1.6; }
 .dialog {
+  margin: auto;
   --register-brand: #FE6100; --register-graphite: #2B2B2B; --register-sidebar: #201C19;
   --register-canvas: #F7F1EB; --register-surface: #FFFDFC; --register-border: #E4D5C9; --register-muted: #667085;
   color: var(--register-graphite); border: 1px solid var(--register-border); border-radius: 16px;
@@ -127,6 +134,9 @@
 .dialogBody > p { font-size: 13px; line-height: 1.7; }
 .dialogActions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--register-border); padding: 16px 24px; }
 .dialogActions > .quiet:first-child { margin-right: auto; }
+.priceProduct { display: grid; gap: 4px; margin: 0 0 16px; overflow-wrap: anywhere; }
+.priceProduct span { font-size: 12px; color: var(--register-muted); }
+.catalogPrice { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 16px; font-variant-numeric: tabular-nums; }
 .field { display: grid; gap: 8px; margin: 0 0 16px; min-width: 0; }
 .field > span { font-size: 13px; font-weight: 550; }
 .field input, .field textarea { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--register-border); border-radius: 8px; background: var(--register-surface); color: inherit; font: inherit; padding: 12px; }
@@ -182,7 +192,8 @@
   .summary { padding: 16px; }
   .summary > header { margin-bottom: 16px; }
   .totalBlock, .paymentMethod { display: none; }
-  .discountButton { margin-bottom: 0; }
+  .discountButton { margin-bottom: 16px; }
+  .paymentChoice { margin-bottom: 0; }
   .checkoutFooter { position: fixed; bottom: calc(60px + env(safe-area-inset-bottom,0px)); left: 0; right: 0; z-index: 39; border-top: 1px solid var(--register-border); background: var(--register-surface); padding: 12px 16px; gap: 8px; box-shadow: 0 -4px 16px rgb(32 28 25 / 4%); }
   .mobileTotal { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .mobileTotal > span { font-size: 12px; color: var(--register-muted); }

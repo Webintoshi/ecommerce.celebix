@@ -364,6 +364,40 @@ test("authenticated order detail validates the path ID and calls once", async ()
   assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }]);
 });
 
+test("POS detail exposes persisted method only to explicitly versioned readers", async () => {
+  const calls: unknown[] = [];
+  for (const inStorePaymentMethod of ["card", "cash", null] as const) {
+    const value = { ...detail(), source: "in_store" as const, inStorePaymentMethod };
+    const handlers = createOrderHttpHandlers(dependencies(repository({
+      async getOrder(input) { calls.push(input); return value; },
+    })));
+    for (const version of [undefined, "1", "2"]) {
+      const response = await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}`, {
+        headers: version === undefined ? {} : { "X-Celebix-In-Store-Version": version },
+      }), ORDER_ID);
+      assert.equal(response.status, 200);
+      const { inStorePaymentMethod: _method, ...legacy } = value;
+      assert.deepEqual(await body(response), version === "2" ? value : legacy);
+      assert.deepEqual(calls.at(-1), { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID, ...(version === "2" ? { inStoreVersion: 2 } : {}) });
+    }
+  }
+});
+
+test("POS detail rejects unsupported version headers and leaves other order response bodies exact", async () => {
+  let reads = 0;
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async getOrder() { reads += 1; return detail(); },
+  })));
+  for (const version of ["0", "3", "02", "1, 2", ""]) {
+    const response = await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}`, { headers: { "X-Celebix-In-Store-Version": version } }), ORDER_ID);
+    assert.equal(response.status, 400);
+  }
+  assert.equal(reads, 0);
+  const response = await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}`, { headers: { "X-Celebix-In-Store-Version": "2" } }), ORDER_ID);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await body(response), detail());
+});
+
 test("order permanent deletion exposes exact impact and one confirmed tenant-scoped command", async () => {
   const calls: Array<readonly [string, unknown]> = [];
   const impact = Object.freeze({

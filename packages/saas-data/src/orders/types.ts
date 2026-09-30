@@ -36,6 +36,7 @@ export interface ListOrdersInput extends OrderAuthorityInput {
 
 export interface GetOrderInput extends OrderAuthorityInput {
   readonly orderId: string;
+  readonly inStoreVersion?: 2;
 }
 
 export interface RetryOrderEmailDeliveryInput extends GetOrderInput {

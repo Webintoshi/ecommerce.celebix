@@ -229,6 +229,22 @@ test("parses a valid order detail", () => {
   assert.deepEqual(parseOrderDetail(detail()), detail());
 });
 
+test("POS detail accepts only persisted card cash or unknown payment metadata", () => {
+  const pos = detail({ source: "in_store" });
+  for (const inStorePaymentMethod of ["card", "cash", null]) {
+    const value = { ...pos, inStorePaymentMethod };
+    assert.deepEqual(parseOrderDetail(value), value);
+  }
+  assert.equal(Object.hasOwn(parseOrderDetail(pos), "inStorePaymentMethod"), false);
+  for (const inStorePaymentMethod of ["manual", "bank_transfer", "", undefined, 0]) {
+    assert.throws(() => parseOrderDetail({ ...pos, inStorePaymentMethod }), /order_contract_invalid/);
+  }
+  for (const source of ["storefront", "quick_link", "manual"]) {
+    assert.throws(() => parseOrderDetail(detail({ source, inStorePaymentMethod: "card" })), /order_contract_invalid/);
+    assert.throws(() => parseOrderDetail(detail({ source, inStorePaymentMethod: null })), /order_contract_invalid/);
+  }
+});
+
 test("parses valid nested order items, events, and notes", () => {
   const parsed = parseOrderDetail(detail());
   assert.deepEqual(parsed.items, detail().items);

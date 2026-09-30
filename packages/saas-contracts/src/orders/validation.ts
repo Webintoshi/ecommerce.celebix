@@ -271,7 +271,7 @@ export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
     "id", "orderNumber", "source", "customerName", "customerEmail", "currency", "totalCents", "status",
     "paymentStatus", "itemCount", "createdAt", "updatedAt", "version", "subtotalCents", "shippingCents",
     "discountCents", "shippingAddress", "items", "events", "notes",
-  ], ["customerPhone", "tracking", "archive"]);
+  ], ["customerPhone", "tracking", "archive", "inStorePaymentMethod"]);
   const list = parseOrderListItem({
     id: parsed.id,
     orderNumber: parsed.orderNumber,
@@ -296,8 +296,11 @@ export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
   const notes = parseArray(parsed.notes, 100, parseNote);
   if (list.itemCount !== items.length) invalid();
   const archive = Object.hasOwn(parsed, "archive") ? exact(parsed.archive, ["archived", "changedAt"]) : undefined;
+  const hasInStorePaymentMethod = Object.hasOwn(parsed, "inStorePaymentMethod");
+  if (hasInStorePaymentMethod && (list.source !== "in_store" || (parsed.inStorePaymentMethod !== "card" && parsed.inStorePaymentMethod !== "cash" && parsed.inStorePaymentMethod !== null))) invalid();
   return freeze({
     ...list,
+    ...(hasInStorePaymentMethod ? { inStorePaymentMethod: parsed.inStorePaymentMethod as "card" | "cash" | null } : {}),
     ...(archive === undefined ? {} : { archive: { archived: boolean(archive.archived), changedAt: timestamp(archive.changedAt) } }),
     ...(Object.hasOwn(parsed, "customerPhone") ? { customerPhone: string(parsed.customerPhone, 3, 32) } : {}),
     subtotalCents,
