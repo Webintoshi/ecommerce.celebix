@@ -11,6 +11,7 @@ import { brandLogoAssetId, loadBrandProductDirectory, type BrandProductDirectory
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
 import { attributeSlug } from "@/lib/catalog-onboarding-ui/attribute-resource";
+import { saveBrandResource } from "@/lib/catalog-admin-ui/brand-resource";
 import styles from "./catalog-admin-console.module.css";
 
 const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
@@ -87,8 +88,6 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoUploadFailed, setLogoUploadFailed] = useState(false);
   const [brandName, setBrandName] = useState("");
-  const [brandSlug, setBrandSlug] = useState("");
-  const [brandSlugEdited, setBrandSlugEdited] = useState(false);
   const [brandSelectedOnly, setBrandSelectedOnly] = useState(false);
   const [attributeValues, setAttributeValues] = useState<readonly string[]>([]);
   const [attributeValueError, setAttributeValueError] = useState("");
@@ -115,8 +114,6 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setLogoBusy(false);
     setLogoUploadFailed(false);
     setBrandName("");
-    setBrandSlug("");
-    setBrandSlugEdited(resourceId !== undefined);
     setBrandSelectedOnly(false);
     setAttributeValues([]);
     setAttributeValueError("");
@@ -138,7 +135,6 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       setSelectedProductIds(selected?.productIds ?? []);
       setSelectedLogoAssetId(selected ? brandLogoAssetId(selected.config) : undefined);
       setBrandName(selected?.name ?? "");
-      setBrandSlug(selected?.slug ?? "");
       setAttributeValues(Array.isArray(selected?.config.values) ? selected.config.values.filter((entry): entry is string => typeof entry === "string") : []);
       setProductCursor(catalog.nextCursor);
     } catch (caught) {
@@ -178,14 +174,15 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setBusy(true);
     setError("");
     try {
-      await catalogAdminApi.saveResource(kind, {
+      const mutation = {
         ...(resource ? { resourceId: resource.id, expectedVersion: resource.version } : {}),
         name,
-        slug,
         ...(value(data, "description") ? { description: value(data, "description") } : {}),
         config: kind === "attribute" ? Object.freeze({ values: submittedAttributeValues.values }) : config(kind, data),
         productIds: selectedProductIds,
-      });
+      };
+      if (kind === "brand") await saveBrandResource(catalogAdminApi, { ...mutation, existingSlug: resource?.slug });
+      else await catalogAdminApi.saveResource(kind, { ...mutation, slug });
       if (requestSequence.current === sequence) {
         router.push(`/products/${route.segment}`);
         router.refresh();
@@ -249,8 +246,8 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     {!loading && error ? <p className={styles.error} role="alert">{error}{resourceId && !resource ? <> <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></> : null}</p> : null}
     {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : kind === "brand" ? styles.brandForm : ""}`} onSubmit={submit}>
       <fieldset className={`${styles.wide} ${styles.formSection} ${kind === "brand" ? styles.brandBasics : ""}`}><legend>{kind === "attribute" ? "Nitelik bilgileri" : "Temel bilgiler"}</legend><div className={styles.fieldGrid}>
-      <label className={kind === "attribute" ? styles.wide : undefined}>{kind === "attribute" ? "Nitelik adı" : "Ad"}<input name="name" required maxLength={120} placeholder={kind === "attribute" ? "Örn. Renk veya Beden" : undefined} {...(kind === "brand" ? { value: brandName, onChange: (event) => { const next = event.currentTarget.value; setBrandName(next); if (!brandSlugEdited) setBrandSlug(attributeSlug(next)); } } : { defaultValue: resource?.name ?? "" })} /></label>
-      {kind !== "attribute" ? <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" {...(kind === "brand" ? { value: brandSlug, onChange: (event) => { setBrandSlugEdited(true); setBrandSlug(event.currentTarget.value); } } : { defaultValue: resource?.slug ?? "" })} /></label> : null}
+      <label className={kind === "attribute" ? styles.wide : undefined}>{kind === "attribute" ? "Nitelik adı" : "Ad"}<input name="name" required maxLength={120} placeholder={kind === "attribute" ? "Örn. Renk veya Beden" : undefined} {...(kind === "brand" ? { value: brandName, onChange: (event) => setBrandName(event.currentTarget.value) } : { defaultValue: resource?.name ?? "" })} /></label>
+      {kind !== "attribute" && kind !== "brand" ? <label>URL anahtarı<input name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={resource?.slug ?? ""} /></label> : null}
       {kind !== "attribute" ? <label className={styles.wide}>Açıklama<textarea name="description" maxLength={2000} defaultValue={resource?.description ?? ""} /></label> : null}
       </div></fieldset>
       {kind === "brand" ? <div className={`${styles.wide} ${styles.brandEditorIntro}`}><CatalogBrandLogoPicker value={selectedLogoAssetId} brandName={brandName} canManage={canManage && !busy} onChange={setSelectedLogoAssetId} onBusyChange={setLogoBusy} onUploadErrorChange={setLogoUploadFailed} /><input type="hidden" name="logoAssetId" value={selectedLogoAssetId ?? ""} /></div> : null}
