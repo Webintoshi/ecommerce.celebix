@@ -186,7 +186,7 @@ function parseDestination(value: unknown): DesignDestination {
     return Object.freeze({ kind: "none" });
   }
   const parsed = exact(base, ["kind", "resourceId"]);
-  if (parsed.kind !== "product" && parsed.kind !== "collection" && parsed.kind !== "page") invalid();
+  if (parsed.kind !== "product" && parsed.kind !== "collection" && parsed.kind !== "catalog_collection" && parsed.kind !== "page") invalid();
   return Object.freeze({ kind: parsed.kind, resourceId: uuid(parsed.resourceId) });
 }
 
@@ -475,7 +475,7 @@ function parseMediaOption(value: unknown): StorefrontDesignMediaOption {
 function parseDestinationOption(value: unknown): StorefrontDesignDestinationOption {
   const parsed = exact(value, ["kind", "resourceId", "label", "path"], ["searchTerms", "categoryIds", "imageUrl", "priceCents", "available"]);
   if (parsed.kind !== "product" && ["searchTerms", "categoryIds", "imageUrl", "priceCents", "available"].some((key) => Object.hasOwn(parsed, key))) invalid();
-  if (parsed.kind !== "product" && parsed.kind !== "collection" && parsed.kind !== "page") invalid();
+  if (parsed.kind !== "product" && parsed.kind !== "collection" && parsed.kind !== "catalog_collection" && parsed.kind !== "page") invalid();
   return Object.freeze({ kind: parsed.kind, resourceId: uuid(parsed.resourceId), label: text(parsed.label, 1, 200), path: path(parsed.path),
     ...(Object.hasOwn(parsed, "searchTerms") ? { searchTerms: Object.freeze(array(parsed.searchTerms, 0, 100).map((item) => text(item, 1, 200))) } : {}),
     ...(Object.hasOwn(parsed, "categoryIds") ? { categoryIds: Object.freeze(array(parsed.categoryIds, 0, 100).map(uuid)) } : {}),
@@ -497,7 +497,7 @@ export function parseStorefrontDesignWorkspace(value: unknown): StorefrontDesign
   const assets = Object.hasOwn(parsed, "assets") ? Object.freeze(array(parsed.assets, 0, 2000).map((value): StorefrontDesignAssetOption => {
     const item = exact(value, ["id", "url", "altText", "mediaType", "width", "height", "kind"]);
     const { kind: _kind, ...media } = item;
-    return Object.freeze({ ...parseMediaOption(media), kind: oneOf(item.kind, ["logo", "hero", "social", "favicon", "category"] as const) });
+    return Object.freeze({ ...parseMediaOption(media), kind: oneOf(item.kind, ["logo", "hero", "social", "favicon", "category", "collection"] as const) });
   })) : undefined;
   if (assets && new Set(assets.map((item) => item.id)).size !== assets.length) invalid();
   const destinations = Object.freeze(array(parsed.destinations, 0, 2_000).map(parseDestinationOption));

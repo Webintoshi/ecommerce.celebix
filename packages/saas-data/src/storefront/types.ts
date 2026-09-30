@@ -1,6 +1,7 @@
 import type { PublicProduct, PublicProductV2, PublicProductList, PublicProductMedia, PublicStarterThemePresentation, PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import type { PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import type { TenantContext } from "@celebix/saas-contracts";
+import type { PublicCollectionPage } from "../../../saas-contracts/src/storefront/collections.ts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export type TrustedStorefrontContext = Readonly<{ storefront: PublicStorefront }>;
@@ -13,6 +14,7 @@ export type PublicCatalogQuery = TrustedStorefrontContext & Readonly<{
   limit: number; offset: number;
 }>;
 export type PublicCatalogPage = Readonly<{ items: readonly PublicProduct[]; total: number; nextOffset: number | null }>;
+export type PublicCollectionQuery = Omit<PublicCatalogQuery, "categorySlug"> & Readonly<{ slug: string }>;
 export type CampaignHomeProjection = Readonly<{
   presentation: PublicStarterThemePresentation;
   productRows: readonly Readonly<{ key: string; items: readonly PublicProduct[] }>[];
@@ -40,6 +42,7 @@ export interface PublicStorefrontRepository {
   getPublicStorefront(input: Readonly<{ hostname: string; now: Date }>): Promise<PublicStorefront>;
   listPublicProducts(input: TrustedStorefrontContext & Readonly<{ now: Date; limit: number }>): Promise<PublicProductList>;
   queryPublicCatalog?(input: PublicCatalogQuery): Promise<PublicCatalogPage>;
+  queryPublicCollection?(input: PublicCollectionQuery): Promise<PublicCollectionPage>;
   listPublicProductsByCategory(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string; limit: number }>): Promise<PublicStorefrontCategoryProductList>;
   getPublicProductBySlug(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProduct>;
   getPublicProductWithSeoBySlug?(input: TrustedStorefrontContext & Readonly<{ now: Date; slug: string }>): Promise<PublicProductV2>;

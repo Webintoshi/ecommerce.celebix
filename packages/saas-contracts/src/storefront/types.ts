@@ -68,7 +68,7 @@ export type StarterThemeSectionConfigV3 = WithHomepageSectionId<StarterThemeSect
 
 export type HomepageSectionStyle = Readonly<{ background: "theme" | "light" | "dark" | "brand"; width: "contained" | "full"; spacing: "small" | "normal" | "large" }>;
 export type BannerMediaReference = Readonly<{ kind: "media"; mediaId: string } | { kind: "asset"; assetId: string } | { kind: "legacy_https"; url: string }> | null;
-export type BannerDestination = Readonly<{ kind: "none" } | { kind: "product" | "collection" | "page"; resourceId: string } | { kind: "path"; path: string }>;
+export type BannerDestination = Readonly<{ kind: "none" } | { kind: "product" | "collection" | "catalog_collection" | "page"; resourceId: string } | { kind: "path"; path: string }>;
 export type HomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: BannerMediaReference; mobileImage: BannerMediaReference; destination: BannerDestination; eyebrow?: string; productId?: string }>;
 export type StarterThemeSectionConfigV4 = Readonly<(
   | Exclude<StarterThemeSectionConfigV3, { kind: "hero" }>
@@ -81,6 +81,7 @@ export type StarterFooterLinkConfig =
   | Readonly<{ kind: "fixed_policy"; policyKey: StarterFixedPolicyKey }>
   | Readonly<{ kind: "category"; categoryId: string }>
   | Readonly<{ kind: "page"; pageId: string }>
+  | Readonly<{ kind: "catalog_collection"; resourceId: string }>
   | Readonly<{ kind: "system"; destination: "/" | "/products" | "/favorites" | "/account" }>;
 export type StarterSocialNetwork = "instagram" | "facebook" | "youtube" | "pinterest" | "tiktok" | "x";
 export type StarterFooterConfig = Readonly<{
@@ -117,7 +118,7 @@ export type StarterThemeCompositionConfig = Readonly<{
   schemaVersion: 1;
   visual: StarterThemeVisual;
   announcement: Readonly<{ enabled: boolean; items: readonly string[]; destination?: string }>;
-  navigation: Readonly<{ rootCategoryIds: readonly string[]; featuredCategoryId?: string; featuredAssetId?: string }>;
+  navigation: Readonly<{ rootCategoryIds: readonly string[]; rootLinks?: readonly Readonly<{ kind: "category" | "catalog_collection"; resourceId: string }>[]; featuredCategoryId?: string; featuredAssetId?: string }>;
   sections: readonly StarterThemeSectionConfig[];
   productDetail: Readonly<{ galleryStyle: "grid" | "rail"; showSku: boolean; showBrand: boolean; showRelatedProducts: boolean; mobileStickyPurchase: boolean }>;
   cart: StarterCartConfig;
@@ -152,6 +153,9 @@ export type PublicStarterNavigationItem = Readonly<{
   name: string;
   slug: string;
   children: readonly PublicStarterNavigationItem[];
+  kind?: "category" | "catalog_collection";
+  resourceId?: string;
+  path?: string;
   featured?: Readonly<{ name: string; slug: string; image: PublicStorefrontAsset }>;
 }>;
 

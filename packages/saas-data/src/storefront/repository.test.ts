@@ -91,3 +91,17 @@ test("SEO detail opts into V2 and V1 rejects its added fields", async () => {
   assert.ok(fixture.queries.some((sql) => sql.includes("public_starter_product_detail_v2")));
   await assert.rejects(fixture.value.getPublicProductBySlug(input), (error) => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
 });
+test("real collection reads use exact-host read-only authority and preserve SQL order", async () => {
+  const payload = { collection: { id: CATEGORY_ID, name: "Yeni sezon", slug: "yeni-sezon" }, items: [product], total: 101, nextOffset: 24 };
+  const fixture = repository("found", payload);
+  const selected = await fixture.value.queryPublicCollection({ storefront, now: new Date(), slug: "yeni-sezon", query: "", filter: "all", order: "featured", limit: 24, offset: 0 });
+  assert.deepEqual(selected, payload);
+  assert.ok(fixture.queries.includes("BEGIN READ ONLY"));
+  assert.equal(fixture.queries.filter(sql => sql.includes("public_catalog_collection_query")).length, 1);
+});
+test("unpublished collection outcomes and cross-store covers fail closed", async () => {
+  const input = { storefront, now: new Date(), slug: "yeni-sezon", query: "", filter: "all", order: "featured", limit: 24, offset: 0 } as const;
+  await assert.rejects(repository("not_found", null).value.queryPublicCollection(input), error => error instanceof PublicStorefrontRepositoryError && error.code === "not_found");
+  const cover = { url: `https://media.saas-staging.celebix.site/stores/${CATEGORY_ID}/storefront/collection/${VARIANT_ID}.webp`, mediaType: "image/webp", altText: "", width: 800, height: 600 };
+  await assert.rejects(repository("found", { collection: { id: CATEGORY_ID, name: "Yeni sezon", slug: "yeni-sezon", cover }, items: [], total: 0, nextOffset: null }).value.queryPublicCollection(input), error => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
+});

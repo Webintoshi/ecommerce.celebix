@@ -1,5 +1,7 @@
 export { normalizeStarterThemeCompositionV3, parsePublicProduct, parsePublicProductV2, parsePublicProductMedia, parsePublicProductVariant, parsePublicStarterThemePresentation, parsePublicStorefront, parseStarterThemeCompositionConfig } from "./validation.ts";
 export { parseNewsletterSubscribeInput } from "./newsletter.ts";
+export { parsePublicCollectionPage } from "./collections.ts";
+export type { PublicCatalogCollection, PublicCollectionPage } from "./collections.ts";
 export type { NewsletterSubscribeInput } from "./newsletter.ts";
 export {
   FIXED_STOREFRONT_POLICIES,

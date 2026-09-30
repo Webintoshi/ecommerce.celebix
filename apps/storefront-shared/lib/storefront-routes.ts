@@ -32,6 +32,9 @@ export function productPath(locale: string, slug: string): string {
 export function categoryPath(locale: string, slug: string): string {
   return `${isTurkishLocale(locale) ? "/kategori" : "/categories"}/${slug}`;
 }
+export function collectionPath(locale: string, slug: string): string {
+  return `${isTurkishLocale(locale) ? "/koleksiyon" : "/collections"}/${slug}`;
+}
 
 export function localizeStorefrontPath(destination: string, locale: string): string {
   if (!isTurkishLocale(locale) || !destination.startsWith("/")) return destination;
@@ -43,6 +46,7 @@ export function localizeStorefrontPath(destination: string, locale: string): str
   if (pathname.startsWith("/categories/")) {
     return `${categoryPath(locale, pathname.slice("/categories/".length))}${suffix}`;
   }
+  if (pathname.startsWith("/collections/")) return `${collectionPath(locale, pathname.slice("/collections/".length))}${suffix}`;
   return destination;
 }
 

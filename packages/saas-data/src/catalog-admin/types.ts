@@ -13,6 +13,11 @@ import type {
 } from "@celebix/saas-contracts";
 export type { CatalogAdminImportRow } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
+import type { CatalogCollectionConfig, CatalogCollectionDetail, CatalogCollectionListPage, CatalogCollectionListQuery, CatalogCollectionMembersPage, CatalogCollectionMembersQuery } from "@celebix/saas-contracts";
+
+export interface ListCatalogCollectionsInput extends CatalogAdminAuthorityInput { readonly query: CatalogCollectionListQuery }
+export interface GetCatalogCollectionInput extends CatalogAdminAuthorityInput { readonly collectionId: string }
+export interface CatalogCollectionMembersInput extends CatalogAdminAuthorityInput { readonly collectionId?: string; readonly config?: CatalogCollectionConfig; readonly query: CatalogCollectionMembersQuery }
 
 export interface CatalogAdminAuthorityInput { readonly tenantContext: TenantContext; readonly now: Date }
 export interface ListCatalogAdminResourcesInput extends CatalogAdminAuthorityInput { readonly kind: CatalogAdminResourceKind }
@@ -64,6 +69,10 @@ export interface CommitCatalogImportPreviewInput extends CatalogAdminAuthorityIn
   readonly expectedVersion: number;
 }
 export interface CatalogAdminRepository {
+  listCollections?(input: ListCatalogCollectionsInput): Promise<CatalogCollectionListPage>;
+  getCollection?(input: GetCatalogCollectionInput): Promise<CatalogCollectionDetail>;
+  collectionMembers?(input: CatalogCollectionMembersInput): Promise<CatalogCollectionMembersPage>;
+  restoreCollection?(input: ArchiveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
   listResources(input: ListCatalogAdminResourcesInput): Promise<readonly CatalogAdminResource[]>;
   getResource(input: GetCatalogAdminResourceInput): Promise<CatalogAdminResource>;
   saveResource(input: SaveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;

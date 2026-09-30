@@ -1,3 +1,4 @@
+import { parseCatalogCollectionDescription } from "../catalog-collections/index.ts";
 import {
   CATALOG_ADMIN_RESOURCE_KINDS,
   CATALOG_IMPORT_STATUSES,
@@ -163,9 +164,9 @@ export function parseCatalogAdminResource(
   const resourceConfig = config as Readonly<Record<string, CatalogAdminJson>>;
   if (
     !Array.isArray(parsed.productIds) ||
-    parsed.productIds.length > RESOURCE_PRODUCT_IDS_MAX ||
+    parsed.productIds.length > (parsed.kind === "collection" && resourceConfig.mode === "automatic" ? 100000 : RESOURCE_PRODUCT_IDS_MAX) ||
     new TextEncoder().encode(JSON.stringify(parsed.productIds)).byteLength >
-      RESOURCE_PRODUCT_IDS_BYTES_MAX
+      (parsed.kind === "collection" && resourceConfig.mode === "automatic" ? 4000000 : RESOURCE_PRODUCT_IDS_BYTES_MAX)
   )
     invalid();
   const productIds = Object.freeze(parsed.productIds.map(uuid));
@@ -181,7 +182,7 @@ export function parseCatalogAdminResource(
     slug: text(parsed.slug, 1, 120, SLUG),
     ...(parsed.description === undefined
       ? {}
-      : { description: text(parsed.description, 1, 2000) }),
+      : { description: parsed.kind === "collection" ? parseCatalogCollectionDescription(parsed.description) : text(parsed.description, 1, 2000) }),
     config: resourceConfig,
     status: parsed.status as CatalogAdminResource["status"],
     productIds,

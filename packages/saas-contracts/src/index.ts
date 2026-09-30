@@ -674,6 +674,9 @@ export type { MerchantContentKind, MerchantContentField, MerchantContentValues, 
 export { parseMerchantContentDocument, parseSaveMerchantContentRequest, parseMerchantContentOrigins } from "./merchant-content/index.ts";
 
 export * from "./content-resource-authoring/index.ts";
+export * from "./catalog-collections/index.ts";
+export {parsePublicCollectionPage} from "./storefront/collections.ts";
+export type {PublicCatalogCollection,PublicCollectionPage} from "./storefront/collections.ts";
 
 export { normalizeStarterThemeCompositionV4, parseHomepageSectionStyle, parseBannerMediaReference, parseBannerDestination } from "./storefront/index.ts";
 export type { BannerDestination, BannerMediaReference, HomepageBannerSlide, HomepageSectionStyle, PublicHomepageBannerSlide, PublicStarterThemePresentationV4, StarterThemeCompositionConfigV4, StarterThemeSectionConfigV4 } from "./storefront/index.ts";

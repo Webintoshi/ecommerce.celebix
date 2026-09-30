@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   categoryPath,
+  collectionPath,
   localizePublicStorefrontDesign,
   localizeStorefrontPath,
   productIndexPath,
@@ -14,6 +15,9 @@ test("Turkish storefront routes use customer-facing Turkish slugs", () => {
   assert.equal(productIndexPath("tr"), "/urunler");
   assert.equal(productPath("tr-TR", "altin-kolye"), "/urun/altin-kolye");
   assert.equal(categoryPath("tr", "kolyeler"), "/kategori/kolyeler");
+  assert.equal(collectionPath("tr", "kolyeler"), "/koleksiyon/kolyeler");
+  assert.equal(collectionPath("en", "kolyeler"), "/collections/kolyeler");
+  assert.equal(localizeStorefrontPath("/collections/kolyeler?q=gold#products", "tr"), "/koleksiyon/kolyeler?q=gold#products");
   assert.equal(storefrontRouteVariant("tr-TR"), "localized");
 });
 

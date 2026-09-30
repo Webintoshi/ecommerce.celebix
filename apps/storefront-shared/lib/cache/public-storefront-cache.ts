@@ -73,6 +73,7 @@ export function createCachedPublicStorefrontRepository(
     // wait for the old TTL. Only product media remains cacheable below.
     listPublicProducts: (input: Parameters<PublicStorefrontRepository["listPublicProducts"]>[0]) => repository.listPublicProducts(input),
     ...(repository.queryPublicCatalog ? { queryPublicCatalog: (input: PublicCatalogQuery) => repository.queryPublicCatalog!(input) } : {}),
+    ...(repository.queryPublicCollection ? { queryPublicCollection: (input: Parameters<NonNullable<PublicStorefrontRepository["queryPublicCollection"]>>[0]) => repository.queryPublicCollection!(input) } : {}),
     listPublicProductsByCategory: (input: Parameters<PublicStorefrontRepository["listPublicProductsByCategory"]>[0]) => repository.listPublicProductsByCategory(input),
     getPublicProductBySlug: (input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]) => repository.getPublicProductBySlug(input),
     // SEO is committed profile authority; never retain it across merchant saves.

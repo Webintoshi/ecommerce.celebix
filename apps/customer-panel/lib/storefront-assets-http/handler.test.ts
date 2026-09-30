@@ -107,3 +107,11 @@ test("storefront asset list and archive remain session-derived and bounded", asy
   assert.equal(archive.status, 200);
   assert.equal(selected.calls.includes(`unpublish:${asset.objectKey}`), true);
 });
+test("collection cover library is filtered server side and accepts no authority query", async () => {
+  const inputs: unknown[] = [];
+  const selected = handlers({async listAssets(input: unknown) {inputs.push(input);return [];}});
+  const request = (query: string) => new Request(`${ORIGIN}/api/storefront-assets${query}`,{headers:{cookie:`__Host-celebix_panel=${CREDENTIAL}`}});
+  assert.equal((await selected.value.list(request("?kind=collection"))).status,200);
+  assert.equal((inputs[0] as {kind:string}).kind,"collection");
+  for(const query of ["?kind=collection&kind=logo","?storeId="+STORE,"?kind=unknown"]) assert.equal((await selected.value.list(request(query))).status,400);
+});

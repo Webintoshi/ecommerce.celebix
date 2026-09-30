@@ -164,8 +164,8 @@ function publicFooter(composition: StarterThemeCompositionConfigV4, destinations
           const selected = fixed[link.policyKey];
           return [Object.freeze({ label: selected[0], destination: selected[1] })];
         }
-        const kind = link.kind === "category" ? "collection" : "page";
-        const resourceId = link.kind === "category" ? link.categoryId : link.pageId;
+        const kind = link.kind === "category" ? "collection" : link.kind === "catalog_collection" ? "catalog_collection" : "page";
+        const resourceId = link.kind === "category" ? link.categoryId : link.kind === "catalog_collection" ? link.resourceId : link.pageId;
         const selected = destination.get(`${kind}:${resourceId}`);
         return selected ? [Object.freeze({ label: selected.label, destination: selected.path })] : [];
       })),
@@ -321,10 +321,11 @@ export function composeDraftCampaignProjection(input: Readonly<{
     hero: Object.freeze({ enabled: false, headline: firstHero?.headline ?? input.storeName, body: firstHero?.body ?? "Ürünlerimizi keşfedin.", destination: firstHero?.destination ?? "/products", ...(firstHero?.desktopImage ? { image: firstHero.desktopImage } : {}) }),
     visual: composition.visual,
     ...(composition.announcement.enabled ? { announcement: Object.freeze({ items: composition.announcement.items, ...(composition.announcement.destination ? { destination: composition.announcement.destination } : {}) }) } : {}),
-    navigation: input.resources.navigation?.value ?? Object.freeze({ items: Object.freeze(composition.navigation.rootCategoryIds.flatMap((id) => {
-      const item = input.destinations.find((item) => item.kind === "collection" && item.resourceId === id);
-      const slug = item?.path.match(/^\/(?:categories|collections|kategori)\/([a-z0-9-]+)$/)?.[1];
-      return item && slug ? [{ name: item.label, slug, children: Object.freeze([]) }] : [];
+    navigation: input.resources.navigation?.value ?? Object.freeze({ items: Object.freeze((composition.navigation.rootLinks ?? composition.navigation.rootCategoryIds.map(resourceId => ({ kind: "category" as const, resourceId }))).flatMap((link) => {
+      const kind = link.kind === "category" ? "collection" : "catalog_collection";
+      const item = input.destinations.find((item) => item.kind === kind && item.resourceId === link.resourceId);
+      const slug = item?.path.match(/^\/(?:categories|collections|kategori|koleksiyon)\/([a-z0-9-]+)$/)?.[1];
+      return item && slug ? [{ name: item.label, slug, children: Object.freeze([]), ...(link.kind === "catalog_collection" ? { kind: link.kind, resourceId: link.resourceId, path: item.path } : {}) }] : [];
     })) }),
     sections: Object.freeze(sections),
     productDetail: composition.productDetail,

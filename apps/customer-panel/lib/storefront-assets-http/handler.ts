@@ -6,7 +6,6 @@ import { readPersistentPanelSessionCookie } from "../server-panel-session-contro
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { validateProductImage } from "../server-media/image-validation.ts";
 import type { ServerStorefrontAssetRuntime } from "../server-storefront-assets/runtime.ts";
-import { approvedStorefrontMutationOrigin } from "../storefront-design-http/request-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -26,14 +25,16 @@ function validText(value: unknown, maximum: number): value is string { return ty
 async function authorize(dependencies: Dependencies, request: Request, method: "GET" | "POST" | "DELETE"): Promise<Response | Authorized> {
   let runtime: ServerStorefrontAssetRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return response("unavailable", 503); } if (!runtime) return response("unavailable", 503);
   if (request.method !== method) return response("method_not_allowed", 405);
-  if (method !== "GET" && !approvedStorefrontMutationOrigin(request, runtime.access.panelOrigin)) return response("origin_denied", 403);
+  if (method !== "GET" && !hasApprovedPanelMutationOriginShape(request, runtime.access.panelOrigin)) return response("origin_denied", 403);
   let url: URL; try { url = new URL(request.url); } catch { return response("invalid_input", 400); }
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== PATH || url.search || url.hash || privateHeaders(request)) return response("invalid_input", 400);
+  const query=[...url.searchParams.entries()];
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== PATH || (method!=="GET"&&url.search) || (method==="GET"&&query.length>0&&(query.length!==1||query[0]![0]!=="kind"||!safeKind(query[0]![1]))) || url.hash || privateHeaders(request)) return response("invalid_input", 400);
   const cookie = readPersistentPanelSessionCookie(request); if (cookie.kind !== "present") return response("unauthenticated", 401);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return response("unavailable", 503); }
   if (!(now instanceof Date) || !Number.isFinite(now.getTime()) || !UUID.test(requestId)) return response("unavailable", 503);
   let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return response("unavailable", 503); }
   if (access.kind === "unauthenticated") return response("unauthenticated", 401); if (access.kind === "unauthorized") return response("membership_denied", 403); if (access.kind !== "authenticated") return response("unavailable", 503);
+  if(method!=="GET"&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return response("origin_denied",403);
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 
@@ -47,7 +48,8 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
   return Object.freeze({
     async list(request: Request) {
       const authorized = await authorize(dependencies, request, "GET"); if (isResponse(authorized)) return authorized;
-      try { return response("ok", 200, { assets: await authorized.runtime.assets.listAssets({ tenantContext: authorized.tenantContext, now: authorized.now }) }); } catch (error) { return repositoryFailure(error); }
+      const kind=safeKind(new URL(request.url).searchParams.get("kind"));
+      try { return response("ok", 200, { assets: await authorized.runtime.assets.listAssets({ tenantContext: authorized.tenantContext, now: authorized.now,...(kind?{kind}:{}) }) }); } catch (error) { return repositoryFailure(error); }
     },
     async upload(request: Request) {
       const authorized = await authorize(dependencies, request, "POST"); if (isResponse(authorized)) return authorized;
@@ -106,3 +108,4 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
     },
   });
 }
+import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from "../panel-origin-authority.ts";

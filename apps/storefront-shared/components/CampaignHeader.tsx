@@ -7,7 +7,7 @@ import type {
 
 import { CampaignHeaderClient } from "./CampaignHeaderClient";
 import styles from "./campaign-header.module.css";
-import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
+import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
 export function CampaignHeader({
   storefront,
@@ -47,6 +47,7 @@ export function CampaignHeader({
             <StorefrontNavigationItems
               items={presentation.navigation.items}
               categoryHref={(slug) => categoryPath(storefront.locale, slug)}
+              resolveHref={item => item.path ? localizeStorefrontPath(item.path, storefront.locale) : categoryPath(storefront.locale, item.slug)}
               renderLink={(href, content, className) => <Link href={href} className={className}>{content}</Link>}
               classes={{ root: styles.megaTrigger, summary: styles.megaTrigger, panel: styles.mega, links: styles.megaLinks, featured: styles.featured, branch: styles.megaBranch }}
             />

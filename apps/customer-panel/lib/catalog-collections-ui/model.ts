@@ -1,0 +1,21 @@
+import { attributeSlug } from '../catalog-onboarding-ui/attribute-resource.ts';
+
+export type CollectionMode = 'manual' | 'automatic';
+export type CollectionPublication = 'draft' | 'published';
+export type CollectionSort = 'custom' | 'newest' | 'title' | 'price-asc' | 'price-desc';
+export type CollectionRule = Readonly<{kind:'category'|'brand'|'tag';resourceId:string}>;
+export type CollectionDraft = Readonly<{name:string;description:string;slug:string;mode:CollectionMode;publicationStatus:CollectionPublication;featured:boolean;sort:CollectionSort;match:'all'|'any';rules:readonly CollectionRule[];productIds:readonly string[];coverAssetId?:string;coverAltText:string}>;
+export const COLLECTION_SORTS = [['custom','Özel sıra'],['newest','Yeni gelenler'],['title','Ürün adı'],['price-asc','Fiyat: düşükten yükseğe'],['price-desc','Fiyat: yüksekten düşüğe']] as const;
+export function collectionDraft(resource?:Readonly<{name:string;description?:string;slug:string;config:Readonly<Record<string,unknown>>;productIds:readonly string[]}>):CollectionDraft {
+ const config=resource?.config??{};
+ return {name:resource?.name??'',description:resource?.description??'',slug:resource?.slug??'',mode:config.mode==='automatic'?'automatic':'manual',publicationStatus:config.publicationStatus==='published'?'published':'draft',featured:config.featured===true,sort:COLLECTION_SORTS.some(([sort])=>sort===config.sort)?config.sort as CollectionSort:'custom',match:config.match==='any'?'any':'all',rules:Array.isArray(config.rules)?config.rules.filter((rule):rule is CollectionRule=>Boolean(rule&&typeof rule==='object'&&['category','brand','tag'].includes(rule.kind)&&typeof rule.resourceId==='string')).map(rule=>({...rule})):[],productIds:[...(resource?.productIds??[])],...(typeof config.coverAssetId==='string'?{coverAssetId:config.coverAssetId}:{}),coverAltText:typeof config.coverAltText==='string'?config.coverAltText:''};
+}
+export function draftFingerprint(draft:CollectionDraft):string {return JSON.stringify(draft);}
+export function applySelection(current:readonly string[],selected:ReadonlySet<string>):readonly string[]{const retained=current.filter(id=>selected.has(id));const existing=new Set(retained);return [...retained,...[...selected].filter(id=>!existing.has(id))];}
+/** Complete canonical order comes from the server; historical unmatched pins never grant membership. */
+export function moveProduct(orderedIds:readonly string[],productId:string,target:number,existingPins?:readonly string[]):readonly string[]{const index=orderedIds.indexOf(productId);if(index<0||target<0||target>=orderedIds.length||index===target)return existingPins??orderedIds;const result=[...orderedIds];result.splice(index,1);result.splice(target,0,productId);if(!existingPins)return result;const members=new Set(orderedIds);return [...result,...existingPins.filter(id=>!members.has(id))];}
+export function validateDraft(draft:CollectionDraft):Readonly<{name?:string;rules?:string;products?:string}>{return {...(!draft.name.trim()?{name:'Koleksiyon adını girin.'}:draft.name.trim().length>120?{name:'Ad en fazla 120 karakter olabilir.'}:{}),...(draft.mode==='automatic'&&(!draft.rules.length||draft.rules.length>10||draft.rules.some(rule=>!rule.resourceId)||new Set(draft.rules.map(rule=>`${rule.kind}:${rule.resourceId}`)).size!==draft.rules.length)?{rules:'1–10 tamamlanmış koşul ekleyin.'}:{}),...(draft.productIds.length>(draft.mode==='automatic'?100_000:10_000)?{products:draft.mode==='automatic'?'En fazla 100.000 ürün sıralanabilir.':'En fazla 10.000 ürün seçebilirsiniz.'}:{})};}
+export function nextCollectionSlug(name:string,occupied:ReadonlySet<string>):string {const base=attributeSlug(name)||'koleksiyon';for(let suffix=1;;suffix+=1){const end=suffix===1?'':`-${suffix}`;const slug=base.slice(0,120-end.length).replace(/-$/g,'')+end;if(!occupied.has(slug))return slug;}}
+export function statusLabel(status:string){return status==='archived'?'Arşiv':status==='published'?'Yayında':'Taslak';}
+export function safePublicUrl(value?:string):string|undefined{if(!value)return;try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:undefined;}catch{return;}}
+export function money(cents?:number,currency='TRY'){return cents===undefined?'—':new Intl.NumberFormat('tr-TR',{style:'currency',currency}).format(cents/100);}

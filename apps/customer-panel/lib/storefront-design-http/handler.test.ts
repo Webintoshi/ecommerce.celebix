@@ -5,7 +5,7 @@ import test from "node:test";
 import { createDefaultStarterThemeComposition, normalizeStorefrontDesignDocumentV5, parseStorefrontDesignDocument, type StorefrontDesignDocument, type TenantContext } from "@celebix/saas-contracts";
 import { StorefrontDesignRepositoryError, type StorefrontDesignRepository } from "@celebix/saas-data";
 
-import { createStorefrontDesignHttpHandlers, validateStorefrontDesignWorkspaceReferences } from "./handler.ts";
+import { createStorefrontDesignHttpHandlers, validateStorefrontDesignEditorReferences, validateStorefrontDesignWorkspaceReferences } from "./handler.ts";
 
 const ORIGIN = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN_ORIGIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
@@ -174,6 +174,22 @@ test("direct apply requires mutation origin, configuration authority, version, a
   const response = await selected.handlers.apply(request("/api/storefront-design/apply","POST",{expectedPublishedVersion:1,design},{"idempotency-key":OPERATION}));
   assert.equal(response.status,409);
   assert.deepEqual(await response.json(),{code:"version_conflict"});
+});
+test("direct apply authorizes real collection banners and mixed menu links against exact tenant choices", () => {
+ const normalized = normalizeStorefrontDesignDocumentV5(DESIGN);
+ const design = parseStorefrontDesignDocument({
+  ...normalized,
+  composition: {
+   ...normalized.composition,
+   navigation: { rootCategoryIds: [CATEGORY], rootLinks: [{ kind: "category", resourceId: CATEGORY }, { kind: "catalog_collection", resourceId: PAGE }] },
+   sections: [{ kind: "banner", sectionId: "home_collection_banner", enabled: false, layout: "single", autoplay: false, presentation: "overlay", slides: [{ slideId: "slide_collection_banner", enabled: false, headline: "Sonbahar", body: "", desktopImage: null, mobileImage: null, destination: { kind: "catalog_collection", resourceId: PAGE } }] }],
+  },
+ });
+ const editor = { schemaVersion: 1 as const, publishedVersion: 1, publishedAt: NOW.toISOString(), design: normalized, store: workspace().store, media: [], destinations: [{ kind: "collection" as const, resourceId: CATEGORY, label: "Kategori", path: "/categories/kategori" }, { kind: "catalog_collection" as const, resourceId: PAGE, label: "Sonbahar", path: "/collections/sonbahar" }] };
+ assert.equal(validateStorefrontDesignEditorReferences(design, editor), true);
+ assert.equal(validateStorefrontDesignEditorReferences(design, { ...editor, destinations: editor.destinations.slice(0, 1) }), false);
+ const foreignCategory = { ...design, composition: { ...design.composition, navigation: { rootCategoryIds: [CATEGORY], rootLinks: [{ kind: "category" as const, resourceId: PRODUCT }] } } };
+ assert.equal(validateStorefrontDesignEditorReferences(foreignCategory, editor), false);
 });
 
 test("draft save parses the exact document and binds the idempotency key and expected version", async () => {
