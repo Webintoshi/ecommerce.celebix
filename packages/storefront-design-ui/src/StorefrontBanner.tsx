@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import type { PublicStarterHomeSection } from "@celebix/saas-contracts";
 
 type BannerSection = Extract<PublicStarterHomeSection, { kind: "banner" }>;
-const defaultHref = (path: string) => path;
-
-export function StorefrontBanner({ section, previewMode, destinationHref = defaultHref, priority = false }: Readonly<{
+export function StorefrontBanner({ section, previewMode, destinationHrefs, priority = false }: Readonly<{
   section: BannerSection;
   previewMode?: "desktop" | "mobile";
-  destinationHref?: (path: string) => string;
+  destinationHrefs?: Readonly<Record<string, string>>;
   priority?: boolean;
 }>) {
+  const destinationHref = (path: string) => destinationHrefs?.[path] ?? path;
   const enabled = section.slides.filter((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay"));
   const slides = section.layout === "single" ? enabled.slice(0, 1) : enabled;
   const carousel = section.layout === "slider" && slides.length > 1;

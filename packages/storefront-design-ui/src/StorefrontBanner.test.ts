@@ -70,9 +70,11 @@ test("overlay banners retain copy and product hotspots while image-only banners 
   const Banner = await bannerRenderer();
   const configured = section("single");
   const overlay = { ...configured, presentation: "overlay" as const, slides: [{ ...configured.slides[0]!, eyebrow: "Seçki", hotspot: { productSlug: "kolye", title: "Altın Kolye", priceCents: 10000, currency: "TRY" as const } }] };
-  const markup = renderToStaticMarkup(React.createElement(Banner, { section: overlay, destinationHref: (path) => `/tr${path}` }));
+  const destinationHrefs = JSON.parse(JSON.stringify({ "/products/a": "/urun/a", "/products/kolye": "/urun/kolye" })) as Readonly<Record<string, string>>;
+  const markup = renderToStaticMarkup(React.createElement(Banner, { section: overlay, destinationHrefs }));
   assert.match(markup, /celebix-store-banner-copy/);
   assert.match(markup, /Seçki/);
   assert.match(markup, /Altın Kolye/);
-  assert.match(markup, /href="\/tr\/products\/kolye"/);
+  assert.match(markup, /href="\/urun\/a"/);
+  assert.match(markup, /href="\/urun\/kolye"/);
 });
