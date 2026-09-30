@@ -1,0 +1,425 @@
+[data-storefront-theme="guzide-deniz"] .guzide-footer {
+  --guzide-footer-ink: #171717;
+  --guzide-footer-muted: #6b6863;
+  --guzide-footer-line: #e8e6e2;
+  --guzide-footer-gold: #8a6534;
+  --guzide-footer-gutter: clamp(20px, 4vw, 64px);
+  --retail-footer-fg: var(--guzide-footer-ink);
+  --retail-footer-muted: var(--guzide-footer-muted);
+  --retail-footer-line: var(--guzide-footer-line);
+  border-top: 1px solid var(--guzide-footer-line);
+  background: #fff;
+  color: var(--guzide-footer-ink);
+  font-family: var(--store-body-font, Arial, Helvetica, sans-serif);
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__inner {
+  width: calc(100% - var(--guzide-footer-gutter) * 2);
+  max-width: 1328px;
+  margin-inline: auto;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__main {
+  display: grid;
+  grid-template-columns: var(--guzide-footer-columns);
+  gap: 32px;
+  align-items: start;
+  padding-block: 54px 46px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__main > * {
+  min-width: 0;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer :is(a, button, input, summary):focus-visible {
+  outline: 2px solid var(--guzide-footer-gold);
+  outline-offset: 4px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__logo {
+  display: inline-flex;
+  width: 150px;
+  max-width: 100%;
+  min-height: 48px;
+  align-items: center;
+  margin-bottom: 13px;
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__logo strong {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__contact {
+  max-width: 100%;
+  color: var(--guzide-footer-muted);
+  font-size: 11.5px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__contact + .guzide-footer__contact {
+  margin-top: 3px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__heading {
+  margin: 0 0 15px;
+  font-family: var(--store-body-font, Arial, Helvetica, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .035em;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__links {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__links a {
+  display: inline-block;
+  max-width: 100%;
+  color: var(--guzide-footer-muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__mobile-groups {
+  display: none;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-title {
+  margin: -3px 0 9px;
+  font-family: var(--store-body-font, Arial, Helvetica, sans-serif);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -.012em;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-copy {
+  margin: 0 0 15px;
+  color: var(--guzide-footer-muted);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-form {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-form label > span:last-child {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-color: var(--guzide-footer-ink);
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form input[type="email"] {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: var(--guzide-footer-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form button {
+  min-width: 52px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 0 10px 8px;
+  background: transparent;
+  color: var(--guzide-footer-ink);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-consent {
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 48px;
+  color: var(--guzide-footer-muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-consent input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--guzide-footer-gold);
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-consent > span {
+  display: block;
+  border: 0;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-form > p {
+  min-height: 20px;
+  margin: 0;
+  color: var(--guzide-footer-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding-bottom: 24px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__social a {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  color: var(--guzide-footer-muted);
+  font-size: 11.5px;
+  text-decoration: none;
+  text-transform: capitalize;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer :is(a, button):hover {
+  color: var(--guzide-footer-gold);
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  min-height: 70px;
+  border-top: 1px solid var(--guzide-footer-line);
+  padding-block: 17px;
+  color: var(--guzide-footer-muted);
+  font-size: 10.5px;
+}
+
+[data-storefront-theme="guzide-deniz"] .guzide-footer__copyright {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1279px) {
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__main {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 36px 28px;
+    padding-block: 45px 38px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__brand {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 220px repeat(2, minmax(0, 1fr));
+    gap: 28px;
+    align-items: center;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__logo,
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__contact + .guzide-footer__contact {
+    margin: 0;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    column-gap: 42px;
+    border-top: 1px solid var(--guzide-footer-line);
+    padding-top: 28px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-title {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    margin-top: 0;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-copy {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: 0;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__form {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    align-self: start;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 899px) {
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 34px 32px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__brand {
+    display: flex;
+    grid-column: auto;
+    gap: 0;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__logo {
+    margin-bottom: 13px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__contact + .guzide-footer__contact {
+    margin-top: 3px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter {
+    column-gap: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__main {
+    display: block;
+    padding-block: 30px 28px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__brand {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__logo {
+    margin-bottom: 4px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__contact {
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    font-size: 12px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__contact + .guzide-footer__contact {
+    margin-top: -7px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__desktop-group {
+    display: none;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__mobile-groups {
+    display: block;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__group {
+    border-top: 1px solid var(--guzide-footer-line);
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__group .guzide-footer__heading {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    font-size: 12px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__heading::-webkit-details-marker {
+    display: none;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__chevron {
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__group[open] .guzide-footer__chevron {
+    transform: rotate(180deg);
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__links {
+    gap: 0;
+    padding-bottom: 12px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__links a {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    font-size: 12px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter {
+    display: block;
+    margin-top: 0;
+    border-top: 1px solid var(--guzide-footer-line);
+    padding-top: 28px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-title {
+    max-width: 290px;
+    margin-bottom: 9px;
+    font-size: 16px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__newsletter-copy {
+    max-width: 340px;
+    margin-bottom: 13px;
+    font-size: 12px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__form input[type="email"] {
+    font-size: 16px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__form .retail-newsletter-consent {
+    gap: 10px;
+    font-size: 10.5px;
+  }
+
+  [data-storefront-theme="guzide-deniz"] .guzide-footer__bottom {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    min-height: 88px;
+    padding-block: 14px;
+    font-size: 10px;
+  }
+}
