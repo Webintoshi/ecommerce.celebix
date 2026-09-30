@@ -46,3 +46,13 @@ test("migration applies v4 once and always runs assertions", async () => {
   assert.deepEqual(writes, ["modular_homepage_migration=applied"]);
   assert.equal(calls.at(-1), "end");
 });
+
+test("existing section builder V5 passes its compatible assertions without rerunning migration100", async () => {
+  const files=[];const client={async connect(){},async end(){},async query(text){
+    if(text.includes("current_database()"))return{rowCount:1,rows:[{database_matches:true,postgres_matches:true,tier_matches:true,writable_primary:true,writable_transaction:true,owner_member:true}]};
+    if(text.includes("storefront_design_document_with_home_ids"))return{rowCount:1,rows:[{has_objects:true,ready:true,section_ready:true}]};
+    return{rowCount:0,rows:[]};
+  }};
+  await runModularHomepageMigration({client,databaseName:"celebix_saas_staging_auth01",readSql(name){files.push(name);return `-- ${name}`;},write(){}});
+  assert.deepEqual(files,["202609300178_section_homepage_v4_assertions.sql"]);
+});

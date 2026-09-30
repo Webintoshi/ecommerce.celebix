@@ -76,7 +76,7 @@ function stable(value: unknown): string {
   return `{${Object.entries(value as Record<string, unknown>).filter(([, nested]) => nested !== undefined).sort(([left], [right]) => left.localeCompare(right)).map(([key, nested]) => `${JSON.stringify(key)}:${stable(nested)}`).join(",")}}`;
 }
 
-export function designFingerprint(kind: "save_draft" | "publish" | "media_reserve", storeId: string, value: unknown): string {
+export function designFingerprint(kind: "save_draft" | "publish" | "media_reserve" | "apply", storeId: string, value: unknown): string {
   return createHash("sha256").update(stable({ kind, storeId, value }), "utf8").digest("hex");
 }
 

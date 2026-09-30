@@ -1,186 +1,46 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import React, {type ReactNode} from "react";
-import {normalizeStarterThemeCompositionV3, type StorefrontDesignDocument} from "@celebix/saas-contracts";
-import {compile, DESIGN, withEditor} from "./design-editor-test-utils.ts";
-const HomepageBuilder=compile<{HomepageBuilder:(props:Record<string,unknown>)=>ReactNode}>(new URL("./HomepageBuilder.tsx",import.meta.url)).HomepageBuilder;
-const category=(index:number)=>({kind:"collection",resourceId:`50000000-0000-4000-8000-${String(index).padStart(12,"0")}`,label:`Kategori ${index}`,path:`/kategori/${index}`});
-const asset={id:"30000000-0000-4000-8000-000000000001",kind:"hero",url:"https://fixture.invalid/image.webp",altText:"Hero asset",mediaType:"image/webp",width:1200,height:800};
-function fixture(section:unknown):StorefrontDesignDocument {return {...DESIGN,composition:{...DESIGN.composition,sections:[section]}} as StorefrontDesignDocument;}
-const campaign={kind:"split_campaign",sectionId:"home_campaign_1",enabled:true,panels:[{heading:"Başlık",eyebrow:"Üst metin",body:"Korunacak açıklama",assetId:asset.id,destination:"/"}]};
-const button=(container:HTMLElement,label:string)=>{const target=container.querySelector(`button[aria-label="${label}"]`);assert.ok(target);return target;};
-
-test("campaign image change preserves eyebrow and body",async()=>withEditor(async({container,render,click,change})=>{
- const changes:StorefrontDesignDocument[]=[];
- await render(React.createElement(HomepageBuilder,{design:fixture(campaign),media:[{...asset,id:"30000000-0000-4000-8000-000000000003",altText:"Unrelated design media"}],assets:[asset,{...asset,id:"30000000-0000-4000-8000-000000000003"}],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>changes.push(value)}));
- await click(button(container,"İkili kampanya bölümünü düzenle"));
- const image=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Görsel"))?.querySelector("select"); assert.ok(image);
- await change(image,"30000000-0000-4000-8000-000000000003");
- const result=changes.at(-1)?.composition.sections[0]; assert.equal(result?.kind,"split_campaign");if(result?.kind==="split_campaign") {assert.equal(result.panels[0]?.eyebrow,"Üst metin");assert.equal(result.panels[0]?.body,"Korunacak açıklama");}
- assert.doesNotMatch(image.textContent??"",/Unrelated design media/);
+import React,{type ReactNode} from "react";
+import {normalizeStorefrontDesignDocumentV5,type StarterThemeSectionConfigV4,type StorefrontDesignDocument} from "@celebix/saas-contracts";
+import {compile,DESIGN,withEditor} from "./design-editor-test-utils.ts";
+const {HomepageSectionEditor,HomepageBuilder}=compile<{HomepageSectionEditor:(props:Record<string,unknown>)=>ReactNode;HomepageBuilder:(props:Record<string,unknown>)=>ReactNode}>(new URL("./HomepageBuilder.tsx",import.meta.url));
+const id=(number:number)=>`40000000-0000-4000-8000-${String(number).padStart(12,"0")}`;
+const asset={id:id(1),kind:"hero",url:"https://fixture.invalid/one.webp",altText:"One",mediaType:"image/webp",width:1200,height:800};
+const categories=[1,2].map(number=>({kind:"collection",resourceId:id(number+10),label:`Kategori ${number}`,path:`/collections/${number}`}));
+function button(container:HTMLElement,label:string){const element=Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(item=>item.textContent?.trim()===label||item.getAttribute("aria-label")===label||item.textContent?.includes(label));assert.ok(element,`Missing ${label}`);return element;}
+function field(container:HTMLElement,label:string){const element=Array.from(container.querySelectorAll("label")).find(item=>item.textContent?.startsWith(label))?.querySelector<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>("input,select,textarea");assert.ok(element,`Missing field ${label}`);return element;}
+function design(section:StarterThemeSectionConfigV4):StorefrontDesignDocument{const baseline=normalizeStorefrontDesignDocumentV5(DESIGN);return {...baseline,composition:{...baseline.composition,sections:[section]}};}
+const row:StarterThemeSectionConfigV4={kind:"product_row",sectionId:"home_products",enabled:true,heading:"Products",source:"latest",limit:8};
+test("section fields keep incomplete local text editable and preserve unrelated fields",async()=>withEditor(async({container,render,change})=>{
+ let current=design(row);const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_products",media:[],destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await change(field(container,"Başlık"),"");await draw();assert.equal(field(container,"Başlık").value,"");assert.match(container.textContent??"",/Başlık yazın/);
+ await change(field(container,"Ürün sayısı"),"12");await draw();assert.equal(field(container,"Başlık").value,"");await change(field(container,"Başlık"),"Complete");await draw();const section=current.composition.sections[0];assert.equal(section?.kind,"product_row");if(section?.kind==="product_row"){assert.equal(section.limit,12);assert.equal(section.heading,"Complete");}
+}));
+test("campaign image changes keep eyebrow and body; second card can be completed first",async()=>withEditor(async({container,render,change})=>{
+ let current=design({kind:"split_campaign",sectionId:"home_campaign",enabled:true,panels:[{heading:"First",eyebrow:"Eyebrow",body:"Body",assetId:asset.id,destination:"/products"}]});const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_campaign",media:[],assets:[asset,{...asset,id:id(2)}],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await change(field(container,"Görsel"),id(2));await draw();const first=current.composition.sections[0];assert.equal(first?.kind,"split_campaign");if(first?.kind==="split_campaign"){assert.equal(first.panels[0]?.body,"Body");assert.equal(first.panels[0]?.eyebrow,"Eyebrow");}
+ const second=container.querySelectorAll("fieldset")[1]!;await change(field(second,"Başlık"),"Second");await draw();await change(field(container.querySelectorAll("fieldset")[1]!,"Görsel"),asset.id);await draw();await change(field(container.querySelectorAll("fieldset")[1]!,"Bağlantı"),categories[0]!.path);await draw();const section=current.composition.sections[0];if(section?.kind==="split_campaign")assert.deepEqual(section.panels.map(panel=>panel.heading),["First","Second"]);
+}));
+test("manual product picker searches SKU and barcode, filters category and preserves merchant order",async()=>withEditor(async({container,render,change,click})=>{
+ const products=[1,2,3].map(number=>({kind:"product",resourceId:id(number+20),label:`Ürün ${number}`,path:`/products/${number}`,searchTerms:[`SKU-${number}`,`86900${number}`],categoryIds:[categories[number===3?1:0]!.resourceId]}));let current=design({...row,source:"manual",productIds:[],limit:12});const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:row.sectionId,media:[],destinations:[...categories,...products],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();
+ await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"SKU-1");await click(button(container,"Seç"));await draw();await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"869002");await click(button(container,"Seç"));await draw();await click(button(container,"Ürün 2 yukarı taşı"));await draw();const selected=current.composition.sections[0];if(selected?.kind==="product_row")assert.deepEqual(selected.productIds,[products[1]!.resourceId,products[0]!.resourceId]);
+ await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"");await change(field(container,"Kategori filtresi"),categories[1]!.resourceId);assert.match(container.querySelector("ul.productPickerList")?.textContent??"",/Ürün 3/);assert.doesNotMatch(container.querySelector("ul.productPickerList")?.textContent??"",/Ürün 1/);
+}));
+test("category sections keep their selected categories, image overrides and ordering",async()=>withEditor(async({container,render,change,click})=>{
+ let current=design({kind:"category_grid",sectionId:"home_categories",enabled:true,heading:"Categories",layout:"grid",categoryIds:categories.map(item=>item.resourceId)});const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_categories",media:[],assets:[{...asset,kind:"category"}],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await change(field(container,"Kart görseli"),asset.id);await draw();await click(button(container,"Kategori 2 yukarı taşı"));await draw();const section=current.composition.sections[0];if(section?.kind==="category_grid"){assert.deepEqual(section.categoryIds,[categories[1]!.resourceId,categories[0]!.resourceId]);assert.deepEqual(section.categoryImages,[{categoryId:categories[0]!.resourceId,assetId:asset.id}]);}
+}));
+test("banner supports all layouts, stable slides, encoded origins and desktop fallback",async()=>withEditor(async({container,render,change,click})=>{
+ let current=design({kind:"banner",sectionId:"home_banner",enabled:true,layout:"single",autoplay:false,presentation:"image_only",slides:[{slideId:"slide_one",enabled:true,headline:"",body:"",desktopImage:{kind:"legacy_https",url:"https://fixture.invalid/retained.webp"},mobileImage:null,destination:{kind:"none"}}]});const choices=[{...asset,reference:{kind:"asset",assetId:asset.id},assetKind:"hero"},{...asset,reference:{kind:"media",mediaId:asset.id}},{...asset,id:id(8),reference:{kind:"asset",assetId:id(8)},assetKind:"category"}];const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_banner",media:choices,destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();assert.equal(field(container,"Masaüstü görseli").value,"legacy");assert.ok(!Array.from((field(container,"Masaüstü görseli") as HTMLSelectElement).options).some(option=>option.value===`asset:${id(8)}`));
+ for(const layout of ["slider","stacked","single"]){await change(field(container,"Yerleşim"),layout);await draw();const section=current.composition.sections[0];if(section?.kind==="banner"){assert.equal(section.layout,layout);assert.equal(section.slides[0]?.desktopImage?.kind,"legacy_https");}}
+ await change(field(container,"Masaüstü görseli"),`asset:${asset.id}`);await draw();await change(field(container,"Mobil görseli"),`media:${asset.id}`);await draw();await change(field(container,"Mobil görseli"),"");await draw();await click(button(container,"Görsel ekle"));await draw();const section=current.composition.sections[0];if(section?.kind==="banner"){assert.equal(section.slides.length,2);assert.notEqual(section.slides[0]?.slideId,section.slides[1]?.slideId);assert.deepEqual(section.slides[0]?.desktopImage,{kind:"asset",assetId:asset.id});assert.equal(section.slides[0]?.mobileImage,null);}
+}));
+test("every section can duplicate, hide and remove in local editor state",async()=>withEditor(async({container,render,click})=>{
+ let current=design({kind:"brand_story",sectionId:"home_story",enabled:true,heading:"Story",body:"Body"}),selected="home_story";const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:selected,media:[],destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:(id:string)=>{selected=id;}}));await draw();await click(button(container,"Çoğalt"));await draw();assert.equal(current.composition.sections.length,2);assert.notEqual(selected,"home_story");await click(button(container,"Gizle"));await draw();assert.equal(current.composition.sections[1]?.enabled,false);await click(button(container,"Kaldır"));await draw();assert.equal(current.composition.sections.length,1);assert.match(container.textContent??"",/Bölüm kaldırıldı/);
+}));
+test("order popup supports drag, arrows, remove and undo without changing boundary surfaces",async()=>withEditor(async({container,window,render,click})=>{
+ const base=normalizeStorefrontDesignDocumentV5(DESIGN);let current={...base,composition:{...base.composition,sections:[row,{...row,sectionId:"home_second"}]}} as StorefrontDesignDocument;const draw=()=>render(React.createElement(HomepageBuilder,{design:current,canManage:true,onChange:(next:StorefrontDesignDocument)=>{current=next;}}));await draw();const rows=container.querySelectorAll(".homepageSectionList li");await React.act(async()=>{rows[1]!.dispatchEvent(new window.Event("dragstart",{bubbles:true}) as unknown as Event);rows[0]!.dispatchEvent(new window.Event("drop",{bubbles:true,cancelable:true}) as unknown as Event);});await draw();assert.equal((current.composition.sections[0] as {sectionId:string}).sectionId,"home_second");await click(button(container,"Ürün bölümü 1 aşağı taşı"));await draw();assert.equal((current.composition.sections[0] as {sectionId:string}).sectionId,row.sectionId);await click(button(container,"Ürün bölümü 1 kaldır"));await draw();await click(button(container,"Kaldırılan bölümü geri getir"));await draw();assert.equal(current.composition.sections.length,2);assert.deepEqual(current.composition.footer,base.composition.footer);assert.deepEqual(current.composition.navigation,base.composition.navigation);
 }));
 
-test("editing campaign card two first keeps local incomplete input without invalid persistence",async()=>withEditor(async({container,render,click,change})=>{
- const changes:StorefrontDesignDocument[]=[];
- await render(React.createElement(HomepageBuilder,{design:fixture({...campaign,panels:[]}),media:[asset],assets:[asset],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>changes.push(value)}));
- await click(button(container,"İkili kampanya bölümünü düzenle"));
- const fields=Array.from(container.querySelectorAll("fieldset"));const second=fields.find(field=>field.querySelector("legend")?.textContent==="2. kampanya");assert.ok(second);
- const image=Array.from(second.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Görsel"))?.querySelector("select");assert.ok(image);await change(image,asset.id);
- assert.equal(changes.length,0);assert.match(second.textContent??"",/Bağlantı seçin/);
-}));
-
-test("ninth category and fifth product duplication are disabled before invalid writes",async()=>withEditor(async({container,render,click})=>{
- const categories=Array.from({length:9},(_,i)=>category(i+1));
- await render(React.createElement(HomepageBuilder,{design:fixture({kind:"category_grid",sectionId:"home_categories_1",enabled:true,heading:"Kategoriler",layout:"grid",categoryIds:categories.slice(0,8).map(item=>item.resourceId)}),media:[],assets:[],destinations:categories,canManage:true,previewMode:"desktop",onChange:()=>{throw new Error("unexpected write");}}));
- await click(button(container,"Kategori vitrini bölümünü düzenle"));
- const checks=container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');assert.equal(checks[8]?.disabled,true);
- const row={kind:"product_row",enabled:true,heading:"Ürünler",source:"latest",limit:4};
- await render(React.createElement(HomepageBuilder,{design:{...DESIGN,composition:{...DESIGN.composition,sections:Array.from({length:4},(_,index)=>({...row,sectionId:`home_rows_${index}`}))}},media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:()=>{throw new Error("unexpected write");}}));
- assert.ok(Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label="Çoğalt"]')).every(item=>item.disabled));
-}));
-
-test("section editor uses one dialog owner and Escape closes only the section",async()=>withEditor(async({container,window,render,click})=>{
- let outerEscape=0;
- await render(React.createElement("div",{role:"dialog",onKeyDown:(event:React.KeyboardEvent)=>{if(event.key==="Escape")outerEscape++;}},React.createElement(HomepageBuilder,{design:DESIGN,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:()=>{}})));
- const trigger=button(container,"Ürün bölümü bölümünü düzenle");await click(trigger);
- assert.equal(container.querySelectorAll('[role="dialog"]').length,1);
- const editor=container.querySelector<HTMLElement>('[aria-labelledby="homepage-section-editor-heading"]');assert.ok(editor);
- await React.act(async()=>editor.dispatchEvent(new window.KeyboardEvent("keydown",{key:"Escape",bubbles:true}) as unknown as Event));
- assert.equal(outerEscape,0);assert.equal(container.querySelector('[aria-labelledby="homepage-section-editor-heading"]'),null);
-}));
-
-test("empty heading stays editable with its field error and does not replace valid draft",async()=>withEditor(async({container,render,click,change})=>{
- const changes:StorefrontDesignDocument[]=[];
- await render(React.createElement(HomepageBuilder,{design:DESIGN,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>changes.push(value)}));
- await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const field=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Başlık"))?.querySelector("input");assert.ok(field);
- await change(field,"");assert.equal(field.value,"");assert.match(container.textContent??"",/Başlık yazın/);assert.equal(changes.length,0);assert.equal(field.getAttribute("aria-invalid"),"true");
- await change(field,"Yeni başlık");assert.equal(changes.length,1);assert.equal(field.getAttribute("aria-invalid"),"false");
-}));
-
-test("campaign second card can be completed first and both cards persist without sparse panels",async()=>withEditor(async({container,render,click,change})=>{
- const changes:StorefrontDesignDocument[]=[];
- await render(React.createElement(HomepageBuilder,{design:fixture({...campaign,panels:[]}),media:[],assets:[asset],destinations:[category(1)],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>changes.push(value)}));
- await click(button(container,"İkili kampanya bölümünü düzenle"));
- for(const card of [2,1]){
-  const fieldset=Array.from(container.querySelectorAll("fieldset")).find(field=>field.querySelector("legend")?.textContent===`${card}. kampanya`);assert.ok(fieldset);
-  const field=(label:string)=>Array.from(fieldset.querySelectorAll("label")).find(item=>item.textContent?.startsWith(label))?.querySelector<HTMLInputElement|HTMLSelectElement>("input,select");
-  await change(field("Başlık")!,`Kart ${card}`);await change(field("Görsel")!,asset.id);await change(field("Bağlantı")!,category(1).path);
-  if(card===2)assert.equal(changes.length,0);
- }
- const section=changes.at(-1)?.composition.sections[0];assert.equal(section?.kind,"split_campaign");if(section?.kind==="split_campaign")assert.deepEqual(section.panels.map(panel=>panel.heading),["Kart 1","Kart 2"]);
-}));
-
-test("manual picker finds SKU and barcode, filters category, and reorders selected products",async()=>withEditor(async({container,render,click,change})=>{
- const products=[1,2,3].map(index=>({kind:"product",resourceId:`40000000-0000-4000-8000-${String(index).padStart(12,"0")}`,label:`Ürün ${index}`,path:`/urun/${index}`,searchTerms:[`SKU-${index}`,`869000000${index}`],categoryIds:[category(index===3?2:1).resourceId],priceCents:10000,available:index!==2}));
- let design=fixture({kind:"product_row",sectionId:"home_manual_1",enabled:true,heading:"Seçtiklerim",source:"manual",productIds:[],limit:12});
- const onChange=(next:StorefrontDesignDocument)=>{design=next;};
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[...products,category(1),category(2)],canManage:true,previewMode:"desktop",onChange}));
- await draw();await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const search=container.querySelector<HTMLInputElement>('input[type="search"]');assert.ok(search);await change(search,"SKU-1");assert.match(container.textContent??"",/Ürün 1/);assert.doesNotMatch(container.querySelector(".productPickerList")?.textContent??"",/Ürün 2/);
- let select=Array.from(container.querySelectorAll("button")).find(item=>item.textContent==="Seç");assert.ok(select);await click(select);await draw();
- await change(search,"8690000002");select=Array.from(container.querySelectorAll("button")).find(item=>item.textContent==="Seç");assert.ok(select);await click(select);await draw();
- await click(button(container,"Ürün 2 yukarı taşı"));await draw();const row=design.composition.sections[0];assert.equal(row?.kind,"product_row");if(row?.kind==="product_row")assert.deepEqual(row.productIds,[products[1]!.resourceId,products[0]!.resourceId]);
- await click(button(container,"Ürün 1 seçimini kaldır"));await draw();await change(search,"");const filter=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Kategori filtresi"))?.querySelector("select");assert.ok(filter);await change(filter,category(2).resourceId);assert.match(container.querySelector('ul.productPickerList')?.textContent??"",/Ürün 3/);
-}));
-
-test("category image overrides and explicit category order survive edits",async()=>withEditor(async({container,render,click,change})=>{
- const categories=[category(1),category(2)],categoryAsset={...asset,kind:"category"};let design=fixture({kind:"category_grid",sectionId:"home_categories_1",enabled:true,heading:"Kategoriler",layout:"grid",categoryIds:categories.map(item=>item.resourceId)});
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],assets:[categoryAsset],destinations:categories,canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw();await click(button(container,"Kategori vitrini bölümünü düzenle"));const image=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Kart görseli"))?.querySelector("select");assert.ok(image);await change(image,asset.id);await draw();await click(button(container,"Kategori 2 yukarı taşı"));await draw();
- const section=design.composition.sections[0];assert.equal(section?.kind,"category_grid");if(section?.kind==="category_grid"){assert.deepEqual(section.categoryIds,[categories[1]!.resourceId,categories[0]!.resourceId]);assert.deepEqual(section.categoryImages,[{categoryId:categories[0]!.resourceId,assetId:asset.id}]);}
-}));
-
-test("manual picker disables duplicates and thirteenth product and preserves selected order",async()=>withEditor(async({container,render,click})=>{
- const products=Array.from({length:13},(_,index)=>({kind:"product",resourceId:`40000000-0000-4000-8000-${String(index+1).padStart(12,"0")}`,label:`Ürün ${index+1}`,path:`/urun/${index+1}`}));const ids=products.slice(0,12).map(item=>item.resourceId);
- await render(React.createElement(HomepageBuilder,{design:fixture({kind:"product_row",sectionId:"home_manual_1",enabled:true,heading:"Seçtiklerim",source:"manual",productIds:ids,limit:12}),media:[],destinations:products,canManage:true,previewMode:"desktop",onChange:()=>{throw new Error("unexpected write");}}));await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const selectionButtons=Array.from(container.querySelectorAll("button")).filter(item=>["Seçildi","Seç"].includes(item.textContent??""));assert.equal(selectionButtons.length,13);assert.ok(selectionButtons.every(item=>item.disabled));assert.match(container.textContent??"",/12\/12/);
-}));
-
-test("value propositions support adding and removing within two-to-four item bounds",async()=>withEditor(async({container,render,click})=>{
- let design=fixture({kind:"value_propositions",sectionId:"home_values_1",enabled:true,items:[{icon:"shield",heading:"Güven",body:"Güvenli alışveriş"},{icon:"truck",heading:"Teslimat",body:"Özenli teslimat"}]});
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));await draw();await click(button(container,"Değer önerileri bölümünü düzenle"));
- assert.ok(Array.from(container.querySelectorAll("button")).filter(item=>item.textContent?.includes("Değeri kaldır")).every(item=>item.disabled));
- for(let i=0;i<2;i++){const add=Array.from(container.querySelectorAll("button")).find(item=>item.textContent?.includes("Değer ekle"));assert.ok(add);await click(add);await draw();}
- const add=Array.from(container.querySelectorAll("button")).find(item=>item.textContent?.includes("Değer ekle"));assert.equal(add?.disabled,true);
- const remove=Array.from(container.querySelectorAll("button")).find(item=>item.textContent?.includes("Değeri kaldır"));assert.ok(remove);await click(remove);await draw();const section=design.composition.sections[0];assert.equal(section?.kind,"value_propositions");if(section?.kind==="value_propositions")assert.equal(section.items.length,3);
- const addAgain=Array.from(container.querySelectorAll("button")).find(item=>item.textContent?.includes("Değer ekle"));assert.ok(addAgain);await click(addAgain);await draw();const final=design.composition.sections[0];if(final?.kind==="value_propositions")assert.equal(final.items.length,4);
-}));
-
-test("switching an automatic row to manual enables all twelve chosen products",async()=>withEditor(async({container,render,click,change})=>{
- const changes:StorefrontDesignDocument[]=[];await render(React.createElement(HomepageBuilder,{design:DESIGN,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>changes.push(value)}));await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const source=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Hangi ürünler?"))?.querySelector("select");assert.ok(source);await change(source,"manual");const row=changes.at(-1)?.composition.sections[0];assert.equal(row?.kind,"product_row");if(row?.kind==="product_row"){assert.equal(row.limit,12);assert.deepEqual(row.productIds,[]);}
-}));
-
-test("persisted legacy hero can be labeled, hidden, removed, and restored without a second banner editor",async()=>withEditor(async({container,render,click})=>{
- const legacy={kind:"hero",sectionId:"home_legacy_hero",enabled:true,slides:[{heading:"Eski banner",desktopAssetId:asset.id,destination:"/products"}]};let design=fixture(legacy);
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],assets:[asset],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));await draw();await click(button(container,"Eski banner kaydı bölümünü düzenle"));assert.match(container.textContent??"",/Önceki tasarımın banner kaydı/);assert.doesNotMatch(container.textContent??"",/undefined/);
- await click(button(container,"Bölüm düzenleyiciyi kapat"));await click(button(container,"Gizle"));await draw();assert.equal(design.composition.sections[0]?.enabled,false);await click(button(container,"Sil"));await draw();assert.equal(design.composition.sections.length,0);
- const undo=Array.from(container.querySelectorAll("button")).find(item=>item.textContent?.includes("Geri al"));assert.ok(undo);await click(undo);await draw();assert.equal(normalizeStarterThemeCompositionV3(design.composition).sections[0]?.sectionId,legacy.sectionId);assert.equal(design.composition.sections[0]?.enabled,false);
-}));
-
-test("Escape from a section field stays inside the real settings modal window listener",async()=>withEditor(async({container,window,render,click})=>{
- const {DesignSettingsModal}=compile<{DesignSettingsModal:(props:Record<string,unknown>)=>ReactNode}>(new URL("./DesignSettingsDrawer.tsx",import.meta.url));let closed=0;
- await render(React.createElement(DesignSettingsModal,{open:true,surface:{label:"Ana sayfa",hint:"Bölümler"},returnFocusRef:{current:null},onClose:()=>closed++},React.createElement(HomepageBuilder,{design:DESIGN,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:()=>{}})));
- const trigger=button(container,"Ürün bölümü bölümünü düzenle");await click(trigger);const field=container.querySelector<HTMLInputElement>('.homepageInspectorFields input');assert.ok(field);field.focus();await React.act(async()=>field.dispatchEvent(new window.KeyboardEvent("keydown",{key:"Escape",bubbles:true}) as unknown as Event));
- assert.equal(closed,0);assert.equal(container.querySelector('[aria-labelledby="homepage-section-editor-heading"]'),null);assert.equal(container.querySelectorAll('[role="dialog"]').length,1);await React.act(async()=>new Promise(resolve=>setTimeout(resolve,5)));assert.equal(window.document.activeElement,trigger);
-}));
-
-
-test("editing an open section after hiding it preserves the hidden state", async () => withEditor(async ({ container, render, click, change }) => {
- let design=DESIGN;
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw(); await click(button(container,"Ürün bölümü bölümünü düzenle"));
- await click(button(container,"Gizle")); await draw();
- const field=container.querySelector<HTMLInputElement>('.homepageInspectorFields input'); assert.ok(field);
- await change(field,"Hidden selection"); await draw();
- const section=design.composition.sections[0]; assert.equal(section?.enabled,false);
- if(section?.kind==="product_row")assert.equal(section.heading,"Hidden selection");
-}));
-
-test("an open editor uses restored or conflict-resolved section content before the next edit", async () => withEditor(async ({ container, render, click, change }) => {
- let design=DESIGN;
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw(); await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const original=normalizeStarterThemeCompositionV3(design.composition).sections[0]; assert.equal(original?.kind,"product_row");
- if(original?.kind!=="product_row")return;
- design={...design,composition:{...design.composition,sections:[{...original,heading:"Restored heading",source:"sale",limit:8}]}}; await draw();
- const heading=container.querySelector<HTMLInputElement>('.homepageInspectorFields input'); assert.ok(heading); assert.equal(heading.value,"Restored heading");
- const count=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Ürün sayısı"))?.querySelector("select");assert.ok(count);
- await change(count,"12"); await draw(); const section=design.composition.sections[0];
- if(section?.kind==="product_row"){assert.equal(section.heading,"Restored heading");assert.equal(section.source,"sale");assert.equal(section.limit,12);}
-}));
-
-test("temporary input rebases on external changes without losing unrelated section values", async () => withEditor(async ({ container, render, click, change }) => {
- let design=DESIGN;
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw(); await click(button(container,"Ürün bölümü bölümünü düzenle"));
- const field=container.querySelector<HTMLInputElement>('.homepageInspectorFields input');assert.ok(field);await change(field,"");
- const original=normalizeStarterThemeCompositionV3(design.composition).sections[0];if(original?.kind!=="product_row")throw new Error("fixture row missing");
- design={...design,composition:{...design.composition,sections:[{...original,enabled:false,source:"sale",limit:8}]}};await draw();
- assert.equal(field.value,"");assert.equal(field.getAttribute("aria-invalid"),"true");
- await change(field,"Completed heading");await draw();const section=design.composition.sections[0];
- if(section?.kind==="product_row"){assert.equal(section.enabled,false);assert.equal(section.source,"sale");assert.equal(section.limit,8);assert.equal(section.heading,"Completed heading");}
-}));
-
-test("temporary campaign text keeps restored metadata in the same panel", async () => withEditor(async ({ container, render, click, change }) => {
- let design=fixture(campaign);
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],assets:[asset],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw();await click(button(container,"İkili kampanya bölümünü düzenle"));
- const field=container.querySelector<HTMLInputElement>('.homepageInspectorFields input');assert.ok(field);await change(field,"");
- design=fixture({...campaign,enabled:false,panels:[{...campaign.panels[0]!,body:"Restored body",eyebrow:"Restored eyebrow"}]});await draw();
- assert.equal(field.value,"");await change(field,"Completed campaign");await draw();const section=design.composition.sections[0];
- if(section?.kind==="split_campaign"){assert.equal(section.enabled,false);assert.equal(section.panels[0]?.body,"Restored body");assert.equal(section.panels[0]?.eyebrow,"Restored eyebrow");assert.equal(section.panels[0]?.heading,"Completed campaign");}
-}));
-
-
-test("temporary value text preserves items added by an external restored section", async () => withEditor(async ({ container, render, click, change }) => {
- const items=[{icon:"shield",heading:"Trust",body:"Original trust"},{icon:"truck",heading:"Delivery",body:"Original delivery"}];
- let design=fixture({kind:"value_propositions",sectionId:"home_values",enabled:true,items});
- const draw=()=>render(React.createElement(HomepageBuilder,{design,media:[],destinations:[],canManage:true,previewMode:"desktop",onChange:(value:StorefrontDesignDocument)=>{design=value;}}));
- await draw();await click(button(container,"Değer önerileri bölümünü düzenle"));
- const heading=Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Başlık"))?.querySelector("input");assert.ok(heading);await change(heading,"");
- design=fixture({kind:"value_propositions",sectionId:"home_values",enabled:true,items:[{...items[0]!,body:"Restored trust"},items[1]!,{icon:"heart",heading:"Care",body:"Restored care"}]});await draw();
- await change(heading,"Completed trust");await draw();const section=design.composition.sections[0];
- if(section?.kind==="value_propositions"){assert.equal(section.items.length,3);assert.equal(section.items[0]?.body,"Restored trust");assert.equal(section.items[2]?.heading,"Care");}
+test("closing the banner editor while upload is pending ignores its late configuration completion",async()=>withEditor(async({container,window,render})=>{
+ const current=design({kind:"banner",sectionId:"home_upload",enabled:true,layout:"single",autoplay:false,presentation:"overlay",slides:[{slideId:"slide_upload",enabled:true,headline:"Banner",body:"",desktopImage:null,mobileImage:null,destination:{kind:"none"}}]});let release:((value:unknown)=>void)|undefined;let updates=0;const pending=new Promise(resolve=>{release=resolve;});
+ await render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_upload",media:[],destinations:[],disabled:false,onChange:()=>updates++,onSelectSection:()=>{},onUpload:()=>pending}));
+ const upload=container.querySelector<HTMLInputElement>('input[type="file"]');assert.ok(upload);Object.defineProperty(upload,"files",{configurable:true,value:[new window.File(["fixture"],"banner.webp",{type:"image/webp"})]});await React.act(async()=>upload.dispatchEvent(new window.Event("change",{bubbles:true}) as unknown as Event));await render(null);await React.act(async()=>release?.({...asset,kind:undefined}));assert.equal(updates,0);
 }));

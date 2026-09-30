@@ -110,7 +110,7 @@ export async function renderProductPage({
   const presentation =
     selected.campaign?.presentation ?? storefront.presentation;
   const options: StarterProductDetailConfigV2 =
-    presentation.schemaVersion === 3
+    (presentation.schemaVersion === 3 || presentation.schemaVersion === 4)
       ? presentation.productDetail
       : presentation.schemaVersion === 2
         ? Object.freeze({
@@ -168,7 +168,7 @@ export async function renderProductPage({
         options={options}
         cardStyle={presentation.theme.productCardStyle}
         imageRatio={presentation.theme.productImageRatio}
-        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 ? presentation.cart.showQuantitySelector : true}
+        showQuantitySelector={presentation.schemaVersion === 2 || (presentation.schemaVersion === 3 || presentation.schemaVersion === 4) ? presentation.cart.showQuantitySelector : true}
       />
     </StorefrontFrame>
   );

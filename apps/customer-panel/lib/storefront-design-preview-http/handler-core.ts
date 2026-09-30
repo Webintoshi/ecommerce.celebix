@@ -1,4 +1,4 @@
-import { isMerchantActionAllowed, normalizeStarterThemeCompositionV3, type TenantContext } from "@celebix/saas-contracts";
+import { isMerchantActionAllowed, normalizeStarterThemeCompositionV4, type TenantContext } from "@celebix/saas-contracts";
 
 import { approvedPanelMutationOriginForStore } from "../panel-origin-authority.ts";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
@@ -65,9 +65,9 @@ export function createStorefrontDesignPreviewHttpHandler(deps: Dependencies) {
     const authorized = await authorize(deps, request); if (authorized instanceof Response) return authorized;
     const parsed = exact(await jsonBody(request), ["composition"], ["previewProductId"]); if (!parsed) return response("invalid_input", 400);
     if (parsed.previewProductId !== undefined && (typeof parsed.previewProductId !== "string" || !UUID.test(parsed.previewProductId))) return response("invalid_input", 400);
-    let composition; try { composition = normalizeStarterThemeCompositionV3(parsed.composition as never); } catch { return response("invalid_input", 400); }
+    let composition; try { composition = normalizeStarterThemeCompositionV4(parsed.composition as never); } catch { return response("invalid_input", 400); }
     try {
-      const workspace = await authorized.runtime.design.getWorkspace({ tenantContext: authorized.tenantContext, now: authorized.now });
+      const workspace = await authorized.runtime.design.getEditor({ tenantContext: authorized.tenantContext, now: authorized.now });
       const resources = await authorized.runtime.loader.load({ tenantContext: authorized.tenantContext, now: authorized.now, workspace, composition, ...(parsed.previewProductId ? { previewProductId: parsed.previewProductId as string } : {}) });
       return response("ok", 200, { resources });
     } catch { return response("unavailable", 503); }

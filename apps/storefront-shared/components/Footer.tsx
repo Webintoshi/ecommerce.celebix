@@ -37,7 +37,7 @@ async function publicPolicyIndex(storefront: PublicStorefront) {
 
 export async function Footer({ storefront }: { storefront: PublicStorefront }) {
   const policies = await publicPolicyIndex(storefront);
-  if (storefront.presentation.schemaVersion === 3) {
+  if ((storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4)) {
     return (
       <RetailFooter
         groups={mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies)}

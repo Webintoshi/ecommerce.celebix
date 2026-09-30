@@ -1,4 +1,4 @@
-import type { HomepageSectionId, PublicImageMediaType, PublicProduct, PublicProductV2, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeSectionConfigV3, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
+import type { BannerDestination, BannerMediaReference, HomepageBannerSlide, HomepageSectionStyle, StarterThemeCompositionConfigV4, StarterThemeSectionConfigV4, PublicStarterThemePresentationV4, PublicHomepageBannerSlide, HomepageSectionId, PublicImageMediaType, PublicProduct, PublicProductV2, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeSectionConfigV3, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -340,6 +340,62 @@ function homepageSectionId(value: unknown): HomepageSectionId {
   return value as HomepageSectionId;
 }
 
+export function parseHomepageSectionStyle(value: unknown): HomepageSectionStyle {
+  const parsed = exact(value, ["background", "width", "spacing"]);
+  return Object.freeze({ background: oneOf(parsed.background, ["theme", "light", "dark", "brand"] as const), width: oneOf(parsed.width, ["contained", "full"] as const), spacing: oneOf(parsed.spacing, ["small", "normal", "large"] as const) });
+}
+
+export function parseBannerMediaReference(value: unknown): BannerMediaReference {
+  if (value === null) return null;
+  const candidate = record(value);
+  if (candidate.kind === "media") { const parsed = exact(candidate, ["kind", "mediaId"]); return Object.freeze({ kind: "media", mediaId: uuid(parsed.mediaId) }); }
+  if (candidate.kind === "asset") { const parsed = exact(candidate, ["kind", "assetId"]); return Object.freeze({ kind: "asset", assetId: uuid(parsed.assetId) }); }
+  if (candidate.kind === "legacy_https") { const parsed = exact(candidate, ["kind", "url"]); return Object.freeze({ kind: "legacy_https", url: httpsUrl(parsed.url) }); }
+  return invalid();
+}
+
+export function parseBannerDestination(value: unknown): BannerDestination {
+  const candidate = record(value);
+  if (candidate.kind === "none") { exact(candidate, ["kind"]); return Object.freeze({ kind: "none" }); }
+  if (candidate.kind === "path") { const parsed = exact(candidate, ["kind", "path"]); return Object.freeze({ kind: "path", path: destination(parsed.path) }); }
+  const parsed = exact(candidate, ["kind", "resourceId"]);
+  return Object.freeze({ kind: oneOf(parsed.kind, ["product", "collection", "page"] as const), resourceId: uuid(parsed.resourceId) });
+}
+
+function parseBannerSlide(value: unknown): HomepageBannerSlide {
+  const parsed = exact(value, ["slideId", "enabled", "headline", "body", "desktopImage", "mobileImage", "destination"], ["eyebrow", "productId"]);
+  return Object.freeze({ slideId: string(parsed.slideId, 8, 80, /^slide_[a-z0-9_]{2,74}$/), enabled: boolean(parsed.enabled), headline: string(parsed.headline, 0, 160), body: string(parsed.body, 0, 500), desktopImage: parseBannerMediaReference(parsed.desktopImage), mobileImage: parseBannerMediaReference(parsed.mobileImage), destination: parseBannerDestination(parsed.destination), ...(Object.hasOwn(parsed, "eyebrow") ? { eyebrow: string(parsed.eyebrow, 1, 80) } : {}), ...(Object.hasOwn(parsed, "productId") ? { productId: uuid(parsed.productId) } : {}) });
+}
+
+function parseConfigSectionV4(value: unknown): StarterThemeSectionConfigV4 {
+  const candidate = record(value);
+  const sectionId = homepageSectionId(candidate.sectionId);
+  const style = Object.hasOwn(candidate, "style") ? parseHomepageSectionStyle(candidate.style) : undefined;
+  const legacy = Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== "sectionId" && key !== "style"));
+  if (candidate.kind === "banner") {
+    const parsed = exact(legacy, ["kind", "enabled", "layout", "autoplay", "presentation", "slides"]);
+    const slides = Object.freeze(arrayValues(parsed.slides, 0, Number.MAX_SAFE_INTEGER).map(parseBannerSlide));
+    if (new Set(slides.map(({ slideId }) => slideId)).size !== slides.length) invalid();
+    return Object.freeze({ kind: "banner", sectionId, enabled: boolean(parsed.enabled), layout: oneOf(parsed.layout, ["single", "slider", "stacked"] as const), autoplay: boolean(parsed.autoplay), presentation: oneOf(parsed.presentation, ["image_only", "overlay"] as const), slides, ...(style ? { style } : {}) });
+  }
+  if (candidate.kind === "hero") invalid();
+  if (candidate.kind === "product_row" && candidate.source === "manual" && !Object.hasOwn(candidate, "productIds")) invalid();
+  const section = parseConfigSectionV2(legacy);
+  if (section.kind === "hero") invalid();
+  return Object.freeze({ ...section, sectionId, ...(style ? { style } : {}) });
+}
+
+export function normalizeStarterThemeCompositionV4(value: StarterThemeComposition): StarterThemeCompositionConfigV4 {
+  const parsed = parseStarterThemeCompositionConfig(value);
+  if (parsed.schemaVersion === 4) return parsed;
+  const legacy = normalizeStarterThemeCompositionV3(parsed);
+  const sections = legacy.sections.map((section): StarterThemeSectionConfigV4 => {
+    if (section.kind !== "hero") return section;
+    return Object.freeze({ kind: "banner", sectionId: section.sectionId, enabled: section.enabled, layout: "slider", autoplay: false, presentation: "overlay", slides: Object.freeze(section.slides.map((slide, index) => Object.freeze({ slideId: `slide_legacy_${index + 1}`, enabled: true, headline: slide.heading, body: slide.body ?? "", desktopImage: Object.freeze({ kind: "asset" as const, assetId: slide.desktopAssetId }), mobileImage: slide.mobileAssetId ? Object.freeze({ kind: "asset" as const, assetId: slide.mobileAssetId }) : null, destination: Object.freeze({ kind: "path" as const, path: slide.destination }), ...(slide.eyebrow ? { eyebrow: slide.eyebrow } : {}), ...(slide.productId ? { productId: slide.productId } : {}) }))) });
+  });
+  return Object.freeze({ ...legacy, schemaVersion: 4, sections: Object.freeze(sections) });
+}
+
 function parseConfigSectionV3(value: unknown): StarterThemeSectionConfigV3 {
   const candidate = record(value);
   const sectionId = homepageSectionId(candidate.sectionId);
@@ -360,6 +416,7 @@ function versionHomepageSections(sections: readonly StarterThemeSectionConfigV2[
 export function normalizeStarterThemeCompositionV3(value: StarterThemeComposition): StarterThemeCompositionConfigV3 {
   const parsed = parseStarterThemeCompositionConfig(value);
   if (parsed.schemaVersion === 3) return parsed;
+  if (parsed.schemaVersion === 4) return invalid();
   if (parsed.schemaVersion === 1) {
     const upgraded = parseStarterThemeCompositionConfig({
       ...parsed,
@@ -448,10 +505,11 @@ function parseFooterConfig(value: unknown): StarterFooterConfig {
 
 export function parseStarterThemeCompositionConfig(value: unknown): StarterThemeComposition {
   const root = record(value);
-  const retail = root.schemaVersion === 2 || root.schemaVersion === 3;
+  const modular = root.schemaVersion === 4;
+  const retail = root.schemaVersion === 2 || root.schemaVersion === 3 || modular;
   const versioned = root.schemaVersion === 3;
   const parsed = exact(root, retail ? ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart", "footer"] : ["schemaVersion", "visual", "announcement", "navigation", "sections", "productDetail", "cart"]);
-  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) invalid();
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4) invalid();
   const announcementValue = exact(parsed.announcement, ["enabled", "items"], ["destination"]);
   const announcementItems = Object.freeze(arrayValues(announcementValue.items, 0, 12).map((item) => string(item, 1, 160)));
   const announcementEnabled = boolean(announcementValue.enabled);
@@ -460,8 +518,10 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   const hasFeaturedCategory = Object.hasOwn(navigationValue, "featuredCategoryId");
   const hasFeaturedAsset = Object.hasOwn(navigationValue, "featuredAssetId");
   if (hasFeaturedCategory !== hasFeaturedAsset) invalid();
-  const sectionValues = arrayValues(parsed.sections, 0, 12);
-  const sections = versioned
+  const sectionValues = arrayValues(parsed.sections, 0, modular ? Number.MAX_SAFE_INTEGER : 12);
+  const sections = modular
+    ? Object.freeze(sectionValues.map(parseConfigSectionV4))
+    : versioned
     ? Object.freeze(sectionValues.map(parseConfigSectionV3))
     : retail
       ? Object.freeze(sectionValues.map(parseConfigSectionV2))
@@ -477,10 +537,10 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
     }
     if (section.kind === "product_row") {
       productRows += 1;
-      if (productRows > 4) invalid();
+      if (!modular && productRows > 4) invalid();
       continue;
     }
-    if (singletonKinds.has(section.kind)) invalid();
+    if (!modular && singletonKinds.has(section.kind)) invalid();
     singletonKinds.add(section.kind);
   }
   const cartValue = exact(parsed.cart, retail
@@ -492,6 +552,7 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
     sections,
     cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
   };
+  if (modular) return Object.freeze({ schemaVersion: 4, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV4);
   if (versioned) return Object.freeze({ schemaVersion: 3, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV3);
   if (retail) return Object.freeze({ schemaVersion: 2, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV2);
   const productDetailValue = exact(parsed.productDetail, ["galleryStyle", "showSku", "showBrand", "showRelatedProducts", "mobileStickyPurchase"]);
@@ -538,7 +599,7 @@ function parsePublicReview(value: unknown): PublicStarterReview {
   });
 }
 
-function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHomeSection {
+function parsePublicHomeSection(value: unknown, retail = false, modular = false): PublicStarterHomeSection {
   const rawCandidate = record(value);
   const sectionId = Object.hasOwn(rawCandidate, "sectionId") ? homepageSectionId(rawCandidate.sectionId) : undefined;
   const candidate = record(Object.fromEntries(Object.entries(rawCandidate).filter(([key]) => key !== "sectionId")));
@@ -593,7 +654,7 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
     const source = oneOf(parsed.source, PRODUCT_ROW_SOURCES);
     const limit = integer(parsed.limit, 4, 12);
     if (![4, 8, 12].includes(limit) || (source === "category") !== Object.hasOwn(parsed, "categorySlug") || (source !== "manual" && Object.hasOwn(parsed, "productIds"))) invalid();
-    return resolved({ kind, key: string(parsed.key, 1, 64, SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), ...(Object.hasOwn(parsed, "productIds") ? { productIds: uuidArray(parsed.productIds, 0, 12) } : {}), limit: limit as 4 | 8 | 12 });
+    return resolved({ kind, key: string(parsed.key, 1, modular ? 80 : 64, modular ? /^[a-z0-9_-]+$/ : SLUG), heading: string(parsed.heading, 1, 160), source, ...(source === "category" ? { categorySlug: string(parsed.categorySlug, 1, 100, SLUG) } : {}), ...(Object.hasOwn(parsed, "productIds") ? { productIds: uuidArray(parsed.productIds, 0, 12) } : {}), limit: limit as 4 | 8 | 12 });
   }
   if (kind === "split_campaign") {
     const parsed = exact(candidate, ["kind", "panels"]);
@@ -605,6 +666,33 @@ function parsePublicHomeSection(value: unknown, retail = false): PublicStarterHo
   }
   const parsed = exact(candidate, ["kind", "heading", "body"], ["eyebrow", "image", "destination"]);
   return resolved({ kind: "brand_story" as const, ...(Object.hasOwn(parsed, "eyebrow") ? { eyebrow: string(parsed.eyebrow, 1, 80) } : {}), heading: string(parsed.heading, 1, 160), body: string(parsed.body, 1, 1000), ...(Object.hasOwn(parsed, "image") ? { image: parseStorefrontAsset(parsed.image) } : {}), ...(Object.hasOwn(parsed, "destination") ? { destination: destination(parsed.destination) } : {}) });
+}
+
+function parsePublicBannerMedia(value: unknown): PublicStorefrontAsset | null {
+  if (value === null) return null;
+  const parsed = exact(value, ["url", "altText", "mediaType", "width", "height"]);
+  return Object.freeze({ url: httpsUrl(parsed.url), altText: string(parsed.altText, 0, 500), mediaType: mediaType(parsed.mediaType), width: integer(parsed.width, 1, 8192), height: integer(parsed.height, 1, 8192) });
+}
+
+function parsePublicSectionV4(value: unknown): PublicStarterHomeSection {
+  const candidate = record(value);
+  const sectionId = homepageSectionId(candidate.sectionId);
+  const style = Object.hasOwn(candidate, "style") ? parseHomepageSectionStyle(candidate.style) : undefined;
+  const rest = Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== "style"));
+  if (candidate.kind !== "banner") return Object.freeze({ ...parsePublicHomeSection(rest, true, true), sectionId, ...(style ? { style } : {}) });
+  const parsed = exact(rest, ["kind", "sectionId", "layout", "autoplay", "presentation", "slides"]);
+  const slides = Object.freeze(arrayValues(parsed.slides, 0, Number.MAX_SAFE_INTEGER).map((entry): PublicHomepageBannerSlide => {
+    const slide = exact(entry, ["slideId", "enabled", "headline", "body", "desktopImage", "mobileImage", "destination"], ["eyebrow", "hotspot"]);
+    let hotspot: PublicHomepageBannerSlide["hotspot"];
+    if (Object.hasOwn(slide, "hotspot")) {
+      const raw = exact(slide.hotspot, ["productSlug", "title", "priceCents", "currency"]);
+      if (raw.currency !== "TRY") invalid();
+      hotspot = Object.freeze({ productSlug: string(raw.productSlug, 1, 100, SLUG), title: string(raw.title, 1, 200), priceCents: integer(raw.priceCents, 0), currency: "TRY" });
+    }
+    return Object.freeze({ slideId: string(slide.slideId, 8, 80, /^slide_[a-z0-9_]{2,74}$/), enabled: boolean(slide.enabled), headline: string(slide.headline, 0, 160), body: string(slide.body, 0, 500), desktopImage: parsePublicBannerMedia(slide.desktopImage), mobileImage: parsePublicBannerMedia(slide.mobileImage), destination: slide.destination === null ? null : destination(slide.destination), ...(Object.hasOwn(slide, "eyebrow") ? { eyebrow: string(slide.eyebrow, 1, 80) } : {}), ...(hotspot ? { hotspot } : {}) });
+  }));
+  if (new Set(slides.map(({ slideId }) => slideId)).size !== slides.length) invalid();
+  return Object.freeze({ kind: "banner", sectionId, layout: oneOf(parsed.layout, ["single", "slider", "stacked"] as const), autoplay: boolean(parsed.autoplay), presentation: oneOf(parsed.presentation, ["image_only", "overlay"] as const), slides, ...(style ? { style } : {}) });
 }
 
 function parsePublicFooter(value: unknown): PublicStarterFooter {
@@ -684,18 +772,21 @@ function parsePresentationV2(value: unknown): PublicStarterThemePresentationV2 {
   });
 }
 
-function parsePresentationV3(value: unknown): PublicStarterThemePresentationV3 {
+function parsePresentationV3(value: unknown): PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4 {
   const parsed = exact(value, ["schemaVersion", "displayName", "theme", "hero", "visual", "navigation", "sections", "productDetail", "cart", "footer", "seo"], ["supportEmail", "logo", "promotion", "marquee", "categoryShowcase", "announcement"]);
-  if (parsed.schemaVersion !== 3) invalid();
-  const sections = Object.freeze(arrayValues(parsed.sections, 0, 12).map((section) => parsePublicHomeSection(section, true)));
+  if (parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4) invalid();
+  const modular = parsed.schemaVersion === 4;
+  const sections = Object.freeze(arrayValues(parsed.sections, 0, modular ? Number.MAX_SAFE_INTEGER : 12).map((section) => modular ? parsePublicSectionV4(section) : parsePublicHomeSection(section, true)));
+  const ids = sections.map(({ sectionId }) => sectionId);
+  if (modular && new Set(ids).size !== ids.length) invalid();
   const singletonKinds = new Set<string>(), keys = new Set<string>();
   for (const section of sections) {
     if (section.kind === "product_row") { if (keys.has(section.key)) invalid(); keys.add(section.key); continue; }
-    if (singletonKinds.has(section.kind)) invalid();
+    if (!modular && singletonKinds.has(section.kind)) invalid();
     singletonKinds.add(section.kind);
   }
   return Object.freeze({
-    schemaVersion: 3,
+    schemaVersion: modular ? 4 : 3,
     displayName: string(parsed.displayName, 1, 160),
     ...(Object.hasOwn(parsed, "supportEmail") ? { supportEmail: email(parsed.supportEmail) } : {}),
     ...(Object.hasOwn(parsed, "logo") ? { logo: parseStorefrontAsset(parsed.logo) } : {}),
@@ -715,7 +806,7 @@ export function parsePublicStarterThemePresentation(value: unknown): PublicStart
   const parsed = record(value);
   if (parsed.schemaVersion === 1) return parsePresentationV1(parsed);
   if (parsed.schemaVersion === 2) return parsePresentationV2(parsed);
-  if (parsed.schemaVersion === 3) return parsePresentationV3(parsed);
+  if (parsed.schemaVersion === 3 || parsed.schemaVersion === 4) return parsePresentationV3(parsed);
   return invalid();
 }
 

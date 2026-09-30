@@ -282,3 +282,20 @@ test("explicit partial category image mapping leaves unmapped selected categorie
   const result = await selected.loader.load({tenantContext:tenant(),now:NOW,workspace:workspace([{kind:"collection",resourceId:CATEGORY_B,label:"Yüzükler",path:"/categories/yuzukler"}]),composition:composition([{sectionId:"home_categories_partial",kind:"category_grid",enabled:true,heading:"Kategoriler",layout:"grid",categoryIds:[CATEGORY_B,CATEGORY],categoryImages:[{categoryId:CATEGORY_B,assetId:CATEGORY_ASSET_B}]}])});
   assert.deepEqual(result.categoryShowcase.value?.items.map(({id})=>id),[CATEGORY_B]);
 });
+
+test("repeated category sections keep independent image overrides for the same category", async () => {
+  const selected = fixture();
+  const draft = { ...composition([]), schemaVersion: 4, sections: [
+    { sectionId: "home_categories_first", kind: "category_grid", enabled: true, heading: "Bir", layout: "grid", categoryIds: [CATEGORY], categoryImages: [{ categoryId: CATEGORY, assetId: CATEGORY_ASSET }] },
+    { sectionId: "home_categories_second", kind: "category_grid", enabled: true, heading: "İki", layout: "duo", categoryIds: [CATEGORY], categoryImages: [{ categoryId: CATEGORY, assetId: CATEGORY_ASSET_B }] },
+  ] } as never;
+  const result = await selected.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: draft });
+  const projected = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: workspace().destinations, resources: result });
+  const categories = projected.projection.presentation.sections.filter((section) => section.kind === "category_grid");
+  assert.deepEqual(categories.map((section) => [section.heading, section.layout, section.items[0]?.image.url]), [
+    ["Bir", "grid", `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET}.webp`],
+    ["İki", "duo", `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/category/${CATEGORY_ASSET_B}.webp`],
+  ]);
+  assert.equal(selected.calls.filter(({ method }) => method === "category").length, 1);
+  assert.equal(selected.calls.filter(({ method }) => method === "assets").length, 1);
+});

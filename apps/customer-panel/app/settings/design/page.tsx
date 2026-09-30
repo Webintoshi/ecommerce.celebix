@@ -15,11 +15,11 @@ export default async function DesignSettingsPage({ searchParams }: Readonly<{ se
   const runtime = await resolveDefaultServerStorefrontDesignRuntime();
   if (!runtime) throw new Error("storefront_design_runtime_unavailable");
   const now = new Date();
-  const workspace = await runtime.repository.getWorkspace({ tenantContext, now });
+  const workspace = await runtime.repository.getEditor({ tenantContext, now });
   const previewRuntime = await resolveDefaultServerStorefrontDesignPreviewRuntime();
-  let initialPreviewResources = unavailableStorefrontDesignPreviewResources(workspace.draft.composition);
+  let initialPreviewResources = unavailableStorefrontDesignPreviewResources(workspace.design.composition);
   if (previewRuntime) {
-    try { initialPreviewResources = await previewRuntime.loader.load({ tenantContext, now, workspace, composition: workspace.draft.composition }); }
+    try { initialPreviewResources = await previewRuntime.loader.load({ tenantContext, now, workspace, composition: workspace.design.composition }); }
     catch { /* Explicit unavailable resources remain visible without weakening page access. */ }
   }
   const initialLocation = resolveDesignWorkspaceLocation((await searchParams).section);

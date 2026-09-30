@@ -125,3 +125,38 @@ test("draft navigation projection preserves authorized nested categories and fea
   const result = composeDraftCampaignProjection({ composition: { ...base, navigation: { rootCategoryIds: [CATEGORY_A], featuredCategoryId: CATEGORY_A, featuredAssetId: ASSET_A } }, storeName: "Atlas", destinations: [], resources: resources({ navigation: { status: "ready", value: navigation } }) });
   assert.deepEqual(result.projection.presentation.navigation, navigation);
 });
+
+test("banner projection resolves design media, asset origins, destinations and styles without a fixed hero", () => {
+  const image = { url: `https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/design/${ASSET_A}.webp`, mediaType: "image/webp" as const, altText: "Desktop", width: 1600, height: 900 };
+  const mobile = { ...image, url: `https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/storefront/hero/${ASSET_B}.webp`, altText: "Mobile" };
+  const draft = { ...composition([]), schemaVersion: 4, sections: [{ kind: "banner", sectionId: "home_banner_media", enabled: true, layout: "slider", autoplay: true, presentation: "image_only", style: { background: "dark", width: "contained", spacing: "small" }, slides: [
+    { slideId: "slide_media_one", enabled: true, headline: "Bir", body: "A", desktopImage: { kind: "media", mediaId: ASSET_A }, mobileImage: { kind: "asset", assetId: ASSET_B }, destination: { kind: "product", resourceId: product(1).id } },
+    { slideId: "slide_media_hidden", enabled: false, headline: "Gizli", body: "", desktopImage: null, mobileImage: null, destination: { kind: "none" } },
+  ] }] } as never;
+  const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: [{ kind: "product", resourceId: product(1).id, label: "Ürün", path: "/products/urun-1" }], resources: resources({ media: [{ id: ASSET_A, status: "ready", image }], assets: [{ id: ASSET_B, status: "ready", image: mobile }] }) });
+  const section = result.projection.presentation.sections[0]; assert.equal(section?.kind, "banner");
+  if (section?.kind !== "banner") return;
+  assert.equal(result.projection.presentation.schemaVersion, 4);
+  assert.equal(result.projection.presentation.hero.enabled, false);
+  assert.deepEqual(section.slides.map((slide) => [slide.slideId, slide.desktopImage?.url, slide.mobileImage?.url, slide.destination]), [["slide_media_one", image.url, mobile.url, "/products/urun-1"]]);
+  assert.deepEqual(section.style, { background: "dark", width: "contained", spacing: "small" });
+  assert.equal(Object.isFrozen(section.style), true);
+  assert.deepEqual(result.sectionStates, [{ sectionId: "home_banner_media", status: "ready" }]);
+});
+
+test("fifty mixed sections retain independent order while repeated product rows reuse one source", () => {
+  const slides = [{ slideId: "slide_shared_media", enabled: true, headline: "Banner", body: "", desktopImage: { kind: "asset", assetId: ASSET_A }, mobileImage: null, destination: { kind: "path", path: "/products" } }];
+  const sections = Array.from({ length: 50 }, (_, index) => index % 2 === 0
+    ? { kind: "product_row", sectionId: `home_row_${index + 1}`, enabled: true, heading: `Ürün ${index + 1}`, source: "latest", limit: 4 }
+    : { kind: "banner", sectionId: `home_banner_${index + 1}`, enabled: true, layout: "single", autoplay: false, presentation: "image_only", slides });
+  const draft = { ...composition([]), schemaVersion: 4, sections } as never;
+  const image = { url: `https://media.saas-staging.celebix.site/stores/51000000-0000-4000-8000-000000000003/storefront/hero/${ASSET_A}.webp`, mediaType: "image/webp" as const, altText: "Banner", width: 1600, height: 900 };
+  const result = composeDraftCampaignProjection({ composition: draft, storeName: "Atlas", destinations: [], resources: resources({ assets: [{ id: ASSET_A, status: "ready", image }], productSources: [{ key: "latest", status: "ready", items: [product(1)] }] }) });
+  assert.equal(result.projection.presentation.sections.length, 50);
+  assert.equal(result.projection.productRows.length, 25);
+  assert.deepEqual(result.projection.presentation.sections.slice(0, 4).map(({ sectionId, kind }) => [sectionId, kind]), [["home_row_1", "product_row"], ["home_banner_2", "banner"], ["home_row_3", "product_row"], ["home_banner_4", "banner"]]);
+  assert.equal(result.projection.presentation.sections[49]?.sectionId, "home_banner_50");
+  const pending = loadingStorefrontDesignPreviewResources(draft);
+  assert.deepEqual(pending.productSources.map(({ key }) => key), ["latest"]);
+  assert.deepEqual(pending.assets.map(({ id }) => id), [ASSET_A]);
+});

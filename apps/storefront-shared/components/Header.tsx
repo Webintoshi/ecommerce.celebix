@@ -16,7 +16,8 @@ export function Header({
 }) {
   if (
     storefront.presentation.schemaVersion === 2 ||
-    storefront.presentation.schemaVersion === 3
+    storefront.presentation.schemaVersion === 3 ||
+    storefront.presentation.schemaVersion === 4
   )
     return <CampaignHeader storefront={storefront} design={design} />;
   const { displayName, logo } = storefront.presentation;

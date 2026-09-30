@@ -1,4 +1,4 @@
-import type { PublicProduct, PublicStarterHomeSection, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3 } from "@celebix/saas-contracts";
+import type { PublicProduct, PublicStarterHomeSection, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStarterThemePresentationV4 } from "@celebix/saas-contracts";
 import Link from "next/link";
 
 import { categoryPath, productIndexPath } from "../lib/storefront-routes.ts";
@@ -10,7 +10,7 @@ type ProductRowSection = Extract<PublicStarterHomeSection, { kind: "product_row"
 export function CampaignProductRow({ section, products, presentation, locale }: Readonly<{
   section: ProductRowSection;
   products: readonly PublicProduct[];
-  presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3;
+  presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   locale: string;
 }>) {
   if (!products.length) return null;
@@ -20,10 +20,10 @@ export function CampaignProductRow({ section, products, presentation, locale }: 
   return (
     <section className={styles.productRow} aria-labelledby={`campaign-row-${section.key}`}>
       <div className={styles.sectionHeading}>
-        <div><span>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : "YENİ GELENLER"}</span><h2 id={`campaign-row-${section.key}`}>{section.heading}</h2></div>
+        <div><span>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : section.source === "manual" ? "SEÇKİ" : "YENİ GELENLER"}</span><h2 id={`campaign-row-${section.key}`}>{section.heading}</h2></div>
         <Link href={destination}>Tümünü gör <span aria-hidden="true">→</span></Link>
       </div>
-      <ProductGrid products={products} preserveOrder={section.source === "category"} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} />
+      <ProductGrid products={products} preserveOrder={section.source === "category" || section.source === "manual"} locale={locale} cardStyle={presentation.visual.productCardStyle} imageRatio={presentation.visual.productImageRatio} />
     </section>
   );
 }

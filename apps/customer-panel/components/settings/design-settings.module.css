@@ -495,3 +495,55 @@
 @media (max-width: 390px) {
   .canvasStage { padding-inline: 0; }
 }
+
+/* Direct Apply workspace: one preview and one focused editing dialog. */
+.workspace { --settings-brand: var(--cp-brand, #FE6100); --settings-canvas: var(--cp-canvas, #F7F1EB); --settings-surface: var(--cp-surface, #FFFDFC); --settings-border: var(--cp-border, #E4D5C9); }
+.canvasStage { width: 100%; min-width: 0; padding-block: 16px 24px; }
+.orderButton { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid var(--settings-border); border-radius: 8px; background: var(--settings-surface); color: var(--cp-text-primary, #2B2B2B); padding: 8px 12px; cursor: pointer; }
+.canvasResolvedSections { display: grid; gap: 0; }
+.canvasInsertGap { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; border: 0; background: var(--settings-canvas); color: var(--cp-text-primary, #2B2B2B); cursor: pointer; padding: 8px 16px; }
+.canvasInsertGap::before, .canvasInsertGap::after { content: ""; flex: 1; height: 1px; background: var(--settings-border); }
+.canvasInsertGap span { margin-inline: 12px; border: 1px solid var(--settings-border); border-radius: 8px; background: var(--settings-surface); padding: 8px 12px; font-size: 12px; }
+.canvasSurfaceButton:focus-visible, .canvasInsertGap:focus-visible, .orderButton:focus-visible, .sectionLibrary button:focus-visible, .sectionTabs button:focus-visible, .sectionManagement button:focus-visible { outline: 2px solid var(--settings-brand); outline-offset: 2px; }
+.canvasSurface:hover > .canvasSurfaceButton, .canvasSurfaceButton:focus-visible, .canvasSurfaceButton[aria-pressed="true"] { border-color: var(--settings-brand); }
+.canvasSectionWithGap { min-width: 0; }
+.canvasSurface[data-section-hidden="true"] { opacity: .65; }
+.settingsModal { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); width: min(760px, calc(100vw - 48px)); background: var(--settings-surface); border-color: var(--settings-border); }
+.modalHeader { flex: none; padding: 20px 24px; border-color: var(--settings-border); }
+.modalHeader h2 { font-size: 20px; color: var(--cp-text-primary, #2B2B2B); }
+.modalBody { min-height: 0; overflow: auto; padding: 24px; }
+.modalFooter { flex: none; min-height: 76px; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-color: var(--settings-border); background: var(--settings-surface); }
+.modalFooter button { min-height: 44px; min-width: 112px; padding: 8px 20px; font-weight: 600; }
+.modalFooter .cancelButton { border: 1px solid var(--settings-border); background: var(--settings-surface); color: var(--cp-text-primary, #2B2B2B); }
+.modalFooter button:disabled { opacity: .5; cursor: default; }
+.sectionLibrary { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.sectionLibrary button { display: flex; min-height: 88px; align-items: center; gap: 12px; border: 1px solid var(--settings-border); border-radius: 12px; padding: 16px; background: var(--settings-surface); text-align: left; color: var(--cp-text-primary, #2B2B2B); cursor: pointer; }
+.sectionLibrary span { display: grid; gap: 4px; }
+.sectionLibrary strong { font-size: 14px; }
+.sectionLibrary small { font-size: 12px; color: var(--cp-text-secondary, #667085); }
+.sectionTabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--settings-border); }
+.sectionTabs button { min-height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 8px 16px; color: var(--cp-text-primary, #2B2B2B); cursor: pointer; }
+.sectionTabs button[aria-selected="true"] { border-bottom-color: var(--settings-brand); font-weight: 600; }
+.sectionManagement { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--settings-border); }
+.sectionManagement button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--settings-border); border-radius: 8px; background: var(--settings-surface); color: var(--cp-text-primary, #2B2B2B); cursor: pointer; }
+.homepageSectionList > li { gap: 12px; padding: 12px; background: var(--settings-surface); border-color: var(--settings-border); }
+.homepageSectionMain { min-width: 0; flex: 1; }
+.homepageSectionMain > div { min-width: 0; }
+.homepageSectionMain small { overflow-wrap: anywhere; }
+.homepageSectionActions { flex-wrap: wrap; }
+.homepageSectionActions button { min-width: 44px; min-height: 44px; }
+.homepageInspectorFields label { min-width: 0; }
+.homepageInspectorFields input:not([type="checkbox"]), .homepageInspectorFields textarea, .homepageInspectorFields select { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.homepageInspectorFields input[type="checkbox"] { width: 20px; height: 20px; }
+@media (max-width: 640px) {
+ .settingsModal { inset: 0; width: 100%; height: 100dvh; max-height: none; border-radius: 0; transform: none; }
+ .modalHeader, .modalBody { padding: 16px; }
+ .modalFooter { display: flex; flex-direction: row; padding: 16px; gap: 12px; }
+ .modalFooter button { flex: 1; width: auto; min-width: 0; }
+ .sectionLibrary { grid-template-columns: minmax(0,1fr); }
+ .homepageSectionList > li { flex-direction: column; align-items: stretch; }
+ .homepageSectionActions { justify-content: flex-end; }
+ .topbarActions { width: 100%; gap: 8px; flex-wrap: wrap; }
+ .previewSwitch button { min-width: 44px; padding: 8px; }
+ .canvasInsertGap { padding-inline: 8px; }
+}

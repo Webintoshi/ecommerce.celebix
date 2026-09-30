@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createDefaultStarterThemeComposition,
+  normalizeStorefrontDesignDocumentV5,
   type TenantContext,
 } from "@celebix/saas-contracts";
 
@@ -114,6 +115,37 @@ function call(client: Client, name: string) {
   assert.ok(selected);
   return selected;
 }
+
+test("editor reads the normalized live document without exposing an old draft", async () => {
+  const editor = { schemaVersion: 1, publishedVersion: 1, publishedAt: NOW.toISOString(), design: normalizeStorefrontDesignDocumentV5(DESIGN), store: WORKSPACE.store, media: [], destinations: [] };
+  const client = new Client((text) => text.includes("storefront_design_editor_get") ? [{ outcome: "found", result_payload: editor }] : []);
+  const result = await repository(new Pool([client])).getEditor({ tenantContext: tenant(), now: NOW });
+  assert.deepEqual(result, editor);
+  assert.equal("draft" in result, false);
+});
+
+test("direct apply recovers an unknown commit from its immutable operation even after another edit", async () => {
+  const design = normalizeStorefrontDesignDocumentV5(DESIGN);
+  const mutation = { publishedVersion: 2, publishedAt: NOW.toISOString(), design, published: { ...PUBLIC, publicationVersion: 2 } };
+  const writer = new Client((text) => {
+    if (text.includes("storefront_design_apply(")) return [{ outcome: "applied", result_payload: mutation }];
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("storefront_design_apply_operation_get") ? [{ outcome: "found", result_payload: mutation }] : []);
+  const result = await repository(new Pool([writer, recovery])).apply({ tenantContext: tenant(), now: NOW, operationId: OPERATION, expectedPublishedVersion: 1, design });
+  assert.deepEqual(result, mutation);
+  const query = call(writer, "storefront_design_apply(");
+  assert.equal(query.values[7], OPERATION);
+  assert.equal(query.values[9], 1);
+  assert.equal(recovery.calls.some(({text}) => text.includes("storefront_design_get(")), false);
+});
+
+test("direct apply rejects a stale published version without a second write", async () => {
+  const client = new Client((text) => text.includes("storefront_design_apply(") ? [{ outcome: "published_version_conflict", result_payload: {} }] : []);
+  await assert.rejects(repository(new Pool([client])).apply({ tenantContext: tenant(), now: NOW, operationId: OPERATION, expectedPublishedVersion: 1, design: normalizeStorefrontDesignDocumentV5(DESIGN) }), (error: unknown) => error instanceof StorefrontDesignRepositoryError && error.code === "version_conflict");
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+});
 
 test("workspace read carries full server-derived tenant authority", async () => {
   const client = new Client((text) => text.includes("storefront_design_get") ? [{ outcome: "found", result_payload: WORKSPACE }] : []);

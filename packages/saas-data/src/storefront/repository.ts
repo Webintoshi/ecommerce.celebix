@@ -44,10 +44,10 @@ function campaignHomePayload(value: unknown): CampaignHomeProjection {
   let presentation: PublicStarterThemePresentation;
   try {
     const parsed = parsePublicStarterThemePresentation(payload.presentation);
-    if (parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) throw failure("unavailable");
+    if (parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3 && parsed.schemaVersion !== 4) throw failure("unavailable");
     presentation = parsed;
   } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
-  if (!Array.isArray(payload.productRows) || payload.productRows.length > 12) throw failure("unavailable");
+  if (!Array.isArray(payload.productRows)) throw failure("unavailable");
   const declaredRows = presentation.sections.flatMap((section) => section.kind === "product_row" ? [Object.freeze({ key: section.key, limit: section.limit })] : []);
   const limits = new Map(declaredRows.map((section) => [section.key, section.limit]));
   const rows = payload.productRows.map((entry) => {

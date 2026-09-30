@@ -13,7 +13,7 @@ function authority() {
 
 function repository(): StorefrontDesignRepository {
   const reject = async () => { throw new Error("unused"); };
-  return { getWorkspace: reject, saveDraft: reject, publish: reject, reserveMedia: reject } as StorefrontDesignRepository;
+  return { getEditor: reject, apply: reject, getWorkspace: reject, saveDraft: reject, publish: reject, reserveMedia: reject } as StorefrontDesignRepository;
 }
 
 function storage() {
@@ -26,7 +26,7 @@ test("storefront design runtime freezes narrow repository and storage facades", 
   const selected = createServerStorefrontDesignRuntime({ access, repository: Object.assign(repository(), { pool: "private" }), storage: Object.assign(storage(), { credentials: "private" }) as never });
   assert.equal(selected.access, access);
   assert.equal(Object.isFrozen(selected), true);
-  assert.deepEqual(Object.keys(selected.repository).sort(), ["getWorkspace", "publish", "reserveMedia", "saveDraft"]);
+  assert.deepEqual(Object.keys(selected.repository).sort(), ["apply", "getEditor", "getWorkspace", "publish", "reserveMedia", "saveDraft"]);
   assert.deepEqual(Object.keys(selected.storage).sort(), ["delete", "head", "publicUrl", "publish", "put", "unpublish"]);
   assert.equal("pool" in selected.repository, false);
   assert.equal("credentials" in selected.storage, false);

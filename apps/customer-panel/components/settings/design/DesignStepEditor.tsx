@@ -12,7 +12,6 @@ import { StarterThemeComposer } from "@/components/settings/StarterThemeComposer
 import { StorefrontAssetManager } from "@/components/settings/StorefrontAssetManager";
 import { DesignInspector } from "./DesignInspector";
 import { synchronizeCompositionAnnouncement } from "./design-editor-model";
-import { HomepageBuilder } from "./HomepageBuilder";
 import type { DesignWorkspaceStep } from "./workspace-navigation-model";
 import styles from "../design-settings.module.css";
 
@@ -36,7 +35,7 @@ class ThemeEditorErrorBoundary extends Component<
   render() {
     if (!this.state.failed) return this.props.children;
     return <section role="alert" className={styles.editorGroup}>
-      <header><h3>Tema düzenleyicisi açılamadı</h3><p>Kayıtlı taslak değiştirilmedi. Alanı yeniden açmayı deneyin.</p></header>
+      <header><h3>Tema düzenleyicisi açılamadı</h3><p>Kayıtlı tasarım korundu. Alanı yeniden açmayı deneyin.</p></header>
       <button type="button" onClick={() => this.setState({ failed: false })}>Yeniden dene</button>
     </section>;
   }
@@ -87,7 +86,7 @@ export function DesignStepEditor({
       activePanel={activePanel}
       canManage={canManage}
       showPreview={false}
-      value={design.composition}
+      value={{...design.composition,schemaVersion:3,sections:[]}}
       onChange={(value) => onChange(synchronizeCompositionAnnouncement(design, value))}
     />
   </ThemeEditorErrorBoundary>;
@@ -118,8 +117,6 @@ export function DesignStepEditor({
   if (step === "cart") return composer("cart");
   if (step === "footer") return composer("footer");
   if (step === "homepage") return <div className={styles.editorStack}>
-    <section className={styles.editorGroup} aria-labelledby="homepage-banner-heading"><header><h3 id="homepage-banner-heading">Ana banner</h3></header>{inspector("hero")}</section>
-    <HomepageBuilder design={design} media={media} assets={assets} destinations={destinations} canManage={canManage} previewMode={previewMode} onChange={onChange} />
     <details className={styles.advancedDisclosure}><summary>Kampanya zamanlaması</summary>{inspector("promotion")}</details>
     <details className={styles.advancedDisclosure}><summary>Ana sayfa görsel arşivi</summary><StorefrontAssetManager onAssetsChange={onAssetsChange} allowedKinds={HOMEPAGE_ASSET_KINDS} canManage={canManage} title="Ana sayfa görselleri" description="Banner ve kategori kartlarında kullanacağınız görselleri yükleyin." /></details>
   </div>;

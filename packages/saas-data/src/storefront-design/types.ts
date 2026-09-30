@@ -1,5 +1,7 @@
 import type {
   StorefrontDesignDocument,
+  StorefrontDesignEditorWorkspace,
+  StorefrontDesignApplyMutation,
   StorefrontDesignDraftMutation,
   StorefrontDesignPublicationMutation,
   StorefrontDesignWorkspace,
@@ -16,6 +18,12 @@ export interface StorefrontDesignAuthorityInput {
 export interface SaveStorefrontDesignDraftInput extends StorefrontDesignAuthorityInput {
   readonly operationId: string;
   readonly expectedDraftVersion: number;
+  readonly design: StorefrontDesignDocument;
+}
+
+export interface ApplyStorefrontDesignInput extends StorefrontDesignAuthorityInput {
+  readonly operationId: string;
+  readonly expectedPublishedVersion: number;
   readonly design: StorefrontDesignDocument;
 }
 
@@ -47,6 +55,8 @@ export type StorefrontDesignMediaReservation = Readonly<{
 }>;
 
 export interface StorefrontDesignRepository {
+  getEditor(input: StorefrontDesignAuthorityInput): Promise<StorefrontDesignEditorWorkspace>;
+  apply(input: ApplyStorefrontDesignInput): Promise<StorefrontDesignApplyMutation>;
   getWorkspace(input: StorefrontDesignAuthorityInput): Promise<StorefrontDesignWorkspace>;
   saveDraft(input: SaveStorefrontDesignDraftInput): Promise<StorefrontDesignDraftMutation>;
   publish(input: PublishStorefrontDesignInput): Promise<StorefrontDesignPublicationMutation>;

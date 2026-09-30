@@ -2,6 +2,10 @@ import {
   parsePublicStorefrontDesign,
   parseStorefrontDesignDocument,
   parseStorefrontDesignWorkspace,
+  parseStorefrontDesignEditorWorkspace,
+  parseStorefrontDesignApplyMutation,
+  type StorefrontDesignEditorWorkspace,
+  type StorefrontDesignApplyMutation,
   type StorefrontDesignDocument,
   type StorefrontDesignDraftMutation,
   type StorefrontDesignMediaOption,
@@ -10,7 +14,7 @@ import {
 } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const MAX_RESPONSE_BYTES = 1_048_576;
+const MAX_RESPONSE_BYTES = 4_194_304;
 const CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "origin_denied", "store_inactive",
   "feature_not_enabled", "durable_authority_invalid", "version_conflict", "operation_mismatch",
@@ -40,6 +44,8 @@ export class StorefrontDesignApiError extends Error {
 }
 
 export interface StorefrontDesignApi {
+  editor(options?: Readonly<{signal?: AbortSignal}>): Promise<StorefrontDesignEditorWorkspace>;
+  apply(input: Readonly<{expectedPublishedVersion: number; design: StorefrontDesignDocument}>, options: Readonly<{operationId: string; signal?: AbortSignal}>): Promise<StorefrontDesignApplyMutation>;
   workspace(signal?: AbortSignal): Promise<StorefrontDesignWorkspace>;
   saveDraft(input: Readonly<{ expectedDraftVersion: number; design: StorefrontDesignDocument }>, signal?: AbortSignal): Promise<StorefrontDesignDraftMutation>;
   publish(input: Readonly<{ expectedDraftVersion: number; expectedPublishedVersion: number }>, signal?: AbortSignal): Promise<StorefrontDesignPublicationMutation>;
@@ -108,6 +114,15 @@ export function createStorefrontDesignApi(fetcher: typeof fetch = fetch, uuid: (
     return request(path, parser, { method, headers: Object.freeze({ "content-type": "application/json", "idempotency-key": operationId }), body: JSON.stringify(value), signal });
   }
   return Object.freeze({
+    editor(options?: Readonly<{signal?: AbortSignal}>) {
+      return request("/api/storefront-design/editor", (value) => parseStorefrontDesignEditorWorkspace(record(value, ["code", "workspace"]).workspace), { method: "GET", signal: options?.signal });
+    },
+    apply(input: Readonly<{expectedPublishedVersion: number; design: StorefrontDesignDocument}>, options: Readonly<{operationId: string; signal?: AbortSignal}>) {
+      const expectedPublishedVersion = positive(input?.expectedPublishedVersion);
+      const design = parseStorefrontDesignDocument(input?.design);
+      if (design.schemaVersion !== 5) throw new StorefrontDesignApiError("invalid_input", 400);
+      return request("/api/storefront-design/apply", (value) => parseStorefrontDesignApplyMutation(record(value, ["code", "result"]).result), { method: "POST", headers: { "content-type": "application/json", "idempotency-key": operation(options?.operationId) }, body: JSON.stringify({ expectedPublishedVersion, design }), signal: options?.signal });
+    },
     workspace(signal?: AbortSignal) {
       return request("/api/storefront-design", (value) => parseStorefrontDesignWorkspace(record(value, ["code", "workspace"]).workspace), { method: "GET", signal });
     },

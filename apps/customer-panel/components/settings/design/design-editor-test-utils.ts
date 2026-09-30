@@ -34,7 +34,7 @@ export function compile<T>(filename: URL, overrides: Record<string, unknown> = {
     if (id in overrides) return overrides[id];
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id.startsWith(".")) {
-      for (const extension of [".tsx", ".ts"]) { const path = new URL(id + extension, filename); if (existsSync(fileURLToPath(path))) return compile(path, overrides); }
+      for (const extension of /\.tsx?$/.test(id) ? [""] : [".tsx", ".ts"]) { const path = new URL(id + extension, filename); if (existsSync(fileURLToPath(path))) return compile(path, overrides); }
     }
     return require(id);
   };
