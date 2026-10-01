@@ -11,6 +11,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     execFileSync(process.execPath, ["--experimental-transform-types", "--test", fileURLToPath(import.meta.url)], { env: { ...process.env, NODE_OPTIONS: "" }, stdio: "pipe" });
   });
 } else {
+  const { renderToStaticMarkup } = await import("react-dom/server");
   const load = componentLoader();
   const { AccountAuthForm } = load<{ AccountAuthForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountAuthForm.tsx", import.meta.url));
   const { AccountProfileForm } = load<{ AccountProfileForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountProfileForm.tsx", import.meta.url));
@@ -21,43 +22,93 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     try { await run(); } finally { globalThis.fetch = previous; }
   }
 
-  test("phone registration sends customer names then focuses the masked WhatsApp code step", async () => {
+  test("phone and email entry use POST before client JavaScript initializes", () => {
+    for (const mode of ["phone", "email"]) {
+      const markup = renderToStaticMarkup(React.createElement(AccountAuthForm, { mode, returnTo: "/account" }));
+      const forms = markup.match(/<form\b[^>]*>/gu) ?? [];
+      assert.equal(forms.length, 1, `${mode} renders one form`);
+      assert.match(forms[0]!, /\bmethod="post"(?=>)/u, `${mode} must not send identity data in a GET URL`);
+    }
+  });
+
+  test("code verification and resend forms use POST, including legacy browser verification", async () => {
+    await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
+      await change('input[type="tel"]', "5551112233");
+      await click('button[type="submit"]');
+      const forms = [...container.querySelectorAll("form")];
+      assert.equal(forms.length, 2);
+      for (const form of forms) assert.equal(form.getAttribute("method"), "post");
+    }));
+    await withProductBrowser(async ({ container, render }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "verify", returnTo: "/account", ticket: "example-ticket" }));
+      for (const form of container.querySelectorAll("form")) {
+        assert.equal(form.getAttribute("method"), "post");
+        assert.equal(form.getAttribute("action"), "/api/account/auth/verify-browser");
+      }
+    });
+    await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "email", returnTo: "/account" }));
+      await change('input[type="email"]', "ada@example.com");
+      await click('button[type="submit"]');
+      assert.equal(container.querySelector("form")?.getAttribute("method"), "post");
+    }));
+  });
+
+  test("single phone entry sends only canonical phone and focuses the masked WhatsApp code step", async () => {
     await withFetch(async (path, options) => {
       assert.equal(path, "/api/account/auth/start");
-      assert.deepEqual(JSON.parse(String(options?.body)), { phone: "05551112233", firstName: "Ada", lastName: "Yılmaz", returnTo: "/account/orders" });
+      assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+905551112233", returnTo: "/account/orders" });
       return Response.json({ deliveryRequired: true, message: "Kod gönderildi.", retryAfterSeconds: 60 });
     }, () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account/orders" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await change('input[type="tel"]', "05551112233");
+      assert.equal(container.querySelector('input[autocomplete="given-name"]'), null);
+      assert.equal(container.querySelector('input[autocomplete="family-name"]'), null);
+      assert.equal(container.querySelector('input[type="email"]'), null);
+      assert.equal(container.querySelector('[data-auth-switch]'), null);
+      assert.doesNotMatch(container.textContent ?? "", /01\s*\/\s*03/u);
+      assert.equal((container.querySelector('select[aria-label="Telefon ülke kodu"]') as HTMLSelectElement).value, "TR");
+      await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
       const code = container.querySelector('input[autocomplete="one-time-code"]');
       assert.ok(code);
       assert.equal(document.activeElement, code);
       assert.match(container.textContent ?? "", /\+90 5\*\* \*\*\* 22 33/u);
       assert.match(container.textContent ?? "", /Tekrar gönder \(60/u);
+      assert.doesNotMatch(container.textContent ?? "", /02\s*\/\s*03/u);
     }));
   });
 
   test("throttled phone starts keep customer input and show the actual retry duration", async () => {
     await withFetch(async () => Response.json({ code: "rate_limited", message: "Daha sonra deneyin.", retryAfterSeconds: 123 }, { status: 429 }), () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await change('input[type="tel"]', "05551112233");
+      await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
       assert.equal(container.querySelector('input[autocomplete="one-time-code"]'), null);
-      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "05551112233");
+      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "5551112233");
       assert.match(container.textContent ?? "", /123 sn/u);
       assert.equal((container.querySelector('button[type="submit"]') as HTMLButtonElement).disabled, true);
     }));
   });
 
-  test("existing phone login excludes registration names and preserves entered code after rejection", async () => {
+  test("country selection updates the visible dial code and the submitted phone", async () => {
+    await withFetch(async (_path, options) => {
+      assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+447911123456", returnTo: "/checkout" });
+      return Response.json({ deliveryRequired: true, retryAfterSeconds: 60 });
+    }, () => withProductBrowser(async ({ container, render, change, click }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/checkout" }));
+      await change('select[aria-label="Telefon ülke kodu"]', "GB");
+      assert.match(container.textContent ?? "", /\+44/u);
+      await change('input[type="tel"]', "7911123456");
+      await click('button[type="submit"]');
+      assert.ok(container.querySelector('input[autocomplete="one-time-code"]'));
+    }));
+  });
+
+  test("phone verification keeps the code after rejection and returns to the preserved phone entry", async () => {
     await withFetch(async (path, options) => {
       if (path === "/api/account/auth/start") {
-        assert.deepEqual(JSON.parse(String(options?.body)), { phone: "05551112233", returnTo: "/account" });
+        assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+905551112233", returnTo: "/account" });
         return Response.json({ deliveryRequired: true, retryAfterSeconds: 60 });
       }
       assert.equal(path, "/api/account/auth/verify");
@@ -65,12 +116,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       return Response.json({ message: "Kod geçersiz veya süresi dolmuş." }, { status: 400 });
     }, () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await click('button[data-auth-switch="login"]');
-      assert.equal(container.querySelector('input[autocomplete="given-name"]'), null);
-      assert.equal(document.activeElement, container.querySelector('input[type="tel"]'));
-      await change('input[type="tel"]', "05551112233");
+      await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
       await change('input[autocomplete="one-time-code"]', "123456");
       await click('button[type="submit"]');
@@ -79,10 +125,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       await click('button[data-auth-change="phone"]');
       assert.equal(document.activeElement, container.querySelector('input[type="tel"]'));
       assert.equal((container.querySelector('button[type="submit"]') as HTMLButtonElement).disabled, true);
-      await click('button[data-auth-switch="register"]');
-      assert.equal(document.activeElement, container.querySelector('input[autocomplete="given-name"]'));
-      assert.equal((container.querySelector('input[autocomplete="given-name"]') as HTMLInputElement).value, "Ada");
-      assert.equal((container.querySelector('input[autocomplete="family-name"]') as HTMLInputElement).value, "Yılmaz");
+      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "5551112233");
     }));
   });
 
@@ -94,8 +137,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
         let navigated = "";
         window.location.assign = (value) => { navigated = String(value); };
         await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/checkout" }));
-        await click('button[data-auth-switch="login"]');
-        await change('input[type="tel"]', "05551112233");
+        await change('input[type="tel"]', "5551112233");
         await click('button[type="submit"]');
         await change('input[autocomplete="one-time-code"]', "123456");
         await click('button[type="submit"]');
@@ -110,9 +152,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     let resolve!: (response: Response) => void;
     await withFetch(async () => { requests += 1; return new Promise<Response>((done) => { resolve = done; }); }, () => withProductBrowser(async ({ container, render, change }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await change('input[type="tel"]', "05551112233");
+      await change('input[type="tel"]', "5551112233");
       const form = container.querySelector("form")!;
       await React.act(async () => {
         form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
@@ -129,9 +169,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
   test("a successful HTTP response without delivery does not claim a WhatsApp code was sent", async () => {
     await withFetch(async () => Response.json({ deliveryRequired: false, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await change('input[type="tel"]', "05551112233");
+      await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
       assert.equal(container.querySelector('input[autocomplete="one-time-code"]'), null);
       assert.match(container.textContent ?? "", /Kod gönderilemedi/u);
@@ -148,7 +186,6 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
         ? Response.json({ outcome: "accepted", deliveryRequired: true, retryAfterSeconds: 60, returnTo: "/account" })
         : Response.json({ code: "rate_limited", message: "Yeni kod istemeden önce lütfen bekleyin.", retryAfterSeconds: 123 }, { status: 429 }), () => withProductBrowser(async ({ container, render, change, click }) => {
         await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-        await click('button[data-auth-switch="login"]');
         await change('input[type="tel"]', "0452 606 05 52");
         await click('button[type="submit"]');
         await change('input[autocomplete="one-time-code"]', "12x3 45-6");
@@ -234,19 +271,16 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     }));
   });
 
-  test("secondary email access retains phone registration entries when returning", async () => {
+  test("secondary email access retains the phone entry when returning", async () => {
     await withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[autocomplete="given-name"]', "Ada");
-      await change('input[autocomplete="family-name"]', "Yılmaz");
-      await change('input[type="tel"]', "05551112233");
+      await change('input[type="tel"]', "5551112233");
       await click('button.emailAlternative');
       assert.ok(container.querySelector('input[type="email"]'));
       assert.equal(document.activeElement, container.querySelector('input[type="email"]'));
       await click('button.textButton');
-      assert.equal(document.activeElement, container.querySelector('input[autocomplete="given-name"]'));
-      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "05551112233");
-      assert.equal((container.querySelector('input[autocomplete="given-name"]') as HTMLInputElement).value, "Ada");
+      assert.equal(document.activeElement, container.querySelector('input[type="tel"]'));
+      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "5551112233");
     });
   });
 

@@ -4,8 +4,9 @@ import type {
   PublicStorefront,
   PublicStorefrontDesign,
 } from "@celebix/saas-contracts";
+import { createStorefrontTypographyResources } from "@celebix/storefront-design-ui";
 
-import { resolveAccountAuthBranding } from "./account-auth-branding.ts";
+import { accountAuthButtonTextColor, resolveAccountAuthBranding } from "./account-auth-branding.ts";
 import styles from "./account-auth.module.css";
 
 type AccountAuthStyle = CSSProperties &
@@ -14,6 +15,7 @@ type AccountAuthStyle = CSSProperties &
     "--store-accent": string;
     "--store-background": string;
     "--store-text": string;
+    "--auth-action-ink": string;
   }>;
 
 export function AccountAuthShell({
@@ -29,14 +31,21 @@ export function AccountAuthShell({
 }>) {
   const branding = resolveAccountAuthBranding(storefront, design);
   const customized = branding.publicationVersion > 1;
+  const typography = createStorefrontTypographyResources(design.typography);
   const style: AccountAuthStyle = {
+    ...typography.style,
     "--store-primary": branding.primaryColor,
     "--store-accent": branding.accentColor,
     "--store-background": branding.backgroundColor,
     "--store-text": branding.textColor,
+    "--auth-action-ink": accountAuthButtonTextColor(branding.primaryColor),
   };
 
   return (
+    <>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+    <link rel="stylesheet" href={typography.stylesheetUrl} />
     <main
       className={`starter-storefront celebix-store-design ${branding.themeClasses} ${styles.shell}`}
       data-published-design={customized ? "true" : "false"}
@@ -60,9 +69,7 @@ export function AccountAuthShell({
             branding.displayName
           )}
         </Link>
-        <div className={styles.brandMessage}>
-          <p>Giriş Yap &amp; Hesap Oluştur</p>
-        </div>
+        <span className={styles.brandCaption}>GÜVENLİ HESAP ERİŞİMİ</span>
       </section>
       <section className={styles.panel}>
         <div className={styles.panelInner}>
@@ -70,6 +77,8 @@ export function AccountAuthShell({
           {children}
         </div>
       </section>
+      <p className={styles.shellFooter}>Güvenli alışveriş, kolay hesap erişimi.</p>
     </main>
+    </>
   );
 }

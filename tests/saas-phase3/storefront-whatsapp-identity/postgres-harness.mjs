@@ -30,7 +30,7 @@ const TICKET_DIGEST = "8".repeat(64);
 const SESSION_DIGEST = "c".repeat(64);
 const CSRF_DIGEST = "d".repeat(64);
 const UA_DIGEST = "e".repeat(64);
-const TOTAL = 27;
+const TOTAL = 28;
 let completed = 0;
 let activeSessionDigest = SESSION_DIGEST;
 
@@ -271,11 +271,42 @@ async function main() {
     });
     await scenario("new phone login without names requests profile instead of fabricating customer", () => {
       phoneStart(box,330,{phoneDigest:d(330),requestDigest:d(331)});phoneDelivered(box,330,true,{phoneDigest:d(330)});
-      assert.equal(phoneVerify(box,330,{phoneDigest:d(330),phone:"+905557770330",names:false,session:330,sessionDigest:d(330),customer:330,account:330}).outcome,"profile_required");
+      const verification=phoneVerify(box,330,{phoneDigest:d(330),phone:"+905557770330",names:false,session:330,sessionDigest:d(330),customer:330,account:330});
+      assert.equal(verification.outcome,"profile_required");
+      assert.deepEqual(verification.result_payload,{profileRequired:true});
       assert.equal(psql(box,`SELECT count(*) FROM saas.customers WHERE id='${id(330,2)}';`).stdout.trim(),"0");
+      assert.equal(psql(box,`SELECT id='${id(330,5)}' AND store_id='${STORE_A}' AND customer_id IS NULL AND status='pending_profile' AND phone_normalized='+905557770330' AND phone_verified_at IS NOT NULL FROM saas.storefront_accounts WHERE id='${id(330,5)}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT session_kind FROM saas.storefront_account_sessions WHERE id='${id(330,6)}' AND account_id='${id(330,5)}';`).stdout.trim(),"registration");
       const credentials=escape(JSON.stringify([{keyId:"session_01",digest:d(330)}]));
+      assert.deepEqual(publicCall(box,`saas.public_account_session_get('${HOST_A}','${NOW}','${credentials}'::jsonb)`),{outcome:"profile_required",result_payload:{profileRequired:true}});
+      assert.equal(publicCall(box,`saas.public_account_orders('${HOST_A}','${NOW}','${credentials}'::jsonb,20,NULL)`).outcome,"unauthenticated");
       assert.equal(publicCall(box,`saas.public_account_profile_complete('${HOST_A}','${NOW}','${credentials}'::jsonb,'${id(330,8)}','${d(330)}','${id(330,2)}','Eksik','Profil',NULL,'${id(331,6)}','session_01','${d(331)}','${CSRF_DIGEST}','Safari','${UA_DIGEST}','phone_profile_330')`).outcome,"committed");
       assert.equal(psql(box,`SELECT email IS NULL AND phone='+905557770330' FROM saas.customers WHERE id='${id(330,2)}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT customer_id='${id(330,2)}' AND status='active' FROM saas.storefront_accounts WHERE id='${id(330,5)}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT revoked_at IS NOT NULL AND revocation_reason='rotated' FROM saas.storefront_account_sessions WHERE id='${id(330,6)}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT session_kind FROM saas.storefront_account_sessions WHERE id='${id(331,6)}' AND account_id='${id(330,5)}';`).stdout.trim(),"full");
+      assert.equal(publicCall(box,`saas.public_account_session_get('${HOST_A}','${NOW}','${credentials}'::jsonb)`).outcome,"unauthenticated");
+    });
+    await scenario("lost completion cookie recovers completed phone account through a fresh code", () => {
+      const phone="+905557770330";
+      const oldCredentials=escape(JSON.stringify([{keyId:"session_01",digest:d(330)}]));
+      assert.equal(publicCall(box,`saas.public_account_session_get('${HOST_A}','${at(61)}','${oldCredentials}'::jsonb)`).outcome,"unauthenticated");
+      const started=phoneStart(box,331,{phoneDigest:d(330),requestDigest:d(332),seconds:61});
+      assert.equal(started.outcome,"accepted");
+      assert.equal(started.result_payload.deliveryRequired,true);
+      assert.equal(phoneDelivered(box,331,true,{phoneDigest:d(330),seconds:61}).outcome,"committed");
+      const verification=phoneVerify(box,331,{phoneDigest:d(330),phone,names:false,seconds:61,session:332,sessionDigest:d(332),customer:332,account:332});
+      assert.equal(verification.outcome,"authenticated");
+      assert.deepEqual(verification.result_payload,{profileRequired:false});
+      const fullCredentials=escape(JSON.stringify([{keyId:"session_01",digest:d(332)}]));
+      const snapshot=publicCall(box,`saas.public_account_session_get('${HOST_A}','${at(61)}','${fullCredentials}'::jsonb)`);
+      assert.equal(snapshot.outcome,"found");
+      assert.deepEqual(snapshot.result_payload.profile,{email:null,firstName:"Eksik",lastName:"Profil",phone,phoneVerified:true});
+      assert.equal(psql(box,`SELECT count(*) FROM saas.storefront_accounts WHERE store_id='${STORE_A}' AND phone_normalized='${phone}';`).stdout.trim(),"1");
+      assert.equal(psql(box,`SELECT count(*) FROM saas.customers WHERE store_id='${STORE_A}' AND phone='${phone}';`).stdout.trim(),"1");
+      assert.equal(psql(box,`SELECT id='${id(330,5)}' AND customer_id='${id(330,2)}' AND status='active' FROM saas.storefront_accounts WHERE store_id='${STORE_A}' AND phone_normalized='${phone}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT account_id='${id(330,5)}' AND session_kind='full' FROM saas.storefront_account_sessions WHERE id='${id(332,6)}';`).stdout.trim(),"t");
+      assert.equal(psql(box,`SELECT first_name='Eksik' AND last_name='Profil' AND email IS NULL FROM saas.customers WHERE id='${id(330,2)}';`).stdout.trim(),"t");
     });
     await scenario("verified login identity remains authoritative after merchant contact edit", () => {
       psql(box,`BEGIN;SET LOCAL ROLE celebix_saas_owner;UPDATE saas.customers SET phone='+905557770999' WHERE id='${id(187,2)}';COMMIT;`);

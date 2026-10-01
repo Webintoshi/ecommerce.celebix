@@ -34,8 +34,13 @@ test("verification sends only the code and return path and exposes the confirmed
   assert.equal(result.destination, "/account/orders");
 });
 
+test("verification accepts a safe profile destination carrying the original checkout target", async () => {
+  const result = await client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/checkout" }, async () => Response.json({ outcome: "profile_required", profileRequired: true, destination: "/account/profile?returnTo=%2Fcheckout" }));
+  assert.equal(result.destination, "/account/profile?returnTo=%2Fcheckout");
+});
+
 test("verification rejects missing, external and normalized near-match destinations", async () => {
-  for (const destination of [undefined, "https://attacker.example/account", "//attacker.example/account", "/account/../checkout", "/checkout?next=external", "/%61ccount", 42]) {
+  for (const destination of [undefined, "https://attacker.example/account", "//attacker.example/account", "/account/../checkout", "/checkout?next=external", "/%61ccount", "/account/profile?returnTo=%252Fcheckout", "/account/profile?returnTo=%2Fcheckout&returnTo=%2Faccount", 42]) {
     await assert.rejects(client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/checkout" }, async () => Response.json({ outcome: "authenticated", profileRequired: false, destination })), /İşlem tamamlanamadı/u);
   }
 });

@@ -16,10 +16,9 @@ export function maskAccountPhone(value: string): string {
   return `${prefix} ${phone.slice(-4, -2)} ${phone.slice(-2)}`;
 }
 
-export function accountPhoneStartBody(mode: "register" | "login", entry: Readonly<{ phone: string; firstName: string; lastName: string; returnTo: string }>) {
+export function accountPhoneStartBody(entry: Readonly<{ phone: string; returnTo: string }>) {
   return {
     phone: entry.phone.trim(),
-    ...(mode === "register" ? { firstName: entry.firstName.trim(), lastName: entry.lastName.trim() } : {}),
     returnTo: entry.returnTo,
   };
 }

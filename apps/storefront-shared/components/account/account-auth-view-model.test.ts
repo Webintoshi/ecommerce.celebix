@@ -34,10 +34,9 @@ test("phone recognition covers accepted WhatsApp landlines and international num
   assert.equal(model.maskAccountPhone("0555 111 22 33abc"), "***");
 });
 
-test("registration sends names while existing phone login omits retained registration names", () => {
-  const entry = { phone: "0555 111 22 33", firstName: " Ada ", lastName: " Yılmaz ", returnTo: "/account/orders" };
-  assert.deepEqual(model.accountPhoneStartBody("register", entry), { phone: "0555 111 22 33", firstName: "Ada", lastName: "Yılmaz", returnTo: "/account/orders" });
-  assert.deepEqual(model.accountPhoneStartBody("login", entry), { phone: "0555 111 22 33", returnTo: "/account/orders" });
+test("phone entry sends only the phone and safe return destination", () => {
+  const entry = { phone: " +90 555 111 22 33 ", returnTo: "/account/orders" };
+  assert.deepEqual(model.accountPhoneStartBody(entry), { phone: "+90 555 111 22 33", returnTo: "/account/orders" });
 });
 
 test("retry countdown uses elapsed time including background browser delays", () => {
