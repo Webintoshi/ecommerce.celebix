@@ -128,6 +128,7 @@ function fixture(
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
     runtimeNow?: () => Date;
     attemptNow?: Date;
+    requirePreparedAuthorityClock?: boolean;
     providerCode?: "iyzico_iframe" | "paytr_iframe";
   }> = {},
 ) {
@@ -136,6 +137,7 @@ function fixture(
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let beginV3Input: Parameters<StorefrontHostedCheckoutRepository["beginV3"]>[0] | undefined;
   let preparedV3: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>> | undefined;
+  let preparedAuthorityNow: Date | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   const begun: HostedCheckoutBeginResult = Object.freeze({
@@ -163,6 +165,7 @@ function fixture(
     authorityV2: async () => { throw new Error("unused"); },
     authorityV3: async (input) => {
       if (options.authorityError) throw options.authorityError;
+      preparedAuthorityNow = new Date(input.now);
       preparedV3 = Object.freeze({
         ...selectedAuthority,
         orderId: input.orderId,
@@ -191,6 +194,8 @@ function fixture(
     beginV2: async () => { throw new Error("unused"); },
     beginV3: async (input) => {
       if (options.beginError) throw options.beginError;
+      if (options.requirePreparedAuthorityClock && input.now.getTime() !== preparedAuthorityNow?.getTime())
+        throw new StorefrontHostedCheckoutRepositoryError("durable_authority_invalid");
       beginInput = input;
       beginV3Input = input;
       if (!preparedV3) throw new Error("prepare_missing");
@@ -767,6 +772,28 @@ test("presentation persistence failure emits only a safe diagnostic stage", asyn
   );
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
   assert.deepEqual(events, [{ stage: "presentation_persistence_failed", code: "invalid_input" }]);
+});
+
+test("hosted begin retains the evaluated authority clock when the provider adapter clock advances", async () => {
+  const selected = fixture(
+    { kind: "iframe", url: "https://www.paytr.com/odeme/guvenli/abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { providerCode: "paytr_iframe", attemptNow: new Date(NOW.getTime() + 1_000), requirePreparedAuthorityClock: true },
+  );
+  const result = await selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request });
+  assert.equal(result.state, "ready");
+  assert.equal(selected.getBegin()?.now.toISOString(), NOW.toISOString());
+});
+
+test("a delayed hosted initialization rejects expired authority before durable begin or provider dispatch", async () => {
+  const selected = fixture(
+    { kind: "iframe", url: "https://www.paytr.com/odeme/guvenli/abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { providerCode: "paytr_iframe", attemptNow: new Date(NOW.getTime() + 15 * 60_000), requirePreparedAuthorityClock: true },
+  );
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
+  assert.equal(selected.getBegin(), undefined);
+  assert.equal(selected.getSaved(), undefined);
 });
 
 test("presentation persistence refreshes monotonic time without extending the original hold", async () => {
