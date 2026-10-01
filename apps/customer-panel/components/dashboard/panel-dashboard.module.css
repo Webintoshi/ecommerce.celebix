@@ -991,30 +991,6 @@
   color: var(--dash-ink);
 }
 
-.pageIntro {
-  margin: 0 0 12px;
-}
-
-.pageIntro h1,
-.pageIntro p {
-  margin: 0;
-}
-
-.pageIntro h1 {
-  color: var(--dash-ink);
-  font-size: clamp(24px, 2.1vw, 28px);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.035em;
-}
-
-.pageIntro p {
-  margin-top: 4px;
-  color: var(--dash-muted);
-  font-size: 15px;
-  line-height: 1.4;
-}
-
 .focusBanner {
   position: relative;
   display: flex;
@@ -1612,8 +1588,6 @@
 }
 
 @media (max-width: 520px) {
-  .pageIntro h1 { font-size: 24px; }
-  .pageIntro p { font-size: 14px; }
   .focusBanner { min-height: 210px; align-items: flex-start; }
   .focusCopy { max-width: 100%; }
   .focusCopy h2 { padding-right: 30px; font-size: 19px; }

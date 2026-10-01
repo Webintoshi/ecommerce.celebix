@@ -1919,7 +1919,8 @@ test("dashboard presentation keeps the merchant-dashboard anatomy when analytics
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
   assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
-  assert.match(html, /Mağazanın nabzı/);
+  assert.match(html, /<h1 class="visuallyHidden">Genel bakış<\/h1>/);
+  assert.doesNotMatch(html, /Mağazanın nabzı|Önce önemli işlere odaklanın[.]/);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
@@ -3088,7 +3089,8 @@ test("approved merchant dashboard starts with four honest KPIs, real routes, and
 
   assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
-  assert.doesNotMatch(html, /<h1[^>]*class="visuallyHidden"/);
+  assert.match(html, /<h1 class="visuallyHidden">Genel bakış<\/h1>/);
+  assert.doesNotMatch(html, /Mağazanın nabzı|Önce önemli işlere odaklanın[.]/);
   for (const label of ["Toplam satış", "Toplam sipariş", "Yeni müşteri", "Dönüşüm oranı"])
     assert.match(html, new RegExp(label));
   for (const href of ["/orders/quick-links", "/products/new", "/customers/new", "/discounts/new", "/analytics"])
