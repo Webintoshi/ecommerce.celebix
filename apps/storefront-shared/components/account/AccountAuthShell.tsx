@@ -60,9 +60,7 @@ export function AccountAuthShell({
             branding.displayName
           )}
         </Link>
-        <div className={styles.brandMessage}>
-          <p>Giriş Yap &amp; Hesap Oluştur</p>
-        </div>
+        <span className={styles.brandCaption}>GÜVENLİ HESAP ERİŞİMİ</span>
       </section>
       <section className={styles.panel}>
         <div className={styles.panelInner}>
@@ -70,6 +68,7 @@ export function AccountAuthShell({
           {children}
         </div>
       </section>
+      <p className={styles.shellFooter}>Güvenli alışveriş, kolay hesap erişimi.</p>
     </main>
   );
 }

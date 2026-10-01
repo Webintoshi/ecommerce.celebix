@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { PHONE_COUNTRIES, composePhoneNumber, splitPhoneNumber } from "../../lib/checkout-phone.ts";
 import { AccountAuthRequestError, postAccountAuth, startAccountPhoneChallenge } from "./account-auth-client.ts";
 import { accountPhoneStartBody, accountRetryDeadline, accountRetryRemaining, maskAccountEmail, maskAccountPhone } from "./account-auth-view-model.ts";
 import styles from "./account-auth.module.css";
@@ -17,10 +18,8 @@ function EmailTrust() {
 
 function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: boolean; returnTo: string }>) {
   const [channel, setChannel] = useState<"phone" | "email">(phoneEnabled ? "phone" : "email");
-  const [phoneMode, setPhoneMode] = useState<"register" | "login">("register");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState(PHONE_COUNTRIES[0]!);
+  const [nationalNumber, setNationalNumber] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -32,9 +31,10 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   const codeRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const firstNameRef = useRef<HTMLInputElement>(null);
   const emailConfirmationRef = useRef<HTMLHeadingElement>(null);
-  const focusNext = useRef<"phone" | "email" | "firstName" | null>(null);
+  const focusNext = useRef<"phone" | "email" | null>(null);
+  const phone = composePhoneNumber(country.country, nationalNumber);
+  const internationalEntry = nationalNumber.startsWith("+");
   const retry = accountRetryRemaining(deadline, now);
 
   useEffect(() => {
@@ -50,11 +50,11 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
     if (sent && channel === "phone" && !busy) codeRef.current?.focus();
     else if (sent && channel === "email" && !busy) emailConfirmationRef.current?.focus();
     else if (focusNext.current) {
-      const target = focusNext.current === "phone" ? phoneRef : focusNext.current === "email" ? emailRef : firstNameRef;
+      const target = focusNext.current === "phone" ? phoneRef : emailRef;
       target.current?.focus();
       focusNext.current = null;
     }
-  }, [sent, channel, phoneMode, busy]);
+  }, [sent, channel, busy]);
 
   function cooldown(seconds: number | undefined) {
     const time = Date.now();
@@ -74,10 +74,10 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
     setBusy(true); setStatus("");
     try {
       const payload = channel === "phone"
-        ? await startAccountPhoneChallenge(accountPhoneStartBody(phoneMode, { firstName, lastName, phone, returnTo }))
+        ? await startAccountPhoneChallenge(accountPhoneStartBody({ phone, returnTo }))
         : await postAccountAuth("/api/account/auth/start", { email, returnTo });
       setSent(true);
-      if (channel === "phone") setCode("");
+      if (channel === "phone" && !sent) setCode("");
       cooldown(payload.retryAfterSeconds ?? 60);
       setStatus(channel === "phone" ? "Doğrulama kodu WhatsApp üzerinden gönderildi." : "Bağlantı gönderildi.");
     } catch (error) { showError(error); }
@@ -96,13 +96,8 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   }
 
   function changeChannel(next: "phone" | "email") {
-    focusNext.current = next === "phone" ? phoneMode === "register" ? "firstName" : "phone" : "email";
+    focusNext.current = next;
     setChannel(next); setSent(false); setCode(""); setStatus("");
-  }
-
-  function changePhoneMode(next: "register" | "login") {
-    focusNext.current = next === "register" ? "firstName" : "phone";
-    setPhoneMode(next); setStatus("");
   }
 
   if (channel === "email") {
@@ -125,27 +120,42 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   }
 
   if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
-    <div className={styles.stepIntro}><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
+    <div className={styles.stepIntro}><span className={styles.stepLabel}>02 / 03 · TELEFON DOĞRULAMA</span><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
     <form className={styles.form} onSubmit={verifyPhone}>
-      <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
+      <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" aria-describedby="account-code-help" /></label>
+      <p className={styles.transport} id="account-code-help">Kodu mesajdan yapıştırabilir veya otomatik doldurabilirsiniz.</p>
       <button className={styles.primaryButton} type="submit" disabled={busy || code.length !== 6}>{busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}</button>
     </form>
     <form onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
-    <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setCode(""); setStatus(""); }}>Telefonu değiştir</button>
+    <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setStatus(""); }}>Telefonu değiştir</button>
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
 
   return <form className={styles.form} onSubmit={send} aria-busy={busy}>
-    <div className={styles.stepIntro}><h2>{phoneMode === "register" ? "Hesap oluştur" : "Giriş yap"}</h2><p>{phoneMode === "register" ? "Bilgilerini gir, WhatsApp koduyla hesabını oluştur." : "Hesabına kayıtlı telefon numaranla devam et."}</p></div>
-    {phoneMode === "register" ? <div className={styles.nameFields}>
-      <label className={styles.field}><span>Ad</span><input ref={firstNameRef} className={styles.input} name="firstName" autoComplete="given-name" required disabled={busy} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} /></label>
-      <label className={styles.field}><span>Soyad</span><input className={styles.input} name="lastName" autoComplete="family-name" required disabled={busy} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} /></label>
-    </div> : null}
-    <label className={styles.field}><span>Telefon numarası</span><input ref={phoneRef} className={styles.input} name="phone" type="tel" autoComplete="tel" inputMode="tel" required disabled={busy} value={phone} onChange={(event) => setPhone(event.currentTarget.value)} placeholder="05XX XXX XX XX" aria-describedby="account-phone-transport" /></label>
+    <div className={styles.stepIntro}><span className={styles.stepLabel}>01 / 03 · HESAP ERİŞİMİ</span><h2>Telefonunla devam et</h2><p>Numaranı yaz; güvenli giriş kodunu WhatsApp üzerinden gönderelim.</p></div>
+    <div className={styles.field}><label htmlFor="account-phone-number">Telefon numarası</label><div className={styles.phoneFrame}>
+      <div className={styles.phoneCountry}>
+        <span className={styles.phoneCountryVisual} aria-hidden="true"><span>{internationalEntry ? "🌐" : country.flag}</span><svg viewBox="0 0 16 16" fill="none"><path d="m4 6 4 4 4-4" /></svg></span>
+        <select aria-label="Telefon ülke kodu" title={`${country.name} (${country.dialCode})`} value={internationalEntry ? "international" : country.country} disabled={busy} onChange={(event) => {
+          const next = PHONE_COUNTRIES.find((item) => item.country === event.currentTarget.value);
+          if (!next) return;
+          setCountry(next); setNationalNumber(internationalEntry ? "" : nationalNumber); setStatus("");
+        }}>
+          {internationalEntry ? <option value="international" disabled>🌐 Uluslararası</option> : null}
+          {PHONE_COUNTRIES.map((item) => <option key={item.country} value={item.country}>{item.flag} {item.dialCode} {item.name}</option>)}
+        </select>
+      </div>
+      {!internationalEntry ? <span className={styles.phoneDialCode} aria-hidden="true">{country.dialCode}</span> : null}
+      <input ref={phoneRef} id="account-phone-number" className={styles.phoneNumber} name="phone" type="tel" autoComplete="tel-national" inputMode="tel" required maxLength={30} disabled={busy} value={nationalNumber} onChange={(event) => {
+        const next = event.currentTarget.value;
+        if (next.startsWith("+") || next.startsWith("00")) { const split = splitPhoneNumber(next, country.country); setCountry(split.country); setNationalNumber(split.nationalNumber); }
+        else setNationalNumber(next);
+        setStatus("");
+      }} placeholder={country.country === "TR" ? "555 111 22 33" : "Telefon numarası"} aria-describedby="account-phone-transport" />
+    </div></div>
     <p className={styles.transport} id="account-phone-transport">Doğrulama kodu WhatsApp üzerinden gönderilir.</p>
     <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "WhatsApp kodu gönder"}</button>
     {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
-    <button className={styles.textButton} type="button" data-auth-switch={phoneMode === "register" ? "login" : "register"} disabled={busy} onClick={() => changePhoneMode(phoneMode === "register" ? "login" : "register")}>{phoneMode === "register" ? "Hesabın var mı? Giriş yap" : "Yeni hesap oluştur"}</button>
     <button className={styles.emailAlternative} type="button" disabled={busy} onClick={() => changeChannel("email")}>Mevcut e-posta hesabımla giriş yap</button>
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </form>;
