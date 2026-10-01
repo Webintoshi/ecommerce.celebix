@@ -9,6 +9,7 @@ import { useCartStatus } from "../../components/CartStatusProvider";
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "../../lib/product-catalog-query.ts";
 import { useSioraPanelHistory } from "./useSioraPanelHistory";
 import { SIORA_STOREFRONT_ID } from "./theme.ts";
+import { ALPLER_STOREFRONT_ID } from "../alpler/theme.ts";
 
 const FILTERS = [["all", "Tüm ürünler"], ["available", "Stokta olanlar"], ["discounted", "İndirimli ürünler"]] as const;
 const ORDERS = [["featured", "Öne çıkanlar"], ["title-asc", "Ürün adı"], ["price-asc", "Fiyat: düşükten yükseğe"], ["price-desc", "Fiyat: yüksekten düşüğe"]] as const;
@@ -21,8 +22,8 @@ export function SioraProductExplorer({ products, locale, cardStyle, imageRatio, 
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const headingId = useId();
-  const { drawerOpen } = useCartStatus();
-  const panelHistory = useSioraPanelHistory({ storefrontId: SIORA_STOREFRONT_ID, panel: "filters", onClose: () => dialog.current?.close() });
+  const { drawerOpen, visualTheme } = useCartStatus();
+  const panelHistory = useSioraPanelHistory({ storefrontId: visualTheme === "alpler-deniz" ? ALPLER_STOREFRONT_ID : SIORA_STOREFRONT_ID, panel: "filters", onClose: () => dialog.current?.close() });
   const activeCount = Number(selection.filter !== "all") + Number(selection.order !== "featured");
   useEffect(() => { setQuery(selection.query); setDraft(selection); }, [selection]);
   useEffect(() => { if (drawerOpen && dialog.current?.open) { dialog.current.close(); void panelHistory.close(); } }, [drawerOpen, panelHistory.close]);

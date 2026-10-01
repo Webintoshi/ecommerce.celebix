@@ -9,6 +9,7 @@ import { buildPublicSeoMetadata, effectivePublicSeo, buildBreadcrumbStructuredDa
 import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
+import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { ProductGrid } from "@/components/ProductGrid";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
@@ -90,7 +91,7 @@ export async function renderCategoryPage({
         <span aria-current="page">{selected.category.name}</span>
       </nav>
       <section className="store-section store-container">
-        {sioraThemeFor(selected.storefront) ? <h1 className="siora-page-title">{selected.category.name}</h1> : <h1 className="sr-only">{selected.category.name}</h1>}
+        {(alplerThemeFor(selected.storefront) ?? sioraThemeFor(selected.storefront)) ? <h1 className="siora-page-title">{selected.category.name}</h1> : <h1 className="sr-only">{selected.category.name}</h1>}
         <ProductGrid
           products={selected.products}
           preserveOrder

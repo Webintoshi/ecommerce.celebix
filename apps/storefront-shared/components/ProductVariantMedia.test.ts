@@ -67,6 +67,47 @@ test("quick view variant selection changes its cover and purchases that same sel
   });
 });
 
+test("Alpler large-image quick view resolves the chosen variant and closes its overlay before opening the cart", async () => {
+  const calls: unknown[] = [], order: string[] = [];
+  let container: HTMLElement;
+  const load = componentLoader({
+    "next/navigation": { useRouter: () => ({ push() {} }) },
+    "@/lib/cart/client.ts": { storefrontCartClient: { async add(input: unknown) { calls.push(input); order.push("add"); return { itemCount: 1 }; } } },
+    "@/lib/format.ts": { formatTry: (value: number) => `₺${value / 100}` },
+    "@/lib/analytics/events.ts": { emitStorefrontCommerceEvent() {} },
+    "./CartStatusProvider": { useCartStatus: () => ({
+      visualTheme: "alpler-deniz", drawerOpen: false, showQuantitySelector: false,
+      async closeDrawerAndWait() { return true; },
+      replaceCart() { order.push("replace"); },
+      openDrawer(trigger: HTMLElement) {
+        assert.equal(container.querySelector("[data-alpler-quick-view]"), null, "quick view is closed before cart opens");
+        assert.equal(trigger, container.querySelector(".product-card-cart"));
+        order.push("drawer");
+      },
+    }) },
+    "../themes/siora/useSioraPanelHistory": { useSioraPanelHistory: () => ({ open: () => true, async close() { order.push("history-close"); return true; } }) },
+  });
+  const { ProductQuickView } = load<{ ProductQuickView: Component }>(new URL("./ProductQuickView.tsx", import.meta.url));
+  await withProductBrowser(async (browser) => {
+    container = browser.container;
+    await browser.render(React.createElement(ProductQuickView, { product }));
+    await browser.click(".product-card-cart");
+    const image = () => container.querySelector("[data-alpler-quick-media] img")?.getAttribute("src");
+    assert.equal(image(), `https://media.example/${BACK}.webp`);
+    assert.ok(container.querySelector("[data-alpler-quick-content]"));
+    assert.equal(container.querySelector(".purchase-quantity"), null);
+    assert.equal(container.querySelector(".purchase-variants small")?.textContent, "Stokta");
+    await browser.click(`input[value="${WHITE}"]`);
+    assert.equal(image(), `https://media.example/${WHITE_COVER}.webp`);
+    await browser.click(".purchase-actions button");
+    await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.deepEqual(calls, [{ productId: PRODUCT, variantId: WHITE, quantity: 1 }]);
+    assert.deepEqual(order, ["add", "replace", "history-close", "drawer"]);
+    await browser.click(".product-card-cart");
+    assert.equal(image(), `https://media.example/${BACK}.webp`, "a new overlay session starts with the first available variant");
+  });
+});
+
 test("design preview uses the same variant gallery and retains a shared photo when the variant changes", async () => {
   const load = componentLoader();
   const { ProductDetailPreview } = load<{ ProductDetailPreview: Component }>(new URL("../../../packages/storefront-design-ui/src/ProductDetailPresentation.tsx", import.meta.url));

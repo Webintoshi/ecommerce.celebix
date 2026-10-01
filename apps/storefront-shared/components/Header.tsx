@@ -5,6 +5,8 @@ import type {
 } from "@celebix/saas-contracts";
 import { StoreUtilities } from "./StoreUtilities";
 import { CampaignHeader } from "./CampaignHeader";
+import { AlplerHeader } from "../themes/alpler/AlplerHeader";
+import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraHeader } from "../themes/siora/SioraHeader";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { productIndexPath } from "@/lib/storefront-routes.ts";
@@ -16,6 +18,7 @@ export function Header({
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
 }) {
+  if (alplerThemeFor(storefront)) return <AlplerHeader storefront={storefront} design={design} />;
   if (sioraThemeFor(storefront)) return <SioraHeader storefront={storefront} design={design} />;
   if (
     storefront.presentation.schemaVersion === 2 ||
