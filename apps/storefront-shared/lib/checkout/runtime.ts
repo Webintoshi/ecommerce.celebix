@@ -403,23 +403,53 @@ function paytrHostedCallbackHeaders(
   return headers;
 }
 
+export type PaytrCallbackDiagnosticEvent =
+  | Readonly<{
+      stage: "hosted_callback_outcome";
+      outcome: "accepted" | "retry" | "rejected" | "not_found";
+    }>
+  | Readonly<{
+      stage: "callback_request_rejected";
+      outcome: PaytrCallbackRequestRejectionStage;
+    }>
+  | Readonly<{
+      stage: "hosted_callback_shape";
+      status: "success" | "failed";
+      totalAmount: "zero" | "positive" | "invalid";
+      paymentContext: "present" | "absent";
+      paymentType: "card" | "eft" | "unknown";
+      testMode: "0" | "1" | "absent" | "invalid";
+    }>;
+
+function parsedCallbackShape(form: string): Extract<PaytrCallbackDiagnosticEvent, { stage: "hosted_callback_shape" }> {
+  // Only called after exact request parsing. Never return provider values.
+  const params = new URLSearchParams(form);
+  const total = params.get("total_amount");
+  const paymentType = params.get("payment_type");
+  const testMode = params.get("test_mode");
+  return Object.freeze({
+    stage: "hosted_callback_shape",
+    status: params.get("status") === "success" ? "success" : "failed",
+    totalAmount: total === "0" ? "zero"
+      : total !== null && /^[1-9][0-9]{0,15}$/.test(total) && Number.isSafeInteger(Number(total)) ? "positive" : "invalid",
+    paymentContext: params.has("payment_amount") && params.has("currency") ? "present" : "absent",
+    paymentType: paymentType === "card" || paymentType === "eft" ? paymentType : "unknown",
+    testMode: testMode === null ? "absent" : testMode === "0" || testMode === "1" ? testMode : "invalid",
+  });
+}
+
 export function createPaytrCallbackRoute(dependencies: Readonly<{
   selectAuthority: (headers: Headers) => HostAuthority;
   resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
   resolveHostedRuntime?: () => Promise<HostedDigestCallbackRuntime | null>;
   now?: () => Date;
-  audit?: (event:
-    | Readonly<{
-        stage: "hosted_callback_outcome";
-        outcome: "accepted" | "retry" | "rejected" | "not_found";
-      }>
-    | Readonly<{
-        stage: "callback_request_rejected";
-        outcome: PaytrCallbackRequestRejectionStage;
-      }>
-  ) => void;
+  audit?: (event: PaytrCallbackDiagnosticEvent) => void;
 }>) {
   const callbackResponse = (status: number, text: "OK" | "INVALID" | "RETRY") => routeText(status, text);
+  const audit = (event: PaytrCallbackDiagnosticEvent) => {
+    try { dependencies.audit?.(Object.freeze(event)); }
+    catch { /* diagnostics cannot affect acknowledgement */ }
+  };
   const legacy = async (
     callback: Readonly<{ merchantOid: string; form: string; callbackDigest: string }>,
     externalCallbackUrl: string,
@@ -459,6 +489,7 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
   return async (request: Request): Promise<Response> => {
     const authority = dependencies.selectAuthority(request.headers);
     if (authority.kind !== "trusted" || !("hostname" in authority) || !validHostname(authority.hostname)) {
+      audit({ stage: "callback_request_rejected", outcome: "authority" });
       return callbackResponse(400, "INVALID");
     }
     const externalCallbackUrl = `https://${authority.hostname}/api/payments/paytr/callback`;
@@ -472,15 +503,16 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
       request: inspection,
       trustedHostname: authority.hostname,
       configuredCallbackUrl: externalCallbackUrl,
-      audit: (stage) => dependencies.audit?.(Object.freeze({
+      audit: (stage) => audit({
         stage: "callback_request_rejected",
         outcome: stage,
-      })),
+      }),
     });
     if (callback === null) return callbackResponse(400, "INVALID");
     if (!CALLBACK_BINDING_DIGEST.test(callback.merchantOid)) {
       return await legacy(callback, externalCallbackUrl);
     }
+    audit(parsedCallbackShape(callback.form));
     if (dependencies.resolveHostedRuntime === undefined) {
       return callbackResponse(400, "INVALID");
     }
@@ -500,13 +532,9 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
         providerCode: "paytr_iframe",
         callbackBindingDigest: callback.merchantOid,
       });
-      if (new URLSearchParams(callback.form).get("status") === "success") {
-        try {
-          dependencies.audit?.(Object.freeze({
-            stage: "hosted_callback_outcome",
-            outcome: result.kind,
-          }));
-        } catch { /* callback diagnostics cannot affect acknowledgement */ }
+      if (result.kind === "accepted" || result.kind === "retry"
+        || result.kind === "rejected" || result.kind === "not_found") {
+        audit({ stage: "hosted_callback_outcome", outcome: result.kind });
       }
       if (result.kind === "accepted") return callbackResponse(200, "OK");
       if (result.kind === "retry") return callbackResponse(503, "RETRY");
