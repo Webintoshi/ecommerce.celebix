@@ -8,6 +8,7 @@ import {
   PAYTR_ADAPTER_SOURCE_PATHS,
   createPaytrAdapterSourceManifest,
   createPaytrCandidateBuildMetadata,
+  canonicalPaytrExecutionEvidenceDigest,
 } from "../packages/payment-adapters/src/providers/paytr/build-binding.ts";
 
 const GENERATED_PATH = "packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts";
@@ -155,15 +156,18 @@ async function environmentWithBuildSecrets(environment, directory) {
   return Object.freeze(selected);
 }
 
-function approval(environment, selectedEnvironment, candidateDigest) {
+function approval(environment, selectedEnvironment, candidate) {
   const keys = APPROVAL_KEYS[selectedEnvironment];
   const mode = environment[keys.mode];
   const evidenceDigest = environment[keys.digest];
   if (mode === undefined && evidenceDigest === undefined) return null;
   if (mode !== keys.expectedMode) invalid(`${selectedEnvironment}_mode_invalid`);
   if (evidenceDigest === undefined) invalid(`${selectedEnvironment}_digest_missing`);
-  if (evidenceDigest !== candidateDigest) invalid(`${selectedEnvironment}_digest_mismatch`);
-  return Object.freeze({ environment: selectedEnvironment, adapterVersion: 1, evidenceDigest });
+  const executionDigest = canonicalPaytrExecutionEvidenceDigest(candidate);
+  if (evidenceDigest !== candidate.candidateExecutionDigest && evidenceDigest !== executionDigest) {
+    invalid(`${selectedEnvironment}_digest_mismatch`);
+  }
+  return Object.freeze({ environment: selectedEnvironment, adapterVersion: 1, evidenceDigest: executionDigest });
 }
 
 function frozenLiteral(value) {
@@ -252,8 +256,8 @@ export async function generatePaytrBuild(value) {
     })),
   });
   const approvals = Object.freeze({
-    test: approval(environment, "test", candidates.test.candidateExecutionDigest),
-    live: approval(environment, "live", candidates.live.candidateExecutionDigest),
+    test: approval(environment, "test", candidates.test),
+    live: approval(environment, "live", candidates.live),
   });
   const output = render(candidates, approvals);
   const generatedPath = join(parsed.repositoryRoot, GENERATED_PATH);
