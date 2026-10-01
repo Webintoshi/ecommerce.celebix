@@ -279,6 +279,7 @@ function scopedAttemptsV2(input: Readonly<{
   normalizedCodes: readonly string[];
   request: HostedCheckoutStartRequest;
   authority: HostedCheckoutAuthorityV3;
+  authorityNow: Date;
   paymentSession: ReturnType<typeof createStorefrontOperationCredential>;
   receipt: ReturnType<typeof createStorefrontOperationCredential>;
   customer: ReturnType<typeof createStorefrontOperationCredential>;
@@ -299,6 +300,9 @@ function scopedAttemptsV2(input: Readonly<{
         || payment.currency !== input.authority.currency
         || !DIGEST.test(payment.fingerprint)
         || !DIGEST.test(payment.callbackBindingDigest)) return unavailable();
+      const authorityAge = payment.authority.now.getTime() - input.authorityNow.getTime();
+      if (!Number.isFinite(authorityAge) || authorityAge < 0 || authorityAge >= PRESENTATION_LIFETIME_MS)
+        return unavailable();
       let begun;
       try {
         const promotionBoundFingerprint = digest(
@@ -312,7 +316,9 @@ function scopedAttemptsV2(input: Readonly<{
         );
         begun = await input.repository.beginV3({
           hostname: input.hostname,
-          now: new Date(payment.authority.now),
+          // Evaluator seals include the evaluation clock. Revalidate the live
+          // source with that same clock; presentation persistence uses fresh time.
+          now: new Date(input.authorityNow),
           intentKind: input.request.intentKind,
           candidates: input.sourceCandidates,
           cartVersion: input.request.cartVersion,
@@ -438,6 +444,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           sourceCandidates: candidates, customerCandidates: selectedAuthority.customerCandidates,
           normalizedCodes: selectedAuthority.normalizedCodes, request: input.request,
           authority: selectedAuthority.authority, paymentSession, receipt, customer, sessionId,
+          authorityNow: new Date(selectedNow),
           delivery: selectedDelivery,
           generated: Object.freeze({
             orderId: selectedAuthority.authority.orderId,

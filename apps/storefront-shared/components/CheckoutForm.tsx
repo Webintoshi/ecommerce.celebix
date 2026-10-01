@@ -23,6 +23,7 @@ import { CheckoutSummary } from "./CheckoutSummary";
 import {
   checkoutBlockerMessage,
   checkoutFailureMessage,
+  hostedCheckoutFailureMessage,
   resolveCheckoutSummaryState,
 } from "./checkout-readiness";
 import { useHydrated } from "./use-hydrated";
@@ -414,9 +415,11 @@ export function CheckoutForm({
         return;
       }
       setStatus(
-        error instanceof StorefrontCartClientError
-          ? checkoutFailureMessage(error.code)
-          : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.",
+        selectedMethod.kind === "hosted_card"
+          ? hostedCheckoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)
+          : error instanceof StorefrontCartClientError
+            ? checkoutFailureMessage(error.code)
+            : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.",
       );
       setPending(false);
     }

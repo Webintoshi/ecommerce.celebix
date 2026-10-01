@@ -6,6 +6,8 @@ import { componentLoader, withProductBrowser } from "./product-variant-media-tes
 import * as promotionModel from "../lib/promotions/model.ts";
 import * as routes from "../lib/storefront-routes.ts";
 import * as deliveryValidation from "../lib/checkout-form.ts";
+import { createStorefrontCartClient, StorefrontCartClientError } from "../lib/cart/client.ts";
+import type { StorefrontCartClient } from "../lib/cart/types.ts";
 
 const cart = {
   version: 1, currency: "TRY", itemCount: 1, subtotalCents: 10000, shippingCents: 0,
@@ -28,10 +30,10 @@ class FixtureCartClientError extends Error {
   readonly code: string;
   constructor(code: string) { super(code); this.code = code; }
 }
-function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: (input: Readonly<{ normalizedCodes: readonly string[]; expectedQuoteDigest: string }>) => Promise<unknown> }> = {}) {
+function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: StorefrontCartClient["startHosted"]; clientError?: typeof StorefrontCartClientError }> = {}) {
   const load = componentLoader({
     "next/link": { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode }) => React.createElement("a", props, children) },
-    "@/lib/cart/client.ts": { StorefrontCartClientError: FixtureCartClientError, storefrontCartClient: { quotePromotionsWithDigest: quote, startHosted: options.startHosted } },
+    "@/lib/cart/client.ts": { StorefrontCartClientError: options.clientError ?? FixtureCartClientError, storefrontCartClient: { quotePromotionsWithDigest: quote, startHosted: options.startHosted } },
     "@/lib/checkout-form.ts": deliveryValidation,
     "@/lib/format.ts": { formatTry: (cents: number) => `₺${cents / 100}` },
     "@/lib/promotions/model.ts": promotionModel,
@@ -181,7 +183,7 @@ test("a rejected coupon keeps feedback but submits the digest for exactly the re
   };
   const Form = loadForm(async (_intent, codes) => hostedResponse(codes), { startHosted: async input => {
     submittedCodes = input.normalizedCodes;
-    if (input.expectedQuoteDigest !== hostedResponse(input.normalizedCodes).quoteDigest) {
+    if (input.expectedQuoteDigest !== hostedResponse(input.normalizedCodes ?? []).quoteDigest) {
       spuriousPriceChanges += 1;
       throw new FixtureCartClientError("price_changed");
     }
@@ -200,5 +202,55 @@ test("a rejected coupon keeps feedback but submits the digest for exactly the re
     assert.deepEqual(submittedCodes, []);
     assert.equal(spuriousPriceChanges, 0, "rejecting a code without changing the total must not create a price change");
     assert.doesNotMatch(container.querySelector(".checkout-status")?.textContent ?? "", /Fiyat güncellendi/u);
+  });
+});
+
+test("hosted HTTP 400 keeps delivery fields, the quote and the same operation for retry without redirect", async () => {
+  const submissions: Record<string, unknown>[] = [];
+  const navigations: string[] = [];
+  let quoteCalls = 0;
+  const client = createStorefrontCartClient(async (path, init) => {
+    assert.equal(path, "/api/checkout/payment/start");
+    submissions.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Response.json({ code: "invalid_input" }, { status: 400 });
+  }, () => { throw new Error("retry_created_a_new_operation"); });
+  const selected = response([]);
+  const quote = { ...selected.quote, paymentMethods: [{
+    id: "30000000-0000-4000-8000-000000000001", kind: "hosted_card", label: "Kart", instructions: "Güvenli ödeme ekranı.",
+    providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [],
+  }] };
+  const quoteDigest = digest(quote);
+  const Form = loadForm(async () => { quoteCalls += 1; return { quote, quoteDigest }; }, {
+    startHosted: client.startHosted, clientError: StorefrontCartClientError,
+  });
+  const draft = {
+    firstName: "Ada", lastName: "Lovelace", email: "ada@example.test", phone: "+14155552671", addressLine1: "Cadde 1",
+    city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "Kapıyı çalın.",
+  };
+  await withProductBrowser(async ({ container, render, change, click }) => {
+    window.location.assign = destination => { navigations.push(String(destination)); };
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: draft }));
+    await change('input[name="addressLine1"]', "Cadde 12");
+    const enteredFields = Object.keys(draft).map(name => [name, container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value] as const);
+    await click(".checkout-submit");
+    assert.equal(submissions.length, 1, "the failure must come from the actual hosted HTTP request");
+    assert.equal(container.querySelector(".checkout-status")?.textContent, "İletişim ve teslimat bilgilerinizi kontrol edin. Sorun devam ederse mağazayla iletişime geçin.");
+    assert.match(container.querySelector(".checkout-summary")?.textContent ?? "", /₺100/u);
+    for (const [name, value] of enteredFields) {
+      assert.equal(container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value, value, `${name} survives the failed payment start`);
+    }
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, false);
+    assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, false);
+    assert.deepEqual(navigations, []);
+    await click(".checkout-submit");
+    assert.equal(submissions.length, 2);
+    assert.equal(quoteCalls, 1, "an input failure does not discard or refresh the confirmed quote");
+    assert.equal(typeof submissions[0]?.operationId, "string");
+    assert.deepEqual(submissions[1], submissions[0], "retry keeps the operation, entered information and quote seal");
+    assert.equal(submissions[0]?.expectedQuoteDigest, quoteDigest);
+    assert.deepEqual(submissions[0]?.contact, { name: "Ada Lovelace", email: draft.email, phone: draft.phone });
+    assert.deepEqual(submissions[0]?.shippingAddress, { addressLine1: "Cadde 12", city: draft.city, district: draft.district, postalCode: draft.postalCode });
+    assert.equal(submissions[0]?.note, draft.note);
+    assert.deepEqual(navigations, []);
   });
 });

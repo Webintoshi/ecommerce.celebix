@@ -145,6 +145,28 @@ test("public cart errors preserve only finite checkout blocker codes", async () 
   }
 });
 
+test("hosted invalid input preserves only its finite public code", async () => {
+  const input = {
+    cartVersion: 3, intentKind: "cart" as const,
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard" as const, paymentMethodId: PAYMENT_METHOD,
+  };
+  for (const [body, expectedCode] of [
+    [{ code: "invalid_input" }, "invalid_input"],
+    [{ code: "invalid_input", detail: "private_customer_collision" }, "request_failed"],
+    [{ code: "private_customer_collision" }, "request_failed"],
+  ] as const) {
+    const client = createStorefrontCartClient(async () => Response.json(body, { status: 400 }), () => OPERATION);
+    await assert.rejects(client.startHosted(input), (error: unknown) => {
+      assert.ok(error instanceof StorefrontCartClientError);
+      assert.equal(error.code, expectedCode);
+      assert.equal(error.message, expectedCode, "response details never enter the client error");
+      return true;
+    });
+  }
+});
+
 test("cart client validates checkout blocker consistency", async () => {
   const inconsistent = { version: 1, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, totalCents: 0, checkoutReady: true, checkoutBlocker: "empty_cart", items: [] };
   const client = createStorefrontCartClient(async () => new Response(JSON.stringify({ cart: inconsistent }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
