@@ -23,12 +23,14 @@ export function StorefrontFrame({
   children,
   hasAnnouncement = false,
   checkout = false,
+  immersiveProduct = false,
 }: {
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
   children: React.ReactNode;
   hasAnnouncement?: boolean;
   checkout?: boolean;
+  immersiveProduct?: boolean;
 }) {
   const tokens = starterThemeTokens(storefront.presentation);
   const campaign = campaignFrameSettings(storefront.presentation);
@@ -36,6 +38,7 @@ export function StorefrontFrame({
   const typography = createStorefrontTypographyResources(design.typography);
   const guzideTheme = guzideThemeFor(storefront);
   const visualTheme = alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
+  const immersiveSiora = immersiveProduct && Boolean(sioraThemeFor(storefront)) && !checkout;
   const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
   const style: DesignStyle = {
     ...typography.style,
@@ -59,10 +62,11 @@ export function StorefrontFrame({
             data-published-design={customized ? "true" : "false"}
             data-storefront-theme={visualTheme}
             data-storefront-checkout={checkout ? "true" : undefined}
+            data-siora-product={immersiveSiora ? "true" : undefined}
             data-font={customized ? design.brand.fontFamily : undefined}
             style={style}
           >
-            {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
+            {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : immersiveSiora ? null : <Header storefront={storefront} design={design} />}
             <main>{children}</main>
             <Footer storefront={storefront} logo={logo} checkout={checkout} />
           </div>

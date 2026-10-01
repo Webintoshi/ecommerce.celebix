@@ -26,10 +26,10 @@ const links = [{ anchorText: "Published care page", path: "/pages/care" }];
 const content = { id: "real-id", slug: "news", locale: "en-US", title: "Visible news", body: "<p>Body</p>", bodyFormat: "normalized_html", excerpt: null, seoTitle: null, seoDescription: null, publishedAt: "2026-09-29T00:00:00.000Z", updatedAt: "2026-09-30T00:00:00.000Z" };
 class RepositoryError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function pageModule(filename: string, kind: string, withSeo = true) {
+async function pageModule(filename: string, kind: string, withSeo = true, storefrontId = "unrelated-store") {
   const calls: Array<{ kind: string; id: string; hostname: string }> = [];
   const seoReader = { settings: async () => settings, key: async () => ({ key: null }), get: async (input: { kind: string; id: string; hostname: string }) => { calls.push(input); return { resource: { ...resource, effectiveCanonicalPath: kind === "category" ? "/kategori/canonical" : kind === "product" ? "/urun/canonical" : `/${kind === "blog" ? "blog" : "pages"}/canonical?lang=en-US` }, settings, links }; } };
-  const context = { storefront, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
+  const context = { storefront: { ...storefront, id: storefrontId }, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
   const source = await readFile(new URL(filename, import.meta.url), "utf8");
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const compiled: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
@@ -40,6 +40,7 @@ async function pageModule(filename: string, kind: string, withSeo = true) {
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError, StorefrontContentRepositoryError: RepositoryError }, "@celebix/saas-contracts": {}, "@celebix/storefront-design-ui": {},
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
     "../../../themes/siora/theme.ts": sioraTheme,
+    "../../../themes/siora/SioraProductDetailExperience": { SioraProductDetailExperience: "SioraProductDetailExperience" },
     "../../../themes/alpler/theme.ts": alplerTheme,
   };
   Function("require", "module", "exports", output)((name: string) => {
@@ -84,5 +85,18 @@ test("home metadata retains legacy SEO before reader registration and reads new 
     assert.deepEqual(metadata.title, { absolute: enabled ? "New store title" : "Legacy title" });
     assert.equal(metadata.description, enabled ? "New store description" : "Legacy description");
     assert.deepEqual(metadata.robots, { index: enabled, follow: enabled });
+  }
+});
+
+
+test("immersive product experience is restricted to the resolved Siora tenant", async () => {
+  for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, "a828862c-4cc1-475a-89cc-5fbee31eb43f", "unrelated-store"]) {
+    const { exports } = await pageModule("../app/products/[slug]/page.tsx", "product", true, id);
+    const tree = await exports.renderProductPage!({ params: Promise.resolve({ slug: "ring" }), routeVariant: "localized" } as never);
+    const rendered = nodes(tree);
+    assert.equal(rendered.some(({ type }) => type === "SioraProductDetailExperience"), id === sioraTheme.SIORA_STOREFRONT_ID);
+    assert.equal(rendered.some(({ type }) => type === "ProductDetailExperience"), id !== sioraTheme.SIORA_STOREFRONT_ID);
+    assert.equal(rendered.find(({ type }) => type === "StorefrontFrame")?.props.immersiveProduct, id === sioraTheme.SIORA_STOREFRONT_ID);
+    assert.deepEqual(rendered.find(({ type }) => type === "SeoRelatedLinks")?.props.links, links);
   }
 });

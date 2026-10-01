@@ -7,6 +7,8 @@ import type {
   StorefrontPolicyKey,
 } from "@celebix/saas-contracts";
 import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
+import { sioraThemeFor } from "../../../themes/siora/theme.ts";
+import { SioraProductDetailExperience } from "../../../themes/siora/SioraProductDetailExperience";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -90,6 +92,7 @@ export async function renderProductPage({
 }) {
   const selected = await product((await params).slug);
   const { storefront, product: item } = selected;
+  const siora = Boolean(sioraThemeFor(storefront));
   if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
     permanentRedirect(productPath(storefront.locale, item.slug));
   }
@@ -143,7 +146,7 @@ export async function renderProductPage({
   const seo = effectivePublicSeo({ storefront, fallback: { ...resolveProductSeo(item, storefront.presentation.displayName), path: productPath(storefront.locale, item.slug), imageUrl: item.media[0]?.url }, selection: selected.seoSelection });
   const breadcrumbs = [{ name: storefront.presentation.displayName, path: "/" }, ...(item.categoryPath ?? []).map(({ name, slug }) => ({ name, path: categoryPath(storefront.locale, slug) })), { name: item.title, path: seo.path }];
   return (
-    <StorefrontFrame storefront={storefront} design={selected.design}>
+    <StorefrontFrame storefront={storefront} design={selected.design} immersiveProduct={siora}>
       <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description)} />
       <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent
@@ -151,7 +154,11 @@ export async function renderProductPage({
         event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
-      <ProductDetailExperience product={item}
+      {siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
+        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
+        options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
+      /> : <ProductDetailExperience product={item}
         locale={storefront.locale}
         relatedProducts={relatedProducts}
         publishedPolicies={publishedPolicies}
@@ -160,7 +167,7 @@ export async function renderProductPage({
         imageRatio={presentation.theme.productImageRatio}
         showStockQuantity={!alplerThemeFor(storefront)}
         showQuantitySelector={presentation.schemaVersion === 2 || (presentation.schemaVersion === 3 || presentation.schemaVersion === 4) ? presentation.cart.showQuantitySelector : true}
-      />
+      />}
       <SeoRelatedLinks links={selected.seoSelection?.links ?? []} locale={storefront.locale} />
     </StorefrontFrame>
   );
