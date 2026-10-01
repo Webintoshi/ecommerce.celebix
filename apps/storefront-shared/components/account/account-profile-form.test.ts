@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import { componentLoader, withProductBrowser } from "../product-variant-media-test-utils.ts";
 
@@ -13,6 +12,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     execFileSync(process.execPath, ["--experimental-transform-types", "--test", fileURLToPath(import.meta.url)], { env: { ...process.env, NODE_OPTIONS: "" }, stdio: "pipe" });
   });
 } else {
+  const { renderToStaticMarkup } = await import("react-dom/server");
   const load = componentLoader();
   const { AccountProfileForm } = load<{ AccountProfileForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountProfileForm.tsx", import.meta.url));
 
