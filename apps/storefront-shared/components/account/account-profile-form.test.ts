@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import { componentLoader, withProductBrowser } from "../product-variant-media-test-utils.ts";
 
@@ -13,6 +15,50 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
 } else {
   const load = componentLoader();
   const { AccountProfileForm } = load<{ AccountProfileForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountProfileForm.tsx", import.meta.url));
+
+  test("profile forms use POST before client JavaScript initializes", () => {
+    for (const mode of ["complete", "update"]) {
+      const markup = renderToStaticMarkup(React.createElement(AccountProfileForm, { mode }));
+      const forms = markup.match(/<form\b[^>]*>/gu) ?? [];
+      assert.equal(forms.length, 1, `${mode} renders one form`);
+      assert.match(forms[0]!, /\bmethod="post"(?=>)/u, `${mode} must not send profile data in a GET URL`);
+    }
+  });
+
+  test("profile update uses storefront classes in published and preview frames", async () => {
+    for (const { theme, ink, paper, line } of [
+      { theme: "published", ink: "#111111", paper: "#fafafa", line: "#bbbbbb" },
+      { theme: "preview", ink: "#232323", paper: "#ffffff", line: "#dedede" },
+    ]) {
+      await withProductBrowser(async ({ container, render }) => {
+        const stylesheet = document.createElement("style");
+        stylesheet.textContent = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+        document.head.append(stylesheet);
+        await render(React.createElement("main", { className: "storefront-frame", "data-storefront-theme": theme },
+          React.createElement("section", { className: "account-page store-container" },
+            React.createElement(AccountProfileForm, { mode: "update", initial: { firstName: "Ada", lastName: "Yılmaz", phone: "+905551112233", phoneVerified: true } }))));
+        const frame = container.querySelector<HTMLElement>(".storefront-frame")!;
+        frame.style.setProperty("--ink", ink);
+        frame.style.setProperty("--paper", paper);
+        frame.style.setProperty("--line", line);
+        const form = container.querySelector(".storefront-frame .account-page > form")!;
+        assert.equal(form.className, "account-profile-form");
+        assert.equal(form.querySelectorAll(".nameFields, .field, .input, .primaryButton, .status").length, 0);
+        assert.equal(form.querySelector("button")?.className, "store-button");
+        assert.equal(form.querySelectorAll(".account-form-status").length, 2);
+        assert.equal(form.querySelectorAll("label input").length, 3);
+        assert.equal(window.getComputedStyle(form.querySelector("input")!).borderBottomColor, line);
+        assert.equal(window.getComputedStyle(form.querySelector("button")!).color, paper);
+        assert.equal(window.getComputedStyle(form.querySelector("button")!).backgroundColor, ink);
+      });
+    }
+    await withProductBrowser(async ({ container, render }) => {
+      await render(React.createElement(AccountProfileForm, { mode: "complete" }));
+      assert.equal(container.querySelector("form")?.className, "form");
+      assert.equal(container.querySelector(".account-profile-form"), null);
+      assert.equal(container.querySelector('input[type="tel"]'), null);
+    });
+  });
 
   test("profile completion shows required separate names and sends no phone", async () => {
     const calls: string[] = [];

@@ -104,12 +104,12 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
     if (sent) return <div className={`${styles.form} ${styles.sent}`} aria-busy={busy}>
       <span className={styles.confirmation} aria-hidden="true">✓</span>
       <div><h2 ref={emailConfirmationRef} tabIndex={-1}>E-postanı kontrol et</h2><p>{maskAccountEmail(email)}</p></div>
-      <form onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
+      <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
       <button className={styles.textButton} type="button" disabled={busy} onClick={() => { focusNext.current = "email"; setSent(false); setStatus(""); }}>E-postayı değiştir</button>
       {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </div>;
-    return <form className={styles.form} onSubmit={send} aria-busy={busy}>
+    return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
       <label className={styles.field}><span>E-posta</span><input ref={emailRef} className={styles.input} type="email" autoComplete="email" inputMode="email" required disabled={busy} value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
       <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
       {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
@@ -121,17 +121,17 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
 
   if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
     <div className={styles.stepIntro}><span className={styles.stepLabel}>TELEFON DOĞRULAMA</span><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
-    <form className={styles.form} onSubmit={verifyPhone}>
+    <form className={styles.form} method="post" onSubmit={verifyPhone}>
       <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" aria-describedby="account-code-help" /></label>
       <p className={styles.transport} id="account-code-help">Kodu mesajdan yapıştırabilir veya otomatik doldurabilirsiniz.</p>
       <button className={styles.primaryButton} type="submit" disabled={busy || code.length !== 6}>{busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}</button>
     </form>
-    <form onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
+    <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
     <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setStatus(""); }}>Telefonu değiştir</button>
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
 
-  return <form className={styles.form} onSubmit={send} aria-busy={busy}>
+  return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
     <div className={styles.stepIntro}><span className={styles.stepLabel}>HESAP ERİŞİMİ</span><h2>Telefonunla devam et</h2><p>Numaranı yaz; güvenli giriş kodunu WhatsApp üzerinden gönderelim.</p></div>
     <div className={styles.field}><label htmlFor="account-phone-number">Telefon numarası</label><div className={styles.phoneFrame}>
       <div className={styles.phoneCountry}>

@@ -69,18 +69,18 @@ export function AccountProfileForm({ mode, initial, version = 1, returnTo }: Pro
     }
   }
 
-  return <form className={styles.form} onSubmit={submit} aria-busy={busy}>
+  return <form className={mode === "complete" ? styles.form : "account-profile-form"} method="post" onSubmit={submit} aria-busy={busy}>
     {mode === "complete" ? <div className={styles.stepIntro}><h2>Hesabınızı tamamlayın</h2><p>Devam etmek için adınızı ve soyadınızı girin.</p></div> : null}
-    <div className={styles.nameFields}>
-      <label className={styles.field}><span>Ad</span><input className={styles.input} autoComplete="given-name" required disabled={busy} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} /></label>
-      <label className={styles.field}><span>Soyad</span><input className={styles.input} autoComplete="family-name" required disabled={busy} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} /></label>
+    <div className={mode === "complete" ? styles.nameFields : undefined}>
+      <label className={mode === "complete" ? styles.field : undefined}><span>Ad</span><input className={mode === "complete" ? styles.input : undefined} autoComplete="given-name" required disabled={busy} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} /></label>
+      <label className={mode === "complete" ? styles.field : undefined}><span>Soyad</span><input className={mode === "complete" ? styles.input : undefined} autoComplete="family-name" required disabled={busy} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} /></label>
     </div>
     {mode === "update" ? <>
-      <label className={styles.field}><span>Telefon <small>{phoneVerified ? "Doğrulanmış" : "İsteğe bağlı"}</small></span><input className={styles.input} type="tel" autoComplete="tel" inputMode="tel" readOnly={phoneVerified} disabled={busy} aria-describedby={phoneVerified ? "account-verified-phone" : undefined} value={phone} onChange={(event) => setPhone(event.currentTarget.value)} placeholder="+905551112233" /></label>
-      {phoneVerified ? <p className={styles.status} id="account-verified-phone">Bu numara WhatsApp ile doğrulanmıştır ve hesabınıza giriş için kullanılır.</p> : null}
+      <label><span>Telefon <small>{phoneVerified ? "Doğrulanmış" : "İsteğe bağlı"}</small></span><input type="tel" autoComplete="tel" inputMode="tel" readOnly={phoneVerified} disabled={busy} aria-describedby={phoneVerified ? "account-verified-phone" : undefined} value={phone} onChange={(event) => setPhone(event.currentTarget.value)} placeholder="+905551112233" /></label>
+      {phoneVerified ? <p className="account-form-status" id="account-verified-phone">Bu numara WhatsApp ile doğrulanmıştır ve hesabınıza giriş için kullanılır.</p> : null}
     </> : null}
-    <button className={styles.primaryButton} disabled={busy} type="submit">{busy ? "Kaydediliyor…" : mode === "complete" ? "Kaydet ve devam et" : "Kaydet"}</button>
-    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+    <button className={mode === "complete" ? styles.primaryButton : "store-button"} disabled={busy} type="submit">{busy ? "Kaydediliyor…" : mode === "complete" ? "Kaydet ve devam et" : "Kaydet"}</button>
+    <p className={mode === "complete" ? styles.status : "account-form-status"} role="status" aria-live="polite">{status}</p>
     {reverifyHref ? <a className={styles.textButton} href={reverifyHref}>Telefonu yeniden doğrula</a> : null}
   </form>;
 }

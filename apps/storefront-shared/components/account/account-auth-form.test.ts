@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import { componentLoader, withProductBrowser } from "../product-variant-media-test-utils.ts";
 
@@ -20,6 +21,39 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     globalThis.fetch = transport;
     try { await run(); } finally { globalThis.fetch = previous; }
   }
+
+  test("phone and email entry use POST before client JavaScript initializes", () => {
+    for (const mode of ["phone", "email"]) {
+      const markup = renderToStaticMarkup(React.createElement(AccountAuthForm, { mode, returnTo: "/account" }));
+      const forms = markup.match(/<form\b[^>]*>/gu) ?? [];
+      assert.equal(forms.length, 1, `${mode} renders one form`);
+      assert.match(forms[0]!, /\bmethod="post"(?=>)/u, `${mode} must not send identity data in a GET URL`);
+    }
+  });
+
+  test("code verification and resend forms use POST, including legacy browser verification", async () => {
+    await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
+      await change('input[type="tel"]', "5551112233");
+      await click('button[type="submit"]');
+      const forms = [...container.querySelectorAll("form")];
+      assert.equal(forms.length, 2);
+      for (const form of forms) assert.equal(form.getAttribute("method"), "post");
+    }));
+    await withProductBrowser(async ({ container, render }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "verify", returnTo: "/account", ticket: "example-ticket" }));
+      for (const form of container.querySelectorAll("form")) {
+        assert.equal(form.getAttribute("method"), "post");
+        assert.equal(form.getAttribute("action"), "/api/account/auth/verify-browser");
+      }
+    });
+    await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
+      await render(React.createElement(AccountAuthForm, { mode: "email", returnTo: "/account" }));
+      await change('input[type="email"]', "ada@example.com");
+      await click('button[type="submit"]');
+      assert.equal(container.querySelector("form")?.getAttribute("method"), "post");
+    }));
+  });
 
   test("single phone entry sends only canonical phone and focuses the masked WhatsApp code step", async () => {
     await withFetch(async (path, options) => {
