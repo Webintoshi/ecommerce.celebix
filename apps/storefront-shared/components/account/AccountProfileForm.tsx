@@ -70,7 +70,7 @@ export function AccountProfileForm({ mode, initial, version = 1, returnTo }: Pro
   }
 
   return <form className={mode === "complete" ? styles.form : "account-profile-form"} method="post" onSubmit={submit} aria-busy={busy}>
-    {mode === "complete" ? <div className={styles.stepIntro}><h2>Hesabınızı tamamlayın</h2><p>Devam etmek için adınızı ve soyadınızı girin.</p></div> : null}
+    {mode === "complete" ? <div className={styles.stepIntro}><h1>Hesabınızı tamamlayın</h1><p>Devam etmek için adınızı ve soyadınızı girin.</p></div> : null}
     <div className={mode === "complete" ? styles.nameFields : undefined}>
       <label className={mode === "complete" ? styles.field : undefined}><span>Ad</span><input className={mode === "complete" ? styles.input : undefined} autoComplete="given-name" required disabled={busy} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} /></label>
       <label className={mode === "complete" ? styles.field : undefined}><span>Soyad</span><input className={mode === "complete" ? styles.input : undefined} autoComplete="family-name" required disabled={busy} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} /></label>

@@ -9,11 +9,8 @@ import styles from "./account-auth.module.css";
 
 type AccountAuthFormProps = Readonly<{ mode: "phone" | "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
 
-function EmailTrust() {
-  return <div className={styles.trustList} aria-label="Giriş güvenliği">
-    <span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3 19 6v5c0 4.4-2.7 8-7 10-4.3-2-7-5.6-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>Güvenilir Giriş</span>
-    <span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>%100 Korumalı</span>
-  </div>;
+function ActionArrow() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>;
 }
 
 function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: boolean; returnTo: string }>) {
@@ -103,24 +100,24 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   if (channel === "email") {
     if (sent) return <div className={`${styles.form} ${styles.sent}`} aria-busy={busy}>
       <span className={styles.confirmation} aria-hidden="true">✓</span>
-      <div><h2 ref={emailConfirmationRef} tabIndex={-1}>E-postanı kontrol et</h2><p>{maskAccountEmail(email)}</p></div>
+      <div className={styles.stepIntro}><h1 ref={emailConfirmationRef} tabIndex={-1}>E-postanı kontrol et</h1><p>{maskAccountEmail(email)}</p></div>
       <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
       <button className={styles.textButton} type="button" disabled={busy} onClick={() => { focusNext.current = "email"; setSent(false); setStatus(""); }}>E-postayı değiştir</button>
       {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </div>;
     return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
+      <div className={styles.stepIntro}><h1>E-posta ile giriş</h1><p>Giriş bağlantını e-postana gönderelim.</p></div>
       <label className={styles.field}><span>E-posta</span><input ref={emailRef} className={styles.input} type="email" autoComplete="email" inputMode="email" required disabled={busy} value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
       <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
       {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
-      <EmailTrust />
       {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>;
   }
 
   if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
-    <div className={styles.stepIntro}><span className={styles.stepLabel}>TELEFON DOĞRULAMA</span><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
+    <div className={styles.stepIntro}><h1>WhatsApp kodunu gir</h1><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
     <form className={styles.form} method="post" onSubmit={verifyPhone}>
       <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" aria-describedby="account-code-help" /></label>
       <p className={styles.transport} id="account-code-help">Kodu mesajdan yapıştırabilir veya otomatik doldurabilirsiniz.</p>
@@ -131,8 +128,8 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
 
-  return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
-    <div className={styles.stepIntro}><span className={styles.stepLabel}>HESAP ERİŞİMİ</span><h2>Telefonunla devam et</h2><p>Numaranı yaz; güvenli giriş kodunu WhatsApp üzerinden gönderelim.</p></div>
+  return <form className={`${styles.form} ${styles.entryForm}`} method="post" onSubmit={send} aria-busy={busy}>
+    <div className={styles.stepIntro}><h1 className={styles.welcomeTitle}>HOŞ GELDİN.</h1><p>Telefon numaranla giriş yap veya üye ol.</p></div>
     <div className={styles.field}><label htmlFor="account-phone-number">Telefon numarası</label><div className={styles.phoneFrame}>
       <div className={styles.phoneCountry}>
         <span className={styles.phoneCountryVisual} aria-hidden="true"><span>{internationalEntry ? "🌐" : country.flag}</span><svg viewBox="0 0 16 16" fill="none"><path d="m4 6 4 4 4-4" /></svg></span>
@@ -151,12 +148,13 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
         if (next.startsWith("+") || next.startsWith("00")) { const split = splitPhoneNumber(next, country.country); setCountry(split.country); setNationalNumber(split.nationalNumber); }
         else setNationalNumber(next);
         setStatus("");
-      }} placeholder={country.country === "TR" ? "555 111 22 33" : "Telefon numarası"} aria-describedby="account-phone-transport" />
+      }} placeholder={country.country === "TR" ? "5xx xxx xx xx" : "Telefon numarası"} aria-describedby="account-phone-transport" />
     </div></div>
-    <p className={styles.transport} id="account-phone-transport">Doğrulama kodu WhatsApp üzerinden gönderilir.</p>
-    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "WhatsApp kodu gönder"}</button>
+    <p className={styles.transport} id="account-phone-transport">Giriş kodun WhatsApp’a gönderilecek.</p>
+    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}><span>{busy ? "Gönderiliyor…" : "KOD GÖNDER"}</span><ActionArrow /></button>
     {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
-    <button className={styles.emailAlternative} type="button" disabled={busy} onClick={() => changeChannel("email")}>Mevcut e-posta hesabımla giriş yap</button>
+    <div className={styles.divider} aria-hidden="true"><span>veya</span></div>
+    <button className={styles.emailAlternative} type="button" disabled={busy} onClick={() => changeChannel("email")}>E-posta ile giriş yap</button>
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </form>;
 }
@@ -164,6 +162,7 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
 function EmailTicketVerify({ returnTo, ticket }: Readonly<{ returnTo: string; ticket: string }>) {
   const [code, setCode] = useState("");
   return <div className={`${styles.form} ${styles.verify}`}>
+    <div className={styles.stepIntro}><h1>Girişi onayla</h1><p>Hesabına devam etmek için girişini onayla.</p></div>
     {ticket ? <form method="post" action="/api/account/auth/verify-browser">
       <input type="hidden" name="ticket" value={ticket} />
       <input type="hidden" name="returnTo" value={returnTo} />

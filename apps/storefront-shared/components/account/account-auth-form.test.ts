@@ -67,6 +67,15 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       assert.equal(container.querySelector('input[type="email"]'), null);
       assert.equal(container.querySelector('[data-auth-switch]'), null);
       assert.doesNotMatch(container.textContent ?? "", /01\s*\/\s*03/u);
+      assert.equal(container.querySelector("h1")?.textContent, "HOŞ GELDİN.");
+      assert.equal(container.querySelectorAll("h1, h2").length, 1);
+      assert.match(container.textContent ?? "", /Telefon numaranla giriş yap veya üye ol\./u);
+      assert.equal(container.querySelector('input[type="tel"]')?.getAttribute("placeholder"), "5xx xxx xx xx");
+      assert.equal(container.querySelector("#account-phone-transport")?.textContent, "Giriş kodun WhatsApp’a gönderilecek.");
+      assert.equal(container.querySelector('button[type="submit"]')?.textContent, "KOD GÖNDER");
+      assert.equal(container.querySelector("button.emailAlternative")?.textContent, "E-posta ile giriş yap");
+      assert.equal(container.querySelector(".divider")?.textContent, "veya");
+      assert.equal(container.querySelector('select[aria-label="Telefon ülke kodu"]')?.querySelectorAll("option").length, 245);
       assert.equal((container.querySelector('select[aria-label="Telefon ülke kodu"]') as HTMLSelectElement).value, "TR");
       await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
@@ -262,7 +271,8 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       await render(React.createElement(AccountAuthForm, { mode: "email", returnTo: "/account" }));
       assert.equal(container.querySelector('input[type="tel"]'), null);
       assert.doesNotMatch(container.textContent ?? "", /WhatsApp/u);
-      assert.match(container.textContent ?? "", /Güvenilir Giriş/u);
+      assert.equal(container.querySelector("h1")?.textContent, "E-posta ile giriş");
+      assert.doesNotMatch(container.textContent ?? "", /Güvenilir Giriş|%100 Korumalı/u);
       await change('input[type="email"]', "ada@example.com");
       await click('button[type="submit"]');
       assert.match(container.textContent ?? "", /E-postanı kontrol et/u);

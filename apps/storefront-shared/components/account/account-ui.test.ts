@@ -18,9 +18,7 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, /type="hidden" name="returnTo"/u);
   assert.match(auth, /name="code"/u);
   assert.match(auth, /Bağlantı gönder/u);
-  assert.match(auth, /aria-label="Giriş güvenliği"/u);
-  assert.match(auth, /Güvenilir Giriş/u);
-  assert.match(auth, /%100 Korumalı/u);
+  assert.doesNotMatch(auth, /Güvenilir Giriş|%100 Korumalı|HESAP ERİŞİMİ/u);
   assert.match(auth, /E-postanı kontrol et/u);
   assert.match(auth, /maskAccountEmail/u);
   assert.match(auth, /E-postayı değiştir/u);
@@ -35,7 +33,7 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.doesNotMatch(auth, /password/u);
 });
 
-test("account entry uses one universal tenant-branded shell without storefront chrome", async () => {
+test("account entry uses one neutral shared shell with only a tenant logo", async () => {
   const login = await source("app/account/login/page.tsx");
   const verify = await source("app/account/verify/page.tsx");
   const shell = await source("components/account/AccountAuthShell.tsx");
@@ -45,13 +43,14 @@ test("account entry uses one universal tenant-branded shell without storefront c
   assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
   assert.doesNotMatch(verify, /StorefrontFrame|Bu isteği siz yapmadıysanız/u);
   assert.match(shell, /resolveAccountAuthBranding/u);
-  assert.match(shell, /className=\{styles[.]visuallyHidden\}/u);
+  assert.doesNotMatch(shell, /<h1/u);
   assert.match(shell, /aria-label=.*ana sayfa/u);
-  assert.doesNotMatch(shell, /Alışverişiniz|Mağazaya dön/u);
-  assert.doesNotMatch(shell, /--account-brand-ink/u);
+  assert.match(shell, /Mağazaya dön/u);
+  assert.doesNotMatch(shell, /themeClasses|data-font|data-published-design|createStorefrontTypographyResources|--store-|shellFooter|brandCaption/u);
   assert.match(shell, /account-auth[.]module[.]css/u);
   assert.match(form, /account-auth[.]module[.]css/u);
-  assert.match(login, /Giriş yap veya hesap oluştur/u);
+  assert.match(login, /title="Giriş"/u);
+  assert.match(form, /HOŞ GELDİN\./u);
   assert.match(verify, /Güvenli giriş/u);
   assert.match(verify, /ticket=/u);
 });
@@ -61,7 +60,6 @@ test("account auth styles keep focus and reduced-motion support local to the sha
   const globalCss = await source("app/globals.css");
   assert.match(css, /:focus-visible/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/u);
-  assert.match(css, /[.]visuallyHidden\s*\{[^}]*position:\s*absolute/su);
   assert.doesNotMatch(globalCss, /[.]account-auth-(?:layout|intro|form|benefits|sent|confirmation|secondary|text|verify|trust|footnote)/u);
 });
 

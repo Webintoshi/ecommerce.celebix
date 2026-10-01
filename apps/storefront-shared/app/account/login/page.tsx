@@ -30,7 +30,7 @@ export default async function LoginPage({
     <AccountAuthShell
       storefront={storefront}
       design={design}
-      title="Giriş yap veya hesap oluştur"
+      title="Giriş"
     >
       <AccountAuthForm mode={runtime?.identity?.whatsappEnabled ? "phone" : "email"} returnTo={returnTo} />
     </AccountAuthShell>
