@@ -9,6 +9,7 @@ import type {
 import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
 import { SioraProductDetailExperience } from "../../../themes/siora/SioraProductDetailExperience";
+import { sioraInitialVariant } from "../../../themes/siora/product-options.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -151,7 +152,7 @@ export async function renderProductPage({
       <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
-        event={productViewEvent(item.id, item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
+        event={productViewEvent(item.id, siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
       {siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
