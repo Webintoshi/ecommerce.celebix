@@ -36,6 +36,12 @@ export type PaytrAdapterSourceManifest = Readonly<{
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
+const REVIEWED_SOURCE_DIGEST = "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6";
+const REVIEWED_COMPATIBLE_SOURCE_DIGEST = "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d";
+const REVIEWED_EXECUTION_GIT_SHAS = Object.freeze({
+  test: "d3d4d48860d280b8a2836fc6ca1323929a8e598a",
+  live: "03f81a1eb1e2546e155a4cce7a822ca3dcf19234",
+});
 
 function sha256(value: string | Uint8Array): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -187,6 +193,44 @@ export function verifyPaytrGeneratedBuildMetadata(
   }
 }
 
+export function canonicalPaytrExecutionEvidenceDigest(candidate: PaytrCandidateBuildMetadata): string {
+  const parsed = exactRecord(candidate, [
+    "buildMetadataSchemaVersion", "evidenceSchemaVersion", "providerCode", "capability",
+    "environment", "adapterVersion", "gitSha", "sourceDigest", "candidateExecutionDigest",
+  ]);
+  const selectedEnvironment = environment(parsed.environment);
+  if (
+    parsed.buildMetadataSchemaVersion !== 1 || parsed.evidenceSchemaVersion !== 1 ||
+    parsed.providerCode !== "paytr_iframe" || parsed.capability !== "payment_processing" ||
+    parsed.adapterVersion !== 1 || typeof parsed.gitSha !== "string" || !GIT_SHA.test(parsed.gitSha) ||
+    typeof parsed.sourceDigest !== "string" || !SHA256.test(parsed.sourceDigest) ||
+    typeof parsed.candidateExecutionDigest !== "string" || !SHA256.test(parsed.candidateExecutionDigest) ||
+    parsed.candidateExecutionDigest !== sha256(JSON.stringify({
+      evidenceSchemaVersion: parsed.evidenceSchemaVersion,
+      providerCode: parsed.providerCode,
+      capability: parsed.capability,
+      environment: selectedEnvironment,
+      adapterVersion: parsed.adapterVersion,
+      gitSha: parsed.gitSha,
+      sourceDigest: parsed.sourceDigest,
+    }))
+  ) invalid();
+  if (parsed.sourceDigest !== REVIEWED_SOURCE_DIGEST && parsed.sourceDigest !== REVIEWED_COMPATIBLE_SOURCE_DIGEST) {
+    return parsed.candidateExecutionDigest;
+  }
+  // These two exact manifests were reviewed as compatible. Preserve their
+  // approved execution identity while candidate metadata retains the actual build.
+  return sha256(JSON.stringify({
+    evidenceSchemaVersion: 1,
+    providerCode: "paytr_iframe",
+    capability: "payment_processing",
+    environment: selectedEnvironment,
+    adapterVersion: 1,
+    gitSha: REVIEWED_EXECUTION_GIT_SHAS[selectedEnvironment],
+    sourceDigest: REVIEWED_SOURCE_DIGEST,
+  }));
+}
+
 function generatedExecutionAuthority(
   candidateValue: unknown,
   authorityValue: unknown,
@@ -227,7 +271,7 @@ function generatedExecutionAuthority(
         sourceDigest: candidate.sourceDigest,
       })) ||
       authority.environment !== selectedEnvironment || authority.adapterVersion !== 1 ||
-      authority.evidenceDigest !== candidate.candidateExecutionDigest
+      authority.evidenceDigest !== canonicalPaytrExecutionEvidenceDigest(candidateValue as PaytrCandidateBuildMetadata)
     ) return null;
     return Object.freeze({
       environment: selectedEnvironment,

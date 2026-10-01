@@ -32,14 +32,14 @@ const SOURCE_TEXT = Object.freeze({
   "src/validation.ts": "validation-v1\n",
 });
 
-async function fixture(t) {
+async function fixture(t, actualSource = false) {
   const root = await mkdtemp(join(REPOSITORY_ROOT, ".paytr-build-test-"));
   t.after(async () => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "package.json"), "{\"type\":\"module\"}\n", "utf8");
   for (const [path, text] of Object.entries(SOURCE_TEXT)) {
     const target = join(root, "packages/payment-adapters", path);
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, text, "utf8");
+    await writeFile(target, actualSource ? await readFile(join(REPOSITORY_ROOT, "packages/payment-adapters", path)) : text, "utf8");
   }
   const generated = join(root, GENERATED_PATH);
   const binding = join(root, BINDING_PATH);
@@ -116,6 +116,56 @@ test("PayTR build generator emits exact independent test and live authorities", 
   });
   assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES,
     generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
+});
+
+test("reviewed PayTR source keeps registered execution authority across unrelated application releases", async (t) => {
+  const { createPaytrAdapterSourceManifest, createPaytrCandidateBuildMetadata, PAYTR_ADAPTER_SOURCE_PATHS } = await import("../packages/payment-adapters/src/providers/paytr/build-binding.ts");
+  const sources = await Promise.all(PAYTR_ADAPTER_SOURCE_PATHS.map(async (path) => ({ path, bytes: new Uint8Array(await readFile(join(REPOSITORY_ROOT, "packages/payment-adapters", path))) })));
+  const sourceManifest = createPaytrAdapterSourceManifest(sources);
+  assert.equal(sourceManifest.sourceDigest, "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d");
+  const registered = {
+    test: "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f",
+    live: "sha256:14bbcbf73e0fbc41c3e4749b4dff59ce5a98df238e82becb2ddc503dea9abf2c",
+  };
+  for (const gitSha of ["1".repeat(40), "2".repeat(40)]) {
+    const selected = await fixture(t, true);
+    const candidates = Object.fromEntries(["test", "live"].map(environment => [environment, createPaytrCandidateBuildMetadata({ environment, gitSha, sourceManifest })]));
+    for (const approvalKind of ["candidate", "registered"]) {
+      const approval = environment => approvalKind === "candidate" ? candidates[environment].candidateExecutionDigest : registered[environment];
+      const result = await runGenerator(selected.root, {
+        SOURCE_COMMIT: gitSha,
+        CELEBIX_PAYTR_TEST_APPROVAL_MODE: "approved_test_sandbox",
+        CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST: approval("test"),
+        CELEBIX_PAYTR_LIVE_APPROVAL_MODE: "approved_live",
+        CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST: approval("live"),
+      });
+      assert.equal(result.code, 0, result.stderr);
+      const generated = await imported(selected.generated, `lineage-${gitSha}-${approvalKind}`);
+      assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.gitSha, gitSha);
+      assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.gitSha, gitSha);
+      assert.equal(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.test.evidenceDigest, registered.test);
+      assert.equal(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.live.evidenceDigest, registered.live);
+      const binding = await imported(selected.binding, `lineage-${gitSha}-${approvalKind}`);
+      assert.deepEqual(binding.PAYTR_APPROVED_EXECUTION_AUTHORITIES, generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES);
+    }
+  }
+});
+
+test("registered PayTR approval does not enable a changed adapter source or another environment", async (t) => {
+  const registeredTest = "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f";
+  const selected = await fixture(t, true);
+  await writeFile(join(selected.root, "packages/payment-adapters/src/providers/paytr/adapter.ts"), "changed-unreviewed-adapter\n", "utf8");
+  const changed = await runGenerator(selected.root, { SOURCE_COMMIT, CELEBIX_PAYTR_TEST_APPROVAL_MODE: "approved_test_sandbox", CELEBIX_PAYTR_TEST_APPROVED_EVIDENCE_DIGEST: registeredTest });
+  assert.equal(changed.code, 1);
+  assert.match(changed.stderr, /test_digest_mismatch/);
+  const real = await fixture(t, true);
+  const crossed = await runGenerator(real.root, { SOURCE_COMMIT, CELEBIX_PAYTR_LIVE_APPROVAL_MODE: "approved_live", CELEBIX_PAYTR_LIVE_APPROVED_EVIDENCE_DIGEST: registeredTest });
+  assert.equal(crossed.code, 1);
+  assert.match(crossed.stderr, /live_digest_mismatch/);
+  assert.equal((await runGenerator(real.root, { SOURCE_COMMIT })).code, 0);
+  const disabled = await imported(real.generated, "reviewed-but-disabled");
+  assert.equal(disabled.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.test, null);
+  assert.equal(disabled.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.live, null);
 });
 
 test("Coolify BuildKit secrets can supply missing PayTR build authorities without leaking values", async (t) => {

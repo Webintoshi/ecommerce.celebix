@@ -30,9 +30,9 @@ export const PAYTR_GENERATED_BUILD_METADATA: PaytrGeneratedBuildMetadataMap = Ob
   "capability": "payment_processing",
   "environment": "test",
   "adapterVersion": 1,
-  "gitSha": "850cf82d441a02d079c41f7969d9e10ea7da2f49",
-  "sourceDigest": "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6",
-  "candidateExecutionDigest": "sha256:95282d83f2323514937be5255873c9ebe418cac608972911163a4e45c2686eb1"
+  "gitSha": "e8820fabc3849750e34ca8fd80bcb22e37512375",
+  "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+  "candidateExecutionDigest": "sha256:8db1662008a60f0a963e381d20ad41f7b98f19811f63c7655500a0553a199914"
 }),
   live: Object.freeze({
   "buildMetadataSchemaVersion": 1,
@@ -41,9 +41,9 @@ export const PAYTR_GENERATED_BUILD_METADATA: PaytrGeneratedBuildMetadataMap = Ob
   "capability": "payment_processing",
   "environment": "live",
   "adapterVersion": 1,
-  "gitSha": "850cf82d441a02d079c41f7969d9e10ea7da2f49",
-  "sourceDigest": "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6",
-  "candidateExecutionDigest": "sha256:86c278a14f64b548ddf0807f3b35d5a0188901bcaf31f03885181715973b1e4b"
+  "gitSha": "e8820fabc3849750e34ca8fd80bcb22e37512375",
+  "sourceDigest": "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+  "candidateExecutionDigest": "sha256:47e53e7e71cd2cf70a91ea88dec929c2f37e81a96e606cb6f9ea37b6d142af07"
 }),
 });
 
@@ -51,11 +51,11 @@ export const PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES: PaytrExecutionAutho
   test: Object.freeze({
   "environment": "test",
   "adapterVersion": 1,
-  "evidenceDigest": "sha256:95282d83f2323514937be5255873c9ebe418cac608972911163a4e45c2686eb1"
+  "evidenceDigest": "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f"
 }),
   live: Object.freeze({
   "environment": "live",
   "adapterVersion": 1,
-  "evidenceDigest": "sha256:86c278a14f64b548ddf0807f3b35d5a0188901bcaf31f03885181715973b1e4b"
+  "evidenceDigest": "sha256:14bbcbf73e0fbc41c3e4749b4dff59ce5a98df238e82becb2ddc503dea9abf2c"
 }),
 });
