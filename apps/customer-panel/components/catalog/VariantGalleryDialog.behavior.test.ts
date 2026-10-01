@@ -7,7 +7,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 
-async function dialog(verify: (container: HTMLElement, browser: Window, calls: readonly unknown[]) => Promise<void>, fail = false) {
+async function dialog(verify: (container: HTMLElement, browser: Window, calls: readonly unknown[]) => Promise<void>, fail = false, pending?: () => Promise<void>) {
   const browser = new Window({url: "https://panel.test/products/one"});
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key,value] of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,HTMLElement:browser.HTMLElement,HTMLButtonElement:browser.HTMLButtonElement,Event:browser.Event,IS_REACT_ACT_ENVIRONMENT:true})) {
@@ -31,7 +31,7 @@ async function dialog(verify: (container: HTMLElement, browser: Window, calls: r
       variant:{id:"red-small",title:"Kırmızı S",attributes:{renk:"Kırmızı",beden:"S"}},
       variants:[{id:"red-small",title:"Kırmızı S",attributes:{renk:"Kırmızı",beden:"S"}},{id:"red-large",title:"Başka isim",attributes:{renk:"Kırmızı",beden:"L"}},{id:"blue-red-title",title:"Kırmızı XL",attributes:{renk:"Mavi",beden:"XL"}}],
       media:[{id:"one",url:"https://images.test/one.png",altText:"Bir"},{id:"two",url:"https://images.test/two.png",altText:"İki"}],selectedIds:["one"],
-      onClose:()=>calls.push("cancel"),onApply:async(assignments:unknown,operationId:string)=>{calls.push({assignments,operationId});if(fail&&calls.filter(x=>typeof x==="object").length===1)throw new Error("Bağlantı kesildi. Tekrar deneyin.");},
+      onClose:()=>calls.push("cancel"),onApply:async(assignments:unknown,operationId:string)=>{calls.push({assignments,operationId});if(pending)await pending();if(fail&&calls.filter(x=>typeof x==="object").length===1)throw new Error("Bağlantı kesildi. Tekrar deneyin.");},
     })));
     await verify(container as unknown as HTMLElement,browser,calls);
   } finally {await act(async()=>root.unmount());for(const[key,value]of globals)value?Object.defineProperty(globalThis,key,value):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
@@ -74,3 +74,39 @@ test("cancel does not save and Escape closes while focus stays inside the modal"
   await act(async()=>modal.dispatchEvent(new browser.KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}) as unknown as Event));
   assert.deepEqual(calls,["cancel","cancel"]);
 }));
+
+
+test("pending save keeps focus in the dialog when every action is disabled and ignores Escape", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  await dialog(async (container, browser, calls) => {
+    await click(container, "Uygula");
+    const modal = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    assert.equal(modal.getAttribute("aria-busy"), "true");
+    assert.equal(browser.document.activeElement?.getAttribute("role"), "dialog");
+    await act(async () => modal.dispatchEvent(new browser.KeyboardEvent("keydown", {key:"Tab", bubbles:true, cancelable:true}) as unknown as Event));
+    assert.equal(browser.document.activeElement?.getAttribute("role"), "dialog");
+    await act(async () => modal.dispatchEvent(new browser.KeyboardEvent("keydown", {key:"Escape", bubbles:true, cancelable:true}) as unknown as Event));
+    assert.equal(calls.includes("cancel"), false);
+    await act(async () => { finish(); await pending; });
+    assert.equal(modal.getAttribute("aria-busy"), "false");
+    await act(async () => modal.dispatchEvent(new browser.KeyboardEvent("keydown", {key:"Tab", shiftKey:true, bubbles:true, cancelable:true}) as unknown as Event));
+    assert.equal(browser.document.activeElement?.textContent, "Uygula");
+  }, false, () => pending);
+});
+
+
+test("failed pending save keeps selection and traps reverse Tab from the dialog", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  await dialog(async (container, browser) => {
+    await click(container, "Uygula");
+    const modal = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    await act(async () => { finish(); await pending; });
+    assert.ok(container.querySelector('[role="alert"]'));
+    assert.equal(container.querySelectorAll('[data-selected="true"]').length, 1);
+    assert.equal(browser.document.activeElement?.getAttribute("role"), "dialog");
+    await act(async () => modal.dispatchEvent(new browser.KeyboardEvent("keydown", {key:"Tab", shiftKey:true, bubbles:true, cancelable:true}) as unknown as Event));
+    assert.equal(browser.document.activeElement?.textContent, "Uygula");
+  }, true, () => pending);
+});
