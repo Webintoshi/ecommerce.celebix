@@ -26,4 +26,10 @@
 
 ## Live acceptance
 
-Pending guarded database apply, NET/SITE release and authenticated Alpler binding test. Güzide's successful registration is a pre-release diagnostic; it does not prove Alpler's existing-account binding works.
+- Migration 190 passed the guarded live dry run and assertions, then was committed. The original verifier and session-context definitions were preserved.
+- Both shared storefront deployments finished at application commit `0788be35a07031b9b67fb18d6a3bd4e076403150`: NET `a10zv2kg3oqd6vkijl3eavdk`, SITE `yed1cvfomdxxqf8hk0shc5kd`. The guarded release verification confirmed both targets and an idle deployment queue.
+- Final read-only runtime verification passed for image health, source SHA/manifest, the official generated artifact and approval environment agreement. SITE's existing PayTR database authority still matched; no payment provider was invoked.
+- The user signed into the existing Alpler email account and completed its WhatsApp phone binding. The live profile now shows **Telefon Doğrulanmış** and states that the number can be used to sign in.
+- Before/after comparison confirmed the Alpler customer, stable account fields, addresses and order links were unchanged. The same account's version advanced from 6 to 7.
+- Read-only database acceptance found two distinct active accounts and customers across Güzide and Alpler for the same verified phone. Both accounts had active full sessions. Reloading Güzide after the SITE release retained its authenticated account while Alpler remained authenticated.
+- Browser evidence is saved privately under `.tmp/whatsapp-login-20261001/`: `alpler-phone-verified.png` and `guzide-account-final.png`. Contact details, credentials and verification codes are excluded from this report.
