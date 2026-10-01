@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
-const browserTests = ["components/CampaignSectionContent.test.ts", "components/SharedCampaignPreview.test.ts", "components/ProductVariantMedia.test.ts"];
+const browserTests = ["components/CampaignSectionContent.test.ts", "components/SharedCampaignPreview.test.ts", "components/ProductVariantMedia.test.ts", "components/CheckoutInteractions.test.ts"];
 const directories = [
   "lib", "lib/account", "lib/cart", "lib/checkout", "lib/payment-adapters",
   "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",

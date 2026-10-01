@@ -11,11 +11,9 @@ import { CartStatusProvider } from "./CartStatusProvider";
 import { FavoriteStatusProvider } from "./FavoriteStatusProvider";
 import { campaignFrameSettings } from "./campaign-ui-model";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
-import { GuzideCheckoutHeader } from "../themes/guzide/GuzideCheckoutChrome";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
-import { AlplerCheckoutHeader } from "../themes/alpler/AlplerCheckoutChrome";
-import { checkoutVisualThemeFor } from "../lib/checkout-visual-theme.ts";
+import { CheckoutHeader } from "./checkout/CheckoutChrome";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -38,7 +36,6 @@ export function StorefrontFrame({
   const typography = createStorefrontTypographyResources(design.typography);
   const guzideTheme = guzideThemeFor(storefront);
   const visualTheme = alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
-  const checkoutTheme = checkout ? checkoutVisualThemeFor(storefront) : undefined;
   const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
   const style: DesignStyle = {
     ...typography.style,
@@ -61,11 +58,11 @@ export function StorefrontFrame({
             className={`starter-storefront ${campaign.campaignClass} ${campaign.cornerClass} ${hasAnnouncement ? "has-announcement" : ""} ${tokens.schemeClass} ${tokens.headingClass} ${tokens.cardClass} ${tokens.imageClass}`}
             data-published-design={customized ? "true" : "false"}
             data-storefront-theme={visualTheme}
-            data-storefront-checkout={checkoutTheme ? "true" : undefined}
+            data-storefront-checkout={checkout ? "true" : undefined}
             data-font={customized ? design.brand.fontFamily : undefined}
             style={style}
           >
-            {checkoutTheme === "alpler-deniz" ? <AlplerCheckoutHeader storefront={storefront} logo={logo} /> : checkoutTheme === "guzide-deniz" ? <GuzideCheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
+            {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
             <main>{children}</main>
             <Footer storefront={storefront} logo={logo} checkout={checkout} />
           </div>

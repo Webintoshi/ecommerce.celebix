@@ -24,7 +24,8 @@ test("checkout renders delivery and server-projected payment on one screen", () 
     "Siparişi tamamla",
   ]) assert.match(form, new RegExp(proof, "u"));
   assert.doesNotMatch(form, /setStep|step ===|Teslimata dön|Ödemeye devam et/u);
-  for (const field of ["name", "email", "phone", "addressLine1", "city", "district", "postalCode", "note"]) assert.equal(form.includes(`name="${field}"`), true, field);
+  for (const field of ["firstName", "lastName", "email", "addressLine1", "city", "district", "postalCode", "note"]) assert.equal(form.includes(`name="${field}"`), true, field);
+  assert.match(form, /<CheckoutPhoneField/u);
   assert.match(form, /const value = event\.currentTarget\.value;[\s\S]*setDraft\(\(current\).*\[name\]: value/u);
   assert.doesNotMatch(form, /setDraft\(\(current\)[\s\S]{0,160}event\.currentTarget/u);
 });

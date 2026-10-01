@@ -28,6 +28,7 @@ import { commerceCandidates, commerceDate, commerceDelivery, commerceHostname, c
 import type { HostedCheckoutAuthority, HostedCheckoutAuthorityV2, HostedCheckoutAuthorityV3, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutSessionStatus } from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
+const PHONE = /^\+[1-9][0-9]{7,14}$/u;
 const KEY_ID = /^[A-Za-z0-9._-]{1,128}$/u;
 const SAFE_CODE = /^[a-z][a-z0-9_]{0,63}$/u;
 const HOSTED_BEGIN_RESULT_FIELDS = Object.freeze([
@@ -214,7 +215,7 @@ export function parseHostedAuthority(value: unknown): HostedCheckoutAuthority {
     discountMinor, totalMinor, delivery: commerceDelivery(plain(parsed.delivery)), items: cart.items as readonly PublicCartLine[],
     presentation, requiredCustomerFields: requiredFields(parsed.requiredCustomerFields, providerCode),
     customerName: text(parsed.customerName, 1, 201), customerEmail: text(parsed.customerEmail, 3, 320),
-    customerPhone: text(parsed.customerPhone, 13, 13), customerAddress: text(parsed.customerAddress, 1, 1024),
+    customerPhone: text(parsed.customerPhone, 9, 16, PHONE), customerAddress: text(parsed.customerAddress, 1, 1024),
     city: text(parsed.city, 1, 100), country: parsed.country === "TR" ? "TR" : invalid(),
     ...(postalCode ? { postalCode } : {}), basket: basket(parsed.basket),
   });
@@ -350,7 +351,7 @@ export function parseHostedAuthorityV2(value: unknown): HostedCheckoutAuthorityV
     requiredCustomerFields: requiredFields(parsed.requiredCustomerFields, providerCode),
     customerName: text(parsed.customerName, 1, 201),
     customerEmail: text(parsed.customerEmail, 3, 320),
-    customerPhone: text(parsed.customerPhone, 13, 13),
+    customerPhone: text(parsed.customerPhone, 9, 16, PHONE),
     customerAddress: text(parsed.customerAddress, 1, 1024),
     city: text(parsed.city, 1, 100),
     country: parsed.country === "TR" ? "TR" : invalid(),

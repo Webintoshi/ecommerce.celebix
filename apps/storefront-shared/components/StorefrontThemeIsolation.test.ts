@@ -28,15 +28,12 @@ test("store themes cannot cross resolved tenant boundaries", () => {
   assert.equal(alplerThemeFor({ id: "9f1f6aed-8719-407e-b64c-fd8e956d3278" }), undefined);
 });
 
-test("the checkout presentation is restricted to resolved Alpler and Güzide tenants", () => {
-  assert.equal(checkoutVisualThemeFor({ id: "9f1f6aed-8719-407e-b64c-fd8e956d3277" }), "alpler-deniz");
-  assert.equal(checkoutVisualThemeFor({ id: "a828862c-4cc1-475a-89cc-5fbee31eb43f" }), "guzide-deniz");
+test("all resolved stores use the shared checkout without assigning another store's theme", () => {
   for (const id of [
+    "9f1f6aed-8719-407e-b64c-fd8e956d3277",
+    "a828862c-4cc1-475a-89cc-5fbee31eb43f",
     "ff465e64-1491-40ef-8840-c66281155a1d",
-    "alpler-spor",
-    "alpler-spor.saas-staging.celebix.net",
-    "guzidekuyumcu.com",
+    "future-store-id",
     "9f1f6aed-8719-407e-b64c-fd8e956d3278",
-    "",
-  ]) assert.equal(checkoutVisualThemeFor({ id }), undefined);
+  ]) assert.equal(checkoutVisualThemeFor({ id }), "shared-checkout");
 });

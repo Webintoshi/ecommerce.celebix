@@ -8,7 +8,7 @@ import {
   PostgresStorefrontHostedCheckoutRepository,
   StorefrontHostedCheckoutRepositoryError,
 } from "./repository.ts";
-import { hostedPromotionCodes, parseHostedAuthorityV2 } from "./validation.ts";
+import { hostedPromotionCodes, parseHostedAuthority, parseHostedAuthorityV2 } from "./validation.ts";
 import type { HostedCheckoutBeginResult } from "./types.ts";
 
 const HOST = "guzide.saas-staging.celebix.site";
@@ -100,6 +100,21 @@ const authorityV2 = () => ({
     { reference: SECOND_VARIANT, name: "İkinci ürün", quantity: 1, unitAmountMinor: 4_600, itemType: "PHYSICAL" },
     { reference: "shipping:standard", name: "Kargo", quantity: 1, unitAmountMinor: 600, itemType: "VIRTUAL" },
   ],
+});
+
+test("hosted authority versions preserve international phones from the validated delivery", () => {
+  for (const phone of ["+905551112233", "+14155552671", "+447911123456", "+4915112345678", "+12345678", "+123456789012345"]) {
+    const delivery = { ...DELIVERY, contact: { ...DELIVERY.contact, phone } };
+    assert.equal(parseHostedAuthority({ ...authority(), delivery, customerPhone: phone }).customerPhone, phone);
+    assert.equal(parseHostedAuthorityV2({ ...authorityV2(), delivery, customerPhone: phone }).customerPhone, phone);
+  }
+});
+
+test("hosted authority customer phone projection rejects malformed E164 even with valid delivery", () => {
+  for (const customerPhone of ["14155552671", "+04155552671", "+1 4155552671", "ABCDEFGHIJKLM", "+1234567", "+1234567890123456", "+14155552671\n"]) {
+    assert.throws(() => parseHostedAuthority({ ...authority(), customerPhone }), /invalid_input/u);
+    assert.throws(() => parseHostedAuthorityV2({ ...authorityV2(), customerPhone }), /invalid_input/u);
+  }
 });
 const envelope = () => ({ algorithm: "A256GCM" as const, ciphertext: "AQ", iv: "AAAAAAAAAAAAAAAA", keyId: "provider-key", tag: "AAAAAAAAAAAAAAAAAAAAAA", version: 1 as const });
 const beginPayload = () => ({

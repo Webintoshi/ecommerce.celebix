@@ -28,11 +28,11 @@ export default async function CheckoutPage({
   const visualTheme = checkoutVisualThemeFor(storefront);
   const address = account?.outcome === "found" ? account.snapshot.addresses.find((item) => item.isDefault) ?? account.snapshot.addresses[0] : undefined;
   const initialDraft = account?.outcome === "found" ? {
-    name: `${account.snapshot.profile.firstName} ${account.snapshot.profile.lastName}`.trim(),
+    firstName: account.snapshot.profile.firstName,
+    lastName: account.snapshot.profile.lastName,
     email: account.snapshot.profile.email ?? "",
     phone: account.snapshot.profile.phone ?? "",
-    addressLine1: address?.line1 ?? "",
-    addressLine2: address?.line2 ?? "",
+    addressLine1: [address?.line1, address?.line2].filter(Boolean).join(" "),
     city: address?.city ?? "",
     district: address?.district ?? "",
     postalCode: address?.postalCode ?? "",
