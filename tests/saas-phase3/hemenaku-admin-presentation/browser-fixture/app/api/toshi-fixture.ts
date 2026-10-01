@@ -29,9 +29,12 @@ export async function postToshiFixture(request: Request, slug: string): Promise<
   if (input.conversationId && !existing) return Response.json({ code: "conversation_not_found" }, { status: 404 });
   if (existing && existing.version !== input.expectedVersion) return Response.json({ code: "version_conflict" }, { status: 409 });
   const current = existing ?? { id: crypto.randomUUID(), title: input.text.slice(0, 80), ...PROVIDER, version: 1, createdAt: NOW, updatedAt: NOW, messages: [] };
+  const reply = input.text.toLocaleLowerCase("tr-TR").includes("biçim")
+    ? "## Mağaza özeti\n\n**2 sipariş** işlem bekliyor.\n\n- Stokta olmayan varyantı kontrol edin.\n- Siparişlerin teslimat bilgilerini inceleyin.\n\n| Ürün | SKU | Stok |\n| --- | --- | ---: |\n| Günlük çanta | SRA-2026-01 | 12 |\n| Keten gömlek | SRA-2026-02 | 0 |\n\n### Sonraki adım\n\nİlgili ekranları aşağıdan açabilirsiniz. `SKU` ile ürün bulun.\n\n> Bu bir tarayıcı testi yanıtıdır; mağaza kaydı değiştirilmedi."
+    : "Tarayıcı testi yanıtı: Önceki konuşma bağlamını koruyarak mağaza verilerini özetliyorum.\n2 bekleyen sipariş var. Ürün, stok ve mağaza satışı işlemlerini ilgili ekranlardan yapabilirsiniz; hiçbir kayıt değiştirilmedi.";
   const value: Conversation = { ...current, version: current.version + 1, messages: [...current.messages,
     { id: crypto.randomUUID(), role: "user", text: input.text, sources: [], createdAt: NOW },
-    { id: crypto.randomUUID(), role: "assistant", text: "Tarayıcı testi yanıtı: Önceki konuşma bağlamını koruyarak mağaza verilerini özetliyorum.\n2 bekleyen sipariş var. Ürün, stok ve mağaza satışı işlemlerini ilgili ekranlardan yapabilirsiniz; hiçbir kayıt değiştirilmedi.", sources: [{ label: "Siparişler", href: "/orders" }, { label: "Mağaza satışı", href: "/orders/quick-links" }], createdAt: NOW },
+    { id: crypto.randomUUID(), role: "assistant", text: reply, sources: [{ label: "Siparişler", href: "/orders" }, { label: "Mağaza satışı", href: "/orders/quick-links" }], createdAt: NOW },
   ] };
   conversations.set(value.id, value); operations.set(operationId, { fingerprint, conversation: value });
   return Response.json({ conversation: value });

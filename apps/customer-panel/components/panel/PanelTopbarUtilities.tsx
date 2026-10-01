@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Bell, Eye } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { ToshiDrawer } from "@/components/toshi/ToshiDrawer";
-
 import styles from "./panel-shell.module.css";
+
+const ToshiDrawer = dynamic(() => import("@/components/toshi/ToshiDrawer").then((module) => module.ToshiDrawer));
 
 export function PanelTopbarUtilities({ storefrontHostname }: { storefrontHostname?: string }) {
   const [helpOpen, setHelpOpen] = useState(false);
@@ -65,11 +66,11 @@ export function PanelTopbarUtilities({ storefrontHostname }: { storefrontHostnam
           />
         </span>
       </button>
-      <ToshiDrawer
+      {helpOpen ? <ToshiDrawer
         open={helpOpen}
         launcherRef={helpButtonRef}
         onClose={() => setHelpOpen(false)}
-      />
+      /> : null}
     </div>
   );
 }

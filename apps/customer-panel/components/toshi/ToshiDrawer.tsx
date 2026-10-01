@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, X } from "lucide-react";
 import { type MouseEvent, type RefObject, type SyntheticEvent, useEffect, useRef } from "react";
@@ -19,6 +18,7 @@ export function ToshiDrawer({
 }>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const backdropPress = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +43,8 @@ export function ToshiDrawer({
   }
 
   function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
-    if (event.target === event.currentTarget) onClose();
+    if (backdropPress.current && event.target === event.currentTarget) onClose();
+    backdropPress.current = false;
   }
 
   return (
@@ -52,34 +53,22 @@ export function ToshiDrawer({
       id="toshi-assistant-drawer"
       className={styles.drawerLayer}
       aria-modal="true"
-      aria-labelledby="toshi-assistant-title"
+      aria-labelledby="toshi-assistant-title-drawer"
       onCancel={handleCancel}
+      onPointerDown={(event) => { backdropPress.current = event.target === event.currentTarget; }}
       onClick={handleBackdropClick}
     >
       <aside
         className={styles.drawer}
       >
-        <header className={styles.drawerHeader}>
-          <Image
-            src="/toshi/toshi-profile.webp"
-            width={52}
-            height={52}
-            alt=""
-            aria-hidden="true"
-            unoptimized
-          />
-          <div>
-            <h2 id="toshi-assistant-title" ref={titleRef} tabIndex={-1}>Toshi</h2>
-            <p>Yapay zekâ mağaza asistanı</p>
-          </div>
-          <Link className={styles.workspaceLink} href="/toshi" onClick={onClose}>
-            Tam ekran<ArrowUpRight aria-hidden="true" />
+        <ToshiAssistant mode="drawer" titleRef={titleRef} headerActions={<>
+          <Link className={styles.workspaceLink} href="/toshi" onClick={onClose} aria-label="Toshi’yi tam ekranda aç" title="Tam ekran">
+            <ArrowUpRight aria-hidden="true" />
           </Link>
           <button className={styles.closeButton} type="button" aria-label="Toshi asistanını kapat" onClick={onClose}>
             <X aria-hidden="true" />
           </button>
-        </header>
-        <ToshiAssistant mode="drawer" />
+        </>} />
       </aside>
     </dialog>
   );
