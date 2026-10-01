@@ -63,4 +63,4 @@ Final scoped read-only verification still reports awaiting-customer attempt v2 /
 
 ## Acceptance still pending
 
-A successful real bank authentication, genuine successful provider callback, paid WEB order, 10.00 TRY total and exactly-once inventory effect have not yet been verified. The current unknown outcome must be resolved before another charge attempt. Evidence screenshots and reviewed operational scripts are private under `.tmp/paytr-real-checkout-20261001/`.
+A successful real bank authentication, genuine successful provider callback, paid WEB order, 10.00 TRY total and exactly-once inventory effect have not yet been verified. The original unknown outcome was resolved using its authenticated failed callback before the new card form was prepared. The new attempt awaits human card entry and bank authentication. Evidence screenshots and reviewed operational scripts are private under `.tmp/paytr-real-checkout-20261001/`.
