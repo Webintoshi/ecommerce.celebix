@@ -42,6 +42,7 @@ import {
   createCheckoutRuntime,
   resolveDefaultCheckoutPaymentRuntime,
   type CheckoutRuntime,
+  type PaytrCallbackDiagnosticEvent,
 } from "./checkout/runtime.ts";
 import type {
   QuickOrderHostedPaymentBridgeRuntime,
@@ -365,24 +366,10 @@ export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
   close: () => Promise<void>;
 }>;
 
-export function writeSafePaytrCallbackDiagnostic(event:
-  | Readonly<{
-      stage: "hosted_callback_outcome";
-      outcome: "accepted" | "retry" | "rejected" | "not_found";
-    }>
-  | Readonly<{
-      stage: "callback_request_rejected";
-      outcome: "method" | "content_type" | "headers" | "authority"
-        | "target" | "length" | "body" | "form_encoding" | "form_status"
-        | "form_context" | "form_fields_duplicate" | "form_fields_failure_on_success"
-        | "form_fields_installment_status" | "form_fields_installment_value"
-        | "form_fields_merchant" | "form_fields_callback_id" | "form_fields_provider_id"
-        | "form_fields_non_3d" | "form_fields_card_type" | "form_fields_test_mode"
-        | "form_fields_payment_type" | "form_fields_unknown_extra"
-        | "form_fields_unknown_missing" | "form_fields_unknown_replace" | "form_oid";
-    }>
-): void {
-  console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
+export function writeSafePaytrCallbackDiagnostic(event: PaytrCallbackDiagnosticEvent): void {
+  if (event.stage === "hosted_callback_shape") {
+    console.warn("paytr_callback_diagnostic", event.stage, event.status, event.totalAmount, event.paymentContext, event.paymentType, event.testMode);
+  } else console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
 }
 
 export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Promise<DefaultStandardCheckoutReconciliationRuntime | null> {

@@ -1321,6 +1321,16 @@ async function settleExactCallback(
           safeCode: verified.safeCode,
         })) return CALLBACK_REJECTED;
         if (settled.disposition === "processing") {
+          // A reconciled failure can outlive its immutable unknown operation snapshot.
+          // Fresh verification above still binds the callback to its amount and currency.
+          if (
+            authority.status === "failed"
+            && verified.status === "failed"
+            && authority.providerReference !== null
+            && verified.providerReference === authority.providerReference
+            && settled.replayed
+            && settled.version < authority.version
+          ) return callbackProjection(adapter, "failure");
           return callbackProjection(adapter, "processing");
         }
       } catch (error) {

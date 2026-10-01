@@ -38,6 +38,7 @@ const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const REVIEWED_SOURCE_DIGEST = "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6";
 const REVIEWED_COMPATIBLE_SOURCE_DIGEST = "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d";
+const REVIEWED_FAILED_ZERO_SOURCE_DIGEST = "sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b";
 const REVIEWED_EXECUTION_GIT_SHAS = Object.freeze({
   test: "d3d4d48860d280b8a2836fc6ca1323929a8e598a",
   live: "03f81a1eb1e2546e155a4cce7a822ca3dcf19234",
@@ -215,10 +216,15 @@ export function canonicalPaytrExecutionEvidenceDigest(candidate: PaytrCandidateB
       sourceDigest: parsed.sourceDigest,
     }))
   ) invalid();
-  if (parsed.sourceDigest !== REVIEWED_SOURCE_DIGEST && parsed.sourceDigest !== REVIEWED_COMPATIBLE_SOURCE_DIGEST) {
+  if (
+    parsed.sourceDigest !== REVIEWED_SOURCE_DIGEST &&
+    parsed.sourceDigest !== REVIEWED_COMPATIBLE_SOURCE_DIGEST &&
+    parsed.sourceDigest !== REVIEWED_FAILED_ZERO_SOURCE_DIGEST
+  ) {
     return parsed.candidateExecutionDigest;
   }
-  // These two exact manifests were reviewed as compatible. Preserve their
+  // These exact manifests were reviewed as compatible, including the narrow
+  // signed failed-callback zero-total correction. Preserve their
   // approved execution identity while candidate metadata retains the actual build.
   return sha256(JSON.stringify({
     evidenceSchemaVersion: 1,

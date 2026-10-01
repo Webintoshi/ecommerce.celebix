@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
+import { createPaytrIframeAdapter } from "@celebix/payment-adapters";
 
 import {
   CheckoutPaymentRepositoryError,
@@ -461,8 +462,9 @@ function digestCallbackRequest(
   digest: string,
   status: "success" | "failed" = "success",
   oidField: "merchant_oid" | "form_oid" = "merchant_oid",
+  overrides: Record<string, string> = {},
 ): Request {
-  const totalAmount = "3600";
+  const totalAmount = overrides.total_amount ?? "3600";
   const selected = {
     [oidField]: digest,
     status,
@@ -475,6 +477,7 @@ function digestCallbackRequest(
     ...(status === "failed"
       ? { failed_reason_code: "12", failed_reason_msg: "sensitive provider message" }
       : {}),
+    ...overrides,
   };
   const body = new URLSearchParams(selected).toString();
   return new Request(configuration.callbackUrl, {
@@ -521,8 +524,135 @@ test("fixed callback route handles generic digest outcomes without legacy downgr
     assert.equal(await response.text(), body, kind);
     assert.equal(genericCalls, 1, kind);
     assert.equal(legacyAuthorityCalls, 0, kind);
-    assert.deepEqual(auditEvents, [{ stage: "hosted_callback_outcome", outcome: kind }], kind);
+    assert.deepEqual(auditEvents, [
+      { stage: "hosted_callback_shape", status: "success", totalAmount: "positive", paymentContext: "absent", paymentType: "card", testMode: "1" },
+      { stage: "hosted_callback_outcome", outcome: kind },
+    ], kind);
   }
+});
+
+test("failed hosted callbacks retain real signature verification and acknowledgements with finite diagnostics", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  const adapter = createPaytrIframeAdapter(Object.freeze({ async request() { throw new Error("provider transport must not run"); } }));
+  for (const badHash of [false, true]) {
+    for (const auditMode of ["none", "collect", "throw"] as const) {
+      const events: unknown[] = [];
+      let verifications = 0;
+      const handler = runtimeModule.createPaytrCallbackRoute!({
+        selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+        audit: auditMode === "none" ? undefined : (event) => {
+          events.push(event);
+          if (auditMode === "throw") throw new Error("diagnostic unavailable");
+        },
+        resolveRuntime: async () => { throw new Error("legacy fallback must not run"); },
+        resolveHostedRuntime: async () => ({
+          async callbackByDigest({ request }) {
+            verifications += 1;
+            try {
+              const verified = await adapter.verifyCallback({
+                environment: "test", credential: { merchantId: configuration.merchantId,
+                  merchantKey: configuration.merchantKey, merchantSalt: configuration.merchantSalt },
+                method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+                body: new TextEncoder().encode(await request.text()), signal: new AbortController().signal,
+                expected: { attemptId: ATTEMPT_ID, orderReference: "synthetic-failed-order",
+                  amountMinor: 3600, currency: "TRY", providerReference: digest },
+              });
+              assert.equal(verified.status, "failed");
+              return { kind: "accepted" as const };
+            } catch { return { kind: "rejected" as const }; }
+          },
+        }),
+      });
+      const response = await handler(digestCallbackRequest(digest, "failed", "merchant_oid",
+        badHash ? { hash: "invalid-signature-do-not-log" } : {}));
+      assert.equal(response.status, badHash ? 400 : 200, auditMode);
+      assert.equal(await response.text(), badHash ? "INVALID" : "OK", auditMode);
+      assert.equal(verifications, 1);
+      assert.deepEqual(events, auditMode === "none" ? [] : [
+        { stage: "hosted_callback_shape", status: "failed", totalAmount: "positive", paymentContext: "absent", paymentType: "card", testMode: "1" },
+        { stage: "hosted_callback_outcome", outcome: badHash ? "rejected" : "accepted" },
+      ]);
+      assert.doesNotMatch(JSON.stringify(events), /sensitive provider message|invalid-signature|merchant_oid|hash|test-merchant|synthetic-failed-order/);
+    }
+  }
+});
+
+test("hosted callback shape diagnostics classify values without logging payment or provider data", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  for (const [status, overrides, shape] of [
+    ["success", { payment_amount: "3600", currency: "TL" }, { status: "success", totalAmount: "positive", paymentContext: "present", paymentType: "card", testMode: "1" }],
+    ["failed", { total_amount: "0", payment_type: "eft" }, { status: "failed", totalAmount: "zero", paymentContext: "absent", paymentType: "eft", testMode: "1" }],
+    ["failed", { total_amount: "secret-amount-do-not-log", payment_type: "secret-type-do-not-log" }, { status: "failed", totalAmount: "invalid", paymentContext: "absent", paymentType: "unknown", testMode: "1" }],
+    ["failed", { total_amount: "9007199254740992" }, { status: "failed", totalAmount: "invalid", paymentContext: "absent", paymentType: "card", testMode: "1" }],
+  ] as const) {
+    const events: unknown[] = [];
+    const handler = runtimeModule.createPaytrCallbackRoute!({
+      selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+      audit: (event) => events.push(event),
+      resolveRuntime: async () => { throw new Error("legacy fallback must not run"); },
+      resolveHostedRuntime: async () => ({ async callbackByDigest() { return { kind: "rejected" as const }; } }),
+    });
+    const response = await handler(digestCallbackRequest(digest, status, "merchant_oid", overrides));
+    assert.equal(response.status, 400);
+    assert.equal(await response.text(), "INVALID");
+    assert.deepEqual(events, [
+      { stage: "hosted_callback_shape", ...shape },
+      { stage: "hosted_callback_outcome", outcome: "rejected" },
+    ]);
+  }
+});
+
+test("untrusted callback authority is diagnosed without provider access or acknowledgement changes", async () => {
+  for (const auditThrows of [false, true]) {
+    const events: unknown[] = [];
+    const handler = runtimeModule.createPaytrCallbackRoute!({
+      selectAuthority: () => ({ kind: "invalid_proxy_authority" }),
+      audit: (event) => { events.push(event); if (auditThrows) throw new Error("diagnostic unavailable"); },
+      resolveRuntime: async () => { throw new Error("must not resolve legacy runtime"); },
+      resolveHostedRuntime: async () => { throw new Error("must not resolve hosted runtime"); },
+    });
+    const response = await handler(callbackRequest());
+    assert.equal(response.status, 400);
+    assert.equal(await response.text(), "INVALID");
+    assert.deepEqual(events, [{ stage: "callback_request_rejected", outcome: "authority" }]);
+  }
+});
+
+test("hosted callback diagnostics distinguish live, test and absent mode without changing verification", async () => {
+  const digest = "4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0";
+  for (const mode of ["0", "1", null]) {
+    const events: unknown[] = [];
+    const handler = runtimeModule.createPaytrCallbackRoute!({
+      selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+      audit: (event) => events.push(event),
+      resolveRuntime: async () => { throw new Error("legacy fallback must not run"); },
+      resolveHostedRuntime: async () => ({ async callbackByDigest() { return { kind: "rejected" as const }; } }),
+    });
+    const source = digestCallbackRequest(digest, "failed");
+    const params = new URLSearchParams(await source.text());
+    if (mode === null) params.delete("test_mode"); else params.set("test_mode", mode);
+    const response = await handler(new Request(configuration.callbackUrl, {
+      method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: params.toString(),
+    }));
+    assert.equal(response.status, 400);
+    assert.equal(await response.text(), "INVALID");
+    assert.deepEqual(events, [
+      { stage: "hosted_callback_shape", status: "failed", totalAmount: "positive", paymentContext: "absent", paymentType: "card", testMode: mode ?? "absent" },
+      { stage: "hosted_callback_outcome", outcome: "rejected" },
+    ]);
+  }
+  const events: unknown[] = [];
+  let hostedCalls = 0;
+  const denied = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }), audit: (event) => events.push(event),
+    resolveRuntime: async () => { throw new Error("legacy fallback must not run"); },
+    resolveHostedRuntime: async () => { hostedCalls += 1; return null; },
+  });
+  const response = await denied(digestCallbackRequest(digest, "failed", "merchant_oid", { test_mode: "secret-invalid-mode" }));
+  assert.equal(response.status, 400);
+  assert.equal(await response.text(), "INVALID");
+  assert.equal(hostedCalls, 0);
+  assert.deepEqual(events, [{ stage: "callback_request_rejected", outcome: "form_fields_test_mode" }]);
 });
 
 test("fixed callback route normalizes PayTR form_oid before hosted digest dispatch", async () => {
