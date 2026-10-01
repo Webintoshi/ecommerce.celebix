@@ -1489,19 +1489,23 @@ function Overview({
         )}
         {largestDrop ? (
           <aside className={styles.insight} aria-label="Dönüşüm içgörüsü">
-            <span className={styles.insightMark} aria-hidden="true"><Route size={20} /></span>
-            <span className={styles.insightLabel}>EN BÜYÜK KAYIP</span>
-            <h2>{largestDrop.to}</h2>
-            <strong>{largestDrop.lost.toLocaleString("tr-TR")} oturum · {percent(largestDrop.rate)}</strong>
-            <p className={styles.filterHint}>{largestDrop.from} → {largestDrop.to}</p>
+            <div className={styles.insightContent}>
+              <span className={styles.insightLabel}>EN BÜYÜK KAYIP</span>
+              <h2>{largestDrop.to}</h2>
+              <strong>{largestDrop.lost.toLocaleString("tr-TR")} oturum · {percent(largestDrop.rate)}</strong>
+              <p className={styles.filterHint}>{largestDrop.from} → {largestDrop.to}</p>
+            </div>
+            <img className={styles.insightArtwork} src="/images/analytics/conversion-insight.webp" width={160} height={160} alt="" aria-hidden="true" decoding="async" />
             <Link href={funnelHref}>Huniyi incele <ArrowRight size={16} aria-hidden="true" /></Link>
           </aside>
         ) : abandonedCarts ? (
           <aside className={styles.insight} aria-label="Sepet içgörüsü">
-            <span className={styles.insightMark} aria-hidden="true">↘</span>
-            <span className={styles.insightLabel}>SEPET HAREKETİ</span>
-            <h2>{abandonedCarts.toLocaleString("tr-TR")} terk edilen sepet</h2>
-            <strong>{recoveredCarts.toLocaleString("tr-TR")} geri kazanım</strong>
+            <div className={styles.insightContent}>
+              <span className={styles.insightLabel}>SEPET HAREKETİ</span>
+              <h2>{abandonedCarts.toLocaleString("tr-TR")} terk edilen sepet</h2>
+              <strong>{recoveredCarts.toLocaleString("tr-TR")} geri kazanım</strong>
+            </div>
+            <img className={styles.insightArtwork} src="/images/promotions/v2/abandoned_cart.webp" width={160} height={160} alt="" aria-hidden="true" decoding="async" />
             <Link href={cartsHref}>Sepetleri incele <ArrowRight size={16} aria-hidden="true" /></Link>
           </aside>
         ) : !journeyEvents ? (
@@ -1586,6 +1590,9 @@ function Overview({
     </div>
   );
 }
+
+// Reuses the rendered overview for isolated presentation QA without live requests.
+export { Overview as CommerceAnalyticsOverviewPresentation };
 
 function Carts({
   data,
