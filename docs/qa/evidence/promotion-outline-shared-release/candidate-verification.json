@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "01475eba82a18c2052d8dac5c41c71129e969d75",
+  "baselineCommit": "5b35ede0b6d186b4a5cfeff5f787b6370bd9c05d",
+  "visualSourceCommit": "b1a2e38c65c1715c9678173f61b22c8a34425baa",
+  "productionBuildExitCode": 0,
+  "nativeSvgTests": {
+    "passed": 14,
+    "failed": 0
+  },
+  "canonicalPaytrIntegrationTests": {
+    "passed": 18,
+    "failed": 0
+  },
+  "gitDiffCheck": true,
+  "responsiveWidths": [
+    1440,
+    1024,
+    390
+  ],
+  "horizontalOverflow": 0,
+  "apiSqlChanges": false,
+  "adoptedReviewedPaytrBindingCommit": "7fe154189ca665e562452a3433b05cb09876c3d4"
+}

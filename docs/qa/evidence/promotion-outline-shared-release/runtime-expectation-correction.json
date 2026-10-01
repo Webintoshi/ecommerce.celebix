@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-10-01T20:46:12.420933+00:00",
+  "releaseSha": "01475eba82a18c2052d8dac5c41c71129e969d75",
+  "correctedRootManifestKey": "/(panel)/page",
+  "removedBuildOnlyGeneratorFromRuntimeHashSet": "scripts/generate-paytr-build.mjs",
+  "packagingSource": "nixpacks.toml [start].onlyIncludeFiles",
+  "sourceHashes": 37,
+  "compiledRoutes": 28,
+  "initialRuntimeMismatches": [
+    "build-only generator absent",
+    "route group root key"
+  ],
+  "siteDispatchOccurredBeforeRuntimeExpectationCorrection": true,
+  "noSourceChange": true,
+  "copiedRuntimeScripts": [
+    "scripts/prepare-next-standalone.cjs",
+    "scripts/iyzico-runner.cjs"
+  ],
+  "initialResult": {
+    "passed": false,
+    "sourceMatches": true,
+    "sourceHashesPassed": 37,
+    "sourceHashesExpected": 38,
+    "routesPassed": 27,
+    "routesExpected": 28
+  },
+  "independentCorrectionReview": "PASS"
+}

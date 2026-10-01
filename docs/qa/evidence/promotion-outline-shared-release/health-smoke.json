@@ -1,0 +1,43 @@
+{
+  "capturedAt": "2026-10-01T20:50:44.223761+00:00",
+  "passed": true,
+  "rows": [
+    {
+      "host": "alpler-spor.admin.saas-staging.celebix.net",
+      "httpStatus": 200,
+      "status": "ok",
+      "redisStatus": "ready",
+      "passed": true
+    },
+    {
+      "host": "butik-siora.admin.saas-staging.celebix.net",
+      "httpStatus": 200,
+      "status": "ok",
+      "redisStatus": "ready",
+      "passed": true
+    },
+    {
+      "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "httpStatus": 200,
+      "status": "ok",
+      "redisStatus": "ready",
+      "passed": true
+    },
+    {
+      "host": "admin.guzidekuyumcu.com",
+      "httpStatus": 200,
+      "status": "ok",
+      "redisStatus": "ready",
+      "passed": true
+    },
+    {
+      "host": "admin.guzidekuyumcu.com.tr",
+      "httpStatus": 200,
+      "status": "ok",
+      "redisStatus": "ready",
+      "passed": true
+    }
+  ],
+  "credentialsUsed": false,
+  "merchantWrites": false
+}

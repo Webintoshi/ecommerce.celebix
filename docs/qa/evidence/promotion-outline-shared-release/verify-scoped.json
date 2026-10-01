@@ -1,0 +1,10 @@
+{
+  "status": "scoped_configuration_verified",
+  "commit": "01475eba82a18c2052d8dac5c41c71129e969d75",
+  "targetCount": 2,
+  "ownedDeploymentsFinished": true,
+  "rawConfigurationPreserved": true,
+  "globalIdle": false,
+  "concurrentGlobalDeployments": 1,
+  "concurrentScope": "coordinated_storefronts_only"
+}

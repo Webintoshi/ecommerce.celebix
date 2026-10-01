@@ -35,7 +35,7 @@ Bu düzeltme kod tabanlı SVG'dir; yeni bitmap/image_gen üretimi yok. Önceki 1
 
 - Önceki işlev testleri: indirim model/sunum/stüdyo/rota 48/48; analiz/içgörü/sunum/şablon 28/28.
 - Son native SVG değişikliği sonrası ilgili analiz çalışma alanı ve gerçek şablon bileşeni testleri 14/14.
-- Customer Panel typecheck başarılı. İlk revizyonun üretim derlemesi başarılı; son çizgisel bileşenler gerçek Next.js uygulamasında derlenip incelendi.
+- Customer Panel typecheck ve son çizgisel revizyonun üretim derlemesi başarılı; gerçek Next.js bileşenleri incelendi.
 - 1440, 1024 ve 390 px: sayfa yatay taşması 0; yeni şablon SVG'leri doğru kimlik ve ölçekle gösterildi.
 - Türkçe KARGO araması, temizleme sonrası odağın aramaya dönmesi ve Enter ile şablon seçimi tekrar doğrulandı.
 - 12 callback, Türkçe arama/boş sonuç/temizleme odağı, dekoratif ve odaklanmayan SVG nitelikleri gerçek bileşen testinde korundu.
@@ -45,4 +45,4 @@ Bu düzeltme kod tabanlı SVG'dir; yeni bitmap/image_gen üretimi yok. Önceki 1
 
 Ekran kanıtları: /Users/Celebix/.codex/tmp/promotion-illustration-polish-20261001/outline-*.png.
 
-Bu teslimat uygulama kodu ve yerel doğrulamadır. Canlı yayın yapılmadı.
+1 Ekim 2026 tarihinde iki ortak Customer Panel yayımlandı: `01475eba82a18c2052d8dac5c41c71129e969d75`. Butik Siora, Alpler ve Güzide adresleri güncellendi. [Yayın ve doğrulama kaydı](../qa/promotion-outline-shared-release-2026-10-01.md).
