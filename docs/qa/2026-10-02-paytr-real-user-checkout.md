@@ -41,7 +41,21 @@ Only the exact raw total `"0"` with status `failed` is added to amount parsing. 
 
 RED reproduced the signed failed-zero rejection. Adapter/config tests passed 26/26; relevant generic runtime/route/preflight tests passed 83/83; build-binding/generator tests passed 18/18 after their observed RED. Typechecks, production shared-storefront build and independent code/security reviews passed.
 
-The independently hashed new six-file execution manifest is `sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b`. Its adapter diff is exactly the narrow guard correction; reviewed diff SHA256 is `492833b0e1da3780098eb17802a5f27c90723adff66236821ef3dfacc7c7e0c5`. The explicit reviewed compatibility mapping preserves prior per-environment canonical execution identities, while candidate metadata records the actual new source and Git SHA. Unknown source manifests, forged metadata, mismatched environments and missing approvals still fail closed. This is a source transition and is not described as an unchanged source. Live release and genuine callback settlement are pending at this commit.
+The independently hashed new six-file execution manifest is `sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b`. Its adapter diff is exactly the narrow guard correction; reviewed diff SHA256 is `492833b0e1da3780098eb17802a5f27c90723adff66236821ef3dfacc7c7e0c5`. The explicit reviewed compatibility mapping preserves prior per-environment canonical execution identities, while candidate metadata records the actual new source and Git SHA. Unknown source manifests, forged metadata, mismatched environments and missing approvals still fail closed. This is a source transition and is not described as an unchanged source.
+
+Release `b73fc7435c5b897c617649fc2fcf477289b27d41` finished on SITE `at5ra92vf5jo2zde2m9syucj` and NET `e8jo659rdzjp53d0s1en05hi`. Both actual healthy running images/source manifests/generated artifacts/approval profiles and SITE database authority passed final read-only verification; global deployment queue was idle.
+
+At 21:43:08.098Z the submitted test acquired a genuine authenticated `failed` callback observation, proving the adapter correction works for that exact attempt. Its existing unknown-state lifecycle deliberately recorded the observation and returned processing rather than terminal settlement. The verified immutable failure observation was then used for one guarded reconciliation through existing authority-bound claim/finalize functions. Exact versions, credentials, LIVE 1000 TRY, canonical authority, observation and operation fingerprints, inventory and absent conflicting outcomes were checked. Independent SQL review and rollback rehearsal passed; the exact guarded transaction was committed once. Post-read confirmed failed attempt v7 / failed terminal session v4, own reservation released, physical stock unchanged at 2, and no order. No provider call, synthetic callback, direct status update, cancellation or capture was performed.
+
+## Historical processing acknowledgement
+
+The old callback operation's immutable snapshot remains unknown even after reconciliation. Replaying it previously returned RETRY forever. The runtime correction acknowledges only a replayed historical processing result when current durable authority is already failed and fresh callback verification independently confirms failed with the same non-null provider reference and expected amount/currency. Unknown, captured, contradictory, malformed and invalidly signed results remain excluded. It changes neither settlement nor inventory.
+
+The real replay scenario reproduced RED; relevant runtime/PayTR route/adapter tests passed 94/94 and storefront typecheck passed. Production shared-storefront build and independent review passed. Adapter execution manifest and generator are unchanged from b73. Live acknowledgement verification is pending at this edit.
+
+## New normal Chrome attempt
+
+After verified failure recovery, the user-supplied customer details were entered again in normal Chrome. A new LIVE 1000 TRY provider-ready session was created at 21:53:48Z, with a 15-minute local hold. PayTR displayed a blank card form and 10.00 TL total. The user is being asked to re-enter the card; card input values were not read. Screenshot is private under `.tmp/paytr-real-checkout-20261001/paytr-new-normal-chrome-20261002.png`.
 
 ## Acceptance still pending
 

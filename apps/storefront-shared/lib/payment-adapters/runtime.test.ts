@@ -1364,6 +1364,103 @@ test("a changed terminal callback after durable unknown remains processing for r
   }
 });
 
+test("a freshly verified failed callback acknowledges its historical unknown replay after authoritative failure", async () => {
+  for (const [mode, expected] of [
+    ["provider_ack", { kind: "accepted" }],
+    ["customer_return", { kind: "customer_return", outcome: "failure" }],
+  ] as const) {
+    const selected = fixture({
+      packet: callbackPacket(mode),
+      callbackAuthority: authority({
+        status: "failed", version: 7, providerReference: "provider_reference_private",
+      }),
+      callback: Object.freeze({
+        eventKey: "provider_failed_observation", status: "failed",
+        providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+        currency: "TRY", safeCode: "payment_failed",
+      }),
+      settlement: hostedMutation({
+        status: "provider_outcome_unknown", version: 5,
+        providerReference: "provider_reference_private", safeCode: "provider_outcome_unknown",
+        replayed: true, disposition: "processing",
+      }),
+    });
+
+    for (let retry = 0; retry < 2; retry += 1) {
+      assert.deepEqual(await selected.runtime.callback({
+        request: callbackRequest(), providerCode: PROVIDER,
+        binding: Buffer.alloc(32, 7).toString("base64url"),
+      }), expected);
+    }
+    assert.equal(selected.calls.callbacks.length, 2);
+    assert.equal(selected.calls.hostedCallbacks.length, 2);
+    assert.equal(selected.calls.hostedCallbacks.every((input) =>
+      input.status === "failed" && input.expectedVersion === 7
+      && input.providerReference === "provider_reference_private"
+      && input.amountMinor === 12_345 && input.currency === "TRY"), true);
+    assert.equal(selected.calls.queries.length, 0);
+    assert.equal(selected.calls.claims.length, 0);
+    assert.equal(selected.calls.finalized.length, 0);
+    assert.equal(selected.calls.unknown.length, 0);
+    assert.equal(selected.calls.initialized.length, 0);
+    assert.equal(selected.calls.callbacks.every((input) =>
+      input.body.every((byte) => byte === 0)), true);
+    assert.equal(selected.opened?.every((byte) => byte === 0), true);
+  }
+});
+
+test("historical unknown replay cannot acknowledge an unresolved, different, or unverified failure", async () => {
+  const failedCallback: VerifiedProviderCallback = Object.freeze({
+    eventKey: "provider_failed_observation", status: "failed",
+    providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+    currency: "TRY", safeCode: "payment_failed",
+  });
+  const replay = hostedMutation({
+    status: "provider_outcome_unknown", version: 5,
+    providerReference: "provider_reference_private", safeCode: "provider_outcome_unknown",
+    replayed: true, disposition: "processing",
+  });
+  for (const item of [
+    { authority: { status: "provider_outcome_unknown" }, expected: { kind: "retry" } },
+    { authority: { status: "reconciliation_required" }, expected: { kind: "retry" } },
+    { authority: { status: "captured" }, expected: { kind: "retry" } },
+    { authority: { providerReference: null }, expected: { kind: "retry" } },
+    { callback: { status: "succeeded" }, expected: { kind: "retry" } },
+    { settlement: { replayed: false }, expected: { kind: "retry" } },
+    { settlement: { version: 7 }, expected: { kind: "retry" } },
+    { settlement: { version: 8 }, expected: { kind: "rejected" } },
+    { settlement: { attemptId: LEASE_ID }, expected: { kind: "rejected" } },
+    { callback: { paidAmountMinor: 12_346 }, expected: { kind: "rejected" }, rejectedBeforeWrite: true },
+    { callback: { currency: "USD" }, expected: { kind: "rejected" }, rejectedBeforeWrite: true },
+    { callback: { providerReference: "different_reference" }, expected: { kind: "rejected" }, rejectedBeforeWrite: true },
+    { callback: new Error("invalid_signature"), expected: { kind: "rejected" }, rejectedBeforeWrite: true },
+  ] as ReadonlyArray<Readonly<{
+    authority?: Partial<PaymentAttemptAuthority>;
+    callback?: Partial<VerifiedProviderCallback> | Error;
+    settlement?: Partial<ApplyHostedPaymentCallbackResult>;
+    expected: Readonly<{ kind: "retry" | "rejected" }>;
+    rejectedBeforeWrite?: boolean;
+  }>>) {
+    const selected = fixture({
+      callbackAuthority: authority({
+        status: "failed", version: 7, providerReference: "provider_reference_private",
+        ...item.authority,
+      }),
+      callback: item.callback instanceof Error
+        ? item.callback : Object.freeze({ ...failedCallback, ...item.callback }),
+      settlement: hostedMutation({ ...replay, ...item.settlement }),
+    });
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(), providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    }), item.expected);
+    assert.equal(selected.calls.hostedCallbacks.length, item.rejectedBeforeWrite ? 0 : 1);
+    assert.equal(selected.calls.queries.length, 0);
+    assert.equal(selected.calls.claims.length, 0);
+    assert.equal(selected.calls.finalized.length, 0);
+  }
+});
+
 test("fraud review becomes durable unknown and returns processing without capture or failure", async () => {
   const selected = fixture({
     packet: callbackPacket("customer_return"),
