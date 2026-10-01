@@ -64,3 +64,15 @@ Final scoped read-only verification still reports awaiting-customer attempt v2 /
 ## Acceptance still pending
 
 A successful real bank authentication, genuine successful provider callback, paid WEB order, 10.00 TRY total and exactly-once inventory effect have not yet been verified. The original unknown outcome was resolved using its authenticated failed callback before the new card form was prepared. The new attempt awaits human card entry and bank authentication. Evidence screenshots and reviewed operational scripts are private under `.tmp/paytr-real-checkout-20261001/`.
+
+## Follow-up BKM bank authentication block
+
+The 21:53Z card screen expired while the user could not open it. The user explicitly confirmed that this new screen was never submitted. The exact expired attempt/session was closed once through the existing durable cancellation function after an exact-version/credential/cart/customer/amount/authority/event/reservation guard and successful ROLLBACK rehearsal. Physical Test stock and version remained unchanged, no callback or order existed, and only its own reservation was released.
+
+A fresh normal Chrome LIVE 10.00 TRY session was then prepared at 22:37:46Z. The user entered their card and submitted payment themselves at approximately 22:38:20Z. No card values were read or captured by the agent. PayTR recorded this exact 10.00 TRY transaction, with card bank Yapi Kredi and pending status. Its provider token subsequently became invalid, which is not treated as an authoritative failed payment.
+
+The original error tab was restored through Chrome's visible Recently Closed menu. Its actual Console proves: `Framing 'https://goguvenliodeme.bkm.com.tr/' violates ... frame-src https://www.paytr.com https://inbound.apigateway.vakifbank.com.tr https://guzidekuyumcu.com/odeme/hizli/sonuc`. This is a second observed ACS destination; the earlier Vakifbank correction did not cover it. PayTR settings independently confirm the correct site and callback URLs and enabled live mode; its API warnings list for October 2 has no entries.
+
+The shared frame policy adds only the exact observed BKM HTTPS origin. Unknown origins, unrelated providers, trusted merchant validation and narrow return path remain unchanged. The new real-origin regression reproduced RED, then the 45 relevant helper/proxy tests passed. Storefront typecheck, production build and independent code review passed. The latest Siora header release is merged and preserved. Payment adapter/runtime/generator execution sources and canonical authorities are unchanged.
+
+A genuine successful bank authentication/callback/order and exactly-once inventory decrease remain pending. The submitted 22:38Z transaction is not cancelled or charged again while its outcome is unknown.

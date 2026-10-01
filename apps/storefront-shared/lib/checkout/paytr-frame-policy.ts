@@ -7,6 +7,8 @@ const SUPPORTED_PROVIDER_ORIGINS = new Set([
 // Confirmed as the blocked ACS navigation during an actual PayTR 3DS checkout.
 // Keep bank origins explicit: provider redirects do not grant arbitrary frames.
 const PAYTR_BANK_ORIGIN = "https://inbound.apigateway.vakifbank.com.tr";
+// Confirmed as the blocked BKM ACS navigation for an actual Yapı Kredi card.
+const PAYTR_BKM_ORIGIN = "https://goguvenliodeme.bkm.com.tr";
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 /** The merchant hostname must come from verified storefront host authority. */
@@ -15,5 +17,5 @@ export function hostedPaymentFrameSources(providerOrigin: unknown, storefrontHos
     || typeof storefrontHostname !== "string" || storefrontHostname.length > 253
     || !HOSTNAME.test(storefrontHostname)) return null;
   if (providerOrigin !== PAYTR_ORIGIN) return providerOrigin;
-  return `${PAYTR_ORIGIN} ${PAYTR_BANK_ORIGIN} https://${storefrontHostname}/odeme/hizli/sonuc`;
+  return `${PAYTR_ORIGIN} ${PAYTR_BANK_ORIGIN} ${PAYTR_BKM_ORIGIN} https://${storefrontHostname}/odeme/hizli/sonuc`;
 }
