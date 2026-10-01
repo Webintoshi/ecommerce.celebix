@@ -18,6 +18,15 @@ The approved `product-detail-hermes.html` prototype is implemented as a Siora-on
 - Focused tests cover explicit choice, unavailable sizes, exact raw option preservation, real variant cart/analytics values, checkout order, retry, tracked quantity limits and provider defaults, deferred-request departure and history-entry binding.
 - Real published Siora denim fixture checked at 1872×862, 390×844 and 320×740. No horizontal document overflow at 320px. Native swipe advances the gallery; zoom closes on Escape and restores focus; mobile sticky control hides when main purchase is visible.
 - Real MAVI/L cart line matches the selected variant. Kahve/M buy reaches the existing checkout. Catalog return restoration also checked in the browser and an unmount/remount hook harness.
-- Saved implementation screenshots: `product-detail-implemented-desktop.png`, `product-detail-implemented-mobile.png`.
+- Saved implementation screenshots: `product-detail-implemented-desktop.jpg`, `product-detail-implemented-mobile.jpg`.
 
-Deployment and final live evidence will be appended only after verification.
+## Verified live release
+
+- Deployed frontend source: `f3a5ee2200a56be8096c8b058f93d8338708eaba`, branch `codex/alpler-deniz-theme`, on both shared storefront targets.
+- NET owned deployment `tt0zpsvn81gnptsncxlhwagt`; SITE owned deployment `e6f2e8dq8350ndv5xcmedtbr`; both finished and shared queue idle at final verification.
+- Exact running images, health, runtime SOURCE_COMMIT, payment source manifest and generated artifacts verified. Existing SITE TEST/LIVE authority matches; no provider request or migration was run.
+- Live product: https://butik-siora.saas-staging.celebix.net/urun/lunea-noir-denim-crop-ceket-pantolon
+- Live desktop and 390px mobile verified. Renk Mavi changes to actual blue media; M/S are unavailable and disabled. Native mobile drag advances thumbnails; zoom Escape restores focus. Sticky mobile purchase is visible when main action is below the screen. Existing cart was not modified during live visual verification; purchase APIs were verified in the real-data local fixture and interaction tests.
+- Live evidence: `product-detail-live-desktop.jpg`, `product-detail-live-mobile.jpg`.
+- This report commit is documentation only; deployed source remains the exact SHA above. No further application pin/environment/queue operations were performed after the final verification.
+
