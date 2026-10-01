@@ -29,7 +29,9 @@ Yayın, resmî Coolify kuyruğu ve mevcut ortak kilitle iki hedefte sıralı yü
 
 İlk runtime listesi 38 dosya/28 rota içeriyordu. `scripts/generate-paytr-build.mjs`, `nixpacks.toml` start.onlyIncludeFiles nedeniyle çalışma paketinde bulunmaz; dashboard anahtarı `/page` değil `/(panel)/page`dir. İlk kontrol 37/38 ve 27/28 verdi. Bağımsız kaynak/paketleme incelemesiyle yalnız bu iki beklenti düzeltildi; SVG, veri ve ödeme kontrolleri korundu. SITE dispatch'i ilk beklenti hatası sonrası durması gereken yerel komut dizisinin devam etmesiyle başlamıştı. Bu sıralama hatası kayda alındı; iki aday kaynak aynıydı ve düzeltilmiş son kontroller iki hedefte de geçti. Sonraki bağımlı adımlar açık başarı koşuluyla yürütüldü.
 
-İki panel finished olduktan sonra Cemo boş genel kuyruğu görüp koordine edilen storefront CSP yayınını başlattı. Bu nedenle özgün son helper genel-kuyruk kontrolünde `GLOBAL_DEPLOYMENTS_NOT_IDLE` verdi; genel kuyruğun boş olduğu iddia edilmiyor. Özgün dispatch/global-idle korumaları değiştirilmeden, aynı raw ayar/prepare/owned-finished/source-pin kontrollerini kullanan salt okuma kontrolü PASS verdi. En fazla iki ayrı aktif uygulama ve yalnız iki önceden koordine edilmiş storefront UUID'si kabul edildi; aktif panel yayını yok. İki panelin görevi tamamlandı.
+İki panel finished olduktan sonra Cemo boş genel kuyruğu görüp koordine edilen storefront CSP yayınını başlattı. Bu nedenle özgün son helper genel-kuyruk kontrolünde `GLOBAL_DEPLOYMENTS_NOT_IDLE` verdi; ilk kontrol anında genel kuyruk boş değildi. Özgün dispatch/global-idle korumaları değiştirilmeden, aynı raw ayar/prepare/owned-finished/source-pin kontrollerini kullanan salt okuma kontrolü PASS verdi. En fazla iki ayrı aktif uygulama ve yalnız iki önceden koordine edilmiş storefront UUID'si kabul edildi; aktif panel yayını yok. İki panelin görevi tamamlandı.
+
+Koordine edilen mağaza yayınları tamamlandıktan sonra özgün tam helper tekrar salt okumayla çalıştırıldı: `verified`, iki owned panel yayını finished ve `globalIdle=true`. Tüm kaynak/ayar/scope/preview korumaları geçti. [Son tam doğrulama](evidence/promotion-outline-shared-release/verify-final.json).
 
 ## Kanıtlar
 
