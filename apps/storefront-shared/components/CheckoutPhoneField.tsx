@@ -33,30 +33,36 @@ export function CheckoutPhoneField({ id, name = "phone", value, onChange, invali
 
   return (
     <div className="checkout-phone-field" data-invalid={invalid ? "true" : undefined}>
-      <select
-        id={`${id}-country`}
-        className="checkout-phone-country"
-        aria-label="Telefon ülke kodu"
-        title={`${entry.country.name} (${entry.country.dialCode})`}
-        value={isInternationalEntry ? "international" : entry.country.country}
-        onChange={(event) => {
-          const country = PHONE_COUNTRIES.find((item) => item.country === event.target.value);
-          if (!country) return;
-          // An unsupported/non-geographic international prefill stays visible until edited.
-          const nationalNumber = isInternationalEntry ? "" : entry.nationalNumber;
-          setEntry({ country, nationalNumber });
-          emit(country.country, nationalNumber);
-        }}
-      >
-        {isInternationalEntry ? <option value="international" disabled>🌐 Uluslararası</option> : null}
-        {PHONE_COUNTRIES.map((country) => (
-          <option
-            key={country.country}
-            value={country.country}
-            label={country.country === entry.country.country ? `${country.flag} ${country.dialCode}` : undefined}
-          >{country.flag} {country.dialCode} {country.name}</option>
-        ))}
-      </select>
+      <div className="checkout-phone-prefix">
+        <span className="checkout-phone-country-visual" aria-hidden="true">
+          <span>{isInternationalEntry ? "🌐" : entry.country.flag}</span>
+          <svg viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
+        </span>
+        <select
+          id={`${id}-country`}
+          className="checkout-phone-country"
+          aria-label="Telefon ülke kodu"
+          title={`${entry.country.name} (${entry.country.dialCode})`}
+          value={isInternationalEntry ? "international" : entry.country.country}
+          onChange={(event) => {
+            const country = PHONE_COUNTRIES.find((item) => item.country === event.target.value);
+            if (!country) return;
+            // An unsupported/non-geographic international prefill stays visible until edited.
+            const nationalNumber = isInternationalEntry ? "" : entry.nationalNumber;
+            setEntry({ country, nationalNumber });
+            emit(country.country, nationalNumber);
+          }}
+        >
+          {isInternationalEntry ? <option value="international" disabled>🌐 Uluslararası</option> : null}
+          {PHONE_COUNTRIES.map((country) => (
+            <option
+              key={country.country}
+              value={country.country}
+            >{country.flag} {country.dialCode} {country.name}</option>
+          ))}
+        </select>
+      </div>
+      {!isInternationalEntry ? <span className="checkout-phone-dial-code" aria-hidden="true">{entry.country.dialCode}</span> : null}
       <input
         id={id}
         name={name}

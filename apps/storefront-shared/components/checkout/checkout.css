@@ -153,9 +153,22 @@
 .starter-storefront[data-storefront-checkout="true"] :is(.checkout-fields label, .checkout-name-fields > label, .checkout-location-fields > label) { min-width: 0; }
 .starter-storefront[data-storefront-checkout="true"] .checkout-phone-label { display: grid; min-width: 0; gap: 6px; }
 .starter-storefront[data-storefront-checkout="true"] .checkout-phone-label > label { color: #333; font-size: 12px; font-weight: 500; }
-.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field { display: grid; min-width: 0; grid-template-columns: minmax(108px, .4fr) minmax(0, 1fr); gap: 8px; }
-.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country { min-width: 0; width: 100%; min-height: 52px; border: 1px solid #cfcfcf; border-radius: 7px; padding: 12px 9px; background: #fff; color: #202020; font-family: inherit; font-size: 16px; font-weight: 400; cursor: pointer; }
-.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country:focus-visible { outline: 2px solid #202020; outline-offset: 1px; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field { display: flex; min-width: 0; min-height: 52px; align-items: center; gap: 0; border: 1px solid #cfcfcf; border-radius: 7px; background: #fff; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field:hover { border-color: #a9a9a9; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field:focus-within { border-color: #202020; box-shadow: 0 0 0 1px #202020; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field[data-invalid="true"] { border-color: #9b2c2c; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field[data-invalid="true"]:focus-within { box-shadow: 0 0 0 1px #9b2c2c; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-prefix { position: relative; align-self: stretch; flex: 0 0 66px; border-radius: 6px 0 0 6px; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-prefix::after { position: absolute; right: 0; top: 14px; bottom: 14px; width: 1px; background: #e3e3e3; content: ""; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-prefix:has(select:focus-visible) { background: #f5f5f5; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country-visual { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 7px; pointer-events: none; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country-visual > span { font-size: 22px; line-height: 1; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country-visual svg { width: 12px; height: 12px; fill: none; stroke: #777; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-country { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; border: 0; padding: 0; opacity: 0; cursor: pointer; font: inherit; font-size: 16px; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-dial-code { flex: 0 0 auto; padding-left: 12px; color: #666; font-size: 15px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field > input { flex: 1 1 0; width: 0; min-width: 0; height: 50px; min-height: 50px; border: 0; border-radius: 0 6px 6px 0; padding: 12px 10px; outline: none; box-shadow: none; background: transparent; font-variant-numeric: tabular-nums; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field > input:focus { border: 0; outline: none; box-shadow: none; }
+.starter-storefront[data-storefront-checkout="true"] .checkout-phone-field:has(input:disabled) { background: #f8f8f8; }
 .starter-storefront[data-storefront-checkout="true"] .checkout-optional-fields { grid-column: 1 / -1; min-width: 0; }
 .starter-storefront[data-storefront-checkout="true"] .checkout-optional-fields > summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; color: #555; font-size: 13px; list-style: none; cursor: pointer; }
 .starter-storefront[data-storefront-checkout="true"] .checkout-optional-fields > summary::-webkit-details-marker { display: none; }
