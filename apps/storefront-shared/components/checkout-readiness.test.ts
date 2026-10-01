@@ -42,3 +42,13 @@ test("checkout distinguishes pending quote from a settled unavailable quote", ()
   assert.deepEqual(resolver?.("cart", null, null, true), { kind: "unavailable" });
   assert.deepEqual(resolver?.("buy_now", QUOTE, CART, true), { kind: "summary", cart: QUOTE_CART });
 });
+
+test("hosted submission failures describe payment start without exposing private reasons", () => {
+  const hostedFailureMessage = (readiness as Readonly<Record<string, unknown>>).hostedCheckoutFailureMessage as ((code: unknown) => string) | undefined;
+  assert.equal(hostedFailureMessage?.("invalid_input"), "İletişim ve teslimat bilgilerinizi kontrol edin. Sorun devam ederse mağazayla iletişime geçin.");
+  for (const code of ["unavailable", "request_failed", "invalid_response", "private_customer_collision", null]) {
+    assert.equal(hostedFailureMessage?.(code), "Güvenli ödeme başlatılamadı. Lütfen yeniden deneyin.");
+  }
+  assert.equal(hostedFailureMessage?.("stock_unavailable"), "Sepetinizde stok veya fiyatı değişen bir ürün var.");
+  assert.equal(readiness.checkoutFailureMessage("request_failed"), "Sipariş özeti alınamadı. Lütfen sepetinizi kontrol edin.", "initial quote failure keeps its own guidance");
+});

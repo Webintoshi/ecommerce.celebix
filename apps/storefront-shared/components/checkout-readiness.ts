@@ -23,6 +23,13 @@ export function checkoutFailureMessage(code: unknown): string {
   return "Sipariş özeti alınamadı. Lütfen sepetinizi kontrol edin.";
 }
 
+export function hostedCheckoutFailureMessage(code: unknown): string {
+  if (code === "invalid_input") return "İletişim ve teslimat bilgilerinizi kontrol edin. Sorun devam ederse mağazayla iletişime geçin.";
+  if (code === "cart_empty" || code === "price_changed" || code === "stock_unavailable"
+    || code === "shipping_unavailable" || code === "payment_unavailable") return checkoutFailureMessage(code);
+  return "Güvenli ödeme başlatılamadı. Lütfen yeniden deneyin.";
+}
+
 export type CheckoutSummaryState =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "summary"; cart: PublicCart | PublicCartV2 }>
