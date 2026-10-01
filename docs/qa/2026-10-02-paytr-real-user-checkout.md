@@ -51,11 +51,15 @@ At 21:43:08.098Z the submitted test acquired a genuine authenticated `failed` ca
 
 The old callback operation's immutable snapshot remains unknown even after reconciliation. Replaying it previously returned RETRY forever. The runtime correction acknowledges only a replayed historical processing result when current durable authority is already failed and fresh callback verification independently confirms failed with the same non-null provider reference and expected amount/currency. Unknown, captured, contradictory, malformed and invalidly signed results remain excluded. It changes neither settlement nor inventory.
 
-The real replay scenario reproduced RED; relevant runtime/PayTR route/adapter tests passed 94/94 and storefront typecheck passed. Production shared-storefront build and independent review passed. Adapter execution manifest and generator are unchanged from b73. Live acknowledgement verification is pending at this edit.
+The real replay scenario reproduced RED; relevant runtime/PayTR route/adapter tests passed 94/94 and storefront typecheck passed. Production shared-storefront build and independent review passed. Adapter execution manifest and generator are unchanged from b73.
+
+Release `370f340bfa87822357fce8746ca4c8c2c77ecd7a` finished on SITE `krnj2cnpu9tswu4czkmyrbi5` and NET `e8jcw9gubtjajdf2yh9foc8e`. The first NET queue request stopped before insertion while SITE's recorded application status was still updating; read-only status confirmed healthy running state before the one actual NET queue. Final global-idle, raw-configuration, exact healthy images/source/generated artifacts/approval and SITE database-authority checks passed. The exact submitted test's PayTR panel now shows notification status `Tamamlandı`, with no HTTP INVALID/RETRY error; this is successful delivery of its failed-payment result, not a successful payment.
 
 ## New normal Chrome attempt
 
 After verified failure recovery, the user-supplied customer details were entered again in normal Chrome. A new LIVE 1000 TRY provider-ready session was created at 21:53:48Z, with a 15-minute local hold. PayTR displayed a blank card form and 10.00 TL total. The user is being asked to re-enter the card; card input values were not read. Screenshot is private under `.tmp/paytr-real-checkout-20261001/paytr-new-normal-chrome-20261002.png`.
+
+Final scoped read-only verification still reports awaiting-customer attempt v2 / provider-ready session v2, no callback/receipt/order, one own hold and unchanged physical stock 2. The new card/payment button has not been submitted by the agent. A real successful bank authentication, paid order and exactly-once stock decrease remain pending human card entry and bank verification.
 
 ## Acceptance still pending
 
