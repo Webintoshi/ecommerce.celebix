@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStarterThemePresentationV4, PublicStorefront } from "@celebix/saas-contracts";
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { alplerFooterLogo, alplerLogoDimensions } from "./logo.ts";
 
 export function AlplerFooter({ storefront, presentation, groups, logo, checkout = false }: Readonly<{
   storefront: PublicStorefront;
@@ -11,9 +12,11 @@ export function AlplerFooter({ storefront, presentation, groups, logo, checkout 
   checkout?: boolean;
 }>) {
   if (checkout) return <footer className="alpler-checkout-footer store-container"><span>© {new Date().getUTCFullYear()} {presentation.displayName}</span><nav aria-label="Ödeme bilgileri">{groups.flatMap((group) => group.links).filter((link) => link.destination.startsWith("/policies/")).map((link) => <Link href={localizeStorefrontPath(link.destination, storefront.locale)} key={`${link.destination}-${link.label}`}>{link.label}</Link>)}</nav></footer>;
+  const footerLogo = alplerFooterLogo(storefront, logo, presentation.footer.tone);
+  const logoDimensions = alplerLogoDimensions(storefront, footerLogo);
   return <footer className="alpler-footer" data-footer-tone={presentation.footer.tone}>
     <div className="alpler-footer-top store-container">
-      <Link className="alpler-footer-wordmark" href="/" aria-label={`${presentation.displayName} ana sayfa`}>{logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width={260} height={80} loading="lazy" /> : presentation.displayName}</Link>
+      <Link className="alpler-footer-wordmark" data-alpler-emblem={logoDimensions ? "true" : undefined} href="/" aria-label={`${presentation.displayName} ana sayfa`}>{footerLogo ? <img src={footerLogo.url} alt={footerLogo.altText || presentation.displayName} width={logoDimensions?.width ?? 260} height={logoDimensions?.height ?? 80} loading="lazy" /> : presentation.displayName}</Link>
       {presentation.supportEmail ? <a className="alpler-footer-contact" href={`mailto:${presentation.supportEmail}`}>{presentation.supportEmail}</a> : null}
     </div>
     <div className="alpler-footer-main store-container">
