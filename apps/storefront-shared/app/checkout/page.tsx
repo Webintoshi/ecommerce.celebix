@@ -29,7 +29,7 @@ export default async function CheckoutPage({
   const address = account?.outcome === "found" ? account.snapshot.addresses.find((item) => item.isDefault) ?? account.snapshot.addresses[0] : undefined;
   const initialDraft = account?.outcome === "found" ? {
     name: `${account.snapshot.profile.firstName} ${account.snapshot.profile.lastName}`.trim(),
-    email: account.snapshot.profile.email,
+    email: account.snapshot.profile.email ?? "",
     phone: account.snapshot.profile.phone ?? "",
     addressLine1: address?.line1 ?? "",
     addressLine2: address?.line2 ?? "",

@@ -1,73 +1,158 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { maskAccountEmail } from "./account-auth-view-model.ts";
+import { AccountAuthRequestError, postAccountAuth, startAccountPhoneChallenge } from "./account-auth-client.ts";
+import { accountPhoneStartBody, accountRetryDeadline, accountRetryRemaining, maskAccountEmail, maskAccountPhone } from "./account-auth-view-model.ts";
 import styles from "./account-auth.module.css";
 
-type PublicResponse = Readonly<{ returnTo?: string; message?: string; retryAfterSeconds?: number }>;
-type AccountAuthFormProps = Readonly<{ mode: "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
+type AccountAuthFormProps = Readonly<{ mode: "phone" | "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
 
-async function publicPost(path: string, body: unknown): Promise<PublicResponse> {
-  const response = await fetch(path, { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const payload = await response.json().catch(() => null) as PublicResponse | null;
-  if (!response.ok || !payload) throw new Error(payload?.message || "İşlem tamamlanamadı.");
-  return payload;
+function EmailTrust() {
+  return <div className={styles.trustList} aria-label="Giriş güvenliği">
+    <span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3 19 6v5c0 4.4-2.7 8-7 10-4.3-2-7-5.6-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>Güvenilir Giriş</span>
+    <span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>%100 Korumalı</span>
+  </div>;
 }
 
-export function AccountAuthForm(props: AccountAuthFormProps) {
-  const { mode, returnTo } = props;
-  const [email, setEmail] = useState(""); const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false); const [retry, setRetry] = useState(0);
-  const [status, setStatus] = useState(""); const [busy, setBusy] = useState(false);
+function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: boolean; returnTo: string }>) {
+  const [channel, setChannel] = useState<"phone" | "email">(phoneEnabled ? "phone" : "email");
+  const [phoneMode, setPhoneMode] = useState<"register" | "login">("register");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [deadline, setDeadline] = useState(0);
+  const [now, setNow] = useState(0);
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const requestPending = useRef(false);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const emailConfirmationRef = useRef<HTMLHeadingElement>(null);
+  const focusNext = useRef<"phone" | "email" | "firstName" | null>(null);
+  const retry = accountRetryRemaining(deadline, now);
 
   useEffect(() => {
-    if (retry < 1) return;
-    const timer = window.setInterval(() => setRetry((value) => Math.max(0, value - 1)), 1_000);
-    return () => window.clearInterval(timer);
-  }, [retry > 0]);
+    if (!deadline) return;
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, 1_000);
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [deadline]);
 
-  async function sendLink(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (busy || retry > 0) return; setBusy(true); setStatus("");
-    try {
-      const payload = await publicPost("/api/account/auth/start", { email, returnTo });
-      setSent(true); setRetry(payload.retryAfterSeconds ?? 60); setStatus("Bağlantı gönderildi.");
-    } catch (error) { setStatus(error instanceof Error ? error.message : "İşlem tamamlanamadı."); }
-    finally { setBusy(false); }
+  useEffect(() => {
+    if (sent && channel === "phone" && !busy) codeRef.current?.focus();
+    else if (sent && channel === "email" && !busy) emailConfirmationRef.current?.focus();
+    else if (focusNext.current) {
+      const target = focusNext.current === "phone" ? phoneRef : focusNext.current === "email" ? emailRef : firstNameRef;
+      target.current?.focus();
+      focusNext.current = null;
+    }
+  }, [sent, channel, phoneMode, busy]);
+
+  function cooldown(seconds: number | undefined) {
+    const time = Date.now();
+    setNow(time);
+    setDeadline(accountRetryDeadline(seconds, time));
   }
 
-  if (mode === "email") {
-    if (sent) return <div className={`${styles.form} ${styles.sent}`}>
+  function showError(error: unknown) {
+    if (error instanceof AccountAuthRequestError && error.retryAfterSeconds !== undefined) cooldown(error.retryAfterSeconds);
+    setStatus(error instanceof Error ? error.message : "İşlem tamamlanamadı.");
+  }
+
+  async function send(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (requestPending.current || accountRetryRemaining(deadline, Date.now()) > 0) return;
+    requestPending.current = true;
+    setBusy(true); setStatus("");
+    try {
+      const payload = channel === "phone"
+        ? await startAccountPhoneChallenge(accountPhoneStartBody(phoneMode, { firstName, lastName, phone, returnTo }))
+        : await postAccountAuth("/api/account/auth/start", { email, returnTo });
+      setSent(true);
+      if (channel === "phone") setCode("");
+      cooldown(payload.retryAfterSeconds ?? 60);
+      setStatus(channel === "phone" ? "Doğrulama kodu WhatsApp üzerinden gönderildi." : "Bağlantı gönderildi.");
+    } catch (error) { showError(error); }
+    finally { requestPending.current = false; setBusy(false); }
+  }
+
+  async function verifyPhone(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (requestPending.current || code.length !== 6) return;
+    requestPending.current = true;
+    setBusy(true); setStatus("");
+    try {
+      const payload = await postAccountAuth("/api/account/auth/verify", { code, returnTo });
+      window.location.assign(payload.destination);
+    } catch (error) { showError(error); requestPending.current = false; setBusy(false); }
+  }
+
+  function changeChannel(next: "phone" | "email") {
+    focusNext.current = next === "phone" ? phoneMode === "register" ? "firstName" : "phone" : "email";
+    setChannel(next); setSent(false); setCode(""); setStatus("");
+  }
+
+  function changePhoneMode(next: "register" | "login") {
+    focusNext.current = next === "register" ? "firstName" : "phone";
+    setPhoneMode(next); setStatus("");
+  }
+
+  if (channel === "email") {
+    if (sent) return <div className={`${styles.form} ${styles.sent}`} aria-busy={busy}>
       <span className={styles.confirmation} aria-hidden="true">✓</span>
-      <div><strong>E-postanı kontrol et</strong><p>{maskAccountEmail(email)}</p></div>
-      <form onSubmit={sendLink}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
-      <button className={styles.textButton} type="button" onClick={() => { setSent(false); setRetry(0); setStatus(""); }}>E-postayı değiştir</button>
+      <div><h2 ref={emailConfirmationRef} tabIndex={-1}>E-postanı kontrol et</h2><p>{maskAccountEmail(email)}</p></div>
+      <form onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
+      <button className={styles.textButton} type="button" disabled={busy} onClick={() => { focusNext.current = "email"; setSent(false); setStatus(""); }}>E-postayı değiştir</button>
+      {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </div>;
-    return <form className={styles.form} onSubmit={sendLink} noValidate>
-      <label className={styles.field}><span>E-posta</span><input className={styles.input} type="email" autoComplete="email" inputMode="email" required value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
-      <button className={styles.primaryButton} type="submit" disabled={busy}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
-      <div className={styles.trustList} aria-label="Giriş güvenliği">
-        <span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3 19 6v5c0 4.4-2.7 8-7 10-4.3-2-7-5.6-7-10V6l7-3Z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-          Güvenilir Giriş
-        </span>
-        <span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-            <rect x="5" y="10" width="14" height="10" rx="2" />
-            <path d="M8 10V8a4 4 0 0 1 8 0v2" />
-          </svg>
-          %100 Korumalı
-        </span>
-      </div>
+    return <form className={styles.form} onSubmit={send} aria-busy={busy}>
+      <label className={styles.field}><span>E-posta</span><input ref={emailRef} className={styles.input} type="email" autoComplete="email" inputMode="email" required disabled={busy} value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
+      <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
+      {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+      <EmailTrust />
+      {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>;
   }
 
-  const ticket = props.ticket;
+  if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
+    <div className={styles.stepIntro}><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
+    <form className={styles.form} onSubmit={verifyPhone}>
+      <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" /></label>
+      <button className={styles.primaryButton} type="submit" disabled={busy || code.length !== 6}>{busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}</button>
+    </form>
+    <form onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
+    <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setCode(""); setStatus(""); }}>Telefonu değiştir</button>
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </div>;
+
+  return <form className={styles.form} onSubmit={send} aria-busy={busy}>
+    <div className={styles.stepIntro}><h2>{phoneMode === "register" ? "Hesap oluştur" : "Giriş yap"}</h2><p>{phoneMode === "register" ? "Bilgilerini gir, WhatsApp koduyla hesabını oluştur." : "Hesabına kayıtlı telefon numaranla devam et."}</p></div>
+    {phoneMode === "register" ? <div className={styles.nameFields}>
+      <label className={styles.field}><span>Ad</span><input ref={firstNameRef} className={styles.input} name="firstName" autoComplete="given-name" required disabled={busy} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} /></label>
+      <label className={styles.field}><span>Soyad</span><input className={styles.input} name="lastName" autoComplete="family-name" required disabled={busy} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} /></label>
+    </div> : null}
+    <label className={styles.field}><span>Telefon numarası</span><input ref={phoneRef} className={styles.input} name="phone" type="tel" autoComplete="tel" inputMode="tel" required disabled={busy} value={phone} onChange={(event) => setPhone(event.currentTarget.value)} placeholder="05XX XXX XX XX" aria-describedby="account-phone-transport" /></label>
+    <p className={styles.transport} id="account-phone-transport">Doğrulama kodu WhatsApp üzerinden gönderilir.</p>
+    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "WhatsApp kodu gönder"}</button>
+    {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+    <button className={styles.textButton} type="button" data-auth-switch={phoneMode === "register" ? "login" : "register"} disabled={busy} onClick={() => changePhoneMode(phoneMode === "register" ? "login" : "register")}>{phoneMode === "register" ? "Hesabın var mı? Giriş yap" : "Yeni hesap oluştur"}</button>
+    <button className={styles.emailAlternative} type="button" disabled={busy} onClick={() => changeChannel("email")}>Mevcut e-posta hesabımla giriş yap</button>
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </form>;
+}
+
+function EmailTicketVerify({ returnTo, ticket }: Readonly<{ returnTo: string; ticket: string }>) {
+  const [code, setCode] = useState("");
   return <div className={`${styles.form} ${styles.verify}`}>
     {ticket ? <form method="post" action="/api/account/auth/verify-browser">
       <input type="hidden" name="ticket" value={ticket} />
@@ -82,6 +167,9 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
         <button className={styles.secondaryButton} type="submit" disabled={code.length !== 6}>Giriş yap</button>
       </form>
     </details>
-    <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
+}
+
+export function AccountAuthForm(props: AccountAuthFormProps) {
+  return props.mode === "verify" ? <EmailTicketVerify returnTo={props.returnTo} ticket={props.ticket} /> : <AccountSignInForm phoneEnabled={props.mode === "phone"} returnTo={props.returnTo} />;
 }

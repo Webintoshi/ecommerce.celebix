@@ -5,11 +5,12 @@ import {
   parseStorefrontAuthStartResult,
   parseStorefrontAuthVerifyResult,
   type StorefrontAccountDevice,
+  type StorefrontAuthVerifyResult,
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { commerceCandidates, commerceLimit } from "../storefront-commerce/validation.ts";
-import type { PostgresStorefrontIdentityRepositoryOptions, StorefrontIdentityRepository } from "./types.ts";
+import type { PostgresStorefrontIdentityRepositoryOptions, StorefrontIdentityRepository, StorefrontIdentityStartDisposition, StorefrontPhoneStartInput, StorefrontPhoneVerifyInput, StorefrontPhoneDeliveryInput } from "./types.ts";
 import {
   commerceDate, commerceHostname, commerceUuid, exactCommerceInput, identityAddress, identityBoolean,
   identityBrand, identityCorrelation, identityDeviceId, identityDigest, identityEmail, identityFingerprint,
@@ -18,7 +19,7 @@ import {
 
 export const STOREFRONT_IDENTITY_ERROR_CODES = Object.freeze([
   "invalid_input", "not_found", "unauthenticated", "challenge_invalid", "account_suspended",
-  "version_conflict", "operation_mismatch", "unavailable", "commit_unknown",
+  "version_conflict", "operation_mismatch", "identity_conflict", "unavailable", "commit_unknown",
 ] as const);
 export type StorefrontIdentityErrorCode = (typeof STOREFRONT_IDENTITY_ERROR_CODES)[number];
 const ERROR_CODES = new Set<string>(STOREFRONT_IDENTITY_ERROR_CODES);
@@ -42,6 +43,11 @@ function envelope(result: Readonly<{ rows: unknown[]; rowCount?: number | null }
 }
 function parseExact(value: unknown, required: readonly string[]): Readonly<Record<string, unknown>> {
   try { return exactCommerceInput(value, required); } catch { throw failure(); }
+}
+function parseStartDisposition(value: unknown): StorefrontIdentityStartDisposition {
+  const p = parseExact(value, ["retryAfterSeconds", "deliveryRequired"]);
+  if (typeof p.deliveryRequired !== "boolean") throw failure();
+  return Object.freeze({ ...parseStorefrontAuthStartResult({ outcome: "accepted", retryAfterSeconds: p.retryAfterSeconds }), deliveryRequired: p.deliveryRequired });
 }
 function mapped(outcome: string): StorefrontIdentityRepositoryError | undefined {
   return ERROR_CODES.has(outcome) ? failure(outcome as StorefrontIdentityErrorCode) : undefined;
@@ -76,13 +82,22 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
   }
   private async rollback(client: PostgresClientLike): Promise<void> { try { await client.query("ROLLBACK"); release(client); } catch { release(client, true); } }
   private emitUnknown(): void { try { const pending = this.options.audit(Object.freeze({ type: "storefront_identity_commit_unknown" })); if (pending) void pending.catch(() => undefined); } catch {} }
-  private async transaction<T>(text: string, values: unknown[], outcomes: readonly string[], parser: (value: unknown) => T, readOnly = false): Promise<T> {
+  private async transaction<T>(text: string, values: unknown[], outcomes: readonly string[], parser: (value: unknown) => T, readOnly = false, commitFailures: readonly StorefrontIdentityErrorCode[] = []): Promise<T> {
     const client = await this.acquire(); let began = false; let terminal = false;
     try {
       await client.query(readOnly ? "BEGIN READ ONLY" : "BEGIN ISOLATION LEVEL READ COMMITTED"); began = true;
       await this.configure(client);
       const selected = envelope(await client.query(text, values));
-      const error = mapped(selected.outcome); if (error) throw error;
+      const error = mapped(selected.outcome);
+      if (error) {
+        if (commitFailures.includes(error.code)) {
+          if (selected.result !== null) throw failure();
+          // Rejected OTPs still update the durable attempt counter and audit.
+          try { await client.query("COMMIT"); terminal = true; release(client); }
+          catch { terminal = true; release(client, true); throw failure("commit_unknown"); }
+        }
+        throw error;
+      }
       if (!outcomes.includes(selected.outcome)) throw failure();
       let parsed: T; try { parsed = parser(selected.result); } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure(); }
       try { await client.query("COMMIT"); terminal = true; release(client); return parsed; }
@@ -120,6 +135,40 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
     } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
   }
 
+  async startEmail(input: Parameters<StorefrontIdentityRepository["start"]>[0]): Promise<StorefrontIdentityStartDisposition> {
+    try {
+      const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "emailDigest", "requestDigest", "codeKeyId", "codeDigest", "ticketKeyId", "ticketDigest", "expiresAt", "outboxId", "recipientCiphertext", "brandSnapshot", "correlationId"]);
+      const now = commerceDate(p.now); const expiresAt = commerceDate(p.expiresAt);
+      if (expiresAt <= now || expiresAt.getTime() > now.getTime() + 900_000) throw failure("invalid_input");
+      return await this.transaction("SELECT outcome,result_payload FROM saas.public_account_auth_start_v3($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text,$10::timestamptz,$11::uuid,$12::text,$13::jsonb,$14::text)",
+        [commerceHostname(p.hostname), now, commerceUuid(p.challengeId), identityDigest(p.emailDigest), identityDigest(p.requestDigest), identityKeyId(p.codeKeyId), identityDigest(p.codeDigest), identityKeyId(p.ticketKeyId), identityDigest(p.ticketDigest), expiresAt, commerceUuid(p.outboxId), identityText(p.recipientCiphertext, 20, 2048, /^[A-Za-z0-9_.-]+$/u), JSON.stringify(identityBrand(p.brandSnapshot)), identityCorrelation(p.correlationId)], ["accepted"], parseStartDisposition);
+    } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
+  }
+
+  async startPhone(input: StorefrontPhoneStartInput): Promise<StorefrontIdentityStartDisposition> {
+    try {
+      const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "phoneDigest", "requestDigest", "codeKeyId", "codeDigest", "expiresAt", "correlationId"]);
+      const now = commerceDate(p.now); const expiry = commerceDate(p.expiresAt);
+      if (expiry <= now || expiry.getTime() > now.getTime() + 900_000) throw failure("invalid_input");
+      return await this.transaction("SELECT outcome,result_payload FROM saas.public_account_auth_start_phone($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::text,$8::timestamptz,$9::text)", [commerceHostname(p.hostname), now, commerceUuid(p.challengeId), identityDigest(p.phoneDigest), identityDigest(p.requestDigest), identityKeyId(p.codeKeyId), identityDigest(p.codeDigest), expiry, identityCorrelation(p.correlationId)], ["accepted"], parseStartDisposition);
+    } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
+  }
+
+  async markPhoneDelivery(input: StorefrontPhoneDeliveryInput): Promise<void> {
+    try {
+      const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "phoneDigest", "accepted"]);
+      await this.transaction("SELECT outcome,result_payload FROM saas.public_account_auth_phone_delivery($1::text,$2::timestamptz,$3::uuid,$4::text,$5::boolean)", [commerceHostname(p.hostname), commerceDate(p.now), commerceUuid(p.challengeId), identityDigest(p.phoneDigest), identityBoolean(p.accepted)], ["committed"], (value) => { parseExact(value, []); });
+    } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
+  }
+
+  async verifyPhone(input: StorefrontPhoneVerifyInput): Promise<StorefrontAuthVerifyResult> {
+    try {
+      const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "phoneDigest", "codeDigest", "phone", "customerId", "accountId", "sessionId", "sessionKeyId", "sessionDigest", "csrfDigest", "deviceLabel", "userAgentDigest", "correlationId"], ["firstName", "lastName"]);
+      if (Object.hasOwn(p, "firstName") !== Object.hasOwn(p, "lastName")) throw failure("invalid_input");
+      return await this.transaction("SELECT outcome,result_payload FROM saas.public_account_auth_verify_phone($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::text,$8::text,$9::uuid,$10::uuid,$11::uuid,$12::text,$13::text,$14::text,$15::text,$16::text,$17::text)", [commerceHostname(p.hostname), commerceDate(p.now), commerceUuid(p.challengeId), identityDigest(p.phoneDigest), identityDigest(p.codeDigest), identityOptionalPhone(p.phone), Object.hasOwn(p, "firstName") ? identityText(p.firstName, 1, 100) : null, Object.hasOwn(p, "lastName") ? identityText(p.lastName, 1, 100) : null, commerceUuid(p.customerId), commerceUuid(p.accountId), commerceUuid(p.sessionId), identityKeyId(p.sessionKeyId), identityDigest(p.sessionDigest), identityDigest(p.csrfDigest), identityText(p.deviceLabel, 1, 100), identityDigest(p.userAgentDigest), identityCorrelation(p.correlationId)], ["authenticated", "profile_required"], (value) => { const result = parseExact(value, ["profileRequired"]); return parseStorefrontAuthVerifyResult({ outcome: result.profileRequired === true ? "profile_required" : "authenticated", profileRequired: result.profileRequired }); }, false, ["challenge_invalid"]);
+    } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
+  }
+
   async verify(input: Parameters<StorefrontIdentityRepository["verify"]>[0]) {
     try {
       const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "emailDigest", "verifierKind", "verifierDigest", "email", "accountId", "sessionId", "sessionKeyId", "sessionDigest", "csrfDigest", "deviceLabel", "userAgentDigest", "correlationId"]);
@@ -127,7 +176,7 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
       return await this.transaction(
         "SELECT outcome,result_payload FROM saas.public_account_auth_verify_v2($1::text,$2::timestamptz,$3::uuid,$4::text,$5::text,$6::text,$7::text,$8::uuid,$9::uuid,$10::text,$11::text,$12::text,$13::text,$14::text,$15::text)",
         [commerceHostname(p.hostname), commerceDate(p.now), commerceUuid(p.challengeId), identityDigest(p.emailDigest), p.verifierKind, identityDigest(p.verifierDigest), identityEmail(p.email), commerceUuid(p.accountId), commerceUuid(p.sessionId), identityKeyId(p.sessionKeyId), identityDigest(p.sessionDigest), identityDigest(p.csrfDigest), identityText(p.deviceLabel, 1, 100), identityDigest(p.userAgentDigest), identityCorrelation(p.correlationId)],
-        ["authenticated", "profile_required"], (value) => { const selected = parseExact(value, ["profileRequired"]); return parseStorefrontAuthVerifyResult(selected.profileRequired === true ? { outcome: "profile_required", profileRequired: true } : { outcome: "authenticated", profileRequired: selected.profileRequired }); },
+        ["authenticated", "profile_required"], (value) => { const selected = parseExact(value, ["profileRequired"]); return parseStorefrontAuthVerifyResult(selected.profileRequired === true ? { outcome: "profile_required", profileRequired: true } : { outcome: "authenticated", profileRequired: selected.profileRequired }); }, false, ["challenge_invalid"],
       );
     } catch (error) { if (error instanceof StorefrontIdentityRepositoryError) throw error; throw failure("invalid_input"); }
   }

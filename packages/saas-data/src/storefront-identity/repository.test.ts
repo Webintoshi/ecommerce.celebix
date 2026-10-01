@@ -71,10 +71,10 @@ test("account order list rejects database authority and parses public references
   await assert.rejects(repository(new Pool([hostile])).orders({ hostname: HOST, now: NOW, candidates: CANDIDATES, limit: 20 }), /unavailable/u);
 });
 
-test("known account failures map to bounded codes and always roll back", async () => {
+test("rejected verification commits the database attempt counter before exposing a bounded error", async () => {
   const client = new Client(responder("challenge_invalid", null));
   await assert.rejects(repository(new Pool([client])).verify({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, emailDigest: DIGESTS.email, verifierKind: "code", verifierDigest: DIGESTS.code, email: "ada@example.test", accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari macOS", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_00083" }), (error: unknown) => error instanceof StorefrontIdentityRepositoryError && error.code === "challenge_invalid");
-  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
 test("unknown mutation commit performs one exact replay recovery", async () => {
@@ -84,4 +84,30 @@ test("unknown mutation commit performs one exact replay recovery", async () => {
   assert.deepEqual(result, { outcome: "created", version: 1, replayed: false });
   assert.deepEqual(first.releases, [true]);
   assert.equal(second.calls.filter(({ text }) => text.includes("saas.public_account_favorite_set")).length, 1);
+});
+
+const PHONE_START = Object.freeze({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, requestDigest: DIGESTS.request, codeKeyId: "code_01", codeDigest: DIGESTS.code, expiresAt: new Date("2026-08-04T09:10:00.000Z"), correlationId: "phone_start_083" });
+test("phone start exposes database send disposition without storing plaintext phone", async () => {
+  const client = new Client(responder("accepted", { retryAfterSeconds: 60, deliveryRequired: false }));
+  assert.deepEqual(await repository(new Pool([client])).startPhone(PHONE_START), { outcome: "accepted", retryAfterSeconds: 60, deliveryRequired: false });
+  const selected = client.calls.find(({ text }) => text.includes("saas.public_account_auth_start_phone"));
+  assert.equal(selected?.values.length, 9);
+  assert.equal(selected?.values.includes("+905551112233"), false);
+  const malformed = new Client(responder("accepted", { retryAfterSeconds: 60 }));
+  await assert.rejects(repository(new Pool([malformed])).startPhone(PHONE_START), /unavailable/u);
+});
+
+test("phone verify rejects names supplied as an incomplete pair before database access", async () => {
+  const pool = new Pool([]);
+  await assert.rejects(repository(pool).verifyPhone({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, codeDigest: DIGESTS.code, phone: "+905551112233", firstName: "Ada", customerId: UUIDS.outbox, accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_phone_083" }), /invalid_input/u);
+});
+
+test("provider acknowledgement cannot be inferred from a truthy string", async () => {
+  await assert.rejects(repository(new Pool([])).markPhoneDelivery({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, accepted: "true" as unknown as boolean }), /invalid_input/u);
+});
+
+test("rejected phone verification persists attempts instead of rolling them back", async () => {
+  const client = new Client(responder("challenge_invalid", null));
+  await assert.rejects(repository(new Pool([client])).verifyPhone({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, codeDigest: DIGESTS.code, phone: "+905551112233", customerId: UUIDS.outbox, accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_phone_083" }), /challenge_invalid/u);
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });

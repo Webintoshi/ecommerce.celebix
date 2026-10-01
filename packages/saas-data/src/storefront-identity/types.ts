@@ -15,6 +15,21 @@ type Authority = Readonly<{ hostname: string; now: Date }>;
 type AuthenticatedAuthority = Authority & Readonly<{ candidates: readonly StorefrontCredentialCandidate[] }>;
 type OperationAuthority = AuthenticatedAuthority & Readonly<{ operationId: string; fingerprint: string; correlationId: string }>;
 
+export type StorefrontIdentityStartDisposition = StorefrontAuthStartResult & Readonly<{ deliveryRequired: boolean }>;
+export type StorefrontPhoneStartInput = Authority & Readonly<{
+  challengeId: string; phoneDigest: string; requestDigest: string; codeKeyId: string;
+  codeDigest: string; expiresAt: Date; correlationId: string;
+}>;
+export type StorefrontPhoneVerifyInput = Authority & Readonly<{
+  challengeId: string; phoneDigest: string; codeDigest: string; phone: string;
+  firstName?: string; lastName?: string; customerId: string; accountId: string;
+  sessionId: string; sessionKeyId: string; sessionDigest: string; csrfDigest: string;
+  deviceLabel: string; userAgentDigest: string; correlationId: string;
+}>;
+export type StorefrontPhoneDeliveryInput = Authority & Readonly<{
+  challengeId: string; phoneDigest: string; accepted: boolean;
+}>;
+
 export type StorefrontIdentitySessionResult = Readonly<
   | { outcome: "unauthenticated" }
   | { outcome: "profile_required" }
@@ -22,6 +37,11 @@ export type StorefrontIdentitySessionResult = Readonly<
 >;
 
 export interface StorefrontIdentityRepository {
+  // Optional so legacy email-only fixtures remain compatible during deployment.
+  startEmail?(input: Parameters<StorefrontIdentityRepository["start"]>[0]): Promise<StorefrontIdentityStartDisposition>;
+  startPhone?(input: StorefrontPhoneStartInput): Promise<StorefrontIdentityStartDisposition>;
+  verifyPhone?(input: StorefrontPhoneVerifyInput): Promise<StorefrontAuthVerifyResult>;
+  markPhoneDelivery?(input: StorefrontPhoneDeliveryInput): Promise<void>;
   start(input: Authority & Readonly<{
     challengeId: string;
     emailDigest: string;

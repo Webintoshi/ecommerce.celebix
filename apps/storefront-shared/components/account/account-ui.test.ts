@@ -28,7 +28,8 @@ test("customer account forms are accessible and use the passwordless private rou
   assert.match(auth, />Devam et</u);
   assert.match(auth, />Giriş yap</u);
   assert.doesNotMatch(auth, /Bağlantı 10 dakika geçerlidir|<b>\{email\}<\/b>/u);
-  assert.doesNotMatch(auth, /publicPost\("\/api\/account\/auth\/verify"|window[.]location[.]assign/u);
+  const emailTicketVerify = auth.slice(auth.indexOf("function EmailTicketVerify"));
+  assert.doesNotMatch(emailTicketVerify, /postAccountAuth|window[.]location[.]assign/u);
   assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
   assert.doesNotMatch(auth, /Şifre gerekmez/u);
   assert.doesNotMatch(auth, /password/u);

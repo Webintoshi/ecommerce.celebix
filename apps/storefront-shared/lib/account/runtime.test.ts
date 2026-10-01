@@ -32,11 +32,26 @@ function fake(overrides: Partial<StorefrontIdentityRepository> = {}): Storefront
 
 type DeliveryMessage = Readonly<{ email: string; ticket: string; code: string; storeName: string; storeOrigin: string; returnTo: string; idempotencyKey: string }>;
 
-function runtime(repository: StorefrontIdentityRepository, delivery: (message: DeliveryMessage) => Promise<void> = async () => undefined) {
+function runtime(repository: StorefrontIdentityRepository, delivery: (message: DeliveryMessage) => Promise<void> = async () => undefined, emailDeliveryDispositionSupported?: boolean) {
   let index = 0;
   const ids = ["10000000-0000-4000-8000-000000000001", "10000000-0000-4000-8000-000000000002", "10000000-0000-4000-8000-000000000003", "10000000-0000-4000-8000-000000000004", "10000000-0000-4000-8000-000000000005"];
-  return createStorefrontIdentityRuntime({ repository, hmacKeyring: KEYRING, sealKeyring: KEYRING, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(7), randomUuid: () => ids[index++]!, randomLoginCode: () => "042319", deliverLoginCode: delivery });
+  return createStorefrontIdentityRuntime({ repository, hmacKeyring: KEYRING, sealKeyring: KEYRING, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(7), randomUuid: () => ids[index++]!, randomLoginCode: () => "042319", deliverLoginCode: delivery, emailDeliveryDispositionSupported });
 }
+
+test("email login falls back to the existing start function when the database has no v3 delivery disposition", async () => {
+  let legacyStarts = 0;
+  let v3Starts = 0;
+  let deliveries = 0;
+  const selected = runtime(fake({
+    start: async () => { legacyStarts += 1; return { outcome: "accepted", retryAfterSeconds: 60 }; },
+    startEmail: async () => { v3Starts += 1; throw new Error("public_account_auth_start_v3 missing"); },
+  }), async () => { deliveries += 1; }, false);
+  const result = await selected.start({ hostname: HOST, email: "ada@example.test", requestAuthority: "request-bucket", returnTo: "/account", brand: { storeName: "Güzide", logoUrl: null, primaryColor: null } });
+  assert.equal(legacyStarts, 1);
+  assert.equal(v3Starts, 0);
+  assert.equal(deliveries, 1);
+  assert.match(result.setCookie, /^__Host-celebix_account_challenge=ch1[.]/u);
+});
 
 test("auth start queues ticket and code digests while delivery receives one store-bound bearer", async () => {
   let databaseInput: Parameters<StorefrontIdentityRepository["start"]>[0] | undefined;
