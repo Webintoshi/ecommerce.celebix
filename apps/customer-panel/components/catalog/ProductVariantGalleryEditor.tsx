@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { ProductVariantGallery } from "@celebix/saas-contracts";
 import { productVariantMediaApi, ProductVariantMediaApiError } from "@/lib/catalog-ui/variant-media-client";
-import { VariantGalleryDialog, type VariantGalleryAssignment, type VariantGalleryMedia, type VariantGalleryTarget } from "./VariantGalleryDialog";
+import { VariantGalleryDialog, VariantGalleryIcon, type VariantGalleryAssignment, type VariantGalleryMedia, type VariantGalleryTarget } from "./VariantGalleryDialog";
 import styles from "./variant-gallery.module.css";
 /** Keeps variant image selection independent of the expanded price and stock editor. */
 export function ProductVariantGalleryEditor({ productId, media, variants, canManage = true, assignments = [], onAssignmentsChange, children }: Readonly<{
@@ -42,7 +42,7 @@ export function ProductVariantGalleryEditor({ productId, media, variants, canMan
         if (!target)
             return null;
         const image = selected(variantId).flatMap(id => media.find(item => item.id === id) ?? [])[0] ?? media[0];
-        return <button type="button" className={styles.thumbnail} title="Görselleri seç" aria-label={`${target.title} görsellerini seç`} aria-haspopup="dialog" disabled={!canManage || loading || Boolean(productId && !gallery)} onClick={() => { setEditing(variantId); setConflict(false); }}>{image ? <img src={image.url} alt=""/> : <span aria-hidden="true">＋</span>}</button>;
+        return <button type="button" className={styles.thumbnail} title={canManage ? loading ? "Görseller yükleniyor" : "Görselleri seç" : "Görseller salt okunur"} aria-busy={loading} aria-label={`${target.title} görsellerini seç`} aria-haspopup="dialog" disabled={!canManage || loading || Boolean(productId && !gallery)} onClick={() => { setEditing(variantId); setConflict(false); }}>{loading ? <span className={styles.thumbnailSkeleton} aria-hidden="true" /> : image ? <><img src={image.url} alt=""/><span className={styles.thumbnailHint}><VariantGalleryIcon kind="image" /></span></> : <VariantGalleryIcon kind="images" />}</button>;
     }
     const target = variants.find(item => item.id === editing);
     async function apply(next: readonly VariantGalleryAssignment[], operationId: string) {
