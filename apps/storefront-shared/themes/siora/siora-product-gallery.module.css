@@ -276,11 +276,11 @@
   .zoomButton { left: 24px; bottom: 86px; }
 }
 
-@media (min-width: 761px) and (max-width: 1050px) {
+@media (min-width: 768px) and (max-width: 1050px) {
   .thumbnails { max-width: calc(100% - 380px); }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .gallery {
     position: relative;
     inset: auto;

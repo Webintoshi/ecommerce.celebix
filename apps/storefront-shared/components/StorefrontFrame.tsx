@@ -66,7 +66,7 @@ export function StorefrontFrame({
             data-font={customized ? design.brand.fontFamily : undefined}
             style={style}
           >
-            {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : immersiveSiora ? null : <Header storefront={storefront} design={design} />}
+            {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
             <main>{children}</main>
             <Footer storefront={storefront} logo={logo} checkout={checkout} />
           </div>

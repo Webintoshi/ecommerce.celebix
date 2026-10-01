@@ -10,6 +10,19 @@ export function SioraHeaderChrome({ children, headerStyle, headerWidth, headerLa
   const [view, setView] = useState({ scrolled: false, compact: false });
 
   useEffect(() => {
+    const header = headerRef.current;
+    const frame = header?.closest<HTMLElement>('[data-storefront-theme="siora-deniz"]');
+    if (!header || !frame) return;
+    const measure = () => {
+      if (header.offsetHeight > 0) frame.style.setProperty("--siora-header-height", `${header.offsetHeight}px`);
+    };
+    measure();
+    const observer = typeof window.ResizeObserver === "function" ? new window.ResizeObserver(measure) : null;
+    observer?.observe(header);
+    return () => { observer?.disconnect(); frame.style.removeProperty("--siora-header-height"); };
+  }, []);
+
+  useEffect(() => {
     const upper = headerRef.current?.querySelector<HTMLElement>(".siora-header-bar");
     if (!upper) return;
     upper.inert = view.compact;

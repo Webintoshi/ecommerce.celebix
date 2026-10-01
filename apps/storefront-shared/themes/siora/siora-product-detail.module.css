@@ -1,5 +1,5 @@
 .experience { background: #fffcf7; color: #22221f; }
-.stage { position: relative; height: 100svh; min-height: 620px; }
+.stage { position: relative; height: calc(100svh - var(--siora-header-height, 134px)); min-height: 520px; }
 .experience *, .dialog *, .sticky * { box-sizing: border-box; }
 .back, .cart { position: absolute; z-index: 3; top: 4.4vh; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 0; background: #fffcf7ef; color: #22221f; text-decoration: none; cursor: pointer; }
 .back { left: 1.55vw; padding: 12px 17px; border-radius: 30px; font-size: 11px; letter-spacing: .07em; }
@@ -7,6 +7,7 @@
 .cart { right: 1.55vw; width: 42px; height: 42px; border-radius: 50%; }
 .cart svg { width: 21px; height: 21px; }
 .cart > span { position: absolute; top: -3px; right: -3px; padding: 2px 5px; font-size: 10px; color: white; background: #22221f; border-radius: 12px; }
+:global([data-siora-product="true"]:has(> .siora-header)) .cart { display: none; }
 .purchase { position: absolute; z-index: 2; right: 1.45vw; bottom: 4.6vh; width: clamp(340px,22.4vw,460px); padding: clamp(24px,1.45vw,30px); background: #fffcf7; }
 .titleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 25px; }
 .experience .titleRow h1 { font-family: var(--store-body-font, Arial, sans-serif); margin: 0; font-size: 20px; font-weight: 400; line-height: 1.4; letter-spacing: -.025em; text-transform: none; }
@@ -67,9 +68,9 @@
 .guide { font-size: 13px; line-height: 1.8; }
 .sticky { display: none; }
 .experience button:focus-visible, .experience a:focus-visible, .dialog button:focus-visible, .sticky button:focus-visible { outline: 2px solid #22221f; outline-offset: 3px; }
-@media (max-width: 1050px) and (min-width: 761px) { .purchase { right: 20px; bottom: 28px; padding: 24px; } }
-@media (max-width: 760px) {
-  .experience { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+@media (max-width: 1050px) and (min-width: 768px) { .purchase { right: 20px; bottom: 28px; padding: 24px; } }
+@media (max-width: 767px) {
+  .experience { padding-bottom: 76px; }
   .stage { height: auto; min-height: 0; }
   .back, .cart { top: 20px; }
   .back { left: 16px; padding: 10px 14px; }
@@ -83,7 +84,7 @@
   .related { padding: 35px 20px; }
   .relatedGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 12px; }
   .related h2 { font-size: 20px; }
-  .sticky { position: fixed; z-index: 30; inset: auto 0 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #dedbd4; background: #fffcf7; transform: translateY(110%); visibility: hidden; }
+  .sticky { position: fixed; z-index: 30; inset: auto 0 calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px; border-top: 1px solid #dedbd4; background: #fffcf7; transform: translateY(110%); visibility: hidden; }
   .sticky[data-visible="true"] { transform: translateY(0); visibility: visible; }
   .sticky > span { font-size: 14px; }
   .sticky button { min-width: 172px; height: 44px; }
