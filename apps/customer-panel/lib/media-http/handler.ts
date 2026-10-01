@@ -10,6 +10,7 @@ import { validateProductImage } from "../server-media/image-validation.ts";
 import { createProductMediaUploadService } from "../server-media/upload-service.ts";
 import { createArchivedProductMediaCleanupService } from "../server-media/cleanup-service.ts";
 import { createProductMediaRequestAuthorityValidator } from "./request-authority.ts";
+import { parseProductVariantGalleryAssignments } from "../../../../packages/saas-contracts/src/media/variant-gallery.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_REQUEST_BYTES = 5_300_000;
@@ -35,6 +36,27 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
 }
 function isResponse(value: unknown): value is Response { return value instanceof Response; }
 async function jsonBody(request: Request): Promise<Record<string, unknown> | null> { const contentType = request.headers.get("content-type"); const length = Number(request.headers.get("content-length")); if (contentType !== "application/json" || !Number.isSafeInteger(length) || length < 2 || length > 16_384 || request.headers.has("transfer-encoding")) return null; try { const value = await request.json(); return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; } catch { return null; } }
+async function galleryJsonBody(request: Request): Promise<Record<string, unknown> | null> {
+  const maxBytes = 131_072, declared = request.headers.get("content-length");
+  if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json" || !request.body || (declared !== null && (!/^\d+$/.test(declared) || Number(declared) < 2 || Number(declared) > maxBytes))) return null;
+  const reader = request.body.getReader(), chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); return null; }
+      chunks.push(value);
+    }
+    if (declared !== null && size !== Number(declared)) return null;
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const value: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  } catch { return null; } finally { reader.releaseLock(); }
+}
 function publicMedia(media: ProductMedia): ProductMediaLifecycle {
   return Object.freeze({
     id: media.id, productId: media.productId, ...(media.variantId ? { variantId: media.variantId } : {}),
@@ -53,6 +75,32 @@ async function lifecycle(runtime: ServerMediaRuntime, tenantContext: Authorized[
 
 export function createProductMediaHttpHandlers(dependencies: Dependencies) {
   return Object.freeze({
+    async listVariantGallery(request: Request, productId: unknown) {
+      const product = id(productId);
+      if (!product) return response("invalid_input", 400);
+      const authorized = await authorize(dependencies, request, "GET", `/api/catalog/products/${product}/variant-media`, "read");
+      if (isResponse(authorized)) return authorized;
+      if (!authorized.runtime.variantMedia) return response("unavailable", 503);
+      try {
+        const gallery = await authorized.runtime.variantMedia.listVariantGallery({ tenantContext: authorized.tenantContext, now: authorized.now, productId: product });
+        return response("ok", 200, { gallery });
+      } catch (error) { return repositoryFailure(error); }
+    },
+    async saveVariantGallery(request: Request, productId: unknown) {
+      const product = id(productId);
+      if (!product) return response("invalid_input", 400);
+      const authorized = await authorize(dependencies, request, "POST", `/api/catalog/products/${product}/variant-media`, "manage_media");
+      if (isResponse(authorized)) return authorized;
+      const operation = operationId(request), body = await galleryJsonBody(request);
+      if (!operation || !body || Object.keys(body).sort().join(",") !== "assignments,expectedVersion" || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
+      let assignments;
+      try { assignments = parseProductVariantGalleryAssignments(body.assignments); } catch { return response("invalid_input", 400); }
+      if (assignments.length === 0) return response("invalid_input", 400);
+      if (!authorized.runtime.variantMedia) return response("unavailable", 503);
+      try {
+        return response("updated", 200, await authorized.runtime.variantMedia.saveVariantGallery({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, productId: product, expectedVersion: body.expectedVersion as number, assignments }));
+      } catch (error) { return repositoryFailure(error); }
+    },
     async list(request: Request, productId: unknown) { const selectedProduct = id(productId); if (!selectedProduct) return response("invalid_input", 400); const pathname = `/api/catalog/products/${selectedProduct}/media`; const authorized = await authorize(dependencies, request, "GET", pathname, "read"); if (isResponse(authorized)) return authorized; try { const media = await lifecycle(authorized.runtime, authorized.tenantContext, authorized.now, selectedProduct); return response("ok", 200, { media }); } catch (error) { return repositoryFailure(error); } },
     async upload(request: Request, productId: unknown) {
       const selectedProduct = id(productId); if (!selectedProduct) return response("invalid_input", 400); const pathname = `/api/catalog/products/${selectedProduct}/media`; const authorized = await authorize(dependencies, request, "POST", pathname, "manage_media"); if (isResponse(authorized)) return authorized;

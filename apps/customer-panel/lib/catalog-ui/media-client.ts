@@ -105,11 +105,11 @@ export function createProductMediaApiClient(options?: Readonly<{ fetch?: Fetch; 
       if (!Array.isArray(response.media)) throw new ProductMediaApiError("unavailable", 503);
       return Object.freeze(response.media.map(parseProductMediaLifecycle));
     },
-    async upload(productId: string, input: Readonly<{ file: File; altText: string; variantId?: string; onProgress(value: number): void }>) {
+    async upload(productId: string, input: Readonly<{ file: File; altText: string; variantId?: string; operationId?: string; onProgress(value: number): void }>) {
       const selected = id(productId);
       if (!(input.file instanceof File) || !MEDIA_TYPES.has(input.file.type) || input.file.size < 1 || input.file.size > MAX_BYTES || input.altText.trim() !== input.altText || input.altText.length > 500 || (input.variantId !== undefined && !UUID.test(input.variantId))) throw new ProductMediaApiError("invalid_input", 400);
       const form = new FormData(); form.set("file", input.file); form.set("altText", input.altText); if (input.variantId !== undefined) form.set("variantId", input.variantId);
-      const response = mutationMedia(await result(await uploadImpl({ path: `/api/catalog/products/${selected}/media`, operationId: operation(randomUUID), form, onProgress: input.onProgress })));
+      const response = mutationMedia(await result(await uploadImpl({ path: `/api/catalog/products/${selected}/media`, operationId: input.operationId === undefined ? operation(randomUUID) : id(input.operationId), form, onProgress: input.onProgress })));
       input.onProgress(100);
       return response;
     },

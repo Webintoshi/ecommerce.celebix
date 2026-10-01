@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { variantAttributeKey } from "@/lib/catalog-onboarding-ui/attribute-variants";
@@ -11,6 +11,8 @@ import { ProductMeasurementFields } from "@/components/catalog/ProductMeasuremen
 import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
 
 export type VariantDraft = Readonly<{
+  localId?: string;
+  mediaIds?: readonly string[];
   title: string;
   sku: string;
   barcode: string;
@@ -29,7 +31,7 @@ export function emptyVariant(title = "Standart", attributes: Readonly<Record<str
   return Object.freeze({ title, sku: "", barcode: "", price: "", compareAt: "", cost: "", stockQuantity: "0", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes });
 }
 
-export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true, simplified = false, skuPrefix, presentation = "default", onBarcodeBusyChange, disableStructureChanges = false, showValidation = false }: Readonly<{
+export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true, simplified = false, skuPrefix, presentation = "default", onBarcodeBusyChange, disableStructureChanges = false, showValidation = false, renderGallery }: Readonly<{
   variants: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   allowMultiple: boolean;
@@ -41,6 +43,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
   onBarcodeBusyChange?(busy: boolean): void;
   disableStructureChanges?: boolean;
   showValidation?: boolean;
+  renderGallery?(variant:VariantDraft,index:number):ReactNode;
 }>) {
   const reservationOwnersRef = useRef(new Map<string, object>());
   const createRowKeys = useMemo(() => presentation === "create" ? variants.map((variant, index) => allowMultiple
@@ -65,7 +68,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
       const invalidMoney = (value: string) => value !== "" && parseTurkishMoneyToCents(value) === null;
       const invalidDetails = !variant.title.trim() || invalidMoney(variant.compareAt) || invalidMoney(variant.cost) || (showShipping && invalidMoney(variant.shippingDesi));
       return <article className={allowMultiple ? createStyles.variantRow : createStyles.standardRow} key={rowKey}>
-      {allowMultiple ? <strong className={createStyles.variantName}>{variant.title || `Varyant ${index + 1}`}</strong> : null}
+      {allowMultiple ? <div className={createStyles.variantName} style={{display:"flex",alignItems:"center",gap:12}}>{renderGallery?.(variant,index)}<strong>{variant.title || `Varyant ${index + 1}`}</strong></div> : null}
       <div className={createStyles.priceStock}>
         <label className={createStyles.field}><span>Satış fiyatı <span aria-hidden="true">*</span></span><span className={createStyles.moneyField}><span aria-hidden="true">₺</span><input aria-label={allowMultiple ? `${variant.title} satış fiyatı` : "Satış fiyatı"} aria-invalid={showValidation && invalidPrice} required inputMode="decimal" placeholder="0,00" value={variant.price} onChange={(event) => change(index, { price: event.target.value })} /></span>{showValidation && invalidPrice ? <small className={createStyles.fieldError}>Geçerli bir fiyat girin.</small> : null}</label>
         <label className={createStyles.field}><span>Stok</span><input aria-label={allowMultiple ? `${variant.title} stok` : "Stok"} aria-invalid={showValidation && invalidStock} inputMode="numeric" value={variant.stockQuantity} onChange={(event) => change(index, { stockQuantity: event.target.value })} />{showValidation && invalidStock ? <small className={createStyles.fieldError}>Geçerli bir stok girin.</small> : null}</label>

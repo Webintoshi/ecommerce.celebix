@@ -63,6 +63,7 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
   "@/lib/catalog-ui/forms":forms,"@/lib/catalog-ui/money":money,"@/lib/catalog-ui/dirty-navigation":dirty,"@/lib/catalog-ui/product-measurements":measurements,
   "@/lib/catalog-onboarding-ui/client":{CatalogOnboardingApiError:ApiError,catalogOnboardingClient:{getOptions:async()=>({categories:[],resources:[],channels:[]}),getProductEditor:async()=>({product,variants:[],profile:{version:9,productType:"physical",minimumPurchaseQuantity:1},categoryIds:[],channelIds:[],resourceIds:{collections:[],tags:[],attributes:["30000000-0000-4000-8000-000000000001"]},contentOrigins:{description:priorOrigin}})}},
   "./ProductDescriptionField":{ProductDescriptionField:Description,ProductDescriptionPreview:()=>null},
+  "./ProductVariantGalleryEditor": {ProductVariantGalleryEditor:({children}:any)=>children({thumbnail:()=>null})},
   "./ProductMediaManager":{ProductMediaManager:()=>null,restoreArchiveFocus(){}},
   "@/components/catalog-onboarding/ProductAdvancedEditor":{ProductAdvancedEditor:Sales},
   "@/components/panel/PanelTopbarChrome":{usePanelTopbarChrome(){}},

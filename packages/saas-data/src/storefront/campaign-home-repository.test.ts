@@ -31,7 +31,7 @@ function fixture(resultPayload: unknown = { presentation, productRows: [{ key: "
   const client = {
     async query(text: string, values: unknown[] = []) {
       calls.push({ text, values });
-      const rows = text.includes("saas.public_starter_retail_home") ? [{ outcome, result_payload: resultPayload }] : text.includes("saas.public_storefront_related_products") ? [{ outcome: "found", result_payload: [product] }] : [];
+      const rows = text.includes("saas.public_variant_media_assignments") ? [{ outcome: "found", result_payload: { assignments: [] } }] : text.includes("saas.public_starter_retail_home") ? [{ outcome, result_payload: resultPayload }] : text.includes("saas.public_storefront_related_products") ? [{ outcome: "found", result_payload: [product] }] : [];
       return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
     },
     release() {},

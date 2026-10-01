@@ -139,3 +139,46 @@ test("catalog variant choices propagate owned abort to the underlying request an
   );
   assert.equal(observed, controller.signal);
 });
+
+test("fallback accepts the real product-list total, image and variant-summary metadata", async () => {
+  const choices = await loadCatalogVariantChoices({
+    async listProducts() {
+      return {
+        items: [product(1)], catalogTotal: 17,
+        featuredImages: { [id(1)]: { publicUrl: "https://media.example.test/one.png", altText: "Ön görünüm" } },
+        variantSummaries: { [id(1)]: { variantId: id(101), priceCents: 1001, stockTracking: true, stockQuantity: 2, effectivePriceCents: null, pricingMethod: "usd" } },
+      };
+    },
+    async getProduct() { return { product: product(1), variants: [variant(1)] }; },
+  });
+  assert.deepEqual(choices.products, [{ productId: id(1), title: "Ürün 1" }]);
+  assert.equal(choices.variants[0]?.variantId, id(101));
+});
+
+test("fallback retains strict field guards and validates every accepted product-list metadata field", async () => {
+  let getterReads = 0, detailReads = 0;
+  const image = { publicUrl: "https://media.example.test/one.png", altText: "" };
+  const summary = { variantId: id(101), priceCents: 1001, stockTracking: true, stockQuantity: 2 };
+  const valid = { items: [product(1)], catalogTotal: 1 };
+  const hostileImage = Object.defineProperty({ publicUrl: image.publicUrl }, "altText", { enumerable: true, get() { getterReads++; return ""; } });
+  const pages: unknown[] = [
+    { ...valid, catalogTotal: -1 }, { ...valid, catalogTotal: 1.5 }, { ...valid, catalogTotal: "1" },
+    { ...valid, tenantId: id(999) },
+    { ...valid, featuredImages: { [id(2)]: image } },
+    { ...valid, featuredImages: { [id(1)]: { ...image, publicUrl: "javascript:alert(1)" } } },
+    { ...valid, featuredImages: { [id(1)]: { ...image, publicUrl: "https://media.example.test/one.png?token=x" } } },
+    { ...valid, featuredImages: { [id(1)]: { ...image, secret: "unexpected" } } },
+    { ...valid, featuredImages: { [id(1)]: hostileImage } },
+    { ...valid, variantSummaries: { [id(2)]: summary } },
+    { ...valid, variantSummaries: { [id(1)]: { ...summary, stockQuantity: -1 } } },
+    { items: [product(1), product(2)], catalogTotal: 2, variantSummaries: { [id(1)]: summary, [id(2)]: summary } },
+  ];
+  for (const page of pages) {
+    await assert.rejects(() => loadCatalogVariantChoices({
+      async listProducts() { return page as never; },
+      async getProduct() { detailReads++; return { product: product(1), variants: [variant(1)] }; },
+    }), /catalog_variant_choices_unavailable/);
+  }
+  assert.equal(getterReads, 0, "metadata accessors must not be invoked");
+  assert.equal(detailReads, 0, "invalid metadata must fail before fetching product details");
+});

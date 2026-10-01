@@ -104,3 +104,23 @@ test("media inputs are bounded to safe image types and exact alt text", async ()
   await assert.rejects(() => completeProductMedia({ ...base, files: [{ file: image("one.png"), altText: " altered " }] }), /catalog_onboarding_media_invalid/);
   await assert.rejects(() => completeProductMedia({ ...base, files: Array.from({ length: 17 }, (_, index) => ({ file: image(`${index}.png`), altText: "" })) }), /catalog_onboarding_media_invalid/);
 });
+
+test("local media mapping survives partial failure and resume skips confirmed uploads and retains unknown upload key", async()=>{
+  let state: any={uploads:{}};
+  const calls:{name:string;operationId?:string}[]=[];
+  const files=[{localId:"first-local",file:image("same.png"),altText:""},{localId:"second-local",file:image("same.png"),altText:""}];
+  const base={result:result(),files,publish:false,onState:(value:unknown)=>{state=value;},complete:async()=>result(),recover:async()=>{throw new Error("unused");},upload:async(_id:string,input:any)=>{calls.push({name:input.file.name,operationId:input.operationId});if(calls.length===2)throw new Error("lost_reply");return {media:{id:calls.length===1?"media-first":"media-second"}};}};
+  const failed=await completeProductMedia({...base,state});assert.equal(failed.kind,"draft_media_failed");
+  assert.equal(state.uploads["first-local"].mediaId,"media-first");const retained=state.uploads["second-local"].operationId;
+  let assigned:unknown;
+  const resumed=await completeProductMedia({...base,state,assign:async(value:unknown)=>{assigned=value;}});
+  assert.equal(resumed.kind,"draft");assert.equal(calls.length,3,"confirmed first upload must not repeat");assert.equal(calls[2]!.operationId,retained);
+  assert.deepEqual(assigned,{"first-local":"media-first","second-local":"media-second"});
+});
+
+test("gallery assignment failure prevents publication and retry uses completed uploads without creating files",async()=>{
+ let state:any={uploads:{}};let uploads=0,publishes=0,saves=0;
+ const base={result:result(),files:[{localId:"local",file:image("one.png"),altText:""}],publish:true,onState:(value:unknown)=>{state=value;},upload:async()=>{uploads++;return {media:{id:"media-real"}};},assign:async()=>{if(++saves===1)throw new Error("lost_reply");},complete:async()=>{publishes++;return result("active",1);},recover:async()=>{throw new Error("unused");}};
+ const failed=await completeProductMedia({...base,state});assert.equal(failed.kind,"draft_gallery_failed");assert.equal(publishes,0);
+ const resumed=await completeProductMedia({...base,state});assert.equal(resumed.kind,"published");assert.equal(uploads,1);assert.equal(publishes,1);
+});

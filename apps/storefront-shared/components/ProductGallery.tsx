@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useReducer, useRef, type KeyboardEvent, type MouseEvent } from "react";
 import type { PublicProduct } from "../../../packages/saas-contracts/src/storefront/index.ts";
+import { useProductVariantMedia } from "./ProductVariantMedia";
 import {
   galleryEscapeRequested,
   initialProductGalleryState,
@@ -10,9 +11,9 @@ import {
 } from "./product-gallery-model";
 
 export function ProductGallery({ product, style = "grid" }: { product: PublicProduct; style?: "grid" | "rail" }) {
-  const images = [...product.media].sort((left, right) => left.sortOrder - right.sortOrder);
+  const { images, selectedMediaId, selectMedia } = useProductVariantMedia(product);
   const [gallery, dispatch] = useReducer(productGalleryReducer, initialProductGalleryState);
-  const selected = Math.min(gallery.selected, Math.max(images.length - 1, 0));
+  const selected = Math.max(0, images.findIndex(({ id }) => id === selectedMediaId));
   const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const active = images[selected];
@@ -34,6 +35,7 @@ export function ProductGallery({ product, style = "grid" }: { product: PublicPro
   }, [closeZoom, gallery.zoomed]);
   const openZoom = (index: number, event: MouseEvent<HTMLButtonElement>) => {
     zoomTriggerRef.current = event.currentTarget;
+    selectMedia(images[index]?.id ?? null);
     dispatch({ type: "open", index, imageCount: images.length });
   };
   const trapZoomFocus = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -45,7 +47,7 @@ export function ProductGallery({ product, style = "grid" }: { product: PublicPro
   return <div className={`product-gallery gallery-${style}`}>
     <div className="gallery-main"><button className="gallery-zoom-trigger" type="button" aria-label={`${product.title} görselini büyüt`} onClick={(event) => openZoom(selected, event)}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={active.url} alt={active.altText || product.title} width={active.width} height={active.height} /><span aria-hidden="true">＋</span></button></div>
     <div className="gallery-mobile-track">{images.map((image, index) => <button key={image.id} type="button" aria-label={`${index + 1}. görseli büyüt`} onClick={(event) => openZoom(index, event)}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.url} alt={image.altText || product.title} width={image.width} height={image.height} /></button>)}</div>
-    {images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ürün görselleri">{images.map((image, index) => <button className={index === selected ? "is-active" : ""} key={image.id} type="button" onClick={() => dispatch({ type: "select", index, imageCount: images.length })} aria-label={`${index + 1}. görseli göster`} aria-current={index === selected ? "true" : undefined}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.url} alt="" width={image.width} height={image.height} /></button>)}</div> : null}
+    {images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ürün görselleri">{images.map((image, index) => <button className={index === selected ? "is-active" : ""} key={image.id} type="button" onClick={() => { selectMedia(image.id); dispatch({ type: "select", index, imageCount: images.length }); }} aria-label={`${index + 1}. görseli göster`} aria-current={index === selected ? "true" : undefined}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.url} alt="" width={image.width} height={image.height} /></button>)}</div> : null}
     {gallery.zoomed ? <div className="gallery-zoom-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeZoom(); }}><div className="gallery-zoom-dialog" role="dialog" aria-modal="true" aria-labelledby="gallery-zoom-title" onKeyDown={trapZoomFocus}><h2 className="sr-only" id="gallery-zoom-title">{product.title} ürün görseli</h2><button ref={closeRef} className="gallery-zoom-close" type="button" aria-label="Büyütülmüş görseli kapat" onClick={closeZoom}>×</button>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={active.url} alt={active.altText || product.title} width={active.width} height={active.height} /></div></div> : null}
   </div>;
 }

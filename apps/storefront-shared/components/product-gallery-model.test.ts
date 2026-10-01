@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { galleryEscapeRequested, initialProductGalleryState, lockGalleryDocument, productGalleryReducer, scheduleGalleryFocus } from "./product-gallery-model.ts";
+import * as galleryModel from "./product-gallery-model.ts";
+
+test("changing variant retains the current photo by ID or selects the first cover when it disappears", () => {
+  const resolve = (galleryModel as unknown as { resolveProductGallerySelection?: (images: readonly { id: string }[], currentId: string | null) => string | null }).resolveProductGallerySelection;
+  assert.equal(typeof resolve, "function");
+  assert.equal(resolve!([{ id: "back" }, { id: "front" }], "front"), "front");
+  assert.equal(resolve!([{ id: "white-cover" }, { id: "white-back" }], "front"), "white-cover");
+  assert.equal(resolve!([], "front"), null);
+  assert.equal(resolve!([{ id: "red-cover" }], null), "red-cover");
+});
 
 test("gallery select open close and Escape transitions are finite and immutable", () => {
   const selected = productGalleryReducer(initialProductGalleryState, { type: "select", index: 1, imageCount: 3 });

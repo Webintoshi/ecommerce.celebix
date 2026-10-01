@@ -13,7 +13,7 @@ const product = { id: PRODUCT_ID, slug: "altin-bileklik", title: "Altın Bilekli
 
 function repository(outcome = "found", resultPayload: unknown = storefront) {
   const queries: string[] = [];
-  const client = { async query(text: string) { queries.push(text); return text.startsWith("SELECT outcome") ? { rows: [{ outcome, result_payload: resultPayload }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release() {} };
+  const client = { async query(text: string) { queries.push(text); return text.startsWith("SELECT outcome") ? { rows: [{ outcome, result_payload: text.includes("public_variant_media_assignments") ? { assignments: [] } : resultPayload }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release() {} };
   const pool = { async connect() { return client; } } as unknown as PostgresPoolLike;
   return { queries, value: new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } }) };
 }
@@ -96,7 +96,7 @@ test("real collection reads use exact-host read-only authority and preserve SQL 
   const fixture = repository("found", payload);
   const selected = await fixture.value.queryPublicCollection({ storefront, now: new Date(), slug: "yeni-sezon", query: "", filter: "all", order: "featured", limit: 24, offset: 0 });
   assert.deepEqual(selected, payload);
-  assert.ok(fixture.queries.includes("BEGIN READ ONLY"));
+  assert.ok(fixture.queries.includes("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"));
   assert.equal(fixture.queries.filter(sql => sql.includes("public_catalog_collection_query")).length, 1);
 });
 test("unpublished collection outcomes and cross-store covers fail closed", async () => {
@@ -104,4 +104,26 @@ test("unpublished collection outcomes and cross-store covers fail closed", async
   await assert.rejects(repository("not_found", null).value.queryPublicCollection(input), error => error instanceof PublicStorefrontRepositoryError && error.code === "not_found");
   const cover = { url: `https://media.saas-staging.celebix.site/stores/${CATEGORY_ID}/storefront/collection/${VARIANT_ID}.webp`, mediaType: "image/webp", altText: "", width: 800, height: 600 };
   await assert.rejects(repository("found", { collection: { id: CATEGORY_ID, name: "Yeni sezon", slug: "yeni-sezon", cover }, items: [], total: 0, nextOffset: null }).value.queryPublicCollection(input), error => error instanceof PublicStorefrontRepositoryError && error.code === "unavailable");
+});
+
+
+test("public detail and catalog hydrate ordered variant galleries within the product read snapshot", async () => {
+  const mediaId = "50000000-0000-4000-8000-000000000001";
+  const selectedProduct = { ...product, media: [{ id: mediaId, productId: PRODUCT_ID, url: `https://media.example/stores/${STORE_ID}/products/${PRODUCT_ID}/${mediaId}.webp`, mediaType: "image/webp", altText: "", sortOrder: 0 }] };
+  const calls: { text: string; values: unknown[] }[] = [];
+  const client = { async query(text: string, values: unknown[] = []) {
+    calls.push({ text, values });
+    const payload = text.includes("public_variant_media_assignments") ? { assignments: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, mediaIds: [mediaId] }] } : text.includes("public_catalog_query_v2") ? { items: [selectedProduct], total: 1, nextOffset: null } : selectedProduct;
+    return text.startsWith("SELECT outcome") ? { rows: [{ outcome: "found", result_payload: payload }] } : { rows: [] };
+  }, release() {} };
+  const value = new PostgresPublicStorefrontRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } });
+  const detail = await value.getPublicProductBySlug({ storefront, now: new Date(), slug: product.slug });
+  assert.deepEqual((detail.variants[0] as unknown as { mediaIds: string[] }).mediaIds, [mediaId]);
+  const page = await value.queryPublicCatalog({ storefront, now: new Date(), categorySlug: null, query: "", filter: "all", order: "featured", limit: 24, offset: 0 });
+  assert.deepEqual((page.items[0].variants[0] as unknown as { mediaIds: string[] }).mediaIds, [mediaId]);
+  const hydration = calls.filter(call => call.text.includes("public_variant_media_assignments"));
+  assert.equal(hydration.length, 2);
+  assert.deepEqual(hydration[0].values.slice(0, 2), [STORE_ID, HOSTNAME]);
+  assert.deepEqual(hydration[0].values[3], [PRODUCT_ID]);
+  assert.equal(calls.filter(call => call.text.startsWith("BEGIN")).length, 2);
 });

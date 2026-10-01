@@ -1,13 +1,17 @@
-import type { ContentAuthoringFieldOriginsInput } from "@celebix/saas-contracts";
+import type { CatalogOnboardingResult, ContentAuthoringFieldOriginsInput } from "@celebix/saas-contracts";
+import type { ProductMediaCompletionState } from "../catalog-onboarding-ui/media-completion.ts";
 import type { ProductMeasurementDraft } from "./product-measurements.ts";
 
 export type ProductDraftMedia = Readonly<{
+  localId?: string;
   file: File;
   altText: string;
   preview: string;
 }>;
 
 export type ProductDraftVariant = Readonly<{
+  localId?: string;
+  mediaIds?: readonly string[];
   title: string;
   sku: string;
   barcode: string;
@@ -22,7 +26,18 @@ export type ProductDraftVariant = Readonly<{
   attributes: Readonly<Record<string, string>>;
 }>;
 
+export type ProductCreationRecovery = Readonly<{
+  result: CatalogOnboardingResult;
+  publish: boolean;
+  state: ProductMediaCompletionState;
+  variants: readonly ProductDraftVariant[];
+  galleryOperation?: Readonly<{id:string;fingerprint:string}>;
+  galleryVersion?: number;
+  gallerySaved?: boolean;
+}>;
+
 export type ProductDraft = Readonly<{
+  creationRecovery?: ProductCreationRecovery;
   contentOrigins?: ContentAuthoringFieldOriginsInput;
   authoringDraftId?: string;
   kind: "simple" | "variant";
@@ -110,6 +125,7 @@ function freezeDraft(draft: ProductDraft): ProductDraft {
   const freezeVariant = (variant: ProductDraftVariant) => Object.freeze({
     ...variant,
     attributes: Object.freeze({ ...variant.attributes }),
+    ...(variant.mediaIds === undefined ? {} : {mediaIds:Object.freeze([...variant.mediaIds])}),
     ...(variant.measurements === undefined ? {} : { measurements: Object.freeze({ ...variant.measurements }) }),
   });
   const variants = draft.variants.map(freezeVariant);
@@ -199,7 +215,8 @@ export function quickDraftRequiresDetailedSave(draft: ProductDraft, defaultStore
     && (defaultStorefrontChannelIds === undefined
       || new Set(draft.channelIds).size !== new Set(defaultStorefrontChannelIds).size
       || draft.channelIds.some((id) => !defaultStorefrontChannelIds.includes(id)));
-  return draft.kind === "variant"
+  return draft.creationRecovery !== undefined
+    || draft.kind === "variant"
     || draft.variants.length !== 1
     || draft.productType === "digital"
     || draft.categoryIds.length > 1
@@ -211,7 +228,7 @@ export function quickDraftRequiresDetailedSave(draft: ProductDraft, defaultStore
     || (draft.minimumOrderQuantity.trim() !== "" && draft.minimumOrderQuantity.trim() !== "1")
     || [draft.collectionIds, draft.tagIds, draft.resourceAttributeIds, draft.resourceExtraIds, draft.resourceDefinitionIds]
       .some((ids) => ids.length > 0)
-    || draft.variants.some((variant) => Object.keys(variant.attributes).length > 0
+    || draft.variants.some((variant) => variant.mediaIds !== undefined || Object.keys(variant.attributes).length > 0
       || Boolean(variant.compareAt.trim() || variant.cost.trim() || variant.shippingDesi.trim() || variant.hsCode.trim())
       || variant.continueSellingWhenOutOfStock);
 }

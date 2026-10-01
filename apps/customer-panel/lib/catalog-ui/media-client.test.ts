@@ -84,3 +84,11 @@ test("media failures expose only finite Turkish messages", async () => {
     return true;
   });
 });
+
+test("caller-retained upload operation key survives transport retry",async()=>{
+ const keys:string[]=[];
+ const retained="dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+ const client=createProductMediaApiClient({randomUUID:()=>OPERATION,upload:async(input)=>{keys.push(input.operationId);if(keys.length===1)throw new Error("lost_reply");return json({media:ITEM,replayed:true});}});
+ const input={file:new File(["image"],"one.png",{type:"image/png"}),altText:"",onProgress(){},operationId:retained};
+ await assert.rejects(()=>client.upload(PRODUCT,input));await client.upload(PRODUCT,input);assert.deepEqual(keys,[retained,retained]);
+});

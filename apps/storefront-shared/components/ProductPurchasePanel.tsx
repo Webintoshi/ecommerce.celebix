@@ -11,6 +11,7 @@ import {
 import { formatTry } from "@/lib/format.ts";
 import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
+import { useProductVariantSelection } from "./ProductVariantMedia";
 import {
   decrementPurchaseQuantity,
   incrementPurchaseQuantity,
@@ -29,9 +30,7 @@ export function ProductPurchasePanel({
 }>) {
   const router = useRouter();
   const { openDrawer, replaceCart } = useCartStatus();
-  const [selectedId, setSelectedId] = useState(
-    product.variants.find(({ available }) => available)?.id ?? "",
-  );
+  const [selectedId, setSelectedId] = useProductVariantSelection(product);
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState<"add" | "buy" | null>(null);
   const [status, setStatus] = useState("");

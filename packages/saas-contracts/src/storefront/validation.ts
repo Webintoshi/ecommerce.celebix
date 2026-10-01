@@ -841,10 +841,12 @@ export function parsePublicProductMedia(value: unknown): PublicProductMedia {
 }
 
 export function parsePublicProductVariant(value: unknown): PublicProductVariant {
-  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents"]);
+  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents", "mediaIds"]);
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
-  return Object.freeze({ id: uuid(parsed.id), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
+  const mediaIds = Object.hasOwn(parsed, "mediaIds") ? Object.freeze(arrayValues(parsed.mediaIds, 0, 16).map(uuid)) : undefined;
+  if (mediaIds !== undefined && new Set(mediaIds).size !== mediaIds.length) invalid();
+  return Object.freeze({ id: uuid(parsed.id), ...(mediaIds === undefined ? {} : { mediaIds }), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
 }
 
 function parsePublicProductMerchandising(value: unknown): PublicProductMerchandising {
@@ -870,6 +872,8 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   for (let index = 1; index < media.length; index += 1) if (media[index - 1]!.sortOrder >= media[index]!.sortOrder) invalid();
   const id = uuid(parsed.id);
   if (media.some((item) => item.productId !== id)) invalid();
+  const mediaIds = new Set(media.map((image) => image.id));
+  if (variants.some((variant) => variant.mediaIds?.some((mediaId) => !mediaIds.has(mediaId)))) invalid();
   const categoryPath = Object.hasOwn(parsed, "categoryPath") ? Object.freeze(arrayValues(parsed.categoryPath, 0, 8).map((value) => { const item = exact(value, ["name", "slug"]); return Object.freeze({ name: string(item.name, 1, 120), slug: string(item.slug, 1, 100, SLUG) }); })) : undefined;
   const brand = Object.hasOwn(parsed, "brand") ? (() => { const value = exact(parsed.brand, ["name", "slug"]); return Object.freeze({ name: string(value.name, 1, 200), slug: string(value.slug, 1, 100, SLUG) }); })() : undefined;
   const merchandising = Object.hasOwn(parsed, "merchandising") ? parsePublicProductMerchandising(parsed.merchandising) : undefined;

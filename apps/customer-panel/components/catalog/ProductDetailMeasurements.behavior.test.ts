@@ -66,6 +66,7 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     "@/components/catalog-onboarding/AttributeVariantPicker": { AttributeVariantPicker: ({ onChange }: { onChange(rows: unknown[]): void }) => createElement("button", { type: "button", onClick: () => onChange([row]) }, "Test kombinasyonu") },
     "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: { getOptions: async () => ({ categories: [], channels: [], resources: [] }), getProductEditor: async () => ({ product, variants: [], profile: { productType: "physical", minimumPurchaseQuantity: 1, version: 1 }, channelIds: [], categoryIds: [], resourceIds: { collections: [], tags: [] } }) } },
     "./ProductDescriptionField": { ProductDescriptionField: () => createElement("textarea", { name: "description" }), ProductDescriptionPreview: () => null },
+    "./ProductVariantGalleryEditor": {ProductVariantGalleryEditor:({children}:any)=>children({thumbnail:()=>null})},
     "./ProductMediaManager": { ProductMediaManager: () => null, restoreArchiveFocus() {} },
     "@/components/reference-pricing/VariantPricingPolicyControl": { VariantPricingPolicyControl: () => null },
     "@/components/shared/PermanentDeleteDialog": { PermanentDeleteDialog: () => null },

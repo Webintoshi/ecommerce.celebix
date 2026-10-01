@@ -31,6 +31,7 @@ import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
 import { attributeChoices, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
+import { ProductVariantGalleryEditor } from "./ProductVariantGalleryEditor";
 import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 import { VariantPricingPolicyControl } from "@/components/reference-pricing/VariantPricingPolicyControl";
 import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
@@ -757,10 +758,11 @@ export function ProductDetailConsole({
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}
 
-            <div className={styles.variantRows} role="list" aria-label="Aktif varyantlar">
+            <ProductVariantGalleryEditor productId={productId} media={(activeMedia ?? []).filter(item => item.publicUrl).map(item => ({id:item.id,url:item.publicUrl!,altText:item.altText,variantId:item.variantId}))} variants={variants} canManage={canManage && !archived}>
+            {({thumbnail}) => <div className={styles.variantRows} role="list" aria-label="Aktif varyantlar">
               {variants.length === 0 ? <div className="empty-variants"><strong>Aktif varyant yok</strong><p>Ürünü satışa hazırlamak için bir varyant ekleyin.</p></div> : variants.map((variant) => (
                 <article className={styles.variantRow} role="listitem" key={variant.id}>
-                  <div className={styles.variantIdentity}><span className="variant-mark" aria-hidden="true">V</span><div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
+                  <div className={styles.variantIdentity}>{thumbnail(variant.id)}<div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
                   {editingVariant === variant.id && canManage && !archived ? (
                     <form ref={editedVariantFormRef} className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
                       <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
@@ -785,7 +787,8 @@ export function ProductDetailConsole({
                   {pricingVariantId === variant.id && canReadPricing && !archived ? <VariantPricingPolicyControl variantId={variant.id} variantVersion={variant.version} fixedPriceCents={variant.priceCents} canManage={canManagePricing} onSaved={() => void load()} onClose={() => setPricingVariantId(undefined)} /> : null}
                 </article>
               ))}
-            </div>
+            </div>}
+            </ProductVariantGalleryEditor>
           </section>
           {merchandisingState === "ready" && onboarding ? (
             <section className={styles.seoPreview} aria-label="Arama sonucu önizlemesi">

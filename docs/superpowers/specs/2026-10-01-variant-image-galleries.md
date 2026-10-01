@@ -1,0 +1,2 @@
+# Approved variant gallery feature
+User approved associating already uploaded product images to optional variant galleries, supporting red/white variants and repeated image use across sizes, explicit batch assignment, own ordering/cover, apply/cancel/reset, new/existing products, storefront gallery switching and matching cart/POS/order thumbnails. Preserve current product upload limit: 16 images. No object duplication. Preserve existing visual layout and shared releases. Compatible database-first release and controlled reversible verification.

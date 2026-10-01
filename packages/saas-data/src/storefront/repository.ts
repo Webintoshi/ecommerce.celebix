@@ -75,19 +75,65 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
     await client.query("SET LOCAL ROLE celebix_saas_host_resolver");
   }
-  private async read(text: string, values: unknown[]): Promise<{ outcome: string; resultPayload: unknown }> {
+  private async read(text: string, values: unknown[], galleryContext?: { store: PublicStorefront; now: Date }): Promise<{ outcome: string; resultPayload: unknown }> {
     let client: PostgresClientLike;
     try { client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); } catch { throw failure("unavailable"); }
     let began = false;
     try {
-      await client.query("BEGIN READ ONLY"); began = true; await this.configure(client);
-      const result = row((await client.query(text, values)).rows);
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); began = true; await this.configure(client);
+      let result = row((await client.query(text, values)).rows);
+      if (galleryContext && result.outcome === "found") result = { ...result, resultPayload: await this.hydrateVariantMedia(client, result.resultPayload, galleryContext.store, galleryContext.now) };
       await client.query("COMMIT"); client.release(); return result;
     } catch (caught) {
       if (began) { try { await client.query("ROLLBACK"); client.release(); } catch { client.release(true); } } else client.release(true);
       if (caught instanceof PublicStorefrontRepositoryError) throw caught;
       throw failure("unavailable");
     }
+  }
+  private async hydrateVariantMedia(client: PostgresClientLike, payload: unknown, store: PublicStorefront, now: Date): Promise<unknown> {
+    const products: Record<string, unknown>[] = [];
+    const collect = (value: unknown): void => {
+      if (Array.isArray(value)) { value.forEach(collect); return; }
+      if (!value || typeof value !== "object") return;
+      const object = value as Record<string, unknown>;
+      if (typeof object.id === "string" && Array.isArray(object.variants) && Array.isArray(object.media)) { products.push(object); return; }
+      if (Array.isArray(object.items)) collect(object.items);
+      if (Array.isArray(object.productRows)) collect(object.productRows);
+    };
+    collect(payload);
+    if (products.length === 0) return payload;
+    let productIds: string[];
+    try { productIds = [...new Set(products.map(product => uuid(product.id)))]; } catch { throw failure("unavailable"); }
+    const selected = row((await client.query("SELECT outcome, result_payload FROM saas.public_variant_media_assignments($1::uuid,$2::text,$3::timestamptz,$4::uuid[])", [store.id, store.hostname, now, productIds])).rows);
+    const hydrated = this.projection(selected);
+    if (!hydrated || typeof hydrated !== "object" || Array.isArray(hydrated) || Object.keys(hydrated).join(",") !== "assignments" || !Array.isArray((hydrated as { assignments: unknown }).assignments)) throw failure("unavailable");
+    const assignments = new Map<string, readonly string[]>();
+    for (const entry of (hydrated as { assignments: unknown[] }).assignments) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) || Object.keys(entry).sort().join(",") !== "mediaIds,productId,variantId") throw failure("unavailable");
+      const assignment = entry as { productId: unknown; variantId: unknown; mediaIds: unknown };
+      let productId: string, variantId: string, mediaIds: string[];
+      try { productId = uuid(assignment.productId); variantId = uuid(assignment.variantId); if (!Array.isArray(assignment.mediaIds) || assignment.mediaIds.length > 16) throw failure("unavailable"); mediaIds = assignment.mediaIds.map(uuid); } catch { throw failure("unavailable"); }
+      const key = `${productId}/${variantId}`;
+      if (!productIds.includes(productId) || assignments.has(key) || new Set(mediaIds).size !== mediaIds.length) throw failure("unavailable");
+      // Public SQL excludes archived variants; every remaining reference must belong to this product snapshot.
+      const matching = products.filter(product => product.id === productId);
+      if (!matching.some(product => (product.variants as { id: unknown }[]).some(variant => variant.id === variantId))) throw failure("unavailable");
+      assignments.set(key, mediaIds);
+    }
+    const enrich = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(enrich);
+      if (!value || typeof value !== "object") return value;
+      const object = value as Record<string, unknown>;
+      if (products.includes(object)) {
+        const mediaIds = new Set((object.media as { id: unknown }[]).map(media => media.id));
+        return { ...object, variants: (object.variants as Record<string, unknown>[]).map(variant => {
+          const selected = assignments.get(`${object.id}/${variant.id}`);
+          return selected === undefined ? variant : { ...variant, mediaIds: selected.filter(id => mediaIds.has(id)) };
+        }) };
+      }
+      return { ...object, ...(Array.isArray(object.items) ? { items: enrich(object.items) } : {}), ...(Array.isArray(object.productRows) ? { productRows: enrich(object.productRows) } : {}) };
+    };
+    return enrich(payload);
   }
   private projection(result: { outcome: string; resultPayload: unknown }): unknown {
     if (result.outcome === "not_found" || result.outcome === "storefront_not_found") throw failure("not_found");
@@ -103,7 +149,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
   async listPublicProducts(input: Parameters<PublicStorefrontRepository["listPublicProducts"]>[0]) {
     const parsed = exact(input, ["storefront", "now", "limit"]); const store = context({ storefront: parsed.storefront });
     if (!Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48) throw failure("invalid_input");
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_list_products($1::uuid,$2::text,$3::timestamptz,$4::integer)", [store.id, store.hostname, date(parsed.now), parsed.limit]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_list_products($1::uuid,$2::text,$3::timestamptz,$4::integer)", [store.id, store.hostname, date(parsed.now), parsed.limit], { store, now: date(parsed.now) });
     const payload = this.projection(result);
     if (!Array.isArray(payload)) throw failure("unavailable");
     try { return Object.freeze({ items: Object.freeze(payload.map(parsePublicProduct)) }); } catch { throw failure("unavailable"); }
@@ -118,7 +164,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
       || !Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48
       || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 10_000) throw failure("invalid_input");
     const result = await this.read("SELECT outcome, result_payload FROM saas.public_catalog_query_v2($1::text,$2::timestamptz,$3::text,$4::text,$5::text,$6::text,$7::integer,$8::integer)",
-      [store.hostname, date(parsed.now), parsed.categorySlug, parsed.query, parsed.filter, parsed.order, parsed.limit, parsed.offset]);
+      [store.hostname, date(parsed.now), parsed.categorySlug, parsed.query, parsed.filter, parsed.order, parsed.limit, parsed.offset], { store, now: date(parsed.now) });
     const payload = this.projection(result);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)
       || Object.keys(payload).sort().join(",") !== "items,nextOffset,total") throw failure("unavailable");
@@ -136,7 +182,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
       || typeof parsed.query !== "string" || parsed.query !== parsed.query.trim() || CONTROL.test(parsed.query) || Buffer.byteLength(parsed.query, "utf8") > 100
       || !["all", "available", "discounted"].includes(parsed.filter) || !["featured", "title-asc", "price-asc", "price-desc"].includes(parsed.order)
       || !Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48 || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 10000) throw failure("invalid_input");
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_catalog_collection_query($1::text,$2::timestamptz,$3::text,$4::text,$5::text,$6::text,$7::integer,$8::integer)", [store.hostname, date(parsed.now), parsed.slug, parsed.query, parsed.filter, parsed.order, parsed.limit, parsed.offset]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_catalog_collection_query($1::text,$2::timestamptz,$3::text,$4::text,$5::text,$6::text,$7::integer,$8::integer)", [store.hostname, date(parsed.now), parsed.slug, parsed.query, parsed.filter, parsed.order, parsed.limit, parsed.offset], { store, now: date(parsed.now) });
     const payload = this.projection(result);
     try {
       const page = parsePublicCollectionPage(payload);
@@ -148,17 +194,17 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     const parsed = exact(input, ["storefront", "now", "slug", "limit"]); const store = context({ storefront: parsed.storefront });
     if (!Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 48) throw failure("invalid_input");
     const selectedSlug = categorySlug(parsed.slug);
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_list_products_by_category($1::uuid,$2::text,$3::timestamptz,$4::text,$5::integer)", [store.id, store.hostname, date(parsed.now), selectedSlug, parsed.limit]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_list_products_by_category($1::uuid,$2::text,$3::timestamptz,$4::text,$5::integer)", [store.id, store.hostname, date(parsed.now), selectedSlug, parsed.limit], { store, now: date(parsed.now) });
     return categoryPayload(this.projection(result));
   }
   async getPublicProductBySlug(input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]): Promise<PublicProduct> {
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now) });
     try { return parsePublicProduct(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async getPublicProductWithSeoBySlug(input: Parameters<NonNullable<PublicStorefrontRepository["getPublicProductWithSeoBySlug"]>>[0]): Promise<PublicProductV2> {
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail_v2($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail_v2($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now) });
     try { return parsePublicProductV2(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async listPublicProductMedia(input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]): Promise<readonly PublicProductMedia[]> {
@@ -175,13 +221,13 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
   }
   async resolveCampaignHome(input: Parameters<NonNullable<PublicStorefrontRepository["resolveCampaignHome"]>>[0]): Promise<CampaignHomeProjection> {
     const parsed = exact(input, ["storefront", "now"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_retail_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_retail_home($1::uuid,$2::text,$3::timestamptz)", [store.id, store.hostname, date(parsed.now)], { store, now: date(parsed.now) });
     return campaignHomePayload(this.projection(result));
   }
   async listRelatedPublicProducts(input: Parameters<NonNullable<PublicStorefrontRepository["listRelatedPublicProducts"]>>[0]) {
     const parsed = exact(input, ["storefront", "now", "productSlug", "limit"]); const store = context({ storefront: parsed.storefront });
     if (!Number.isSafeInteger(parsed.limit) || parsed.limit < 1 || parsed.limit > 12) throw failure("invalid_input");
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_storefront_related_products($1::uuid,$2::text,$3::timestamptz,$4::text,$5::integer)", [store.id, store.hostname, date(parsed.now), slug(parsed.productSlug), parsed.limit]);
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_storefront_related_products($1::uuid,$2::text,$3::timestamptz,$4::text,$5::integer)", [store.id, store.hostname, date(parsed.now), slug(parsed.productSlug), parsed.limit], { store, now: date(parsed.now) });
     const payload = this.projection(result);
     if (!Array.isArray(payload)) throw failure("unavailable");
     try { return Object.freeze({ items: Object.freeze(payload.map(parsePublicProduct)) }); } catch { throw failure("unavailable"); }

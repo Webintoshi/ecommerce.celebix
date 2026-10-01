@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ProductDetailSummary } from "./ProductDetailSummary.tsx";
-import type { PublicProduct, PublicStarterThemePresentationV3, StarterProductDetailConfigV2 } from "@celebix/saas-contracts";
+import { resolveProductGallerySelection, resolvePublicProductVariantMedia, type PublicProduct, type PublicStarterThemePresentationV3, type StarterProductDetailConfigV2 } from "@celebix/saas-contracts";
 
 type StarterCartConfigV2 = PublicStarterThemePresentationV3["cart"];
 type CardProduct = Pick<PublicProduct, "id" | "title" | "priceCents"> & Readonly<{ media: readonly Readonly<{ url: string; altText: string }>[] }>;
@@ -17,13 +17,15 @@ export function ProductDetailPreview({ product, options, cart, mode, relatedProd
   relatedProducts?: readonly CardProduct[];
   renderText?: (value: string) => ReactNode;
 }>) {
-  const images = [...product.media].sort((a, b) => a.sortOrder - b.sortOrder);
-  const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [variantId, setVariantId] = useState(product.variants.find(({ available }) => available)?.id ?? product.variants[0]?.id ?? "");
+  const images = resolvePublicProductVariantMedia(product, variantId);
+  const [currentMediaId, setCurrentMediaId] = useState<string | null>(() => images[0]?.id ?? null);
+  const selectedMediaId = resolveProductGallerySelection(images, currentMediaId);
+  useEffect(() => { setCurrentMediaId(selectedMediaId); }, [selectedMediaId]);
   const selectedVariant = product.variants.find((variant) => variant.id === variantId);
   const selectedProduct = selectedVariant ? { ...product, priceCents: selectedVariant.priceCents, compareAtCents: selectedVariant.compareAtCents, variants: [selectedVariant] } : product;
-  const activeImage = images[Math.min(selectedImage, Math.max(images.length - 1, 0))];
+  const activeImage = images.find(({ id }) => id === selectedMediaId);
   const text = (value: string) => renderText ? renderText(value) : value.replace(/<[^>]*>/g, " ");
   const information = options.informationSections.flatMap<Readonly<{key:string;heading:string;content:ReactNode}>>((section) => {
     if (section === "description" && product.description) return [{ key: section, heading: "Açıklama", content: text(product.description) }];
@@ -36,7 +38,7 @@ export function ProductDetailPreview({ product, options, cart, mode, relatedProd
     <div className="celebix-product-experience">
       <div className="celebix-product-gallery" data-gallery={options.galleryStyle}>
         {activeImage ? <img className="celebix-product-main-image" src={activeImage.url} alt={activeImage.altText || product.title} width={activeImage.width} height={activeImage.height} /> : <p>Bu ürünün görseli bulunmuyor.</p>}
-        {images.length > 1 ? <div className="celebix-product-thumbnails">{images.map((image, index) => <button type="button" key={image.id} aria-label={`${index + 1}. ürün görseli`} aria-pressed={selectedImage === index} onClick={() => setSelectedImage(index)}><img src={image.url} alt="" /></button>)}</div> : null}
+        {images.length > 1 ? <div className="celebix-product-thumbnails">{images.map((image, index) => <button type="button" key={image.id} aria-label={`${index + 1}. ürün görseli`} aria-pressed={selectedMediaId === image.id} onClick={() => setCurrentMediaId(image.id)}><img src={image.url} alt="" /></button>)}</div> : null}
       </div>
       <div className="celebix-product-purchase-column">
         <ProductDetailSummary product={selectedProduct} options={options} />

@@ -29,7 +29,7 @@ async function initialize(): Promise<ServerMediaRuntime | null> {
       recoverProductMediaOperation: ["catalog"], requireProductMediaCleanup: ["catalog"], markProductMediaDeleted: ["catalog"],
       updateAltText: ["catalog"], reorderMedia: ["catalog"], reserveArchiveMedia: ["catalog"], finalizeArchiveMedia: ["catalog"],
       recoverArchiveMedia: ["catalog"], restoreProductMedia: ["catalog"], recordArchivedProductMediaObjectDeleted: ["catalog"], markArchivedProductMediaObjectDeleted: ["catalog"],
-    }), storage: createR2ProductMediaStorage(mediaConfig) });
+    }), variantMedia: createPostCommitInvalidatingRepository(media, { saveVariantGallery: ["catalog"] }), storage: createR2ProductMediaStorage(mediaConfig) });
   } catch (error) { await pool.end().catch(() => undefined); throw error; }
 }
 

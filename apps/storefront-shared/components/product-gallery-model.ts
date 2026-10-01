@@ -1,3 +1,5 @@
+export { resolveProductGallerySelection } from "@celebix/saas-contracts";
+
 export type ProductGalleryState = Readonly<{ selected: number; zoomed: boolean }>;
 export type ProductGalleryAction =
   | Readonly<{ type: "select" | "open"; index: number; imageCount: number }>

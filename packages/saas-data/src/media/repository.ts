@@ -4,6 +4,8 @@ import { parseProductMedia, parseProductMediaLifecycle, parseProductMediaReserva
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { MEDIA_ERROR_CODES, ProductMediaRepositoryError, type MediaErrorCode } from "./errors.ts";
 import type { ArchiveProductMediaInput, MediaMutationResult, PostgresProductMediaRepositoryOptions, ProductMediaLifecycleInput, ProductMediaLifecycleMutationResult, ProductMediaRepository, ProductMediaStorageCandidate, ReserveProductMediaInput } from "./types.ts";
+import { parseProductVariantGallery, parseProductVariantGalleryAssignments, type ProductVariantGallery } from "../../../saas-contracts/src/media/variant-gallery.ts";
+import type { ProductVariantGalleryRepository, ListProductVariantGalleryInput, SaveProductVariantGalleryInput } from "./variant-gallery.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -49,7 +51,7 @@ function storageCandidate(value: unknown, storeId: string): ProductMediaStorageC
 }
 function fingerprint(kind: string, input: unknown): string { return createHash("sha256").update(JSON.stringify({ kind, input })).digest("hex"); }
 
-export class PostgresProductMediaRepository implements ProductMediaRepository {
+export class PostgresProductMediaRepository implements ProductMediaRepository, ProductVariantGalleryRepository {
   private readonly options: PostgresProductMediaRepositoryOptions;
   private readonly mediaOrigin: string;
   constructor(options: PostgresProductMediaRepositoryOptions) {
@@ -92,6 +94,35 @@ export class PostgresProductMediaRepository implements ProductMediaRepository {
       ) throw failure("unavailable");
       return parsed;
     } catch { throw failure("unavailable"); }
+  }
+  private galleryPayload(value: unknown, productId: string): ProductVariantGallery {
+    try {
+      if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).join(",") !== "gallery") throw failure("unavailable");
+      const gallery = parseProductVariantGallery((value as { gallery: unknown }).gallery);
+      if (gallery.productId !== productId) throw failure("unavailable");
+      return gallery;
+    } catch { throw failure("unavailable"); }
+  }
+  async listVariantGallery(input: ListProductVariantGalleryInput): Promise<ProductVariantGallery> {
+    const parsed = exact(input, ["tenantContext", "now", "productId"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    authorize(auth, "read");
+    const productId = uuid(parsed.productId);
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_list_variant_gallery($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)", [...values(auth), productId], true);
+    if (selected.outcome !== "found") this.expected(selected.outcome);
+    return this.galleryPayload(selected.resultPayload, productId);
+  }
+  async saveVariantGallery(input: SaveProductVariantGalleryInput): Promise<Readonly<{ gallery: ProductVariantGallery; replayed: boolean }>> {
+    const parsed = exact(input, ["tenantContext", "now", "productId", "operationId", "expectedVersion", "assignments"]);
+    const auth = authority(parsed.tenantContext, parsed.now);
+    authorize(auth, "manage_media");
+    let assignments;
+    try { assignments = parseProductVariantGalleryAssignments(parsed.assignments); } catch { throw failure("invalid_input"); }
+    if (assignments.length === 0) throw failure("invalid_input");
+    const payload = { productId: uuid(parsed.productId), expectedVersion: integer(parsed.expectedVersion, 1), assignments };
+    const selected = await this.execute("SELECT outcome,result_payload FROM saas.media_save_variant_gallery($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::jsonb)", [...values(auth), uuid(parsed.operationId), fingerprint("save_variant_gallery", payload), payload.productId, payload.expectedVersion, JSON.stringify(assignments)], false);
+    if (!["committed", "operation_replayed"].includes(selected.outcome)) this.expected(selected.outcome);
+    return Object.freeze({ gallery: this.galleryPayload(selected.resultPayload, payload.productId), replayed: selected.outcome === "operation_replayed" });
   }
   async reserveProductMedia(input: ReserveProductMediaInput): Promise<ProductMediaReservation> {
     const parsed = exact(input, ["tenantContext", "now", "operationId", "mediaId", "productId", "mediaType", "altText", "width", "height", "byteSize", "payloadSha256"], ["variantId"]);

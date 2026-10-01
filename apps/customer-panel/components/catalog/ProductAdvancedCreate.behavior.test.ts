@@ -9,6 +9,7 @@ import ts from "typescript";
 import * as categoryTree from "../../lib/catalog-onboarding-ui/category-tree.ts";
 import * as forms from "../../lib/catalog-onboarding-ui/forms.ts";
 import * as measurementForms from "../../lib/catalog-ui/product-measurements.ts";
+import * as variantMediaCompletion from "../../lib/catalog-onboarding-ui/variant-media-completion.ts";
 import * as mediaCompletion from "../../lib/catalog-onboarding-ui/media-completion.ts";
 import * as drafts from "../../lib/catalog-ui/product-draft-session.ts";
 import * as attributes from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
@@ -76,6 +77,8 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   let stagedRows: readonly drafts.ProductDraftVariant[] = [];
   const ApiError = HarnessApiError;
   const textAuthoring = await compile(new URL("../content-authoring/ContentAuthoringTextField.tsx", import.meta.url), {"@/lib/content-authoring-ui/state": await import("../../lib/content-authoring-ui/state.ts")});
+  const galleryDialog = await compile(new URL("./VariantGalleryDialog.tsx", import.meta.url), {});
+  const galleryEditor = await compile(new URL("./ProductVariantGalleryEditor.tsx", import.meta.url), {"./VariantGalleryDialog":galleryDialog,"@/lib/catalog-ui/variant-media-client":{productVariantMediaApi:{},ProductVariantMediaApiError:HarnessApiError}});
   const advanced = await compile(new URL("../catalog-onboarding/ProductAdvancedEditor.tsx", import.meta.url), {
     "@/components/content-authoring/ContentAuthoringTextField": textAuthoring,
     "@/components/content-authoring/ContentAuthoringPanel": {ContentAuthoringPanel:authoringPanel},
@@ -85,6 +88,9 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
     "@/lib/catalog-onboarding-ui/forms": forms,
     "@/lib/catalog-ui/product-measurements": measurementForms,
     "@/lib/catalog-onboarding-ui/media-completion": mediaCompletion,
+    "@/lib/catalog-onboarding-ui/variant-media-completion":variantMediaCompletion,
+    "@/components/catalog/ProductVariantGalleryEditor":galleryEditor,
+    "@/lib/catalog-ui/variant-media-client":{productVariantMediaApi:{},ProductVariantMediaApiError:HarnessApiError},
     "@/lib/catalog-ui/product-draft-session": drafts,
     "@/lib/catalog-ui/dirty-navigation": dirtyNavigation,
     "@/lib/catalog-onboarding-ui/attribute-variants": attributes,
@@ -368,4 +374,54 @@ test("existing SEO rail request controls do not dirty saved fields and ordinary 
   const seo=container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,"value")!.set!.call(seo,"Manually edited SEO");seo.dispatchEvent(new browser.Event("input",{bubbles:true}) as unknown as Event);});
   assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,false);assert.equal(seo.value,"Manually edited SEO");
  },undefined,(props:any)=>createElement(compiled.ContentAuthoringPanel as React.ComponentType<any>,{...props,preferencesApi:{records:async()=>[]}}));
+});
+
+test("advanced product resumes the same draft after gallery reply loss and remount, with stable uploaded IDs and operation key",async()=>{
+ const original=draft();
+ const red={...original.current.variants[0]!,title:"Kırmızı S",attributes:{renk:"Kırmızı",beden:"S"}},blue={...red,title:"Mavi S",attributes:{renk:"Mavi",beden:"S"},sku:"BLUE",barcode:""};
+ const session=drafts.updateProductDraft(original,{kind:"variant",variants:[red,blue]});
+ const product={...created,variants:[{id:"variant-blue",sku:"BLUE",attributes:blue.attributes},{id:"variant-red",sku:red.sku,barcode:red.barcode,attributes:red.attributes}]};
+ let creates=0,uploads=0,completed=0;const saves:any[]=[];
+ await withAdvanced({draftSession:session,onCreated:()=>completed++,api:{createProduct:async()=>{creates++;return product;}},mediaClient:{upload:async()=>({media:{id:`real-media-${++uploads}`}})},galleryClient:{save:async(_id:string,input:any)=>{saves.push(input);if(saves.length===1)throw new Error("Galeri bağlantısı kesildi.");return {gallery:{productId:product.product.id,version:2,assignments:input.assignments},replayed:true};}}},async({container,browser,latest,remount})=>{
+  const chooser=container.querySelector<HTMLInputElement>('input[type="file"]')!;
+  await act(async()=>{Object.defineProperty(chooser,"files",{configurable:true,value:[new browser.File(["one"],"same.png",{type:"image/png"}),new browser.File(["two"],"same.png",{type:"image/png"})]});chooser.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
+  const trigger=container.querySelector<HTMLButtonElement>('button[aria-label="Kırmızı S görsellerini seç"]');assert.ok(trigger);
+  await act(async()=>trigger.click());
+  await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="2. görselini seç"]')!.click());
+  await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="1. görselini seç"]')!.click());
+  await click(container,"Uygula");
+  await submit(container,browser);
+  assert.equal(completed,0,"failed gallery save must keep the form open");assert.equal(creates,1);assert.equal(uploads,2);assert.match(container.querySelector('[role="alert"]')?.textContent??"",/Galeri bağlantısı/);
+  assert.deepEqual(saves[0].assignments,[{variantId:"variant-red",mediaIds:["real-media-2","real-media-1"]}]);
+  const recovery=latest();assert.ok(recovery.current.creationRecovery);
+  const titleInput=container.querySelector<HTMLInputElement>('input[name="title"]')!;
+  const priceInput=container.querySelector<HTMLInputElement>('input[aria-label="Kırmızı S satış fiyatı"]')!;
+  const removeButton=container.querySelector<HTMLButtonElement>('button[aria-label="Seçili görseli kaldır"]')!;
+  assert.equal(Boolean(titleInput.closest("fieldset[disabled]")),true,"created title must be immutable during recovery");
+  assert.equal(Boolean(priceInput.closest("fieldset[disabled]")),true,"created variant price must be immutable during recovery");
+  assert.equal(Boolean(removeButton.closest("fieldset[disabled]")),true,"uploaded media cannot be removed from the pending recovery");
+  assert.equal(container.querySelector<HTMLTextAreaElement>('textarea[name="description"]')!.readOnly,true,"rich product description is also immutable during recovery");
+  await act(async()=>removeButton.click());
+  assert.equal(latest().current.media.length,2);assert.deepEqual(latest().current.creationRecovery,recovery.current.creationRecovery);
+  assert.equal(container.querySelector<HTMLButtonElement>('button[value="draft"]')!.matches(":disabled"),false,"recovery retry stays enabled");
+  await remount(recovery);
+  // Native FormData excludes descendants of a disabled fieldset; happy-dom does not.
+  const NativeFormData=browser.FormData;
+  Object.defineProperty(globalThis,"FormData",{configurable:true,writable:true,value:class extends NativeFormData{constructor(form?:HTMLFormElement){super(form?.querySelector("fieldset:disabled")?undefined:form as never);}}});
+  await submit(container,browser);
+  assert.equal(creates,1);assert.equal(uploads,2);assert.equal(completed,1);assert.equal(saves[0].operationId,saves[1].operationId);
+ });
+});
+
+test("removing a local product image clears its variant links before creation",async()=>{
+ const original=draft();const session=drafts.updateProductDraft(original,{kind:"variant",variants:[{...original.current.variants[0]!,title:"Kırmızı S",attributes:{renk:"Kırmızı",beden:"S"}}]});
+ await withAdvanced({draftSession:session},async({container,browser,latest})=>{
+  const chooser=container.querySelector<HTMLInputElement>('input[type="file"]')!;
+  await act(async()=>{Object.defineProperty(chooser,"files",{configurable:true,value:[new browser.File(["one"],"one.png",{type:"image/png"}),new browser.File(["two"],"two.png",{type:"image/png"})]});chooser.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
+  await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Kırmızı S görsellerini seç"]')!.click());
+  await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="1. görselini seç"]')!.click());await click(container,"Uygula");
+  assert.equal(latest().current.variants[0]!.mediaIds?.length,1);
+  await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Seçili görseli kaldır"]')!.click());
+  assert.deepEqual(latest().current.variants[0]!.mediaIds,[]);
+ });
 });

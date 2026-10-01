@@ -505,6 +505,8 @@ export {
   parsePublicProductMedia,
   parsePublicProductSearch,
   parsePublicProductVariant,
+  resolveProductGallerySelection,
+  resolvePublicProductVariantMedia,
   parseNewsletterSubscribeInput,
   normalizeStarterThemeCompositionV3,
   parsePublicStarterThemePresentation,
@@ -683,3 +685,6 @@ export type { BannerDestination, BannerMediaReference, HomepageBannerSlide, Home
 export { createDefaultStarterThemeCompositionV4, normalizeStorefrontDesignDocumentV5, parseStorefrontDesignEditorWorkspace, parseStorefrontDesignApplyMutation } from "./storefront-design/index.ts";
 export type { StorefrontDesignDocumentV5, StorefrontDesignEditorWorkspace, StorefrontDesignEditorMediaOption, StorefrontDesignApplyMutation } from "./storefront-design/index.ts";
 export * from './seo/index.ts';
+
+export { parseProductVariantGallery, parseProductVariantGalleryAssignments } from "./media/variant-gallery.ts";
+export type { ProductVariantGallery, ProductVariantGalleryAssignment } from "./media/variant-gallery.ts";

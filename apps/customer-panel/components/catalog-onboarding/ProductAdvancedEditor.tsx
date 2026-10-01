@@ -18,10 +18,14 @@ import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalo
 import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/category-tree";
 import { buildAdvancedCreateIntent, parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
+import { ProductVariantGalleryEditor } from "@/components/catalog/ProductVariantGalleryEditor";
+import { productVariantMediaApi, ProductVariantMediaApiError } from "@/lib/catalog-ui/variant-media-client";
+import { mapDraftVariantGalleries } from "@/lib/catalog-onboarding-ui/variant-media-completion";
 import { productMediaApi } from "@/lib/catalog-ui/media-client";
 import {
   updateProductDraft,
   type ProductDraftSession,
+  type ProductCreationRecovery,
 } from "@/lib/catalog-ui/product-draft-session";
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { attributeChoices, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
@@ -47,6 +51,7 @@ type ProductAdvancedEditorProps = Readonly<{
   presentation?: "default" | "rail";
   api?: EditorApi;
   mediaClient?: Pick<typeof productMediaApi, "upload">;
+  galleryClient?: Pick<typeof productVariantMediaApi, "save" | "list">;
   editor?: CatalogProductEditorProjection;
   onCreated?(result: CatalogOnboardingResult): void;
   onUpdated?(result: CatalogOnboardingResult): void;
@@ -119,7 +124,7 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, galleryClient = productVariantMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
   const [authoringDraftId] = useState(() => draftSession?.current.authoringDraftId ?? crypto.randomUUID());
   const [authoringSessionId] = useState(() => crypto.randomUUID());
@@ -146,7 +151,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [media, setMedia] = useState<readonly EditorMediaSelection[]>(draftSession?.current.media ?? []);
+  const [media, setMedia] = useState<readonly EditorMediaSelection[]>((draftSession?.current.media ?? []).map(item => ({...item,localId:item.localId ?? crypto.randomUUID()})));
   const [categoryIds, setCategoryIds] = useState<readonly string[]>(draftSession?.current.categoryIds ?? editor?.categoryIds ?? []);
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(draftSession?.current.collectionIds ?? editor?.resourceIds.collections ?? []);
   const [tagIds, setTagIds] = useState<readonly string[]>(draftSession?.current.tagIds ?? editor?.resourceIds.tags ?? []);
@@ -155,7 +160,9 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   const [activeEditPanel, setActiveEditPanel] = useState<"catalog" | "seo" | "channels">("catalog");
   const [railDirty, setRailDirty] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
-  const [createdProductId, setCreatedProductId] = useState<string>();
+  const [creationRecovery,setCreationRecovery] = useState<ProductCreationRecovery | undefined>(draftSession?.current.creationRecovery);
+  const recoveryRef = useRef(creationRecovery);
+  const [createdProductId, setCreatedProductId] = useState<string | undefined>(draftSession?.current.creationRecovery?.result.product.id);
   const [progress, setProgress] = useState(0);
   const [variantBuilderOpen, setVariantBuilderOpen] = useState(false);
   const [pendingVariants, setPendingVariants] = useState<readonly VariantDraft[]>([]);
@@ -235,12 +242,14 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       resourceExtraIds: selected(data, "resource-extra"),
       resourceDefinitionIds: selected(data, "resource-definition"),
       media,
+      creationRecovery,
     }));
   // Parent session updates are projections of these local fields.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision, contentOrigins, authoringDraftId]);
+  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision, contentOrigins, authoringDraftId, creationRecovery]);
 
   function markEditingDirty() {
+    if (!editing && recoveryRef.current) return;
     if (editing) {
       editingDirtyRef.current = true;
       if (presentation === "rail") setRailDirty(true);
@@ -311,6 +320,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   }
 
   function changeCreateVariants(next: readonly VariantDraft[]) {
+    if (recoveryRef.current) return;
     markEditingDirty();
     if (!next.length) {
       setKind("simple");
@@ -378,6 +388,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   }
 
   function selectMedia(event: ChangeEvent<HTMLInputElement>) {
+    if (recoveryRef.current) return;
     const files = Array.from(event.currentTarget.files ?? []);
     if (media.length + files.length > 16 || files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size < 1 || file.size > 5_242_880)) {
       event.currentTarget.value = "";
@@ -388,21 +399,24 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     if (!files.length) return;
     markEditingDirty();
     setError("");
-    const next = Object.freeze([...media, ...files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) }))]);
+    const next = Object.freeze([...media, ...files.map((file) => Object.freeze({ localId:crypto.randomUUID(), file, altText: "", preview: URL.createObjectURL(file) }))]);
     mediaPreviewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setMedia(next);
   }
 
   function changeMediaAlt(index: number, altText: string) {
+    if (recoveryRef.current) return;
     markEditingDirty();
     setMedia((current) => Object.freeze(current.map((selected, position) => position === index ? Object.freeze({ ...selected, altText }) : selected)));
   }
 
   function removeMedia(index: number) {
+    if (recoveryRef.current) return;
     const removed = media[index];
     if (!removed) return;
     if (onDraftSessionChange === undefined) URL.revokeObjectURL(removed.preview);
     const next = Object.freeze(media.filter((_, position) => position !== index));
+    setVariants(current => current.map(variant => variant.mediaIds === undefined ? variant : {...variant,mediaIds:variant.mediaIds.filter(id => id !== removed.localId)}));
     mediaPreviewUrlsRef.current = next.map(({ preview }) => preview);
     markEditingDirty();
     setMedia(next);
@@ -410,11 +424,26 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   }
 
   function setCover(index: number) {
+    if (recoveryRef.current) return;
     const selected = media[index];
     if (!selected || index === 0) return;
     markEditingDirty();
     setMedia(Object.freeze([selected, ...media.filter((_, position) => position !== index)]));
     setActiveMediaIndex(0);
+  }
+
+  function updateRecovery(value: ProductCreationRecovery) {
+    recoveryRef.current=value;setCreationRecovery(value);
+    if(draftSession&&onDraftSessionChange)onDraftSessionChange(updateProductDraft(draftSession,{creationRecovery:value}));
+  }
+  const galleryTargets=variants.map((variant,index)=>({id:variant.localId ?? `draft-${index}`,title:variant.title,attributes:variant.attributes}));
+  function changeDraftGalleries(assignments: readonly Readonly<{variantId:string;mediaIds:readonly string[]}>[]) {
+    if (recoveryRef.current) return;
+    markEditingDirty();
+    setVariants(current=>current.map((variant,index)=>{
+      const assignment=assignments.find(item=>item.variantId===galleryTargets[index]?.id);
+      return assignment?{...variant,mediaIds:assignment.mediaIds}:variant;
+    }));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -468,18 +497,42 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
         onUpdated?.(updated);
         return;
       }
-      const candidate: CatalogAdvancedCreateIntent = {
-        kind: "advanced", productType, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
-        variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile, ...(Object.keys(contentOrigins).length ? {contentOrigins} : {}),
-      };
-      const parsed = buildAdvancedCreateIntent(candidate);
-      if (!parsed.ok) { setError(parsed.error); return; }
-      const created = await api.createProduct(parsed.value);
+      let created: CatalogOnboardingResult;
+      if(recoveryRef.current) created=recoveryRef.current.result;
+      else {
+        const candidate: CatalogAdvancedCreateIntent = {
+          kind: "advanced", productType, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
+          variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile, ...(Object.keys(contentOrigins).length ? {contentOrigins} : {}),
+        };
+        const parsed = buildAdvancedCreateIntent(candidate);
+        if (!parsed.ok) { setError(parsed.error); return; }
+        created = await api.createProduct(parsed.value);
+        updateRecovery({result:created,publish,variants,state:{uploads:{}}});
+      }
       setCreatedProductId(created.product.id);
       const outcome = await completeProductMedia({
         result: created,
-        files: Object.freeze(media.map(({ file, altText }) => Object.freeze({ file, altText: altText.trim() }))),
-        publish,
+        files: Object.freeze(media.map(({ localId, file, altText }) => Object.freeze({ localId, file, altText: altText.trim() }))),
+        publish: recoveryRef.current!.publish,
+        state: recoveryRef.current!.state,
+        onState: state => updateRecovery({...recoveryRef.current!,state}),
+        assign: async mediaIds => {
+          const current=recoveryRef.current!;
+          if(current.gallerySaved)return;
+          const assignments=mapDraftVariantGalleries(current.variants,created.variants,mediaIds);
+          if(!assignments.length)return;
+          const expectedVersion=current.galleryVersion??1;
+          const fingerprint=JSON.stringify([expectedVersion,assignments]);
+          const operation=current.galleryOperation?.fingerprint===fingerprint?current.galleryOperation:{id:crypto.randomUUID(),fingerprint};
+          updateRecovery({...current,galleryOperation:operation});
+          try {
+            await galleryClient.save(created.product.id,{expectedVersion,assignments,operationId:operation.id});
+            updateRecovery({...recoveryRef.current!,gallerySaved:true});
+          } catch(failure) {
+            if(failure instanceof ProductVariantMediaApiError && failure.code === "version_conflict")setConflict(true);
+            throw failure;
+          }
+        },
         upload: (productId, input) => mediaClient.upload(productId, input),
         complete: (productId, input) => api.publishAfterMedia(productId, input),
         recover: (productId) => api.getProductEditor(productId),
@@ -487,8 +540,9 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       });
       if (outcome.kind === "published" || outcome.kind === "draft") onCreated?.(outcome.result);
       else if (outcome.kind === "published_recovered") onCreated?.(Object.freeze({ ...outcome.projection, variants: Object.freeze(outcome.projection.variants.map(({ variant }) => variant)), replayed: false }));
-      else if (outcome.kind === "draft_media_failed") onCreated?.(outcome.result);
-      else onCreated?.(outcome.result);
+      else if (outcome.kind === "draft_media_failed") setError(`${outcome.uploadedCount} / ${media.length} görsel yüklendi. Taslağınız korunuyor; kaydet düğmesiyle kalan yüklemelere devam edin.`);
+      else if (outcome.kind === "draft_gallery_failed") setError(outcome.error);
+      else setError("Satışa açma sonucu doğrulanamadı. Taslağınız ve görselleriniz korunuyor; tekrar deneyin.");
     } catch (failure) {
       if (failure instanceof CatalogOnboardingApiError && failure.code === "version_conflict") {
         setConflict(true);
@@ -502,12 +556,12 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   const collectionChoices = activeResources("collection").map((resource) => Object.freeze({ id: resource.id, label: resource.name }));
   const tagChoices = activeResources("tag").map((resource) => Object.freeze({ id: resource.id, label: resource.name }));
 
-  if (editor === undefined) return <form ref={formRef} className={createStyles.root} onSubmit={submit} onChange={(event) => {
+  if (editor === undefined) return <form ref={formRef} className={createStyles.root} onSubmit={submit} onChangeCapture={event => {if (recoveryRef.current) {event.preventDefault();event.stopPropagation();}}} onChange={(event) => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest(`.${styles.classificationSearch}`)) markEditingDirty();
   }} aria-busy={createBlocked} noValidate>
-    {error ? <div className={createStyles.error} role="alert"><span>{error}</span>{createdProductId ? <Link className={createStyles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}</div> : null}
+    {error ? <div className={createStyles.error} role="alert"><span>{error}</span>{conflict && createdProductId ? <button type="button" className={createStyles.secondary} onClick={async()=>{try{const gallery=await galleryClient.list(createdProductId);updateRecovery({...recoveryRef.current!,galleryVersion:gallery.version,galleryOperation:undefined});setConflict(false);setError("Güncel galeri yüklendi. Seçiminizi tekrar uygulamak için kaydedin.");}catch{setError("Güncel galeri yüklenemedi. Tekrar deneyin.");}}}>Güncel sürümü yükle</button> : null}{createdProductId ? <Link className={createStyles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}</div> : null}
     {!categoryHierarchy.valid ? <div className={createStyles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
-    <fieldset className={createStyles.editorFieldset} disabled={busy}>
+    <fieldset className={createStyles.editorFieldset} disabled={busy || Boolean(creationRecovery)}>
       <div className={createStyles.editorLayout}>
         <div className={createStyles.mainColumn}>
           <section id="product-basics" className={createStyles.intro} aria-label="Ürün bilgileri">
@@ -530,10 +584,12 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
+          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy || Boolean(creationRecovery)} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
-            {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} /></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
+            {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantGalleryEditor media={media.map(item=>({id:item.localId!,url:item.preview,altText:item.altText}))} variants={galleryTargets} assignments={variants.flatMap((variant,index)=>variant.mediaIds === undefined?[]:[{variantId:galleryTargets[index]!.id,mediaIds:variant.mediaIds}])} onAssignmentsChange={changeDraftGalleries} canManage={!createBlocked && !creationRecovery}>
+              {({thumbnail})=><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
+              </ProductVariantGalleryEditor></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
             {variantBuilderOpen ? <div ref={variantBuilderRef} id="create-variant-builder" className={createStyles.builder} tabIndex={-1} role="group" aria-label="Varyant seçimi" onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented && !attributeSavingRef.current) { event.preventDefault(); closeVariantBuilder(); } }}>
               <AttributeVariantPicker presentation="create" value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />
               <div className={createStyles.builderActions}><button type="button" className={createStyles.secondary} onClick={closeVariantBuilder} disabled={attributeSaving}>Vazgeç</button><button type="button" className={createStyles.secondary} onClick={applyPendingVariants} disabled={attributeSaving || !pendingVariants.length}>Seçilenleri ekle{pendingVariants.length ? ` (${pendingVariants.length})` : ""}</button></div>

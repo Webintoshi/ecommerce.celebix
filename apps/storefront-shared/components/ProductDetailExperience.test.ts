@@ -45,6 +45,7 @@ async function compileProductDetailExperience() {
     if (specifier === "./ProductGallery") return { ProductGallery: component("ProductGallery") };
     if (specifier === "./ProductInformationDisclosures") return { ProductInformationDisclosures: component("ProductInformationDisclosures"), ProductSizeGuide: component("ProductSizeGuide") };
     if (specifier === "./ProductPurchasePanel") return { ProductPurchasePanel: component("ProductPurchasePanel") };
+    if (specifier === "./ProductVariantMedia") return { ProductVariantMediaProvider: (props: Record<string, unknown>) => props.children };
     if (specifier === "./product-detail-experience.module.css") return styles;
     throw new Error(`unexpected_product_detail_import:${specifier}`);
   }, compiledModule, compiledModule.exports);

@@ -313,6 +313,7 @@ export type PublicProductMedia = Readonly<{
 
 export type PublicProductVariant = Readonly<{
   id: string;
+  mediaIds?: readonly string[];
   title: string;
   sku?: string;
   priceCents: number;

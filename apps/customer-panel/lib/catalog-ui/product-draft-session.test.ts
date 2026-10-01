@@ -213,3 +213,10 @@ test("explicit server replacement resets the baseline without mutating the local
   assert.equal(replaced.initial.title, "Sunucu sürümü");
   assert.equal(productDraftIsDirty(replaced), false);
 });
+
+test("a partially completed advanced creation cannot produce another product through quick mode",()=>{
+ const session=createEmptyProductDraftSession();
+ const recovery={result:{} as never,publish:false,state:{uploads:{}},variants:session.current.variants};
+ const pending=updateProductDraft(session,{creationRecovery:recovery});
+ assert.equal(quickDraftRequiresDetailedSave(pending.current),true);
+});

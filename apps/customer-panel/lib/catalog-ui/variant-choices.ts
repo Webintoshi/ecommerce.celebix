@@ -1,4 +1,5 @@
 import {
+  parseCatalogProductListVariantSummary,
   parseProduct,
   parseProductVariant,
   type Product,
@@ -115,6 +116,34 @@ function dense<T>(
   return Object.freeze(copied);
 }
 
+function validateListMetadata(page: Readonly<Record<string, unknown>>, products: readonly Product[]): void {
+  if (!Number.isSafeInteger(page.catalogTotal) || (page.catalogTotal as number) < products.length) unavailable();
+  const productIds = products.map(product => product.id);
+  if (Object.hasOwn(page, "featuredImages")) {
+    const images = exactRoot(page.featuredImages, [], productIds);
+    for (const value of Object.values(images)) {
+      const image = exactRoot(value, ["publicUrl", "altText"]);
+      if (
+        typeof image.publicUrl !== "string" || image.publicUrl.length < 1 || image.publicUrl.length > 2048 ||
+        image.publicUrl !== image.publicUrl.trim() || /[\u0000-\u001f\u007f]/.test(image.publicUrl) ||
+        typeof image.altText !== "string" || image.altText.length > 500 ||
+        image.altText !== image.altText.trim() || /[\u0000-\u001f\u007f]/.test(image.altText)
+      ) unavailable();
+      const url = new URL(image.publicUrl as string);
+      if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.toString() !== image.publicUrl) unavailable();
+    }
+  }
+  if (Object.hasOwn(page, "variantSummaries")) {
+    const summaries = exactRoot(page.variantSummaries, [], productIds);
+    const variantIds = new Set<string>();
+    for (const value of Object.values(summaries)) {
+      const summary = parseCatalogProductListVariantSummary(value);
+      if (variantIds.has(summary.variantId)) unavailable();
+      variantIds.add(summary.variantId);
+    }
+  }
+}
+
 export async function loadCatalogVariantChoices(
   api: CatalogVariantChoiceApi = catalogApi,
   signal: AbortSignal = new AbortController().signal,
@@ -171,11 +200,12 @@ export async function loadCatalogVariantChoices(
       if (pageNumber >= limits.maximumPages) unavailable();
       const page = exactRoot(
         await api.listProducts({ status: "active", ...(cursor ? { cursor } : {}) }, signal),
-        ["items"],
-        ["nextCursor"],
+        ["items", "catalogTotal"],
+        ["nextCursor", "featuredImages", "variantSummaries"],
       );
       signal.throwIfAborted();
       const pageItems = dense(page.items, limits.maximumProducts, parseProduct);
+      validateListMetadata(page, pageItems);
       if (products.length + pageItems.length > limits.maximumProducts) unavailable();
       for (const product of pageItems) {
         if (product.status !== "active" || productIds.has(product.id)) unavailable();

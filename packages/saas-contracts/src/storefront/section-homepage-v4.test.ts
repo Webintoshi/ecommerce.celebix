@@ -36,6 +36,7 @@ test("v4 preserves real collection banner, footer and ordered menu destinations 
   sections: [{ ...banner(), slides: [{ ...slide(), destination: { kind: "catalog_collection", resourceId: ID } }] }],
  };
  const parsed = storefront.parseStarterThemeCompositionConfig(source);
+ if (parsed.schemaVersion !== 4) throw new Error("expected_section_homepage_v4");
  assert.deepEqual(parsed.navigation.rootLinks, source.navigation.rootLinks);
  assert.deepEqual(parsed.footer.groups, source.footer.groups);
  assert.deepEqual((parsed.sections[0] as any).slides[0].destination, { kind: "catalog_collection", resourceId: ID });
