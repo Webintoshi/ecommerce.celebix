@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import type {
@@ -487,6 +488,66 @@ test("verifies callback HMAC and projects only durable order/provider facts", as
     }),
     /paytr_callback_invalid/,
   );
+});
+
+test("signed failed callbacks with zero collected amount are accepted in TEST and LIVE without provider transport", async () => {
+  const adapter = createPaytrIframeAdapter(transport(async () => { throw new Error("callback must not use transport"); }));
+  for (const [environment, testMode] of [["test", "1"], ["live", "0"], ["test", null], ["live", null]] as const) {
+    const form = new URLSearchParams({
+      merchant_oid: MERCHANT_OID, status: "failed", total_amount: "0",
+      hash: createPaytrIframeCallbackHash({ credential, merchantOid: MERCHANT_OID, status: "failed", totalAmount: "0" }),
+      payment_type: "card", failed_reason_code: "6", failed_reason_msg: "Synthetic payment timeout",
+      ...(testMode === null ? {} : { test_mode: testMode }),
+    }).toString();
+    const authenticated = authenticatePaytrIframeCallback({ credential, environment, form, expectedPaymentAmount: 10_000 });
+    assert.equal(authenticated?.status, "failed");
+    assert.equal(authenticated?.totalAmount, 0);
+    assert.equal(authenticated?.merchantOid, MERCHANT_OID);
+    const verified = await adapter.verifyCallback({
+      environment, credential, method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new TextEncoder().encode(form),
+      expected: { attemptId: "11111111-1111-4111-8111-111111111111", orderReference: "merchant-order-123", amountMinor: 10_000, currency: "TRY", providerReference: MERCHANT_OID },
+    });
+    assert.deepEqual(verified, {
+      eventKey: "merchant-order-123:failed", status: "failed", providerReference: MERCHANT_OID,
+      paidAmountMinor: 10_000, currency: "TRY", safeCode: "failed",
+    });
+  }
+});
+
+test("zero failure support cannot admit zero success, bad signatures, malformed amounts or mismatched payment authority", async () => {
+  const form = (status: "success" | "failed", totalAmount: string, overrides: Record<string, string> = {}) => new URLSearchParams({
+    merchant_oid: MERCHANT_OID, status, total_amount: totalAmount,
+    hash: createHmac("sha256", credential.merchantKey).update(`${MERCHANT_OID}${credential.merchantSalt}${status}${totalAmount}`).digest("base64"),
+    payment_type: "card",
+    ...(status === "failed" ? { failed_reason_code: "6", failed_reason_msg: "Synthetic payment timeout" } : {}),
+    ...overrides,
+  }).toString();
+  const adapter = createPaytrIframeAdapter(transport(async () => { throw new Error("callback must not use transport"); }));
+  const invalidCases = [
+    { form: form("success", "0"), environment: "live" as const },
+    { form: form("failed", "0", { hash: "invalid-signature" }), environment: "live" as const },
+    ...["-1", "00", "0.00", "1e3", "", "9007199254740992", "0\n"].map((amount) => ({ form: form("failed", amount), environment: "live" as const })),
+    { form: form("failed", "0", { test_mode: "1" }), environment: "live" as const },
+    { form: form("failed", "0", { test_mode: "0" }), environment: "test" as const },
+  ];
+  for (const selected of invalidCases) {
+    assert.equal(authenticatePaytrIframeCallback({ credential, environment: selected.environment, form: selected.form, expectedPaymentAmount: 10_000 }), null);
+    await assert.rejects(adapter.verifyCallback({
+      environment: selected.environment, credential, method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new TextEncoder().encode(selected.form),
+      expected: { attemptId: "11111111-1111-4111-8111-111111111111", orderReference: "merchant-order-123", amountMinor: 10_000, currency: "TRY", providerReference: MERCHANT_OID },
+    }), /paytr_callback_invalid/);
+  }
+  const validZeroFailure = form("failed", "0");
+  for (const expected of [
+    { amountMinor: 0, currency: "TRY" }, { amountMinor: -1, currency: "TRY" },
+    { amountMinor: 10_000, currency: "USD" },
+  ]) await assert.rejects(adapter.verifyCallback({
+    environment: "live", credential, method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new TextEncoder().encode(validZeroFailure),
+    expected: { attemptId: "11111111-1111-4111-8111-111111111111", orderReference: "merchant-order-123", providerReference: MERCHANT_OID, ...expected },
+  }), /paytr_callback_invalid/);
 });
 
 test("queries the persisted digest once and treats amount or response ambiguity as unknown", async () => {

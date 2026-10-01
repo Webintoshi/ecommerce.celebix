@@ -122,7 +122,7 @@ test("reviewed PayTR source keeps registered execution authority across unrelate
   const { createPaytrAdapterSourceManifest, createPaytrCandidateBuildMetadata, PAYTR_ADAPTER_SOURCE_PATHS } = await import("../packages/payment-adapters/src/providers/paytr/build-binding.ts");
   const sources = await Promise.all(PAYTR_ADAPTER_SOURCE_PATHS.map(async (path) => ({ path, bytes: new Uint8Array(await readFile(join(REPOSITORY_ROOT, "packages/payment-adapters", path))) })));
   const sourceManifest = createPaytrAdapterSourceManifest(sources);
-  assert.equal(sourceManifest.sourceDigest, "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d");
+  assert.equal(sourceManifest.sourceDigest, "sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b");
   const registered = {
     test: "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f",
     live: "sha256:14bbcbf73e0fbc41c3e4749b4dff59ce5a98df238e82becb2ddc503dea9abf2c",
@@ -143,6 +143,8 @@ test("reviewed PayTR source keeps registered execution authority across unrelate
       const generated = await imported(selected.generated, `lineage-${gitSha}-${approvalKind}`);
       assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.gitSha, gitSha);
       assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.gitSha, gitSha);
+      assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.test.sourceDigest, sourceManifest.sourceDigest);
+      assert.equal(generated.PAYTR_GENERATED_BUILD_METADATA.live.sourceDigest, sourceManifest.sourceDigest);
       assert.equal(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.test.evidenceDigest, registered.test);
       assert.equal(generated.PAYTR_GENERATED_APPROVED_EXECUTION_AUTHORITIES.live.evidenceDigest, registered.live);
       const binding = await imported(selected.binding, `lineage-${gitSha}-${approvalKind}`);

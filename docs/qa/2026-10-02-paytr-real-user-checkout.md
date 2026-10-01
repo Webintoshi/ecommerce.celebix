@@ -29,7 +29,19 @@ The merchant PayTR panel confirms its callback URL is `https://guzidekuyumcu.com
 
 The existing generic callback outcome diagnostic recorded success callbacks only, leaving failed callback rejection opaque. Finite diagnostic classes are added for status, total amount shape, payment context presence, payment type, test mode and generic outcome. They contain no raw amount, provider ID, hash, reason message, card data, headers or credential. Authentication and HTTP behavior are unchanged; diagnostic exceptions cannot alter acknowledgement.
 
-Verification: RED observed, then 42/42 relevant callback tests and typecheck passed. Genuine fixture signatures preserve failed → OK and wrong hash → INVALID with logging absent, active or throwing. Adapter source and execution manifest are unchanged. Diagnostic deployment and the actual callback rejection classification are pending at this record's initial commit.
+Verification: RED observed, then 42/42 relevant callback tests and typecheck passed. Genuine fixture signatures preserve failed → OK and wrong hash → INVALID with logging absent, active or throwing. Adapter source and execution manifest are unchanged.
+
+Diagnostic release `519ea523d9e9e8b8ef47390ef37038cb0d165e54` also preserves the concurrent Siora UI release. SITE deployment `wvi8blfnl4qcse903is5a8ve` and NET deployment `yze52ec74yfskmn2li9pw8fy` finished. Final global-idle, exact running image/source/manifest/generated-artifact/approval and SITE database-authority checks passed.
+
+The new SITE container observed genuine automatic callbacks at 21:21:07Z and 21:21:08Z, both `failed / zero / absent payment context / card / absent test mode`, followed by rejection. The submitted test's PayTR detail continues to show minute-by-minute automatic retries and HTTP 400 / INVALID. Diagnostics intentionally omit the provider reference; individual audit lines are not claimed to identify that test by themselves. Inspection confirms the adapter's positive-only total-amount parser rejects a signed failed callback with zero before verifying its hash. A narrow failure-only correction is being tested; successful payments must still have a positive amount and every callback must still pass signature and authority checks.
+
+## Signed zero-total failure correction
+
+Only the exact raw total `"0"` with status `failed` is added to amount parsing. HMAC verification, canonical fields, bounded values, environment, positive expected amount and currency checks remain enforced. Failure settlement cannot create a paid order or consume stock; successful zero/underpaid callbacks remain rejected. Failed callbacks with additional payment context are outside this observed correction and were not broadened.
+
+RED reproduced the signed failed-zero rejection. Adapter/config tests passed 26/26; relevant generic runtime/route/preflight tests passed 83/83; build-binding/generator tests passed 18/18 after their observed RED. Typechecks, production shared-storefront build and independent code/security reviews passed.
+
+The independently hashed new six-file execution manifest is `sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b`. Its adapter diff is exactly the narrow guard correction; reviewed diff SHA256 is `492833b0e1da3780098eb17802a5f27c90723adff66236821ef3dfacc7c7e0c5`. The explicit reviewed compatibility mapping preserves prior per-environment canonical execution identities, while candidate metadata records the actual new source and Git SHA. Unknown source manifests, forged metadata, mismatched environments and missing approvals still fail closed. This is a source transition and is not described as an unchanged source. Live release and genuine callback settlement are pending at this commit.
 
 ## Acceptance still pending
 
