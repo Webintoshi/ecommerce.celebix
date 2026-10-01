@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "@/lib/product-catalog-query.ts";
 import { ProductGrid } from "./ProductGrid";
+import { SioraProductExplorer } from "../themes/siora/SioraProductExplorer";
+import type { SioraVisualTheme } from "../themes/siora/theme.ts";
 
 const FILTERS = Object.freeze([
   ["all", "Tümü"],
@@ -12,17 +14,7 @@ const FILTERS = Object.freeze([
   ["discounted", "İndirimli"],
 ] as const);
 
-export function ProductExplorer({
-  products,
-  locale,
-  cardStyle,
-  imageRatio,
-  selection,
-  total,
-  nextOffset,
-  path,
-  preserveOrder = false,
-}: Readonly<{
+export type ProductExplorerProps = Readonly<{
   products: readonly PublicProduct[];
   locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
@@ -32,7 +24,14 @@ export function ProductExplorer({
   nextOffset: number | null;
   path: string;
   preserveOrder?: boolean;
-}>) {
+  visualTheme?: SioraVisualTheme;
+}>;
+
+export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps) {
+  return visualTheme === "siora-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
+}
+
+function StandardProductExplorer({ products, locale, cardStyle, imageRatio, selection, total, nextOffset, path, preserveOrder = false }: ProductExplorerProps) {
   const router = useRouter();
   const [query, setQuery] = useState(selection.query);
   const [order, setOrder] = useState(selection.order);

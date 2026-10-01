@@ -1,0 +1,199 @@
+[data-storefront-theme="siora-deniz"] .siora-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  color: var(--ink, #171717);
+  background: var(--white, #fff);
+  border-bottom: 1px solid var(--line, #e7e7e7);
+}
+[data-storefront-theme="siora-deniz"] .siora-header-bar {
+  position: relative;
+  display: grid;
+  grid-template-areas: "menu logo actions";
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: min(1440px, calc(100% - 80px));
+  min-height: 76px;
+  margin-inline: auto;
+  gap: 20px;
+}
+[data-storefront-theme="siora-deniz"] .siora-header-discover {
+  grid-area: intro;
+  display: none;
+  justify-self: start;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  color: inherit;
+  font-size: 12px;
+  text-decoration: none;
+}
+[data-storefront-theme="siora-deniz"] .siora-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+[data-storefront-theme="siora-deniz"] .siora-header-discover .siora-icon { width: 18px; height: 18px; }
+[data-storefront-theme="siora-deniz"] .siora-wordmark {
+  grid-area: logo;
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  color: inherit;
+  font-family: var(--store-heading-font, ui-sans-serif, system-ui, sans-serif);
+  font-weight: var(--store-heading-weight, 500);
+  line-height: 1.05;
+  text-align: center;
+  text-decoration: none;
+}
+[data-storefront-theme="siora-deniz"] .siora-wordmark > span {
+  max-width: 420px;
+  font-size: clamp(26px, 2.8vw, 36px);
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+[data-storefront-theme="siora-deniz"] .siora-wordmark > small {
+  padding-left: .32em;
+  font-family: var(--store-body-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: .32em;
+  line-height: 1.5;
+}
+[data-storefront-theme="siora-deniz"] .siora-wordmark img { display: block; width: auto; max-width: 230px; height: auto; max-height: 56px; object-fit: contain; }
+[data-storefront-theme="siora-deniz"] .siora-header-utilities { grid-area: actions; justify-self: end; }
+[data-storefront-theme="siora-deniz"] .siora-header .store-utilities { gap: 2px; }
+[data-storefront-theme="siora-deniz"] .siora-header .store-utilities :is(a, button) { min-width: 44px; min-height: 44px; border-radius: 0; }
+[data-storefront-theme="siora-deniz"] .siora-header .store-utilities :is(a, button) > span { top: 1px; right: 1px; min-width: 15px; height: 15px; padding-inline: 3px; color: var(--white, #fff); background: var(--ink, #171717); font-size: 9px; font-weight: 500; line-height: 15px; }
+[data-storefront-theme="siora-deniz"] .siora-desktop-navigation { grid-area: menu; position: static; display: flex; min-width: 0; min-height: 76px; justify-content: flex-start; align-items: center; flex-wrap: wrap; gap: 0 20px; padding: 0; }
+[data-storefront-theme="siora-deniz"] .siora-desktop-navigation > a,
+[data-storefront-theme="siora-deniz"] .siora-navigation-summary { display: flex; min-height: 42px; align-items: center; gap: 8px; border: 0; color: inherit; font-size: 12px; font-weight: 400; text-decoration: none; cursor: pointer; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-category { position: static; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-summary { list-style: none; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-summary::-webkit-details-marker { display: none; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-summary > span { font-size: 15px; line-height: 1; transition: transform .18s ease; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-category[open] > summary > span { transform: rotate(180deg); }
+[data-storefront-theme="siora-deniz"] .siora-navigation-panel { position: absolute; top: 100%; left: 50%; z-index: 1; display: grid; grid-template-columns: minmax(190px, 1fr); gap: 24px; min-width: 240px; width: max-content; max-width: min(640px, 90vw); max-height: min(66vh, 620px); overflow: auto; border: 1px solid var(--line, #e7e7e7); padding: 26px; background: var(--white, #fff); box-shadow: 0 12px 26px rgb(0 0 0 / 5%); transform: translateX(-50%); }
+[data-storefront-theme="siora-deniz"] .siora-navigation-panel[data-featured="true"] { grid-template-columns: minmax(190px, 1fr) 180px; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-links { display: grid; align-content: start; gap: 4px; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-links > strong { margin-bottom: 10px; font-size: 13px; font-weight: 500; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-links a { display: flex; min-height: 36px; align-items: center; color: inherit; font-size: 12px; line-height: 1.45; text-decoration: none; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-branch { display: grid; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--line, #e7e7e7); }
+[data-storefront-theme="siora-deniz"] .siora-navigation-featured { display: grid; align-content: start; gap: 10px; color: inherit; font-size: 12px; text-decoration: none; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-featured img { display: block; width: 100%; height: auto; max-height: 220px; object-fit: cover; }
+[data-storefront-theme="siora-deniz"] .siora-mobile-shell { display: contents; }
+[data-storefront-theme="siora-deniz"] :is(.siora-header-mobile-tools, .siora-header-account, .siora-mobile-bottom, .siora-mobile-bottom-space) { display: none; }
+[data-storefront-theme="siora-deniz"] .siora-mobile-dialog { border: 0; padding: 0; color: var(--ink, #171717); background: var(--white, #fff); }
+[data-storefront-theme="siora-deniz"] :is(.siora-header a, .siora-header button, .siora-header summary):focus-visible { outline: 2px solid var(--ink, #171717); outline-offset: 3px; }
+[data-storefront-theme="siora-deniz"] .siora-header[data-header-style="overlay"]:has(.siora-mobile-shell[data-siora-home="true"]) { position: absolute; inset: 0 0 auto; width: 100%; border-color: transparent; color: var(--white, #fff); background: linear-gradient(180deg, color-mix(in srgb, var(--ink, #171717) 55%, transparent), transparent); }
+[data-storefront-theme="siora-deniz"] .siora-header[data-header-style="overlay"]:has(.siora-mobile-shell[data-siora-home="true"][data-siora-scrolled="true"]) { position: fixed; border-color: var(--line, #e7e7e7); color: var(--ink, #171717); background: var(--white, #fff); }
+[data-storefront-theme="siora-deniz"] .siora-header[data-header-style="overlay"] .siora-navigation-panel { color: var(--ink, #171717); }
+
+@media (min-width: 768px) {
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-width="contained"] .siora-header-bar { width: min(1200px, calc(100% - 80px)); }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-layout="logo_menu_actions"] .siora-header-bar { grid-template-areas: "logo menu actions"; grid-template-columns: auto minmax(0, 1fr) auto; }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-layout="logo_menu_actions"] .siora-desktop-navigation { justify-content: center; }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-layout="stacked"] .siora-header-bar { grid-template-areas: "intro logo actions" "menu menu menu"; grid-template-rows: 76px auto; gap: 0 20px; }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-layout="stacked"] .siora-header-discover { display: inline-flex; }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-layout="stacked"] .siora-desktop-navigation { min-height: 42px; justify-content: center; border-top: 1px solid var(--line, #e7e7e7); }
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  [data-storefront-theme="siora-deniz"] .siora-header-bar { width: calc(100% - 40px); gap: 10px; }
+  [data-storefront-theme="siora-deniz"] .siora-header-discover { font-size: 11px; gap: 8px; }
+  [data-storefront-theme="siora-deniz"] .siora-desktop-navigation { gap: 0 14px; }
+  [data-storefront-theme="siora-deniz"] .siora-desktop-navigation > a,
+  [data-storefront-theme="siora-deniz"] .siora-navigation-summary { font-size: 11px; }
+  [data-storefront-theme="siora-deniz"] .siora-header[data-header-width="contained"] .siora-header-bar { width: calc(100% - 56px); }
+  [data-storefront-theme="siora-deniz"] .siora-header .store-utilities :is(a, button) { min-width: 38px; }
+}
+
+@media (max-width: 767px) {
+  [data-storefront-theme="siora-deniz"]:has(.siora-mobile-bottom) { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  [data-storefront-theme="siora-deniz"] :is(.siora-header-discover, .siora-header-utilities, .siora-desktop-navigation) { display: none; }
+  [data-storefront-theme="siora-deniz"] .siora-header-bar { grid-template-areas: "tools logo account"; grid-template-columns: minmax(88px, 1fr) auto minmax(88px, 1fr); width: calc(100% - 24px); min-height: 64px; gap: 5px; }
+  [data-storefront-theme="siora-deniz"] .siora-wordmark { min-height: 60px; gap: 2px; }
+  [data-storefront-theme="siora-deniz"] .siora-wordmark > span { max-width: min(46vw, 230px); font-size: clamp(19px, 6vw, 29px); letter-spacing: .14em; }
+  [data-storefront-theme="siora-deniz"] .siora-wordmark > small { font-size: 7px; }
+  [data-storefront-theme="siora-deniz"] .siora-wordmark img { max-width: min(44vw, 190px); max-height: 44px; }
+  [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools { grid-area: tools; display: flex; justify-self: start; align-items: center; gap: 0; }
+  [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools button,
+  [data-storefront-theme="siora-deniz"] .siora-header-account { display: inline-flex; width: 44px; min-height: 44px; justify-content: center; align-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-header-account { grid-area: account; justify-self: end; width: 44px; }
+  [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools .siora-icon { width: 20px; height: 20px; }
+  [data-storefront-theme="siora-deniz"] .siora-header-account .siora-icon { width: 21px; height: 21px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 45;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding: 0 max(4px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px));
+    border-top: 1px solid var(--line, #e7e7e7);
+    color: var(--ink, #171717);
+    background: var(--white, #fff);
+    box-shadow: 0 -3px 14px rgb(0 0 0 / 2%);
+  }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom > :is(a, button) { position: relative; display: flex; min-width: 0; min-height: 64px; justify-content: center; align-items: center; flex-direction: column; gap: 5px; border: 0; padding: 6px 0 4px; color: var(--muted, #727272); background: transparent; font: inherit; text-decoration: none; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom > :is(a, button) > span:not(.siora-mobile-badge) { font-size: 10px; font-weight: 400; line-height: 1.2; white-space: nowrap; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom .siora-icon { width: 23px; height: 23px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom > .is-selected { color: var(--ink, #171717); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom > .is-selected::before { position: absolute; top: 0; left: 50%; width: 22px; height: 2px; background: currentColor; transform: translateX(-50%); content: ""; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-bottom > .is-selected > span:not(.siora-mobile-badge) { font-weight: 500; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-badge { position: absolute; top: 6px; left: calc(50% + 6px); display: grid; min-width: 16px; height: 16px; place-items: center; border: 2px solid var(--white, #fff); border-radius: 20px; padding: 0 3px; color: var(--white, #fff); background: var(--ink, #171717); font-family: var(--store-body-font, ui-sans-serif, system-ui, sans-serif); font-size: 8px; font-weight: 500; line-height: 1; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-dialog { position: fixed; inset: 0; width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; overflow: auto; overscroll-behavior: contain; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-dialog[open] { display: block; animation: siora-panel-enter .2s ease-out both; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-dialog::backdrop { background: rgb(0 0 0 / 25%); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-content { min-height: 100%; padding: max(16px, env(safe-area-inset-top, 0px)) 24px calc(30px + env(safe-area-inset-bottom, 0px)); background: var(--white, #fff); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-header { display: flex; min-height: 85px; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 1px solid var(--line, #e7e7e7); padding-bottom: 24px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-header > div > span { display: block; margin-bottom: 9px; color: var(--muted, #727272); font-size: 10px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-header h2 { margin: 0; color: var(--ink, #171717); font-family: var(--store-body-font, ui-sans-serif, system-ui, sans-serif); font-size: 23px; font-weight: 400; line-height: 1.3; letter-spacing: -.04em; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-header > button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-panel-header > button .siora-icon { width: 24px; height: 24px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-navigation { display: grid; padding-top: 15px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-navigation > a,
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-summary { display: flex; min-height: 62px; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--line, #e7e7e7); padding: 12px 0; color: var(--ink, #171717); font-family: var(--store-body-font, ui-sans-serif, system-ui, sans-serif); font-size: 24px; font-weight: 400; line-height: 1.25; letter-spacing: -.03em; text-decoration: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-navigation > a > .siora-icon { width: 22px; height: 22px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-summary { list-style: none; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-summary::-webkit-details-marker { display: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-summary > span { display: grid; width: 26px; height: 26px; place-items: center; font-size: 22px; line-height: 1; transition: transform .18s ease; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category[open] > summary > span { transform: rotate(180deg); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 12px 0 18px; border-bottom: 1px solid var(--line, #e7e7e7); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-links { display: grid; gap: 0; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-links > strong { display: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-links a { display: flex; min-height: 44px; align-items: center; padding-block: 8px; color: var(--muted, #4c4c4c); font-size: 16px; font-weight: 400; line-height: 1.4; text-decoration: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-links > a:first-of-type { color: var(--ink, #171717); font-size: 12px; font-weight: 500; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-category-branch { display: grid; margin-left: 12px; padding-left: 14px; border-left: 1px solid var(--line, #e7e7e7); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-featured { display: grid; width: min(100%, 240px); gap: 8px; color: inherit; font-size: 12px; text-decoration: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-featured img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: cover; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-navigation [aria-current="page"] { color: var(--ink, #171717); text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-secondary { display: grid; margin-top: 32px; gap: 2px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-secondary > :is(a, button) { display: flex; width: 100%; min-height: 48px; align-items: center; gap: 12px; border: 0; padding: 8px 0; color: var(--muted, #555); background: transparent; font: inherit; font-size: 12px; text-align: left; text-decoration: none; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-secondary .siora-icon { width: 19px; height: 19px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-secondary > :is(a, button) > .siora-icon:last-child { margin-left: auto; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-secondary > a > span { margin-left: auto; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search { padding-top: 28px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search > p { margin: 0 0 24px; color: var(--muted, #777); font-size: 13px; line-height: 1.6; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search form { display: grid; gap: 16px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search-field { display: flex; min-height: 56px; align-items: center; gap: 12px; border-bottom: 1px solid var(--ink, #171717); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search-field input { min-width: 0; width: 100%; min-height: 54px; border: 0; border-radius: 0; padding: 10px 0; color: var(--ink, #171717); background: transparent; font: inherit; font-size: 16px; outline: 0; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search-field:focus-within { box-shadow: 0 1px 0 var(--ink, #171717); }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search-submit { display: flex; min-height: 52px; justify-content: space-between; align-items: center; border: 1px solid var(--ink, #171717); border-radius: 0; padding: 12px 18px; color: var(--white, #fff); background: var(--ink, #171717); font: inherit; font-size: 12px; cursor: pointer; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search-submit .siora-icon { width: 20px; height: 20px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search > a { display: flex; min-height: 44px; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; color: var(--muted, #555); font-size: 12px; text-decoration: none; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-search > a .siora-icon { width: 18px; height: 18px; }
+  [data-storefront-theme="siora-deniz"] :is(.siora-mobile-bottom, .siora-mobile-dialog) :is(a, button, summary, input):focus-visible { outline: 2px solid var(--ink, #171717); outline-offset: 3px; }
+}
+
+@keyframes siora-panel-enter { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-storefront-theme="siora-deniz"] .siora-mobile-dialog[open] { animation: none; }
+  [data-storefront-theme="siora-deniz"] :is(.siora-navigation-summary, .siora-mobile-category-summary) > span { transition: none; }
+}

@@ -71,20 +71,22 @@ test("optional section styling preserves the legacy wrapper and matches mobile p
   assert.deepEqual(await spacing(1440, "mobile"), await spacing(390));
 });
 
-test("explicit section widths override the Güzide tenant gutters for full and contained layouts", async () => {
+test("explicit section widths override tenant gutters for full and contained layouts", async () => {
   // Happy DOM drops min(calc(...)) values; preserve the real theme selectors
   // with a supported gutter width to verify their actual cascade precedence.
-  const themeCss = readFileSync(new URL("../themes/guzide/guzide.css", import.meta.url), "utf8").replace("width: min(calc(100% - var(--guzide-gutter) * 2), 1328px);", "width: 80%;");
+  for (const theme of ["guzide", "siora"] as const) {
+  const themeCss = readFileSync(new URL(`../themes/${theme}/${theme}.css`, import.meta.url), "utf8").replace(/width: min\(calc\(100% - var\(--(?:guzide|siora)-gutter\) \* 2\), (?:1328|1440)px\);/g, "width: 80%;");
   for (const width of [1440, 390]) for (const sectionWidth of ["full", "contained"] as const) {
     const window = new Window(); window.happyDOM.setWindowSize({ width, height: 900 });
     window.document.head.innerHTML = `<style>${css}${designCss}${themeCss}</style>`;
-    window.document.body.innerHTML = `<div data-storefront-theme="guzide-deniz">${renderToStaticMarkup(React.createElement(CampaignSectionContent, {
+    window.document.body.innerHTML = `<div data-storefront-theme="${theme}-deniz">${renderToStaticMarkup(React.createElement(CampaignSectionContent, {
       section: { ...sections[0]!, style: { background: "theme", width: sectionWidth, spacing: "normal" } },
       presentation: {}, productRows: [], locale: "tr", renderProductRow: () => null,
     }))}</div>`;
     const content = window.document.querySelector(".celebix-store-section-content > *"); assert.ok(content);
     const style = window.getComputedStyle(content);
-    try { assert.equal(style.width, "100%", `${width}px ${sectionWidth} child uses its selected container width`); assert.equal(style.getPropertyValue("margin-inline"), "0"); }
+    try { assert.equal(style.width, "100%", `${theme} ${width}px ${sectionWidth} child uses its selected container width`); assert.equal(style.getPropertyValue("margin-inline"), "0"); }
     finally { await window.happyDOM.close(); }
+  }
   }
 });

@@ -6,7 +6,7 @@ import type { PublicCart, PublicStarterThemePresentationV2 } from "@celebix/saas
 import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { SideCartDrawer } from "./SideCartDrawer";
 import { useHydrated } from "./use-hydrated";
-import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
+import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 
 export type CartStatus = Readonly<{
   cart: PublicCart | null;
@@ -21,7 +21,7 @@ export type CartStatus = Readonly<{
 
 const Context = createContext<CartStatus | null>(null);
 
-export function CartStatusProvider({ children, presentation, locale, visualTheme }: Readonly<{ children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: GuzideVisualTheme }>) {
+export function CartStatusProvider({ children, presentation, locale, visualTheme }: Readonly<{ children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
   const hydrated = useHydrated();
   const [cart, setCart] = useState<PublicCart | null>(null);
   const [loading, setLoading] = useState(true);

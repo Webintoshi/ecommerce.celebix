@@ -10,11 +10,11 @@ import { productIndexPath, productPath } from "@/lib/storefront-routes.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { sideCartPresentation } from "./campaign-ui-model";
 import { mutateSideCartLine } from "./side-cart-mutation";
-import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
+import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function SideCartDrawer({ presentation, locale, visualTheme }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: GuzideVisualTheme }>) {
+export function SideCartDrawer({ presentation, locale, visualTheme }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);

@@ -16,9 +16,9 @@ export function ProductDetailExperience({ product, locale, relatedProducts, publ
   const orderedRelatedProducts = availableProductsFirst(relatedProducts);
   return <>
     {options.showBreadcrumbs ? <nav className={`${styles.breadcrumb} store-container`} aria-label="İçerik yolu"><Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>{productCategoryPath.map((category) => <span key={category.slug}><Link href={categoryPath(locale, category.slug)}>{category.name}</Link><span aria-hidden="true">/</span></span>)}<span aria-current="page">{product.title}</span></nav> : null}
-    <section className={`${styles.experience} store-container`}>
+    <section className={`${styles.experience} store-container`} data-product-detail-experience>
       <ProductGallery product={product} style={options.galleryStyle} />
-      <div className={styles.purchaseColumn}>
+      <div className={styles.purchaseColumn} data-product-purchase-column>
         <ProductDetailSummary product={product} options={options} classes={styles} renderBrand={(name) => <Link className={styles.brand} href={`/search?q=${encodeURIComponent(name)}`}>{name}</Link>} />
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
         <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} showQuantitySelector={showQuantitySelector} />
@@ -26,6 +26,6 @@ export function ProductDetailExperience({ product, locale, relatedProducts, publ
       </div>
     </section>
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
-    {options.showRelatedProducts && orderedRelatedProducts.length > 0 ? <section className={`${styles.related} store-container`} aria-labelledby="related-products-title"><header><p className={styles.eyebrow}>SİZE ÖZEL SEÇKİ</p><h2 id="related-products-title">Benzer ürünler</h2></header><div className={styles.relatedGrid}>{orderedRelatedProducts.map((item) => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
+    {options.showRelatedProducts && orderedRelatedProducts.length > 0 ? <section className={`${styles.related} store-container`} data-product-related aria-labelledby="related-products-title"><header><p className={styles.eyebrow}>SİZE ÖZEL SEÇKİ</p><h2 id="related-products-title">Benzer ürünler</h2></header><div className={styles.relatedGrid}>{orderedRelatedProducts.map((item) => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </>;
 }
