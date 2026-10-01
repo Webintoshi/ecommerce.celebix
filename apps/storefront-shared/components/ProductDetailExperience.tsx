@@ -11,7 +11,7 @@ import { ProductInformationDisclosures, ProductSizeGuide } from "./ProductInform
 import { ProductPurchasePanel } from "./ProductPurchasePanel";
 import styles from "./product-detail-experience.module.css";
 
-export function ProductDetailExperience({ product, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector }: Readonly<{ product: PublicProduct; locale: string; relatedProducts: readonly PublicProduct[]; publishedPolicies: readonly PublicPolicyPage[]; options: StarterProductDetailConfigV2; cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"]; showQuantitySelector: boolean }>) {
+export function ProductDetailExperience({ product, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector, showStockQuantity = true }: Readonly<{ product: PublicProduct; locale: string; relatedProducts: readonly PublicProduct[]; publishedPolicies: readonly PublicPolicyPage[]; options: StarterProductDetailConfigV2; cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"]; showQuantitySelector: boolean; showStockQuantity?: boolean }>) {
   const productCategoryPath = product.categoryPath ?? [];
   const orderedRelatedProducts = availableProductsFirst(relatedProducts);
   return <>
@@ -21,7 +21,7 @@ export function ProductDetailExperience({ product, locale, relatedProducts, publ
       <div className={styles.purchaseColumn} data-product-purchase-column>
         <ProductDetailSummary product={product} options={options} classes={styles} renderBrand={(name) => <Link className={styles.brand} href={`/search?q=${encodeURIComponent(name)}`}>{name}</Link>} />
         {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuide heading={product.merchandising.sizeGuide.heading} body={product.merchandising.sizeGuide.body} /> : null}
-        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} showQuantitySelector={showQuantitySelector} />
+        <ProductPurchasePanel product={product} mobileSticky={options.mobileStickyPurchase} available={product.available} showQuantitySelector={showQuantitySelector} showStockQuantity={showStockQuantity} />
         <ProductInformationDisclosures informationSections={options.informationSections} merchandising={product.merchandising} description={product.description} publishedPolicies={publishedPolicies} />
       </div>
     </section>

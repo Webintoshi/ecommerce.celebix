@@ -6,7 +6,7 @@ import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saa
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "@/lib/product-catalog-query.ts";
 import { ProductGrid } from "./ProductGrid";
 import { SioraProductExplorer } from "../themes/siora/SioraProductExplorer";
-import type { SioraVisualTheme } from "../themes/siora/theme.ts";
+import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 
 const FILTERS = Object.freeze([
   ["all", "Tümü"],
@@ -24,11 +24,11 @@ export type ProductExplorerProps = Readonly<{
   nextOffset: number | null;
   path: string;
   preserveOrder?: boolean;
-  visualTheme?: SioraVisualTheme;
+  visualTheme?: StorefrontVisualTheme;
 }>;
 
 export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps) {
-  return visualTheme === "siora-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
+  return visualTheme === "siora-deniz" || visualTheme === "alpler-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
 }
 
 function StandardProductExplorer({ products, locale, cardStyle, imageRatio, selection, total, nextOffset, path, preserveOrder = false }: ProductExplorerProps) {

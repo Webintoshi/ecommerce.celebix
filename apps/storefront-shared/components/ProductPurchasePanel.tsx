@@ -9,6 +9,7 @@ import {
   storefrontCartClient,
 } from "@/lib/cart/client.ts";
 import { formatTry } from "@/lib/format.ts";
+import { variantStockLabel } from "./product-variant-status.ts";
 import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import {
@@ -21,11 +22,15 @@ export function ProductPurchasePanel({
   mobileSticky = false,
   available,
   showQuantitySelector = true,
+  showStockQuantity = true,
+  beforePurchaseTransition,
 }: Readonly<{
   product: PublicProduct;
   mobileSticky?: boolean;
   available: boolean;
   showQuantitySelector?: boolean;
+  showStockQuantity?: boolean;
+  beforePurchaseTransition?(kind: "add" | "buy"): Promise<Readonly<{ proceed: boolean; drawerTrigger?: HTMLElement | null }>>;
 }>) {
   const router = useRouter();
   const { openDrawer, replaceCart } = useCartStatus();
@@ -59,11 +64,18 @@ export function ProductPurchasePanel({
     setStatus("");
     try {
       if (kind === "add") {
-        await addCartLineAndOpenDrawer(
-          { productId: product.id, variantId: variant.id, quantity },
-          trigger,
-          { add: storefrontCartClient.add, openDrawer, replaceCart },
-        );
+        if (beforePurchaseTransition) {
+          // A quick view finishes its own overlay before revealing the cart.
+          replaceCart(await storefrontCartClient.add({ productId: product.id, variantId: variant.id, quantity }));
+          const transition = await beforePurchaseTransition("add");
+          if (transition.proceed) openDrawer(transition.drawerTrigger ?? trigger);
+        } else {
+          await addCartLineAndOpenDrawer(
+            { productId: product.id, variantId: variant.id, quantity },
+            trigger,
+            { add: storefrontCartClient.add, openDrawer, replaceCart },
+          );
+        }
         emitStorefrontCommerceEvent({
           name: "add_to_cart",
           data: {
@@ -99,6 +111,7 @@ export function ProductPurchasePanel({
             valueMinor: variant.priceCents * quantity,
           },
         });
+        if (beforePurchaseTransition && !(await beforePurchaseTransition("buy")).proceed) return;
         emitStorefrontCommerceEvent({
           name: "begin_checkout",
           data: {
@@ -131,7 +144,7 @@ export function ProductPurchasePanel({
     >
       {showVariantChoices ? (
         <fieldset disabled={pending !== null}>
-          <legend id="purchase-variants-title">Varyant seçin</legend>
+          <legend id="purchase-variants-title">{showStockQuantity ? "Varyant seçin" : "Beden / numara seçin"}</legend>
           <div className="purchase-variants">
             {product.variants.map((variant) => (
               <label
@@ -152,11 +165,7 @@ export function ProductPurchasePanel({
                 <span>
                   <b>{variant.title}</b>
                   <small>
-                    {variant.available
-                      ? variant.stockTracking
-                        ? `${variant.stockQuantity} adet`
-                        : "Stokta"
-                      : "Tükendi"}
+                    {variantStockLabel(variant, showStockQuantity)}
                   </small>
                 </span>
                 <strong>{formatTry(variant.priceCents)}</strong>

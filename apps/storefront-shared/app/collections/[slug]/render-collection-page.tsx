@@ -5,6 +5,7 @@ import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { ProductExplorer } from "@/components/ProductExplorer";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
+import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
@@ -47,7 +48,7 @@ export async function renderCollectionPage({ params, searchParams, routeVariant 
     {page.collection.cover ? <img className={styles.cover} src={page.collection.cover.url} alt={page.collection.cover.altText} width={page.collection.cover.width} height={page.collection.cover.height} /> : null}
     <div className={styles.intro}><h1>{page.collection.name}</h1>{page.collection.description ? <p>{page.collection.description}</p> : null}</div>
    </header>
-   <ProductExplorer visualTheme={sioraThemeFor(storefront)} products={page.items} preserveOrder selection={selection} total={page.total} nextOffset={page.nextOffset} path={path} locale={storefront.locale} cardStyle={storefront.presentation.theme.productCardStyle} imageRatio={storefront.presentation.theme.productImageRatio} />
+   <ProductExplorer visualTheme={alplerThemeFor(storefront) ?? sioraThemeFor(storefront)} products={page.items} preserveOrder selection={selection} total={page.total} nextOffset={page.nextOffset} path={path} locale={storefront.locale} cardStyle={storefront.presentation.theme.productCardStyle} imageRatio={storefront.presentation.theme.productImageRatio} />
   </section>
  </StorefrontFrame>;
 }

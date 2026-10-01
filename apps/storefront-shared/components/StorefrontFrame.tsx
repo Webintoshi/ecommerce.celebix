@@ -13,6 +13,7 @@ import { campaignFrameSettings } from "./campaign-ui-model";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import { GuzideCheckoutHeader } from "../themes/guzide/GuzideCheckoutChrome";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
+import { alplerThemeFor } from "../themes/alpler/theme.ts";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -34,7 +35,7 @@ export function StorefrontFrame({
   const customized = design.publicationVersion > 1;
   const typography = createStorefrontTypographyResources(design.typography);
   const guzideTheme = guzideThemeFor(storefront);
-  const visualTheme = sioraThemeFor(storefront) ?? guzideTheme;
+  const visualTheme = alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
   const guzideCheckout = Boolean(guzideTheme && checkout);
   const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
   const style: DesignStyle = {

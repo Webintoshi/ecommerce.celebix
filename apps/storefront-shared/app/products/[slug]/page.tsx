@@ -6,6 +6,7 @@ import type {
   StarterProductDetailConfigV2,
   StorefrontPolicyKey,
 } from "@celebix/saas-contracts";
+import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -157,6 +158,7 @@ export async function renderProductPage({
         options={options}
         cardStyle={presentation.theme.productCardStyle}
         imageRatio={presentation.theme.productImageRatio}
+        showStockQuantity={!alplerThemeFor(storefront)}
         showQuantitySelector={presentation.schemaVersion === 2 || (presentation.schemaVersion === 3 || presentation.schemaVersion === 4) ? presentation.cart.showQuantitySelector : true}
       />
       <SeoRelatedLinks links={selected.seoSelection?.links ?? []} locale={storefront.locale} />

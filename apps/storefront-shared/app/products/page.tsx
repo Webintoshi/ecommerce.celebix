@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 
 import { sioraThemeFor } from "../../themes/siora/theme.ts";
+import { alplerThemeFor } from "../../themes/alpler/theme.ts";
 import { ProductExplorer } from "@/components/ProductExplorer";
 import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -48,7 +49,7 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant, s
       <section className="store-section store-container">
         <h1 className="sr-only">Ürünler</h1>
         <ProductExplorer
-          visualTheme={sioraThemeFor(storefront)}
+          visualTheme={alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
           products={products.items}
           selection={selection}
           total={products.total}
