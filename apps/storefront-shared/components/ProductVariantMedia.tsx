@@ -6,15 +6,16 @@ import { resolveProductGallerySelection, resolvePublicProductVariantMedia, type 
 type VariantSelection = Readonly<{ productId: string; selectedId: string; selectVariant: (id: string) => void }>;
 const ProductVariantContext = createContext<VariantSelection | null>(null);
 
-function initialVariant(product: PublicProduct): string {
+function initialVariant(product: PublicProduct, preferredId?: string): string {
+  if (preferredId && product.variants.some(({ id }) => id === preferredId)) return preferredId;
   return product.variants.find(({ available }) => available)?.id ?? product.variants[0]?.id ?? "";
 }
 
 /** A small client boundary coordinates the gallery and purchase controls around server-rendered content. */
-export function ProductVariantMediaProvider({ product, children }: Readonly<{ product: PublicProduct; children: ReactNode }>) {
-  const [selection, setSelection] = useState(() => ({ productId: product.id, selectedId: initialVariant(product) }));
+export function ProductVariantMediaProvider({ product, children, initialVariantId }: Readonly<{ product: PublicProduct; children: ReactNode; initialVariantId?: string }>) {
+  const [selection, setSelection] = useState(() => ({ productId: product.id, selectedId: initialVariant(product, initialVariantId) }));
   const selectedId = selection.productId === product.id && product.variants.some(({ id }) => id === selection.selectedId)
-    ? selection.selectedId : initialVariant(product);
+    ? selection.selectedId : initialVariant(product, initialVariantId);
   const selectVariant = useCallback((id: string) => {
     if (product.variants.some((variant) => variant.id === id)) setSelection({ productId: product.id, selectedId: id });
   }, [product]);
