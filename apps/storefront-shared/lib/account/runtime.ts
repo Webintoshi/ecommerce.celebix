@@ -57,7 +57,7 @@ type MutationResponse = Readonly<{ result: StorefrontAccountMutationResult }>;
 export interface StorefrontIdentityRuntime {
   readonly whatsappEnabled?: boolean;
   start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; returnTo: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number; deliveryRequired?:boolean }>; setCookie: string }>>;
-  startPhone?(input: Readonly<{ hostname:string;phone:string;firstName?:string;lastName?:string;requestAuthority:string;returnTo:string;brand:Readonly<{storeName:string;logoUrl:string|null;primaryColor:string|null}> }>):Promise<Readonly<{result:Readonly<{outcome:"accepted";retryAfterSeconds:number;deliveryRequired:boolean}>;setCookie:string}>>;
+  startPhone?(input: Readonly<{ hostname:string;phone:string;firstName?:string;lastName?:string;bindPhone?:true;cookieHeader?:string|null;requestAuthority:string;returnTo:string;brand:Readonly<{storeName:string;logoUrl:string|null;primaryColor:string|null}> }>):Promise<Readonly<{result:Readonly<{outcome:"accepted";retryAfterSeconds:number;deliveryRequired:boolean}>;setCookie:string}>>;
   verify(input: Readonly<{ hostname: string; deviceLabel: string; userAgent: string }> & Readonly<{ ticket: string } | { challengeCookie: string | null; code: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
   completeProfile(input: OperationAuthority & Readonly<{ firstName: string; lastName: string; phone?: string; deviceLabel: string; userAgent: string }>): Promise<Readonly<{ result: StorefrontAccountMutationResult; setCookies: readonly string[] }>>;
   session(hostname: string, cookieHeader: string | null): Promise<StorefrontIdentitySessionResult & Readonly<{ setCookie?: string }>>;
@@ -137,8 +137,13 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
       if(!runtime.whatsappEnabled || !repository.startPhone || !repository.markPhoneDelivery || !dependencies.deliverWhatsAppCode) throw new Error("storefront_whatsapp_unavailable");
       const phone=normalizeStorefrontAccountPhone(input.phone),current=nowValue(now),challengeId=uuid(randomUuid),code=randomLoginCode();
       if(!CODE.test(code)||(input.firstName===undefined)!==(input.lastName===undefined))invalid();
+      if(input.bindPhone) {
+        const currentAccount=await runtime.session(input.hostname,input.cookieHeader??null);
+        if(currentAccount.outcome!=="found" || typeof currentAccount.snapshot.profile.email!=="string"
+          || currentAccount.snapshot.profile.phone!==phone || currentAccount.snapshot.profile.phoneVerified===true)invalid();
+      }
       const expiresAt=new Date(current.getTime()+600_000);
-      const sealed=sealPhoneChallenge({challengeId,hostname:input.hostname,phone,...(input.firstName!==undefined?{firstName:input.firstName,lastName:input.lastName!}:{}),expiresAt:expiresAt.toISOString(),hmacKeyId:hmacKeyring.activeKeyId},sealKeyring,randomBytes);
+      const sealed=sealPhoneChallenge({challengeId,hostname:input.hostname,phone,...(input.firstName!==undefined?{firstName:input.firstName,lastName:input.lastName!}:{}),...(input.bindPhone?{bindAccount:true as const}:{}),expiresAt:expiresAt.toISOString(),hmacKeyId:hmacKeyring.activeKeyId},sealKeyring,randomBytes);
       const phoneDigest=phoneRecipientDigest(phone,hmacKeyring).digest;
       const codeAuthority=phoneCodeDigest({hostname:input.hostname,phone,challengeId,code},hmacKeyring);
       const result=await repository.startPhone({hostname:input.hostname,now:current,challengeId,phoneDigest,requestDigest:phoneRequestDigest(input.requestAuthority,hmacKeyring).digest,codeKeyId:codeAuthority.keyId,codeDigest:codeAuthority.digest,expiresAt,correlationId:correlation("phone_start",challengeId)});
@@ -155,7 +160,8 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
         const challenge=openPhoneChallenge(phoneRaw,sealKeyring);
         if(!challenge || challenge.hostname!==input.hostname || new Date(challenge.expiresAt)<=current || "ticket" in input || !CODE.test(input.code) || !repository.verifyPhone)invalid();
         const sessionId=uuid(randomUuid),credential=createAccountSessionCredential(hmacKeyring,randomBytes),csrf=csrfValue(randomBytes);
-        const result=await repository.verifyPhone({hostname:input.hostname,now:current,challengeId:challenge.challengeId,phoneDigest:phoneRecipientDigest(challenge.phone,hmacKeyring,challenge.hmacKeyId).digest,codeDigest:phoneCodeDigest({hostname:input.hostname,phone:challenge.phone,challengeId:challenge.challengeId,code:input.code},hmacKeyring,challenge.hmacKeyId).digest,phone:challenge.phone,...(challenge.firstName!==undefined?{firstName:challenge.firstName,lastName:challenge.lastName!}:{}),customerId:uuid(randomUuid),accountId:uuid(randomUuid),sessionId,sessionKeyId:credential.keyId,sessionDigest:credential.digest,csrfDigest:accountCsrfDigest(sessionId,csrf,hmacKeyring).digest,deviceLabel:input.deviceLabel,userAgentDigest:accountUserAgentDigest(input.hostname,input.userAgent,hmacKeyring).digest,correlationId:correlation("phone_verify",sessionId)});
+        const accountCandidates=challenge.bindAccount?requiredCredentials(input.challengeCookie):[];
+        const result=await repository.verifyPhone({hostname:input.hostname,now:current,challengeId:challenge.challengeId,phoneDigest:phoneRecipientDigest(challenge.phone,hmacKeyring,challenge.hmacKeyId).digest,codeDigest:phoneCodeDigest({hostname:input.hostname,phone:challenge.phone,challengeId:challenge.challengeId,code:input.code},hmacKeyring,challenge.hmacKeyId).digest,phone:challenge.phone,...(challenge.firstName!==undefined?{firstName:challenge.firstName,lastName:challenge.lastName!}:{}),...(accountCandidates.length>0?{candidates:accountCandidates}:{}),customerId:uuid(randomUuid),accountId:uuid(randomUuid),sessionId,sessionKeyId:credential.keyId,sessionDigest:credential.digest,csrfDigest:accountCsrfDigest(sessionId,csrf,hmacKeyring).digest,deviceLabel:input.deviceLabel,userAgentDigest:accountUserAgentDigest(input.hostname,input.userAgent,hmacKeyring).digest,correlationId:correlation("phone_verify",sessionId)});
         return Object.freeze({result,setCookies:Object.freeze([serializeAccountCookie(credential.value),serializeCsrf(csrf),serializeAccountChallengeCookieDeletion()])});
       }
       const ticketAuthority = "ticket" in input ? openAccountMagicTicket(input.ticket, sealKeyring) : null;

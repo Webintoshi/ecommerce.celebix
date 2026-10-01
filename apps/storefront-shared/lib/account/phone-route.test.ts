@@ -16,3 +16,15 @@ test("invalid combinations, foreign origins and unavailable WhatsApp never call 
  let calls=0;const post=route(async()=>{calls++;throw new Error();});for(const body of [{phone:"+904526060552",email:"test@example.test"},{phone:"+904526060552",firstName:"Cemo"},{phone:"+904526060552",firstName:"Cemo",lastName:"Test",storeId:"x"}])assert.equal((await post(request(body))).status,400);
  assert.equal((await post(request({phone:"+904526060552"},"https://other.example"))).status,400);assert.equal((await route(async()=>{calls++;throw new Error();},false)(request({phone:"+904526060552"}))).status,503);assert.equal(calls,0);
 });
+
+test("phone binding start requires CSRF and forwards only server cookies",async()=>{
+ let value:unknown; const post=route(async input=>{value=input;return{result:{outcome:"accepted",retryAfterSeconds:60,deliveryRequired:true},setCookie:"test-cookie"};});
+ assert.equal((await post(request({phone:"+904526060552",bindPhone:true}))).status,403);
+ assert.equal((await post(request({phone:"+904526060552",bindPhone:false}))).status,400);
+ const selected=request({phone:"+904526060552",bindPhone:true});
+ selected.headers.set("cookie","__Host-celebix_account_csrf=csrf-test; __Host-celebix_account=account-test");
+ selected.headers.set("x-celebix-account-csrf","csrf-test");
+ assert.equal((await post(selected)).status,200);
+ assert.equal((value as {bindPhone?:boolean}).bindPhone,true);
+ assert.equal((value as {cookieHeader:string}).cookieHeader,selected.headers.get("cookie"));
+});

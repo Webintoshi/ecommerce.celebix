@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { StorefrontIdentityRepository } from "@celebix/saas-data";
-import { parseStorefrontIdentityKeyring } from "./credential.ts";
+import { accountCredentialDigestCandidates, createAccountSessionCredential, parseStorefrontIdentityKeyring } from "./credential.ts";
 import { createStorefrontIdentityRuntime } from "./runtime.ts";
 const HOST="alpler-spor.saas-staging.celebix.net";
 const keyring=parseStorefrontIdentityKeyring("phone_01",JSON.stringify([{keyId:"phone_01",key:Buffer.alloc(32,8).toString("base64url")} ]));
@@ -32,4 +32,31 @@ test("sealed phone challenge cannot be verified on another store hostname",async
 test("email delivery respects new database disposition instead of dispatching rate-limited mail",async()=>{
   let sends=0;const {runtime}=setup({startEmail:async()=>({outcome:"accepted",retryAfterSeconds:300,deliveryRequired:false})});
   const result=await runtime.start({...input,email:"cemo@example.test"});assert.equal(result.setCookie,"");assert.equal(result.result.deliveryRequired,false);assert.equal(sends,0);
+});
+
+test("explicit phone binding derives existing account authority from the HttpOnly account cookie", async () => {
+  const session=createAccountSessionCredential(keyring,size=>new Uint8Array(size).fill(9));
+  const cookieHeader=`__Host-celebix_account=${session.value}`;
+  const {runtime,calls}=setup({session:async()=>({outcome:"found",snapshot:{profile:{email:"test@example.test",phone:"+904526060552"}}})});
+  const started=await runtime.startPhone!({...input,bindPhone:true,cookieHeader});
+  await runtime.verify({hostname:HOST,challengeCookie:`${started.setCookie.split(';')[0]}; __Host-celebix_account=${session.value}`,code:"000001",deviceLabel:"test",userAgent:"test"});
+  assert.deepEqual(calls.find(call=>call.kind==="verify")?.candidates,accountCredentialDigestCandidates(session.value,keyring));
+});
+
+test("generic phone login never binds an account from a stale or unrelated session cookie", async () => {
+  const {runtime,calls}=setup();
+  const started=await runtime.startPhone!(input);
+  const session=createAccountSessionCredential(keyring,size=>new Uint8Array(size).fill(9));
+  await runtime.verify({hostname:HOST,challengeCookie:`${started.setCookie.split(';')[0]}; __Host-celebix_account=${session.value}`,code:"000001",deviceLabel:"test",userAgent:"test"});
+  assert.equal(Object.hasOwn(calls.find(call=>call.kind==="verify")!,"candidates"),false);
+});
+
+test("binding requires the current full account and its unchanged profile phone before delivery", async () => {
+  let delivered=0;
+  for(const session of [{outcome:"unauthenticated"},{outcome:"profile_required"},{outcome:"found",snapshot:{profile:{email:"test@example.test",phone:"+905551112233"}}}]) {
+    const {runtime,calls}=setup({session:async()=>session},async()=>{delivered++;});
+    await assert.rejects(runtime.startPhone!({...input,bindPhone:true,cookieHeader:"__Host-celebix_account=a1.phone_01."+Buffer.alloc(32,9).toString("base64url")}));
+    assert.equal(calls.length,0);
+  }
+  assert.equal(delivered,0);
 });

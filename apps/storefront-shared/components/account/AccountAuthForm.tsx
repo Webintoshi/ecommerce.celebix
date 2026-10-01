@@ -7,13 +7,15 @@ import { AccountAuthRequestError, postAccountAuth, startAccountPhoneChallenge } 
 import { accountPhoneStartBody, accountRetryDeadline, accountRetryRemaining, maskAccountEmail, maskAccountPhone } from "./account-auth-view-model.ts";
 import styles from "./account-auth.module.css";
 
-type AccountAuthFormProps = Readonly<{ mode: "phone" | "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
+type AccountAuthFormProps = Readonly<{ mode: "phone" | "email"; returnTo: string }>
+  | Readonly<{ mode: "phone-binding"; returnTo: string; initialPhone: string }>
+  | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
 
 function ActionArrow() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>;
 }
 
-function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: boolean; returnTo: string }>) {
+function AccountSignInForm({ phoneEnabled, returnTo, bindingPhone }: Readonly<{ phoneEnabled: boolean; returnTo: string; bindingPhone?: string }>) {
   const [channel, setChannel] = useState<"phone" | "email">(phoneEnabled ? "phone" : "email");
   const [country, setCountry] = useState(PHONE_COUNTRIES[0]!);
   const [nationalNumber, setNationalNumber] = useState("");
@@ -30,7 +32,7 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   const emailRef = useRef<HTMLInputElement>(null);
   const emailConfirmationRef = useRef<HTMLHeadingElement>(null);
   const focusNext = useRef<"phone" | "email" | null>(null);
-  const phone = composePhoneNumber(country.country, nationalNumber);
+  const phone = bindingPhone ?? composePhoneNumber(country.country, nationalNumber);
   const internationalEntry = nationalNumber.startsWith("+");
   const retry = accountRetryRemaining(deadline, now);
 
@@ -71,7 +73,7 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
     setBusy(true); setStatus("");
     try {
       const payload = channel === "phone"
-        ? await startAccountPhoneChallenge(accountPhoneStartBody({ phone, returnTo }))
+        ? await startAccountPhoneChallenge({ ...accountPhoneStartBody({ phone, returnTo }), ...(bindingPhone ? { bindPhone: true as const } : {}) })
         : await postAccountAuth("/api/account/auth/start", { email, returnTo });
       setSent(true);
       if (channel === "phone" && !sent) setCode("");
@@ -124,9 +126,18 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
       <button className={styles.primaryButton} type="submit" disabled={busy || code.length !== 6}>{busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}</button>
     </form>
     <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
-    <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setStatus(""); }}>Telefonu değiştir</button>
+    {!bindingPhone ? <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setStatus(""); }}>Telefonu değiştir</button> : null}
     <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
+
+  if (bindingPhone) return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
+    <div className={styles.stepIntro}><h1>Telefonunu doğrula</h1><p>Hesabındaki numarayı WhatsApp ile giriş için doğrula.</p></div>
+    <label className={styles.field}><span>Telefon numarası</span><input className={styles.input} name="phone" type="tel" autoComplete="tel" readOnly disabled={busy} value={phone} aria-describedby="account-phone-transport" /></label>
+    <p className={styles.transport} id="account-phone-transport">Doğrulama kodun bu numaraya WhatsApp üzerinden gönderilecek.</p>
+    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Kod gönder"}</button>
+    {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </form>;
 
   return <form className={`${styles.form} ${styles.entryForm}`} method="post" onSubmit={send} aria-busy={busy}>
     <div className={styles.stepIntro}><h1 className={styles.welcomeTitle}>HOŞ GELDİN.</h1><p>Telefon numaranla giriş yap veya üye ol.</p></div>
@@ -180,5 +191,7 @@ function EmailTicketVerify({ returnTo, ticket }: Readonly<{ returnTo: string; ti
 }
 
 export function AccountAuthForm(props: AccountAuthFormProps) {
-  return props.mode === "verify" ? <EmailTicketVerify returnTo={props.returnTo} ticket={props.ticket} /> : <AccountSignInForm phoneEnabled={props.mode === "phone"} returnTo={props.returnTo} />;
+  if (props.mode === "verify") return <EmailTicketVerify returnTo={props.returnTo} ticket={props.ticket} />;
+  if (props.mode === "phone-binding") return <AccountSignInForm phoneEnabled returnTo={props.returnTo} bindingPhone={props.initialPhone} />;
+  return <AccountSignInForm phoneEnabled={props.mode === "phone"} returnTo={props.returnTo} />;
 }

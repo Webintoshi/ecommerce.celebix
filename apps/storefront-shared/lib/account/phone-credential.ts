@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHmac } from "node:crypto";
 import type { StorefrontIdentityKeyring } from "./credential.ts";
 import { normalizeStorefrontAccountPhone } from "./phone.ts";
 
-export type PhoneChallenge = Readonly<{ challengeId:string; hostname:string; phone:string; firstName?:string; lastName?:string; expiresAt:string; hmacKeyId:string }>;
+export type PhoneChallenge = Readonly<{ challengeId:string; hostname:string; phone:string; firstName?:string; lastName?:string; expiresAt:string; hmacKeyId:string; bindAccount?:true }>;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const HOST=/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
 const ENVELOPE=/^ph1[.]([a-z][a-z0-9_-]{2,31})[.]([A-Za-z0-9_-]{16})[.]([A-Za-z0-9_-]{1,2048})[.]([A-Za-z0-9_-]{22})$/u;
@@ -22,9 +22,10 @@ export function phoneCodeDigest(input:Readonly<{hostname:string;phone:string;cha
 function parse(value:unknown):PhoneChallenge|null {
   try {
     if(typeof value!=="object"||value===null||Array.isArray(value))return null;
-    const p=value as Record<string,unknown>; const allowed=["challengeId","hostname","phone","firstName","lastName","expiresAt","hmacKeyId"];
+    const p=value as Record<string,unknown>; const allowed=["challengeId","hostname","phone","firstName","lastName","expiresAt","hmacKeyId","bindAccount"];
     if(Object.keys(p).some(k=>!allowed.includes(k))||typeof p.challengeId!=="string"||!UUID.test(p.challengeId)||typeof p.hostname!=="string"||hostname(p.hostname)!==p.hostname||typeof p.phone!=="string"||normalizeStorefrontAccountPhone(p.phone)!==p.phone||typeof p.hmacKeyId!=="string"||!/^[a-z][a-z0-9_-]{2,31}$/u.test(p.hmacKeyId)||typeof p.expiresAt!=="string"||new Date(p.expiresAt).toISOString()!==p.expiresAt)return null;
     if((p.firstName===undefined)!==(p.lastName===undefined))return null;
+    if(Object.hasOwn(p,"bindAccount") && p.bindAccount!==true)return null;
     for(const field of [p.firstName,p.lastName]) if(field!==undefined && (typeof field!=="string"||field!==field.trim()||field.length<1||field.length>100||/[\u0000-\u001f\u007f-\u009f]/u.test(field)))return null;
     return Object.freeze({...p}) as PhoneChallenge;
   }catch{return null;}

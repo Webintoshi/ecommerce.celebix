@@ -88,6 +88,56 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     }));
   });
 
+  test("account phone binding waits for a click, fixes the current phone and preserves a rejected code", async () => {
+    const calls: unknown[] = [];
+    await withFetch(async (path, options) => {
+      assert.equal(options?.credentials, "same-origin");
+      const body = JSON.parse(String(options?.body));
+      calls.push({ path, body });
+      if (path === "/api/account/auth/start") assert.equal(new Headers(options?.headers).get("x-celebix-account-csrf"), "c".repeat(43));
+      return path === "/api/account/auth/start"
+        ? Response.json({ deliveryRequired: true, retryAfterSeconds: 60 })
+        : Response.json({ message: "Kod geçersiz veya süresi dolmuş." }, { status: 401 });
+    }, () => withProductBrowser(async ({ container, render, change, click }) => {
+      document.cookie = `__Host-celebix_account_csrf=${"c".repeat(43)}; Path=/; Secure`;
+      await render(React.createElement(AccountAuthForm, { mode: "phone-binding", initialPhone: "+905551112233", returnTo: "/account/profile" }));
+      assert.equal(calls.length, 0);
+      const phone = container.querySelector('input[type="tel"]') as HTMLInputElement;
+      assert.ok(phone);
+      assert.equal(phone.value, "+905551112233");
+      assert.equal(phone.readOnly, true);
+      assert.equal(container.querySelector("select"), null);
+      assert.equal(container.querySelector('input[type="email"]'), null);
+      assert.doesNotMatch(container.textContent ?? "", /E-posta ile giriş|üye ol/u);
+      await click('button[type="submit"]');
+      assert.deepEqual(calls, [{ path: "/api/account/auth/start", body: { phone: "+905551112233", returnTo: "/account/profile", bindPhone: true } }]);
+      assert.equal(document.activeElement, container.querySelector('input[autocomplete="one-time-code"]'));
+      assert.equal(container.querySelector('[data-auth-change="phone"]'), null);
+      await change('input[autocomplete="one-time-code"]', "123456");
+      await click('button[type="submit"]');
+      assert.deepEqual(calls[1], { path: "/api/account/auth/verify", body: { code: "123456", returnTo: "/account/profile" } });
+      const code = container.querySelector('input[autocomplete="one-time-code"]') as HTMLInputElement;
+      assert.equal(code.value, "123456");
+      assert.equal(code.disabled, false);
+      assert.match(container.textContent ?? "", /Kod geçersiz/u);
+    }));
+  });
+
+  test("successful account phone binding returns to the profile", async () => {
+    await withFetch(async (path) => path === "/api/account/auth/start"
+      ? Response.json({ deliveryRequired: true, retryAfterSeconds: 60 })
+      : Response.json({ outcome: "authenticated", profileRequired: false, destination: "/account/profile" }), () => withProductBrowser(async ({ container, render, change, click }) => {
+      let navigated = "";
+      window.location.assign = (value) => { navigated = String(value); };
+      await render(React.createElement(AccountAuthForm, { mode: "phone-binding", initialPhone: "+447911123456", returnTo: "/account/profile" }));
+      await click('button[type="submit"]');
+      await change('input[autocomplete="one-time-code"]', "123456");
+      await click('button[type="submit"]');
+      assert.equal(navigated, "/account/profile");
+      assert.equal((container.querySelector('input[autocomplete="one-time-code"]') as HTMLInputElement).disabled, true);
+    }));
+  });
+
   test("throttled phone starts keep customer input and show the actual retry duration", async () => {
     await withFetch(async () => Response.json({ code: "rate_limited", message: "Daha sonra deneyin.", retryAfterSeconds: 123 }, { status: 429 }), () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));

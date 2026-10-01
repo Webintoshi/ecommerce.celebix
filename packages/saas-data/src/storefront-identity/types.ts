@@ -25,6 +25,7 @@ export type StorefrontPhoneVerifyInput = Authority & Readonly<{
   firstName?: string; lastName?: string; customerId: string; accountId: string;
   sessionId: string; sessionKeyId: string; sessionDigest: string; csrfDigest: string;
   deviceLabel: string; userAgentDigest: string; correlationId: string;
+  candidates?: readonly StorefrontCredentialCandidate[];
 }>;
 export type StorefrontPhoneDeliveryInput = Authority & Readonly<{
   challengeId: string; phoneDigest: string; accepted: boolean;

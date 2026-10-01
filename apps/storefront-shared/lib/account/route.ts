@@ -47,7 +47,7 @@ function failure(error: unknown): Response {
   if (code === "account_suspended") return json({ code, message: "Bu hesap şu anda kullanılamıyor." }, 403);
   if (code === "invalid_input") return json({ code, message: "Bilgileri kontrol edin." }, 400);
   if (code === "not_found") return json({ code, message: "Kayıt bulunamadı." }, 404);
-  if (code === "identity_conflict") return json({code,message:"Bu telefon mevcut bir müşteri kaydıyla eşleşiyor. Hesabınızı güvenle bağlamak için mağazayla iletişime geçin veya mevcut e-posta hesabınızla giriş yapın."},409);
+  if (code === "identity_conflict") return json({code,message:"Bu telefon mevcut bir müşteri kaydıyla eşleşiyor. Mevcut e-posta hesabınızla giriş yapıp Profil bölümünden telefonunuzu WhatsApp ile doğrulayın. E-posta hesabınız yoksa mağazayla iletişime geçin."},409);
   if (["version_conflict", "operation_mismatch"].includes(code)) return json({ code, message: "Bilgiler değişti. Sayfayı yenileyip tekrar deneyin." }, 409);
   return json({ code: "unavailable", message: "İşlem şu anda tamamlanamadı. Lütfen tekrar deneyin." }, 503);
 }
@@ -64,20 +64,22 @@ function requireCsrf(request: Request): Response | null { return csrf(request) ?
 export function createAccountAuthStartRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return json({ code: "unavailable", message: "İşlem şu anda tamamlanamadı. Lütfen tekrar deneyin." }, 503);
-    let input: ({email:string}|{phone:string;firstName?:string;lastName?:string}) & {returnTo:string};
+    let input: ({email:string}|{phone:string;firstName?:string;lastName?:string;bindPhone?:true}) & {returnTo:string};
     try { input = await readAccountJsonRequest(request, selected.origin, (value) => {
-      const p=exact(value,[],["email","phone","firstName","lastName","returnTo"]);
+      const p=exact(value,[],["email","phone","firstName","lastName","bindPhone","returnTo"]);
       if(Object.hasOwn(p,"email")===Object.hasOwn(p,"phone"))invalid();
       const returnTo=Object.hasOwn(p,"returnTo")?safeAccountReturnTo(p.returnTo):"/account";
-      if(Object.hasOwn(p,"email")){if(Object.hasOwn(p,"firstName")||Object.hasOwn(p,"lastName"))invalid();return{email:normalizeStorefrontAccountEmail(p.email),returnTo};}
+      if(Object.hasOwn(p,"email")){if(Object.hasOwn(p,"firstName")||Object.hasOwn(p,"lastName")||Object.hasOwn(p,"bindPhone"))invalid();return{email:normalizeStorefrontAccountEmail(p.email),returnTo};}
       if(Object.hasOwn(p,"firstName")!==Object.hasOwn(p,"lastName"))invalid();
-      return{phone:normalizeStorefrontAccountPhone(p.phone),...(Object.hasOwn(p,"firstName")?{firstName:text(p.firstName,1,100),lastName:text(p.lastName,1,100)}:{}),returnTo};
+      if(Object.hasOwn(p,"bindPhone") && p.bindPhone!==true)invalid();
+      return{phone:normalizeStorefrontAccountPhone(p.phone),...(Object.hasOwn(p,"firstName")?{firstName:text(p.firstName,1,100),lastName:text(p.lastName,1,100)}:{}),...(p.bindPhone===true?{bindPhone:true as const}:{}),returnTo};
     }); } catch { return failure(new TypeError()); }
+    if("phone" in input && input.bindPhone) {const csrfFailure=requireCsrf(request);if(csrfFailure)return csrfFailure;}
     const [runtime, brand] = await Promise.all([selectedRuntime(dependencies), dependencies.resolveBrand(selected.hostname).catch(() => null)]); if (!runtime || !brand) return failure(new Error());
     try {
       const base={hostname:selected.hostname,requestAuthority:dependencies.requestAuthority(request.headers),returnTo:input.returnTo,brand};
       if("phone" in input && (!runtime.whatsappEnabled||!runtime.startPhone))return failure(new Error());
-      const result="phone" in input?await runtime.startPhone!({...base,...input}):await runtime.start({...base,email:input.email});
+      const result="phone" in input?await runtime.startPhone!({...base,...input,...(input.bindPhone?{cookieHeader:request.headers.get("cookie")}:{} )}):await runtime.start({...base,email:input.email});
       if(result.result.deliveryRequired===false){const limited=json({code:"rate_limited",message:"Yeni kod istemeden önce lütfen bekleyin.",retryAfterSeconds:result.result.retryAfterSeconds},429);limited.headers.set("retry-after",String(result.result.retryAfterSeconds));return limited;}
       return json({ ...result.result, message: "phone" in input?"Doğrulama kodu WhatsApp gönderimi için kabul edildi.":"Giriş bağlantısı gönderildi. Gelen kutunuzu kontrol edin.", returnTo: input.returnTo }, 200, result.setCookie?[result.setCookie]:[]);
     } catch (error) { return failure(error); }

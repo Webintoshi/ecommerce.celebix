@@ -25,6 +25,28 @@ test("HTTP429 preserves the server retry duration instead of converting it into 
   });
 });
 
+test("only an explicit phone binding start sends the existing account CSRF cookie", async () => {
+  const previous = globalThis.document;
+  const token = "c".repeat(43);
+  globalThis.document = { cookie: `unrelated=example; __Host-celebix_account_csrf=${token}` } as Document;
+  try {
+    await client.startAccountPhoneChallenge({ phone: "+905551112233", returnTo: "/account/profile", bindPhone: true }, async (_path, options) => {
+      assert.equal(new Headers(options?.headers).get("x-celebix-account-csrf"), token);
+      assert.equal(JSON.parse(String(options?.body)).bindPhone, true);
+      return Response.json({ deliveryRequired: true });
+    });
+    await client.startAccountPhoneChallenge({ phone: "+905551112233", returnTo: "/account" }, async (_path, options) => {
+      assert.equal(new Headers(options?.headers).has("x-celebix-account-csrf"), false);
+      assert.equal(Object.hasOwn(JSON.parse(String(options?.body)), "bindPhone"), false);
+      return Response.json({ deliveryRequired: true });
+    });
+    await client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/account/profile" }, async (_path, options) => {
+      assert.equal(new Headers(options?.headers).has("x-celebix-account-csrf"), false);
+      return Response.json({ destination: "/account/profile" });
+    });
+  } finally { globalThis.document = previous; }
+});
+
 test("verification sends only the code and return path and exposes the confirmed destination", async () => {
   const result = await client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/account/orders" }, async (path, options) => {
     assert.equal(path, "/api/account/auth/verify");

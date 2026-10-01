@@ -111,3 +111,21 @@ test("rejected phone verification persists attempts instead of rolling them back
   await assert.rejects(repository(new Pool([client])).verifyPhone({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, codeDigest: DIGESTS.code, phone: "+905551112233", customerId: UUIDS.outbox, accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_phone_083" }), /challenge_invalid/u);
   assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
+
+test("phone binding passes the existing account's credential digests to the authenticated verifier", async () => {
+  const client = new Client(responder("authenticated", { profileRequired: false }));
+  await repository(new Pool([client])).verifyPhone({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, codeDigest: DIGESTS.code, phone: "+905551112233", customerId: UUIDS.outbox, accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_phone_083", candidates: CANDIDATES });
+  const call = client.calls.find(({ text }) => text.includes("saas.public_account_auth_verify_phone"));
+  assert.match(call?.text ?? "", /public_account_auth_verify_phone_v2/u);
+  assert.equal(call?.values.length, 18);
+  assert.deepEqual(JSON.parse(call!.values[17] as string), CANDIDATES);
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+});
+
+test("anonymous phone verification keeps the existing database interface", async () => {
+  const client = new Client(responder("profile_required", { profileRequired: true }));
+  await repository(new Pool([client])).verifyPhone({ hostname: HOST, now: NOW, challengeId: UUIDS.challenge, phoneDigest: DIGESTS.email, codeDigest: DIGESTS.code, phone: "+905551112233", customerId: UUIDS.outbox, accountId: UUIDS.account, sessionId: UUIDS.session, sessionKeyId: "session_01", sessionDigest: DIGESTS.session, csrfDigest: DIGESTS.csrf, deviceLabel: "Safari", userAgentDigest: DIGESTS.userAgent, correlationId: "verify_phone_083" });
+  const call = client.calls.find(({ text }) => text.includes("saas.public_account_auth_verify_phone"));
+  assert.match(call?.text ?? "", /public_account_auth_verify_phone\(/u);
+  assert.equal(call?.values.length, 17);
+});
