@@ -120,7 +120,7 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   }
 
   if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
-    <div className={styles.stepIntro}><span className={styles.stepLabel}>02 / 03 · TELEFON DOĞRULAMA</span><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
+    <div className={styles.stepIntro}><span className={styles.stepLabel}>TELEFON DOĞRULAMA</span><h2>WhatsApp kodunu gir</h2><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
     <form className={styles.form} onSubmit={verifyPhone}>
       <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" aria-describedby="account-code-help" /></label>
       <p className={styles.transport} id="account-code-help">Kodu mesajdan yapıştırabilir veya otomatik doldurabilirsiniz.</p>
@@ -132,7 +132,7 @@ function AccountSignInForm({ phoneEnabled, returnTo }: Readonly<{ phoneEnabled: 
   </div>;
 
   return <form className={styles.form} onSubmit={send} aria-busy={busy}>
-    <div className={styles.stepIntro}><span className={styles.stepLabel}>01 / 03 · HESAP ERİŞİMİ</span><h2>Telefonunla devam et</h2><p>Numaranı yaz; güvenli giriş kodunu WhatsApp üzerinden gönderelim.</p></div>
+    <div className={styles.stepIntro}><span className={styles.stepLabel}>HESAP ERİŞİMİ</span><h2>Telefonunla devam et</h2><p>Numaranı yaz; güvenli giriş kodunu WhatsApp üzerinden gönderelim.</p></div>
     <div className={styles.field}><label htmlFor="account-phone-number">Telefon numarası</label><div className={styles.phoneFrame}>
       <div className={styles.phoneCountry}>
         <span className={styles.phoneCountryVisual} aria-hidden="true"><span>{internationalEntry ? "🌐" : country.flag}</span><svg viewBox="0 0 16 16" fill="none"><path d="m4 6 4 4 4-4" /></svg></span>

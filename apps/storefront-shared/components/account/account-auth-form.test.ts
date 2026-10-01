@@ -32,6 +32,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       assert.equal(container.querySelector('input[autocomplete="family-name"]'), null);
       assert.equal(container.querySelector('input[type="email"]'), null);
       assert.equal(container.querySelector('[data-auth-switch]'), null);
+      assert.doesNotMatch(container.textContent ?? "", /01\s*\/\s*03/u);
       assert.equal((container.querySelector('select[aria-label="Telefon ülke kodu"]') as HTMLSelectElement).value, "TR");
       await change('input[type="tel"]', "5551112233");
       await click('button[type="submit"]');
@@ -40,6 +41,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       assert.equal(document.activeElement, code);
       assert.match(container.textContent ?? "", /\+90 5\*\* \*\*\* 22 33/u);
       assert.match(container.textContent ?? "", /Tekrar gönder \(60/u);
+      assert.doesNotMatch(container.textContent ?? "", /02\s*\/\s*03/u);
     }));
   });
 
