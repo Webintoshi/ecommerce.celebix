@@ -5,7 +5,7 @@ import { StorefrontIdentityRepositoryError } from "@celebix/saas-data";
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 import { normalizeStorefrontAccountEmail } from "./email.ts";
 import { normalizeStorefrontAccountPhone } from "./phone.ts";
-import { readAccountFormRequest, readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
+import { accountProfileCompletionDestination, readAccountFormRequest, readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
 import type { StorefrontIdentityRuntime } from "./runtime.ts";
 
 type Brand = Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }>;
@@ -101,7 +101,7 @@ export function createAccountAuthVerifyRoute(dependencies: Dependencies) {
     try {
       const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
       const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
-      return json({ ...result.result, destination: result.result.profileRequired ? "/account/profile" : input.returnTo }, 200, result.setCookies);
+      return json({ ...result.result, destination: result.result.profileRequired ? accountProfileCompletionDestination(input.returnTo) : input.returnTo }, 200, result.setCookies);
     } catch (error) { return failure(error); }
   };
 }
@@ -123,7 +123,7 @@ export function createAccountAuthVerifyBrowserRoute(dependencies: Dependencies) 
     try {
       const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
       const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
-      const destination = result.result.profileRequired ? "/account/profile" : input.returnTo;
+      const destination = result.result.profileRequired ? accountProfileCompletionDestination(input.returnTo) : input.returnTo;
       const headers = new Headers({ "cache-control": "no-store, max-age=0", location: `${selected.origin}${destination}`, "referrer-policy": "no-referrer", "x-content-type-options": "nosniff" });
       for (const cookie of result.setCookies) headers.append("set-cookie", cookie);
       return new Response(null, { status: 303, headers });
@@ -134,10 +134,10 @@ export function createAccountAuthVerifyBrowserRoute(dependencies: Dependencies) 
 export function createAccountProfileCompleteRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return failure(new Error()); const csrfFailure = requireCsrf(request); if (csrfFailure) return csrfFailure;
-    let input: { operationId: string; firstName: string; lastName: string; phone?: string };
-    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "firstName", "lastName"], ["phone"]); const operationId = text(p.operationId, 36, 36); if (!UUID.test(operationId)) invalid(); const phone = Object.hasOwn(p, "phone") ? text(p.phone, 9, 16) : undefined; if (phone && !PHONE.test(phone)) invalid(); return { operationId, firstName: text(p.firstName, 1, 100), lastName: text(p.lastName, 1, 100), ...(phone ? { phone } : {}) }; }); } catch { return failure(new TypeError()); }
+    let input: { operationId: string; firstName: string; lastName: string; phone?: string; returnTo: string };
+    try { input = await readAccountJsonRequest(request, selected.origin, (value) => { const p = exact(value, ["operationId", "firstName", "lastName"], ["phone", "returnTo"]); const operationId = text(p.operationId, 36, 36); if (!UUID.test(operationId)) invalid(); const phone = Object.hasOwn(p, "phone") ? text(p.phone, 9, 16) : undefined; if (phone && !PHONE.test(phone)) invalid(); return { operationId, firstName: text(p.firstName, 1, 100), lastName: text(p.lastName, 1, 100), ...(phone ? { phone } : {}), returnTo: Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account" }; }); } catch { return failure(new TypeError()); }
     const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
-    try { const result = await runtime.completeProfile({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...input, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" }); return json({ ...result.result, destination: "/account" }, 200, result.setCookies); } catch (error) { return failure(error); }
+    try { const { returnTo, ...profile } = input; const result = await runtime.completeProfile({ hostname: selected.hostname, cookieHeader: request.headers.get("cookie"), ...profile, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" }); return json({ ...result.result, destination: returnTo }, 200, result.setCookies); } catch (error) { return failure(error); }
   };
 }
 

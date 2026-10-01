@@ -1,4 +1,4 @@
-import { safeAccountReturnTo } from "../../lib/account/request.ts";
+import { validateAccountAuthDestination } from "../../lib/account/request.ts";
 
 export type AccountAuthPublicResponse = Readonly<{
   returnTo?: string;
@@ -30,7 +30,7 @@ export async function postAccountAuth(path: "/api/account/auth/start" | "/api/ac
   if (!response.ok || !payload) {
     throw new AccountAuthRequestError(typeof payload?.message === "string" ? payload.message : "İşlem tamamlanamadı.", payload?.retryAfterSeconds);
   }
-  if (path === "/api/account/auth/verify" && (typeof payload.destination !== "string" || safeAccountReturnTo(payload.destination) !== payload.destination)) {
+  if (path === "/api/account/auth/verify" && validateAccountAuthDestination(payload.destination) === null) {
     throw new AccountAuthRequestError("İşlem tamamlanamadı.");
   }
   return payload;

@@ -4,7 +4,7 @@ import test from "node:test";
 import { StorefrontIdentityRepositoryError } from "@celebix/saas-data";
 
 import type { StorefrontIdentityRuntime } from "./runtime.ts";
-import { createAccountAuthStartRoute, createAccountAuthVerifyBrowserRoute, createAccountAuthVerifyRoute, createAccountLogoutRoute } from "./route.ts";
+import { createAccountAuthStartRoute, createAccountAuthVerifyBrowserRoute, createAccountAuthVerifyRoute, createAccountLogoutRoute, createAccountProfileCompleteRoute } from "./route.ts";
 
 const HOST = "identity-a.saas-staging.celebix.site";
 const ORIGIN = `https://${HOST}`;
@@ -75,8 +75,36 @@ test("browser verify accepts a challenge-bound code and sends profile-required a
   } })));
   const response = await route(formRequest(new URLSearchParams({ code: "042319", returnTo: "/account/orders" }), { cookie: "__Host-celebix_account_challenge=ch1.test" }));
   assert.equal(response.status, 303);
-  assert.equal(response.headers.get("location"), `${ORIGIN}/account/profile`);
+  assert.equal(response.headers.get("location"), `${ORIGIN}/account/profile?returnTo=%2Faccount%2Forders`);
   assert.deepEqual(verifyInput, { hostname: HOST, deviceLabel: "Web tarayıcısı", userAgent: "Bilinmeyen tarayıcı", challengeCookie: "__Host-celebix_account_challenge=ch1.test", code: "042319" });
+});
+
+test("JSON verify preserves checkout through profile completion for pending accounts", async () => {
+  const route = createAccountAuthVerifyRoute(deps(runtime({ verify: async () => ({ result: { outcome: "profile_required", profileRequired: true }, setCookies: [] }) })));
+  const response = await route(request("/api/account/auth/verify", { code: "042319", returnTo: "/checkout" }));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).destination, "/account/profile?returnTo=%2Fcheckout");
+});
+
+test("profile completion returns safe target without passing returnTo to the runtime", async () => {
+  const inputs: unknown[] = [];
+  const route = createAccountProfileCompleteRoute(deps(runtime({ completeProfile: async (input) => {
+    inputs.push(input);
+    return { result: { outcome: "updated", version: 1, replayed: false }, setCookies: [] };
+  } })));
+  const headers = { cookie: "__Host-celebix_account_csrf=csrf", "x-celebix-account-csrf": "csrf" };
+  const base = { operationId: "b5d3edb7-8657-4dce-90d9-38c95d84c931", firstName: "Ada", lastName: "Yılmaz" };
+  const checkout = await route(request("/api/account/profile/complete", { ...base, returnTo: "/checkout" }, headers));
+  assert.equal(checkout.status, 200);
+  assert.equal((await checkout.json()).destination, "/checkout");
+  assert.equal(Object.hasOwn(inputs[0] as object, "returnTo"), false);
+  const legacy = await route(request("/api/account/profile/complete", { ...base, phone: "+905551112233" }, headers));
+  assert.equal(legacy.status, 200);
+  assert.equal((await legacy.json()).destination, "/account");
+  assert.equal((inputs[1] as { phone: string }).phone, "+905551112233");
+  const hostile = await route(request("/api/account/profile/complete", { ...base, returnTo: "//evil.example" }, headers));
+  assert.equal(hostile.status, 200);
+  assert.equal((await hostile.json()).destination, "/account");
 });
 
 test("browser verify accepts the internal request URL only after the edge-selected public origin matches", async () => {
