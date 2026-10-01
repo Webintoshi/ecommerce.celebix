@@ -42,4 +42,15 @@ Panel `Ayarlarınız başarıyla kayıt edilmiştir` sonucunu ve yeni adresi gö
 
 Ortak storefront kaynakları güncel `e8820fa` checkout/telefon çalışması üzerine hazırlanır. Coolify'nin resmi deployment queue'u, ortak yayın kilidi, boş kuyruk kontrolü, şifreli ayar yedeği, dar pin/onay satırı değişikliği ve preview satırı koruması kullanılır. NET/SITE sıralı yayımlanır; ödeme bayrakları ve sağlayıcı sırları korunur. Customer-panel ve owner kaynak pinleri bu storefront acil yayınının kapsamı dışındadır.
 
-Canlı kabulde derlenmiş canonical yetki → DB onayı eşleşmesi, ödeme runtime'ı ve ödeme ekranı ayrıca doğrulanmalıdır. Gerçek kart tahsilatı bu teknik ekran testinden ayrı bir işlemdir.
+## Canlı kabul — tamamlandı
+
+- Yayımlanan uygulama kaynağı: `7fe154189ca665e562452a3433b05cb09876c3d4`.
+- NET dağıtımı `i9yneb1x1062a5n5axhcov4g`, SITE dağıtımı `hsp7bcxxqwbfwjglm35jloy2`: ikisi de `finished`; çalışan container image'ları bu SHA ile eşleşiyor.
+- Korumalı yayın doğrulaması: `status: verified`, `targetCount: 2`, `globalIdle: true`; diğer ayar ve preview satırları korunmuştur.
+- SITE container'ındaki generated metadata gerçek yeni uygulama SHA'sını ve incelenmiş adaptör source manifestini taşıyor. Derlenmiş TEST/LIVE execution kimlikleri mevcut kayıtlı kimliklerdir.
+- Canlı uygulama bağlantısıyla `BEGIN READ ONLY` / `celebix_saas_workflow` rolü altında TEST ve LIVE DB eşleşmeleri **true**.
+- Aynı gerçek runtime kontrolü yayından önce `hostedPayment: false`, yeni container'da **`hostedPayment: true`** döndü.
+- Güzide'nin mevcut LIVE şifreli profilini uygulamanın mevcut anahtarıyla yalnız bellekte açarak, mevcut bounded transport/adaptör üzerinden teknik get-token isteği gönderildi: HTTP 200, `status: success`. Ödeme ekranı Chrome'da açıldı; kart sahibi, kart numarası, tarih, CVV ve ödeme düğmesi görünür.
+- Bu sağlayıcı testi sentetik `CV` referansı ve 1 TL doğrulama tutarı kullanır. Veritabanına sipariş/deneme yazmaz, stok ayırmaz/düşürmez, kart bilgisi girmez ve tahsilat yapmaz. Gerçek checkout formu → sipariş → kart tahsilatı → başarılı callback uçtan uca zinciri bu testin kapsamı değildir.
+- Teknik profil kopyası yalnız şifreli olarak geçici dosyada tutuldu; teşhis sonunda container/host kopyaları kaldırıldı. Credential, HMAC ve token loglanmadı.
+- Görüntüler: `.tmp/paytr-runtime-hotfix/paytr-callback.jpg` (kaydedilmiş bildirim URL'si) ve `.tmp/paytr-runtime-hotfix/paytr-payment-form.jpg` (açılan teknik ödeme ekranı).
