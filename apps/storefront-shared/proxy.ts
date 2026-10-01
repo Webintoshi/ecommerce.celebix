@@ -7,12 +7,19 @@ import { resolveDefaultCheckoutPaymentRuntime } from "./lib/checkout/runtime.ts"
 import { digestRedemptionCredential, parseRedemptionCookie } from "./lib/checkout/redemption-cookie.ts";
 import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authority.ts";
 import { createCanonicalStorefrontLocation } from "./lib/custom-domain-canonicalization.ts";
+import { hostedPaymentFrameSources } from "./lib/checkout/paytr-frame-policy.ts";
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
-const PAYTR_IFRAME_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
-const STANDARD_PAYTR_IFRAME_CSP = "default-src 'none'; frame-src https://www.paytr.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store, no-transform", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
 const PAYTR_HOSTED_RETURN_SEARCHES = new Set(["?durum=basarili", "?durum=basarisiz", "?durum=isleniyor"]);
+
+function paytrIframeCsp(hostname: string, standard: boolean): string {
+  const frameSources = hostedPaymentFrameSources("https://www.paytr.com", hostname);
+  if (frameSources === null) return FALLBACK_CSP;
+  return standard
+    ? `default-src 'none'; frame-src ${frameSources}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'`
+    : `default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src ${frameSources}`;
+}
 
 function isPaytrHostedReturnBridge(pathname: string, search: string, hash: string): boolean {
   return pathname === "/odeme/hizli/sonuc" && hash === "" && PAYTR_HOSTED_RETURN_SEARCHES.has(search);
@@ -198,11 +205,11 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const csp = hostedReturnBridgeAuthorized
       ? paytrHostedReturnBridgeCsp(nonce)
       : standardIframeAuthorized
-      ? STANDARD_PAYTR_IFRAME_CSP
+      ? paytrIframeCsp(authority.hostname, true)
       : accountVerificationForm || quickOrderForm
       ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
       : iframeAuthorized
-        ? PAYTR_IFRAME_CSP
+        ? paytrIframeCsp(authority.hostname, false)
         : defaultCsp;
     response.headers.set("content-security-policy", csp);
     applySecurityHeaders(response, { omitFrameOptions: hostedReturnBridgeAuthorized });

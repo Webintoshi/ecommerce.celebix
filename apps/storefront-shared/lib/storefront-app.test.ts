@@ -748,7 +748,7 @@ test("iframe and return routes are token-free browser surfaces and return is not
 test("proxy owns exact checkout form and PayTR iframe CSP while every near-match stays denied", async () => {
   const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
   assert.match(proxy, /form-action https:\/\/\$\{authority[.]hostname\}/);
-  assert.match(proxy, /frame-src https:\/\/www[.]paytr[.]com/);
+  assert.match(proxy, /hostedPaymentFrameSources/);
   assert.match(proxy, /pathname === "\/odeme\/hizli"/);
   assert.match(proxy, /pathname === "\/odeme\/hizli\/odeme"/);
   assert.match(proxy, /search === ""/);
@@ -911,7 +911,7 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
   const request = (target: string, cookie?: string) => new NextRequest(`https://internal.example${target}`, {
     headers: cookie ? { cookie } : undefined,
   });
-  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
+  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com https://inbound.apigateway.vakifbank.com.tr https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc";
   const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
   assert.equal(ready.headers.get("content-security-policy"), exactCsp);
   const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));
@@ -965,11 +965,13 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
   assert.deepEqual(standardCalls, []);
 });
 
-test("standard checkout payment route permits only the exact PayTR frame and keeps fallback CSP closed", async () => {
+test("standard checkout payment route uses the bounded provider frame policy and keeps fallback CSP closed", async () => {
   const route = await readFile(new URL("../app/checkout/payment/route.ts", import.meta.url), "utf8");
   assert.match(route, /Content-Security-Policy/);
   assert.match(route, /const FALLBACK_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'"/);
-  assert.match(route, /frame-src \$\{frameOrigin\}/);
+  assert.match(route, /hostedPaymentFrameSources/);
+  assert.match(route, /frame-src \$\{frameSources\}/);
+  assert.match(route, /hostedPaymentFrameSources\(origin, authority[.]hostname\)/);
   assert.match(route, /new URL\(presentation[.]url\)[.]origin/);
   assert.match(route, /allow="payment"/);
   assert.match(route, /PAYMENT_FRAME_HEADERS[\s\S]*"Referrer-Policy": "origin"/);
@@ -1003,6 +1005,6 @@ test("the token-free iframe route remains a server-only PayTR boundary", async (
   const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
   assert.match(runtime, /<iframe src="\$\{createPaytrIframePresentationUrl\(token\)\}"/);
   assert.doesNotMatch(runtime, /Response[.]json\([^)]*(?:token|sealed)|Location[^\n]+paytr[.]com/i);
-  assert.match(proxy, /frame-src https:\/\/www[.]paytr[.]com/);
+  assert.match(proxy, /hostedPaymentFrameSources/);
   assert.doesNotMatch(proxy, /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i);
 });
