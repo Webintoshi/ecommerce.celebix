@@ -12,6 +12,7 @@ import "../themes/alpler/alpler-mobile.css";
 import "../themes/guzide/guzide.css";
 import "../themes/guzide/guzide-footer.css";
 import "../themes/guzide/guzide-checkout.css";
+import "../themes/alpler/alpler-checkout.css";
 
 export const metadata: Metadata = {
   title: "Celebix Mağaza",

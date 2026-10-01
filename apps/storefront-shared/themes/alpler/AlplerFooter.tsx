@@ -3,6 +3,7 @@ import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStarter
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
 import { alplerFooterLogo, alplerLogoDimensions } from "./logo.ts";
+import { AlplerCheckoutFooter } from "./AlplerCheckoutChrome";
 
 export function AlplerFooter({ storefront, presentation, groups, logo, checkout = false }: Readonly<{
   storefront: PublicStorefront;
@@ -11,7 +12,7 @@ export function AlplerFooter({ storefront, presentation, groups, logo, checkout 
   logo?: PublicDesignMedia;
   checkout?: boolean;
 }>) {
-  if (checkout) return <footer className="alpler-checkout-footer store-container"><span>© {new Date().getUTCFullYear()} {presentation.displayName}</span><nav aria-label="Ödeme bilgileri">{groups.flatMap((group) => group.links).filter((link) => link.destination.startsWith("/policies/")).map((link) => <Link href={localizeStorefrontPath(link.destination, storefront.locale)} key={`${link.destination}-${link.label}`}>{link.label}</Link>)}</nav></footer>;
+  if (checkout) return <AlplerCheckoutFooter groups={groups} storefront={storefront} />;
   const footerLogo = alplerFooterLogo(storefront, logo, presentation.footer.tone);
   const logoDimensions = alplerLogoDimensions(storefront, footerLogo);
   return <footer className="alpler-footer" data-footer-tone={presentation.footer.tone}>

@@ -27,8 +27,9 @@ import {
 import { useHydrated } from "./use-hydrated";
 import Link from "next/link";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
-import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
+import type { CheckoutVisualTheme } from "../lib/checkout-visual-theme.ts";
 import { GuzideCheckoutSummary } from "../themes/guzide/GuzideCheckoutSummary";
+import { AlplerCheckoutSummary } from "../themes/alpler/AlplerCheckoutSummary";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
   name: "",
@@ -52,9 +53,11 @@ export function CheckoutForm({
   intentKind: CheckoutIntentKind;
   initialDraft?: Partial<CheckoutFormDraft>;
   initialNormalizedCodes?: readonly string[];
-  visualTheme?: GuzideVisualTheme;
+  visualTheme?: CheckoutVisualTheme;
   locale?: string;
 }>) {
+  const checkoutPrefix = visualTheme === "alpler-deniz" ? "alpler" : "guzide";
+  const SummaryRail = visualTheme === "alpler-deniz" ? AlplerCheckoutSummary : GuzideCheckoutSummary;
   const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
   const [quote, setQuote] = useState<PublicCheckoutQuote | PublicCheckoutQuoteV2 | null>(null);
@@ -354,7 +357,7 @@ export function CheckoutForm({
       noValidate
     >
       <div className="checkout-form-main">
-        {visualTheme ? <header className="guzide-checkout-intro"><h1>Siparişinizi tamamlayın</h1><p>İletişim ve teslimat bilgilerinizi girin.</p></header> : null}
+        {visualTheme ? <header className={`${checkoutPrefix}-checkout-intro`}><h1>Siparişinizi tamamlayın</h1><p>İletişim ve teslimat bilgilerinizi girin.</p></header> : null}
         <section
           className="checkout-section checkout-contact"
           aria-labelledby="checkout-contact-title"
@@ -569,7 +572,7 @@ export function CheckoutForm({
           </fieldset>
         </section>
       </div>
-      {visualTheme ? <GuzideCheckoutSummary totalCents={summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined} unavailable={summaryState.kind === "unavailable"}>{summary}<p className="guzide-checkout-promotion-link">İndirim kodunuzu <Link href={localizeStorefrontPath("/cart", locale)}>sepetinizde uygulayabilirsiniz</Link>.</p></GuzideCheckoutSummary> : summary}
+      {visualTheme ? <SummaryRail totalCents={summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined} unavailable={summaryState.kind === "unavailable"}>{summary}<p className={`${checkoutPrefix}-checkout-promotion-link`}>İndirim kodunuzu <Link href={localizeStorefrontPath("/cart", locale)}>sepetinizde uygulayabilirsiniz</Link>.</p></SummaryRail> : summary}
       <footer className="checkout-terminal">
         <p className="checkout-status" aria-live="polite">
           {status}
@@ -585,7 +588,7 @@ export function CheckoutForm({
               ? "Güvenli ödemeye geç"
               : "Siparişi tamamla"}
         </button>
-        {visualTheme ? <Link className="guzide-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link> : null}
+        {visualTheme ? <Link className={`${checkoutPrefix}-checkout-return`} href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link> : null}
       </footer>
     </form>
   );
