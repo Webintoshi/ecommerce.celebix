@@ -3,7 +3,16 @@
   width: 100%;
   height: auto;
   max-width: 240px;
-  aspect-ratio: 1;
-  object-fit: contain;
+  aspect-ratio: 9 / 7;
+  stroke: var(--cp-art-outline, var(--cp-graphite));
   pointer-events: none;
 }
+.paper { fill: var(--cp-surface); }
+.base { fill: var(--cp-art-soft, var(--cp-soft)); stroke: none; }
+.tile { fill: var(--cp-art-muted, var(--cp-soft)); stroke: none; }
+.accent { fill: none; stroke: var(--cp-brand); }
+.mutedLine { fill: none; stroke: var(--cp-border); }
+.star { fill: var(--cp-brand); stroke: none; }
+.dot { fill: var(--cp-art-outline, var(--cp-graphite)); stroke: none; }
+.leaf { fill: var(--cp-art-leaf, var(--cp-text-secondary)); stroke: none; }
+.knob { fill: var(--cp-surface); stroke: var(--cp-brand); }

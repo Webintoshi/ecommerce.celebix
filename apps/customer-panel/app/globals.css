@@ -20,6 +20,12 @@
   --cp-danger: #B0473F;
   --cp-warning: #8A6019;
   --cp-overlay: rgba(43, 43, 43, 0.4);
+  /* Approved dashboard outline illustration palette. */
+  --cp-art-outline: #303B56;
+  --cp-art-soft: #F0F1F5;
+  --cp-art-muted: #E8EAF0;
+  --cp-art-peach: #FFF0E9;
+  --cp-art-leaf: #67988A;
   --hemenaku-orange: #FF6A00;
   --hemenaku-orange-dark: #E85D04;
   --hemenaku-canvas: #F9F9F9;

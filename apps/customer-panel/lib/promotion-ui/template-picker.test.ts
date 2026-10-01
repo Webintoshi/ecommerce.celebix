@@ -7,15 +7,16 @@ import { PROMOTION_TEMPLATES } from "./model.ts";
 const { PromotionTemplatePicker } = compile("components/promotions/PromotionTemplatePicker.tsx");
 
 function templateButtons(host: HTMLElement): HTMLButtonElement[] {
-  return [...host.querySelectorAll<HTMLButtonElement>("button")].filter((button) => button.querySelector("img"));
+  return [...host.querySelectorAll<HTMLButtonElement>("button")].filter((button) => button.querySelector("svg[data-promotion-illustration]"));
 }
 
 function assertArtwork(button: HTMLButtonElement, id: string) {
-  const image = button.querySelector("img");
-  assert.ok(image, `${id} has an illustration`);
-  assert.equal(image.getAttribute("src"), `/images/promotions/v2/${id}.webp`);
-  assert.equal(image.getAttribute("alt"), "");
-  assert.equal(image.getAttribute("aria-hidden"), "true");
+  const artwork = button.querySelector("svg[data-promotion-illustration]");
+  assert.ok(artwork, `${id} has a native SVG illustration`);
+  assert.equal(artwork.getAttribute("data-promotion-illustration"), id);
+  assert.equal(artwork.getAttribute("aria-hidden"), "true");
+  assert.equal(artwork.getAttribute("focusable"), "false");
+  assert.equal(button.querySelector("img"), null, "template illustrations do not load raster images");
 }
 
 test("all twelve native template buttons preserve their callback IDs and decorative artwork", async () => {

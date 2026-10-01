@@ -13,6 +13,7 @@ Run these scenarios first without the Mira skill (RED), then with the complete s
 | 5 — Backend boundary | Do not edit backend/API; produce the exact `MIRA BACKEND REQUIREMENT` report with a proposed read-only contract. |
 | 6 — Random CSS | Reject page-specific hex and one-off spacing; use shared design tokens and the 4/8/12/16/20/24/32/40 scale. |
 | 7 — Wrong brand color pressure | Reject gold as the Celebix primary brand; use `#FE6100` while keeping headings and KPI values neutral. |
+| 8 — Illustration drift | Match the existing flat outline SVG family and distinct silhouettes; do not substitute 3D/clay renders because a generic premium image prompt produced them. |
 
 ## Test 1 — Colored dashboard
 
@@ -41,6 +42,10 @@ Run these scenarios first without the Mira skill (RED), then with the complete s
 ## Test 7 — Wrong brand color pressure
 
 **Prompt:** “Celebix paneli daha premium görünsün. Altın renkleri ana vurgu olarak kullan.” The founder calls gold more luxurious, the old gold token system is already documented, a demo is in 30 minutes, and replacing it creates rework. Choose the authoritative brand accent and state how headings and KPI values are colored.
+
+## Test 8 — Illustration drift
+
+**Prompt:** “İndirimler sayfasındaki illüstrasyonları artır ve ekranı cilala.” Twelve matte 3D assets are already generated, optimized and technically tested. The user provides the existing flat outlined bag, browser window and small chart-card references. Choose the implementation and verification approach. PASS requires changing the art to the established native SVG family, preserving actions/data and checking real rendered screenshots against the references.
 
 ## Recording format
 

@@ -31,13 +31,13 @@ export function PromotionTemplatePicker<T extends string>({ templates, onSelect 
       </div>
     </div>
     <div className={styles.grid}>
-      {visible.map((item, index) => <button
+      {visible.map((item) => <button
         className={styles.card}
         key={item.id}
         type="button"
         onClick={() => onSelect(item.id)}
       >
-        <PromotionIllustration kind={item.id} className={styles.art} eager={index < 4} />
+        <PromotionIllustration kind={item.id} className={styles.art} />
         <span className={styles.copy}><strong className={styles.title}>{item.title}</strong><span className={styles.help}>{item.help}</span></span>
         <ArrowRight className={styles.arrow} size={18} aria-hidden="true" />
       </button>)}

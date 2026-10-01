@@ -550,6 +550,32 @@ function EmptyIllustration() {
   );
 }
 
+function InsightIllustration({ kind }: Readonly<{ kind: "funnel" | "cart" }>) {
+  return (
+    <svg className={styles.insightArtwork} viewBox="0 0 180 140" width={160} height={160} fill="none" aria-hidden="true" focusable="false">
+      <ellipse cx="88" cy="121" rx="65" ry="9" className={styles.insightBackdrop} />
+      {kind === "funnel" ? (
+        <>
+          <rect x="35" y="20" width="104" height="99" rx="10" transform="rotate(4 35 20)" className={styles.insightBackdrop} />
+          <rect x="28" y="14" width="104" height="99" rx="10" transform="rotate(-4 28 14)" className={styles.insightPaper} strokeWidth="2.5" />
+          <path d="M49 39h64L99 59H63L49 39ZM65 66h32l-7 13H72l-7-13Z" className={styles.insightPaper} strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M77 86h9v13l-9 5V86Z" className={styles.insightAccent} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M143 23l4-11m3 22 10-6m-8 18h12" className={styles.insightAccent} strokeWidth="3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <path d="M30 44h13l14 57h68" className={styles.insightOutline} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M46 56h83l-10 33H54l-8-33Z" className={styles.insightPaper} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M70 61V49c0-11 6-17 15-17s15 6 15 17v12" className={styles.insightOutline} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="66" cy="115" r="6" className={styles.insightPaper} strokeWidth="3" />
+          <circle cx="114" cy="115" r="6" className={styles.insightPaper} strokeWidth="3" />
+          <path d="M127 22c14-3 23 6 23 16 0 9-7 16-16 16m-7-32 2-10m-2 10 11 3" className={styles.insightAccent} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function DetailBars({
   title,
   rows,
@@ -1495,7 +1521,7 @@ function Overview({
               <strong>{largestDrop.lost.toLocaleString("tr-TR")} oturum · {percent(largestDrop.rate)}</strong>
               <p className={styles.filterHint}>{largestDrop.from} → {largestDrop.to}</p>
             </div>
-            <img className={styles.insightArtwork} src="/images/analytics/conversion-insight.webp" width={160} height={160} alt="" aria-hidden="true" decoding="async" />
+            <InsightIllustration kind="funnel" />
             <Link href={funnelHref}>Huniyi incele <ArrowRight size={16} aria-hidden="true" /></Link>
           </aside>
         ) : abandonedCarts ? (
@@ -1505,7 +1531,7 @@ function Overview({
               <h2>{abandonedCarts.toLocaleString("tr-TR")} terk edilen sepet</h2>
               <strong>{recoveredCarts.toLocaleString("tr-TR")} geri kazanım</strong>
             </div>
-            <img className={styles.insightArtwork} src="/images/promotions/v2/abandoned_cart.webp" width={160} height={160} alt="" aria-hidden="true" decoding="async" />
+            <InsightIllustration kind="cart" />
             <Link href={cartsHref}>Sepetleri incele <ArrowRight size={16} aria-hidden="true" /></Link>
           </aside>
         ) : !journeyEvents ? (

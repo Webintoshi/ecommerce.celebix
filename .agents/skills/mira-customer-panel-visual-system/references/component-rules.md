@@ -27,6 +27,12 @@ Use existing shared components before creating variants. Every component must pr
 | Chart container | Trends/relationships that aid decisions | Clear title, range, legend, tooltip, data fallback | One `#FE6100` main series plus graphite/neutral comparison by default | Replace complex chart with summary when necessary | Gold primary series, rainbow palette, gratuitous donut/pie, color-only distinction |
 | Timeline | Ordered events/history | Compact vertical sequence with readable timestamps | Neutral rail; semantic marker only for true state | Single column | Decorative multicolor steps |
 
+## Operational illustration family
+
+The user's approved reference is the existing dashboard/analytics **flat outline SVG** family: `ProductsEmptyArtwork`, `SalesEmptyArtwork` and `EmptyIllustration`. Match white and soft-neutral shapes, rounded graphite/slate outlines (roughly 2.5–3 px at a 180 px viewBox), a simple pale oval or flat paper backing, and small `--cp-brand` accents. Each template needs a distinct silhouette; scale and stroke weight remain consistent.
+
+Use shared `--cp-art-outline`, `--cp-art-soft`, `--cp-art-muted`, `--cp-art-peach`, and `--cp-art-leaf` tokens copied from the approved dashboard art. These are illustration colors, never heading/KPI/body colors. Extend code-native SVG with no bitmap request, filter, gradient, animation or external dependency. Decorative art is `aria-hidden="true"`, `focusable="false"`, in normal layout flow. Do not replace this family with 3D/clay product renders. Separately approved branding/mascot assets retain their established purpose.
+
 ## Interaction details
 
 - Modal: focus trap, Escape close when safe, initial focus, and focus restoration.
