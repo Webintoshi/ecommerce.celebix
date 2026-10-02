@@ -1,5 +1,7 @@
 # Siora header — iki sıra tasarım
 
+Bu kayıt ilk iki sıra header yayınına aittir. Ürün sayfasında header'ın da gösterildiği güncel düzeltme ve doğrulama: [Ürün header QA](product-header-QA.md).
+
 2 Ekim 2026. Hermès referansındaki ince arama alanı, ortalı marka ve sağ hesap/sepet yerleşimi Siora temasına uygulandı. Alt sıra merkezde menüyü taşır. Aşağı kaydırınca yalnızca menü sırası kalır; yukarı kaydırma veya menüye klavye odağı tam başlığı geri getirir. Görünmeyen üst sıra `inert` olur. Sticky üst konumu değişir; sayfa yüksekliği ve mobil sabit alt menüsü değişmez.
 
 Güncel anonim public veriler tasarım v6 ve gerçek Siora logosuyla doğrulandı. Admin navigation.items boş: Ana Sayfa ve Tüm Ürünler mevcut bağlantıları korunur. Sonradan yayımlanan kategori/koleksiyon ağaçları mevcut ortak renderer üzerinden aynı sıralama, hedef, alt dal ve featured görsellerle gösterilir. Yalnızca Siora tema dosyaları değişti; admin/API/veri şeması ve Alpler mobil shell değiştirilmedi. Contained genişlik ve overlay/solid zemin ayarları sürer; Siora'nın header yerleşimi istenen iki sıra görünümüdür.
