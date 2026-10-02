@@ -20,6 +20,24 @@ const candidate = { variantId: VARIANT, oldPriceCents: 10_000, newPriceCents: 12
 
 async function clientModule() { return import("./client.ts"); }
 
+test("native catalog grams is an explicit validated preview and activation intent", async () => {
+  const { createReferencePricingApi } = await clientModule();
+  const calls: Array<[string, RequestInit | undefined]> = [];
+  const api = createReferencePricingApi(async (input, init) => {
+    calls.push([String(input), init]);
+    return Response.json(String(input).endsWith("/preview") ? preview : { setId: SET, version: 1, stateVersion: 3, activatedAt: UTC });
+  }, () => OP);
+  await api.preview({ setId: SET, channel: "storefront", pageSize: 50, catalogGramReferenceId: REFERENCE } as never);
+  await api.activate({ setId: SET, expectedStateVersion: 2, expectedScopeDigest: DIGEST, catalogGramReferenceId: REFERENCE } as never);
+  assert.deepEqual(JSON.parse(String(calls[0]?.[1]?.body)), { setId: SET, channel: "storefront", pageSize: 50, catalogGramReferenceId: REFERENCE });
+  assert.deepEqual(JSON.parse(String(calls[1]?.[1]?.body)), { operationId: OP, expectedStateVersion: 2, expectedScopeDigest: DIGEST, catalogGramReferenceId: REFERENCE });
+  for (const value of ["invalid", null, 42]) {
+    await assert.rejects(() => api.preview({ setId: SET, channel: "storefront", pageSize: 50, catalogGramReferenceId: value } as never), /reference_pricing_client_invalid/);
+    await assert.rejects(() => api.activate({ setId: SET, expectedStateVersion: 2, expectedScopeDigest: DIGEST, catalogGramReferenceId: value } as never), /reference_pricing_client_invalid/);
+  }
+  assert.equal(calls.length, 2);
+});
+
 test("reference-pricing browser client uses finite same-origin routes and server-owned authority", async () => {
   const { createReferencePricingApi } = await clientModule();
   const calls: Array<[string, RequestInit | undefined]> = [];

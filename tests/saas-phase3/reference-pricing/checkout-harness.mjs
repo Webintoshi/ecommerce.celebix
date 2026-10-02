@@ -225,6 +225,22 @@ async function main() {
       FROM celebix_saas_host_resolver;
       INSERT INTO saas.pricing_dynamic_activation(store_id,enabled) VALUES('${STORE}'::uuid,true);COMMIT;`);
     assert.notEqual(legacyQuote(box).status, 0, "old V2 route cannot remain callable after dynamic activation is allowed");
+    assert.equal(scalar(box, `SELECT count(*)=4 AND bool_and(
+      NOT has_function_privilege('celebix_saas_host_resolver',procedure.oid,'EXECUTE')
+      AND has_function_privilege('celebix_saas_owner',procedure.oid,'EXECUTE'))
+      FROM pg_catalog.pg_proc procedure JOIN pg_catalog.pg_namespace namespace ON namespace.oid=procedure.pronamespace
+      WHERE namespace.nspname='saas' AND procedure.proname IN (
+        'public_checkout_quote_v2','public_checkout_complete_v2',
+        'public_storefront_hosted_checkout_authority_v2','public_storefront_hosted_checkout_begin_v2');`), "t",
+      "cutover denies every external V2 entrypoint while preserving owner delegation");
+    assert.equal(scalar(box, `SELECT count(*)=4 AND bool_and(
+      has_function_privilege('celebix_saas_host_resolver',procedure.oid,'EXECUTE'))
+      FROM pg_catalog.pg_proc procedure JOIN pg_catalog.pg_namespace namespace ON namespace.oid=procedure.pronamespace
+      WHERE namespace.nspname='saas' AND procedure.proname IN (
+        'public_checkout_quote_v3','public_checkout_complete_v3',
+        'public_storefront_hosted_checkout_authority_v3','public_storefront_hosted_checkout_begin_v3');`), "t");
+    assert.equal(quote(box).outcome, "quoted", "V3 quote still delegates internally after external V2 retirement");
+    assert.equal(hostedAuthority(box).outcome, "found", "V3 hosted authority still delegates internally after external V2 retirement");
     process.stdout.write("PASS simulated old-replica drain retires V2 before dynamic activation\n");
 
     assert.equal(define(box, USD, "usd", "USD satış", null, operation(101)).outcome, "defined");

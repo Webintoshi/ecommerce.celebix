@@ -128,10 +128,11 @@ async function body(request: Request): Promise<unknown | null> {
 
 function mutationInput(value: unknown, route: Route): Readonly<Record<string, unknown>> {
   if (route.kind === "preview") {
-    const raw = exact(value, ["setId", "channel", "pageSize"], ["afterVariantId"]);
+    const raw = exact(value, ["setId", "channel", "pageSize"], ["afterVariantId", "catalogGramReferenceId"]);
     if (raw.channel !== "storefront" && raw.channel !== "quick_order") throw new TypeError("invalid_preview");
     return Object.freeze({ setId: id(raw.setId), channel: raw.channel, pageSize: integer(raw.pageSize, 1, 100),
       ...(Object.hasOwn(raw, "afterVariantId") ? { afterVariantId: id(raw.afterVariantId) } : {}),
+      ...(Object.hasOwn(raw, "catalogGramReferenceId") ? { catalogGramReferenceId: id(raw.catalogGramReferenceId) } : {}),
     });
   }
   if (route.kind === "define") {
@@ -149,9 +150,10 @@ function mutationInput(value: unknown, route: Route): Readonly<Record<string, un
     });
   }
   if (route.kind === "activate") {
-    const raw = exact(value, ["operationId", "expectedStateVersion", "expectedScopeDigest"]);
+    const raw = exact(value, ["operationId", "expectedStateVersion", "expectedScopeDigest"], ["catalogGramReferenceId"]);
     return Object.freeze({ operationId: id(raw.operationId), expectedStateVersion: integer(raw.expectedStateVersion, 0),
       expectedScopeDigest: digest(raw.expectedScopeDigest),
+      ...(Object.hasOwn(raw, "catalogGramReferenceId") ? { catalogGramReferenceId: id(raw.catalogGramReferenceId) } : {}),
     });
   }
   if (route.kind === "savePolicy") {

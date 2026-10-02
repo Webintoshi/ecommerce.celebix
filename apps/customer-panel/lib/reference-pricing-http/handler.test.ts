@@ -55,6 +55,30 @@ async function handler(pricing: ReferencePricingRepository, role: "store_owner" 
   return { handle, credentialCalls: () => credentials };
 }
 
+test("native grams intent retains server authority and rejects malformed reference IDs", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const preview = { setId: SET, scopeDigest: DIGEST, affectedProducts: 0, affectedVariants: 0, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [], nextCursor: null };
+  const pricing = repository({
+    async preview(input) { calls.push(input as unknown as Record<string, unknown>); return preview; },
+    async activate(input) { calls.push(input as unknown as Record<string, unknown>); return { setId: SET, version: 1, stateVersion: 1, activatedAt: UTC }; },
+  });
+  const { handle } = await handler(pricing);
+  const previewBody = { setId: SET, channel: "storefront", pageSize: 50, catalogGramReferenceId: REFERENCE };
+  const activateBody = { operationId: OP, expectedStateVersion: 0, expectedScopeDigest: DIGEST, catalogGramReferenceId: REFERENCE };
+  assert.equal((await handle(request("/api/reference-pricing/preview", { method: "POST", body: previewBody }))).status, 200);
+  assert.equal((await handle(request(`/api/reference-pricing/sets/${SET}/activate`, { method: "POST", body: activateBody }))).status, 200);
+  assert.deepEqual(calls[0], { tenantContext: tenant(), now: NOW, ...previewBody });
+  assert.deepEqual(calls[1], { tenantContext: tenant(), now: NOW, setId: SET, ...activateBody });
+  for (const value of ["invalid", null, 42]) {
+    assert.equal((await handle(request("/api/reference-pricing/preview", { method: "POST", body: { ...previewBody, catalogGramReferenceId: value } }))).status, 400);
+    assert.equal((await handle(request(`/api/reference-pricing/sets/${SET}/activate`, { method: "POST", body: { ...activateBody, catalogGramReferenceId: value } }))).status, 400);
+  }
+  assert.equal((await handle(request("/api/reference-pricing/preview", { method: "POST", body: { ...previewBody, storeId: STORE } }))).status, 400);
+  const reader = await handler(pricing, "editor");
+  assert.equal((await reader.handle(request(`/api/reference-pricing/sets/${SET}/activate`, { method: "POST", body: activateBody }))).status, 403);
+  assert.equal(calls.length, 2);
+});
+
 test("finite read and write routes pass only parsed input with server tenant authority", async () => {
   const calls: Array<[string, Record<string, unknown>]> = [];
   const observe = <K extends keyof ReferencePricingRepository>(name: K, result: Awaited<ReturnType<ReferencePricingRepository[K]>>): ReferencePricingRepository[K] =>

@@ -72,6 +72,9 @@
 .rateReadOnly span { color: var(--rp-secondary); font-size: 13px; }
 .toggle { grid-column: 2; grid-row: 1 / 3; display: flex !important; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px !important; }
 .toggle input { width: 20px; min-height: 20px; height: 20px; accent-color: var(--rp-brand); }
+.catalogGramControls { display: grid; gap: 8px; min-width: 0; }
+.catalogGramControls .toggle { grid-column: auto; grid-row: auto; white-space: normal; }
+.catalogGramControls select { max-width: 360px; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .actions span { color: var(--rp-secondary); font-size: 13px; }
 .root .primary,
