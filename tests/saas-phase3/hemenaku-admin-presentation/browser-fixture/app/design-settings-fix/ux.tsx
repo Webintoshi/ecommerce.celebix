@@ -67,7 +67,7 @@ function makeDesign(): StorefrontDesignDocument {
   };
 }
 
-type Choice = "logo" | "brand" | "navigation" | "announcement" | "banner" | "category" | "campaign" | "story";
+type Choice = "logo" | "brand" | "navigation" | "announcement" | "banner" | "category" | "campaign" | "story" | "footer";
 const CHOICES: readonly Readonly<{ key: Choice; label: string; sectionId?: HomepageSectionId }>[] = [
   { key: "logo", label: "Logo" }, { key: "brand", label: "Marka" },
   { key: "navigation", label: "Üst alan ve menü" }, { key: "announcement", label: "Duyuru" },
@@ -75,6 +75,7 @@ const CHOICES: readonly Readonly<{ key: Choice; label: string; sectionId?: Homep
   { key: "category", label: "Kategori", sectionId: "home_categories_first" },
   { key: "campaign", label: "Kampanya", sectionId: "home_ux_campaign" },
   { key: "story", label: "Hikâye", sectionId: "home_story_last" },
+  { key: "footer", label: "Alt alan" },
 ];
 
 export function DesignUxFixture() {
@@ -151,8 +152,8 @@ export function DesignUxFixture() {
       <button className="uxBanner" type="button" onClick={(event) => open("banner", event.currentTarget)}>{bannerImage ? <img src={bannerImage} alt="Yerel banner örneği" /> : null}<span><small>YENİ SEZON</small><strong>{firstSlide?.headline || "Koleksiyonlarımızı keşfedin"}</strong><span>{firstSlide?.body}</span></span></button>
       <div className="uxProducts">{LOCAL_MEDIA.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={(event) => open("category", event.currentTarget)}><img src={item.url} alt={item.altText} /><span>{item.altText}</span></button>)}</div>
     </section>
-    <DesignSettingsModal open={choice !== null} surface={selectedSectionId ? { label: selected?.label ?? "Bölüm", hint: "Yerel örnek tasarımı düzenleyin." } : designCanvasSurface(choice === "logo" ? "brand" : choice === "brand" ? "style" : choice === "navigation" ? "navigation" : "announcement")} returnFocusRef={returnFocusRef} onClose={close} onApply={apply} applyDisabled={readOnly || pendingCount > 0 || !dirty}>
-      {choice && selectedSectionId ? <HomepageSectionEditor key={selectedSectionId} design={design} sectionId={selectedSectionId} media={editorMedia} assets={assets} destinations={fixtureDestinations} disabled={readOnly} onChange={onChange} onSelectSection={setSectionOverride} onUpload={upload} onMediaBusyChange={mediaBusy} onAssetUploaded={assetUploaded} /> : choice ? <DesignStepEditor step={choice === "logo" ? "brand" : choice === "brand" ? "style" : "navigation"} surface={choice === "logo" ? "brand" : choice === "brand" ? "style" : choice} design={design} storeName="Yerel UX Mağazası" timezone="Europe/Istanbul" media={media} assets={assets} destinations={fixtureDestinations} canManage={!readOnly} previewMode="desktop" onChange={onChange} onUpload={upload} onMediaBusyChange={mediaBusy} onAssetUploaded={assetUploaded} /> : null}
+    <DesignSettingsModal open={choice !== null} surface={selectedSectionId ? { label: selected?.label ?? "Bölüm", hint: "Yerel örnek tasarımı düzenleyin." } : designCanvasSurface(choice === "logo" ? "brand" : choice === "brand" ? "style" : choice === "navigation" ? "navigation" : choice === "footer" ? "footer" : "announcement")} returnFocusRef={returnFocusRef} onClose={close} onApply={apply} applyDisabled={readOnly || pendingCount > 0 || !dirty}>
+      {choice && selectedSectionId ? <HomepageSectionEditor key={selectedSectionId} design={design} sectionId={selectedSectionId} media={editorMedia} assets={assets} destinations={fixtureDestinations} disabled={readOnly} onChange={onChange} onSelectSection={setSectionOverride} onUpload={upload} onMediaBusyChange={mediaBusy} onAssetUploaded={assetUploaded} /> : choice ? <DesignStepEditor step={choice === "logo" ? "brand" : choice === "brand" ? "style" : choice === "footer" ? "footer" : "navigation"} surface={choice === "logo" ? "brand" : choice === "brand" ? "style" : choice} design={design} storeName="Yerel UX Mağazası" timezone="Europe/Istanbul" media={media} assets={assets} destinations={fixtureDestinations} canManage={!readOnly} previewMode="desktop" onChange={onChange} onUpload={upload} onMediaBusyChange={mediaBusy} onAssetUploaded={assetUploaded} /> : null}
     </DesignSettingsModal>
     <style jsx>{`
       .uxFixture { min-height: 100vh; padding: 24px; color: var(--cp-text-primary); background: var(--cp-canvas); }

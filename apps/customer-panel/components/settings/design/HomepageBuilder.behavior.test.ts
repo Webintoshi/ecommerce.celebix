@@ -17,6 +17,15 @@ async function chooseImage(container:HTMLElement,label:string,key:string,click:(
 }
 function design(section:StarterThemeSectionConfigV4):StorefrontDesignDocument{const baseline=normalizeStorefrontDesignDocumentV5(DESIGN);return {...baseline,composition:{...baseline.composition,sections:[section]}};}
 const row:StarterThemeSectionConfigV4={kind:"product_row",sectionId:"home_products",enabled:true,heading:"Products",source:"latest",limit:8};
+test("banner text edits preserve its existing hidden address and named selection saves the resource reference",async()=>withEditor(async({container,render,change})=>{
+ let current=design({kind:"banner",sectionId:"home_named_links",enabled:true,layout:"single",autoplay:false,presentation:"overlay",slides:[{slideId:"slide_named_links",enabled:true,headline:"Banner",body:"",desktopImage:null,mobileImage:null,destination:{kind:"path",path:"/pages/legacy-offer"}}]});
+ const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_named_links",media:[],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));
+ await draw();assert.doesNotMatch(container.textContent??"",/\/pages\/legacy-offer|Mağaza içi adres/);
+ await change(field(container,"Başlık"),"Yeni başlık");await draw();
+ const section=current.composition.sections[0];assert.equal(section?.kind,"banner");if(section?.kind==="banner")assert.deepEqual(section.slides[0]?.destination,{kind:"path",path:"/pages/legacy-offer"});
+ await change(field(container,"Bağlantı"),`collection:${categories[0]!.resourceId}`);await draw();
+ const updated=current.composition.sections[0];if(updated?.kind==="banner"){assert.deepEqual(updated.slides[0]?.destination,{kind:"collection",resourceId:categories[0]!.resourceId});assert.equal(updated.slides[0]?.headline,"Yeni başlık");}
+}));
 test("section fields keep incomplete local text editable and preserve unrelated fields",async()=>withEditor(async({container,render,change})=>{
  let current=design(row);const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_products",media:[],destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await change(field(container,"Başlık"),"");await draw();assert.equal(field(container,"Başlık").value,"");assert.match(container.textContent??"",/Başlık yazın/);
  await change(field(container,"Ürün sayısı"),"12");await draw();assert.equal(field(container,"Başlık").value,"");await change(field(container,"Başlık"),"Complete");await draw();const section=current.composition.sections[0];assert.equal(section?.kind,"product_row");if(section?.kind==="product_row"){assert.equal(section.limit,12);assert.equal(section.heading,"Complete");}

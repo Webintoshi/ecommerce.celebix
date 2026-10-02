@@ -53,3 +53,28 @@ Ortak Customer Panel'in `settings/design` düzenleyicisi. Mağaza verileri, sunu
 ## Yayın
 
 Bu görevde canlı yayın başlatılmadı. Çalışma dalı `codex/design-settings-ux-refresh`, başlangıç `4978e88e6e1cf89692c9dfede769bdbc1638d1fa`. Eş zamanlı fiyatlandırma yayınına yarım değişiklik dahil edilmez.
+
+## Düzeltme: adresleri kullanıcıdan gizleme
+
+Kullanıcının son düzeltmesi: adres/URL/teknik kimlik gösterilmemesi. Ana görev, görsel veya duyuruya isimle bir hedef seçmek.
+
+- Banner, kampanya, hikâye, duyuru ve eski tema editörlerinde ortak isimli bağlantı seçicisi. Mağaza sayfaları, ürünler, kategoriler, koleksiyonlar ve sayfalar grupları ayrılır.
+- Mevcut bilinmeyen hedef “Mevcut bağlantı” etiketiyle seçili kalır. Açılışta veya başka bir alan değişirken özgün path/resourceId yeniden yazılmaz; yalnız açık hedef seçimi değiştirir.
+- Sosyal profiller ağ ve hesap adıyla eklenir. Geçerli bağlantı yapıştırılınca hesap adı gösterilir; özgün URL içeride korunur. Aynı ağ/HTTPS/host/sorgu kontrolü devam eder.
+- Önizleme ve çakışma tablosu ham adresleri/görsel kimliklerini göstermez. Mevcut seçenekler adlarıyla çözülür; çözülemeyen farklı seçimler çalışma/sürüm ayrımıyla belirtilir. Kaydetme/geri yükleme verisi değişmez.
+- API, sunucu, veri sözleşmesi ve mağaza kodu değişiklikleri: **NONE**.
+
+### Doğrulama
+
+- İlgili tasarım, yükleme, footer ve bağlantı akışlarında **132/132 test geçti**. Bilinmeyen hedefin metin düzenlenirken korunması; typed kaynak seçimi; adres gizleme; eski sosyal URL'nin korunması; salt okunur ve karşılaştırma durumları dahil.
+- Customer Panel üretim derlemesi başarılı. Bağımsız Atlas bağlantı seçicisi incelemesinde materyal risk bulunmadı; footer ve önizleme değişiklikleri de kök ajan tarafından incelendi.
+- Gerçek tarayıcıda 1440 × 1024, 1024 × 900 ve 390 × 844: yatay taşma yok; görünür adres yok; kategori → Favoriler seçimi doğru hedefi tuttu; Tab odağı sonraki düğmeye gitti. Mobil alan yazısı 16 px. Salt okunur bağlantı alanı/Uygula kapalı.
+- Duyuru ve kampanya hedefleri adla; sosyal hesap ekleme Instagram/hesap adıyla doğrulandı. Tarayıcı warn/error kaydı boş. Yeni sunucu okumaları eklenmedi; doğrulama yalnız yerel fixture üzerinden yapıldı.
+- [Son banner görünümü](evidence/design-settings-ux-2026-10-02/named-links-final-1440.jpg)
+- [Banner 1024 px](evidence/design-settings-ux-2026-10-02/named-links-banner-1024.jpg)
+- [Banner 390 px](evidence/design-settings-ux-2026-10-02/named-links-banner-390.jpg)
+- [Duyuru 390 px](evidence/design-settings-ux-2026-10-02/named-links-announcement-390.jpg)
+- [Kampanya 1024 px](evidence/design-settings-ux-2026-10-02/named-links-campaign-1024.jpg)
+- [Sosyal hesap 390 px](evidence/design-settings-ux-2026-10-02/named-links-footer-390.jpg)
+
+Canlıya alınmadı. CEMO koordinasyon bildirimi: ortak panellerin güncel fiyatlandırma yayın pini `709fd01d497452f407f22deab721b878062b6271`; sonraki yayın hazırlığında güncel `codex/shared-catalog-search` başı birleştirilerek fiyatlandırma değişiklikleri korunmalı.

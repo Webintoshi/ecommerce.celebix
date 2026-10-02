@@ -38,6 +38,7 @@ import {
 } from "@/lib/starter-theme-composer-model";
 import { type ThemePanelKey } from "./starter-theme-subnavigation-model";
 import { DesignAssetField } from "./design/DesignAssetField";
+import { DesignPathField } from "./design/DesignLinkField";
 import styles from "./starter-theme-composer.module.css";
 
 type SectionKind = StarterThemeSectionConfigV2["kind"];
@@ -89,6 +90,7 @@ type SplitCampaignSection = Extract<StarterThemeSectionConfigV2, { kind: "split_
 function HeroSlidesEditor({
   assets,
   disabled,
+  destinations,
   products,
   section,
   sectionIndex,
@@ -96,6 +98,7 @@ function HeroSlidesEditor({
 }: Readonly<{
   assets: readonly StorefrontAsset[];
   disabled: boolean;
+  destinations: readonly StorefrontDesignDestinationOption[];
   products: readonly Product[];
   section: HeroSection;
   sectionIndex: number;
@@ -113,7 +116,7 @@ function HeroSlidesEditor({
         <label className={styles.wide} htmlFor={controlId(sectionIndex, `slide-${slideIndex}-body`)}>Metin<textarea id={controlId(sectionIndex, `slide-${slideIndex}-body`)} value={slide.body ?? ""} maxLength={500} onChange={(event) => update(updateStarterHeroSlide(section, slideIndex, event.currentTarget.value ? { body: event.currentTarget.value } : {}, event.currentTarget.value ? [] : ["body"]))} disabled={disabled} /></label>
         <label>Desktop görseli<select value={slide.desktopAssetId} onChange={(event) => update(updateStarterHeroSlide(section, slideIndex, { desktopAssetId: event.currentTarget.value }))} disabled={disabled}>{heroAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
         <label>Mobil görseli<select value={slide.mobileAssetId ?? ""} onChange={(event) => update(updateStarterHeroSlide(section, slideIndex, event.currentTarget.value ? { mobileAssetId: event.currentTarget.value } : {}, event.currentTarget.value ? [] : ["mobileAssetId"]))} disabled={disabled}><option value="">Desktop görselini kullan</option>{heroAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
-        <label>Hedef<input value={slide.destination} maxLength={500} onChange={(event) => update(updateStarterHeroSlide(section, slideIndex, { destination: event.currentTarget.value }))} disabled={disabled} /></label>
+        <DesignPathField value={slide.destination} destinations={destinations} disabled={disabled} emptyLabel="Bağlantı seçin" onChange={destination => update(updateStarterHeroSlide(section, slideIndex, { destination }))}/>
         <label>Ürün hotspot<select value={slide.productId ?? ""} onChange={(event) => update(updateStarterHeroSlide(section, slideIndex, event.currentTarget.value ? { productId: event.currentTarget.value } : {}, event.currentTarget.value ? [] : ["productId"]))} disabled={disabled}><option value="">Ürün yok</option>{products.map((product) => <option key={product.id} value={product.id}>{product.title}</option>)}</select></label>
       </div>
     </fieldset>)}
@@ -125,12 +128,14 @@ function HeroSlidesEditor({
 function SplitCampaignPanelsEditor({
   assets,
   disabled,
+  destinations,
   section,
   sectionIndex,
   update,
 }: Readonly<{
   assets: readonly StorefrontAsset[];
   disabled: boolean;
+  destinations: readonly StorefrontDesignDestinationOption[];
   section: SplitCampaignSection;
   sectionIndex: number;
   update: (section: SplitCampaignSection) => void;
@@ -145,7 +150,7 @@ function SplitCampaignPanelsEditor({
         <label htmlFor={controlId(sectionIndex, `panel-${panelIndex}-heading`)}>Başlık<input id={controlId(sectionIndex, `panel-${panelIndex}-heading`)} value={panel.heading} maxLength={160} onChange={(event) => update(updateStarterCampaignPanel(section, panelIndex, { heading: event.currentTarget.value }))} disabled={disabled} /></label>
         <label className={styles.wide} htmlFor={controlId(sectionIndex, `panel-${panelIndex}-body`)}>Metin<textarea id={controlId(sectionIndex, `panel-${panelIndex}-body`)} value={panel.body ?? ""} maxLength={500} onChange={(event) => update(updateStarterCampaignPanel(section, panelIndex, event.currentTarget.value ? { body: event.currentTarget.value } : {}, event.currentTarget.value ? [] : ["body"]))} disabled={disabled} /></label>
         <label>Görsel<select value={panel.assetId} onChange={(event) => update(updateStarterCampaignPanel(section, panelIndex, { assetId: event.currentTarget.value }))} disabled={disabled}>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
-        <label>Hedef<input value={panel.destination} maxLength={500} onChange={(event) => update(updateStarterCampaignPanel(section, panelIndex, { destination: event.currentTarget.value }))} disabled={disabled} /></label>
+        <DesignPathField value={panel.destination} destinations={destinations} disabled={disabled} emptyLabel="Bağlantı seçin" onChange={destination => update(updateStarterCampaignPanel(section, panelIndex, { destination }))}/>
       </div>
     </fieldset>)}
     <button className={styles.entryAdd} type="button" onClick={() => seedAsset ? update(addStarterCampaignPanel(section, { heading: "Yeni kampanya", assetId: seedAsset, destination: "/products" })) : undefined} disabled={disabled || section.panels.length >= 2 || !seedAsset}><Plus aria-hidden="true" /> Kampanya paneli ekle</button>
@@ -340,7 +345,7 @@ export function StarterThemeComposer({
             if(!items.length||items.length>12||items.some(item=>item.length>120)){setAnnouncementError("1–12 mesaj yazın; her mesaj en fazla 120 karakter olmalı. Girişleriniz korunuyor.");return;}
             lastAnnouncementWrite.current=JSON.stringify(items);setAnnouncementError("");patch({announcement:{...state.announcement,items:Object.freeze(items)}});
           }} />{announcementError?<small id="starter-announcement-error" className={styles.error} role="alert">{announcementError}</small>:null}</label>
-          <label>Duyuru hedefi<input maxLength={500} placeholder="/pages/odeme-teslimat" value={state.announcement.destination ?? ""} onChange={(event) => { const announcement = { ...state.announcement }; if (event.currentTarget.value) announcement.destination = event.currentTarget.value; else delete announcement.destination; patch({ announcement }); }} /></label>
+          <DesignPathField value={state.announcement.destination??""} destinations={destinations} disabled={disabled} onChange={destination=>{const announcement={...state.announcement};if(destination)announcement.destination=destination;else delete announcement.destination;patch({announcement});}}/>
           </section> : null}
           <CollectionNavigationEditor navigation={state.navigation} categories={categories} destinations={destinations} disabled={disabled} onChange={navigation => patch({ navigation })} />
           <section className={styles.navigationGroup} aria-label="Öne çıkan kategori">
@@ -372,10 +377,10 @@ export function StarterThemeComposer({
               {section.kind !== "category_grid" ? <button type="button" aria-label={`${SECTION_LABELS[section.kind]} bölümünü kaldır`} onClick={() => patch({ sections: removeStarterSection(state.sections, index) })} disabled={disabled}><Trash2 aria-hidden="true" /></button> : null}
             </div></div>
             {section.kind !== "category_grid" ? <label className={styles.check}><input type="checkbox" checked={section.enabled} onChange={(event) => updateSection(index, { ...section, enabled: event.currentTarget.checked })} disabled={disabled} /> Bölümü göster</label> : null}
-            {section.kind === "hero" ? <HeroSlidesEditor assets={assets} disabled={disabled} products={products} section={section} sectionIndex={index} update={(updated) => updateSection(index, updated)} /> : null}
+            {section.kind === "hero" ? <HeroSlidesEditor assets={assets} destinations={destinations} disabled={disabled} products={products} section={section} sectionIndex={index} update={(updated) => updateSection(index, updated)} /> : null}
             {section.kind === "category_grid" ? <p className={styles.fieldHelp}>Kategori içeriği aşağıdaki tek kategori vitrini alanından yönetilir. Bu kart yalnız bölümün ana sayfadaki sırasını gösterir.</p> : null}
             {section.kind === "product_row" ? <div className={styles.fieldGrid}><label>Başlık<input value={section.heading} maxLength={160} onChange={(event) => updateSection(index, { ...section, heading: event.currentTarget.value })} disabled={disabled} /></label><label>Kaynak<select value={section.source} onChange={(event) => { const source = event.currentTarget.value as "latest" | "sale" | "category"; updateSection(index, source === "category" ? { ...section, source, categoryId: categories[0]?.id ?? "" } : { kind: "product_row", enabled: section.enabled, heading: section.heading, source, limit: section.limit }); }} disabled={disabled}><option value="latest">Yeni ürünler</option><option value="sale">İndirimdekiler</option><option value="category">Kategori</option></select></label>{section.source === "category" ? <label>Kategori<select value={section.categoryId} onChange={(event) => updateSection(index, { ...section, categoryId: event.currentTarget.value })} disabled={disabled}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label> : null}<label>Ürün sayısı<select value={section.limit} onChange={(event) => updateSection(index, { ...section, limit: Number(event.currentTarget.value) as 4 | 8 | 12 })} disabled={disabled}><option value="4">4</option><option value="8">8</option><option value="12">12</option></select></label></div> : null}
-            {section.kind === "split_campaign" ? <SplitCampaignPanelsEditor assets={assets} disabled={disabled} section={section} sectionIndex={index} update={(updated) => updateSection(index, updated)} /> : null}
+            {section.kind === "split_campaign" ? <SplitCampaignPanelsEditor assets={assets} destinations={destinations} disabled={disabled} section={section} sectionIndex={index} update={(updated) => updateSection(index, updated)} /> : null}
             {section.kind === "brand_story" ? <div className={styles.fieldGrid}><label>Başlık<input value={section.heading} maxLength={160} onChange={(event) => updateSection(index, { ...section, heading: event.currentTarget.value })} disabled={disabled} /></label><label className={styles.wide}>Metin<textarea value={section.body} maxLength={1000} onChange={(event) => updateSection(index, { ...section, body: event.currentTarget.value })} disabled={disabled} /></label></div> : null}
             {section.kind === "value_propositions" || section.kind === "testimonials" ? <StarterRetailSectionEditor disabled={disabled} section={section} update={(updated) => updateSection(index, updated)} /> : null}
           </li>)}</ol>

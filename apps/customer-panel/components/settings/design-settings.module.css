@@ -34,6 +34,9 @@
 .advancedDisclosure > :not(summary) { margin-top: 14px; }
 .inspectorFields { display: grid; gap: 22px; }
 .field, .colorField, .schedule { display: grid; gap: 8px; }
+.linkField { display: grid; gap: 8px; min-width: 0; color: var(--cp-text-primary); font-size: 14px; font-weight: 500; }
+.linkField select { width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); }
+.linkField select:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
 .field > label, .colorField > label, .schedule > span, .schedule label { color: #475467; font-size: 12px; font-weight: 700; }
 .field input:not([type="file"]), .field select, .field textarea, .schedule input { width: 100%; min-height: 48px; border: 1px solid #E7E2DD; border-radius: 10px; background: #FFFDFC; padding: 0 12px; color: #2B2B2B; }
 .field textarea { min-height: 108px; resize: vertical; padding-block: 12px; line-height: 1.5; }

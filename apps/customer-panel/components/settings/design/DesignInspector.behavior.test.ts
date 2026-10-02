@@ -44,18 +44,18 @@ test("closing a global media field during upload prevents late configuration cha
  let release:((value:unknown)=>void)|undefined;const pending=new Promise(resolve=>{release=resolve;});let updates=0;await render(React.createElement(DesignInspector,{...props,section:"brand",design:DESIGN,onChange:()=>updates++,onUpload:()=>pending}));const input=container.querySelector<HTMLInputElement>('input[type="file"]');assert.ok(input);Object.defineProperty(input,"files",{configurable:true,value:[new window.File(["fixture"],"logo.webp",{type:"image/webp"})]});await React.act(async()=>input.dispatchEvent(new window.Event("change",{bubbles:true}) as unknown as Event));await render(null);await React.act(async()=>release?.({id:"40000000-0000-4000-8000-000000000001",url:"https://fixture.invalid/logo.webp",altText:"Logo",mediaType:"image/webp",width:100,height:100}));assert.equal(updates,0);
 }));
 
-test("announcement destination selection and custom removal preserve composition authority and animation",async()=>withEditor(async({container,render,change})=>{
+test("named announcement destinations preserve existing links, composition content and animation",async()=>withEditor(async({container,render,change})=>{
  const destinations=[{kind:"collection" as const,resourceId:"50000000-0000-4000-8000-000000000001",label:"Yaz koleksiyonu",path:"/collections/summer"}];
- const writes:StorefrontDesignDocument[]=[];let design:StorefrontDesignDocument={...DESIGN,announcement:{...DESIGN.announcement,items:["Legacy content"],animation:"step",speed:"fast"},composition:{...DESIGN.composition,announcement:{enabled:true,items:["Composition content"],destination:"/favorites"}}};
+ const writes:StorefrontDesignDocument[]=[];let design:StorefrontDesignDocument={...DESIGN,announcement:{...DESIGN.announcement,items:["Legacy content"],animation:"step",speed:"fast"},composition:{...DESIGN.composition,announcement:{enabled:true,items:["Composition content"],destination:"/pages/old-news"}}};
  const onChange=(next:StorefrontDesignDocument)=>{writes.push(next);design=next;};
  const renderCurrent=()=>render(React.createElement(DesignInspector,{...props,section:"announcement",design,destinations,onChange}));
  const link=()=>{const input=container.querySelector<HTMLSelectElement>("#design-announcement-link");assert.ok(input);return input;};
- const custom=()=>{const label=Array.from(container.querySelectorAll("label")).find(item=>item.textContent==="Özel bağlantı");return label?.parentElement?.querySelector<HTMLInputElement>("input");};
  const preserved=()=>{assert.deepEqual(design.composition.announcement.items,["Composition content"]);assert.equal(design.composition.announcement.enabled,true);assert.equal(design.announcement.animation,"step");assert.equal(design.announcement.speed,"fast");};
- await renderCurrent();assert.equal(link().value,"custom");assert.equal(custom()?.value,"/favorites");assert.equal(writes.length,0);
- await change(custom()!,"/pages/news");await renderCurrent();assert.equal(design.composition.announcement.destination,"/pages/news");preserved();
- await change(link(),destinations[0]!.path);await renderCurrent();assert.equal(design.composition.announcement.destination,"/collections/summer");assert.equal(custom(),undefined);preserved();
- await change(link(),"custom");await renderCurrent();assert.equal(design.composition.announcement.destination,"/products");assert.equal(custom()?.value,"/products");preserved();
- await change(link(),"");await renderCurrent();assert.equal(Object.hasOwn(design.composition.announcement,"destination"),false);assert.equal(link().value,"");assert.equal(custom(),undefined);preserved();
+ await renderCurrent();assert.equal(link().options[link().selectedIndex]?.textContent,"Mevcut bağlantı");assert.equal(link().value,"/pages/old-news");assert.equal(writes.length,0);assert.doesNotMatch(container.textContent??"",/\/pages\/old-news|Özel bağlantı/);assert.equal(container.querySelector('input[type="text"]'),null);
+ await change(container.querySelector("textarea")!,"Updated content");await renderCurrent();assert.equal(design.composition.announcement.destination,"/pages/old-news");assert.deepEqual(design.composition.announcement.items,["Updated content"]);
+ design={...design,composition:{...design.composition,announcement:{...design.composition.announcement,items:["Composition content"]}}};await renderCurrent();
+ await change(link(),destinations[0]!.path);await renderCurrent();assert.equal(design.composition.announcement.destination,"/collections/summer");assert.equal(link().options[link().selectedIndex]?.textContent,"Yaz koleksiyonu");preserved();
+ await change(link(),"/favorites");await renderCurrent();assert.equal(design.composition.announcement.destination,"/favorites");assert.equal(link().options[link().selectedIndex]?.textContent,"Favoriler");preserved();
+ await change(link(),"");await renderCurrent();assert.equal(Object.hasOwn(design.composition.announcement,"destination"),false);assert.equal(link().value,"");preserved();
  assert.equal(writes.length,4);
 }));

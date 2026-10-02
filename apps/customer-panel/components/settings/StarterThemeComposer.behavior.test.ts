@@ -95,6 +95,7 @@ function compileComposer(categories: readonly unknown[] = [], resourceReads?: { 
       return navigationModule.exports;
     }
     if (id === "@/components/settings/StarterRetailSectionEditors") return { StarterRetailSectionEditor: () => null };
+    if (id === "./design/DesignLinkField") return compile(new URL("./design/DesignLinkField.tsx", import.meta.url));
     if (id === "./design/DesignAssetField") return { DesignAssetField: ({ label, value, assets, disabled, onChange }: { label: string; value: string; assets: readonly { id: string; altText: string }[]; disabled: boolean; onChange(value: string): void }) => React.createElement("label", null, label, React.createElement("select", { value, disabled, onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.currentTarget.value) }, React.createElement("option", { value: "" }, "Görsel yok"), ...assets.map((asset) => React.createElement("option", { key: asset.id, value: asset.id }, asset.altText)))) };
     if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => categories } };
     if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => { if (resourceReads) resourceReads.products += 1; return { items: [] }; } } };

@@ -55,3 +55,19 @@ test("empty canvas offers one insertion point and keeps configured footer conten
  const base=baseline(),design={...base,composition:{...base.composition,sections:[],footer:{...base.composition.footer,newsletter:{...base.composition.footer.newsletter,enabled:true,heading:"Newsletter",body:"News",consentLabel:"Consent"}}}};
  const markup=renderToStaticMarkup(React.createElement(VisualStorefrontCanvas,props(design)));assert.equal((markup.match(/data-insert-index=/g)??[]).length,1);assert.match(markup,/data-empty-home="true"/);assert.match(markup,/Newsletter/);assert.match(markup,/Consent/);
 });
+
+test("fallback canvas describes selections by name and keeps routes and opaque IDs out of visible content",async()=>withEditor(async({container,render})=>{
+ const base=baseline(),first="40000000-0000-4000-8000-000000000001",second="40000000-0000-4000-8000-000000000002";
+ const design={...base,composition:{...base.composition,sections:[
+  {kind:"split_campaign" as const,sectionId:"home_campaign" as const,enabled:true,panels:[{heading:"Yaz seçkisi",assetId:first,destination:"/categories/earrings"},{heading:"Özel seçki",assetId:second,destination:"/pages/old-selection"}]},
+  {kind:"category_grid" as const,sectionId:"home_categories" as const,enabled:true,heading:"Kategoriler",categoryIds:[first,second],layout:"grid" as const},
+  {kind:"brand_story" as const,sectionId:"home_story" as const,enabled:true,heading:"Hikâyemiz",body:"Mağazamızın hikâyesi",assetId:second},
+  {kind:"product_row" as const,sectionId:"home_manual" as const,enabled:true,heading:"Seçtiklerimiz",source:"manual" as const,productIds:[first],limit:4 as const},
+ ],footer:{...base.composition.footer,groups:[{heading:"Mağaza",links:[{kind:"system" as const,destination:"/products" as const},{kind:"fixed_policy" as const,policyKey:"privacy_security" as const},{kind:"category" as const,categoryId:first},{kind:"catalog_collection" as const,resourceId:first},{kind:"page" as const,pageId:second}]},{heading:"Bilgi",links:[{kind:"system" as const,destination:"/account" as const}]}],social:[{network:"instagram" as const,url:"https://www.instagram.com/magaza"}]}}};
+ const original=structuredClone(design);
+ await render(React.createElement(VisualStorefrontCanvas,props(design,{media:[{id:first,url:"https://cdn.fixture.invalid/campaign.webp",altText:"Yaz görseli",mediaType:"image/webp",width:1200,height:800}],destinations:[{kind:"collection",resourceId:first,label:"Küpeler",path:"/categories/earrings"},{kind:"catalog_collection",resourceId:first,label:"Yaz koleksiyonu",path:"/collections/summer"}]})));
+ const text=container.textContent??"";
+ assert.match(text,/Yaz görseli/);assert.match(text,/Küpeler/);assert.match(text,/Yaz koleksiyonu/);assert.match(text,/Gizlilik ve Güvenlik/);assert.match(text,/Mevcut bağlantı/);assert.match(text,/Seçili kategori/);assert.match(text,/Görsel seçildi/);assert.match(text,/Elle seçilen ürünler/);assert.match(text,/Instagram/);assert.match(text,/magaza/);
+ assert.doesNotMatch(text,/40000000|https:|\/categories|\/collections|\/pages|\/products|kimliği|privacy_security|manual/);
+ assert.deepEqual(design,original);
+}));

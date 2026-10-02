@@ -2,24 +2,11 @@
 
 import type { CatalogCategory, MerchantAdminRecord, StarterFooterConfig, StarterFooterLinkConfig, StarterSocialNetwork, StorefrontDesignDestinationOption } from "@celebix/saas-contracts";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import styles from "./starter-theme-composer.module.css";
 import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "./starter-footer-options";
-
-const NETWORKS = Object.freeze(["instagram", "facebook", "youtube", "pinterest", "tiktok", "x"] as const);
-const SOCIAL_HOSTS: Readonly<Record<StarterSocialNetwork, readonly string[]>> = Object.freeze({
-  instagram: ["instagram.com", "www.instagram.com"], facebook: ["facebook.com", "www.facebook.com"], youtube: ["youtube.com", "www.youtube.com"],
-  pinterest: ["pinterest.com", "www.pinterest.com"], tiktok: ["tiktok.com", "www.tiktok.com"], x: ["x.com", "www.x.com"],
-});
-
-function reviewedSocialUrl(network: StarterSocialNetwork, value: string): string | null {
-  if (value !== value.trim() || value.length > 512) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password && !url.port && !url.search && !url.hash && url.pathname !== "/" && url.toString() === value && SOCIAL_HOSTS[network].includes(url.hostname) ? value : null;
-  } catch { return null; }
-}
+import { reviewedSocialUrl, socialProfileAccount, socialProfileUrl, STARTER_SOCIAL_NETWORK_OPTIONS } from "./starter-footer-social";
 
 function replacement(kind: StarterFooterLinkConfig["kind"], categories: readonly CatalogCategory[], pages: readonly MerchantAdminRecord[], collections: readonly StorefrontDesignDestinationOption[]): StarterFooterLinkConfig | null {
   if (kind === "fixed_policy") return Object.freeze({ kind, policyKey: "privacy_security" });
@@ -38,17 +25,35 @@ export function StarterFooterEditor({ categories, collections = [], disabled, pa
   value: StarterFooterConfig;
 }>) {
   const [network, setNetwork] = useState<StarterSocialNetwork>("instagram");
-  const [profileUrl, setProfileUrl] = useState("");
+  const [account, setAccount] = useState("");
+  const [pastedProfile, setPastedProfile] = useState<string | null>(null);
+  const [invalidInput, setInvalidInput] = useState(false);
   const [socialError, setSocialError] = useState("");
+  const socialErrorId = `${useId()}-social-error`;
   const patchGroup = (groupIndex: number, patch: Partial<StarterFooterConfig["groups"][number]>) => update({ ...value, groups: Object.freeze(value.groups.map((group, index) => index === groupIndex ? Object.freeze({ ...group, ...patch }) : group)) });
   const patchLink = (groupIndex: number, linkIndex: number, link: StarterFooterLinkConfig) => patchGroup(groupIndex, { links: Object.freeze(value.groups[groupIndex]!.links.map((entry, index) => index === linkIndex ? link : entry)) });
 
+  function changeAccount(input: string) {
+    if (disabled) return;
+    const profile = reviewedSocialUrl(network, input);
+    if (profile) {
+      setAccount(socialProfileAccount(network, profile)); setPastedProfile(profile); setInvalidInput(false); setSocialError("");
+      return;
+    }
+    if (/^[a-z][a-z\d+.-]*:/i.test(input.trim()) || /[\\/]/.test(input)) {
+      setInvalidInput(true); setSocialError("Seçili ağın hesap adını kontrol edin.");
+      return;
+    }
+    setAccount(input); setPastedProfile(null); setInvalidInput(false); setSocialError("");
+  }
+
   function addSocial() {
-    const valid = reviewedSocialUrl(network, profileUrl);
-    if (!valid) { setSocialError("HTTPS profil adresi seçilen sosyal ağa ait, sorgusuz ve eksiksiz olmalıdır."); return; }
+    if (disabled || invalidInput || value.social.length >= 6) return;
+    const valid = pastedProfile ? reviewedSocialUrl(network, pastedProfile) : socialProfileUrl(network, account);
+    if (!valid) { setSocialError("Hesap adını kontrol edin."); return; }
     if (value.social.some((item) => item.network === network)) { setSocialError("Bu sosyal ağ zaten eklendi."); return; }
     update({ ...value, social: Object.freeze([...value.social, Object.freeze({ network, url: valid })]) });
-    setProfileUrl(""); setSocialError("");
+    setAccount(""); setPastedProfile(null); setSocialError("");
   }
 
   return <fieldset className={styles.panel} disabled={disabled}>
@@ -72,6 +77,17 @@ export function StarterFooterEditor({ categories, collections = [], disabled, pa
 
     <fieldset className={styles.entryCard}><legend>Bülten</legend><label className={styles.check}><input type="checkbox" checked={value.newsletter.enabled} onChange={(event) => update({ ...value, newsletter: { ...value.newsletter, enabled: event.currentTarget.checked } })} /> Bülten aboneliğini göster</label><div className={styles.fieldGrid}><label>Başlık<input maxLength={120} value={value.newsletter.heading} onChange={(event) => update({ ...value, newsletter: { ...value.newsletter, heading: event.currentTarget.value } })} /></label><label className={styles.wide}>Açıklama<textarea maxLength={500} value={value.newsletter.body} onChange={(event) => update({ ...value, newsletter: { ...value.newsletter, body: event.currentTarget.value } })} /></label><label className={styles.wide}>Onay metni<textarea maxLength={300} value={value.newsletter.consentLabel} onChange={(event) => update({ ...value, newsletter: { ...value.newsletter, consentLabel: event.currentTarget.value } })} /></label></div></fieldset>
 
-    <fieldset className={styles.entryCard}><legend>Sosyal profiller</legend><div className={styles.fieldGrid}><label>Ağ<select value={network} onChange={(event) => setNetwork(event.currentTarget.value as StarterSocialNetwork)}>{NETWORKS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label>Doğrulanmış profil URL&apos;si<input type="url" maxLength={512} placeholder={`https://www.${network}.com/magazaniz`} value={profileUrl} onChange={(event) => setProfileUrl(event.currentTarget.value)} /></label></div><button className={styles.entryAdd} type="button" onClick={addSocial} disabled={value.social.length >= 6}><Plus aria-hidden="true" /> Sosyal profil ekle</button>{socialError ? <p className={styles.error} role="alert">{socialError}</p> : null}<div className={styles.socialList}>{value.social.map((item) => <div key={item.network}><span><strong>{item.network}</strong><small>{item.url}</small></span><button type="button" aria-label={`${item.network} profilini kaldır`} onClick={() => update({ ...value, social: Object.freeze(value.social.filter(({ network: candidate }) => candidate !== item.network)) })}><Trash2 aria-hidden="true" /></button></div>)}</div></fieldset>
+    <fieldset className={styles.entryCard}><legend>Sosyal profiller</legend>
+      <div className={styles.fieldGrid}>
+        <label>Ağ<select value={network} disabled={disabled} onChange={(event) => { setNetwork(event.currentTarget.value as StarterSocialNetwork); setPastedProfile(null); setInvalidInput(false); setSocialError(""); }}>{STARTER_SOCIAL_NETWORK_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <label>Hesap adı<input type="text" maxLength={512} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="magazaniz" value={account} disabled={disabled} aria-invalid={Boolean(socialError)} aria-describedby={socialError ? socialErrorId : undefined} onChange={(event) => changeAccount(event.currentTarget.value)} onPaste={(event) => { const input = event.clipboardData.getData("text"); if (/^[a-z][a-z\d+.-]*:/i.test(input.trim()) || /[\\/]/.test(input)) { event.preventDefault(); changeAccount(input); } }} /></label>
+      </div>
+      <button className={styles.entryAdd} type="button" onClick={addSocial} disabled={disabled || value.social.length >= 6}><Plus aria-hidden="true" /> Sosyal profil ekle</button>
+      {socialError ? <p id={socialErrorId} className={styles.error} role="alert">{socialError}</p> : null}
+      <div className={styles.socialList}>{value.social.map((item) => {
+        const networkLabel = STARTER_SOCIAL_NETWORK_OPTIONS.find(({ value }) => value === item.network)!.label;
+        return <div key={item.network}><span><strong>{networkLabel}</strong><small>{socialProfileAccount(item.network, item.url)}</small></span><button type="button" disabled={disabled} aria-label={`${networkLabel} profilini kaldır`} onClick={() => { if (!disabled) update({ ...value, social: Object.freeze(value.social.filter(({ network: candidate }) => candidate !== item.network)) }); }}><Trash2 aria-hidden="true" /></button></div>;
+      })}</div>
+    </fieldset>
   </fieldset>;
 }

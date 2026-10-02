@@ -52,7 +52,7 @@ export function DesignWorkspace({workspace,storefront,initialPreviewResources,ca
  const assetUploaded=useCallback((asset:StorefrontAsset)=>{if(mountedRef.current)setMedia(current=>[...current.filter(item=>!(item.reference.kind==="asset"&&item.reference.assetId===asset.id)),{id:asset.id,url:asset.publicUrl,altText:asset.altText,mediaType:asset.mediaType,width:asset.width,height:asset.height,reference:{kind:"asset",assetId:asset.id},assetKind:asset.kind}]);},[]);
  const refreshMedia=useCallback(async()=>{try{const latest=await storefrontDesignApi.editor();if(mountedRef.current){setMedia(latest.media);setDestinations(latest.destinations);}}catch{if(mountedRef.current)setMessage("Görsel listesi yenilenemedi. Seçimleriniz korunuyor.");}},[]);
  const compareLatest=useCallback(async()=>{setReadingLatest(true);try{const latest=await storefrontDesignApi.editor();if(mountedRef.current)setRecovery(latest);}catch{if(mountedRef.current)setMessage("Güncel tasarım yüklenemedi. Girişleriniz korunuyor.");}finally{if(mountedRef.current)setReadingLatest(false);}},[]);
- const differences=useMemo(()=>recovery?compareDesignDrafts(editor.design,recovery.design):[],[editor.design,recovery]);
+ const differences=useMemo(()=>recovery?compareDesignDrafts(editor.design,recovery.design,{local:{destinations,media},remote:{destinations:recovery.destinations,media:recovery.media}}):[],[editor.design,recovery,destinations,media]);
  const selectedSurface=popup?.kind==="surface"?popup.surface:popup?"homepage":previewSurface;
  const previewResources=useStorefrontDesignPreviewResources(editor.design.composition,initialPreviewResources,undefined,previewProductId);
  const assets=useMemo(()=>editorAssetOptions(media),[media]);

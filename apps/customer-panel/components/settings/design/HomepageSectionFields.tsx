@@ -6,6 +6,7 @@ import { useRef } from "react";
 import { DesignImageField, type DesignImageOption } from "./DesignImageField";
 import { DesignAssetField } from "./DesignAssetField";
 import { ProductPicker } from "./ProductPicker";
+import { DesignBannerLinkField, DesignPathField } from "./DesignLinkField";
 import styles from "../design-settings.module.css";
 
 type FieldErrors = Readonly<Record<string, string>>;
@@ -34,7 +35,6 @@ export function HomepageSectionFields({ section, assets, media = [], destination
  const categories=destinations.filter(({kind})=>kind==="collection");
  const bannerMedia=media.filter(item=>item.reference.kind==="media"||item.assetKind==="hero");
  const heroAssets=assets.filter(({kind})=>kind==="hero"), categoryAssets=assets.filter(({kind})=>kind==="category");
- const paths=destinations.map(({path,label})=>({path,label}));
  const error=(key:string)=>errors[key] ? <small id={`homepage-error-${key}`} className={styles.fieldError} role="alert">{errors[key]}</small> : null;
  const heading="heading" in section ? <label>Başlık<input maxLength={160} disabled={disabled} value={section.heading} aria-invalid={Boolean(errors.heading)} aria-describedby={errors.heading ? "homepage-error-heading" : undefined} onChange={event=>onUpdate({...section,heading:event.target.value})}/>{error("heading")}</label>:null;
  if(section.kind==="banner") return <div className={styles.homepageInspectorFields}>
@@ -52,13 +52,12 @@ export function HomepageSectionFields({ section, assets, media = [], destination
      onChange={selected=>update({[key]:selected.startsWith("media:")?{kind:"media",mediaId:selected.slice(6)}:selected.startsWith("asset:")?{kind:"asset",assetId:selected.slice(6)}:selected==="legacy"?value:null})}
      onUpload={onUpload?async file=>{const created=await onUpload(file,(slide.headline||label).trim().slice(0,500));return {...created,key:`media:${created.id}`};}:undefined}/>;
    };
-   const destination=slide.destination.kind==="none"?"":slide.destination.kind==="path"?"path":`${slide.destination.kind}:${slide.destination.resourceId}`;
    return <fieldset key={slide.slideId}><legend>{index+1}. görsel</legend>{section.slides.length>1?<div className={styles.homepageItemActions}><button type="button" disabled={disabled||index===0} aria-label={`Görsel ${index+1} yukarı taşı`} onClick={()=>move(-1)}><ChevronUp size={16}/></button><button type="button" disabled={disabled||index===section.slides.length-1} aria-label={`Görsel ${index+1} aşağı taşı`} onClick={()=>move(1)}><ChevronDown size={16}/></button><button type="button" disabled={disabled||section.slides.length===1} aria-label={`Görsel ${index+1} kaldır`} onClick={()=>onUpdate({...section,slides:section.slides.filter(item=>item.slideId!==slide.slideId)})}><Trash2 size={16}/></button></div>:null}
     <label><input type="checkbox" disabled={disabled} checked={slide.enabled} onChange={event=>update({enabled:event.target.checked})}/>Görseli göster</label>
     <div className={styles.imagePair}>{imageField("Masaüstü görseli","desktopImage")}{imageField("Mobil görseli","mobileImage")}</div>
     <details className={styles.advancedDisclosure} open={section.presentation==="overlay"?true:undefined}><summary>Başlık ve açıklama</summary><div className={styles.inspectorFields}><label>Başlık<input maxLength={120} disabled={disabled} value={slide.headline} onChange={event=>update({headline:event.target.value})}/></label><label>Açıklama<textarea maxLength={500} disabled={disabled} value={slide.body} onChange={event=>update({body:event.target.value})}/></label></div></details>
-    <label>Bağlantı<select disabled={disabled} value={destination} onChange={event=>{const item=destinations.find(item=>`${item.kind}:${item.resourceId}`===event.target.value);update({destination:event.target.value==="path"?{kind:"path",path:"/products"}:item?{kind:item.kind,resourceId:item.resourceId}:{kind:"none"}});}}><option value="">Bağlantı yok</option><option value="path">Mağaza içi adres</option>{destinations.map(item=><option key={`${item.kind}:${item.resourceId}`} value={`${item.kind}:${item.resourceId}`}>{item.label}</option>)}</select></label>
-    {slide.destination.kind==="path"?<label>Mağaza içi adres<input disabled={disabled} value={slide.destination.path} maxLength={500} placeholder="/products" onChange={event=>update({destination:{kind:"path",path:event.target.value}})}/><small>/ ile başlayan mağaza içi adres kullanın.</small></label>:null}
+    <DesignBannerLinkField value={slide.destination} destinations={destinations} disabled={disabled} onChange={destination=>update({destination})}/>
+
    </fieldset>;
   })}<button type="button" disabled={disabled} className={styles.homepageInlineButton} onClick={()=>onUpdate({...section,slides:[...section.slides,{slideId:`slide_${globalThis.crypto.randomUUID().replaceAll("-","_")}`,enabled:true,headline:"Yeni banner",body:"",desktopImage:null,mobileImage:null,destination:{kind:"none"}}]})}><Plus size={16}/>Görsel ekle</button>
  </div>;
@@ -97,7 +96,7 @@ export function HomepageSectionFields({ section, assets, media = [], destination
     <label>Başlık<input maxLength={160} disabled={disabled} value={panel?.heading??""} aria-invalid={Boolean(errors[`panel${index}Heading`])} aria-describedby={errors[`panel${index}Heading`]?`homepage-error-panel${index}Heading`:undefined} onChange={event=>updatePanel(index,{heading:event.target.value})}/>{error(`panel${index}Heading`)}</label>
     <details className={styles.advancedDisclosure}><summary>Metin ayrıntıları</summary><div className={styles.inspectorFields}><label>Üst başlık<input maxLength={80} disabled={disabled} value={panel?.eyebrow??""} onChange={event=>updatePanel(index,event.target.value?{eyebrow:event.target.value}:{},event.target.value?[]:["eyebrow"])}/></label>
     <label>Açıklama<textarea maxLength={500} disabled={disabled} value={panel?.body??""} onChange={event=>updatePanel(index,event.target.value?{body:event.target.value}:{},event.target.value?[]:["body"])}/></label></div></details>
-    <label>Bağlantı<select disabled={disabled} value={panel?.destination??""} aria-invalid={Boolean(errors[`panel${index}Destination`])} aria-describedby={errors[`panel${index}Destination`]?`homepage-error-panel${index}Destination`:undefined} onChange={event=>updatePanel(index,{destination:event.target.value})}><option value="">Bağlantı seçin</option>{panel?.destination&&!paths.some(item=>item.path===panel.destination)?<option value={panel.destination}>{panel.destination}</option>:null}{paths.map(item=><option key={item.path} value={item.path}>{item.label}</option>)}</select>{error(`panel${index}Destination`)}</label>
+    <DesignPathField value={panel?.destination??""} destinations={destinations} disabled={disabled} emptyLabel="Bağlantı seçin" invalid={Boolean(errors[`panel${index}Destination`])} describedBy={errors[`panel${index}Destination`]?`homepage-error-panel${index}Destination`:undefined} onChange={destination=>updatePanel(index,{destination})}/>{error(`panel${index}Destination`)}
    </fieldset>;
   })}</div>;
  }
@@ -105,7 +104,7 @@ export function HomepageSectionFields({ section, assets, media = [], destination
   <label>Küçük başlık<input maxLength={80} disabled={disabled} value={section.eyebrow??""} onChange={event=>{const next={...section};if(event.target.value)next.eyebrow=event.target.value;else delete next.eyebrow;onUpdate(next);}}/></label>{heading}
   <label>Hikâye<textarea maxLength={1000} disabled={disabled} value={section.body} aria-invalid={Boolean(errors.body)} aria-describedby={errors.body?"homepage-error-body":undefined} onChange={event=>onUpdate({...section,body:event.target.value})}/>{error("body")}</label>
   <DesignAssetField label="Görsel" value={section.assetId??""} assets={heroAssets} kind="hero" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={section.heading||"Marka hikâyesi"} onChange={assetId=>{const latest=latestSection.current;if(latest.kind!=="brand_story")return;const next={...latest};if(assetId)next.assetId=assetId;else delete next.assetId;onUpdate(next);}}/>
-  <label>Bağlantı<select disabled={disabled} value={section.destination??""} onChange={event=>{const next={...section};if(event.target.value)next.destination=event.target.value;else delete next.destination;onUpdate(next);}}><option value="">Bağlantı yok</option>{section.destination&&!paths.some(item=>item.path===section.destination)?<option value={section.destination}>{section.destination}</option>:null}{paths.map(item=><option key={item.path} value={item.path}>{item.label}</option>)}</select></label>
+  <DesignPathField value={section.destination??""} destinations={destinations} disabled={disabled} onChange={destination=>{const next={...section};if(destination)next.destination=destination;else delete next.destination;onUpdate(next);}}/>
  </div>;
  if(section.kind==="value_propositions") return <div className={styles.homepageInspectorFields}>{section.items.map((item,index)=><fieldset key={index}><legend>{index+1}. değer</legend><button className={styles.homepageInlineButton} type="button" disabled={disabled||section.items.length<=2} onClick={()=>onUpdate({...section,items:section.items.filter((_,position)=>position!==index)})}><Trash2 size={16}/>Değeri kaldır</button>
   <label>Simge<select disabled={disabled} value={item.icon} onChange={event=>onUpdate({...section,items:section.items.map((entry,position)=>position===index?{...entry,icon:event.target.value as typeof item.icon}:entry)})}>{["sparkles","cotton","heart","shield","truck","return"].map(icon=><option key={icon} value={icon}>{({sparkles:"Öne çıkan",cotton:"Malzeme",heart:"Özen",shield:"Güven",truck:"Teslimat",return:"İade"} as Record<string,string>)[icon]}</option>)}</select></label>
