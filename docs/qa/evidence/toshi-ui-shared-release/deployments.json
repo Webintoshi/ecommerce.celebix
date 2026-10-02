@@ -1,0 +1,28 @@
+{
+  "releaseSha": "bf66681ee7e78181493149903966e3a8f6ebb252",
+  "baselineSha": "01475eba82a18c2052d8dac5c41c71129e969d75",
+  "officialQueue": true,
+  "sequentialNetThenSite": true,
+  "rows": [
+    {
+      "status": "finished",
+      "target": "panel_net",
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "deploymentUuid": "qzyg9laco4fsjlfh1zm48iv4",
+      "commit": "bf66681ee7e78181493149903966e3a8f6ebb252",
+      "phase": "starting",
+      "createdAt": "2026-10-01 23:52:36",
+      "finishedAt": "2026-10-01 23:57:39"
+    },
+    {
+      "status": "finished",
+      "target": "panel_site",
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "deploymentUuid": "g3f0wi75tppzujq36xpe5o95",
+      "commit": "bf66681ee7e78181493149903966e3a8f6ebb252",
+      "phase": "starting",
+      "createdAt": "2026-10-01 23:58:49",
+      "finishedAt": "2026-10-02 00:04:28"
+    }
+  ]
+}

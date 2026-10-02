@@ -1,0 +1,14 @@
+{
+  "hostname": "admin.guzidekuyumcu.com",
+  "authenticatedSession": true,
+  "launcherLocation": "existing_topbar",
+  "existingConversationLoaded": true,
+  "providerObserved": "DeepSeek \u00b7 deepseek-flash",
+  "newConversationWelcomeVisible": true,
+  "welcomeIllustrationVisible": true,
+  "closeReturnedFocusToLauncher": true,
+  "bodyScrollRestored": true,
+  "messagesSent": 0,
+  "merchantWrites": false,
+  "screenshot": "live-guzide-drawer.jpg"
+}

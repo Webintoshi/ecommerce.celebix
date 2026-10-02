@@ -1,0 +1,24 @@
+{
+  "commit": "bf66681ee7e78181493149903966e3a8f6ebb252",
+  "productionBuildExitCode": 0,
+  "chatUiTests": 28,
+  "integrationTests": 9,
+  "serverTests": 24,
+  "relatedTestsPassed": 61,
+  "localViewports": [
+    1440,
+    1024,
+    390
+  ],
+  "shortViewport": [
+    390,
+    500
+  ],
+  "generalSuiteGreen": false,
+  "initialGeneralSuiteFailures": 51,
+  "toshiAssertionsCorrectedAndRetested": 6,
+  "remainingOutOfScopeFailuresFromInitialRun": 45,
+  "generalSuiteRerunAfterCorrections": false,
+  "cleanBaselineSuiteRerun": false,
+  "productionApiOrMigrationChanges": false
+}

@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "candidateMatches": true,
+  "authorityMatches": true,
+  "runtimeScopeMatches": true,
+  "sourceMatches": true,
+  "independentPaytr": true,
+  "independentCanonical": true,
+  "independentSourceMatches": true,
+  "iyzicoMatches": true,
+  "target": "panel_net",
+  "approvedEnvironments": [],
+  "container": "e4xe74cmii7jucbkyor0o412-235236183397",
+  "image": "e4xe74cmii7jucbkyor0o412:bf66681ee7e78181493149903966e3a8f6ebb252"
+}

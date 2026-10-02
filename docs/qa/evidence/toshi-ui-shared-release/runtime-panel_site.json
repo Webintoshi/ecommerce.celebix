@@ -1,0 +1,320 @@
+{
+  "sourceCommit": "bf66681ee7e78181493149903966e3a8f6ebb252",
+  "sourceMatches": true,
+  "passed": true,
+  "files": [
+    {
+      "path": "apps/customer-panel/app/api/catalog/products/[productId]/variant-media/route.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/app/globals.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/AnalyticsDashboard.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/CommerceAnalyticsWorkspace.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/analytics/commerce-analytics-workspace.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-collections/CollectionConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-collections/CollectionEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/ProductAdvancedEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog-onboarding/ProductVariantBuilder.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductDetailConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/ProductVariantGalleryEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/VariantGalleryDialog.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/catalog/variant-gallery.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/content/PolicyConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/dashboard/panel-dashboard.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/InStoreSalesConsole.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/orders/OrderActionDialog.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionEditor.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionIllustration.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionList.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/PromotionTemplatePicker.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-illustration.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-list-empty.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-studio.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/promotions/promotion-template-picker.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/seo/SeoContent.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/seo/SeoOverview.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/seo/SeoSettings.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/seo/SeoShared.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/seo/seo.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/catalog-ui/variant-media-client.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/seo-ui/client.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/seo-ui/unsaved.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202609300184_in_store_sale_price_payment_v2.up.sql",
+      "matches": true
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/paytr/build-binding.ts",
+      "matches": true
+    },
+    {
+      "path": "packages/saas-contracts/src/seo/index.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelTopbarUtilities.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/lib/toshi-chat-ui/markdown.ts",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/toshi/ToshiWorkspace.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/toshi/ToshiMessageBody.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/toshi/ToshiAssistant.tsx",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/toshi/toshi.module.css",
+      "matches": true
+    },
+    {
+      "path": "apps/customer-panel/components/toshi/ToshiDrawer.tsx",
+      "matches": true
+    }
+  ],
+  "routes": [
+    {
+      "route": "/seo/page",
+      "exists": true
+    },
+    {
+      "route": "/seo/content/page",
+      "exists": true
+    },
+    {
+      "route": "/seo/settings/page",
+      "exists": true
+    },
+    {
+      "route": "/seo/sitemap/page",
+      "exists": true
+    },
+    {
+      "route": "/seo/internal-linking/page",
+      "exists": true
+    },
+    {
+      "route": "/seo/fast-indexing/page",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/overview/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/settings/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/resources/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/resources/[kind]/[id]/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/links/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/checks/route",
+      "exists": true
+    },
+    {
+      "route": "/api/seo/notifications/route",
+      "exists": true
+    },
+    {
+      "route": "/orders/quick-links/page",
+      "exists": true
+    },
+    {
+      "route": "/content/policies/page",
+      "exists": true
+    },
+    {
+      "route": "/analytics/page",
+      "exists": true
+    },
+    {
+      "route": "/products/collections/page",
+      "exists": true
+    },
+    {
+      "route": "/products/collections/[resourceId]/edit/page",
+      "exists": true
+    },
+    {
+      "route": "/products/collections/new/page",
+      "exists": true
+    },
+    {
+      "route": "/products/new/page",
+      "exists": true
+    },
+    {
+      "route": "/products/[productId]/page",
+      "exists": true
+    },
+    {
+      "route": "/api/catalog/products/[productId]/variant-media/route",
+      "exists": true
+    },
+    {
+      "route": "/(panel)/page",
+      "exists": true
+    },
+    {
+      "route": "/discounts/page",
+      "exists": true
+    },
+    {
+      "route": "/discounts/new/page",
+      "exists": true
+    },
+    {
+      "route": "/discounts/[promotionId]/edit/page",
+      "exists": true
+    },
+    {
+      "route": "/api/promotions/route",
+      "exists": true
+    },
+    {
+      "route": "/api/promotions/[...path]/route",
+      "exists": true
+    },
+    {
+      "route": "/toshi/page",
+      "exists": true
+    },
+    {
+      "route": "/api/toshi/messages/route",
+      "exists": true
+    },
+    {
+      "route": "/api/toshi/conversations/route",
+      "exists": true
+    },
+    {
+      "route": "/api/toshi/conversations/[conversationId]/route",
+      "exists": true
+    },
+    {
+      "route": "/settings/artificial-intelligence/page",
+      "exists": true
+    }
+  ],
+  "target": "panel_site",
+  "container": "yk1h6d97z7ex0h74ok3zrj5c-235849438195",
+  "image": "yk1h6d97z7ex0h74ok3zrj5c:bf66681ee7e78181493149903966e3a8f6ebb252"
+}

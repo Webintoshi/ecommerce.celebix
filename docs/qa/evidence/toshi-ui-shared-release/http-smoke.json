@@ -1,0 +1,386 @@
+{
+  "capturedAt": "2026-10-02T00:04:46.030471+00:00",
+  "noCredentials": true,
+  "noMerchantWrites": true,
+  "passed": true,
+  "rows": [
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.net",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "panel.saas-staging.celebix.site",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/toshi",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/api/toshi/conversations",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/login",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/discounts",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/discounts/new",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/analytics",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/api/promotions",
+      "status": 401,
+      "passed": true
+    },
+    {
+      "hostname": "admin.guzidekuyumcu.com.tr",
+      "path": "/api/analytics/overview?range=7d",
+      "status": 401,
+      "passed": true
+    }
+  ]
+}

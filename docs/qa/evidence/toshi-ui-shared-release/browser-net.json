@@ -1,0 +1,14 @@
+{
+  "hostname": "butik-siora.admin.saas-staging.celebix.net",
+  "authenticatedSession": true,
+  "launcherLocation": "existing_topbar",
+  "welcomeIllustrationVisible": true,
+  "historyOpened": true,
+  "historyEscapeReturnedFocus": true,
+  "drawerEscapeReturnedFocusToLauncher": true,
+  "bodyScrollRestored": true,
+  "modeObserved": "local",
+  "messagesSent": 0,
+  "merchantWrites": false,
+  "screenshot": "live-butik-siora-drawer.jpg"
+}
