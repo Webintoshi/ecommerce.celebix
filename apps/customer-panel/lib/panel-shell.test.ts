@@ -873,7 +873,7 @@ test("Toshi drawer native modal contains focus and closes by backdrop, Escape, a
     const ToshiAssistant: HookTestComponent = ({ titleRef, headerActions }) => harness.jsxRuntime.jsxs("div", {
       children: [
         harness.jsxRuntime.jsx("h2", { id: "toshi-assistant-title-drawer", ref: titleRef, tabIndex: -1, children: "Toshi" }),
-        headerActions,
+        headerActions as HookTestNode,
         harness.jsxRuntime.jsx("form", {}),
       ],
     });
