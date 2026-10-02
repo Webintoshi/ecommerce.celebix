@@ -20,10 +20,10 @@
 }
 .root { display: grid; gap: 20px; min-width: 0; background: var(--analytics-canvas); }
 .root *, .topbarLiveMetric * { box-sizing: border-box; }
-.root :is(button, select, input) { min-width: 44px; min-height: 44px; font: inherit; }
+.root :is(button, select, input) { min-width: 44px; min-height: 44px; font-family: inherit; }
 .root a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; gap: 4px; }
 .root :is(a, button, summary, select, input):focus-visible,
-.reportPanel:focus-visible { outline: 2px solid var(--analytics-brand); outline-offset: 2px; }
+.reportPanel:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .root :is(h2, h3, p) { margin: 0; }
 .root :is(h2, h3) { color: var(--analytics-ink); line-height: 1.35; }
 .root button:disabled { cursor: not-allowed; opacity: 0.6; }
@@ -45,13 +45,18 @@
 .quickControls select, .compareButton, .filterDisclosure > summary, .outlineAction,
 .advancedControls button, .filterGrid button, .errorState button {
   display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px;
-  color: var(--analytics-ink); font-size: 14px; font-weight: 600; line-height: 1.5; text-decoration: none; cursor: pointer;
+  border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px;
+  color: var(--analytics-ink); font-size: var(--cp-control-font-size); font-weight: var(--cp-control-font-weight); line-height: 1.5; text-decoration: none; cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
-.quickControls select { min-width: 144px; }
+.periodControl { position: relative; display: inline-flex; min-width: 184px; max-width: 100%; }
+.periodControl select { width: 100%; min-width: 0; appearance: none; padding-inline: 40px; }
+.periodControl > svg { position: absolute; top: 50%; left: 12px; width: 16px; height: 16px; transform: translateY(-50%); color: var(--analytics-muted); pointer-events: none; }
+.periodControl > svg:last-child { right: 12px; left: auto; }
+.periodControl select:hover { border-color: var(--cp-control-hover); }
 .compareButton[aria-pressed="true"], .filterDisclosure[open] > summary { border-color: var(--analytics-ink); background: var(--analytics-soft); }
 .compareButton:hover, .outlineAction:hover, .filterDisclosure > summary:hover,
-.advancedControls button:hover { background: var(--analytics-soft); }
+.advancedControls button:hover { border-color: var(--cp-control-hover); background: var(--analytics-soft); }
 .contextRow { min-height: 44px; align-items: flex-start; gap: 12px; }
 .dataStatus { display: flex; min-width: 0; min-height: 44px; flex: 1 1 0; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--analytics-ink); font-size: 12px; font-weight: 500; }
 .contextMeta { color: var(--analytics-muted); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
@@ -251,7 +256,9 @@
   .root, .overview, .detailPage, .reportPanel { gap: 16px; }
   .tabs { gap: 16px; padding-inline: 4px; }
   .quickControls { justify-content: flex-start; }
+  .periodControl { flex: 1 1 auto; min-width: 0; }
   .quickControls select { flex: 1 1 auto; min-width: 0; }
+  .root .periodControl select { font-size: 16px; }
   .contextMeta { flex-basis: 100%; }
   .dataStatus { align-content: center; row-gap: 4px; }
   .filterBody {

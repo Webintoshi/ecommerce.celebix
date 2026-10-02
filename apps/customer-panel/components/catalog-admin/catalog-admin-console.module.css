@@ -730,3 +730,28 @@
   .brandWorkspace .brandLogoPreview { width: 64px; }
   .brandWorkspace .brandFormActions > * { width: auto; flex: 1; }
 }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.workspace :is(.button, .primary, .secondaryButton) {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger):hover:not(:disabled), .workspace :is(.filterField, .brandSort) select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.workspace :is(.button, .primary, .secondaryButton):focus-visible, .workspace :is(.filterField, .brandSort) select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+@media (max-width: 640px) { .workspace :is(.filterField, .brandSort) select { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.workspace :is(.button, .primary, .secondaryButton),
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select { transition: none; }
+}

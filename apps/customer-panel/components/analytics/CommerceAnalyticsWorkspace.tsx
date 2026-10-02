@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CircleAlert, GitCompareArrows, Route, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, CircleAlert, GitCompareArrows, Route, SlidersHorizontal } from "lucide-react";
 import {
   useRouter,
   useSearchParams,
@@ -1149,20 +1149,24 @@ export function CommerceAnalyticsWorkspace({
             ))}
           </nav>
           <div className={styles.quickControls}>
-            <select
-              aria-label="Tarih aralığı"
-              value={range}
-              onChange={(event) => {
-                const next = event.currentTarget.value as Exclude<Range, "custom">;
-                router.push(href({ range: next, from: null, to: null, page: null }));
-              }}
-            >
-              {range === "custom" ? <option value="custom">Özel aralık</option> : null}
-              <option value="today">Bugün</option>
-              <option value="7d">Son 7 gün</option>
-              <option value="30d">Son 30 gün</option>
-              <option value="90d">Son 90 gün</option>
-            </select>
+            <div className={styles.periodControl}>
+              <CalendarDays aria-hidden="true" />
+              <select
+                aria-label="Tarih aralığı"
+                value={range}
+                onChange={(event) => {
+                  const next = event.currentTarget.value as Exclude<Range, "custom">;
+                  router.push(href({ range: next, from: null, to: null, page: null }));
+                }}
+              >
+                {range === "custom" ? <option value="custom">Özel aralık</option> : null}
+                <option value="today">Bugün</option>
+                <option value="7d">Son 7 gün</option>
+                <option value="30d">Son 30 gün</option>
+                <option value="90d">Son 90 gün</option>
+              </select>
+              <ChevronDown aria-hidden="true" />
+            </div>
             {range !== "custom" ? (
               <button
                 type="button"

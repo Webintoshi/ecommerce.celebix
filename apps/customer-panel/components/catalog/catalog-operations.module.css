@@ -83,15 +83,14 @@
 .catalogRoot :global(.button-primary:hover:not(:disabled)) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
 
 .primaryAction {
-  border-color: #FE6100 !important;
-  background: #FE6100 !important;
-  color: #FFFDFC !important;
+  border-color: var(--cp-action-primary);
+  background: var(--cp-action-primary);
+  color: var(--cp-action-primary-text);
 }
 
 .primaryAction:hover {
-  border-color: #FE6100 !important;
-  background: #FE6100 !important;
-  filter: brightness(0.94);
+  border-color: var(--cp-action-primary-hover);
+  background: var(--cp-action-primary-hover);
 }
 
 .catalogRoot :global(.product-bulk-actions > button:disabled),
@@ -439,9 +438,13 @@
 }
 
 .catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary) {
-  border-color: var(--catalog-accent);
-  background: var(--catalog-accent);
-  color: var(--catalog-surface);
+  border-color: var(--cp-action-primary);
+  background: var(--cp-action-primary);
+  color: var(--cp-action-primary-text);
+}
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary:hover:not(:disabled)) {
+  border-color: var(--cp-action-primary-hover);
+  background: var(--cp-action-primary-hover);
 }
 
 .catalogRoot:global(.product-operations-page) :global(.product-bulkbar) {
@@ -806,4 +809,75 @@
 
   .catalogRoot:global(.product-operations-page) :global(.product-link strong) { font-size: 12px; }
   .catalogRoot:global(.product-operations-page) :global(.product-pagination) { justify-content: space-between; }
+}
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button) {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button) { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active):hover:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary):hover:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select:hover),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select:hover:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control:hover),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button:hover:not(:disabled)) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.catalogRoot:global(.product-operations-page) :global(.command-button:focus-visible),
+.catalogRoot:global(.product-operations-page) :global(.command-select:focus-within),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control:focus-within),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select:focus-visible),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button) {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.catalogRoot:global(.product-operations-page) :global(.row-count-control select) {
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+}
+@media (max-width: 640px) {
+  .catalogRoot:global(.product-operations-page) :global(.command-select select),
+  .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
+  .catalogRoot:global(.product-operations-page) :global(.row-count-control select) { font-size: 16px; }
+}
+
+.catalogRoot:global(.product-operations-page) :global(.product-filter-panel > label select) {
+  min-height: var(--cp-control-height);
+  border-color: var(--cp-control-border);
+  border-radius: var(--cp-control-radius);
+  background: var(--cp-control-background);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+}
+.catalogRoot:global(.product-operations-page) :global(.product-filter-panel > label select:hover:not(:disabled)) { border-color: var(--cp-control-hover); }
+.catalogRoot:global(.product-operations-page) :global(.product-filter-panel > label select:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+@media (max-width: 640px) { .catalogRoot:global(.product-operations-page) :global(.product-filter-panel > label select) { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary)),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button) { transition: none; }
 }

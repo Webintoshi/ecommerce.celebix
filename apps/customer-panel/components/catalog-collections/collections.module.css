@@ -2,3 +2,28 @@
 @media(max-width:1180px){.tableHead,.collectionRow{grid-template-columns:minmax(180px,1fr) 96px 56px 88px 132px;gap:12px}.editorGrid{grid-template-columns:minmax(0,1fr) 248px;gap:24px}.editorSide{padding-left:24px}.memberRow{grid-template-columns:44px 44px minmax(0,1fr) auto;gap:8px}.rank{display:none}.price{display:none}.memberActions{flex-wrap:wrap;max-width:88px}.memberActions .iconButton{width:44px}.toolbarActions{gap:8px}}
 @media(max-width:760px){.tableHead{display:none}.collectionRow{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:16px 0}.identity{grid-column:1/-1;gap:12px}.coverThumb{width:48px;height:64px}.type{grid-column:1;grid-row:2;padding-left:60px;font-size:12px}.numeric{grid-column:1;grid-row:3;padding-left:60px}.numeric:after{content:" ürün";font-size:12px;color:var(--cp-text-secondary)}.status{grid-column:2;grid-row:2}.rowActions{grid-column:2;grid-row:3}.toolbar{flex-wrap:wrap;gap:12px}.toolbar>.search{width:100%}.toolbarActions{width:100%}.toolbarActions>.select{flex:1;min-width:0}.viewbar{gap:8px}.tabs{gap:20px}.resultCount{display:none}.listFooter{padding:16px 0;flex-wrap:wrap}.editorGrid{grid-template-columns:minmax(0,1fr);gap:24px}.editorMain{display:contents}.editorSide{display:contents;border:0;padding:0}.basics{grid-row:1}.coverSection{grid-row:2;border-bottom:1px solid var(--cp-border);padding-bottom:24px}.rulesSection{grid-row:3}.productsSection{grid-row:4}.publish{grid-row:5;padding:0;border:0}.url{grid-row:6}.storeLink{grid-row:7}.section{margin-bottom:0}.coverPreview{width:144px;height:192px;float:left;margin-right:16px}.coverActions{margin-top:0;flex-direction:column;align-items:stretch}.coverActions .iconButton{align-self:flex-start}.coverSection:after{content:"";display:block;clear:both}.coverLibrary{clear:both;grid-template-columns:repeat(4,minmax(0,1fr));padding-top:12px}.modeSwitch{width:100%}.modeSwitch button{flex:1}.ruleRow{grid-template-columns:104px minmax(0,1fr) 44px;gap:8px}.ruleRow select{font-size:12px;padding-inline:8px}.rulesToolbar{gap:8px}.rulesToolbar .button{padding:0 12px}.productToolbar .search{width:100%}.productToolbar .select{width:100%}.memberRow{grid-template-columns:44px 40px minmax(0,1fr) auto;gap:8px}.productThumb{width:40px;height:54px}.productCopy strong{font-size:13px}.memberFooter{flex-wrap:wrap}.editorTop{gap:8px}.back{font-size:12px}.editorMeta{gap:8px;font-size:12px}.saveBar{margin-top:24px;gap:8px}.saveState{max-width:120px}.saveActions{gap:8px}.saveActions .button,.saveActions .primary{padding:0 12px}.pickerFilters{grid-template-columns:minmax(0,1fr)}.dialogBody{padding:16px}.dialogHead,.dialogFoot{padding:12px 16px}.dialogFoot{flex-wrap:wrap;gap:8px}.cropWorkspace{grid-template-columns:minmax(0,1fr);gap:16px}.cropFrame{width:100%;max-width:220px;margin:auto}.cropControls{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.pickerRow{gap:8px}.pickerRow .price{display:none}}
 @media(prefers-reduced-motion:reduce){.workspace *,.dialog *{transition:none!important;scroll-behavior:auto!important}}
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.button:not(.primary):not(.danger), .primary {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.button:not(.primary):not(.danger), .toolbarActions .select, .productToolbar .select {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.button:not(.primary):not(.danger), .toolbarActions .select, .productToolbar .select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.button:not(.primary):not(.danger):hover:not(:disabled), .toolbarActions .select:hover:not(:disabled), .productToolbar .select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.workspace :is(.button:not(.primary):not(.danger), .primary):focus-visible, .dialog .button:not(.primary):not(.danger):focus-visible, .toolbarActions .select:focus-visible, .productToolbar .select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+@media (max-width: 640px) { .toolbarActions .select, .productToolbar .select { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.button:not(.primary):not(.danger), .primary,
+.button:not(.primary):not(.danger), .toolbarActions .select, .productToolbar .select { transition: none; }
+}

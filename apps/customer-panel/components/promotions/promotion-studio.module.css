@@ -1543,3 +1543,30 @@
 
 .stepPanel p, .simulator p { font-size: 14px; }
 .picker p { font-size: 13px; }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.primaryButton, .secondaryButton {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.secondaryButton, .filters select, .filterDetails summary {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.secondaryButton, .filters select, .filterDetails summary { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.secondaryButton:hover:not(:disabled), .filters select:hover:not(:disabled), .filterDetails summary:hover { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.list .secondaryButton:focus-visible, .editor :is(.primaryButton, .secondaryButton):focus-visible, .list .filters select:focus-visible, .list .filterDetails summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+@media (max-width: 640px) { .filters select { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.primaryButton, .secondaryButton,
+.secondaryButton, .filters select, .filterDetails summary { transition: none; }
+}
+
+.primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }

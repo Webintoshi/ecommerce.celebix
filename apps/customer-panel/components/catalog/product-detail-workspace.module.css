@@ -102,8 +102,8 @@
 .root :global(.button:hover:not(:disabled)) { transform: none; box-shadow: none; }
 .root :global(.button-primary) { border-color: #2b2b2b; background: #2b2b2b; color: #fffdfc; }
 .root :global(.button-primary:hover:not(:disabled)) { border-color: #201c19; background: #201c19; }
-.root :global(.button-secondary) { border-color: var(--detail-line); background: var(--detail-surface); color: #4f4944; }
-.root :global(.button-secondary:hover:not(:disabled)) { border-color: #ccbdaf; background: #f7f3ef; }
+.root :global(.button-secondary) { border-color: var(--cp-control-border); background: var(--cp-control-background); color: var(--cp-text-primary); }
+.root :global(.button-secondary:hover:not(:disabled)) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
 .root :global(.button svg) { width: 16px; height: 16px; }
 .root :global(.feedback) { border-color: var(--detail-line); border-radius: 9px; background: var(--detail-surface); box-shadow: none; }
 
@@ -222,4 +222,23 @@
 
 @media (prefers-reduced-motion: reduce) {
   .root * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.root .smallAction {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.root .smallAction { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.root .smallAction:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.root .smallAction:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.root :global(.button-primary:focus-visible), .root :global(.button-secondary:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+
+.root :global(.button-primary), .root :global(.button-secondary) { min-height: var(--cp-control-height); border-radius: var(--cp-control-radius); padding: 8px 16px; font-size: var(--cp-control-font-size); font-weight: var(--cp-control-font-weight); }
+
+@media (prefers-reduced-motion: reduce) {
+.root .smallAction { transition: none; }
 }

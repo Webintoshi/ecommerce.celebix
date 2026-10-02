@@ -16,6 +16,14 @@
   --cp-action-primary: #2B2B2B;
   --cp-action-primary-hover: #201C19;
   --cp-action-primary-text: #FFFDFC;
+  --cp-control-height: 44px;
+  --cp-control-radius: 8px;
+  --cp-control-font-size: 14px;
+  --cp-control-font-weight: 500;
+  --cp-control-background: var(--cp-soft);
+  --cp-control-hover: var(--cp-border);
+  --cp-control-border: transparent;
+  --cp-control-focus: var(--cp-graphite);
   --cp-success: #287452;
   --cp-danger: #B0473F;
   --cp-warning: #8A6019;
@@ -73,13 +81,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .catalog-heading p, .page-heading p, .section-heading-row p { max-width: 650px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
 .heading-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .heading-actions { display: flex; flex-wrap: wrap; gap: 9px; }
-.button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 16px; padding: 0 17px; cursor: pointer; font-size: 12px; font-weight: 750; transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease; }
-.button:hover:not(:disabled) { transform: translateY(-1px); }
-.button:disabled { cursor: wait; opacity: .6; }
-.button-primary { background: linear-gradient(90deg, var(--accent), #E45700); color: white; box-shadow: 0 14px 28px rgb(254 97 0 / 22%); }
-.button-primary:hover:not(:disabled) { background: linear-gradient(90deg, #E45700, #D34D00); box-shadow: 0 16px 32px rgb(254 97 0 / 28%); }
-.button-secondary { border-color: var(--border-strong); background: var(--surface); color: var(--text); }
-.button-secondary:hover:not(:disabled) { border-color: #a7a59c; background: #fdfcf9; }
+.button { display: inline-flex; min-width: var(--cp-control-height); min-height: var(--cp-control-height); max-width: 100%; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); padding: 8px 16px; cursor: pointer; font-size: var(--cp-control-font-size); font-weight: var(--cp-control-font-weight); line-height: 1.4; transition: background-color 140ms ease, border-color 140ms ease; }
+.button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.button:disabled { cursor: not-allowed; opacity: .5; }
+.button[aria-busy="true"] { cursor: progress; }
+.button svg { width: 16px; height: 16px; flex: none; }
+.button-primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.button-primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
+.button-secondary { background: var(--cp-control-background); color: var(--cp-text-primary); }
+.button-secondary:hover:not(:disabled) { border-color: var(--cp-control-hover); }
+.button-text { background: transparent; color: var(--cp-text-primary); padding-inline: 8px; }
+.button-text:hover:not(:disabled) { background: var(--cp-control-background); }
 .button-danger { background: var(--danger); color: white; }
 .button-quiet-danger { border-color: #e7c7c5; background: #fff7f6; color: var(--danger); }
 .back-link { width: fit-content; color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -98,7 +110,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .hemenaku-product-hero .catalog-heading, .hemenaku-detail-hero .catalog-heading, .hemenaku-form-hero > * { position: relative; z-index: 1; }
 .hemenaku-form-hero { padding-block: 28px; }
-.icon-only-button { width: 48px; padding: 0; color: var(--accent-dark); font-size: 20px; }
+.icon-only-button { width: var(--cp-control-height); padding: 0; color: var(--cp-text-primary); font-size: 20px; }
 .hemenaku-catalog-surface { display: grid; gap: 0; overflow: hidden; border: 1px solid rgb(254 97 0 / 10%); border-radius: 30px; background: linear-gradient(135deg, #fff, #fffdfb 65%, #faf5f0); box-shadow: 0 24px 70px rgb(72 36 8 / 8%); }
 .catalog-surface-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; border-bottom: 1px solid rgb(254 97 0 / 8%); padding: 25px 28px 20px; }
 .catalog-surface-heading > div { display: grid; gap: 6px; }
@@ -114,19 +126,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hemenaku-product-commandbar { display: flex; align-items: center; gap: 8px; }
 .product-mobile-commandbar { display: none; }
 .command-button, .command-select {
-  display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 9px;
-  border: 1px solid #DDE4ED; border-radius: 13px; background: #fff; padding: 0 16px;
-  color: #344054; cursor: pointer; font-size: 13px; font-weight: 650; white-space: nowrap;
-  box-shadow: 0 2px 7px rgb(17 24 39 / 4%); transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+  display: inline-flex; min-width: var(--cp-control-height); min-height: var(--cp-control-height); max-width: 100%; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 0 16px;
+  color: var(--cp-text-primary); cursor: pointer; font-size: var(--cp-control-font-size); font-weight: var(--cp-control-font-weight); white-space: nowrap;
+  transition: border-color 140ms ease, background-color 140ms ease;
 }
-.command-button:hover:not(:disabled), .command-button.is-active, .command-select:hover { border-color: #FFC29A; background: #fff8f3; color: #C94E00; }
+.command-button:hover:not(:disabled), .command-select:hover { border-color: var(--cp-control-hover); }
+.command-button.is-active { border-color: var(--cp-graphite); }
+.command-button:focus-visible, .command-select:focus-within { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .command-button:disabled { cursor: not-allowed; opacity: .5; }
 .command-button svg, .command-select svg { width: 17px; height: 17px; stroke-width: 2; }
-.command-button-primary { border-color: #FF6A00; background: #FF6A00; color: #fff; box-shadow: 0 10px 24px rgb(255 106 0 / 20%); }
-.command-button-primary:hover { border-color: #E85D04; background: #E85D04; color: #fff; }
+.command-button-primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.command-button-primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); color: var(--cp-action-primary-text); }
 .command-select { position: relative; padding: 0 11px; }
-.command-select select { min-height: 48px; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; outline: 0; }
-.command-icon-button { width: 48px; padding: 0; }
+.command-select select { min-height: var(--cp-control-height); border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; outline: 0; }
+.command-icon-button { width: var(--cp-control-height); padding: 0; }
 .hemenaku-product-filters {
   display: grid; grid-template-columns: minmax(420px, 1fr) minmax(280px, 420px) auto auto; align-items: center; gap: 9px;
   min-height: 94px; border-bottom: 1px solid #E3E8EF; padding: 18px 0;
@@ -504,39 +518,40 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-operations-commandbar .command-button,
 .product-operations-commandbar .command-select,
 .product-operations-page .product-operations-toolbar > .command-button {
-  min-height: 40px;
-  border-color: #dce2e9;
-  border-radius: 7px;
+  min-height: var(--cp-control-height);
+  border-color: var(--cp-control-border);
+  border-radius: var(--cp-control-radius);
+  background: var(--cp-control-background);
   padding: 0 12px;
-  box-shadow: 0 1px 2px rgb(16 24 40 / 4%);
-  color: #475467;
-  font-size: 12px;
-  font-weight: 700;
+  box-shadow: none;
+  color: var(--cp-text-primary);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
 }
 .product-operations-commandbar .command-select { padding-left: 10px; }
-.product-operations-commandbar .command-select select { min-height: 40px; padding-right: 3px; }
+.product-operations-commandbar .command-select select { min-height: var(--cp-control-height); padding-right: 3px; }
 .product-operations-commandbar .command-button svg,
 .product-operations-commandbar .command-select svg,
 .product-operations-page .product-operations-toolbar > .command-button svg { width: 15px; height: 15px; }
 .product-operations-commandbar .command-button:hover:not(:disabled),
 .product-operations-commandbar .command-select:hover,
 .product-operations-page .product-operations-toolbar > .command-button:hover:not(:disabled) {
-  border-color: #c7ced8;
-  background: #f8fafc;
-  color: #344054;
+  border-color: var(--cp-control-hover);
+  background: var(--cp-control-background);
+  color: var(--cp-text-primary);
 }
 .product-operations-commandbar .command-button-primary {
-  border-color: #fe6100;
-  background: #fe6100;
-  color: #fff;
-  box-shadow: 0 2px 5px rgb(254 97 0 / 16%);
+  border-color: var(--cp-action-primary);
+  background: var(--cp-action-primary);
+  color: var(--cp-action-primary-text);
+  box-shadow: none;
 }
-.product-operations-commandbar .command-button-primary:hover:not(:disabled) { border-color: #e95800; background: #e95800; color: #fff; }
+.product-operations-commandbar .command-button-primary:hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); color: var(--cp-action-primary-text); }
 .product-operations-commandbar .command-button:focus-visible,
 .product-operations-commandbar .command-select:focus-within,
 .product-operations-page .product-operations-toolbar > .command-button:focus-visible {
-  outline: 3px solid rgb(254 97 0 / 14%);
-  outline-offset: 1px;
+  outline: 2px solid var(--cp-control-focus);
+  outline-offset: 2px;
 }
 .product-operations-toolbar {
   grid-template-columns: minmax(360px, .95fr) minmax(320px, 1.1fr) auto auto;
@@ -825,6 +840,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .button, .command-button, .command-select { transition: none; }
   .product-operations-page * {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;

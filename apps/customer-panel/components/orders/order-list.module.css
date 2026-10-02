@@ -184,3 +184,31 @@
   .listFooter .loadMore { white-space: normal; }
   .appliedFilters { flex-wrap: wrap; }
 }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.button, .exportButton, .loadMore, .primaryAction {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.button:not(.primaryAction):not(.quietButton):not(.iconButton), .exportButton, .loadMore, .sortControl select, .filterForm select {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.button:not(.primaryAction):not(.quietButton):not(.iconButton), .exportButton, .loadMore, .sortControl select, .filterForm select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.button:not(.primaryAction):not(.quietButton):not(.iconButton):hover:not(:disabled), .exportButton:hover:not(:disabled), .loadMore:hover:not(:disabled), .sortControl select:hover:not(:disabled), .filterForm select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.listSurface :is(.button, .exportButton, .loadMore, .primaryAction):focus-visible, .sortControl select:focus-visible, .filterForm select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.sortControl select { padding-inline: 12px; color: var(--cp-text-primary); max-width: 200px; border: 1px solid var(--cp-control-border); }
+@media (max-width: 640px) { .sortControl select, .filterForm select { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.button, .exportButton, .loadMore, .primaryAction,
+.button:not(.primaryAction):not(.quietButton):not(.iconButton), .exportButton, .loadMore, .sortControl select, .filterForm select { transition: none; }
+}
+
+.button:focus-visible, .exportButton:focus-visible, .loadMore:focus-visible, .primaryAction:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }

@@ -18,7 +18,6 @@
   gap: 0.5rem;
 }
 
-.periodFilter,
 .liveVisitors {
   min-height: 2.75rem;
   border: 1px solid #E7E2DD;
@@ -29,43 +28,59 @@
 .periodFilter {
   display: grid;
   grid-template-columns: auto auto;
+  grid-template-rows: var(--cp-control-height, 44px);
+  min-height: var(--cp-control-height, 44px);
   align-items: center;
-  gap: 0 0.5rem;
-  padding: 0.2rem 0.65rem;
-  color: #2B2B2B;
+  gap: 0 8px;
+  border: 1px solid var(--cp-control-border, transparent);
+  border-radius: var(--cp-control-radius, 8px);
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+  padding: 0 12px;
+  color: var(--cp-text-primary, #2B2B2B);
 }
 
 .periodFilter > svg {
-  width: 1.05rem;
-  height: 1.05rem;
-  grid-row: 1 / span 2;
+  width: 16px;
+  height: 16px;
+  grid-row: 1;
 }
 
 .periodFilter select {
-  min-height: 2rem;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: var(--cp-control-height, 44px);
   border: 0;
   outline: 0;
   background: transparent;
-  color: #2B2B2B;
+  padding: 0;
+  color: inherit;
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 750;
+  font-size: var(--cp-control-font-size, 14px);
+  font-weight: var(--cp-control-font-weight, 500);
   cursor: pointer;
 }
 
-.periodFilter small {
-  max-width: 15rem;
-  overflow: hidden;
-  color: #7c7069;
-  font-size: 0.65rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.periodFilter:has(small) select {
+  padding-bottom: 14px;
 }
 
-.periodFilter:focus-within,
-.retryButton:focus-visible,
+.periodFilter small {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  max-width: 15rem;
+  margin-bottom: 4px;
+  overflow: hidden;
+  color: var(--cp-text-secondary, #69635E);
+  font-size: 11px;
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .statusAction:focus-visible,
-.textAction:focus-visible,
 .orderLink:focus-visible,
 .quickAction:focus-visible,
 .quickActionPrimary:focus-visible,
@@ -248,12 +263,17 @@
 }
 
 .dashboardTopbarActions a {
-  min-height: 2.75rem;
-  border-color: #2B2B2B;
-  border-radius: 0.625rem;
-  background: #2B2B2B;
-  color: #FFFDFC;
-  font-size: 0.76rem;
+  min-height: var(--cp-control-height, 44px);
+  border-color: var(--cp-control-border, transparent);
+  border-radius: var(--cp-control-radius, 8px);
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+  padding: 8px 12px;
+  color: var(--cp-text-primary, #2B2B2B);
+  font-size: var(--cp-control-font-size, 14px);
+  font-weight: var(--cp-control-font-weight, 500);
+  box-shadow: none;
+  transform: none;
+  transition: none;
 }
 
 .kpiGrid {
@@ -449,17 +469,20 @@
 }
 
 .retryButton {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  border: 1px solid #E7E2DD;
-  border-radius: 0.625rem;
-  background: #FFFDFC;
-  color: #2B2B2B;
-  padding: 0 0.75rem;
+  min-width: var(--cp-control-height, 44px);
+  min-height: var(--cp-control-height, 44px);
+  border: 1px solid var(--cp-control-border, transparent);
+  border-radius: var(--cp-control-radius, 8px);
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+  color: var(--cp-text-primary, #2B2B2B);
+  padding: 8px 12px;
   font: inherit;
-  font-size: 0.75rem;
-  font-weight: 800;
+  font-size: var(--cp-control-font-size, 14px);
+  font-weight: var(--cp-control-font-weight, 500);
   cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  transition: none;
 }
 
 .orderStatusBody {
@@ -1053,18 +1076,22 @@
 
 .focusCopy a {
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--cp-control-height, 44px);
   align-items: center;
   justify-content: center;
   gap: 8px;
   margin-left: 20px;
-  border-radius: 9px;
-  background: var(--dash-brand);
-  color: var(--dash-ink);
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 700;
+  border: 1px solid var(--cp-control-border, transparent);
+  border-radius: var(--cp-control-radius, 8px);
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+  color: var(--cp-text-primary, #2B2B2B);
+  padding: 8px 12px;
+  font-size: var(--cp-control-font-size, 14px);
+  font-weight: var(--cp-control-font-weight, 500);
   text-decoration: none;
+  box-shadow: none;
+  transform: none;
+  transition: none;
 }
 
 .focusCopy a svg {
@@ -1080,25 +1107,49 @@
   height: auto;
 }
 
-.focusCopy a:focus-visible,
-.dashboardTopbarActions a:focus-visible,
 .quickAction:focus-visible,
 .quickActionPrimary:focus-visible,
 .attentionList a:focus-visible,
-.textAction:focus-visible,
 .statusAction:focus-visible,
-.retryButton:focus-visible,
-.periodFilter:focus-within,
 .orderLink:focus-visible {
   outline: 2px solid var(--dash-brand, #FE6100);
   outline-offset: 3px;
   box-shadow: none;
 }
 
-.dashboardTopbarActions a {
-  border-color: #DDE2EB;
-  background: #FFFFFF;
-  color: #252B3C;
+.periodFilter:hover,
+.dashboardTopbarActions a:hover:not([aria-disabled="true"]),
+.retryButton:hover:not(:disabled),
+.focusCopy a:hover:not([aria-disabled="true"]) {
+  border-color: var(--cp-control-hover, var(--cp-border, #E7E2DD));
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+}
+
+.focusCopy a:focus-visible,
+.dashboardTopbarActions a:focus-visible,
+.textAction:focus-visible,
+.retryButton:focus-visible,
+.periodFilter:focus-within {
+  outline: 2px solid var(--cp-control-focus, var(--cp-graphite, #2B2B2B));
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.focusCopy a:focus-visible {
+  outline-offset: -4px;
+}
+
+.retryButton:disabled,
+.periodFilter:has(select:disabled),
+.dashboardTopbarActions a[aria-disabled="true"],
+.focusCopy a[aria-disabled="true"],
+.textAction[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.periodFilter select:disabled {
+  cursor: not-allowed;
 }
 
 .kpiGrid {
@@ -1398,13 +1449,27 @@
 }
 
 .textAction {
+  min-height: var(--cp-control-height, 44px);
   margin-left: auto;
-  color: var(--dash-ink);
-  font-size: 13px;
+  border: 1px solid var(--cp-control-border, transparent);
+  border-radius: var(--cp-control-radius, 8px);
+  background: transparent;
+  padding: 8px 12px;
+  color: var(--cp-text-primary, #2B2B2B);
+  font-size: var(--cp-control-font-size, 14px);
+  font-weight: var(--cp-control-font-weight, 500);
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+
+.textAction:hover:not([aria-disabled="true"]) {
+  border-color: var(--cp-control-hover, var(--cp-border, #E7E2DD));
+  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
 }
 
 .textAction svg {
-  color: var(--dash-brand);
+  color: currentColor;
 }
 
 .recentOrdersTable {
@@ -1588,6 +1653,8 @@
 }
 
 @media (max-width: 520px) {
+  .periodFilter select { font-size: 16px; }
+  .periodFilter:has(small) select { padding-bottom: 0; }
   .focusBanner { min-height: 210px; align-items: flex-start; }
   .focusCopy { max-width: 100%; }
   .focusCopy h2 { padding-right: 30px; font-size: 19px; }

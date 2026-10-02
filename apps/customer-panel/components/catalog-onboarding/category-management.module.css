@@ -343,3 +343,33 @@
 
 .detailPanel[hidden] { display: none; }
 .categoryRow[data-drop-target="true"][data-drop-after="true"]::before { top: auto; bottom: 0; }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.primaryButton, .refreshButton, .cancelButton, .secondaryButton {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.refreshButton, .secondaryButton {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.refreshButton, .secondaryButton { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.refreshButton:hover:not(:disabled), .secondaryButton:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+:is(.categoryManager, .detailPanel, .confirmDialog) :is(.primaryButton, .refreshButton, .cancelButton, .secondaryButton):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.primaryButton { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.primaryButton:hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
+.confirmDialog .cancelButton { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.confirmDialog .cancelButton:hover:not(:disabled) { border-color: var(--cp-control-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+.primaryButton, .refreshButton, .cancelButton, .secondaryButton,
+.refreshButton, .secondaryButton { transition: none; }
+}
+
+.primaryButton:focus-visible, .refreshButton:focus-visible, .cancelButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }

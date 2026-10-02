@@ -599,3 +599,29 @@
  .imagePair, .formGrid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
  .modalBody :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) { font-size: 16px; }
 }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.publishButton, .modalFooter button:not(.cancelButton) {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.orderButton, .surfaceMenu > summary {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.orderButton, .surfaceMenu > summary { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.orderButton:hover:not(:disabled), .surfaceMenu > summary:hover { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.orderButton:focus-visible, .surfaceMenu > summary:focus-visible, .publishButton:focus-visible, .modalFooter button:not(.cancelButton):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.modalFooter button:not(.cancelButton) { border: 1px solid var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.modalFooter button:not(.cancelButton):hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+.publishButton, .modalFooter button:not(.cancelButton),
+.orderButton, .surfaceMenu > summary { transition: none; }
+}

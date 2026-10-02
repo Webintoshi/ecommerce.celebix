@@ -150,3 +150,31 @@
 @media (max-width: 1024px) { .workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; }.rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }.rail .section { padding-top: 0; }.rail .section:last-child:nth-child(3) { grid-column: 1/-1; }.orderTopbar { flex-wrap: wrap; }.headerActions { margin-left: auto; }.journey { gap: 8px; } }
 @media (max-width: 700px) { .rail { display: block; }.rail .section { padding-top: 24px; }.itemsPanel { padding: 16px; }.sectionHeading { flex-wrap: wrap; gap: 8px; }.itemsTable th:first-child { width: 60%; }.itemsTable th:nth-child(2) { width: 10%; }.itemsTable th:last-child { width: 30%; }.unitPrice { display: none!important; }.mobileUnit { display: block!important; }.productPlaceholder { width: 32px; height: 40px; }.itemIdentity { gap: 8px; padding-right: 4px; }.itemIdentity strong { font-size: 12px; }.itemsTable th, .itemsTable td { font-size: 12px; }.itemsTable td { padding-block: 16px; }.totals { width: 100%; }.paymentLine { align-items: flex-start; flex-wrap: wrap; }.paymentLine .quietButton { margin-left: auto; }.journey li { flex-direction: column; justify-content: flex-start; gap: 8px; text-align: center; font-size: 11px; }.journey { gap: 4px; }.noteForm textarea, .modalForm input, .modalForm select, .modalForm textarea { font-size: 16px; }.loading { grid-template-columns: minmax(0, 1fr); }.loading > div { min-height: 160px; }.formGrid { grid-template-columns: minmax(0, 1fr); }.notifications article { gap: 8px; } }
 @media (max-width: 480px) { .orderTopbar { display: grid; gap: 16px; }.headerActions { width: 100%; margin: 0; justify-content: flex-end; flex-wrap: wrap; }.neighbors { margin-right: auto; }.nextAction { width: 100%; flex-basis: 100%; }.identityLine { gap: 8px; }.identityLine > strong { font-size: 22px; }.orderIdentity { gap: 8px; }.orderIdentity time { font-size: 11px; }.itemsPanel .source { font-size: 11px; }.tracking span { overflow-wrap: anywhere; }.notificationStatus { max-width: 104px; } }
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.primaryButton, .secondaryButton {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.secondaryButton {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.secondaryButton { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.secondaryButton:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.detailRoot :is(.primaryButton, .secondaryButton):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.primaryButton { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.primaryButton:hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+.primaryButton, .secondaryButton,
+.secondaryButton { transition: none; }
+}
+
+.primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }

@@ -1,0 +1,65 @@
+{
+  "analytics": [
+    {
+      "background": "rgb(240, 237, 232)",
+      "font": "14px",
+      "height": 44,
+      "overflow": 0,
+      "radius": "8px",
+      "weight": "500",
+      "width": 1440
+    },
+    {
+      "background": "rgb(240, 237, 232)",
+      "font": "14px",
+      "height": 44,
+      "overflow": 0,
+      "radius": "8px",
+      "weight": "500",
+      "width": 1024
+    },
+    {
+      "background": "rgb(240, 237, 232)",
+      "font": "16px",
+      "height": 44,
+      "overflow": 0,
+      "radius": "8px",
+      "weight": "500",
+      "width": 390
+    }
+  ],
+  "products": [
+    {
+      "bulkDisabled": true,
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "bulkDisabled": true,
+      "overflow": 0,
+      "width": 1024
+    },
+    {
+      "bulkDisabled": true,
+      "overflow": 0,
+      "width": 390
+    }
+  ],
+  "dashboard": [
+    {
+      "overflow": 0,
+      "periodHeight": 44,
+      "width": 1440
+    },
+    {
+      "overflow": 0,
+      "periodHeight": 44,
+      "width": 1024
+    },
+    {
+      "overflow": 0,
+      "periodHeight": 44,
+      "width": 390
+    }
+  ]
+}

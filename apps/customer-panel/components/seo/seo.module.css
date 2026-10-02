@@ -185,3 +185,28 @@
 .filterBar .search{position:relative;display:flex;align-items:center;flex:1;max-width:none}.filterBar .search>svg{position:absolute;left:12px;color:var(--cp-text-secondary);pointer-events:none}.filterBar .search>input{padding-left:40px}
 
 .tableWrap,.linkMap{position:relative;isolation:isolate}
+
+/* Shared action controls; form fields and navigation retain their own styles. */
+.workspace .primary, .primary {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary), .toolbar select, .filterBar select, .sectionHead select {
+  min-height: var(--cp-control-height);
+  border-radius: var(--cp-control-radius);
+  font-size: var(--cp-control-font-size);
+  font-weight: var(--cp-control-font-weight);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary), .toolbar select, .filterBar select, .sectionHead select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.workspace .button:not(.primary):hover:not(:disabled), .workspace .empty button:not(.primary):hover:not(:disabled), .workspace .footRow .actions button:not(.primary):hover:not(:disabled), .workspace .settingsFooter .actions button:not(.primary):hover:not(:disabled), .toolbar select:hover:not(:disabled), .filterBar select:hover:not(:disabled), .sectionHead select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.workspace .button:focus-visible, .workspace .empty button:focus-visible, .workspace .footRow .actions button:focus-visible, .workspace .settingsFooter .actions button:focus-visible, .workspace .primary:focus-visible, .primary:focus-visible, .toolbar select:focus-visible, .filterBar select:focus-visible, .sectionHead select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+@media (max-width: 640px) { .toolbar select, .filterBar select, .sectionHead select { font-size: 16px; } }
+
+@media (prefers-reduced-motion: reduce) {
+.workspace .primary, .primary,
+.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary), .toolbar select, .filterBar select, .sectionHead select { transition: none; }
+}
