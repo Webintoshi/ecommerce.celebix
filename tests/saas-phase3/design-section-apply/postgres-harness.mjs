@@ -219,6 +219,8 @@ async function main() {
   scenario("rollback restores exact legacy functions",()=>{apply(box,DOWN);assert.deepEqual(json(box,`SELECT saas.public_starter_retail_presentation('${STORE}','${NOW}',false);`),legacyPresentation);apply(box,UP);apply(box,ASSERTIONS);});
   const extension=path.join(import.meta.dirname,"direct-apply-scenarios.mjs");
   if(existsSync(extension)){apply(box,"202609300179_storefront_design_direct_apply.up.sql");apply(box,"202609300179_storefront_design_direct_apply_assertions.sql");const {runDirectApplyScenarios}=await import(extension);await runDirectApplyScenarios({box,ROOT,SQL,DB,STORE,PRINCIPAL,MEMBERSHIP,PLAN,HOST,NOW,MEDIA,CATEGORY,ASSET,SECOND_ASSET,FOREIGN,FOREIGN_ASSET,productId,variantId,literal,scalar,json,owner,rpc,apply,psql,fingerprint,authority,scenario,legacy,normalized,manual,banner,category,composition,document,direct,home});}
+  const {runEditorMaterializationScenarios}=await import("./editor-materialization-scenarios.mjs");
+  runEditorMaterializationScenarios({box,DB,SQL,STORE,json,scalar,owner,apply,psql,scenario});
   process.stdout.write(`Verified ${completed} disposable PostgreSQL scenarios.\n`);
  } finally {stop(box);}
 }
