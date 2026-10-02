@@ -13,6 +13,7 @@ import * as locales from "./content-locale.ts";
 import * as sioraTheme from "../themes/siora/theme.ts";
 import * as sioraProductOptions from "../themes/siora/product-options.ts";
 import * as alplerTheme from "../themes/alpler/theme.ts";
+import * as guzideTheme from "../themes/guzide/theme.ts";
 
 type Node = { type: unknown; props: Record<string, unknown> };
 function nodes(value: unknown): Node[] {
@@ -44,6 +45,8 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "../../../themes/siora/SioraProductDetailExperience": { SioraProductDetailExperience: "SioraProductDetailExperience" },
     "../../../themes/siora/product-options.ts": sioraProductOptions,
     "../../../themes/alpler/theme.ts": alplerTheme,
+    "../../../themes/guzide/theme.ts": guzideTheme,
+    "../../../themes/guzide/GuzideProductDetailExperience": { GuzideProductDetailExperience: "GuzideProductDetailExperience" },
   };
   Function("require", "module", "exports", output)((name: string) => {
     if (name in dependencies) return dependencies[name];
@@ -91,14 +94,25 @@ test("home metadata retains legacy SEO before reader registration and reads new 
 });
 
 
-test("immersive product experience is restricted to the resolved Siora tenant", async () => {
-  for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, "a828862c-4cc1-475a-89cc-5fbee31eb43f", "unrelated-store"]) {
+test("tenant product experiences preserve published SEO while only the resolved Siora tenant is immersive", async () => {
+  const guzideId = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
+  for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, guzideId, "a828862c-4cc1-475a-89cc-5fbee31eb4400", "unrelated-store"]) {
     const { exports } = await pageModule("../app/products/[slug]/page.tsx", "product", true, id);
     const tree = await exports.renderProductPage!({ params: Promise.resolve({ slug: "ring" }), routeVariant: "localized" } as never);
     const rendered = nodes(tree);
     assert.equal(rendered.some(({ type }) => type === "SioraProductDetailExperience"), id === sioraTheme.SIORA_STOREFRONT_ID);
-    assert.equal(rendered.some(({ type }) => type === "ProductDetailExperience"), id !== sioraTheme.SIORA_STOREFRONT_ID);
+    assert.equal(rendered.some(({ type }) => type === "GuzideProductDetailExperience"), id === guzideId);
+    assert.equal(rendered.some(({ type }) => type === "ProductDetailExperience"), id !== sioraTheme.SIORA_STOREFRONT_ID && id !== guzideId);
+    const experiences = rendered.filter(({ type }) => type === "SioraProductDetailExperience" || type === "GuzideProductDetailExperience" || type === "ProductDetailExperience");
+    assert.equal(experiences.length, 1);
+    assert.equal((experiences[0]?.props.product as { id: string }).id, "real-id");
+    assert.equal(experiences[0]?.props.locale, "tr");
     assert.equal(rendered.find(({ type }) => type === "StorefrontFrame")?.props.immersiveProduct, id === sioraTheme.SIORA_STOREFRONT_ID);
     assert.deepEqual(rendered.find(({ type }) => type === "SeoRelatedLinks")?.props.links, links);
+    const schemas = rendered.filter(({ type }) => type === "SeoStructuredData").map(({ props }) => props.value as Record<string, unknown>);
+    const productSchema = schemas.find((value) => value["@type"] === "Product");
+    assert.equal(productSchema?.url, "https://shop.example.test/urun/canonical");
+    assert.equal(productSchema?.["@id"], "https://shop.example.test/urun/canonical#product");
+    assert.deepEqual((productSchema?.offers as { price: string; url: string }[]).map(({ price, url }) => ({ price, url })), [{ price: "125.00", url: "https://shop.example.test/urun/canonical" }]);
   }
 });

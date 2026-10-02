@@ -6,6 +6,9 @@ import type {
 } from "@celebix/saas-contracts";
 
 import { CampaignHeaderClient } from "./CampaignHeaderClient";
+import { GuzideHeaderClient } from "../themes/guzide/GuzideHeaderClient";
+import { buildGuzideMenuImages } from "../themes/guzide/guzide-menu.ts";
+import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import styles from "./campaign-header.module.css";
 import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
@@ -16,6 +19,24 @@ export function CampaignHeader({
   const presentation = storefront.presentation;
   if (presentation.schemaVersion !== 2 && presentation.schemaVersion !== 3 && presentation.schemaVersion !== 4)
     return null;
+  const clientProps = {
+    displayName: presentation.displayName,
+    locale: storefront.locale,
+    logo: design.publicationVersion > 1 ? (design.brand.logo ?? presentation.logo) : presentation.logo,
+    navigation: presentation.navigation,
+    desktopNavigation: <nav key="desktop-navigation" className={styles.desktopNav} aria-label="Ana menü">
+      <Link key="home" href="/">Ana Sayfa</Link>
+      <Link key="products" href={productIndexPath(storefront.locale)}>Ürünler</Link>
+      <StorefrontNavigationItems
+        key="categories"
+        items={presentation.navigation.items}
+        categoryHref={(slug) => categoryPath(storefront.locale, slug)}
+        resolveHref={item => item.path ? localizeStorefrontPath(item.path, storefront.locale) : categoryPath(storefront.locale, item.slug)}
+        renderLink={(href, content, className) => <Link key={href} href={href} className={className}>{content}</Link>}
+        classes={{ root: styles.megaTrigger, summary: styles.megaTrigger, panel: styles.mega, links: styles.megaLinks, featured: styles.featured, branch: styles.megaBranch }}
+      />
+    </nav>,
+  };
   return (
     <header
       className={styles.header}
@@ -31,29 +52,9 @@ export function CampaignHeader({
           : "menu_logo_actions"
       }
     >
-      <CampaignHeaderClient
-        displayName={presentation.displayName}
-        locale={storefront.locale}
-        logo={
-          design.publicationVersion > 1
-            ? (design.brand.logo ?? presentation.logo)
-            : presentation.logo
-        }
-        navigation={presentation.navigation}
-        desktopNavigation={
-          <nav className={styles.desktopNav} aria-label="Ana menü">
-            <Link href="/">Ana Sayfa</Link>
-            <Link href={productIndexPath(storefront.locale)}>Ürünler</Link>
-            <StorefrontNavigationItems
-              items={presentation.navigation.items}
-              categoryHref={(slug) => categoryPath(storefront.locale, slug)}
-              resolveHref={item => item.path ? localizeStorefrontPath(item.path, storefront.locale) : categoryPath(storefront.locale, item.slug)}
-              renderLink={(href, content, className) => <Link href={href} className={className}>{content}</Link>}
-              classes={{ root: styles.megaTrigger, summary: styles.megaTrigger, panel: styles.mega, links: styles.megaLinks, featured: styles.featured, branch: styles.megaBranch }}
-            />
-          </nav>
-        }
-      />
+      {guzideThemeFor(storefront)
+        ? <GuzideHeaderClient {...clientProps} menuImages={buildGuzideMenuImages(presentation)} supportEmail={presentation.supportEmail} />
+        : <CampaignHeaderClient {...clientProps} />}
     </header>
   );
 }
