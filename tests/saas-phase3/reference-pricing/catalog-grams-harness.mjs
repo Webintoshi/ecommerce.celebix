@@ -11,6 +11,7 @@ const PRODUCT = "50000000-0000-4000-8000-000000000130";
 const SET_2 = "41000000-0000-4000-8000-000000000198";
 const SET_INACTIVE = "41000000-0000-4000-8000-000000000199";
 const SET_CHANGED = "41000000-0000-4000-8000-000000000200";
+const SET_TINY = "41000000-0000-4000-8000-000000000201";
 const LIST = "60000000-0000-4000-8000-000000000198";
 const LIST_RULE = "61000000-0000-4000-8000-000000000198";
 const UP = "202610020198_reference_pricing_catalog_grams.up.sql";
@@ -45,6 +46,15 @@ try {
   assert.throws(() => parseSet(brokenDraft[2].result));
   if (existsSync(path.join(SQL, UP))) apply(box, UP);
   assert.equal(scalar(box, "SELECT to_regprocedure('saas.pricing_reference_set_preview_v2(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,integer,uuid,uuid)') IS NOT NULL;"), "t", "catalog gram preview RPC must exist");
+  const aclSql = `SELECT jsonb_agg(jsonb_build_object('name',procedure.proname,'owner',procedure.proowner,
+      'acl',procedure.proacl,'definer',procedure.prosecdef,'config',procedure.proconfig) ORDER BY procedure.proname)
+    FROM pg_catalog.pg_proc procedure JOIN pg_catalog.pg_namespace namespace ON namespace.oid=procedure.pronamespace
+    WHERE namespace.nspname='saas' AND procedure.proname IN ('pricing_catalog_gram_candidates',
+      'pricing_catalog_gram_scope_digest','pricing_reference_set_preview_v2','pricing_reference_set_activate_v2');`;
+  const aclBeforeReapply = scalar(box, aclSql);
+  apply(box, UP);
+  assert.equal(scalar(box, aclSql), aclBeforeReapply, "reapplying SQL198 preserves owner, helper isolation, entrypoint ACL and secure search paths");
+  apply(box, "202610020198_reference_pricing_catalog_grams_assertions.sql");
   const firstDraft = saveSet(box, SET_1, 0, [{ referenceId: GOLD, rateTry: "5", active: true }, { referenceId: USD, rateTry: "40", active: true }], operation(19803));
   assert.equal(firstDraft.outcome, "saved");
   assert.equal(firstDraft.result.isActive, false, "a first draft before any activation returns a boolean, never null");
@@ -97,6 +107,10 @@ try {
   assert.equal(merchantDraft.outcome, "saved");
   assert.equal(parseSavedSet(merchantDraft.result).isActive, false, "merchant 6600 TL rate is a valid first-activation draft");
   assert.equal(activateGrams(box, first.result.scopeDigest, operation(19804), 0, SET_CHANGED).outcome, "scope_conflict", "a different candidate reference version invalidates preview");
+  assert.equal(saveSet(box, SET_TINY, 0, [{ referenceId: GOLD, rateTry: "0.00000001", active: true }, { referenceId: USD, rateTry: "40", active: true }], operation(19810)).outcome, "saved");
+  const tiny = previewGrams(box, SET_TINY, 1);
+  assert.equal(tiny.result.entries[0].newPriceCents, 0, "tiny positive reference values retain the existing calculator's exact rounded cents");
+  assert.equal(tiny.result.unavailableVariants, 0);
   assert.equal(scalar(box, "SELECT count(*) FROM saas.pricing_variant_policy_versions"), "1", "preview writes no policies");
   psql(box, `SET ROLE celebix_saas_owner;
     INSERT INTO saas.price_lists(id,store_id,name,status,version,activated_at,created_at,updated_at) VALUES('${LIST}','${STORE}','Native override','active',1,'2026-01-01','2026-01-01','2026-01-01');

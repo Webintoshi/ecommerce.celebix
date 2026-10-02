@@ -59,7 +59,7 @@ BEGIN
     'items',items,'nextCursor',CASE WHEN has_more THEN cursor_version ELSE NULL::bigint END);
 END $fn$;
 
-CREATE FUNCTION saas.pricing_catalog_gram_candidates(p_store_id uuid,p_reference_id uuid)
+CREATE OR REPLACE FUNCTION saas.pricing_catalog_gram_candidates(p_store_id uuid,p_reference_id uuid)
 RETURNS TABLE(variant_id uuid,product_id uuid,variant_version bigint,policy_version bigint,policy jsonb,scope jsonb)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
  SELECT variant.id,variant.product_id,variant.version,COALESCE(state.current_version,0),
@@ -84,7 +84,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
    AND weight.value BETWEEN 1 AND 9007199254740991 AND weight.value=pg_catalog.trunc(weight.value)
 $fn$;
 
-CREATE FUNCTION saas.pricing_catalog_gram_scope_digest(p_store_id uuid,p_set_id uuid,p_reference_id uuid,p_now timestamptz)
+CREATE OR REPLACE FUNCTION saas.pricing_catalog_gram_scope_digest(p_store_id uuid,p_set_id uuid,p_reference_id uuid,p_now timestamptz)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
  WITH candidates AS MATERIALIZED (SELECT * FROM saas.pricing_catalog_gram_candidates(p_store_id,p_reference_id))
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.jsonb_build_object(
@@ -100,7 +100,7 @@ RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saa
      WHERE list.store_id=p_store_id),'[]'::jsonb))::text,'UTF8')),'hex')
 $fn$;
 
-CREATE FUNCTION saas.pricing_reference_set_preview_v2(
+CREATE OR REPLACE FUNCTION saas.pricing_reference_set_preview_v2(
  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,
  p_plan_version bigint,p_now timestamptz,p_set_id uuid,p_channel text,p_page_size integer,
  p_after_variant_id uuid,p_catalog_gram_reference_id uuid
@@ -147,13 +147,13 @@ BEGIN
    ELSE SELECT * INTO candidate FROM saas.pricing_calculate_policy_candidate(p_store_id,selected.id,selected.policy,p_set_id); END IF;
    is_override:=COALESCE(old_price.source_kind='price_list',false);
    IF is_override THEN override_count:=override_count+1; END IF;
-   IF candidate.outcome<>'found' OR selected.policy IS NOT NULL AND candidate.price_cents<1 THEN unavailable_count:=unavailable_count+1; END IF;
+   IF candidate.outcome<>'found' THEN unavailable_count:=unavailable_count+1; END IF;
    IF p_after_variant_id IS NOT NULL AND selected.id<=p_after_variant_id THEN CONTINUE; END IF;
    IF page_count>=p_page_size THEN has_more:=true; CONTINUE; END IF;
    entries:=entries||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('variantId',selected.id,'productId',selected.product_id,
      'oldPriceCents',CASE WHEN old_price.outcome='found' THEN old_price.price_cents ELSE NULL END,
      'newPriceCents',CASE WHEN is_override THEN old_price.price_cents WHEN candidate.outcome='found'
-       AND (selected.policy IS NULL OR candidate.price_cents>0) THEN candidate.price_cents ELSE NULL END,'overriddenByPriceList',is_override));
+       THEN candidate.price_cents ELSE NULL END,'overriddenByPriceList',is_override));
    page_count:=page_count+1; last_id:=selected.id;
  END LOOP;
  RETURN QUERY SELECT 'previewed',pg_catalog.jsonb_build_object('setId',p_set_id,
@@ -163,7 +163,7 @@ BEGIN
    'nextCursor',CASE WHEN has_more THEN last_id ELSE NULL::uuid END);
 END $fn$;
 
-CREATE FUNCTION saas.pricing_reference_set_activate_v2(
+CREATE OR REPLACE FUNCTION saas.pricing_reference_set_activate_v2(
  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,
  p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_set_id uuid,p_expected_state_version bigint,
  p_expected_scope_digest text,p_catalog_gram_reference_id uuid
@@ -205,7 +205,7 @@ BEGIN
      RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
    END IF;
    SELECT * INTO candidate FROM saas.pricing_calculate_policy_candidate(p_store_id,selected.variant_id,selected.policy,p_set_id);
-   IF candidate.outcome<>'found' OR candidate.price_cents IS NULL OR candidate.price_cents<1 THEN
+   IF candidate.outcome<>'found' OR candidate.price_cents IS NULL THEN
      RETURN QUERY SELECT 'unavailable',NULL::jsonb; RETURN;
    END IF;
  END LOOP;
