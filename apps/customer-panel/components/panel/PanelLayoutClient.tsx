@@ -176,7 +176,11 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             </div>
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>
-            <main ref={desktopFocusRef} className={styles.content} tabIndex={-1}>{children}</main>
+            <main
+              ref={desktopFocusRef}
+              className={`${styles.content} ${pathname === "/discounts/new" ? styles.compactContent : ""}`}
+              tabIndex={-1}
+            >{children}</main>
           </PanelTopbarChromeProvider>
         </div>
         <PanelMobileDock navigationMode={model.navigationMode}

@@ -338,6 +338,10 @@
   padding: 1.25rem;
 }
 
+.content.compactContent {
+  padding-top: 0.75rem;
+}
+
 .brand {
   display: flex;
   min-height: 3.5rem;
