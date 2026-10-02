@@ -12,9 +12,10 @@ import { ProductCard } from "../../components/ProductCard";
 import { ProductVariantMediaProvider } from "../../components/ProductVariantMedia";
 import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
 import { renderStarterProductDescription } from "@/lib/product-description.ts";
-import { categoryPath } from "@/lib/storefront-routes.ts";
+import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
 import { GuzideProductGallery } from "./GuzideProductGallery";
 import { GuzideProductPurchase } from "./GuzideProductPurchase";
+import { GuzideProductReturn } from "./GuzideProductReturn";
 import styles from "./guzide-product-detail.module.css";
 
 type Props = Readonly<{
@@ -27,6 +28,7 @@ type Props = Readonly<{
   imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"];
   showQuantitySelector: boolean;
   supportEmail?: string;
+  storefrontId?: string;
 }>;
 
 function RichText({ body, label }: Readonly<{ body?: string; label: string }>) {
@@ -38,7 +40,7 @@ function Chevron() {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="m6 9 6 6 6-6" /></svg>;
 }
 
-export function GuzideProductDetailExperience({ product, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector, supportEmail }: Props) {
+export function GuzideProductDetailExperience({ product, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector, supportEmail, storefrontId = "a828862c-4cc1-475a-89cc-5fbee31eb43f" }: Props) {
   const information: { key: string; label: string; content: ReactNode }[] = [];
   for (const section of options.informationSections) {
     if (section === "description" && renderStarterProductDescription(product.description, "Ürün bilgileri")) {
@@ -58,7 +60,12 @@ export function GuzideProductDetailExperience({ product, locale, relatedProducts
   const hasGuide = guide && renderStarterProductDescription(guide.body, guide.heading);
   const related = availableProductsFirst(relatedProducts).slice(0, 3);
   const supportHref = supportEmail ? `mailto:${supportEmail}?subject=${encodeURIComponent(product.title)}` : undefined;
+  const category = product.categoryPath?.[0];
+  const labels: Readonly<Record<string, string>> = { Kolyeler: "Kolyelere dön", Bileklikler: "Bilekliklere dön", Yüzükler: "Yüzüklere dön", Küpeler: "Küpelere dön" };
+  const backHref = category ? categoryPath(locale, category.slug) : productIndexPath(locale);
+  const backLabel = category ? labels[category.name] ?? `${category.name} kategorisine dön` : "Ürünlere dön";
   return <div className={`${styles.experience} store-container`} data-guzide-product-experience data-mobile-sticky={options.mobileStickyPurchase ? "true" : undefined}>
+    <GuzideProductReturn storefrontId={storefrontId} fallbackHref={backHref} fallbackLabel={backLabel} />
     {options.showBreadcrumbs ? <nav className={styles.breadcrumb} aria-label="İçerik yolu"><Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>{(product.categoryPath ?? []).map(category => <span key={category.slug}><Link href={categoryPath(locale, category.slug)}>{category.name}</Link><span aria-hidden="true">/</span></span>)}<span aria-current="page">{product.title}</span></nav> : null}
     <ProductVariantMediaProvider key={product.id} product={product}>
       <section className={styles.stage} aria-label={`${product.title} ürün ayrıntıları`}>

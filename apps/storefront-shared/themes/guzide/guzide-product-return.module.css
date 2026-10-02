@@ -1,0 +1,6 @@
+.returnLink { display: none; }
+@media (max-width: 1024px) {
+  .returnLink { display: flex; width: fit-content; min-height: 48px; align-items: center; gap: 8px; padding-block: 8px; color: var(--ink); font-family: inherit; font-size: 12px; line-height: 1.4; text-decoration: none; touch-action: manipulation; }
+  .returnLink svg { width: 18px; height: 18px; flex: 0 0 auto; }
+  .returnLink:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+}

@@ -459,7 +459,7 @@ test("public homepage projection removes sold-out products from merchant-managed
 test("document language follows the resolved storefront locale", async () => {
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
   assert.match(layout, /page[.]context[.]storefront[.]locale/u);
-  assert.match(layout, /<html lang=\{locale\}>/u);
+  assert.match(layout, /<html lang=\{locale\}(?:\s[^>]*)?>/u);
   assert.doesNotMatch(layout, /<html lang="tr">/u);
 });
 

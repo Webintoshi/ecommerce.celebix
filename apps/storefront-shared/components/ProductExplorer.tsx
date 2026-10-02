@@ -6,6 +6,8 @@ import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saa
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "@/lib/product-catalog-query.ts";
 import { ProductGrid } from "./ProductGrid";
 import { SioraProductExplorer } from "../themes/siora/SioraProductExplorer";
+import { GuzideProductExplorer } from "../themes/guzide/GuzideProductExplorer";
+import type { GuzideCatalogContext } from "../themes/guzide/guzide-catalog.ts";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 
 const FILTERS = Object.freeze([
@@ -25,9 +27,11 @@ export type ProductExplorerProps = Readonly<{
   path: string;
   preserveOrder?: boolean;
   visualTheme?: StorefrontVisualTheme;
+  catalog?: GuzideCatalogContext;
 }>;
 
 export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps) {
+  if (visualTheme === "guzide-deniz") return <GuzideProductExplorer {...props} />;
   return visualTheme === "siora-deniz" || visualTheme === "alpler-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
 }
 

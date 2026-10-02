@@ -8,6 +8,8 @@ import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+import { guzideThemeFor } from "../../themes/guzide/theme.ts";
+import guzideCatalogStyles from "../../themes/guzide/guzide-product-explorer.module.css";
 
 export const metadata: Metadata = {
   title: "Arama",
@@ -55,30 +57,32 @@ export default async function SearchPage({
           ...(cursor ? { cursor } : {}),
         }).catch(() => { failed = true; return null; });
   const products = result?.items ?? Object.freeze([]);
+  const guzide = guzideThemeFor(storefront);
   const message =
     selected === null
       ? "Arama metni geçersiz."
       : selected === ""
         ? "Aramak istediğiniz ürünü yazın."
         : "Aramanızla eşleşen ürün bulunamadı.";
+  const grid = <ProductGrid
+    preserveOrder
+    products={products}
+    locale={storefront.locale}
+    cardStyle={storefront.presentation.theme.productCardStyle}
+    imageRatio={storefront.presentation.theme.productImageRatio}
+    emptyMessage={failed ? "Lütfen aramayı tekrar deneyin." : message}
+  />;
   return (
     <StorefrontFrame storefront={storefront} design={design}>
       {selected && !cursor ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
-      <section className="store-section store-container">
+      <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.catalog}` : ""}`}>
         <h1 className="sr-only">Arama</h1>
-        <StorefrontSearchForm key={selected ?? ""} defaultValue={selected ?? ""} />
+        <StorefrontSearchForm key={selected ?? ""} defaultValue={selected ?? ""} clientNavigation={!!guzide} />
         <p className="search-result-count" aria-live="polite">
           {selected && !failed ? `${products.length} ürün gösteriliyor${result?.nextCursor ? " · Daha fazla sonuç var" : ""}` : ""}
         </p>
         {failed ? <p role="alert">Arama şu anda tamamlanamadı. <Link href={`/search?q=${encodeURIComponent(selected ?? "")}`}>Aramayı yeniden başlat</Link></p> : null}
-        <ProductGrid
-          preserveOrder
-          products={products}
-          locale={storefront.locale}
-          cardStyle={storefront.presentation.theme.productCardStyle}
-          imageRatio={storefront.presentation.theme.productImageRatio}
-          emptyMessage={failed ? "Lütfen aramayı tekrar deneyin." : message}
-        />
+        {guzide ? <div className={guzideCatalogStyles.products}>{grid}</div> : grid}
         {result?.nextCursor && selected ? (
           <Link
             className="store-button search-next"

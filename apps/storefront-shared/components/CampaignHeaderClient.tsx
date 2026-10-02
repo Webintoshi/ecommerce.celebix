@@ -32,6 +32,7 @@ export type CampaignHeaderClientProps = Readonly<{
   desktopNavigation: ReactNode;
   renderMobileMenu?: (close: () => void) => ReactNode;
   mobileMenuClassName?: string;
+  mobileMenuController?: Readonly<{ isOpen: boolean; open(trigger: HTMLElement): void; close(): void; linkClick(event: MouseEvent<HTMLElement>): void }>;
 }>;
 
 export function CampaignHeaderClient({
@@ -42,19 +43,22 @@ export function CampaignHeaderClient({
   desktopNavigation,
   renderMobileMenu,
   mobileMenuClassName,
+  mobileMenuController,
 }: CampaignHeaderClientProps) {
   const pathname = usePathname();
   const nonHome = pathname === "/" ? "" : styles.nonHome;
-  const [open, setOpen] = useState(false),
+  const [localOpen, setOpen] = useState(false),
     [opaque, setOpaque] = useState(false);
+  const open = mobileMenuController?.isOpen ?? localOpen;
   const triggerRef = useRef<HTMLButtonElement>(null),
     dialogRef = useRef<HTMLElement>(null),
     sentinelRef = useRef<HTMLSpanElement>(null),
     openedPathRef = useRef(pathname);
   const close = useCallback(() => {
+    if (mobileMenuController) { mobileMenuController.close(); return; }
     setOpen(false);
     requestAnimationFrame(() => triggerRef.current?.focus());
-  }, []);
+  }, [mobileMenuController]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -81,8 +85,8 @@ export function CampaignHeaderClient({
     };
   }, [open]);
   useEffect(() => {
-    if (renderMobileMenu && open && pathname !== openedPathRef.current) close();
-  }, [pathname, open, renderMobileMenu, close]);
+    if (!mobileMenuController && renderMobileMenu && open && pathname !== openedPathRef.current) close();
+  }, [pathname, open, renderMobileMenu, mobileMenuController, close]);
   useEffect(() => {
     if (!renderMobileMenu || !open) return;
     const desktop = window.matchMedia("(min-width: 1025px)");
@@ -154,7 +158,7 @@ export function CampaignHeaderClient({
               aria-expanded={open}
               aria-controls="campaign-mobile-menu"
               aria-label="Menüyü aç"
-              onClick={() => { openedPathRef.current = pathname; setOpen(true); }}
+              onClick={event => { openedPathRef.current = pathname; if (mobileMenuController) mobileMenuController.open(event.currentTarget); else setOpen(true); }}
             >
               <Menu aria-hidden="true" />
             </button>
@@ -171,6 +175,7 @@ export function CampaignHeaderClient({
             aria-modal="true"
             aria-label="Mobil menü"
             onKeyDown={trapKeyboard}
+            onClickCapture={mobileMenuController?.linkClick}
           >
             {renderMobileMenu ? renderMobileMenu(close) : <><header>
               <strong>{displayName}</strong>

@@ -14,6 +14,7 @@ import * as sioraTheme from "../themes/siora/theme.ts";
 import * as sioraProductOptions from "../themes/siora/product-options.ts";
 import * as alplerTheme from "../themes/alpler/theme.ts";
 import * as guzideTheme from "../themes/guzide/theme.ts";
+import * as catalogQuery from "./product-catalog-query.ts";
 
 type Node = { type: unknown; props: Record<string, unknown> };
 function nodes(value: unknown): Node[] {
@@ -37,7 +38,7 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
   const compiled: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
   const dependencies: Record<string, unknown> = {
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "next/navigation": { notFound: () => { throw new Error("not_found"); }, permanentRedirect: () => { throw new Error("redirect"); } },
-    "@/lib/public-seo.ts": seo, "@/lib/public-seo-read.ts": seoRead, "@/lib/storefront-routes.ts": routes, "@/lib/product-seo.ts": productSeo, "@/lib/blog-page.ts": contentSeo, "@/lib/content-page.ts": contentPage, "@/lib/content-locale.ts": locales,
+    "@/lib/public-seo.ts": seo, "@/lib/public-seo-read.ts": seoRead, "@/lib/storefront-routes.ts": routes, "@/lib/product-seo.ts": productSeo, "@/lib/blog-page.ts": contentSeo, "@/lib/content-page.ts": contentPage, "@/lib/content-locale.ts": locales, "@/lib/product-catalog-query.ts": catalogQuery,
     "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context }) }, "@/lib/page-resolution.ts": { requireStorefrontPage: (value: { context: unknown }) => value.context, StorefrontUnavailableError: class extends Error {} },
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError, StorefrontContentRepositoryError: RepositoryError }, "@celebix/saas-contracts": {}, "@celebix/storefront-design-ui": {},
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
@@ -46,6 +47,7 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "../../../themes/siora/product-options.ts": sioraProductOptions,
     "../../../themes/alpler/theme.ts": alplerTheme,
     "../../../themes/guzide/theme.ts": guzideTheme,
+    "../../../themes/guzide/guzide-product-explorer.module.css": { __esModule: true, default: { breadcrumb: "guzide-breadcrumb", section: "guzide-section" } },
     "../../../themes/guzide/GuzideProductDetailExperience": { GuzideProductDetailExperience: "GuzideProductDetailExperience" },
   };
   Function("require", "module", "exports", output)((name: string) => {

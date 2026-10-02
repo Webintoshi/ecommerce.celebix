@@ -15,8 +15,10 @@ export function generateMetadata({
 
 export default function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>>;
 }) {
-  return renderCategoryPage({ params, routeVariant: "legacy" });
+  return renderCategoryPage({ params, searchParams, routeVariant: "legacy" });
 }

@@ -9,10 +9,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { CampaignHeaderClientProps } from "../../components/CampaignHeaderClient";
 import { isValidProductCatalogSearch } from "../../lib/product-catalog-query.ts";
 import { categoryPath, localizeStorefrontPath, productIndexPath } from "../../lib/storefront-routes.ts";
+import { useGuzideMobileExperience } from "./GuzideMobileExperience";
 import type { GuzideMenuImages } from "./guzide-menu.ts";
 import styles from "./guzide-mobile-menu.module.css";
 
-type Props = Pick<CampaignHeaderClientProps, "displayName" | "locale" | "logo" | "navigation"> & Readonly<{ menuImages: GuzideMenuImages; supportEmail?: string; onClose: () => void }>;
+type Props = Pick<CampaignHeaderClientProps, "displayName" | "locale" | "logo" | "navigation"> & Readonly<{ menuImages: GuzideMenuImages; supportEmail?: string; onClose: () => void; onNavigate?: (href: string) => void }>;
 
 function MenuPhoto({ image, hero = false }: { image?: PublicStorefrontAsset; hero?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -21,7 +22,7 @@ function MenuPhoto({ image, hero = false }: { image?: PublicStorefrontAsset; her
     loading={hero ? "eager" : "lazy"} decoding="async" onError={() => setFailed(true)} />;
 }
 
-export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuImages, supportEmail, onClose }: Props) {
+export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuImages, supportEmail, onClose, onNavigate }: Props) {
   const router = useRouter(), pathname = usePathname();
   const [trail, setTrail] = useState<readonly number[]>([]);
   const inputRef = useRef<HTMLInputElement>(null), backRef = useRef<HTMLButtonElement>(null),
@@ -47,6 +48,8 @@ export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuIm
   }, [trail]);
   function enter(index: number) { focusTarget.current = "back"; setTrail(previous => [...previous, index]); }
   function back() { focusTarget.current = trail.at(-1) ?? null; setTrail(previous => previous.slice(0, -1)); }
+  const session = useGuzideMobileExperience();
+  useEffect(() => session?.registerMenuBack(() => { if (!trail.length) return false; back(); return true; }), [session?.registerMenuBack, trail]);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = String(new FormData(event.currentTarget).get("q") ?? "").trim();
@@ -55,8 +58,8 @@ export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuIm
       inputRef.current?.reportValidity();
       return;
     }
-    onClose();
-    router.push(`/search?q=${encodeURIComponent(query)}`);
+    const href = `/search?q=${encodeURIComponent(query)}`;
+    if (onNavigate) onNavigate(href); else { onClose(); router.push(href); }
   }
   function rows(submenu: boolean) {
     return items.map((item, index) => {

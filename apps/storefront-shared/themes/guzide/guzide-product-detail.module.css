@@ -66,6 +66,10 @@
 .sticky[hidden] { display: none; }
 .experience :focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 
+@media (max-width: 1024px) {
+  .breadcrumb { display: none; }
+}
+
 @media (max-width: 1100px) and (min-width: 901px) {
   .stage { grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); gap: 30px; }
   .experience .titleRow h1 { font-size: 32px; }

@@ -1,0 +1,16 @@
+.navigation { display: none; }
+.loading { min-height: 55dvh; padding: 30px 20px; }
+.loadingLine { display: block; width: 100px; height: 14px; margin-bottom: 30px; background: #f2efea; }
+.loading > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.loading i { display: block; aspect-ratio: 3/4; background: #f6f4f1; }
+@media (max-width: 1024px) {
+  .frame[data-guzide-mobile-nav="true"] { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+  .navigation { position: fixed; inset: auto 0 0; z-index: 35; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); align-items: stretch; padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)); min-height: 68px; border-top: 1px solid #e9e4dc; background: #fff; color: #77736e; }
+  .navigation > a,.navigation > button { position: relative; display: flex; min-height: 56px; min-width: 44px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; padding: 5px 0; color: inherit; background: none; border: 0; text-decoration: none; font: inherit; font-size: 10px; line-height: 1.2; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .navigation[data-overlay-open="true"] { visibility: hidden; pointer-events: none; }
+  .navigation svg { width: 22px; height: 22px; stroke-width: 1.45; }
+  .navigation [aria-current="page"] { color: #242421; }
+  .navigation [aria-current="page"] span { font-weight: 600; }
+  .navigation > :focus-visible { outline: 2px solid #946d3b; outline-offset: -3px; }
+  .badge { position: absolute; top: 1px; left: calc(50% + 4px); display: grid; place-items: center; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 50px; background: #242421; color: white; font-style: normal; font-size: 8px; line-height: 1; }
+}

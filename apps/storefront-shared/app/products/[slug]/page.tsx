@@ -162,7 +162,7 @@ export async function renderProductPage({
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
-      /> : guzide ? <GuzideProductDetailExperience product={item}
+      /> : guzide ? <GuzideProductDetailExperience product={item} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         supportEmail={presentation.supportEmail}

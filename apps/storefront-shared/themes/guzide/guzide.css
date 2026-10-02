@@ -281,3 +281,14 @@
   [data-storefront-theme="guzide-deniz"] .side-cart-line { grid-template-columns: 80px minmax(0, 1fr); gap: 14px; }
   [data-storefront-theme="guzide-deniz"] .side-cart-media { width: 80px; height: 100px; }
 }
+
+@media (max-width: 1024px) {
+  [data-storefront-theme="guzide-deniz"][data-guzide-mobile-nav] [data-storefront-header-container],
+  [data-storefront-theme="guzide-deniz"][data-guzide-product] [data-storefront-header-container] { min-height: 72px; }
+  [data-storefront-theme="guzide-deniz"][data-guzide-mobile-nav] .store-utilities > a[aria-label="Favoriler"],
+  [data-storefront-theme="guzide-deniz"][data-guzide-mobile-nav] .store-utilities > button[aria-label="Sepet"],
+  [data-storefront-theme="guzide-deniz"][data-guzide-product] .store-utilities > a[aria-label="Favoriler"],
+  [data-storefront-theme="guzide-deniz"][data-guzide-product] .store-utilities > a[aria-label="Hesabım"] { display: none; }
+  [data-storefront-theme="guzide-deniz"][data-guzide-mobile-nav] [data-campaign-home] { gap: 36px; }
+  [data-storefront-theme="guzide-deniz"][data-guzide-mobile-nav] [data-campaign-home] > [data-campaign-product-row]:first-child { margin-top: 12px; }
+}

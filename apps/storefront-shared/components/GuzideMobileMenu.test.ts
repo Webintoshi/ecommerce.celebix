@@ -45,6 +45,9 @@ async function withMenu(run: (browser: MenuBrowser) => Promise<void>, config: Re
   let pathname = config.pathname ?? "/urun/kolye-960", width = 390;
   const pushes: string[] = [];
   const load = componentLoader({
+    "../../components/CartStatusProvider": { useCartStatus: () => ({}) },
+    "./GuzideMobileExperience": { useGuzideMobileExperience: () => null },
+    "./useGuzidePanelHistory": { useGuzidePanelHistory: () => ({}) },
     "next/link": { __esModule: true, default: Link },
     "next/navigation": { usePathname: () => pathname, useRouter: () => ({ push(href: string) { pushes.push(href); } }) },
     "./StoreUtilities": { StoreUtilities: () => React.createElement("nav", { "aria-label": "Mağaza araçları" }, React.createElement("a", { href: "/account" }, "Hesabım")) },

@@ -3,6 +3,8 @@ import { permanentRedirect } from "next/navigation";
 
 import { sioraThemeFor } from "../../themes/siora/theme.ts";
 import { alplerThemeFor } from "../../themes/alpler/theme.ts";
+import { guzideThemeFor } from "../../themes/guzide/theme.ts";
+import guzideCatalogStyles from "../../themes/guzide/guzide-product-explorer.module.css";
 import { ProductExplorer } from "@/components/ProductExplorer";
 import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -33,6 +35,11 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant, s
     permanentRedirect(productIndexPath(storefront.locale));
   }
   const selection = parseProductCatalogQuery(await searchParams);
+  const guzide = guzideThemeFor(storefront);
+  const presentation = storefront.presentation;
+  const navigation = "navigation" in presentation ? presentation.navigation : {
+    items: (presentation.categoryShowcase?.items ?? []).map(({ name, slug }) => ({ name, slug, children: [] })),
+  };
   if (!runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
   const products = await runtime.repository.queryPublicCatalog({
     storefront,
@@ -46,10 +53,11 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant, s
   });
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      <section className="store-section store-container">
-        <h1 className="sr-only">Ürünler</h1>
+      <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
+        {!guzide ? <h1 className="sr-only">Ürünler</h1> : null}
         <ProductExplorer
-          visualTheme={alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
+          visualTheme={guzide ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
+          catalog={guzide ? { title: "Ürünler", navigation } : undefined}
           products={products.items}
           selection={selection}
           total={products.total}
