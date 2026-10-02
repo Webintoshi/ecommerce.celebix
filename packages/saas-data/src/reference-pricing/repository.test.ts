@@ -50,6 +50,31 @@ function repository(client: Client) {
   });
 }
 
+test("catalog gram intent uses V2 RPCs and distinguishes activation fingerprints", async () => {
+  const preview = { setId: SET, scopeDigest: "a".repeat(64), affectedProducts: 0, affectedVariants: 0, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [], nextCursor: null };
+  const client = new Client({ outcome: "previewed", result_payload: preview });
+  assert.deepEqual(await repository(client).preview({ ...authority(), setId: SET, channel: "storefront", pageSize: 20, catalogGramReferenceId: REFERENCE } as never), preview);
+  assert.match(client.queries[5]!.text, /pricing_reference_set_preview_v2\(/);
+  assert.deepEqual(client.queries[5]!.values?.slice(7), [SET, "storefront", 20, null, REFERENCE]);
+  assert.equal(client.queries[0]!.text, "BEGIN READ ONLY");
+  const activated = { setId: SET, version: 1, stateVersion: 1, activatedAt: "2026-09-20T12:00:00.000000Z" };
+  const intents = [undefined, REFERENCE, VARIANT].map(catalogGramReferenceId => {
+    const active = new Client({ outcome: "activated", result_payload: activated });
+    return { active, input: { ...authority(), operationId: OPERATION, setId: SET, expectedStateVersion: 0, expectedScopeDigest: "a".repeat(64), ...(catalogGramReferenceId ? { catalogGramReferenceId } : {}) } };
+  });
+  for (const { active, input } of intents) await repository(active).activate(input as never);
+  assert.match(intents[0]!.active.queries[5]!.text, /pricing_reference_set_activate\(/);
+  for (const { active } of intents.slice(1)) assert.match(active.queries[5]!.text, /pricing_reference_set_activate_v2\(/);
+  assert.equal(new Set(intents.map(({ active }) => active.queries[5]!.values?.[8])).size, 3);
+  assert.deepEqual(intents[1]!.active.queries[5]!.values?.slice(9), [SET, 0, "a".repeat(64), REFERENCE]);
+  const invalid = new Client({ outcome: "previewed", result_payload: null });
+  for (const value of ["bad", null, 42]) {
+    await assert.rejects(() => repository(invalid).preview({ ...authority(), setId: SET, channel: "storefront", pageSize: 20, catalogGramReferenceId: value } as never), (error: unknown) => referencePricingRepositoryErrorCode(error) === "invalid_input");
+    await assert.rejects(() => repository(invalid).activate({ ...authority(), operationId: OPERATION, setId: SET, expectedStateVersion: 0, expectedScopeDigest: "a".repeat(64), catalogGramReferenceId: value } as never), (error: unknown) => referencePricingRepositoryErrorCode(error) === "invalid_input");
+  }
+  assert.equal(invalid.queries.length, 0);
+});
+
 test("impact preview is one read-only tenant-authorized SQL call with all auth7 values", async () => {
   const payload = {
     setId: SET, scopeDigest: "a".repeat(64), affectedProducts: 0, affectedVariants: 0,

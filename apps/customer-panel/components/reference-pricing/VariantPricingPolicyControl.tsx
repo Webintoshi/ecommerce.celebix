@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ReferenceIdentity, VariantPricingPolicy } from "@celebix/saas-contracts";
+import type { ProductMeasurements, ReferenceIdentity, VariantPricingPolicy } from "@celebix/saas-contracts";
 import type { VariantPolicyPreview, VariantPolicyProjection } from "@celebix/saas-data";
 
 import { ReferencePricingApiError, referencePricingApi, referencePricingErrorState } from "@/lib/reference-pricing-ui/client";
-import { buildVariantPricingPolicy, canSaveVariantPolicy, type VariantPolicyDraft } from "@/lib/reference-pricing-ui/model";
+import { buildVariantPricingPolicy, canSaveVariantPolicy, catalogWeightGramsText, type VariantPolicyDraft } from "@/lib/reference-pricing-ui/model";
 import styles from "./reference-pricing.module.css";
 
 type Method = VariantPricingPolicy["method"];
@@ -91,6 +91,7 @@ export function VariantPricingPolicyControl(props: Readonly<{
   variantId: string;
   variantVersion: number;
   fixedPriceCents: number;
+  measurements?: ProductMeasurements;
   canManage: boolean;
   onSaved(): void;
   onClose(): void;
@@ -145,7 +146,9 @@ export function VariantPricingPolicyControl(props: Readonly<{
   function update(patch: Partial<Editor>) { clearPreview(); setEditor((current) => ({ ...current, ...patch })); setProblem(""); setNotice(""); }
   function changeMethod(method: Method) {
     const first = definitions.find((item) => item.kind === method);
-    update({ method, referenceId: first?.id ?? "", laborMode: "none", laborText: "", upliftText: "0" });
+    update({ method, referenceId: first?.id ?? "", laborMode: "none", laborText: "", upliftText: "0",
+      ...(method === "gold_gram" && editor.gramsText.trim() === "" ? { gramsText: catalogWeightGramsText(props.measurements) } : {}),
+    });
   }
 
   async function previewCandidate() {

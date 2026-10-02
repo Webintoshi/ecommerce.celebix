@@ -20,9 +20,20 @@ test("reference set draft converts merchant comma input to canonical exact rates
     { referenceId: USD, rateTry: "40.12345678", active: true },
     { referenceId: GOLD, rateTry: "5000.5", active: true },
   ]);
-  assert.throws(() => buildReferenceSetValues(definitions, [{ referenceId: USD, rateText: "5.000", active: true }]), /reference_pricing_draft_invalid/);
-  assert.throws(() => buildReferenceSetValues(definitions, [{ referenceId: USD, rateText: "0", active: true }]), /reference_pricing_draft_invalid/);
+  assert.throws(() => buildReferenceSetValues([definitions[0]!], [{ referenceId: USD, rateText: "5..000", active: true }]), /reference_pricing_draft_invalid/);
+  assert.throws(() => buildReferenceSetValues([definitions[0]!], [{ referenceId: USD, rateText: "0", active: true }]), /reference_pricing_draft_invalid/);
   assert.deepEqual(buildReferenceSetValues([definitions[0]!], [{ referenceId: USD, rateText: "", active: false }]), [{ referenceId: USD, rateTry: null, active: false }]);
+});
+
+test("gold rate drafts accept grouped integers and surrounding whitespace", async () => {
+  const { buildReferenceSetValues } = await import("./model.ts");
+  const definitions = [{ id: GOLD, kind: "gold_gram" as const, label: "Gram satış", createdAt: UTC }];
+  assert.deepEqual(buildReferenceSetValues(definitions, [{ referenceId: GOLD, rateText: " 5.000 ", active: true }]), [
+    { referenceId: GOLD, rateTry: "5000", active: true },
+  ]);
+  assert.deepEqual(buildReferenceSetValues(definitions, [{ referenceId: GOLD, rateText: "5000.50", active: true }]), [
+    { referenceId: GOLD, rateTry: "5000.5", active: true },
+  ]);
 });
 
 test("activation readiness requires saved, unchanged draft and matching server preview, including deliberate deactivation", async () => {
@@ -32,7 +43,27 @@ test("activation readiness requires saved, unchanged draft and matching server p
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, setId: OTHER }, dirty: false }), false);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview, dirty: true }), false);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, unavailableVariants: 1 }, dirty: false }), true);
+  assert.equal(canActivateReferenceSet({ savedSetId: SET, preview, dirty: false, catalogGramReferenceId: GOLD }), true);
+  assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: { ...preview, unavailableVariants: 1 }, dirty: false, catalogGramReferenceId: GOLD }), false);
   assert.equal(canActivateReferenceSet({ savedSetId: SET, preview: null, dirty: false }), false);
+});
+
+test("catalog gram prefill converts native grams and kilograms exactly", async () => {
+  const { catalogWeightGramsText } = await import("./model.ts");
+  assert.equal(catalogWeightGramsText({ weight: { valueMilli: 14890, unit: "g" } }), "14,89");
+  assert.equal(catalogWeightGramsText({ weight: { valueMilli: 1, unit: "g" } }), "0,001");
+  assert.equal(catalogWeightGramsText({ weight: { valueMilli: 1250, unit: "kg" } }), "1250");
+  assert.equal(catalogWeightGramsText({ weight: { valueMilli: Number.MAX_SAFE_INTEGER, unit: "g" } }), "9007199254740,991");
+  assert.equal(catalogWeightGramsText({ weight: { valueMilli: Number.MAX_SAFE_INTEGER, unit: "kg" } }), "9007199254740991");
+});
+
+test("catalog gram prefill leaves absent or invalid native weights empty", async () => {
+  const { catalogWeightGramsText } = await import("./model.ts");
+  assert.equal(catalogWeightGramsText(), "");
+  assert.equal(catalogWeightGramsText({ length: { valueMilli: 1000, unit: "cm" } }), "");
+  for (const weight of [{ valueMilli: 0, unit: "g" }, { valueMilli: -1, unit: "g" }, { valueMilli: 1.5, unit: "g" }, { valueMilli: Number.MAX_SAFE_INTEGER + 1, unit: "kg" }, { valueMilli: 1000, unit: "ml" }]) {
+    assert.equal(catalogWeightGramsText({ weight } as never), "");
+  }
 });
 
 test("variant policy drafts preserve server fixed TRY price and canonicalize source, grams, labor, purity and uplift", async () => {
@@ -44,7 +75,14 @@ test("variant policy drafts preserve server fixed TRY price and canonicalize sou
   assert.deepEqual(buildVariantPricingPolicy({ method: "gold_gram", referenceId: GOLD, gramsText: "2,500000", purityMode: "ratio", productPurityText: "0,750", laborMode: "per_gram_try", laborText: "50", upliftText: "5", allowFullDiscount: false }), {
     method: "gold_gram", referenceId: GOLD, metalGrams: "2.5", purityMode: "ratio", productPurity: "0.75", laborMode: "per_gram_try", laborAmount: "50", upliftPercent: "5", allowFullDiscount: false,
   });
-  assert.throws(() => buildVariantPricingPolicy({ method: "gold_gram", referenceId: GOLD, gramsText: "5.000", purityMode: "direct", laborMode: "none", upliftText: "0", allowFullDiscount: false }), /reference_pricing_draft_invalid/);
+  assert.throws(() => buildVariantPricingPolicy({ method: "gold_gram", referenceId: GOLD, gramsText: "2,1234567", purityMode: "direct", laborMode: "none", upliftText: "0", allowFullDiscount: false }), /reference_pricing_draft_invalid/);
+});
+
+test("gold policy drafts preserve an unambiguous dotted product gram amount", async () => {
+  const { buildVariantPricingPolicy } = await import("./model.ts");
+  assert.deepEqual(buildVariantPricingPolicy({ method: "gold_gram", referenceId: GOLD, gramsText: " 14.89 ", purityMode: "direct", laborMode: "none", upliftText: "0", allowFullDiscount: false }), {
+    method: "gold_gram", referenceId: GOLD, metalGrams: "14.89", purityMode: "direct", laborMode: "none", upliftPercent: "0", allowFullDiscount: false,
+  });
 });
 
 test("candidate policy save is gated by matching preview, exact candidate and current versions", async () => {

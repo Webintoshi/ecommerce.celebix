@@ -162,12 +162,13 @@ export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => 
         return result;
       }, { policy: safe.policy, channel: safe.channel }, signal);
     },
-    async preview(selection: Readonly<{ setId: string; channel: "storefront" | "quick_order"; pageSize: number; afterVariantId?: string }>, signal?: AbortSignal): Promise<ReferenceImpactPreview> {
+    async preview(selection: Readonly<{ setId: string; channel: "storefront" | "quick_order"; pageSize: number; afterVariantId?: string; catalogGramReferenceId?: string }>, signal?: AbortSignal): Promise<ReferenceImpactPreview> {
       const safe = safeInput(() => {
-        const raw = exact(selection, ["setId", "channel", "pageSize"], ["afterVariantId"]);
+        const raw = exact(selection, ["setId", "channel", "pageSize"], ["afterVariantId", "catalogGramReferenceId"]);
         if (raw.channel !== "storefront" && raw.channel !== "quick_order") invalid();
         return Object.freeze({ setId: id(raw.setId), channel: raw.channel, pageSize: integer(raw.pageSize, 1, 100),
           ...(Object.hasOwn(raw, "afterVariantId") ? { afterVariantId: id(raw.afterVariantId) } : {}),
+          ...(Object.hasOwn(raw, "catalogGramReferenceId") ? { catalogGramReferenceId: id(raw.catalogGramReferenceId) } : {}),
         });
       });
       return request(`${BASE}/preview`, (value) => {
@@ -202,16 +203,20 @@ export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => 
         return result;
       }, safe, undefined, true);
     },
-    async activate(intent: Readonly<{ setId: string; expectedStateVersion: number; expectedScopeDigest: string }>): Promise<ActivatedReferenceSet> {
+    async activate(intent: Readonly<{ setId: string; expectedStateVersion: number; expectedScopeDigest: string; catalogGramReferenceId?: string }>): Promise<ActivatedReferenceSet> {
       const safe = safeInput(() => {
-        const raw = exact(intent, ["setId", "expectedStateVersion", "expectedScopeDigest"]);
-        return Object.freeze({ setId: id(raw.setId), operationId: operationId(), expectedStateVersion: integer(raw.expectedStateVersion, 0), expectedScopeDigest: digest(raw.expectedScopeDigest) });
+        const raw = exact(intent, ["setId", "expectedStateVersion", "expectedScopeDigest"], ["catalogGramReferenceId"]);
+        return Object.freeze({ setId: id(raw.setId), operationId: operationId(), expectedStateVersion: integer(raw.expectedStateVersion, 0), expectedScopeDigest: digest(raw.expectedScopeDigest),
+          ...(Object.hasOwn(raw, "catalogGramReferenceId") ? { catalogGramReferenceId: id(raw.catalogGramReferenceId) } : {}),
+        });
       });
       return request(`${BASE}/sets/${safe.setId}/activate`, (value) => {
         const result = activatedOutput(value);
         if (result.setId !== safe.setId) invalid();
         return result;
-      }, { operationId: safe.operationId, expectedStateVersion: safe.expectedStateVersion, expectedScopeDigest: safe.expectedScopeDigest }, undefined, true);
+      }, { operationId: safe.operationId, expectedStateVersion: safe.expectedStateVersion, expectedScopeDigest: safe.expectedScopeDigest,
+        ...(Object.hasOwn(safe, "catalogGramReferenceId") ? { catalogGramReferenceId: safe.catalogGramReferenceId } : {}),
+      }, undefined, true);
     },
     async savePolicy(intent: Readonly<{ variantId: string; expectedVariantVersion: number; expectedPolicyVersion: number; expectedScopeDigest: string; policy: VariantPricingPolicy }>): Promise<VariantPolicyProjection> {
       const safe = safeInput(() => {

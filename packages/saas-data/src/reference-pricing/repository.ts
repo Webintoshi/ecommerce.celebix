@@ -18,9 +18,11 @@ const SQL = Object.freeze({
   getPolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   previewPolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::jsonb,$10::text)",
   preview: "SELECT outcome,result_payload FROM saas.pricing_reference_set_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::integer,$11::uuid)",
+  previewCatalogGrams: "SELECT outcome,result_payload FROM saas.pricing_reference_set_preview_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::integer,$11::uuid,$12::uuid)",
   define: "SELECT outcome,result_payload FROM saas.pricing_reference_define($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::text,$12::text,$13::text)",
   saveSet: "SELECT outcome,result_payload FROM saas.pricing_reference_set_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::jsonb)",
   activate: "SELECT outcome,result_payload FROM saas.pricing_reference_set_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)",
+  activateCatalogGrams: "SELECT outcome,result_payload FROM saas.pricing_reference_set_activate_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text,$13::uuid)",
   savePolicy: "SELECT outcome,result_payload FROM saas.pricing_variant_policy_save_v2($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::bigint,$13::jsonb,$14::text)",
   recover: "SELECT outcome,result_payload FROM saas.pricing_reference_operation_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
 });
@@ -201,12 +203,14 @@ export class PostgresReferencePricingRepository implements ReferencePricingRepos
     });
   }
   async preview(input: Parameters<ReferencePricingRepository["preview"]>[0]) {
-    const { parsed, authority } = authorityInput(input, ["setId", "channel", "pageSize"], ["afterVariantId"]);
+    const { parsed, authority } = authorityInput(input, ["setId", "channel", "pageSize"], ["afterVariantId", "catalogGramReferenceId"]);
     const setId = uuid(parsed.setId);
     if (parsed.channel !== "storefront" && parsed.channel !== "quick_order") throw failure("invalid_input");
     const pageSize = integer(parsed.pageSize, 1, 100);
     const cursor = parsed.afterVariantId === undefined ? null : uuid(parsed.afterVariantId);
-    return this.read(SQL.preview, [...authorityValues(authority), setId, parsed.channel, pageSize, cursor], "previewed", (value) => {
+    const catalogGramReferenceId = Object.hasOwn(parsed, "catalogGramReferenceId") ? uuid(parsed.catalogGramReferenceId) : undefined;
+    return this.read(catalogGramReferenceId ? SQL.previewCatalogGrams : SQL.preview,
+      [...authorityValues(authority), setId, parsed.channel, pageSize, cursor, ...(catalogGramReferenceId ? [catalogGramReferenceId] : [])], "previewed", (value) => {
       const result = parsePreview(value);
       if (result.setId !== setId || result.entries.length > pageSize) return unavailable();
       return result;
@@ -245,12 +249,13 @@ export class PostgresReferencePricingRepository implements ReferencePricingRepos
       });
   }
   async activate(input: Parameters<ReferencePricingRepository["activate"]>[0]) {
-    const { parsed, authority } = authorityInput(input, ["operationId", "setId", "expectedStateVersion", "expectedScopeDigest"]);
+    const { parsed, authority } = authorityInput(input, ["operationId", "setId", "expectedStateVersion", "expectedScopeDigest"], ["catalogGramReferenceId"]);
     const operationId = uuid(parsed.operationId), setId = uuid(parsed.setId);
     const expected = integer(parsed.expectedStateVersion, 0), scope = digest(parsed.expectedScopeDigest);
-    const hash = fingerprint("activate", authority.storeId, { setId, expected, scope });
-    return this.mutate(authority, operationId, "activate", "activated", SQL.activate,
-      [...authorityValues(authority), operationId, hash, setId, expected, scope],
+    const catalogGramReferenceId = Object.hasOwn(parsed, "catalogGramReferenceId") ? uuid(parsed.catalogGramReferenceId) : undefined;
+    const hash = fingerprint("activate", authority.storeId, { setId, expected, scope, ...(catalogGramReferenceId ? { catalogGramReferenceId } : {}) });
+    return this.mutate(authority, operationId, "activate", "activated", catalogGramReferenceId ? SQL.activateCatalogGrams : SQL.activate,
+      [...authorityValues(authority), operationId, hash, setId, expected, scope, ...(catalogGramReferenceId ? [catalogGramReferenceId] : [])],
       (value) => {
         const result = parseActivated(value);
         if (result.setId !== setId || result.stateVersion !== expected + 1) return unavailable();

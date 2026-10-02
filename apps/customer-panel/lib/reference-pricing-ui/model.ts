@@ -1,9 +1,18 @@
-import { parseVariantPricingPolicy, type ReferenceIdentity, type VariantPricingPolicy } from "@celebix/saas-contracts";
+import { parseVariantPricingPolicy, type ProductMeasurements, type ReferenceIdentity, type VariantPricingPolicy } from "@celebix/saas-contracts";
 import type { ReferenceImpactPreview, ReferenceSetValue, VariantPolicyPreview } from "@celebix/saas-data";
 
 import { parseTurkishPricingDecimal } from "./decimal.ts";
+import { formatMeasurementValue } from "../catalog-ui/product-measurements.ts";
 
 export type ReferenceRateDraft = Readonly<{ referenceId: string; rateText: string; active: boolean }>;
+
+export function catalogWeightGramsText(measurements?: ProductMeasurements): string {
+  const weight = measurements?.weight;
+  if (!weight || !Number.isSafeInteger(weight.valueMilli) || weight.valueMilli <= 0) return "";
+  if (weight.unit === "g") return formatMeasurementValue(weight.valueMilli);
+  if (weight.unit === "kg") return String(weight.valueMilli);
+  return "";
+}
 
 export type VariantPolicyDraft = Readonly<
   | { method: "fixed_try"; fixedPriceCents: number }
@@ -59,10 +68,12 @@ export function canActivateReferenceSet(input: Readonly<{
   savedSetId: string | null;
   preview: ReferenceImpactPreview | null;
   dirty: boolean;
+  catalogGramReferenceId?: string;
 }>): boolean {
   const preview = input.preview;
   return Boolean(input.savedSetId && preview && !input.dirty && preview.setId === input.savedSetId
-    && /^[a-f0-9]{64}$/.test(preview.scopeDigest));
+    && /^[a-f0-9]{64}$/.test(preview.scopeDigest)
+    && (!input.catalogGramReferenceId || preview.unavailableVariants === 0));
 }
 
 export function buildVariantPricingPolicy(draft: VariantPolicyDraft): VariantPricingPolicy {

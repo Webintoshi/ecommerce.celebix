@@ -12,6 +12,8 @@ import * as onboardingForms from "../../lib/catalog-onboarding-ui/forms.ts";
 import * as money from "../../lib/catalog-ui/money.ts";
 import * as dirtyNavigation from "../../lib/catalog-ui/dirty-navigation.ts";
 import * as attributeVariants from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
+import * as pricingModel from "../../lib/reference-pricing-ui/model.ts";
+import { ReferencePricingApiError, referencePricingErrorState } from "../../lib/reference-pricing-ui/client.ts";
 
 async function compile(file: string, imports: Record<string, unknown>) {
   const source = await readFile(new URL(file, import.meta.url), "utf8");
@@ -122,6 +124,65 @@ test("detail batch derives the product SKU and validates optional measurements b
       length: { valueMilli: 3000, unit: "cm" }, width: { valueMilli: 2100, unit: "cm" }, depth: { valueMilli: 4200, unit: "cm" },
       height: { valueMilli: 1, unit: "cm" }, area: { valueMilli: 5550, unit: "m2" }, packageCount: 4,
     });
+  } finally {
+    await act(async () => root.unmount());
+    for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);
+    await browser.happyDOM.close();
+  }
+});
+
+test("product detail passes native measurements to the real gram pricing editor", async () => {
+  const browser = new Window({ url: "https://panel.example.test/products/product-test" });
+  Reflect.set(browser, "confirm", () => true);
+  const globals = new Map<string, PropertyDescriptor | undefined>();
+  for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLButtonElement: browser.HTMLButtonElement, Event: browser.Event, FormData: browser.FormData, IS_REACT_ACT_ENVIRONMENT: true })) {
+    globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+  const gold = "30000000-0000-4000-8000-000000000002";
+  const link = ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode);
+  const policy = await compile("../reference-pricing/VariantPricingPolicyControl.tsx", {
+    "next/link": link,
+    "@/lib/reference-pricing-ui/model": pricingModel,
+    "@/lib/reference-pricing-ui/client": { ReferencePricingApiError, referencePricingErrorState, referencePricingApi: { getPolicy: async () => { throw new ReferencePricingApiError("not_found", 404); }, listDefinitions: async () => ({ items: [{ id: gold, kind: "gold_gram", label: "Gram satış", createdAt: "2026-09-20T12:00:00.000000Z" }] }) } },
+  });
+  const product = { id: "product-test", title: "Bilezik", slug: "bilezik", status: "active", currency: "TRY", version: 1, updatedAt: "2026-09-26T00:00:00Z" };
+  const variant = { id: "existing-variant", productId: product.id, title: "Standart", sku: "SRA-1341", attributes: {}, priceCents: 10000, stockQuantity: 3, stockTracking: true, version: 1, status: "active", measurements: { weight: { valueMilli: 14890, unit: "g" } } };
+  class ApiError extends Error {}
+  const detail = await compile("./ProductDetailConsole.tsx", {
+    "next/link": link,
+    "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [] } },
+    "@/lib/catalog-onboarding-ui/attribute-variants": attributeVariants,
+    "@/lib/catalog-ui/client": { CatalogApiError: ApiError, catalogApi: { getProduct: async () => ({ product, variants: [variant] }) } },
+    "@/lib/catalog-ui/forms": forms,
+    "@/lib/catalog-ui/money": money,
+    "@/lib/catalog-ui/dirty-navigation": dirtyNavigation,
+    "@/lib/catalog-ui/product-measurements": measurementForms,
+    "./ProductMeasurementFields": { ProductMeasurementFields: () => null },
+    "@/components/catalog-onboarding/ProductVariantBuilder": { ProductVariantBuilder: () => null },
+    "@/components/catalog/SkuInput": { SkuInput: () => null },
+    "@/components/catalog/BarcodeInput": { BarcodeInput: () => null },
+    "@/components/catalog-onboarding/ProductAdvancedEditor": { ProductAdvancedEditor: () => null },
+    "@/components/catalog-onboarding/AttributeVariantPicker": { AttributeVariantPicker: () => null },
+    "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: { getOptions: async () => ({ categories: [], channels: [], resources: [] }), getProductEditor: async () => ({ product, variants: [], profile: { productType: "physical", minimumPurchaseQuantity: 1, version: 1 }, channelIds: [], categoryIds: [], resourceIds: { collections: [], tags: [] } }) } },
+    "./ProductDescriptionField": { ProductDescriptionField: () => null, ProductDescriptionPreview: () => null },
+    "./ProductVariantGalleryEditor": { ProductVariantGalleryEditor: ({ children }: { children(props: unknown): React.ReactNode }) => children({ thumbnail: () => null }) },
+    "./ProductMediaManager": { ProductMediaManager: () => null, restoreArchiveFocus() {} },
+    "@/components/reference-pricing/VariantPricingPolicyControl": policy,
+    "@/components/shared/PermanentDeleteDialog": { PermanentDeleteDialog: () => null },
+    "@/components/panel/PanelTopbarChrome": { usePanelTopbarChrome() {} },
+  });
+  const Component = detail.ProductDetailConsole as React.ComponentType<Record<string, unknown>>;
+  const { createRoot } = await import("react-dom/client");
+  const container = browser.document.createElement("div"); browser.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    await act(async () => root.render(createElement(Component, { productId: product.id, canReadPricing: true, canManagePricing: true })));
+    await act(async () => [...container.querySelectorAll("button")].find((button) => button.textContent === "Fiyat yöntemi")!.click());
+    const method = [...container.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Yöntem"))!.querySelector("select")!;
+    await act(async () => { method.value = "gold_gram"; method.dispatchEvent(new browser.Event("change", { bubbles: true })); });
+    const grams = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Fiyatlandırma gramı"))!.querySelector("input")!;
+    assert.equal(grams.value, "14,89");
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);
