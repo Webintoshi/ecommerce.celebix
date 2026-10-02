@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-02T17:15:20.383253+00:00",
+  "scope": "Sanitized completed production delivery evidence; contains no credential or raw environment value",
+  "candidateSha": "4a4cd61319dd41b21d95ddb1b7af39ea2856273c",
+  "liveBaselineSha": "709fd01d497452f407f22deab721b878062b6271",
+  "preservedRemoteBaseSha": "dd6d2193602e2142db76a5f5a7135206296f543e",
+  "releaseBranch": "codex/shared-catalog-search",
+  "liveVerification": {
+    "status": "PASS",
+    "claimOfLiveDeployment": true,
+    "panelAppCommit": "4a4cd61319dd41b21d95ddb1b7af39ea2856273c",
+    "ownedDeployments": [
+      {
+        "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+        "deploymentUuid": "ri9p8e231mfejxpfzxk66wgh",
+        "commit": "4a4cd61319dd41b21d95ddb1b7af39ea2856273c",
+        "status": "finished"
+      },
+      {
+        "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+        "deploymentUuid": "f7fr6mb37kxtvuex01dcgpp6",
+        "commit": "4a4cd61319dd41b21d95ddb1b7af39ea2856273c",
+        "status": "finished"
+      }
+    ],
+    "globalActiveDeployments": 0,
+    "runtimeSourceCompiledRoutesAndClientTokens": "PASS",
+    "healthAndLoginGuards": {
+      "passed": true,
+      "hosts": 7,
+      "checkedAt": "2026-10-02T17:14:04.011809+00:00"
+    },
+    "authenticatedDesignUi": {
+      "guzide": "PASS",
+      "siora": "PASS",
+      "alpler": "Not inspected: no existing authenticated browser session; shared NET runtime, health and scoped editor read verified"
+    },
+    "liveMerchantDesignWrites": false,
+    "visibleTechnicalAddressCountInBannerDialog": 0,
+    "imageLibraryAndBothUploadDropzones": "PASS",
+    "visualOverflow": "Visible controls and document fit viewport. Clipped 1 px file inputs extend raw dialog scrollWidth; no visible control overflow."
+  },
+  "independentSourceReview": {
+    "status": "PASS",
+    "designOnlyCandidateChangesVerified": true,
+    "serverApiSqlPaymentStorefrontSourcesUnchangedByDesignCandidate": true,
+    "helperSha256": "564630c4fa05fc1e8ff1a06fe282b318c02d074d4b020642a9747eae821dd0d2",
+    "helperOnlyReviewedBaselinePrivatePrefixWitnessPinChanges": true,
+    "helperConsumersMatchFingerprint": true,
+    "guardCasesExactlyUnchanged": true,
+    "witnessProbeOnlyExactPinChanged": true,
+    "releaseBranchPreserved": true,
+    "pythonSourceSyntaxPassed": true,
+    "freshPaymentProofBoundObserved": true,
+    "guardSemanticsPreserved": [
+      "Encrypted raw configuration snapshot and rollback rehearsal",
+      "Existing approval/profile scopes and environment identities preserved",
+      "Storefronts remain immutable read-only witnesses",
+      "Global idle queue, lock and fresh snapshot requirements",
+      "Single owned dispatch for each panel; NET runtime and cohort success required before SITE",
+      "No provider activation or SQL migration replay"
+    ]
+  },
+  "independentStorefrontWitnessReview": {
+    "status": "PASS",
+    "previousSha": "00fc6a881e38125e005f85bb73b9ccd9fc193cfa",
+    "currentSha": "6853d51b7afbadccf2b8f45312d16095602aa16b",
+    "previousIsAncestor": true,
+    "changedPaths": [
+      "apps/storefront-shared/components/SharedFooterSignature.tsx",
+      "apps/storefront-shared/components/shared-footer-signature.module.css"
+    ],
+    "changes": {
+      "footerComponentDeletedLines": 1,
+      "footerStyleDeletedLines": 8
+    },
+    "checkoutDependencyFiles": 7,
+    "checkoutDependencyGitBlobsExactlyEqual": true
+  },
+  "localCandidateCohort": {
+    "status": "PASS",
+    "evidence": "Independent Git-byte, local compiled route and mandatory client-token inspection",
+    "runtimeFiles": 181,
+    "sourceOnlyFiles": 2,
+    "totalSourceFiles": 183,
+    "compiledRoutes": 27,
+    "mandatoryClientTokens": 12
+  },
+  "parentReportedGates": {
+    "evidence": "Reported by publishing root; not independently rerun by reviewer",
+    "candidateTests": {
+      "status": "PASS",
+      "count": 160
+    },
+    "candidateBuild": {
+      "status": "PASS"
+    },
+    "pureReleaseGuards": {
+      "status": "PASS",
+      "count": 139
+    },
+    "freshPaymentProofAndBinding": {
+      "status": "PASS"
+    },
+    "validateSpec": {
+      "status": "PASS"
+    },
+    "currentStorefrontWitnesses": {
+      "status": "PASS"
+    }
+  },
+  "reviewerActions": {
+    "productionMutated": false,
+    "providerInvoked": false,
+    "databaseMutated": false,
+    "gitMutated": false,
+    "credentialOrRawEnvironmentValuesIncluded": false
+  },
+  "sql199": {
+    "status": "APPLIED_AND_VERIFIED",
+    "sourceCommit": "498b3d02652b1ea0b66caf9dd09aef627c63f5be",
+    "independentSourceAndFixtureReview": "PASS",
+    "migrationStaticTests": 2,
+    "disposablePostgresScenarios": 31,
+    "actualUpAssertionsDownRoundtripRollbackRehearsal": "PASS",
+    "beforeSourceSha256": "d905945b0d590bbce5074a37c7a4cc321dfe9b91c3e6f63c19f0f7478d76917d",
+    "verifiedFunction": {
+      "bodySha256": "2bd7f7318005cf46efbe2da36bf8dedada2ec7d3e95d5bf267aa3eff2e448b48",
+      "definitionSha256": "a6b9a9fae2ca41f40cbd0da1a5c1b9d15d7c4b6d826e1dc645c44f1088dacdb3",
+      "owner": "celebix_saas_owner",
+      "stable": true,
+      "securityDefiner": true,
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}"
+    },
+    "verifiedStorePayloads": [
+      {
+        "store": "guzide",
+        "payloadMd5": "992f68ada8986dae661d1a0f3b42bcc7",
+        "destinationCount": 1181,
+        "mediaCount": 3
+      },
+      {
+        "store": "siora",
+        "payloadMd5": "7006560ea14defca6689b0228bc738cf",
+        "destinationCount": 96,
+        "mediaCount": 2
+      },
+      {
+        "store": "alpler",
+        "payloadMd5": "c5eb995527b59fca51691926e70b9b6e",
+        "destinationCount": 59,
+        "mediaCount": 13
+      }
+    ],
+    "oldGuzideEditorSeconds": 5.502,
+    "materializedGuzideEditorSeconds": 2.746,
+    "runtimeStatementTimeoutSeconds": 5,
+    "wholeGuzidePayloadHashPreserved": true,
+    "ownerSecurityDefinerStableConfigAclAndAllOtherPgProcFieldsPreserved": true,
+    "paymentEffectivePriceWorkspaceProjectionAndMerchantDataUnchanged": true,
+    "panelImageRedeploymentRequired": false
+  }
+}
