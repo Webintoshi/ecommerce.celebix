@@ -20,4 +20,17 @@
 
 ## Release
 
-Only the two shared customer panels require deployment. Storefront source, payment settings, preview rows and merchant records stay outside the SKU change. Final image/source and compiled SKU behavior verification are recorded after deployment.
+Completed on both shared customer panels, candidate `7838e26629465cba1265e5f315c45d87657a7bcc`, branch `codex/shared-catalog-search`:
+
+| Target | Owned finished deployment |
+| --- | --- |
+| NET `e4xe74cmii7jucbkyor0o412` | `jzyxzgqqimu2m3qg1iyynwz8` |
+| SITE `yk1h6d97z7ex0h74ok3zrj5c` | `nrhr8aqf5ae41nxstu6j1z8f` |
+
+- Rollback rehearsal and final exact configuration comparison pass. Both normal panel source pins match the candidate; global deployment queue is idle.
+- Running image/SOURCE binding, all six production SKU source hashes and compiled client code verified. Pure deployed-module color priority, size fallback, manual-code preservation, base changes and length guards pass on both panels.
+- Existing payment build artifacts, compiled approvals and database authority still match the official candidate proof. No provider was called.
+- Every payment/preview environment row and other configuration remains raw equal. Both storefronts remain pinned to `99a613f7f133db8312a74fd71463e317add82d07`.
+- Both common login domains and Butik Siora/Güzide aliases return HTML200.
+- Chrome authenticated Güzide create form loads, but that store has no attribute definitions; no live variant record was submitted. Butik Siora requires a new sign-in. End-to-end SKU form behavior is covered by the mounted React tests and deployed source/client/pure-function checks above. Temporary browser tabs were closed.
+- Evidence is retained privately under `.tmp/variant-sku-release`; no catalog records were changed during acceptance.
