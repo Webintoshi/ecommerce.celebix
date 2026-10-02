@@ -25,7 +25,7 @@ export const resolveStorefrontPage = cache(async (): Promise<StorefrontPageResol
   const selected = await resolvePublicStorefrontRequest({ headers: await headers(), repository: runtime.repository, now });
   if (selected.kind !== "active") return selected;
   const [campaignResolution, design, tracker] = await Promise.all([
-    resolveCampaignPageProjection({ storefront: selected.storefront, repository: runtime.repository, now }),
+    resolveCampaignPageProjection({ storefront: selected.storefront, repository: runtime.repository, now, includeProductRows: false }),
     runtime.repository.getPublicStorefrontDesign({ storefront: selected.storefront, now }).catch(() => null),
     resolveStorefrontTracker(runtime, selected.storefront.hostname, now).catch(() => null),
   ]);
@@ -34,6 +34,18 @@ export const resolveStorefrontPage = cache(async (): Promise<StorefrontPageResol
   const campaign = campaignResolution.kind === "campaign" ? campaignResolution.projection : null;
   const storefront = campaign ? withCampaignPresentation(selected.storefront, campaign) : selected.storefront;
   return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront, campaign, design, tracker }) });
+});
+
+// Product rows belong to the homepage. The shared shell remains request-deduplicated.
+export const resolveStorefrontHomePage = cache(async (): Promise<StorefrontPageResolution> => {
+  const selected = await resolveStorefrontPage();
+  if (selected.kind !== "active") return selected;
+  const { runtime, storefront } = selected.context;
+  const campaign = await resolveCampaignPageProjection({ storefront, repository: runtime.repository, now: new Date() });
+  if (campaign.kind === "unavailable") return Object.freeze({ kind: "unavailable" });
+  if (campaign.kind === "legacy") return selected;
+  return Object.freeze({ kind: "active", context: Object.freeze({ ...selected.context,
+    campaign: campaign.projection, storefront: withCampaignPresentation(storefront, campaign.projection) }) });
 });
 
 export async function resolveStorefrontTracker(runtime: PublicStorefrontRuntime, hostname: string, now: Date): Promise<StorefrontTrackerContext | null> {

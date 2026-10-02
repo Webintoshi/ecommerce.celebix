@@ -9,7 +9,7 @@ import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { CampaignHome } from "@/components/CampaignHome";
 import { buildPublicSeoMetadata } from "@/lib/public-seo.ts";
 import { loadPublicSeoSettings } from "@/lib/public-seo-read.ts";
-import { resolveStorefrontPage } from "@/lib/page-context.ts";
+import { resolveStorefrontPage, resolveStorefrontHomePage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import {
   localizePublicStorefrontDesign,
@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const context = requireStorefrontPage(await resolveStorefrontPage());
+  const context = requireStorefrontPage(await resolveStorefrontHomePage());
   const { runtime, storefront, design } = context;
   if (context.campaign)
     return (

@@ -7,6 +7,18 @@ const legacyStorefront = Object.freeze({ presentation: Object.freeze({ schemaVer
 const campaignStorefront = Object.freeze({ presentation: Object.freeze({ schemaVersion: 2 }) });
 const retailStorefront = Object.freeze({ presentation: Object.freeze({ schemaVersion: 3 }) });
 
+test("search and generic pages do not load homepage product rows", async () => {
+  let calls = 0;
+  const result = await resolveCampaignPageProjection({
+    storefront: retailStorefront as never,
+    repository: { resolveCampaignHome: async () => { calls += 1; return { presentation: { schemaVersion: 3 }, productRows: [] }; } } as never,
+    now: new Date("2026-10-02T00:00:00Z"),
+    includeProductRows: false,
+  } as never);
+  assert.deepEqual(result, { kind: "legacy" });
+  assert.equal(calls, 0);
+});
+
 test("legacy storefronts never request a campaign projection", async () => {
   let calls = 0;
   const result = await resolveCampaignPageProjection({

@@ -70,6 +70,8 @@ import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
 import { createStorefrontIdentityRuntime, type StorefrontIdentityRuntime } from "./account/runtime.ts";
 import { createCachedPublicStorefrontRepository } from "./cache/public-storefront-cache.ts";
+import { createCatalogSearchContentRepository, createMeilisearchCatalogSearchProvider, PostgresPublicCatalogSearchScopeRepository } from "@celebix/saas-data";
+import { parseCatalogSearchConfig } from "./catalog-search-config.ts";
 import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
 
 const { Pool } = pg;
@@ -253,7 +255,18 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
         },
       });
     };
-    const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const baseContent = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    let content: PublicStorefrontContentRepository = baseContent;
+    try {
+      const searchConfig = parseCatalogSearchConfig(process.env);
+      // Resolve scope per request: a not-yet-applied migration falls back safely
+      // and becomes available without restarting the published compatible reader.
+      if (searchConfig) content = createCatalogSearchContentRepository({
+        base: baseContent,
+        scope: new PostgresPublicCatalogSearchScopeRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+        provider: createMeilisearchCatalogSearchProvider({ ...searchConfig, queryTimeoutMs: 800 }),
+      });
+    } catch { /* The normalized database search remains available during rollout or outage. */ }
     const seoReady = (await pool.query("SELECT to_regprocedure('saas.seo_public_settings(text,timestamptz)') IS NOT NULL AS ready")).rows[0]?.ready === true;
     const seo = seoReady ? new PostgresPublicSeoRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }) : undefined;
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });

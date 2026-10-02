@@ -711,3 +711,18 @@ img { display: block; max-width: 100%; }
 .seo-related-links ul { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; list-style: none; margin: 0; padding: 0; }
 .seo-related-links a { text-decoration: underline; text-underline-offset: .2em; }
 .seo-related-links a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+
+/* Shared suggestions retain each theme's existing search control. */
+.store-live-search { position: relative; overflow: visible; }
+.store-live-search .store-search-suggestions { position: absolute; left: 0; top: calc(100% + 8px); z-index: 120; width: min(440px, calc(100vw - 32px)); padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--white, #fff); color: var(--ink, #222); box-shadow: 0 12px 36px #0002; text-align: left; letter-spacing: normal; }
+.store-search-form.store-live-search .store-search-suggestions { width: 100%; }
+.store-search-status { margin: 0 0 6px; font-size: 12px; }
+.store-search-suggestions ul { display: grid; gap: 4px; max-height: min(460px, 55vh); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.store-search-suggestions li a { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 4px; border-radius: 4px; color: inherit; font-size: 13px; text-decoration: none; }
+.store-search-suggestions li[aria-selected="true"] a, .store-search-suggestions li a:hover, .store-search-suggestions li a:focus-visible { background: color-mix(in srgb, var(--ink, #222) 7%, var(--white, #fff)); outline: 1px solid var(--line); }
+.store-search-suggestions img, .store-search-image-placeholder { width: 48px; height: 48px; object-fit: contain; border-radius: 4px; background: #f5f5f5; }
+.store-search-image-placeholder { display: grid; place-items: center; }
+.store-search-suggestions strong { white-space: nowrap; font-size: 12px; }
+.store-search-suggestions small { display: block; margin-top: 3px; font-size: 11px; }
+.store-search-all { display: block; margin-top: 8px; padding: 8px 4px; color: inherit; font-size: 12px; font-weight: 600; }
+@media(max-width: 480px) { .store-search-suggestions li a { grid-template-columns: 40px minmax(0, 1fr); } .store-search-suggestions img, .store-search-image-placeholder { width: 40px; height: 40px; } .store-search-suggestions strong { grid-column: 2; } }

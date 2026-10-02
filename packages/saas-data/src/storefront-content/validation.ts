@@ -17,7 +17,7 @@ import type { PublicContentList, PublicContentLocales, PublicContentPage, Public
 
 const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const CURSOR = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const CURSOR = /^(?:(?:true|false)\||s2\|(?:0|[1-9]\d*)\|(?:true|false)\|)?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
 const DANGEROUS_MARKUP = /<[\s/]*(?:script|iframe|object|embed|form|style|link|meta)(?:[\s/>])/i;
 const EVENT_HANDLER = /on[a-z]+\s*=/i;
@@ -113,8 +113,11 @@ export function storefrontContentCursor(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   const selected = text(value, 1, 512, "invalid_input");
   if (!CURSOR.test(selected)) fail();
-  const date = new Date(selected.slice(0, 24));
-  if (!Number.isFinite(date.getTime()) || date.toISOString() !== selected.slice(0, 24)) fail();
+  const parts = selected.split("|");
+  const dateText = parts.at(-2)!;
+  const date = new Date(dateText);
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== dateText) fail();
+  if (parts[0] === "s2" && !Number.isSafeInteger(Number(parts[1]))) fail();
   return selected;
 }
 

@@ -1,0 +1,36 @@
+{
+  "phase": "shared-catalog-search",
+  "postgresqlMajor": 16,
+  "artifacts": [
+    {
+      "file": "202610020194_shared_catalog_search.up.sql",
+      "sha256": "031c3e75928a99974a8a74b1d7b430eda9af3b8e721503fda12a764f5349e840"
+    },
+    {
+      "file": "202610020194_shared_catalog_search_assertions.sql",
+      "sha256": "82b1ea38f4d171eab75ad358c02dab1d691d0858018e9908932116ce1a090d61"
+    },
+    {
+      "file": "202610020195_lightweight_storefront_shell.up.sql",
+      "sha256": "f8a7a7fdaeee833091fd605140c7db02e0ef67f48ab4b4bbaaa0029c8f533f4f"
+    },
+    {
+      "file": "202610020195_lightweight_storefront_shell_assertions.sql",
+      "sha256": "a9fc8a2b466f0f73b60536348735843a6b0e73edd8c1e89626130640f55df679"
+    }
+  ],
+  "rollbackArtifacts": [
+    {
+      "file": "202610020194_shared_catalog_search.down.sql",
+      "sha256": "c89968b478741207dae1493f9d9f2230d997ddcf7bbe2a26127e8cc0ec011073"
+    },
+    {
+      "file": "202610020195_lightweight_storefront_shell.down.sql",
+      "sha256": "d1dddc0289feccf7f8f9c01ee70d7a1b1ef0ebe748290930cc3ec0e447543cb4"
+    }
+  ],
+  "verification": {
+    "command": "node --test apps/owner/scripts/sql/saas/shared-catalog-search-migration.test.mjs",
+    "scope": "Socket-only disposable PostgreSQL 16 fixture; all 194 search, trigger, queue, RLS and rollback behavior is real SQL."
+  }
+}
