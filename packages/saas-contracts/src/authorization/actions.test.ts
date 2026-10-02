@@ -161,6 +161,8 @@ test("exports the exact immutable merchant action list", () => {
     "in_store.discount",
     "in_store.resolve",
     "in_store.staff",
+    "accounting.read",
+    "accounting.manage",
   ]);
   assert.equal(Object.isFrozen(MERCHANT_ACTIONS), true);
 });

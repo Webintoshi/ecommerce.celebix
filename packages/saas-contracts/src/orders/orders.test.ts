@@ -249,14 +249,14 @@ test("parses a valid order detail", () => {
   assert.deepEqual(parseOrderDetail(detail()), detail());
 });
 
-test("POS detail accepts only persisted card cash or unknown payment metadata", () => {
+test("POS detail accepts persisted card cash bank transfer or unknown payment metadata", () => {
   const pos = detail({ source: "in_store" });
-  for (const inStorePaymentMethod of ["card", "cash", null]) {
+  for (const inStorePaymentMethod of ["card", "cash", "bank_transfer", null]) {
     const value = { ...pos, inStorePaymentMethod };
     assert.deepEqual(parseOrderDetail(value), value);
   }
   assert.equal(Object.hasOwn(parseOrderDetail(pos), "inStorePaymentMethod"), false);
-  for (const inStorePaymentMethod of ["manual", "bank_transfer", "", undefined, 0]) {
+  for (const inStorePaymentMethod of ["manual", "", undefined, 0]) {
     assert.throws(() => parseOrderDetail({ ...pos, inStorePaymentMethod }), /order_contract_invalid/);
   }
   for (const source of ["storefront", "quick_link", "manual"]) {
@@ -486,4 +486,9 @@ test("rejects unmasked, cross-tenant, impossible, and extended email summaries",
   assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, storeId: ORDER_ID }), /order_contract_invalid/);
   assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, status: "delivered", canRetry: true }), /order_contract_invalid/);
   assert.throws(() => parseOrderEmailDeliverySummary({ ...valid, eventType: "order_preparing" }), /order_contract_invalid/);
+});
+
+test('POS order reader preserves two maximum CRM names joined with a space',()=>{
+ const customerName='A'.repeat(100)+' '+'B'.repeat(100);
+ assert.equal(parseOrderDetail(detail({source:'in_store',customerName})).customerName,customerName);
 });

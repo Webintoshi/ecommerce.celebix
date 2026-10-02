@@ -25,6 +25,7 @@ import {
   PostgresPromotionRepository,
   PostgresOrderRepository,
   PostgresInStoreSalesRepository,
+  PostgresAccountingRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
   PostgresShippingAdminRepository,
@@ -67,6 +68,7 @@ import { registerServerAnalyticsRepository } from "../server-analytics/runtime.t
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerInStoreSalesRepository } from "../server-in-store-sales/runtime.ts";
+import { registerServerAccountingRepository } from "../server-accounting/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import { registerServerIyzicoActivationRuntime } from "../server-iyzico-activation/runtime.ts";
@@ -682,6 +684,23 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_create_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid,bigint,text,jsonb,text,text,integer,jsonb)','EXECUTE')
         AND has_function_privilege('celebix_saas_app','saas.barcode_print_job_get_v2(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','EXECUTE') AS barcode_label_repository
+      ,to_regclass('saas.accounting_release_state') IS NOT NULL
+        AND to_regclass('saas.accounting_accounts') IS NOT NULL
+        AND to_regclass('saas.accounting_receivables') IS NOT NULL
+        AND to_regclass('saas.accounting_events') IS NOT NULL
+        AND to_regclass('saas.accounting_operations') IS NOT NULL
+        AND to_regprocedure('saas.accounting_read(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.accounting_read(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,jsonb)','EXECUTE')
+        AND to_regprocedure('saas.accounting_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.accounting_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,jsonb)','EXECUTE')
+        AND to_regprocedure('saas.accounting_get_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.accounting_get_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)','EXECUTE')
+        AND to_regprocedure('saas.in_store_sales_bootstrap_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.in_store_sales_bootstrap_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)','EXECUTE')
+        AND to_regprocedure('saas.in_store_sales_create_customer(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.in_store_sales_create_customer(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)','EXECUTE')
+        AND to_regprocedure('saas.in_store_sales_complete_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND has_function_privilege('celebix_saas_app','saas.in_store_sales_complete_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)','EXECUTE') AS accounting_credit_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -725,7 +744,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.inventory_relations !== true || row.inventory_default_location_lifecycle !== true ||
       row.inventory_repository !== true ||
       row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true ||
-      row.barcode_label_repository !== true
+      row.barcode_label_repository !== true || row.accounting_credit_repository !== true
     ) {
       const failedContracts = Object.entries(row)
         .filter(([field, value]) => !["version_num", "database_name", "is_superuser"].includes(field) && value !== true)
@@ -1040,6 +1059,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
       prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
     }));
+    registerServerAccountingRepository(access, createPostCommitInvalidatingRepository(new PostgresAccountingRepository({
+      pool,role:'celebix_saas_app',timeouts:TIMEOUTS,
+    }),{returnCredit:['catalog']}));
     registerServerAbandonedCartRepository(access, abandonedCartRepository);
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, createPostCommitInvalidatingRepository(catalogAdminRepository, {

@@ -300,3 +300,41 @@ test("obsolete prepare recovery can load an advanced unpaid v2 basket without re
   const next=f.controller();await next.initialize();await next.recover(true);assert.equal(next.getSnapshot().canAcceptRecovery,true);await next.acceptRecoveryCurrentSale();
   assert.equal(next.getSnapshot().recovery,null);assert.equal(next.getSnapshot().paymentMethod,"cash");assert.equal(next.getSnapshot().sale?.status,"draft");next.dispose();
 });
+
+function creditFixture(collectionCents:number|null=0,creditPermission=true){
+  const date="2026-09-26T00:00:00.000Z";
+  const f=fixture("000123",true),api=f.api as MutableClient;
+  (api as {contractVersion:number}).contractVersion=3;
+  const customer={id:LOCATION,name:"Ayşe Kaya",firstName:"Ayşe",lastName:"Kaya",phone:"05550001122",email:null,archived:false};
+  const bootstrap=api.bootstrap;api.bootstrap=async()=>{const value=await bootstrap();return{...value,permissions:{...value.permissions,canSellOnCredit:creditPermission,canCollectReceivables:false}};};
+  let server:InStoreSale|null=null;const originalCreate=api.createSale,originalUpdate=api.updateSale;
+  api.createSale=async(input,key)=>{const value=await originalCreate(input,key);server={...value.sale,contractVersion:3,customerId:input.intent.customerId??null,customer:input.intent.customerId?customer:null,initialCollectionCents:input.intent.initialCollectionCents??value.sale.totals.totalCents,dueDate:input.intent.dueDate??null,finance:null};return{...value,sale:server!};};
+  api.updateSale=async(id,input,key)=>{const value=await originalUpdate(id,input,key);server={...value.sale,contractVersion:3,customerId:input.intent.customerId??null,customer:input.intent.customerId?customer:null,initialCollectionCents:input.intent.initialCollectionCents??value.sale.totals.totalCents,dueDate:input.intent.dueDate??null,finance:null};return{...value,sale:server!};};
+  api.prepareSale=async()=>{server={...server!,status:"payment_pending",version:server!.version+1};return{sale:server,replayed:false,priceChanged:false};};
+  api.getSale=async()=>server!;
+  api.completeSale=async()=>{const collected=server!.initialCollectionCents!,due=server!.totals.totalCents-collected;server={...server!,status:"completed",version:server!.version+1,completedAt:date,finance:{status:due?collected?"partial":"unpaid":"paid",collectedCents:collected,dueCents:due,refundDueCents:0,version:1,receipts:[]}};return{sale:server,replayed:false,priceChanged:false};};
+  const controller=f.controller();return{...f,controller,customer,collectionCents};
+}
+
+test("V3 zero collection freezes a named customer and completes without a payment attestation",async()=>{
+  const f=creditFixture();await f.controller.initialize();await f.controller.addProduct(f.p);
+  assert.equal(typeof f.controller.setCreditTerms,"function","credit terms must be supported before prepare");
+  f.controller.selectCustomer(f.customer);f.controller.setCreditTerms(0,"2026-11-02");await f.controller.prepare();
+  const prepared=f.controller.getSnapshot().sale!;assert.equal(prepared.customerId,LOCATION);assert.equal(prepared.initialCollectionCents,0);assert.equal(prepared.dueDate,"2026-11-02");
+  f.controller.setCreditTerms(1,null);assert.equal(f.controller.getSnapshot().initialCollectionCents,0,"prepared amount is frozen");
+  await f.controller.finish();assert.equal(f.calls.filter(call=>call.kind==="payment").length,0);assert.equal(f.controller.getSnapshot().sale!.finance!.dueCents,200000);f.controller.dispose();
+});
+test("V3 partial collection requires credit permission, CRM contact and a positive collection method",async()=>{
+  const f=creditFixture(50000,false);await f.controller.initialize();await f.controller.addProduct(f.p);
+  assert.equal(typeof f.controller.setCreditTerms,"function");f.controller.selectCustomer(f.customer);f.controller.setCreditTerms(50000,null);f.controller.setPaymentMethod("cash");await f.controller.prepare();
+  assert.equal(f.controller.getSnapshot().sale?.status,"draft");assert.match(f.controller.getSnapshot().error??"",/veresiye.*yetki/i);f.controller.dispose();
+  const permitted=creditFixture();await permitted.controller.initialize();await permitted.controller.addProduct(permitted.p);permitted.controller.setCreditTerms(50000,null);permitted.controller.setPaymentMethod("cash");await permitted.controller.prepare();
+  assert.match(permitted.controller.getSnapshot().error??"",/müşteri.*telefon/i);
+  permitted.controller.selectCustomer(permitted.customer);permitted.controller.setPaymentMethod(null);await permitted.controller.prepare();assert.match(permitted.controller.getSnapshot().error??"",/yöntem/i);permitted.controller.dispose();
+});
+test("V3 default full collection follows the cart until prepared and rejects overpayment",async()=>{
+  const f=creditFixture();await f.controller.initialize();await f.controller.addProduct(f.p);
+  assert.equal(f.controller.getSnapshot().initialCollectionCents,null,"default means collect full current total");
+  f.controller.setCreditTerms(200001,null);f.controller.setPaymentMethod("cash");await f.controller.prepare();assert.match(f.controller.getSnapshot().error??"",/toplam/i);
+  f.controller.setCreditTerms(null,null);await f.controller.prepare();assert.equal(f.controller.getSnapshot().sale!.initialCollectionCents,200000);f.controller.dispose();
+});

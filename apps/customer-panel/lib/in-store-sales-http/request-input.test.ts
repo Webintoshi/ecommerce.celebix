@@ -48,3 +48,10 @@ test('v2 intent, payment selection and price permission have exact versioned bod
   const staff={expectedVersion:0,enabled:true,locationIds:[id],discountLimitBps:1000,canEditPrice:false};
   assert.deepEqual(await readInStoreMutationInput(request(staff),'staff',2),{operationId:id,value:staff});
 });
+
+test('v3 payment and staff accept bank transfer and separate credit/collection grants exactly',async()=>{
+ assert.equal((await readInStoreMutationInput(request({expectedVersion:1,slipReference:null,paymentMethod:'bank_transfer'}),'payment',3))?.value.paymentMethod,'bank_transfer');
+ const grant={expectedVersion:0,enabled:true,locationIds:[id],discountLimitBps:0,canEditPrice:false,canSellOnCredit:true,canCollectReceivables:false};
+ assert.deepEqual((await readInStoreMutationInput(request(grant),'staff',3))?.value,grant);
+ assert.equal(await readInStoreMutationInput(request(grant),'staff',2),null);
+});

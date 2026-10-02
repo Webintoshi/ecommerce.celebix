@@ -9,14 +9,14 @@ export function parseMinorUnits(input:string):number|null {
 export const previewTotals=calculateInStoreTotals;
 export function createSerialQueue(){let tail:Promise<unknown>=Promise.resolve();return Object.freeze({run<T>(task:()=>Promise<T>):Promise<T>{const next=tail.then(task);tail=next.catch(()=>undefined);return next;}});}
 export type RecoveryKind="create"|"update"|"hold"|"prepare"|"payment"|"complete"|"cancel"|"takeover";
-export type RecoveryMarker=Readonly<{scopeKey:string;kind:RecoveryKind;saleId:string;operationId:string;expectedVersion:number;expectedTotalCents:number;held?:boolean;contractVersion?:2;paymentMethod?:"card"|"cash"|null}>;
+export type RecoveryMarker=Readonly<{scopeKey:string;kind:RecoveryKind;saleId:string;operationId:string;expectedVersion:number;expectedTotalCents:number;held?:boolean;contractVersion?:2|3;paymentMethod?:"card"|"cash"|"bank_transfer"|null}>;
 export type RecoveryStorage=Pick<Storage,"getItem"|"setItem"|"removeItem">;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const markerKey=(scope:string)=>`celebix-in-store-operation:${scope}`;
 export function readRecoveryMarker(storage:RecoveryStorage|undefined,scopeKey:string):RecoveryMarker|null {
   try{const value=JSON.parse(storage?.getItem(markerKey(scopeKey))??"null") as RecoveryMarker|null;if(!value)return null;const base="expectedTotalCents,expectedVersion,kind,operationId,saleId,scopeKey";
     const allowed=new Set(["scopeKey","kind","saleId","operationId","expectedVersion","expectedTotalCents","held","contractVersion","paymentMethod"]);
-    if(Object.keys(value).some(key=>!allowed.has(key))||base.split(",").some(key=>!Object.hasOwn(value,key))||Object.hasOwn(value,"held")&&(value.kind!=="hold"||typeof value.held!=="boolean")||Object.hasOwn(value,"contractVersion")&&value.contractVersion!==2||Object.hasOwn(value,"paymentMethod")&&(value.contractVersion!==2||value.kind!=="payment"||value.paymentMethod!==null&&value.paymentMethod!=="card"&&value.paymentMethod!=="cash")||value.contractVersion===2&&value.kind==="payment"&&!Object.hasOwn(value,"paymentMethod")||value.scopeKey!==scopeKey||!["create","update","hold","prepare","payment","complete","cancel","takeover"].includes(value.kind)||!UUID.test(value.saleId)||!UUID.test(value.operationId)||!Number.isSafeInteger(value.expectedVersion)||value.expectedVersion<0||!Number.isSafeInteger(value.expectedTotalCents)||value.expectedTotalCents<0)return null;return Object.freeze(value);}catch{return null;}
+    if(Object.keys(value).some(key=>!allowed.has(key))||base.split(",").some(key=>!Object.hasOwn(value,key))||Object.hasOwn(value,"held")&&(value.kind!=="hold"||typeof value.held!=="boolean")||Object.hasOwn(value,"contractVersion")&&![2,3].includes(value.contractVersion!)||Object.hasOwn(value,"paymentMethod")&&(![2,3].includes(value.contractVersion!)||value.kind!=="payment"||value.paymentMethod!==null&&value.paymentMethod!=="card"&&value.paymentMethod!=="cash"&&!(value.contractVersion===3&&value.paymentMethod==="bank_transfer"))||[2,3].includes(value.contractVersion!)&&value.kind==="payment"&&!Object.hasOwn(value,"paymentMethod")||value.scopeKey!==scopeKey||!["create","update","hold","prepare","payment","complete","cancel","takeover"].includes(value.kind)||!UUID.test(value.saleId)||!UUID.test(value.operationId)||!Number.isSafeInteger(value.expectedVersion)||value.expectedVersion<0||!Number.isSafeInteger(value.expectedTotalCents)||value.expectedTotalCents<0)return null;return Object.freeze(value);}catch{return null;}
 }
 export function writeRecoveryMarker(storage:RecoveryStorage|undefined,marker:RecoveryMarker):void { storage?.setItem(markerKey(marker.scopeKey),JSON.stringify(marker)); }
 function clearMarker(storage:RecoveryStorage|undefined,scope:string){try{storage?.removeItem(markerKey(scope));}catch{}}
@@ -24,10 +24,10 @@ export type RegisterCartLine=Readonly<InStoreProduct&{quantity:number;catalogUni
 export type RegisterBusy="scan"|"save"|"prepare"|"payment"|"complete"|"hold"|"cancel"|"recover"|"takeover"|null;
 export type RegisterSnapshot=Readonly<{
   phase:"loading"|"ready"|"error";bootstrap:InStoreBootstrap|null;sale:InStoreSale|null;cart:readonly RegisterCartLine[];
-  locationId:string;paymentMethod:"card"|"cash"|null;discount:InStoreDiscount|null;customerName:string;note:string;dirty:boolean;busy:RegisterBusy;
+  locationId:string;paymentMethod:"card"|"cash"|"bank_transfer"|null;customer:import("./client.ts").PosCustomer|null;customerId:string|null;initialCollectionCents:number|null;dueDate:string|null;discount:InStoreDiscount|null;customerName:string;note:string;dirty:boolean;busy:RegisterBusy;
   error:string|null;notice:string|null;priceChanged:boolean;recovery:RecoveryMarker|null;conflict:InStoreSale|null;canReenterDraft:boolean;canAcceptRecovery:boolean;paymentResumed:boolean;
 }>;
-const initial=():RegisterSnapshot=>({phase:"loading",bootstrap:null,sale:null,cart:[],locationId:"",paymentMethod:null,discount:null,customerName:"",note:"",dirty:false,busy:null,error:null,notice:null,priceChanged:false,recovery:null,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:false});
+const initial=():RegisterSnapshot=>({phase:"loading",bootstrap:null,sale:null,cart:[],locationId:"",paymentMethod:null,customer:null,customerId:null,initialCollectionCents:null,dueDate:null,discount:null,customerName:"",note:"",dirty:false,busy:null,error:null,notice:null,priceChanged:false,recovery:null,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:false});
 export class InStoreRegisterController {
   private snapshot=initial();private listeners=new Set<()=>void>();private queue=createSerialQueue();private revision=0;
   private timer:ReturnType<typeof setTimeout>|undefined;private pendingRequest:(()=>Promise<InStoreSaleResult>)|null=null;
@@ -41,7 +41,7 @@ export class InStoreRegisterController {
     this.newSaleId=null;this.revision++;
     // Mutation/replay snapshots stay immutable; retain only the known display photo.
     const photos=new Map(retainPhotos?this.snapshot.cart.map(row=>[`${row.productId}:${row.variantId}`,row.imageUrl]):[]);
-    this.set({sale,cart:sale?.items.map(line=>({...line,imageUrl:line.imageUrl??photos.get(`${line.productId}:${line.variantId}`)??null,pricingUnavailable:false,availableQuantity:9999,stockTracking:false}))??[],locationId:sale?.locationId??this.snapshot.locationId,paymentMethod:sale?.paymentMethod??null,discount:sale?.discount??null,customerName:sale?.customerName??"",note:sale?.note??"",dirty:false,priceChanged:false,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:resumed&&sale?.status==="payment_pending"});
+    this.set({sale,cart:sale?.items.map(line=>({...line,imageUrl:line.imageUrl??photos.get(`${line.productId}:${line.variantId}`)??null,pricingUnavailable:false,availableQuantity:9999,stockTracking:false}))??[],locationId:sale?.locationId??this.snapshot.locationId,paymentMethod:sale?.paymentMethod??null,customer:sale?.customer??null,customerId:sale?.customerId??null,initialCollectionCents:sale?.status==="draft"&&sale.initialCollectionCents===sale.totals.totalCents?null:sale?.initialCollectionCents??null,dueDate:sale?.dueDate??null,discount:sale?.discount??null,customerName:sale?.customerName??"",note:sale?.note??"",dirty:false,priceChanged:false,conflict:null,canReenterDraft:false,canAcceptRecovery:false,paymentResumed:resumed&&sale?.status==="payment_pending"});
   }
   initialize(){
     if(this.initialization)return this.initialization;
@@ -57,6 +57,8 @@ export class InStoreRegisterController {
   private changed(patch:Partial<RegisterSnapshot>){if(!this.isEditable())return;this.revision++;this.set({...patch,dirty:true,error:null,notice:null,priceChanged:false});clearTimeout(this.timer);this.timer=setTimeout(()=>{void this.flush().catch(()=>undefined);},350);}
   setLocation(locationId:string){if(!this.snapshot.bootstrap?.locations.some(x=>x.id===locationId))return;this.changed({locationId});}
   setCustomer(customerName:string,note:string){this.changed({customerName:customerName.trim(),note:note.trim()});}
+  selectCustomer(customer:import("./client.ts").PosCustomer|null){if(customer?.archived)return;this.changed({customer,customerId:customer?.id??null,customerName:customer?.name??""});}
+  setCreditTerms(initialCollectionCents:number|null,dueDate:string|null){if(initialCollectionCents!==null&&(!Number.isSafeInteger(initialCollectionCents)||initialCollectionCents<0))return;if(dueDate!==null&&!/^\d{4}-\d{2}-\d{2}$/.test(dueDate))return;this.changed({initialCollectionCents,dueDate});}
   setDiscount(discount:InStoreDiscount|null){if(discount&&!this.snapshot.bootstrap?.permissions.canDiscount)return;this.changed({discount});}
   setQuantity(variantId:string,quantity:number){if(!Number.isInteger(quantity)||quantity<0||quantity>9999)return;this.changed({cart:this.snapshot.cart.flatMap(row=>row.variantId!==variantId?[row]:quantity?[{...row,quantity}]:[])});}
   setUnitPrice(variantId:string,unitPriceOverrideCents:number|null){
@@ -66,13 +68,13 @@ export class InStoreRegisterController {
       const override=unitPriceOverrideCents===catalogUnitPriceCents?null:unitPriceOverrideCents;
       return {...row,catalogUnitPriceCents,unitPriceOverrideCents:override,unitPriceCents:override??catalogUnitPriceCents};})});
   }
-  setPaymentMethod(paymentMethod:"card"|"cash"|null){
-    if(paymentMethod!==null&&paymentMethod!=="card"&&paymentMethod!=="cash")return;
+  setPaymentMethod(paymentMethod:"card"|"cash"|"bank_transfer"|null){
+    if(paymentMethod!==null&&paymentMethod!=="card"&&paymentMethod!=="cash"&&!(this.api.contractVersion===3&&paymentMethod==="bank_transfer"))return;
     if(this.isEditable()){this.changed({paymentMethod});return;}
     const s=this.snapshot;if(s.sale?.status==="payment_pending"&&s.sale.paymentMethod==null&&!s.recovery&&!s.conflict&&!s.busy)this.set({paymentMethod,error:null});
   }
   clearFeedback(){this.set({error:null,notice:null});}
-  private add(product:InStoreProduct){if(!this.isEditable())return;const row=this.snapshot.cart.find(x=>x.variantId===product.variantId);if(product.pricingUnavailable||product.unitPriceCents===null)throw new Error("Ürünün güvenilir fiyatı alınamadı. Başka bir ürün seç veya yeniden dene.");if(product.stockTracking&&(row?.quantity??0)>=product.availableQuantity)throw new Error("Bu varyantta eklenebilecek satılabilir stok yok.");if(!row&&this.snapshot.cart.length>=100)throw new Error("Sepete en fazla 100 farklı varyant eklenebilir.");this.changed({cart:row?this.snapshot.cart.map(x=>x.variantId===product.variantId?{...product,quantity:x.quantity+1,...(this.api.contractVersion===2?{catalogUnitPriceCents:product.unitPriceCents!,unitPriceOverrideCents:x.unitPriceOverrideCents??null,unitPriceCents:x.unitPriceOverrideCents??product.unitPriceCents}:{})}:x):[...this.snapshot.cart,{...product,quantity:1,...(this.api.contractVersion===2?{catalogUnitPriceCents:product.unitPriceCents!,unitPriceOverrideCents:null}:{})}],notice:`${product.productName} eklendi.`});}
+  private add(product:InStoreProduct){if(!this.isEditable())return;const row=this.snapshot.cart.find(x=>x.variantId===product.variantId);if(product.pricingUnavailable||product.unitPriceCents===null)throw new Error("Ürünün güvenilir fiyatı alınamadı. Başka bir ürün seç veya yeniden dene.");if(product.stockTracking&&(row?.quantity??0)>=product.availableQuantity)throw new Error("Bu varyantta eklenebilecek satılabilir stok yok.");if(!row&&this.snapshot.cart.length>=100)throw new Error("Sepete en fazla 100 farklı varyant eklenebilir.");this.changed({cart:row?this.snapshot.cart.map(x=>x.variantId===product.variantId?{...product,quantity:x.quantity+1,...(this.api.contractVersion>=2?{catalogUnitPriceCents:product.unitPriceCents!,unitPriceOverrideCents:x.unitPriceOverrideCents??null,unitPriceCents:x.unitPriceOverrideCents??product.unitPriceCents}:{})}:x):[...this.snapshot.cart,{...product,quantity:1,...(this.api.contractVersion>=2?{catalogUnitPriceCents:product.unitPriceCents!,unitPriceOverrideCents:null}:{})}],notice:`${product.productName} eklendi.`});}
   async addProduct(product:InStoreProduct){return this.queue.run(async()=>{try{this.add(product);await this.flushInternal();}catch(error){this.fail(error);}});}
   async scan(barcode:string){return this.queue.run(async()=>{if(!this.isEditable())return;this.set({busy:"scan",error:null});try{const products=await this.api.searchProducts({locationId:this.snapshot.locationId,barcode:barcode.trim()});if(products.length!==1)throw new Error(products.length?"Bu barkod birden fazla varyanta ait. Doğru ürünü arayıp seç.":"Barkod bulunamadı. Ürün adı veya SKU ile ara.");this.set({busy:null});this.add(products[0]);await this.flushInternal();}catch(error){this.fail(error);}finally{if(this.snapshot.busy==="scan")this.set({busy:null});}});}
   async lookup(term:string){return this.queue.run(async()=>{
@@ -85,7 +87,7 @@ export class InStoreRegisterController {
       const products=await this.api.searchProducts({locationId:this.snapshot.locationId,query:term.trim()});this.set({busy:null});return{matched:false,products};
     }catch(error){this.fail(error);return none;}finally{if(this.snapshot.busy==="scan")this.set({busy:null});}
   });}
-  private intent():InStoreSaleIntent{return {locationId:this.snapshot.locationId,items:this.snapshot.cart.map(({variantId,quantity,unitPriceOverrideCents})=>({variantId,quantity,...(this.api.contractVersion===2?{unitPriceOverrideCents:unitPriceOverrideCents??null}:{})})),discount:this.snapshot.discount,customerName:this.snapshot.customerName||null,note:this.snapshot.note||null,...(this.api.contractVersion===2?{paymentMethod:this.snapshot.paymentMethod}:{})};}
+  private intent():InStoreSaleIntent{return {locationId:this.snapshot.locationId,items:this.snapshot.cart.map(({variantId,quantity,unitPriceOverrideCents})=>({variantId,quantity,...(this.api.contractVersion>=2?{unitPriceOverrideCents:unitPriceOverrideCents??null}:{})})),discount:this.snapshot.discount,customerName:this.snapshot.customerName||null,note:this.snapshot.note||null,...(this.api.contractVersion>=2?{paymentMethod:this.api.contractVersion===3&&this.snapshot.initialCollectionCents===0?null:this.snapshot.paymentMethod}:{}),...(this.api.contractVersion===3?{customerId:this.snapshot.customerId,initialCollectionCents:this.snapshot.initialCollectionCents,dueDate:this.snapshot.dueDate}:{})};}
   async flush(){clearTimeout(this.timer);return this.queue.run(()=>this.flushInternal());}
   private async flushInternal(){
     clearTimeout(this.timer);
@@ -102,7 +104,7 @@ export class InStoreRegisterController {
   private fail(error:unknown){this.set({busy:null,error:message(error)});}
   private async mutate(kind:RecoveryKind,saleId:string,expectedVersion:number,expectedTotalCents:number,request:()=>Promise<InStoreSaleResult>,revision=this.revision,held?:boolean):Promise<InStoreSaleResult>{
     const scopeKey=this.snapshot.bootstrap!.scopeKey;
-    const marker:RecoveryMarker={scopeKey,kind,saleId,operationId:this.api.newId(),expectedVersion,expectedTotalCents,...(held===undefined?{}:{held}),...(this.api.contractVersion===2?{contractVersion:2 as const,...(kind==="payment"?{paymentMethod:this.snapshot.sale?.paymentMethod==null?this.snapshot.paymentMethod:null}:{})}:{})};
+    const marker:RecoveryMarker={scopeKey,kind,saleId,operationId:this.api.newId(),expectedVersion,expectedTotalCents,...(held===undefined?{}:{held}),...(this.api.contractVersion>=2?{contractVersion:this.api.contractVersion as 2|3,...(kind==="payment"?{paymentMethod:this.snapshot.sale?.paymentMethod==null?this.snapshot.paymentMethod:null}:{})}:{})};
     this.set({recovery:marker,canReenterDraft:false,canAcceptRecovery:false});this.pendingRequest=request;this.pendingRevision=revision;
     try{writeRecoveryMarker(this.storage,marker);}catch{this.set({notice:"Tarayıcı işlem kurtarma anahtarını saklayamadı. Sonucu doğrulamadan bu sekmeyi kapatma."});}
     try{const result=await request();clearMarker(this.storage,scopeKey);this.set({recovery:null});this.pendingRequest=null;return result;}
@@ -116,6 +118,11 @@ export class InStoreRegisterController {
     if(!this.isEditable())return;try{
       if(this.api.contractVersion===2&&!this.snapshot.paymentMethod)throw new Error("Ödemeye geçmek için Kart veya Nakit seç.");
       const totals=previewTotals(this.snapshot.cart.map(x=>({unitPriceCents:x.unitPriceCents??0,quantity:x.quantity,discountEligible:x.discountEligible})),this.snapshot.discount);
+      if(this.api.contractVersion===3){const collection=this.snapshot.initialCollectionCents??totals.totalCents;
+        if(collection>totals.totalCents)throw new Error("Tahsilat satış toplamını aşamaz.");
+        if(collection<totals.totalCents){if(!this.snapshot.bootstrap?.permissions.canSellOnCredit)throw new Error("Veresiye satış için yetkin bulunmuyor.");if(!this.snapshot.customerId||!this.snapshot.customer?.name.trim()||!this.snapshot.customer.phone?.trim())throw new Error("Veresiye için müşteri adı ve telefon kaydı gerekli. Bir müşteri seç.");}
+        if(collection>0&&!this.snapshot.paymentMethod)throw new Error("Tahsilat için ödeme yöntemi seç.");
+      }
       await this.flushInternal();const sale=this.snapshot.sale;if(!sale||!sale.items.length)return;
       if(totals.totalCents<1)throw new Error("Ödenecek tutar sıfır olamaz.");this.set({busy:"prepare",error:null});
       const result=await this.mutate("prepare",sale.id,sale.version,totals.totalCents,()=>this.api.prepareSale(sale.id,{expectedVersion:sale.version,expectedTotalCents:totals.totalCents},this.snapshot.recovery!.operationId));
@@ -124,13 +131,13 @@ export class InStoreRegisterController {
   });}
   async finish(){return this.queue.run(async()=>{
     if(this.snapshot.recovery||this.snapshot.conflict||this.snapshot.dirty)return;let sale=this.snapshot.sale;if(!sale||!["payment_pending","payment_received"].includes(sale.status))return;
-    try{this.set({error:null});if(sale.status==="payment_pending"){
+    try{this.set({error:null});if(sale.status==="payment_pending"&&!(this.api.contractVersion===3&&sale.initialCollectionCents===0)){
       if(this.api.contractVersion===2&&sale.paymentMethod==null&&!this.snapshot.paymentMethod)throw new Error("Tahsilatı kaydetmek için Kart veya Nakit seç.");
       this.set({busy:"payment"});const current=sale;const paymentMethod=current.paymentMethod==null?this.snapshot.paymentMethod:null;
-      const result=await this.mutate("payment",current.id,current.version,current.totals.totalCents,()=>this.api.confirmPayment(current.id,{expectedVersion:current.version,slipReference:null,...(this.api.contractVersion===2?{paymentMethod}:{})},this.snapshot.recovery!.operationId));
+      const result=await this.mutate("payment",current.id,current.version,current.totals.totalCents,()=>this.api.confirmPayment(current.id,{expectedVersion:current.version,slipReference:null,...(this.api.contractVersion>=2?{paymentMethod}:{})},this.snapshot.recovery!.operationId));
       this.hydrate(result.sale,false,true);sale=result.sale;
     }
-    if(sale.status==="payment_received"){this.set({busy:"complete"});const current=sale;
+    if(sale.status==="payment_received"||this.api.contractVersion===3&&sale.status==="payment_pending"&&sale.initialCollectionCents===0){this.set({busy:"complete"});const current=sale;
       const result=await this.mutate("complete",current.id,current.version,current.totals.totalCents,()=>this.api.completeSale(current.id,{expectedVersion:current.version},this.snapshot.recovery!.operationId));this.hydrate(result.sale,false,true);
     }
     this.set({busy:null});if(this.snapshot.sale?.status==="completed")await this.refreshLists();
@@ -156,7 +163,7 @@ export class InStoreRegisterController {
     const version={expectedVersion:marker.expectedVersion};
     switch(marker.kind){
       case "prepare":return this.api.prepareSale(marker.saleId,{...version,expectedTotalCents:marker.expectedTotalCents},marker.operationId,contractVersion);
-      case "payment":return this.api.confirmPayment(marker.saleId,{...version,slipReference:null,...(contractVersion===2?{paymentMethod:marker.paymentMethod??null}:{})},marker.operationId,contractVersion);
+      case "payment":return this.api.confirmPayment(marker.saleId,{...version,slipReference:null,...(contractVersion>=2?{paymentMethod:marker.paymentMethod??null}:{})},marker.operationId,contractVersion);
       case "complete":return this.api.completeSale(marker.saleId,version,marker.operationId,contractVersion);
       case "cancel":return this.api.cancelSale(marker.saleId,{...version,confirmUnpaid:true},marker.operationId,contractVersion);
       case "takeover":return this.api.takeoverSale(marker.saleId,version,marker.operationId,contractVersion);

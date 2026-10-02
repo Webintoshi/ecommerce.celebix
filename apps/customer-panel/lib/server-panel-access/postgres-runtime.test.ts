@@ -44,6 +44,20 @@ test("approved staging preflight targets the exact migration 056 onboarding rela
           assert.match(sql, /to_regprocedure\('saas[.]create_store_default_inventory_location\(\)'\) IS NOT NULL/);
           assert.match(sql, /tgname='stores_default_inventory_location'/);
           assert.match(sql, /AS inventory_default_location_lifecycle/);
+          for (const relation of ["accounting_release_state", "accounting_accounts", "accounting_receivables", "accounting_events", "accounting_operations"]) {
+            assert.ok(sql.includes(`to_regclass('saas.${relation}') IS NOT NULL`), relation);
+          }
+          for (const signature of [
+            "saas.accounting_read(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,jsonb)",
+            "saas.accounting_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,jsonb)",
+            "saas.accounting_get_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+            "saas.in_store_sales_bootstrap_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+            "saas.in_store_sales_create_customer(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)",
+            "saas.in_store_sales_complete_v3(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+          ]) {
+            assert.ok(sql.includes(`to_regprocedure('${signature}') IS NOT NULL`), signature);
+            assertAppRoleFunctionPrivilege(sql, signature);
+          }
           assert.match(sql, /pg_has_role\(current_user, 'celebix_saas_host_resolver', 'MEMBER'\) AS host_resolver_member/);
           assert.match(sql, /to_regclass\('saas\.admin_domains'\) IS NOT NULL/);
           assert.match(sql, /to_regclass\('saas\.cross_host_panel_handoffs'\) IS NOT NULL/);

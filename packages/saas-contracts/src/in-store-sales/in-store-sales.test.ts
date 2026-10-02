@@ -63,3 +63,27 @@ test('v2 draft intent persists explicit payment and validates positive override 
  for(const unitPriceOverrideCents of [0,-1,1.2,Number.MAX_SAFE_INTEGER+1]) assert.throws(()=>parseInStoreSaleIntent({...value,items:[{variantId,quantity:1,unitPriceOverrideCents}]},2));
  assert.throws(()=>parseInStoreSaleIntent({...value,paymentMethod:'transfer'},2));
 });
+
+test('v3 credit intent locks customer, zero/partial collection and calendar due date while preserving old parsers',()=>{
+ const credit={locationId,items:[{variantId,quantity:1,unitPriceOverrideCents:null}],discount:null,customerName:null,note:null,paymentMethod:null,customerId:variantId,initialCollectionCents:0,dueDate:'2026-10-31'};
+ assert.equal(parseInStoreSaleIntent(credit,3).initialCollectionCents,0);
+ assert.equal(parseInStoreSaleIntent({...credit,paymentMethod:'bank_transfer',initialCollectionCents:500},3).paymentMethod,'bank_transfer');
+ for(const dueDate of ['2026-02-30','2026-13-01','26-10-01'])assert.throws(()=>parseInStoreSaleIntent({...credit,dueDate},3));
+ for(const initialCollectionCents of [-1,0.5,Number.MAX_SAFE_INTEGER+1])assert.throws(()=>parseInStoreSaleIntent({...credit,initialCollectionCents},3));
+ assert.throws(()=>parseInStoreSaleIntent(credit,2));
+});
+test('v3 zero collection completion is delivered without invented payment evidence',()=>{
+ const timestamp='2026-10-02T09:00:00.000Z';
+ const line={productId:locationId,variantId,productName:'Product',variantName:'',sku:null,barcode:null,imageUrl:null,unitPriceCents:10000,catalogUnitPriceCents:10000,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null,quantity:1,discountEligible:true,lineSubtotalCents:10000,allocatedDiscountCents:0,lineNetCents:10000};
+ const customer={id:variantId,name:'Ali Veli',firstName:'Ali',lastName:'Veli',phone:'+905551234567',email:null,archived:false};
+ const sale={id:locationId,saleNumber:'POS-1',status:'completed',version:3,contractVersion:3,locationId,locationName:'Mağaza',ownerMembershipId:variantId,ownerLabel:'Cemo',customerName:customer.name,customerId:customer.id,customer,initialCollectionCents:0,dueDate:null,finance:{status:'unpaid',collectedCents:0,dueCents:10000,refundDueCents:0,version:1,receipts:[]},paymentMethod:null,note:null,discount:null,items:[line],totals:{subtotalCents:10000,eligibleSubtotalCents:10000,discountCents:0,totalCents:10000},createdAt:timestamp,updatedAt:timestamp,paymentReceivedAt:null,completedAt:timestamp,orderId:variantId,orderNumber:'POS-1'};
+ assert.equal(parseInStoreSale(sale,3).paymentReceivedAt,null);
+ assert.throws(()=>parseInStoreSale({...sale,paymentReceivedAt:timestamp},3));
+ assert.throws(()=>parseInStoreSale({...sale,initialCollectionCents:10001},3));
+ assert.throws(()=>parseInStoreSale({...sale,customer:{...customer,phone:null}},3));
+});
+
+test('v3 named customer snapshots preserve maximum database names and historical email length',async()=>{
+ const {parseInStorePosCustomer}=await import('./index.ts');const firstName='A'.repeat(100),lastName='B'.repeat(100),email='a'.repeat(300)+'@example.test';
+ assert.equal(parseInStorePosCustomer({id:variantId,name:firstName+' '+lastName,firstName,lastName,phone:null,email,archived:true}).email,email);
+});

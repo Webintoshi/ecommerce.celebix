@@ -16,6 +16,7 @@ import {
   type PermanentDeletionImpact,
 } from "@celebix/saas-contracts";
 
+import { OrderFinancePanel } from "@/components/accounting/OrderFinancePanel";
 import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderShipmentConsole } from "@/components/shipping/OrderShipmentConsole";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
@@ -275,7 +276,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   if (props.detail === undefined) return <PanelPageShell><section className={styles.detailRoot}><h1 className="sr-only">Sipariş detayı</h1><Link className={styles.backLink} href="/orders"><ArrowLeft size={18} aria-hidden="true" />Siparişlere dön</Link><div className={styles.errorState} role="alert"><h2>Sipariş açılamadı</h2><p>{props.error || "Sipariş bulunamadı."}</p><button className={styles.secondaryButton} type="button" onClick={props.onRetry}>Tekrar dene</button></div></section></PanelPageShell>;
   const order = props.detail;
   const inStore = order.source === "in_store";
-  const inStorePaymentLabel = order.inStorePaymentMethod === "card" ? "Kart" : order.inStorePaymentMethod === "cash" ? "Nakit" : "manuel POS";
+  const inStorePaymentLabel = order.inStorePaymentMethod === "card" ? "Kart" : order.inStorePaymentMethod === "cash" ? "Nakit" : order.inStorePaymentMethod === "bank_transfer" ? "Banka havalesi" : "manuel POS";
   const statusOptions = inStore ? [] : getAuthorizedOrderStatusOptions(order.status, props.capabilities).filter(status => status !== order.status);
   const paymentOptions = inStore ? [] : getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment).filter(status => status !== order.paymentStatus);
   const progress = !order.archive?.archived ? PROGRESS_ACTIONS[order.status] : undefined;
@@ -322,6 +323,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <section className={styles.itemsPanel} aria-labelledby="order-items-title"><header className={styles.sectionHeading}><h2 id="order-items-title">Ürünler <span>{order.itemCount}</span></h2><span className={styles.source}><Store size={14} aria-hidden="true" />{SOURCE_LABELS[order.source]}</span></header>
           <table className={styles.itemsTable}><thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col" className={styles.unitPrice}>Birim fiyat</th><th scope="col">Toplam</th></tr></thead><tbody>{order.items.map(item => <tr key={item.id}><td><div className={styles.itemIdentity}><ProductThumbnail imageUrl={item.imageUrl} className={styles.productPlaceholder} /><div><strong>{item.productName}</strong><small>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</small><small className={styles.mobileUnit}>Birim: {money(item.unitPriceCents, order.currency)}</small>{item.discountCents > 0 ? <small>İndirim: {money(item.discountCents, order.currency)}</small> : null}</div></div></td><td>{item.quantity}</td><td className={styles.unitPrice}>{money(item.unitPriceCents, order.currency)}</td><td>{money(item.lineTotalCents, order.currency)}</td></tr>)}</tbody></table>
           <dl className={styles.totals}><div><dt>Ara toplam</dt><dd>{money(order.subtotalCents, order.currency)}</dd></div><div><dt>Kargo</dt><dd>{money(order.shippingCents, order.currency)}</dd></div><div><dt>İndirim</dt><dd>− {money(order.discountCents, order.currency)}</dd></div><div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div></dl>
+          {inStore?<OrderFinancePanel orderId={order.id} currency={order.currency}/>:null}
           <footer className={styles.paymentLine}><div><CreditCard size={16} aria-hidden="true" /><strong>Ödeme</strong><span className={styles.paymentStatus} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></div>{paymentOptions.length ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("payment")}>Durumu güncelle <ChevronRight size={16} aria-hidden="true" /></button> : null}</footer>
         </section>
         {!inStore ? <section className={styles.section} aria-labelledby="shipping-title"><header className={styles.sectionHeading}><h2 id="shipping-title"><Truck size={16} aria-hidden="true" />Kargo</h2>{props.capabilities.shipping ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")}><Pencil size={16} aria-hidden="true" />Elle düzenle</button> : null}</header>

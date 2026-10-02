@@ -636,7 +636,7 @@ test("detail read strictly parses and deeply freezes the safe order contract", a
 });
 
 test("version two POS detail uses the additive read ABI and preserves unknown historic methods", async () => {
-  for (const inStorePaymentMethod of ["card", "cash", null] as const) {
+  for (const inStorePaymentMethod of ["card", "cash", "bank_transfer", null] as const) {
     const value = { ...detail(), source: "in_store" as const, inStorePaymentMethod };
     const client = new FakeClient((sql) => sql.includes("saas.orders_get_with_archive_v2(")
       ? [{ outcome: "found", result_payload: value }] : []);

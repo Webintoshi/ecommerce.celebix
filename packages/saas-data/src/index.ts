@@ -185,3 +185,4 @@ export * from "./content-resource-authoring/index.ts";
 export * from './content-research/index.ts';
 export * from './seo/index.ts';
 export * from "./catalog-search/index.ts";
+export * from './accounting/index.ts';

@@ -246,7 +246,7 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
     id: uuid(parsed.id),
     orderNumber: string(parsed.orderNumber, 1, 64),
     source,
-    customerName: source === 'in_store' && parsed.customerName === null ? null : string(parsed.customerName, 1, 200),
+    customerName: source === 'in_store' && parsed.customerName === null ? null : string(parsed.customerName, 1, source === 'in_store' ? 201 : 200),
     customerEmail: source === 'in_store' && parsed.customerEmail === null ? null : string(parsed.customerEmail, 3, 320),
     currency: string(parsed.currency, 3, 3, CURRENCY),
     totalCents: safeInteger(parsed.totalCents, 0),
@@ -307,10 +307,10 @@ export function parseOrderDetail(value: unknown): Readonly<OrderDetail> {
   if (list.itemCount !== items.length) invalid();
   const archive = Object.hasOwn(parsed, "archive") ? exact(parsed.archive, ["archived", "changedAt"]) : undefined;
   const hasInStorePaymentMethod = Object.hasOwn(parsed, "inStorePaymentMethod");
-  if (hasInStorePaymentMethod && (list.source !== "in_store" || (parsed.inStorePaymentMethod !== "card" && parsed.inStorePaymentMethod !== "cash" && parsed.inStorePaymentMethod !== null))) invalid();
+  if (hasInStorePaymentMethod && (list.source !== "in_store" || (parsed.inStorePaymentMethod !== "card" && parsed.inStorePaymentMethod !== "cash" && parsed.inStorePaymentMethod !== "bank_transfer" && parsed.inStorePaymentMethod !== null))) invalid();
   return freeze({
     ...list,
-    ...(hasInStorePaymentMethod ? { inStorePaymentMethod: parsed.inStorePaymentMethod as "card" | "cash" | null } : {}),
+    ...(hasInStorePaymentMethod ? { inStorePaymentMethod: parsed.inStorePaymentMethod as "card" | "cash" | "bank_transfer" | null } : {}),
     ...(archive === undefined ? {} : { archive: { archived: boolean(archive.archived), changedAt: timestamp(archive.changedAt) } }),
     ...(Object.hasOwn(parsed, "customerPhone") ? { customerPhone: string(parsed.customerPhone, 3, 32) } : {}),
     subtotalCents,
