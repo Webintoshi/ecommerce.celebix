@@ -1,0 +1,6 @@
+.evidence { display: grid; min-width: 0; gap: 16px; }
+.notice { margin: 0; padding: 12px 16px; border: 1px solid var(--cp-border); border-radius: 8px; color: var(--cp-text-secondary); background: var(--cp-surface); font-size: 12px; }
+.states { display: flex; min-width: 0; flex-wrap: wrap; gap: 8px; }
+.states a { display: inline-flex; min-height: 44px; align-items: center; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: 8px; color: var(--cp-text-primary); text-decoration: none; font-size: 12px; }
+.states a[aria-current="page"] { background: var(--cp-soft); border-color: var(--cp-graphite); }
+.states a:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }

@@ -737,6 +737,7 @@ test("shared topbar opens only the resolved tenant storefront and disables an un
       };
       if (specifier === "next/link") return { __esModule: true, default: Link };
       if (specifier === "lucide-react") return { Bell: Icon, Eye: Icon };
+      if (specifier === "next/dynamic") return { __esModule: true, default: () => () => null };
       if (specifier === "@/components/toshi/ToshiDrawer") return { ToshiDrawer: () => null };
       if (specifier === "./panel-shell.module.css") return { topbarUtilityButton: "topbarUtilityButton" };
       throw new Error(`unexpected topbar dependency: ${specifier}`);
@@ -827,7 +828,8 @@ test("Toshi drawer is an accessible modal with complete close and focus-return b
   assert.match(drawer, /<dialog/);
   assert.match(drawer, /[.]showModal\(\)/);
   assert.match(drawer, /aria-modal="true"/);
-  assert.match(drawer, /aria-labelledby="toshi-assistant-title"/);
+  assert.match(drawer, /aria-labelledby="toshi-assistant-title-drawer"/);
+  assert.match(drawer, /<ToshiAssistant mode="drawer" titleRef=\{titleRef\} headerActions=/);
   assert.match(drawer, /onCancel=/);
   assert.match(drawer, /event[.]target === event[.]currentTarget/);
   assert.doesNotMatch(drawer, /<button[\s\S]*?styles[.]backdrop/);
@@ -836,12 +838,12 @@ test("Toshi drawer is an accessible modal with complete close and focus-return b
   assert.match(drawer, /document[.]body[.]style[.]overflow = "hidden"/);
   assert.match(drawer, /href="\/toshi"/);
 
-  assert.match(styles, /[.]drawer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?width:\s*min\(27rem,\s*calc\(100vw - 1rem\)\)/);
+  assert.match(styles, /[.]drawer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?width:\s*min\(29[.]5rem,\s*calc\(100vw - 2rem\)\)/);
   assert.match(styles, /[.]drawerLayer::backdrop\s*\{/);
-  assert.match(styles, /@media\s*\(max-width:\s*1024px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
-  assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?[.]drawer\s*\{[\s\S]*?transition-duration:\s*0[.]01ms;/);
-  assert.match(styles, /min-height:\s*48px/);
-  assert.match(styles, /min-width:\s*48px/);
+  assert.match(styles, /@media\s*\(max-width:\s*600px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
+  assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?animation:\s*none/);
+  assert.match(styles, /min-height:\s*44px/);
+  assert.match(styles, /min-width:\s*44px/);
 });
 
 test("Toshi drawer native modal contains focus and closes by backdrop, Escape, and button", async () => {
@@ -868,7 +870,13 @@ test("Toshi drawer native modal contains focus and closes by backdrop, Escape, a
     const Icon: HookTestComponent = (props) => harness.jsxRuntime.jsx("svg", props);
     const Image: HookTestComponent = (props) => harness.jsxRuntime.jsx("img", props);
     const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
-    const ToshiAssistant: HookTestComponent = () => harness.jsxRuntime.jsx("form", {});
+    const ToshiAssistant: HookTestComponent = ({ titleRef, headerActions }) => harness.jsxRuntime.jsxs("div", {
+      children: [
+        harness.jsxRuntime.jsx("h2", { id: "toshi-assistant-title-drawer", ref: titleRef, tabIndex: -1, children: "Toshi" }),
+        headerActions as HookTestNode,
+        harness.jsxRuntime.jsx("form", {}),
+      ],
+    });
     const ToshiDrawer = await compileHookTestComponent(
       "components/toshi/ToshiDrawer.tsx",
       (specifier) => {
@@ -897,7 +905,7 @@ test("Toshi drawer native modal contains focus and closes by backdrop, Escape, a
     harness.flush();
 
     const dialog = harness.hosts().find((host) => host.type === "dialog");
-    const title = harness.hosts().find((host) => host.props.id === "toshi-assistant-title");
+    const title = harness.hosts().find((host) => host.props.id === "toshi-assistant-title-drawer");
     const closeButton = harness.hosts().find((host) => host.props["aria-label"] === "Toshi asistanını kapat");
     const workspaceLink = harness.hosts().find((host) => host.type === "a" && host.props.href === "/toshi");
     assert.ok(dialog);
@@ -918,6 +926,13 @@ test("Toshi drawer native modal contains focus and closes by backdrop, Escape, a
     assert.equal(documentState.activeElement, workspaceLink, "Tab destination must remain inside the dialog");
 
     if (method === "backdrop") {
+      const pointerDown = dialog.props.onPointerDown as (event: { currentTarget: HookTestHost; target: HookTestHost }) => void;
+      // A gesture starting inside the drawer and ending outside is not a backdrop dismissal.
+      pointerDown({ currentTarget: dialog, target: closeButton });
+      (dialog.props.onClick as (event: { currentTarget: HookTestHost; target: HookTestHost }) => void)({ currentTarget: dialog, target: dialog });
+      assert.equal(closeCount, 0);
+      assert.equal(dialog.open, true);
+      pointerDown({ currentTarget: dialog, target: dialog });
       (dialog.props.onClick as (event: { currentTarget: HookTestHost; target: HookTestHost }) => void)({
         currentTarget: dialog,
         target: dialog,
@@ -971,13 +986,15 @@ test("Toshi conversation uses durable provider chat and retains explicit local r
   assert.match(assistant, /maxLength=\{4000\}/);
   assert.match(assistant, /abortRef[.]current[?][.]abort\(\)/);
   assert.match(assistant, /aria-live="polite"/);
-  assert.match(assistant, /disabled=\{pending \|\| loading \|\| recovery/);
+  assert.match(assistant, /const busy = pending \|\| loading \|\| recovery !== null/);
+  assert.match(assistant, /const disabled = busy \|\| defaultProvider === undefined/);
+  assert.match(assistant, /<textarea[\s\S]*?disabled=\{disabled\}/);
   assert.match(assistant, />Mağaza özeti</);
   assert.match(assistant, />Bekleyen siparişler</);
-  assert.match(assistant, />Düşük stok</);
-  assert.match(assistant, />Müşteri bul &lt;ad&gt;</);
-  assert.match(assistant, />Ürün ara &lt;ad veya SKU&gt;</);
-  assert.match(assistant, />Sipariş bul &lt;numara&gt;</);
+  assert.match(assistant, /usePrompt\("Düşük stok"\)/);
+  assert.match(assistant, /usePrompt\("Müşteri bul "\)/);
+  assert.match(assistant, /usePrompt\("Ürün ara "\)/);
+  assert.match(assistant, /usePrompt\("Sipariş bul "\)/);
   assert.match(assistant, />Ürünlere git</);
   assert.doesNotMatch(assistant, /storeId|tenantId|principalId|membershipId|planId|authorization|x-celebix|\/api\/admin/i);
   assert.match(workspace, /<ToshiAssistant mode="page"/);
@@ -1061,13 +1078,40 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
         ? styles
         : String(property),
   });
+  const markdown = await import("./toshi-chat-ui/markdown.ts");
+  const ToshiMessageBody = await compileHookTestComponent(
+    "components/toshi/ToshiMessageBody.tsx",
+    (specifier) => {
+      if (specifier === "react") return {
+        memo: <T,>(component: T) => component,
+        createElement: (type: HookTestElement["type"], props: HookTestProps | null, ...children: HookTestNode[]) =>
+          harness.jsxRuntime.jsx(type, { ...props, children: children.length === 1 ? children[0] : children }),
+      };
+      if (specifier === "../../lib/toshi-chat-ui/markdown.ts") return markdown;
+      throw new Error(`unexpected_toshi_message_import:${specifier}`);
+    },
+  );
   const ToshiAssistant = await compileHookTestComponent(
     "components/toshi/ToshiAssistant.tsx",
     (specifier) => {
       if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
-      if (specifier === "react") return harness.react;
+      if (specifier === "react") return {
+        ...harness.react,
+        useRef<T>(initialValue: T) {
+          const reference = harness.react.useRef(initialValue);
+          return new Proxy(reference, {
+            set(target, property, value) {
+              if (property === "current" && value instanceof HookTestHost) {
+                Object.assign(value, { style: {}, scrollHeight: 44 });
+              }
+              return Reflect.set(target, property, value);
+            },
+          });
+        },
+      };
       if (specifier === "next/link") return Link;
-      if (specifier === "lucide-react") return { ArrowRight: Icon, SendHorizonal: Icon };
+      if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+      if (specifier === "./ToshiMessageBody") return { ToshiMessageBody };
       if (specifier === "@/lib/toshi-chat-ui/client") return {
         ToshiChatApiError: class extends Error {},
         createToshiChatApi: () => ({ list: async () => ({ conversations: [], defaultProvider: null }) }),
@@ -1099,7 +1143,7 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
     return (form.props.onSubmit as (event: { preventDefault(): void }) => Promise<void>)({ preventDefault() {} });
   };
   const changeInput = (value: string) => {
-    const input = harness.hosts().find((host) => host.type === "input");
+    const input = harness.hosts().find((host) => host.type === "textarea");
     assert.ok(input);
     (input.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
     harness.flush();
@@ -1116,7 +1160,7 @@ test("Toshi assistant denies blank submits, locks concurrent requests, and abort
   harness.flush();
   assert.equal(calls.length, 1, "one request must own the pending turn");
   assert.equal(calls[0]?.signal.aborted, false);
-  assert.equal(harness.hosts().find((host) => host.type === "input")?.props.disabled, true);
+  assert.equal(harness.hosts().find((host) => host.type === "textarea")?.props.disabled, true);
   assert.equal(harness.hosts().find((host) => host.type === "button" && host.props.type === "submit")?.props.disabled, true);
 
   await duplicateSubmit;
@@ -1919,7 +1963,8 @@ test("dashboard presentation keeps the merchant-dashboard anatomy when analytics
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
   assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
-  assert.match(html, /Mağazanın nabzı/);
+  assert.match(html, /<h1 class="visuallyHidden">Genel bakış<\/h1>/);
+  assert.doesNotMatch(html, /Mağazanın nabzı|Önce önemli işlere odaklanın[.]/);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
   assert.match(html, /Satış verisi alınamıyor/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 0);
@@ -3088,7 +3133,8 @@ test("approved merchant dashboard starts with four honest KPIs, real routes, and
 
   assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Mağazanızın genel durumu|Öne çıkan veriler ve son gelişmeler[.]/);
-  assert.doesNotMatch(html, /<h1[^>]*class="visuallyHidden"/);
+  assert.match(html, /<h1 class="visuallyHidden">Genel bakış<\/h1>/);
+  assert.doesNotMatch(html, /Mağazanın nabzı|Önce önemli işlere odaklanın[.]/);
   for (const label of ["Toplam satış", "Toplam sipariş", "Yeni müşteri", "Dönüşüm oranı"])
     assert.match(html, new RegExp(label));
   for (const href of ["/orders/quick-links", "/products/new", "/customers/new", "/discounts/new", "/analytics"])

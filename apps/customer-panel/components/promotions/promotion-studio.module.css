@@ -1010,6 +1010,49 @@
   line-height: 1.55;
 }
 
+.sticky > .summaryIllustration {
+  width: 144px;
+  margin: 0 auto 8px;
+}
+
+.reviewLead {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reviewLead .reviewHeadline {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.reviewLead > .reviewIllustration {
+  width: 96px;
+  flex: 0 0 96px;
+}
+
+@media (max-width: 1024px) {
+  .sticky {
+    min-width: 0;
+    grid-template-columns: 96px minmax(0, 1fr);
+    column-gap: 16px;
+    row-gap: 8px;
+  }
+  .sticky > .summaryIllustration {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    width: 96px;
+    margin: 0;
+  }
+  .sticky > span, .sticky > strong, .sticky > dl {
+    min-width: 0;
+    grid-column: 2;
+  }
+}
+
 .advanced {
   border: 1px solid var(--cp-border);
   border-radius: 10px;

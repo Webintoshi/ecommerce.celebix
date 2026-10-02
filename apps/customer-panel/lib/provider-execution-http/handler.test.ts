@@ -13,6 +13,7 @@ import { createCustomerPanelProviderRegistry } from "../server-provider-executio
 import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { createProviderExecutionHttpHandlers } from "./handler.ts";
 import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
+import { createDefaultCustomerPanelCredentialProviderRegistry, createDefaultHostedPaymentAdapterRegistry } from "../payment-provider-adapters/default.ts";
 
 const PANEL = "https://panel.saas-staging.celebix.site";
 const TENANT_ADMIN = "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site";
@@ -145,7 +146,7 @@ function fixture(
     })]) : Object.freeze([]),
     diagnostic: diagnostic ?? (() => undefined),
   });
-  return { handlers, repositoryCalls, parsedCredential: () => parsedCredential };
+  return { handlers, runtime, repositoryCalls, parsedCredential: () => parsedCredential };
 }
 
 function iyzicoProfile(environment: "test" | "live", status: "pending_validation" | "active" = "pending_validation"): MerchantProviderProfile {
@@ -255,6 +256,32 @@ function request(method: string, path: string, body?: unknown, origin = PANEL, h
   }
   return new Request(`${PANEL}${path}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 }
+
+test("default PayTR profile HTTP saves separate TEST and LIVE verification beside compiled sandbox metadata", async () => {
+  const adapters = createDefaultHostedPaymentAdapterRegistry({ request: async () => assert.fail("profile setup must not call a payment provider") });
+  for (const mode of ["disabled", "approved_test_sandbox"] as const) {
+    for (const environment of ["test", "live"] as const) {
+      const probe = fixture("store_owner", false, null);
+      const runtime = { ...probe.runtime, adapters, registry: createDefaultCustomerPanelCredentialProviderRegistry(adapters, undefined, mode),
+        profiles: { ...probe.runtime.profiles, async saveVerification(input: Parameters<MerchantProviderVerificationProfileRepository["saveVerification"]>[0]) {
+          const saved = await probe.runtime.profiles.saveVerification(input);
+          return { ...saved, publicConfig: input.publicConfig };
+        } },
+      };
+      const handlers = createProviderExecutionHttpHandlers({ resolveRuntime: async () => runtime, now: () => new Date(NOW), requestId: () => REQUEST, profileId: () => PROFILE, providerCodes: () => ["paytr_iframe"], paymentCatalog: () => PAYMENT_PROVIDER_CATALOG, diagnostic: () => undefined });
+      const response = await handlers.profiles(request("POST", "/api/merchant-providers/profiles", {
+        providerCode: "paytr_iframe", capability: "payment_processing", publicConfig: { environment, merchantId: "merchant-1234" }, credential: { merchantKey: "private-test-key", merchantSalt: "private-test-salt" }, expectedVersion: 0,
+      }));
+      assert.equal(response.status, 200, `${mode}/${environment} must create a verification request`);
+      const saved = probe.repositoryCalls[0] as { kind: string; input: Record<string, unknown> };
+      assert.equal(saved.kind, "saveVerification");
+      assert.deepEqual(saved.input.validationIdentity, { environment, adapterVersion: 1 });
+      assert.equal("executionAuthority" in saved.input, false);
+      assert.equal((saved.input.tenantContext as TenantContext).store.id, tenant().store.id);
+      assert.doesNotMatch(await response.text(), /private-test|ciphertext|credentialDigest/);
+    }
+  }
+});
 
 test("profile save seals one registry-validated credential and never returns it", async () => {
   const probe = fixture();

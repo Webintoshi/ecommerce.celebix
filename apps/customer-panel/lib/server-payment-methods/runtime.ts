@@ -6,6 +6,7 @@ import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts
 import { resolveServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import type { MerchantProviderRegistry } from "../server-provider-execution/registry.ts";
 import type { PaymentAdapterRegistry } from "@celebix/payment-adapters";
+import { resolveCustomerPanelPaymentExecutionRegistry } from "../payment-provider-adapters/default.ts";
 
 type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{
   readiness: Readonly<{ mode: "approved_staging" }>;
@@ -66,7 +67,7 @@ export function resolveServerPaymentMethodsRuntime(
         providerExecution: (() => {
           const providerRuntime = resolveServerProviderExecutionRuntime(access);
           return providerRuntime === null ? null : Object.freeze({
-            registry: providerRuntime.registry,
+            registry: resolveCustomerPanelPaymentExecutionRegistry(providerRuntime.registry),
             adapters: providerRuntime.adapters,
           });
         })(),

@@ -172,21 +172,33 @@ test("Toshi uses the shared compact page header and keeps the assistant workspac
   ]);
 
   assert.match(component, /<PanelPageHeader[\s\S]*title="Toshi"/);
-  assert.doesNotMatch(component, /<Image|workspaceHeader/);
-  const workspace = declarations(css, ".workspace");
-  assert.equal(workspace.height, "calc(100dvh - 10rem)");
-  assert.equal(workspace["min-height"], "0");
-  assert.equal(workspace["grid-template-rows"], "minmax(0, 1fr)");
-  assert.equal(workspace.overflow, "hidden");
-  assert.equal(declarations(css, ".assistant")["min-height"], "0");
-  const conversation = declarations(css, ".conversation");
+  assert.doesNotMatch(component, /<Image|workspaceHeader|<PanelPageHeader[^>]*description=/);
+  assert.match(component, /<ToshiAssistant mode="page" headerActions=/);
+  const workspace = rootDeclarations(css, ".workspace");
+  assert.equal(workspace.height, "calc(100dvh - 8rem)");
+  assert.equal(workspace["min-height"], "26rem");
+  assert.equal(rootDeclarations(css, ".assistant")["min-height"], "0");
+  for (const selector of [".chatColumn", ".chatBody"]) {
+    const column = rootDeclarations(css, selector);
+    assert.equal(column.display, "flex", selector);
+    assert.equal(column["flex-direction"], "column", selector);
+    assert.equal(column["min-height"], "0", selector);
+  }
+  const conversation = rootDeclarations(css, ".conversation");
   assert.equal(conversation["min-height"], "0");
   assert.equal(conversation.flex, "1");
   assert.equal(conversation["overflow-y"], "auto");
-  for (const selector of [".conversationControls", ".errorState", ".composer"]) {
-    assert.equal(declarations(css, selector)["flex-shrink"], "0", selector);
+  for (const selector of [".assistantHeader", ".connectionRow", ".errorState", ".composer"]) {
+    assert.equal(rootDeclarations(css, selector)["flex-shrink"], "0", selector);
   }
-  assert.equal(declarations(css, ".composer button").background, "#2B2B2B");
+  const html = '<div class="assistant" data-mode="page" data-history-open="true" style="--cp-action-primary:#2B2B2B;--cp-action-primary-text:#FFFDFC"><header class="assistantHeader"></header><div class="chatBody"><div class="conversation"></div><form class="composer"><button>Gönder</button></form></div></div>';
+  const action = effectiveCss("components/toshi/toshi.module.css", html, ".composer button");
+  assert.ok(["#2b2b2b", "rgb(43, 43, 43)"].includes(action.backgroundColor.toLowerCase()));
+  assert.ok(Number.parseFloat(action.minHeight) >= 44);
+  assert.equal((effectiveCss("components/toshi/toshi.module.css", html, ".chatBody", 1440).visibility || "visible"), "visible");
+  assert.equal(effectiveCss("components/toshi/toshi.module.css", html, ".chatBody", 1024).visibility, "hidden");
+  assert.equal(effectiveCss("components/toshi/toshi.module.css", html, ".chatBody", 390).visibility, "hidden");
+  assert.equal((effectiveCss("components/toshi/toshi.module.css", html, ".assistantHeader", 390).visibility || "visible"), "visible");
 });
 
 test("domain failure is not rendered as an empty domain collection or a duplicate page hero", async () => {

@@ -49,6 +49,7 @@ function SecretField(props: Readonly<{
 export function PaytrConnectionForm(props: Readonly<{
   connection: PaytrPaymentProviderConnectionView;
   disabled: boolean;
+  environmentDisabled: boolean;
   onEnvironmentChange(environment: "test" | "live"): void;
 }>) {
   const [copied, setCopied] = useState(false);
@@ -86,7 +87,7 @@ export function PaytrConnectionForm(props: Readonly<{
         type="checkbox"
         role="switch"
         checked={props.connection.environment === "test"}
-        disabled={props.disabled}
+        disabled={props.environmentDisabled}
         onChange={(event) => props.onEnvironmentChange(event.currentTarget.checked ? "test" : "live")}
       />
     </label>

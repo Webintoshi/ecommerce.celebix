@@ -569,7 +569,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     <PanelPageShell>
       <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Mağaza satışı</PanelActionButton></div>} />
       <div className={styles.dashboardPage}>
-        <header className={styles.pageIntro}><h1>Mağazanın nabzı</h1><p>Önce önemli işlere odaklanın.</p></header>
+        <h1 className={styles.visuallyHidden}>Genel bakış</h1>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />
         <DashboardKpiGrid metrics={metrics} />
         <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><ActionItemsCard tasks={tasks} state={taskState} analyticsState={analyticsState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>

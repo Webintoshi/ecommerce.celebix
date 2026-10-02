@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "01475eba82a18c2052d8dac5c41c71129e969d75",
+  "rows": [
+    {
+      "status": "finished",
+      "target": "panel_net",
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "deploymentUuid": "bpe1yb82c8a8i870b4936lyp",
+      "commit": "01475eba82a18c2052d8dac5c41c71129e969d75",
+      "createdAtUtc": "2026-10-01 20:39:02",
+      "finishedAtUtc": "2026-10-01 20:44:05"
+    },
+    {
+      "status": "finished",
+      "target": "panel_site",
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "deploymentUuid": "lxf2ja4kjgmgwlgspr8rfjmk",
+      "commit": "01475eba82a18c2052d8dac5c41c71129e969d75",
+      "createdAtUtc": "2026-10-01 20:44:39",
+      "finishedAtUtc": "2026-10-01 20:49:41"
+    }
+  ]
+}

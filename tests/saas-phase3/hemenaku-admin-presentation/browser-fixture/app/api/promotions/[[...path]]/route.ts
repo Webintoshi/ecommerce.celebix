@@ -47,10 +47,14 @@ function hasFilledReferrer(request: Request) {
   try { return new URL(request.headers.get("referer") ?? "").searchParams.get("fixture") === "filled"; }
   catch { return false; }
 }
+function hasEmptyReferrer(request: Request) {
+  try { return new URL(request.headers.get("referer") ?? "").searchParams.get("fixture") === "empty"; }
+  catch { return false; }
+}
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await selectedPath(context);
-  if (path === "") return Response.json({ items: [PROMOTION_LIST_ITEM], nextCursor: null });
+  if (path === "") return Response.json({ items: hasEmptyReferrer(request) ? [] : [PROMOTION_LIST_ITEM], nextCursor: null });
   if (path === PROMOTION_ID) return Response.json(PROMOTION);
   if (path === `${PROMOTION_ID}/code-batches`) return Response.json({ items: hasFilledReferrer(request) ? filledBatches : [], nextCursor: null });
   if (path === "targets") return Response.json({ items: [], nextCursor: null });

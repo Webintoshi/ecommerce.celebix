@@ -29,3 +29,9 @@ Mandatory workflow: 13/13 ordered steps present
 ```
 
 No normative loophole remained in the tested decisions. Implementation-evidence notes above are expected future-screen QA obligations, not skill verification failures.
+
+## 2026-10-01 — Illustration correction
+
+Pressure test 8 was added after the user rejected a technically tested 3D illustration revision. The missing constraint was the established flat outline SVG family. The component rule and Customer Panel AGENTS.md now explicitly require that family.
+
+One independent reviewer inspected all three user references, the native SVG sources and actual screenshots (picker 1440/390, editor 1440, analytics 390). Result: **test 8 PASS**. White/soft fills, rounded slate lines and small orange accents match; all 12 silhouettes are distinct; callbacks, focus and data remain intact. Relevant implementation tests: 14/14; typecheck: PASS. This additional targeted result does not extend the original five-agent 35/35 sample above.

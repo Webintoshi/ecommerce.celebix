@@ -38,6 +38,29 @@ function transport(): ProviderTransport {
   });
 }
 
+test("credential setup accepts LIVE beside a compiled TEST approval and retains separate execution gates", () => {
+  const create = (customerPanelPaymentDefaults as Partial<typeof customerPanelPaymentDefaults> & {
+    createDefaultCustomerPanelCredentialProviderRegistry?: typeof createDefaultCustomerPanelPaymentProviderRegistry;
+    resolveCustomerPanelPaymentExecutionRegistry?: (registry: ReturnType<typeof createDefaultCustomerPanelPaymentProviderRegistry>) => ReturnType<typeof createDefaultCustomerPanelPaymentProviderRegistry>;
+  });
+  assert.equal(typeof create.createDefaultCustomerPanelCredentialProviderRegistry, "function");
+  assert.equal(typeof create.resolveCustomerPanelPaymentExecutionRegistry, "function");
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
+  for (const mode of ["disabled", "approved_test_sandbox"] as const) {
+    const registry = create.createDefaultCustomerPanelCredentialProviderRegistry!(hosted, undefined, mode);
+    const paytr = registry.get("paytr_iframe", "payment_processing")!;
+    assert.equal(paytr.profileSaveMode, "verification");
+    assert.equal(paytr.executionAuthority, null);
+    assert.deepEqual(paytr.environments, ["test", "live"]);
+    for (const environment of ["test", "live"] as const) {
+      assert.deepEqual(paytr.parsePublicConfig({ environment, merchantId: "merchant-1234" }), { environment, merchantId: "merchant-1234" });
+    }
+    const execution = create.resolveCustomerPanelPaymentExecutionRegistry!(registry).get("paytr_iframe", "payment_processing")!;
+    assert.equal(execution.executionAuthority?.environment ?? null, mode === "approved_test_sandbox" ? "test" : null);
+    assert.deepEqual(registry.get("iyzico_iframe", "payment_processing"), create.resolveCustomerPanelPaymentExecutionRegistry!(registry).get("iyzico_iframe", "payment_processing"));
+  }
+});
+
 test("default hosted composition exposes exact PayTR and configurable Iyzico descriptors", () => {
   const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
   const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted);

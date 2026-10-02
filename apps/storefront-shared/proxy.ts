@@ -53,6 +53,7 @@ type StorefrontProxyDependencies = Readonly<{
   selectAuthority: (headers: Headers) => ProxyAuthority;
   resolveMediaOrigin: () => string;
   authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
+  authorizePaytrReturn?: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   authorizeStandardHostedIframe?: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
   now: () => Date;
   resolveCanonicalHostname?: (input: Readonly<{hostname:string;now:Date}>) => Promise<string|null>;
@@ -92,6 +93,39 @@ async function defaultStandardHostedIframeAuthorization(input: Readonly<{ hostna
   } catch { return false; }
 }
 
+type ReturnAuthorizationRuntime = Readonly<{
+  hostedCheckout: Readonly<{ status(input: Readonly<{ hostname: string; cookieHeader: string | null }>): Promise<Readonly<{ status: string }>> }> | null;
+  checkout: Readonly<{ quickOrderRepository: Readonly<{ getStatus(input: Readonly<{ hostname: string; redemptionDigest: string; now: Date }>): Promise<Readonly<{ kind: string }>> }> }>;
+}>;
+
+export function createPaytrReturnAuthorization(resolveRuntime: () => Promise<ReturnAuthorizationRuntime | null>) {
+  return async (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>): Promise<boolean> => {
+    if (!input.cookieHeader || !(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) return false;
+    try {
+      const runtime = await resolveRuntime();
+      if (runtime === null) return false;
+      if (runtime.hostedCheckout) {
+        try {
+          // Status verifies the owned source/session after a callback removes
+          // the presentation. This inert bridge never determines settlement.
+          const result = await runtime.hostedCheckout.status({ hostname: input.hostname, cookieHeader: input.cookieHeader });
+          if (["provider_ready", "processing", "captured", "failed", "cancelled", "expired", "stock_conflict"].includes(result.status)) return true;
+        } catch {}
+      }
+      const cookie = parseRedemptionCookie(input.cookieHeader);
+      if (cookie.kind !== "valid") return false;
+      const result = await runtime.checkout.quickOrderRepository.getStatus({ hostname: input.hostname,
+        redemptionDigest: digestRedemptionCredential(cookie.credential), now: new Date(input.now) });
+      return result.kind === "processing" || result.kind === "paid" || result.kind === "failed";
+    } catch { return false; }
+  };
+}
+
+const defaultPaytrReturnAuthorization = createPaytrReturnAuthorization(async () => {
+  const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+  return resolveDefaultPublicStorefrontRuntime();
+});
+
 function defaultMediaOrigin(): string {
   const snapshot = Object.fromEntries(STOREFRONT_DATA_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]));
   return parseStorefrontDataConfig(snapshot).mediaOrigin;
@@ -102,6 +136,7 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
   resolveMediaOrigin: defaultMediaOrigin,
   authorizePaytrIframe: defaultIframeAuthorization,
   authorizeStandardHostedIframe: defaultStandardHostedIframeAuthorization,
+  authorizePaytrReturn: defaultPaytrReturnAuthorization,
   now: () => new Date(),
   async resolveCanonicalHostname(input) {
     const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
@@ -184,9 +219,9 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
     const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?`'self' ${analytics.collectorOrigin}`:"'self'";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
-    const paytrHostedReturnBridge = isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash);
+    const paytrHostedReturnBridge = request.method === "GET" && isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash);
     let iframeAuthorized = false;
-    if ((exactTarget && pathname === "/odeme/hizli/odeme") || paytrHostedReturnBridge) {
+    if ((exactTarget && pathname === "/odeme/hizli/odeme") || (paytrHostedReturnBridge && !dependencies.authorizePaytrReturn)) {
       try {
         iframeAuthorized = await dependencies.authorizePaytrIframe({ hostname: authority.hostname,
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
@@ -201,7 +236,13 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     }
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
-    const hostedReturnBridgeAuthorized = paytrHostedReturnBridge && iframeAuthorized;
+    let hostedReturnBridgeAuthorized = paytrHostedReturnBridge && iframeAuthorized;
+    if (paytrHostedReturnBridge && dependencies.authorizePaytrReturn) {
+      try {
+        hostedReturnBridgeAuthorized = await dependencies.authorizePaytrReturn({ hostname: authority.hostname,
+          cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
+      } catch { hostedReturnBridgeAuthorized = false; }
+    }
     const csp = hostedReturnBridgeAuthorized
       ? paytrHostedReturnBridgeCsp(nonce)
       : standardIframeAuthorized
