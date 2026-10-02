@@ -118,3 +118,11 @@ The worker now supplies only its enabled compiled execution tuples after the dat
 Root verification: 30 targeted application/data tests, both typechecks and shared production build passed. A real supervisor-to-worker integration test reproduced the missing scope as RED before the forwarding fix. Independently reviewed native PostgreSQL 16 tests passed 17/17, including TEST25 starving LIVE32, scoped selection, hostile input, revoked approval, leases, actual lifecycle fairness and guarded DOWN/reapply. Migration 193 was rehearsed with ROLLBACK, applied once and independently verified in READ ONLY. The live scoped batch contains only LIVE entries with active profiles and valid current credentials; no historical payment rows were rewritten.
 
 The exact submitted 10.00 TRY cart still has no later payment attempt, callback or order, and physical stock remains 2. Bank payment success is not inferred from source-code, queue or release checks.
+
+## Final scoped release acceptance
+
+Release `02524b33b7e744dab1f45c015c3d43c9daac67de` finished on SITE `odccp9h8jnyptkiqvdrbtvdr` and NET `z4aftl51qhcilx0e7wp39jkj`. Final raw-configuration/global-idle verification and both exact healthy image/source/generated-artifact/approval checks passed. SITE database authority agrees with the preserved approved identities. NET still rejects execution without approval and records no reconciliation ticks.
+
+The deployed worker's six source files match the committed candidate. SITE has one startup beneath PID1 and its exact approved runtime is ready. Four production ticks completed; the latest three each report 25 processing, zero rejection and zero failure, with no fabricated capture or failure. The legacy TEST batch obstruction is removed.
+
+Normal Chrome reloaded the final Güzide deployment and visibly shows the current payment status page. Final scoped read confirms zero later attempts for the same cart, zero callback, no order, current unknown/processing and physical stock 2. The PayTR merchant login is still required to inspect the pending bank transaction. No duplicate card submission, cancellation or synthetic terminal result was made. Final private screenshot: `.tmp/paytr-real-checkout-20261001/checkout-recovery-final-normal-chrome-20261002.png`. A genuine successful bank authentication, signed success callback and paid order remain unverified.
