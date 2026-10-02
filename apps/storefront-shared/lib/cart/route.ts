@@ -367,14 +367,14 @@ export function createHostedCheckoutStartRoute(
         headers: new Headers(request.headers),
         request: input,
       });
-      if (result.destination !== "/checkout/payment") {
+      if (result.destination !== "/checkout/payment" && result.destination !== "/checkout/payment/result") {
         hostedAudit(dependencies, "destination_invalid");
         return json({ code: "unavailable" }, 503);
       }
       const headers = new Headers();
       for (const cookie of result.setCookies)
         headers.append("set-cookie", cookie);
-      return json({ destination: "/checkout/payment" }, 200, headers);
+      return json({ destination: result.destination }, 200, headers);
     } catch (error) {
       hostedAudit(dependencies, "runtime_failure", safeErrorCode(error));
       return failure(error);

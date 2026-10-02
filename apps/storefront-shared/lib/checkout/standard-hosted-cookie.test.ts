@@ -46,11 +46,11 @@ test("hosted checkout accepts retained-key credentials after active-key rotation
   ]);
 });
 
-test("hosted checkout cookie is host-only, short-lived, path-bounded and deletable", () => {
+test("hosted checkout observation cookie remains available for delayed provider confirmation", () => {
   const keyring = parseStorefrontCommerceCredentialKeyring(source("current_01"));
   const created = createStandardHostedCheckoutCredential(keyring, OPERATION);
   const serialized = serializeStandardHostedCheckoutCookie(created.value);
-  assert.equal(serialized, `__Host-celebix_hosted_checkout=${created.value}; Path=/; Max-Age=900; HttpOnly; Secure; SameSite=Lax`);
+  assert.equal(serialized, `__Host-celebix_hosted_checkout=${created.value}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`);
   assert.doesNotMatch(serialized, /Domain=/iu);
   assert.equal(serializeStandardHostedCheckoutDeletionCookie(), "__Host-celebix_hosted_checkout=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
 });

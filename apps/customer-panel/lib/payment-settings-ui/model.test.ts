@@ -431,9 +431,9 @@ test("approved PayTR setup is configurable without exposing execution authority"
     noFilters,
   );
   const disabledCard = disabled.catalog.cards.find((candidate) => candidate.providerCode === "paytr_iframe");
-  assert.equal(disabledCard?.actionLabel, "Hazırlanıyor");
-  assert.equal(disabledCard?.connectionEnvironment, null);
-  assert.equal(disabled.catalog.cards.filter((candidate) => candidate.connectable).length, 0);
+  assert.equal(disabledCard?.actionLabel, "Kur");
+  assert.equal(disabledCard?.connectionEnvironment, "test");
+  assert.equal(disabled.catalog.cards.filter((candidate) => candidate.connectable).length, 1);
 });
 
 test("PayTR catalog actions follow the durable profile and method lifecycle", () => {
@@ -604,6 +604,33 @@ test("a dual-environment configurable card opens its active profile environment"
     ).catalog.cards[0]!;
     assert.equal(card.connectionEnvironment, "live");
     assert.equal(card.lifecycleLabel, "Doğrulandı — sandbox kanıtı bekleniyor");
+  }
+});
+
+test("PayTR verification setup remains configurable beside executable sandbox catalog metadata", () => {
+  const hosted = createDefaultHostedPaymentAdapterRegistry(Object.freeze({ request: async () => { throw new Error("unexpected provider call"); } }));
+  const entry = createDefaultCustomerPanelPaymentProviderRegistry(hosted, null).get("paytr_iframe", "payment_processing")!;
+  const view = buildPaymentSettingsViewModel(PAYMENT_PROVIDER_CATALOG, [entry], [], [], "paytr", noFilters);
+  const card = view.catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")!;
+  assert.equal(card.configurable, true);
+  assert.equal(card.connectable, true);
+  assert.deepEqual(card.environments, ["test", "live"]);
+  assert.equal(card.executable, false);
+  const pending = buildPaymentSettingsViewModel(PAYMENT_PROVIDER_CATALOG, [entry], [profile("pending_validation")], [], "paytr", noFilters)
+    .catalog.cards.find(({ providerCode }) => providerCode === "paytr_iframe")!;
+  assert.equal(pending.connectable, true, "pending TEST must allow opening LIVE setup");
+});
+
+test("PayTR connection card follows its active LIVE method when both profiles are active", () => {
+  const catalogEntry = { ...PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) => providerCode === "paytr_iframe")!, readiness: "verification" as const, environments: ["test", "live"] as const, executionAuthority: null };
+  const descriptor: MerchantProviderDescriptor = { providerCode: "paytr_iframe", capability: "payment_processing", label: "PayTR iFrame", publicFields: [{ key: "merchantId", label: "Mağaza numarası" }], credentialFields: [{ key: "merchantKey", label: "Parola", secret: true }, { key: "merchantSalt", label: "Anahtar", secret: true }], adapterVersion: 1, environments: ["test", "live"], executionAuthority: null };
+  const testing = { ...profile("active"), publicConfig: { environment: "test", merchantId: "merchant-1234" } };
+  const live = { ...profile("active"), id: "40000000-0000-4000-8000-000000000092", publicConfig: { environment: "live", merchantId: "merchant-1234" } };
+  const active = { ...method("40000000-0000-4000-8000-000000000093", "active", 0), profileId: live.id, config: { ...method("fixture", "active", 0).config, environment: "live" } };
+  for (const profiles of [[testing, live], [live, testing]]) {
+    const card = buildPaymentSettingsViewModel([catalogEntry], [descriptor], profiles, [active], "", noFilters).catalog.cards[0]!;
+    assert.equal(card.connectionEnvironment, "live");
+    assert.equal(card.lifecycleLabel, "Aktif - Canlı");
   }
 });
 

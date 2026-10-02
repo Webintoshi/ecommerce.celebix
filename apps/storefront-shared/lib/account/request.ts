@@ -103,3 +103,20 @@ export function safeAccountReturnTo(value: unknown): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 512 || CONTROL.test(value) || value.includes("\\") || value.includes("%") || value.includes("?") || value.includes("#") || value.includes("//") || value.split("/").some((part) => part === "." || part === "..") || !SAFE_PATH.test(value)) return "/account";
   return value;
 }
+
+export function accountProfileCompletionDestination(returnTo: unknown): string {
+  return `/account/profile?returnTo=${encodeURIComponent(safeAccountReturnTo(returnTo))}`;
+}
+
+export function validateAccountAuthDestination(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (safeAccountReturnTo(value) === value) return value;
+  const prefix = "/account/profile?returnTo=";
+  if (!value.startsWith(prefix) || value.length > prefix.length + 512 * 3 || value.includes("#")) return null;
+  const encoded = value.slice(prefix.length);
+  if (!encoded || encoded.includes("&") || encoded.includes("?")) return null;
+  try {
+    const decoded = decodeURIComponent(encoded);
+    return safeAccountReturnTo(decoded) === decoded ? value : null;
+  } catch { return null; }
+}

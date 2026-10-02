@@ -1,74 +1,179 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { maskAccountEmail } from "./account-auth-view-model.ts";
+import { PHONE_COUNTRIES, composePhoneNumber, splitPhoneNumber } from "../../lib/checkout-phone.ts";
+import { AccountAuthRequestError, postAccountAuth, startAccountPhoneChallenge } from "./account-auth-client.ts";
+import { accountPhoneStartBody, accountRetryDeadline, accountRetryRemaining, maskAccountEmail, maskAccountPhone } from "./account-auth-view-model.ts";
 import styles from "./account-auth.module.css";
 
-type PublicResponse = Readonly<{ returnTo?: string; message?: string; retryAfterSeconds?: number }>;
-type AccountAuthFormProps = Readonly<{ mode: "email"; returnTo: string }> | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
+type AccountAuthFormProps = Readonly<{ mode: "phone" | "email"; returnTo: string }>
+  | Readonly<{ mode: "phone-binding"; returnTo: string; initialPhone: string }>
+  | Readonly<{ mode: "verify"; returnTo: string; ticket: string }>;
 
-async function publicPost(path: string, body: unknown): Promise<PublicResponse> {
-  const response = await fetch(path, { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const payload = await response.json().catch(() => null) as PublicResponse | null;
-  if (!response.ok || !payload) throw new Error(payload?.message || "İşlem tamamlanamadı.");
-  return payload;
+function ActionArrow() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>;
 }
 
-export function AccountAuthForm(props: AccountAuthFormProps) {
-  const { mode, returnTo } = props;
-  const [email, setEmail] = useState(""); const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false); const [retry, setRetry] = useState(0);
-  const [status, setStatus] = useState(""); const [busy, setBusy] = useState(false);
+function AccountSignInForm({ phoneEnabled, returnTo, bindingPhone }: Readonly<{ phoneEnabled: boolean; returnTo: string; bindingPhone?: string }>) {
+  const [channel, setChannel] = useState<"phone" | "email">(phoneEnabled ? "phone" : "email");
+  const [country, setCountry] = useState(PHONE_COUNTRIES[0]!);
+  const [nationalNumber, setNationalNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [deadline, setDeadline] = useState(0);
+  const [now, setNow] = useState(0);
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const requestPending = useRef(false);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const emailConfirmationRef = useRef<HTMLHeadingElement>(null);
+  const focusNext = useRef<"phone" | "email" | null>(null);
+  const phone = bindingPhone ?? composePhoneNumber(country.country, nationalNumber);
+  const internationalEntry = nationalNumber.startsWith("+");
+  const retry = accountRetryRemaining(deadline, now);
 
   useEffect(() => {
-    if (retry < 1) return;
-    const timer = window.setInterval(() => setRetry((value) => Math.max(0, value - 1)), 1_000);
-    return () => window.clearInterval(timer);
-  }, [retry > 0]);
+    if (!deadline) return;
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, 1_000);
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [deadline]);
 
-  async function sendLink(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (busy || retry > 0) return; setBusy(true); setStatus("");
-    try {
-      const payload = await publicPost("/api/account/auth/start", { email, returnTo });
-      setSent(true); setRetry(payload.retryAfterSeconds ?? 60); setStatus("Bağlantı gönderildi.");
-    } catch (error) { setStatus(error instanceof Error ? error.message : "İşlem tamamlanamadı."); }
-    finally { setBusy(false); }
+  useEffect(() => {
+    if (sent && channel === "phone" && !busy) codeRef.current?.focus();
+    else if (sent && channel === "email" && !busy) emailConfirmationRef.current?.focus();
+    else if (focusNext.current) {
+      const target = focusNext.current === "phone" ? phoneRef : emailRef;
+      target.current?.focus();
+      focusNext.current = null;
+    }
+  }, [sent, channel, busy]);
+
+  function cooldown(seconds: number | undefined) {
+    const time = Date.now();
+    setNow(time);
+    setDeadline(accountRetryDeadline(seconds, time));
   }
 
-  if (mode === "email") {
-    if (sent) return <div className={`${styles.form} ${styles.sent}`}>
+  function showError(error: unknown) {
+    if (error instanceof AccountAuthRequestError && error.retryAfterSeconds !== undefined) cooldown(error.retryAfterSeconds);
+    setStatus(error instanceof Error ? error.message : "İşlem tamamlanamadı.");
+  }
+
+  async function send(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (requestPending.current || accountRetryRemaining(deadline, Date.now()) > 0) return;
+    requestPending.current = true;
+    setBusy(true); setStatus("");
+    try {
+      const payload = channel === "phone"
+        ? await startAccountPhoneChallenge({ ...accountPhoneStartBody({ phone, returnTo }), ...(bindingPhone ? { bindPhone: true as const } : {}) })
+        : await postAccountAuth("/api/account/auth/start", { email, returnTo });
+      setSent(true);
+      if (channel === "phone" && !sent) setCode("");
+      cooldown(payload.retryAfterSeconds ?? 60);
+      setStatus(channel === "phone" ? "Doğrulama kodu WhatsApp üzerinden gönderildi." : "Bağlantı gönderildi.");
+    } catch (error) { showError(error); }
+    finally { requestPending.current = false; setBusy(false); }
+  }
+
+  async function verifyPhone(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (requestPending.current || code.length !== 6) return;
+    requestPending.current = true;
+    setBusy(true); setStatus("");
+    try {
+      const payload = await postAccountAuth("/api/account/auth/verify", { code, returnTo });
+      window.location.assign(payload.destination);
+    } catch (error) { showError(error); requestPending.current = false; setBusy(false); }
+  }
+
+  function changeChannel(next: "phone" | "email") {
+    focusNext.current = next;
+    setChannel(next); setSent(false); setCode(""); setStatus("");
+  }
+
+  if (channel === "email") {
+    if (sent) return <div className={`${styles.form} ${styles.sent}`} aria-busy={busy}>
       <span className={styles.confirmation} aria-hidden="true">✓</span>
-      <div><strong>E-postanı kontrol et</strong><p>{maskAccountEmail(email)}</p></div>
-      <form onSubmit={sendLink}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
-      <button className={styles.textButton} type="button" onClick={() => { setSent(false); setRetry(0); setStatus(""); }}>E-postayı değiştir</button>
+      <div className={styles.stepIntro}><h1 ref={emailConfirmationRef} tabIndex={-1}>E-postanı kontrol et</h1><p>{maskAccountEmail(email)}</p></div>
+      <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : retry > 0 ? `Tekrar gönder (${retry})` : "Tekrar gönder"}</button></form>
+      <button className={styles.textButton} type="button" disabled={busy} onClick={() => { focusNext.current = "email"; setSent(false); setStatus(""); }}>E-postayı değiştir</button>
+      {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </div>;
-    return <form className={styles.form} onSubmit={sendLink} noValidate>
-      <label className={styles.field}><span>E-posta</span><input className={styles.input} type="email" autoComplete="email" inputMode="email" required value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
-      <button className={styles.primaryButton} type="submit" disabled={busy}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
-      <div className={styles.trustList} aria-label="Giriş güvenliği">
-        <span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3 19 6v5c0 4.4-2.7 8-7 10-4.3-2-7-5.6-7-10V6l7-3Z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-          Güvenilir Giriş
-        </span>
-        <span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-            <rect x="5" y="10" width="14" height="10" rx="2" />
-            <path d="M8 10V8a4 4 0 0 1 8 0v2" />
-          </svg>
-          %100 Korumalı
-        </span>
-      </div>
+    return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
+      <div className={styles.stepIntro}><h1>E-posta ile giriş</h1><p>Giriş bağlantını e-postana gönderelim.</p></div>
+      <label className={styles.field}><span>E-posta</span><input ref={emailRef} className={styles.input} type="email" autoComplete="email" inputMode="email" required disabled={busy} value={email} onChange={(event) => setEmail(event.currentTarget.value)} placeholder="ornek@eposta.com" /></label>
+      <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Bağlantı gönder"}</button>
+      {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+      {phoneEnabled ? <button className={styles.textButton} type="button" disabled={busy} onClick={() => changeChannel("phone")}>WhatsApp ile devam et</button> : null}
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>;
   }
 
-  const ticket = props.ticket;
+  if (sent) return <div className={`${styles.form} ${styles.phoneVerify}`} aria-busy={busy}>
+    <div className={styles.stepIntro}><h1>WhatsApp kodunu gir</h1><p>{maskAccountPhone(phone)} numarasına gönderilen 6 haneli kodu gir.</p></div>
+    <form className={styles.form} method="post" onSubmit={verifyPhone}>
+      <label className={styles.field}><span>Doğrulama kodu</span><input ref={codeRef} className={`${styles.input} ${styles.codeInput}`} name="code" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/\D/gu, "").slice(0, 6))} placeholder="000000" aria-describedby="account-code-help" /></label>
+      <p className={styles.transport} id="account-code-help">Kodu mesajdan yapıştırabilir veya otomatik doldurabilirsiniz.</p>
+      <button className={styles.primaryButton} type="submit" disabled={busy || code.length !== 6}>{busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}</button>
+    </form>
+    <form method="post" onSubmit={send}><button className={styles.secondaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Lütfen bekleyin…" : retry > 0 ? `Tekrar gönder (${retry} sn)` : "Tekrar gönder"}</button></form>
+    {!bindingPhone ? <button className={styles.textButton} type="button" data-auth-change="phone" disabled={busy} onClick={() => { focusNext.current = "phone"; setSent(false); setStatus(""); }}>Telefonu değiştir</button> : null}
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </div>;
+
+  if (bindingPhone) return <form className={styles.form} method="post" onSubmit={send} aria-busy={busy}>
+    <div className={styles.stepIntro}><h1>Telefonunu doğrula</h1><p>Hesabındaki numarayı WhatsApp ile giriş için doğrula.</p></div>
+    <label className={styles.field}><span>Telefon numarası</span><input className={styles.input} name="phone" type="tel" autoComplete="tel" readOnly disabled={busy} value={phone} aria-describedby="account-phone-transport" /></label>
+    <p className={styles.transport} id="account-phone-transport">Doğrulama kodun bu numaraya WhatsApp üzerinden gönderilecek.</p>
+    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}>{busy ? "Gönderiliyor…" : "Kod gönder"}</button>
+    {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </form>;
+
+  return <form className={`${styles.form} ${styles.entryForm}`} method="post" onSubmit={send} aria-busy={busy}>
+    <div className={styles.stepIntro}><h1 className={styles.welcomeTitle}>HOŞ GELDİN.</h1><p>Telefon numaranla giriş yap veya üye ol.</p></div>
+    <div className={styles.field}><label htmlFor="account-phone-number">Telefon numarası</label><div className={styles.phoneFrame}>
+      <div className={styles.phoneCountry}>
+        <span className={styles.phoneCountryVisual} aria-hidden="true"><span>{internationalEntry ? "🌐" : country.flag}</span><svg viewBox="0 0 16 16" fill="none"><path d="m4 6 4 4 4-4" /></svg></span>
+        <select aria-label="Telefon ülke kodu" title={`${country.name} (${country.dialCode})`} value={internationalEntry ? "international" : country.country} disabled={busy} onChange={(event) => {
+          const next = PHONE_COUNTRIES.find((item) => item.country === event.currentTarget.value);
+          if (!next) return;
+          setCountry(next); setNationalNumber(internationalEntry ? "" : nationalNumber); setStatus("");
+        }}>
+          {internationalEntry ? <option value="international" disabled>🌐 Uluslararası</option> : null}
+          {PHONE_COUNTRIES.map((item) => <option key={item.country} value={item.country}>{item.flag} {item.dialCode} {item.name}</option>)}
+        </select>
+      </div>
+      {!internationalEntry ? <span className={styles.phoneDialCode} aria-hidden="true">{country.dialCode}</span> : null}
+      <input ref={phoneRef} id="account-phone-number" className={styles.phoneNumber} name="phone" type="tel" autoComplete="tel-national" inputMode="tel" required maxLength={30} disabled={busy} value={nationalNumber} onChange={(event) => {
+        const next = event.currentTarget.value;
+        if (next.startsWith("+") || next.startsWith("00")) { const split = splitPhoneNumber(next, country.country); setCountry(split.country); setNationalNumber(split.nationalNumber); }
+        else setNationalNumber(next);
+        setStatus("");
+      }} placeholder={country.country === "TR" ? "5xx xxx xx xx" : "Telefon numarası"} aria-describedby="account-phone-transport" />
+    </div></div>
+    <p className={styles.transport} id="account-phone-transport">Giriş kodun WhatsApp’a gönderilecek.</p>
+    <button className={styles.primaryButton} type="submit" disabled={busy || retry > 0}><span>{busy ? "Gönderiliyor…" : "KOD GÖNDER"}</span><ActionArrow /></button>
+    {retry > 0 ? <p className={styles.status}>Tekrar göndermek için {retry} sn bekleyin.</p> : null}
+    <div className={styles.divider} aria-hidden="true"><span>veya</span></div>
+    <button className={styles.emailAlternative} type="button" disabled={busy} onClick={() => changeChannel("email")}>E-posta ile giriş yap</button>
+    <p className={styles.status} role="status" aria-live="polite">{status}</p>
+  </form>;
+}
+
+function EmailTicketVerify({ returnTo, ticket }: Readonly<{ returnTo: string; ticket: string }>) {
+  const [code, setCode] = useState("");
   return <div className={`${styles.form} ${styles.verify}`}>
+    <div className={styles.stepIntro}><h1>Girişi onayla</h1><p>Hesabına devam etmek için girişini onayla.</p></div>
     {ticket ? <form method="post" action="/api/account/auth/verify-browser">
       <input type="hidden" name="ticket" value={ticket} />
       <input type="hidden" name="returnTo" value={returnTo} />
@@ -82,6 +187,11 @@ export function AccountAuthForm(props: AccountAuthFormProps) {
         <button className={styles.secondaryButton} type="submit" disabled={code.length !== 6}>Giriş yap</button>
       </form>
     </details>
-    <p className={styles.status} role="status" aria-live="polite">{status}</p>
   </div>;
+}
+
+export function AccountAuthForm(props: AccountAuthFormProps) {
+  if (props.mode === "verify") return <EmailTicketVerify returnTo={props.returnTo} ticket={props.ticket} />;
+  if (props.mode === "phone-binding") return <AccountSignInForm phoneEnabled returnTo={props.returnTo} bindingPhone={props.initialPhone} />;
+  return <AccountSignInForm phoneEnabled={props.mode === "phone"} returnTo={props.returnTo} />;
 }

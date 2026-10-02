@@ -1,0 +1,12 @@
+# Storefront WhatsApp OTP
+
+User authorized research, planning and implementation on 2026-10-01. Applies to shared customer storefront signup/login; merchant/owner login is unchanged.
+
+1. Preserve the branded account shell. Default configured flow takes first name, last name and phone; existing phone account login takes phone. Verify a six digit WhatsApp code. Keep the email entry point for existing email accounts and previously issued magic links.
+2. Normalize national Turkish and explicit international phone numbers, including WhatsApp enabled landlines. Use host-bound encrypted challenge cookies, host/phone/code HMAC digests, ten minute expiry, six attempts, server controlled resend cooldown and concurrent safe rate limits. Never send when the database did not authorize delivery.
+3. Integrate the connected-device VatanSMS API shown in the user's account: HTTPS POST `https://api.toplusms.app/bulk/wp/nton`, `X-Api-Key`, one `messages` item with `reg_id`, digit-only `target`, branded code text. Only matching successful report confirms provider acceptance. No automatic retry of ambiguous provider calls; no credentials or codes in logs or client bundles.
+4. Add verified phone identity independently from mutable customer contact phone. Preserve old accounts, session, cart, favorites and order ownership. No invented email, automatic merge or historical order claim. Nullable account email and verified phone read through common DTO. Existing profile mutations cannot replace verified login phone.
+5. Add compatible migration and database functions first; gate the phone UI on complete provider configuration and migration readiness. Keep credentials in server secret environment fields. Preserve latest source and both shared storefront deployments; concurrent Mira admin work is isolated.
+6. Verify normalization, cryptographic binding, origin/host boundaries, expired/wrong/reused codes, resend limits, failed/ambiguous delivery, legacy login, tenant separation, mobile/keyboard UI and actual provider acceptance. Use user authorized test number for live OTP verification; report any unverified delivery separately from API acceptance.
+
+Research: [VatanSMS public Business API docs](https://www.vatansms.com/whatsapp/entegrasyon/), plus authenticated account documentation `https://app.vatansms.net/apiIntegration` (WhatsApp tab) and active sender device. These are different API products: existing connected-device credentials and `reg_id` must not be passed to the Business API template endpoint.

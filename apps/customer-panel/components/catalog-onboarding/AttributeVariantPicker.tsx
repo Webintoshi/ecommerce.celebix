@@ -13,11 +13,12 @@ import createStyles from "./create-advanced.module.css";
 
 type Editor = Readonly<{ kind: "new" }> | Readonly<{ kind: "existing"; id: string }>;
 
-export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, existing = [], initialPrice = "", initialStock = "0", disabled = false, presentation = "default", onBusyChange }: Readonly<{
+export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, existing = [], baseSku, initialPrice = "", initialStock = "0", disabled = false, presentation = "default", onBusyChange }: Readonly<{
   value: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   onAttributeIdsChange?(ids: readonly string[]): void;
   existing?: readonly ProductVariant[];
+  baseSku?: string;
   initialPrice?: string;
   initialStock?: string;
   disabled?: boolean;
@@ -105,7 +106,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     if (presentation !== "create" && selectedKeys.has(key) && !window.confirm("Bu varyantın girilmiş fiyat, stok ve diğer bilgileri kaldırılacak. Devam edilsin mi?")) return;
     const next = selectedKeys.has(key) ? [...selectedKeys].filter((item) => item !== key) : [...selectedKeys, key];
     if (!next.length) { onChange(Object.freeze([])); setError(""); return; }
-    const result = mergeSelectedVariants({ options, selectedKeys: next, current: value, existing: existing.map(({ attributes }) => attributes), defaultPrice: price, defaultStock: stock });
+    const result = mergeSelectedVariants({ options, selectedKeys: next, current: value, existing: existing.map(({ attributes }) => attributes), defaultPrice: price, defaultStock: stock, baseSku });
     if (!result.ok) { setError(result.error); return; }
     setError("");
     onChange(result.value);

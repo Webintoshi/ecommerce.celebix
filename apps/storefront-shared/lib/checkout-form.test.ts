@@ -4,66 +4,77 @@ import test from "node:test";
 import { validateCheckoutFormDraft } from "./checkout-form.ts";
 
 const VALID = Object.freeze({
-  name: "Güzide Elif",
+  firstName: "Güzide",
+  lastName: "Elif",
   email: "info@example.com",
   phone: "+905551112233",
-  addressLine1: "Bağdat Caddesi 10",
-  addressLine2: "Kat 2",
+  addressLine1: "Bağdat Caddesi 10, Kat 2",
   city: "İstanbul",
   district: "Kadıköy",
   postalCode: "34710",
   note: "Kapıyı çalınız.",
 });
 
-test("checkout form accepts only the bounded delivery draft and normalizes the email", () => {
-  const result = validateCheckoutFormDraft({ ...VALID, email: "INFO@EXAMPLE.COM" });
+test("separate checkout names bridge to the existing contact contract and email is normalized", () => {
+  const result = validateCheckoutFormDraft({ ...VALID, firstName: "  Güzide   Nur  ", lastName: "  Elif  ", email: "INFO@EXAMPLE.COM" });
   assert.equal(result.ok, true);
   if (result.ok) {
+    assert.equal(result.value.contact.name, "Güzide Nur Elif");
     assert.equal(result.value.contact.email, "info@example.com");
-    assert.equal(result.value.shippingAddress.addressLine2, "Kat 2");
+    assert.equal(result.value.shippingAddress.postalCode, "34710");
+    assert.equal("addressLine2" in result.value.shippingAddress, false);
     assert.equal(result.value.note, "Kapıyı çalınız.");
     assert.equal(Object.isFrozen(result.value), true);
   }
 });
 
-test("checkout form rejects every missing malformed or oversized delivery authority", () => {
+test("checkout requires both names and postal code and rejects malformed delivery authority", () => {
   const invalid = [
-    ["name", " "], ["email", "invalid"], ["phone", "123"], ["addressLine1", "x"],
-    ["city", "x"], ["district", "x"], ["postalCode", "?".repeat(17)], ["note", "n".repeat(501)],
+    ["firstName", " "], ["lastName", " "], ["email", "invalid"], ["phone", "123"], ["addressLine1", "x"],
+    ["city", "x"], ["district", "x"], ["postalCode", ""], ["postalCode", "?".repeat(17)], ["note", "n".repeat(501)],
   ] as const;
   for (const [field, value] of invalid) {
     const result = validateCheckoutFormDraft({ ...VALID, [field]: value });
     assert.equal(result.ok, false, field);
+    if (!result.ok) assert.equal(typeof result.errors[field], "string", field);
   }
 });
 
-test("checkout form rejects browser price payment and private identifier injection", () => {
-  for (const extra of ["priceCents", "shippingCents", "iban", "paymentId", "storeId", "tenantId", "customerId", "orderId"]) {
+test("checkout rejects browser price payment private identifier and removed address line injection", () => {
+  for (const extra of ["priceCents", "shippingCents", "iban", "paymentId", "storeId", "tenantId", "customerId", "orderId", "name", "addressLine2"]) {
     assert.equal(validateCheckoutFormDraft({ ...VALID, [extra]: "attacker" }).ok, false, extra);
   }
 });
 
-test("optional address line and note are omitted instead of serialized as empty authority", () => {
-  const result = validateCheckoutFormDraft({ ...VALID, addressLine2: "", postalCode: "", note: "" });
+test("blank optional note is omitted while required postal authority is retained", () => {
+  const result = validateCheckoutFormDraft({ ...VALID, note: "" });
   assert.equal(result.ok, true);
   if (result.ok) {
-    assert.equal("addressLine2" in result.value.shippingAddress, false);
-    assert.equal("postalCode" in result.value.shippingAddress, false);
+    assert.equal(result.value.shippingAddress.postalCode, "34710");
     assert.equal("note" in result.value, false);
   }
 });
 
-test("checkout accepts only canonical Turkish E.164 phone numbers", () => {
-  for (const phone of ["+90 555 111 22 33", "05551112233", "+441234567890", "+900551112233", "+90555111223"]) {
+test("checkout accepts canonical international E.164 and rejects formatting or invalid bounds", () => {
+  for (const phone of ["+905551112233", "+14155552671", "+447911123456", "+39066982", "+971501234567"]) {
+    assert.equal(validateCheckoutFormDraft({ ...VALID, phone }).ok, true, phone);
+  }
+  for (const phone of ["+90 555 111 22 33", "05551112233", "+01234567890", "+1", "+1234567890123456", "+44<script>"]) {
     assert.equal(validateCheckoutFormDraft({ ...VALID, phone }).ok, false, phone);
   }
 });
 
-test("checkout name normalization cannot cross the SQL first and last name bounds", () => {
-  const normalized = validateCheckoutFormDraft({ ...VALID, name: "  Güzide   Elif  " });
-  assert.equal(normalized.ok, true);
-  if (normalized.ok) assert.equal(normalized.value.contact.name, "Güzide Elif");
-  for (const name of ["A".repeat(101), `${"A".repeat(101)} Elif`, `Güzide ${"E".repeat(101)}`, "Güzide\u00a0Elif"]) {
-    assert.equal(validateCheckoutFormDraft({ ...VALID, name }).ok, false, name.slice(0, 20));
+test("checkout name parts cannot cross existing request and SQL name bounds", () => {
+  for (const [field, value] of [["firstName", "A".repeat(101)], ["lastName", "E".repeat(101)], ["firstName", "Güzide\u00a0Nur"], ["lastName", "Elif\nNur"]] as const) {
+    assert.equal(validateCheckoutFormDraft({ ...VALID, [field]: value }).ok, false, field);
   }
+  assert.equal(validateCheckoutFormDraft({ ...VALID, firstName: "A", lastName: "B" }).ok, true);
+  assert.equal(validateCheckoutFormDraft({ ...VALID, firstName: "A".repeat(100), lastName: "B".repeat(100) }).ok, false);
+});
+
+test("multiword names respect the backend UTF-8 limit after the existing name projection", () => {
+  const rejected = validateCheckoutFormDraft({ ...VALID, firstName: "Ş".repeat(45), lastName: `${"Ç".repeat(10)} Yılmaz` });
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(typeof rejected.errors.lastName, "string");
+  assert.equal(validateCheckoutFormDraft({ ...VALID, firstName: "Ş".repeat(40), lastName: `${"Ç".repeat(5)} Yılmaz` }).ok, true);
 });

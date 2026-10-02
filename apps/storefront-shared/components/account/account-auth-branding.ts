@@ -1,5 +1,4 @@
 import {
-  starterThemeTokens,
   type PublicStorefront,
   type PublicStorefrontDesign,
 } from "@celebix/saas-contracts";
@@ -12,13 +11,6 @@ export type AccountAuthBranding = Readonly<{
     width: number;
     height: number;
   }> | null;
-  publicationVersion: number;
-  primaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  textColor: string;
-  fontFamily: PublicStorefrontDesign["brand"]["fontFamily"];
-  themeClasses: string;
 }>;
 
 export function resolveAccountAuthBranding(
@@ -43,17 +35,8 @@ export function resolveAccountAuthBranding(
           height: presentationLogo.height,
         })
       : null;
-  const tokens = starterThemeTokens(storefront.presentation);
-
   return Object.freeze({
     displayName: storefront.presentation.displayName,
     logo,
-    publicationVersion: design.publicationVersion,
-    primaryColor: design.brand.primaryColor,
-    accentColor: design.brand.accentColor,
-    backgroundColor: design.brand.backgroundColor,
-    textColor: design.brand.textColor,
-    fontFamily: design.brand.fontFamily,
-    themeClasses: `${tokens.schemeClass} ${tokens.headingClass}`,
   });
 }

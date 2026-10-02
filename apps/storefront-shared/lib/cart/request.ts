@@ -12,7 +12,7 @@ const UUID =
 const QUOTE_DIGEST = /^[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE = /^\+90[1-9][0-9]{9}$/;
+const PHONE = /^\+[1-9][0-9]{7,14}$/;
 const POSTAL = /^[A-Za-z0-9 -]{2,16}$/;
 const IDENTITY_NUMBER = /^[1-9][0-9]{10}$/;
 const MAXIMUM_BODY_BYTES = 32_768;
@@ -321,7 +321,7 @@ function contact(value: unknown): CheckoutContact {
   return Object.freeze({
     name: text(row.name, 2, 200, checkoutInvalid),
     email: text(row.email, 3, 320, checkoutInvalid, EMAIL).toLowerCase(),
-    phone: text(row.phone, 13, 13, checkoutInvalid, PHONE),
+    phone: text(row.phone, 9, 16, checkoutInvalid, PHONE),
   });
 }
 function address(value: unknown): CheckoutShippingAddress {

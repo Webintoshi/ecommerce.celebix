@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isCatalogSearchCursor } from "@celebix/saas-data";
+import { StorefrontSearchForm } from "@/components/StorefrontSearchForm";
 
 import { ProductGrid } from "@/components/ProductGrid";
 import { CommercePageEvent } from "@/components/CommercePageEvent";
@@ -12,8 +14,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-const CURSOR =
-  /^(true|false)\|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function query(value: string | string[] | undefined): string | null {
   if (value === undefined || value === "") return "";
@@ -38,9 +38,10 @@ export default async function SearchPage({
   const parameters = await searchParams;
   const selected = query(parameters.q);
   const cursor =
-    typeof parameters.cursor === "string" && CURSOR.test(parameters.cursor)
+    typeof parameters.cursor === "string" && isCatalogSearchCursor(parameters.cursor)
       ? parameters.cursor
       : undefined;
+  let failed = false;
   const result =
     selected === null ||
     selected === "" ||
@@ -52,7 +53,7 @@ export default async function SearchPage({
           query: selected,
           limit: 48,
           ...(cursor ? { cursor } : {}),
-        });
+        }).catch(() => { failed = true; return null; });
   const products = result?.items ?? Object.freeze([]);
   const message =
     selected === null
@@ -65,34 +66,18 @@ export default async function SearchPage({
       {selected && !cursor ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
       <section className="store-section store-container">
         <h1 className="sr-only">Arama</h1>
-        <form action="/search" className="store-search-form" method="get">
-          <label htmlFor="store-search">
-            Ürün adı, SKU, marka, kategori veya etiket
-          </label>
-          <div>
-            <input
-              autoComplete="off"
-              defaultValue={selected ?? ""}
-              id="store-search"
-              maxLength={100}
-              name="q"
-              placeholder="Ne aramıştınız?"
-              type="search"
-            />
-            <button className="store-button" type="submit">
-              Ara
-            </button>
-          </div>
-        </form>
+        <StorefrontSearchForm key={selected ?? ""} defaultValue={selected ?? ""} />
         <p className="search-result-count" aria-live="polite">
-          {selected ? `${products.length} sonuç` : ""}
+          {selected && !failed ? `${products.length} ürün gösteriliyor${result?.nextCursor ? " · Daha fazla sonuç var" : ""}` : ""}
         </p>
+        {failed ? <p role="alert">Arama şu anda tamamlanamadı. <Link href={`/search?q=${encodeURIComponent(selected ?? "")}`}>Aramayı yeniden başlat</Link></p> : null}
         <ProductGrid
+          preserveOrder
           products={products}
           locale={storefront.locale}
           cardStyle={storefront.presentation.theme.productCardStyle}
           imageRatio={storefront.presentation.theme.productImageRatio}
-          emptyMessage={message}
+          emptyMessage={failed ? "Lütfen aramayı tekrar deneyin." : message}
         />
         {result?.nextCursor && selected ? (
           <Link

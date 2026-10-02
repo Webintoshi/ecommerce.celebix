@@ -13,7 +13,7 @@ import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import { RetailFooter } from "./RetailFooter";
 import { GuzideFooter } from "../themes/guzide/GuzideFooter";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
-import { GuzideCheckoutFooter } from "../themes/guzide/GuzideCheckoutChrome";
+import { CheckoutFooter } from "./checkout/CheckoutChrome";
 import { AlplerFooter } from "../themes/alpler/AlplerFooter";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraFooter } from "../themes/siora/SioraFooter";
@@ -45,12 +45,18 @@ async function publicPolicyIndex(storefront: PublicStorefront) {
 
 export async function Footer({ storefront, logo, checkout = false }: { storefront: PublicStorefront; logo?: PublicDesignMedia; checkout?: boolean }) {
   const policies = await publicPolicyIndex(storefront);
+  if (checkout) {
+    const groups = mergePublishedPolicyFooterGroups(
+      storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.groups : LEGACY_GROUPS,
+      policies,
+    );
+    return <CheckoutFooter groups={groups} storefront={storefront} />;
+  }
   if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
     const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
     if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} />;
     if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} />;
     if (guzideThemeFor(storefront)) {
-      if (checkout) return <GuzideCheckoutFooter groups={groups} storefront={storefront} />;
       return <GuzideFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} />;
     }
     return (

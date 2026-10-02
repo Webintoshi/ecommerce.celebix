@@ -1,0 +1,56 @@
+name: celebix-catalog-search
+
+services:
+  meilisearch:
+    # Stable official release, resolved from Docker Hub on 2026-10-02.
+    image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
+    container_name: celebix-catalog-search
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -ec
+      - 'export MEILI_MASTER_KEY="$$(cat /run/secrets/master_key)"; exec /bin/meilisearch'
+    environment:
+      MEILI_ENV: production
+      MEILI_HTTP_ADDR: 0.0.0.0:7700
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MAX_INDEXING_MEMORY: 1GiB
+      MEILI_MAX_INDEXING_THREADS: "2"
+      MEILI_DB_PATH: /meili_data/data.ms
+    # Deliberately no ports, public domain, proxy labels, or Docker socket mount.
+    networks:
+      coolify:
+        aliases:
+          - celebix-catalog-search
+    secrets:
+      - master_key
+    volumes:
+      - search_data:/meili_data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1:7700/health]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+networks:
+  coolify:
+    external: true
+    name: coolify
+
+volumes:
+  search_data:
+    name: celebix-catalog-search-data
+
+secrets:
+  master_key:
+    file: ${CELEBIX_SEARCH_STATE_DIR:?Set the protected shared search state directory}/master.key

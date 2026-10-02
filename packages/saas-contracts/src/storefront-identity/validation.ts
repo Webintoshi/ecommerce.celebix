@@ -98,14 +98,17 @@ function optionalText(parsed: Record<string, unknown>, key: string, minimum: num
 }
 
 function profile(value: unknown): Readonly<StorefrontAccountProfile> {
-  const parsed = exact(value, ["email", "firstName", "lastName"], ["phone"]);
-  const email = text(parsed.email, 3, 320, EMAIL);
-  if (email !== email.toLowerCase()) invalid();
+  const parsed = exact(value, ["email", "firstName", "lastName"], ["phone", "phoneVerified"]);
+  const email = parsed.email === null ? null : text(parsed.email, 3, 320, EMAIL);
+  if (email !== null && email !== email.toLowerCase()) invalid();
+  if (Object.hasOwn(parsed, "phoneVerified") && (parsed.phoneVerified !== true || !Object.hasOwn(parsed, "phone"))) invalid();
+  if (email === null && parsed.phoneVerified !== true) invalid();
   return freeze({
     email,
     firstName: text(parsed.firstName, 1, 100),
     lastName: text(parsed.lastName, 1, 100),
     ...(Object.hasOwn(parsed, "phone") ? { phone: text(parsed.phone, 9, 16, PHONE) } : {}),
+    ...(parsed.phoneVerified === true ? { phoneVerified: true } : {}),
   });
 }
 

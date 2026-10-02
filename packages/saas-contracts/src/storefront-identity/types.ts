@@ -26,10 +26,11 @@ export interface StorefrontAccountSession {
 }
 
 export interface StorefrontAccountProfile {
-  readonly email: string;
+  readonly email: string | null;
   readonly firstName: string;
   readonly lastName: string;
   readonly phone?: string;
+  readonly phoneVerified?: boolean;
 }
 
 export interface StorefrontAccountAddress {

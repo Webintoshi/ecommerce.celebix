@@ -130,5 +130,5 @@ export type StorefrontCartClient = Readonly<{
   ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
   startHosted(
     input: HostedCheckoutStartClientInput,
-  ): Promise<Readonly<{ destination: "/checkout/payment" }>>;
+  ): Promise<Readonly<{ destination: "/checkout/payment" | "/checkout/payment/result" }>>;
 }>;

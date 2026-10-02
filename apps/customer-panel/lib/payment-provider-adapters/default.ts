@@ -420,6 +420,29 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
   }
 }
 
+const CREDENTIAL_EXECUTION_REGISTRIES = new WeakMap<MerchantProviderRegistry, MerchantProviderRegistry>();
+
+/** Credential verification accepts both environments; method controls retain their approved registry. */
+export function createDefaultCustomerPanelCredentialProviderRegistry(
+  hosted: PaymentAdapterRegistry,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null = PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
+  activationMode: CustomerPanelPaymentActivationMode = "disabled",
+  iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
+): MerchantProviderRegistry {
+  const execution = createDefaultCustomerPanelPaymentProviderRegistry(hosted, executionAuthority, activationMode, iyzicoApproval, iyzicoBuild);
+  const credentials = createCustomerPanelProviderRegistry([
+    paytrEntry(hosted.adapter("paytr_iframe")!, null),
+    execution.get("iyzico_iframe", "payment_processing")!,
+  ]);
+  CREDENTIAL_EXECUTION_REGISTRIES.set(credentials, execution);
+  return credentials;
+}
+
+export function resolveCustomerPanelPaymentExecutionRegistry(registry: MerchantProviderRegistry): MerchantProviderRegistry {
+  return CREDENTIAL_EXECUTION_REGISTRIES.get(registry) ?? registry;
+}
+
 export function listDefaultCustomerPanelPaymentProviderCodes(): readonly string[] {
   return DEFAULT_PROVIDER_CODES;
 }

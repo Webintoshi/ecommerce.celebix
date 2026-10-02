@@ -2319,6 +2319,58 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.doesNotMatch(css, /position:\s*fixed;[^}]*right:\s*0/m);
 });
 
+test("pending PayTR TEST validation permits switching to LIVE while the pending form stays unsavable", async () => {
+  const window = new Window({ url: "https://panel.example.test/settings/payment" });
+  const restoreGlobals = installDomGlobals(window);
+  const container = window.document.createElement("div");
+  window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  try {
+    const models = await import("./payment-settings-ui/model.ts");
+    const client = await import("./provider-execution-ui/client.ts");
+    const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+    const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
+    const components: Record<string, unknown> = {};
+    for (const name of ["PaytrConnectionForm", "PaymentProviderConnectionDrawer"]) {
+      const output = ts.transpileModule(await source(`components/settings/payment/${name}.tsx`), {
+        compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+      }).outputText;
+      const compiled: { exports: Record<string, unknown> } = { exports: {} };
+      Function("require", "module", "exports", output)((specifier: string) => {
+        if (specifier === "react/jsx-runtime") return jsxRuntime;
+        if (specifier === "react") return React;
+        if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
+        if (specifier === "./payment-settings.module.css") return styles;
+        if (specifier === "./PaytrConnectionForm") return components;
+        if (specifier === "@/lib/payment-settings-ui/model") return models;
+        if (specifier === "@/lib/provider-execution-ui/client") return { ...client, providerExecutionApi: { save: () => assert.fail("switching environment must not submit credentials") } };
+        throw new Error(`unexpected_payment_connection_import:${specifier}`);
+      }, compiled, compiled.exports);
+      Object.assign(components, compiled.exports);
+    }
+    const Drawer = components.PaymentProviderConnectionDrawer as (props: Readonly<Record<string, unknown>>) => ReactNode;
+    const pending: MerchantProviderProfile = { id: "40000000-0000-4000-8000-000000000094", providerCode: "paytr_iframe", capability: "payment_processing", publicConfig: { environment: "test", merchantId: "merchant-1234" }, maskedAccountReference: "paytr…1234", status: "pending_validation", credentialVersion: 1, version: 1, lastValidatedAt: null, createdAt: NOW, updatedAt: NOW };
+    await act(async () => root.render(createElement(Drawer, {
+      descriptor: { providerCode: "paytr_iframe", capability: "payment_processing", label: "PayTR iFrame", publicFields: [{ key: "merchantId", label: "Mağaza numarası" }], credentialFields: [{ key: "merchantKey", label: "Mağaza parolası", secret: true }, { key: "merchantSalt", label: "Mağaza gizli anahtarı", secret: true }], adapterVersion: 1, environments: ["test", "live"], executionAuthority: null },
+      environments: ["test", "live"], initialEnvironment: "test", storefrontHostname: "merchant.example", profiles: [pending], methods: [], canManage: true, onClose() {}, onSaved: async () => null,
+    })));
+    const mode = container.querySelector('input[role="switch"]') as unknown as { disabled: boolean; click(): void };
+    const submit = () => container.querySelector('button[type="submit"]') as unknown as { disabled: boolean };
+    assert.ok(mode);
+    assert.equal(submit().disabled, true, "pending TEST credentials cannot be resubmitted");
+    assert.equal(mode.disabled, false, "pending TEST must not lock the independent LIVE environment");
+    await act(async () => mode.click());
+    assert.match(container.textContent ?? "", /Canlı ortam/);
+    assert.equal(submit().disabled, false, "LIVE without a pending profile can be configured");
+    await act(async () => (container.querySelector('input[role="switch"]') as unknown as { click(): void }).click());
+    assert.equal(submit().disabled, true);
+  } finally {
+    await act(async () => root.unmount());
+    restoreGlobals();
+    await window.happyDOM.close();
+  }
+});
+
 test("read-only payment console never exposes mutation actions", async () => {
   const combined = (await Promise.all([
     source("components/settings/payment/PaymentSettingsConsole.tsx"),

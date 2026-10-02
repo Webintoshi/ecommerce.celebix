@@ -96,3 +96,15 @@ test("account mutation results are finite replay-aware public outcomes", () => {
   assert.throws(() => parseStorefrontAccountMutationResult({ outcome: "updated", version: 0, replayed: false }), /storefront_identity_contract_invalid/u);
   assert.throws(() => parseStorefrontAccountMutationResult({ outcome: "deleted", version: 2, replayed: false }), /storefront_identity_contract_invalid/u);
 });
+
+test("phone-only profiles carry a verified phone and no fabricated email", () => {
+  const snapshot = parseStorefrontAccountSnapshot({ status: "active", version: 1, profile: { email: null, firstName: "Ada", lastName: "Lovelace", phone: "+905551112233", phoneVerified: true }, addresses: [], favorites: [], devices: [] });
+  assert.equal(snapshot.profile.email, null);
+  assert.equal(snapshot.profile.phoneVerified, true);
+  for (const invalidProfile of [
+    { email: null, firstName: "Ada", lastName: "Lovelace" },
+    { email: null, firstName: "Ada", lastName: "Lovelace", phone: "+905551112233" },
+    { email: null, firstName: "Ada", lastName: "Lovelace", phone: "+905551112233", phoneVerified: false },
+    { email: "ada@example.test", firstName: "Ada", lastName: "Lovelace", phoneVerified: true },
+  ]) assert.throws(() => parseStorefrontAccountSnapshot({ ...snapshot, profile: invalidProfile }), /storefront_identity_contract_invalid/u);
+});

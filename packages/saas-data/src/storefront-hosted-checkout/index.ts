@@ -21,6 +21,8 @@ export type {
   HostedCheckoutPresentationState,
   HostedCheckoutProviderCode,
   HostedCheckoutPublicStatus,
+  HostedCheckoutResumeInput,
+  HostedCheckoutResumeState,
   HostedCheckoutSessionStatus,
   HostedCheckoutStatusInput,
   PostgresStorefrontHostedCheckoutRepositoryOptions,
@@ -31,5 +33,7 @@ export { PostgresStorefrontHostedCheckoutWorkerRepository } from "./worker-repos
 export type {
   PostgresStorefrontHostedCheckoutWorkerRepositoryOptions,
   StorefrontHostedCheckoutReconciliationCandidate,
+  StorefrontHostedCheckoutReconciliationAuthority,
+  StorefrontHostedCheckoutScopedReconciliationCandidate,
   StorefrontHostedCheckoutWorkerRepository,
 } from "./worker-repository.ts";

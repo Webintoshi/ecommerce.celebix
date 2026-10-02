@@ -24,6 +24,7 @@ const CANDIDATE_DIGESTS = Object.freeze({
 const REVIEWED_SOURCES = Object.freeze([
   "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6",
   "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d",
+  "sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b",
 ]);
 const REVIEWED_EXECUTION_DIGESTS = Object.freeze({
   test: "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f",
@@ -80,7 +81,7 @@ test("reviewed PayTR execution keeps its approval across UI-only Git SHA changes
 test("an unreviewed PayTR execution source cannot inherit the previous approval", async () => {
   const binding = await import("./build-binding.ts");
   const previousAuthority = { environment: "test", adapterVersion: 1, evidenceDigest: REVIEWED_EXECUTION_DIGESTS.test };
-  for (const sourceDigest of [SOURCE_DIGEST, `${REVIEWED_SOURCES[1]!.slice(0, -1)}c`]) {
+  for (const sourceDigest of [SOURCE_DIGEST, ...REVIEWED_SOURCES.map((digest) => `${digest.slice(0, -1)}c`)]) {
     const candidate = reviewedCandidate("test", "1".repeat(40), sourceDigest);
     const expectedDigest = sourceDigest === SOURCE_DIGEST ? CANDIDATE_DIGESTS.test : candidate.candidateExecutionDigest;
     assert.equal(binding.canonicalPaytrExecutionEvidenceDigest(candidate), expectedDigest);
@@ -93,7 +94,7 @@ test("an unreviewed PayTR execution source cannot inherit the previous approval"
 
 test("canonical PayTR execution rejects forged metadata before preserving an approval", async () => {
   const binding = await import("./build-binding.ts");
-  const candidate = reviewedCandidate("test", "1".repeat(40), REVIEWED_SOURCES[1]!);
+  const candidate = reviewedCandidate("test", "1".repeat(40), REVIEWED_SOURCES[2]!);
   let getterReads = 0;
   const accessor = Object.defineProperty({ ...candidate }, "gitSha", { enumerable: true, get: () => { getterReads += 1; return candidate.gitSha; } });
   for (const malformed of [
@@ -120,7 +121,7 @@ test("canonical PayTR execution rejects forged metadata before preserving an app
 
 test("generated PayTR approval stays bound to its exact environment and canonical identity", async () => {
   for (const environment of ["test", "live"] as const) {
-    const candidate = reviewedCandidate(environment, "2".repeat(40), REVIEWED_SOURCES[1]!);
+    const candidate = reviewedCandidate(environment, "2".repeat(40), REVIEWED_SOURCES[2]!);
     const otherEnvironment = environment === "test" ? "live" : "test";
     for (const authority of [
       { environment: otherEnvironment, adapterVersion: 1, evidenceDigest: REVIEWED_EXECUTION_DIGESTS[environment] },

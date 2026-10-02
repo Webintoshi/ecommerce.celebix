@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
+import { accountProfileCompletionDestination, readAccountJsonRequest, safeAccountReturnTo, validateAccountAuthDestination } from "./request.ts";
 
 const ORIGIN = "https://guzide-kuyumcu-4.saas-staging.celebix.site";
 
@@ -40,4 +40,31 @@ test("account request rejects cross-site private ambiguous and oversized request
 test("account return paths are normalized and restricted to shopper flows", () => {
   for (const value of ["/account", "/account/orders/CX-100", "/checkout", "/cart", "/products/altin-yuzuk", "/urun/altin-yuzuk", "/urunler", "/categories/yuzukler", "/kategori/yuzukler", "/favorites"]) assert.equal(safeAccountReturnTo(value), value);
   for (const value of [undefined, "", "//evil.example", "https://evil.example/account", "/admin", "/api/account", "/products/../admin", "/account#x", "/checkout?total=1", "/account\\evil"]) assert.equal(safeAccountReturnTo(value), "/account");
+});
+
+test("profile completion carries one validated plain return path", () => {
+  assert.equal(accountProfileCompletionDestination("/checkout"), "/account/profile?returnTo=%2Fcheckout");
+  assert.equal(accountProfileCompletionDestination("https://evil.example"), "/account/profile?returnTo=%2Faccount");
+  assert.equal(validateAccountAuthDestination("/checkout"), "/checkout");
+  assert.equal(validateAccountAuthDestination("/account/profile?returnTo=%2Fcheckout"), "/account/profile?returnTo=%2Fcheckout");
+  assert.equal(safeAccountReturnTo("/account/profile?returnTo=%2Fcheckout"), "/account");
+});
+
+test("profile destination rejects unsafe, ambiguous, or repeatedly encoded targets", () => {
+  for (const value of [
+    "https://evil.example/account/profile?returnTo=%2Fcheckout",
+    "//evil.example/account/profile?returnTo=%2Fcheckout",
+    "/account/profile?returnTo=%2F%2Fevil.example",
+    "/account/profile?returnTo=%2Fproducts%2F..%2Fadmin",
+    "/account/profile?returnTo=%252Fcheckout",
+    "/account/profile?returnTo=%2Fcheckout&returnTo=%2Faccount",
+    "/account/profile?returnTo=%2Fcheckout&x=1",
+    "/account/profile?returnTo=%2Fcheckout#x",
+    "/account/profile?returnTo=%2Fcheckout%3Fx%3D1",
+    "/account/profile?returnTo=%2Fcheckout%2F..%2Fadmin",
+    "/account/profile?returnTo=",
+    "/account/profile?returnTo=%ZZ",
+    "/account/profile/extra?returnTo=%2Fcheckout",
+    "/account/profile?ReturnTo=%2Fcheckout",
+  ]) assert.equal(validateAccountAuthDestination(value), null, value);
 });

@@ -44,7 +44,7 @@ import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
 import {
-  createDefaultCustomerPanelPaymentProviderRegistry,
+  createDefaultCustomerPanelCredentialProviderRegistry,
   createDefaultHostedPaymentAdapterRegistry,
   resolveCustomerPanelPaymentActivationMode,
 } from "../payment-provider-adapters/default.ts";
@@ -964,7 +964,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         maximumResponseBytes: 262_144,
       }),
     );
-    const paymentProviderRegistry = createDefaultCustomerPanelPaymentProviderRegistry(
+    const paymentProviderRegistry = createDefaultCustomerPanelCredentialProviderRegistry(
       hostedPaymentAdapters,
       undefined,
       resolveCustomerPanelPaymentActivationMode(process.env),

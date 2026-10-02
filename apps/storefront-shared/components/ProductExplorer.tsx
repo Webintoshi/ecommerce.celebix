@@ -45,7 +45,7 @@ function StandardProductExplorer({ products, locale, cardStyle, imageRatio, sele
 
   return <div className="product-explorer">
     <div className="explorer-toolbar" role="search">
-      <label className="explorer-search"><span>Ürün ara</span><input value={query} onChange={(event) => { if (isValidProductCatalogSearch(event.currentTarget.value)) setQuery(event.currentTarget.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); apply(); } }} maxLength={100} placeholder="Ürün adına göre ara" type="search" /></label>
+      <label className="explorer-search"><span>Ürün ara</span><input value={query} onChange={(event) => { if (isValidProductCatalogSearch(event.currentTarget.value)) setQuery(event.currentTarget.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); apply(); } }} maxLength={100} placeholder="Ürün adı, kodu veya marka ara" type="search" /></label>
       <label className="explorer-order"><span>Sıralama</span><select value={order} onChange={(event) => setOrder(event.currentTarget.value as typeof order)}>
         <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option>
       </select></label>

@@ -22,6 +22,7 @@ import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
 import { approvedPanelMutationOriginForStore, hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
+import { paymentProviderCredentialCatalog } from "../payment-providers/credential-catalog.ts";
 
 const BASE = "/api/merchant-providers";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -301,7 +302,7 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
             validationIdentity = paymentVerificationIdentity(
               authorized.runtime,
               entry,
-              deps.paymentCatalog(),
+              paymentProviderCredentialCatalog(deps.paymentCatalog()),
               environment,
             );
           } else {

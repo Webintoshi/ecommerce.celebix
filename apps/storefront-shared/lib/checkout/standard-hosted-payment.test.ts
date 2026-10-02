@@ -128,7 +128,9 @@ function fixture(
     audit?: (event: Readonly<{ stage: string; code?: string }>) => void;
     runtimeNow?: () => Date;
     attemptNow?: Date;
+    requirePreparedAuthorityClock?: boolean;
     providerCode?: "iyzico_iframe" | "paytr_iframe";
+    resume?: NonNullable<StorefrontHostedCheckoutRepository["resume"]>;
   }> = {},
 ) {
   const providerCode = options.providerCode ?? "iyzico_iframe";
@@ -136,6 +138,7 @@ function fixture(
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let beginV3Input: Parameters<StorefrontHostedCheckoutRepository["beginV3"]>[0] | undefined;
   let preparedV3: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>> | undefined;
+  let preparedAuthorityNow: Date | undefined;
   let savedInput: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   let stored: Parameters<StorefrontHostedCheckoutRepository["savePresentation"]>[0] | undefined;
   const begun: HostedCheckoutBeginResult = Object.freeze({
@@ -156,6 +159,7 @@ function fixture(
     sealedCredentials: Object.freeze({ algorithm: "A256GCM", ciphertext: "YQ", iv: Buffer.alloc(12).toString("base64url"), keyId: "provider_01", tag: Buffer.alloc(16).toString("base64url"), version: 1 }),
   });
   const repository: StorefrontHostedCheckoutRepository = {
+    ...(options.resume ? { resume: options.resume } : {}),
     authority: async () => {
       if (options.authorityError) throw options.authorityError;
       return selectedAuthority;
@@ -163,6 +167,7 @@ function fixture(
     authorityV2: async () => { throw new Error("unused"); },
     authorityV3: async (input) => {
       if (options.authorityError) throw options.authorityError;
+      preparedAuthorityNow = new Date(input.now);
       preparedV3 = Object.freeze({
         ...selectedAuthority,
         orderId: input.orderId,
@@ -191,6 +196,8 @@ function fixture(
     beginV2: async () => { throw new Error("unused"); },
     beginV3: async (input) => {
       if (options.beginError) throw options.beginError;
+      if (options.requirePreparedAuthorityClock && input.now.getTime() !== preparedAuthorityNow?.getTime())
+        throw new StorefrontHostedCheckoutRepositoryError("durable_authority_invalid");
       beginInput = input;
       beginV3Input = input;
       if (!preparedV3) throw new Error("prepare_missing");
@@ -652,6 +659,78 @@ const headers = new Headers({ host: HOST, "x-forwarded-for": "8.8.8.8" });
 const cookie = `__Host-celebix_cart=${cart.value}`;
 const v2Cookie = `${cookie}; __Host-celebix_customer=${authenticatedCustomer.value}`;
 
+test("a new checkout operation resumes its own pending cart without another provider initialization", async () => {
+  let resumes = 0;
+  const selected = fixture({ kind: "rejected" }, "created", {
+    authorityError: new StorefrontHostedCheckoutRepositoryError("attempt_in_progress"),
+    resume: async (input) => {
+      resumes++;
+      assert.equal(input.hostname, HOST);
+      assert.equal(input.intentKind, "cart");
+      assert.deepEqual(input.candidates, [{ keyId: cart.keyId, digest: cart.digest }]);
+      return { status: { sessionId: ATTEMPT, status: "processing", safeCode: "provider_confirmation_pending", version: 3,
+        paymentSessionExpiresAt: new Date(NOW.getTime() + 86_400_000).toISOString() }, presentation: null, createdAt: NOW.toISOString() };
+    },
+  });
+  assert.deepEqual(await selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }),
+    { destination: "/checkout/payment/result", state: "processing", setCookies: [] });
+  assert.equal(resumes, 1);
+  assert.equal(selected.getBegin(), undefined);
+  assert.equal(selected.getSaved(), undefined);
+});
+
+test("payment status survives the short presentation cookie through the authenticated source cart", async () => {
+  const pending = { sessionId: ATTEMPT, status: "processing" as const, safeCode: "provider_confirmation_pending", version: 3,
+    paymentSessionExpiresAt: new Date(NOW.getTime() + 86_400_000).toISOString() };
+  const selected = fixture({ kind: "rejected" }, "created", { resume: async () => ({ status: pending, presentation: null, createdAt: NOW.toISOString() }) });
+  assert.deepEqual(await selected.runtime.status({ hostname: HOST, cookieHeader: cookie }), pending);
+  await assert.rejects(selected.runtime.status({ hostname: HOST, cookieHeader: null }));
+});
+
+test("the current source payment takes precedence over a valid older hosted cookie", async () => {
+  const current = { sessionId: SOURCE, status: "processing" as const, safeCode: "provider_confirmation_pending", version: 7,
+    paymentSessionExpiresAt: new Date(NOW.getTime() + 86_400_000).toISOString() };
+  const older = createStorefrontCredential("hosted_checkout", commerceKeyring, (size) => new Uint8Array(size).fill(9));
+  const selected = fixture({ kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created", { resume: async () => ({ status: current, presentation: null, createdAt: NOW.toISOString() }) });
+  const input = { hostname: HOST, cookieHeader: `${cookie}; __Host-celebix_hosted_checkout=${older.value}` };
+  assert.deepEqual(await selected.runtime.status(input), current);
+  await assert.rejects(selected.runtime.presentation(input));
+});
+
+test("a newer owned buy-now payment wins over an older converted cart payment", async () => {
+  const intent = createStorefrontCredential("intent", commerceKeyring, (size) => new Uint8Array(size).fill(8));
+  const hosted = createStorefrontCredential("hosted_checkout", commerceKeyring, (size) => new Uint8Array(size).fill(9));
+  const current = { sessionId: SOURCE, status: "processing" as const, safeCode: "provider_confirmation_pending", version: 7,
+    paymentSessionExpiresAt: new Date(NOW.getTime() + 86_400_000).toISOString() };
+  const calls: string[] = [];
+  const selected = fixture({ kind: "rejected" }, "created", { resume: async (input) => {
+    calls.push(input.intentKind);
+    return input.intentKind === "cart"
+      ? { status: { ...current, sessionId: ATTEMPT, status: "captured" as const }, presentation: null,
+        createdAt: new Date(NOW.getTime() - 120_000).toISOString() }
+      : { status: current, presentation: null, createdAt: new Date(NOW.getTime() - 60_000).toISOString() };
+  } });
+  assert.deepEqual(await selected.runtime.status({ hostname: HOST,
+    cookieHeader: `${cookie}; __Host-celebix_checkout_intent=${intent.value}; __Host-celebix_hosted_checkout=${hosted.value}` }), current);
+  assert.deepEqual(calls, ["cart", "buy_now"]);
+});
+
+test("a malformed hosted cookie cannot use source recovery to bypass cookie validation", async () => {
+  let resumes = 0;
+  const selected = fixture({ kind: "rejected" }, "created", { resume: async () => { resumes++; return null; } });
+  await assert.rejects(selected.runtime.status({ hostname: HOST,
+    cookieHeader: `${cookie}; __Host-celebix_hosted_checkout=bad; __Host-celebix_hosted_checkout=duplicate` }));
+  assert.equal(resumes, 0);
+});
+
+test("a source without a matching pending checkout still starts a fresh authorized payment", async () => {
+  const selected = fixture({ kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created", { resume: async () => null });
+  assert.equal((await selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request })).destination, "/checkout/payment");
+  assert.ok(selected.getBegin());
+});
+
 test("hosted start obtains durable authority, requires iyzico identity and scopes payment begin", async () => {
   const selected = fixture({ kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" });
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request: { ...request, identityNumber: undefined } }), /invalid_input/u);
@@ -767,6 +846,28 @@ test("presentation persistence failure emits only a safe diagnostic stage", asyn
   );
   await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
   assert.deepEqual(events, [{ stage: "presentation_persistence_failed", code: "invalid_input" }]);
+});
+
+test("hosted begin retains the evaluated authority clock when the provider adapter clock advances", async () => {
+  const selected = fixture(
+    { kind: "iframe", url: "https://www.paytr.com/odeme/guvenli/abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { providerCode: "paytr_iframe", attemptNow: new Date(NOW.getTime() + 1_000), requirePreparedAuthorityClock: true },
+  );
+  const result = await selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request });
+  assert.equal(result.state, "ready");
+  assert.equal(selected.getBegin()?.now.toISOString(), NOW.toISOString());
+});
+
+test("a delayed hosted initialization rejects expired authority before durable begin or provider dispatch", async () => {
+  const selected = fixture(
+    { kind: "iframe", url: "https://www.paytr.com/odeme/guvenli/abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" },
+    "created",
+    { providerCode: "paytr_iframe", attemptNow: new Date(NOW.getTime() + 15 * 60_000), requirePreparedAuthorityClock: true },
+  );
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }));
+  assert.equal(selected.getBegin(), undefined);
+  assert.equal(selected.getSaved(), undefined);
 });
 
 test("presentation persistence refreshes monotonic time without extending the original hold", async () => {
@@ -907,6 +1008,8 @@ test("V2 PayTR lost-response retry recovers the exact durable provider-ready pre
   });
   const created = await first.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: requestV2 });
   assert.equal(created.state, "ready");
+  assert.equal(presentationStore.state!.presentationExpiresAt, new Date(NOW.getTime() + 30 * 60_000).toISOString(),
+    "PayTR presentation must remain valid throughout the provider's 30-minute window");
   assert.equal(first.calls.providerFetches(), 1);
   assert.equal(first.calls.presentationWrites(), 1);
 

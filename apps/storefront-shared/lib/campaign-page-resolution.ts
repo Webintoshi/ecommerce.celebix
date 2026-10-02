@@ -14,7 +14,9 @@ export async function resolveCampaignPageProjection(input: Readonly<{
   storefront: PublicStorefront;
   repository: PublicStorefrontRepository;
   now: Date;
+  includeProductRows?: boolean;
 }>): Promise<CampaignPageProjectionResolution> {
+  if (input.includeProductRows === false) return Object.freeze({ kind: "legacy" });
   if (input.storefront.presentation.schemaVersion === 1) return Object.freeze({ kind: "legacy" });
   if (!input.repository.resolveCampaignHome) return Object.freeze({ kind: "unavailable" });
   try {

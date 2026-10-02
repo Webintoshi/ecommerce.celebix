@@ -34,6 +34,7 @@ import {
   type StorefrontCommerceRepository,
   type StoreDomainOriginHealthRepository,
   type StorefrontHostedCheckoutWorkerRepository,
+  type StorefrontHostedCheckoutReconciliationAuthority,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -42,12 +43,14 @@ import {
   createCheckoutRuntime,
   resolveDefaultCheckoutPaymentRuntime,
   type CheckoutRuntime,
+  type PaytrCallbackDiagnosticEvent,
 } from "./checkout/runtime.ts";
 import type {
   QuickOrderHostedPaymentBridgeRuntime,
   QuickOrderHostedPaymentExecution,
 } from "./checkout/hosted-payment.ts";
-import { isStorefrontCheckoutReadinessMigrationCompatible, parseStorefrontDataConfig, parseStorefrontIdentityConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS, STOREFRONT_IDENTITY_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
+import { isStorefrontCheckoutReadinessMigrationCompatible, parseStorefrontDataConfig, parseStorefrontIdentityConfig, parseStorefrontWhatsAppConfig, STOREFRONT_DATA_ENVIRONMENT_FIELDS, STOREFRONT_IDENTITY_ENVIRONMENT_FIELDS, STOREFRONT_WHATSAPP_ENVIRONMENT_FIELDS } from "./runtime-config.ts";
+import { createVatanSmsWhatsAppDelivery } from "./account/whatsapp-delivery.ts";
 import { parseUmamiPublicCollectorConfig, type UmamiPublicCollectorConfig } from "./analytics/config.ts";
 import {
   createDefaultStorefrontHostedPaymentCompiledAuthorities,
@@ -67,6 +70,8 @@ import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
 import { createStorefrontIdentityRuntime, type StorefrontIdentityRuntime } from "./account/runtime.ts";
 import { createCachedPublicStorefrontRepository } from "./cache/public-storefront-cache.ts";
+import { createCatalogSearchContentRepository, createMeilisearchCatalogSearchProvider, PostgresPublicCatalogSearchScopeRepository } from "@celebix/saas-data";
+import { parseCatalogSearchConfig } from "./catalog-search-config.ts";
 import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
 
 const { Pool } = pg;
@@ -94,6 +99,7 @@ type HostedPaymentInfrastructure = Readonly<{
   attempts: PaymentAttemptRepository;
   createRuntime: (attempts: PaymentAttemptRepository) => HostedPaymentRuntime | null;
   pool: InstanceType<typeof Pool>;
+  executionAuthorities: readonly StorefrontHostedCheckoutReconciliationAuthority[];
   close: () => Promise<void>;
 }>;
 let hostedPaymentInitialization: Promise<HostedPaymentInfrastructure | null> | undefined;
@@ -208,10 +214,12 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
   let config;
   let checkoutConfig;
   let identityConfig: ReturnType<typeof parseStorefrontIdentityConfig> | null = null;
+  let whatsappConfig:ReturnType<typeof parseStorefrontWhatsAppConfig>=null;
   try {
     config = parseStorefrontDataConfig(snapshot);
     checkoutConfig = parseCheckoutRuntimeConfig(snapshot);
     try { identityConfig = parseStorefrontIdentityConfig(Object.fromEntries(STOREFRONT_IDENTITY_ENVIRONMENT_FIELDS.map((name) => [name, process.env[name]]))); } catch { identityConfig = null; }
+    try {whatsappConfig=parseStorefrontWhatsAppConfig(Object.fromEntries(STOREFRONT_WHATSAPP_ENVIRONMENT_FIELDS.map(name=>[name,process.env[name]])));}catch{whatsappConfig=null;}
   } catch { return null; }
   const analyticsCollector = await parseUmamiPublicCollectorConfig(process.env).catch(() => null);
   const pool = new Pool({ connectionString: checkoutConfig.database.url, max: 8, connectionTimeoutMillis: TIMEOUTS.poolCheckoutMs, idleTimeoutMillis: 10_000, statement_timeout: TIMEOUTS.statementMs, lock_timeout: TIMEOUTS.lockMs, idle_in_transaction_session_timeout: TIMEOUTS.idleTransactionMs, application_name: "celebix-shared-storefront-staging" });
@@ -220,6 +228,8 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const result = await pool.query(`SELECT current_setting('server_version_num')::integer AS version_num,current_database() AS database_name,role.rolsuper AS is_superuser,pg_has_role(current_user,'celebix_saas_host_resolver','MEMBER') AS resolver_member,pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow_member,to_regclass('saas.store_domains') IS NOT NULL AND to_regclass('saas.product_media') IS NOT NULL AND to_regprocedure('saas.resolve_public_storefront(text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.public_list_products(uuid,text,timestamp with time zone,integer)') IS NOT NULL AND to_regprocedure('saas.public_get_product_by_slug(uuid,text,timestamp with time zone,text)') IS NOT NULL AND to_regprocedure('saas.public_list_product_media(uuid,text,timestamp with time zone,uuid)') IS NOT NULL AS migration_020,to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.quick_links_resolve_redemption(text,text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.checkout_get_redemption_status(text,text,timestamp with time zone)') IS NOT NULL AS migration_027,pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.quick_links_claim_redemption(text,text,uuid,text,timestamp with time zone,timestamp with time zone)')),''),'effective_expires_at:=LEAST(p_expires_at,current_link.expires_at)')>0 AS migration_028,to_regprocedure('saas.abandoned_carts_capture(text,uuid,text,timestamp with time zone,jsonb,jsonb)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_mark_stale(timestamp with time zone,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_convert(text,text,uuid,timestamp with time zone)') IS NOT NULL AS migration_032,to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)') IS NOT NULL AND to_regprocedure('saas.public_cart_mutate_without_customer_identity_v103(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer)') IS NOT NULL AND to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute AS attribute WHERE attribute.attrelid=to_regclass('saas.abandoned_carts') AND attribute.attname='customer_id' AND NOT attribute.attisdropped) AND pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)')),''),'''firstProductName''')>0 AND pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.abandoned_carts_projection(uuid,uuid)')),''),'''customerId''')>0 AS migration_103,to_regclass('saas.store_analytics_connections') IS NOT NULL AND to_regprocedure('saas.analytics_connection_get_for_host(text,timestamp with time zone)') IS NOT NULL AS migration_039,to_regclass('saas.store_policy_pages') IS NOT NULL AND to_regprocedure('saas.public_policy_index(text,timestamp with time zone)') IS NOT NULL AND to_regprocedure('saas.public_policy_get(text,timestamp with time zone,text)') IS NOT NULL AND to_regprocedure('saas.public_search_products(text,timestamp with time zone,text,integer,text)') IS NOT NULL AND to_regprocedure('saas.public_resolve_product_ids(text,timestamp with time zone,uuid[])') IS NOT NULL AS migration_071,to_regclass('saas.storefront_carts') IS NOT NULL AND to_regclass('saas.storefront_checkout_operations') IS NOT NULL AND to_regprocedure('saas.public_cart_resolve(text,timestamp with time zone,jsonb)') IS NOT NULL AND to_regprocedure('saas.public_cart_mutate(text,timestamp with time zone,jsonb,uuid,text,text,timestamp with time zone,uuid,text,text,bigint,uuid,uuid,integer,jsonb)') IS NOT NULL AND to_regprocedure('saas.public_checkout_complete(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone)') IS NOT NULL AS migration_072,pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.storefront_cart_projection(uuid,uuid,timestamp with time zone)')),''),'''checkoutBlocker''')>0 AS migration_073_direct,to_regprocedure('saas.storefront_cart_projection_without_commerce_analytics(uuid,uuid,timestamp with time zone)') IS NOT NULL AND pg_catalog.strpos(COALESCE((SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=to_regprocedure('saas.storefront_cart_projection_without_commerce_analytics(uuid,uuid,timestamp with time zone)')),''),'''checkoutBlocker''')>0 AS migration_073_wrapped,to_regclass('saas.storefront_newsletter_subscribers') IS NOT NULL AND to_regprocedure('saas.public_newsletter_subscribe(text,timestamp with time zone,text,text)') IS NOT NULL AS migration_075,to_regprocedure('saas.storefront_design_get_public(uuid,text,timestamp with time zone)') IS NOT NULL AS migration_081,to_regclass('saas.storefront_accounts') IS NOT NULL AND to_regprocedure('saas.public_account_auth_start(text,timestamp with time zone,uuid,text,text,text,text,timestamp with time zone,uuid,text,jsonb,text)') IS NOT NULL AND to_regprocedure('saas.public_account_session_get(text,timestamp with time zone,jsonb)') IS NOT NULL AS migration_083,to_regprocedure('saas.resolve_store_domain_origin_health(text,timestamp with time zone)') IS NOT NULL AS migration_088,to_regprocedure('saas.public_cart_recovery_restore(text,timestamp with time zone,text,uuid,text,text,timestamp with time zone)') IS NOT NULL AND has_function_privilege('celebix_saas_host_resolver','saas.public_cart_recovery_restore(text,timestamptz,text,uuid,text,text,timestamptz)','EXECUTE') AS migration_124,to_regprocedure('saas.public_promotion_compiled_read_v1(text,timestamp with time zone,text,text)') IS NOT NULL AND has_function_privilege('celebix_saas_host_resolver','saas.public_promotion_compiled_read_v1(text,timestamptz,text,text)','EXECUTE') AS migration_126 FROM pg_roles AS role WHERE role.rolname=current_user`);
     const row = result.rows[0];
     const identityMigration = identityConfig === null ? true : (await pool.query("SELECT to_regprocedure('saas.public_account_auth_start_v2(text,timestamp with time zone,uuid,text,text,text,text,text,text,timestamp with time zone,uuid,text,jsonb,text)') IS NOT NULL AND to_regprocedure('saas.public_account_auth_verify_v2(text,timestamp with time zone,uuid,text,text,text,text,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL AS ready")).rows[0]?.ready === true;
+    const emailDeliveryDispositionSupported = identityConfig !== null && (await pool.query("SELECT to_regprocedure('saas.public_account_auth_start_v3(text,timestamptz,uuid,text,text,text,text,text,text,timestamptz,uuid,text,jsonb,text)') IS NOT NULL AS ready")).rows[0]?.ready === true;
+    const whatsappMigration=whatsappConfig!==null && (await pool.query("SELECT to_regprocedure('saas.public_account_auth_start_phone(text,timestamptz,uuid,text,text,text,text,timestamptz,text)') IS NOT NULL AND to_regprocedure('saas.public_account_auth_phone_delivery(text,timestamptz,uuid,text,boolean)') IS NOT NULL AND to_regprocedure('saas.public_account_auth_verify_phone(text,timestamptz,uuid,text,text,text,text,text,uuid,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL AS ready")).rows[0]?.ready===true;
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== checkoutConfig.database.name || row.is_superuser !== false || row.resolver_member !== true || row.workflow_member !== true || row.migration_020 !== true || row.migration_027 !== true || row.migration_028 !== true || row.migration_032 !== true || row.migration_103 !== true || row.migration_071 !== true || row.migration_072 !== true || !isStorefrontCheckoutReadinessMigrationCompatible({ direct: row.migration_073_direct, wrapped: row.migration_073_wrapped }) || row.migration_075 !== true || row.migration_081 !== true || row.migration_088 !== true || row.migration_124 !== true || row.migration_126 !== true || (analyticsCollector !== null && row.migration_039 !== true)) throw new Error("storefront_database_preflight_failed");
     const contentReadiness = await pool.query(PUBLIC_CONTENT_READINESS_SQL);
     if (!publicContentReadiness(contentReadiness)) throw new Error("storefront_content_preflight_failed");
@@ -245,7 +255,18 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
         },
       });
     };
-    const content = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    const baseContent = new PostgresPublicStorefrontContentRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS });
+    let content: PublicStorefrontContentRepository = baseContent;
+    try {
+      const searchConfig = parseCatalogSearchConfig(process.env);
+      // Resolve scope per request: a not-yet-applied migration falls back safely
+      // and becomes available without restarting the published compatible reader.
+      if (searchConfig) content = createCatalogSearchContentRepository({
+        base: baseContent,
+        scope: new PostgresPublicCatalogSearchScopeRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+        provider: createMeilisearchCatalogSearchProvider({ ...searchConfig, queryTimeoutMs: 800 }),
+      });
+    } catch { /* The normalized database search remains available during rollout or outage. */ }
     const seoReady = (await pool.query("SELECT to_regprocedure('saas.seo_public_settings(text,timestamptz)') IS NOT NULL AS ready")).rows[0]?.ready === true;
     const seo = seoReady ? new PostgresPublicSeoRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }) : undefined;
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
@@ -303,11 +324,13 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       repository: new PostgresStorefrontIdentityRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
       hmacKeyring: identityConfig.hmacKeyring,
       sealKeyring: identityConfig.sealKeyring,
+      emailDeliveryDispositionSupported,
       now: () => new Date(),
       randomBytes: (size) => new Uint8Array(randomBytes(size)),
       randomUuid: randomUUID,
       randomLoginCode: () => createStorefrontLoginCode(),
       deliverLoginCode: createResendStorefrontIdentityEmailDelivery({ apiKey: identityConfig.email.apiKey, from: identityConfig.email.from, fetch: (request) => fetch(request), timeoutMs: 5_000 }),
+      ...(whatsappConfig!==null && whatsappMigration?{deliverWhatsAppCode:createVatanSmsWhatsAppDelivery({apiKey:whatsappConfig.apiKey,regId:whatsappConfig.regId,fetch:request=>fetch(request),timeoutMs:12000})}:{}),
     }) : null;
     return Object.freeze({
       repository: publicRepository,
@@ -355,27 +378,14 @@ export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
   sessions: StorefrontHostedCheckoutWorkerRepository;
   attempts: PaymentAttemptRepository;
   runtime: HostedPaymentRuntime;
+  executionAuthorities: readonly StorefrontHostedCheckoutReconciliationAuthority[];
   close: () => Promise<void>;
 }>;
 
-export function writeSafePaytrCallbackDiagnostic(event:
-  | Readonly<{
-      stage: "hosted_callback_outcome";
-      outcome: "accepted" | "retry" | "rejected" | "not_found";
-    }>
-  | Readonly<{
-      stage: "callback_request_rejected";
-      outcome: "method" | "content_type" | "headers" | "authority"
-        | "target" | "length" | "body" | "form_encoding" | "form_status"
-        | "form_context" | "form_fields_duplicate" | "form_fields_failure_on_success"
-        | "form_fields_installment_status" | "form_fields_installment_value"
-        | "form_fields_merchant" | "form_fields_callback_id" | "form_fields_provider_id"
-        | "form_fields_non_3d" | "form_fields_card_type" | "form_fields_test_mode"
-        | "form_fields_payment_type" | "form_fields_unknown_extra"
-        | "form_fields_unknown_missing" | "form_fields_unknown_replace" | "form_oid";
-    }>
-): void {
-  console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
+export function writeSafePaytrCallbackDiagnostic(event: PaytrCallbackDiagnosticEvent): void {
+  if (event.stage === "hosted_callback_shape") {
+    console.warn("paytr_callback_diagnostic", event.stage, event.status, event.totalAmount, event.paymentContext, event.paymentType, event.testMode);
+  } else console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
 }
 
 export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Promise<DefaultStandardCheckoutReconciliationRuntime | null> {
@@ -390,6 +400,7 @@ export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Pro
     }),
     attempts: infrastructure.attempts,
     runtime: infrastructure.runtime,
+    executionAuthorities: infrastructure.executionAuthorities,
     close: infrastructure.close,
   });
 }
@@ -521,7 +532,10 @@ async function initializeHostedPaymentInfrastructure(
       await pool!.end();
     };
     runtimeOwnsKeyring = true;
-    return Object.freeze({ runtime, attempts, createRuntime, pool, close });
+    const executionAuthorities = Object.freeze(executableAuthorities.map(({ providerCode, authority }) =>
+      Object.freeze({ providerCode, environment: authority.environment,
+        adapterVersion: authority.adapterVersion, evidenceDigest: authority.evidenceDigest })));
+    return Object.freeze({ runtime, attempts, createRuntime, pool, close, executionAuthorities });
   } catch {
     await pool?.end().catch(() => undefined);
     return null;

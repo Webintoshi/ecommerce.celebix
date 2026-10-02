@@ -88,6 +88,18 @@ test("hosted checkout start sends the exact same-origin command and accepts only
   });
 });
 
+test("hosted retry accepts the existing payment result without exposing provider data", async () => {
+  const client = createStorefrontCartClient(async () => new Response(JSON.stringify({
+    destination: "/checkout/payment/result",
+  }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
+  assert.deepEqual(await client.startHosted({
+    cartVersion: 3, intentKind: "cart",
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard", paymentMethodId: PAYMENT_METHOD,
+  }), { destination: "/checkout/payment/result" });
+});
+
 test("hosted retry preserves the caller's operation and original opaque quote seal", async () => {
   const calls: unknown[] = [];
   const client = createStorefrontCartClient(async (_input, init) => {
@@ -142,6 +154,28 @@ test("public cart errors preserve only finite checkout blocker codes", async () 
   ]) {
     const client = createStorefrontCartClient(async () => new Response(JSON.stringify(body), { status: 409, headers: { "content-type": "application/json" } }), () => OPERATION);
     await assert.rejects(client.quote("cart"), (error: unknown) => error instanceof StorefrontCartClientError && error.code === "request_failed");
+  }
+});
+
+test("hosted invalid input preserves only its finite public code", async () => {
+  const input = {
+    cartVersion: 3, intentKind: "cart" as const,
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard" as const, paymentMethodId: PAYMENT_METHOD,
+  };
+  for (const [body, expectedCode] of [
+    [{ code: "invalid_input" }, "invalid_input"],
+    [{ code: "invalid_input", detail: "private_customer_collision" }, "request_failed"],
+    [{ code: "private_customer_collision" }, "request_failed"],
+  ] as const) {
+    const client = createStorefrontCartClient(async () => Response.json(body, { status: 400 }), () => OPERATION);
+    await assert.rejects(client.startHosted(input), (error: unknown) => {
+      assert.ok(error instanceof StorefrontCartClientError);
+      assert.equal(error.code, expectedCode);
+      assert.equal(error.message, expectedCode, "response details never enter the client error");
+      return true;
+    });
   }
 });
 

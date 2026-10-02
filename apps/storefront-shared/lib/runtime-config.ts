@@ -6,6 +6,19 @@ export const STOREFRONT_DATA_ENVIRONMENT_FIELDS = Object.freeze([
   "CELEBIX_SAAS_DATABASE_URL", "CELEBIX_R2_MEDIA_ENVIRONMENT", "CELEBIX_R2_PUBLIC_ORIGIN",
 ] as const);
 
+export const STOREFRONT_WHATSAPP_ENVIRONMENT_FIELDS=Object.freeze([
+  "CELEBIX_STOREFRONT_ACCOUNT_WHATSAPP_MODE",
+  "CELEBIX_STOREFRONT_ACCOUNT_VATANSMS_API_KEY",
+  "CELEBIX_STOREFRONT_ACCOUNT_VATANSMS_REG_ID",
+] as const);
+export type StorefrontWhatsAppConfig=Readonly<{mode:"vatansms_device";apiKey:string;regId:string}>;
+export function parseStorefrontWhatsAppConfig(source:Record<string,string|undefined>):StorefrontWhatsAppConfig|null {
+  if(STOREFRONT_WHATSAPP_ENVIRONMENT_FIELDS.every(name=>source[name]===undefined||source[name]===""))return null;
+  const apiKey=source.CELEBIX_STOREFRONT_ACCOUNT_VATANSMS_API_KEY,regId=source.CELEBIX_STOREFRONT_ACCOUNT_VATANSMS_REG_ID;
+  if(source.CELEBIX_STOREFRONT_ACCOUNT_WHATSAPP_MODE!=="vatansms_device"||typeof apiKey!=="string"||!/^[A-Za-z0-9_-]{16,256}$/u.test(apiKey)||typeof regId!=="string"||!/^[0-9]{1,20}$/u.test(regId))throw new Error("storefront_whatsapp_config_invalid");
+  return Object.freeze({mode:"vatansms_device",apiKey,regId});
+}
+
 export const STOREFRONT_IDENTITY_ENVIRONMENT_FIELDS = Object.freeze([
   "CELEBIX_DEPLOYMENT_TIER",
   "CELEBIX_STOREFRONT_ACCOUNTS_MODE",

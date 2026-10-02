@@ -204,7 +204,9 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
           {connection?.kind === "paytr" ? <PaytrConnectionForm
             connection={connection}
             disabled={busy || !props.canManage || !canSubmit}
+            environmentDisabled={busy || !props.canManage || props.environments.length < 2}
             onEnvironmentChange={(environment) => {
+              if (!props.environments.includes(environment)) return;
               setMessage("");
               setProviderUnavailable(false);
               setSelectedEnvironment(environment);

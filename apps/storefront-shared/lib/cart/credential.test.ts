@@ -75,7 +75,7 @@ test("every credential cookie has exact secure host-only attributes and bounded 
     ["cart", "__Host-celebix_cart", 2_592_000],
     ["intent", "__Host-celebix_checkout_intent", 900],
     ["customer", "__Host-celebix_customer", 2_592_000],
-    ["receipt", "__Host-celebix_receipt", 900],
+    ["receipt", "__Host-celebix_receipt", 86_400],
   ] as const;
   for (const [purpose, name, maxAge] of cases) {
     const value = createStorefrontCredential(purpose, keyring, (size) => new Uint8Array(size).fill(maxAge % 251)).value;

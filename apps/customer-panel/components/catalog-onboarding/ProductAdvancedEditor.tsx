@@ -28,7 +28,8 @@ import {
   type ProductCreationRecovery,
 } from "@/lib/catalog-ui/product-draft-session";
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
-import { attributeChoices, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
+import { assignVariantSkus, attributeChoices, deriveProductBaseSku, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
+import { SkuInput } from "@/components/catalog/SkuInput";
 import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
 import { ContentAuthoringTextField, type TextAuthoringController } from "@/components/content-authoring/ContentAuthoringTextField";
 import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
@@ -171,7 +172,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   const [pendingBarcodeCount, setPendingBarcodeCount] = useState(0);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const lock = useRef(false);
-  const simpleVariantRef = useRef<VariantDraft>(draftSession?.current.standardVariant ?? (kind === "simple" ? variants[0] : undefined) ?? emptyVariant());
+  const simpleVariantRef = useRef<VariantDraft>(draftSession?.current.standardVariant ?? (kind === "simple" ? variants[0] : undefined) ?? { ...emptyVariant(), sku: deriveProductBaseSku(variants) });
   const pendingVariantSnapshotRef = useRef(new Map<string, VariantDraft>());
   const pendingBarcodeCountRef = useRef(0);
   const attributeSavingRef = useRef(false);
@@ -337,6 +338,19 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     setVariantBuilderOpen(true);
   }
 
+  function changeProductSku(sku: string) {
+    if (recoveryRef.current || variantBuilderOpen) return;
+    try {
+      const next = assignVariantSkus(sku, variants, simpleVariantRef.current.sku);
+      simpleVariantRef.current = Object.freeze({ ...simpleVariantRef.current, sku });
+      markEditingDirty();
+      setVariants(next);
+      setError("");
+    } catch {
+      setError("Ürün SKU’sunu ve renk/beden adını kontrol edin; toplam en fazla 64 karakter olabilir.");
+    }
+  }
+
   function changePendingVariants(next: readonly VariantDraft[]) {
     const previousKeys = new Set(pendingVariants.map((variant) => variantAttributeKey(variant.attributes)));
     for (const variant of pendingVariants) pendingVariantSnapshotRef.current.set(variantAttributeKey(variant.attributes), variant);
@@ -360,7 +374,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     if (kind === "simple") simpleVariantRef.current = variants[0] ?? emptyVariant();
     const standard = simpleVariantRef.current;
     const currentKeys = new Set(kind === "variant" ? variants.map((variant) => variantAttributeKey(variant.attributes)) : []);
-    const nextVariants = Object.freeze(pendingVariants.map((variant) => currentKeys.has(variantAttributeKey(variant.attributes)) ? variant : Object.freeze({
+    const inheritedVariants = Object.freeze(pendingVariants.map((variant) => currentKeys.has(variantAttributeKey(variant.attributes)) ? variant : Object.freeze({
       ...variant,
       compareAt: standard.compareAt,
       cost: standard.cost,
@@ -368,8 +382,15 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       hsCode: standard.hsCode,
       ...(standard.measurements === undefined ? {} : { measurements: standard.measurements }),
       continueSellingWhenOutOfStock: standard.continueSellingWhenOutOfStock,
-      // SKU and barcode identify one sale option; each new combination starts blank.
+      // Barcodes remain independent; the SKU follows the selected color or size.
     })));
+    let nextVariants: readonly VariantDraft[];
+    try {
+      nextVariants = assignVariantSkus(standard.sku, inheritedVariants);
+    } catch {
+      setError("Ürün SKU’sunu ve renk/beden adını kontrol edin; toplam en fazla 64 karakter olabilir.");
+      return;
+    }
     markEditingDirty();
     setKind("variant");
     setVariants(nextVariants);
@@ -579,7 +600,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div>
             <div className={createStyles.coreFields}>
               <label className={createStyles.field}><span>Ürün adı <span aria-hidden="true">*</span></span><input className={createStyles.titleInput} ref={titleRef} name="title" required maxLength={200} autoFocus value={titleValue} onChange={(event) => setTitleValue(event.target.value)} aria-invalid={showValidation && !titleValue.trim()} />{showValidation && !titleValue.trim() ? <small className={createStyles.fieldError}>Ürün adı gerekli.</small> : null}</label>
-              {kind === "simple" ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><strong>{variants.length} varyant</strong><span>Fiyat, stok, SKU ve barkod aşağıda.</span><a href="#product-commerce">Varyantlara git</a></div>}
+              {kind === "simple" ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><SkuInput label="Ürün SKU" skuPrefix={options.skuPrefix} value={simpleVariantRef.current.sku} onChange={changeProductSku} labelClassName={createStyles.field} /></fieldset><strong>{variants.length} varyant</strong><span>Fiyat, stok, SKU ve barkod aşağıda.</span><a href="#product-commerce">Varyantlara git</a></div>}
               <label className={createStyles.field}><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label>
             </div>
           </section>
@@ -591,7 +612,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
               {({thumbnail})=><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
               </ProductVariantGalleryEditor></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
             {variantBuilderOpen ? <div ref={variantBuilderRef} id="create-variant-builder" className={createStyles.builder} tabIndex={-1} role="group" aria-label="Varyant seçimi" onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented && !attributeSavingRef.current) { event.preventDefault(); closeVariantBuilder(); } }}>
-              <AttributeVariantPicker presentation="create" value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />
+              <AttributeVariantPicker presentation="create" baseSku={kind === "simple" ? variants[0]?.sku : simpleVariantRef.current.sku} value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />
               <div className={createStyles.builderActions}><button type="button" className={createStyles.secondary} onClick={closeVariantBuilder} disabled={attributeSaving}>Vazgeç</button><button type="button" className={createStyles.secondary} onClick={applyPendingVariants} disabled={attributeSaving || !pendingVariants.length}>Seçilenleri ekle{pendingVariants.length ? ` (${pendingVariants.length})` : ""}</button></div>
             </div> : null}
           </section>

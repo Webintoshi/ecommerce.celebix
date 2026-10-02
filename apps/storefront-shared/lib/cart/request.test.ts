@@ -265,3 +265,21 @@ test("hosted start retains exact origin content-type and body limits", async () 
     request("/api/checkout/payment/start", HOSTED_START, { "content-length": "32769" }),
   ]) await assert.rejects(readCheckoutRequest(candidate, ORIGIN), /storefront_checkout_request_invalid/u);
 });
+
+test("offline and hosted checkout accept canonical international E164 contact phones", async () => {
+  for (const phone of ["+905551112233", "+14155552671", "+447911123456", "+4915112345678", "+12345678", "+123456789012345"]) {
+    for (const [path, body] of [["/api/checkout/complete", COMPLETE], ["/api/checkout/payment/start", HOSTED_START]] as const) {
+      const parsed = await readCheckoutRequest(request(path, { ...body, contact: { ...body.contact, phone } }), ORIGIN);
+      assert.ok(parsed.kind === "complete" || parsed.kind === "hosted_start");
+      assert.equal(parsed.contact.phone, phone);
+    }
+  }
+});
+
+test("checkout contact phone remains canonical bounded E164 instead of arbitrary display text", async () => {
+  for (const phone of ["14155552671", "+04155552671", "+1 4155552671", "+1-4155552671", "+1234567", "+1234567890123456", "+14155552671\n", "+١٤١٥٥٥٥٢٦٧١"]) {
+    for (const [path, body] of [["/api/checkout/complete", COMPLETE], ["/api/checkout/payment/start", HOSTED_START]] as const) {
+      await assert.rejects(readCheckoutRequest(request(path, { ...body, contact: { ...body.contact, phone } }), ORIGIN), /storefront_checkout_request_invalid/u);
+    }
+  }
+});

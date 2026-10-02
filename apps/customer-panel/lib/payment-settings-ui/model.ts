@@ -14,6 +14,7 @@ import {
   buildProviderCheckoutPreferenceSummary,
   buildProviderCheckoutPreferenceView,
 } from "./provider-preferences.ts";
+import { paymentProviderCredentialCatalogEntry } from "../payment-providers/credential-catalog.ts";
 
 export type PaymentSettingsTone = "success" | "warning" | "danger" | "neutral";
 export type BuiltInPaymentMethodCatalogCard = Readonly<{
@@ -413,12 +414,32 @@ function exactVerificationDescriptor(
     && descriptor.environments.every((environment, index) => environment === entry.environments[index]);
 }
 
+function activePaytrMethodProfile(
+  profiles: readonly MerchantProviderProfile[],
+  methods: readonly MerchantPaymentMethod[],
+  descriptor: MerchantProviderDescriptor | undefined,
+): MerchantProviderProfile | undefined {
+  for (const method of methods) {
+    if (method.kind !== "provider" || method.providerCode !== "paytr_iframe" || method.state !== "active") continue;
+    const profile = profiles.find((candidate) => candidate.id === method.profileId && candidate.status === "active"
+      && candidate.providerCode === "paytr_iframe" && candidate.capability === "payment_processing");
+    if (!profile || !descriptor?.environments?.includes(profile.publicConfig.environment as PaymentProviderEnvironment)) continue;
+    try {
+      if (buildProviderCheckoutPreferenceView(method).environment === profile.publicConfig.environment) return profile;
+    } catch { /* An invalid method cannot select a connection profile. */ }
+  }
+  return undefined;
+}
+
 function catalogCard(
   entry: PaymentProviderCatalogEntry,
   descriptors: readonly MerchantProviderDescriptor[],
   profiles: readonly MerchantProviderProfile[],
   methods: readonly MerchantPaymentMethod[],
 ): PaymentProviderCatalogCard {
+  const credentialDescriptor = descriptors.find((candidate) => candidate.providerCode === entry.providerCode
+    && candidate.capability === "payment_processing" && candidate.executionAuthority === null);
+  if (credentialDescriptor && entry.providerCode === "paytr_iframe") entry = paymentProviderCredentialCatalogEntry(entry);
   const ready = entry.readiness === "production_ready" || entry.readiness === "sandbox_ready";
   const executableDescriptor = ready
     ? descriptors.find((candidate) =>
@@ -433,13 +454,15 @@ function catalogCard(
   const configurableDescriptor = executableDescriptor ?? verificationDescriptor;
   const configurable = configurableDescriptor !== undefined;
   const executable = executableDescriptor !== undefined;
-  const connectionProfile = configurableDescriptor?.environments === undefined
+  const activeMethodProfile = entry.providerCode === "paytr_iframe"
+    ? activePaytrMethodProfile(profiles, methods, configurableDescriptor) : undefined;
+  const connectionProfile = activeMethodProfile ?? (configurableDescriptor?.environments === undefined
     ? null
     : selectPaymentProviderConnectionProfile(
         profiles,
         entry.providerCode,
         configurableDescriptor.environments,
-      );
+      ));
   const activeProfile = connectionProfile?.status === "active";
   const paytr = entry.providerCode === "paytr_iframe";
   const activeMethod = (paytr || executable) && methods.some((candidate) => {
@@ -510,7 +533,8 @@ function catalogCard(
     environmentLabel: environmentLabel(entry.environments),
     configurable,
     executable,
-    connectable: configurable && !(paytr && connectionProfile?.status === "pending_validation"),
+    connectable: configurable && !(paytr && connectionProfile?.status === "pending_validation"
+      && configurableDescriptor?.environments?.length === 1),
     actionLabel: paytr && configurable
       ? connectionProfile?.status === "pending_validation" ? "Kontrol ediliyor"
         : connectionProfile?.status === "active" ? "Yapılandırıldı"

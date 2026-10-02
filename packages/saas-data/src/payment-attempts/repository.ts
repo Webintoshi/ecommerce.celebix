@@ -14,9 +14,12 @@ import type {
   BeginPaymentAttemptInput,
   BeginPaymentAttemptResult,
   ClaimPaymentAttemptReconciliationInput,
+  ClaimVerifiedHostedCallbackInput,
   FinalizePaymentAttemptReconciliationInput,
+  FinalizeVerifiedHostedCallbackInput,
   GetPaymentCallbackAuthorityInput,
   GetPaymentReconciliationAuthorityInput,
+  GetVerifiedHostedCallbackEvidenceInput,
   MarkPaymentAttemptInitializedInput,
   MarkPaymentAttemptUnknownInput,
   PaymentAttemptAuthority,
@@ -26,6 +29,8 @@ import type {
   PaymentAttemptStatus,
   PostgresPaymentAttemptRepositoryOptions,
   SettlePaymentAttemptCallbackInput,
+  VerifiedHostedCallbackEvidence,
+  VerifiedHostedCallbackObservation,
 } from "./types.ts";
 import {
   exactPaymentAttemptInput,
@@ -644,6 +649,25 @@ function operationReplay(): string {
   return "operation_replayed";
 }
 
+function verifiedCallbackEvidence(parsed: Readonly<Record<string, unknown>>): VerifiedHostedCallbackEvidence {
+  if (parsed.status !== "captured" && parsed.status !== "failed") {
+    throw trustedPaymentAttemptError("invalid_input");
+  }
+  const providerReference = paymentAttemptProviderReference(parsed.providerReference);
+  if (providerReference === null) throw trustedPaymentAttemptError("invalid_input");
+  return Object.freeze({
+    providerCode: paymentAttemptProviderCode(parsed.providerCode),
+    callbackBindingDigest: paymentAttemptDigest(parsed.callbackBindingDigest),
+    eventKeyDigest: paymentAttemptDigest(parsed.eventKeyDigest),
+    observationFingerprint: paymentAttemptDigest(parsed.observationFingerprint),
+    status: parsed.status,
+    providerReference,
+    credentialVersion: paymentAttemptInteger(parsed.credentialVersion),
+    amountMinor: paymentAttemptInteger(parsed.amountMinor),
+    currency: paymentAttemptCurrency(parsed.currency),
+  });
+}
+
 export class PostgresPaymentAttemptRepository implements PaymentAttemptRepository {
   private readonly options: Options;
 
@@ -1100,7 +1124,7 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
     const currency = paymentAttemptCurrency(parsed.currency);
     const now = paymentAttemptDate(parsed.now);
     const query = Object.freeze({
-      text: "SELECT outcome,result_payload FROM saas.payment_attempt_finalize_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_finalize_reconciliation_guarded($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
       values: Object.freeze([
         attemptId, operationId, fingerprint, expectedVersion, workerId, leaseId,
         credentialVersion, status, providerReference, safeCode, amountMinor, currency, now,
@@ -1122,5 +1146,98 @@ export class PostgresPaymentAttemptRepository implements PaymentAttemptRepositor
       operationReplay,
       (observed, recovered) => same(expectedReplay(observed, "replayed"), recovered),
     );
+  }
+
+  async claimVerifiedHostedCallback(input: ClaimVerifiedHostedCallbackInput): Promise<PaymentAttemptReconciliationClaim> {
+    const parsed = exactPaymentAttemptInput(input, [
+      "attemptId", "operationId", "fingerprint", "expectedVersion", "environment",
+      "executionAdapterVersion", "executionEvidenceDigest", "workerId", "leaseId", "now", "leaseExpiresAt",
+      "providerCode", "callbackBindingDigest", "eventKeyDigest", "observationFingerprint",
+      "status", "providerReference", "credentialVersion", "amountMinor", "currency",
+    ]);
+    const evidence = verifiedCallbackEvidence(parsed);
+    const attemptId = paymentAttemptUuid(parsed.attemptId);
+    const operationId = paymentAttemptUuid(parsed.operationId);
+    const fingerprint = paymentAttemptDigest(parsed.fingerprint);
+    const expectedVersion = paymentAttemptInteger(parsed.expectedVersion);
+    const environment = paymentAttemptEnvironment(parsed.environment);
+    const executionAdapterVersion = paymentAttemptInteger(parsed.executionAdapterVersion);
+    const executionEvidenceDigest = paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest);
+    const workerId = paymentAttemptWorker(parsed.workerId);
+    const leaseId = paymentAttemptUuid(parsed.leaseId);
+    const window = paymentAttemptLeaseWindow(parsed.now, parsed.leaseExpiresAt);
+    const query = Object.freeze({
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_claim_verified_hosted_callback($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::timestamptz,$8::timestamptz,$9::text,$10::integer,$11::text,$12::text,$13::text,$14::text,$15::text,$16::text,$17::text,$18::bigint,$19::bigint,$20::text)",
+      values: Object.freeze([
+        attemptId, operationId, fingerprint, expectedVersion, workerId, leaseId,
+        window.now, window.leaseExpiresAt, environment, executionAdapterVersion, executionEvidenceDigest,
+        evidence.providerCode, evidence.callbackBindingDigest, evidence.eventKeyDigest, evidence.observationFingerprint,
+        evidence.status, evidence.providerReference, evidence.credentialVersion, evidence.amountMinor, evidence.currency,
+      ]),
+    });
+    return write(this.options, query, ["claimed", "operation_replayed"], (payload, outcome) => {
+      const claim = parseClaim(payload, outcome, {
+        attemptId, expectedVersion, leaseId, leaseOwner: workerId, leaseExpiresAt: window.leaseExpiresAt,
+        environment, executionAdapterVersion, executionEvidenceDigest,
+      });
+      if (claim.providerCode !== evidence.providerCode || claim.providerReference !== evidence.providerReference
+        || claim.credentialVersion !== evidence.credentialVersion || claim.amountMinor !== evidence.amountMinor
+        || claim.currency !== evidence.currency) unavailable();
+      return claim;
+    }, operationReplay, (observed, recovered) => same(expectedReplay(observed, "outcome"), recovered));
+  }
+
+  async finalizeVerifiedHostedCallback(input: FinalizeVerifiedHostedCallbackInput): Promise<PaymentAttemptMutationResult> {
+    const parsed = exactPaymentAttemptInput(input, [
+      "attemptId", "operationId", "fingerprint", "expectedVersion", "workerId", "leaseId",
+      "credentialVersion", "status", "providerReference", "safeCode", "amountMinor", "currency", "now",
+      "providerCode", "callbackBindingDigest", "eventKeyDigest", "observationFingerprint",
+    ]);
+    const evidence = verifiedCallbackEvidence(parsed);
+    const attemptId = paymentAttemptUuid(parsed.attemptId);
+    const operationId = paymentAttemptUuid(parsed.operationId);
+    const fingerprint = paymentAttemptDigest(parsed.fingerprint);
+    const expectedVersion = paymentAttemptInteger(parsed.expectedVersion);
+    const workerId = paymentAttemptWorker(parsed.workerId);
+    const leaseId = paymentAttemptUuid(parsed.leaseId);
+    const safeCode = paymentAttemptSafeCode(parsed.safeCode);
+    const now = paymentAttemptDate(parsed.now);
+    const query = Object.freeze({
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_finalize_verified_hosted_callback($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz,$14::text,$15::text,$16::text,$17::text)",
+      values: Object.freeze([
+        attemptId, operationId, fingerprint, expectedVersion, workerId, leaseId, evidence.credentialVersion,
+        evidence.status, evidence.providerReference, safeCode, evidence.amountMinor, evidence.currency, now,
+        evidence.providerCode, evidence.callbackBindingDigest, evidence.eventKeyDigest, evidence.observationFingerprint,
+      ]),
+    });
+    return write(this.options, query, [evidence.status, "operation_replayed"], (payload, outcome) => parseMutation(payload, outcome, {
+      attemptId, expectedVersion, status: evidence.status, providerReference: evidence.providerReference,
+      safeCode, callbackReplay: false, historicalOperationReplay: false,
+    }), operationReplay, (observed, recovered) => same(expectedReplay(observed, "replayed"), recovered));
+  }
+
+  async getVerifiedHostedCallbackEvidence(input: GetVerifiedHostedCallbackEvidenceInput): Promise<VerifiedHostedCallbackObservation | null> {
+    const parsed = exactPaymentAttemptInput(input, [
+      "attemptId", "expectedVersion", "now", "environment", "executionAdapterVersion", "executionEvidenceDigest",
+    ]);
+    const query = Object.freeze({
+      text: "SELECT outcome,result_payload FROM saas.payment_attempt_verified_hosted_callback_evidence($1::uuid,$2::bigint,$3::timestamptz,$4::text,$5::integer,$6::text)",
+      values: Object.freeze([
+        paymentAttemptUuid(parsed.attemptId), paymentAttemptInteger(parsed.expectedVersion), paymentAttemptDate(parsed.now),
+        paymentAttemptEnvironment(parsed.environment), paymentAttemptInteger(parsed.executionAdapterVersion),
+        paymentAttemptExecutionEvidenceDigest(parsed.executionEvidenceDigest),
+      ]),
+    });
+    return read(this.options, query, ["found", "no_observation"], (payload, outcome) => {
+      if (outcome === "no_observation") {
+        if (payload !== null) unavailable();
+        return null;
+      }
+      const observation = outputRecord(payload, [
+        "providerCode", "callbackBindingDigest", "eventKeyDigest", "observationFingerprint",
+        "status", "providerReference", "credentialVersion", "amountMinor", "currency", "safeCode",
+      ]);
+      return Object.freeze({ ...verifiedCallbackEvidence(observation), safeCode: paymentAttemptSafeCode(observation.safeCode) });
+    });
   }
 }

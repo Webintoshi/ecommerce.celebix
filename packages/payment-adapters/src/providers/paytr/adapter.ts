@@ -581,7 +581,7 @@ export function authenticatePaytrIframeCallback(input: Readonly<{
       providedHash === null ||
       (paymentType !== "card" && paymentType !== "eft") ||
       (callbackTestMode !== null && callbackTestMode !== String(testMode)) ||
-      !/^[1-9][0-9]{0,15}$/.test(rawTotalAmount)
+      (!/^[1-9][0-9]{0,15}$/.test(rawTotalAmount) && !(status === "failed" && rawTotalAmount === "0"))
     ) return null;
     const totalAmount = Number(rawTotalAmount);
     if (

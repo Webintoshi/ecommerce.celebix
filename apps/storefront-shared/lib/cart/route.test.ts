@@ -583,6 +583,27 @@ test("hosted checkout start returns only the fixed same-origin destination and b
   );
 });
 
+test("hosted checkout retry returns the existing result destination without issuing cookies", async () => {
+  const handler = createHostedCheckoutStartRoute({
+    selectAuthority: trusted,
+    resolveRuntime: async () => ({ start: async () => ({
+      destination: "/checkout/payment/result" as const,
+      state: "processing" as const, setCookies: [],
+    }) }),
+  });
+  const response = await handler(new Request("http://internal:3400/api/checkout/payment/start", {
+    method: "POST", headers: { origin: `https://${HOST}`, "content-type": "application/json", "x-forwarded-for": "8.8.8.8" },
+    body: JSON.stringify({ operationId: OPERATION, cartVersion: 1, intentKind: "cart",
+      contact: { name: "Güzide Elif", email: "guzide@example.test", phone: "+905551112233" },
+      shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710" },
+      shippingMethod: "standard", paymentMethodId: "40000000-0000-4000-8000-000000000001", identityNumber: "10000000146",
+    }),
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { destination: "/checkout/payment/result" });
+  assert.equal(response.headers.has("set-cookie"), false);
+});
+
 test("hosted checkout route forwards canonical promotion codes and rejects duplicates before runtime", async () => {
   const body = {
     operationId: OPERATION,

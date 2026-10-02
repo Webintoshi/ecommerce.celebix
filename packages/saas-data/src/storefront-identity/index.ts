@@ -5,4 +5,8 @@ export type {
   StorefrontIdentityAuditEvent,
   StorefrontIdentityRepository,
   StorefrontIdentitySessionResult,
+  StorefrontIdentityStartDisposition,
+  StorefrontPhoneStartInput,
+  StorefrontPhoneVerifyInput,
+  StorefrontPhoneDeliveryInput,
 } from "./types.ts";

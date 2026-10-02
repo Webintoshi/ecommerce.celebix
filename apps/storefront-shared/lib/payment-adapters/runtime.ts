@@ -23,6 +23,8 @@ import {
   type PaymentAttemptReconciliationClaim,
   type PaymentAttemptRepository,
   type SealedMerchantProviderCredential,
+  type VerifiedHostedCallbackEvidence,
+  type VerifiedHostedCallbackObservation,
 } from "@celebix/saas-data";
 
 import {
@@ -1145,6 +1147,96 @@ function exactHostedCallbackMutation(
     && value.version <= authority.version + increment;
 }
 
+async function reconcileVerifiedCallbackObservation(
+  dependencies: HostedPaymentRuntimeDependencies,
+  authority: PaymentAttemptAuthority,
+  selectedAdapter: SelectedHostedPaymentAdapter,
+  observation: VerifiedHostedCallbackObservation,
+  startedAt: Date,
+): Promise<boolean> {
+  if (
+    !exactReconciliationAuthority(authority, { attemptId: authority.attemptId, expectedVersion: authority.version })
+    || !plainRecord(observation)
+    || !exactKeys(observation, ["providerCode", "callbackBindingDigest", "eventKeyDigest",
+      "observationFingerprint", "status", "providerReference", "credentialVersion",
+      "amountMinor", "currency", "safeCode"])
+    || (observation.status !== "captured" && observation.status !== "failed")
+    || observation.providerCode !== authority.providerCode
+    || !/^[a-f0-9]{64}$/.test(observation.callbackBindingDigest)
+    || !/^[a-f0-9]{64}$/.test(observation.eventKeyDigest)
+    || !/^[a-f0-9]{64}$/.test(observation.observationFingerprint)
+    || authority.providerReference === null
+    || typeof observation.providerReference !== "string"
+    || !validProviderReference(observation.providerReference)
+    || observation.providerReference !== authority.providerReference
+    || observation.credentialVersion !== authority.credentialVersion
+    || observation.amountMinor !== authority.amountMinor
+    || observation.currency !== authority.currency
+    || typeof observation.safeCode !== "string" || !CODE.test(observation.safeCode)
+    || typeof dependencies.attempts.claimVerifiedHostedCallback !== "function"
+    || typeof dependencies.attempts.finalizeVerifiedHostedCallback !== "function"
+  ) return false;
+  const now = selectedNow(dependencies);
+  if (now === null || now.getTime() < startedAt.getTime()) return false;
+  const leaseExpiresAt = new Date(now.getTime() + RECONCILIATION_LEASE_MS);
+  if (!validDate(leaseExpiresAt)) return false;
+  const evidence: VerifiedHostedCallbackEvidence = Object.freeze({
+    providerCode: observation.providerCode,
+    callbackBindingDigest: observation.callbackBindingDigest,
+    eventKeyDigest: observation.eventKeyDigest,
+    observationFingerprint: observation.observationFingerprint,
+    status: observation.status,
+    providerReference: observation.providerReference,
+    credentialVersion: observation.credentialVersion,
+    amountMinor: observation.amountMinor,
+    currency: observation.currency,
+  });
+  const workerId = "hosted-callback";
+  const leaseId = phase("callback-reconciliation-lease", authority.attemptId,
+    authority.version, evidence, now.toISOString()).operationId;
+  const claimed = phase("callback-reconciliation-claim", authority.attemptId,
+    authority.version, authority.storeId, authority.profileId, authority.paymentMethodId,
+    authority.environment, authority.executionAdapterVersion, authority.executionEvidenceDigest,
+    evidence, workerId, leaseId, now.toISOString(), leaseExpiresAt.toISOString());
+  try {
+    // The database binds both transitions to the immutable verified observation
+    // and denies contradictory terminal evidence while holding the attempt lock.
+    const claim = await dependencies.attempts.claimVerifiedHostedCallback({
+      attemptId: authority.attemptId, ...claimed, expectedVersion: authority.version,
+      environment: authority.environment, executionAdapterVersion: authority.executionAdapterVersion,
+      executionEvidenceDigest: authority.executionEvidenceDigest,
+      workerId, leaseId, now: new Date(now), leaseExpiresAt, ...evidence,
+    });
+    if (!exactClaim(claim, {
+      attemptId: authority.attemptId, expectedVersion: authority.version,
+      workerId, leaseId, leaseExpiresAt, authority,
+    }) || claim.orderReference !== authority.orderReference
+      || claim.amountMinor !== authority.amountMinor || claim.currency !== authority.currency
+      || claim.providerReference !== authority.providerReference) return false;
+    const selected = adapterFor(dependencies, claim, "callback");
+    if (selected === null || selected.adapter !== selectedAdapter.adapter
+      || !await currentCompiledAuthorityMatches(dependencies, selected)) return false;
+    const finalizeNow = selectedNow(dependencies);
+    if (finalizeNow === null || finalizeNow.getTime() < now.getTime()
+      || finalizeNow.getTime() >= leaseExpiresAt.getTime()) return false;
+    const finalized = phase("callback-reconciliation-finalize", claim.attemptId,
+      claim.version, claim.leaseId, evidence, observation.safeCode);
+    const result = await dependencies.attempts.finalizeVerifiedHostedCallback({
+      attemptId: claim.attemptId, ...finalized, expectedVersion: claim.version,
+      workerId: claim.leaseOwner, leaseId: claim.leaseId, ...evidence,
+      safeCode: observation.safeCode, now: new Date(finalizeNow),
+    });
+    return result.attemptId === authority.attemptId
+      && result.version === claim.version + 1
+      && result.status === evidence.status
+      && result.providerReference === evidence.providerReference
+      && result.safeCode === observation.safeCode
+      && typeof result.replayed === "boolean";
+  } catch {
+    return false;
+  }
+}
+
 async function persistCallbackUnknown(
   dependencies: HostedPaymentRuntimeDependencies,
   authority: PaymentAttemptAuthority,
@@ -1321,6 +1413,27 @@ async function settleExactCallback(
           safeCode: verified.safeCode,
         })) return CALLBACK_REJECTED;
         if (settled.disposition === "processing") {
+          // A reconciled outcome can outlive its immutable unknown operation snapshot.
+          // Fresh verification above still binds the callback to its amount and currency.
+          if (
+            ((authority.status === "failed" && verified.status === "failed")
+              || (authority.status === "captured" && verified.status === "succeeded"))
+            && authority.providerReference !== null
+            && verified.providerReference === authority.providerReference
+            && settled.replayed
+            && settled.version < authority.version
+          ) return callbackProjection(adapter, verified.status === "succeeded" ? "success" : "failure");
+          if (typeof verified.providerReference === "string" && await reconcileVerifiedCallbackObservation(
+            dependencies, authority, selectedAdapter, Object.freeze({
+              providerCode: authority.providerCode,
+              callbackBindingDigest: request.callbackBindingDigest,
+              eventKeyDigest, observationFingerprint: selected.fingerprint,
+              status, providerReference: verified.providerReference,
+              credentialVersion: authority.credentialVersion,
+              amountMinor: verified.paidAmountMinor, currency: verified.currency,
+              safeCode: verified.safeCode,
+            }), now,
+          )) return callbackProjection(adapter, verified.status === "succeeded" ? "success" : "failure");
           return callbackProjection(adapter, "processing");
         }
       } catch (error) {
@@ -1542,6 +1655,27 @@ async function reconcile(
   if (preselectedAdapter === null) return RECONCILIATION_REJECTED;
   if (!await currentCompiledAuthorityMatches(dependencies, preselectedAdapter)) {
     return RECONCILIATION_REJECTED;
+  }
+  // Consume the original immutable verified callback before querying a provider.
+  // Absence permits the existing query path; unavailable or conflicting proof does not.
+  if (typeof dependencies.attempts.getVerifiedHostedCallbackEvidence !== "function") {
+    return RECONCILIATION_PROCESSING;
+  }
+  try {
+    const observation = await dependencies.attempts.getVerifiedHostedCallbackEvidence({
+      attemptId: authority.attemptId, expectedVersion: authority.version,
+      now: new Date(now), environment: authority.environment,
+      executionAdapterVersion: authority.executionAdapterVersion,
+      executionEvidenceDigest: authority.executionEvidenceDigest,
+    });
+    if (observation !== null) {
+      return await reconcileVerifiedCallbackObservation(
+        dependencies, authority, preselectedAdapter, observation, now,
+      ) ? observation.status === "captured" ? RECONCILIATION_CAPTURED : RECONCILIATION_FAILED
+        : RECONCILIATION_PROCESSING;
+    }
+  } catch {
+    return RECONCILIATION_PROCESSING;
   }
   const leaseExpiresAt = new Date(now.getTime() + RECONCILIATION_LEASE_MS);
   const claimFingerprint = digest(

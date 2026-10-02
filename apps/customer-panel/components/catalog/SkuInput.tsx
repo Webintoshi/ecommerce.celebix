@@ -4,12 +4,13 @@ import { useState } from "react";
 import { composeManualSku, manualSkuDisplay } from "@/lib/catalog-ui/sku-prefix";
 import styles from "./sku-input.module.css";
 
-export function SkuInput({ skuPrefix, value, onChange, name, labelClassName }: Readonly<{
+export function SkuInput({ skuPrefix, value, onChange, name, labelClassName, label = "SKU" }: Readonly<{
   skuPrefix?: string;
   value?: string;
   onChange?(value: string): void;
   name?: string;
   labelClassName?: string;
+  label?: string;
 }>) {
   const [localValue, setLocalValue] = useState(value ?? "");
   const current = onChange ? (value ?? "") : localValue;
@@ -19,12 +20,12 @@ export function SkuInput({ skuPrefix, value, onChange, name, labelClassName }: R
 
   return <div className={styles.field}>
     <label className={labelClassName}>
-      <span>SKU</span>
+      <span>{label}</span>
       {name ? <input type="hidden" name={name} value={current} readOnly /> : null}
       {display.legacy ? <input value={current} readOnly aria-label="Mevcut SKU" /> : <span className={styles.entry}>
         {skuPrefix ? <span aria-hidden="true">{skuPrefix}-</span> : null}
         <input
-          aria-label={skuPrefix ? "SKU son kısmı" : "SKU"}
+          aria-label={skuPrefix ? `${label} son kısmı` : label}
           maxLength={maximum}
           placeholder={skuPrefix ? "Örn. 001" : undefined}
           value={display.suffix}

@@ -1,5 +1,6 @@
 import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
+import { hostedPaymentFrameSources } from "@/lib/checkout/paytr-frame-policy.ts";
 
 const BASE_HEADERS = Object.freeze({
   "Cache-Control": "no-store",
@@ -20,13 +21,13 @@ function text(status: number, value: string): Response {
   return new Response(value, { status, headers: { ...BASE_HEADERS, "Content-Security-Policy": FALLBACK_CSP, "Content-Type": "text/plain; charset=utf-8" } });
 }
 
-function page(body: string, status = 200, frameOrigin?: string): Response {
-  const csp = frameOrigin
-    ? `default-src 'none'; frame-src ${frameOrigin}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'`
+function page(body: string, status = 200, frameSources?: string): Response {
+  const csp = frameSources
+    ? `default-src 'none'; frame-src ${frameSources}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'`
     : FALLBACK_CSP;
   return new Response(`<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Güvenli ödeme</title><style>html,body{height:100%;margin:0;background:#fff;font-family:system-ui,sans-serif}main{height:100%;display:grid;place-items:center}iframe{width:100%;height:100%;border:0}.status{color:#202124;font-size:15px}</style><main>${body}</main>`, {
     status,
-    headers: { ...(frameOrigin ? PAYMENT_FRAME_HEADERS : BASE_HEADERS), "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
+    headers: { ...(frameSources ? PAYMENT_FRAME_HEADERS : BASE_HEADERS), "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
   });
 }
 
@@ -51,7 +52,9 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (presentation.kind === "iframe") {
       const origin = new URL(presentation.url).origin;
-      return page(`<iframe title="Güvenli ödeme" src="${escaped(presentation.url)}" allow="payment" referrerpolicy="origin"></iframe>`, 200, origin);
+      const frameSources = hostedPaymentFrameSources(origin, authority.hostname);
+      if (frameSources === null) return text(503, "Payment unavailable");
+      return page(`<iframe title="Güvenli ödeme" src="${escaped(presentation.url)}" allow="payment" referrerpolicy="origin"></iframe>`, 200, frameSources);
     }
   } catch {
     try {
@@ -60,7 +63,7 @@ export async function GET(request: Request): Promise<Response> {
       if (status.status === "failed" || status.status === "cancelled" || status.status === "expired" || status.status === "stock_conflict") {
         return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
       }
-      return page('<p class="status">Ödeme sağlayıcısı hazırlanıyor…</p><meta http-equiv="refresh" content="2">', 202);
+      return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
     } catch { return text(404, "Not found"); }
   }
   return text(503, "Payment unavailable");

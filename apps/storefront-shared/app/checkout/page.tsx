@@ -7,7 +7,7 @@ import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { readCouponCandidateCookie } from "@/lib/promotions/cookie.ts";
-import { guzideThemeFor } from "@/themes/guzide/theme.ts";
+import { checkoutVisualThemeFor } from "@/lib/checkout-visual-theme.ts";
 
 export const metadata: Metadata = {
   title: "Ödeme",
@@ -25,14 +25,14 @@ export default async function CheckoutPage({
   const cookieHeader = (await cookies()).toString() || null;
   const account = runtime.identity ? await runtime.identity.session(storefront.hostname, cookieHeader).catch(() => null) : null;
   const candidateCodes = readCouponCandidateCookie(cookieHeader);
-  const visualTheme = guzideThemeFor(storefront);
+  const visualTheme = checkoutVisualThemeFor(storefront);
   const address = account?.outcome === "found" ? account.snapshot.addresses.find((item) => item.isDefault) ?? account.snapshot.addresses[0] : undefined;
   const initialDraft = account?.outcome === "found" ? {
-    name: `${account.snapshot.profile.firstName} ${account.snapshot.profile.lastName}`.trim(),
-    email: account.snapshot.profile.email,
+    firstName: account.snapshot.profile.firstName,
+    lastName: account.snapshot.profile.lastName,
+    email: account.snapshot.profile.email ?? "",
     phone: account.snapshot.profile.phone ?? "",
-    addressLine1: address?.line1 ?? "",
-    addressLine2: address?.line2 ?? "",
+    addressLine1: [address?.line1, address?.line2].filter(Boolean).join(" "),
     city: address?.city ?? "",
     district: address?.district ?? "",
     postalCode: address?.postalCode ?? "",

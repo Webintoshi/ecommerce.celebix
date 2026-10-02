@@ -11,9 +11,20 @@ export type StorefrontHostedCheckoutReconciliationCandidate = Readonly<{
   providerReference: string | null;
 }>;
 
+export type StorefrontHostedCheckoutReconciliationAuthority = Readonly<{
+  providerCode: "paytr_iframe" | "iyzico_iframe";
+  environment: "test" | "live";
+  adapterVersion: number;
+  evidenceDigest: string;
+}>;
+export type StorefrontHostedCheckoutScopedReconciliationCandidate =
+  StorefrontHostedCheckoutReconciliationCandidate & StorefrontHostedCheckoutReconciliationAuthority;
+
 export type StorefrontHostedCheckoutWorkerRepository = Readonly<{
   expireCreated(input: Readonly<{ now: Date; limit: number }>): Promise<number>;
   reconciliationCandidates(input: Readonly<{ now: Date; limit: number }>): Promise<readonly StorefrontHostedCheckoutReconciliationCandidate[]>;
+  reconciliationCandidatesScoped?(input: Readonly<{ now: Date; limit: number;
+    authorities: readonly StorefrontHostedCheckoutReconciliationAuthority[] }>): Promise<readonly StorefrontHostedCheckoutScopedReconciliationCandidate[]>;
 }>;
 
 export type PostgresStorefrontHostedCheckoutWorkerRepositoryOptions = Readonly<{
@@ -99,6 +110,30 @@ function input(value: unknown): Readonly<{ now: Date; limit: number }> {
     || !Number.isSafeInteger(parsed.limit) || (parsed.limit as number) < 1 || (parsed.limit as number) > 25) failure("invalid_input");
   return Object.freeze({ now: new Date(parsed.now.getTime()), limit: parsed.limit as number });
 }
+function executionAuthorities(value: unknown): readonly StorefrontHostedCheckoutReconciliationAuthority[] {
+  try {
+    if (!Array.isArray(value) || nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype
+      || value.length < 1 || value.length > 4) failure("invalid_input");
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Reflect.ownKeys(descriptors).length !== value.length + 1) failure("invalid_input");
+    const unique = new Set<string>();
+    return Object.freeze(Array.from({ length: value.length }, (_, index) => {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor?.enumerable || !("value" in descriptor)) failure("invalid_input");
+      const item = exact(descriptor.value, ["providerCode", "environment", "adapterVersion", "evidenceDigest"]);
+      if ((item.providerCode !== "paytr_iframe" && item.providerCode !== "iyzico_iframe")
+        || (item.environment !== "test" && item.environment !== "live")
+        || !Number.isSafeInteger(item.adapterVersion) || (item.adapterVersion as number) < 1
+        || (item.adapterVersion as number) > 2_147_483_647
+        || typeof item.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(item.evidenceDigest)) failure("invalid_input");
+      const key = `${item.providerCode}:${item.environment}`;
+      if (unique.has(key)) failure("invalid_input");
+      unique.add(key);
+      return Object.freeze({ providerCode: item.providerCode, environment: item.environment,
+        adapterVersion: item.adapterVersion as number, evidenceDigest: item.evidenceDigest });
+    }));
+  } catch { return failure("invalid_input"); }
+}
 function release(client: PostgresClientLike, destroy = false): void { try { client.release(destroy || undefined); } catch { /* cleanup only */ } }
 async function rollback(client: PostgresClientLike): Promise<void> { try { await client.query("ROLLBACK"); release(client); } catch { release(client, true); } }
 
@@ -183,6 +218,57 @@ export class PostgresStorefrontHostedCheckoutWorkerRepository implements Storefr
         credentialVersion: item.credentialVersion as number,
         providerReference: item.providerReference as string | null,
       });
+    }));
+  }
+
+  async reconciliationCandidatesScoped(value: Readonly<{ now: Date; limit: number;
+    authorities: readonly StorefrontHostedCheckoutReconciliationAuthority[] }>): Promise<readonly StorefrontHostedCheckoutScopedReconciliationCandidate[]> {
+    let fields: Readonly<Record<string, unknown>>;
+    try { fields = exact(value, ["now", "limit", "authorities"]); } catch { return failure("invalid_input"); }
+    const parsed = input({ now: fields.now, limit: fields.limit });
+    const authorities = executionAuthorities(fields.authorities);
+    const row = await this.execute(
+      `SELECT 'found'::text AS outcome,pg_catalog.jsonb_build_object(
+        'candidates',COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+          'attemptId',candidate.attempt_id,'attemptVersion',candidate.attempt_version,
+          'attemptStatus',candidate.attempt_status,'credentialVersion',candidate.credential_version,
+          'providerReference',candidate.provider_reference,'providerCode',candidate.provider_code,
+          'environment',candidate.environment,'adapterVersion',candidate.adapter_version,
+          'evidenceDigest',candidate.evidence_digest
+        ) ORDER BY candidate.candidate_position),'[]'::jsonb)
+      ) AS result_payload
+      FROM saas.storefront_hosted_checkout_reconciliation_candidates_scoped($1::timestamptz,$2::integer,$3::jsonb) candidate`,
+      [parsed.now, parsed.limit, JSON.stringify(authorities)], true,
+    );
+    if (row.outcome !== "found") return failure("unavailable");
+    const result = exact(row.result, ["candidates"]);
+    if (!Array.isArray(result.candidates) || nodeTypes.isProxy(result.candidates)
+      || Object.getPrototypeOf(result.candidates) !== Array.prototype || result.candidates.length > parsed.limit) failure("unavailable");
+    const descriptors = Object.getOwnPropertyDescriptors(result.candidates);
+    if (Reflect.ownKeys(descriptors).length !== result.candidates.length + 1) failure("unavailable");
+    const unique = new Set<string>();
+    return Object.freeze(Array.from({ length: result.candidates.length }, (_, index) => {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor?.enumerable || !("value" in descriptor)) failure("unavailable");
+      const item = exact(descriptor.value, ["attemptId", "attemptVersion", "attemptStatus", "credentialVersion",
+        "providerReference", "providerCode", "environment", "adapterVersion", "evidenceDigest"]);
+      if (typeof item.attemptId !== "string" || !UUID.test(item.attemptId) || unique.has(item.attemptId)
+        || !Number.isSafeInteger(item.attemptVersion) || (item.attemptVersion as number) < 1
+        || typeof item.attemptStatus !== "string" || !STATUS.has(item.attemptStatus)
+        || !Number.isSafeInteger(item.credentialVersion) || (item.credentialVersion as number) < 1
+        || !authorities.some((authority) => authority.providerCode === item.providerCode
+          && authority.environment === item.environment && authority.adapterVersion === item.adapterVersion
+          && authority.evidenceDigest === item.evidenceDigest)
+        || (item.providerReference !== null && (typeof item.providerReference !== "string"
+          || item.providerReference.length < 1 || item.providerReference.length > 256
+          || item.providerReference !== item.providerReference.trim() || CONTROL.test(item.providerReference)))) failure("unavailable");
+      unique.add(item.attemptId);
+      return Object.freeze({ attemptId: item.attemptId, attemptVersion: item.attemptVersion as number,
+        attemptStatus: item.attemptStatus as StorefrontHostedCheckoutReconciliationCandidate["attemptStatus"],
+        credentialVersion: item.credentialVersion as number, providerReference: item.providerReference as string | null,
+        providerCode: item.providerCode as StorefrontHostedCheckoutReconciliationAuthority["providerCode"],
+        environment: item.environment as StorefrontHostedCheckoutReconciliationAuthority["environment"],
+        adapterVersion: item.adapterVersion as number, evidenceDigest: item.evidenceDigest as string });
     }));
   }
 }

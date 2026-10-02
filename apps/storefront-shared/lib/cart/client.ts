@@ -15,6 +15,7 @@ type Fetcher = (
   init?: RequestInit,
 ) => Promise<Response>;
 type PublicCartClientFailure =
+  | "invalid_input"
   | "cart_empty"
   | "price_changed"
   | "stock_unavailable"
@@ -23,6 +24,7 @@ type PublicCartClientFailure =
 type StorefrontCartClientErrorCode =
   "invalid_response" | "request_failed" | PublicCartClientFailure;
 const PUBLIC_FAILURES = new Set<PublicCartClientFailure>([
+  "invalid_input",
   "cart_empty",
   "price_changed",
   "stock_unavailable",
@@ -232,9 +234,9 @@ export function createStorefrontCartClient(
         }),
         ["destination"],
       );
-      if (!root || root.destination !== "/checkout/payment")
+      if (!root || (root.destination !== "/checkout/payment" && root.destination !== "/checkout/payment/result"))
         throw new StorefrontCartClientError("invalid_response");
-      return Object.freeze({ destination: "/checkout/payment" as const });
+      return Object.freeze({ destination: root.destination });
     },
   });
 }

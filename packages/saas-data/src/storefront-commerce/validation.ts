@@ -15,7 +15,7 @@ const UUID =
 const DIGEST = /^[a-f0-9]{64}$/u;
 const KEY_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-const PHONE = /^\+90[1-9][0-9]{9}$/u;
+const PHONE = /^\+[1-9][0-9]{7,14}$/u;
 const ATTRIBUTION_DIMENSION = /^[\p{L}\p{N}][\p{L}\p{N} ._+/-]{0,127}$/u;
 const ATTRIBUTION_HOSTNAME =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
@@ -268,7 +268,7 @@ export function commerceDelivery(value: unknown): StorefrontDelivery {
   const firstName = text(contact.firstName, 1, 100);
   const lastName = text(contact.lastName, 1, 100);
   const email = text(contact.email, 3, 254, EMAIL).toLowerCase();
-  const phone = text(contact.phone, 13, 13, PHONE);
+  const phone = text(contact.phone, 9, 16, PHONE);
   const line2 = optionalText(address, "line2", 300);
   const district = optionalText(address, "district", 100);
   const postalCode = optionalText(address, "postalCode", 20);

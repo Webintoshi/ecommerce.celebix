@@ -29,6 +29,9 @@ import {
   type StorefrontIdentityKeyring,
 } from "./credential.ts";
 import { normalizeStorefrontAccountEmail } from "./email.ts";
+import { normalizeStorefrontAccountPhone } from "./phone.ts";
+import { openPhoneChallenge, phoneCodeDigest, phoneRecipientDigest, phoneRequestDigest, sealPhoneChallenge, serializePhoneChallengeCookie } from "./phone-credential.ts";
+import type { WhatsAppOtpDelivery } from "./whatsapp-delivery.ts";
 
 const CODE = /^[0-9]{6}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -43,6 +46,8 @@ export type StorefrontIdentityRuntimeDependencies = Readonly<{
   randomUuid: () => string;
   randomLoginCode: () => string;
   deliverLoginCode: (message: Readonly<{ email: string; ticket: string; code: string; storeName: string; storeOrigin: string; returnTo: string; idempotencyKey: string }>) => Promise<void>;
+  emailDeliveryDispositionSupported?: boolean;
+  deliverWhatsAppCode?: WhatsAppOtpDelivery;
 }>;
 
 type CookieAuthority = Readonly<{ hostname: string; cookieHeader: string | null }>;
@@ -50,7 +55,9 @@ type OperationAuthority = CookieAuthority & Readonly<{ operationId: string }>;
 type MutationResponse = Readonly<{ result: StorefrontAccountMutationResult }>;
 
 export interface StorefrontIdentityRuntime {
-  start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; returnTo: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number }>; setCookie: string }>>;
+  readonly whatsappEnabled?: boolean;
+  start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; returnTo: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number; deliveryRequired?:boolean }>; setCookie: string }>>;
+  startPhone?(input: Readonly<{ hostname:string;phone:string;firstName?:string;lastName?:string;bindPhone?:true;cookieHeader?:string|null;requestAuthority:string;returnTo:string;brand:Readonly<{storeName:string;logoUrl:string|null;primaryColor:string|null}> }>):Promise<Readonly<{result:Readonly<{outcome:"accepted";retryAfterSeconds:number;deliveryRequired:boolean}>;setCookie:string}>>;
   verify(input: Readonly<{ hostname: string; deviceLabel: string; userAgent: string }> & Readonly<{ ticket: string } | { challengeCookie: string | null; code: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
   completeProfile(input: OperationAuthority & Readonly<{ firstName: string; lastName: string; phone?: string; deviceLabel: string; userAgent: string }>): Promise<Readonly<{ result: StorefrontAccountMutationResult; setCookies: readonly string[] }>>;
   session(hostname: string, cookieHeader: string | null): Promise<StorefrontIdentitySessionResult & Readonly<{ setCookie?: string }>>;
@@ -79,12 +86,13 @@ function serializeCsrf(value: string): string { if (!/^[A-Za-z0-9_-]{43}$/u.test
 function deleteCsrf(): string { return `${CSRF_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Strict`; }
 function challengeValue(value: string | null): string | null {
   if (!value) return null;
-  if (value.startsWith("ch1.")) return value;
+  if (value.startsWith("ch1.") || value.startsWith("ph1.")) return value;
+  let found:string|null=null;
   for (const segment of value.split(";")) {
     const selected = segment.trim();
-    if (selected.startsWith("__Host-celebix_account_challenge=")) return selected.slice("__Host-celebix_account_challenge=".length);
+    if (selected.startsWith("__Host-celebix_account_challenge=")) {if(found!==null)return null;found=selected.slice("__Host-celebix_account_challenge=".length);}
   }
-  return null;
+  return found;
 }
 
 export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentityRuntimeDependencies): StorefrontIdentityRuntime {
@@ -105,6 +113,7 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
   }
 
   const runtime: StorefrontIdentityRuntime = {
+    whatsappEnabled: typeof dependencies.deliverWhatsAppCode === "function" && typeof repository.startPhone === "function" && typeof repository.verifyPhone === "function" && typeof repository.markPhoneDelivery === "function",
     async start(input) {
       const current = nowValue(now); const email = normalizeStorefrontAccountEmail(input.email); const challengeId = uuid(randomUuid); const outboxId = uuid(randomUuid); const code = randomLoginCode(); const ticket = createStorefrontMagicTicket(randomBytes);
       if (!CODE.test(code)) invalid();
@@ -114,16 +123,47 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
       const ticketAuthority = accountHostnameTicketDigest({ challengeId, hostname: input.hostname, ticket }, hmacKeyring);
       const expiresAt = new Date(current.getTime() + 600_000);
       const sealed = sealAccountChallenge(Object.freeze({ challengeId, email, expiresAt: expiresAt.toISOString() }), sealKeyring, randomBytes);
-      const result = await repository.start({
+      const startEmail = dependencies.emailDeliveryDispositionSupported !== false ? repository.startEmail?.bind(repository) : undefined;
+      const result = await (startEmail ?? repository.start.bind(repository))({
         hostname: input.hostname, now: current, challengeId, emailDigest: emailAuthority.digest, requestDigest: requestAuthority.digest,
         codeKeyId: codeAuthority.keyId, codeDigest: codeAuthority.digest, ticketKeyId: ticketAuthority.keyId, ticketDigest: ticketAuthority.digest, expiresAt, outboxId, recipientCiphertext: sealed,
         brandSnapshot: Object.freeze({ name: input.brand.storeName, logoUrl: input.brand.logoUrl, primaryColor: input.brand.primaryColor }), correlationId: correlation("auth", challengeId),
       });
+      if ("deliveryRequired" in result && result.deliveryRequired === false) return Object.freeze({result,setCookie:""});
       await deliverLoginCode(Object.freeze({ email, ticket: serializeAccountMagicTicket(sealed, ticket), code, storeName: input.brand.storeName, storeOrigin: `https://${input.hostname}`, returnTo: input.returnTo, idempotencyKey: outboxId }));
       return Object.freeze({ result, setCookie: serializeAccountChallengeCookie(sealed) });
     },
+    async startPhone(input) {
+      if(!runtime.whatsappEnabled || !repository.startPhone || !repository.markPhoneDelivery || !dependencies.deliverWhatsAppCode) throw new Error("storefront_whatsapp_unavailable");
+      const phone=normalizeStorefrontAccountPhone(input.phone),current=nowValue(now),challengeId=uuid(randomUuid),code=randomLoginCode();
+      if(!CODE.test(code)||(input.firstName===undefined)!==(input.lastName===undefined))invalid();
+      if(input.bindPhone) {
+        const currentAccount=await runtime.session(input.hostname,input.cookieHeader??null);
+        if(currentAccount.outcome!=="found" || typeof currentAccount.snapshot.profile.email!=="string"
+          || currentAccount.snapshot.profile.phone!==phone || currentAccount.snapshot.profile.phoneVerified===true)invalid();
+      }
+      const expiresAt=new Date(current.getTime()+600_000);
+      const sealed=sealPhoneChallenge({challengeId,hostname:input.hostname,phone,...(input.firstName!==undefined?{firstName:input.firstName,lastName:input.lastName!}:{}),...(input.bindPhone?{bindAccount:true as const}:{}),expiresAt:expiresAt.toISOString(),hmacKeyId:hmacKeyring.activeKeyId},sealKeyring,randomBytes);
+      const phoneDigest=phoneRecipientDigest(phone,hmacKeyring).digest;
+      const codeAuthority=phoneCodeDigest({hostname:input.hostname,phone,challengeId,code},hmacKeyring);
+      const result=await repository.startPhone({hostname:input.hostname,now:current,challengeId,phoneDigest,requestDigest:phoneRequestDigest(input.requestAuthority,hmacKeyring).digest,codeKeyId:codeAuthority.keyId,codeDigest:codeAuthority.digest,expiresAt,correlationId:correlation("phone_start",challengeId)});
+      if(!result.deliveryRequired)return Object.freeze({result,setCookie:""});
+      try {await dependencies.deliverWhatsAppCode({phone,code,storeName:input.brand.storeName,idempotencyKey:challengeId});}
+      catch {await repository.markPhoneDelivery({hostname:input.hostname,now:nowValue(now),challengeId,phoneDigest,accepted:false}).catch(()=>{});throw new Error("storefront_whatsapp_delivery_unavailable");}
+      await repository.markPhoneDelivery({hostname:input.hostname,now:nowValue(now),challengeId,phoneDigest,accepted:true});
+      return Object.freeze({result,setCookie:serializePhoneChallengeCookie(sealed)});
+    },
     async verify(input) {
       const current = nowValue(now);
+      const phoneRaw="ticket" in input?null:challengeValue(input.challengeCookie);
+      if(phoneRaw?.startsWith("ph1.")) {
+        const challenge=openPhoneChallenge(phoneRaw,sealKeyring);
+        if(!challenge || challenge.hostname!==input.hostname || new Date(challenge.expiresAt)<=current || "ticket" in input || !CODE.test(input.code) || !repository.verifyPhone)invalid();
+        const sessionId=uuid(randomUuid),credential=createAccountSessionCredential(hmacKeyring,randomBytes),csrf=csrfValue(randomBytes);
+        const accountCandidates=challenge.bindAccount?requiredCredentials(input.challengeCookie):[];
+        const result=await repository.verifyPhone({hostname:input.hostname,now:current,challengeId:challenge.challengeId,phoneDigest:phoneRecipientDigest(challenge.phone,hmacKeyring,challenge.hmacKeyId).digest,codeDigest:phoneCodeDigest({hostname:input.hostname,phone:challenge.phone,challengeId:challenge.challengeId,code:input.code},hmacKeyring,challenge.hmacKeyId).digest,phone:challenge.phone,...(challenge.firstName!==undefined?{firstName:challenge.firstName,lastName:challenge.lastName!}:{}),...(accountCandidates.length>0?{candidates:accountCandidates}:{}),customerId:uuid(randomUuid),accountId:uuid(randomUuid),sessionId,sessionKeyId:credential.keyId,sessionDigest:credential.digest,csrfDigest:accountCsrfDigest(sessionId,csrf,hmacKeyring).digest,deviceLabel:input.deviceLabel,userAgentDigest:accountUserAgentDigest(input.hostname,input.userAgent,hmacKeyring).digest,correlationId:correlation("phone_verify",sessionId)});
+        return Object.freeze({result,setCookies:Object.freeze([serializeAccountCookie(credential.value),serializeCsrf(csrf),serializeAccountChallengeCookieDeletion()])});
+      }
       const ticketAuthority = "ticket" in input ? openAccountMagicTicket(input.ticket, sealKeyring) : null;
       const raw = "ticket" in input ? null : challengeValue(input.challengeCookie);
       const challenge = ticketAuthority?.challenge ?? (raw ? openAccountChallenge(raw, sealKeyring) : null);

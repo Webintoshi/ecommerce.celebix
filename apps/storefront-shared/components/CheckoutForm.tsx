@@ -16,26 +16,32 @@ import {
   validateCheckoutFormDraft,
 } from "@/lib/checkout-form.ts";
 import { formatTry } from "@/lib/format.ts";
-import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
+import { couponAppliedEvent, emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
+import { normalizeCouponCandidate } from "@/lib/promotions/model.ts";
 import { useCartStatus } from "./CartStatusProvider";
 import { CheckoutSummary } from "./CheckoutSummary";
 import {
   checkoutBlockerMessage,
   checkoutFailureMessage,
+  hostedCheckoutFailureMessage,
   resolveCheckoutSummaryState,
 } from "./checkout-readiness";
 import { useHydrated } from "./use-hydrated";
 import Link from "next/link";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
-import type { GuzideVisualTheme } from "../themes/guzide/theme.ts";
-import { GuzideCheckoutSummary } from "../themes/guzide/GuzideCheckoutSummary";
+import type { CheckoutVisualTheme } from "../lib/checkout-visual-theme.ts";
+import { CheckoutSummary as SummaryRail } from "./checkout/CheckoutSummary";
+import { CheckoutPhoneField } from "./CheckoutPhoneField";
+import { PromotionCouponField } from "./PromotionCouponField";
+import { createCheckoutQuoteQueue } from "../lib/checkout/quote-queue.ts";
+import { reconcileCheckoutQuote } from "../lib/checkout/reconcile-quote.ts";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
-  name: "",
+  firstName: "",
+  lastName: "",
   email: "",
   phone: "",
   addressLine1: "",
-  addressLine2: "",
   city: "",
   district: "",
   postalCode: "",
@@ -46,13 +52,13 @@ export function CheckoutForm({
   intentKind,
   initialDraft,
   initialNormalizedCodes = [],
-  visualTheme,
+  visualTheme = "shared-checkout",
   locale = "tr",
 }: Readonly<{
   intentKind: CheckoutIntentKind;
   initialDraft?: Partial<CheckoutFormDraft>;
   initialNormalizedCodes?: readonly string[];
-  visualTheme?: GuzideVisualTheme;
+  visualTheme?: CheckoutVisualTheme;
   locale?: string;
 }>) {
   const hydrated = useHydrated();
@@ -68,16 +74,24 @@ export function CheckoutForm({
   >("");
   const [identityNumber, setIdentityNumber] = useState("");
   const [pending, setPending] = useState(false);
+  const [quotePending, setQuotePending] = useState(true);
+  const [promotionStatus, setPromotionStatus] = useState("");
+  const [noteExpanded, setNoteExpanded] = useState(false);
   const [attemptedDelivery, setAttemptedDelivery] = useState(false);
   const [status, setStatus] = useState("Sipariş özeti yükleniyor.");
   const formRef = useRef<HTMLFormElement>(null);
   const operation = useRef<string | null>(null);
+  const quoteSequence = useRef(0);
+  const quoteBusy = useRef(true);
+  const requestQuote = useMemo(() => createCheckoutQuoteQueue((intent, codes) => reconcileCheckoutQuote(storefrontCartClient.quotePromotionsWithDigest, intent, codes)), []);
   const [appliedCodes, setAppliedCodes] = useState<readonly string[]>(
     initialNormalizedCodes,
   );
   const validation = useMemo(() => validateCheckoutFormDraft(draft), [draft]);
   const visibleCart = hydrated ? cart : null;
   const visibleCartLoading = !hydrated || cartLoading;
+  const waitForCart = intentKind === "cart" && visibleCartLoading;
+  const quoteCartVersion = intentKind === "cart" ? visibleCart?.version ?? null : null;
   const summaryState = resolveCheckoutSummaryState(
     intentKind,
     quote,
@@ -87,22 +101,22 @@ export function CheckoutForm({
 
   useEffect(() => {
     let active = true;
+    const sequence = ++quoteSequence.current;
+    quoteBusy.current = true;
+    setQuotePending(true);
     setQuote(null);
     setQuoteDigest(null);
     setQuoteSettled(false);
     setStatus("Sipariş özeti yükleniyor.");
-    const quoted = storefrontCartClient.quotePromotionsWithDigest(intentKind, appliedCodes);
+    if (waitForCart) return;
+    const quoted = requestQuote(intentKind, appliedCodes);
     void quoted
       .then((selected) => {
-        if (!active) return;
+        if (!active || sequence !== quoteSequence.current) return;
         setQuote(selected.quote);
         setQuoteDigest(selected.quoteDigest);
-        if ("promotionStatus" in selected.quote) {
-          const rejected = new Set(
-            selected.quote.rejectedPromotions.map((promotion) => promotion.normalizedCode),
-          );
-          setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
-        }
+        setAppliedCodes(selected.normalizedCodes);
+        setPromotionStatus(selected.rejectedCodes.length ? "Bu kod şu anda uygulanamıyor." : "");
         for (const line of selected.quote.cart.items)
           emitStorefrontCommerceEvent({
             name: "begin_checkout",
@@ -125,7 +139,7 @@ export function CheckoutForm({
         );
       })
       .catch((error: unknown) => {
-        if (active) {
+        if (active && sequence === quoteSequence.current) {
           setQuoteSettled(true);
           setStatus(
             checkoutFailureMessage(
@@ -133,14 +147,19 @@ export function CheckoutForm({
             ),
           );
         }
+      })
+      .finally(() => {
+        if (!active || sequence !== quoteSequence.current) return;
+        quoteBusy.current = false;
+        setQuotePending(false);
       });
     return () => {
       active = false;
     };
-  // Codes are bootstrapped once from the HttpOnly candidate cookie. Subsequent
-  // edits happen on the cart and reach this page through a fresh navigation.
+  // Coupon edits quote explicitly. A cart change refreshes the latest candidates
+  // through the same serialized queue and never grants client pricing authority.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intentKind]);
+  }, [intentKind, waitForCart, quoteCartVersion, requestQuote]);
 
   useEffect(() => {
     operation.current = null;
@@ -177,35 +196,101 @@ export function CheckoutForm({
   ) => {
     const name = Object.keys(errors)[0];
     if (!name) return;
+    if (name === "note") setNoteExpanded(true);
     window.requestAnimationFrame(() =>
       formRef.current?.querySelector<HTMLElement>(`[name="${name}"]`)?.focus(),
     );
   };
 
+  const quoteCodes = async (requested: readonly string[]) => {
+    if (quoteBusy.current) return null;
+    const sequence = ++quoteSequence.current;
+    quoteBusy.current = true;
+    setQuotePending(true);
+    setQuote(null);
+    setQuoteDigest(null);
+    setQuoteSettled(false);
+    operation.current = null;
+    setPromotionStatus("İndirim kodu kontrol ediliyor.");
+    setStatus("Sipariş özeti güncelleniyor.");
+    try {
+      const current = await requestQuote(intentKind, requested);
+      if (sequence !== quoteSequence.current) return null;
+      setQuote(current.quote);
+      setQuoteDigest(current.quoteDigest);
+      setAppliedCodes(current.normalizedCodes);
+      setPaymentKind(kind => current.quote.paymentMethods.some(method => method.kind === kind) ? kind : current.quote.paymentMethods[0]?.kind ?? "");
+      setStatus(current.quote.cart.checkoutReady ? "Sipariş özeti güncel." : checkoutBlockerMessage(current.quote.cart.checkoutBlocker) ?? "Sepet ödeme için hazır değil.");
+      return current;
+    } catch (error: unknown) {
+      if (sequence === quoteSequence.current) {
+        setPromotionStatus("İndirim kodu kontrol edilemedi. Lütfen tekrar deneyin.");
+        setStatus(checkoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null));
+      }
+      return null;
+    } finally {
+      if (sequence === quoteSequence.current) {
+        quoteBusy.current = false;
+        setQuotePending(false);
+        setQuoteSettled(true);
+      }
+    }
+  };
+
+  const applyCoupon = async (raw: string) => {
+    if (pending || quoteBusy.current) return false;
+    let normalized: string;
+    try { normalized = normalizeCouponCandidate(raw); }
+    catch { setPromotionStatus("Bu kod şu anda uygulanamıyor."); return false; }
+    if (appliedCodes.includes(normalized)) { setPromotionStatus("Bu kod zaten eklendi."); return true; }
+    if (appliedCodes.length >= 5) { setPromotionStatus("En fazla 5 kod ekleyebilirsiniz."); return false; }
+    const selected = await quoteCodes(Object.freeze([...appliedCodes, normalized]));
+    if (!selected) return false;
+    const event = couponAppliedEvent(selected.quote, normalized);
+    if (event) emitStorefrontCommerceEvent(event);
+    const rejected = selected.rejectedCodes.includes(normalized);
+    setPromotionStatus(rejected ? "Bu kod şu anda uygulanamıyor." : event ? "Kod uygulandı." : selected.quote.progressMessages[0] ?? "Kod ödeme adımında tekrar kontrol edilecek.");
+    return !rejected;
+  };
+
+  const removeCoupon = async (code: string) => {
+    if (pending || quoteBusy.current) return;
+    const selected = await quoteCodes(Object.freeze(appliedCodes.filter(candidate => candidate !== code)));
+    if (selected) setPromotionStatus("Kod kaldırıldı.");
+  };
+
   const refreshAfterPriceChange = async () => {
+    const sequence = ++quoteSequence.current;
+    quoteBusy.current = true;
+    setQuotePending(true);
     setQuote(null);
     setQuoteDigest(null);
     setQuoteSettled(false);
     operation.current = null;
     try {
-      const current = await storefrontCartClient.quotePromotionsWithDigest(intentKind, appliedCodes);
+      const current = await requestQuote(intentKind, appliedCodes);
+      if (sequence !== quoteSequence.current) return;
       setQuote(current.quote);
       setQuoteDigest(current.quoteDigest);
-      const rejected = new Set(current.quote.rejectedPromotions.map((promotion) => promotion.normalizedCode));
-      setAppliedCodes(appliedCodes.filter((code) => !rejected.has(code)));
+      setAppliedCodes(current.normalizedCodes);
+      setPromotionStatus(current.rejectedCodes.length ? "Bu kod şu anda uygulanamıyor." : "");
       setPaymentKind(current.quote.paymentMethods[0]?.kind ?? "");
       setStatus("Fiyat güncellendi. Lütfen yeni toplamı kontrol edip yeniden onaylayın.");
     } catch {
-      setStatus("Güncel fiyat alınamadı. Lütfen yeniden deneyin.");
+      if (sequence === quoteSequence.current) setStatus("Güncel fiyat alınamadı. Lütfen yeniden deneyin.");
     } finally {
-      setQuoteSettled(true);
+      if (sequence === quoteSequence.current) {
+        quoteBusy.current = false;
+        setQuotePending(false);
+        setQuoteSettled(true);
+      }
       setPending(false);
     }
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || quotePending || quoteBusy.current) return;
     setAttemptedDelivery(true);
     if (!validation.ok) {
       emitStorefrontCommerceEvent({
@@ -330,17 +415,19 @@ export function CheckoutForm({
         return;
       }
       setStatus(
-        error instanceof StorefrontCartClientError
-          ? checkoutFailureMessage(error.code)
-          : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.",
+        selectedMethod.kind === "hosted_card"
+          ? hostedCheckoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)
+          : error instanceof StorefrontCartClientError
+            ? checkoutFailureMessage(error.code)
+            : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.",
       );
       setPending(false);
     }
   };
 
-  const summary = summaryState.kind === "summary" ? (
+  const summary = !quotePending && quote !== null && summaryState.kind === "summary" ? (
     <CheckoutSummary summary={summaryState.cart} promotionQuote={quote && "promotionStatus" in quote ? quote : null} />
-  ) : summaryState.kind === "loading" ? (
+  ) : quotePending || summaryState.kind === "loading" ? (
     <aside className="checkout-summary" aria-busy="true"><span>SİPARİŞ ÖZETİ</span><h2>Yükleniyor</h2></aside>
   ) : (
     <aside className="checkout-summary checkout-summary-unavailable"><span>SİPARİŞ ÖZETİ</span><h2>Özet kullanılamıyor</h2><p>{status}</p></aside>
@@ -354,7 +441,7 @@ export function CheckoutForm({
       noValidate
     >
       <div className="checkout-form-main">
-        {visualTheme ? <header className="guzide-checkout-intro"><h1>Siparişinizi tamamlayın</h1><p>İletişim ve teslimat bilgilerinizi girin.</p></header> : null}
+        <header className="shared-checkout-intro"><h1>Siparişinizi tamamlayın</h1><p>İletişim ve teslimat bilgilerinizi girin.</p></header>
         <section
           className="checkout-section checkout-contact"
           aria-labelledby="checkout-contact-title"
@@ -378,20 +465,17 @@ export function CheckoutForm({
                 />
                 {error("email")}
               </label>
-              <label>
-                Telefon
-                <input
-                  {...field("phone")}
-                  name="phone"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  maxLength={13}
-                  placeholder="+905551112233"
-                  required
-                  type="tel"
+              <div className="checkout-phone-label">
+                <label htmlFor="checkout-phone">Telefon</label>
+                <CheckoutPhoneField
+                  id="checkout-phone"
+                  value={draft.phone}
+                  onChange={value => setDraft(current => Object.freeze({ ...current, phone: value }))}
+                  invalid={attemptedDelivery && !validation.ok && Boolean(validation.errors.phone)}
+                  describedBy={attemptedDelivery && !validation.ok && validation.errors.phone ? "checkout-phone-error" : undefined}
                 />
                 {error("phone")}
-              </label>
+              </div>
             </div>
           </fieldset>
         </section>
@@ -405,17 +489,24 @@ export function CheckoutForm({
           </header>
           <fieldset disabled={pending}>
             <div className="checkout-fields">
-              <label className="checkout-wide">
-                Ad soyad
+              <div className="checkout-wide checkout-name-fields">
+              <label>
+                Ad
                 <input
-                  {...field("name")}
-                  name="name"
-                  autoComplete="name"
-                  maxLength={200}
+                  {...field("firstName")}
+                  name="firstName"
+                  autoComplete="given-name"
+                  maxLength={100}
                   required
                 />
-                {error("name")}
+                {error("firstName")}
               </label>
+              <label>
+                Soyad
+                <input {...field("lastName")} name="lastName" autoComplete="family-name" maxLength={100} required />
+                {error("lastName")}
+              </label>
+              </div>
               <label className="checkout-wide">
                 Adres
                 <input
@@ -427,16 +518,7 @@ export function CheckoutForm({
                 />
                 {error("addressLine1")}
               </label>
-              <label className="checkout-wide">
-                Adres devamı <small>İsteğe bağlı</small>
-                <input
-                  {...field("addressLine2")}
-                  name="addressLine2"
-                  autoComplete="address-line2"
-                  maxLength={300}
-                />
-                {error("addressLine2")}
-              </label>
+              <div className="checkout-wide checkout-location-fields">
               <label>
                 Şehir
                 <input
@@ -460,25 +542,30 @@ export function CheckoutForm({
                 {error("district")}
               </label>
               <label>
-                Posta kodu <small>İsteğe bağlı</small>
+                Posta kodu
                 <input
                   {...field("postalCode")}
                   name="postalCode"
                   autoComplete="postal-code"
                   maxLength={16}
+                  required
                 />
                 {error("postalCode")}
               </label>
-              <label className="checkout-wide">
-                Sipariş notu <small>İsteğe bağlı</small>
+              </div>
+              <details className="checkout-wide checkout-optional-fields" open={noteExpanded} onToggle={event => setNoteExpanded(event.currentTarget.open)}>
+                <summary><span>Sipariş notu ekle <small>İsteğe bağlı</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+              <label>
+                Sipariş notu
                 <textarea
                   {...field("note")}
                   name="note"
                   maxLength={500}
-                  rows={visualTheme ? 2 : 3}
+                  rows={2}
                 />
                 {error("note")}
               </label>
+              </details>
             </div>
           </fieldset>
         </section>
@@ -498,7 +585,7 @@ export function CheckoutForm({
                 ? quote.cart.shippingCents === 0
                   ? "Ücretsiz"
                   : formatTry(quote.cart.shippingCents)
-                : "Hesaplanıyor"}
+                : quotePending ? "Hesaplanıyor" : "Hesaplanamadı"}
             </small>
           </div>
         </section>
@@ -510,7 +597,7 @@ export function CheckoutForm({
             <span>4</span>
             <h2 id="checkout-payment-title">Ödeme yöntemi</h2>
           </header>
-          <fieldset disabled={pending}>
+          <fieldset disabled={pending || quotePending}>
             <div className="payment-methods">
               {quote?.paymentMethods.map((method) => (
                 <label key={method.kind}>
@@ -563,13 +650,17 @@ export function CheckoutForm({
             ) : null}
             {quote?.paymentMethods.length ? null : (
               <p className="checkout-unavailable">
-                Ödeme yöntemi henüz yapılandırılmadı.
+                {quote ? "Ödeme yöntemi henüz yapılandırılmadı." : quotePending ? "Ödeme seçenekleri yükleniyor." : "Ödeme seçenekleri alınamadı."}
               </p>
             )}
           </fieldset>
         </section>
       </div>
-      {visualTheme ? <GuzideCheckoutSummary totalCents={summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined} unavailable={summaryState.kind === "unavailable"}>{summary}<p className="guzide-checkout-promotion-link">İndirim kodunuzu <Link href={localizeStorefrontPath("/cart", locale)}>sepetinizde uygulayabilirsiniz</Link>.</p></GuzideCheckoutSummary> : summary}
+      <SummaryRail
+        totalCents={!quotePending && quote !== null && summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined}
+        unavailable={!quotePending && (quote === null || summaryState.kind === "unavailable")}
+        promotion={<PromotionCouponField embedded codes={appliedCodes} pending={pending || quotePending || (summaryState.kind === "summary" && summaryState.cart.items.length === 0)} status={promotionStatus} onApply={applyCoupon} onRemove={removeCoupon} />}
+      >{summary}</SummaryRail>
       <footer className="checkout-terminal">
         <p className="checkout-status" aria-live="polite">
           {status}
@@ -577,7 +668,7 @@ export function CheckoutForm({
         <button
           className="store-button checkout-submit"
           type="submit"
-          disabled={pending || !quote?.cart.checkoutReady || !paymentKind}
+          disabled={pending || quotePending || !quote?.cart.checkoutReady || !quoteDigest || !paymentKind}
         >
           {pending
             ? "Hazırlanıyor…"
@@ -585,7 +676,7 @@ export function CheckoutForm({
               ? "Güvenli ödemeye geç"
               : "Siparişi tamamla"}
         </button>
-        {visualTheme ? <Link className="guzide-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link> : null}
+        <Link className="shared-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link>
       </footer>
     </form>
   );
