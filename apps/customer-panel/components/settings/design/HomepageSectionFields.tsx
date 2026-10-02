@@ -1,8 +1,10 @@
 "use client";
 
-import type { StarterThemeSectionConfigV4, StarterCampaignPanelConfig, StorefrontDesignAssetOption, StorefrontDesignDestinationOption, StorefrontDesignEditorMediaOption,StorefrontDesignMediaOption } from "@celebix/saas-contracts";
+import type { StarterThemeSectionConfigV4, StarterCampaignPanelConfig, StorefrontDesignAssetOption, StorefrontDesignDestinationOption, StorefrontDesignEditorMediaOption,StorefrontDesignMediaOption,StorefrontAsset } from "@celebix/saas-contracts";
 import { ChevronDown, ChevronUp, Trash2, Plus } from "lucide-react";
-import { useEffect,useRef,useState } from "react";
+import { useRef } from "react";
+import { DesignImageField, type DesignImageOption } from "./DesignImageField";
+import { DesignAssetField } from "./DesignAssetField";
 import { ProductPicker } from "./ProductPicker";
 import styles from "../design-settings.module.css";
 
@@ -25,34 +27,36 @@ export function sectionFieldErrors(section: StarterThemeSectionConfigV4): FieldE
   return errors;
 }
 
-export function HomepageSectionFields({ section, assets, media = [], destinations, disabled, errors, onUpdate, onUpload }: Readonly<{
- section:StarterThemeSectionConfigV4; assets:readonly StorefrontDesignAssetOption[]; media?:readonly StorefrontDesignEditorMediaOption[]; destinations:readonly StorefrontDesignDestinationOption[]; disabled:boolean; errors:FieldErrors; onUpdate:(next:StarterThemeSectionConfigV4)=>void; onUpload?:(file:File,altText:string)=>Promise<StorefrontDesignMediaOption>;
+export function HomepageSectionFields({ section, assets, media = [], destinations, disabled, errors, onUpdate, onUpload, onAssetUploaded, onMediaBusyChange }: Readonly<{
+ section:StarterThemeSectionConfigV4; assets:readonly StorefrontDesignAssetOption[]; media?:readonly StorefrontDesignEditorMediaOption[]; destinations:readonly StorefrontDesignDestinationOption[]; disabled:boolean; errors:FieldErrors; onUpdate:(next:StarterThemeSectionConfigV4)=>void; onUpload?:(file:File,altText:string)=>Promise<StorefrontDesignMediaOption>; onAssetUploaded?:(asset:StorefrontAsset)=>void; onMediaBusyChange?:(id:string,busy:boolean)=>void;
 }>) {
- const mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  const latestSection=useRef(section);latestSection.current=section;
- const [uploading,setUploading]=useState<string|null>(null),[uploadError,setUploadError]=useState("");
  const categories=destinations.filter(({kind})=>kind==="collection");
  const bannerMedia=media.filter(item=>item.reference.kind==="media"||item.assetKind==="hero");
  const heroAssets=assets.filter(({kind})=>kind==="hero"), categoryAssets=assets.filter(({kind})=>kind==="category");
  const paths=destinations.map(({path,label})=>({path,label}));
  const error=(key:string)=>errors[key] ? <small id={`homepage-error-${key}`} className={styles.fieldError} role="alert">{errors[key]}</small> : null;
  const heading="heading" in section ? <label>Başlık<input maxLength={160} disabled={disabled} value={section.heading} aria-invalid={Boolean(errors.heading)} aria-describedby={errors.heading ? "homepage-error-heading" : undefined} onChange={event=>onUpdate({...section,heading:event.target.value})}/>{error("heading")}</label>:null;
- const assetOptions=(items:readonly StorefrontDesignAssetOption[],value:string)=> <>{value&&!items.some(item=>item.id===value)?<option value={value}>Mevcut görsel · arşivde yok</option>:null}{items.map(item=><option key={item.id} value={item.id}>{item.altText||"Adsız görsel"} · {item.width}×{item.height}</option>)}</>;
  if(section.kind==="banner") return <div className={styles.homepageInspectorFields}>
-  {uploadError?<p role="alert" className={styles.fieldError}>{uploadError}</p>:null}
   <label>Yerleşim<select disabled={disabled} value={section.layout} onChange={event=>onUpdate({...section,layout:event.target.value as typeof section.layout})}><option value="single">Tek banner</option><option value="slider">Slayt</option><option value="stacked">Alt alta</option></select></label>
   <label>Sunum<select disabled={disabled} value={section.presentation} onChange={event=>onUpdate({...section,presentation:event.target.value as typeof section.presentation})}><option value="overlay">Görsel üzerinde metin</option><option value="image_only">Yalnız görsel</option></select></label>
   {section.layout==="slider"?<label><input type="checkbox" checked={section.autoplay} disabled={disabled} onChange={event=>onUpdate({...section,autoplay:event.target.checked})}/>5 saniyede otomatik ilerle</label>:null}
   {section.slides.map((slide,index)=>{
-   const update=(patch:Partial<typeof slide>)=>onUpdate({...section,slides:section.slides.map(item=>item.slideId===slide.slideId?{...item,...patch}:item)});
+   const update=(patch:Partial<typeof slide>)=>{const latest=latestSection.current;if(latest.kind==="banner")onUpdate({...latest,slides:latest.slides.map(item=>item.slideId===slide.slideId?{...item,...patch}:item)});};
    const move=(direction:-1|1)=>{const slides=[...section.slides];[slides[index],slides[index+direction]]=[slides[index+direction]!,slides[index]!];onUpdate({...section,slides});};
    const mediaKey=(reference:typeof slide.desktopImage)=>reference?.kind==="media"?`media:${reference.mediaId}`:reference?.kind==="asset"?`asset:${reference.assetId}`:reference?.kind==="legacy_https"?"legacy":"";
-   const imageField=(label:string,key:"desktopImage"|"mobileImage")=>{const value=slide[key],selected=media.find(item=>mediaKey(item.reference)===mediaKey(value));return <label>{label}<select disabled={disabled} value={mediaKey(value)} onChange={event=>update({[key]:bannerMedia.find(item=>mediaKey(item.reference)===event.target.value)?.reference??(value&&mediaKey(value)===event.target.value?value:null)})}><option value="">{key==="mobileImage"?"Masaüstü görselini kullan":"Görsel seçin"}</option>{value&&!bannerMedia.some(item=>mediaKey(item.reference)===mediaKey(value))?<option value={mediaKey(value)}>Mevcut görsel · arşivde yok</option>:null}{bannerMedia.map(item=><option key={mediaKey(item.reference)} value={mediaKey(item.reference)}>{item.altText||"Adsız görsel"} · {item.width}×{item.height}</option>)}</select>{selected?<img className={styles.homepageAssetThumbnail} src={selected.url} alt={selected.altText} loading="lazy"/>:null}{onUpload?<span className={styles.uploadButton}>{uploading===`${slide.slideId}:${key}`?"Yükleniyor…":"Görsel yükle"}<input type="file" aria-label={`${index+1}. ${label} yükle`} accept="image/png,image/jpeg,image/webp" disabled={disabled||uploading!==null} onChange={async event=>{const input=event.currentTarget,file=input.files?.[0];if(!file)return;setUploading(`${slide.slideId}:${key}`);setUploadError("");try{const created=await onUpload(file,slide.headline||label);const latest=latestSection.current;if(mounted.current&&latest.kind==="banner")onUpdate({...latest,slides:latest.slides.map(item=>item.slideId===slide.slideId?{...item,[key]:{kind:"media",mediaId:created.id}}:item)});}catch{if(mounted.current)setUploadError("Görsel yüklenemedi. Seçimleriniz korunuyor.");}finally{if(mounted.current)setUploading(null);input.value="";}}}/></span>:null}</label>;};
+   const imageField=(label:string,key:"desktopImage"|"mobileImage")=>{
+    const value=slide[key];const options:DesignImageOption[]=bannerMedia.map(item=>({...item,key:mediaKey(item.reference)}));
+    if(value?.kind==="legacy_https"&&!options.some(item=>item.key==="legacy"))options.push({key:"legacy",url:value.url,altText:slide.headline||label});
+    return <DesignImageField label={label} value={mediaKey(value)} options={options} disabled={disabled} frame={key==="mobileImage"?"portrait":"wide"} emptyLabel={key==="mobileImage"?"Masaüstü görselini kullan":undefined} onBusyChange={onMediaBusyChange} onPendingChange={onMediaBusyChange}
+     onChange={selected=>update({[key]:selected.startsWith("media:")?{kind:"media",mediaId:selected.slice(6)}:selected.startsWith("asset:")?{kind:"asset",assetId:selected.slice(6)}:selected==="legacy"?value:null})}
+     onUpload={onUpload?async file=>{const created=await onUpload(file,(slide.headline||label).trim().slice(0,500));return {...created,key:`media:${created.id}`};}:undefined}/>;
+   };
    const destination=slide.destination.kind==="none"?"":slide.destination.kind==="path"?"path":`${slide.destination.kind}:${slide.destination.resourceId}`;
-   return <fieldset key={slide.slideId}><legend>{index+1}. görsel</legend><div className={styles.homepageItemActions}><button type="button" disabled={disabled||index===0} aria-label={`Görsel ${index+1} yukarı taşı`} onClick={()=>move(-1)}><ChevronUp size={16}/></button><button type="button" disabled={disabled||index===section.slides.length-1} aria-label={`Görsel ${index+1} aşağı taşı`} onClick={()=>move(1)}><ChevronDown size={16}/></button><button type="button" disabled={disabled||section.slides.length===1} aria-label={`Görsel ${index+1} kaldır`} onClick={()=>onUpdate({...section,slides:section.slides.filter(item=>item.slideId!==slide.slideId)})}><Trash2 size={16}/></button></div>
+   return <fieldset key={slide.slideId}><legend>{index+1}. görsel</legend>{section.slides.length>1?<div className={styles.homepageItemActions}><button type="button" disabled={disabled||index===0} aria-label={`Görsel ${index+1} yukarı taşı`} onClick={()=>move(-1)}><ChevronUp size={16}/></button><button type="button" disabled={disabled||index===section.slides.length-1} aria-label={`Görsel ${index+1} aşağı taşı`} onClick={()=>move(1)}><ChevronDown size={16}/></button><button type="button" disabled={disabled||section.slides.length===1} aria-label={`Görsel ${index+1} kaldır`} onClick={()=>onUpdate({...section,slides:section.slides.filter(item=>item.slideId!==slide.slideId)})}><Trash2 size={16}/></button></div>:null}
     <label><input type="checkbox" disabled={disabled} checked={slide.enabled} onChange={event=>update({enabled:event.target.checked})}/>Görseli göster</label>
-    <label>Başlık<input maxLength={120} disabled={disabled} value={slide.headline} onChange={event=>update({headline:event.target.value})}/></label><label>Açıklama<textarea maxLength={500} disabled={disabled} value={slide.body} onChange={event=>update({body:event.target.value})}/></label>
-    {imageField("Masaüstü görseli","desktopImage")}{imageField("Mobil görseli","mobileImage")}
+    <div className={styles.imagePair}>{imageField("Masaüstü görseli","desktopImage")}{imageField("Mobil görseli","mobileImage")}</div>
+    <details className={styles.advancedDisclosure} open={section.presentation==="overlay"?true:undefined}><summary>Başlık ve açıklama</summary><div className={styles.inspectorFields}><label>Başlık<input maxLength={120} disabled={disabled} value={slide.headline} onChange={event=>update({headline:event.target.value})}/></label><label>Açıklama<textarea maxLength={500} disabled={disabled} value={slide.body} onChange={event=>update({body:event.target.value})}/></label></div></details>
     <label>Bağlantı<select disabled={disabled} value={destination} onChange={event=>{const item=destinations.find(item=>`${item.kind}:${item.resourceId}`===event.target.value);update({destination:event.target.value==="path"?{kind:"path",path:"/products"}:item?{kind:item.kind,resourceId:item.resourceId}:{kind:"none"}});}}><option value="">Bağlantı yok</option><option value="path">Mağaza içi adres</option>{destinations.map(item=><option key={`${item.kind}:${item.resourceId}`} value={`${item.kind}:${item.resourceId}`}>{item.label}</option>)}</select></label>
     {slide.destination.kind==="path"?<label>Mağaza içi adres<input disabled={disabled} value={slide.destination.path} maxLength={500} placeholder="/products" onChange={event=>update({destination:{kind:"path",path:event.target.value}})}/><small>/ ile başlayan mağaza içi adres kullanın.</small></label>:null}
    </fieldset>;
@@ -66,11 +70,10 @@ export function HomepageSectionFields({ section, assets, media = [], destination
    const category=categories.find(item=>item.resourceId===categoryId), selectedImage=section.categoryImages?.find(item=>item.categoryId===categoryId)?.assetId??"";
    const move=(direction:-1|1)=>{const ids=[...section.categoryIds];[ids[index],ids[index+direction]]=[ids[index+direction]!,ids[index]!];onUpdate({...section,categoryIds:ids});};
    return <fieldset key={categoryId}><legend>{index+1}. {category?.label??"Kategori bulunamadı"}</legend><div className={styles.homepageItemActions}><button type="button" disabled={disabled||index===0} aria-label={`${category?.label??"Kategori"} yukarı taşı`} onClick={()=>move(-1)}><ChevronUp size={16}/></button><button type="button" disabled={disabled||index===section.categoryIds.length-1} aria-label={`${category?.label??"Kategori"} aşağı taşı`} onClick={()=>move(1)}><ChevronDown size={16}/></button></div>
-   <label>Kart görseli<select disabled={disabled} value={selectedImage} onChange={event=>{const categoryImages=(section.categoryImages??[]).filter(item=>item.categoryId!==categoryId);if(event.target.value)categoryImages.push({categoryId,assetId:event.target.value});onUpdate({...section,categoryImages});}}><option value="">Görsel seçin</option>{assetOptions(categoryAssets,selectedImage)}</select></label>{selectedImage?null:<p className={styles.homepageHelp}>Uygulamadan önce bu kategoriye görsel seçin.</p>}
-   {categoryAssets.find(item=>item.id===selectedImage)?.url?<img className={styles.homepageAssetThumbnail} src={categoryAssets.find(item=>item.id===selectedImage)!.url} alt={categoryAssets.find(item=>item.id===selectedImage)!.altText}/>:null}
+   <DesignAssetField label="Kart görseli" value={selectedImage} assets={categoryAssets} kind="category" frame="portrait" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={category?.label||"Kategori görseli"} onChange={assetId=>{const latest=latestSection.current;if(latest.kind!=="category_grid")return;const categoryImages=(latest.categoryImages??[]).filter(item=>item.categoryId!==categoryId);if(assetId)categoryImages.push({categoryId,assetId});onUpdate({...latest,categoryImages});}} />
+
    </fieldset>;
   })}
-  {!categoryAssets.length?<p className={styles.homepageHelp}>Kategori görseli yok. Ana sayfa görsel arşivinden yükleyin.</p>:null}
  </div>;
  if(section.kind==="product_row") return <div className={styles.homepageInspectorFields}>
   {heading}<label>Hangi ürünler?<select disabled={disabled} value={section.source} onChange={event=>{
@@ -84,23 +87,24 @@ export function HomepageSectionFields({ section, assets, media = [], destination
  </div>;
  if(section.kind==="split_campaign") {
   const updatePanel=(index:number,patch:Partial<StarterCampaignPanelConfig>,remove:readonly ("eyebrow"|"body")[]=[])=>{
-   const panels=Array.from({length:Math.max(section.panels.length,index+1)},(_,position)=>section.panels[position]??{heading:"",assetId:"",destination:""});
-   panels[index]={...panels[index]!,...patch};for(const key of remove)delete panels[index]![key];onUpdate({...section,panels});
+   const latest=latestSection.current;if(latest.kind!=="split_campaign")return;
+   const panels=Array.from({length:Math.max(latest.panels.length,index+1)},(_,position)=>latest.panels[position]??{heading:"",assetId:"",destination:""});
+   panels[index]={...panels[index]!,...patch};for(const key of remove)delete panels[index]![key];onUpdate({...latest,panels});
   };
   return <div className={styles.homepageInspectorFields}><p className={styles.homepageHelp}>İki karta başlık, görsel ve bağlantı seçin.</p>{[0,1].map(index=>{
    const panel=section.panels[index];return <fieldset key={index}><legend>{index+1}. kampanya</legend>
+    <DesignAssetField label="Görsel" value={panel?.assetId??""} assets={heroAssets} kind="hero" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={panel?.heading||"Kampanya görseli"} onChange={assetId=>updatePanel(index,{assetId})}/>{error(`panel${index}Asset`)}
     <label>Başlık<input maxLength={160} disabled={disabled} value={panel?.heading??""} aria-invalid={Boolean(errors[`panel${index}Heading`])} aria-describedby={errors[`panel${index}Heading`]?`homepage-error-panel${index}Heading`:undefined} onChange={event=>updatePanel(index,{heading:event.target.value})}/>{error(`panel${index}Heading`)}</label>
-    <label>Üst başlık<input maxLength={80} disabled={disabled} value={panel?.eyebrow??""} onChange={event=>updatePanel(index,event.target.value?{eyebrow:event.target.value}:{},event.target.value?[]:["eyebrow"])}/></label>
-    <label>Açıklama<textarea maxLength={500} disabled={disabled} value={panel?.body??""} onChange={event=>updatePanel(index,event.target.value?{body:event.target.value}:{},event.target.value?[]:["body"])}/></label>
-    <label>Görsel<select disabled={disabled} value={panel?.assetId??""} aria-invalid={Boolean(errors[`panel${index}Asset`])} aria-describedby={errors[`panel${index}Asset`]?`homepage-error-panel${index}Asset`:undefined} onChange={event=>updatePanel(index,{assetId:event.target.value})}><option value="">Görsel seçin</option>{assetOptions(heroAssets,panel?.assetId??"")}</select>{error(`panel${index}Asset`)}</label>
+    <details className={styles.advancedDisclosure}><summary>Metin ayrıntıları</summary><div className={styles.inspectorFields}><label>Üst başlık<input maxLength={80} disabled={disabled} value={panel?.eyebrow??""} onChange={event=>updatePanel(index,event.target.value?{eyebrow:event.target.value}:{},event.target.value?[]:["eyebrow"])}/></label>
+    <label>Açıklama<textarea maxLength={500} disabled={disabled} value={panel?.body??""} onChange={event=>updatePanel(index,event.target.value?{body:event.target.value}:{},event.target.value?[]:["body"])}/></label></div></details>
     <label>Bağlantı<select disabled={disabled} value={panel?.destination??""} aria-invalid={Boolean(errors[`panel${index}Destination`])} aria-describedby={errors[`panel${index}Destination`]?`homepage-error-panel${index}Destination`:undefined} onChange={event=>updatePanel(index,{destination:event.target.value})}><option value="">Bağlantı seçin</option>{panel?.destination&&!paths.some(item=>item.path===panel.destination)?<option value={panel.destination}>{panel.destination}</option>:null}{paths.map(item=><option key={item.path} value={item.path}>{item.label}</option>)}</select>{error(`panel${index}Destination`)}</label>
    </fieldset>;
-  })}{!heroAssets.length?<p className={styles.homepageHelp}>Kampanya görseli yok. Ana sayfa görsel arşivinden banner yükleyin.</p>:null}</div>;
+  })}</div>;
  }
  if(section.kind==="brand_story") return <div className={styles.homepageInspectorFields}>
   <label>Küçük başlık<input maxLength={80} disabled={disabled} value={section.eyebrow??""} onChange={event=>{const next={...section};if(event.target.value)next.eyebrow=event.target.value;else delete next.eyebrow;onUpdate(next);}}/></label>{heading}
   <label>Hikâye<textarea maxLength={1000} disabled={disabled} value={section.body} aria-invalid={Boolean(errors.body)} aria-describedby={errors.body?"homepage-error-body":undefined} onChange={event=>onUpdate({...section,body:event.target.value})}/>{error("body")}</label>
-  <label>Görsel<select disabled={disabled} value={section.assetId??""} onChange={event=>{const next={...section};if(event.target.value)next.assetId=event.target.value;else delete next.assetId;onUpdate(next);}}><option value="">Görselsiz</option>{assetOptions(heroAssets,section.assetId??"")}</select></label>
+  <DesignAssetField label="Görsel" value={section.assetId??""} assets={heroAssets} kind="hero" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={section.heading||"Marka hikâyesi"} onChange={assetId=>{const latest=latestSection.current;if(latest.kind!=="brand_story")return;const next={...latest};if(assetId)next.assetId=assetId;else delete next.assetId;onUpdate(next);}}/>
   <label>Bağlantı<select disabled={disabled} value={section.destination??""} onChange={event=>{const next={...section};if(event.target.value)next.destination=event.target.value;else delete next.destination;onUpdate(next);}}><option value="">Bağlantı yok</option>{section.destination&&!paths.some(item=>item.path===section.destination)?<option value={section.destination}>{section.destination}</option>:null}{paths.map(item=><option key={item.path} value={item.path}>{item.label}</option>)}</select></label>
  </div>;
  if(section.kind==="value_propositions") return <div className={styles.homepageInspectorFields}>{section.items.map((item,index)=><fieldset key={index}><legend>{index+1}. değer</legend><button className={styles.homepageInlineButton} type="button" disabled={disabled||section.items.length<=2} onClick={()=>onUpdate({...section,items:section.items.filter((_,position)=>position!==index)})}><Trash2 size={16}/>Değeri kaldır</button>

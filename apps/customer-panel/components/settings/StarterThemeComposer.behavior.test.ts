@@ -8,6 +8,8 @@ import {
   type StarterFooterConfig,
   type StarterThemeComposition,
   type StarterThemeCompositionConfigV3,
+  type CatalogCategory,
+  type StorefrontDesignDestinationOption,
 } from "@celebix/saas-contracts";
 import { Window } from "happy-dom";
 import React, { type ReactNode } from "react";
@@ -16,6 +18,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
 import * as composerModel from "../../lib/starter-theme-composer-model.ts";
+import { compile, withEditor } from "./design/design-editor-test-utils.ts";
 
 const require = createRequire(import.meta.url);
 const styles = new Proxy({}, { get: (_target, key) => String(key) });
@@ -65,13 +68,15 @@ type ComposerProps = Readonly<{
   activePanel: "visual" | "navigation" | "home" | "product" | "cart" | "footer";
   canManage: boolean;
   showPreview?: boolean;
+  showAnnouncement?: boolean;
+  destinations?: readonly StorefrontDesignDestinationOption[];
   value: StarterThemeComposition;
   onChange: (value: StarterThemeComposition) => void;
 }>;
 
 type ComposerModule = Readonly<{ StarterThemeComposer: (props: ComposerProps) => ReactNode }>;
 
-function compileComposer(categories: readonly unknown[] = []): ComposerModule {
+function compileComposer(categories: readonly unknown[] = [], resourceReads?: { products: number }): ComposerModule {
   const filename = new URL("./StarterThemeComposer.tsx", import.meta.url);
   const output = ts.transpileModule(readFileSync(filename, "utf8"), {
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -90,8 +95,9 @@ function compileComposer(categories: readonly unknown[] = []): ComposerModule {
       return navigationModule.exports;
     }
     if (id === "@/components/settings/StarterRetailSectionEditors") return { StarterRetailSectionEditor: () => null };
+    if (id === "./design/DesignAssetField") return { DesignAssetField: ({ label, value, assets, disabled, onChange }: { label: string; value: string; assets: readonly { id: string; altText: string }[]; disabled: boolean; onChange(value: string): void }) => React.createElement("label", null, label, React.createElement("select", { value, disabled, onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.currentTarget.value) }, React.createElement("option", { value: "" }, "Görsel yok"), ...assets.map((asset) => React.createElement("option", { key: asset.id, value: asset.id }, asset.altText)))) };
     if (id === "@/lib/catalog-onboarding-ui/client") return { catalogOnboardingClient: { listCategories: async () => categories } };
-    if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => ({ items: [] }) } };
+    if (id === "@/lib/catalog-ui/client") return { catalogApi: { listProducts: async () => { if (resourceReads) resourceReads.products += 1; return { items: [] }; } } };
     if (id === "@/lib/merchant-admin-ui/client") return { merchantAdminApi: { records: async () => [] } };
     if (id === "@/lib/starter-theme-composer-model") return composerModel;
     return require(id);
@@ -126,7 +132,7 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
   try {
     const panelMarkers = Object.freeze({
       visual: Object.freeze({ selector: "legend", text: "Görsel sistem" }),
-      navigation: Object.freeze({ selector: "legend", text: "Duyuru ve navigasyon" }),
+      navigation: Object.freeze({ selector: "legend", text: "Üst alan ve menü" }),
       home: Object.freeze({ selector: "#starter-sections-title", text: "Ana sayfa bölümleri" }),
       product: Object.freeze({ selector: "legend", text: "Ürün detayı" }),
       cart: Object.freeze({ selector: "legend", text: "Sepet deneyimi" }),
@@ -159,7 +165,7 @@ test("valid V3 opens every composer panel and one edit preserves the full compos
     });
     await settle();
     const widthSelect = Array.from(container.querySelectorAll("label"))
-      .find((label) => label.textContent?.includes("Header genişliği"))
+      .find((label) => label.firstChild?.textContent === "Genişlik")
       ?.querySelector("select");
     assert.ok(widthSelect);
     widthSelect.value = "contained";
@@ -360,32 +366,136 @@ test("featured navigation pairs allow either selection order, atomic clearing an
   }
   try {
     await React.act(async () => render()); await settle();
-    await choose("Öne çıkan kategori", CATEGORY);
-    assert.equal(changes.length, 0); assert.equal(select("Öne çıkan kategori").value, CATEGORY);
-    assert.match(container.textContent ?? "", /İki seçim tamamlandığında/);
-    await choose("Öne çıkan görsel", ASSET);
+    await choose("Kategori", CATEGORY);
+    assert.equal(changes.length, 0); assert.equal(select("Kategori").value, CATEGORY);
+    assert.match(container.textContent ?? "", /İkisi tamamlandığında/);
+    await choose("Görsel", ASSET);
     assert.deepEqual(current.navigation, { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET });
-    await choose("Öne çıkan kategori", "");
+    await choose("Kategori", "");
     assert.deepEqual(current.navigation, { rootCategoryIds: [CATEGORY] });
-    assert.equal(select("Öne çıkan görsel").value, ASSET);
+    assert.equal(select("Görsel").value, ASSET);
     await React.act(async () => render({ ...initial, navigation: { rootCategoryIds: [CATEGORY] } })); await settle();
-    assert.equal(select("Öne çıkan görsel").value, "");
+    assert.equal(select("Görsel").value, "");
     changes.length = 0;
-    await choose("Öne çıkan görsel", ASSET);
-    assert.equal(changes.length, 0); assert.equal(select("Öne çıkan görsel").value, ASSET);
-    const removeRoot = container.querySelector('button[aria-label="Menüden kaldır"]'); assert.ok(removeRoot);
+    await choose("Görsel", ASSET);
+    assert.equal(changes.length, 0); assert.equal(select("Görsel").value, ASSET);
+    const removeRoot = container.querySelector('button[aria-label="Kolyeler bağlantısını menüden kaldır"]'); assert.ok(removeRoot);
     await React.act(async () => removeRoot.dispatchEvent(new window.Event("click", { bubbles: true }))); await settle();
-    assert.equal(select("Öne çıkan görsel").value, ASSET, "valid root changes preserve an intentional incomplete pair");
-    await choose("Öne çıkan kategori", CATEGORY);
+    assert.equal(select("Görsel").value, ASSET, "valid root changes preserve an intentional incomplete pair");
+    await choose("Kategori", CATEGORY);
     assert.equal(current.navigation.featuredCategoryId, CATEGORY); assert.equal(current.navigation.featuredAssetId, ASSET);
-    await choose("Öne çıkan görsel", "");
+    await choose("Görsel", "");
     assert.equal(current.navigation.featuredCategoryId, undefined); assert.equal(current.navigation.featuredAssetId, undefined);
-    assert.equal(select("Öne çıkan kategori").value, CATEGORY);
+    assert.equal(select("Kategori").value, CATEGORY);
     assert.doesNotMatch(container.textContent ?? "", /Tema alanı geçersiz/);
     await React.act(async () => render({ ...initial, navigation: { rootCategoryIds: [CATEGORY], featuredCategoryId: CATEGORY, featuredAssetId: ASSET } })); await settle();
-    assert.equal(select("Öne çıkan kategori").value, CATEGORY); assert.equal(select("Öne çıkan görsel").value, ASSET);
+    assert.equal(select("Kategori").value, CATEGORY); assert.equal(select("Görsel").value, ASSET);
   } finally {
     await React.act(async () => root.unmount()); await window.happyDOM.close();
     globalThis.window = previous.window; globalThis.document = previous.document; globalThis.fetch = previous.fetch;
   }
 });
+
+test("embedded navigation can hide its simple announcement and skips unrelated product reads", async () => withEditor(async ({ container, render }) => {
+  const previousFetch = globalThis.fetch;
+  let assetsReads = 0;
+  globalThis.fetch = async () => { assetsReads += 1; return Response.json({ assets: [] }); };
+  const reads = { products: 0 };
+  const { StarterThemeComposer } = compileComposer([], reads);
+  const changes: StarterThemeComposition[] = [];
+  try {
+    const props = { canManage: true, showPreview: false, showAnnouncement: false, value: V3_FIXTURE, onChange: (next: StarterThemeComposition) => changes.push(next) };
+    await render(React.createElement(StarterThemeComposer, { ...props, activePanel: "navigation" }));
+    await settle();
+    assert.equal(reads.products, 0);
+    assert.equal(assetsReads, 1);
+    assert.equal(container.querySelector('section[aria-label="Duyuru"]'), null);
+    assert.match(container.textContent ?? "", /Üst alan/);
+    await render(React.createElement(StarterThemeComposer, { ...props, activePanel: "visual" }));
+    await settle();
+    assert.equal(reads.products, 0);
+    assert.equal(assetsReads, 1);
+    await render(React.createElement(StarterThemeComposer, { ...props, activePanel: "home" }));
+    await settle();
+    assert.equal(reads.products, 1);
+    assert.equal(changes.length, 0);
+  } finally { globalThis.fetch = previousFetch; }
+}));
+
+test("failed navigation resources offer retry while retaining the controlled draft", async () => withEditor(async ({ container, render, click }) => {
+  const previousFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts += 1;
+    return attempts === 1 ? new Response(null, { status: 503 }) : Response.json({ assets: [] });
+  };
+  const { StarterThemeComposer } = compileComposer();
+  const changes: StarterThemeComposition[] = [];
+  try {
+    await render(React.createElement(StarterThemeComposer, { activePanel: "navigation", canManage: true, showPreview: false, value: V3_FIXTURE, onChange: (next) => changes.push(next) }));
+    await settle();
+    assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Taslağınız korundu/);
+    const retry = [...container.querySelectorAll("button")].find((button) => button.textContent === "Yeniden dene");
+    assert.ok(retry);
+    await click(retry);
+    await settle();
+    assert.equal(attempts, 2);
+    assert.equal(container.querySelector('[role="alert"]'), null);
+    const width = [...container.querySelectorAll("label")].find((label) => label.firstChild?.textContent === "Genişlik")?.querySelector("select");
+    assert.equal(width?.value, V3_FIXTURE.visual.headerWidth);
+    assert.equal(changes.length, 0);
+  } finally { globalThis.fetch = previousFetch; }
+}));
+
+test("mixed menu links add, remove and reorder by drag and keyboard without losing featured fields", async () => withEditor(async ({ window, container, render, click, change }) => {
+  type Navigation = StarterThemeCompositionConfigV3["navigation"];
+  const { CollectionNavigationEditor } = compile<{ CollectionNavigationEditor(props: { navigation: Navigation; categories: readonly CatalogCategory[]; destinations: readonly StorefrontDesignDestinationOption[]; disabled: boolean; onChange(value: Navigation): void }): ReactNode }>(new URL("./CollectionNavigationEditor.tsx", import.meta.url));
+  const secondCategory = "50000000-0000-4000-8000-000000000002";
+  const collectionId = "50000000-0000-4000-8000-000000000003";
+  const categories: readonly CatalogCategory[] = [
+    { id: CATEGORY, name: "Kolyeler", slug: "kolyeler", position: 0, depth: 1, status: "active", version: 1, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" },
+    { id: secondCategory, name: "Bileklikler", slug: "bileklikler", position: 1, depth: 1, status: "active", version: 1, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" },
+  ];
+  const destinations: readonly StorefrontDesignDestinationOption[] = [{ kind: "catalog_collection", resourceId: collectionId, label: "Yeni sezon", path: "/collections/yeni-sezon" }];
+  let navigation: Navigation = { rootCategoryIds: [CATEGORY, secondCategory], rootLinks: [{ kind: "category", resourceId: CATEGORY }, { kind: "category", resourceId: secondCategory }], featuredCategoryId: CATEGORY, featuredAssetId: ASSET };
+  let disabled = false;
+  const changes: Navigation[] = [];
+  const draw = () => React.createElement(CollectionNavigationEditor, { navigation, categories, destinations, disabled, onChange: (next: Navigation) => { navigation = next; changes.push(next); } });
+  const refresh = async () => render(draw());
+  await refresh();
+  const addSelect = container.querySelector("select"); assert.ok(addSelect);
+  await change(addSelect, `catalog_collection:${collectionId}`);
+  const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Ekle")); assert.ok(add);
+  await click(add); await refresh();
+  assert.equal(navigation.rootLinks?.length, 3);
+  assert.deepEqual(navigation.rootCategoryIds, [CATEGORY, secondCategory]);
+  assert.equal(container.querySelector('[role="status"]')?.textContent, "3 / 8");
+
+  const drag = container.querySelector('button[aria-label="Kolyeler bağlantısını sürükleyerek sırala"]'); assert.ok(drag);
+  const transfer = { effectAllowed: "", dropEffect: "", setData: (_format: string, _value: string) => undefined };
+  const dragEvent = (type: string) => { const event = new window.Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: transfer }); return event; };
+  await React.act(async () => drag.dispatchEvent(dragEvent("dragstart") as unknown as Event));
+  const lastRow = container.querySelector("li:last-child"); assert.ok(lastRow);
+  await React.act(async () => lastRow.dispatchEvent(dragEvent("dragover") as unknown as Event));
+  await React.act(async () => lastRow.dispatchEvent(dragEvent("drop") as unknown as Event));
+  await refresh();
+  assert.deepEqual(navigation.rootLinks?.map((link) => link.resourceId), [secondCategory, collectionId, CATEGORY]);
+  assert.deepEqual(navigation.rootCategoryIds, [secondCategory, CATEGORY]);
+
+  const up = container.querySelector('button[aria-label="Kolyeler bağlantısını yukarı taşı"]'); assert.ok(up);
+  await click(up); await refresh();
+  assert.deepEqual(navigation.rootLinks?.map((link) => link.resourceId), [secondCategory, CATEGORY, collectionId]);
+  const grip = container.querySelector('button[aria-label="Kolyeler bağlantısını sürükleyerek sırala"]'); assert.ok(grip);
+  await React.act(async () => grip.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }) as unknown as Event));
+  await refresh();
+  assert.deepEqual(navigation.rootLinks?.map((link) => link.resourceId), [CATEGORY, secondCategory, collectionId]);
+  assert.equal(navigation.featuredCategoryId, CATEGORY);
+  assert.equal(navigation.featuredAssetId, ASSET);
+
+  const remove = container.querySelector('button[aria-label="Yeni sezon bağlantısını menüden kaldır"]'); assert.ok(remove);
+  await click(remove); await refresh();
+  assert.equal(navigation.rootLinks?.length, 2);
+  disabled = true; await refresh();
+  assert.ok([...container.querySelectorAll("button, select")].every((control) => (control as HTMLButtonElement | HTMLSelectElement).disabled));
+  assert.equal(changes.length, 5);
+}));

@@ -5,6 +5,7 @@ import type {
   StorefrontDesignAssetOption,
   StorefrontDesignDocument,
   StorefrontDesignMediaOption,
+  StorefrontAsset,
 } from "@celebix/saas-contracts";
 import { Component, type ReactNode } from "react";
 
@@ -53,6 +54,9 @@ interface DesignStepEditorProps {
   readonly canManage: boolean;
   readonly previewMode: "desktop" | "mobile";
   readonly onChange: (design: StorefrontDesignDocument) => void;
+  readonly surface?: "announcement" | "navigation" | string;
+  readonly onMediaBusyChange?: (id: string, busy: boolean) => void;
+  readonly onAssetUploaded?: (asset: StorefrontAsset) => void;
   readonly onUpload: (file: File, altText: string) => Promise<StorefrontDesignMediaOption>;
 }
 
@@ -69,6 +73,9 @@ export function DesignStepEditor({
   previewMode,
   onChange,
   onUpload,
+  surface,
+  onMediaBusyChange,
+  onAssetUploaded,
 }: Readonly<DesignStepEditorProps>) {
   const inspector = (section: "brand" | "colors" | "typography" | "hero" | "promotion" | "announcement") => <DesignInspector
     section={section}
@@ -80,6 +87,7 @@ export function DesignStepEditor({
     canManage={canManage}
     onChange={onChange}
     onUpload={onUpload}
+    onMediaBusyChange={onMediaBusyChange}
   />;
   const composer = (activePanel: "visual" | "navigation" | "product" | "cart" | "footer") => <ThemeEditorErrorBoundary resetKey={design.composition}>
     <StarterThemeComposer
@@ -88,18 +96,21 @@ export function DesignStepEditor({
       showPreview={false}
       value={{...design.composition,schemaVersion:3,sections:[]}}
       destinations={destinations}
+      showAnnouncement={activePanel !== "navigation"}
+      onMediaBusyChange={onMediaBusyChange}
+      onAssetUploaded={onAssetUploaded}
       onChange={(value) => onChange(synchronizeCompositionAnnouncement(design, value))}
     />
   </ThemeEditorErrorBoundary>;
 
   if (step === "brand") return <div className={styles.editorStack}>
     <section className={styles.editorGroup} aria-labelledby="design-brand-heading">
-      <header><h3 id="design-brand-heading">Logo ve simge</h3></header>
+      <header className={styles.srOnly}><h3 id="design-brand-heading">Logo ve simge</h3></header>
       {inspector("brand")}
     </section>
     <details className={styles.advancedDisclosure}>
       <summary>Logo ve paylaşım arşivi</summary>
-      <StorefrontAssetManager allowedKinds={BRAND_ASSET_KINDS} canManage={canManage} title="Marka görselleri" description="Logo, site simgesi ve sosyal paylaşım görsellerinizi burada saklayın." />
+      <StorefrontAssetManager onAssetsChange={onAssetsChange} allowedKinds={BRAND_ASSET_KINDS} canManage={canManage} title="Marka görselleri" description="Logo, site simgesi ve sosyal paylaşım görsellerinizi burada saklayın." />
     </details>
   </div>;
 
@@ -110,8 +121,7 @@ export function DesignStepEditor({
   </div>;
 
   if (step === "navigation") return <div className={styles.editorStack}>
-    {composer("navigation")}
-    <details className={styles.advancedDisclosure}><summary>Gelişmiş duyuru ayarları</summary>{inspector("announcement")}</details>
+    {surface === "announcement" ? inspector("announcement") : <>{composer("navigation")}{surface !== "navigation" ? <details className={styles.advancedDisclosure}><summary>Duyuru şeridi</summary>{inspector("announcement")}</details> : null}</>}
   </div>;
 
   if (step === "product") return composer("product");

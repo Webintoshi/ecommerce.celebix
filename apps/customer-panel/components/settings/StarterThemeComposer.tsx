@@ -37,6 +37,7 @@ import {
   type StarterThemeEditorState,
 } from "@/lib/starter-theme-composer-model";
 import { type ThemePanelKey } from "./starter-theme-subnavigation-model";
+import { DesignAssetField } from "./design/DesignAssetField";
 import styles from "./starter-theme-composer.module.css";
 
 type SectionKind = StarterThemeSectionConfigV2["kind"];
@@ -156,16 +157,22 @@ export function StarterThemeComposer({
   activePanel,
   canManage,
   showPreview = true,
+  showAnnouncement = true,
   value,
   onChange,
   destinations = [],
+  onAssetUploaded,
+  onMediaBusyChange,
 }: Readonly<{
   activePanel: ThemePanelKey;
   canManage: boolean;
   showPreview?: boolean;
+  showAnnouncement?: boolean;
   value: StarterThemeComposition;
   onChange: (value: StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3) => void;
   destinations?: readonly StorefrontDesignDestinationOption[];
+  onAssetUploaded?: (asset: StorefrontAsset) => void;
+  onMediaBusyChange?: (id: string, busy: boolean) => void;
 }>) {
   const [categories, setCategories] = useState<readonly CatalogCategory[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
@@ -173,6 +180,8 @@ export function StarterThemeComposer({
   const [pages, setPages] = useState<readonly MerchantAdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resourceError, setResourceError] = useState("");
+  const resourceRequest = useRef(0);
   const [announcementText, setAnnouncementText] = useState<string|null>(null);
   const [announcementError, setAnnouncementError] = useState("");
   const lastAnnouncementWrite = useRef<string|null>(null);
@@ -190,26 +199,39 @@ export function StarterThemeComposer({
     if (lastAnnouncementWrite.current !== announcementIdentity) { setAnnouncementText(null); setAnnouncementError(""); }
   }, [announcementIdentity]);
   const [newSection, setNewSection] = useState<EditableSectionKind>("product_row");
+  const needsCategories = activePanel === "navigation" || activePanel === "home";
+  const needsProducts = showPreview || activePanel === "home";
+  const needsAssets = showPreview || activePanel === "navigation" || activePanel === "home";
+  const needsPages = activePanel === "footer";
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    const request = ++resourceRequest.current;
+    setLoading(true); setResourceError("");
     try {
       const [loadedPages, loadedCategories, productPage, response] = await Promise.all([
-        merchantAdminApi.records("page"),
-        catalogOnboardingClient.listCategories(),
-        catalogApi.listProducts({ status: "active" }),
-        fetch("/api/storefront-assets", { credentials: "same-origin", cache: "no-store" }),
+        needsPages ? merchantAdminApi.records("page") : Promise.resolve(null),
+        needsCategories ? catalogOnboardingClient.listCategories() : Promise.resolve(null),
+        needsProducts ? catalogApi.listProducts({ status: "active" }) : Promise.resolve(null),
+        needsAssets ? fetch("/api/storefront-assets", { credentials: "same-origin", cache: "no-store" }) : Promise.resolve(null),
       ]);
-      if (!response.ok) throw new Error("asset_unavailable");
-      const body = await response.json() as { assets?: unknown };
-      if (!Array.isArray(body.assets) || body.assets.length > 64) throw new Error("asset_unavailable");
-      setPages(Object.freeze(loadedPages.filter((entry) => entry.status === "active" && entry.config.published === true)));
-      setCategories(Object.freeze(loadedCategories.filter((entry) => entry.status === "active")));
-      setProducts(Object.freeze(productPage.items.filter((entry) => entry.status === "active")));
-      setAssets(Object.freeze(body.assets.map(parseStorefrontAsset).filter((entry) => entry.status === "active")));
-    } catch { setError("Kampanya Starter düzenleyicisi şu anda yüklenemiyor."); }
-    finally { setLoading(false); }
-  }, []);
+      let loadedAssets: readonly StorefrontAsset[] | null = null;
+      if (response) {
+        if (!response.ok) throw new Error("asset_unavailable");
+        const body = await response.json() as { assets?: unknown };
+        if (!Array.isArray(body.assets) || body.assets.length > 64) throw new Error("asset_unavailable");
+        loadedAssets = Object.freeze(body.assets.map(parseStorefrontAsset).filter((entry) => entry.status === "active"));
+      }
+      if (request !== resourceRequest.current) return;
+      if (loadedPages) setPages(Object.freeze(loadedPages.filter((entry) => entry.status === "active" && entry.config.published === true)));
+      if (loadedCategories) setCategories(Object.freeze(loadedCategories.filter((entry) => entry.status === "active")));
+      if (productPage) setProducts(Object.freeze(productPage.items.filter((entry) => entry.status === "active")));
+      if (loadedAssets) setAssets(loadedAssets);
+    } catch {
+      if (request === resourceRequest.current) setResourceError("Kaynaklar yüklenemiyor. Taslağınız korundu.");
+    } finally {
+      if (request === resourceRequest.current) setLoading(false);
+    }
+  }, [needsAssets, needsCategories, needsPages, needsProducts]);
 
   const session = useMemo(() => {
     try { return openStarterThemeEditorSession(value); }
@@ -217,7 +239,10 @@ export function StarterThemeComposer({
   }, [value]);
   const canLoadResources = session !== null;
 
-  useEffect(() => { if (canLoadResources) void load(); }, [canLoadResources, load]);
+  useEffect(() => {
+    if (canLoadResources) void load();
+    return () => { resourceRequest.current += 1; };
+  }, [canLoadResources, load]);
 
   const preview = useMemo(() => {
     if (!session) return null;
@@ -274,6 +299,7 @@ export function StarterThemeComposer({
 
   return <section className={`${styles.shell} ${showPreview ? "" : styles.embeddedShell}`}>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
+    {resourceError ? <div className={styles.resourceError}><p className={styles.error} role="alert">{resourceError}</p><button type="button" onClick={() => void load()} disabled={loading}>Yeniden dene</button></div> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
     {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
       <div className={styles.editor}>
@@ -297,13 +323,17 @@ export function StarterThemeComposer({
           </div>
         </fieldset> : null}
         {activePanel === "navigation" ? <fieldset className={styles.panel} disabled={disabled}>
-          <legend>Duyuru ve navigasyon</legend>
-          <div className={styles.fieldGrid}>
-            <label>Header düzeni<select value={state.visual.headerLayout} onChange={(event) => patch({ visual: { ...state.visual, headerLayout: event.currentTarget.value as StarterThemeEditorState["visual"]["headerLayout"] } })}><option value="menu_logo_actions">Menü solda · logo ortada</option><option value="logo_menu_actions">Logo solda · menü yanında</option><option value="stacked">Logo üstte · menü altta</option></select></label>
-            <label>Header zemini<select value={state.visual.headerStyle} onChange={(event) => patch({ visual: { ...state.visual, headerStyle: event.currentTarget.value as StarterThemeEditorState["visual"]["headerStyle"] } })}><option value="overlay">Görsel üzerinde</option><option value="solid">Düz zemin</option></select></label>
-            <label>Header genişliği<select value={state.visual.headerWidth} onChange={(event) => patch({ visual: { ...state.visual, headerWidth: event.currentTarget.value as StarterThemeEditorState["visual"]["headerWidth"] } })}><option value="wide">Geniş</option><option value="contained">Sınırlı</option></select></label>
-          </div>
-          <label className={styles.check}><input type="checkbox" checked={state.announcement.enabled} onChange={(event) => patch({ announcement: { ...state.announcement, enabled: event.currentTarget.checked } })} /> Duyuru şeridini göster</label>
+          <legend>Üst alan ve menü</legend>
+          <section className={styles.navigationGroup} aria-label="Üst alan">
+            <h3 className={styles.groupTitle}>Üst alan</h3>
+            <div className={styles.fieldGrid}>
+              <label>Yerleşim<select value={state.visual.headerLayout} onChange={(event) => patch({ visual: { ...state.visual, headerLayout: event.currentTarget.value as StarterThemeEditorState["visual"]["headerLayout"] } })}><option value="menu_logo_actions">Menü solda · logo ortada</option><option value="logo_menu_actions">Logo solda · menü yanında</option><option value="stacked">Logo üstte · menü altta</option></select></label>
+              <label>Zemin<select value={state.visual.headerStyle} onChange={(event) => patch({ visual: { ...state.visual, headerStyle: event.currentTarget.value as StarterThemeEditorState["visual"]["headerStyle"] } })}><option value="overlay">Görsel üzerinde</option><option value="solid">Düz zemin</option></select>{state.visual.headerStyle === "overlay" ? <small className={styles.fieldHelp}>İlk bannerın üzerinde görünür.</small> : null}</label>
+              <label>Genişlik<select value={state.visual.headerWidth} onChange={(event) => patch({ visual: { ...state.visual, headerWidth: event.currentTarget.value as StarterThemeEditorState["visual"]["headerWidth"] } })}><option value="wide">Geniş</option><option value="contained">Sınırlı</option></select></label>
+            </div>
+          </section>
+          {showAnnouncement ? <section className={styles.navigationGroup} aria-label="Duyuru">
+          <label className={styles.check}><input type="checkbox" checked={state.announcement.enabled} onChange={(event) => patch({ announcement: { ...state.announcement, enabled: event.currentTarget.checked } })} /> Duyuruyu göster</label>
           <label>Duyuru metni<textarea maxLength={1452} value={announcementText ?? state.announcement.items.join("\n")} aria-invalid={Boolean(announcementError)} aria-describedby={announcementError ? "starter-announcement-error" : undefined} onChange={(event) => {
             setAnnouncementText(event.currentTarget.value);
             const items=event.currentTarget.value.split(/\n|·/).map(item=>item.trim()).filter(Boolean);
@@ -311,12 +341,26 @@ export function StarterThemeComposer({
             lastAnnouncementWrite.current=JSON.stringify(items);setAnnouncementError("");patch({announcement:{...state.announcement,items:Object.freeze(items)}});
           }} />{announcementError?<small id="starter-announcement-error" className={styles.error} role="alert">{announcementError}</small>:null}</label>
           <label>Duyuru hedefi<input maxLength={500} placeholder="/pages/odeme-teslimat" value={state.announcement.destination ?? ""} onChange={(event) => { const announcement = { ...state.announcement }; if (event.currentTarget.value) announcement.destination = event.currentTarget.value; else delete announcement.destination; patch({ announcement }); }} /></label>
+          </section> : null}
           <CollectionNavigationEditor navigation={state.navigation} categories={categories} destinations={destinations} disabled={disabled} onChange={navigation => patch({ navigation })} />
-          <div className={styles.fieldGrid}>
-            <label>Öne çıkan kategori<select value={featuredPair.categoryId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("categoryId", event.currentTarget.value)}><option value="">Öne çıkan kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <label>Öne çıkan görsel<select value={featuredPair.assetId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("assetId", event.currentTarget.value)}><option value="">Öne çıkan görsel yok</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.altText}</option>)}</select></label>
-          </div>
-          {featuredIncomplete ? <p id="starter-featured-selection-help" className={styles.fieldHelp} role="status">Öne çıkan alan için kategori ve görsel seçin. İki seçim tamamlandığında taslağa kaydedilir.</p> : null}
+          <section className={styles.navigationGroup} aria-label="Öne çıkan kategori">
+            <h3 className={styles.groupTitle}>Öne çıkan kategori</h3>
+            <label>Kategori<select value={featuredPair.categoryId} aria-describedby={featuredIncomplete ? "starter-featured-selection-help" : undefined} onChange={(event) => chooseFeatured("categoryId", event.currentTarget.value)}><option value="">Kategori yok</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <DesignAssetField
+              label="Görsel"
+              value={featuredPair.assetId}
+              assets={assets.map((asset) => ({ id: asset.id, url: asset.publicUrl, altText: asset.altText, width: asset.width, height: asset.height }))}
+              kind="category"
+              disabled={disabled}
+              onChange={(assetId) => chooseFeatured("assetId", assetId)}
+              onUploaded={(asset) => {
+                setAssets((current) => Object.freeze([...current.filter((entry) => entry.id !== asset.id), asset]));
+                onAssetUploaded?.(asset);
+              }}
+              onBusyChange={onMediaBusyChange}
+            />
+            {featuredIncomplete ? <p id="starter-featured-selection-help" className={styles.fieldHelp} role="status">Kategori ve görsel seçin. İkisi tamamlandığında kaydedilir.</p> : null}
+          </section>
         </fieldset> : null}
         {activePanel === "home" ? <section className={styles.sectionList} aria-labelledby="starter-sections-title">
           <div className={styles.sectionHeading}><div><h2 id="starter-sections-title">Ana sayfa bölümleri</h2><p>Sıralama için sürükleme gerekmez; yukarı ve aşağı kontrolleri klavyeyle çalışır.</p></div></div>

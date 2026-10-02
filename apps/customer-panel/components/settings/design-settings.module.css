@@ -549,6 +549,39 @@
 .homepageInspectorFields label { min-width: 0; }
 .homepageInspectorFields input:not([type="checkbox"]), .homepageInspectorFields textarea, .homepageInspectorFields select { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
 .homepageInspectorFields input[type="checkbox"] { width: 20px; height: 20px; }
+
+/* Focused editors: one task, visible images, compact controls. */
+.settingsModal { --settings-brand: var(--cp-brand); --settings-canvas: var(--cp-canvas); --settings-surface: var(--cp-surface); --settings-border: var(--cp-border); color: var(--cp-text-primary); background: var(--cp-canvas); border-radius: 12px; box-shadow: none; }
+.modalBackdrop { backdrop-filter: none; background: color-mix(in srgb, var(--cp-graphite) 36%, transparent); }
+.modalHeader, .modalFooter { background: var(--cp-canvas); }
+.modalHeader { align-items: center; padding: 16px 24px; }
+.modalHeader h2 { font-size: 18px; font-weight: 600; }
+.modalHeader > button { width: 44px; height: 44px; flex-basis: 44px; border: 0; border-radius: 8px; background: transparent; }
+.modalBody { padding: 20px 24px; }
+.modalBody :is(input, select, textarea, button) { font-family: inherit; }
+.modalBody :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) { font-size: 14px; font-weight: 400; }
+.modalBody :is(.field > label, .homepageInspectorFields > label, .homepageInspectorFields fieldset > label) { font-size: 14px; font-weight: 500; }
+.modalBody :is(button, summary):focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 2px; }
+.modalBody .homepageInspectorFields { padding: 0; overflow: visible; gap: 20px; }
+.modalBody .homepageInspectorFields fieldset { min-width: 0; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; padding: 0 0 20px; gap: 16px; }
+.modalBody .homepageInspectorFields legend { padding: 0 0 12px; font-size: 14px; font-weight: 600; }
+.homepageItemActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+.modalBody .homepageItemActions button { width: 44px; min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--cp-text-primary); }
+.modalBody .homepageItemActions button:hover:not(:disabled) { background: var(--cp-surface); }
+.modalBody .homepageInspectorFields input[type="checkbox"] { accent-color: var(--cp-graphite); }
+.modalBody .homepageInspectorFields label:has(> input[type="checkbox"]) { display: flex; align-items: center; min-height: 44px; gap: 12px; }
+.imagePair, .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.imagePair [data-image-dropzone] { min-height: 132px; }
+.modalBody .advancedDisclosure { min-width: 0; margin: 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 0; background: transparent; }
+.modalBody .advancedDisclosure > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; font-size: 14px; font-weight: 500; }
+.modalBody .advancedDisclosure > summary::before { content: "+"; width: 16px; font-size: 18px; }
+.modalBody .advancedDisclosure[open] > summary::before { content: "−"; }
+.modalBody .advancedDisclosure > div { padding: 12px 0; }
+.modalBody .inspectorFields { gap: 20px; }
+.modalBody .toggle { min-height: 44px; }
+.modalBody .toggle strong { font-size: 14px; font-weight: 500; }
+.modalFooter .cancelButton { border: 0; background: transparent; }
+
 @media (max-width: 640px) {
  .settingsModal { inset: 0; width: 100%; height: 100dvh; max-height: none; border-radius: 0; transform: none; }
  .modalHeader, .modalBody { padding: 16px; }
@@ -560,4 +593,6 @@
  .topbarActions { width: 100%; gap: 8px; flex-wrap: wrap; }
  .previewSwitch button { min-width: 44px; padding: 8px; }
  .canvasInsertGap { padding-inline: 8px; }
+ .imagePair, .formGrid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+ .modalBody :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) { font-size: 16px; }
 }

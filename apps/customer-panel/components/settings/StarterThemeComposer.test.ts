@@ -18,7 +18,8 @@ test("composer preserves disabled role authority", async () => { const value = a
 test("composer delegates draft autosave and publishing to its parent workspace", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.doesNotMatch(value, /Taslak kaydet|>Yayınla<\/button>|expectedVersion:\s*current[.]version/);
-  assert.match(value, /onChange\(buildStarterThemeComposition/);
+  assert.match(value, /const next = buildStarterThemeCompositionFromSession\(editorSession, patchValue\)/);
+  assert.match(value, /onChange\(next\)/);
 });
 test("section order and removal work without drag and retain accessible labels", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /moveStarterSection/); assert.match(value, /removeStarterSection/); assert.match(value, /yukarı taşı/); assert.match(value, /aşağı taşı/); assert.match(value, /bölümünü kaldır/); assert.doesNotMatch(value, /sections[.]length\s*===\s*1/); assert.match(value, /Ana sayfanız şu anda boş/); });
 test("composer provides bounded visual product detail and cart controls", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Renk paleti", "Başlık stili", "Ürün detayı", "Sepet deneyimi"]) assert.match(value, new RegExp(token)); });
@@ -42,7 +43,8 @@ test("composer exposes accessible bounded editors for every hero slide and split
 });
 test("composer preserves featured navigation authority and disables unavailable shipping threshold control", async () => {
   const value = await source("StarterThemeComposer.tsx");
-  assert.match(value, /updateStarterNavigationRoots/);
+  assert.match(value, /<CollectionNavigationEditor navigation=\{state[.]navigation\}/);
+  assert.match(value, /featuredPair[.]categoryId && featuredPair[.]assetId|pair[.]categoryId && pair[.]assetId/);
   assert.match(value, /Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli/);
   assert.match(value, /aria-describedby="shipping-progress-authority"/);
   assert.match(value, /checked=\{false\}/);

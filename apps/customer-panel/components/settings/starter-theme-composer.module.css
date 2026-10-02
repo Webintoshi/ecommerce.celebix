@@ -596,28 +596,53 @@
 }
 
 /* Compact fields inside the shared design workspace. */
-.embeddedShell { min-width: 0; padding: 0; color: var(--settings-text, #2B2B2B); background: transparent; }
+.embeddedShell { min-width: 0; padding: 0; color: var(--cp-text-primary); background: transparent; }
 .embeddedShell .notice { display: none; }
 .embeddedShell .editor, .embeddedShell .themePanel { min-width: 0; }
-.embeddedShell .panel { gap: 14px; border-color: var(--settings-border, #E7E2DD); padding: 20px 0; }
+.embeddedShell .panel { gap: 16px; border-color: var(--cp-border); padding: 20px 0; }
 .embeddedShell .panel:first-of-type { padding-top: 0; }
-.embeddedShell .panel legend { color: var(--settings-text, #2B2B2B); font-size: 13px; }
-.embeddedShell .fieldGrid, .embeddedShell .twoColumns, .embeddedShell .choiceGrid, .embeddedShell .categoryLayoutChoices, .embeddedShell .valueFields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-.embeddedShell .panel label, .embeddedShell .sectionCard label, .embeddedShell .entryCard label { color: var(--settings-text, #2B2B2B); font-size: 12px; font-weight: 600; }
-.embeddedShell input, .embeddedShell select, .embeddedShell textarea { min-width: 0; max-width: 100%; min-height: 44px; border-color: var(--settings-border, #E7E2DD); border-radius: 8px; background: var(--settings-surface, #FFFDFC); color: var(--settings-text, #2B2B2B); font-size: 12px; }
-.embeddedShell input:focus-visible, .embeddedShell select:focus-visible, .embeddedShell textarea:focus-visible, .embeddedShell button:focus-visible { outline: 2px solid var(--settings-brand, #FE6100); outline-offset: 3px; border-color: var(--settings-brand, #FE6100); }
+.embeddedShell .panel legend { color: var(--cp-text-primary); font-size: 13px; font-weight: 600; }
+.embeddedShell .fieldGrid, .embeddedShell .twoColumns, .embeddedShell .choiceGrid, .embeddedShell .categoryLayoutChoices, .embeddedShell .valueFields { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.embeddedShell .panel label, .embeddedShell .sectionCard label, .embeddedShell .entryCard label { min-width: 0; gap: 8px; color: var(--cp-text-primary); font-size: 12px; font-weight: 600; }
+.embeddedShell input, .embeddedShell select, .embeddedShell textarea { min-width: 0; max-width: 100%; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 13px; }
+.embeddedShell input:focus-visible, .embeddedShell select:focus-visible, .embeddedShell textarea:focus-visible, .embeddedShell button:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 3px; border-color: var(--cp-brand); }
 .embeddedShell .check { min-height: 44px; }
-.embeddedShell .check input { flex: 0 0 18px; width: 18px !important; min-height: 18px !important; accent-color: var(--settings-action, #2B2B2B); }
-.embeddedShell .fieldHelp, .embeddedShell .label, .embeddedShell .entryToolbar { color: var(--settings-muted, #79716A); font-size: 11px; }
-.embeddedShell .entryCard, .embeddedShell .valueCard { border: 0; border-top: 1px solid var(--settings-border, #E7E2DD); border-radius: 0; background: transparent; padding: 18px 0; }
-.embeddedShell .entryCard legend { padding: 0; color: var(--settings-text, #2B2B2B); font-size: 12px; }
-.embeddedShell .footerLink { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.embeddedShell .check input { flex: 0 0 16px; width: 16px !important; min-height: 16px !important; padding: 0; accent-color: var(--cp-graphite); }
+.embeddedShell .fieldHelp, .embeddedShell .label, .embeddedShell .entryToolbar { color: var(--cp-text-secondary); font-size: 12px; }
+.embeddedShell .entryCard, .embeddedShell .valueCard { border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0; }
+.embeddedShell .entryCard legend { padding: 0; color: var(--cp-text-primary); font-size: 12px; }
+.embeddedShell .footerLink { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .embeddedShell .footerLink > button { justify-self: end; }
-.embeddedShell .entryToolbar button, .embeddedShell .entryAdd { min-height: 44px; border-color: var(--settings-border, #E7E2DD); border-radius: 8px; color: var(--settings-text, #2B2B2B); background: var(--settings-surface, #FFFDFC); font-size: 12px; }
+.embeddedShell .entryToolbar button, .embeddedShell .entryAdd { min-height: 44px; border-color: var(--cp-border); border-radius: 8px; color: var(--cp-text-primary); background: var(--cp-surface); font-size: 12px; }
 .embeddedShell .entryAdd { justify-self: stretch; }
-.embeddedShell .socialList > div, .embeddedShell .twoColumns { border-color: var(--settings-border, #E7E2DD); }
-.embeddedShell .error { border-color: var(--settings-danger, #B0473F); color: var(--settings-danger, #B0473F); background: #F8EEEB; }
-.embeddedShell .readOnly, .embeddedShell .loading { border-color: var(--settings-border, #E7E2DD); color: var(--settings-muted, #79716A); background: transparent; }
+.embeddedShell .socialList > div, .embeddedShell .twoColumns { border-color: var(--cp-border); }
+.embeddedShell .error { margin: 0; border-color: var(--cp-danger); padding: 12px; color: var(--cp-danger); background: var(--cp-surface); }
+.embeddedShell .readOnly, .embeddedShell .loading { border-color: var(--cp-border); padding: 12px; color: var(--cp-text-secondary); background: transparent; }
+.embeddedShell .themePanel:focus-visible { outline: 2px solid var(--cp-brand); }
+.embeddedShell .navigationGroup { display: grid; min-width: 0; gap: 12px; }
+.embeddedShell .navigationGroup + .navigationGroup { border-top: 1px solid var(--cp-border); padding-top: 16px; }
+.embeddedShell .groupTitle, .embeddedShell .navigationHeading h3 { margin: 0; color: var(--cp-text-primary); font-size: 13px; font-weight: 600; }
+.embeddedShell .navigationHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.embeddedShell .navigationHeading > span { color: var(--cp-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.embeddedShell .navigationList { display: grid; min-width: 0; gap: 0; margin: 0; padding: 0; list-style: none; }
+.embeddedShell .navigationRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; min-width: 0; align-items: center; gap: 4px; border-bottom: 1px solid var(--cp-border); padding: 4px 0; }
+.embeddedShell .navigationRow[data-dragging="true"] { opacity: .5; }
+.embeddedShell .navigationRow[data-drop-target="true"] { border-bottom-color: var(--cp-brand); background: var(--cp-brand-soft); }
+.embeddedShell .navigationLabel { display: grid; min-width: 0; gap: 4px; }
+.embeddedShell .navigationLabel > span { overflow-wrap: anywhere; color: var(--cp-text-primary); font-size: 13px; font-weight: 500; }
+.embeddedShell .navigationLabel small { color: var(--cp-text-secondary); font-size: 12px; }
+.embeddedShell .navigationActions { display: flex; flex: none; align-items: center; gap: 0; }
+.embeddedShell .navigationGrip, .embeddedShell .navigationActions button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 8px; padding: 0; color: var(--cp-text-secondary); background: transparent; cursor: pointer; }
+.embeddedShell .navigationGrip { cursor: grab; }
+.embeddedShell .navigationGrip:active { cursor: grabbing; }
+.embeddedShell .navigationGrip svg, .embeddedShell .navigationActions svg, .embeddedShell .navigationAdd svg { width: 16px; height: 16px; }
+.embeddedShell .navigationGrip:hover, .embeddedShell .navigationActions button:hover { color: var(--cp-text-primary); background: var(--cp-soft); }
+.embeddedShell .navigationActions button:disabled, .embeddedShell .navigationGrip:disabled, .embeddedShell .navigationAdd button:disabled { opacity: .4; cursor: default; }
+.embeddedShell .navigationEmpty { margin: 0; border: 1px dashed var(--cp-border); border-radius: 8px; padding: 12px; color: var(--cp-text-secondary); font-size: 13px; }
+.embeddedShell .navigationAdd { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; align-items: end; gap: 8px; }
+.embeddedShell .navigationAdd button, .embeddedShell .resourceError button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 12px; color: var(--cp-text-primary); background: var(--cp-surface); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.embeddedShell .resourceError { display: grid; justify-items: start; gap: 8px; margin-bottom: 16px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 900px) and (min-width: 641px) {
   .embeddedShell .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
