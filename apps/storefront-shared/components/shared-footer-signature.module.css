@@ -45,6 +45,12 @@
   filter: brightness(0) invert(1);
 }
 
+@media (max-width: 767px) {
+  :global([data-siora-product="true"]:has([data-siora-sticky-purchase])) .row {
+    padding-bottom: 90px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .link { transition: none; }
 }
