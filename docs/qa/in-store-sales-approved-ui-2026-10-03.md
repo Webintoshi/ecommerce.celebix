@@ -22,3 +22,16 @@ Kullanıcının onayladığı HTML, gerçek `/orders/quick-links` bileşenine uy
 `evidence/in-store-sales-approved-ui/`: masaüstü/tablet/telefon dolu sepet, fiyat/müşteri penceresi, boş sepet, bekleyen ödeme ve tamamlanan fiş ekran görüntüleri.
 
 IAB sentetik Enter varsayılan tarayıcı form submit davranışını tam taklit etmediği için gerçek fiziksel barkod okuyucusu iddiası yapılmadı; mevcut Enter submit/arama davranışı bileşen testleriyle korunuyor. Veritabanı otoritesi fixture testiyle ikame edilmedi; canlı sürümün kaynak/şema/ödeme sürüm kontrolleri yayın sırasında ayrıca uygulanır.
+
+## Canlı yayın
+
+Ortak panel kaynak adayı `6024e1b66f511883e33f863f9f3af3cd341eae04`, normal push ile `codex/shared-catalog-search` üzerine yayımlandı.
+
+- NET: `gvs27ivb4nnbsbwrqtprg7z2` finished; SITE: `aqqxz1atop1cd49j3jjhdcw0` finished.
+- İlk NET denemesi `aweinyrheyubm348una53or6` uygulama derlemesinden önce Docker frontend deposu TLS handshake timeout nedeniyle başarısız oldu. Eski iki runtime333 sağlıklı kaldı; registry metadata probe geçti. Bilinen başarısız denemeye bağlı, ayrı create-only kayıtlı tek retry uygulandı; özgün snapshot/prepared/receipt/spec/ödeme kanıtı korundu. 202 guard ve bağımsız Atlas retry incelemesi PASS.
+- Final ortak panel runtime görüntüsü/kaynak SHA/ödeme derleme metaverisi/profile/DB authority PASS. İki panelde 334 kaynak dosyası, 51 derlenmiş route ve gerekli istemci feature group PASS; 17 fixture/test yolu source-only proof içinde.
+- SQL198 + finans SQL200/201 read-only readiness ve ENABLED credit v2 PASS. Mevcut ödeme/env/preview/hook/config kayıtları aynen; yalnız iki panel kaynak pini ilerledi. Sağlıklı storefront witness `1f0844912e90e32b95599ac6a52be47d1064a70f` korundu. Final raw config/queue audit verified, global idle.
+- Butik Siora ve Güzide `/orders/quick-links` public read-only HTTP probe:200, beklenen login sınırı; sunucu hatası yok. Oturum gerektiren gerçek müşteri ekranında yeni satış/ödeme işlemi yapılmadı. Görsel/etkileşim QA gerçek Console bileşeninin izole fixture örneğinde yapıldı.
+- Son üretim kaynakları için yerel production build PASS; 87/87 odaklı test PASS.
+
+Ödeme sağlayıcısı çağrılmadı; muhasebe/satış verisi ya da şema değiştirilmedi. Özel kanıtlar ve ham şifreli snapshot canlı sunucuda/private yerel yayın paketinde tutulur; bu kayda dahil edilmez.
