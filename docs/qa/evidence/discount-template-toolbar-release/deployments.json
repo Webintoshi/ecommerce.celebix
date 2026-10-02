@@ -1,0 +1,28 @@
+[
+  {
+    "target": "panel_net",
+    "deploymentUuid": "jtqplnhlj2qoqx6eirbdpx8g",
+    "commit": "d1eddfa26a852ddb652c6486604ccd13853f3749",
+    "status": "finished",
+    "exactImage": true,
+    "sourceFiles": 51,
+    "allSourceFilesMatch": true,
+    "compiledRoutes": 33,
+    "allRoutesPresent": true,
+    "compiledCompactPadding": true,
+    "skuPreserved": true
+  },
+  {
+    "target": "panel_site",
+    "deploymentUuid": "aiiix81raqsh8uale6cwqw4n",
+    "commit": "d1eddfa26a852ddb652c6486604ccd13853f3749",
+    "status": "finished",
+    "exactImage": true,
+    "sourceFiles": 51,
+    "allSourceFilesMatch": true,
+    "compiledRoutes": 33,
+    "allRoutesPresent": true,
+    "compiledCompactPadding": true,
+    "skuPreserved": true
+  }
+]

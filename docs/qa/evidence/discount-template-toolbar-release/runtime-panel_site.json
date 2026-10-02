@@ -1,0 +1,21 @@
+{
+  "readOnly": true,
+  "stage": "final",
+  "expectedSha": "d1eddfa26a852ddb652c6486604ccd13853f3749",
+  "verified": true,
+  "targets": [
+    {
+      "target": "panel_site",
+      "verified": true,
+      "imageAndHealth": true,
+      "sourceShaAndManifest": true,
+      "officialGeneratedArtifact": true,
+      "approvalEnvironmentAgreement": true,
+      "expectedApprovalProfile": true,
+      "approvalProfile": "reviewedTestLive",
+      "databaseAuthorityMatches": true
+    }
+  ],
+  "providerInvoked": false,
+  "checkedAt": "2026-10-02T12:35:45.809743+00:00"
+}

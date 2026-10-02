@@ -1,0 +1,36 @@
+{
+  "source": "local real component fixture, synthetic data",
+  "checks": [
+    {
+      "countPresent": false,
+      "firstTemplateOffset": 13,
+      "horizontalOverflow": 0,
+      "searchPresent": false,
+      "templates": 12,
+      "topPadding": "12px",
+      "width": 1440
+    },
+    {
+      "countPresent": false,
+      "firstTemplateOffset": 13,
+      "horizontalOverflow": 0,
+      "searchPresent": false,
+      "templates": 12,
+      "topPadding": "12px",
+      "width": 1024
+    },
+    {
+      "countPresent": false,
+      "firstTemplateOffset": 13,
+      "horizontalOverflow": 0,
+      "searchPresent": false,
+      "templates": 12,
+      "topPadding": "12px",
+      "width": 390
+    }
+  ],
+  "keyboardEnterOpensEditor": true,
+  "consoleErrors": [],
+  "authenticatedLiveBrowserVerified": false,
+  "note": "Responsive browser checks use the real production components with synthetic fixture data. Live acceptance uses exact image/source hashes, compiled CSS, routes and health; the refreshed browser session was unauthenticated."
+}

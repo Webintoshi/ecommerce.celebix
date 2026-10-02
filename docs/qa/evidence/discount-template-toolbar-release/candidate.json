@@ -1,0 +1,19 @@
+{
+  "sourceSha": "d1eddfa26a852ddb652c6486604ccd13853f3749",
+  "preservedLiveAncestor": "7838e26629465cba1265e5f315c45d87657a7bcc",
+  "preservedRemoteQaAncestor": "55377c8f2fbdddc257226905c1a935f5ae441665",
+  "productionFilesChanged": 4,
+  "targetTestsPassed": 11,
+  "typecheckPassed": true,
+  "build": {
+    "sha": "d1eddfa26a852ddb652c6486604ccd13853f3749",
+    "exitCode": 0,
+    "passed": true
+  },
+  "independentUiReview": "PASS",
+  "pureReleaseGuards": 139,
+  "paymentEnvironmentUnchanged": true,
+  "previewEnvironmentUnchanged": true,
+  "storefrontPinsUnchanged": true,
+  "storefrontDeployments": 0
+}
