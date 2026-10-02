@@ -26,3 +26,14 @@ test("media response rejects extra raw URL authority and public errors remain fi
   const denied = createWooCommerceMigrationApi(async () => Response.json({ code: "membership_denied" }, { status: 403 }));
   await assert.rejects(() => denied.status(JOB), (error: unknown) => error instanceof WooCommerceMigrationApiError && error.code === "membership_denied" && !error.message.includes("private"));
 });
+
+test("Qukasoft client targets only its fixed alias and sends the same idempotency contract", async () => {
+  const paths: string[] = [];
+  const api = createWooCommerceMigrationApi(async (path, init) => {
+    paths.push(String(path));
+    assert.equal(new Headers(init?.headers).get("idempotency-key"), OPERATION);
+    return Response.json(job());
+  }, "qukasoft");
+  await api.begin({ sourceDigest: DIGEST, totalProducts: 1, totalMedia: 1, categories: [], brands: [] }, OPERATION);
+  assert.deepEqual(paths, ["/api/catalog/admin/migrations/qukasoft"]);
+});

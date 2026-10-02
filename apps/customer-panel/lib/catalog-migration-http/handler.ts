@@ -17,9 +17,11 @@ export type CatalogMigrationHttpRuntime = Readonly<{
   access: ServerPanelAccessRuntime & Readonly<{ readiness: Readonly<{ mode: "approved_staging" }>; panelOrigin: string }>;
   migration: CatalogMigrationRepository;
   upload: ProductMediaUploadService;
+  supportsExtendedMigration?(): Promise<boolean>;
 }>;
 
 type Dependencies = Readonly<{
+  basePath?: "/api/catalog/admin/migrations/woocommerce" | "/api/catalog/admin/migrations/qukasoft";
   resolveRuntime(): Promise<CatalogMigrationHttpRuntime | null>;
   now(): Date;
   requestId(): string;
@@ -59,6 +61,10 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   let runtime: CatalogMigrationHttpRuntime | null;
   try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); }
   if (!runtime) return error("unavailable", 503);
+  if (dependencies.basePath === "/api/catalog/admin/migrations/qukasoft") {
+    try { if (await runtime.supportsExtendedMigration?.() !== true) return error("unavailable", 503); }
+    catch { return error("unavailable", 503); }
+  }
   const authority = validateCatalogMigrationRequestAuthority(request, { method, pathname, panelOrigin: runtime.access.panelOrigin });
   if (authority === "method_not_allowed") return error("method_not_allowed", 405, { allow: method });
   if (authority === "origin_denied") return error("origin_denied", 403);
@@ -80,9 +86,11 @@ async function selectedJob(context: Context): Promise<string | null> { try { con
 export function createCatalogMigrationHttpHandlers(dependencies: Dependencies) {
   if (!dependencies || typeof dependencies.resolveRuntime !== "function" || typeof dependencies.now !== "function" || typeof dependencies.requestId !== "function") throw new Error("catalog_migration_http_invalid");
   const ingest = dependencies.ingestMedia ?? ingestMigrationMediaItem;
+  const base = dependencies.basePath ?? BASE;
+  if (base !== BASE && base !== "/api/catalog/admin/migrations/qukasoft") throw new Error("catalog_migration_http_invalid");
   return Object.freeze({
     async begin(request: Request) {
-      const authorized = await authorize(dependencies, request, "POST", BASE); if (isResponse(authorized)) return authorized;
+      const authorized = await authorize(dependencies, request, "POST", base); if (isResponse(authorized)) return authorized;
       const operationId = operation(request); const parsed = exact(await body(request), ["sourceDigest", "totalProducts", "totalMedia", "categories", "brands"]);
       if (!operationId || !parsed || !Array.isArray(parsed.categories) || !Array.isArray(parsed.brands)) return error("invalid_input", 400);
       try { return json(await authorized.runtime.migration.begin({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, sourceDigest: parsed.sourceDigest as string, totalProducts: parsed.totalProducts as number, totalMedia: parsed.totalMedia as number, categories: parsed.categories as never, brands: parsed.brands as never })); }
@@ -90,13 +98,13 @@ export function createCatalogMigrationHttpHandlers(dependencies: Dependencies) {
     },
     async status(request: Request, context: Context) {
       const jobId = await selectedJob(context); if (!jobId) return error("invalid_input", 400);
-      const authorized = await authorize(dependencies, request, "GET", `${BASE}/${jobId}`); if (isResponse(authorized)) return authorized;
+      const authorized = await authorize(dependencies, request, "GET", `${base}/${jobId}`); if (isResponse(authorized)) return authorized;
       try { return json(await authorized.runtime.migration.get({ tenantContext: authorized.tenantContext, now: authorized.now, jobId })); }
       catch (caught) { return repositoryError(caught); }
     },
     async batch(request: Request, context: Context) {
       const jobId = await selectedJob(context); if (!jobId) return error("invalid_input", 400);
-      const authorized = await authorize(dependencies, request, "POST", `${BASE}/${jobId}/batch`); if (isResponse(authorized)) return authorized;
+      const authorized = await authorize(dependencies, request, "POST", `${base}/${jobId}/batch`); if (isResponse(authorized)) return authorized;
       const operationId = operation(request); const parsed = exact(await body(request), ["sourceDigest", "products"]);
       if (!operationId || !parsed || !Array.isArray(parsed.products) || parsed.products.length < 1 || parsed.products.length > 25) return error("invalid_input", 400);
       try { return json(await authorized.runtime.migration.importBatch({ tenantContext: authorized.tenantContext, now: authorized.now, operationId, jobId, sourceDigest: parsed.sourceDigest as string, products: parsed.products as never })); }
@@ -104,7 +112,7 @@ export function createCatalogMigrationHttpHandlers(dependencies: Dependencies) {
     },
     async media(request: Request, context: Context) {
       const jobId = await selectedJob(context); if (!jobId) return error("invalid_input", 400);
-      const authorized = await authorize(dependencies, request, "POST", `${BASE}/${jobId}/media`); if (isResponse(authorized)) return authorized;
+      const authorized = await authorize(dependencies, request, "POST", `${base}/${jobId}/media`); if (isResponse(authorized)) return authorized;
       const operationId = operation(request); const parsed = exact(await body(request), ["sourceProductId", "ordinal", "sourceUrl", "altText"]);
       if (!operationId || !parsed || typeof parsed.sourceProductId !== "string" || !SOURCE_ID.test(parsed.sourceProductId)
         || !Number.isSafeInteger(parsed.ordinal) || (parsed.ordinal as number) < 0 || (parsed.ordinal as number) > 15

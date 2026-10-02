@@ -38,7 +38,15 @@ async function initialize(): Promise<CatalogMigrationHttpRuntime | null> {
     if (result.rowCount !== 1 || !row || Math.floor(Number(row.version_num) / 10_000) !== 16 || row.database_name !== config.database.name || row.is_superuser !== false || row.app_member !== true || row.migration_ready !== true || row.migration_complete !== true) throw new Error("catalog_migration_database_preflight_failed");
     const migration = new PostgresCatalogMigrationRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, uuid: randomUUID, audit: () => undefined });
     const upload = createProductMediaUploadService({ repository: media.media, storage: media.storage, now: () => new Date() });
-    return Object.freeze({ access: access as CatalogMigrationHttpRuntime["access"], migration, upload });
+    return Object.freeze({
+      access: access as CatalogMigrationHttpRuntime["access"], migration, upload,
+      async supportsExtendedMigration() {
+        const readiness = await pool.query(`SELECT
+          to_regclass('saas.catalog_product_import_sources') IS NOT NULL
+          AND to_regprocedure('saas.catalog_migration_import_batch_v2(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)') IS NOT NULL AS ready`);
+        return readiness.rowCount === 1 && readiness.rows[0]?.ready === true;
+      },
+    });
   } catch (error) { await pool.end().catch(() => undefined); throw error; }
 }
 
@@ -52,3 +60,9 @@ export const handleWooCommerceMigrationBegin = handlers.begin;
 export const handleWooCommerceMigrationStatus = handlers.status;
 export const handleWooCommerceMigrationBatch = handlers.batch;
 export const handleWooCommerceMigrationMedia = handlers.media;
+
+const qukasoftHandlers = createCatalogMigrationHttpHandlers({ basePath: "/api/catalog/admin/migrations/qukasoft", resolveRuntime: runtime, now: () => new Date(), requestId: randomUUID });
+export const handleQukasoftMigrationBegin = qukasoftHandlers.begin;
+export const handleQukasoftMigrationStatus = qukasoftHandlers.status;
+export const handleQukasoftMigrationBatch = qukasoftHandlers.batch;
+export const handleQukasoftMigrationMedia = qukasoftHandlers.media;

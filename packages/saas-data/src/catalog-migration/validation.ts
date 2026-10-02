@@ -1,7 +1,8 @@
+import { parseProductMeasurements } from "@celebix/saas-contracts";
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
-import type { CatalogMigrationCategory, CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationProduct, CatalogMigrationTaxonomy } from "./types.ts";
+import type { CatalogMigrationCategory, CatalogMigrationJob, CatalogMigrationMediaAuthority, CatalogMigrationProduct, CatalogMigrationTaxonomy, CatalogMigrationVariant } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -11,7 +12,7 @@ const SKU = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const BARCODE = /^[A-Za-z0-9._-]{1,128}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const DESCRIPTION_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/;
-const ATTRIBUTE_KEY = /^[\p{L}\p{N}][\p{L}\p{N} ._()/%+-]{0,63}$/u;
+const ATTRIBUTE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 const MIGRATION_WEIGHT = /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,3})?$/;
 const MAX_STOCK = 2_147_483_647;
 
@@ -124,7 +125,7 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
   if (entries.length > 32) fail();
   const result: Record<string, string> = {};
   for (const [key, selected] of entries) {
-    if (!ATTRIBUTE_KEY.test(key)) fail();
+    if (key !== "Ağırlık (g)" && !ATTRIBUTE_KEY.test(key)) fail();
     const parsedValue = text(selected, 1, 200);
     if (key === "Ağırlık (g)" && (
       !MIGRATION_WEIGHT.test(parsedValue) ||
@@ -137,21 +138,59 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
   return Object.freeze(result);
 }
 
+function migrationVariant(value: unknown): CatalogMigrationVariant {
+  const variant = exactCatalogMigrationInput(value, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents", "measurements"]);
+  const sku = variant.sku === undefined ? undefined : text(variant.sku, 1, 64);
+  if (sku !== undefined && !SKU.test(sku)) fail();
+  const barcode = variant.barcode === undefined ? undefined : text(variant.barcode, 1, 128);
+  if (barcode !== undefined && !BARCODE.test(barcode)) fail();
+  const priceCents = catalogMigrationInteger(variant.priceCents, 0, Number.MAX_SAFE_INTEGER);
+  const compareAtCents = variant.compareAtCents === undefined ? undefined : catalogMigrationInteger(variant.compareAtCents, priceCents, Number.MAX_SAFE_INTEGER);
+  let measurements;
+  if (variant.measurements !== undefined) {
+    try { measurements = parseProductMeasurements(variant.measurements); } catch { fail(); }
+  }
+  return Object.freeze({
+    title: text(variant.title, 1, 120), ...(sku === undefined ? {} : { sku }), ...(barcode === undefined ? {} : { barcode }),
+    priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }),
+    stockQuantity: catalogMigrationInteger(variant.stockQuantity, 0, MAX_STOCK), attributes: attributes(variant.attributes),
+    ...(measurements === undefined ? {} : { measurements }),
+  });
+}
+
+function sourceMetadata(value: unknown): Readonly<Record<string, unknown>> {
+  const parsed = exactCatalogMigrationInput(value, ["provider", "rawXml", "fields", "attributes", "variants", "weightCandidates", "issues"]);
+  if (parsed.provider !== "qukasoft" || typeof parsed.rawXml !== "string" || !parsed.rawXml.length
+    || new TextEncoder().encode(JSON.stringify(parsed)).byteLength > 65536) fail();
+  object(parsed.fields);
+  if (["attributes", "variants", "weightCandidates", "issues"].some((key) => !Array.isArray(parsed[key]))) fail();
+  function copy(candidate: unknown, depth: number): unknown {
+    if (depth > 10) fail();
+    if (candidate === null || typeof candidate === "string" || typeof candidate === "boolean") return candidate;
+    if (typeof candidate === "number") { if (!Number.isFinite(candidate)) fail(); return candidate; }
+    if (Array.isArray(candidate)) { if (candidate.length > 200) fail(); return Object.freeze(candidate.map((entry) => copy(entry, depth + 1))); }
+    const record = object(candidate);
+    if (Object.keys(record).length > 128 || Object.keys(record).some((key) => ["__proto__", "constructor", "prototype"].includes(key))) fail();
+    return Object.freeze(Object.fromEntries(Object.entries(record).map(([key, entry]) => [key, copy(entry, depth + 1)])));
+  }
+  return copy(parsed, 0) as Readonly<Record<string, unknown>>;
+}
+
 export function catalogMigrationProducts(value: unknown): readonly CatalogMigrationProduct[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 25) fail();
   const products = value.map((candidate) => {
-    const parsed = exactCatalogMigrationInput(candidate, ["sourceProductId", "title", "slug", "status", "categorySlugs", "brandSlugs", "variant", "sourceImageDigests"], ["description"]);
+    const parsed = exactCatalogMigrationInput(candidate, ["sourceProductId", "title", "slug", "status", "categorySlugs", "brandSlugs", "variant", "sourceImageDigests"], ["description", "additionalVariants", "sourceMetadata"]);
     const sourceProductId = text(parsed.sourceProductId, 1, 20);
     if (!SOURCE_ID.test(sourceProductId)) fail();
+    if (parsed.sourceMetadata !== undefined && object(object(parsed.sourceMetadata).fields).id !== sourceProductId) fail();
     const status = parsed.status;
     if (status !== "draft" && status !== "active") fail();
-    const variant = exactCatalogMigrationInput(parsed.variant, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents"]);
-    const sku = variant.sku === undefined ? undefined : text(variant.sku, 1, 64);
-    if (sku !== undefined && !SKU.test(sku)) fail();
-    const barcode = variant.barcode === undefined ? undefined : text(variant.barcode, 1, 128);
-    if (barcode !== undefined && !BARCODE.test(barcode)) fail();
-    const priceCents = catalogMigrationInteger(variant.priceCents, 0, Number.MAX_SAFE_INTEGER);
-    const compareAtCents = variant.compareAtCents === undefined ? undefined : catalogMigrationInteger(variant.compareAtCents, priceCents, Number.MAX_SAFE_INTEGER);
+    const variant = migrationVariant(parsed.variant);
+    let additionalVariants;
+    if (parsed.additionalVariants !== undefined) {
+      if (!Array.isArray(parsed.additionalVariants) || parsed.additionalVariants.length > 49) fail();
+      additionalVariants = Object.freeze(parsed.additionalVariants.map(migrationVariant));
+    }
     return Object.freeze({
       sourceProductId,
       title: text(parsed.title, 1, 200),
@@ -160,15 +199,9 @@ export function catalogMigrationProducts(value: unknown): readonly CatalogMigrat
       status,
       categorySlugs: stringArray(parsed.categorySlugs, 8, slug),
       brandSlugs: stringArray(parsed.brandSlugs, 16, slug),
-      variant: Object.freeze({
-        title: text(variant.title, 1, 120),
-        ...(sku === undefined ? {} : { sku }),
-        ...(barcode === undefined ? {} : { barcode }),
-        priceCents,
-        ...(compareAtCents === undefined ? {} : { compareAtCents }),
-        stockQuantity: catalogMigrationInteger(variant.stockQuantity, 0, MAX_STOCK),
-        attributes: attributes(variant.attributes),
-      }),
+      variant,
+      ...(additionalVariants === undefined ? {} : { additionalVariants }),
+      ...(parsed.sourceMetadata === undefined ? {} : { sourceMetadata: sourceMetadata(parsed.sourceMetadata) }),
       sourceImageDigests: stringArray(parsed.sourceImageDigests, 16, catalogMigrationDigest),
     });
   });
@@ -180,7 +213,7 @@ export function catalogMigrationProducts(value: unknown): readonly CatalogMigrat
     (entry: CatalogMigrationProduct) => entry.variant.sku,
     (entry: CatalogMigrationProduct) => entry.variant.barcode,
   ]) {
-    const selected = products.map(selector).filter((entry): entry is string => entry !== undefined);
+    const selected = products.flatMap((product) => [product.variant, ...(product.additionalVariants ?? [])].map((variant) => selector({ ...product, variant }))).filter((entry): entry is string => entry !== undefined);
     if (new Set(selected).size !== selected.length) fail();
   }
   return Object.freeze(products);

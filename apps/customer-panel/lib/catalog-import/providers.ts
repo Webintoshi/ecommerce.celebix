@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 
 export type CatalogImportProvider =
   | "woocommerce"
+  | "qukasoft"
   | "shopify"
   | "ideasoft"
   | "ticimax"
@@ -118,6 +119,7 @@ function provider(
 
 export const CATALOG_IMPORT_PROVIDERS: readonly ProviderDefinition[] = Object.freeze([
   provider("woocommerce", "WooCommerce", "WooCommerce ürün dışa aktarımı", ["Name", "Slug", "Description", "SKU", "Regular price", "Sale price", "Stock", "Published", "Attribute 1 value(s)"], ["Örnek Ürün", "ornek-urun", "Açıklama", "WOO-1", "120", "100", "10", "1", "Standart"], { variantTitle: ["attribute 1 value(s)"], salePrice: ["sale price"] }),
+  provider("qukasoft", "Qukasoft", "XML · varyantlar, kategori ve görseller", [], []),
   provider("shopify", "Shopify", "Shopify Products CSV", ["Handle", "Title", "Body (HTML)", "Published", "Option1 Name", "Option1 Value", "Option2 Name", "Option2 Value", "Option3 Name", "Option3 Value", "Variant SKU", "Variant Price", "Variant Compare At Price", "Variant Inventory Qty", "Variant Barcode", "Cost per item", "Status"], ["ornek-urun", "Örnek Ürün", "<p>Açıklama</p>", "TRUE", "Renk", "Siyah", "", "", "", "", "SHOP-1", "100", "120", "10", "8680000000001", "60", "active"]),
   provider("ideasoft", "IdeaSoft", "IdeaSoft ürün CSV", ["Urun Adi", "Seo Link", "Aciklama", "Stok Kodu", "Fiyat", "Stok Adedi", "Varyant Adi"], ["Örnek Ürün", "ornek-urun", "Açıklama", "IDEA-1", "100", "10", "Standart"]),
   provider("ticimax", "Ticimax", "Ticimax ürün CSV", ["Urun Adi", "SEO Url", "Aciklama", "Stok Kodu", "Barkod", "Satis Fiyati", "Piyasa Fiyati", "Stok", "Varyant"], ["Örnek Ürün", "ornek-urun", "Açıklama", "TICI-1", "8680000000001", "100", "120", "10", "Standart"]),
@@ -154,6 +156,7 @@ function csvCell(value: string): string {
 }
 
 export function buildCatalogImportTemplate(selected: CatalogImportProvider): string {
+  if (selected === "qukasoft") invalid();
   const definition = CATALOG_IMPORT_PROVIDERS.find(({ id }) => id === selected);
   if (!definition) invalid();
   return `${definition.templateHeaders.map(csvCell).join(",")}\n${definition.templateRow.map(csvCell).join(",")}\n`;
@@ -484,7 +487,7 @@ export function parseCatalogImportSource(
   source: string,
   options: Readonly<{ provider: CatalogImportProvider; format: CatalogImportFormat }>,
 ): CatalogImportParseResult {
-  if (typeof source !== "string" || new TextEncoder().encode(source).byteLength < 1 || new TextEncoder().encode(source).byteLength > MAX_BYTES || !PROVIDER_IDS.has(options.provider) || !["csv", "json", "xml"].includes(options.format)) invalid();
+  if (options.provider === "qukasoft" || typeof source !== "string" || new TextEncoder().encode(source).byteLength < 1 || new TextEncoder().encode(source).byteLength > MAX_BYTES || !PROVIDER_IDS.has(options.provider) || !["csv", "json", "xml"].includes(options.format)) invalid();
   const definition = CATALOG_IMPORT_PROVIDERS.find(({ id }) => id === options.provider);
   if (!definition) invalid();
   const records = options.format === "csv" ? recordsFromCsv(source) : options.format === "json" ? recordsFromJson(source) : recordsFromXml(source);

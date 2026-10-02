@@ -251,6 +251,29 @@ test("importBatch writes at most 25 products and returns exact ordered source ma
   );
 });
 
+test("extended import binds source records and every variant to the v2 transaction and fingerprint", async () => {
+  const execute = async (quantity: number) => {
+    const writer = new Client((text) => text.includes("catalog_migration_import_batch_v2")
+      ? [{ outcome: "batch_imported", result_payload: {
+        ...projection({ importedProducts: 1, version: 2 }),
+        mappings: [{ sourceProductId: "30794", productId: PRODUCT }],
+      } }] : []);
+    const sourceMetadata = { provider: "qukasoft", rawXml: "<product><id>30794</id></product>", fields: { id: "30794", currency: "TRY" }, attributes: [], variants: [], weightCandidates: ["2.35"], issues: [] };
+    await repository(new Pool([writer]), [], [PRODUCT, VARIANT, CHILD_CATEGORY]).importBatch({
+      tenantContext: tenant(), now: NOW, operationId: OPERATION, jobId: JOB, sourceDigest: DIGEST,
+      products: [{ ...product(), variant: { ...product().variant, measurements: { weight: { valueMilli: 2350, unit: "g" } } }, additionalVariants: [{ title: "B", sku: "YZK-30794-B", barcode: "86800000030795", priceCents: 1200000, stockQuantity: quantity, attributes: { harf: "B" } }], sourceMetadata }],
+    });
+    const query = call(writer, "catalog_migration_import_batch_v2");
+    const persisted = JSON.parse(String(query.values.at(-1)))[0];
+    assert.deepEqual(persisted.sourceMetadata, sourceMetadata);
+    assert.equal(persisted.variant.measurements.weight.valueMilli, 2350);
+    assert.equal(persisted.additionalVariants[0].variantId, CHILD_CATEGORY);
+    assert.equal(persisted.additionalVariants[0].stockQuantity, quantity);
+    return query.values[9];
+  };
+  assert.notEqual(await execute(1), await execute(2));
+});
+
 test("importBatch preserves safe Markdown paragraph line breaks", async () => {
   const writer = new Client((text) => text.includes("catalog_migration_import_batch")
     ? [{ outcome: "batch_imported", result_payload: {

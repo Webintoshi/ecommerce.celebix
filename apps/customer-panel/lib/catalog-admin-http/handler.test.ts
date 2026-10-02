@@ -97,6 +97,7 @@ test("feed preview rejects authority, provider and private input before network"
   const h = handlers(repository({ async authorizeFeedPreview() { throw new Error("denied"); } }), async () => { network += 1; return { mediaType: "csv", body: "x" }; });
   assert.equal((await h.previewFeed(request("/api/catalog/admin/imports/feed/preview", "POST", { provider: "generic", url: "https://feeds.example.com/a.csv" }))).status, 503);
   assert.equal((await h.previewFeed(request("/api/catalog/admin/imports/feed/preview", "POST", { provider: "unknown", url: "https://feeds.example.com/a.csv" }))).status, 400);
+  assert.equal((await h.previewFeed(request("/api/catalog/admin/imports/feed/preview", "POST", { provider: "qukasoft", url: "https://feeds.example.com/a.xml" }))).status, 400);
   assert.equal((await h.previewFeed(request("/api/catalog/admin/imports/feed/preview", "POST", { provider: "generic", url: "https://feeds.example.com/a.csv", storeId: RESOURCE }))).status, 400);
   assert.equal((await h.previewFeed(request("/api/catalog/admin/imports/feed/preview", "POST", { provider: "generic", url: "https://feeds.example.com/a.csv" }, "https://attacker.test"))).status, 403);
   assert.equal(network, 0);

@@ -19,7 +19,7 @@ const IMAGE_DIGEST = createHash("sha256").update(IMAGE_URL).digest("hex");
 function tenant(): TenantContext { return { schemaVersion: 1, requestId: REQUEST, principal: { id: "56000000-0000-4000-8000-000000000011", issuer: "https://id.test/oidc", subject: "private" }, store: { id: "56000000-0000-4000-8000-000000000012", slug: "guzide", status: "active" }, membership: { id: "56000000-0000-4000-8000-000000000013", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "56000000-0000-4000-8000-000000000014", planCode: "pilot", version: 1, status: "active", features: ["catalog"], limits: { products: 2_000, staff: 5, storageBytes: 1_000_000_000 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" } as TenantContext; }
 function job(overrides: Record<string, unknown> = {}) { return { jobId: JOB, sourceDigest: DIGEST, status: "processing" as const, totalProducts: 1, importedProducts: 0, totalMedia: 1, committedMedia: 0, failedMedia: 0, categoryCount: 1, brandCount: 1, version: 1, updatedAt: NOW.toISOString(), replayed: false, ...overrides }; }
 function repository(overrides: Partial<CatalogMigrationRepository> = {}): CatalogMigrationRepository { const reject = async () => { throw new Error("unexpected"); }; return { begin: reject, importBatch: reject, get: reject, authorizeMedia: reject, recordMedia: reject, ...overrides } as CatalogMigrationRepository; }
-function runtime(migration: CatalogMigrationRepository): CatalogMigrationHttpRuntime { return { migration, upload: { async inspectOperation() { throw new Error("unexpected"); }, async upload() { throw new Error("unexpected"); } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant() } as never; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as CatalogMigrationHttpRuntime; }
+function runtime(migration: CatalogMigrationRepository): CatalogMigrationHttpRuntime { return { migration, async supportsExtendedMigration() { return true; }, upload: { async inspectOperation() { throw new Error("unexpected"); }, async upload() { throw new Error("unexpected"); } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant() } as never; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as CatalogMigrationHttpRuntime; }
 function request(path: string, method = "POST", value?: unknown, origin = ORIGIN, headers: HeadersInit = {}) { const selected = new Headers(headers); selected.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`); if (method === "POST") { selected.set("origin", origin); selected.set("content-type", "application/json"); selected.set("idempotency-key", OPERATION); } const serialized = value === undefined ? undefined : JSON.stringify(value); if (serialized) selected.set("content-length", String(Buffer.byteLength(serialized))); return new Request(`http://customer-panel:3400${path}`, { method, headers: selected, body: serialized }); }
 function handlers(migration: CatalogMigrationRepository, ingest?: (...args: any[]) => Promise<any>) { return createCatalogMigrationHttpHandlers({ async resolveRuntime() { return runtime(migration); }, now: () => new Date(NOW), requestId: () => REQUEST, ...(ingest ? { ingestMedia: ingest } : {}) }); }
 
@@ -58,4 +58,28 @@ test("status reads are exact and missing session or private authority fails befo
   assert.equal((await h.status(request(`/api/catalog/admin/migrations/woocommerce/${JOB}?storeId=${tenant().store.id}`, "GET"), { params: Promise.resolve({ jobId: JOB }) })).status, 400);
   assert.equal((await h.status(request(`/api/catalog/admin/migrations/woocommerce/${JOB}`, "GET", undefined, ORIGIN, { "x-store-id": tenant().store.id }), { params: Promise.resolve({ jobId: JOB }) })).status, 400);
   assert.equal(reads, 1);
+});
+
+test("Qukasoft handler accepts native variant batches only at its fixed authenticated alias", async () => {
+  let accepted: unknown;
+  const migration = repository({ async importBatch(input) { accepted = input.products; return { ...job({ importedProducts: 1 }), mappings: [{ sourceProductId: "30794", productId: PRODUCT }] } as never; } });
+  const h = createCatalogMigrationHttpHandlers({ basePath: "/api/catalog/admin/migrations/qukasoft", async resolveRuntime() { return runtime(migration); }, now: () => new Date(NOW), requestId: () => REQUEST });
+  const variant = { title: "12", priceCents: 100, stockQuantity: 2, attributes: { Ölçü: "12" } };
+  const products = [{ sourceProductId: "30794", title: "Yüzük", slug: "yuzuk", status: "active", categorySlugs: [], brandSlugs: [], variant, additionalVariants: [{ ...variant, title: "14" }], sourceImageDigests: [IMAGE_DIGEST] }];
+  const response = await h.batch(request(`/api/catalog/admin/migrations/qukasoft/${JOB}/batch`, "POST", { sourceDigest: DIGEST, products }), { params: Promise.resolve({ jobId: JOB }) });
+  assert.equal(response.status, 200);
+  assert.deepEqual(accepted, products);
+  assert.equal((await h.batch(request(`/api/catalog/admin/migrations/woocommerce/${JOB}/batch`, "POST", { sourceDigest: DIGEST, products }), { params: Promise.resolve({ jobId: JOB }) })).status, 400);
+});
+
+test("Qukasoft waits for the native variant and source schema before beginning a job", async () => {
+  let begins = 0;
+  const h = createCatalogMigrationHttpHandlers({
+    basePath: "/api/catalog/admin/migrations/qukasoft",
+    async resolveRuntime() { return { ...runtime(repository({ async begin() { begins += 1; return job(); } })), async supportsExtendedMigration() { return false; } }; },
+    now: () => new Date(NOW), requestId: () => REQUEST,
+  });
+  const response = await h.begin(request("/api/catalog/admin/migrations/qukasoft", "POST", { sourceDigest: DIGEST, totalProducts: 1, totalMedia: 1, categories: [], brands: [] }));
+  assert.equal(response.status, 503);
+  assert.equal(begins, 0);
 });

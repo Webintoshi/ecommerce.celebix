@@ -1,4 +1,4 @@
-import type { TenantContext } from "@celebix/saas-contracts";
+import type { TenantContext, ProductMeasurements } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export interface CatalogMigrationTaxonomy {
@@ -18,6 +18,7 @@ export interface CatalogMigrationVariant {
   readonly compareAtCents?: number;
   readonly stockQuantity: number;
   readonly attributes: Readonly<Record<string, string>>;
+  readonly measurements?: ProductMeasurements;
 }
 
 export interface CatalogMigrationProduct {
@@ -29,6 +30,8 @@ export interface CatalogMigrationProduct {
   readonly categorySlugs: readonly string[];
   readonly brandSlugs: readonly string[];
   readonly variant: CatalogMigrationVariant;
+  readonly additionalVariants?: readonly CatalogMigrationVariant[];
+  readonly sourceMetadata?: Readonly<Record<string, unknown>>;
   readonly sourceImageDigests: readonly string[];
 }
 

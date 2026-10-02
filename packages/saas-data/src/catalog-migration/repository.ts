@@ -126,10 +126,13 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "jobId", "sourceDigest", "products"]);
     const operationId = catalogMigrationUuid(parsed.operationId), jobId = catalogMigrationUuid(parsed.jobId), sourceDigest = catalogMigrationDigest(parsed.sourceDigest);
     const products = catalogMigrationProducts(parsed.products);
-    const persisted = products.map((product) => ({ ...product, productId: this.uuid(), variant: { ...product.variant, variantId: this.uuid() } }));
+    const extended = products.some((product) => product.additionalVariants !== undefined || product.sourceMetadata !== undefined || product.variant.measurements !== undefined);
+    const persisted = products.map((product) => ({ ...product, productId: this.uuid(), variant: { ...product.variant, variantId: this.uuid() },
+      ...(product.additionalVariants === undefined ? {} : { additionalVariants: product.additionalVariants.map((variant) => ({ ...variant, variantId: this.uuid() })) }),
+    }));
     const fingerprint = catalogMigrationFingerprint("import_batch", authority.storeId, { jobId, sourceDigest, products });
     return this.mutate(authority, operationId, fingerprint, "batch_imported", {
-      text: "SELECT outcome,result_payload FROM saas.catalog_migration_import_batch($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::text,$13::jsonb)",
+      text: `SELECT outcome,result_payload FROM saas.${extended ? "catalog_migration_import_batch_v2" : "catalog_migration_import_batch"}($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::text,$13::jsonb)`,
       values: [...authorityValues(authority), operationId, fingerprint, jobId, sourceDigest, JSON.stringify(persisted)],
     }, (value, replayed) => this.batch(value, replayed));
   }

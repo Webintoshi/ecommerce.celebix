@@ -21,11 +21,11 @@ const providerFixtures = Object.freeze([
   ["generic", "urun_adi;slug;fiyat;sku;stok;varyant\nGenel Ürün;genel-urun;229,90;GEN-1;18;Standart"],
 ] as const);
 
-test("all twelve Hemenaku platform adapters expose templates and canonical products", () => {
+test("platform selection includes the complete XML migration alongside canonical adapters", () => {
   assert.deepEqual(
     CATALOG_IMPORT_PROVIDERS.map(({ id }) => id),
     [
-      "woocommerce", "shopify", "ideasoft", "ticimax", "tsoft", "ikas",
+      "woocommerce", "qukasoft", "shopify", "ideasoft", "ticimax", "tsoft", "ikas",
       "opencart", "prestashop", "magento", "bigcommerce", "wix", "generic",
     ],
   );

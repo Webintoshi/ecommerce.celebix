@@ -16,6 +16,13 @@ test("accepts the exact proxied path and server-configured same Origin", () => {
   assert.equal(validateCatalogMigrationRequestAuthority(request(PATH, "GET", null), { method: "GET", pathname: PATH, panelOrigin: ORIGIN }), "allowed");
 });
 
+test("Qukasoft paths retain exact scope and same-origin mutation protection", () => {
+  const pathname = "/api/catalog/admin/migrations/qukasoft";
+  assert.equal(validateCatalogMigrationRequestAuthority(request(pathname), { method: "POST", pathname, panelOrigin: ORIGIN }), "allowed");
+  assert.equal(validateCatalogMigrationRequestAuthority(request(pathname, "POST", "https://attacker.test"), { method: "POST", pathname, panelOrigin: ORIGIN }), "origin_denied");
+  assert.equal(validateCatalogMigrationRequestAuthority(request(`${pathname}-other`), { method: "POST", pathname: `${pathname}-other`, panelOrigin: ORIGIN }), "unavailable");
+});
+
 test("rejects wrong origin method path query fragment and browser tenant authority", () => {
   for (const selected of [
     request(PATH, "POST", null), request(PATH, "POST", "https://attacker.test"), request(`${PATH}/child`),

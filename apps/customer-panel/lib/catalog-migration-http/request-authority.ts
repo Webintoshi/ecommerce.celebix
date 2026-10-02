@@ -16,7 +16,7 @@ export function validateCatalogMigrationRequestAuthority(
   expected: Readonly<{ method: "GET" | "POST"; pathname: string; panelOrigin: string }>,
 ): CatalogMigrationRequestAuthorityResult {
   const panelOrigin = canonicalOrigin(expected?.panelOrigin);
-  if (!panelOrigin || !expected.pathname.startsWith("/api/catalog/admin/migrations/woocommerce")) return "unavailable";
+  if (!panelOrigin || !/^\/api\/catalog\/admin\/migrations\/(?:woocommerce|qukasoft)(?:\/|$)/.test(expected.pathname)) return "unavailable";
   if (request.method !== expected.method) return "method_not_allowed";
   let url: URL;
   try { url = new URL(request.url); } catch { return "invalid_input"; }
