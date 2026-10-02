@@ -34,6 +34,7 @@ import {
   type StorefrontCommerceRepository,
   type StoreDomainOriginHealthRepository,
   type StorefrontHostedCheckoutWorkerRepository,
+  type StorefrontHostedCheckoutReconciliationAuthority,
 } from "@celebix/saas-data";
 import pg from "pg";
 
@@ -96,6 +97,7 @@ type HostedPaymentInfrastructure = Readonly<{
   attempts: PaymentAttemptRepository;
   createRuntime: (attempts: PaymentAttemptRepository) => HostedPaymentRuntime | null;
   pool: InstanceType<typeof Pool>;
+  executionAuthorities: readonly StorefrontHostedCheckoutReconciliationAuthority[];
   close: () => Promise<void>;
 }>;
 let hostedPaymentInitialization: Promise<HostedPaymentInfrastructure | null> | undefined;
@@ -363,6 +365,7 @@ export type DefaultStandardCheckoutReconciliationRuntime = Readonly<{
   sessions: StorefrontHostedCheckoutWorkerRepository;
   attempts: PaymentAttemptRepository;
   runtime: HostedPaymentRuntime;
+  executionAuthorities: readonly StorefrontHostedCheckoutReconciliationAuthority[];
   close: () => Promise<void>;
 }>;
 
@@ -384,6 +387,7 @@ export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Pro
     }),
     attempts: infrastructure.attempts,
     runtime: infrastructure.runtime,
+    executionAuthorities: infrastructure.executionAuthorities,
     close: infrastructure.close,
   });
 }
@@ -515,7 +519,10 @@ async function initializeHostedPaymentInfrastructure(
       await pool!.end();
     };
     runtimeOwnsKeyring = true;
-    return Object.freeze({ runtime, attempts, createRuntime, pool, close });
+    const executionAuthorities = Object.freeze(executableAuthorities.map(({ providerCode, authority }) =>
+      Object.freeze({ providerCode, environment: authority.environment,
+        adapterVersion: authority.adapterVersion, evidenceDigest: authority.evidenceDigest })));
+    return Object.freeze({ runtime, attempts, createRuntime, pool, close, executionAuthorities });
   } catch {
     await pool?.end().catch(() => undefined);
     return null;

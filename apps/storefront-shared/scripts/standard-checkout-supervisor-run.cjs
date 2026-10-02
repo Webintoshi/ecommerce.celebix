@@ -9,6 +9,7 @@ async function runSupervisedStandardCheckout({ checkOnly = false, resolveRuntime
     if (checkOnly) return { status: 'ready' };
     const result = await runReconciliation({
       sessions: infrastructure.sessions, attempts: infrastructure.attempts, runtime: infrastructure.runtime,
+      executionAuthorities: infrastructure.executionAuthorities,
       now: () => new Date(), randomUUID,
     });
     if (!['completed', 'failed'].includes(result?.status)

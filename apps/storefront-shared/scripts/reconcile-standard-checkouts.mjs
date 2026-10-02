@@ -3,22 +3,71 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { types as nodeTypes } from "node:util";
 
 const BATCH_LIMIT = 25;
 const LEASE_WINDOW_MS = 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const NEEDS_UNKNOWN = new Set(["awaiting_customer", "submitted", "authorized"]);
+const CANDIDATE_STATUSES = new Set([...NEEDS_UNKNOWN, "provider_outcome_unknown", "reconciliation_required"]);
 const empty = () => ({ status: "failed", expired: 0, candidates: 0, captured: 0, failed: 0, processing: 0, rejected: 0, failures: 1 });
 const fingerprint = (...values) => createHash("sha256").update(JSON.stringify(values), "utf8").digest("hex");
+
+function exactDataRecord(value, keys) {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || nodeTypes.isProxy(value)
+    || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  return Reflect.ownKeys(descriptors).length === keys.length && keys.every((key) =>
+    descriptors[key]?.enumerable && "value" in descriptors[key]);
+}
+function denseArray(value, maximum) {
+  if (!Array.isArray(value) || nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype
+    || value.length > maximum) return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  return Reflect.ownKeys(descriptors).length === value.length + 1 && Array.from({ length: value.length }, (_, index) =>
+    descriptors[String(index)]?.enumerable && "value" in descriptors[String(index)]).every(Boolean);
+}
+function executionScope(value) {
+  if (!denseArray(value, 4) || value.length === 0) return null;
+  const unique = new Set(); const result = [];
+  for (const authority of value) {
+    if (!exactDataRecord(authority, ["providerCode", "environment", "adapterVersion", "evidenceDigest"])
+      || !["paytr_iframe", "iyzico_iframe"].includes(authority.providerCode)
+      || !["test", "live"].includes(authority.environment)
+      || !Number.isSafeInteger(authority.adapterVersion) || authority.adapterVersion < 1 || authority.adapterVersion > 2_147_483_647
+      || typeof authority.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(authority.evidenceDigest)) return null;
+    const key = `${authority.providerCode}:${authority.environment}`;
+    if (unique.has(key)) return null;
+    unique.add(key); result.push(Object.freeze({ ...authority }));
+  }
+  return Object.freeze(result);
+}
+function eligibleCandidate(candidate, authorities) {
+  return exactDataRecord(candidate, ["attemptId", "attemptVersion", "attemptStatus", "credentialVersion",
+    "providerReference", "providerCode", "environment", "adapterVersion", "evidenceDigest"])
+    && typeof candidate.attemptId === "string" && UUID.test(candidate.attemptId)
+    && Number.isSafeInteger(candidate.attemptVersion) && candidate.attemptVersion >= 1
+    && CANDIDATE_STATUSES.has(candidate.attemptStatus)
+    && Number.isSafeInteger(candidate.credentialVersion) && candidate.credentialVersion >= 1
+    && (candidate.providerReference === null || (typeof candidate.providerReference === "string"
+      && candidate.providerReference.length >= 1 && candidate.providerReference.length <= 256
+      && candidate.providerReference === candidate.providerReference.trim()
+      && !/[\u0000-\u001f\u007f-\u009f]/u.test(candidate.providerReference)))
+    && authorities.some((authority) => authority.providerCode === candidate.providerCode
+      && authority.environment === candidate.environment && authority.adapterVersion === candidate.adapterVersion
+      && authority.evidenceDigest === candidate.evidenceDigest);
+}
 
 export async function runStandardCheckoutReconciliation(dependencies) {
   let expired = 0; let candidates = 0; let captured = 0; let failed = 0;
   let processing = 0; let rejected = 0; let failures = 0;
   const startedAt = dependencies?.now?.();
   const workerIdentity = dependencies?.randomUUID?.() ?? randomUUID();
+  const authorities = executionScope(dependencies?.executionAuthorities);
   if (!(startedAt instanceof Date) || !Number.isFinite(startedAt.getTime()) || !UUID.test(workerIdentity)
+    || authorities === null
     || typeof dependencies?.sessions?.expireCreated !== "function"
-    || typeof dependencies?.sessions?.reconciliationCandidates !== "function"
+    || typeof dependencies?.sessions?.reconciliationCandidatesScoped !== "function"
     || typeof dependencies?.attempts?.markUnknown !== "function"
     || typeof dependencies?.runtime?.reconcile !== "function") return Object.freeze(empty());
   const workerId = `standard-checkout-${workerIdentity}`;
@@ -26,13 +75,15 @@ export async function runStandardCheckoutReconciliation(dependencies) {
   try { expired = await dependencies.sessions.expireCreated({ now: new Date(startedAt), limit: BATCH_LIMIT }); }
   catch { failures += 1; }
   let selected = [];
-  try { selected = await dependencies.sessions.reconciliationCandidates({ now: new Date(startedAt), limit: BATCH_LIMIT }); }
+  try { selected = await dependencies.sessions.reconciliationCandidatesScoped({ now: new Date(startedAt), limit: BATCH_LIMIT, authorities }); }
   catch { failures += 1; }
-  if (!Array.isArray(selected) || selected.length > BATCH_LIMIT) {
+  if (!denseArray(selected, BATCH_LIMIT)) {
     return Object.freeze({ status: "failed", expired, candidates: 0, captured, failed, processing, rejected, failures: failures + 1 });
   }
   candidates = selected.length;
   for (const candidate of selected) {
+    // Eligibility is checked before any durable unknown transition or provider access.
+    if (!eligibleCandidate(candidate, authorities)) { rejected += 1; failures += 1; continue; }
     const selectedNow = dependencies.now();
     if (!(selectedNow instanceof Date) || !Number.isFinite(selectedNow.getTime()) || selectedNow.getTime() >= deadline - 5_000) {
       failures += 1; continue;
@@ -87,6 +138,7 @@ async function main() {
       sessions: infrastructure.sessions,
       attempts: infrastructure.attempts,
       runtime: infrastructure.runtime,
+      executionAuthorities: infrastructure.executionAuthorities,
       now: () => new Date(),
       randomUUID,
     });

@@ -51,3 +51,29 @@ test('worker output exposes only finite counters and rejects malformed summaries
   assert.deepEqual(result, { status: 'completed', expired: 0, candidates: 1, captured: 0, failed: 0, processing: 1, rejected: 0, failures: 0 });
   await assert.rejects(runSupervisedStandardCheckout({ ...dependencies, runReconciliation: async () => ({ status: 'completed', failures: NaN }) }), /standard_checkout_result_invalid/);
 });
+
+test('production supervisor forwards approved scope to the real reconciliation worker before processing an eligible attempt', async () => {
+  const { runStandardCheckoutReconciliation } = await import('./reconcile-standard-checkouts.mjs');
+  const authority = Object.freeze({ providerCode: 'paytr_iframe', environment: 'live', adapterVersion: 1,
+    evidenceDigest: `sha256:${'a'.repeat(64)}` });
+  const executionAuthorities = Object.freeze([authority]);
+  let selected = 0; let reconciled = 0; let closed = 0;
+  const attemptId = '10000000-0000-4000-8000-000000000193';
+  const result = await runSupervisedStandardCheckout({
+    resolveRuntime: async () => ({
+      executionAuthorities,
+      sessions: { expireCreated: async () => 0, reconciliationCandidatesScoped: async (input) => {
+        selected += 1; assert.deepEqual(input.authorities, executionAuthorities); assert.equal(input.limit, 25);
+        return [{ attemptId, attemptVersion: 4, attemptStatus: 'provider_outcome_unknown',
+          credentialVersion: 2, providerReference: 'safe-193', ...authority }];
+      }, reconciliationCandidates: async () => { throw new Error('unscoped selection forbidden'); } },
+      attempts: { markUnknown: async () => { throw new Error('already unknown'); } },
+      runtime: { reconcile: async (input) => { reconciled += 1; assert.equal(input.attemptId, attemptId); return { kind: 'captured' }; } },
+      close: async () => { closed += 1; },
+    }),
+    runReconciliation: runStandardCheckoutReconciliation,
+  });
+  assert.deepEqual(result, { status: 'completed', expired: 0, candidates: 1, captured: 1,
+    failed: 0, processing: 0, rejected: 0, failures: 0 });
+  assert.equal(selected, 1); assert.equal(reconciled, 1); assert.equal(closed, 1);
+});
