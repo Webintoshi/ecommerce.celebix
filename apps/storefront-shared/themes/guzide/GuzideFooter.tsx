@@ -21,6 +21,7 @@ export type GuzideFooterProps = Readonly<{
   logo?: Readonly<{ url: string; altText: string; width?: number; height?: number }> | null;
   renderNewsletter?: (newsletter: PublicStarterThemePresentationV3["footer"]["newsletter"]) => ReactNode;
   prefetch?: boolean;
+  signature?: ReactNode;
 }>;
 
 function FooterLinks({
@@ -65,6 +66,7 @@ export function GuzideFooter({
   logo,
   renderNewsletter,
   prefetch,
+  signature,
 }: GuzideFooterProps) {
   const brandLogo = logo ?? presentation.logo;
   const newsletter = presentation.footer.newsletter;
@@ -170,6 +172,7 @@ export function GuzideFooter({
           </span>
         </div>
       </div>
+      {signature}
     </footer>
   );
 }

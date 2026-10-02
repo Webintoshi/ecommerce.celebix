@@ -11,10 +11,17 @@ import { useCartStatus } from "./CartStatusProvider";
 import { sideCartPresentation } from "./campaign-ui-model";
 import { mutateSideCartLine } from "./side-cart-mutation";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
+import { SioraSideCartDrawer } from "../themes/siora/SioraSideCartDrawer";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function SideCartDrawer({ presentation, locale, visualTheme }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
+  return visualTheme === "siora-deniz"
+    ? <SioraSideCartDrawer presentation={presentation} locale={locale} />
+    : <DefaultSideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} />;
+}
+
+function DefaultSideCartDrawer({ presentation, locale, visualTheme }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
