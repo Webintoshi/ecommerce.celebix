@@ -1,0 +1,68 @@
+.gallery { min-width: 0; color: var(--store-text, var(--ink, #171717)); font-family: inherit; }
+.gallery, .gallery * { box-sizing: border-box; }
+.strip { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.strip[data-single] { grid-template-columns: minmax(0, 1fr); max-width: calc((100% - 12px) / 2); }
+.photo { display: none; width: 100%; min-width: 0; aspect-ratio: 3 / 4; overflow: hidden; border: 0; border-radius: 0; margin: 0; padding: 0; background: var(--media-surface, #f7f6f6); color: inherit; cursor: zoom-in; }
+.photo[data-pair] { display: block; }
+.photo img { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: cover; user-select: none; pointer-events: none; }
+.photo:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+.tools { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 16px; }
+.pagination { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.iconButton { display: inline-flex; width: 44px; height: 44px; flex: 0 0 auto; align-items: center; justify-content: center; border: 0; border-radius: 0; margin: 0; padding: 10px; background: transparent; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.iconButton:disabled { opacity: .3; cursor: default; }
+.counter { min-width: 46px; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .025em; text-align: center; }
+.links { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; }
+.textButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 0; padding: 0; background: transparent; color: inherit; font-family: inherit; font-size: 11px; line-height: 1.4; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.textButton:hover { text-decoration: underline; text-underline-offset: 4px; }
+.iconButton svg, .textButton svg { display: block; width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+.iconButton:focus-visible, .textButton:focus-visible, .zoomPhoto:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.divider { width: 1px; height: 16px; flex: 0 0 auto; background: var(--line, #deddd9); }
+.empty { display: grid; min-height: 320px; align-content: center; justify-items: center; background: var(--media-surface, #f7f6f6); color: var(--muted, #74716b); font-size: 12px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; border: 0; margin: -1px; padding: 0; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.zoomDialog { position: fixed; z-index: 120; inset: 0; width: 100%; height: 100dvh; max-width: 100%; max-height: 100dvh; overflow: hidden; border: 0; border-radius: 0; margin: 0; padding: 0; background: var(--store-background, #fff); color: var(--store-text, var(--ink, #171717)); font-family: inherit; overscroll-behavior: contain; }
+.zoomDialog:not([open]) { display: none; }
+.zoomDialog[open] { display: grid; grid-template-rows: minmax(0, 1fr) 78px; }
+.zoomDialog::backdrop { background: rgb(20 20 20 / .3); }
+.close { position: absolute; z-index: 2; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); background: var(--store-background, #fff); }
+.close svg { width: 24px; height: 24px; }
+.zoomStage { display: flex; min-height: 0; overflow: auto; align-items: center; justify-content: center; padding: 24px 72px 16px; }
+.zoomPhoto { display: flex; height: 100%; max-width: 100%; align-items: center; justify-content: center; border: 0; border-radius: 0; margin: 0; padding: 0; background: transparent; cursor: zoom-in; }
+.zoomPhoto img { display: block; width: auto; height: 100%; max-width: 100%; object-fit: contain; transform-origin: center center; transition: transform .2s ease; user-select: none; }
+.zoomDialog[data-enlarged] .zoomPhoto { cursor: zoom-out; }
+.zoomDialog[data-enlarged] .zoomPhoto img { transform: scale(1.65); }
+.zoomControls { position: relative; display: flex; align-items: center; justify-content: center; gap: 22px; border-top: 1px solid var(--line, #deddd9); background: var(--store-background, #fff); }
+.zoomControls .textButton { min-width: 118px; }
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .links { gap: 8px; }
+  .zoomLabel { display: none; }
+  .pagination { gap: 0; }
+}
+@media (max-width: 900px) {
+  .strip { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .strip::-webkit-scrollbar { display: none; }
+  .strip[data-single] { display: block; max-width: none; }
+  .photo, .photo[data-pair] { display: block; width: calc(100% - 20px); flex: 0 0 calc(100% - 20px); scroll-snap-align: start; }
+  .strip[data-single] .photo { width: 100%; }
+  .tools { min-height: 64px; gap: 8px; }
+  .pagination { gap: 0; }
+  .counter { min-width: 43px; font-size: 10px; }
+  .links { gap: 6px; }
+  .textButton { gap: 6px; font-size: 10px; }
+  .zoomLabel, .divider { display: none; }
+  .zoomStage { padding: calc(68px + env(safe-area-inset-top)) 16px 16px; }
+  .zoomDialog[open] { grid-template-rows: minmax(0, 1fr) calc(72px + env(safe-area-inset-bottom)); }
+  .zoomControls { gap: 12px; padding-bottom: env(safe-area-inset-bottom); }
+  .zoomControls .textButton { min-width: 105px; }
+}
+@media (max-width: 420px) {
+  .tools { flex-wrap: wrap; gap: 0; padding-block: 8px; }
+  .links { margin-left: auto; }
+}
+@media (max-width: 359px) {
+  .textButton { font-size: 9px; }
+  .zoomControls { gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zoomPhoto img { transition: none; }
+}
