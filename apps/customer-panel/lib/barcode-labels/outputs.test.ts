@@ -8,6 +8,7 @@ import { PNG } from "pngjs";
 import { renderBarcodePng, renderBarcodeSvg } from "./render-barcode.ts";
 import { buildLabelPdfDefinition, renderLabelPdf } from "./pdf.ts";
 import { renderLabelZpl } from "./zpl.ts";
+import { robotoBoldVfs } from "./fonts/roboto-bold-vfs.ts";
 
 const id = (n: string) => `10000000-0000-4000-8000-${n.padStart(12, "0")}`;
 const row = {
@@ -110,6 +111,21 @@ test("PDF uses the exact document dimensions and produces both repeated labels",
   assert.equal(Buffer.from(bytes).subarray(0, 5).toString("ascii"), "%PDF-");
   assert.ok(bytes.byteLength > 1000);
   assert.match(Buffer.from(bytes).toString("latin1"), /\/MediaBox\s*\[0 0 141\.7\d* 85\.0\d*\]/);
+  assert.match(Buffer.from(bytes).toString("latin1"), /\/BaseFont\s*\/\w+\+Roboto-Bold\b/);
+});
+test("embedded price face is a real 700 weight with the original label line metrics", () => {
+  const font = Buffer.from(robotoBoldVfs["Roboto-Bold.ttf"]!, "base64");
+  const table = (tag: string) => {
+    for (let index = 0; index < font.readUInt16BE(4); index++) {
+      const record = 12 + index * 16;
+      if (font.toString("ascii", record, record + 4) === tag)
+        return font.readUInt32BE(record + 8);
+    }
+    throw new Error(`Font table missing: ${tag}`);
+  };
+  assert.equal(font.readUInt16BE(table("OS/2") + 4), 700);
+  assert.equal(font.readInt16BE(table("hhea") + 4), 1900);
+  assert.equal(font.readInt16BE(table("hhea") + 6), -500);
 });
 test("PDF encodes one barcode per selected variant at the 5000-label bound", () => {
   const maximum = buildLabelDocument({

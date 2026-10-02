@@ -228,6 +228,8 @@
 .barcode-studio .barcode-label-navigation svg { width: 16px; height: 16px; }
 .barcode-studio .preview-stage { display: grid; place-items: center; min-width: 0; min-height: 216px; padding: 20px 12px; border: 0; border-radius: 8px; background: var(--barcode-soft); overflow: hidden; }
 .barcode-studio .barcode-live-label { display: grid; align-content: center; gap: 4px; width: min(100%, 250px); min-width: 0; border: 1px solid var(--barcode-border); border-radius: 4px; background: white; color: var(--barcode-text); box-shadow: none; overflow: hidden; }
+/* Label ink uses pure black so the preview matches the printed price. */
+.barcode-studio .barcode-live-label .barcode-label-price { color: #000; }
 .barcode-studio .barcode-live-symbol { min-width: 0; }
 .barcode-studio .barcode-live-symbol svg { display: block; width: 100%; max-width: 100%; max-height: 80px; }
 .barcode-studio .preview-placeholder { display: grid; justify-items: center; gap: 12px; min-width: 0; color: var(--barcode-muted); text-align: center; font-size: 12px; }

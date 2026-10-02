@@ -1,17 +1,24 @@
 import pdfMake from "pdfmake/build/pdfmake.js";
 import fontVfs from "pdfmake/build/vfs_fonts.js";
+import { robotoBoldVfs } from "./fonts/roboto-bold-vfs.ts";
 import type { LabelDocument, LabelDocumentItem } from "./document.ts";
 import { renderBarcodeSvg } from "./render-barcode.ts";
 import { paginateLabelDocument } from "./pages.ts";
 
 const pt = (mm: number) => (mm * 72) / 25.4;
-pdfMake.vfs = fontVfs;
+pdfMake.addVirtualFileSystem({ ...fontVfs, ...robotoBoldVfs });
 pdfMake.fonts = {
   Roboto: {
     normal: "Roboto-Regular.ttf",
     bold: "Roboto-Medium.ttf",
     italics: "Roboto-Italic.ttf",
     bolditalics: "Roboto-MediumItalic.ttf",
+  },
+  RobotoPrice: {
+    normal: "Roboto-Bold.ttf",
+    bold: "Roboto-Bold.ttf",
+    italics: "Roboto-Bold.ttf",
+    bolditalics: "Roboto-Bold.ttf",
   },
 };
 
@@ -56,6 +63,7 @@ function cell(
           fontSize: field.fontSizePt,
           alignment: field.align,
           bold: field.key === "productTitle" || field.key === "price",
+          ...(field.key === "price" ? { font: "RobotoPrice", color: "#000000" } : {}),
           noWrap: field.maxLines === 1,
           margin: [0, 0, 0, 1],
         },

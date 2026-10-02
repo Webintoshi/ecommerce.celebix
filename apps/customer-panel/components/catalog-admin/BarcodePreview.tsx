@@ -52,6 +52,7 @@ export function BarcodePreview({
         ) : (
           <div
             key={field.key}
+            className={field.key === "price" ? "barcode-label-price" : undefined}
             style={{
               fontSize: `${field.fontSizePt}pt`,
               textAlign: field.align,

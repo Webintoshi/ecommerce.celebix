@@ -339,6 +339,8 @@ test("isolated print response contains only the label document and print action"
   assert.match(page, /ATLAS QA Etiketi/);
   assert.match(page, /window[.]print\(\)/);
   assert.match(page, /<main class="sheet">/);
+  assert.match(page, /\.label-price\{font-weight:700;color:#000\}/);
+  assert.match(page, /class="label-price"[^>]*>₺[\d.,]+<\/div>/);
   assert.doesNotMatch(page, /dashboard|sidebar|chatbot|<header/i);
 });
 
