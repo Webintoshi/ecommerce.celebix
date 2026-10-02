@@ -59,7 +59,7 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
   try{await act(async()=>{root.render(createElement(Component));await new Promise(r=>setTimeout(r,20));});await act(async()=>{await new Promise(r=>setTimeout(r,20));});await verify(container as unknown as HTMLElement,browser);}
   finally{await act(async()=>root.unmount());for(const[key,descriptor]of globals)descriptor?Object.defineProperty(globalThis,key,descriptor):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
 }
-const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>x.textContent?.trim()===label)!;
+const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>(x.textContent?.trim()===label||x.getAttribute("aria-label")===label))!;
 
 test("a cart product whose photo fails keeps its thumbnail frame and shows the package fallback",async()=>{
   await mounted(async(container,browser)=>{
@@ -301,3 +301,48 @@ test("granted cashier can collect a completed credit sale through the same POS d
 test("clearing an in-flight customer search releases busy state and allows closing the popup",async()=>{await mounted(async(container)=>{await act(async()=>button(container,"Müşteri / not ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!,input=dialog.querySelector<HTMLInputElement>('input[name="customerSearch"]')!;await fillInput(input,"Ayşe");await act(async()=>{await new Promise(r=>setTimeout(r,230));});assert.match(dialog.textContent??"",/Müşteriler aranıyor/);await fillInput(input,"");assert.equal(dialog.querySelector<HTMLButtonElement>('button[aria-label="Pencereyi kapat"]')!.disabled,false);await act(async()=>button(dialog,"Vazgeç").click());assert.equal(dialog.open,false);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;api.searchCustomers=async()=>new Promise(()=>{});});});
 
 test("V3 bank transfer selection describes bank collection in its payment summary",async()=>{await mounted(async(container)=>{await act(async()=>button(container,"Havale").click());await act(async()=>{await new Promise(r=>setTimeout(r,450));});assert.match(container.textContent??"",/Banka havalesi · Manuel tahsilat/);assert.match(container.textContent??"",/Banka hesabına geçen tutarı kontrol edeceksin/);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;});});
+
+
+test("V3 partial collection keeps the amount editable at zero and full mode clears a hidden validation error",async()=>{
+  await mounted(async(container,browser)=>{
+    await act(async()=>button(container,"Kart").click());
+    const full=button(container,"Tamamı"),partial=button(container,"Kısmi");
+    assert.equal(full.getAttribute("aria-pressed"),"true");
+    await act(async()=>partial.click());
+    const input=container.querySelector<HTMLInputElement>('input[name="initialCollection"]')!;
+    assert.equal(partial.getAttribute("aria-pressed"),"true");
+    assert.equal(input.value,"1000");
+    assert.equal(input.closest("label")!.hidden,false);
+    const fill=async(value:string)=>fillInput(input,value);
+    await fill("0");assert.equal(input.closest("label")!.hidden,false,"zero can be edited while partial mode remains selected");
+    await fill("3000");assert.equal(input.getAttribute("aria-invalid"),"true");assert.equal(button(container,"Ödemeye geç").disabled,true);
+    await act(async()=>full.click());assert.equal(input.closest("label")!.hidden,true);assert.equal(input.getAttribute("aria-invalid"),"false");assert.equal(button(container,"Ödemeye geç").disabled,false);
+  },"draft",async(api)=>{(api as {contractVersion:number}).contractVersion=3;const base=await api.bootstrap();api.bootstrap=async()=>({...base,permissions:{...base.permissions,canSellOnCredit:true,creditSalesAvailable:true}});});
+});
+
+
+test("V3 reopened partial collection remains visible and blocks prepare after the cart drops below the amount",async()=>{
+  await mounted(async(container)=>{
+    const input=container.querySelector<HTMLInputElement>('input[name="initialCollection"]')!;
+    assert.equal(input.closest("label")!.hidden,false);
+    assert.equal(button(container,"Kısmi").getAttribute("aria-pressed"),"true");
+    await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Ürün birim fiyatını düzenle"]')!.click());
+    const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+    await fillInput(dialog.querySelector("input")!,"1000");
+    await act(async()=>button(dialog,"Uygula").click());
+    assert.equal(input.closest("label")!.hidden,false);
+    assert.equal(input.getAttribute("aria-invalid"),"true");
+    assert.equal(button(container,"Ödemeye geç").disabled,true);
+    await fillInput(input,"500");assert.equal(input.getAttribute("aria-invalid"),"false");
+  },"draft",async(api)=>{(api as {contractVersion:number}).contractVersion=3;const base=await api.bootstrap();api.bootstrap=async()=>({...base,activeDraft:{...base.activeDraft!,initialCollectionCents:150000,paymentMethod:"card"},permissions:{...base.permissions,canSellOnCredit:true,creditSalesAvailable:true}});});
+});
+
+
+test("V3 completed summary shows current collected finance rather than the initial collection",async()=>{
+  await mounted(async(container)=>{
+    assert.match(container.querySelector(".receiptTotals")?.textContent??"",/₺1.500,00/);
+    assert.match(container.querySelector(".totalBlock")?.textContent??"",/Tahsil edilen₺1.500,00/);
+    assert.match(container.querySelector(".mobileTotal")?.textContent??"",/Tahsil edilen₺1.500,00/);
+    assert.match(container.querySelector(".checkoutNote")?.textContent??"",/Yeni satış/);
+  },"completed",async(api)=>{(api as{contractVersion:number}).contractVersion=3;const base=await api.bootstrap();api.bootstrap=async()=>({...base,activeDraft:{...base.activeDraft!,initialCollectionCents:0,finance:{status:"partial",collectedCents:150000,dueCents:50000,refundDueCents:0,version:2,receipts:[]}}});});
+});
