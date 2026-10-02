@@ -28,7 +28,7 @@ async function compile(file: string, imports: Record<string, unknown>) {
   return module.exports;
 }
 
-test("detail batch submission reveals invalid optional measurements and blank fields allow the atomic request", async () => {
+test("detail batch derives the product SKU and validates optional measurements before the atomic request", async () => {
   const browser = new Window({ url: "https://panel.example.test/products/product-test" });
   Reflect.set(browser, "confirm", () => true);
   const globals = new Map<string, PropertyDescriptor | undefined>();
@@ -46,6 +46,8 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     "@/components/catalog/BarcodeInput": { BarcodeInput: identifier },
   });
   const product = { id: "product-test", title: "Bilezik", slug: "bilezik", status: "active", currency: "TRY", version: 1, updatedAt: "2026-09-26T00:00:00Z" };
+  const existing = { id: "existing-variant", productId: product.id, title: "Standart", sku: "SRA-1341", attributes: {}, priceCents: 10000, stockQuantity: 3, stockTracking: true, version: 1, status: "active" };
+  const archived = { ...existing, id: "archived-variant", sku: "SRA-999", status: "archived" };
   const row = { title: "Beyaz", sku: "", barcode: "", price: "100,00", compareAt: "", cost: "", stockQuantity: "7", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes: { Renk: "Beyaz" }, measurements: { weight: "14,8912" } };
   const requests: unknown[] = [];
   class ApiError extends Error {}
@@ -53,7 +55,7 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     "next/link": ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode),
     "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [] } },
     "@/lib/catalog-onboarding-ui/attribute-variants": attributeVariants,
-    "@/lib/catalog-ui/client": { CatalogApiError: ApiError, catalogApi: { getProduct: async () => ({ product, variants: [] }), createVariantBatch: async (_id: string, payload: unknown) => { requests.push(payload); return {}; } } },
+    "@/lib/catalog-ui/client": { CatalogApiError: ApiError, catalogApi: { getProduct: async () => ({ product, variants: [archived, existing] }), createVariantBatch: async (_id: string, payload: unknown) => { requests.push(payload); return {}; } } },
     "@/lib/catalog-ui/forms": forms,
     "@/lib/catalog-ui/money": money,
     "@/lib/catalog-ui/dirty-navigation": dirtyNavigation,
@@ -99,6 +101,7 @@ test("detail batch submission reveals invalid optional measurements and blank fi
     assert.equal(Object.hasOwn(payload.variants[0]!, "measurements"), false);
     assert.equal(payload.variants[0]!.stockQuantity, 7);
     assert.equal(payload.variants[0]!.priceCents, 10000);
+    assert.equal(payload.variants[0]!.sku, "SRA-1341-BEYAZ");
     await act(async () => button("Niteliklerden ekle").click());
     await act(async () => button("Test kombinasyonu").click());
     const reopened = container.querySelector('input[name="measurement-weight"]')!;

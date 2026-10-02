@@ -99,6 +99,7 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
     "@/components/catalog/ProductDescriptionField": { ProductDescriptionField: ({ defaultValue, onValueChange, readOnly }: { defaultValue: string; onValueChange(value: string): void; readOnly: boolean }) => createElement("textarea", { name: "description", defaultValue, readOnly, onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => onValueChange(event.currentTarget.value) }) },
     "./ProductClassificationPicker": classification,
     "./ProductVariantBuilder": builder,
+    "@/components/catalog/SkuInput": sku,
     // Selection contract is isolated here; resource fetch/matrix rules have their own tests.
     "./AttributeVariantPicker": { AttributeVariantPicker: ({ onChange, onAttributeIdsChange }: { onChange(rows: readonly drafts.ProductDraftVariant[]): void; onAttributeIdsChange(ids: readonly string[]): void }) => createElement("button", { type: "button", "data-testid": "stage-variants", onClick() { onChange(stagedRows); onAttributeIdsChange([attributeId]); } }, "Seçimi değiştir") },
   });
@@ -157,7 +158,7 @@ test("advanced optional measurements restore after remount and save without chan
   });
 });
 
-test("staged combinations leave the standard barcode visible until confirmation and inherit common sale fields only", async () => {
+test("staged combinations inherit a size SKU after confirmation while keeping barcodes independent", async () => {
   let creates = 0;
   await withAdvanced({ api: { createProduct: async () => { creates++; return created; } } }, async ({ container, browser, latest, stage }) => {
     const barcode = container.querySelector('input[aria-label="Ürün barkodu"]') as HTMLInputElement;
@@ -174,7 +175,7 @@ test("staged combinations leave the standard barcode visible until confirmation 
     assert.equal(latest().current.kind, "variant");
     assert.deepEqual(latest().current.standardVariant, standard);
     const row = latest().current.variants[0]!;
-    assert.deepEqual([row.sku, row.barcode], ["", ""]);
+    assert.deepEqual([row.sku, row.barcode], ["SIORA-001-S", ""]);
     assert.deepEqual([row.compareAt, row.cost, row.shippingDesi, row.hsCode, row.continueSellingWhenOutOfStock], [standard.compareAt, standard.cost, standard.shippingDesi, standard.hsCode, true]);
     assert.equal((container.querySelector('input[aria-label="S barkod"]') as HTMLInputElement).closest("details"), null);
     assert.equal(browser.document.activeElement?.textContent, "Varyant ekle", "focus returns to the add control after apply");
@@ -187,6 +188,34 @@ test("staged combinations leave the standard barcode visible until confirmation 
     assert.deepEqual(latest().current.variants, [standard]);
     assert.equal(latest().current.standardVariant, undefined);
     assert.equal((container.querySelector('input[aria-label="Ürün barkodu"]') as HTMLInputElement).value, standard.barcode);
+  });
+});
+
+test("color takes priority over size and changing the product SKU preserves a manual variant SKU", async () => {
+  const intents: unknown[] = [];
+  await withAdvanced({ api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async ({ container, browser, latest, stage, remount }) => {
+    const redSmall = { ...newSmall, title: "Kırmızı / S", attributes: { renk: "Kırmızı", beden: "S" } };
+    const redMedium = { ...redSmall, title: "Kırmızı / M", attributes: { renk: "Kırmızı", beden: "M" } };
+    const manual = { ...newSmall, title: "Mavi / S", sku: "SIORA-OZEL", attributes: { renk: "Mavi", beden: "S" } };
+    await click(container, "Varyant ekle");
+    await stage([redSmall, redMedium, manual]);
+    await click(container, "Seçilenleri ekle");
+    assert.deepEqual(latest().current.variants.map(row => row.sku), ["SIORA-001-KIRMIZI", "SIORA-001-KIRMIZI", "SIORA-OZEL"]);
+    await click(container, "Varyant ekle");
+    assert.equal(container.querySelector('input[aria-label="Ürün SKU son kısmı"]')?.closest("fieldset")?.disabled, true, "base SKU is locked until pending combinations are confirmed or cancelled");
+    await click(container, "Vazgeç");
+    const base = container.querySelector('input[aria-label="Ürün SKU son kısmı"]') as HTMLInputElement;
+    assert.ok(base, "product SKU stays editable after selecting variants");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype, "value")!.set!.call(base, "1341");
+      base.dispatchEvent(new browser.Event("input", { bubbles: true }) as unknown as Event);
+    });
+    assert.deepEqual(latest().current.variants.map(row => row.sku), ["SIORA-1341-KIRMIZI", "SIORA-1341-KIRMIZI", "SIORA-OZEL"]);
+    assert.equal(latest().current.standardVariant?.sku, "SIORA-1341");
+    await remount(latest());
+    await submit(container, browser);
+    assert.equal(intents.length, 1);
+    assert.deepEqual((intents[0] as { variants: { sku: string }[] }).variants.map(row => row.sku), ["SIORA-1341-KIRMIZI", "SIORA-1341-KIRMIZI", "SIORA-OZEL"]);
   });
 });
 

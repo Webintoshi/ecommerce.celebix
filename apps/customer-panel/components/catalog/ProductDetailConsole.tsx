@@ -28,7 +28,7 @@ import { ProductMeasurementFields } from "./ProductMeasurementFields";
 import { measurementsToDraft, measurementSummary, readProductMeasurementForm, parseProductMeasurements } from "@/lib/catalog-ui/product-measurements";
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
-import { attributeChoices, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
+import { assignVariantSkus, attributeChoices, deriveProductBaseSku, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { createDirtyEditorRegistry, createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { ProductDescriptionField, ProductDescriptionPreview } from "./ProductDescriptionField";
 import { ProductVariantGalleryEditor } from "./ProductVariantGalleryEditor";
@@ -484,6 +484,18 @@ export function ProductDetailConsole({
     });
   }
 
+  function changeAttributeVariants(next: readonly VariantDraft[]) {
+    try {
+      const baseSku = deriveProductBaseSku(detail?.variants.filter(variant => variant.status !== "archived") ?? []);
+      const assigned = assignVariantSkus(baseSku, next);
+      markDetailDirty("variant-batch");
+      setAttributeVariants(assigned);
+      setError("");
+    } catch {
+      setError("Ürün SKU’sunu ve renk/beden adını kontrol edin; toplam en fazla 64 karakter olabilir.");
+    }
+  }
+
   async function createAttributeVariants(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canManage || detail === undefined || detail.product.status === "archived") return;
@@ -753,7 +765,7 @@ export function ProductDetailConsole({
             ) : null}
 
             {creatingAttributeVariants && canManage && !archived ? <form className="catalog-form inset-form" onSubmit={(event) => void createAttributeVariants(event)}>
-              <AttributeVariantPicker onAttributeIdsChange={setAttributeDraftIds} value={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
+              <AttributeVariantPicker baseSku={deriveProductBaseSku(variants.filter(variant => variant.status !== "archived"))} onAttributeIdsChange={setAttributeDraftIds} value={attributeVariants} onChange={changeAttributeVariants} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
               {attributeVariants.length ? <ProductVariantBuilder showValidation={showMeasurementValidation} variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}

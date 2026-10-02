@@ -73,3 +73,32 @@ test("removing a selected value reports only affected variant rows", () => {
   assert.deepEqual(result.kept, [black]);
   assert.deepEqual(result.removed, [white]);
 });
+
+test("new selected rows receive color-only SKUs from the product base", () => {
+  const result = mergeSelectedVariants({
+    options: [{ name: "renk", values: ["Kırmızı"] }, { name: "beden", values: ["S", "M"] }],
+    selectedKeys: [variantAttributeKey({ renk: "Kırmızı", beden: "S" }), variantAttributeKey({ renk: "Kırmızı", beden: "M" })],
+    current: [], existing: [], defaultPrice: "199,00", defaultStock: "5", baseSku: "SRA-1341",
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.value.map(({ sku }) => sku), ["SRA-1341-KIRMIZI", "SRA-1341-KIRMIZI"]);
+});
+
+test("reselection with a product base preserves existing manual and blank row SKUs", () => {
+  const first = mergeSelectedVariants({ options: [{ name: "renk", values: ["Siyah", "Beyaz"] }], selectedKeys: [variantAttributeKey({ renk: "Siyah" }), variantAttributeKey({ renk: "Beyaz" })], current: [], existing: [], defaultPrice: "100,00", defaultStock: "1" });
+  assert.equal(first.ok, true);
+  if (!first.ok) return;
+  const rows = [{ ...first.value[0]!, sku: "MANUAL-42" }, first.value[1]!];
+  const result = mergeSelectedVariants({ options: [{ name: "renk", values: ["Siyah", "Beyaz"] }], selectedKeys: [variantAttributeKey({ renk: "Siyah" }), variantAttributeKey({ renk: "Beyaz" })], current: rows, existing: [], defaultPrice: "100,00", defaultStock: "1", baseSku: "SRA-1341" });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.value[0], rows[0]);
+    assert.equal(result.value[1], rows[1]);
+  }
+});
+
+test("an overlong automatic SKU returns a selection error", () => {
+  const result = mergeSelectedVariants({ options: [{ name: "renk", values: ["Kırmızı"] }], selectedKeys: [variantAttributeKey({ renk: "Kırmızı" })], current: [], existing: [], defaultPrice: "100,00", defaultStock: "1", baseSku: "A".repeat(60) });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.ok(result.error.length > 0);
+});
