@@ -1,0 +1,34 @@
+{
+  "candidateSha": "7bc66874bf6a4f0b9fa3d19061bb27b87a45258f",
+  "panelNetDeployment": "v6nhzh8kfe1t5el7f293nskx",
+  "panelSiteDeployment": "pjs71y0fhcw3zdxcy1xmzmwd",
+  "bothFinishedAndExactRuntime": true,
+  "finalGuardVerified": true,
+  "globalIdleAtFinalVerification": true,
+  "creditGate": {
+    "enabled": true,
+    "version": 2
+  },
+  "butikSioraDateControl": {
+    "height": 44,
+    "radius": "8px",
+    "fontWeight": "500",
+    "fontSize": "14px",
+    "background": "rgb(240, 237, 232)",
+    "shadow": "none"
+  },
+  "guzidePrimaryAction": {
+    "height": 44,
+    "radius": "8px",
+    "fontWeight": "500",
+    "background": "rgb(43, 43, 43)",
+    "shadow": "none"
+  },
+  "guzideRowsControlSurface": {
+    "height": 44,
+    "radius": "8px",
+    "fontWeight": "500",
+    "background": "rgb(240, 237, 232)"
+  },
+  "guzideConsoleWarningsErrors": []
+}

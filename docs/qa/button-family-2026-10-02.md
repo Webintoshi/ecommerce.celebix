@@ -25,4 +25,14 @@ Veri giriş alanları, silme/arşiv anlamları, sekmeler, ana navigasyon, görse
 - Dashboard dönem seçimi, tarih açıklaması, koyu banner içindeki açık işlem ve mobil yerleşim incelendi.
 - Diğer onaylı 10 CSS module mevcut kontrol aileleri üzerinden güncellendi; Next CSS Modules pure/scope derlemesi PASS. İşlem kodu, API ve SQL değişmedi.
 
-Canlıya yayımlandığı henüz iddia edilmiyor. Muhasebe yayınıyla sıra koordine ediliyor; ortak yayın dalı ve kuyruk bu çalışma sırasında değiştirilmedi.
+## Ortak yayın ve canlı doğrulama
+
+- Muhasebe yayını tamamlandıktan sonra `9a09c129` + QA tip `e840fa58` birleştirildi. Exact ortak aday `7bc66874bf6a4f0b9fa3d19061bb27b87a45258f`; bu adayın üretim kodu build alınan `d29ec0ef` ile aynı. API/SQL/ödeme kaynakları muhasebe baseline ile byte-exact.
+- NET deployment `v6nhzh8kfe1t5el7f293nskx` finished; exact runtime/image, ödeme profili ve 333 kaynak cohort kontrolü PASS. Butik Siora canlı tarih seçimi 44px / 8px / 500 / nötr yüzey / gölgesiz olarak doğrulandı. Kanıt: `evidence/button-family-2026-10-02/live-butik-siora-analytics.png`.
+- SITE ilk dispatch öncesi `UNEXPECTED_CONFIGURATION_DRIFT` ile durdu; SITE receipt oluşturulmadı. Ayrı Deniz storefront yayını `926bbb57` → `e89019ff` tamamlanmıştı. İki finished receipt, exact source/runtime/image/health, payment profile ve V3 source kontrolü bağımsız doğrulandı. Diğer storefront alanları, preview satırları, env kimlikleri/flags ve ödeme semantiği aynı; değişen digest ciphertext değerlerinin plaintext eşitliği doğrulandı.
+- Deniz yeni storefront yayınlarını SITE tamamlanana kadar HOLD etti. Orijinal snapshot/spec/prepared/NET receipt değişmeden, yalnız iki storefront tanığı aynı adaya bağlı sabit fingerprintli append-only handoff ile geçirildi. Panel baseline karşılaştırması korundu. Bağımsız artifact/helper review, PHP lint, 139 eski + 65 handoff pure guard kontrolü PASS. Artifact `7fa5b8a3…`, bağlı helper `1857f47f…`; genel drift koruması gevşetilmedi.
+- Credit gate enabled / version2; SQL198 ve SQL200/201 46 fonksiyon kontrolleri PASS. Finansal veri veya sağlayıcı işlemi çalıştırılmadı.
+
+- SITE deployment `pjs71y0fhcw3zdxcy1xmzmwd` finished, exact `7bc66874`. Fresh final verify PASS: iki panelin exact runtime/image/ödeme profili/cohort, schema/credit gates, iki onaylı storefront tanığı ve global idle. İki resmi receipt sırası NET → SITE; NET ownership aynen korundu.
+- Güzide canlı Ürün Ekle: grafit `rgb(43,43,43)`, açık metin, 44px / 8px / 500 / gölgesiz. Satır sayısı kontrolünün dış label yüzeyi nötr `rgb(240,237,232)`, 44px / 8px / 500; iç native select şeffaf. Console warning/error listesi boş. Kanıt: `evidence/button-family-2026-10-02/live-guzide-products.png`.
+- Yayın tüm NET/SITE müşteri admin domainlerine aynı ortak sürümle yansıdı; Butik Siora, Alpler ve Güzide bu iki ortak runtime'ı kullanır. Deniz HOLD final verify sonrasında kaldırıldı. Yalnız root'a ait yerel QA sunucusu durduruldu.
