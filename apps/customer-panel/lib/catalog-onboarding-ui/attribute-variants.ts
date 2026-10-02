@@ -10,12 +10,16 @@ export type CatalogAttributeChoice = Readonly<{ id: string; name: string; key: s
 export function attributeChoices(resources: readonly CatalogAdminResource[]): readonly CatalogAttributeChoice[] {
   return Object.freeze(resources.filter((resource) => resource.kind === "attribute" && resource.status === "active").flatMap((resource) => {
     const raw = resource.config.values;
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(resource.slug) || !Array.isArray(raw) || raw.length < 1 || raw.length > 64 ||
+    const key = resource.config.key === undefined ? resource.slug : resource.config.key;
+    const validKey = typeof key === "string" && (resource.config.key === undefined
+      ? /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)
+      : /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(key));
+    if (!validKey || !Array.isArray(raw) || raw.length < 1 || raw.length > 64 ||
       raw.some((value) => typeof value !== "string" || value.trim() !== value || value.length < 1 || value.length > 100) ||
       new Set(raw.map((value) => String(value).toLocaleLowerCase("tr-TR"))).size !== raw.length) {
       return [];
     }
-    return [Object.freeze({ id: resource.id, name: resource.name, key: resource.slug, values: Object.freeze([...raw] as string[]) })];
+    return [Object.freeze({ id: resource.id, name: resource.name, key, values: Object.freeze([...raw] as string[]) })];
   }));
 }
 

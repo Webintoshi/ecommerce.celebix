@@ -53,7 +53,7 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  };
  const api={archiveVariant:async(_product:string,id:string,version:number)=>{variantRequests.push({archive:id,expectedVersion:version});return {};},updateVariant:async(_productId:string,_id:string,input:any)=>{variantRequests.push(input);return {variant:{...variants[0],...input.variant,version:4}};},getProduct:async()=>{if(reloadFailure)throw new ApiError(reloadFailure);return {product,variants};},updateProduct:async (_id:string,input:any)=>{requests.push(input);if(failure)throw new ApiError(failure);return {product:{...product,description:input.product.description,version:8}};}};
  const imports:Record<string,unknown>={
-  "@/lib/catalog-admin-ui/client":{catalogAdminApi:{resources:async()=>[{id:"30000000-0000-4000-8000-000000000001",kind:"attribute",name:"Beden",slug:"beden",status:"active",config:{values:["M","S"]}}]}},
+  "@/lib/catalog-admin-ui/client":{catalogAdminApi:{resources:async()=>[{id:"30000000-0000-4000-8000-000000000001",kind:"attribute",name:"Beden",slug:"beden-url",status:"active",config:{key:"beden",values:["M","S"]}}]}},
   "@/lib/catalog-onboarding-ui/attribute-variants":attributeChoices,
   "./ProductMeasurementFields":measurementFields,
   "@/components/catalog/SkuInput":{SkuInput:(props:any)=>createElement("input",{name:props.name,defaultValue:props.value})},

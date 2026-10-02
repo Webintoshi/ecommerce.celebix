@@ -189,7 +189,7 @@ function sourceRows(source: string): readonly Readonly<{ fields: SourceFields; a
   } catch { invalid(); }
 }
 
-function categories(rows: readonly SourceFields[]): Readonly<{ values: readonly WooCommerceMigrationTaxonomy[]; leaves: readonly (readonly string[])[] }> {
+function categories(rows: readonly SourceFields[]): Readonly<{ values: readonly WooCommerceMigrationTaxonomy[]; memberships: readonly (readonly string[])[] }> {
   const paths = rows.map((row) => {
     const raw = row.category?.trim() || [row.main_category, row.top_category, row.sub_category].filter((value) => value?.trim()).join(" >>> ");
     if (!raw) return [];
@@ -219,7 +219,7 @@ function categories(rows: readonly SourceFields[]): Readonly<{ values: readonly 
     if (selected.length > 100) invalid();
     return Object.freeze({ name: node.name, slug: selected, ...(node.parentKey ? { parentSlug: resolved.get(node.parentKey)! } : {}) });
   });
-  return Object.freeze({ values: Object.freeze(values), leaves: Object.freeze(paths.map((path) => Object.freeze(path.length ? [resolved.get(path.map((node) => node.slug).join(">"))!] : []))) });
+  return Object.freeze({ values: Object.freeze(values), memberships: Object.freeze(paths.map((path) => Object.freeze(path.map((_node, index) => resolved.get(path.slice(0, index + 1).map((node) => node.slug).join(">"))!).reverse()))) });
 }
 
 export async function compileQukasoftMigration(source: string): Promise<QukasoftMigrationManifest> {
@@ -346,7 +346,7 @@ export async function compileQukasoftMigration(source: string): Promise<Qukasoft
     if (selectedSlug.length > 100) invalid();
     return Object.freeze({ sourceProductId: row.sourceProductId, title: row.title, slug: selectedSlug,
       ...(description ? { description } : {}), status: fields.active.trim() === "1" ? "active" as const : "draft" as const,
-      categorySlugs: selectedCategories.leaves[productIndex]!, brandSlugs: Object.freeze(brandSlug ? [brandSlug] : []),
+      categorySlugs: selectedCategories.memberships[productIndex]!, brandSlugs: Object.freeze(brandSlug ? [brandSlug] : []),
       variants: Object.freeze(variants), sourceImages: Object.freeze(sourceImages),
       sourceMetadata: Object.freeze({ provider: "qukasoft" as const, rawXml: row.rawXml, fields, attributes: row.attributes, variants: row.variants, weightCandidates, issues: Object.freeze(issues) }),
     });

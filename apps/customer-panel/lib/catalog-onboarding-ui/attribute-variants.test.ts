@@ -21,6 +21,28 @@ test("a malformed active attribute does not hide the other saved choices", () =>
   assert.deepEqual(attributeChoices([malformed, resources[1]!]).map(({ key }) => key), ["beden"]);
 });
 
+test("an explicit native key keeps its friendly label and imported variant identity", () => {
+  const native = { ...resources[0], name: "Yüzük Ölçüsü", slug: "yuzuk-olcusu", config: { key: "yuzuk_olcusu", values: ["12", "14"] } };
+  const choices = attributeChoices([native]);
+  assert.deepEqual(choices.map(({ name, key, values }) => ({ name, key, values })), [
+    { name: "Yüzük Ölçüsü", key: "yuzuk_olcusu", values: ["12", "14"] },
+  ]);
+  const options = choices.map((choice) => ({ name: choice.key, values: choice.values }));
+  const result = mergeSelectedVariants({ options, selectedKeys: [variantAttributeKey({ yuzuk_olcusu: "12" })], current: [], existing: [], defaultPrice: "100,00", defaultStock: "1" });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.value[0]?.attributes, { yuzuk_olcusu: "12" });
+    assert.deepEqual(reconcileVariantRows(options, result.value).kept, result.value);
+  }
+});
+
+test("an invalid explicit native key is not replaced by its URL slug", () => {
+  for (const key of ["", " key", "ölçü", "a".repeat(65), null, { name: "key" }]) {
+    const malformed = { ...resources[0], config: { key, values: ["Siyah"] } };
+    assert.deepEqual(attributeChoices([malformed, resources[1]]).map(({ key }) => key), ["beden"]);
+  }
+});
+
 test("only checked combinations become variants with common defaults", () => {
   const rows = mergeSelectedVariants({
     options: [{ name: "renk", values: ["Siyah", "Beyaz"] }, { name: "beden", values: ["S", "M"] }],

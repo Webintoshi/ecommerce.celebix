@@ -88,6 +88,16 @@ test("attribute editor saves a name and selected values without asking for a tec
     editName.value = "Yeni Renk Adı";
     await act(async () => { editForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.deepEqual(saved[2], { resourceId: "11111111-1111-4111-8111-111111111111", expectedVersion: 3, name: "Yeni Renk Adı", slug: "renk", config: { values: ["Siyah"] }, productIds: [] }, "mevcut varyant anahtarı ad değişikliğinde korunmalı");
+    selectedResource = { id: "22222222-2222-4222-8222-222222222222", kind: "attribute", name: "Yüzük Ölçüsü", slug: "yuzuk-olcusu", version: 5, config: { key: "yuzuk_olcusu", values: ["12"], source: { provider: "qukasoft" } }, productIds: [] };
+    await act(async () => { root.render(createElement(Editor, { kind: "attribute", canManage: true, resourceId: "22222222-2222-4222-8222-222222222222" })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const nativeName = container.querySelector('[name="name"]') as unknown as HTMLInputElement | null;
+    const nativeDraft = container.querySelector('input[placeholder="Örn. Siyah"]') as unknown as HTMLInputElement | null;
+    const nativeForm = container.querySelector("form");
+    assert.ok(nativeName && nativeDraft && nativeForm);
+    nativeName.value = "Yüzük Bedeni";
+    nativeDraft.value = "14";
+    await act(async () => { nativeForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.deepEqual(saved[3], { resourceId: "22222222-2222-4222-8222-222222222222", expectedVersion: 5, name: "Yüzük Bedeni", slug: "yuzuk-olcusu", config: { key: "yuzuk_olcusu", values: ["12", "14"], source: { provider: "qukasoft" } }, productIds: [] }, "nitelik adı ve değerleri düzenlenirken kaynak anahtarı ve diğer ayarlar korunmalı");
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);

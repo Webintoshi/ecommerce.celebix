@@ -54,7 +54,7 @@ test("preserves the entire Qukasoft source while compiling exact prices, rich de
     measurements: { weight: { valueMilli: 2120, unit: "g" } },
   }]);
   assert.deepEqual(selected.sourceImages, ["https://cdn.qukasoft.com/front.webp", "https://cdn.qukasoft.com/side.webp"]);
-  assert.deepEqual(selected.categorySlugs, ["tasli-yuzukler"]);
+  assert.deepEqual(selected.categorySlugs, ["tasli-yuzukler", "yuzukler"]);
   assert.deepEqual(manifest.categories, [{ name: "Yüzükler", slug: "yuzukler" }, { name: "Taşlı Yüzükler", slug: "tasli-yuzukler", parentSlug: "yuzukler" }]);
   assert.deepEqual(manifest.brands, [{ name: "Güzide Kuyumcu", slug: "guzide-kuyumcu" }]);
   assert.deepEqual(manifest.batches, [["3481"]]);
@@ -123,7 +123,7 @@ test("keeps equal category leaves distinct across parents and joins case-only br
     product({ category: "Kolyeler >>> Kolye Ucu", main_category: "Kolyeler", top_category: "Kolye Ucu" }),
     product({ id: "3490", productCode: "KLY 2", barcode: "100000000638", name: "Kolye 2", category: "Guzide Koleksiyonu >>> Kolye Ucu", main_category: "Guzide Koleksiyonu", top_category: "Kolye Ucu", brand: "GÜZİDE KUYUMCU" }),
   ));
-  assert.deepEqual(manifest.products.map(({ categorySlugs }) => categorySlugs), [["kolyeler-kolye-ucu"], ["guzide-koleksiyonu-kolye-ucu"]]);
+  assert.deepEqual(manifest.products.map(({ categorySlugs }) => categorySlugs), [["kolyeler-kolye-ucu", "kolyeler"], ["guzide-koleksiyonu-kolye-ucu", "guzide-koleksiyonu"]]);
   assert.equal(manifest.categories.length, 4);
   assert.equal(manifest.brands.length, 1);
   assert.equal(manifest.products[1]?.sourceMetadata.fields.brand, "GÜZİDE KUYUMCU");

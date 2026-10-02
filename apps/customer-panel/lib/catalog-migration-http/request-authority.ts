@@ -1,3 +1,5 @@
+import { approvedPanelMutationOrigin } from "../server-panel-access/mutation-origin.ts";
+
 export type CatalogMigrationRequestAuthorityResult = "allowed" | "method_not_allowed" | "origin_denied" | "invalid_input" | "unavailable";
 
 const PRIVATE_HEADERS = new Set(["authorization", "x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-url"]);
@@ -23,8 +25,7 @@ export function validateCatalogMigrationRequestAuthority(
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== expected.pathname || url.search || url.hash) return "invalid_input";
   for (const [name] of request.headers) if (PRIVATE_HEADERS.has(name) || name.startsWith("x-celebix")) return "invalid_input";
   if (expected.method === "POST") {
-    const origin = request.headers.get("origin");
-    if (origin !== panelOrigin || origin.includes(",")) return "origin_denied";
+    if (!approvedPanelMutationOrigin(request, panelOrigin)) return "origin_denied";
   }
   return "allowed";
 }

@@ -178,7 +178,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         ...(resource ? { resourceId: resource.id, expectedVersion: resource.version } : {}),
         name,
         ...(value(data, "description") ? { description: value(data, "description") } : {}),
-        config: kind === "attribute" ? Object.freeze({ values: submittedAttributeValues.values }) : config(kind, data),
+        config: kind === "attribute" ? Object.freeze({ ...resource?.config, values: submittedAttributeValues.values }) : config(kind, data),
         productIds: selectedProductIds,
       };
       if (kind === "brand") await saveBrandResource(catalogAdminApi, { ...mutation, existingSlug: resource?.slug });

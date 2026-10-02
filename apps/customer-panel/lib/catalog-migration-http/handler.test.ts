@@ -83,3 +83,18 @@ test("Qukasoft waits for the native variant and source schema before beginning a
   assert.equal(response.status, 503);
   assert.equal(begins, 0);
 });
+
+test("Qukasoft tenant origin still requires a genuine session and rejects alien origins before repositories", async () => {
+  const pathname = "/api/catalog/admin/migrations/qukasoft";
+  const hostname = "butik-siora.admin.saas-staging.celebix.net";
+  const calls: unknown[] = [];
+  const h = createCatalogMigrationHttpHandlers({ basePath: pathname, async resolveRuntime() { return runtime(repository({ async begin(input) { calls.push(input); return job(); } })); }, now: () => new Date(NOW), requestId: () => REQUEST });
+  const body = { sourceDigest: DIGEST, totalProducts: 1, totalMedia: 1, categories: [], brands: [] };
+  const authenticated = await h.begin(request(pathname, "POST", body, `https://${hostname}`, { host: hostname }));
+  assert.equal(authenticated.status, 200);
+  assert.deepEqual((calls[0] as { tenantContext: unknown }).tenantContext, tenant());
+  const anonymous = new Request(`http://customer-panel:3400${pathname}`, { method: "POST", headers: { host: hostname, origin: `https://${hostname}`, "content-type": "application/json" }, body: "{}" });
+  assert.equal((await h.begin(anonymous)).status, 401);
+  assert.equal((await h.begin(request(pathname, "POST", body, "https://attacker.test", { host: hostname }))).status, 403);
+  assert.equal(calls.length, 1);
+});
