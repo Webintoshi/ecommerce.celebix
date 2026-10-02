@@ -41,6 +41,17 @@ test('v2 request forwards negotiated authority and rejects unsupported versions'
   const response=await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'2'}));
   assert.equal(response.status,200);assert.equal((calls[1] as {sale:{contractVersion:number}}).sale.contractVersion,2);
   const count=calls.length;
-  assert.equal((await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'3'}))).status,400);
+  assert.equal((await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'4'}))).status,400);
   assert.equal(calls.length,count);
+});
+
+test('v3 creates only POS customer contact and rejects caller customer authority and foreign origins',async()=>{
+ const customer={id,name:'Ali Veli',firstName:'Ali',lastName:'Veli',phone:'+905551234567',email:null,archived:false};const calls:unknown[]=[];
+ const runtime={access:{readiness:{mode:'approved_staging'},panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext:{...tenantContext,membership:{...tenantContext.membership,role:'cashier'}}})},sales:{createCustomer:async(input:unknown)=>{calls.push(input);return {customer,replayed:false};},searchCustomers:async()=>({customers:[customer]})}} as unknown as ServerInStoreSalesRuntime;
+ const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});const body={firstName:'Ali',lastName:'Veli',phone:customer.phone,email:null};
+ assert.equal((await h.createCustomer(req('customers',body,{'x-celebix-in-store-version':'3'}))).status,200);
+ assert.equal((calls[0] as {intent:unknown}).intent&&calls.length,1);
+ assert.equal((await h.createCustomer(req('customers',{...body,storeId:id}))).status,400);
+ assert.equal((await h.createCustomer(req('customers',body,{origin:'https://foreign.example'}))).status,403);
+ assert.equal((await h.searchCustomers(req('customers?query=Ali&limit=20'))).status,200);
 });

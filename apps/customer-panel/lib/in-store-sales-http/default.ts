@@ -5,6 +5,8 @@ import {resolveServerInStoreSalesRuntime} from '../server-in-store-sales/runtime
 import {createInStoreSalesHttpHandlers} from './handler.ts';
 const handlers=createInStoreSalesHttpHandlers({resolveRuntime:async()=>resolveServerInStoreSalesRuntime(await resolveDefaultServerPanelAccessRuntime()),now:()=>new Date(),requestId:randomUUID});
 type RouteContext=Readonly<{params:Promise<Readonly<Record<string,string>>>}>;
+export const handleDefaultInStoreSearchCustomers=handlers.searchCustomers;
+export const handleDefaultInStoreCreateCustomer=handlers.createCustomer;
 export const handleDefaultInStoreBootstrap=handlers.bootstrap;
 export const handleDefaultInStoreProducts=handlers.searchProducts;
 export const handleDefaultInStoreListSales=handlers.listSales;

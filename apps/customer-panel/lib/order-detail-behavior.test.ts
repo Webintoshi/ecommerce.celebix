@@ -39,6 +39,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
       if (name === "next/link") return { __esModule: true, default: ({ children, ...props }: any) => createElement("a", props, children) };
       if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
       if (name === "@/components/panel/PanelPageShell") return { PanelPageShell: ({ children }: any) => createElement("main", null, children), PanelStatusBadge: ({ children }: any) => createElement("span", null, children) };
+      if (name === "@/components/accounting/OrderFinancePanel") return { OrderFinancePanel: () => null };
       if (name === "@/components/shipping/OrderShipmentConsole") return { OrderShipmentConsole: () => null };
       if (name === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (name === "@/lib/order-ui/client") return { orderApi: api, OrderApiError: ApiError };

@@ -56,6 +56,10 @@ export type PanelNavigationHref =
   | "/settings/marquee"
   | "/settings/artificial-intelligence"
   | "/accounting"
+  | "/accounting/receivables"
+  | "/accounting/accounts"
+  | "/accounting/expenses"
+  | "/accounting/settings"
   | "/accounting/invoicing-integration"
   | "/seo"
   | "/seo/settings"
@@ -211,7 +215,11 @@ const SETTINGS_CHILDREN = Object.freeze([
 ]);
 
 const ACCOUNTING_CHILDREN = Object.freeze([
-  item("accounting-summary", "Muhasebe Özeti", "/accounting", "accounting"),
+  item("accounting-summary", "Özet", "/accounting", "accounting"),
+  item("accounting-receivables", "Müşteri Hesapları", "/accounting/receivables", "customers"),
+  item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounting"),
+  item("accounting-expenses", "Giderler", "/accounting/expenses", "invoice"),
+  item("accounting-settings", "İşletme Bilgileri", "/accounting/settings", "settings"),
   item("invoicing-integration", "Fatura Entegrasyonu", "/accounting/invoicing-integration", "invoice"),
 ]);
 
@@ -316,6 +324,10 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/analytics": presentation("Analitik ve sepet"),
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
+  "/accounting/receivables": presentation("Müşteri Hesapları"),
+  "/accounting/accounts": presentation("Kasa ve Banka"),
+  "/accounting/expenses": presentation("Giderler"),
+  "/accounting/settings": presentation("İşletme Bilgileri"),
   "/accounting/invoicing-integration": presentation("Fatura Entegrasyonu"),
   "/seo": presentation("SEO Kontrol"),
   "/seo/sitemap": presentation("Site Haritası"),

@@ -104,3 +104,18 @@ test("POS bootstrap hydrates every sale group once for a repeated product varian
  assert.deepEqual(JSON.parse(images[0]!.values?.at(-1) as string),[{key:thumbnailKey,productId:PRODUCT,variantId:VARIANT}]);
  assert.deepEqual(result.summary,original.summary);
 });
+
+test('v3 prepares bank transfer credit with a separate fingerprint and exact frozen collection fields',async()=>{
+ const customer={id:PRODUCT,name:'Ali Veli',firstName:'Ali',lastName:'Veli',phone:'+905551234567',email:null,archived:false};const old=sale();
+ const v3={...old,contractVersion:3,customerId:customer.id,customer,customerName:customer.name,initialCollectionCents:5000,dueDate:'2026-11-01',finance:null,paymentMethod:'bank_transfer',items:old.items.map(i=>({...i,catalogUnitPriceCents:i.unitPriceCents,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null}))};
+ const c=new Client({outcome:'committed',result_payload:{sale:v3,replayed:false,priceChanged:false}});
+ const result=await repo(c).createSale({...authority('cashier'),contractVersion:3,operationId:OP,saleId:SALE,intent:{...intent,customerId:customer.id,customerName:null,initialCollectionCents:5000,dueDate:'2026-11-01',paymentMethod:'bank_transfer',items:[{variantId:VARIANT,quantity:1,unitPriceOverrideCents:null}]}});
+ assert.equal(result.sale.initialCollectionCents,5000);const call=c.queries.find(q=>q.text.includes('in_store_sales_create_v3'))!;assert.ok(call);assert.equal(JSON.parse(call.values?.at(-1) as string).customerId,PRODUCT);
+});
+test('cashier customer creation is a narrow typed transaction and rejected malformed contacts never connect',async()=>{
+ const customer={id:PRODUCT,name:'Ali Veli',firstName:'Ali',lastName:'Veli',phone:'+905551234567',email:null,archived:false};const c=new Client({outcome:'committed',result_payload:{customer,replayed:false}});
+ assert.equal((await repo(c).createCustomer({...authority('cashier'),operationId:OP,intent:{firstName:customer.firstName,lastName:customer.lastName,phone:customer.phone,email:null}})).customer.id,PRODUCT);
+ assert.ok(c.queries.some(q=>q.text.includes('in_store_sales_create_customer')));assert.ok(!c.queries.some(q=>q.text.includes('customers_save')));
+ const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
+ await assert.rejects(()=>r.createCustomer({...authority('cashier'),operationId:OP,intent:{firstName:'Ali',lastName:'Veli',phone:'05551234567',email:null}}),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
+});

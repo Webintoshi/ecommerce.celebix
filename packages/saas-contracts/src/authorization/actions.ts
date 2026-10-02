@@ -50,6 +50,8 @@ export const MERCHANT_ACTIONS = Object.freeze([
   "in_store.discount",
   "in_store.resolve",
   "in_store.staff",
+  "accounting.read",
+  "accounting.manage",
 ] as const);
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];

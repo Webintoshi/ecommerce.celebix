@@ -1,12 +1,13 @@
 import {
   parseInStoreBootstrap, parseInStoreProduct, parseInStoreSale, parseInStoreSaleIntent,
   parseInStoreSalePage, parseInStoreSaleResult, parseInStoreStaffGrant,
-  type InStoreSaleIntent, type InStoreSaleResult,
+  parseInStorePosCustomer, parseInStorePosCustomerIntent, parseInStorePosCustomerResult,
+  type InStorePosCustomer, type InStorePosCustomerIntent, type InStoreSaleIntent, type InStoreSaleResult,
 } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
-const CODES = ["invalid_input","unauthenticated","membership_denied","store_inactive","feature_not_enabled","origin_denied","not_found","ambiguous_barcode","version_conflict","operation_mismatch","invalid_transition","inventory_conflict","pricing_unavailable","discount_denied","discount_invalid","price_denied","payment_method_required","client_upgrade_required","unavailable"] as const;
+const CODES = ["invalid_input","unauthenticated","membership_denied","store_inactive","feature_not_enabled","origin_denied","not_found","ambiguous_barcode","version_conflict","operation_mismatch","invalid_transition","inventory_conflict","pricing_unavailable","discount_denied","discount_invalid","price_denied","payment_method_required","client_upgrade_required","credit_denied","customer_required","collection_invalid","customer_duplicate","customer_archived","unavailable"] as const;
 export type InStoreSalesUiErrorCode = typeof CODES[number];
 const MESSAGES:Record<InStoreSalesUiErrorCode,string> = {
   invalid_input:"Bilgileri kontrol edip yeniden dene.", unauthenticated:"Oturumun sona erdi. Yeniden giriş yap.",
@@ -16,7 +17,8 @@ const MESSAGES:Record<InStoreSalesUiErrorCode,string> = {
   version_conflict:"Satış başka bir işlemle güncellendi. Güncel kaydı kontrol et.", operation_mismatch:"İşlem aynı bilgilerle doğrulanamadı. Satış durumunu kontrol et.",
   invalid_transition:"Satışın mevcut durumunda bu işlem yapılamıyor.", inventory_conflict:"Seçilen depoda yeterli satılabilir stok yok. Sepeti kontrol et.",
   pricing_unavailable:"Güvenilir ürün fiyatı alınamadı. Ödemeye geçmeden yeniden dene.", discount_denied:"Bu indirim yetki sınırını aşıyor.",
-  discount_invalid:"İndirim tutarı uygun değil. İndirimi düzenle.", payment_method_required:"Ödemeye geçmek için Kart veya Nakit seç.", price_denied:"Satış fiyatını düzenleme yetkin bulunmuyor.", client_upgrade_required:"Bu satış yeni özellikler içeriyor. Sayfayı yenileyip güncel ekranla devam et.", unavailable:"Hizmete ulaşılamadı. Satışın durumunu kontrol ederek yeniden dene.",
+  credit_denied:"Veresiye satış yetkin bulunmuyor.",customer_required:"Veresiye için adı ve telefonu kayıtlı bir müşteri seç.",collection_invalid:"Tahsilat tutarını kontrol et; satış toplamını aşamaz.",customer_duplicate:"Bu telefon veya e-posta ile müşteri zaten kayıtlı. Arama sonuçlarından seç.",customer_archived:"Bu iletişim bilgileri arşivlenmiş bir müşteriye ait. Müşteri kaydını yönetici kontrol etmeli.",
+  discount_invalid:"İndirim tutarı uygun değil. İndirimi düzenle.", payment_method_required:"Tahsilat için ödeme yöntemi seç.", price_denied:"Satış fiyatını düzenleme yetkin bulunmuyor.", client_upgrade_required:"Bu satış yeni özellikler içeriyor. Sayfayı yenileyip güncel ekranla devam et.", unavailable:"Hizmete ulaşılamadı. Satışın durumunu kontrol ederek yeniden dene.",
 };
 export class InStoreSalesUiError extends Error {
   readonly code:InStoreSalesUiErrorCode; readonly status:number; readonly unknownResult:boolean;
@@ -35,14 +37,14 @@ function plainText(value:unknown,max:number):string { if(typeof value!=="string"
 function isAbort(error:unknown):boolean { return error instanceof Error&&error.name==="AbortError"; }
 export type InStoreSearchInput = Readonly<{locationId:string;barcode?:string;query?:string;limit?:number}>;
 type Fetch=(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>;
-export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;randomUUID?:()=>string;contractVersion?:1|2}>={}) {
+export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;randomUUID?:()=>string;contractVersion?:1|2|3}>={}) {
   object(options,[],["fetch","randomUUID","contractVersion"]);
-  const contractVersion=options.contractVersion??1;if(contractVersion!==1&&contractVersion!==2)invalid();
+  const contractVersion=options.contractVersion??1;if(contractVersion!==1&&contractVersion!==2&&contractVersion!==3)invalid();
   const fetchImpl=options.fetch??((input,init)=>fetch(input,init));
   const randomUUID=options.randomUUID??(()=>crypto.randomUUID());
-  async function request(path:string,init:RequestInit,mutation=false,version:1|2=contractVersion):Promise<unknown> {
+  async function request(path:string,init:RequestInit,mutation=false,version:1|2|3=contractVersion):Promise<unknown> {
     let response:Response;
-    try { response=await fetchImpl(`/api/orders/in-store${path}`,{credentials:"same-origin",cache:"no-store",...init,headers:{...Object.fromEntries(new Headers(init.headers)),...(version===2?{"x-celebix-in-store-version":"2"}:{})}}); }
+    try { response=await fetchImpl(`/api/orders/in-store${path}`,{credentials:"same-origin",cache:"no-store",...init,headers:{...Object.fromEntries(new Headers(init.headers)),...(version>=2?{"x-celebix-in-store-version":String(version)}:{})}}); }
     catch(error) { if(!mutation&&isAbort(error))throw error;throw new InStoreSalesUiError("unavailable",503,mutation); }
     let body:unknown;
     try {
@@ -64,7 +66,7 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
     const value=await request(path,{method:"GET",...(signal?{signal}:{})});
     try{return parser(value);}catch{throw new InStoreSalesUiError("unavailable",503);}
   }
-  async function mutate(path:string,body:unknown,operationId:string,method="POST",saleId?:string,version:1|2=contractVersion):Promise<InStoreSaleResult>{
+  async function mutate(path:string,body:unknown,operationId:string,method="POST",saleId?:string,version:1|2|3=contractVersion):Promise<InStoreSaleResult>{
     const operation=id(operationId);
     const value=await request(path,{method,headers:{"content-type":"application/json","idempotency-key":operation},body:JSON.stringify(body)},true,version);
     try{const result=parseInStoreSaleResult(value,version);if(saleId&&result.sale.id!==saleId)throw new Error("wrong_sale");return result;}
@@ -82,6 +84,8 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
       if(selected.barcode!==undefined)query.set("barcode",plainText(selected.barcode,128));else query.set("query",plainText(selected.query,100));
       return read(`/products?${query}`,value=>{const list=object(value,["products"]).products;if(!Array.isArray(list)||list.length>20)invalid();return Object.freeze(list.map(parseInStoreProduct));},signal);
     },
+    async searchCustomers(query:string,signal?:AbortSignal){const params=new URLSearchParams({query:plainText(query,100),limit:"20"});return read(`/customers?${params}`,value=>{const list=object(value,["customers"]).customers;if(!Array.isArray(list)||list.length>20)invalid();return Object.freeze(list.map(parseInStorePosCustomer));},signal);},
+    async createCustomer(input:InStorePosCustomerIntent,operationId:string){const intent=parseInStorePosCustomerIntent(input);const value=await request("/customers",{method:"POST",headers:{"content-type":"application/json","idempotency-key":id(operationId)},body:JSON.stringify(intent)},true);try{return parseInStorePosCustomerResult(value);}catch{throw new InStoreSalesUiError("unavailable",503,true);}},
     async listSales(input:Readonly<{status:"draft"|"held"|"pending"|"completed";pageSize?:number;cursor?:string}>){
       const body=object(input,["status"],["pageSize","cursor"]);if(!["draft","held","pending","completed"].includes(String(body.status)))invalid();
       const query=new URLSearchParams({status:input.status,pageSize:String(integer(input.pageSize??20,1,50))});if(input.cursor!==undefined)query.set("cursor",plainText(input.cursor,1024));
@@ -89,21 +93,22 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
     },
     getSale(saleId:string){return read(`/sales/${id(saleId)}`,value=>{const sale=parseInStoreSale(value,contractVersion);if(sale.id!==saleId)invalid();return sale;});},
     getOperation(operationId:string){return read(`/operations/${id(operationId)}`,value=>value===null?null:parseInStoreSaleResult(value,contractVersion));},
-    async createSale(input:Readonly<{saleId:string;intent:InStoreSaleIntent}>,operationId:string,version:1|2=contractVersion){const body=object(input,["saleId","intent"]);const sale=id(body.saleId);const intent=parseInStoreSaleIntent(body.intent,version);return mutate("/sales",{saleId:sale,intent},operationId,"POST",sale,version);},
-    async updateSale(saleId:string,input:Readonly<{expectedVersion:number;intent:InStoreSaleIntent}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input,["intent"]);return mutate(`/sales/${id(saleId)}`,{expectedVersion:body.expectedVersion,intent:parseInStoreSaleIntent(body.intent,version)},operationId,"PATCH",saleId,version);},
-    async holdSale(saleId:string,input:Readonly<{expectedVersion:number;held:boolean}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input,["held"]);if(typeof body.held!=="boolean")invalid();return mutate(`/sales/${id(saleId)}/hold`,body,operationId,"POST",saleId,version);},
-    async prepareSale(saleId:string,input:Readonly<{expectedVersion:number;expectedTotalCents:number}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input,["expectedTotalCents"]);integer(body.expectedTotalCents,1);return mutate(`/sales/${id(saleId)}/prepare`,body,operationId,"POST",saleId,version);},
-    async confirmPayment(saleId:string,input:Readonly<{expectedVersion:number;slipReference:string|null;paymentMethod?:"card"|"cash"|null}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input,version===2?["slipReference","paymentMethod"]:["slipReference"]);if(version===2&&body.paymentMethod!==null&&body.paymentMethod!=="card"&&body.paymentMethod!=="cash")invalid();if(body.slipReference!==null)plainText(body.slipReference,100);return mutate(`/sales/${id(saleId)}/payment`,body,operationId,"POST",saleId,version);},
-    async completeSale(saleId:string,input:Readonly<{expectedVersion:number}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input);return mutate(`/sales/${id(saleId)}/complete`,body,operationId,"POST",saleId,version);},
-    async cancelSale(saleId:string,input:Readonly<{expectedVersion:number;confirmUnpaid:true}>,operationId:string,version:1|2=contractVersion){const body=versionBody(input,["confirmUnpaid"]);if(body.confirmUnpaid!==true)invalid();return mutate(`/sales/${id(saleId)}/cancel`,body,operationId,"POST",saleId,version);},
-    async takeoverSale(saleId:string,input:Readonly<{expectedVersion:number}>,operationId:string,version:1|2=contractVersion){return mutate(`/sales/${id(saleId)}/takeover`,versionBody(input),operationId,"POST",saleId,version);},
+    async createSale(input:Readonly<{saleId:string;intent:InStoreSaleIntent}>,operationId:string,version:1|2|3=contractVersion){const body=object(input,["saleId","intent"]);const sale=id(body.saleId);const intent=parseInStoreSaleIntent(body.intent,version);return mutate("/sales",{saleId:sale,intent},operationId,"POST",sale,version);},
+    async updateSale(saleId:string,input:Readonly<{expectedVersion:number;intent:InStoreSaleIntent}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input,["intent"]);return mutate(`/sales/${id(saleId)}`,{expectedVersion:body.expectedVersion,intent:parseInStoreSaleIntent(body.intent,version)},operationId,"PATCH",saleId,version);},
+    async holdSale(saleId:string,input:Readonly<{expectedVersion:number;held:boolean}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input,["held"]);if(typeof body.held!=="boolean")invalid();return mutate(`/sales/${id(saleId)}/hold`,body,operationId,"POST",saleId,version);},
+    async prepareSale(saleId:string,input:Readonly<{expectedVersion:number;expectedTotalCents:number}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input,["expectedTotalCents"]);integer(body.expectedTotalCents,1);return mutate(`/sales/${id(saleId)}/prepare`,body,operationId,"POST",saleId,version);},
+    async confirmPayment(saleId:string,input:Readonly<{expectedVersion:number;slipReference:string|null;paymentMethod?:"card"|"cash"|"bank_transfer"|null}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input,version>=2?["slipReference","paymentMethod"]:["slipReference"]);if(version>=2&&body.paymentMethod!==null&&body.paymentMethod!=="card"&&body.paymentMethod!=="cash"&&!(version===3&&body.paymentMethod==="bank_transfer"))invalid();if(body.slipReference!==null)plainText(body.slipReference,100);return mutate(`/sales/${id(saleId)}/payment`,body,operationId,"POST",saleId,version);},
+    async completeSale(saleId:string,input:Readonly<{expectedVersion:number}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input);return mutate(`/sales/${id(saleId)}/complete`,body,operationId,"POST",saleId,version);},
+    async cancelSale(saleId:string,input:Readonly<{expectedVersion:number;confirmUnpaid:true}>,operationId:string,version:1|2|3=contractVersion){const body=versionBody(input,["confirmUnpaid"]);if(body.confirmUnpaid!==true)invalid();return mutate(`/sales/${id(saleId)}/cancel`,body,operationId,"POST",saleId,version);},
+    async takeoverSale(saleId:string,input:Readonly<{expectedVersion:number}>,operationId:string,version:1|2|3=contractVersion){return mutate(`/sales/${id(saleId)}/takeover`,versionBody(input),operationId,"POST",saleId,version);},
     listStaff(){return read("/staff",value=>{const list=object(value,["staff"]).staff;if(!Array.isArray(list)||list.length>100)invalid();return Object.freeze(list.map(v=>parseInStoreStaffGrant(v,contractVersion)));});},
-    async setStaffGrant(membershipId:string,input:Readonly<{expectedVersion:number;enabled:boolean;locationIds:readonly string[];discountLimitBps:number;canEditPrice?:boolean}>,operationId:string){
-      const body=object(input,contractVersion===2?["expectedVersion","enabled","locationIds","discountLimitBps","canEditPrice"]:["expectedVersion","enabled","locationIds","discountLimitBps"]);integer(body.expectedVersion,0);if(contractVersion===2&&typeof body.canEditPrice!=="boolean")invalid();if(typeof body.enabled!=="boolean"||!Array.isArray(body.locationIds)||body.locationIds.length>100||new Set(body.locationIds).size!==body.locationIds.length)invalid();body.locationIds.forEach(id);integer(body.discountLimitBps,0,9999);
+    async setStaffGrant(membershipId:string,input:Readonly<{expectedVersion:number;enabled:boolean;locationIds:readonly string[];discountLimitBps:number;canEditPrice?:boolean;canSellOnCredit?:boolean;canCollectReceivables?:boolean}>,operationId:string){
+      const body=object(input,contractVersion>=2?["expectedVersion","enabled","locationIds","discountLimitBps","canEditPrice",...(contractVersion===3?["canSellOnCredit","canCollectReceivables"]:[])]:["expectedVersion","enabled","locationIds","discountLimitBps"]);integer(body.expectedVersion,0);if(contractVersion===3&&(typeof body.canSellOnCredit!=="boolean"||typeof body.canCollectReceivables!=="boolean"))invalid();if(contractVersion>=2&&typeof body.canEditPrice!=="boolean")invalid();if(typeof body.enabled!=="boolean"||!Array.isArray(body.locationIds)||body.locationIds.length>100||new Set(body.locationIds).size!==body.locationIds.length)invalid();body.locationIds.forEach(id);integer(body.discountLimitBps,0,9999);
       const value=await request(`/staff/${id(membershipId)}`,{method:"POST",headers:{"content-type":"application/json","idempotency-key":id(operationId)},body:JSON.stringify(body)},true);
       try{return parseInStoreStaffGrant(value,contractVersion);}catch{throw new InStoreSalesUiError("unavailable",503,true);}
     },
   });
 }
+export type PosCustomer=InStorePosCustomer;
 export type InStoreSalesUiClient=ReturnType<typeof createInStoreSalesUiClient>;
-export const inStoreSalesUi=createInStoreSalesUiClient({contractVersion:2});
+export const inStoreSalesUi=createInStoreSalesUiClient({contractVersion:3});

@@ -209,3 +209,5 @@
   .dialogActions .primary { white-space: normal; }
 }
 @media(prefers-reduced-motion:reduce) { .console *, .dialog * { scroll-behavior: auto; animation: none !important; transition: none !important; } }
+.creditTerms{display:grid;gap:12px;padding:16px 0;border-top:1px solid var(--cp-border);border-bottom:1px solid var(--cp-border)}.balanceLine{display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:13px}.balanceLine>strong{font-variant-numeric:tabular-nums}.customerFormGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.customerResults{display:grid;gap:8px}.customerResults>button{display:grid;justify-content:start;gap:4px;text-align:left;white-space:normal}.customerResults small{font-size:12px;color:var(--cp-text-secondary)}.chosenCustomer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:var(--cp-canvas);border-radius:8px;font-size:13px}.chosenCustomer>div{display:grid;gap:4px}.chosenCustomer span{color:var(--cp-text-secondary)}
+@media(max-width:700px){.customerFormGrid{grid-template-columns:minmax(0,1fr)}.creditTerms input{font-size:16px}}

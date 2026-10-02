@@ -1183,7 +1183,7 @@ test("desktop sidebar keeps a compact neutral navigation with searchable section
   assert.match(navigation, />Yönetim</);
   assert.match(navigation, />SEO Araçları</);
   assert.match(navigation, /aria-label="Menüde ara"/);
-  assert.doesNotMatch(navigation, />Özet</);
+  assert.match(navigation, /href="\/accounting"[^>]*>[\s\S]*?>Özet</);
   assert.doesNotMatch(navigation, />Analizler</);
   assert.doesNotMatch(navigation, />Kurulum</);
 

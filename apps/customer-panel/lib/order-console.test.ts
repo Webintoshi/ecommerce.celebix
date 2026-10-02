@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { compile as compileRealComponent } from "./mira-final-test-support.ts";
 test("POS detail displays recorded card and cash while unknown methods retain manual POS", async () => {
  const Presentation=await compilePresentation("components/orders/OrderDetailConsole.tsx","OrderDetailPresentation");
- for (const [inStorePaymentMethod, expected] of [["card", "Kart"], ["cash", "Nakit"], [null, "manuel POS"], [undefined, "manuel POS"]] as const) {
+ for (const [inStorePaymentMethod, expected] of [["card", "Kart"], ["cash", "Nakit"], ["bank_transfer", "Banka havalesi"], [null, "manuel POS"], [undefined, "manuel POS"]] as const) {
   const html=renderToStaticMarkup(createElement(Presentation,{detail:{...detail,source:"in_store",customerName:null,customerEmail:null,shippingAddress:null,status:"delivered",paymentStatus:"completed",...(inStorePaymentMethod===undefined?{}:{inStorePaymentMethod})},state:"loaded",error:"",notice:"",busy:"",capabilities:{fulfill:true,manage:true,payment:true,shipping:true,note:true},onRetry(){},onStatusChange(){},onPaymentChange(){},onShippingSubmit(){},onNoteSubmit(){},onNoteArchive(){}}));
   assert.match(html,new RegExp(`Mağazadan teslim · ${expected}`));
   assert.doesNotMatch(html,/name="nextPaymentStatus"|Durumu güncelle/);
@@ -434,6 +434,8 @@ async function compileOrderModule(
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
+    // Financial behavior is exercised by the real OrderFinancePanel DOM suite.
+    if (specifier === "@/components/accounting/OrderFinancePanel") return { OrderFinancePanel: () => null };
     if (specifier === "@/components/shipping/OrderShipmentConsole") return {
       OrderShipmentConsole: () => createElement("div", { "data-testid": "order-shipment-console" }),
     };

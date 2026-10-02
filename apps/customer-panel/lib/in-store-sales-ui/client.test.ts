@@ -67,3 +67,14 @@ test("v2 rejects missing method and invalid override before network",async()=>{
   await assert.rejects(client.createSale({saleId:SALE_ID,intent:{locationId:LOCATION,items:[{variantId:SALE_ID,quantity:1,unitPriceOverrideCents:0}],discount:null,customerName:null,note:null,paymentMethod:"card"}},OP));
   assert.equal(calls,0);
 });
+
+test("V3 sends its explicit header and searches archived CRM customer matches",async()=>{
+  const customer={id:SALE_ID,name:"Ayşe Kaya",firstName:"Ayşe",lastName:"Kaya",phone:"+905550001122",email:null,archived:true};let header:string|null=null,url="";
+  const client=createInStoreSalesUiClient({contractVersion:3,fetch:async(input,init)=>{header=new Headers(init?.headers).get("x-celebix-in-store-version");url=String(input);return reply({data:{customers:[customer]}});}});
+  assert.deepEqual(await client.searchCustomers("Ayşe"),[customer]);assert.equal(header,"3");assert.equal(new URL(url,"https://example.test").searchParams.get("query"),"Ayşe");
+});
+test("V3 customer creation preserves its key and only sends CRM contact fields",async()=>{
+  let body:unknown,key:string|null=null;const customer={id:SALE_ID,name:"Ayşe Kaya",firstName:"Ayşe",lastName:"Kaya",phone:"+905550001122",email:null,archived:false};
+  const client=createInStoreSalesUiClient({contractVersion:3,fetch:async(_input,init)=>{body=JSON.parse(String(init?.body));key=new Headers(init?.headers).get("idempotency-key");return reply({data:{customer,replayed:false}});}});
+  const input={firstName:"Ayşe",lastName:"Kaya",phone:"+905550001122",email:null};assert.equal((await client.createCustomer(input,OP)).customer.id,SALE_ID);assert.deepEqual(body,input);assert.equal(key,OP);
+});

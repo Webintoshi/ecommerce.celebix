@@ -1,8 +1,8 @@
-import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSalePage, InStoreSaleResult, InStoreStaffGrant, TenantContext } from "@celebix/saas-contracts";
+import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSalePage, InStoreSaleResult, InStoreStaffGrant, InStorePosCustomer, InStorePosCustomerIntent, InStorePosCustomerResult, TenantContext } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 export interface InStoreAuthorityInput {
     readonly tenantContext: TenantContext;
-    readonly contractVersion?: 1 | 2;
+    readonly contractVersion?: 1 | 2 | 3;
     readonly now: Date;
 }
 export interface SearchInStoreProductsInput extends InStoreAuthorityInput {
@@ -41,7 +41,7 @@ export interface PrepareInStoreSaleInput extends VersionedInStoreSaleInput {
 }
 export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
     readonly slipReference: string | null;
-    readonly paymentMethod?: "card" | "cash" | null;
+    readonly paymentMethod?: "card" | "cash" | "bank_transfer" | null;
 }
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
     readonly confirmUnpaid: true;
@@ -54,8 +54,13 @@ export interface SetInStoreStaffGrantInput extends InStoreAuthorityInput {
     readonly locationIds: readonly string[];
     readonly discountLimitBps: number;
     readonly canEditPrice?: boolean;
+    readonly canSellOnCredit?: boolean;readonly canCollectReceivables?: boolean;
 }
+export interface SearchInStoreCustomersInput extends InStoreAuthorityInput { readonly query:string;readonly limit:number; }
+export interface CreateInStoreCustomerInput extends InStoreAuthorityInput { readonly operationId:string;readonly intent:InStorePosCustomerIntent; }
 export interface InStoreSalesRepository {
+    searchCustomers(input:SearchInStoreCustomersInput):Promise<Readonly<{customers:readonly InStorePosCustomer[]}>>;
+    createCustomer(input:CreateInStoreCustomerInput):Promise<InStorePosCustomerResult>;
     bootstrap(input: InStoreAuthorityInput): Promise<InStoreBootstrap>;
     searchProducts(input: SearchInStoreProductsInput): Promise<Readonly<{
         products: readonly InStoreProduct[];
