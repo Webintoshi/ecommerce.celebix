@@ -194,6 +194,35 @@ export type FinalizePaymentAttemptReconciliationInput = Readonly<{
   now: Date;
 }>;
 
+export type VerifiedHostedCallbackEvidence = Readonly<{
+  providerCode: string;
+  callbackBindingDigest: string;
+  eventKeyDigest: string;
+  observationFingerprint: string;
+  status: "captured" | "failed";
+  providerReference: string;
+  credentialVersion: number;
+  amountMinor: number;
+  currency: string;
+}>;
+
+export type VerifiedHostedCallbackObservation = VerifiedHostedCallbackEvidence & Readonly<{ safeCode: string }>;
+
+export type GetVerifiedHostedCallbackEvidenceInput = Readonly<{
+  attemptId: string;
+  expectedVersion: number;
+  now: Date;
+  environment: PaymentAttemptEnvironment;
+  executionAdapterVersion: number;
+  executionEvidenceDigest: string;
+}>;
+
+export type ClaimVerifiedHostedCallbackInput =
+  ClaimPaymentAttemptReconciliationInput & VerifiedHostedCallbackEvidence;
+
+export type FinalizeVerifiedHostedCallbackInput =
+  FinalizePaymentAttemptReconciliationInput & VerifiedHostedCallbackEvidence;
+
 export interface PaymentAttemptRepository {
   begin(input: BeginPaymentAttemptInput): Promise<BeginPaymentAttemptResult>;
   markInitialized(input: MarkPaymentAttemptInitializedInput): Promise<PaymentAttemptMutationResult>;
@@ -206,6 +235,9 @@ export interface PaymentAttemptRepository {
   applyHostedCallback(input: ApplyHostedPaymentCallbackInput): Promise<ApplyHostedPaymentCallbackResult>;
   claimReconciliation(input: ClaimPaymentAttemptReconciliationInput): Promise<PaymentAttemptReconciliationClaim>;
   finalizeReconciliation(input: FinalizePaymentAttemptReconciliationInput): Promise<PaymentAttemptMutationResult>;
+  claimVerifiedHostedCallback?(input: ClaimVerifiedHostedCallbackInput): Promise<PaymentAttemptReconciliationClaim>;
+  finalizeVerifiedHostedCallback?(input: FinalizeVerifiedHostedCallbackInput): Promise<PaymentAttemptMutationResult>;
+  getVerifiedHostedCallbackEvidence?(input: GetVerifiedHostedCallbackEvidenceInput): Promise<VerifiedHostedCallbackObservation | null>;
 }
 
 export type PaymentAttemptAuditEvent = Readonly<{

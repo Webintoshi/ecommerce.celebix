@@ -12,11 +12,15 @@ import type {
 import type {
   ApplyHostedPaymentCallbackResult,
   BeginPaymentAttemptResult,
+  ClaimVerifiedHostedCallbackInput,
+  FinalizeVerifiedHostedCallbackInput,
+  GetVerifiedHostedCallbackEvidenceInput,
   MerchantProviderCredentialKeyring,
   PaymentAttemptAuthority,
   PaymentAttemptMutationResult,
   PaymentAttemptReconciliationClaim,
   PaymentAttemptRepository,
+  VerifiedHostedCallbackObservation,
 } from "@celebix/saas-data";
 import { PaymentAttemptRepositoryError } from "@celebix/saas-data";
 
@@ -197,6 +201,7 @@ type Calls = {
   hostedCallbacks: Parameters<PaymentAttemptRepository["applyHostedCallback"]>[0][];
   claims: Parameters<PaymentAttemptRepository["claimReconciliation"]>[0][];
   finalized: Parameters<PaymentAttemptRepository["finalizeReconciliation"]>[0][];
+  observations: GetVerifiedHostedCallbackEvidenceInput[];
   initializedAdapter: Parameters<HostedPaymentAdapter<object>["initialize"]>[0][];
   callbacks: Parameters<HostedPaymentAdapter<object>["verifyCallback"]>[0][];
   queries: Parameters<HostedPaymentAdapter<object>["query"]>[0][];
@@ -241,6 +246,12 @@ function fixture(options: Readonly<{
   trusted?: boolean;
   freezeCredential?: boolean;
   claim?: Partial<PaymentAttemptReconciliationClaim> | Error;
+  claimAdapter?: (
+    input: Parameters<PaymentAttemptRepository["claimReconciliation"]>[0],
+  ) => Promise<PaymentAttemptReconciliationClaim>;
+  finalization?: PaymentAttemptMutationResult | Error;
+  verifiedReconciliationEnabled?: boolean;
+  storedObservation?: VerifiedHostedCallbackObservation | Error | null;
   now?: () => Date;
   providerTimeoutMs?: number;
   packet?: PaymentAdapterPacket;
@@ -255,7 +266,7 @@ function fixture(options: Readonly<{
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
     hostedCallbacks: [],
-    claims: [], finalized: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
+    claims: [], finalized: [], observations: [], initializedAdapter: [], callbacks: [], queries: [], opens: [],
     authorityChecks: [], compiledAuthoritySelections: [],
   };
   let opened: Uint8Array | undefined;
@@ -324,9 +335,16 @@ function fixture(options: Readonly<{
     },
     async claimReconciliation(input) {
       calls.claims.push(input);
+      if (options.claimAdapter !== undefined) return options.claimAdapter(input);
       if (options.claim instanceof Error) throw options.claim;
+      const selectedAuthority = options.callbackAuthority instanceof Error
+        ? authority() : options.callbackAuthority
+          ?? (options.reconciliationAuthority instanceof Error ? authority() : options.reconciliationAuthority)
+          ?? authority();
       return Object.freeze({
-        ...authority({ status: "reconciliation_required", version: input.expectedVersion + 1 }),
+        ...selectedAuthority,
+        status: "reconciliation_required",
+        version: input.expectedVersion + 1,
         outcome: "claimed",
         leaseId: input.leaseId,
         leaseOwner: input.workerId,
@@ -334,10 +352,24 @@ function fixture(options: Readonly<{
         ...(options.claim ?? {}),
       }) as PaymentAttemptReconciliationClaim;
     },
-    async finalizeReconciliation(input) { calls.finalized.push(input); return mutation({
-      status: input.status, providerReference: input.providerReference, safeCode: input.safeCode,
-    }); },
+    async finalizeReconciliation(input) {
+      calls.finalized.push(input);
+      if (options.finalization instanceof Error) throw options.finalization;
+      return options.finalization ?? mutation({
+        status: input.status, providerReference: input.providerReference, safeCode: input.safeCode,
+        version: input.expectedVersion + 1,
+      });
+    },
   };
+  if (options.verifiedReconciliationEnabled !== false) {
+    attempts.claimVerifiedHostedCallback = (input) => attempts.claimReconciliation(input);
+    attempts.finalizeVerifiedHostedCallback = (input) => attempts.finalizeReconciliation(input);
+    attempts.getVerifiedHostedCallbackEvidence = async (input) => {
+      calls.observations.push(input);
+      if (options.storedObservation instanceof Error) throw options.storedObservation;
+      return options.storedObservation ?? null;
+    };
+  }
   const parseCredential = Object.freeze((value: unknown) => {
     assert.deepEqual(value, {
       merchantId: "merchant_fixture",
@@ -1337,31 +1369,220 @@ test("hosted iframe callbacks settle directly from the initialized awaiting_cust
   assert.equal(selected.calls.hostedCallbacks[0]?.expectedVersion, 2);
 });
 
-test("a changed terminal callback after durable unknown remains processing for reconciliation", async () => {
-  for (const [mode, expected] of [
-    ["provider_ack", { kind: "retry" }],
-    ["customer_return", { kind: "customer_return", outcome: "processing" }],
-  ] as const) {
+test("authenticated terminal observations reconcile unknown attempts under an exact lease without a provider query", async () => {
+  for (const currentStatus of ["provider_outcome_unknown", "reconciliation_required"] as const) {
+    for (const [callbackStatus, terminalStatus] of [["succeeded", "captured"], ["failed", "failed"]] as const) {
+      for (const [mode, expected] of [
+        ["provider_ack", { kind: "accepted" }],
+        ["customer_return", { kind: "customer_return", outcome: callbackStatus === "failed" ? "failure" : "success" }],
+      ] as const) {
+        const selected = fixture({
+          packet: callbackPacket(mode),
+          callbackAuthority: authority({
+            status: currentStatus, version: 5, providerReference: "provider_reference_private",
+          }),
+          callback: Object.freeze({
+            eventKey: "provider_terminal_observation", status: callbackStatus,
+            providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+            currency: "TRY", safeCode: callbackStatus === "failed" ? "payment_failed" : "payment_captured",
+          }),
+        });
+        assert.deepEqual(await selected.runtime.callback({
+          request: callbackRequest(), providerCode: PROVIDER,
+          binding: Buffer.alloc(32, 7).toString("base64url"),
+        }), expected);
+        assert.equal(selected.calls.hostedCallbacks.length, 1);
+        assert.equal(selected.calls.hostedCallbacks[0]?.status, terminalStatus);
+        assert.equal(selected.calls.claims.length, 1);
+        assert.equal(selected.calls.claims[0]?.expectedVersion, 5);
+        assert.equal(selected.calls.claims[0]?.environment, "test");
+        assert.equal(selected.calls.claims[0]?.executionEvidenceDigest, COMPILED_AUTHORITY.evidenceDigest);
+        assert.equal(selected.calls.claims[0]?.leaseExpiresAt.getTime(), NOW.getTime() + 60_000);
+        const evidenceClaim = selected.calls.claims[0] as ClaimVerifiedHostedCallbackInput;
+        assert.equal(evidenceClaim.providerCode, PROVIDER);
+        assert.equal(evidenceClaim.status, terminalStatus);
+        assert.equal(evidenceClaim.callbackBindingDigest, createHash("sha256").update(Buffer.alloc(32, 7)).digest("hex"));
+        assert.equal(evidenceClaim.eventKeyDigest, createHash("sha256").update("provider_terminal_observation").digest("hex"));
+        assert.equal(evidenceClaim.observationFingerprint, selected.calls.hostedCallbacks[0]?.fingerprint);
+        assert.equal(selected.calls.finalized.length, 1);
+        assert.equal(selected.calls.finalized[0]?.expectedVersion, 6);
+        assert.equal(selected.calls.finalized[0]?.credentialVersion, 3);
+        assert.equal(selected.calls.finalized[0]?.status, terminalStatus);
+        assert.equal(selected.calls.finalized[0]?.amountMinor, 12_345);
+        assert.equal(selected.calls.finalized[0]?.currency, "TRY");
+        assert.equal(selected.calls.finalized[0]?.providerReference, "provider_reference_private");
+        assert.equal(selected.calls.finalized[0]?.leaseId, selected.calls.claims[0]?.leaseId);
+        assert.equal(selected.calls.finalized[0]?.workerId, selected.calls.claims[0]?.workerId);
+        const evidenceFinal = selected.calls.finalized[0] as FinalizeVerifiedHostedCallbackInput;
+        assert.equal(evidenceFinal.observationFingerprint, evidenceClaim.observationFingerprint);
+        assert.equal(evidenceFinal.eventKeyDigest, evidenceClaim.eventKeyDigest);
+        assert.equal(evidenceFinal.callbackBindingDigest, evidenceClaim.callbackBindingDigest);
+        assert.equal(selected.calls.queries.length, 0);
+        assert.equal(selected.calls.initializedAdapter.length, 0);
+        assert.equal(selected.opened?.every((byte) => byte === 0), true);
+      }
+    }
+  }
+});
+
+test("authenticated LIVE failure recovery retains its live execution authority and real expected amount", async () => {
+  const selected = fixture({
+    compiledAuthority: { ...COMPILED_AUTHORITY, environment: "live" },
+    callbackAuthority: authority({
+      status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private",
+      environment: "live", amountMinor: 1_000,
+      publicConfig: Object.freeze({ environment: "live", merchantId: "merchant_fixture" }),
+      methodConfig: Object.freeze({
+        environment: "live", locale: "tr", threeDSecure: "provider_managed",
+        installmentMode: "limited", maxInstallment: 6,
+      }),
+    }),
+    callback: Object.freeze({
+      eventKey: "provider_failed_observation", status: "failed",
+      providerReference: "provider_reference_private", paidAmountMinor: 1_000,
+      currency: "TRY", safeCode: "payment_failed",
+    }),
+  });
+  assert.deepEqual(await selected.runtime.callback({
+    request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  }), { kind: "accepted" });
+  assert.equal(selected.calls.claims[0]?.environment, "live");
+  assert.equal(selected.calls.callbacks[0]?.environment, "live");
+  assert.equal(selected.calls.finalized[0]?.amountMinor, 1_000);
+  assert.equal(selected.calls.finalized[0]?.status, "failed");
+  assert.equal(selected.calls.queries.length, 0);
+});
+
+test("callback reconciliation cannot finalize a conflicting or unavailable lease authority", async () => {
+  for (const claim of [
+    new PaymentAttemptRepositoryError("version_conflict"),
+    new PaymentAttemptRepositoryError("invalid_transition"),
+    new PaymentAttemptRepositoryError("callback_replay_mismatch"),
+    { attemptId: LEASE_ID }, { storeId: LEASE_ID }, { profileId: LEASE_ID },
+    { paymentMethodId: LEASE_ID }, { providerCode: "other_provider" },
+    { environment: "live" }, { executionAdapterVersion: 2 },
+    { executionEvidenceDigest: `sha256:${"b".repeat(64)}` },
+    { credentialVersion: 4 }, { orderReference: "OTHER-ORDER" },
+    { amountMinor: 12_346 }, { currency: "USD" },
+    { providerReference: "other_reference" }, { providerReference: null },
+    { version: 7 }, { leaseOwner: "other_worker" }, { leaseId: LEASE_ID },
+    { leaseExpiresAt: NOW.toISOString() },
+  ] as ReadonlyArray<Partial<PaymentAttemptReconciliationClaim> | Error>) {
     const selected = fixture({
-      packet: callbackPacket(mode),
       callbackAuthority: authority({
-        status: "provider_outcome_unknown",
-        version: 3,
-        providerReference: "provider_reference_private",
+        status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private",
+      }),
+      callback: Object.freeze({
+        eventKey: "provider_failed_observation", status: "failed",
+        providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+        currency: "TRY", safeCode: "payment_failed",
+      }),
+      claim,
+    });
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(), providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    }), { kind: "retry" });
+    assert.equal(selected.calls.finalized.length, 0);
+    assert.equal(selected.calls.queries.length, 0);
+  }
+});
+
+test("callback reconciliation acknowledges only an exact committed terminal mutation", async () => {
+  for (const finalization of [
+    new PaymentAttemptRepositoryError("commit_unknown"),
+    new PaymentAttemptRepositoryError("version_conflict"),
+    new PaymentAttemptRepositoryError("callback_replay_mismatch"),
+    mutation({ status: "captured", version: 7, safeCode: "payment_failed" }),
+    mutation({ status: "failed", version: 6, safeCode: "payment_failed" }),
+    mutation({ status: "failed", version: 8, safeCode: "payment_failed" }),
+    mutation({ status: "failed", version: 7, safeCode: "other_code" }),
+    mutation({ status: "failed", version: 7, safeCode: "payment_failed", providerReference: "other_reference" }),
+    mutation({ status: "failed", version: 7, safeCode: "payment_failed", attemptId: LEASE_ID }),
+  ]) {
+    const selected = fixture({
+      callbackAuthority: authority({
+        status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private",
+      }),
+      callback: Object.freeze({
+        eventKey: "provider_failed_observation", status: "failed",
+        providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+        currency: "TRY", safeCode: "payment_failed",
+      }),
+      finalization,
+    });
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(), providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    }), { kind: "retry" });
+    assert.equal(selected.calls.queries.length, 0);
+  }
+});
+
+test("callback reconciliation neither uses expired time nor adopts an unpersisted provider reference", async () => {
+  for (const item of [
+    { reference: null, lastNow: NOW },
+    { reference: "provider_reference_private", lastNow: new Date(NOW.getTime() + 60_000) },
+    { reference: "provider_reference_private", lastNow: new Date(NOW.getTime() - 1) },
+  ]) {
+    let ticks = 0;
+    const selected = fixture({
+      now: () => ++ticks < 3 ? new Date(NOW) : new Date(item.lastNow),
+      callbackAuthority: authority({
+        status: "provider_outcome_unknown", version: 5, providerReference: item.reference,
+      }),
+      callback: Object.freeze({
+        eventKey: "provider_failed_observation", status: "failed",
+        providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+        currency: "TRY", safeCode: "payment_failed",
       }),
     });
-
-    const result = await selected.runtime.callback({
-      request: callbackRequest(),
-      providerCode: PROVIDER,
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(), providerCode: PROVIDER,
       binding: Buffer.alloc(32, 7).toString("base64url"),
-    });
-
-    assert.deepEqual(result, expected);
-    assert.equal(selected.calls.hostedCallbacks.length, 1);
-    assert.equal(selected.calls.hostedCallbacks[0]?.status, "captured");
-    assert.equal(selected.calls.claims.length, 0);
+    }), { kind: "retry" });
+    assert.equal(selected.calls.finalized.length, 0);
+    assert.equal(selected.calls.claims.length, item.reference === null ? 0 : 1);
   }
+});
+
+test("concurrent authenticated callback observations finalize once through the winning exact lease", async () => {
+  const claimed = deferred<PaymentAttemptReconciliationClaim>();
+  let entered = false;
+  const selected = fixture({
+    callbackAuthority: authority({
+      status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private",
+    }),
+    callback: Object.freeze({
+      eventKey: "provider_failed_observation", status: "failed",
+      providerReference: "provider_reference_private", paidAmountMinor: 12_345,
+      currency: "TRY", safeCode: "payment_failed",
+    }),
+    claimAdapter: async () => {
+      if (entered) throw new PaymentAttemptRepositoryError("version_conflict");
+      entered = true;
+      return claimed.promise;
+    },
+  });
+  const request = () => ({
+    request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  });
+  const first = selected.runtime.callback(request());
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(entered, true, "callback did not request a reconciliation lease");
+  assert.deepEqual(await selected.runtime.callback(request()), { kind: "retry" });
+  const lease = selected.calls.claims[0]!;
+  claimed.resolve(Object.freeze({
+    ...authority({ status: "reconciliation_required", version: 6, providerReference: "provider_reference_private" }),
+    outcome: "claimed", leaseId: lease.leaseId, leaseOwner: lease.workerId,
+    leaseExpiresAt: lease.leaseExpiresAt.toISOString(),
+  }));
+  assert.deepEqual(await first, { kind: "accepted" });
+  assert.equal(selected.calls.finalized.length, 1);
+  assert.equal(selected.calls.finalized[0]?.status, "failed");
+  assert.equal(selected.calls.queries.length, 0);
 });
 
 test("a freshly verified failed callback acknowledges its historical unknown replay after authoritative failure", async () => {
@@ -1409,7 +1630,41 @@ test("a freshly verified failed callback acknowledges its historical unknown rep
   }
 });
 
-test("historical unknown replay cannot acknowledge an unresolved, different, or unverified failure", async () => {
+test("a freshly verified success acknowledges its historical unknown replay after authoritative capture", async () => {
+  const selected = fixture({
+    callbackAuthority: authority({ status: "captured", version: 7, providerReference: "provider_reference_private" }),
+    settlement: hostedMutation({
+      status: "provider_outcome_unknown", version: 5,
+      providerReference: "provider_reference_private", safeCode: "provider_outcome_unknown",
+      replayed: true, disposition: "processing",
+    }),
+  });
+  for (let retry = 0; retry < 2; retry += 1) {
+    assert.deepEqual(await selected.runtime.callback({
+      request: callbackRequest(), providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url"),
+    }), { kind: "accepted" });
+  }
+  assert.equal(selected.calls.claims.length, 0);
+  assert.equal(selected.calls.finalized.length, 0);
+  assert.equal(selected.calls.queries.length, 0);
+});
+
+test("unknown callbacks remain processing when the evidence-guarded repository methods are unavailable", async () => {
+  const selected = fixture({
+    verifiedReconciliationEnabled: false,
+    callbackAuthority: authority({ status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private" }),
+  });
+  assert.deepEqual(await selected.runtime.callback({
+    request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url"),
+  }), { kind: "retry" });
+  assert.equal(selected.calls.claims.length, 0);
+  assert.equal(selected.calls.finalized.length, 0);
+  assert.equal(selected.calls.queries.length, 0);
+});
+
+test("historical unknown replay cannot acknowledge an unresolved, different, or unverified failure without terminal reconciliation", async () => {
   const failedCallback: VerifiedProviderCallback = Object.freeze({
     eventKey: "provider_failed_observation", status: "failed",
     providerReference: "provider_reference_private", paidAmountMinor: 12_345,
@@ -1421,8 +1676,8 @@ test("historical unknown replay cannot acknowledge an unresolved, different, or 
     replayed: true, disposition: "processing",
   });
   for (const item of [
-    { authority: { status: "provider_outcome_unknown" }, expected: { kind: "retry" } },
-    { authority: { status: "reconciliation_required" }, expected: { kind: "retry" } },
+    { authority: { status: "provider_outcome_unknown" }, expected: { kind: "retry" }, claimAttemptExpected: true },
+    { authority: { status: "reconciliation_required" }, expected: { kind: "retry" }, claimAttemptExpected: true },
     { authority: { status: "captured" }, expected: { kind: "retry" } },
     { authority: { providerReference: null }, expected: { kind: "retry" } },
     { callback: { status: "succeeded" }, expected: { kind: "retry" } },
@@ -1440,6 +1695,7 @@ test("historical unknown replay cannot acknowledge an unresolved, different, or 
     settlement?: Partial<ApplyHostedPaymentCallbackResult>;
     expected: Readonly<{ kind: "retry" | "rejected" }>;
     rejectedBeforeWrite?: boolean;
+    claimAttemptExpected?: boolean;
   }>>) {
     const selected = fixture({
       callbackAuthority: authority({
@@ -1449,6 +1705,7 @@ test("historical unknown replay cannot acknowledge an unresolved, different, or 
       callback: item.callback instanceof Error
         ? item.callback : Object.freeze({ ...failedCallback, ...item.callback }),
       settlement: hostedMutation({ ...replay, ...item.settlement }),
+      claim: new PaymentAttemptRepositoryError("version_conflict"),
     });
     assert.deepEqual(await selected.runtime.callback({
       request: callbackRequest(), providerCode: PROVIDER,
@@ -1456,7 +1713,7 @@ test("historical unknown replay cannot acknowledge an unresolved, different, or 
     }), item.expected);
     assert.equal(selected.calls.hostedCallbacks.length, item.rejectedBeforeWrite ? 0 : 1);
     assert.equal(selected.calls.queries.length, 0);
-    assert.equal(selected.calls.claims.length, 0);
+    assert.equal(selected.calls.claims.length, item.claimAttemptExpected ? 1 : 0);
     assert.equal(selected.calls.finalized.length, 0);
   }
 });
@@ -1664,6 +1921,63 @@ test("reconciliation queries once under the claimed immutable authority and fina
   assert.equal(selected.calls.finalized[0]?.amountMinor, 12_345);
   assert.equal(selected.calls.finalized[0]?.currency, "TRY");
   assert.equal(selected.opened?.every((byte) => byte === 0), true);
+});
+
+test("reconciliation consumes an already persisted signed terminal observation without callback re-verification or provider query", async () => {
+  for (const [status, outcome] of [["captured", "captured"], ["failed", "failed"]] as const) {
+    const selected = fixture({
+      reconciliationAuthority: authority({ status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private" }),
+      storedObservation: Object.freeze({
+        providerCode: PROVIDER, callbackBindingDigest: "b".repeat(64), eventKeyDigest: "c".repeat(64),
+        observationFingerprint: "d".repeat(64), status, providerReference: "provider_reference_private",
+        credentialVersion: 3, amountMinor: 12_345, currency: "TRY", safeCode: status === "failed" ? "payment_failed" : "payment_captured",
+      }),
+      query: new Error("provider query is not terminal failure evidence"),
+    });
+    assert.deepEqual(await selected.runtime.reconcile({
+      attemptId: ATTEMPT_ID, operationId: "66666666-6666-4666-8666-666666666666",
+      expectedVersion: 5, workerId: "worker.fixture", leaseId: LEASE_ID,
+    }), { kind: outcome });
+    assert.equal(selected.calls.observations.length, 1);
+    assert.equal(selected.calls.callbacks.length, 0);
+    assert.equal(selected.calls.queries.length, 0);
+    assert.equal(selected.calls.finalized.length, 1);
+    assert.equal(selected.calls.finalized[0]?.status, status);
+    assert.equal((selected.calls.claims[0] as ClaimVerifiedHostedCallbackInput).observationFingerprint, "d".repeat(64));
+    assert.equal((selected.calls.finalized[0] as FinalizeVerifiedHostedCallbackInput).observationFingerprint, "d".repeat(64));
+    assert.equal((selected.calls.finalized[0] as FinalizeVerifiedHostedCallbackInput).eventKeyDigest, "c".repeat(64));
+  }
+});
+
+test("reconciliation leaves conflicting, unavailable, or mismatched stored observation proof processing without provider query", async () => {
+  const observation: VerifiedHostedCallbackObservation = Object.freeze({
+    providerCode: PROVIDER, callbackBindingDigest: "b".repeat(64), eventKeyDigest: "c".repeat(64),
+    observationFingerprint: "d".repeat(64), status: "failed", providerReference: "provider_reference_private",
+    credentialVersion: 3, amountMinor: 12_345, currency: "TRY", safeCode: "payment_failed",
+  });
+  for (const item of [
+    { observation: new PaymentAttemptRepositoryError("callback_replay_mismatch") },
+    { observation: new PaymentAttemptRepositoryError("unavailable") },
+    { observation: { ...observation, providerReference: "different_reference" } },
+    { observation: { ...observation, credentialVersion: 4 } },
+    { observation: { ...observation, amountMinor: 12_346 } },
+    { observation: { ...observation, currency: "USD" } },
+    { observation: { ...observation, providerCode: "other_provider" } },
+    { observation: { ...observation, observationFingerprint: "invalid" } },
+    { observation, enabled: false },
+  ]) {
+    const selected = fixture({
+      reconciliationAuthority: authority({ status: "provider_outcome_unknown", version: 5, providerReference: "provider_reference_private" }),
+      storedObservation: item.observation, verifiedReconciliationEnabled: item.enabled,
+    });
+    assert.deepEqual(await selected.runtime.reconcile({
+      attemptId: ATTEMPT_ID, operationId: "66666666-6666-4666-8666-666666666666",
+      expectedVersion: 5, workerId: "worker.fixture", leaseId: LEASE_ID,
+    }), { kind: "processing" });
+    assert.equal(selected.calls.claims.length, 0);
+    assert.equal(selected.calls.finalized.length, 0);
+    assert.equal(selected.calls.queries.length, 0);
+  }
 });
 
 test("local query rejection and invalid configuration leave reconciliation unfinalized", async () => {

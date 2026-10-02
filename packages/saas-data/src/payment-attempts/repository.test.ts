@@ -617,9 +617,9 @@ test("claimReconciliation binds operation and lease and returns immutable creden
   assert.equal(Object.isFrozen(result.sealedCredentials), true);
 });
 
-test("finalizeReconciliation passes all immutable checks and releases the lease result", async () => {
+test("finalizeReconciliation passes all immutable checks through the atomic callback-conflict guard", async () => {
   const projected = mutationPayload("captured", 5);
-  const client = success("payment_attempt_finalize_reconciliation", "captured", projected);
+  const client = success("payment_attempt_finalize_reconciliation_guarded", "captured", projected);
   const result = await repository(new Pool([client])).finalizeReconciliation({
     attemptId: ATTEMPT,
     operationId: OPERATION,
@@ -636,14 +636,222 @@ test("finalizeReconciliation passes all immutable checks and releases the lease 
     now: NOW,
   });
 
-  assert.deepEqual(selected(client, "payment_attempt_finalize_reconciliation"), {
-    text: "SELECT outcome,result_payload FROM saas.payment_attempt_finalize_reconciliation($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
+  assert.deepEqual(selected(client, "payment_attempt_finalize_reconciliation_guarded"), {
+    text: "SELECT outcome,result_payload FROM saas.payment_attempt_finalize_reconciliation_guarded($1::uuid,$2::uuid,$3::text,$4::bigint,$5::text,$6::uuid,$7::bigint,$8::text,$9::text,$10::text,$11::bigint,$12::text,$13::timestamptz)",
     values: [
       ATTEMPT, OPERATION, FINGERPRINT, 4, "worker.fixture", LEASE, 2,
       "captured", "provider-safe-42", "accepted", 12_345, "USD", NOW,
     ],
   });
   assert.deepEqual(result, projected);
+});
+
+test("generic reconciliation cannot fall back to unguarded finalization on contradictory callback evidence", async () => {
+  for (const status of ["captured", "failed"] as const) {
+    const client = new Client((text) => text.includes("saas.payment_attempt_finalize_reconciliation_guarded(")
+      ? [{ outcome: "callback_replay_mismatch", result_payload: null }]
+      : text.includes("saas.payment_attempt_finalize_reconciliation(")
+        ? [{ outcome: status, result_payload: mutationPayload(status, 5) }]
+        : []);
+    const pool = new Pool([client]);
+    await assert.rejects(() => repository(pool).finalizeReconciliation({
+      attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT, expectedVersion: 4,
+      workerId: "worker.fixture", leaseId: LEASE, credentialVersion: 2, status,
+      providerReference: "provider-safe-42", safeCode: "accepted", amountMinor: 12_345,
+      currency: "USD", now: NOW,
+    }), (error: unknown) => error instanceof PaymentAttemptRepositoryError
+      && error.code === "callback_replay_mismatch");
+    assert.equal(pool.connectCount, 1);
+    assert.equal(client.calls.filter(({ text }) => text.includes("saas.payment_attempt_finalize_reconciliation(")).length, 0);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});
+
+test("guarded generic reconciliation recovers a committed operation with one read-only replay", async () => {
+  const functionName = "payment_attempt_finalize_reconciliation_guarded";
+  const projected = mutationPayload("captured", 5);
+  const writer = new Client((text) => text.includes(`saas.${functionName}(`)
+    ? [{ outcome: "captured", result_payload: projected }]
+    : text === "COMMIT" ? new Error("wire lost") : []);
+  const recovery = new Client((text) => text.includes(`saas.${functionName}(`)
+    ? [{ outcome: "operation_replayed", result_payload: { ...projected, replayed: true } }]
+    : []);
+  const pool = new Pool([writer, recovery]);
+  const result = await repository(pool).finalizeReconciliation({
+    attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT, expectedVersion: 4,
+    workerId: "worker.fixture", leaseId: LEASE, credentialVersion: 2, status: "captured",
+    providerReference: "provider-safe-42", safeCode: "accepted", amountMinor: 12_345,
+    currency: "USD", now: NOW,
+  });
+  assert.deepEqual(result, { ...projected, replayed: true });
+  assert.equal(pool.connectCount, 2);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.deepEqual(selected(recovery, functionName), selected(writer, functionName));
+  for (const client of [writer, recovery]) {
+    assert.equal(client.calls.filter(({ text }) => text.includes(`saas.${functionName}(`)).length, 1);
+    assert.equal(client.calls.filter(({ text }) => text.includes("saas.payment_attempt_finalize_reconciliation(")).length, 0);
+  }
+});
+
+test("verified hosted callback claim binds immutable callback evidence and the exact lease authority", async () => {
+  const client = success("payment_attempt_claim_verified_hosted_callback", "claimed", claimPayload());
+  const result = await repository(new Pool([client])).claimVerifiedHostedCallback({
+    attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT, expectedVersion: 3,
+    environment: "test", executionAdapterVersion: 1, executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
+    workerId: "worker.fixture", leaseId: LEASE, now: NOW, leaseExpiresAt: LEASE_EXPIRES_AT,
+    providerCode: "paytr_iframe", callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+    observationFingerprint: "e".repeat(64), status: "failed", providerReference: "provider-safe-42",
+    credentialVersion: 2, amountMinor: 12_345, currency: "USD",
+  });
+  assert.deepEqual(selected(client, "payment_attempt_claim_verified_hosted_callback").values, [
+    ATTEMPT, OPERATION, FINGERPRINT, 3, "worker.fixture", LEASE, NOW, LEASE_EXPIRES_AT,
+    "test", 1, EXECUTION_EVIDENCE_DIGEST, "paytr_iframe", CALLBACK_DIGEST, EVENT_DIGEST,
+    "e".repeat(64), "failed", "provider-safe-42", 2, 12_345, "USD",
+  ]);
+  assert.equal(result.outcome, "claimed");
+  assert.equal(result.version, 4);
+  assert.equal(result.credentialVersion, 2);
+});
+
+test("verified hosted callback finalization retains evidence binding at the atomic terminal transition", async () => {
+  const projected = mutationPayload("failed", 5);
+  const client = success("payment_attempt_finalize_verified_hosted_callback", "failed", projected);
+  const result = await repository(new Pool([client])).finalizeVerifiedHostedCallback({
+    attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT, expectedVersion: 4,
+    workerId: "worker.fixture", leaseId: LEASE, credentialVersion: 2,
+    status: "failed", providerReference: "provider-safe-42", safeCode: "accepted",
+    amountMinor: 12_345, currency: "USD", now: NOW, providerCode: "paytr_iframe",
+    callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+    observationFingerprint: "e".repeat(64),
+  });
+  assert.deepEqual(selected(client, "payment_attempt_finalize_verified_hosted_callback").values, [
+    ATTEMPT, OPERATION, FINGERPRINT, 4, "worker.fixture", LEASE, 2,
+    "failed", "provider-safe-42", "accepted", 12_345, "USD", NOW,
+    "paytr_iframe", CALLBACK_DIGEST, EVENT_DIGEST, "e".repeat(64),
+  ]);
+  assert.deepEqual(result, projected);
+});
+
+test("verified callback conflict is rejected without executing unguarded claim or finalization", async () => {
+  for (const phase of ["claim", "finalize"] as const) {
+    const functionName = `payment_attempt_${phase}_verified_hosted_callback`;
+    const client = success(functionName, "callback_replay_mismatch", {});
+    const repo = repository(new Pool([client]));
+    const evidence = {
+      providerCode: "paytr_iframe", callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+      observationFingerprint: "e".repeat(64), status: "failed" as const,
+      providerReference: "provider-safe-42", credentialVersion: 2, amountMinor: 12_345, currency: "USD",
+    };
+    await assert.rejects(() => phase === "claim"
+      ? repo.claimVerifiedHostedCallback({
+          ...evidence, attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT,
+          expectedVersion: 3, environment: "test", executionAdapterVersion: 1,
+          executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST, workerId: "worker.fixture",
+          leaseId: LEASE, now: NOW, leaseExpiresAt: LEASE_EXPIRES_AT,
+        })
+      : repo.finalizeVerifiedHostedCallback({
+          ...evidence, attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT,
+          expectedVersion: 4, workerId: "worker.fixture", leaseId: LEASE,
+          safeCode: "accepted", now: NOW,
+        }), (error: unknown) => error instanceof PaymentAttemptRepositoryError
+          && error.code === "callback_replay_mismatch");
+    assert.equal(client.calls.filter(({ text }) => text.includes("saas.payment_attempt_")).length, 1);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});
+
+test("verified callback evidence rejects malformed terminal authority before database checkout", async () => {
+  for (const invalid of [
+    { status: "provider_outcome_unknown" }, { providerReference: null },
+    { observationFingerprint: "not-a-digest" }, { eventKeyDigest: "not-a-digest" },
+    { credentialVersion: 0 }, { amountMinor: 0 }, { currency: "try" },
+  ]) {
+    const pool = new Pool([]);
+    await assert.rejects(() => repository(pool).claimVerifiedHostedCallback({
+      attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT, expectedVersion: 3,
+      environment: "test", executionAdapterVersion: 1, executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
+      workerId: "worker.fixture", leaseId: LEASE, now: NOW, leaseExpiresAt: LEASE_EXPIRES_AT,
+      providerCode: "paytr_iframe", callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+      observationFingerprint: "e".repeat(64), status: "failed", providerReference: "provider-safe-42",
+      credentialVersion: 2, amountMinor: 12_345, currency: "USD", ...invalid,
+    } as Parameters<PostgresPaymentAttemptRepository["claimVerifiedHostedCallback"]>[0]),
+    (error: unknown) => error instanceof PaymentAttemptRepositoryError && error.code === "invalid_input");
+    assert.equal(pool.connectCount, 0);
+  }
+});
+
+test("verified callback evidence lookup reads only exact immutable observation metadata", async () => {
+  const observation = {
+    providerCode: "paytr_iframe", callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+    observationFingerprint: "e".repeat(64), status: "failed", providerReference: "provider-safe-42",
+    credentialVersion: 2, amountMinor: 12_345, currency: "USD", safeCode: "accepted",
+  };
+  const client = success("payment_attempt_verified_hosted_callback_evidence", "found", observation);
+  const result = await repository(new Pool([client])).getVerifiedHostedCallbackEvidence({
+    attemptId: ATTEMPT, expectedVersion: 3, now: NOW, environment: "test",
+    executionAdapterVersion: 1, executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
+  });
+  assert.deepEqual(result, observation);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  assert.deepEqual(selected(client, "payment_attempt_verified_hosted_callback_evidence").values,
+    [ATTEMPT, 3, NOW, "test", 1, EXECUTION_EVIDENCE_DIGEST]);
+});
+
+test("verified callback evidence absence differs from conflicting or malformed durable proof", async () => {
+  const input = {
+    attemptId: ATTEMPT, expectedVersion: 3, now: NOW, environment: "test" as const,
+    executionAdapterVersion: 1, executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST,
+  };
+  const absent = new Client((text) => text.includes("saas.payment_attempt_verified_hosted_callback_evidence")
+    ? [{ outcome: "no_observation", result_payload: null }] : []);
+  assert.equal(await repository(new Pool([absent])).getVerifiedHostedCallbackEvidence(input), null);
+  for (const [outcome, payload] of [
+    ["callback_replay_mismatch", null],
+    ["found", { status: "failed" }],
+    ["no_observation", { status: "failed" }],
+  ] as const) {
+    const client = new Client((text) => text.includes("saas.payment_attempt_verified_hosted_callback_evidence")
+      ? [{ outcome, result_payload: payload }] : []);
+    await assert.rejects(() => repository(new Pool([client])).getVerifiedHostedCallbackEvidence(input),
+      (error: unknown) => error instanceof PaymentAttemptRepositoryError);
+  }
+});
+
+test("verified callback transitions recover an exact immutable operation after commit loss without a second write", async () => {
+  for (const phase of ["claim", "finalize"] as const) {
+    const functionName = `payment_attempt_${phase}_verified_hosted_callback`;
+    const observed = phase === "claim" ? claimPayload() : mutationPayload("failed", 5);
+    const writer = new Client((text) => text.includes(`saas.${functionName}`)
+      ? [{ outcome: phase === "claim" ? "claimed" : "failed", result_payload: observed }]
+      : text === "COMMIT" ? new Error("wire lost") : []);
+    const recovery = new Client((text) => text.includes(`saas.${functionName}`)
+      ? [{ outcome: "operation_replayed", result_payload: phase === "claim" ? observed : { ...observed, replayed: true } }]
+      : []);
+    const pool = new Pool([writer, recovery]);
+    const repo = repository(pool);
+    const evidence = {
+      providerCode: "paytr_iframe", callbackBindingDigest: CALLBACK_DIGEST, eventKeyDigest: EVENT_DIGEST,
+      observationFingerprint: "e".repeat(64), status: "failed" as const,
+      providerReference: "provider-safe-42", credentialVersion: 2, amountMinor: 12_345, currency: "USD",
+    };
+    const result = phase === "claim" ? await repo.claimVerifiedHostedCallback({
+      ...evidence, attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT,
+      expectedVersion: 3, environment: "test", executionAdapterVersion: 1,
+      executionEvidenceDigest: EXECUTION_EVIDENCE_DIGEST, workerId: "worker.fixture",
+      leaseId: LEASE, now: NOW, leaseExpiresAt: LEASE_EXPIRES_AT,
+    }) : await repo.finalizeVerifiedHostedCallback({
+      ...evidence, attemptId: ATTEMPT, operationId: OPERATION, fingerprint: FINGERPRINT,
+      expectedVersion: 4, workerId: "worker.fixture", leaseId: LEASE,
+      safeCode: "accepted", now: NOW,
+    });
+    assert.equal(result.version, phase === "claim" ? 4 : 5);
+    assert.equal(pool.connectCount, 2);
+    assert.equal(writer.calls.filter(({ text }) => text.includes(`saas.${functionName}`)).length, 1);
+    assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+    assert.equal(recovery.calls.filter(({ text }) => text.includes(`saas.${functionName}`)).length, 1);
+    assert.equal(recovery.calls.at(-1)?.text, "COMMIT");
+  }
 });
 
 test("an uncertain commit emits one audit and performs exactly one read-only replay with no write retry", async () => {

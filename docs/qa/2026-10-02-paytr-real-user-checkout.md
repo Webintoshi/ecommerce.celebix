@@ -77,5 +77,26 @@ The shared frame policy adds only the exact observed BKM HTTPS origin. Unknown o
 
 A genuine successful bank authentication/callback/order and exactly-once inventory decrease remain pending. The submitted 22:38Z transaction is not cancelled or charged again while its outcome is unknown.
 
+## 23:22Z restart request
+
+The user requested reopening the card-entry test in normal Chrome. The current cart's 10.00 TRY checkout was reopened and its authorized contact/delivery details filled. Normal hosted-card preparation returned its generic initialization error; the existing submitted attempt was still pending in the PayTR merchant detail with no callback or order. No new card charge was submitted.
+
+Root reviewed the new exact-target operational guards, successfully rehearsed the transaction with ROLLBACK, and committed the existing `payment_attempt_mark_unknown` operation once for the expired submitted attempt. The reviewed SQL preserved physical stock and the held reservation unchanged. The approved LIVE runtime then reconciled this single attempt once and returned `processing`. Post-read confirmed `provider_outcome_unknown` / session `processing`, no terminal result, callback count 0 and no order. The old attempt was neither cancelled nor fabricated as failed. Private `reconcile-bkm-submitted-10tl-*` files are already applied; do not rerun their commit.
+
 
 BKM release `138e073ecde396d026787e45cbcb7b0915896898` finished on SITE `mx1leks05j3pvlyzobuhdemm` and NET `esijpmx9z14rpoy4xtih0z5q`. Final global-idle/configuration verification and both exact healthy images/source/generated artifact/approval profiles/SITE database authority passed. A separate read-only import of the deployed shared helper on both actual containers confirmed BKM permission, preserved Vakifbank permission, rejected an attacker origin and absence of wildcards, without calling the provider. No credentials, schema, authority profiles or submitted payment states were changed by this release.
+
+
+## Permanent checkout recovery candidate
+
+This candidate replaces bank-by-bank merchant frame enumeration with HTTPS bank navigation only on the isolated, authorized payment documents. The initial presentation still requires the exact sealed provider token URL; default/script/connection/form/object sources stay closed. Ordinary storefront pages and Iyzico provider rules remain unchanged.
+
+Source-bound read-only recovery chooses the latest owned cart or buy-now session, preserving the real nonterminal status after presentation expiry. A valid older hosted cookie cannot override the current source, and an unbound older receipt cannot supply the current payment summary. New checkout commands for the same pending source return the fixed result page without provider initialization or another charge. Expired unknown payments remain unknown, with no fabricated failure.
+
+Future PayTR presentation/token window is30minutes; its local hold is35minutes including settlement grace. Iyzico remains15minutes. Observation cookies are24hours; an authenticated still-valid source can observe a longer nonterminal payment without extending its token or returning private customer data. Existing deadlines are not rewritten.
+
+The production supervisor opens the existing exact approved runtime for every bounded run. Signed terminal callback observations retained before the release are consumed using the original immutable binding/event/fingerprint through atomic claim/final evidence checks. Contradictory evidence and uncertain transactions fail closed. The generic provider-query finalization also checks contradictory callbacks while holding the attempt lock; original lifecycle functions and compiled TEST/LIVE authority identities remain unchanged.
+
+Verification before release: sharedstorefront796/796tests; saas-data785PASS/2existingSKIP/0FAIL; shared typecheck and productionbuildPASS. Legacyadmin copy check and webpack build with local public build-only fixture PASS (the default worktree Turbopack build cannot resolve the shared dependency layout; its first webpack attempt lacked a public Supabase URL). Focused callback/adapter/repository136/136PASS.191 actual SQL behavior and UP/DOWN recovery rehearsed with ROLLBACK only. Final192 native SQL9/9PASS includes both generic query-versus-callback races, evidence recovery, READ ONLY replay and guarded DOWN/reapply. Root combined191+192 rehearsal alsoPASS with ROLLBACK; no financial mutation occurred. Latest deployed Siora4793 and documentation903a122f are merged and preserved.
+
+At the last exact read the submitted10.00TRY test remains unknown/processing, with no callback/order and unchanged physical stock. The merchant browser session expired and a new login was requested. No new card payment or cancellation was attempted. A full successful bank/card purchase is not claimed by these code and schema checks.
