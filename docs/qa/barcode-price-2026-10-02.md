@@ -16,4 +16,12 @@ Preview already uses700 but inherits graphite. Browser print HTML uses default40
 - Preview computed price color `rgb(0,0,0)`, weight700 at1440/1024/390; page horizontal overflow false at each size. Console errors0.
 - Real PDF raster/text checks: retail50×30 mm with₺8.950,00 and jewelry55.9×12.7 mm with₺999.999,99. One page, complete currency/text, no cut-off. Price uses embeddedRoboto-Bold; other faces preserved.
 - Evidence: `evidence/barcode-price-2026-10-02/`. Browser printer hardware and physical Zebra output not exercised.
-- Atlas independent read-only review PASS; six independent PDF/print cases PASS. Live rollout pending.
+- Atlas independent read-only review PASS; six independent PDF/print cases PASS.
+
+## Live release
+
+- Both shared panels are running `333c9b6174df79f335a955a8e89bcd9260676991`.
+- NET receipt: `zplspn65qlfb4uh37b84pxoq`; SITE receipt: `r3fe7p652a7bt6f0ne2evgle`. Both finished with exact runtime/source cohort verification PASS.
+- Final guarded verification PASS: both panels, storefront witnesses, financial/schema guards, credit gate and preserved payment configuration; global queue idle.
+- Live Butik Siora and Güzide label previews show black (`rgb(0, 0, 0)`) price at weight700. Screenshots and computed values are in `evidence/barcode-price-2026-10-02/live-*`.
+- This release changes price ink/weight in preview, browser print and PDF. No physical printer was used and Zebra ZPL remains unchanged.
