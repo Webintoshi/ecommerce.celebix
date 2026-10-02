@@ -911,7 +911,7 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
   const request = (target: string, cookie?: string) => new NextRequest(`https://internal.example${target}`, {
     headers: cookie ? { cookie } : undefined,
   });
-  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com https://inbound.apigateway.vakifbank.com.tr https://goguvenliodeme.bkm.com.tr https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc";
+  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com https:";
   const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
   assert.equal(ready.headers.get("content-security-policy"), exactCsp);
   const standardReady = await handler(request("/checkout/payment", "__Host-celebix_hosted_checkout=ready"));

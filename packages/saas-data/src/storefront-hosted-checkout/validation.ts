@@ -25,7 +25,7 @@ import {
 } from "../payment-attempts/validation.ts";
 import type { HostedCheckoutBeginResult, HostedCheckoutBeginV2Result, HostedCheckoutPromotionReservation } from "./types.ts";
 import { commerceCandidates, commerceDate, commerceDelivery, commerceHostname, commerceVersion } from "../storefront-commerce/validation.ts";
-import type { HostedCheckoutAuthority, HostedCheckoutAuthorityV2, HostedCheckoutAuthorityV3, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutSessionStatus } from "./types.ts";
+import type { HostedCheckoutAuthority, HostedCheckoutAuthorityV2, HostedCheckoutAuthorityV3, HostedCheckoutPresentationState, HostedCheckoutPublicStatus, HostedCheckoutProviderCode, HostedCheckoutResumeState, HostedCheckoutSessionStatus } from "./types.ts";
 
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 const PHONE = /^\+[1-9][0-9]{7,14}$/u;
@@ -488,4 +488,14 @@ export function parseHostedStatus(value: unknown): HostedCheckoutPublicStatus {
     safeCode: text(parsed.safeCode, 1, 64, SAFE_CODE), version: paymentAttemptInteger(parsed.version),
     paymentSessionExpiresAt: paymentAttemptTimestamp(parsed.paymentSessionExpiresAt),
   });
+}
+
+export function parseHostedResume(value: unknown): HostedCheckoutResumeState {
+  const parsed = hostedExact(value, ["createdAt", "status", "presentation"]);
+  const createdAt = paymentAttemptTimestamp(parsed.createdAt);
+  const status = parseHostedStatus(parsed.status);
+  const presentation = parsed.presentation === null ? null : parseHostedPresentation(parsed.presentation, true);
+  if (presentation !== null && (status.status !== "provider_ready"
+    || status.sessionId !== presentation.sessionId || status.version !== presentation.version)) invalid();
+  return Object.freeze({ createdAt, status, presentation });
 }

@@ -88,6 +88,18 @@ test("hosted checkout start sends the exact same-origin command and accepts only
   });
 });
 
+test("hosted retry accepts the existing payment result without exposing provider data", async () => {
+  const client = createStorefrontCartClient(async () => new Response(JSON.stringify({
+    destination: "/checkout/payment/result",
+  }), { status: 200, headers: { "content-type": "application/json" } }), () => OPERATION);
+  assert.deepEqual(await client.startHosted({
+    cartVersion: 3, intentKind: "cart",
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard", paymentMethodId: PAYMENT_METHOD,
+  }), { destination: "/checkout/payment/result" });
+});
+
 test("hosted retry preserves the caller's operation and original opaque quote seal", async () => {
   const calls: unknown[] = [];
   const client = createStorefrontCartClient(async (_input, init) => {

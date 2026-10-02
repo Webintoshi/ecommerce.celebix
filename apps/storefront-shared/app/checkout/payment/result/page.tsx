@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 
-import { CheckoutSummary } from "@/components/CheckoutSummary";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -22,9 +21,6 @@ export default async function HostedCheckoutResultPage() {
   const hostedStatus = hostedCheckout
     ? await hostedCheckout.status({ hostname: storefront.hostname, cookieHeader }).catch(() => null)
     : null;
-  const receipt = hostedStatus?.status === "captured"
-    ? await runtime.cart.getReceipt(storefront.hostname, cookieHeader).catch(() => null)
-    : null;
 
   const terminalFailure = hostedStatus?.status === "failed"
     || hostedStatus?.status === "cancelled"
@@ -37,23 +33,24 @@ export default async function HostedCheckoutResultPage() {
 
   return <StorefrontFrame storefront={storefront} design={design}>
     <div className="checkout-result-page store-container">
-      {receipt ? <div className="checkout-result-layout">
-        <article className="checkout-result-state checkout-result-success">
-          <span className="checkout-result-mark" aria-hidden="true">✓</span>
-          <h1>Ödemeniz alındı</h1>
-          <p>Siparişiniz başarıyla oluşturuldu.</p>
-          <Link className="store-button" href="/account">Siparişlerimi gör</Link>
-        </article>
-        <CheckoutSummary summary={receipt} />
-      </div> : terminalFailure ? <article className="checkout-result-state">
+      {hostedStatus?.status === "captured" ? <article className="checkout-result-state checkout-result-success">
+        <span className="checkout-result-mark" aria-hidden="true">✓</span>
+        <h1>Ödemeniz alındı</h1>
+        <p>Siparişiniz oluşturuldu. Ayrıntıları hesabınızdan görebilirsiniz.</p>
+        <Link className="store-button" href="/account">Siparişlerimi gör</Link>
+      </article> : terminalFailure ? <article className="checkout-result-state">
         <span className="checkout-result-mark" aria-hidden="true">↩</span>
         <h1>Ödeme tamamlanamadı</h1>
         <p>Sepetiniz korunuyor; yeniden deneyebilirsiniz.</p>
-        <Link className="store-button" href="/cart">Sepete dön</Link>
+        <Link className="store-button" href="/checkout">Yeniden ödeme dene</Link>
       </article> : processing ? <article className="checkout-result-state" aria-live="polite">
         <span className="checkout-result-spinner" aria-hidden="true" />
-        <h1>Ödeme doğrulanıyor</h1>
-        <p>Sağlayıcı onayı bekleniyor.</p>
+        <h1>{hostedStatus?.status === "provider_ready" && hostedStatus.safeCode !== "provider_confirmation_pending" ? "Ödeme oturumunuz hazır" : "Ödeme sonucu kontrol ediliyor"}</h1>
+        <p>{hostedStatus?.status === "provider_ready" && hostedStatus.safeCode !== "provider_confirmation_pending"
+          ? "Başlattığınız ödeme oturumuna devam edebilirsiniz."
+          : "Banka ve ödeme sağlayıcısının sonucu bekleniyor. Sepetiniz korunuyor; sonuç geldiğinde siparişiniz otomatik güncellenecek."}</p>
+        {hostedStatus?.status === "provider_ready" && hostedStatus.safeCode !== "provider_confirmation_pending"
+          ? <Link className="store-button" href="/checkout/payment">Ödemeye devam et</Link> : null}
         <Link className="store-button store-button-secondary" href="/checkout/payment/result">Durumu yenile</Link>
       </article> : <article className="checkout-result-state">
         <span className="checkout-result-mark" aria-hidden="true">↩</span>

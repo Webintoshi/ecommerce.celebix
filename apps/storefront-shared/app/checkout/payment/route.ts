@@ -63,7 +63,7 @@ export async function GET(request: Request): Promise<Response> {
       if (status.status === "failed" || status.status === "cancelled" || status.status === "expired" || status.status === "stock_conflict") {
         return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
       }
-      return page('<p class="status">Ödeme sağlayıcısı hazırlanıyor…</p><meta http-equiv="refresh" content="2">', 202);
+      return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: "/checkout/payment/result" } });
     } catch { return text(404, "Not found"); }
   }
   return text(503, "Payment unavailable");

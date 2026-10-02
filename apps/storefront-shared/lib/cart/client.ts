@@ -234,9 +234,9 @@ export function createStorefrontCartClient(
         }),
         ["destination"],
       );
-      if (!root || root.destination !== "/checkout/payment")
+      if (!root || (root.destination !== "/checkout/payment" && root.destination !== "/checkout/payment/result"))
         throw new StorefrontCartClientError("invalid_response");
-      return Object.freeze({ destination: "/checkout/payment" as const });
+      return Object.freeze({ destination: root.destination });
     },
   });
 }

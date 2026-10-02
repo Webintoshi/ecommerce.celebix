@@ -11,7 +11,9 @@ const serverTests = directories.flatMap((directory) => readdirSync(directory, { 
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))
   .filter((file) => !browserTests.includes(file))
-  .concat(["scripts/healthcheck.test.mjs", "scripts/reconcile-standard-checkouts.test.mjs"])
+  .concat(["scripts/healthcheck.test.mjs", "scripts/reconcile-standard-checkouts.test.mjs",
+    "scripts/standard-checkout-supervisor.test.cjs", "scripts/standard-checkout-supervisor-run.test.cjs",
+    "scripts/standard-checkout-supervisor-start.test.cjs"])
   .sort();
 
 function run(tests, nodeOptions) {

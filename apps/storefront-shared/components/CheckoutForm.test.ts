@@ -56,10 +56,11 @@ test("hosted card uses the fixed start route and renders only provider-required 
 });
 
 test("hosted payment result trusts server status and never query-string success", () => {
-  for (const proof of ["hostedCheckout.status", "captured", "processing", "stock_conflict", "getReceipt", "/cart"]) {
+  for (const proof of ["hostedCheckout.status", "captured", "processing", "stock_conflict", "/cart"]) {
     assert.match(hostedResult, new RegExp(proof, "u"));
   }
   assert.doesNotMatch(hostedResult, /searchParams|[?](?:durum|success)=|providerReference|paymentAttempt/u);
+  assert.doesNotMatch(hostedResult, /getReceipt/u, "an older receipt cookie must not supply the current payment summary");
 });
 
 test("checkout maps finite quote failures without inventing a payment option", () => {

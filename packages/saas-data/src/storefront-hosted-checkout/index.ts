@@ -21,6 +21,8 @@ export type {
   HostedCheckoutPresentationState,
   HostedCheckoutProviderCode,
   HostedCheckoutPublicStatus,
+  HostedCheckoutResumeInput,
+  HostedCheckoutResumeState,
   HostedCheckoutSessionStatus,
   HostedCheckoutStatusInput,
   PostgresStorefrontHostedCheckoutRepositoryOptions,

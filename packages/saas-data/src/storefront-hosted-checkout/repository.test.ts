@@ -722,6 +722,73 @@ test("status returns only the finite public lifecycle", async () => {
   assert.deepEqual(status, { sessionId: SESSION, status: "processing", safeCode: "provider_processing", version: 3, paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z" });
 });
 
+test("resume reads an existing source-bound session without issuing credentials or changing payment state", async () => {
+  const status = { sessionId: SESSION, status: "provider_ready", safeCode: "provider_ready", version: 2, paymentSessionExpiresAt: "2026-08-06T12:35:00.000Z" };
+  const presentation = { sessionId: SESSION, status: "provider_ready", version: 2, providerCode: "paytr_iframe", presentationKeyId: "presentation-key", presentationDigest: "3".repeat(64), sealedPresentation: { ...envelope(), keyId: "presentation-key" }, presentationExpiresAt: "2026-08-06T12:30:00.000Z" };
+  const createdAt = "2026-08-06T12:00:00.000Z";
+  const client = new Client((text) => text.includes("checkout_resume") ? row("found", { createdAt, status, presentation }) : []);
+  const selected = repository(new Pool([client]));
+  assert.equal(typeof selected.resume, "function", "source-bound resume must exist");
+  const result = await selected.resume!({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES, cartVersion: 1 });
+  assert.deepEqual(result, { createdAt, status, presentation });
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  const call = client.calls.find(({ text }) => text.includes("checkout_resume"));
+  assert.deepEqual(call?.values, [HOST, NOW, "cart", JSON.stringify(CANDIDATES), 1]);
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+  assert.ok(Object.isFrozen(result)); assert.ok(Object.isFrozen(result?.presentation));
+});
+
+test("resume preserves pending financial truth after the payment window and returns null for an unauthorized source", async () => {
+  const status = { sessionId: SESSION, status: "processing", safeCode: "provider_confirmation_pending", version: 3, paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z" };
+  const createdAt = "2026-08-06T12:00:00.000Z";
+  const client = new Client((text) => text.includes("checkout_resume") ? row("found", { createdAt, status, presentation: null }) : []);
+  const selected = repository(new Pool([client]));
+  assert.equal(typeof selected.resume, "function");
+  assert.deepEqual(await selected.resume!({ hostname: HOST, now: new Date("2026-08-06T12:31:00.000Z"), intentKind: "buy_now", candidates: CANDIDATES }), { createdAt, status, presentation: null });
+  const missing = new Client((text) => text.includes("checkout_resume") ? row("not_found", null) : []);
+  assert.equal(await repository(new Pool([missing])).resume!({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES }), null);
+});
+
+test("resume rejects mismatched presentation identity or private fields in the database response", async () => {
+  const status = { sessionId: SESSION, status: "processing", safeCode: "provider_confirmation_pending", version: 3, paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z" };
+  for (const payload of [
+    { status, presentation: null, customerEmail: "private@example.test" },
+    { status: { ...status, providerReference: "private" }, presentation: null },
+    { status, presentation: { sessionId: SOURCE, status: "provider_ready", version: 2, providerCode: "paytr_iframe", presentationExpiresAt: "2026-08-06T12:30:00.000Z", presentationKeyId: "presentation-key", presentationDigest: "3".repeat(64), sealedPresentation: { ...envelope(), keyId: "presentation-key" } } },
+  ]) {
+    const client = new Client((text) => text.includes("checkout_resume") ? row("found", { createdAt: "2026-08-06T12:00:00.000Z", ...payload }) : []);
+    const selected = repository(new Pool([client])); assert.equal(typeof selected.resume, "function");
+    await assert.rejects(selected.resume!({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES }), /unavailable/);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});
+
+test("resume rejects missing, normalized or impossible timestamps used for source selection", async () => {
+  const status = { sessionId: SESSION, status: "processing", safeCode: "provider_confirmation_pending", version: 3, paymentSessionExpiresAt: "2026-08-06T12:15:00.000Z" };
+  for (const createdAt of [undefined, "2026-08-06T12:00:00.000+00:00", "2026-08-06T12:00:00.00Z", "2026-02-30T12:00:00.000Z", "yesterday"]) {
+    const payload = { ...(createdAt === undefined ? {} : { createdAt }), status, presentation: null };
+    const client = new Client((text) => text.includes("checkout_resume") ? row("found", payload) : []);
+    await assert.rejects(repository(new Pool([client])).resume!({ hostname: HOST, now: NOW, intentKind: "cart", candidates: CANDIDATES }), /unavailable/);
+    assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+  }
+});
+
+test("resume rejects arbitrary session IDs and malformed source versions before acquiring a database client", async () => {
+  const selected = repository(new Pool([])); assert.equal(typeof selected.resume, "function");
+  const input = { hostname: HOST, now: NOW, intentKind: "cart" as const, candidates: CANDIDATES };
+  for (const malformed of [{ ...input, sessionId: SESSION }, { ...input, cartVersion: 0 }, { ...input, intentKind: "customer" }, { ...input, candidates: [] }]) {
+    await assert.rejects(selected.resume!(malformed as Parameters<NonNullable<typeof selected.resume>>[0]), /invalid_input/);
+  }
+});
+
+test("presentation save accepts a 30 minute PayTR window and rejects longer unbounded presentations", async () => {
+  const client = new Client((text) => text.includes("presentation_save") ? row("updated", { sessionId: SESSION, status: "provider_ready", version: 2, providerCode: "paytr_iframe", presentationExpiresAt: "2026-08-06T12:30:00.000Z" }) : []);
+  const input = { hostname: HOST, now: NOW, candidates: [{ keyId: "payment-key", digest: "e".repeat(64) }], operationId: "87000000-0000-4000-8000-000000000191", fingerprint: "2".repeat(64), expectedVersion: 1, presentationKeyId: "presentation-key", presentationDigest: "3".repeat(64), sealedPresentation: { ...envelope(), keyId: "presentation-key" }, presentationExpiresAt: new Date("2026-08-06T12:30:00.000Z") };
+  const state = await repository(new Pool([client])).savePresentation(input);
+  assert.equal(state.presentationExpiresAt, "2026-08-06T12:30:00.000Z");
+  await assert.rejects(repository(new Pool([])).savePresentation({ ...input, presentationExpiresAt: new Date("2026-08-06T12:30:00.001Z") }), /invalid_input/);
+});
+
 test("unknown outcomes map to unavailable and accessors are rejected before acquiring a client", async () => {
   const client = new Client((text) => text.includes("authority") ? row("future_outcome", null) : []);
   await assert.rejects(repository(new Pool([client])).authority(authorityInput()), /unavailable/u);

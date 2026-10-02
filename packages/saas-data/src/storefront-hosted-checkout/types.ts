@@ -165,6 +165,15 @@ export type HostedCheckoutPublicStatus = Readonly<{
   version: number;
   paymentSessionExpiresAt: string;
 }>;
+export type HostedCheckoutResumeInput = HostedCheckoutPresentationInput & Readonly<{
+  intentKind: "cart" | "buy_now";
+  cartVersion?: number;
+}>;
+export type HostedCheckoutResumeState = Readonly<{
+  createdAt: string;
+  status: HostedCheckoutPublicStatus;
+  presentation: HostedCheckoutPresentationState | null;
+}>;
 
 export interface StorefrontHostedCheckoutRepository {
   authority(input: HostedCheckoutAuthorityInput): Promise<HostedCheckoutAuthority>;
@@ -176,6 +185,7 @@ export interface StorefrontHostedCheckoutRepository {
   savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState>;
   presentation(input: HostedCheckoutPresentationInput): Promise<HostedCheckoutPresentationState>;
   status(input: HostedCheckoutStatusInput): Promise<HostedCheckoutPublicStatus>;
+  resume?(input: HostedCheckoutResumeInput): Promise<HostedCheckoutResumeState | null>;
 }
 
 export type StorefrontHostedCheckoutAuditEvent = Readonly<{ type: "storefront_hosted_checkout_commit_unknown" }>;

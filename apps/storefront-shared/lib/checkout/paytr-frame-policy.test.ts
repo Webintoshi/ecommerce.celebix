@@ -8,20 +8,20 @@ function frameSources(providerOrigin: unknown, storefrontHostname: unknown): str
   return policy!.hostedPaymentFrameSources!(providerOrigin, storefrontHostname);
 }
 
-test("PayTR checkout permits the BKM ACS origin observed during the real Yapı Kredi payment", () => {
+test("isolated PayTR checkout supports HTTPS bank authentication without enumerating banks", () => {
   const sources = frameSources("https://www.paytr.com", "guzidekuyumcu.com")?.split(" ") ?? [];
-  assert.ok(sources.includes(new URL("https://goguvenliodeme.bkm.com.tr/").origin),
-    "the real BKM ACS redirect must not be blocked by the merchant frame-src policy");
+  assert.ok(sources.includes("https:"), "a new bank ACS must work without another merchant deployment");
+  for (const unsafe of ["*", "http:", "data:", "blob:", "javascript:"]) assert.ok(!sources.includes(unsafe));
 });
 
 test("PayTR checkout permits the observed Vakifbank ACS and the exact merchant return path", () => {
   assert.equal(frameSources("https://www.paytr.com", "guzidekuyumcu.com"),
-    "https://www.paytr.com https://inbound.apigateway.vakifbank.com.tr https://goguvenliodeme.bkm.com.tr https://guzidekuyumcu.com/odeme/hizli/sonuc");
+    "https://www.paytr.com https:");
 });
 
 test("PayTR return permission follows the trusted store hostname", () => {
   assert.equal(frameSources("https://www.paytr.com", "alpler-spor.saas-staging.celebix.net"),
-    "https://www.paytr.com https://inbound.apigateway.vakifbank.com.tr https://goguvenliodeme.bkm.com.tr https://alpler-spor.saas-staging.celebix.net/odeme/hizli/sonuc");
+    "https://www.paytr.com https:");
 });
 
 test("other supported hosted providers do not receive PayTR bank or merchant return permissions", () => {

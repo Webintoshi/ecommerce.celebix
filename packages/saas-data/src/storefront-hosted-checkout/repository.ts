@@ -13,6 +13,7 @@ import {
   parseHostedBeginV2,
   parseHostedPresentation,
   parseHostedStatus,
+  parseHostedResume,
 } from "./validation.ts";
 import type {
   HostedCheckoutAuthority,
@@ -25,6 +26,8 @@ import type {
   HostedCheckoutPresentationSaveInput,
   HostedCheckoutPresentationState,
   HostedCheckoutPublicStatus,
+  HostedCheckoutResumeInput,
+  HostedCheckoutResumeState,
   PostgresStorefrontHostedCheckoutRepositoryOptions,
   StorefrontHostedCheckoutRepository,
 } from "./types.ts";
@@ -417,7 +420,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     try {
       const parsed = hostedExact(input, ["hostname", "now", "candidates", "operationId", "fingerprint", "expectedVersion", "presentationKeyId", "presentationDigest", "sealedPresentation", "presentationExpiresAt"]);
       const now = hostedInput.date(parsed.now); const expiresAt = hostedInput.date(parsed.presentationExpiresAt);
-      if (expiresAt <= now || expiresAt.getTime() > now.getTime() + 15 * 60_000) invalid();
+      if (expiresAt <= now || expiresAt.getTime() > now.getTime() + 30 * 60_000) invalid();
       const presentationKeyId = typeof parsed.presentationKeyId === "string" ? parsed.presentationKeyId : invalid();
       const sealedPresentation = paymentAttemptSealedCredentials(parsed.sealedPresentation);
       if (sealedPresentation.keyId !== presentationKeyId) invalid();
@@ -462,5 +465,24 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         "found", parseHostedStatus,
       );
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
+  }
+
+  async resume(input: HostedCheckoutResumeInput): Promise<HostedCheckoutResumeState | null> {
+    try {
+      const parsed = hostedExact(input, ["hostname", "now", "intentKind", "candidates"], ["cartVersion"]);
+      if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now") invalid();
+      const cartVersion = Object.hasOwn(parsed, "cartVersion") ? hostedInput.version(parsed.cartVersion) : null;
+      if (cartVersion !== null && cartVersion < 1) invalid();
+      return await this.read(
+        "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_resume($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint)",
+        [hostedInput.hostname(parsed.hostname), hostedInput.date(parsed.now), parsed.intentKind,
+          JSON.stringify(hostedInput.candidates(parsed.candidates)),
+          cartVersion],
+        "found", parseHostedResume,
+      );
+    } catch (error) {
+      if (isTrusted(error) && error.code === "not_found") return null;
+      throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input");
+    }
   }
 }

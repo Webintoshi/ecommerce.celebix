@@ -53,7 +53,7 @@ export type StandardHostedCheckoutExecution = Readonly<{
 }>;
 
 export type StandardHostedCheckoutStartResult = Readonly<{
-  destination: "/checkout/payment";
+  destination: "/checkout/payment" | "/checkout/payment/result";
   state: "ready" | "processing";
   setCookies: readonly string[];
 }>;
@@ -377,12 +377,47 @@ function hostedCandidates(cookieHeader: string | null, keyring: StorefrontCommer
   return candidates.length > 0 ? candidates : invalid();
 }
 
+async function resumeFromSource(
+  dependencies: Dependencies,
+  input: Readonly<{ hostname: string; cookieHeader: string | null; request?: HostedCheckoutStartRequest }>,
+  selectedNow: Date,
+) {
+  if (!dependencies.repository.resume) return null;
+  const kinds = input.request ? [input.request.intentKind] : ["cart", "buy_now"] as const;
+  let latest: Awaited<ReturnType<NonNullable<StorefrontHostedCheckoutRepository["resume"]>>> = null;
+  for (const intentKind of kinds) {
+    const purpose = intentKind === "cart" ? "cart" : "intent";
+    const selected = readStorefrontCredentialCookie(purpose, input.cookieHeader);
+    if (selected.kind === "invalid") return invalid();
+    if (selected.kind !== "present") continue;
+    const candidates = credentialDigestCandidates(purpose, selected.value, dependencies.commerceKeyring);
+    if (!candidates.length) return invalid();
+    const resumed = await dependencies.repository.resume({ hostname: input.hostname, now: selectedNow,
+      intentKind, candidates, ...(input.request ? { cartVersion: input.request.cartVersion } : {}) });
+    if (resumed && (!latest || resumed.createdAt > latest.createdAt
+      || (resumed.createdAt === latest.createdAt && resumed.status.sessionId > latest.status.sessionId))) latest = resumed;
+  }
+  return latest;
+}
+
+function recoverableLookup(error: unknown): boolean {
+  return error instanceof StorefrontHostedCheckoutRepositoryError
+    && ["session_expired", "not_found", "presentation_unavailable"].includes(error.code);
+}
+
 export function createStandardHostedCheckoutRuntime(dependencies: Dependencies): StandardHostedCheckoutRuntime {
   return Object.freeze({
     async start(input) {
       if (!HOSTNAME.test(input.hostname) || input.hostname !== input.hostname.toLowerCase() || !(input.headers instanceof Headers)) return invalid();
       const selectedNow = now(dependencies);
       const candidates = sourceCandidates(input.request, input.cookieHeader, dependencies.commerceKeyring);
+      const resumed = await resumeFromSource(dependencies, input, selectedNow);
+      if (resumed && ["active", "provider_ready", "processing", "captured"].includes(resumed.status.status)) {
+        // Review the existing frozen payment before continuing; a different
+        // form, quote or operation cannot silently create another charge.
+        return Object.freeze({ destination: "/checkout/payment/result" as const,
+          state: "processing" as const, setCookies: Object.freeze([]) });
+      }
       const selectedDelivery = delivery(input.request);
       const normalizedCodes = promotionCodes(input.request) ?? Object.freeze([]);
       let selectedAuthority: Readonly<{
@@ -550,7 +585,8 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           operationId: derivedUuid("presentation-operation", input.hostname, input.request.operationId),
           fingerprint: digest("presentation", sessionId, presentationDigest), expectedVersion: 1,
           presentationKeyId: sealedPresentation.keyId, presentationDigest,
-          sealedPresentation, presentationExpiresAt: new Date(selectedNow.getTime() + PRESENTATION_LIFETIME_MS),
+          sealedPresentation, presentationExpiresAt: new Date(selectedNow.getTime()
+            + (authority.providerCode === "paytr_iframe" ? 30 * 60_000 : PRESENTATION_LIFETIME_MS)),
         });
       } catch (error) {
         audit(dependencies, "presentation_persistence_failed", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : "unavailable");
@@ -560,17 +596,37 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
     },
     async presentation(input) {
       const selectedNow = now(dependencies);
-      const state = await dependencies.repository.presentation({
-        hostname: input.hostname, now: selectedNow,
-        candidates: hostedCandidates(input.cookieHeader, dependencies.commerceKeyring),
-      });
-      return openedPersistedPresentation(dependencies, state, selectedNow) ?? unavailable();
+      const credential = readStandardHostedCheckoutCookie(input.cookieHeader);
+      if (credential.kind === "invalid") return invalid();
+      // Source ownership identifies the current checkout even when a browser
+      // still holds a valid hosted cookie from a previous purchase.
+      const resumed = await resumeFromSource(dependencies, input, selectedNow);
+      if (resumed) return resumed.presentation
+        ? openedPersistedPresentation(dependencies, resumed.presentation, selectedNow) ?? unavailable()
+        : unavailable();
+      if (credential.kind === "present") {
+        try {
+          const state = await dependencies.repository.presentation({
+            hostname: input.hostname, now: selectedNow,
+            candidates: hostedCandidates(input.cookieHeader, dependencies.commerceKeyring),
+          });
+          return openedPersistedPresentation(dependencies, state, selectedNow) ?? unavailable();
+        } catch (error) { if (!recoverableLookup(error)) throw error; }
+      }
+      return unavailable();
     },
     async status(input) {
-      return dependencies.repository.status({
-        hostname: input.hostname, now: now(dependencies),
-        candidates: hostedCandidates(input.cookieHeader, dependencies.commerceKeyring),
-      });
+      const selectedNow = now(dependencies);
+      const credential = readStandardHostedCheckoutCookie(input.cookieHeader);
+      if (credential.kind === "invalid") return invalid();
+      const resumed = await resumeFromSource(dependencies, input, selectedNow);
+      if (resumed) return resumed.status;
+      if (credential.kind === "present") {
+        try { return await dependencies.repository.status({ hostname: input.hostname, now: selectedNow,
+          candidates: hostedCandidates(input.cookieHeader, dependencies.commerceKeyring) }); }
+        catch (error) { if (!recoverableLookup(error)) throw error; }
+      }
+      return unavailable();
     },
   });
 }
