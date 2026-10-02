@@ -6,7 +6,7 @@ Kullanıcının onayladığı [ana menü ve Kolyeler alt menüsü](mobile-menu-c
 
 Yalnız tam Güzide storefront UUID’si yeni menüyü alır. Mevcut CampaignHeader, tema client sınırını sunucuda seçer. Masaüstü nav/StoreUtilities aynı kalır. Yeni bağımlılık, font dosyası, admin ayarı veya veri sözleşmesi eklenmez.
 
-Logo mevcut publication önceliğiyle; sıra, isimler, yollar ve alt dallar `presentation.navigation` üzerinden gelir. Görseller admin kategori gridinden, legacy showcase veya yalnız aynı slug’a ait featured alanından alınır. Görselsiz ya da yüklenemeyen görselli kategorinin gerçek bağlantısı kullanılabilir kalır. Koleksiyon yolları korunur. Destek adresi yalnız gerçek `supportEmail` üzerinden gösterilir.
+Logo mevcut publication önceliğiyle; sıra, isimler, yollar ve alt dallar `presentation.navigation` üzerinden gelir. Görseller admin kategori gridinden, legacy showcase veya yalnız aynı slug’a ait featured alanından alınır. Yayımlanmış kategori fotoğrafı olmayan dört gerçek ana kategori, kullanıcının onayladığı yerel tema görsellerini kullanır. Başka kategoriye veya koleksiyona bu görseller atanmaz. Yüklenemeyen görselli kategorinin gerçek bağlantısı kullanılabilir kalır. Koleksiyon yolları korunur. Destek adresi yalnız gerçek `supportEmail` üzerinden gösterilir.
 
 ## Bileşen ve tasarım envanteri
 
@@ -41,8 +41,8 @@ Kopya farkı: yok. İsimler ve destek adresi canlı admin içeriğinden gelir. G
 
 ## Doğrulama
 
-- Yeni anlamlı testler: 13 mobil menü etkileşimi +2 veri eşleştirme; eksik bileşen ile RED, uygulama ile GREEN.
-- Full storefront suite: 768 server +96 browser testi geçti, toplam864, sıfır başarısız.
+- Yeni anlamlı testler: 13 mobil menü etkileşimi +4 veri eşleştirme; eksik bileşen ile RED, uygulama ile GREEN.
+- Full storefront suite: 770 server +96 browser testi geçti, toplam866, sıfır başarısız.
 - Önceden Güzide PDP’yi tanımayan SEO test harness’i düzeltildi; mevcut canonical/indexing kontrolleri korunup5tenant izolasyonu ve gerçek JSON-LD fiyatı güçlendirildi. PDP üretim kaynağı bu taskta değişmedi.
 - Typecheck ve production build başarılı.
 - Tarayıcı: 390×844 ana/alt ekran; 320×640 içinde kaydırma, yatay taşma yok; Escape/body lock/geri odak; encoded arama sonucu ve menü kapanışı; 1280×900 desktop nav; diğer tenantın351px generic drawer’ı doğrulandı.
@@ -50,3 +50,12 @@ Kopya farkı: yok. İsimler ve destek adresi canlı admin içeriğinden gelir. G
 - Read-only ikinci inceleme: gerçek/benzer/başka tenant seçimi, admin sıra ve logo önceliği, arama/focus/route temizliği doğrulandı; kritik bulgu yok.
 
 Canlı yayın kanıtı ayrıca release sonrası kayıt edilir; bu belge yerel uygulama doğrulamasını özetler.
+
+
+## Canlı veri koşulu için görsel düzeltmesi
+
+İlk yayın `e89019ffaa576c42f3b3e6fcade96bd99560d210` NET/SITE finished ve strict final doğrulamasını geçti. Canlı Güzide ana sayfası yalnız dört ürün rayı yayımlıyor; `category_grid` veya `categoryShowcase` fotoğrafları yayımlanmamış. Bu yüzden görseller dolu fixture tek başına canlı veri durumunu temsil etmiyordu.
+
+Onaylı konseptteki dört özgün kategori WebP görseli, byte eşitliğiyle `public/themes/guzide/mobile-menu/` içine alındı (toplam177120byte). Öncelik: admin category_grid → categoryShowcase → aynı kategori featured → yalnız gerçek dört kök kategori için onaylı tema görseli. Admin ayarı veya API değiştirilmedi; yeni ağır projection/ürün sorgusu eklenmedi.
+
+Aynı veri boşluğu yeni `/product-guzide-no-menu-photos` fixture senaryosunda doğrulandı: dört fotoğraf ve alt kategori hero’su yükleniyor; mevcut Bai Jamjuree korunuyor. Onaylı konsept, ana menü ve alt menü ekran görüntüleri aynı karşılaştırmada yeniden incelendi. Admin fotoğrafının önceliği, koleksiyon/unknown çakışmalarında tema fotoğrafı kullanılmaması ve gerçek nav sınırlaması anlamlı testlerle doğrulandı. Yeni RED testi eksik fotoğrafı yeniden üretti, ardından17/17 odaklı ve866/866 full test GREEN oldu.

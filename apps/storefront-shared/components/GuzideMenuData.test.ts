@@ -11,11 +11,11 @@ test("Güzide menu photographs follow published category slugs rather than label
   const images = buildGuzideMenuImages({
     sections: [{ kind: "category_grid", items: [{ slug: "bileklikler", name: "Yeni isim", image: bracelet }, { slug: "kolyeler", name: "Kolyeler", image: necklace }] }],
     categoryShowcase: { items: [{ slug: "kolyeler", image: image("legacy") }] },
-    navigation: { items: [{ name: "Kolyeler", slug: "kolyeler", children: [] }, { name: "Yüzükler", slug: "yuzukler", children: [] }] },
+    navigation: { items: [{ name: "Kolyeler", slug: "kolyeler", children: [] }, { name: "Yeni kategori", slug: "yeni-kategori", children: [] }] },
   });
   assert.deepEqual(images.kolyeler, necklace);
   assert.deepEqual(images.bileklikler, bracelet);
-  assert.equal(images.yuzukler, undefined);
+  assert.equal(images["yeni-kategori"], undefined);
 });
 
 test("featured photographs only decorate their matching category and support nested real branches", () => {
@@ -27,5 +27,27 @@ test("featured photographs only decorate their matching category and support nes
   ] } });
   assert.deepEqual(images.yuzukler, ring);
   assert.deepEqual(images.tasli, stone);
-  assert.equal(images.kolyeler, undefined);
+  assert.notDeepEqual(images.kolyeler, image("unrelated"));
+});
+
+
+test("approved Guzide artwork decorates real categories when published photography is absent", () => {
+  const { buildGuzideMenuImages } = load<{ buildGuzideMenuImages: (presentation: unknown) => Record<string, { url: string }> }>(new URL("../themes/guzide/guzide-menu.ts", import.meta.url));
+  const items = ["kolyeler", "bileklikler", "yuzukler", "kupeler"].map(slug => ({ slug, name: slug, children: [] }));
+  const images = buildGuzideMenuImages({ sections: [], navigation: { items } });
+  for (const item of items) assert.equal(images[item.slug]?.url, `/themes/guzide/mobile-menu/${item.slug}.webp`);
+});
+
+test("published photography overrides approved artwork and collection collisions never use category artwork", () => {
+  const { buildGuzideMenuImages } = load<{ buildGuzideMenuImages: (presentation: unknown) => Record<string, unknown> }>(new URL("../themes/guzide/guzide-menu.ts", import.meta.url));
+  const published = image("admin-new-necklace");
+  const images = buildGuzideMenuImages({ sections: [{ kind: "category_grid", items: [{ slug: "kolyeler", image: published }] }], navigation: { items: [
+    { name: "Yeni ad", slug: "kolyeler", children: [] },
+    { name: "Yeni koleksiyon", slug: "yuzukler", kind: "catalog_collection", children: [] },
+    { name: "Başka kategori", slug: "unknown", children: [] },
+  ] } });
+  assert.deepEqual(images.kolyeler, published);
+  assert.equal(images.yuzukler, undefined);
+  assert.equal(images.unknown, undefined);
+  assert.equal(images.bileklikler, undefined);
 });

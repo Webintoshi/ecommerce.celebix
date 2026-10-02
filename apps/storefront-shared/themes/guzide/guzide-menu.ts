@@ -21,5 +21,17 @@ export function buildGuzideMenuImages(presentation: Exclude<PublicStarterThemePr
     }
   };
   visit(presentation.navigation.items);
+  // Approved theme artwork fills missing published photos without changing navigation.
+  for (const item of presentation.navigation.items) {
+    if (item.kind === "catalog_collection" || images[item.slug]) continue;
+    if (!["kolyeler", "bileklikler", "yuzukler", "kupeler"].includes(item.slug)) continue;
+    images[item.slug] = {
+      url: `/themes/guzide/mobile-menu/${item.slug}.webp`,
+      altText: item.name,
+      width: 640,
+      height: 854,
+      mediaType: "image/webp",
+    };
+  }
   return images;
 }
