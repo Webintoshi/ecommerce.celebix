@@ -346,3 +346,85 @@ test("V3 completed summary shows current collected finance rather than the initi
     assert.match(container.querySelector(".checkoutNote")?.textContent??"",/Yeni satış/);
   },"completed",async(api)=>{(api as{contractVersion:number}).contractVersion=3;const base=await api.bootstrap();api.bootstrap=async()=>({...base,activeDraft:{...base.activeDraft!,initialCollectionCents:0,finance:{status:"partial",collectedCents:150000,dueCents:50000,refundDueCents:0,version:2,receipts:[]}}});});
 });
+
+test("owner and administrator show their inherent rights and all active depots without a misleading grant form",async()=>{
+  for(const role of ["store_owner","admin"]){
+    let writes=0;
+    await mounted(async(container)=>{
+      await act(async()=>button(container,"Satış yetkileri").click());
+      const dialog=container.querySelector<HTMLDialogElement>("dialog")!,entry=dialog.querySelector<HTMLElement>(".staffEntry")!;
+      assert.equal(entry.tagName,"ARTICLE");
+      assert.equal(entry.querySelector("input,form,button"),null,"inherent rights are not mutable staff grants");
+      assert.match(entry.textContent??"",/Rolünden gelen yetkiler/);
+      assert.match(entry.textContent??"",/Mağaza satışı etkin/);
+      assert.match(entry.textContent??"",/Fiyat düzenleyebilir/);
+      assert.match(entry.textContent??"",/Veresiye satış yapabilir/);
+      assert.match(entry.textContent??"",/Müşteri borcu tahsil edebilir/);
+      assert.match(entry.textContent??"",/Ana Depo/);
+      assert.match(entry.textContent??"",/Mağaza/);
+      assert.match(entry.textContent??"",/99,99/);
+      assert.equal(writes,0);
+    },"draft",async(api)=>{
+      (api as{contractVersion:number}).contractVersion=3;
+      const base=await api.bootstrap();api.bootstrap=async()=>({...base,locations:[{id:LOCATION,name:"Ana Depo",isDefault:true},{id:ID,name:"Mağaza",isDefault:false}],permissions:{...base.permissions,canManageStaff:true}});
+      const grant={membershipId:ID,label:"Yönetici",role,enabled:false,locationIds:[],discountLimitBps:0,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:true,version:0};
+      api.listStaff=async()=>[grant];api.setStaffGrant=async()=>{writes++;return grant;};
+    });
+  }
+});
+
+test("enabled cashier needs a selected depot before saving and the corrected grant retains every V3 right",async()=>{
+  let writes=0,saved:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1]|undefined;
+  await mounted(async(container)=>{
+    await act(async()=>button(container,"Satış yetkileri").click());
+    const dialog=container.querySelector<HTMLDialogElement>("dialog")!,enabled=dialog.querySelector<HTMLInputElement>('input[name="enabled"]')!;
+    await act(async()=>enabled.click());
+    await act(async()=>button(dialog,"Yetkiyi kaydet").click());
+    assert.equal(writes,0,"invalid enabled grant is caught before the request");
+    assert.match(dialog.querySelector('[role="alert"]')?.textContent??"",/en az bir satış deposu seç/);
+    assert.equal(enabled.checked,true,"the entered rights stay in the form");
+    await act(async()=>dialog.querySelector<HTMLInputElement>('input[name="location"]')!.click());
+    await act(async()=>dialog.querySelector<HTMLInputElement>('input[name="canSellOnCredit"]')!.click());
+    await act(async()=>button(dialog,"Yetkiyi kaydet").click());
+    assert.equal(writes,1);assert.deepEqual(saved?.locationIds,[LOCATION]);assert.equal(saved?.enabled,true);
+    assert.equal(saved?.canEditPrice,true);assert.equal(saved?.canSellOnCredit,true);assert.equal(saved?.canCollectReceivables,false);
+    assert.equal(dialog.querySelector('[role="alert"]'),null);
+  },"draft",async(api)=>{
+    (api as{contractVersion:number}).contractVersion=3;
+    const base=await api.bootstrap();api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
+    const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:false,locationIds:[],discountLimitBps:0,canEditPrice:true,canSellOnCredit:false,canCollectReceivables:false,version:0};
+    api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{writes++;saved=input;return {...grant,...input,version:1};};
+  });
+});
+
+test("returning to the selected paid sale only closes the drawer and preserves recovery while other sale switches stay blocked",async()=>{
+  let payments=0,completions=0,reads=0;
+  await mounted(async(container,browser)=>{
+    await act(async()=>button(container,"Satışı kaydetmeyi yeniden dene").click());
+    assert.equal(completions,1);assert.equal(payments,0);
+    assert.equal(browser.localStorage.length,1);
+    const markerKey=browser.localStorage.key(0)!,marker=browser.localStorage.getItem(markerKey);
+    assert.equal(JSON.parse(marker!).kind,"complete");
+    const primary=button(container,"Aynı satışın durumunu kontrol et");
+    assert.ok(primary);assert.equal(primary.disabled,false);
+    await act(async()=>button(container,"Bekleyen satışlar2").click());
+    const dialog=container.querySelector<HTMLDialogElement>("dialog")!,current=button(dialog,"Mevcut satışa dön"),other=button(dialog,"Satışa dön");
+    assert.ok(current);assert.equal(current.disabled,false);assert.equal(other.disabled,true);
+    const explanation=browser.document.getElementById(other.getAttribute("aria-describedby")!);
+    assert.match(explanation?.textContent??"",/Önce mevcut satışın durumunu doğrula/);
+    const readsBefore=reads;
+    await act(async()=>current.click());
+    await act(async()=>{await new Promise(r=>setTimeout(r,10));});
+    assert.equal(dialog.open,false);assert.equal(browser.document.activeElement,primary);
+    assert.equal(reads,readsBefore,"returning to the current sale sends no lookup or mutation");
+    assert.equal(browser.localStorage.getItem(markerKey),marker,"the pending immutable operation stays intact");
+    assert.equal(completions,1);assert.equal(payments,0,"navigation never attests or collects another payment");
+    assert.equal(container.querySelector<HTMLInputElement>("#in-store-scan")?.disabled,true);
+  },"payment_received",async(api)=>{
+    const current={...await api.getSale(ID),paymentMethod:"card" as const},other={...current,id:LOCATION,saleNumber:"Diğer satış"};
+    const base=await api.bootstrap();api.bootstrap=async()=>({...base,activeDraft:current,pendingSales:[current,other]});
+    api.listSales=async()=>({sales:[current,other],nextCursor:null});api.getSale=async()=>{reads++;return current;};
+    api.completeSale=async()=>{completions++;throw new InStoreSalesUiError("unavailable",503,true);};
+    api.confirmPayment=async()=>{payments++;throw new Error("must not collect again");};
+  });
+});
