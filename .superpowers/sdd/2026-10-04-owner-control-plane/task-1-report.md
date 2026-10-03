@@ -1,6 +1,6 @@
 # Task 1 — platform data foundation
 
-Status: implementation and isolated native acceptance complete. Production migration/deployment and invitation transport remain root integration work. No production platform records, charges or receipts were created.
+Status: data foundation and invitation transport implementation/isolated acceptance complete. Production migration/deployment and real Owner MFA account acceptance remain root integration work. No production platform records, charges or receipts were created.
 
 ## Owned files
 
@@ -38,6 +38,33 @@ Support issue expects root-supplied deterministic64hex HMAC `handoff` in server 
 ## Remaining integration boundaries
 
 - Root provisions real verified OwnerAuth identity/AAL2 and registry, restricted login connection, and applies/deploys final sources.
-- New invitees lacking an existing verified SaaS principal still need identity-only invitation onboarding transport. Existing verified principal acceptance SQL is complete; this report does not claim the missing transport complete.
+- Email-first invitation transport is now implemented by the212 follow-up below; production registration/provider callback reachability remains a release acceptance check.
 - Owner HTTP must map new errors `charge_below_collected`, `ownership_acceptance_required`, `invitation_acceptance_required` and210 domain/support denial errors. UI/root shared action lists must include period.adjust.
 - Operations retry is root-owned211; this209 compatibility read is only passive tenant-operation history.
+
+
+## Follow-up — email-first identity-only invitations (SQL212)
+
+Owned212 up/down/assertions, `packages/saas-data/src/platform-invitations`, `apps/owner/lib/platform-invitations` and signed internal route, customer-panel invitation pages/API/browser handlers, plus the small registered `/auth/callback` dispatcher. The209 store projection now also carries typed `newSalesEnabled/changedAt/changedBy` while retaining legacy aliases.
+
+### Native contracts
+
+- `platform_invitation_create(operator uuid,payload jsonb,expectedVersion bigint,key text,identityIssuer text)` takes trusted server common Logto issuer, never a UI-supplied issuer. Payload is `{storeId,targetEmail,targetPrincipalId?,role,kind,previousOwnerDisposition?}`. It shares209 global replay/command ledger, version and audit transaction; result has invitationId/acceptanceToken/adminHost/recipientEmail/expiresAt.
+- `platform_invitation_read(operator uuid,query jsonb,identityIssuer text)` returns items and eligible verified candidates. Candidate resolution filters immutable common issuer, avoiding platform Supabase same-email identity confusion. Old209 invitation rows are migrated with identity/token/status preserved; read also preserves unmatched legacy history via a deduplicated fallback union.
+- Identity-role only: `platform_invitation_start(uuid,text token,text host,text stateHash,text bindingHash,jsonb encryptedPayload,timestamptz expires)`, `platform_invitation_claim(text stateHash,text bindingHash)`, `platform_invitation_complete(uuid attempt,text issuer,text subject,text email,boolean verified)`.
+- New invitee starts without principal/membership. Verified issuer/email acceptance freezes issuer/subject atomically, creates only principal and normal membership, retains staff quota/last-owner/atomic transfer guards. It never calls starter tenant provisioning or registration workflows. Invitation realm, recipient, role, store, host and inviter are immutable.
+
+### Browser/identity transport
+
+Tenant `/invitations/[token]` POSTs to its start endpoint with exact Origin/Host. Signed domain-separated internal requests go to configured owner fixed endpoint; only bounded JSON is accepted. Existing strict common Logto provider performs discovery/JWKS signature/issuer/audience/nonce/verified-email validation with PKCE. Sensitive nonce/verifier are encrypted at rest; state and browser binding are hashed. Bootstrap is AES-GCM encrypted with a distinct derivation and posted to configured central panel. The central route validates the originating verified tenant bound into the ticket, configured provider/client/redirect, then sets separate Secure/HttpOnly/SameSite=Lax `__Host-celebix_invitation_binding` cookie. `inv_` states on the existing registered GET callback dispatch to this flow and cannot fall through to tenant registration. Completion sends the verified identity to native212, clears only the invitation cookie and returns to the database-verified admin accepted page. Normal login completes merchant admin session creation using existing common SSO.
+
+A completed callback can recover an uncertain response with its original browser binding without exchanging the one-use provider code again. A failed uncommitted provider exchange requires restarting the same invitation; no identity is activated by a GET or by an email claim.
+
+### Final verification
+
+- Native PostgreSQL16 acceptance clone: final212 up + extended rollback-only assertions exit0. New common verified identity creates membership only; store and registration workflow counts unchanged. Same-email foreign provider account is not frozen/offered, wrong issuer/email/unverified identity/browser/host/expired attempts are rejected; immutable completed replay, global cross-action idempotency, transfer and last-owner guard pass. Tenant-scoped reads return no other store records.
+- Final209 typed projection refreshed in clone; complete209 assertions still exit0 with latest210/211/212.
+- Focused service/browser/transport/native-adapter tests8/8 pass, including complete tenant→central bootstrap→OIDC callback chain with fake verified provider and parameterized native repository, distinct normal cookie preservation and completed callback recovery; unknown commit never reruns acceptance.
+- Registered callback mount tests2/2 pass: unconfigured or unbound invitation cannot succeed; normal GET/POST behavior retains current503/405 gates.
+- Owner, customer-panel and saas-data typechecks exit0. Owner and customer-panel production builds exit0 and include the new routes.
+- No production mutations, real invitation emails, user passwords, fees or receipts were created for this proof. Root owns current208 restore→209–212→down integration gate and production publication, including middleware allowance for the signed internal invitation endpoint.
