@@ -42,3 +42,17 @@ Yerel görseller: [1440 düzenleyici](evidence/store-tools-mira/editor-1440.jpg)
 ## Yayın
 
 Canlı ön kontrol 14:12:52 UTC'de iki panel ve iki storefront için `02611e0b`, healthy runtime, korunan ödeme profilleri ve eşleşen yetkiler verdi. Aktif yayın kuyruğu 0. Yeni panel sürümü ve tamamlanma kayıtları yayın sonrası eklenecek.
+
+### Canlı yayın tamamlandı
+
+İncelenen ve çalışan aday: `20002532fc664684e701e73fb1e63385019838fc`. Ortak panel NET ve SITE 3 Ekim 2026 günü tamamlandı; final kabul 14:45 UTC.
+
+- NET yayın kimliği `hxp3pi3p0wogils22jha75am`, SITE `fh2sbdpj9pnujl8ug4042hwb`: ikisi de **finished**.
+- Her iki image/SOURCE_COMMIT adayla tam aynı; **352 runtime kaynak dosyası**, **52 derlenmiş rota** ve **3 aynı parçada UI grubu** eşleşti. Kaynakta kalan 28 QA dosyası ayrı doğrulandı.
+- Taze resmi ödeme kanıtı, SQL198/200/201, kredi enabled/v2 ve iki storefront tanığı geçti. Panel NET `noApproval`, SITE `reviewedTestLive` korundu. Storefront pinleri `02611e0b` olarak aynı kaldı.
+- Snapshot/geri alma provası ve final ham ayar/ortam satırı karşılaştırması geçti; yalnız panel source pin/SOURCE_COMMIT ilerledi. Son global kuyruk boştu. Kanıt: `.tmp/store-tools-mira-release/root-final-verify.log`.
+- Güzide, Butik Siora ve Alpler admin `/api/health` uçları 200, doğru tenant ve `ok`; üçünde özgün 20.610 bayt PNG hash'i aynı. Kanıt: `.tmp/store-tools-mira-release/public-acceptance.json`.
+- Butik Siora gerçek Chrome mağaza sahibi oturumunda yeni genel görünüm, açık düzenleyici ve dokuz kanallı seçici açıldı. WhatsApp PNG doğal 512/görünen 20 px; 1680 px canlı ekranda yatay taşma 0 ve uyarı/hata konsol kaydı yok. Kanal seçiciyi açıp kapatmak ayar kaydı oluşturmadı; Uygula kullanılmadı.
+- [Canlı Butik Siora kanal seçimi](evidence/store-tools-mira/live-siora-channel-picker.png) gerçek yayın ekranıdır. Önceki altı görsel yerel kabul olarak etiketli kalır.
+
+İlk proof bağlama bitmeden başlatılan üç salt okunur hazırlık kontrolü `unavailable` verdi; korunmuş bu çıktılar yayın yetkisi olarak kullanılmadı. Bağlamadan sonra aynı kapılar taze kayıtlarla geçti. Atlas final artefakt incelemesi PASS sonrası root yalnız `DRAFT_LOCKED` açma ve helper fingerprint güncellemesi yaptı; retry yetkisi kapalı/null kaldı. Başka sohbetin yeni mağaza araçları sürümü için 200025 panel tabanı ve onaylı UI'nin entegre edilmesi bildirildi.
