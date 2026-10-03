@@ -1,5 +1,6 @@
 import "../../../../../apps/storefront-shared/app/globals.css";
 import "../../../../../apps/storefront-shared/themes/lilyum/lilyum.css";
+import "../../../../../apps/storefront-shared/themes/lilyum/lilyum-product.css";
 import "../../../../../apps/storefront-shared/themes/siora/siora.css";
 import "../../../../../apps/storefront-shared/themes/siora/siora-mobile.css";
 import "../../../../../apps/storefront-shared/themes/alpler/alpler.css";

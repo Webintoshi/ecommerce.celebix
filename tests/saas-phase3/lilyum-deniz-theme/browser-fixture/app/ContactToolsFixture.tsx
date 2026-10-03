@@ -6,6 +6,7 @@ import { ProductDetailExperience } from "../../../../../apps/storefront-shared/c
 import { ProductCard } from "../../../../../apps/storefront-shared/components/ProductCard";
 import { GuzideProductDetailExperience } from "../../../../../apps/storefront-shared/themes/guzide/GuzideProductDetailExperience";
 import { SioraProductDetailExperience } from "../../../../../apps/storefront-shared/themes/siora/SioraProductDetailExperience";
+import { LilyumProductDetailExperience } from "../../../../../apps/storefront-shared/themes/lilyum/LilyumProductDetailExperience";
 import { storefront, design, products, presentation } from "./data";
 
 const themes = {
@@ -39,7 +40,7 @@ export function ContactToolsFixture({ theme = "lilyum", productPage = false, che
       <Link style={{ padding: "8px", minHeight: 44, display: "inline-flex", alignItems: "center" }} href={`${productPage ? `/products/${product.slug}` : "/pages/contact-tools"}?theme=${themeKey}&appearance=${appearance === "dark" ? "light" : "dark"}`}>Açık / koyu</Link>
     </nav>
     <StorefrontFrame storefront={store} design={selectedDesign} persistentGuzide={themeKey === "guzide"} immersiveProduct={productPage && themeKey === "siora"} checkout={checkout}>
-      {productPage ? <><span hidden data-contact-product-title={product.title} data-contact-product-path={`/products/${product.slug}`} />{themeKey === "guzide" ? <GuzideProductDetailExperience {...productProps} /> : themeKey === "siora" ? <SioraProductDetailExperience {...productProps} /> : <ProductDetailExperience {...productProps} />}</> : <article className="store-container" style={{ paddingBlock: "52px 100px", minHeight: "65vh" }}>
+      {productPage ? <><span hidden data-contact-product-title={product.title} data-contact-product-path={`/products/${product.slug}`} />{themeKey === "guzide" ? <GuzideProductDetailExperience {...productProps} /> : themeKey === "siora" ? <SioraProductDetailExperience {...productProps} /> : themeKey === "lilyum" ? <LilyumProductDetailExperience {...productProps} /> : <ProductDetailExperience {...productProps} />}</> : <article className="store-container" style={{ paddingBlock: "52px 100px", minHeight: "65vh" }}>
         <p style={{ fontSize: 12, color: "#72776f", letterSpacing: ".12em" }}>YEREL TEMA KONTROLÜ</p>
         <h1 style={{ marginBlock: "12px 16px", fontSize: "clamp(28px, 4vw, 44px)" }}>{checkout ? "Ödeme ekranı" : "Her an kolayca iletişim kurun"}</h1>
         <p style={{ maxWidth: 560, lineHeight: 1.8 }}>Mağaza iletişim panelini açıp klavyeyle kapatın. Mobil menü ve sepet açıldığında balon gizlenir. Bağlantılar yalnız önizleme içindir.</p>

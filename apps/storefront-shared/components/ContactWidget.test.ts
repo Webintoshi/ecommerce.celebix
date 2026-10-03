@@ -162,7 +162,11 @@ test("mobile widget clears bottom navigation and purchase controls and hides dur
     nav.hidden = true;
     actions.getBoundingClientRect = () => new window.DOMRect(0, 900, 390, 84);
     await React.act(async () => window.dispatchEvent(new window.Event("scroll")));
-    assert.equal(container.querySelector<HTMLElement>('[data-contact-widget]')?.style.getPropertyValue("--contact-mobile-offset"), "0px");
+    assert.equal(container.querySelector<HTMLElement>('[data-contact-widget]')?.style.getPropertyValue("--contact-mobile-offset"), "0px");    const lilyumPurchase = document.createElement("div"); lilyumPurchase.dataset.lilyumStickyPurchase = ""; lilyumPurchase.style.position = "fixed";
+    lilyumPurchase.getBoundingClientRect = () => new window.DOMRect(0, 768, 390, 76); frame.append(lilyumPurchase);
+    await settle();
+    assert.equal(container.querySelector<HTMLElement>('[data-contact-widget]')?.style.getPropertyValue("--contact-mobile-offset"), "76px");
+
 
   });
 });
