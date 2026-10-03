@@ -31,4 +31,15 @@ Screenshots in [evidence/restock-mira](evidence/restock-mira/): overview/editor 
 
 ## Delivery state
 
-Implementation and QA complete. This revision has not been published to the live panels. The current POS/engagement release is preserved in the merged source; a later panel publication must retain it.
+Published to both shared customer panel applications on **2026-10-04 (Europe/Istanbul)**.
+
+- Exact source: `6119aa871fc05d9b4ff9990c8ce22fa90d86c52e`, release branch `codex/store-engagement-tools`; previous panel source `29f2f48991ca5f1de2fbc95e166d2dfb79a04a16` is preserved in its ancestry.
+- NET deployment: `s8u3slf09hyyzwuprzyfnbpv`, finished. SITE deployment: `i38sec4j9oktu5fe61joul32`, finished. NET exact runtime and cohort passed before SITE was queued.
+- Final guarded verification passed for both application pins, SOURCE_COMMIT, running images, official payment artifacts/compiled authorities, 362 runtime source files, 29 source-only files, 34 client tokens and all four same-chunk feature groups. Global deployment queue is idle.
+- SQL198 six functions, SQL200/201/208 46 financial functions and ACLs, enabled credit gate v2, payment configuration, encrypted settings and preview rows remain exact.
+- A concurrent storefront navigation rollout stopped the initial snapshot before any panel pin or queue action. Its UI-only source delta was independently reviewed; a new read-only witness was bound to `codex/storefront-navigation-scroll` / `5bed7ebf0230ae265ec4685d637d252da47eeca1`. Both storefront runtimes passed before the fresh snapshot. No storefront application was modified by this release.
+- Atlas independently approved the candidate, immutable payment proof, source cohort, SQL208 source-derived verification and the narrow storefront witness rebinding. Pure release guards: 202/202 passed.
+- Public checks passed for Güzide, Butik Siora and Alpler: health HTTP 200 with exact tenant/hostname resolution; the original WhatsApp image is unchanged and serves HTTP 200.
+- Authenticated live Siora browser check: attribution absent from the working screen; new flat stock illustration and open editor visible; all four counters load; desktop/mobile preview works and cannot submit; Cancel restores focus. Horizontal overflow 0; console warnings/errors 0. No merchant settings were saved and no stock emails or customer requests were generated.
+
+Actual live screenshots: [overview](evidence/restock-mira/live-overview-siora.png), [editor](evidence/restock-mira/live-editor-siora.png), [mobile preview](evidence/restock-mira/live-mobile-preview-siora.png).
