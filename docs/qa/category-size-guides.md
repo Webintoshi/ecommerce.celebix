@@ -18,8 +18,31 @@ Common Customer Panel Extras and shared product guide modal. Category-linked mer
 
 ## Screenshots
 
-Screenshots under `docs/qa/evidence/category-size-guides/` use local disposable content only. No sizing instructions were invented or published to a merchant shop.
+Screenshots under `docs/qa/evidence/category-size-guides/` include local disposable content and live Lilyum acceptance. No sizing instructions were invented or published to a merchant shop.
 
 ## Release status
 
-Pending coordinated SQL203 → storefront NET/SITE → Customer Panel NET/SITE deployment and live acceptance. Preserve current shared UI/source baselines, preview environments and payment approval configuration. Private deployment receipts are excluded from Git.
+Released application commit: `758334185e072ddceb2f5ca7b38c9c02b50bf40f`.
+
+- SQL203 applied first in one repeatable-read transaction with guarded preimages and catalog locks. In-transaction comparison preserved all 149 business tables / 217,923 rows. Postcommit check verified expected function changes and no ownership, ACL or security drift across 1,557 objects. Six production-envelope tests passed before application.
+- Existing preview environments and payment approval configuration were preserved. Actual existing scenarios remain storefront NET live-only, storefront SITE test/live, Customer Panel NET no approval and Customer Panel SITE test/live. Each running container's generated payment metadata matched its official proof.
+- Both storefronts and both Customer Panels run the released commit; image identities match. Three guide routes are present in each built panel. All four representative health checks returned HTTP200/statusok. Final coordinated release verification reported four targets verified and the global deployment queue idle.
+
+| Target | Official deployment | Result |
+|---|---|---|
+| Storefront NET | `drwnn80c5x1kolzl0p71juhf` | finished; runtime verified |
+| Storefront SITE | `dlxk10o2l9pdtw6t4o5v1e5u` | finished; runtime verified |
+| Customer Panel NET | `pxaxbxc529iqhzhsjmuthgpe` | finished; runtime verified |
+| Customer Panel SITE | `eq533ou3b6j0392vvphel4hp` | finished; runtime verified |
+
+## Live acceptance
+
+- Authenticated Lilyum owner opened Extras and the new two-type library.
+- Created one technical acceptance guide assigned to Lilyumlar with storefront display disabled. The body explicitly contained no measurement instructions.
+- Uygula saved version1; reopening retained the body, category, heading and disabled state. Changing the heading then Vazgeç preserved the original saved heading/version.
+- Live preview used the shared modal, correct heading, initial close focus, Escape/return focus and no horizontal page overflow.
+- Archived only the agent's acceptance record through the ordinary recoverable archive action. The active Extras list then showed “Henüz ekstra yok.” No merchant content, prices, media or stocks were changed.
+- Live evidence: `live-extras-library.png`, `live-guide-saved-disabled.png`, `live-guide-preview.png`, `live-guide-archived.png`.
+- Enabled guide inheritance, child precedence, new/reclassified products and archive filtering were tested in isolated PostgreSQL and frontend fixtures; no temporary sizing content was exposed to live shoppers.
+
+Private SQL/deployment receipts are excluded from Git. SQL rollback is intentionally blocked once any typed guide record exists, including an archived one; subsequent recovery must preserve guide content with a compatible forward change.

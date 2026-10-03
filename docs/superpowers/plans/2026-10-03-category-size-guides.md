@@ -59,4 +59,4 @@
 - [x] Implement reusable guide window preserving safe rich text and long mobile tables; adapt design preview consistently.
 - [x] Run focused frontend tests and affected shared storefront build, then fresh whole-branch review.
 - [x] Validate 1440/1024/390 px, keyboard focus, guide save and real product output in isolated test context. Do not publish invented measurement instructions in a merchant store.
-- [ ] Apply compatible data and shared readers first, then coordinated common NET→SITE admin deployments. Verify current build identities and truthful live acceptance; record final receipt.
+- [x] Apply compatible data and shared readers first, then coordinated common NET→SITE admin deployments. Verify current build identities and truthful live acceptance; record final receipt in `docs/qa/category-size-guides.md`.
