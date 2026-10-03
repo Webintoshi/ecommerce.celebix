@@ -63,6 +63,6 @@ Files: apps/storefront-shared/components/ContactWidget.tsx + module.css + test; 
 ### Task 5: İnceleme ve yayın (root + independent reviewer)
 
 - [x] Diff/spec bağımsız review; contracts/data/panel/storefront test ve typecheck/build geçsin.
-- [ ] İzole DB kabul, SQL uyumlu uygulama; son deploy kaynaklarını tekrar kontrol et.
-- [ ] Storefront NET→SITE ardından panel NET→SITE yayını; aynı source SHA, değişmeyen ödeme kohortları, health kontrolleri.
-- [ ] Canlı kapalı kayıt/cancel/restore kabul; QA belgesi ve görsel sonucu paylaş.
+- [x] İzole DB kabul, SQL uyumlu uygulama; son deploy kaynaklarını tekrar kontrol et.
+- [x] Storefront NET→SITE ardından panel NET→SITE yayını; aynı source SHA, değişmeyen ödeme kohortları, health kontrolleri.
+- [x] Canlı kapalı kayıt/cancel/restore kabul; QA belgesi ve görsel sonucu paylaş.
