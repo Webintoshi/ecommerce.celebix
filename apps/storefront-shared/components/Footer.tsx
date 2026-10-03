@@ -19,6 +19,8 @@ import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraFooter } from "../themes/siora/SioraFooter";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { SharedFooterSignature } from "./SharedFooterSignature";
+import { LilyumFooter } from "../themes/lilyum/LilyumFooter";
+import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 
 const EMPTY_POLICY_INDEX = Object.freeze([]) as readonly PublicPolicyPage[];
 const LEGACY_GROUPS = Object.freeze([
@@ -56,6 +58,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
   }
   if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
     const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
+    if (lilyumThemeFor(storefront)) return <LilyumFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
     if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
     if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
     if (guzideThemeFor(storefront)) {
