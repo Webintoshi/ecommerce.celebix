@@ -41,13 +41,10 @@ test("composer exposes accessible bounded editors for every hero slide and split
   assert.match(value, /slides[.]length\s*>=\s*3/);
   assert.match(value, /panels[.]length\s*>=\s*2/);
 });
-test("composer preserves featured navigation authority and disables unavailable shipping threshold control", async () => {
+test("composer preserves featured navigation authority", async () => {
   const value = await source("StarterThemeComposer.tsx");
   assert.match(value, /<CollectionNavigationEditor navigation=\{state[.]navigation\}/);
   assert.match(value, /featuredPair[.]categoryId && featuredPair[.]assetId|pair[.]categoryId && pair[.]assetId/);
-  assert.match(value, /Kargo ilerlemesi için doğrulanmış ücretsiz kargo eşiği gerekli/);
-  assert.match(value, /aria-describedby="shipping-progress-authority"/);
-  assert.match(value, /checked=\{false\}/);
 });
 test("preview consumes parsed composition, real catalog titles, category image slots, and responsive modes", async () => { const value = await source("StarterThemePreview.tsx"); assert.match(value, /desktop/); assert.match(value, /mobile/); assert.match(value, /presentation/); assert.match(value, /productTitles/); assert.match(value, /starterThemeCategoryPlaceholderLabels/); assert.match(value, /previewCategoryPlaceholders/); });
 test("generic composer keeps only a non-editable category showcase placement marker", async () => {
@@ -96,8 +93,7 @@ test("composer columns can shrink inside the design rail without horizontal clip
 test("composition preview truthfully renders configurable corners announcement destination gallery and cart settings", async () => {
   const value = await source("StarterThemePreview.tsx");
   for (const token of ["cornerStyle", "announcement.destination", "galleryStyle", "showCheckoutReadiness", "trustMessage", "mobileStickyPurchase"]) assert.match(value, new RegExp(token.replace(".", "[.]")));
-  assert.doesNotMatch(value, /showShippingProgress\s*\?\s*<[^>]*(progress|shipping)/i);
-  assert.match(value, /canonical ücretsiz kargo eşiği/);
+
 });
 test("composition preview removes the quantity surface when its authority is disabled", async () => {
   const value = await source("StarterThemePreview.tsx");

@@ -210,3 +210,15 @@ test("public campaign parser rejects unknown private and inconsistent fields", (
   assert.throws(() => campaignValidation.parsePublicStarterThemePresentation({ ...value, sections: [{ kind: "brand_story", heading: "Hikâye", body: "Metin", image: { ...HERO, url: `${HERO.url}?private=1` } }] }), /storefront_contract_invalid/);
   assert.notEqual(CATEGORY, CATEGORY_TWO);
 });
+
+test('free shipping threshold survives editable and published composition contracts', () => {
+  const editable = validComposition();
+  const parsed = campaignValidation.parseStarterThemeCompositionConfig({ ...editable, cart: { ...editable.cart, freeShippingThresholdCents: 125050 } });
+  assert.equal((parsed.cart as Record<string, unknown>).freeShippingThresholdCents, 125050);
+  const live = validPublicPresentation();
+  const published = campaignValidation.parsePublicStarterThemePresentation({ ...live, cart: { ...live.cart, freeShippingThresholdCents: 125050 } });
+  assert.equal((published.cart as Record<string, unknown>).freeShippingThresholdCents, 125050);
+  for (const amount of [0, -1, 1.5, 100000001, '125050', null]) {
+    assert.throws(() => campaignValidation.parseStarterThemeCompositionConfig({ ...editable, cart: { ...editable.cart, freeShippingThresholdCents: amount } }));
+  }
+});

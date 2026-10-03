@@ -29,6 +29,7 @@ test("review reply drafts survive search and status filters and preserve moderat
   const saved: unknown[] = [];
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "./ReviewCollectionConsole") return { ReviewCollectionConsole: () => null };
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return { Search: () => null };
@@ -41,7 +42,7 @@ test("review reply drafts survive search and status filters and preserve moderat
       catalogAdminApi: { async reviews() { return items; }, async moderateReview(id: string, input: unknown) { saved.push({ id, input }); } },
       CatalogAdminApiError: class extends Error {},
     };
-    if (name === "./catalog-admin-console.module.css") return styles;
+    if (name === "./catalog-admin-console.module.css" || name === "./review-collection.module.css") return styles;
     throw new Error(`unexpected_import:${name}`);
   }, compiled, compiled.exports);
   const Console = compiled.exports.ProductReviewConsole as React.ComponentType<{ canModerate: boolean }>;

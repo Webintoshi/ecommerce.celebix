@@ -1,3 +1,4 @@
+import {RestockAlertsProvider} from "../../../components/RestockAlerts";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PublicStorefrontRepositoryError } from "@celebix/saas-data";
@@ -97,6 +98,8 @@ export async function renderProductPage({
 }) {
   const selected = await product((await params).slug);
   const { storefront, product: item } = selected;
+  const restock = await selected.runtime.restockAlerts?.getForHost({hostname:storefront.hostname,now:new Date()}).catch(()=>null);
+  const restockConfig = restock?.storeId === storefront.id ? restock.config : null;
   const siora = Boolean(sioraThemeFor(storefront));
   const guzide = Boolean(guzideThemeFor(storefront));
   const lilyum = Boolean(lilyumThemeFor(storefront));
@@ -162,7 +165,7 @@ export async function renderProductPage({
         event={productViewEvent(item.id, siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
-      {siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
+      <RestockAlertsProvider config={restockConfig}>{siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
@@ -186,6 +189,7 @@ export async function renderProductPage({
         showStockQuantity={!alplerThemeFor(storefront)}
         showQuantitySelector={presentation.schemaVersion === 2 || (presentation.schemaVersion === 3 || presentation.schemaVersion === 4) ? presentation.cart.showQuantitySelector : true}
       />}
+      </RestockAlertsProvider>
       <SeoRelatedLinks links={selected.seoSelection?.links ?? []} locale={storefront.locale} />
     </StorefrontFrame>
   );

@@ -1,0 +1,18 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $f$ BEGIN IF EXISTS(SELECT 1 FROM saas.review_collection_requests) OR EXISTS(SELECT 1 FROM saas.review_collection_operations) OR EXISTS(SELECT 1 FROM saas.review_collection_settings) OR EXISTS(SELECT 1 FROM saas.review_collection_optouts) THEN RAISE EXCEPTION 'REVIEW_COLLECTION_ROLLBACK_REQUIRES_DATA_RECOVERY';END IF;END $f$;
+DO $f$ DECLARE r record;BEGIN FOR r IN SELECT definition FROM saas.review_collection_206_backup LOOP EXECUTE r.definition;END LOOP;END $f$;
+DROP TRIGGER review_collection_order_event ON saas.order_events;
+DROP FUNCTION saas.review_collection_order_event();
+DROP FUNCTION saas.review_collection_admin_overview(uuid,uuid,uuid,uuid,text,bigint,timestamptz);
+DROP FUNCTION saas.review_collection_admin_mutate(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,text,jsonb);
+DROP FUNCTION saas.review_collection_work_claim(timestamptz,uuid);
+DROP FUNCTION saas.review_collection_work_seal(uuid,uuid,timestamptz,text,jsonb);
+DROP FUNCTION saas.review_collection_work_finish(uuid,uuid,timestamptz,text,text);
+DROP FUNCTION saas.review_collection_public(text,timestamptz,text,text,uuid,text,jsonb);
+DROP FUNCTION saas.review_collection_enqueue_order(uuid,uuid,boolean,timestamptz,timestamptz);
+DROP FUNCTION saas.review_collection_order_eligible(uuid,uuid);
+DROP TABLE saas.review_collection_requests,saas.review_collection_settings,saas.review_collection_optouts,saas.review_collection_operations,saas.review_collection_206_backup;
+DROP FUNCTION saas.review_collection_operation_immutable();
+DROP FUNCTION saas.review_collection_request_guard();
+COMMIT;

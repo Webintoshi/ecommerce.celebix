@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import styles from "./store-tools.module.css";
+import { RestockTool } from "./RestockTool";
 
 type Tab = "content" | "appearance" | "visibility";
 type ChannelType = ContactWidgetChannel["type"];
@@ -172,6 +173,7 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
       <MessageCircle size={24} aria-hidden="true" /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterilerinizin size ulaşacağı kanallar.</p><span>{baseline.enabled ? "Açık" : "Kapalı"}{!canManage ? " · Salt okunur" : ""}</span></div>
       <button ref={triggerRef} type="button" data-tool-edit="contact_widget" aria-haspopup="dialog" onClick={() => { setDraft(baseline); setTab("content"); setPreviewOpen(true); setError(""); setConflict(false); setValidationAttempted(false); setMessage(""); setOpen(true); }}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
     </article> : null}
+    <RestockTool canManage={canManage} />
     {open ? <><div className={styles.backdrop} aria-hidden="true" onClick={cancel} /><div ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="store-tool-dialog-title" onKeyDown={keepFocus}>
       <header className={styles.modalHeader}><h2 id="store-tool-dialog-title">İletişim balonu</h2><button ref={closeRef} type="button" data-tool-close disabled={busy || reloading} aria-label="Vazgeç ve kapat" onClick={cancel}><X size={20} aria-hidden="true" /></button></header>
       <form onSubmit={apply} noValidate data-settings-dirty={dirty} className={styles.editor}>

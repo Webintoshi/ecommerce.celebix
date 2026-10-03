@@ -1,4 +1,5 @@
 "use client";
+import {RestockSubscriptionForm,useRestockAlertsConfig} from "./RestockAlerts";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -34,6 +35,7 @@ export function ProductPurchasePanel({
   beforePurchaseTransition?(kind: "add" | "buy"): Promise<Readonly<{ proceed: boolean; drawerTrigger?: HTMLElement | null }>>;
 }>) {
   const router = useRouter();
+  const restockConfig = useRestockAlertsConfig();
   const { openDrawer, replaceCart } = useCartStatus();
   const [selectedId, setSelectedId] = useProductVariantSelection(product);
   const [quantity, setQuantity] = useState(1);
@@ -155,7 +157,7 @@ export function ProductPurchasePanel({
                   name="variant"
                   value={variant.id}
                   checked={selectedId === variant.id}
-                  disabled={!variant.available}
+                  disabled={!variant.available && !restockConfig?.enabled}
                   onChange={() => {
                     setSelectedId(variant.id);
                     setQuantity(1);
@@ -226,6 +228,7 @@ export function ProductPurchasePanel({
           </button>
         </div>
       </div>
+      <RestockSubscriptionForm product={product} variant={variant} />
       <p className="purchase-status" aria-live="polite">
         {status}
       </p>

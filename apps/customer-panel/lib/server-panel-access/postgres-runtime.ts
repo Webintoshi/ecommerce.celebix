@@ -11,6 +11,8 @@ import {
   PostgresCatalogOnboardingRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresRestockAdminRepository,
+  PostgresReviewCollectionRepository,
   PostgresMerchantContentRepository,
   PostgresSeoRepository,
   PostgresStorePolicyAdminRepository,
@@ -59,6 +61,8 @@ import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerBarcodeLabelRepository } from "../server-barcode-labels/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
+import { registerServerRestockRepository } from "../server-restock/runtime.ts";
+import { registerServerReviewCollectionRepository } from "../server-review-collection/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
 import { registerServerMerchantContentRepository } from "../server-merchant-content/runtime.ts";
 import { registerServerSeoRepository } from "../server-seo/runtime.ts";
@@ -1072,6 +1076,8 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogAdminRepository(access, createPostCommitInvalidatingRepository(catalogAdminRepository, {
       saveResource: ["catalog"], archiveResource: ["catalog"], moderateReview: ["catalog"], importProducts: ["catalog"], importProductsV2: ["catalog"], commitImportPreview: ["catalog"],
     }));
+    registerServerRestockRepository(access, new PostgresRestockAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
+    registerServerReviewCollectionRepository(access, new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerMerchantAdminRepository(access, createPostCommitInvalidatingRepository(merchantAdminRepository, {
       save: ["catalog", "settings"], archive: ["catalog", "settings"],
     }));

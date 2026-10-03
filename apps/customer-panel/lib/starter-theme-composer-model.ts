@@ -23,7 +23,7 @@ export function buildStarterThemeComposition(input: StarterThemeEditorState): St
   return parseStarterThemeCompositionConfig({
     schemaVersion: 2,
     ...input,
-    cart: { ...input.cart, showShippingProgress: false },
+    cart: { ...input.cart },
   }) as StarterThemeCompositionConfigV2;
 }
 

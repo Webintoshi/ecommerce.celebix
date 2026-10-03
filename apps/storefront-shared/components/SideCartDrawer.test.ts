@@ -18,12 +18,6 @@ test("one provider owns a canonical side-cart and both add surfaces auto-open it
   assert.doesNotMatch(`${provider}\n${drawer}`, /tenantId|storeId|priceCents\s*:/u);
 });
 
-test("campaign cart presentation is truthful and never invents shipping progress", () => {
-  assert.match(provider, /PublicStarterThemePresentationV2/);
-  assert.match(drawer, /showCheckoutReadiness/);
-  assert.match(drawer, /trustMessage/);
-  assert.doesNotMatch(drawer, /showShippingProgress|freeShippingThreshold|Ücretsiz kargoya/u);
-});
 
 test("a stale mount refresh cannot overwrite a later cart mutation", () => {
   for (const proof of ["refreshGenerationRef", "cartEpochRef", "requestGeneration", "requestEpoch"]) assert.match(provider, new RegExp(proof, "u"));
@@ -94,10 +88,6 @@ test("side-cart stays responsive with 48px targets and reduced motion", () => {
   assert.match(css, /transition-duration:\s*[.]01ms/u);
 });
 
-test("drawer never claims shipping progress without canonical threshold authority", () => {
-  assert.match(drawer, /data-campaign-cart="true"/u);
-  assert.doesNotMatch(drawer, /Ücretsiz kargoya|shipping-progress/u);
-});
 
 test("campaign checkout action preserves the existing checkout route", () => {
   assert.match(drawer, /className="store-button campaign-side-cart-checkout" href="\/checkout"/u);

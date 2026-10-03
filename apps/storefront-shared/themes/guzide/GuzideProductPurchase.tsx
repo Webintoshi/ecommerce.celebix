@@ -1,4 +1,5 @@
 "use client";
+import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
   children?: ReactNode;
 }>) {
   const router = useRouter();
+  const restockConfig = useRestockAlertsConfig();
   const { openDrawer, drawerOpen, replaceCart } = useCartStatus();
   const [selectedId, selectVariant] = useProductVariantSelection(product);
   const variant = product.variants.find(({ id }) => id === selectedId);
@@ -99,7 +101,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
       {showVariantChoices ? <fieldset className={styles.variantChoices} disabled={pending !== null}>
         <legend>Seçenekler</legend>
         {product.variants.map((item) => <label className={styles.variantOption} key={item.id} data-available={item.available ? "true" : "false"}>
-          <input type="radio" name={`${titleId}-variant`} value={item.id} checked={selectedId === item.id} disabled={!item.available} onChange={() => changeVariant(item.id)} />
+          <input type="radio" name={`${titleId}-variant`} value={item.id} checked={selectedId === item.id} disabled={!item.available && !restockConfig?.enabled} onChange={() => changeVariant(item.id)} />
           <span className={styles.variantOptionCopy}><span>{item.title}</span><small>{item.available ? "Stokta" : "Tükendi"}</small></span>
           <strong>{formatTry(item.priceCents)}</strong>
         </label>)}
@@ -115,6 +117,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
         <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button>
       </div>
       <p className={styles.status} aria-live="polite" role="status">{status}</p>
+      <RestockSubscriptionForm product={product} variant={variant} />
       {children}
     </section>
     {options.mobileStickyPurchase ? <div className={styles.sticky} hidden={drawerOpen} data-guzide-sticky-purchase>

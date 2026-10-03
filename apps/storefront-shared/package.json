@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3450",
-    "build": "node scripts/build-seo-worker.cjs && node scripts/build-search-worker.cjs && next build --webpack",
+    "build": "node scripts/build-seo-worker.cjs && node scripts/build-search-worker.cjs && node scripts/build-engagement-worker.cjs && next build --webpack",
     "start": "node scripts/start-production.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node scripts/run-tests.mjs",
@@ -13,7 +13,8 @@
     "reconcile:standard-checkouts": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/reconcile-standard-checkouts.mjs",
     "deliver:analytics": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/deliver-analytics-events.mjs",
     "deliver:seo": "node scripts/deliver-seo-events.mjs",
-    "deliver:search": "node scripts/deliver-search-events.mjs"
+    "deliver:search": "node scripts/deliver-search-events.mjs",
+    "deliver:engagement": "node scripts/deliver-engagement-events.mjs"
   },
   "dependencies": {
     "@celebix/payment-adapters": "0.1.0",

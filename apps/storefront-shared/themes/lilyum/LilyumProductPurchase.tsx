@@ -1,4 +1,5 @@
 "use client";
+import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,6 +20,7 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
   product: PublicProduct; options: StarterProductDetailConfigV2; showQuantitySelector: boolean; children?: ReactNode;
 }>) {
   const router = useRouter();
+  const restockConfig = useRestockAlertsConfig();
   const { openDrawer, drawerOpen, replaceCart } = useCartStatus();
   const [selectedId, selectVariant] = useProductVariantSelection(product);
   const variant = product.variants.find(item => item.id === selectedId);
@@ -72,7 +74,7 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
       {product.merchandising?.highlights.length ? <ul className="lf-product-highlights">{product.merchandising.highlights.map(text => <li key={text}>{text}</li>)}</ul> : null}
       {choices ? <fieldset className="lf-product-choices" disabled={pending !== null}><legend>Seçenekler</legend>
         {product.variants.map(item => <label key={item.id} data-available={item.available ? "true" : "false"}>
-          <input type="radio" name={`${titleId}-variant`} value={item.id} checked={item.id === selectedId} disabled={!item.available} onChange={() => { if (!requestPending.current) { selectVariant(item.id); setQuantity(1); setStatus(""); } }} />
+          <input type="radio" name={`${titleId}-variant`} value={item.id} checked={item.id === selectedId} disabled={!item.available && !restockConfig?.enabled} onChange={() => { if (!requestPending.current) { selectVariant(item.id); setQuantity(1); setStatus(""); } }} />
           <span>{item.title}<small>{item.available ? "Stokta" : "Tükendi"}</small></span><strong>{formatTry(item.priceCents)}</strong>
         </label>)}
       </fieldset> : null}
@@ -86,6 +88,7 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
         <button className="lf-button lf-purchase-buy" type="button" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<LilyumIcon name="arrow" /></button>
       </div>
       <p className="lf-purchase-status" role="status" aria-live="polite">{status}</p>
+      <RestockSubscriptionForm product={product} variant={variant} />
       {children}
     </section>
     {options.mobileStickyPurchase ? <div className="lf-product-sticky" data-lilyum-sticky-purchase hidden={drawerOpen}>

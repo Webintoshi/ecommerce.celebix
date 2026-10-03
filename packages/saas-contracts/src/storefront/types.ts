@@ -107,6 +107,7 @@ export type StarterProductDetailConfigV2 = Readonly<{
 export type StarterCartConfig = Readonly<{
   showCheckoutReadiness: boolean;
   showShippingProgress: boolean;
+  freeShippingThresholdCents?: number;
   trustMessage?: string;
 }>;
 
@@ -174,6 +175,7 @@ export type PublicStarterReview = Readonly<{
   title?: string;
   body: string;
   merchantReply?: string;
+  verifiedPurchase?: boolean;
 }>;
 
 type PublicStarterHomeSectionContent =

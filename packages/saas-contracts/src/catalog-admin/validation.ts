@@ -235,9 +235,10 @@ export function parseProductReview(value: unknown): ProductReview {
       "createdAt",
       "updatedAt",
     ],
-    ["title", "merchantReply"],
+    ["title", "merchantReply", "verifiedPurchase"],
   );
   if (!PRODUCT_REVIEW_STATUSES.includes(parsed.status as never)) invalid();
+  if (parsed.verifiedPurchase !== undefined && typeof parsed.verifiedPurchase !== "boolean") invalid();
   return Object.freeze({
     id: uuid(parsed.id),
     productId: uuid(parsed.productId),
@@ -249,6 +250,7 @@ export function parseProductReview(value: unknown): ProductReview {
       : { title: text(parsed.title, 1, 200) }),
     body: text(parsed.body, 1, 5000),
     status: parsed.status as ProductReview["status"],
+    ...(parsed.verifiedPurchase === undefined ? {} : { verifiedPurchase: parsed.verifiedPurchase as boolean }),
     ...(parsed.merchantReply === undefined
       ? {}
       : { merchantReply: text(parsed.merchantReply, 1, 2000) }),
