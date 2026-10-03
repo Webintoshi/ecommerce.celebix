@@ -1,0 +1,116 @@
+{
+  "readOnly": true,
+  "checkedAt": "2026-10-03T12:11:47.553778+00:00",
+  "verified": true,
+  "targets": [
+    {
+      "hostname": "admin.guzidekuyumcu.com",
+      "health": {
+        "httpStatus": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "storeId": "a828862c-4cc1-475a-89cc-5fbee31eb43f",
+          "hostname": "admin.guzidekuyumcu.com",
+          "dependencies": {
+            "redisCache": {
+              "required": false,
+              "status": "ready",
+              "metrics": {
+                "redis_cache_hit_total": 0,
+                "redis_cache_miss_total": 0,
+                "redis_cache_set_total": 0,
+                "redis_cache_error_total": 0,
+                "redis_cache_timeout_total": 0,
+                "redis_cache_invalidations_total": 0,
+                "redis_cache_bypass_total": 0,
+                "redis_cache_payload_rejected_total": 0,
+                "redis_cache_negative_hit_total": 0,
+                "redis_cache_singleflight_join_total": 0,
+                "scopes": {}
+              }
+            }
+          }
+        }
+      },
+      "anonymousEntry": {
+        "httpStatus": 200,
+        "url": "https://admin.guzidekuyumcu.com/login"
+      },
+      "verified": true
+    },
+    {
+      "hostname": "butik-siora.admin.saas-staging.celebix.net",
+      "health": {
+        "httpStatus": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "storeId": "ff465e64-1491-40ef-8840-c66281155a1d",
+          "hostname": "butik-siora.admin.saas-staging.celebix.net",
+          "dependencies": {
+            "redisCache": {
+              "required": false,
+              "status": "ready",
+              "metrics": {
+                "redis_cache_hit_total": 0,
+                "redis_cache_miss_total": 0,
+                "redis_cache_set_total": 0,
+                "redis_cache_error_total": 0,
+                "redis_cache_timeout_total": 0,
+                "redis_cache_invalidations_total": 4,
+                "redis_cache_bypass_total": 0,
+                "redis_cache_payload_rejected_total": 0,
+                "redis_cache_negative_hit_total": 0,
+                "redis_cache_singleflight_join_total": 0,
+                "scopes": {}
+              }
+            }
+          }
+        }
+      },
+      "anonymousEntry": {
+        "httpStatus": 200,
+        "url": "https://butik-siora.admin.saas-staging.celebix.net/login"
+      },
+      "verified": true
+    },
+    {
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "health": {
+        "httpStatus": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "storeId": "9f1f6aed-8719-407e-b64c-fd8e956d3277",
+          "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+          "dependencies": {
+            "redisCache": {
+              "required": false,
+              "status": "ready",
+              "metrics": {
+                "redis_cache_hit_total": 0,
+                "redis_cache_miss_total": 0,
+                "redis_cache_set_total": 0,
+                "redis_cache_error_total": 0,
+                "redis_cache_timeout_total": 0,
+                "redis_cache_invalidations_total": 4,
+                "redis_cache_bypass_total": 0,
+                "redis_cache_payload_rejected_total": 0,
+                "redis_cache_negative_hit_total": 0,
+                "redis_cache_singleflight_join_total": 0,
+                "scopes": {}
+              }
+            }
+          }
+        }
+      },
+      "anonymousEntry": {
+        "httpStatus": 200,
+        "url": "https://alpler-spor.admin.saas-staging.celebix.net/login"
+      },
+      "verified": true
+    }
+  ],
+  "authenticatedScreenInteractions": false
+}

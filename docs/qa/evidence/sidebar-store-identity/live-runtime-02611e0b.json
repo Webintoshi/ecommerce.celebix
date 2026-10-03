@@ -1,0 +1,47 @@
+{
+  "readOnly": true,
+  "verified": true,
+  "sourceSha": "02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+  "targets": [
+    {
+      "target": "panel_net",
+      "verified": true,
+      "image": "e4xe74cmii7jucbkyor0o412:02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+      "status": "running",
+      "health": null,
+      "imageAndHealth": true,
+      "probe": {
+        "readOnly": true,
+        "verified": true,
+        "sourceSha": "02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+        "sourceFiles": 9,
+        "compiledClientGroups": 1,
+        "compiledServerGroups": 1,
+        "providerInvoked": false,
+        "databaseOrApplicationMutated": false
+      }
+    },
+    {
+      "target": "panel_site",
+      "verified": true,
+      "image": "yk1h6d97z7ex0h74ok3zrj5c:02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+      "status": "running",
+      "health": null,
+      "imageAndHealth": true,
+      "probe": {
+        "readOnly": true,
+        "verified": true,
+        "sourceSha": "02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+        "sourceFiles": 9,
+        "compiledClientGroups": 1,
+        "compiledServerGroups": 1,
+        "providerInvoked": false,
+        "databaseOrApplicationMutated": false
+      }
+    }
+  ],
+  "providerInvoked": false,
+  "databaseOrApplicationMutated": false,
+  "checkedAt": "2026-10-03T12:11:49.123208+00:00",
+  "scope": "sidebar actual source, image/health and compiled output; no deployment/provider/database action"
+}
