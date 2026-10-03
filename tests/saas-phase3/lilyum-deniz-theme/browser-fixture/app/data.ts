@@ -14,7 +14,7 @@ export const presentation: PublicStarterThemePresentationV3 = {
   ...base, logo, supportEmail: "destek@lilyumflora.net", announcement: { items: ["Ordu İçerisine 60 Dakika İçinde Teslim"] },
   navigation: { items: ["Lilyumlar", "Güller", "Orkideler", "Kutuda Güller", "Buketler", "Saksı Bitkileri"].map((name,index) => ({ name, slug: ["lilyumlar", "guller", "orkideler", "kutuda-guller", "buketler", "saksi-bitkileri"][index], children: [] })) },
   sections: [
-    { kind: "banner", layout: "single", autoplay: false, presentation: "image_only", slides: [{ slideId: "qa", enabled: true, headline: "Lilyum Flora Ordu", body: "", desktopImage: image("storefront/hero/e89e5b56-0c5a-5a96-b33d-4daf6234c84c.jpg", "Lilyum Flora banner 1"), mobileImage: null, destination: "/products" }] },
+    { kind: "banner", layout: "single", autoplay: false, presentation: "image_only", slides: [{ slideId: "qa", enabled: true, headline: "Lilyum Flora Ordu", body: "", desktopImage: image("storefront/hero/e89e5b56-0c5a-5a96-b33d-4daf6234c84c.jpg", "Lilyum Flora banner 1"), mobileImage: image("storefront/hero/ae93930a-7e43-5874-9342-dd4a7689c5be.jpg", "Lilyum Flora mobil banner"), destination: "/products" }] },
     { kind: "category_grid", heading: "Koleksiyonlarımız", layout: "duo", items: [
       { name: "Lilyumlar", slug: "lilyumlar", image: image("storefront/category/ff72d131-f251-5fcb-92df-601d3fd1117a.webp", "Lilyumlar") },
       { name: "Orkideler", slug: "orkideler", image: image("storefront/category/38dea7f7-ee2a-50de-9793-1f430e3af96b.png", "Orkideler") },

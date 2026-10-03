@@ -19,6 +19,15 @@ test("accepted defaults replace only the original hero while composed banners su
   assert.equal(model.hero.heading, LILYUM_COPY.heading);
   assert.equal(lilyumAnnouncement(presentation, design), "Ordu’da aynı gün çiçek teslimatı");
 });
+test("the original mobile banner migrates with the original desktop, while a new admin mobile image remains authoritative", () => {
+  const withMobile = (url: string) => ({ ...presentation, sections: presentation.sections.map(section => section.kind === "banner" ? { ...section, slides: section.slides.map(slide => ({ ...slide, mobileImage: { url, altText: "Mobil çiçek görseli", mediaType: "image/jpeg" as const, width: 800, height: 800 } })) } : section) });
+  const original = withMobile("https://media.example/ae93930a-7e43-5874-9342-dd4a7689c5be.jpg");
+  const migrated = lilyumHomeModel(original, design);
+  assert.equal(migrated.hero.image, LILYUM_HERO_ASSET);
+  assert.equal(migrated.hero.mobileImage, undefined);
+  const changed = withMobile("https://media.example/new-admin-mobile.webp");
+  assert.equal(lilyumHomeModel(changed, design).hero.mobileImage, "https://media.example/new-admin-mobile.webp");
+});
 test("a future admin image, headline, destination and announcement are authoritative", () => {
   const changed = { ...design, hero: { enabled: true, slides: [{ headline: "Yeni koleksiyon", body: "Admin açıklaması", desktopImage: { url: "https://media.example/new.webp", altText: "Yeni" }, mobileImage: { url: "https://media.example/mobile.webp", altText: "Mobil" }, destination: { path: "/kategori/guller" } }] }, announcement: { ...design.announcement, items: ["Özel gün seçkisi"] } };
   const model = lilyumHomeModel(presentation, changed);

@@ -3,6 +3,7 @@ import type { PublicStarterHomeSection, PublicStorefrontDesign, PublicStarterThe
 
 export const LILYUM_HERO_ASSET = "/themes/lilyum/flower-atelier-v1.webp";
 const LEGACY_HERO = "e89e5b56-0c5a-5a96-b33d-4daf6234c84c.jpg";
+const LEGACY_MOBILE_HERO = "ae93930a-7e43-5874-9342-dd4a7689c5be.jpg";
 export const LILYUM_COPY = Object.freeze({ eyebrow: "LILYUM FLORA · ORDU", heading: "Sevdiklerine bir güzellik gönder.", body: "Özenle hazırlanan taze çiçekler, anlamlı anlar için.", cta: "Çiçekleri keşfet" });
 
 export function lilyumBrandTokens(design: PublicStorefrontDesign) {
@@ -28,6 +29,8 @@ export function lilyumHomeModel(presentation: PublicStarterThemePresentation, de
   const image = slide?.desktopImage;
   const heading = slide && ("headline" in slide ? slide.headline : slide.heading);
   const oldHero = !image || image.url.endsWith(LEGACY_HERO);
+  const mobileImage = slide?.mobileImage;
+  const originalMobileImage = oldHero && mobileImage?.url.endsWith(LEGACY_MOBILE_HERO);
   const inheritedSlides = banner?.kind === "banner" ? banner.slides.filter(slide => slide.enabled) : legacy?.kind === "hero" ? legacy.slides : [];
   // Native campaign rendering remains authoritative when an admin publishes multiple slides.
   const multiHeroSection: PublicStarterHomeSection | undefined = published && custom && custom.slides.length > 1
@@ -41,7 +44,7 @@ export function lilyumHomeModel(presentation: PublicStarterThemePresentation, de
   const hero = {
     enabled: presentation.schemaVersion === 1 ? Boolean(customSlide) || presentation.hero.enabled : Boolean(customSlide ?? bannerSlide ?? heroSlide),
     image: oldHero ? LILYUM_HERO_ASSET : image.url,
-    mobileImage: slide?.mobileImage && !slide.mobileImage.url.endsWith(LEGACY_HERO) ? slide.mobileImage.url : undefined,
+    mobileImage: mobileImage && !mobileImage.url.endsWith(LEGACY_HERO) && !originalMobileImage ? mobileImage.url : undefined,
     heading: !heading || heading === presentation.displayName ? LILYUM_COPY.heading : heading,
     body: slide?.body || LILYUM_COPY.body,
     destination: slide?.destination ?? presentation.hero.destination,

@@ -10,7 +10,7 @@ Hero: naturally lit pink lilies, white gerberas and foliage in clear vase on pal
 
 ## Admin compatibility
 
-Exact tenant ID guard only. Keep published navigation including all categories and children, full product names, current money/availability, footer/policies/social links, existing favorite/cart providers and routes. Existing legacy hero image/headline migrate to approved theme defaults; subsequently changed admin hero images/text override those defaults. Disabled/removed sections remain absent. Keep additional enabled admin product sections below the initial selected row, using the same card family. All category records remain discoverable, displayed as large pairs. Design publication overrides remain authoritative for logo, fonts and custom hero. Checkout and product pages do not receive an overlapping bottom bar.
+Exact tenant ID guard only. Keep published navigation including all categories and children, full product names, current money/availability, footer/policies/social links, existing favorite/cart providers and routes. The known original desktop and mobile banner assets migrate together to the approved theme defaults; subsequently changed admin hero images/text override those defaults. Disabled/removed sections remain absent. Keep additional enabled admin product sections below the initial selected row, using the same card family. All category records remain discoverable, displayed as large pairs. Design publication overrides remain authoritative for logo, fonts and custom hero. Checkout and product pages do not receive an overlapping bottom bar.
 
 ## Asset
 
