@@ -41,9 +41,9 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 34);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 34);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 34);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 35);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 35);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 35);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
@@ -74,6 +74,14 @@ test("defines every durable merchant module with a unique route and field contra
     assert.equal(definition.fields.length > 0, true);
     assert.equal(new Set(definition.fields.map(({ key }) => key)).size, definition.fields.length);
   }
+});
+
+test("contact widget resolves to the dedicated store tools editor as a singleton", () => {
+  const widget = getMerchantModuleDefinition("contact_widget");
+  assert.equal(widget.route, "/settings/store-tools");
+  assert.equal(widget.family, "settings");
+  assert.equal(widget.cardinality, "singleton");
+  assert.equal(isSingletonMerchantModule("contact_widget"), true);
 });
 
 test("administrator role guide mirrors the frozen merchant action policy without exposing store ownership", () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createDefaultContactWidgetConfig } from "../contact-widget/config.ts";
 import test from "node:test";
 import {
   MERCHANT_ADMIN_PROVIDER_ACTIONS,
@@ -51,12 +52,13 @@ function providerJobFixture(status: string) {
     updatedAt: NOW,
   };
 }
-test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 35); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
+test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 36); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
 test("typed settings expose only finite public configuration", () => {
   const configurations = {
     notification_setting: { emailEnabled: true, smsEnabled: false, pushEnabled: true, senderLabel: "Celebix", replyToEmail: "support@example.test" },
     hero_banner: { headline: "Yeni sezon", body: "Göz atın", assetId: ID, destination: "/collections/new", enabled: true },
     promotion_banner: { headline: "Yaz indirimi", body: "Sınırlı süre", destination: "/sale", startsAt: NOW, endsAt: "2026-08-22T19:00:00.000Z", enabled: true },
+    contact_widget: createDefaultContactWidgetConfig(),
     marquee_setting: { items: ["Ücretsiz kargo"], icon: "truck", speed: "normal", direction: "left", animation: "continuous", enabled: true },
   } as const;
   for (const [kind, config] of Object.entries(configurations)) assert.doesNotThrow(() => parseMerchantAdminRecord({ id: ID, kind, name: "Ayar", config, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));
@@ -78,7 +80,7 @@ test("advanced SEO and AI records retain only their finite record kinds", () => 
       updatedAt: NOW,
     }));
   }
-  assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 35);
+  assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 36);
 });
 test("category showcase is a finite merchant setting kind", () => {
   assert.doesNotThrow(() => parseMerchantAdminRecord({ id: ID, kind: "category_showcase", name: "Ana sayfa kategorileri", config: { heading: "Kategorileri keşfet", enabled: true, items: [{ categoryId: ID, assetId: PROFILE_ID }] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));

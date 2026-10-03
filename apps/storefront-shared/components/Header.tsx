@@ -8,6 +8,8 @@ import { CampaignHeader } from "./CampaignHeader";
 import { AlplerHeader } from "../themes/alpler/AlplerHeader";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraHeader } from "../themes/siora/SioraHeader";
+import { LilyumHeader } from "../themes/lilyum/LilyumHeader";
+import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { productIndexPath } from "@/lib/storefront-routes.ts";
 
@@ -18,6 +20,7 @@ export function Header({
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
 }) {
+  if (lilyumThemeFor(storefront)) return <LilyumHeader storefront={storefront} design={design} />;
   if (alplerThemeFor(storefront)) return <AlplerHeader storefront={storefront} design={design} />;
   if (sioraThemeFor(storefront)) return <SioraHeader storefront={storefront} design={design} />;
   if (

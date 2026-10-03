@@ -11,6 +11,8 @@ import { buildPublicSeoMetadata } from "@/lib/public-seo.ts";
 import { loadPublicSeoSettings } from "@/lib/public-seo-read.ts";
 import { resolveStorefrontPage, resolveStorefrontHomePage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
+import { LilyumHome } from "../themes/lilyum/LilyumHome";
 import {
   localizePublicStorefrontDesign,
   localizeStorefrontPath,
@@ -40,6 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const context = requireStorefrontPage(await resolveStorefrontHomePage());
   const { runtime, storefront, design } = context;
+  if (context.campaign && lilyumThemeFor(storefront)) return <LilyumHome storefront={storefront} design={design} projection={context.campaign} />;
   if (context.campaign)
     return (
       <CampaignHome

@@ -1,0 +1,1 @@
+{"name":"lilyum-deniz-local-browser-fixture","private":true,"type":"module","scripts":{"dev":"next dev --webpack --hostname 127.0.0.1 --port 8142","typecheck":"tsc --noEmit"}}

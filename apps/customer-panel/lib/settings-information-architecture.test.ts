@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { PANEL_NAVIGATION } from "./panel-ui/navigation.ts";
+import { SETTINGS_DESTINATIONS, SETTINGS_GROUPS } from "../components/settings/settings-navigation.ts";
 
 const source = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("settings navigation has one appearance destination and no legacy banner siblings", () => {
+test("settings navigation exposes appearance destinations without legacy banner siblings", () => {
   const settings = PANEL_NAVIGATION.find(({ key }) => key === "settings");
   assert.deepEqual(settings?.children?.map(({ label, href }) => ({ label, href })), [
     { label: "Genel", href: "/settings/general" },
@@ -20,14 +21,27 @@ test("settings navigation has one appearance destination and no legacy banner si
     { label: "Analitik ve sepet", href: "/settings/analytics" },
     { label: "Yapay Zeka", href: "/settings/artificial-intelligence" },
     { label: "Tasarım", href: "/settings/design" },
+    { label: "Mağaza araçları", href: "/settings/store-tools" },
   ]);
+});
+
+test("store tools follows design in the shared appearance group used by search and mobile navigation", () => {
+  const appearance = SETTINGS_GROUPS.find(({ title }) => title === "Görünüm");
+  assert.deepEqual(appearance?.items.map(({ label, href }) => ({ label, href })), [
+    { label: "Tasarım", href: "/settings/design" },
+    { label: "Mağaza araçları", href: "/settings/store-tools" },
+  ]);
+  const tools = SETTINGS_DESTINATIONS.find(({ href }) => href === "/settings/store-tools");
+  assert.equal(tools?.label, "Mağaza araçları");
+  assert.equal(tools?.icon, "settings");
+  assert.match(tools?.description ?? "", /İletişim balonu/);
 });
 
 test("settings index is a quiet grouped row workspace without decorative card copy", async () => {
   const component = (await Promise.all([source("components/settings/SettingsOverview.tsx"),source("components/settings/settings-navigation.ts")])).join("\n");
   const css = await source("components/settings/settings-workspace.module.css");
   for (const label of ["Mağaza", "Satış ve teslimat", "İletişim ve otomasyon", "Görünüm"]) assert.match(component, new RegExp(`"${label}"`));
-  for (const label of ["Genel", "Alan Adı", "Dil", "Yöneticiler", "Ödeme", "Fiyatlandırma", "Kargo", "Bildirimler", "Yapay Zeka", "Tasarım"]) assert.match(component, new RegExp(`"${label}"`));
+  for (const label of ["Genel", "Alan Adı", "Dil", "Yöneticiler", "Ödeme", "Fiyatlandırma", "Kargo", "Bildirimler", "Yapay Zeka", "Tasarım", "Mağaza araçları"]) assert.match(component, new RegExp(`"${label}"`));
   assert.doesNotMatch(component, /Hero Banner|Promosyon Banner|Kayan Duyuru|Vitrin, banner/);
   assert.match(component, /styles[.]settingsGroups/);
   assert.match(component, /styles[.]settingsRow/);

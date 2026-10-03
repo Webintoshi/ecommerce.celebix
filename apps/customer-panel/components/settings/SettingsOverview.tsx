@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Bell, Building2, ChevronRight, CreditCard, Globe2, Languages, Palette, Search, Sparkles, Tags, Truck, Users, X } from "lucide-react";
+import { BarChart3, Bell, Building2, ChevronRight, CreditCard, Globe2, Languages, Palette, Search, Settings, Sparkles, Tags, Truck, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { SETTINGS_GROUPS } from "./settings-navigation";
 import styles from "./settings-workspace.module.css";
 
-const ICONS = { store: Building2, globe: Globe2, language: Languages, users: Users, card: CreditCard, tags: Tags, truck: Truck, bell: Bell, chart: BarChart3, sparkles: Sparkles, palette: Palette };
+const ICONS = { store: Building2, globe: Globe2, language: Languages, users: Users, card: CreditCard, tags: Tags, truck: Truck, bell: Bell, chart: BarChart3, sparkles: Sparkles, palette: Palette, settings: Settings };
 
 export function SettingsOverview({ embedded = false }: { embedded?: boolean }) {
   const [query, setQuery] = useState("");

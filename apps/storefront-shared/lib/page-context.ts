@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
-import type { PublicStorefrontDesign } from "@celebix/saas-contracts";
+import type { PublicStorefrontDesign, ContactWidgetConfig } from "@celebix/saas-contracts";
 import type { CampaignHomeProjection } from "@celebix/saas-data";
 
 import { resolveDefaultPublicStorefrontRuntime, type PublicStorefrontRuntime } from "./default-runtime.ts";
@@ -15,6 +15,7 @@ export type StorefrontPageContext = Readonly<{
   campaign: CampaignHomeProjection | null;
   design: PublicStorefrontDesign;
   tracker: StorefrontTrackerContext | null;
+  contactWidget: ContactWidgetConfig | null;
 }>;
 export type StorefrontPageResolution = Readonly<{ kind: "active"; context: StorefrontPageContext }> | Readonly<{ kind: "not_found" }> | Readonly<{ kind: "unavailable" }>;
 
@@ -24,16 +25,18 @@ export const resolveStorefrontPage = cache(async (): Promise<StorefrontPageResol
   const now = new Date();
   const selected = await resolvePublicStorefrontRequest({ headers: await headers(), repository: runtime.repository, now });
   if (selected.kind !== "active") return selected;
-  const [campaignResolution, design, tracker] = await Promise.all([
+  const [campaignResolution, design, tracker, widget] = await Promise.all([
     resolveCampaignPageProjection({ storefront: selected.storefront, repository: runtime.repository, now, includeProductRows: false }),
     runtime.repository.getPublicStorefrontDesign({ storefront: selected.storefront, now }).catch(() => null),
     resolveStorefrontTracker(runtime, selected.storefront.hostname, now).catch(() => null),
+    runtime.contactWidgets?.getForHost({ hostname: selected.storefront.hostname, now }).catch(() => null) ?? null,
   ]);
   if (campaignResolution.kind === "unavailable") return Object.freeze({ kind: "unavailable" });
   if (design === null) return Object.freeze({ kind: "unavailable" });
   const campaign = campaignResolution.kind === "campaign" ? campaignResolution.projection : null;
   const storefront = campaign ? withCampaignPresentation(selected.storefront, campaign) : selected.storefront;
-  return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront, campaign, design, tracker }) });
+  const contactWidget = widget?.storeId === storefront.id ? widget.config : null;
+  return Object.freeze({ kind: "active", context: Object.freeze({ runtime, storefront, campaign, design, tracker, contactWidget }) });
 });
 
 // Product rows belong to the homepage. The shared shell remains request-deduplicated.

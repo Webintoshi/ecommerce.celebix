@@ -1,0 +1,1 @@
+export function GET() { return Response.json({ cart: { version: 0, currency: "TRY", items: [], itemCount: 0, subtotalCents: 0, shippingCents: 0, totalCents: 0, checkoutReady: false, checkoutBlocker: "empty_cart" } }); }

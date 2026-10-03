@@ -5,6 +5,7 @@ import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTra
 import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
 import { resolveStorefrontPage } from "../lib/page-context.ts";
 import { StorefrontFrame } from "../components/StorefrontFrame";
+import { ContactWidget } from "../components/ContactWidget";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import "./globals.css";
 import "../themes/siora/siora.css";
@@ -13,6 +14,8 @@ import "../themes/alpler/alpler.css";
 import "../themes/alpler/alpler-mobile.css";
 import "../themes/guzide/guzide.css";
 import "../themes/guzide/guzide-footer.css";
+import "../themes/lilyum/lilyum.css";
+import "../themes/lilyum/lilyum-product.css";
 import "../components/checkout/checkout.css";
 
 export const metadata: Metadata = {
@@ -34,6 +37,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {page.kind === "active" && guzideThemeFor(page.context.storefront)
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
           : children}
+        {page.kind === "active" && page.context.contactWidget?.enabled ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} /> : null}
         {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>
     </html>

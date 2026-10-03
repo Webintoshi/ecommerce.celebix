@@ -17,6 +17,7 @@ export const SETTINGS_GROUPS = [
   ] },
   { title: "Görünüm", illustration: "design", items: [
     { href: "/settings/design", label: "Tasarım", description: "Vitrin, stil ve görseller", icon: "palette" },
+    { href: "/settings/store-tools", label: "Mağaza araçları", description: "İletişim balonu", icon: "settings" },
   ] },
 ] as const;
 
