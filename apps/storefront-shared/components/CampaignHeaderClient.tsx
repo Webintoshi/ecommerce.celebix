@@ -19,10 +19,21 @@ import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/st
 import styles from "./campaign-header.module.css";
 
 const focusable =
-  "a[href],button:not([disabled]),summary,[tabindex]:not([tabindex='-1'])";
+  "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex='-1'])";
 export function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
+export type CampaignHeaderClientProps = Readonly<{
+  displayName: string;
+  locale: string;
+  logo?: Readonly<{ url: string; altText: string; width?: number; height?: number }> | null;
+  navigation: PublicStarterNavigation;
+  desktopNavigation: ReactNode;
+  renderMobileMenu?: (close: () => void) => ReactNode;
+  mobileMenuClassName?: string;
+  mobileMenuController?: Readonly<{ isOpen: boolean; open(trigger: HTMLElement): void; close(): void; linkClick(event: MouseEvent<HTMLElement>): void }>;
+}>;
 
 export function CampaignHeaderClient({
   displayName,
@@ -30,29 +41,24 @@ export function CampaignHeaderClient({
   logo,
   navigation,
   desktopNavigation,
-}: Readonly<{
-  displayName: string;
-  locale: string;
-  logo?: Readonly<{
-    url: string;
-    altText: string;
-    width?: number;
-    height?: number;
-  }> | null;
-  navigation: PublicStarterNavigation;
-  desktopNavigation: ReactNode;
-}>) {
+  renderMobileMenu,
+  mobileMenuClassName,
+  mobileMenuController,
+}: CampaignHeaderClientProps) {
   const pathname = usePathname();
   const nonHome = pathname === "/" ? "" : styles.nonHome;
-  const [open, setOpen] = useState(false),
+  const [localOpen, setOpen] = useState(false),
     [opaque, setOpaque] = useState(false);
+  const open = mobileMenuController?.isOpen ?? localOpen;
   const triggerRef = useRef<HTMLButtonElement>(null),
     dialogRef = useRef<HTMLElement>(null),
-    sentinelRef = useRef<HTMLSpanElement>(null);
+    sentinelRef = useRef<HTMLSpanElement>(null),
+    openedPathRef = useRef(pathname);
   const close = useCallback(() => {
+    if (mobileMenuController) { mobileMenuController.close(); return; }
     setOpen(false);
     requestAnimationFrame(() => triggerRef.current?.focus());
-  }, []);
+  }, [mobileMenuController]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -68,15 +74,27 @@ export function CampaignHeaderClient({
     if (!open) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    requestAnimationFrame(() =>
+    const frame = requestAnimationFrame(() =>
       (
         dialogRef.current?.querySelector(focusable) as HTMLElement | null
       )?.focus(),
     );
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = original;
     };
   }, [open]);
+  useEffect(() => {
+    if (!mobileMenuController && renderMobileMenu && open && pathname !== openedPathRef.current) close();
+  }, [pathname, open, renderMobileMenu, mobileMenuController, close]);
+  useEffect(() => {
+    if (!renderMobileMenu || !open) return;
+    const desktop = window.matchMedia("(min-width: 1025px)");
+    const changed = () => { if (desktop.matches) close(); };
+    changed();
+    desktop.addEventListener("change", changed);
+    return () => desktop.removeEventListener("change", changed);
+  }, [open, renderMobileMenu, close]);
 
   function trapKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
@@ -87,7 +105,8 @@ export function CampaignHeaderClient({
     if (event.key === "Tab") {
       const controls = [
         ...(dialogRef.current?.querySelectorAll<HTMLElement>(focusable) ?? []),
-      ];
+      ].filter(control => !control.closest("[hidden], [inert]") &&
+        (!control.closest("details:not([open])") || control.tagName === "SUMMARY"));
       const first = controls[0],
         last = controls.at(-1);
       if (!first || !last) return;
@@ -139,7 +158,7 @@ export function CampaignHeaderClient({
               aria-expanded={open}
               aria-controls="campaign-mobile-menu"
               aria-label="Menüyü aç"
-              onClick={() => setOpen(true)}
+              onClick={event => { openedPathRef.current = pathname; if (mobileMenuController) mobileMenuController.open(event.currentTarget); else setOpen(true); }}
             >
               <Menu aria-hidden="true" />
             </button>
@@ -149,15 +168,16 @@ export function CampaignHeaderClient({
       {open ? (
         <div className={styles.backdrop} onMouseDown={backdrop}>
           <section
-            className={styles.drawer}
+            className={`${styles.drawer} ${mobileMenuClassName ?? ""}`}
             id="campaign-mobile-menu"
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="Mobil menü"
             onKeyDown={trapKeyboard}
+            onClickCapture={mobileMenuController?.linkClick}
           >
-            <header>
+            {renderMobileMenu ? renderMobileMenu(close) : <><header>
               <strong>{displayName}</strong>
               <button type="button" aria-label="Menüyü kapat" onClick={close}>
                 <X aria-hidden="true" />
@@ -210,7 +230,7 @@ export function CampaignHeaderClient({
                   ))}
                 </details>
               ))}
-            </nav>
+            </nav></>}
           </section>
         </div>
       ) : null}

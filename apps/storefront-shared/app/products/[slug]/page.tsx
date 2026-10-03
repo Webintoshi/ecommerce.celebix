@@ -8,6 +8,8 @@ import type {
 } from "@celebix/saas-contracts";
 import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
+import { guzideThemeFor } from "../../../themes/guzide/theme.ts";
+import { GuzideProductDetailExperience } from "../../../themes/guzide/GuzideProductDetailExperience";
 import { SioraProductDetailExperience } from "../../../themes/siora/SioraProductDetailExperience";
 import { sioraInitialVariant } from "../../../themes/siora/product-options.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
@@ -94,6 +96,7 @@ export async function renderProductPage({
   const selected = await product((await params).slug);
   const { storefront, product: item } = selected;
   const siora = Boolean(sioraThemeFor(storefront));
+  const guzide = Boolean(guzideThemeFor(storefront));
   if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
     permanentRedirect(productPath(storefront.locale, item.slug));
   }
@@ -158,6 +161,11 @@ export async function renderProductPage({
       {siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
+      /> : guzide ? <GuzideProductDetailExperience product={item} storefrontId={storefront.id}
+        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
+        options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        supportEmail={presentation.supportEmail}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
       /> : <ProductDetailExperience product={item}
         locale={storefront.locale}

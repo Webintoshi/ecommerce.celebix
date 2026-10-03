@@ -38,3 +38,59 @@ test("live search debounces typing, discards obsolete replies and supports keybo
     });
   } finally { globalThis.fetch = previous; }
 });
+
+async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { container: HTMLElement; pushes: string[]; reopen: () => Promise<void> }) => Promise<void>) {
+  const pushes: string[] = [];
+  const previous = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ items: [{ id: "necklace", title: "Altın Kolye", href: "/urun/altin-kolye", priceCents: 10000, currency: "TRY", imageUrl: null, imageAlt: "", available: true }] })) as typeof fetch;
+  const load = componentLoader({ "next/navigation": { useRouter: () => ({ push: (href: string) => pushes.push(href) }) } });
+  const { StorefrontSearchForm: Form } = load<{ StorefrontSearchForm: React.ComponentType<Record<string, unknown>> }>(new URL("./StorefrontSearchForm.tsx", import.meta.url));
+  try {
+    await withProductBrowser(async ({ container, render }) => {
+      let key = 0;
+      const reopen = async () => {
+        await render(React.createElement(Form, { key: ++key, defaultValue: "altın kolye", clientNavigation }));
+        await React.act(async () => { container.querySelector<HTMLInputElement>('input[name="q"]')!.focus(); });
+        await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
+        assert.ok(container.querySelector('a[href="/urun/altin-kolye"]'), "real suggestion is ready");
+      };
+      await reopen();
+      await run({ container, pushes, reopen });
+    });
+  } finally { globalThis.fetch = previous; }
+}
+
+async function activate(container: HTMLElement, selector: string, options: MouseEventInit = {}) {
+  const anchor = container.querySelector(selector);
+  assert.ok(anchor, selector);
+  const event = new window.MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ...options });
+  await React.act(async () => { anchor.dispatchEvent(event); });
+  return event;
+}
+
+test("Güzide search suggestions and all-results links navigate within the app and dismiss their panel", async () => {
+  await withSuggestionLinks(true, async ({ container, pushes, reopen }) => {
+    const selected = await activate(container, 'a[href="/urun/altin-kolye"]');
+    assert.equal(selected.defaultPrevented, true);
+    assert.deepEqual(pushes, ["/urun/altin-kolye"]);
+    assert.equal(container.querySelector(".store-search-suggestions"), null);
+    await reopen();
+    const all = await activate(container, ".store-search-all");
+    assert.equal(all.defaultPrevented, true);
+    assert.deepEqual(pushes, ["/urun/altin-kolye", "/search?q=alt%C4%B1n%20kolye"]);
+    assert.equal(container.querySelector(".store-search-suggestions"), null);
+  });
+});
+
+test("Güzide client search preserves modified-click behavior and other tenant defaults do not push routes", async () => {
+  await withSuggestionLinks(true, async ({ container, pushes }) => {
+    const modified = await activate(container, 'a[href="/urun/altin-kolye"]', { metaKey: true });
+    assert.equal(modified.defaultPrevented, false);
+    assert.deepEqual(pushes, []);
+  });
+  await withSuggestionLinks(false, async ({ container, pushes }) => {
+    const legacy = await activate(container, ".store-search-all");
+    assert.equal(legacy.defaultPrevented, false);
+    assert.deepEqual(pushes, []);
+  });
+});

@@ -18,6 +18,7 @@ import { AlplerFooter } from "../themes/alpler/AlplerFooter";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraFooter } from "../themes/siora/SioraFooter";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
+import { SharedFooterSignature } from "./SharedFooterSignature";
 
 const EMPTY_POLICY_INDEX = Object.freeze([]) as readonly PublicPolicyPage[];
 const LEGACY_GROUPS = Object.freeze([
@@ -45,25 +46,27 @@ async function publicPolicyIndex(storefront: PublicStorefront) {
 
 export async function Footer({ storefront, logo, checkout = false }: { storefront: PublicStorefront; logo?: PublicDesignMedia; checkout?: boolean }) {
   const policies = await publicPolicyIndex(storefront);
+  const signature = <SharedFooterSignature />;
   if (checkout) {
     const groups = mergePublishedPolicyFooterGroups(
       storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.groups : LEGACY_GROUPS,
       policies,
     );
-    return <CheckoutFooter groups={groups} storefront={storefront} />;
+    return <CheckoutFooter groups={groups} storefront={storefront} signature={signature} />;
   }
   if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
     const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
-    if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} />;
-    if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} />;
+    if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
+    if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
     if (guzideThemeFor(storefront)) {
-      return <GuzideFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} />;
+      return <GuzideFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} signature={signature} />;
     }
     return (
       <RetailFooter
         groups={groups}
         presentation={storefront.presentation}
         storefront={storefront}
+        signature={signature}
       />
     );
   }
@@ -95,8 +98,8 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
       </div>
       <div className="store-container footer-bottom">
         <span>© {new Date().getUTCFullYear()} {displayName}</span>
-        <span>Celebix altyapısıyla sunulur</span>
       </div>
+      {signature}
     </footer>
   );
 }
