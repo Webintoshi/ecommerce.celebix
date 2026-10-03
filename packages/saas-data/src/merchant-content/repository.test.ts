@@ -53,6 +53,22 @@ test('read response is exact and bound to requested record and kind', async () =
     const { repo } = setup({ payload: bad });
     await assert.rejects(() => repo.get({ tenantContext, now, kind: 'page', recordId: id }), /unavailable/);
 } });
+test('required page metadata is negotiated inside each read and recovery transaction',async()=>{
+ const {repo,calls}=setup({payload:{...document,requiredPageKey:'about'}});
+ assert.equal((await repo.get({tenantContext,now,kind:'page',recordId:id})).requiredPageKey,'about');
+ // Separate connections are used by the read, write and lost-commit recovery.
+ const recovery=setup({commitLost:true,payload:{...document,requiredPageKey:'about'}});
+ assert.equal((await recovery.repo.save(input())).document.requiredPageKey,'about');
+ for(const connection of [1,2]){
+  const scoped=recovery.calls.filter(call=>call.connection===connection);
+  const negotiation=scoped.findIndex(call=>call.text.includes('saas.required_pages_projection_version'));
+  assert.ok(negotiation>scoped.findIndex(call=>call.text.startsWith('BEGIN')));
+  assert.ok(negotiation<scoped.findIndex(call=>call.text.includes('FROM saas.')));
+  assert.deepEqual(scoped[negotiation]?.values,['1']);
+  assert.match(scoped[negotiation]!.text,/\$1, true\)/);
+ }
+ assert.ok(calls.some(call=>call.text.includes('saas.required_pages_projection_version')));
+});
 test('current content writer permissions deny analyst and cashier before database acquisition', async () => { for (const role of ['analyst', 'cashier']) {
     const { repo, calls } = setup();
     await assert.rejects(() => repo.save({ ...input(), tenantContext: { ...tenantContext, membership: { ...tenantContext.membership, role } } }), /membership_denied/);

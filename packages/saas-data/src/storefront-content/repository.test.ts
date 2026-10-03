@@ -96,6 +96,66 @@ function publicRepository(pool: Pool) { return new PostgresPublicStorefrontConte
 function adminRepository(pool: Pool, audit: string[] = []) { return new PostgresStorePolicyAdminRepository({ pool: pool as unknown as PostgresPoolLike, role: "celebix_saas_app", timeouts, audit: (event) => { audit.push(event.type); } }); }
 function call(client: Client, name: string) { const selected = client.calls.find(({ text }) => text.includes(`saas.${name}`)); assert.ok(selected); return selected; }
 
+const REQUIRED_PAGE = Object.freeze({
+  id: PRODUCT, kind: "page", requiredPageKey: "blog", slug: "magazadan-haberler", locale: "en-US",
+  title: "Store news", body: "<p>Stories from our store.</p>", bodyFormat: "normalized_html",
+  excerpt: null, seoTitle: "Store news SEO", seoDescription: "Our stories", publishedAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+});
+
+test("required public pages use hostname authority and immutable role identity in a read-only transaction", async () => {
+  const client = new Client((text) => text.includes("public_required_page_get") ? [{ outcome: "found", result_payload: REQUIRED_PAGE }] : []);
+  const result = await publicRepository(new Pool([client])).getRequiredPage({ hostname: HOST, now: NOW, key: "blog", locale: "en-US" });
+  assert.deepEqual(result, REQUIRED_PAGE);
+  assert.equal(Object.isFrozen(result), true);
+  assert.deepEqual(call(client, "public_required_page_get").values, [HOST, NOW, "blog", "en-US"]);
+  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  const projection = client.calls.findIndex(({ text }) => text.includes("set_config('saas.required_pages_projection_version'"));
+  assert.ok(projection > 0);
+  assert.deepEqual(client.calls[projection]?.values, ["1"]);
+  assert.ok(projection < client.calls.findIndex(({ text }) => text === "SET LOCAL ROLE celebix_saas_host_resolver"));
+  assert.equal(client.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_host_resolver"), true);
+});
+
+test("required public page input rejects unknown identities and authority overrides before checkout", async () => {
+  const reader = publicRepository(new Pool([]));
+  for (const input of [
+    { hostname: HOST, now: NOW, key: "unknown", locale: "en-US" },
+    { hostname: HOST, now: NOW, key: "blog", locale: "../en" },
+    { hostname: HOST, now: NOW, key: "blog", locale: "en-US", storeId: STORE },
+  ]) {
+    await assert.rejects(reader.getRequiredPage(input as Parameters<typeof reader.getRequiredPage>[0]), (error) => error instanceof StorefrontContentRepositoryError && error.code === "invalid_input");
+  }
+});
+
+test("required public pages keep unpublished outcomes finite and reject mismatched or private projections", async () => {
+  const absent = new Client((text) => text.includes("public_required_page_get") ? [{ outcome: "not_found", result_payload: null }] : []);
+  await assert.rejects(publicRepository(new Pool([absent])).getRequiredPage({ hostname: HOST, now: NOW, key: "blog", locale: "en-US" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "not_found");
+  const { requiredPageKey: _key, ...withoutKey } = REQUIRED_PAGE;
+  for (const payload of [
+    withoutKey, { ...REQUIRED_PAGE, requiredPageKey: "about" }, { ...REQUIRED_PAGE, requiredPageKey: "other" },
+    { ...REQUIRED_PAGE, kind: "blog_post" }, { ...REQUIRED_PAGE, locale: "tr" },
+    { ...REQUIRED_PAGE, publishedAt: null }, { ...REQUIRED_PAGE, storeId: STORE },
+  ]) {
+    const client = new Client((text) => text.includes("public_required_page_get") ? [{ outcome: "found", result_payload: payload }] : []);
+    await assert.rejects(publicRepository(new Pool([client])).getRequiredPage({ hostname: HOST, now: NOW, key: "blog", locale: "en-US" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+  }
+});
+
+test("generic V2 page projection accepts optional required-page metadata without changing legacy payloads", async () => {
+  const { requiredPageKey: _key, ...legacy } = REQUIRED_PAGE;
+  for (const payload of [legacy, REQUIRED_PAGE]) {
+    const client = new Client((text) => text.includes("public_content_page_get_v2") ? [{ outcome: "found", result_payload: payload }] : []);
+    assert.deepEqual(await publicRepository(new Pool([client])).getPageV2({ hostname: HOST, now: NOW, slug: REQUIRED_PAGE.slug, locale: "en-US" }), payload);
+    assert.deepEqual(client.calls.find(({ text }) => text.includes("saas.required_pages_projection_version"))?.values, ["1"]);
+  }
+  for (const requiredPageKey of [undefined, null, "", "unknown"]) {
+    const client = new Client((text) => text.includes("public_content_page_get_v2") ? [{ outcome: "found", result_payload: { ...legacy, requiredPageKey } }] : []);
+    await assert.rejects(publicRepository(new Pool([client])).getPageV2({ hostname: HOST, now: NOW, slug: REQUIRED_PAGE.slug, locale: "en-US" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+  }
+  const post = new Client((text) => text.includes("public_blog_get") ? [{ outcome: "found", result_payload: { ...REQUIRED_PAGE, kind: "blog_post" } }] : []);
+  await assert.rejects(publicRepository(new Pool([post])).getBlogPost({ hostname: HOST, now: NOW, slug: REQUIRED_PAGE.slug, locale: "en-US" }), (error) => error instanceof StorefrontContentRepositoryError && error.code === "unavailable");
+});
+
 test("public policy read uses hostname authority and preserves source Markdown only on the server boundary", async () => {
   const reader = new Client((text) => text.includes("public_policy_get") ? [{ outcome: "found", result_payload: { key: "kvkk", label: "KVKK", route: "/policies/kvkk", published: true, body: POLICY.body, updatedAt: NOW.toISOString() } }] : []);
   const result = await publicRepository(new Pool([reader])).getPolicy({ hostname: HOST, now: NOW, key: "kvkk" });

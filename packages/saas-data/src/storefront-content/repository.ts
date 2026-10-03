@@ -23,6 +23,7 @@ import {
   storefrontContentSitemapKind,
   storefrontContentSitemapPage,
   storefrontContentPageSlug,
+  storefrontContentRequiredPageKey,
   parsePolicyIndexPayload,
   parseProductSearchPayload,
   parsePublicPolicySource,
@@ -93,6 +94,7 @@ abstract class PostgresStorefrontContentBase {
     await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(this.timeouts.statementMs)]);
     await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.timeouts.lockMs)]);
     await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.timeouts.idleTransactionMs)]);
+    if (this.role === "celebix_saas_host_resolver") await client.query("SELECT pg_catalog.set_config('saas.required_pages_projection_version', $1, true)", ["1"]);
     await client.query(`SET LOCAL ROLE ${this.role}`);
   }
 
@@ -178,6 +180,16 @@ export class PostgresPublicStorefrontContentRepository extends PostgresStorefron
     return this.read({ text: "SELECT outcome,result_payload FROM saas.public_blog_get($1::text,$2::timestamptz,$3::text,$4::text)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), slug, locale] }, "found", (value) => {
       const page = parsePublicContentV2(value);
       if (page.kind !== "blog_post" || page.slug !== slug || page.locale !== locale) throw failure();
+      return page;
+    });
+  }
+
+  async getRequiredPage(input: Parameters<NonNullable<PublicStorefrontContentRepository["getRequiredPage"]>>[0]) {
+    const parsed = exactStorefrontContentInput(input, ["hostname", "now", "key", "locale"]);
+    const key = storefrontContentRequiredPageKey(parsed.key), locale = storefrontContentLocale(parsed.locale);
+    return this.read({ text: "SELECT outcome,result_payload FROM saas.public_required_page_get($1::text,$2::timestamptz,$3::text,$4::text)", values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), key, locale] }, "found", (value) => {
+      const page = parsePublicContentV2(value);
+      if (page.kind !== "page" || page.requiredPageKey !== key || page.locale !== locale || page.publishedAt === null) throw failure();
       return page;
     });
   }

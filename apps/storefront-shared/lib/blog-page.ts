@@ -2,6 +2,7 @@ import type { PublicContentV2 } from "@celebix/saas-data";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text.ts";
 import { renderMerchantContentBody } from "@celebix/platform-config/src/merchant-content-body.ts";
 import { contentPath } from "./content-locale.ts";
+import { buildPublicContentPageV2 } from "./content-page.ts";
 
 function plain(value: string | null | undefined): string {
   return (value ?? "").replace(/<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
@@ -38,4 +39,9 @@ export function buildPublicBlogPage(source: PublicContentV2, slug: string, defau
   if (source.kind !== "blog_post" || source.slug !== slug) throw new TypeError("public_blog_invalid");
   const html = source.bodyFormat === "normalized_html" ? renderMerchantContentBody(source.body, source.bodyFormat) : source.body.trim() ? normalizeProductDescriptionHtml(source.body, source.title) : "";
   return Object.freeze({ ...source, route: contentPath("blog_post", slug, source.locale, defaultLocale), html });
+}
+
+export function buildPublicBlogLanding(source: PublicContentV2, defaultLocale: string) {
+  if (source.kind !== "page" || source.requiredPageKey !== "blog" || typeof source.publishedAt !== "string" || !Number.isFinite(Date.parse(source.publishedAt))) throw new TypeError("public_blog_landing_invalid");
+  return buildPublicContentPageV2(source, source.slug, defaultLocale);
 }

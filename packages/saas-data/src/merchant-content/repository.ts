@@ -40,7 +40,7 @@ export class PostgresMerchantContentRepository implements MerchantContentReposit
         throw unavailable();
     } }
     private async configure(client: PostgresClientLike) { for (const [key, ms] of [['statement_timeout', this.options.timeouts.statementMs], ['lock_timeout', this.options.timeouts.lockMs], ['idle_in_transaction_session_timeout', this.options.timeouts.idleTransactionMs]] as const)
-        await this.query(client, `SELECT pg_catalog.set_config('${key}', $1, true)`, [`${ms}ms`]); await this.query(client, 'SET LOCAL ROLE celebix_saas_app'); }
+        await this.query(client, `SELECT pg_catalog.set_config('${key}', $1, true)`, [`${ms}ms`]); await this.query(client, "SELECT pg_catalog.set_config('saas.required_pages_projection_version', $1, true)", ['1']); await this.query(client, 'SET LOCAL ROLE celebix_saas_app'); }
     private args(input: unknown, keys: readonly string[], write: boolean, optional: readonly string[] = []) { const r = exact(input, ['tenantContext', 'now', ...keys], optional), auth = authority(r.tenantContext, r.now, write); return { r, values: [auth.storeId, auth.principalId, auth.membershipId, auth.planId, auth.planCode, auth.planVersion, auth.now], auth }; }
     private row(result: {
         rows: unknown[];

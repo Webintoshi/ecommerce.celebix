@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPublicBlogPage, publicContentSeo } from "./blog-page.ts";
+import { buildPublicBlogLanding, buildPublicBlogPage, publicContentSeo } from "./blog-page.ts";
 
 const article = { id: "11000000-0000-4000-8000-000000000001", kind: "blog_post", slug: "duyuru", locale: "en-US", title: "News", body: "<p>Helpful content</p>", bodyFormat: "normalized_html", excerpt: "Short excerpt", seoTitle: "News | Store", seoDescription: "A saved description", publishedAt: "2026-09-29T00:00:00.000Z", updatedAt: "2026-09-29T00:00:00.000Z" } as const;
 test("blog detail uses exact locale canonical, saved SEO and safe rich body", () => {
@@ -27,4 +27,15 @@ test("V2 normalized blog HTML retains intentional empty paragraphs", () => {
   const body = "<p>A</p><p></p><p>B</p>";
   assert.equal(buildPublicBlogPage({ ...article, body }, "duyuru", "tr").html, body);
   assert.doesNotMatch(buildPublicBlogPage({ ...article, bodyFormat:"legacy",body:"<p>Old</p><script>secret()</script>" }, "duyuru", "tr").html,/script|secret/);
+});
+
+test("blog landing renders only the published server-owned page and keeps its localized index path", () => {
+  const landing = { ...article, kind: "page", requiredPageKey: "blog", slug: "store-stories", body: "<p>Intro</p><p></p>" } as const;
+  const page = buildPublicBlogLanding(landing, "tr");
+  assert.equal(page.route, "/blog?lang=en-US");
+  assert.equal(page.html, landing.body);
+  assert.doesNotMatch(buildPublicBlogLanding({ ...landing, bodyFormat: "legacy", body: "<p>Intro</p><script>secret()</script>" }, "tr").html, /script|secret/);
+  for (const invalid of [{ ...landing, kind: "blog_post" }, { ...landing, requiredPageKey: "about" }, { ...landing, publishedAt: null }]) {
+    assert.throws(() => buildPublicBlogLanding(invalid as typeof landing, "tr"));
+  }
 });

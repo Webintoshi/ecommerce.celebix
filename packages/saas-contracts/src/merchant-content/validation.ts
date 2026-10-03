@@ -1,3 +1,4 @@
+import { parseRequiredPageKey } from "../required-pages/index.ts";
 import type { MerchantContentDocument, MerchantContentKind, MerchantContentOrigins, MerchantContentValues, SaveMerchantContentRequest } from './types.ts';
 const encoder = new TextEncoder();
 const BAD_UNICODE = /(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/;
@@ -189,7 +190,9 @@ export function parseSaveMerchantContentRequest(value: unknown): SaveMerchantCon
 }
 export function parseMerchantContentDocument(value: unknown): MerchantContentDocument {
     const keys = ['id', 'kind', 'version', 'publishedAt', 'createdAt', 'updatedAt', 'bodyFormat', 'bodyDigest', 'origins'];
-    const r = record(value, [...VALUE_KEYS, ...keys]), bodyFormat = choice(r.bodyFormat, ['legacy', 'normalized_html']);
+    const r = record(value, [...VALUE_KEYS, ...keys], ["requiredPageKey"]), bodyFormat = choice(r.bodyFormat, ['legacy', 'normalized_html']);
     const snapshot = Object.fromEntries(VALUE_KEYS.map(k => [k, r[k]]));
-    return Object.freeze({ ...values(snapshot, bodyFormat === 'legacy' ? 'preserve' : 'replace', true), id: uuid(r.id), kind: choice(r.kind, ['blog_post', 'page']), status: choice(r.status, ['draft', 'active', 'archived']), version: integer(r.version), publishedAt: r.publishedAt === null ? null : timestamp(r.publishedAt), createdAt: timestamp(r.createdAt), updatedAt: timestamp(r.updatedAt), bodyFormat, bodyDigest: digest(r.bodyDigest), origins: parseMerchantContentOrigins(r.origins) });
+    const requiredPage = Object.hasOwn(r, "requiredPageKey") ? { requiredPageKey: parseRequiredPageKey(r.requiredPageKey) } : {};
+    if (Object.hasOwn(requiredPage, "requiredPageKey") && r.kind !== "page") invalid();
+    return Object.freeze({ ...requiredPage, ...values(snapshot, bodyFormat === 'legacy' ? 'preserve' : 'replace', true), id: uuid(r.id), kind: choice(r.kind, ['blog_post', 'page']), status: choice(r.status, ['draft', 'active', 'archived']), version: integer(r.version), publishedAt: r.publishedAt === null ? null : timestamp(r.publishedAt), createdAt: timestamp(r.createdAt), updatedAt: timestamp(r.updatedAt), bodyFormat, bodyDigest: digest(r.bodyDigest), origins: parseMerchantContentOrigins(r.origins) });
 }

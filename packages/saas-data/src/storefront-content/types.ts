@@ -2,6 +2,7 @@ import type {
   PublicPolicyPage,
   PublicProduct,
   PublicProductSearch,
+  RequiredPageKey,
   StorefrontPolicyKey,
   TenantContext,
 } from "@celebix/saas-contracts";
@@ -42,6 +43,7 @@ export type PublicContentPage = Readonly<{
 export type PublicContentV2 = Readonly<{
   id: string;
   kind: "page" | "blog_post";
+  requiredPageKey?: RequiredPageKey;
   slug: string;
   locale: string;
   title: string;
@@ -67,6 +69,7 @@ export interface PublicStorefrontContentRepository {
   getPage?(input: Readonly<{ hostname: string; now: Date; slug: string }>): Promise<PublicContentPage>;
   getLocales?(input: Readonly<{ hostname: string; now: Date }>): Promise<PublicContentLocales>;
   getPageV2?(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>): Promise<PublicContentV2>;
+  getRequiredPage?(input: Readonly<{ hostname: string; now: Date; key: RequiredPageKey; locale: string }>): Promise<PublicContentV2>;
   getBlogPost?(input: Readonly<{ hostname: string; now: Date; slug: string; locale: string }>): Promise<PublicContentV2>;
   listBlogPosts?(input: Readonly<{ hostname: string; now: Date; locale: string; limit: number; cursor?: string }>): Promise<PublicContentList>;
   getSitemapIndex?(input: Readonly<{ hostname: string; now: Date }>): Promise<readonly PublicSitemapShard[]>;

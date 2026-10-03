@@ -1,3 +1,4 @@
+import { REQUIRED_STORE_PAGES } from "@celebix/saas-contracts";
 import {
   MERCHANT_ACTIONS,
   isMerchantActionAllowed,
@@ -235,6 +236,11 @@ export function getMerchantModuleDefinition(
   return result;
 }
 
+export function merchantRecordPresentationStatus(record: MerchantAdminRecord): MerchantAdminRecord["status"] {
+  if (record.kind !== "page" || record.status === "archived") return record.status;
+  return record.status === "active" && record.config.published === true ? "active" : "draft";
+}
+
 export function buildMerchantModuleSummary(
   records: readonly MerchantAdminRecord[],
   query: string,
@@ -242,13 +248,17 @@ export function buildMerchantModuleSummary(
 ) {
   const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
   const visible = Object.freeze(records.filter((record) =>
-    (status === "all" || record.status === status) &&
+    (status === "all" || merchantRecordPresentationStatus(record) === status) &&
     (!normalizedQuery || record.name.toLocaleLowerCase("tr-TR").includes(normalizedQuery)),
-  ));
+  ).sort((left, right) => {
+    const rank = (record: MerchantAdminRecord) => record.kind === "page" && record.requiredPageKey
+      ? REQUIRED_STORE_PAGES.findIndex(page => page.key === record.requiredPageKey) : REQUIRED_STORE_PAGES.length;
+    return rank(left) - rank(right);
+  }));
   return Object.freeze({
-    active: records.filter(({ status: value }) => value === "active").length,
-    archived: records.filter(({ status: value }) => value === "archived").length,
-    draft: records.filter(({ status: value }) => value === "draft").length,
+    active: records.filter((record) => merchantRecordPresentationStatus(record) === "active").length,
+    archived: records.filter((record) => merchantRecordPresentationStatus(record) === "archived").length,
+    draft: records.filter((record) => merchantRecordPresentationStatus(record) === "draft").length,
     total: records.length,
     visible,
   });

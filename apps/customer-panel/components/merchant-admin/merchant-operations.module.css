@@ -40,6 +40,11 @@
 .workspace [data-merchant-desktop] th:nth-child(3) { width: 32%; }
 .workspace [data-merchant-desktop] th:nth-child(4) { width: 18%; }
 .workspace [data-merchant-desktop] th:last-child { width: 12%; }
+.workspace [data-merchant-pages] table { min-width: 560px; }
+.workspace [data-merchant-pages] th:first-child { width: 34%; }
+.workspace [data-merchant-pages] th:nth-child(2) { width: 16%; }
+.workspace [data-merchant-pages] th:nth-child(3) { width: 32%; }
+.workspace [data-merchant-pages] th:last-child { width: 18%; }
 .workspace [data-merchant-desktop] :is(time, small, dt, dd) { white-space: normal; color: var(--cp-text-secondary); font-size: 12px; }
 .workspace [data-merchant-desktop] strong { font-weight: 600; }
 .workspace [data-merchant-mobile] article { border-color: var(--cp-border); }

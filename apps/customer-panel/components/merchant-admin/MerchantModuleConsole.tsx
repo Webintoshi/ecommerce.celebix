@@ -16,6 +16,7 @@ import {
   Ban,
   CircleDashed,
   DatabaseZap,
+  Eye,
   Pencil,
   Plus,
   RefreshCcw,
@@ -53,6 +54,7 @@ import {
   getAdministratorRoleDefinitions,
   getMerchantModuleDefinition,
   isSingletonMerchantModule,
+  merchantRecordPresentationStatus,
   selectSingletonEditorRecord,
   singletonRecordState,
   type MerchantModuleFieldDefinition,
@@ -176,8 +178,9 @@ function formErrorMessage(error: unknown): string {
   return error instanceof MerchantAdminApiError ? error.message : "Kayıt tamamlanamadı.";
 }
 
-function statusPresentation(status: MerchantAdminRecord["status"]) {
-  if (status === "active") return Object.freeze({ label: "Aktif", tone: "success" as const });
+function statusPresentation(record: MerchantAdminRecord) {
+  const status = merchantRecordPresentationStatus(record);
+  if (status === "active") return Object.freeze({ label: record.kind === "page" ? "Yayında" : "Aktif", tone: "success" as const });
   if (status === "draft") return Object.freeze({ label: "Taslak", tone: "warning" as const });
   return Object.freeze({ label: "Arşivlendi", tone: "neutral" as const });
 }
@@ -475,6 +478,7 @@ export function MerchantModuleConsole({
   }
 
   async function archiveRecord(record: MerchantAdminRecord) {
+    if (record.requiredPageKey) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -617,13 +621,13 @@ export function MerchantModuleConsole({
       {!singleton && !compactAdministrators && operational ? <section className={operations.metrics} aria-label={`${definition.title} özeti`} aria-busy={loading}>
         {([
           ["all", "Toplam", summary.total, ""],
-          ["active", definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
+          ["active", kind === "page" ? "Yayında" : definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
           ["draft", "Taslak", summary.draft, ""],
           ["archived", "Arşiv", summary.archived, ""],
         ] as const).map(([filter, label, count, detail]) => <button type="button" className={operations.metric} key={filter} aria-pressed={statusFilter === filter} onClick={() => setStatusFilter(filter)}><span>{label}</span><strong>{hasLoaded ? count.toLocaleString("tr-TR") : "—"}</strong>{detail ? <small>{detail}</small> : null}</button>)}
       </section> : !singleton && !compactAdministrators ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
-        <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
+        <PanelMetricCard label={kind === "page" ? "Yayında" : definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
       </section> : null}
@@ -726,7 +730,7 @@ export function MerchantModuleConsole({
               onChange={(event) => setStatusFilter(event.target.value as MerchantModuleStatusFilter)}
             >
               <option value="all">Tümü</option>
-              <option value="active">Aktif</option>
+              <option value="active">{kind === "page" ? "Yayında" : "Aktif"}</option>
               <option value="draft">Taslak</option>
               <option value="archived">Arşiv</option>
             </select>
@@ -747,25 +751,25 @@ export function MerchantModuleConsole({
           />
         ) : (
           <>
-            <div className={styles.desktopTable} data-merchant-desktop="">
+            <div className={styles.desktopTable} data-merchant-desktop="" data-merchant-pages={kind === "page" ? "" : undefined}>
               <PanelDataTable label={`${definition.title} kayıtları`}>
-                <thead><tr><th>Ad</th><th>Durum</th><th>Yapılandırma</th><th>Güncelleme</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead>
+                <thead><tr><th>Ad</th><th>Durum</th>{kind !== "page" ? <th>Yapılandırma</th> : null}<th>Güncelleme</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead>
                 <tbody>
                   {summary.visible.map((record) => {
-                    const status = statusPresentation(record.status);
+                    const status = statusPresentation(record);
                     const singletonState = singletonRecordState(kind, record, items);
                     const editRoute = editRouteFor(definition.kind, record.id);
                     return (
                       <tr key={record.id}>
-                        <td><strong>{record.name}</strong>{!compactAdministrators ? <small>v{record.version}</small> : null}</td>
+                        <td><strong>{record.name}</strong>{record.requiredPageKey ? <small><PanelStatusBadge>Zorunlu</PanelStatusBadge></small> : !compactAdministrators && kind !== "page" ? <small>v{record.version}</small> : null}</td>
                         <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</td>
-                        <td><ConfigSummary record={record} />{providerControls(record)}</td>
+                        {kind !== "page" ? <td><ConfigSummary record={record} />{providerControls(record)}</td> : null}
                         <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
                         <td>
-                          {canManage ? (
+                          {canManage || kind === "page" ? (
                             <div className={styles.rowActions} data-record-actions="">
-                              {editRoute ? <Link href={editRoute} className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`}><Pencil aria-hidden="true" /></Link> : <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>}
-                              <button type="button" className={styles.iconDanger} aria-label={`${record.name} kaydını arşivle`} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /></button>
+                              {editRoute ? <Link href={editRoute} className={styles.iconButton} aria-label={`${record.name} kaydını ${canManage ? "düzenle" : "görüntüle"}`}>{canManage ? <Pencil aria-hidden="true" /> : <Eye aria-hidden="true" />}</Link> : <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>}
+                              {canManage && !record.requiredPageKey ? <button type="button" className={styles.iconDanger} aria-label={`${record.name} kaydını arşivle`} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /></button> : null}
                             </div>
                           ) : null}
                         </td>
@@ -778,19 +782,19 @@ export function MerchantModuleConsole({
 
             <div className={styles.mobileCards} data-merchant-mobile="">
               {summary.visible.map((record) => {
-                const status = statusPresentation(record.status);
+                const status = statusPresentation(record);
                 const singletonState = singletonRecordState(kind, record, items);
                 const editRoute = editRouteFor(definition.kind, record.id);
                 return (
                   <article className={styles.mobileCard} key={record.id}>
-                    <header><div><h2>{record.name}</h2><small>v{record.version}</small>{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
-                    <ConfigSummary record={record} />
+                    <header><div><h2>{record.name}</h2>{record.requiredPageKey ? <PanelStatusBadge>Zorunlu</PanelStatusBadge> : kind !== "page" ? <small>v{record.version}</small> : null}{singletonState ? <small className={styles.muted}>{singletonState === "effective" ? "Vitrinde etkin" : "Yerine yeni kayıt geçti"}</small> : null}</div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
+                    {kind !== "page" ? <ConfigSummary record={record} /> : null}
                     <time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time>
                     {providerControls(record)}
-                    {canManage ? (
+                    {canManage || kind === "page" ? (
                       <div className={styles.rowActions} data-record-actions="">
-                        {editRoute ? <Link href={editRoute} className={styles.button}><Pencil aria-hidden="true" /> Düzenle</Link> : <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>}
-                        <button type="button" className={styles.danger} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /> Arşivle</button>
+                        {editRoute ? <Link href={editRoute} className={styles.button}>{canManage ? <Pencil aria-hidden="true" /> : <Eye aria-hidden="true" />} {canManage ? "Düzenle" : "Görüntüle"}</Link> : <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>}
+                        {canManage && !record.requiredPageKey ? <button type="button" className={styles.danger} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /> Arşivle</button> : null}
                       </div>
                     ) : null}
                   </article>

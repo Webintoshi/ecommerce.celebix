@@ -44,6 +44,7 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError, StorefrontContentRepositoryError: RepositoryError }, "@celebix/saas-contracts": {}, "@celebix/storefront-design-ui": {},
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
     "../../../themes/siora/theme.ts": sioraTheme,
+    "../../../components/RestockAlerts": { RestockAlertsProvider: "RestockAlertsProvider" },
     "../../../themes/siora/SioraProductDetailExperience": { SioraProductDetailExperience: "SioraProductDetailExperience" },
     "../../../themes/siora/product-options.ts": sioraProductOptions,
     "../../../themes/alpler/theme.ts": alplerTheme,

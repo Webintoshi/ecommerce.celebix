@@ -18,14 +18,14 @@ async function page(slug: string, rawLang: unknown) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 100) notFound();
   const { runtime, storefront, design } = requireStorefrontPage(await resolveStorefrontPage());
   if (!runtime.content.getLocales || !runtime.content.getPageV2) throw new StorefrontUnavailableError();
+  let selected;
   try {
     const now = new Date();
     const locales = await runtime.content.getLocales({ hostname: storefront.hostname, now });
     const locale = selectContentLocale(locales, rawLang);
     if (locale === null) throw new StorefrontContentRepositoryError("not_found");
     const source = await runtime.content.getPageV2({ hostname: storefront.hostname, now, slug, locale });
-    const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "page", source.id);
-    return Object.freeze({ seoSelection, storefront, design, page: buildPublicContentPageV2(source, slug, locales.defaultLocale) });
+    selected = buildPublicContentPageV2(source, slug, locales.defaultLocale);
   } catch (error) {
     if (error instanceof StorefrontContentRepositoryError && error.code === "not_found") {
       const legacy = legacyPolicyPageRoute(slug);
@@ -33,6 +33,14 @@ async function page(slug: string, rawLang: unknown) {
       notFound();
     }
     if (error instanceof StorefrontContentRepositoryError && error.code === "invalid_input") notFound();
+    throw new StorefrontUnavailableError();
+  }
+  // Redirect before SEO lookup; Next's redirect signal must stay outside the reader error boundary.
+  if (selected.requiredPageKey === "blog") permanentRedirect(selected.route);
+  try {
+    const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "page", selected.id);
+    return Object.freeze({ seoSelection, storefront, design, page: selected });
+  } catch {
     throw new StorefrontUnavailableError();
   }
 }

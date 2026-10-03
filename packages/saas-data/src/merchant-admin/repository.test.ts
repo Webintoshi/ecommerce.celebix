@@ -62,6 +62,17 @@ test("lists durable tenant records and immutable audit events",async()=>{
  assert.deepEqual(call(reader,"merchant_admin_list").values,[STORE,PRINCIPAL,MEMBERSHIP,PLAN,"growth",2,NOW,"discount"]);
 });
 
+test("page reads negotiate transaction-local required metadata before the authorized query",async()=>{
+ const projected={id:RECORD,kind:"page",name:"Hakkımızda",config:{},status:"draft",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString(),requiredPageKey:"about"};
+ const reader=new Client(text=>text.includes("merchant_admin_get_record")?[{outcome:"found",result_payload:projected}]:[]);
+ assert.equal((await repository(new Pool([reader])).get({tenantContext:tenant(),now:NOW,kind:"page",recordId:RECORD})).requiredPageKey,"about");
+ const negotiation=reader.calls.findIndex(entry=>entry.text.includes("saas.required_pages_projection_version"));
+ assert.ok(negotiation>reader.calls.findIndex(entry=>entry.text==="BEGIN READ ONLY"));
+ assert.ok(negotiation<reader.calls.findIndex(entry=>entry.text.includes("saas.merchant_admin_get_record")));
+ assert.deepEqual(reader.calls[negotiation]?.values,["1"]);
+ assert.match(reader.calls[negotiation]!.text,/\$1, true\)/);
+});
+
 test("saves and archives with exact versioned authority",async()=>{
  const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:mutation()}]:[]);
  const saved=await repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz Indirimi",config:{discountType:"percent",value:15},status:"active"});

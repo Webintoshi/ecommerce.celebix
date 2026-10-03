@@ -1,3 +1,4 @@
+import type { RequiredPageKey } from '../required-pages/index.ts';
 export type MerchantContentKind = 'blog_post' | 'page';
 export type MerchantContentField = 'name' | 'body' | 'excerpt' | 'seoTitle' | 'seoDescription';
 export type MerchantContentOrigins = Readonly<Partial<Record<MerchantContentField, Readonly<{
@@ -18,6 +19,7 @@ export type MerchantContentValues = Readonly<{
     status: 'draft' | 'active';
 }>;
 export type MerchantContentDocument = Readonly<Omit<MerchantContentValues, 'status'> & {
+    requiredPageKey?: RequiredPageKey;
     id: string;
     kind: MerchantContentKind;
     status: 'draft' | 'active' | 'archived';

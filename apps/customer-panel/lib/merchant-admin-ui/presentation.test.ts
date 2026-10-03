@@ -16,6 +16,7 @@ import {
   getAdministratorRoleDefinitions,
   getMerchantModuleDefinition,
   isSingletonMerchantModule,
+  merchantRecordPresentationStatus,
   selectSingletonEditorRecord,
   singletonRecordState,
 } from "./presentation.ts";
@@ -40,9 +41,9 @@ function record(
   });
 }
 
-test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 35);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 35);
+test("defines every durable merchant module with a unique kind and bounded route and field contract", () => {
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 36);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 36);
   assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 35);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
@@ -71,7 +72,10 @@ test("defines every durable merchant module with a unique route and field contra
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
     assert.equal(Object.isFrozen(definition.fields), true);
-    assert.equal(definition.fields.length > 0, true);
+    if (definition.kind === "restock_alerts") {
+      assert.equal(definition.fields.length, 0);
+      assert.equal(definition.route, "/settings/store-tools");
+    } else assert.equal(definition.fields.length > 0, true);
     assert.equal(new Set(definition.fields.map(({ key }) => key)).size, definition.fields.length);
   }
 });
@@ -300,4 +304,33 @@ test("general settings require storefront identity fields", () => {
       ["skuPrefix", undefined],
     ],
   );
+});
+
+test('required pages keep their familiar order without hiding custom pages or mutating input', () => {
+  const base = record('custom', 'draft', 'Ek sayfa', {});
+  const custom = { ...base, kind: 'page' as const };
+  const blog = { ...custom, id: 'blog', name: 'Blog', requiredPageKey: 'blog' as const };
+  const contact = { ...custom, id: 'contact', name: 'İletişim', requiredPageKey: 'contact' as const };
+  const about = { ...custom, id: 'about', name: 'Hakkımızda', requiredPageKey: 'about' as const, status: 'active' as const, config: { published: true } };
+  const records = Object.freeze([custom, blog, contact, about]);
+  assert.deepEqual(buildMerchantModuleSummary(records, '', 'all').visible.map(page => page.id), ['about', 'contact', 'blog', 'custom']);
+  assert.deepEqual(buildMerchantModuleSummary(records, 'İLETİŞİM', 'draft').visible.map(page => page.id), ['contact']);
+  assert.deepEqual(buildMerchantModuleSummary(records, '', 'active').visible.map(page => page.id), ['about']);
+  assert.deepEqual(records.map(page => page.id), ['custom', 'blog', 'contact', 'about']);
+});
+
+test('page list publication agrees with the editor for preserved legacy and custom records', () => {
+  const legacy = { ...record('about', 'active', 'Hakkımızda', { published: false }), kind: 'page' as const, requiredPageKey: 'about' as const };
+  const published = { ...legacy, id: 'contact', requiredPageKey: 'contact' as const, config: { published: true } };
+  const missingFlag = { ...record('custom', 'active', 'Ek sayfa', {}), kind: 'page' as const };
+  const archived = { ...published, id: 'archived', status: 'archived' as const };
+  const draft = { ...published, id: 'draft', status: 'draft' as const };
+  const discount = record('discount', 'active', 'İndirim', { published: false });
+  const rows = Object.freeze([legacy, published, missingFlag, archived, draft, discount]);
+  assert.deepEqual(rows.map(merchantRecordPresentationStatus), ['draft', 'active', 'draft', 'archived', 'draft', 'active']);
+  const summary = buildMerchantModuleSummary(rows, '', 'all');
+  assert.deepEqual([summary.active, summary.draft, summary.archived], [2, 3, 1]);
+  assert.deepEqual(buildMerchantModuleSummary(rows, '', 'draft').visible.map(page => page.id), ['about', 'draft', 'custom']);
+  assert.equal(legacy.status, 'active');
+  assert.equal(legacy.config.published, false);
 });

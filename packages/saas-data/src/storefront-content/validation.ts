@@ -3,9 +3,11 @@ import {
   parsePublicPolicyIndex,
   parsePublicProduct,
   parsePublicProductSearch,
+  parseRequiredPageKey,
   type PublicPolicyPage,
   type PublicProduct,
   type PublicProductSearch,
+  type RequiredPageKey,
   type StorefrontPolicyKey,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -25,6 +27,10 @@ const ACTIVE_CONTENT = /(?:javascript|data):/i;
 
 function fail(code: StorefrontContentErrorCode = "invalid_input"): never {
   throw new StorefrontContentRepositoryError(code);
+}
+
+export function storefrontContentRequiredPageKey(value: unknown, code: StorefrontContentErrorCode = "invalid_input"): RequiredPageKey {
+  try { return parseRequiredPageKey(value); } catch { return fail(code); }
 }
 
 function object(value: unknown, code: StorefrontContentErrorCode): Record<string, unknown> {
@@ -280,12 +286,15 @@ function nullablePlain(value: unknown, maxBytes: number): string | null {
 
 function parseContentV2(value: unknown, includeBody: boolean): PublicContentV2 | Omit<PublicContentV2, "body"> {
   const required = ["id", "kind", "slug", "locale", "title", "bodyFormat", "excerpt", "seoTitle", "seoDescription", "publishedAt", "updatedAt", ...(includeBody ? ["body"] : [])];
-  const parsed = exactStorefrontContentInput(value, required, [], "unavailable");
+  const parsed = exactStorefrontContentInput(value, required, ["requiredPageKey"], "unavailable");
   const kind = parsed.kind;
   if (kind !== "page" && kind !== "blog_post") fail("unavailable");
+  const requiredPageKey = Object.hasOwn(parsed, "requiredPageKey") ? storefrontContentRequiredPageKey(parsed.requiredPageKey, "unavailable") : undefined;
+  if (requiredPageKey !== undefined && kind !== "page") fail("unavailable");
   if (parsed.bodyFormat !== "legacy" && parsed.bodyFormat !== "normalized_html") fail("unavailable");
   const common = {
     id: storefrontContentUuid(parsed.id, "unavailable"), kind: kind as "page" | "blog_post",
+    ...(requiredPageKey === undefined ? {} : { requiredPageKey }),
     slug: storefrontContentPageSlug(parsed.slug, "unavailable"),
     locale: storefrontContentLocale(parsed.locale, "unavailable"),
     title: text(parsed.title, 1, 800, "unavailable"),
