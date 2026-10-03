@@ -1,11 +1,13 @@
 import { ArrowRightLeft } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { PanelClientStoreOption } from "@/lib/panel-ui/client-chrome-model";
 import styles from "./panel-shell.module.css";
 
-export function StoreSwitcher({ stores, activeStoreSelectionKey }: {
+export function StoreSwitcher({ stores, activeStoreSelectionKey, children }: {
   stores: readonly PanelClientStoreOption[];
   activeStoreSelectionKey: string;
+  children?: ReactNode;
 }) {
   if (stores.length < 2) return null;
   const active = stores.find((store) => store.selectionKey === activeStoreSelectionKey);
@@ -14,8 +16,8 @@ export function StoreSwitcher({ stores, activeStoreSelectionKey }: {
   return (
     <details className={styles.storeSwitcher}>
       <summary aria-label="Yönetilen mağazayı değiştir">
-        <ArrowRightLeft aria-hidden="true" />
-        <span><small>Yönetilen mağaza</small><strong>{active.displayName}</strong></span>
+        {children ?? <><ArrowRightLeft aria-hidden="true" /><span><small>Yönetilen mağaza</small><strong>{active.displayName}</strong></span></>}
+        {children ? <ArrowRightLeft className={styles.storeSwitcherIndicator} aria-hidden="true" /> : null}
       </summary>
       <form action="/api/session/switch" method="post">
         <label>

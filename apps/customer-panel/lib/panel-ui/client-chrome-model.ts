@@ -1,5 +1,7 @@
 export interface PanelPublicChromeModel {
   readonly storeSlug: string;
+  readonly storeDisplayName?: string;
+  readonly storeLogoUrl?: string | null;
   readonly membershipLabel: string;
   readonly planCode: string;
   readonly planVersion: number;

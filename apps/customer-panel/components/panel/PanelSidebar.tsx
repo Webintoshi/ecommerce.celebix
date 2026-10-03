@@ -22,44 +22,44 @@ function PanelBrand({ onClick }: { onClick?: () => void }) {
   return (
     <Link className={styles.brand} href="/" aria-label="Celebix Panel ana sayfa" onClick={onClick}>
       <span className={styles.brandMark}>
-        <Image src="/Logo/celebix-beyaz-logo.svg" width={1540} height={390} alt="Celebix" priority />
+        <Image src="/Logo/celebix-beyaz-logo.svg" width={1540} height={390} alt="Celebix" />
       </span>
     </Link>
   );
 }
 
 function StoreIdentity({ model }: { model: PanelClientChromeModel }) {
-  const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const displayName = model.storeDisplayName
+    ?? model.storeOptions?.find((store) => store.selectionKey === model.activeStoreSelectionKey)?.displayName
+    ?? model.storeSlug;
+  const logoUrl = model.storeLogoUrl;
+  const hasLogo = Boolean(logoUrl && logoUrl !== failedLogoUrl);
+  const identity = <span className={styles.merchantIdentityDetail}>
+    {hasLogo ? <span className={styles.merchantLogo}>
+      <img src={logoUrl!} width={72} height={56} alt="" decoding="async" onError={() => setFailedLogoUrl(logoUrl!)} />
+    </span> : null}
+    <span className={styles.merchantIdentityCopy}>
+      <strong>{displayName}</strong>
+      <small>{model.membershipLabel}</small>
+    </span>
+  </span>;
 
   return (
-    <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
+    <div className={`${styles.merchantIdentity} ${hasLogo ? styles.merchantIdentityWithLogo : ""}`} aria-label="Etkin mağaza">
       {model.activeStoreSelectionKey && model.storeOptions && model.storeOptions.length > 1 ? (
-        <StoreSwitcher stores={model.storeOptions} activeStoreSelectionKey={model.activeStoreSelectionKey} />
+        <StoreSwitcher stores={model.storeOptions} activeStoreSelectionKey={model.activeStoreSelectionKey}>{identity}</StoreSwitcher>
       ) : (
-        <>
-          <span className={styles.merchantAvatar} aria-hidden="true">{initial}</span>
-          <span className={styles.merchantIdentityCopy}>
-            <strong>{model.storeSlug}</strong>
-            <small>{model.membershipLabel}</small>
-          </span>
-        </>
+        identity
       )}
     </div>
   );
 }
 
-function SidebarFooter({ model }: { model: PanelClientChromeModel }) {
-  const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
-
+function SidebarFooter({ onBrandClick }: { onBrandClick?: () => void }) {
   return (
     <div className={styles.sidebarFooter}>
-      <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
-        <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>
-        <span className={styles.sidebarAccountCopy}>
-          <strong>{model.storeSlug}</strong>
-          <small>{model.membershipLabel}</small>
-        </span>
-      </div>
+      <PanelBrand onClick={onBrandClick} />
       <LogoutButton />
     </div>
   );
@@ -96,10 +96,14 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
       }
       if (event.key !== "Tab") return;
 
-      const focusable = surfaceRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable?.length) {
+      const focusable = Array.from(surfaceRef.current?.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []).filter((element) => {
+        const closedDetails = element.closest("details:not([open])");
+        return element.getClientRects().length > 0
+          && (!closedDetails || closedDetails.querySelector("summary") === element);
+      });
+      if (!focusable.length) {
         event.preventDefault();
         return;
       }
@@ -180,7 +184,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
               onTouchCancel={finishSwipe}
             >
               <div className={styles.drawerHeader}>
-                <PanelBrand onClick={onClose} />
+                <StoreIdentity model={model} />
                 <button
                   ref={closeRef}
                   type="button"
@@ -191,11 +195,10 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                   <X aria-hidden="true" />
                 </button>
               </div>
-              <StoreIdentity model={model} />
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
                 <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} />
               </div>
-              <SidebarFooter model={model} />
+              <SidebarFooter onBrandClick={onClose} />
             </motion.aside>
           </>
         ) : null}
@@ -205,10 +208,9 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
 
   return (
     <aside className={styles.desktopSidebar}>
-      <PanelBrand />
       <StoreIdentity model={model} />
       <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} />
-      <SidebarFooter model={model} />
+      <SidebarFooter />
     </aside>
   );
 }
