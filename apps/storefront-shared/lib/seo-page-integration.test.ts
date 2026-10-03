@@ -53,6 +53,8 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
   Function("require", "module", "exports", output)((name: string) => {
     if (name in dependencies) return dependencies[name];
     if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
+    if (name === "../themes/lilyum/theme.ts") return { lilyumThemeFor: () => undefined };
+    if (name === "../themes/lilyum/LilyumHome") return { LilyumHome: () => null };
     throw new Error(`unexpected_dependency:${name}`);
   }, compiled, compiled.exports);
   return { exports: compiled.exports, calls };
