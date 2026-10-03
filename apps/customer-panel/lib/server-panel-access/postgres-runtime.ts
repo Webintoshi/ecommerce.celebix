@@ -23,6 +23,7 @@ import {
   PostgresPricingRepository,
   PostgresReferencePricingRepository,
   PostgresPromotionRepository,
+  PostgresPublicStorefrontRepository,
   PostgresOrderRepository,
   PostgresInStoreSalesRepository,
   PostgresAccountingRepository,
@@ -85,6 +86,7 @@ import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
 import { createPostCommitInvalidatingRepository } from "../server-cache/invalidation.ts";
+import { registerPanelBrandingRepository } from "../server-panel-branding/service.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -1035,6 +1037,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       config.authority.panelOrigin,
       adminDomainRepository,
     );
+    registerPanelBrandingRepository(access, new PostgresPublicStorefrontRepository({
+      pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS,
+    }));
     registerServerAdminHostAuthRuntime(access, {
       adminDomains: adminDomainRepository,
       handoffs: crossHostHandoffRepository,

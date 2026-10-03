@@ -1,0 +1,14 @@
+{
+  "candidateSha": "6024e1b66f511883e33f863f9f3af3cd341eae04",
+  "panels": {
+    "panel_net": "gvs27ivb4nnbsbwrqtprg7z2",
+    "panel_site": "aqqxz1atop1cd49j3jjhdcw0"
+  },
+  "finalVerified": true,
+  "runtimeVerified": true,
+  "cohortVerified": true,
+  "providerInvoked": false,
+  "applicationTestsPassed": 87,
+  "guardTestsPassed": 202,
+  "storefrontWitnessSha": "1f0844912e90e32b95599ac6a52be47d1064a70f"
+}

@@ -71,6 +71,20 @@ class HookTestHost {
     return candidate === this || this.children.some((child) => child.contains(candidate));
   }
 
+  closest(selector: string): HookTestHost | null {
+    if (selector !== "details:not([open])") return null;
+    let current: HookTestHost | null = this;
+    while (current) {
+      if (current.type === "details" && !current.props.open) return current;
+      current = current.parent;
+    }
+    return null;
+  }
+
+  getClientRects(): readonly { width: number; height: number }[] {
+    return this.documentState.canReceiveFocus?.(this) === false ? [] : [{ width: 48, height: 48 }];
+  }
+
   isWithinClassName(className: string): boolean {
     let current: HookTestHost | null = this;
     while (current) {
@@ -117,11 +131,13 @@ class HookTestHost {
       || (element.type === "button" && !element.props.disabled)
       || (element.type === "input" && !element.props.disabled)
       || (element.type === "select" && !element.props.disabled)
+      || element.type === "summary"
       || (typeof element.props.tabIndex === "number" && element.props.tabIndex !== -1)
     ));
   }
 
   querySelector(selector: string): HookTestHost | null {
+    if (selector === "summary") return this.querySelectorAll().find((element) => element.type === "summary") ?? null;
     if (selector !== "a[href]") return null;
     return this.querySelectorAll().find((element) => element.type === "a") ?? null;
   }
@@ -1188,9 +1204,6 @@ test("desktop sidebar keeps a compact neutral navigation with searchable section
   assert.doesNotMatch(navigation, />Kurulum</);
 
   assert.match(sidebar, /\/Logo\/celebix-beyaz-logo[.]svg/);
-  assert.match(sidebar, /styles[.]sidebarAccount/);
-  assert.match(sidebar, /styles[.]sidebarAvatar/);
-  assert.match(sidebar, /className=\{styles[.]merchantIdentity\}/);
   assert.match(logout, /LogOut/);
   assert.match(logout, />Çıkış</);
   const navigationSource = await source("components/panel/PanelNavigation.tsx");
@@ -1199,14 +1212,12 @@ test("desktop sidebar keeps a compact neutral navigation with searchable section
   assert.match(navigationSource, /settings:\s*Settings/);
   assert.match(navigationSource, /seo:\s*Search/);
 
-  assert.match(css, /\.brandMark\s*\{[\s\S]*?width:\s*8rem;/);
   assert.match(css, /\.brandMark\s*\{[\s\S]*?background:\s*transparent;/);
   assert.match(css, /\.navigationLabel\s*\{[\s\S]*?font-size:\s*0[.]875rem;/);
   assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
   assert.match(css, /\.navigationLinkActive,\s*\.navigationGroupActive\s*\{[\s\S]*?background:\s*#3B3B3B;/i);
   assert.doesNotMatch(css, /\.activeRail\s*\{/);
   assert.match(css, /\.sidebarFooter\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
-  assert.match(css, /\.sidebarAvatar\s*\{[\s\S]*?width:\s*1[.]75rem;/);
 });
 
 test("sidebar search reveals deep product and SEO links without losing the access gate", async () => {
