@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import {ownerAuthFetch} from "@/lib/platform/auth-fetch";
+import {ownerPublicOrigin,ownerSameOrigin} from "@/lib/platform/origin";
 import {
   applySecurityHeaders,
   isMutationMethod,
@@ -20,7 +21,6 @@ import {
   formatMissingOwnerSupabaseEnvMessage,
   getMissingOwnerSupabaseEnvNames,
   getOwnerSupabaseAnonKey,
-  getOwnerSupabaseServiceRoleKey,
   getOwnerSupabaseUrl,
 } from "@/lib/owner-supabase-shared";
 
@@ -32,12 +32,12 @@ const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
 const OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH = "/api/webhooks/resend/order-email";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_RECOVER_PATH = "/auth/recover";
-const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
 const INTERNAL_HMAC_PATHS = new Set([
   PANEL_BROWSER_BINDING_INTERNAL_PATH,
   SELF_SERVE_INTERNAL_CALLBACK_PATH,
+  "/api/internal/platform-invitations",
 ]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
   "/branding",
@@ -49,10 +49,6 @@ const SELF_SERVE_PUBLIC_PREFIXES = [
   "/api/self-serve/requests",
 ];
 
-type OwnerProfileRecord = {
-  role: string;
-  is_active: boolean;
-};
 
 function withSecurity(
   request: NextRequest,
@@ -85,7 +81,9 @@ function isProtectedOwnerPage(pathname: string) {
     !pathname.startsWith("/api") &&
     pathname !== OWNER_LOGIN_PATH &&
     pathname !== OWNER_RECOVER_PATH &&
-    !pathname.startsWith(OWNER_CONFIRM_PREFIX)
+    !pathname.startsWith(OWNER_CONFIRM_PREFIX) &&
+    !pathname.startsWith("/security") &&
+    !pathname.startsWith("/auth/v1/")
   );
 }
 
@@ -106,19 +104,19 @@ function isProtectedOwnerApi(pathname: string) {
 }
 
 function buildLoginRedirect(request: NextRequest) {
-  const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
+  const loginUrl = new URL(OWNER_LOGIN_PATH, ownerPublicOrigin(request) ?? request.url);
   loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   return withSecurity(request, NextResponse.redirect(loginUrl));
 }
 
 function buildRecoverRedirect(request: NextRequest) {
-  const recoverUrl = new URL(OWNER_RECOVER_PATH, request.url);
+  const recoverUrl = new URL(OWNER_RECOVER_PATH, ownerPublicOrigin(request) ?? request.url);
   recoverUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   return withSecurity(request, NextResponse.redirect(recoverUrl));
 }
 
 function buildLoginErrorRedirect(request: NextRequest, errorCode: string) {
-  const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
+  const loginUrl = new URL(OWNER_LOGIN_PATH, ownerPublicOrigin(request) ?? request.url);
   loginUrl.searchParams.set("error", errorCode);
   if (request.nextUrl.pathname !== OWNER_LOGIN_PATH) {
     loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
@@ -136,6 +134,10 @@ function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginR
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/auth/v1/") || pathname.startsWith("/security")) {
+    return withSecurity(request, nextResponse(request));
+  }
 
   if (pathname === OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH) {
     return withSecurity(request, nextResponse(request));
@@ -200,7 +202,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === OWNER_LOGIN_API_PATH && request.method === "POST") {
-    const originCheck = validateSameOriginRequest(request);
+    const originCheck = {allowed:ownerSameOrigin(request),reason:"origin-mismatch" as const};
     if (!originCheck.allowed) {
       return jsonResponse(request, { error: getSameOriginErrorMessage(originCheck.reason) }, 403);
     }
@@ -229,7 +231,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isProtectedOwnerApi(pathname) && isMutationMethod(request.method)) {
-    const originCheck = validateSameOriginRequest(request);
+    const originCheck = {allowed:ownerSameOrigin(request),reason:"origin-mismatch" as const};
     if (!originCheck.allowed) {
       return jsonResponse(request, { error: getSameOriginErrorMessage(originCheck.reason) }, 403);
     }
@@ -242,6 +244,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const supabase = createServerClient(getOwnerSupabaseUrl(), getOwnerSupabaseAnonKey(), {
+    global:{fetch:ownerAuthFetch},
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -249,7 +252,7 @@ export async function middleware(request: NextRequest) {
       setAll(cookiesToSet) {
         for (const cookie of cookiesToSet) {
           request.cookies.set(cookie.name, cookie.value);
-          response.cookies.set(cookie.name, cookie.value, cookie.options);
+          response.cookies.set(cookie.name, cookie.value, {...cookie.options,httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/'});
         }
       },
     },
@@ -285,40 +288,9 @@ export async function middleware(request: NextRequest) {
     return expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies);
   }
 
-  const serviceClient = createClient(getOwnerSupabaseUrl(), getOwnerSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const { data: profile } = await serviceClient
-    .from("owner_profiles")
-    .select("role, is_active")
-    .eq("id", user.id)
-    .maybeSingle<OwnerProfileRecord>();
-
-  if (!profile || !profile.is_active || !OWNER_ROLES.has(profile.role)) {
-    await supabase.auth.signOut();
-
-    if (pathname === OWNER_LOGIN_PATH) {
-      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
-    }
-
-    if (pathname === OWNER_RECOVER_PATH) {
-      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
-    }
-
-    if (pathname.startsWith("/api/")) {
-      const forbiddenResponse = NextResponse.json({ error: "Owner yetkisi bulunamadi." }, { status: 403 });
-      return withSecurity(request, expireOwnerAuthCookies(forbiddenResponse, requestCookies));
-    }
-
-    const recoverUrl = new URL(OWNER_RECOVER_PATH, request.url);
-    recoverUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
-    recoverUrl.searchParams.set("error", "unauthorized");
-    return withSecurity(request, expireOwnerAuthCookies(NextResponse.redirect(recoverUrl), requestCookies));
-  }
+  // Middleware refreshes the provider session only. Every protected page/API
+  // resolves the immutable operator registry and MFA itself; legacy profiles
+  // are never queried or treated as platform authority here.
 
   return withSecurity(request, response);
 }
