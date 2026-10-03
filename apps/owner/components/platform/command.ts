@@ -16,6 +16,11 @@ export function nonnegativeInteger(value: string): number {
   return number;
 }
 
+export function invitationUrl(result: Record<string, unknown>): string | null {
+  if (typeof result.adminHost !== "string" || typeof result.acceptanceToken !== "string" || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(result.adminHost) || !result.adminHost.includes(".") || !result.acceptanceToken) return null;
+  return `https://${result.adminHost}/invitations/${encodeURIComponent(result.acceptanceToken)}`;
+}
+
 export class CommandFailure extends Error {
   constructor(message: string, public status: number, public uncertain = false) { super(message); }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { commandAttempt, CommandFailure, moneyToCents, nonnegativeInteger, submitCommand } from "./command.ts";
+import { commandAttempt, CommandFailure, invitationUrl, moneyToCents, nonnegativeInteger, submitCommand } from "./command.ts";
 
 test("TRY input preserves exact cents and rejects rounded or unsafe amounts", () => {
   assert.equal(moneyToCents("1250,50"), 125050);
@@ -18,6 +18,12 @@ test("same payload/version reuses key; edited payload or refreshed version gets 
   assert.equal(commandAttempt(first, "billing.receipt.record", { amountCents: 1000 }, 2, key), first);
   assert.notEqual(commandAttempt(first, "billing.receipt.record", { amountCents: 1100 }, 2, key).key, first.key);
   assert.notEqual(commandAttempt(first, "billing.receipt.record", { amountCents: 1000 }, 3, key).key, first.key);
+});
+
+test("invitation URL requires the server-projected admin host and keeps token in its path", () => {
+  assert.equal(invitationUrl({ adminHost: "admin.example.test", acceptanceToken: "safe/token" }), "https://admin.example.test/invitations/safe%2Ftoken");
+  for (const adminHost of ["https://evil.test", "user@evil.test", "evil.test/path", "evil.test?x=1", "evil.test#x", "evil"]) assert.equal(invitationUrl({ adminHost, acceptanceToken: "token" }), null);
+  assert.equal(invitationUrl({ acceptanceToken: "token" }), null);
 });
 
 test("missing command response is uncertain and server business failures remain readable", async t => {

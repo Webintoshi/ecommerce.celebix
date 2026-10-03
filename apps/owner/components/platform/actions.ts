@@ -10,10 +10,14 @@ const text = (draft: Draft, name: string) => String(draft[name] ?? "").trim();
 const storeEndpoint = "/api/platform/stores";
 
 export function ownershipCommand(store: Store, transfer = false): CommandSpec {
-  return { title: transfer ? "Sahiplik devri daveti" : "Üye davet et", description: "Davet, hedef kişinin doğrulanmış hesabıyla kabul edildiğinde etkinleşir.", endpoint: "/api/platform/invitations", action: "ownership.invite", resourceId: store.id, expectedVersion: store.version, initial: { targetPrincipalId: "", role: transfer ? "store_owner" : "admin", previousOwnerDisposition: "admin" }, fields: [
-    { ...required("targetPrincipalId", "Hedef hesap", "verified-account") },
+  return { title: transfer ? "Sahiplik devri daveti" : "Üye davet et", description: "E-posta adresine davet oluşturun. Yeni veya mevcut kullanıcı adresini doğrulayıp kabul edene kadar erişim verilmez.", endpoint: "/api/platform/invitations", action: "ownership.invite", resourceId: store.id, expectedVersion: store.version, initial: { targetEmail: "", targetPrincipalId: "", role: transfer ? "store_owner" : "admin", previousOwnerDisposition: "admin" }, fields: [
+    { ...required("targetEmail", "Davet edilecek e-posta", "verified-account") },
     ...(transfer ? [{ name: "previousOwnerDisposition", label: "Önceki mağaza sahibinin yetkisi", type: "select" as const, required: true, options: [{ value: "admin", label: "Yönetici olarak kalsın" }, { value: "revoked", label: "Üyeliği iptal edilsin" }] }] : [{ name: "role", label: "Rol", type: "select" as const, required: true, options: [{ value: "admin", label: "Yönetici" }, { value: "editor", label: "Editör" }, { value: "analyst", label: "Analist" }, { value: "cashier", label: "Kasiyer" }, { value: "store_owner", label: "Mağaza sahibi" }] }]),
-  ], payload: draft => ({ storeId: store.id, targetPrincipalId: text(draft, "targetPrincipalId"), role: transfer ? "store_owner" : text(draft, "role"), kind: transfer ? "transfer" : "invite", previousOwnerDisposition: text(draft, "previousOwnerDisposition") }) };
+  ], payload: draft => {
+    const targetEmail = text(draft, "targetEmail").toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) throw new Error("Geçerli bir davet e-posta adresi girin.");
+    return { storeId: store.id, targetEmail, ...(text(draft, "targetPrincipalId") ? { targetPrincipalId: text(draft, "targetPrincipalId") } : {}), role: transfer ? "store_owner" : text(draft, "role"), kind: transfer ? "transfer" : "invite", ...(transfer ? { previousOwnerDisposition: text(draft, "previousOwnerDisposition") } : {}) };
+  } };
 }
 
 export function publishPlanCommand(plans: Plan[], base?: Plan): CommandSpec {
