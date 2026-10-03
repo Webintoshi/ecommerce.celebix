@@ -23,7 +23,7 @@ function installDialogBehavior() {
   if (typeof prototype.close !== "function") prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new window.Event("close")); };
 }
 
-async function withPurchase(run: (context: Browser & { calls: AddInput[]; events: CommerceEvent[]; order: string[]; replaced: unknown[] }) => Promise<void>, config: Readonly<{ quantity?: boolean; add?: (input: AddInput) => Promise<unknown>; initialVariantId?: string; deferDrawer?: boolean; product?: PublicProduct }> = {}) {
+async function withPurchase(run: (context: Browser & { calls: AddInput[]; events: CommerceEvent[]; order: string[]; replaced: unknown[] }) => Promise<void>, config: Readonly<{ quantity?: boolean; add?: (input: AddInput) => Promise<unknown>; initialVariantId?: string; deferDrawer?: boolean; product?: PublicProduct; guide?: {heading: string; body: React.ReactNode} }> = {}) {
   const calls: AddInput[] = [], events: CommerceEvent[] = [], order: string[] = [], replaced: unknown[] = [];
   const snapshot = { itemCount: 1 };
   const add = async (input: AddInput) => { calls.push(input); order.push("add"); return config.add ? config.add(input) : snapshot; };
@@ -44,7 +44,7 @@ async function withPurchase(run: (context: Browser & { calls: AddInput[]; events
   await withProductBrowser(async (browser) => {
     installDialogBehavior();
     const subject = config.product ?? product;
-    await browser.render(React.createElement(Provider, { product: subject, initialVariantId: config.initialVariantId }, React.createElement(Purchase, { product: subject, storefrontId: "store", locale: "tr", options: { ...createDefaultStarterThemeComposition().productDetail, mobileStickyPurchase: false }, showQuantitySelector: config.quantity ?? false })));
+    await browser.render(React.createElement(Provider, { product: subject, initialVariantId: config.initialVariantId }, React.createElement(Purchase, { product: subject, storefrontId: "store", locale: "tr", options: { ...createDefaultStarterThemeComposition().productDetail, mobileStickyPurchase: false }, showQuantitySelector: config.quantity ?? false, sizeGuide: config.guide?.body, sizeGuideHeading: config.guide?.heading })));
     await run({ ...browser, calls, events, order, replaced });
   });
 }
@@ -228,4 +228,17 @@ test("a meaningful single title-only variant remains visible and purchases its a
     await context.click(".actions button:nth-child(2)");
     assert.deepEqual(context.calls, [{ productId, variantId: "only-xl", quantity: 1 }]);
   }, { product: { ...product, variants: [only] } });
+});
+
+
+test("Siora guide uses the merchant heading in its trigger and payment-independent modal", async () => {
+  await withPurchase(async ({ container, click, calls }) => {
+    const trigger = container.querySelector<HTMLButtonElement>(".sizeHelp");
+    assert.ok(trigger);
+    assert.ok(trigger.textContent?.includes("Ölçünüzü belirleyin"));
+    await click(".sizeHelp");
+    assert.equal(container.querySelector("dialog h2")?.textContent, "Ölçünüzü belirleyin");
+    assert.ok(container.querySelector("dialog")?.textContent?.includes("Mağazanın ölçü açıklaması"));
+    assert.deepEqual(calls, []);
+  }, { guide: {heading: "Ölçünüzü belirleyin", body: React.createElement("p", null, "Mağazanın ölçü açıklaması")} });
 });

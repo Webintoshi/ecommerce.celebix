@@ -13,6 +13,6 @@ export function generateMetadata({
   return generateCategoryMetadata({ params });
 }
 
-export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  return renderCategoryPage({ params, routeVariant: "localized" });
+export default function CategoryPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>> }) {
+  return renderCategoryPage({ params, searchParams, routeVariant: "localized" });
 }

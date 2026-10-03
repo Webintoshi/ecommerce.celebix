@@ -1,13 +1,15 @@
 import type { PublicStarterThemePresentationV3, PublicStarterThemePresentationV4, PublicStorefront } from "@celebix/saas-contracts";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { NewsletterForm } from "./NewsletterForm";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
-export function RetailFooter({ groups, presentation, storefront }: Readonly<{
+export function RetailFooter({ groups, presentation, storefront, signature }: Readonly<{
   groups: PublicStarterThemePresentationV3["footer"]["groups"];
   presentation: PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   storefront: PublicStorefront;
+  signature?: ReactNode;
 }>) {
   return <footer className="store-footer retail-footer" data-footer-tone={presentation.footer.tone}>
     {presentation.footer.newsletter.enabled ? <section className="retail-footer-newsletter-band" aria-labelledby="retail-newsletter-heading"><div className="store-container retail-footer-newsletter-inner"><div><span>MAĞAZADAN HABERLER</span><h2 id="retail-newsletter-heading">{presentation.footer.newsletter.heading}</h2><p>{presentation.footer.newsletter.body}</p></div><NewsletterForm consentLabel={presentation.footer.newsletter.consentLabel} /></div></section> : null}
@@ -18,5 +20,6 @@ export function RetailFooter({ groups, presentation, storefront }: Readonly<{
     </div>
     {presentation.footer.social.length ? <nav className="store-container retail-footer-social" aria-label="Sosyal medya">{presentation.footer.social.map((item) => <a href={item.url} key={item.network} rel="noopener noreferrer">{item.network}</a>)}</nav> : null}
     <div className="store-container footer-bottom"><span>© {new Date().getUTCFullYear()} {presentation.displayName}</span><span>TRY · Türkçe</span></div>
+    {signature}
   </footer>;
 }

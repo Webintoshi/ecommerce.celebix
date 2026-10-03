@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isValidProductCatalogSearch } from "../lib/product-catalog-query.ts";
 import type { SearchSuggestion } from "../lib/search-suggestions.ts";
 
-export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon }: Readonly<{ defaultValue?: string; variant?: "page" | "header"; icon?: ReactNode }>) {
+export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon, clientNavigation = false }: Readonly<{ defaultValue?: string; variant?: "page" | "header"; icon?: ReactNode; clientNavigation?: boolean }>) {
   const router = useRouter(), id = useId();
   const inputRef = useRef<HTMLInputElement>(null), requestRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState(defaultValue), [items, setItems] = useState<readonly SearchSuggestion[]>([]);
@@ -29,6 +29,12 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query, open]);
   const close = () => { setOpen(false); requestRef.current?.abort(); };
+  const follow = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    close();
+    if (!clientNavigation || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    router.push(href);
+  };
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get("q") ?? "").trim();
@@ -52,13 +58,13 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
     {open && state !== "idle" ? <aside className="store-search-suggestions" aria-label="Arama önerileri">
       <p className="store-search-status" role="status">{state === "loading" ? "Ürünler aranıyor…" : state === "error" ? "Öneriler alınamadı. Ara düğmesiyle tekrar deneyebilirsiniz." : items.length ? "Eşleşen ürünler" : "Eşleşen ürün bulunamadı."}</p>
       <ul id={`${id}-results`} role="listbox" aria-label="Ürünler">{items.map((item, index) => <li id={`${id}-item-${index}`} key={item.id} role="option" aria-selected={active === index}>
-        <a href={item.href} onClick={close}>
+        <a href={item.href} onClick={event => follow(event, item.href)}>
           {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt} width={48} height={48} loading="lazy" /> : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
           <span>{item.title}{!item.available ? <small>Tükendi</small> : null}</span>
           <strong>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: item.currency }).format(item.priceCents / 100)}</strong>
         </a>
       </li>)}</ul>
-      {state === "ready" && items.length ? <a className="store-search-all" href={`/search?q=${encodeURIComponent(query.trim())}`}>Tüm sonuçları gör →</a> : null}
+      {state === "ready" && items.length ? <a className="store-search-all" href={`/search?q=${encodeURIComponent(query.trim())}`} onClick={clientNavigation ? event => follow(event, `/search?q=${encodeURIComponent(query.trim())}`) : undefined}>Tüm sonuçları gör →</a> : null}
     </aside> : null}
   </form>;
 }

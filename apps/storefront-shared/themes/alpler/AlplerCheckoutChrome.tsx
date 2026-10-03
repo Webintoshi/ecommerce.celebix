@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStorefront } from "@celebix/saas-contracts";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
 import { alplerLogoDimensions } from "./logo.ts";
@@ -16,12 +17,13 @@ export function AlplerCheckoutHeader({ storefront, logo }: Readonly<{ storefront
   </header>;
 }
 
-export function AlplerCheckoutFooter({ groups, storefront }: Readonly<{ groups: PublicStarterThemePresentationV3["footer"]["groups"]; storefront: PublicStorefront }>) {
+export function AlplerCheckoutFooter({ groups, storefront, signature }: Readonly<{ groups: PublicStarterThemePresentationV3["footer"]["groups"]; storefront: PublicStorefront; signature?: ReactNode }>) {
   const policies = [...new Map(groups.flatMap(group => group.links).filter(link => link.destination.startsWith("/policies/")).map(link => [link.destination, link])).values()];
   return <footer className="alpler-checkout-footer">
     <div className="alpler-checkout-container">
       {policies.length ? <nav aria-label="Alışveriş koşulları">{policies.map(link => <Link key={link.destination} href={localizeStorefrontPath(link.destination, storefront.locale)}>{link.label}</Link>)}</nav> : null}
       <p>© {new Date().getUTCFullYear()} {storefront.presentation.displayName}{storefront.presentation.supportEmail ? <> · <a href={`mailto:${storefront.presentation.supportEmail}`}>{storefront.presentation.supportEmail}</a></> : null}</p>
     </div>
+    {signature}
   </footer>;
 }

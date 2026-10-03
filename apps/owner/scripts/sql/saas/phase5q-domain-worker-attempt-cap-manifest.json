@@ -1,0 +1,24 @@
+{
+  "phase": "phase5q-domain-worker-attempt-cap",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "counterSemantics": "saturating_0_to_1000_periodic_reconciliation",
+  "artifacts": [
+    {
+      "file": "202610030202_domain_worker_attempt_cap.up.sql",
+      "direction": "up",
+      "sha256": "b97a9ba9720674e4a26730419960bb22d7e3c95d6b00b612ca934f96143e4665"
+    },
+    {
+      "file": "202610030202_domain_worker_attempt_cap.down.sql",
+      "direction": "down",
+      "sha256": "83de3d5f97f2c64967a29fa86acb189d119c4fd3de1b8b681536531914dd9ea6"
+    },
+    {
+      "file": "202610030202_domain_worker_attempt_cap_assertions.sql",
+      "direction": "verify",
+      "sha256": "1062641e170c36cfec47126b84a18ed9dbca8ebbaafb0a89940b88a4540ced42"
+    }
+  ]
+}

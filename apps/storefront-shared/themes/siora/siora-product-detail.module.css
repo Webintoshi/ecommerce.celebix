@@ -89,3 +89,12 @@
   .sticky > span { font-size: 14px; }
   .sticky button { min-width: 172px; height: 44px; }
 }
+
+/* Measurement guides can contain long merchant-authored tables. */
+.dialog[open][data-modal="guide"] { display:flex; flex-direction:column; overflow:hidden; }
+.dialog[data-modal="guide"] > header { flex:none; }
+.dialog[data-modal="guide"] .guide { min-height:0; overflow:auto; overflow-wrap:anywhere; }
+.dialog[data-modal="guide"] .guide :global(.product-description-rich-text) { min-width:0; max-width:100%; overflow-x:auto; }
+.dialog[data-modal="guide"] .guide table { width:max-content; min-width:100%; }
+.dialog[data-modal="guide"] .guide :is(th, td) { min-width:120px; max-width:320px; overflow-wrap:normal; word-break:normal; }
+@media(max-width:600px) { .dialog[data-modal="guide"] { width:100%; height:100dvh; max-height:100dvh; max-width:100%; margin:0; border-radius:0; } }

@@ -8,6 +8,7 @@ import {
   type CatalogAdminJson,
   type CatalogAdminMutationResult,
   type CatalogAdminResource,
+  type CatalogSizeGuideConfig,
   type CatalogImportPreview,
   type ProductReview,
 } from "./types.ts";
@@ -133,6 +134,29 @@ function json(value: unknown, depth = 0): CatalogAdminJson {
   return result;
 }
 
+export function parseCatalogSizeGuideConfig(value: unknown): CatalogSizeGuideConfig {
+  const parsed = exact(value, ["schemaVersion", "type", "heading", "body", "categoryIds", "includeDescendants", "enabled"]);
+  if (
+    parsed.schemaVersion !== 1 || parsed.type !== "size_guide" ||
+    typeof parsed.body !== "string" || parsed.body.length < 1 || parsed.body.length > 10_000 ||
+    !parsed.body.trim() || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(parsed.body) ||
+    !Array.isArray(parsed.categoryIds) || parsed.categoryIds.length < 1 || parsed.categoryIds.length > 64 ||
+    Object.keys(parsed.categoryIds).length !== parsed.categoryIds.length ||
+    typeof parsed.includeDescendants !== "boolean" || typeof parsed.enabled !== "boolean"
+  ) invalid();
+  const categoryIds = Object.freeze(parsed.categoryIds.map(uuid));
+  if (new Set(categoryIds).size !== categoryIds.length) invalid();
+  return Object.freeze({
+    schemaVersion: 1,
+    type: "size_guide",
+    heading: text(parsed.heading, 1, 120),
+    body: parsed.body,
+    categoryIds,
+    includeDescendants: parsed.includeDescendants,
+    enabled: parsed.enabled,
+  });
+}
+
 export function parseCatalogAdminResource(
   value: unknown,
 ): CatalogAdminResource {
@@ -158,7 +182,9 @@ export function parseCatalogAdminResource(
     !["active", "archived"].includes(String(parsed.status))
   )
     invalid();
-  const config = json(parsed.config);
+  const isSizeGuide = object(parsed.config).type === "size_guide";
+  if (isSizeGuide && parsed.kind !== "extra") invalid();
+  const config = isSizeGuide ? parseCatalogSizeGuideConfig(parsed.config) : json(parsed.config);
   if (typeof config !== "object" || config === null || Array.isArray(config))
     invalid();
   const resourceConfig = config as Readonly<Record<string, CatalogAdminJson>>;
@@ -171,6 +197,7 @@ export function parseCatalogAdminResource(
     invalid();
   const productIds = Object.freeze(parsed.productIds.map(uuid));
   if (
+    (isSizeGuide && productIds.length !== 0) ||
     new Set(productIds).size !== productIds.length ||
     integer(parsed.productCount) !== productIds.length
   )

@@ -23,6 +23,7 @@ function storefront(id: string, name = "Butik Siora"): PublicStorefront {
 function frameLoader() {
   const CartContext = createContext<{ visualTheme?: string } | null>(null);
   return componentLoader({
+    "../themes/guzide/GuzideMobileExperience": { GuzidePageBoundary: ({ fallback }: { fallback: React.ReactNode }) => fallback, GuzideClientFrame: () => null },
     "@celebix/storefront-design-ui": { createStorefrontTypographyResources: () => ({ style: {}, stylesheetUrl: "https://fonts.example/fixture.css" }) },
     "./CartStatusProvider": { CartStatusProvider({ children, visualTheme }: { children: React.ReactNode; visualTheme?: string }) { return React.createElement(CartContext.Provider, { value: { visualTheme } }, children); } },
     "./FavoriteStatusProvider": { FavoriteStatusProvider({ children }: { children: React.ReactNode }) { return React.createElement(React.Fragment, null, children); } },

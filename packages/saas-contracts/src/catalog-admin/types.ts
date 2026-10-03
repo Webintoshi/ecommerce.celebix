@@ -17,6 +17,16 @@ export type CatalogAdminJson =
   | readonly CatalogAdminJson[]
   | Readonly<{ [key: string]: CatalogAdminJson }>;
 
+export interface CatalogSizeGuideConfig extends Readonly<Record<string, CatalogAdminJson>> {
+  readonly schemaVersion: 1;
+  readonly type: "size_guide";
+  readonly heading: string;
+  readonly body: string;
+  readonly categoryIds: readonly string[];
+  readonly includeDescendants: boolean;
+  readonly enabled: boolean;
+}
+
 export interface CatalogAdminResource {
   readonly id: string;
   readonly kind: CatalogAdminResourceKind;

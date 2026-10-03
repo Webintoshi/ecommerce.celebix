@@ -250,3 +250,18 @@ test("public product accepts bounded merchandising and approved review projectio
   assert.equal(Object.isFrozen(parsed.reviews), true);
   assert.throws(() => retailValidation.parsePublicProduct({ ...product, reviews: [{ ...product.reviews[0], status: "pending" }] }), /storefront_contract_invalid/);
 });
+
+test("public product guide preserves ten thousand rich characters without widening other description controls", () => {
+  const prefix = "<h2>İşletmenin rehberi</h2>\n<table><tbody><tr><td>İç çevre\tölçüsü</td></tr></tbody></table>\r\n";
+  const body = prefix + "ü".repeat(10_000 - prefix.length);
+  const product = {
+    id: "40000000-0000-4000-8000-000000000001", slug: "ornek-urun", title: "Örnek ürün", currency: "TRY", status: "active", priceCents: 12500, available: true,
+    variants: [{ id: "50000000-0000-4000-8000-000000000001", title: "Standart", priceCents: 12500, stockTracking: true, stockQuantity: 2, available: true, attributes: {} }],
+    media: [], merchandising: { highlights: [], certifications: [], sizeGuide: { heading: "Ölçü rehberi", body } },
+  };
+  assert.equal(validationModule.parsePublicProduct(product).merchandising?.sizeGuide?.body, body);
+  assert.throws(() => retailValidation.parsePublicProduct({ ...product, merchandising: { ...product.merchandising, sizeGuide: { heading: "Ölçü rehberi", body: body + "ü" } } }), /storefront_contract_invalid/);
+  assert.throws(() => retailValidation.parsePublicProduct({ ...product, merchandising: { ...product.merchandising, sizeGuide: { heading: "Ölçü rehberi", body: "a\u000bb" } } }), /storefront_contract_invalid/);
+  assert.throws(() => retailValidation.parsePublicProduct({ ...product, description: "a\tb" }), /storefront_contract_invalid/);
+  assert.throws(() => retailValidation.parsePublicProduct({ ...product, merchandising: { ...product.merchandising, materialsAndCare: "a\tb" } }), /storefront_contract_invalid/);
+});

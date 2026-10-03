@@ -17,6 +17,7 @@ export type {
   CatalogAdminResource,
   CatalogAdminResourceKind,
   CatalogAdminResourceStatus,
+  CatalogSizeGuideConfig,
   CatalogImportStatus,
   CatalogImportFormat,
   CatalogImportPreview,
@@ -28,5 +29,6 @@ export {
   parseCatalogAdminMutationResult,
   parseCatalogImportPreview,
   parseCatalogAdminResource,
+  parseCatalogSizeGuideConfig,
   parseProductReview,
 } from "./validation.ts";

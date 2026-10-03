@@ -611,6 +611,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCatalogProductListQuery",
     "parseCatalogProductListVariantSummary",
     "parseCatalogProductPageSize",
+    "parseCatalogSizeGuideConfig",
     "parseCommerceAnalyticsSettings",
     "parseCommerceAnalyticsSnapshot",
     "parseContentAuthoringFieldOrigins",

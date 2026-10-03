@@ -4,7 +4,7 @@ import type { TenantContext } from "@celebix/saas-contracts";
 import type { CatalogAdminRepository } from "@celebix/saas-data";
 import type { ServerCatalogAdminRuntime } from "../server-catalog-admin/runtime.ts";
 import { createCatalogAdminHttpHandlers } from "./handler.ts";
-import { PostgresCatalogAdminRepository } from "@celebix/saas-data";
+import { CatalogAdminRepositoryError, PostgresCatalogAdminRepository } from "@celebix/saas-data";
 import { createCatalogAdminApi } from "../catalog-admin-ui/client.ts";
 const ORIGIN = "https://panel.saas-staging.celebix.site", TENANT_ADMIN_ORIGIN = "https://store.admin.saas-staging.celebix.site", OTHER_TENANT_ADMIN_ORIGIN = "https://other-store.admin.saas-staging.celebix.site", OP = "74000000-0000-4000-8000-000000000001", REQ = "78000000-0000-4000-8000-000000000001", RESOURCE = "71000000-0000-4000-8000-000000000001", PRODUCT = "72000000-0000-4000-8000-000000000001", NOW = new Date("2026-07-22T18:00:00.000Z"), CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 1).toString("base64url")}`;
 function tenant(): TenantContext { return { schemaVersion: 1, requestId: REQ, principal: { id: "10000000-0000-4000-8000-000000000001", issuer: "https://id.test/oidc", subject: "x" }, store: { id: "20000000-0000-4000-8000-000000000001", slug: "store", status: "active" }, membership: { id: "30000000-0000-4000-8000-000000000001", role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: "40000000-0000-4000-8000-000000000001", planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 100 }, validFrom: "2026-01-01T00:00:00.000Z" }, locale: "tr-TR" } as TenantContext; }
@@ -12,6 +12,70 @@ function repository(overrides: Partial<CatalogAdminRepository> = {}): CatalogAdm
 function runtime(catalogAdmin: CatalogAdminRepository): ServerCatalogAdminRuntime { return { catalogAdmin, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant() } as never; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as ServerCatalogAdminRuntime; }
 function request(path: string, method = "GET", value?: unknown, origin = ORIGIN, headers?: HeadersInit) { const prepared = new Headers(headers); prepared.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`); if (method === "POST") { prepared.set("origin", origin); prepared.set("content-type", "application/json"); prepared.set("idempotency-key", OP); } return new Request(`http://internal:3400${path}`, { method, headers: prepared, body: value === undefined ? undefined : JSON.stringify(value) }); }
 function handlers(catalogAdmin: CatalogAdminRepository, fetchFeed?: (url: string) => Promise<Readonly<{ mediaType: "csv" | "json" | "xml"; body: string }>>) { return createCatalogAdminHttpHandlers({ async resolveRuntime() { return runtime(catalogAdmin); }, now: () => new Date(NOW), requestId: () => REQ, ...(fetchFeed ? { fetchFeed } : {}) }); }
+
+const GUIDE = { schemaVersion: 1, type: "size_guide", heading: "Ölçü rehberi", body: "<p>Rehber</p>", categoryIds: ["79000000-0000-4000-8000-000000000001"], includeDescendants: true, enabled: true };
+
+test("rich guide content survives client HTTP repository and resource reads with server sanitization", async () => {
+  const calls: unknown[][] = [];
+  let config: Record<string, never> = {};
+  const guide = () => ({ id: RESOURCE, kind: "extra", name: "Yüzük rehberi", slug: "yuzuk-rehberi", config, status: "active", productIds: [], productCount: 0, version: 2, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() });
+  const client = {
+    async query(sql: string, values: unknown[] = []) {
+      let rows: Record<string, unknown>[] = [];
+      if (sql.includes("saas.catalog_admin_save_resource")) {
+        calls.push(values);
+        config = JSON.parse(String(values[15]));
+        rows = [{ outcome: "saved", result_payload: { id: RESOURCE, version: 2, status: "active", updatedAt: NOW.toISOString() } }];
+      } else if (sql.includes("saas.catalog_admin_list_resources")) rows = [{ outcome: "listed", result_payload: { items: [guide()] } }];
+      else if (sql.includes("saas.catalog_admin_get_resource")) rows = [{ outcome: "found", result_payload: guide() }];
+      return { command: "SELECT", oid: 0, fields: [], rowCount: rows.length, rows };
+    },
+    release() {},
+  };
+  const postgres = new PostgresCatalogAdminRepository({ pool: { async connect() { return client; } }, role: "celebix_saas_app", timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 }, uuid: () => RESOURCE, audit() {} });
+  const h = handlers(postgres);
+  const api = createCatalogAdminApi(async (input, init) => {
+    const url = new URL(String(input), ORIGIN), headers = new Headers(init?.headers);
+    headers.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`);
+    headers.set("origin", ORIGIN);
+    const incoming = new Request(url, { ...init, headers });
+    return init?.method === "POST" ? h.saveResource(incoming, "extra") : url.pathname.endsWith(RESOURCE) ? h.resource(incoming, "extra", RESOURCE) : h.resources(incoming, "extra");
+  }, () => OP);
+  const clean = `<h2>Ölçüler</h2>\n<table><tbody><tr><td>${"ü".repeat(9_000)}</td></tr></tbody></table><p><a>Bağlantı</a></p>`;
+  const hostile = clean.replace("<table>", '<table onclick="steal()">').replace("<a>", '<a href="javascript:steal()" onmouseover="steal()">') + '<script>steal()</script><iframe src="https://attacker.test"></iframe><img src="x" onerror="steal()">';
+  const result = await api.saveResource("extra", { resourceId: RESOURCE, expectedVersion: 1, name: "Yüzük rehberi", slug: "yuzuk-rehberi", config: { ...GUIDE, body: hostile }, productIds: [] });
+  assert.equal(result.version, 2);
+  assert.deepEqual((await api.resources("extra"))[0]?.config, { ...GUIDE, body: clean });
+  assert.deepEqual((await api.resource("extra", RESOURCE)).config, { ...GUIDE, body: clean });
+  assert.deepEqual(calls[0]?.slice(0, 8), [tenant().store.id, tenant().principal.id, tenant().membership.id, tenant().entitlements.planId, "growth", 2, NOW, OP]);
+  assert.deepEqual(calls[0]?.slice(9, 12), [RESOURCE, 1, "extra"]);
+  assert.deepEqual(calls[0]?.[16], []);
+});
+
+test("guide HTTP validation rejects malformed config and product links before repository calls", async () => {
+  let calls = 0;
+  const h = handlers(repository({ async saveResource() { calls += 1; return { id: RESOURCE, version: 1, status: "active", updatedAt: NOW.toISOString(), replayed: false }; } }));
+  for (const entry of [
+    { config: { ...GUIDE, categoryIds: [GUIDE.categoryIds[0], GUIDE.categoryIds[0]] }, productIds: [], kind: "extra" },
+    { config: { ...GUIDE, priceCents: 1 }, productIds: [], kind: "extra" },
+    { config: { ...GUIDE, body: "<script>steal()</script>" }, productIds: [], kind: "extra" },
+    { config: { ...GUIDE, body: "x".repeat(10_000) }, productIds: [], kind: "extra" },
+    { config: GUIDE, productIds: [PRODUCT], kind: "extra" },
+    { config: GUIDE, productIds: [], kind: "definition" },
+  ]) {
+    const { kind, ...value } = entry;
+    const response = await h.saveResource(request(`/api/catalog/admin/resources/${kind}`, "POST", { name: "Rehber", slug: "rehber", ...value }), kind);
+    assert.equal(response.status, 400);
+  }
+  assert.equal(calls, 0);
+});
+
+test("guide category assignment conflicts remain actionable HTTP conflicts", async () => {
+  const h = handlers(repository({ async saveResource() { throw new CatalogAdminRepositoryError("category_guide_conflict"); } }));
+  const response = await h.saveResource(request("/api/catalog/admin/resources/extra", "POST", { name: "Rehber", slug: "rehber", config: GUIDE, productIds: [] }), "extra");
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { code: "category_guide_conflict" });
+});
 test("brand logo saves survive the browser client, authenticated HTTP and repository validation", async () => {
   const logoAssetId = "cf2e7d54-80a2-4b27-9f7a-b9d193a3e921";
   const calls: unknown[][] = [];

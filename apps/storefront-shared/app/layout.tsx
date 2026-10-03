@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTracker.tsx";
 import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
 import { resolveStorefrontPage } from "../lib/page-context.ts";
+import { StorefrontFrame } from "../components/StorefrontFrame";
+import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import "./globals.css";
 import "../themes/siora/siora.css";
 import "../themes/siora/siora-mobile.css";
@@ -27,9 +29,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = page.kind === "active" ? page.context.storefront.locale : "tr";
   const nonce = requestHeaders.get("x-nonce") ?? "";
   return (
-    <html lang={locale}>
+    <html lang={locale} data-scroll-behavior={page.kind === "active" && guzideThemeFor(page.context.storefront) ? "smooth" : undefined}>
       <body>
-        {children}
+        {page.kind === "active" && guzideThemeFor(page.context.storefront)
+          ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
+          : children}
         {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>
     </html>
