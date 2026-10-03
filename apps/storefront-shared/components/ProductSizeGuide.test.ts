@@ -3,6 +3,8 @@ import test from "node:test";
 import React from "react";
 import { createDefaultStarterThemeComposition } from "@celebix/saas-contracts";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text.ts";
+import { availableProductsFirst } from "../lib/public-product-ordering.ts";
+import { categoryPath, productIndexPath } from "../lib/storefront-routes.ts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
 const product = {
@@ -65,5 +67,33 @@ test("public guide renders a sanitized merchant table and does not expose execut
     assert.equal(dialog?.querySelector("td")?.textContent, "İşletme ölçüsü");
     assert.equal(dialog?.querySelector("script"), null);
     assert.equal(dialog?.querySelector('a[href^="javascript:"]'), null);
+  });
+});
+
+
+test("Guzide theme presents the category guide as the same modal near its purchase area", async () => {
+  const loadDialog = componentLoader();
+  const { ProductSizeGuideDialog } = loadDialog<{ ProductSizeGuideDialog: Component }>(new URL("../../../packages/storefront-design-ui/src/ProductSizeGuideDialog.tsx", import.meta.url));
+  const wrapper = ({ children }: { children?: React.ReactNode }) => React.createElement("section", null, children);
+  const load = componentLoader({
+    "@celebix/storefront-design-ui": { ProductSizeGuideDialog },
+    "@/lib/product-description.ts": { renderStarterProductDescription: normalizeProductDescriptionHtml },
+    "@/lib/public-product-ordering.ts": { availableProductsFirst },
+    "@/lib/storefront-routes.ts": { categoryPath, productIndexPath },
+    "../../components/ProductVariantMedia": { ProductVariantMediaProvider: wrapper },
+    "./GuzideProductPurchase": { GuzideProductPurchase: wrapper },
+    "./GuzideProductGallery": { GuzideProductGallery: () => null },
+    "./GuzideProductReturn": { GuzideProductReturn: () => null },
+    "../../components/ProductCard": { ProductCard: () => null },
+    "../../components/ProductApprovedReviews": { ProductApprovedReviews: () => null },
+  });
+  const { GuzideProductDetailExperience } = load<{ GuzideProductDetailExperience: Component }>(new URL("../themes/guzide/GuzideProductDetailExperience.tsx", import.meta.url));
+  await withProductBrowser(async ({ container, render }) => {
+    await render(React.createElement(GuzideProductDetailExperience, { product, locale: "tr", relatedProducts: [], publishedPolicies: [], options: { ...createDefaultStarterThemeComposition().productDetail, showBreadcrumbs: false }, showQuantitySelector: true }));
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]');
+    assert.ok(trigger, "Guzide guide uses modal trigger");
+    assert.equal(trigger.textContent, "Yüzük ölçüsü nasıl alınır?↗");
+    await React.act(async () => trigger.click());
+    assert.ok(document.querySelector('[role="dialog"]')?.textContent?.includes("İşletmenin ölçü açıklaması"));
   });
 });

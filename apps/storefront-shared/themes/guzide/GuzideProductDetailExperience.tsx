@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ProductSizeGuideDialog } from "@celebix/storefront-design-ui";
 import type {
   PublicPolicyPage,
   PublicProduct,
@@ -72,7 +73,7 @@ export function GuzideProductDetailExperience({ product, locale, relatedProducts
         <GuzideProductGallery product={product} supportHref={supportHref} />
         <GuzideProductPurchase product={product} options={options} showQuantitySelector={showQuantitySelector}>
           {hasGuide || information.length ? <div className={styles.information} aria-label="Ürün bilgileri">
-            {hasGuide ? <details data-guzide-size-guide><summary>{guide.heading}<Chevron /></summary><div className={styles.informationBody}><RichText body={guide.body} label={guide.heading} /></div></details> : null}
+            {hasGuide ? <div data-guzide-size-guide><ProductSizeGuideDialog heading={guide.heading}><RichText body={guide.body} label={guide.heading} /></ProductSizeGuideDialog></div> : null}
             {information.map(({ key, label, content }) => <details key={key}><summary>{label}<Chevron /></summary><div className={styles.informationBody}>{content}</div></details>)}
           </div> : null}
         </GuzideProductPurchase>

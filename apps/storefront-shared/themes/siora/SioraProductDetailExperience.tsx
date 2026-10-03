@@ -37,7 +37,7 @@ export function SioraProductDetailExperience({ product, storefrontId, locale, re
     <ProductVariantMediaProvider key={product.id} product={product} initialVariantId={sioraInitialVariant(product)?.id}>
       <section className={styles.stage} aria-label="Ürün detayları">
         <SioraProductGallery product={product} />
-        <SioraProductPurchase product={product} storefrontId={storefrontId} locale={locale} options={options} showQuantitySelector={showQuantitySelector} sizeGuide={sizeGuide} />
+        <SioraProductPurchase product={product} storefrontId={storefrontId} locale={locale} options={options} showQuantitySelector={showQuantitySelector} sizeGuide={sizeGuide} sizeGuideHeading={guide?.heading} />
       </section>
     </ProductVariantMediaProvider>
     {options.showBreadcrumbs || information.length || product.merchandising?.highlights.length ? <section className={styles.details} aria-label="Ürün bilgileri">
