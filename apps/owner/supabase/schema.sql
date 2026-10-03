@@ -159,14 +159,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.handle_owner_user_created()
 RETURNS TRIGGER AS $$
-DECLARE
-  super_admin_count INTEGER;
 BEGIN
-  SELECT COUNT(*)
-  INTO super_admin_count
-  FROM public.owner_profiles
-  WHERE role = 'super_admin';
-
   INSERT INTO public.owner_profiles (id, email, full_name)
   VALUES (
     NEW.id,
@@ -177,22 +170,27 @@ BEGIN
   SET
     email = EXCLUDED.email,
     full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.owner_profiles.full_name),
-    role = CASE
-      WHEN public.owner_profiles.role = 'super_admin' THEN public.owner_profiles.role
-      WHEN super_admin_count = 0 THEN 'super_admin'::public.owner_user_role
-      ELSE public.owner_profiles.role
-    END,
     updated_at = NOW();
-
-  IF super_admin_count = 0 THEN
-    UPDATE public.owner_profiles
-    SET role = 'super_admin'
-    WHERE id = NEW.id;
-  END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public;
+
+-- Legacy profile display fields are not platform authority. An authenticated user
+-- must never promote or reactivate their own profile through the Data API.
+CREATE OR REPLACE FUNCTION public.guard_owner_profile_authority()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+BEGIN
+  IF current_user = 'authenticated' AND (NEW.id IS DISTINCT FROM OLD.id OR
+    NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active) THEN
+    RAISE EXCEPTION 'OWNER_PROFILE_AUTHORITY_IMMUTABLE' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS owner_profile_authority_guard ON public.owner_profiles;
+CREATE TRIGGER owner_profile_authority_guard BEFORE UPDATE ON public.owner_profiles
+FOR EACH ROW EXECUTE FUNCTION public.guard_owner_profile_authority();
 
 DROP TRIGGER IF EXISTS on_owner_auth_user_created ON auth.users;
 CREATE TRIGGER on_owner_auth_user_created

@@ -191,3 +191,4 @@ export * from "./contact-widget/index.ts";
 
 export * from "./restock-alerts/repository.ts";
 export * from "./review-collection/index.ts";
+export * from './platform/index.ts';
