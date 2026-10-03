@@ -18,6 +18,10 @@
 .search button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; background: transparent; cursor: pointer; color: #79716A; }
 .search kbd { display: grid; place-items: center; min-width: 21px; height: 24px; border: 1px solid #E7E2DD; border-radius: 4px; font: inherit; font-size: 12px; }
 .resultCount { color: #79716A; font-size: 12px; }
+.assetCredits { margin-top: 32px; color: var(--settings-muted,var(--cp-text-secondary)); font-size: 12px; }
+.assetCredits summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; }
+.assetCredits a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
+.assetCredits summary:focus-visible,.assetCredits a:focus-visible { outline: 2px solid var(--settings-action); outline-offset: 3px; }
 .settingsGroups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 40px 54px; max-width: 1250px; }
 .settingsGroup { min-width: 0; }
 .groupTop { display: flex; min-height: 90px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #DAD4CD; }

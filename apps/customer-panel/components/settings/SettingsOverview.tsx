@@ -40,5 +40,6 @@ export function SettingsOverview({ embedded = false }: { embedded?: boolean }) {
       </section>)}
     </nav>
     {!groups.length ? <div className={styles.empty}><img src="/illustrations/settings/store.svg" width={150} height={100} alt="" /><strong>Eşleşen ayar yok</strong><button type="button" onClick={() => { setQuery(""); search.current?.focus(); }}>Aramayı temizle</button></div> : null}
+    <footer className={styles.assetCredits}><details><summary>Görsel kaynakları</summary><a href="https://www.flaticon.com/free-icon/whatsapp_3781677" target="_blank" rel="noopener noreferrer">WhatsApp simgesi: designed by Magnific from Flaticon</a></details></footer>
   </PanelPageShell>;
 }

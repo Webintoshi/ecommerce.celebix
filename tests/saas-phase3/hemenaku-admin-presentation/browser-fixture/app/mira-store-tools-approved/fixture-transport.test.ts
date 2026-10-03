@@ -45,3 +45,20 @@ test("foreign origins, unexpected API paths and unauthorized writes fail closed"
   assert.equal(transport.snapshot().record.version, 3);
   assert.equal(transport.snapshot().calls.filter(call => call.blocked).length, 4);
 });
+
+test("restock fixture reads masked stats and saves only its own version with replay protection", async () => {
+  const transport = createStoreToolsFixtureTransport({ state: "loaded", origin });
+  const api = createMerchantAdminApi(transport.fetch);
+  const [record] = await api.records("restock_alerts");
+  const value = { recordId: record.id, expectedVersion: record.version, name: record.name, status: "active" as const, config: { ...record.config, title: "Yerel stok bildirimi" } };
+  const first = await api.save("restock_alerts", value, operation);
+  const replay = await api.save("restock_alerts", value, operation);
+  assert.equal(first.version, 3); assert.equal(replay.version, 3); assert.equal(replay.replayed, true);
+  assert.equal(transport.snapshot().record.version, 3);
+  assert.equal(transport.snapshot().record.config.title, "Size nasıl yardımcı olabiliriz?");
+  assert.equal(transport.snapshot().restock.config.title, "Yerel stok bildirimi");
+  const stats = await (await transport.fetch("/api/restock/stats")).json();
+  assert.equal(stats.pendingConfirmed, 8); assert.equal(stats.recent[0].emailMask, "a***@ornek.com");
+  assert.equal((await transport.fetch("https://admin.guzidekuyumcu.com/api/restock/stats")).status, 403);
+  assert.equal((await transport.fetch("/api/restock/stats", { method: "POST" })).status, 403);
+});

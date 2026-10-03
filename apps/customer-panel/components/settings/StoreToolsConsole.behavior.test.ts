@@ -26,7 +26,7 @@ const pageRecord = { id: "82000000-0000-4000-8000-000000000001", kind: "page", n
 const languageRecord = { id: "83000000-0000-4000-8000-000000000001", kind: "language_setting", name: "Mağaza dili", config: { defaultLocale: "tr", enabledLocales: ["tr", "en"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function screen(options: { canManage?: boolean; workspace?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
+async function screen(options: { canManage?: boolean; workspace?: boolean; restock?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
   const browser = new Window({ url: "https://panel.example.test/settings/store-tools" });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLTextAreaElement: browser.HTMLTextAreaElement, HTMLSelectElement: browser.HTMLSelectElement, Event: browser.Event, KeyboardEvent: browser.KeyboardEvent, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -45,7 +45,10 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; recor
     return compiled.exports;
   }
   const requireModule = (id: string) => {
-    if (id === "./RestockTool") return { RestockTool: () => null };
+    if (id === "./RestockTool") return { RestockTool: options.restock ? ({ onOpenChange }: any) => {
+      const [open, setOpen] = React.useState(false);
+      return createElement("button", { "data-test-restock-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Stok aracını kapat" : "Stok aracını aç");
+    } : () => null };
     if (id === "react") return React;
     if (id === "react/jsx-runtime") return jsxRuntime;
     if (id === "lucide-react") return new Proxy({}, { get: () => () => null });
@@ -99,6 +102,20 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; recor
   try { await act(async () => { const content = createElement(Component, { canManage: options.canManage ?? true }); root.render(Workspace ? createElement(Workspace, { children: content }) : content); await new Promise(resolve => setTimeout(resolve, 0)); }); await verify({ browser, container, settle, click, input, submit, openChannel, addChannel, pushes }); }
   finally { await act(async () => root.unmount()); for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key); await browser.happyDOM.close(); }
 }
+
+test("independent restock editing hides unrelated contact loading and errors until returning", async () => {
+  for (const records of [async () => new Promise(() => {}), async () => { throw Error("unavailable"); }]) {
+    await screen({ restock: true, records }, async ({ container, click }: any) => {
+      assert.match(container.textContent, /Mağaza araçları (yükleniyor|yüklenemedi)/);
+      await click("[data-test-restock-toggle]");
+      assert.doesNotMatch(container.textContent, /Mağaza araçları (yükleniyor|yüklenemedi)/);
+      assert.equal(container.querySelector('[data-tool-edit="contact_widget"]'), null);
+      assert.equal(container.querySelector('a[href*="flaticon.com"]'), null);
+      await click("[data-test-restock-toggle]");
+      assert.match(container.textContent, /Mağaza araçları (yükleniyor|yüklenemedi)/);
+    });
+  }
+});
 
 test("discarding a changed tool restores saved content and returns focus to its edit action", async () => {
   await screen({}, async ({ browser, container, click, input }: any) => {

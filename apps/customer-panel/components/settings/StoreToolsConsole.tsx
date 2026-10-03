@@ -105,6 +105,7 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
   const [error, setError] = useState(""), [message, setMessage] = useState(""), [conflict, setConflict] = useState(false), [validationAttempted, setValidationAttempted] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop"), [previewOpen, setPreviewOpen] = useState(true), [previewOutside, setPreviewOutside] = useState(false);
   const [mobilePreviewVisible, setMobilePreviewVisible] = useState(false);
+  const [restockOpen, setRestockOpen] = useState(false);
   const [previewPage, setPreviewPage] = useState<ContactWidgetConfig["pages"][number]>("home");
   const [openChannel, setOpenChannel] = useState<ChannelType | null>(null), [revealedChannel, setRevealedChannel] = useState<ChannelType | null>(null), [revealedHours, setRevealedHours] = useState(false);
   const [dialog, setDialog] = useState<ToolDialog | null>(null), [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null);
@@ -310,15 +311,15 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
   }
 
   return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
-    {message ? <p className={styles.status} role="status">{message}</p> : null}
-    {loading ? <div className={styles.toolSkeleton} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
+    {message && !restockOpen ? <p className={styles.status} role="status">{message}</p> : null}
+    {!restockOpen && (loading ? <div className={styles.toolSkeleton} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
       : loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" onClick={() => void load()}>Yeniden dene</button></div></div>
-      : loaded && !open ? <><article className={styles.toolRow}>
+      : loaded && !open && !restockOpen ? <article className={styles.toolRow}>
         <ToolArtwork /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterileriniz size kolayca ulaşsın.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {baseline.channels.filter(channel => channel.enabled).length} kanal · {summaryDevices}{!canManage ? " · Salt okunur" : ""}</span>
           <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: "content", label: "Kanallar" }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true" /></button>)}</nav>
         </div><button id="tool-edit-contact-widget" ref={triggerRef} className={primary} type="button" data-tool-edit="contact_widget" onClick={() => startEditing()}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
-      </article><a className={styles.attribution} href="https://www.flaticon.com/free-icon/whatsapp_3781677" target="_blank" rel="noopener noreferrer">WhatsApp simgesi: Magnific · Flaticon</a></> : null}
-    {!open ? <RestockTool canManage={canManage} /> : null}
+      </article> : null)}
+    {!open ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
     {loaded && open ? <form ref={editorRef} onSubmit={apply} onKeyDown={event => { if (event.key === "Escape" && !dialog) { event.preventDefault(); requestExit(); } }} noValidate data-settings-dirty={dirty} className={styles.editor}>
       <header className={styles.contextBar}><div><button className={ghost + " " + styles.iconButton} type="button" data-tool-close disabled={busy || reloading} aria-label="Araçlara dön" onClick={requestExit}><ArrowLeft size={20} aria-hidden="true" /></button><h2>İletişim balonu</h2></div>
         <label className={styles.enabledControl}><span>{draft.enabled ? "Açık" : "Kapalı"}</span><span className={styles.switch}><input name="enabled" aria-label="İletişim balonu açık" type="checkbox" role="switch" disabled={locked} checked={draft.enabled} onChange={event => change(config => ({ ...config, enabled: event.target.checked }))} /><span /></span></label>

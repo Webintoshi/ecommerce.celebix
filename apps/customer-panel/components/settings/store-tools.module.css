@@ -14,8 +14,6 @@
 .toolCopy > span { font-size: 13px; color: var(--cp-text-secondary); line-height: 1.6; }
 .toolLinks { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
 .toolLinks button { padding-inline: 0; color: var(--cp-text-secondary); font-size: 13px; }
-.attribution { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; color: var(--cp-text-secondary); font-size: 12px; text-decoration: none; }
-.attribution:hover { text-decoration: underline; }
 .toolSkeleton { display: grid; grid-template-columns: 180px minmax(0,1fr) 116px; gap: 32px; align-items: center; padding: 32px 0; max-width: 1050px; border-block: 1px solid var(--cp-border); }
 .toolSkeleton span { display: block; border-radius: 8px; background: var(--cp-soft); min-height: 128px; }
 .toolSkeleton > div span { min-height: 18px; width: 60%; margin-block: 12px; }
