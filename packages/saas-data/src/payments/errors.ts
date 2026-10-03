@@ -1,5 +1,6 @@
 export const CHECKOUT_PAYMENT_ERROR_CODES = Object.freeze([
   "invalid_input",
+  "sales_paused",
   "unavailable",
   "commit_unknown",
   "attempt_not_found",

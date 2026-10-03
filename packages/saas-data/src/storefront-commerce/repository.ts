@@ -44,7 +44,7 @@ export const STOREFRONT_COMMERCE_ERROR_CODES = Object.freeze([
   "version_conflict",
   "cart_empty",
   "price_changed",
-  "stock_unavailable",
+  "stock_unavailable", "sales_paused",
   "shipping_unavailable",
   "payment_unavailable",
   "operation_mismatch",

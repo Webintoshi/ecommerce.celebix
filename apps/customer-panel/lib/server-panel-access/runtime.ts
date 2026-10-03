@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveSupportCredential } from "../platform-support/runtime.ts";
+
 import { normalizeAdminRequestHostname } from "@celebix/saas-data";
 
 import {
@@ -88,6 +90,10 @@ export function createApprovedStagingServerPanelAccessRuntime(
     readiness: Object.freeze({ mode: "approved_staging" as const }),
     panelOrigin,
     async resolveCredential(input) {
+      if (input.credential?.startsWith("support:")) {
+        const support = await resolveSupportCredential({ ...input, credential: input.credential });
+        return support.kind === "unauthorized" ? { kind: "unauthorized", supportEnded: true } : support;
+      }
       const access = await resolveDurableServerPanelAccess({ ...input, authority });
       if (access.kind !== "authenticated" || adminHostnames === undefined) return access;
       let hostname: string;

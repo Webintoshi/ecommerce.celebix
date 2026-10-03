@@ -2,6 +2,8 @@ import "server-only";
 
 import type { TenantContext } from "@celebix/saas-contracts";
 
+import type { SupportSidecar } from "../platform-support/policy.ts";
+
 import type { PanelSession } from "../session.ts";
 import type {
   PanelSessionResolveResult,
@@ -11,9 +13,9 @@ import type {
 export type ServerPanelSessionAuthority = Pick<PostgresPanelSessionRepository, "resolveSession">;
 
 export type ServerPanelAccessResult =
-  | Readonly<{ kind: "authenticated"; session: Readonly<PanelSession>; tenantContext: TenantContext }>
+  | Readonly<{ kind: "authenticated"; session: Readonly<PanelSession>; tenantContext: TenantContext; support?: SupportSidecar }>
   | Readonly<{ kind: "unauthenticated" }>
-  | Readonly<{ kind: "unauthorized" }>
+  | Readonly<{ kind: "unauthorized"; supportEnded?: true }>
   | Readonly<{ kind: "unavailable" }>;
 
 function freeze<T extends object>(value: T): Readonly<T> {

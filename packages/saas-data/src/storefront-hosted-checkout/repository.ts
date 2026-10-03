@@ -34,7 +34,7 @@ import type {
 
 export const STOREFRONT_HOSTED_CHECKOUT_ERROR_CODES = Object.freeze([
   "invalid_input", "authority_unavailable", "durable_authority_invalid", "attempt_in_progress",
-  "stock_unavailable", "operation_mismatch", "callback_binding_conflict", "store_inactive",
+  "stock_unavailable", "sales_paused", "operation_mismatch", "callback_binding_conflict", "store_inactive",
   "payment_method_not_found", "payment_method_inactive", "profile_not_found", "profile_not_active",
   "provider_disabled", "environment_invalid", "credential_version_mismatch", "version_conflict",
   "invalid_transition", "session_expired", "presentation_unavailable", "not_found",

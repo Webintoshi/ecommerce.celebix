@@ -1,0 +1,3 @@
+'use client';
+import {useEffect,useState} from 'react';
+export default function SupportHandoff(){const [error,setError]=useState('');useEffect(()=>{const handoff=new URLSearchParams(location.hash.slice(1)).get('handoff');history.replaceState(null,'',location.pathname);if(!handoff){setError('Destek bağlantısı geçersiz.');return;}void fetch('/api/support/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({handoff})}).then(r=>{if(!r.ok)throw Error();location.replace('/');}).catch(()=>setError('Destek bağlantısı kullanılmış veya süresi dolmuş.'));},[]);return <main style={{padding:32}}><h1 className="sr-only">Destek erişimi</h1><p role="status">{error||'Destek oturumu açılıyor…'}</p>{error&&<a href="/login">Girişe dön</a>}</main>;}

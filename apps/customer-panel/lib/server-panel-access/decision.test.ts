@@ -28,3 +28,5 @@ test("only authenticated durable authority becomes a guarded-layout result", () 
   const result = decideServerPanelAccess({ kind: "authenticated", session, tenantContext });
   assert.deepEqual(result, { kind: "render", session, tenantContext });
 });
+
+test('revoked support uses a cleanup route rather than leaving an overriding cookie',()=>{assert.deepEqual(decideServerPanelAccess({kind:'unauthorized',supportEnded:true}),{kind:'redirect',destination:'/support/ended'});});

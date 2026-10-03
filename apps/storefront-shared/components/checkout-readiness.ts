@@ -16,6 +16,7 @@ export function checkoutBlockerMessage(blocker: PublicCartCheckoutBlocker): stri
 }
 
 export function checkoutFailureMessage(code: unknown): string {
+  if (code === "sales_paused") return "Mağaza şu anda yeni sipariş almıyor. Daha sonra tekrar deneyin.";
   if (code === "cart_empty") return CHECKOUT_BLOCKER_COPY.empty_cart;
   if (code === "price_changed" || code === "stock_unavailable") return CHECKOUT_BLOCKER_COPY.stock_unavailable;
   if (code === "shipping_unavailable") return CHECKOUT_BLOCKER_COPY.shipping_unavailable;
@@ -25,7 +26,7 @@ export function checkoutFailureMessage(code: unknown): string {
 
 export function hostedCheckoutFailureMessage(code: unknown): string {
   if (code === "invalid_input") return "İletişim ve teslimat bilgilerinizi kontrol edin. Sorun devam ederse mağazayla iletişime geçin.";
-  if (code === "cart_empty" || code === "price_changed" || code === "stock_unavailable"
+  if (code === "sales_paused" || code === "cart_empty" || code === "price_changed" || code === "stock_unavailable"
     || code === "shipping_unavailable" || code === "payment_unavailable") return checkoutFailureMessage(code);
   return "Güvenli ödeme başlatılamadı. Lütfen yeniden deneyin.";
 }
