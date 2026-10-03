@@ -81,6 +81,43 @@ function mutation(id: string, status = "active") {
   return { id, version: 1, status, updatedAt: NOW.toISOString() };
 }
 
+const GUIDE = { schemaVersion: 1, type: "size_guide", heading: "Ölçü rehberi", body: `<h2>Ölçüler</h2>\n<p>${"ü".repeat(9_000)}</p>`, categoryIds: ["79000000-0000-4000-8000-000000000001"], includeDescendants: true, enabled: true };
+
+test("guide saves carry long rich text with durable authority, version and operation id", async () => {
+  const writer = new Client((text) => text.includes("catalog_admin_save_resource") ? [{ outcome: "saved", result_payload: mutation(RESOURCE) }] : []);
+  const result = await repository(new Pool([writer])).saveResource({ tenantContext: tenant(), now: NOW, operationId: OP, kind: "extra", resourceId: RESOURCE, expectedVersion: 5, name: "Yüzük rehberi", slug: "yuzuk-rehberi", config: GUIDE, productIds: [] });
+  assert.equal(result.id, RESOURCE);
+  const values = call(writer, "catalog_admin_save_resource").values;
+  assert.deepEqual(values.slice(0, 8), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, OP]);
+  assert.deepEqual(values.slice(9, 12), [RESOURCE, 5, "extra"]);
+  assert.deepEqual(JSON.parse(String(values[15])), GUIDE);
+  assert.deepEqual(values[16], []);
+});
+
+test("guide resource reads accept rich typed config from SQL", async () => {
+  const guide = { id: RESOURCE, kind: "extra", name: "Yüzük rehberi", slug: "yuzuk-rehberi", config: GUIDE, status: "active", productIds: [], productCount: 0, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+  const reader = new Client((text) => text.includes("catalog_admin_list_resources") ? [{ outcome: "listed", result_payload: { items: [guide] } }] : []);
+  assert.deepEqual((await repository(new Pool([reader])).listResources({ tenantContext: tenant(), now: NOW, kind: "extra" }))[0], guide);
+});
+
+test("guide validation rejects invalid schema and product links before acquiring SQL", async () => {
+  const short = { ...GUIDE, body: "<p>Rehber</p>" };
+  for (const entry of [
+    { config: { ...short, categoryIds: [short.categoryIds[0], short.categoryIds[0]] }, productIds: [], kind: "extra" },
+    { config: { ...short, priceCents: 1 }, productIds: [], kind: "extra" },
+    { config: short, productIds: [PRODUCT], kind: "extra" },
+    { config: short, productIds: [], kind: "definition" },
+  ] as const) {
+    await assert.rejects(() => repository(new Pool([])).saveResource({ tenantContext: tenant(), now: NOW, operationId: OP, name: "Rehber", slug: "rehber", ...entry }), (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "invalid_input");
+  }
+});
+
+test("guide assignment conflict returns its durable SQL outcome", async () => {
+  const writer = new Client((text) => text.includes("catalog_admin_save_resource") ? [{ outcome: "category_guide_conflict", result_payload: {} }] : []);
+  await assert.rejects(() => repository(new Pool([writer])).saveResource({ tenantContext: tenant(), now: NOW, operationId: OP, kind: "extra", name: "Rehber", slug: "rehber", config: { ...GUIDE, body: "<p>Rehber</p>" }, productIds: [] }), (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "category_guide_conflict");
+  assert.equal(writer.calls.at(-1)?.text, "ROLLBACK");
+});
+
 test("collection reads preserve full order and reject invalid authority before SQL", async () => {
   const productIds = Array.from({ length: 125 }, (_, i) => `72000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`);
   const reader = new Client((text) => text.includes("catalog_admin_collection_members") ? [{ outcome: "listed", result_payload: { items: [{ id: PRODUCT, title: "Keten", status: "active", priceCents: 12900 }], page: 1, pageSize: 20, totalCount: 125, orderedIds: productIds } }] : []);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ProductDetailSummary } from "./ProductDetailSummary.tsx";
+import { ProductSizeGuideDialog } from "./ProductSizeGuideDialog.tsx";
 import { resolveProductGallerySelection, resolvePublicProductVariantMedia, type PublicProduct, type PublicStarterThemePresentationV3, type StarterProductDetailConfigV2 } from "@celebix/saas-contracts";
 
 type StarterCartConfigV2 = PublicStarterThemePresentationV3["cart"];
@@ -43,7 +44,7 @@ export function ProductDetailPreview({ product, options, cart, mode, relatedProd
       <div className="celebix-product-purchase-column">
         <ProductDetailSummary product={selectedProduct} options={options} />
         {product.variants.length ? <label className="celebix-product-option">Ürün seçeneği<select value={variantId} onChange={(event) => setVariantId(event.currentTarget.value)}>{product.variants.map((variant) => <option key={variant.id} value={variant.id} disabled={!variant.available}>{variant.title}{variant.available ? "" : " — Tükendi"}</option>)}</select></label> : null}
-        {options.showSizeGuide && product.merchandising?.sizeGuide ? <details><summary>{product.merchandising.sizeGuide.heading}</summary><div>{text(product.merchandising.sizeGuide.body)}</div></details> : null}
+        {options.showSizeGuide && product.merchandising?.sizeGuide ? <ProductSizeGuideDialog heading={product.merchandising.sizeGuide.heading}>{text(product.merchandising.sizeGuide.body)}</ProductSizeGuideDialog> : null}
         <div className="celebix-product-purchase" data-mobile-purchase={mode === "mobile" && options.mobileStickyPurchase ? "true" : undefined}>
           {cart.showQuantitySelector ? <div className="celebix-preview-quantity" aria-label="Ürün adedi"><button type="button" aria-label="Adedi azalt" disabled={quantity === 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button><output>{quantity}</output><button type="button" aria-label="Adedi artır" onClick={() => setQuantity((value) => Math.min(99, value + 1))}>+</button></div> : null}
           <button type="button" disabled>Sepete ekle</button>

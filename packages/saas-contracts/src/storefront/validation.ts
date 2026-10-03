@@ -77,6 +77,10 @@ function description(value: unknown): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 10_000 || value !== value.trim() || DESCRIPTION_CONTROL.test(value)) invalid();
   return value;
 }
+function sizeGuideBody(value: unknown): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 10_000 || value !== value.trim() || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) invalid();
+  return value;
+}
 function uuid(value: unknown): string { return string(value, 36, 36, UUID); }
 function integer(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) invalid();
@@ -857,7 +861,7 @@ function parsePublicProductMerchandising(value: unknown): PublicProductMerchandi
   let sizeGuide: PublicProductMerchandising["sizeGuide"];
   if (Object.hasOwn(parsed, "sizeGuide")) {
     const selected = exact(parsed.sizeGuide, ["heading", "body"]);
-    sizeGuide = Object.freeze({ heading: string(selected.heading, 1, 120), body: description(selected.body) });
+    sizeGuide = Object.freeze({ heading: string(selected.heading, 1, 120), body: sizeGuideBody(selected.body) });
   }
   return Object.freeze({ highlights, ...(Object.hasOwn(parsed, "materialsAndCare") ? { materialsAndCare: description(parsed.materialsAndCare) } : {}), certifications, ...(sizeGuide ? { sizeGuide } : {}) });
 }

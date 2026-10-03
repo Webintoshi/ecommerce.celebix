@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ProductSizeGuideDialog } from "@celebix/storefront-design-ui";
 import type {
   PublicPolicyPage,
   PublicProductMerchandising,
@@ -21,10 +22,9 @@ type Disclosure = Readonly<{ key: string; label: string; content: ReactNode }>;
 export function ProductSizeGuide({ heading, body }: Readonly<{ heading: string; body: string }>) {
   const html = renderStarterProductDescription(body, heading);
   if (!html) return null;
-  return <details className={styles.sizeGuide}>
-    <summary>{heading}<span aria-hidden="true">↗</span></summary>
+  return <ProductSizeGuideDialog heading={heading}>
     <div className="product-description-rich-text" dangerouslySetInnerHTML={{ __html: html }} />
-  </details>;
+  </ProductSizeGuideDialog>;
 }
 
 export function ProductInformationDisclosures({ informationSections, merchandising, description, publishedPolicies }: Props) {

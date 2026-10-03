@@ -7,11 +7,14 @@ import ts from "typescript";
 import { createDefaultStarterThemeComposition, type PublicProduct } from "@celebix/saas-contracts";
 
 async function load() {
+  const dialog = await readFile(new URL("./ProductSizeGuideDialog.tsx", import.meta.url), "utf8");
+  const dialogCode = ts.transpileModule(dialog, {compilerOptions: {jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace('from "react"', `from "${import.meta.resolve("react")}"`).replace('from "react-dom"', `from "${import.meta.resolve("react-dom")}"`).replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
+  const dialogUrl = `data:text/javascript;base64,${Buffer.from(dialogCode).toString("base64")}`;
   const summary = await readFile(new URL("./ProductDetailSummary.tsx", import.meta.url), "utf8");
   const summaryCode = ts.transpileModule(summary, {compilerOptions: {jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
   const summaryUrl = `data:text/javascript;base64,${Buffer.from(summaryCode).toString("base64")}`;
   const source = await readFile(new URL("./ProductDetailPresentation.tsx", import.meta.url), "utf8");
-  const code = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace('from "./ProductDetailSummary.tsx"', `from "${summaryUrl}"`).replace('from "@celebix/saas-contracts"', `from "${import.meta.resolve("@celebix/saas-contracts")}"`).replace('from "react"', `from "${import.meta.resolve("react")}"`).replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
+  const code = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace('from "./ProductSizeGuideDialog.tsx"', `from "${dialogUrl}"`).replace('from "./ProductDetailSummary.tsx"', `from "${summaryUrl}"`).replace('from "@celebix/saas-contracts"', `from "${import.meta.resolve("@celebix/saas-contracts")}"`).replace('from "react"', `from "${import.meta.resolve("react")}"`).replace('from "react/jsx-runtime"', `from "${import.meta.resolve("react/jsx-runtime")}"`);
   return await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
 }
 const product: PublicProduct = { id: "11000000-0000-4000-8000-000000000001", slug: "gercek-urun", title: "Gerçek ürün", currency: "TRY", status: "active", priceCents: 12000, available: true,

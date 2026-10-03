@@ -326,6 +326,7 @@ export {
   parseCatalogAdminMutationResult,
   parseCatalogImportPreview,
   parseCatalogAdminResource,
+  parseCatalogSizeGuideConfig,
   parseProductReview,
 } from "./catalog-admin/index.ts";
 export {
@@ -389,6 +390,7 @@ export type {
   CatalogAdminResource,
   CatalogAdminResourceKind,
   CatalogAdminResourceStatus,
+  CatalogSizeGuideConfig,
   CatalogImportStatus,
   CatalogImportFormat,
   CatalogImportPreview,
