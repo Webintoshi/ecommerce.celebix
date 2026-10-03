@@ -1,0 +1,70 @@
+{
+  "checkedAtUtc": "2026-09-28T22:43:16.340185+00:00",
+  "scope": "existing_alpler_exact_hosts_only",
+  "readOnly": true,
+  "pass": true,
+  "results": [
+    {
+      "name": "known_tls_health_0",
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "pass": true,
+      "status": 200,
+      "exactTenantHealth": true,
+      "noStore": true,
+      "jsonContentType": true,
+      "strictTls": true,
+      "exactCertificateSan": true,
+      "remainingCertificateDays": 89
+    },
+    {
+      "name": "known_http_redirect_0",
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "pass": true,
+      "status": 301,
+      "exactHttpsLocation": true
+    },
+    {
+      "name": "known_tls_health_1",
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "pass": true,
+      "status": 200,
+      "exactTenantHealth": true,
+      "noStore": true,
+      "jsonContentType": true,
+      "strictTls": true,
+      "exactCertificateSan": true,
+      "remainingCertificateDays": 89
+    },
+    {
+      "name": "known_http_redirect_1",
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "pass": true,
+      "status": 301,
+      "exactHttpsLocation": true
+    },
+    {
+      "name": "unknown_http_admin.saas-staging.celebix.net",
+      "hostname": "celebix-alpler-probe-20260929.admin.saas-staging.celebix.net",
+      "pass": true,
+      "status": 404
+    },
+    {
+      "name": "unknown_http_saas-staging.celebix.net",
+      "hostname": "celebix-alpler-probe-20260929.saas-staging.celebix.net",
+      "pass": true,
+      "status": 404
+    },
+    {
+      "name": "forged_storefront_forwarded_host",
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "pass": true,
+      "status": 200,
+      "exactTenantHealth": true,
+      "noStore": true,
+      "jsonContentType": true,
+      "strictTls": true,
+      "exactCertificateSan": true,
+      "remainingCertificateDays": 89
+    }
+  ]
+}

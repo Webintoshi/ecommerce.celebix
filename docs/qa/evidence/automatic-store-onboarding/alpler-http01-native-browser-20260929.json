@@ -1,0 +1,57 @@
+{
+  "recordedAtUtc": "2026-09-28T22:51:15.776767+00:00",
+  "method": "Codex in-app browser CUA accessibility observations; manually summarized",
+  "scope": "existing Alpler normal sign-in and read-only merchant page navigation",
+  "normalExistingAccountSignIn": {
+    "destination": "https://alpler-spor.admin.saas-staging.celebix.net/",
+    "identityProvider": "https://auth.saas-staging.celebix.site/",
+    "authenticatedRoleVisible": "Mağaza sahibi",
+    "activeStoreVisible": "alpler-spor",
+    "pass": true
+  },
+  "pages": {
+    "setup": {
+      "url": "https://alpler-spor.admin.saas-staging.celebix.net/setup",
+      "access": "Panel ve mağaza adresleri doğrulandı. Hazır",
+      "design": "Yayınlanmış tasarım kullanılıyor. İsterseniz logo ekleyin. Hazır",
+      "products": "Satışa açık ürününüz yok. İlk ürününüzü ekleyin. İşlem gerekiyor",
+      "delivery": "Teslimat ücretini tanımlayın ve etkinleştirin. İşlem gerekiyor",
+      "payment": "Kullanacağınız ödeme yöntemini tanımlayın. Tanımlanmadı",
+      "domains": "Bu bölüm için yetkiniz veya plan erişiminiz yok. Yetki gerekli"
+    },
+    "advancedProductForm": {
+      "url": "https://alpler-spor.admin.saas-staging.celebix.net/products/new?mode=advanced",
+      "loaded": true,
+      "optionalMeasurementsVisible": true,
+      "saveNotSubmitted": true
+    },
+    "design": {
+      "url": "https://alpler-spor.admin.saas-staging.celebix.net/settings/design",
+      "publishedStateVisible": true,
+      "actualAlplerBrandVisible": true,
+      "publishNotSubmitted": true
+    },
+    "shipping": {
+      "url": "https://alpler-spor.admin.saas-staging.celebix.net/settings/shipping#checkout-delivery",
+      "decimalFeeExample": "14,89",
+      "optionalDaysRange": "1–365",
+      "deliveryUnconfiguredVisible": true,
+      "saveNotSubmitted": true
+    },
+    "storefront": {
+      "url": "https://alpler-spor.saas-staging.celebix.net/",
+      "title": "Alpler Spor",
+      "renderedHeaderAndFooter": true
+    },
+    "storefrontProducts": {
+      "url": "https://alpler-spor.saas-staging.celebix.net/urunler",
+      "title": "Ürünler | Alpler Spor",
+      "emptyCatalogueVisible": true
+    }
+  },
+  "noRegistrationSubmitted": true,
+  "noProductDesignDeliveryPaymentMutationSubmitted": true,
+  "normalSignInMayCreateAuthSession": true,
+  "wildcardTlsOrWorkerStatusActivationProven": false,
+  "cloudflareBrowserState": "Sign in to Cloudflare; login required"
+}

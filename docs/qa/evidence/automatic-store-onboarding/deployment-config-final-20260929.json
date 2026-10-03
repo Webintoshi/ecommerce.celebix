@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-28 21:23:22 UTC",
+  "releaseSha": "3de4bbcdb2808a97e4add42023356b0af2dae046",
+  "applicationSourceFrozen": true,
+  "globalActiveDeployments": 0,
+  "configurationGuards": [
+    {
+      "group": "shared",
+      "status": "verified",
+      "targetCount": 4,
+      "commit": "3de4bbcdb2808a97e4add42023356b0af2dae046",
+      "globalIdle": true
+    },
+    {
+      "group": "owner",
+      "status": "verified",
+      "targetCount": 2,
+      "commit": "3de4bbcdb2808a97e4add42023356b0af2dae046",
+      "globalIdle": true
+    }
+  ],
+  "deployments": [
+    {
+      "target": "panel-net",
+      "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+      "deploymentUuid": "f14bde6wahtdc4q34ey7qyre",
+      "status": "finished"
+    },
+    {
+      "target": "panel-site",
+      "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+      "deploymentUuid": "jo6s854ogczqivcf0fnqdsyd",
+      "status": "finished"
+    },
+    {
+      "target": "storefront-net",
+      "applicationUuid": "h55zoba9jh6ij8g6irpqzd9i",
+      "deploymentUuid": "plor5b53ih54f9vsdlrbsd7m",
+      "status": "finished"
+    },
+    {
+      "target": "storefront-site",
+      "applicationUuid": "vtc2aah63jbqnmtxmvykn6jl",
+      "deploymentUuid": "uhdy0oq9x1vsj5iuh64kn2mc",
+      "status": "finished"
+    },
+    {
+      "target": "owner-net",
+      "applicationUuid": "kfpz000ahmt6w3c13eu34cs2",
+      "deploymentUuid": "kvcxxppoivy6v288x41sfqig",
+      "status": "finished"
+    },
+    {
+      "target": "owner-site",
+      "applicationUuid": "bpsgdwfiswna06mooguu2mr3",
+      "deploymentUuid": "z5u16derljthtpuynuulbwzg",
+      "status": "finished"
+    }
+  ],
+  "ownerOnboardingFlags": {
+    "workerEnabled": false,
+    "statusEnabled": false
+  },
+  "preservation": {
+    "otherRawEncryptedAttributes": true,
+    "allPreviewRows": true,
+    "autoDeployDisabled": true,
+    "previewDeployDisabled": true,
+    "paymentScopeFlags": true
+  },
+  "runtimeProof": {
+    "file": "runtime-all-six-final-20260929.json",
+    "sha256": "8ff745ae45fac8b6b86b8a217c5523b923ad99c7e251c9207f7005d78d41c918",
+    "pass": true,
+    "targetCount": 6,
+    "capturedAtUtc": "2026-09-28T22:00:04.271175+00:00",
+    "protocolExecutionProven": false
+  },
+  "cloudflareTokenCreated": false,
+  "wildcardProxyCandidateInstalled": false,
+  "providerInvoked": false,
+  "paymentInvoked": false
+}

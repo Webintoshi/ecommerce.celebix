@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "assembledAtUtc": "2026-09-28T21:40:32.469910+00:00",
+  "helperSha256": "31075997ca3b2dfb3d8c36bbd2c0c510f246b19befd4ba39b41892e14e8dda01",
+  "sourceReceiptSha256": "6e211ddda215ae94068f83b11df7cbee213f74d53f000f2c6656cda474240af3",
+  "nativeBrowserE2EProven": false,
+  "signedRegistrationExecutionProven": false,
+  "wildcardTlsProven": false,
+  "result": {
+    "pass": true,
+    "readOnly": true,
+    "results": [
+      {
+        "checks": {
+          "noStore": true,
+          "ok": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "owner_net_health",
+        "url": "https://owner.saas-staging.celebix.net/api/health"
+      },
+      {
+        "checks": {
+          "noStore": true,
+          "ok": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "owner_site_health",
+        "url": "https://owner.saas-staging.celebix.site/api/health"
+      },
+      {
+        "checks": {
+          "exactHostname": true,
+          "noStore": true,
+          "ok": true,
+          "sameStorePair": true,
+          "schemaVersion1": true,
+          "validStoreId": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "siora_admin_health",
+        "url": "https://butik-siora.admin.saas-staging.celebix.net/api/health"
+      },
+      {
+        "checks": {
+          "exactHostname": true,
+          "noStore": true,
+          "ok": true,
+          "sameStorePair": true,
+          "schemaVersion1": true,
+          "validStoreId": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "guzide_admin_health",
+        "url": "https://admin.guzidekuyumcu.com/api/health"
+      },
+      {
+        "checks": {
+          "exactHostname": true,
+          "noStore": true,
+          "ok": true,
+          "sameStorePair": true,
+          "schemaVersion1": true,
+          "validStoreId": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "siora_storefront_health",
+        "url": "https://butik-siora.saas-staging.celebix.net/api/health"
+      },
+      {
+        "checks": {
+          "exactHostname": true,
+          "noStore": true,
+          "ok": true,
+          "sameStorePair": true,
+          "schemaVersion1": true,
+          "validStoreId": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "guzide_storefront_health",
+        "url": "https://guzidekuyumcu.com/api/health"
+      },
+      {
+        "checks": {
+          "enabledSection": true,
+          "enabledSubmitAndText": true,
+          "expectedSuffix": true,
+          "internalAction": true,
+          "postForm": true,
+          "requiredInputs": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "owner_net_registration",
+        "url": "https://owner.saas-staging.celebix.net/kayit"
+      },
+      {
+        "checks": {
+          "enabledSection": true,
+          "enabledSubmitAndText": true,
+          "expectedSuffix": true,
+          "internalAction": true,
+          "postForm": true,
+          "requiredInputs": true
+        },
+        "errorKind": "none",
+        "pass": true,
+        "status": 200,
+        "target": "owner_site_registration",
+        "url": "https://owner.saas-staging.celebix.site/kayit"
+      }
+    ],
+    "scope": "fixed_public_health_and_static_form",
+    "tenantPairs": {
+      "guzide": true,
+      "siora": true
+    }
+  }
+}
