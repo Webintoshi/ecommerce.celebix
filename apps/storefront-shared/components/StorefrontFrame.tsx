@@ -15,6 +15,7 @@ import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { lilyumBrandTokens } from "../themes/lilyum/lilyum-model.ts";
+import { lilyumLogoFor } from "../themes/lilyum/logo.ts";
 import { GuzideClientFrame, GuzidePageBoundary } from "../themes/guzide/GuzideMobileExperience";
 import { CheckoutHeader } from "./checkout/CheckoutChrome";
 
@@ -44,7 +45,7 @@ export function StorefrontFrame({
   const guzideTheme = guzideThemeFor(storefront);
   const visualTheme = lilyumThemeFor(storefront) ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
   const immersiveSiora = immersiveProduct && Boolean(sioraThemeFor(storefront)) && !checkout;
-  const logo = customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo;
+  const logo = lilyumLogoFor(storefront, customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo);
   const style: DesignStyle = {
     ...typography.style,
     "--store-section-spacing": (storefront.presentation.schemaVersion !== 3 && storefront.presentation.schemaVersion !== 4) ? "clamp(64px, 7vw, 112px)" : storefront.presentation.visual.sectionSpacing === "compact" ? "40px" : storefront.presentation.visual.sectionSpacing === "airy" ? "112px" : "clamp(64px, 7vw, 112px)",

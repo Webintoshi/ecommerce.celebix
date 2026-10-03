@@ -44,6 +44,7 @@ export function LilyumHeaderClient({ displayName, logo, navigation, locale, anno
   const cartCount = hydrated ? cart?.itemCount ?? 0 : 0;
   const favoriteCount = hydrated ? count : 0;
   const suppressTabs = /\/(?:checkout|account|search|odeme|urun\/|products\/)/.test(pathname);
+  const productRoute = /\/(?:urun\/|products\/)/.test(pathname);
   const catalog = productIndexPath(locale);
   return <>
     <header className="lf-header">
@@ -57,7 +58,7 @@ export function LilyumHeaderClient({ displayName, logo, navigation, locale, anno
         <nav className="lf-tools" aria-label="Mağaza araçları">
           <Link href="/search" aria-label="Ara"><StoreIcon name="search" /></Link>
           <Link className="lf-desktop-tool" href="/account" aria-label="Hesabım"><StoreIcon name="account" /></Link>
-          <button className="lf-desktop-tool" type="button" aria-label="Sepet" aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={event => openDrawer(event.currentTarget)}><LilyumIcon name="bag" />{cartCount > 0 ? <small>{Math.min(cartCount, 999)}</small> : null}</button>
+          <button className={`lf-desktop-tool${productRoute ? " lf-product-cart" : ""}`} type="button" aria-label="Sepet" aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={event => openDrawer(event.currentTarget)}><LilyumIcon name="bag" />{cartCount > 0 ? <small>{Math.min(cartCount, 999)}</small> : null}</button>
           <button ref={trigger} className="lf-menu-trigger" aria-label="Menüyü aç" aria-controls={id} aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} type="button"><LilyumIcon name="menu" /></button>
         </nav>
       </div>

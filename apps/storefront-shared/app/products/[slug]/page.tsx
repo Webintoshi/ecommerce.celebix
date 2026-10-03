@@ -13,6 +13,8 @@ import { GuzideProductDetailExperience } from "../../../themes/guzide/GuzideProd
 import { SioraProductDetailExperience } from "../../../themes/siora/SioraProductDetailExperience";
 import { sioraInitialVariant } from "../../../themes/siora/product-options.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
+import { lilyumThemeFor } from "../../../themes/lilyum/theme.ts";
+import { LilyumProductDetailExperience } from "../../../themes/lilyum/LilyumProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { SeoStructuredData } from "@/components/SeoStructuredData";
@@ -97,6 +99,7 @@ export async function renderProductPage({
   const { storefront, product: item } = selected;
   const siora = Boolean(sioraThemeFor(storefront));
   const guzide = Boolean(guzideThemeFor(storefront));
+  const lilyum = Boolean(lilyumThemeFor(storefront));
   if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
     permanentRedirect(productPath(storefront.locale, item.slug));
   }
@@ -163,6 +166,11 @@ export async function renderProductPage({
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
       /> : guzide ? <GuzideProductDetailExperience product={item} storefrontId={storefront.id}
+        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
+        options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        supportEmail={presentation.supportEmail}
+        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
+      /> : lilyum ? <LilyumProductDetailExperience product={item}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         supportEmail={presentation.supportEmail}

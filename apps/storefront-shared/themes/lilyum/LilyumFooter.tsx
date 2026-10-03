@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { PublicDesignMedia, PublicStarterFooter, PublicStorefront } from "@celebix/saas-contracts";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
 import { NewsletterForm } from "../../components/NewsletterForm";
+import { LILYUM_REFINED_LOGO } from "./logo.ts";
 
 export function LilyumFooter({ storefront, logo, groups, signature }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterFooter["groups"]; signature: React.ReactNode }) {
   const presentation = storefront.presentation;
   const footer = presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.footer : null;
   return <footer className="lf-footer">
     <div className="lf-container lf-footer-main">
-      <Link className="lf-footer-logo" href="/" aria-label={`${presentation.displayName} ana sayfa`}>{logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width="180" height="70" loading="lazy" /> : presentation.displayName}</Link>
+      <Link className="lf-footer-logo" data-refined-logo={logo?.url === LILYUM_REFINED_LOGO ? "true" : undefined} href="/" aria-label={`${presentation.displayName} ana sayfa`}>{logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width="180" height="70" loading="lazy" /> : presentation.displayName}</Link>
       <nav aria-label="Yardım"><Link href="/#lilyum-delivery">Teslimat</Link><a href={presentation.supportEmail ? `mailto:${presentation.supportEmail}` : "/pages/iletisim"}>İletişim</a></nav>
       <div className="lf-social">{footer?.social.map(item => <a key={item.url} href={item.url} aria-label={item.network}>{item.network}</a>)}</div>
       {signature}

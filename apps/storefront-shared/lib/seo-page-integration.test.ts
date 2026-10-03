@@ -14,6 +14,7 @@ import * as sioraTheme from "../themes/siora/theme.ts";
 import * as sioraProductOptions from "../themes/siora/product-options.ts";
 import * as alplerTheme from "../themes/alpler/theme.ts";
 import * as guzideTheme from "../themes/guzide/theme.ts";
+import * as lilyumTheme from "../themes/lilyum/theme.ts";
 import * as catalogQuery from "./product-catalog-query.ts";
 
 type Node = { type: unknown; props: Record<string, unknown> };
@@ -47,6 +48,8 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "../../../themes/siora/product-options.ts": sioraProductOptions,
     "../../../themes/alpler/theme.ts": alplerTheme,
     "../../../themes/guzide/theme.ts": guzideTheme,
+    "../../../themes/lilyum/theme.ts": lilyumTheme,
+    "../../../themes/lilyum/LilyumProductDetailExperience": { LilyumProductDetailExperience: "LilyumProductDetailExperience" },
     "../../../themes/guzide/guzide-product-explorer.module.css": { __esModule: true, default: { breadcrumb: "guzide-breadcrumb", section: "guzide-section" } },
     "../../../themes/guzide/GuzideProductDetailExperience": { GuzideProductDetailExperience: "GuzideProductDetailExperience" },
   };
@@ -100,14 +103,15 @@ test("home metadata retains legacy SEO before reader registration and reads new 
 
 test("tenant product experiences preserve published SEO while only the resolved Siora tenant is immersive", async () => {
   const guzideId = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
-  for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, guzideId, "a828862c-4cc1-475a-89cc-5fbee31eb4400", "unrelated-store"]) {
+  for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, guzideId, lilyumTheme.LILYUM_STOREFRONT_ID, "89e1e15f-8282-4e9b-ae3e-f417501bd54b", "a828862c-4cc1-475a-89cc-5fbee31eb4400", "unrelated-store"]) {
     const { exports } = await pageModule("../app/products/[slug]/page.tsx", "product", true, id);
     const tree = await exports.renderProductPage!({ params: Promise.resolve({ slug: "ring" }), routeVariant: "localized" } as never);
     const rendered = nodes(tree);
     assert.equal(rendered.some(({ type }) => type === "SioraProductDetailExperience"), id === sioraTheme.SIORA_STOREFRONT_ID);
     assert.equal(rendered.some(({ type }) => type === "GuzideProductDetailExperience"), id === guzideId);
-    assert.equal(rendered.some(({ type }) => type === "ProductDetailExperience"), id !== sioraTheme.SIORA_STOREFRONT_ID && id !== guzideId);
-    const experiences = rendered.filter(({ type }) => type === "SioraProductDetailExperience" || type === "GuzideProductDetailExperience" || type === "ProductDetailExperience");
+    assert.equal(rendered.some(({ type }) => type === "LilyumProductDetailExperience"), id === lilyumTheme.LILYUM_STOREFRONT_ID);
+    assert.equal(rendered.some(({ type }) => type === "ProductDetailExperience"), id !== sioraTheme.SIORA_STOREFRONT_ID && id !== guzideId && id !== lilyumTheme.LILYUM_STOREFRONT_ID);
+    const experiences = rendered.filter(({ type }) => type === "SioraProductDetailExperience" || type === "GuzideProductDetailExperience" || type === "LilyumProductDetailExperience" || type === "ProductDetailExperience");
     assert.equal(experiences.length, 1);
     assert.equal((experiences[0]?.props.product as { id: string }).id, "real-id");
     assert.equal(experiences[0]?.props.locale, "tr");

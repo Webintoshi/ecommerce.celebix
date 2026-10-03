@@ -2,6 +2,7 @@ import {
   type PublicStorefront,
   type PublicStorefrontDesign,
 } from "@celebix/saas-contracts";
+import { lilyumLogoFor } from "../../themes/lilyum/logo.ts";
 
 export type AccountAuthBranding = Readonly<{
   displayName: string;
@@ -37,6 +38,6 @@ export function resolveAccountAuthBranding(
       : null;
   return Object.freeze({
     displayName: storefront.presentation.displayName,
-    logo,
+    logo: lilyumLogoFor(storefront, logo),
   });
 }
