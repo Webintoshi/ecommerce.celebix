@@ -1,3 +1,4 @@
+import { readSupportCookie } from "../platform-support/policy.ts";
 import {
   ORDER_PAYMENT_STATUSES,
   ORDER_SORTS,
@@ -359,6 +360,9 @@ export type OrderPanelSessionCookieRead = Readonly<
 >;
 
 export function readOrderPanelSessionCookie(request: Request): OrderPanelSessionCookieRead {
+  const support = readSupportCookie(request.headers.get("cookie"));
+  if (support.kind !== "missing") return support;
+
   try {
     const header = request.headers.get("cookie");
     if (header === null) return Object.freeze({ kind: "missing" as const });

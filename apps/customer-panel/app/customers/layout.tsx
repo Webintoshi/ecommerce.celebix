@@ -8,6 +8,6 @@ export default async function CustomersLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { tenantContext } = await requireServerPanelAccess();
-  return <PanelShell tenantContext={tenantContext}>{children}</PanelShell>;
+  const { tenantContext, support } = await requireServerPanelAccess();
+  return <PanelShell tenantContext={tenantContext} support={support}>{children}</PanelShell>;
 }

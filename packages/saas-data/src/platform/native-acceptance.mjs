@@ -1,0 +1,32 @@
+// Explicit isolated fixture runner: no credentials and no production target can be supplied.
+import {spawn} from 'node:child_process';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+const database=process.argv[2];
+if(!/^celebix_owner_209_native_[0-9]{8}$/.test(database??''))throw new Error('Only explicitly isolated native fixture databases are allowed');
+const key=process.env.CELEBIX_NATIVE_SSH_KEY;
+if(!key)throw new Error('Set CELEBIX_NATIVE_SSH_KEY to the reviewed read/test SSH identity');
+function sql(text){return new Promise(resolve=>{const p=spawn('ssh',['-i',key,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ControlMaster=auto','-o','ControlPersist=60','-o','ControlPath=/tmp/celebix-platform209-ssh-%C','root@46.225.183.57',`docker exec -i ta8qw4jkvedkap7qqdakrb7y psql -X -qAt -U postgres -d ${database} -v ON_ERROR_STOP=1`]);let out='',err='';p.stdout.on('data',x=>out+=x);p.stderr.on('data',x=>err+=x);p.on('close',code=>resolve({code,out,err}));p.stdin.end(text);});}
+const op=randomUUID(),principal=randomUUID(),other=randomUUID(),store=randomUUID(),m1=randomUUID(),m2=randomUUID();
+const setup=await sql(`BEGIN;
+UPDATE saas.platform_operators SET active=false WHERE issuer='https://concurrency-fixture.invalid';
+INSERT INTO saas.principals VALUES('${principal}','https://concurrency-fixture.invalid','operator-${op}','sdkahmetcelebi@icloud.com',true,now(),now()),('${other}','https://concurrency-fixture.invalid','other-${op}','other@example.test',true,now(),now());
+INSERT INTO saas.platform_operators(id,issuer,subject,principal_id,email,active) VALUES('${op}','https://concurrency-fixture.invalid','operator-${op}','${principal}','sdkahmetcelebi@icloud.com',true);
+INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES('${store}','Native concurrency fixture','native-concurrency-${store.slice(0,8)}','active','tr','TRY','base',now(),now());
+INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES('${m1}','${principal}','${store}','store_owner','active',now(),now()),('${m2}','${other}','${store}','store_owner','active',now(),now());
+SELECT saas.platform_command('${op}','billing.period.create','{"storeId":"${store}","label":"Concurrency 1100000","startsOn":"2026-10-01","endsOn":"2026-10-31","dueOn":"2026-10-15","amountCents":1100000}',0,'native-concurrency-period');COMMIT;`);
+assert.equal(setup.code,0,setup.err);const period=JSON.parse(setup.out.trim()).result.periodId;
+const command=(amount,version,id)=>`BEGIN;SET LOCAL lock_timeout='5s';SET LOCAL ROLE celebix_saas_platform_operator;SELECT saas.platform_command('${op}','billing.receipt.record','{"storeId":"${store}","periodId":"${period}","amountCents":${amount},"method":"bank_transfer","reference":"native concurrent fixture"}',${version},'${id}');SELECT pg_sleep(0.25);COMMIT;`;
+const duplicate=await Promise.all([sql(command(500000,1,'native-concurrent-same')),sql(command(500000,1,'native-concurrent-same'))]);
+for(const x of duplicate)assert.equal(x.code,0,x.err);
+assert.deepEqual(duplicate.map(x=>JSON.parse(x.out.trim()).outcome).sort(),['committed','replayed']);
+const competing=await Promise.all([sql(command(600000,2,'native-concurrent-a')),sql(command(600000,2,'native-concurrent-b'))]);
+assert.equal(competing.filter(x=>x.code===0).length,1);assert.match(competing.find(x=>x.code!==0).err,/version_conflict/);
+const sum=await sql(`SELECT saas.platform_period_projection('${period}');`);assert.equal(sum.code,0,sum.err);const summary=JSON.parse(sum.out);assert.equal(summary.collectedCents,1100000);assert.equal(summary.remainingCents,0);
+const owners=await Promise.all([m1,m2].map(id=>sql(`BEGIN;SET LOCAL lock_timeout='5s';UPDATE saas.memberships SET status='revoked',updated_at=clock_timestamp() WHERE id='${id}';SELECT pg_sleep(0.25);COMMIT;`)));
+assert.equal(owners.filter(x=>x.code===0).length,1);assert.match(owners.find(x=>x.code!==0).err,/last_owner/);
+const remaining=await sql(`SELECT count(*) FROM saas.memberships WHERE store_id='${store}' AND role='store_owner' AND status='active';`);assert.equal(remaining.out.trim(),'1');
+const blocked=await sql(await readFile(new URL('../../../../apps/owner/scripts/sql/saas/202610040209_platform_control_plane.down.sql',import.meta.url),'utf8'));
+assert.notEqual(blocked.code,0);assert.match(blocked.err,/PLATFORM_ROLLBACK_HAS_HISTORY_FORWARD_RECOVERY_REQUIRED/);
+console.log('Native PostgreSQL concurrency PASS: identical keys serialize to committed/replayed; competing 6000 TL receipts produce one commit/one version conflict; no overpayment; concurrent last-owner demotions retain exactly one owner; rollback refuses financial history. Synthetic rows remain only in disposable fixture DB; drop fixture database after capturing result.');

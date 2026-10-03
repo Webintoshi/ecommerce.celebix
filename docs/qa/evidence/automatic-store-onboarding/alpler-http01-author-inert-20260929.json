@@ -1,0 +1,28 @@
+{
+  "pass": true,
+  "count": 17,
+  "cases": [
+    "inert_import",
+    "candidate_exact_hosts_services_no_secret",
+    "valid_selected_runtime_guards",
+    "reject_source_drift",
+    "reject_image_drift",
+    "reject_service_port",
+    "reject_authority_mismatch",
+    "reject_mode_drift",
+    "reject_source_mount",
+    "reject_parent_bind",
+    "reject_static_command_drift",
+    "reject_runtime_source_hash",
+    "reject_proxy_network",
+    "reject_app_network",
+    "reject_fixed_forwarded_host",
+    "reject_leaf_symlink",
+    "reject_parent_symlink"
+  ],
+  "helperSha256": "dd81b89d12514077d53659f2fe8758f8fcc32d8f1d8d0afd68cd13dcb3e6236c",
+  "candidateSha256": "93bc1a222f0214c204efec0d8d4bf2887225b70dc063d37c23a9800665d8b588",
+  "liveExecution": false,
+  "applyExecuted": false,
+  "mockedRuntimeFixtures": true
+}

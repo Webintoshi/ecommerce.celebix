@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-28T21:47:04.747134+00:00",
+  "helperSha256": "403ed597e700f82373cec92b5c69490c7dab72f21c0aba4bf018ee3981e8c0d2",
+  "snapshot": {
+    "archive": "proxy-before-wildcard.tar.gz",
+    "bytes": 786862,
+    "createdAt": "2026-09-28T21:29:56.523016+00:00",
+    "fileCount": 4,
+    "pass": true,
+    "proxy": {
+      "available": true,
+      "image": "traefik:v3.6",
+      "imageId": "sha256:3de33707981b5ed4632b0e2ddccd0561d5ef981e49709b8a07da814b637f3975",
+      "running": true
+    },
+    "scope": "fixed_proxy_snapshot",
+    "sha256": "102963e196e5c4d07865d26aba0eff693a2be3517b8fbb7aa60bbed543482d5b",
+    "sourceBytes": 1543319,
+    "stableSnapshot": true
+  },
+  "currentNamedArchiveValidated": true,
+  "archiveMode": "0600",
+  "receiptMode": "0600",
+  "receiptSha256": "81e567255d14d044ac24e7055b079cfb47e5c560384d0e6bf6b248ad8c669bfe",
+  "proxyInstalled": false,
+  "proxyRestarted": false,
+  "cloudflareTokenCreated": false
+}

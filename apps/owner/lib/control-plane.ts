@@ -34,7 +34,6 @@ type StorePriority = "normal" | "high" | "critical";
 type BillingStatus = "healthy" | "follow_up" | "hold";
 type StoreSubscriptionStatus = "unconfigured" | "active" | "expiring" | "expired";
 type HealthLabel = "kritik" | "kurulum" | "operasyonel" | "hazir";
-const STORE_SETUP_REVENUE = 19000;
 const STORE_SUBSCRIPTION_EXPIRING_THRESHOLD_DAYS = 14;
 
 interface OwnerStoreRow {
@@ -1512,8 +1511,6 @@ function buildStoreConsistency(
 
 async function getAccessibleStoreData(context: OwnerAuthContext): Promise<AccessibleStoreData> {
   const serviceClient = createOwnerServiceClient();
-  await syncOwnerStoresAndMetrics();
-
   const superAdmin = context.profile.role === "super_admin";
   let accessRows: OwnerStoreAccessRow[] = [];
 
@@ -2060,97 +2057,8 @@ export async function listRecentOwnerActivity(
 }
 
 export async function getOwnerDashboard(context: OwnerAuthContext): Promise<OwnerDashboardSummary> {
-  const stores = await listDashboardStores(context);
-  const cleanupRuns = (await listCleanupRuns({ unresolvedOnly: true, limit: 4 })).map(mapCleanupRunOverview);
-  const totals = stores.reduce(
-    (accumulator, store) => ({
-      setupRevenue: accumulator.setupRevenue + STORE_SETUP_REVENUE,
-      revenue: accumulator.revenue + store.totalRevenue,
-      orders: accumulator.orders + store.orderCount,
-      customers: accumulator.customers + store.customerCount,
-      activeStores: accumulator.activeStores + (store.status === "active" ? 1 : 0),
-      draftStores: accumulator.draftStores + (store.status === "draft" ? 1 : 0),
-      pendingOrders: accumulator.pendingOrders + store.pendingOrderCount,
-      liveStorefronts: accumulator.liveStorefronts + (store.storefrontStatus === "active" ? 1 : 0),
-      affiliateExposure: accumulator.affiliateExposure + (store.totalRevenue * store.totalAffiliateRate) / 100
-    }),
-    {
-      setupRevenue: 0,
-      revenue: 0,
-      orders: 0,
-      customers: 0,
-      activeStores: 0,
-      draftStores: 0,
-      pendingOrders: 0,
-      liveStorefronts: 0,
-      affiliateExposure: 0
-    }
-  );
-
-  const spotlightStores = [...stores].sort((left, right) => right.totalRevenue - left.totalRevenue).slice(0, 4);
-  const attentionStores = [...stores]
-    .filter(
-      (store) => {
-        const packageNeedsAttention =
-          store.management.subscription.status === "expiring" ||
-          store.management.subscription.status === "expired";
-
-        return (
-        store.status !== "active" ||
-        store.storeAdminCount === 0 ||
-        store.provisioning.state !== "ready" ||
-        !store.health.supabaseReady ||
-        !store.health.r2Ready ||
-        !store.health.secretAuthorityReady ||
-        !store.health.adminDeploymentReady ||
-        !store.health.adminRuntimeConsistent ||
-        store.pendingOrderCount > 0 ||
-        packageNeedsAttention
-        );
-      }
-    )
-    .sort((left, right) => {
-      const leftSubscriptionScore =
-        left.management.subscription.status === "expired"
-          ? 12
-          : left.management.subscription.status === "expiring"
-            ? 6
-            : 0;
-      const rightSubscriptionScore =
-        right.management.subscription.status === "expired"
-          ? 12
-          : right.management.subscription.status === "expiring"
-            ? 6
-            : 0;
-      const leftScore =
-        Number(left.health.label === "kritik") * 20 +
-        Number(left.provisioning.state !== "ready") * 10 +
-        Number(!left.health.secretAuthorityReady) * 8 +
-        Number(!left.health.adminRuntimeConsistent) * 8 +
-        Number(left.storeAdminCount === 0) * 5 +
-        leftSubscriptionScore +
-        left.pendingOrderCount;
-      const rightScore =
-        Number(right.health.label === "kritik") * 20 +
-        Number(right.provisioning.state !== "ready") * 10 +
-        Number(!right.health.secretAuthorityReady) * 8 +
-        Number(!right.health.adminRuntimeConsistent) * 8 +
-        Number(right.storeAdminCount === 0) * 5 +
-        rightSubscriptionScore +
-        right.pendingOrderCount;
-      return rightScore - leftScore;
-    })
-    .slice(0, 6);
-
-  return {
-    totals,
-    spotlightStores,
-    attentionStores,
-    orphanedCleanupRuns: cleanupRuns.length,
-    cleanupRuns,
-    recentActivity: await listRecentOwnerActivity(context, 8),
-    stores
-  };
+  // Historical estimates are retired. Read verified records through /api/platform.
+  throw new Error("legacy_finance_retired");
 }
 
 export async function listClientAccounts(context: OwnerAuthContext): Promise<ClientAccountSummary[]> {
@@ -2182,47 +2090,8 @@ export async function listClientAccounts(context: OwnerAuthContext): Promise<Cli
 }
 
 export async function getFinanceSummary(context: OwnerAuthContext): Promise<FinanceSummary> {
-  const stores = await listDashboardStores(context);
-  const totals = stores.reduce(
-    (accumulator, store) => ({
-      setupRevenue: accumulator.setupRevenue + STORE_SETUP_REVENUE,
-      revenue: accumulator.revenue + store.totalRevenue,
-      orders: accumulator.orders + store.orderCount,
-      pendingOrders: accumulator.pendingOrders + store.pendingOrderCount,
-      affiliateExposure: accumulator.affiliateExposure + (store.totalRevenue * store.totalAffiliateRate) / 100
-    }),
-    {
-      setupRevenue: 0,
-      revenue: 0,
-      orders: 0,
-      pendingOrders: 0,
-      affiliateExposure: 0
-    }
-  );
-
-  return {
-    totals: {
-      ...totals,
-      averageOrderValue: totals.orders > 0 ? Number((totals.revenue / totals.orders).toFixed(2)) : 0
-    },
-    rows: stores
-      .map((store) => ({
-        id: store.id,
-        slug: store.slug,
-        name: store.name,
-        status: store.status,
-        setupRevenue: STORE_SETUP_REVENUE,
-        totalRevenue: store.totalRevenue,
-        orderCount: store.orderCount,
-        averageOrderValue: store.averageOrderValue,
-        estimatedAffiliateExposure: Number(((store.totalRevenue * store.totalAffiliateRate) / 100).toFixed(2)),
-        affiliateCount: store.affiliateCount,
-        totalAffiliateRate: store.totalAffiliateRate,
-        commissionRate: store.commissionRate,
-        billingStatus: store.management.billingStatus
-      }))
-      .sort((left, right) => right.totalRevenue - left.totalRevenue)
-  };
+  // Historical estimates are retired. Read verified records through /api/platform.
+  throw new Error("legacy_finance_retired");
 }
 
 export async function getOperationsSummary(context: OwnerAuthContext): Promise<OperationsSummary> {

@@ -7,7 +7,7 @@ import { resolveServerPanelSession } from "@/lib/server-session";
 export async function resolveServerPanelAccess() {
   const decision = decideServerPanelAccess(await resolveServerPanelSession());
   if (decision.kind === "redirect") redirect(decision.destination);
-  return { session: decision.session, tenantContext: decision.tenantContext };
+  return { session: decision.session, tenantContext: decision.tenantContext, ...(decision.support ? { support: decision.support } : {}) };
 }
 
 export const requireServerPanelAccess = resolveServerPanelAccess;

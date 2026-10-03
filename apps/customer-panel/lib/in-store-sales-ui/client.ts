@@ -7,10 +7,11 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
-const CODES = ["invalid_input","unauthenticated","membership_denied","store_inactive","feature_not_enabled","origin_denied","not_found","ambiguous_barcode","version_conflict","operation_mismatch","invalid_transition","inventory_conflict","pricing_unavailable","discount_denied","discount_invalid","price_denied","payment_method_required","client_upgrade_required","credit_denied","customer_required","collection_invalid","customer_duplicate","customer_archived","unavailable"] as const;
+const CODES = ["invalid_input","unauthenticated","membership_denied","store_inactive","sales_paused","feature_not_enabled","origin_denied","not_found","ambiguous_barcode","version_conflict","operation_mismatch","invalid_transition","inventory_conflict","pricing_unavailable","discount_denied","discount_invalid","price_denied","payment_method_required","client_upgrade_required","credit_denied","customer_required","collection_invalid","customer_duplicate","customer_archived","unavailable"] as const;
 export type InStoreSalesUiErrorCode = typeof CODES[number];
 const MESSAGES:Record<InStoreSalesUiErrorCode,string> = {
   invalid_input:"Bilgileri kontrol edip yeniden dene.", unauthenticated:"Oturumun sona erdi. Yeniden giriş yap.",
+  sales_paused:"Yeni satışlar geçici olarak durduruldu. Mevcut satışa devam edebilirsin.",
   membership_denied:"Bu satış işlemi için yetkin bulunmuyor.", store_inactive:"Mağaza şu anda satışa açık değil.",
   feature_not_enabled:"Mağaza satışı henüz etkin değil.", origin_denied:"İşlem bu panelden doğrulanamadı. Sayfayı yenile.",
   not_found:"Satış kaydı bulunamadı veya erişilemiyor.", ambiguous_barcode:"Bu barkod birden fazla varyanta ait. Doğru ürünü seç.",

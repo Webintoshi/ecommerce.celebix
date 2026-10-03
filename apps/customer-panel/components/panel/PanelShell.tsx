@@ -1,3 +1,5 @@
+import { SupportBanner } from "./SupportBanner";
+import type { SupportSidecar } from "@/lib/platform-support/policy";
 import type { TenantContext } from "@celebix/saas-contracts";
 import { createPanelChromeModel, type PanelChromeModel } from "@/lib/panel-ui/chrome-model";
 import { resolvePanelAnalyticsAvailability } from "@/lib/server-analytics/availability";
@@ -7,9 +9,9 @@ import { PanelLayoutClient } from "./PanelLayoutClient";
 
 const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
 
-type PanelShellProps =
+type PanelShellProps = (
   | { children: React.ReactNode; model: PanelChromeModel; [SERVER_CONTEXT_PROP]?: never }
-  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext };
+  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext }) & { support?: SupportSidecar };
 
 export async function PanelShell(props: PanelShellProps) {
   const entitledModel = props.model ?? createPanelChromeModel(props[SERVER_CONTEXT_PROP]);
@@ -17,7 +19,7 @@ export async function PanelShell(props: PanelShellProps) {
   const [analyticsAvailable, stores, branding] = context
     ? await Promise.all([
         resolvePanelAnalyticsAvailability(context),
-        resolveDefaultPanelStoreOptions(context.store.id),
+        props.support ? Promise.resolve(undefined) : resolveDefaultPanelStoreOptions(context.store.id),
         resolveDefaultPanelStoreBranding(context),
       ])
     : [false, undefined, null] as const;
@@ -36,5 +38,5 @@ export async function PanelShell(props: PanelShellProps) {
       storeOptions,
     } : {}),
   });
-  return <PanelLayoutClient model={model}>{props.children}</PanelLayoutClient>;
+  return <>{props.support && <SupportBanner support={props.support} />}<PanelLayoutClient model={model}>{props.children}</PanelLayoutClient></>;
 }

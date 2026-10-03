@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-28T22:03:25.766900+00:00",
+  "pass": true,
+  "scope": "six_exact_task_release_artifacts",
+  "hostPrivateDirectoryMode": "0700",
+  "sourceContainer": "coolify",
+  "sourcePrivateDirectory": "/tmp/celebix-onboarding-20260928",
+  "hostPrivateDirectory": "/root/celebix-onboarding-20260928/release",
+  "results": [
+    {
+      "basename": "celebix-onboarding-shared-release-20260928.php",
+      "bytes": 21887,
+      "sha256": "f9a91891fa513ac40c49e6fdf89705a0c60e7c061d0bae3fa452503636a147ee",
+      "mode": "0600",
+      "createdThisStep": false,
+      "byteIdentical": true
+    },
+    {
+      "basename": "celebix-onboarding-owner-release-20260928.php",
+      "bytes": 16683,
+      "sha256": "73180baf6eb6050032cb452c0cd9bdf240dc20c69163c2fff59cc1503a095526",
+      "mode": "0600",
+      "createdThisStep": false,
+      "byteIdentical": true
+    },
+    {
+      "basename": "celebix-onboarding-shared-spec-20260928.json",
+      "bytes": 232,
+      "sha256": "dc6304eb8ae403fa2a63dabd573257d9d1269311377fec9f745f31c51822ed62",
+      "mode": "0600",
+      "createdThisStep": false,
+      "byteIdentical": true
+    },
+    {
+      "basename": "celebix-onboarding-owner-spec-20260928.json",
+      "bytes": 234,
+      "sha256": "82a42ce5b933ac08c7abcf13863ce455a7738cc62f7e6be15c9e1bcc4e11b513",
+      "mode": "0600",
+      "createdThisStep": false,
+      "byteIdentical": true
+    },
+    {
+      "basename": "shared-before-source.json.receipts.json",
+      "bytes": 204,
+      "sha256": "9c3ac20c91216e184186e49471a0d14e076af6c29053fcf4633f866f6f8555de",
+      "mode": "0600",
+      "createdThisStep": true,
+      "byteIdentical": true
+    },
+    {
+      "basename": "owner-before-source.json.receipts.json",
+      "bytes": 115,
+      "sha256": "350845e610b68d1871ac31b294456a83916b2a3da951e4b89909b176228e9fa0",
+      "mode": "0600",
+      "createdThisStep": true,
+      "byteIdentical": true
+    }
+  ],
+  "newOwnershipCopies": 2,
+  "existingHelpersAndSpecsValidated": 4,
+  "deploymentRequeued": false,
+  "configurationChanged": false,
+  "databaseChanged": false
+}

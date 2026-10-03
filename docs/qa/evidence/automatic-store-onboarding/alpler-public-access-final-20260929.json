@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-09-28T21:51:19.333333+00:00",
+  "readOnly": true,
+  "scope": "two_exact_alpler_public_health_transports",
+  "results": [
+    {
+      "target": "admin",
+      "hostname": "alpler-spor.admin.saas-staging.celebix.net",
+      "tlsVerified": false,
+      "redirectFollowed": false,
+      "bodyRead": false,
+      "cookiesSent": false,
+      "status": null,
+      "errorKind": "certificate_verify_failed",
+      "verificationCode": 20,
+      "durationMs": 970
+    },
+    {
+      "target": "storefront",
+      "hostname": "alpler-spor.saas-staging.celebix.net",
+      "tlsVerified": false,
+      "redirectFollowed": false,
+      "bodyRead": false,
+      "cookiesSent": false,
+      "status": null,
+      "errorKind": "certificate_verify_failed",
+      "verificationCode": 20,
+      "durationMs": 227
+    }
+  ],
+  "allTlsVerified": false,
+  "nativeBrowserLoginProven": false,
+  "tenantHealthBodyProven": false,
+  "tokenCreated": false,
+  "tlsBypassUsed": false
+}

@@ -1,5 +1,6 @@
 export const PAYMENT_ATTEMPT_ERROR_CODES = Object.freeze([
   "invalid_input",
+  "sales_paused",
   "unavailable",
   "commit_unknown",
   "operation_mismatch",

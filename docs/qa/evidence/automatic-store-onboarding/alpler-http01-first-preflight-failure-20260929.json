@@ -1,0 +1,7 @@
+{
+  "pass": false,
+  "mode": "apply",
+  "code": "private_directory_unsafe",
+  "installationMayHaveOccurred": true,
+  "rerunApplyAllowed": false
+}

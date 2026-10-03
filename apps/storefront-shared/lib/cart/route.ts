@@ -98,6 +98,7 @@ function failure(error: unknown): Response {
       "cart_empty",
       "price_changed",
       "stock_unavailable",
+      "sales_paused",
       "shipping_unavailable",
       "payment_unavailable",
       "operation_mismatch",

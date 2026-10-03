@@ -1,8 +1,9 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import {getPlatformOperator} from './platform/auth.ts';
 import type { User } from "@supabase/supabase-js";
-import { createOwnerServerClient, createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import { createOwnerServerClient } from "@/lib/owner-supabase-server";
 import {
   formatMissingOwnerSupabaseEnvMessage,
   getMissingOwnerSupabaseEnvNames,
@@ -22,7 +23,9 @@ export interface OwnerAuthContext {
 }
 
 export async function getOwnerAuthContext(): Promise<OwnerAuthContext | null> {
-  const missingEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
+  const operator = await getPlatformOperator();
+  if (!operator) return null;
+  const missingEnv = getMissingOwnerSupabaseEnvNames();
 
   if (missingEnv.length > 0) {
     console.error("Owner auth skipped:", formatMissingOwnerSupabaseEnvMessage(missingEnv));
@@ -38,18 +41,8 @@ export async function getOwnerAuthContext(): Promise<OwnerAuthContext | null> {
     return null;
   }
 
-  const serviceClient = createOwnerServiceClient();
-  const { data: profile, error } = await serviceClient
-    .from("owner_profiles")
-    .select("id, email, full_name, role, is_active")
-    .eq("id", user.id)
-    .maybeSingle<OwnerProfile>();
-
-  if (error || !profile || !profile.is_active) {
-    return null;
-  }
-
-  return { user, profile };
+  if (user.id !== operator.subject) return null;
+  return { user, profile: {id:user.id,email:operator.email,full_name:operator.label,role:'super_admin',is_active:true} };
 }
 
 export async function requireOwnerAuth(nextPath = "/"): Promise<OwnerAuthContext> {

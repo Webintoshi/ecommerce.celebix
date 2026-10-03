@@ -18,6 +18,7 @@ type PublicCartClientFailure =
   | "invalid_input"
   | "cart_empty"
   | "price_changed"
+  | "sales_paused"
   | "stock_unavailable"
   | "shipping_unavailable"
   | "payment_unavailable";
@@ -28,6 +29,7 @@ const PUBLIC_FAILURES = new Set<PublicCartClientFailure>([
   "cart_empty",
   "price_changed",
   "stock_unavailable",
+  "sales_paused",
   "shipping_unavailable",
   "payment_unavailable",
 ]);

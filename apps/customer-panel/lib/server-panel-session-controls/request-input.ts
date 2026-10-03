@@ -1,3 +1,4 @@
+import { readSupportCookie } from "../platform-support/policy.ts";
 import "server-only";
 
 import { validatePersistentPanelSessionCredential } from "../panel-session-completion/cookie.ts";
@@ -75,6 +76,9 @@ export type PersistentPanelSessionCookieRead = Readonly<
 >;
 
 export function readPersistentPanelSessionCookie(request: Request): PersistentPanelSessionCookieRead {
+  const support = readSupportCookie(request.headers.get("cookie"));
+  if (support.kind !== "missing") return support;
+
   const header = request.headers.get("cookie");
   if (header === null) return Object.freeze({ kind: "missing" });
   if (

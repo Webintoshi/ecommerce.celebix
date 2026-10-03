@@ -1,0 +1,4 @@
+import 'server-only';
+import {CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS,parseCustomerPanelStagingAuthConfig} from '../panel-auth-authority/config.ts';
+import {createInvitationBrowserHandlers} from './handlers.ts';
+export const invitationBrowserHandlers=createInvitationBrowserHandlers({clock:()=>new Date(),configuration(){const config=parseCustomerPanelStagingAuthConfig(Object.fromEntries(CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS.map(name=>[name,process.env[name]])));return {ownerOrigin:config.authority.ownerOrigin,panelOrigin:config.authority.panelOrigin,panelCallbackUrl:config.authority.panelCallbackUrl,authorizationOrigin:new URL(config.logto.endSessionEndpoint).origin,clientId:config.logto.clientId,key:config.keys.callbackInternal,keyId:config.keys.callbackInternalKeyId};},fetch(request){return fetch(request,{redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(12000)});}});
