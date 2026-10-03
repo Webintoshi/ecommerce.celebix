@@ -57,4 +57,4 @@
 - [x] Bağımsız kaynak/SQL incelemesindeki bulguları düzelt.
 - [x] 1440/1024/390 ekran, Uygula/Vazgeç, klavye/odak ve public form akışlarını doğrula.
 - [x] Son ortak sürüm ve ödeme kanıtlarına bağlı uyumlu SQL + storefront NET/SITE + panel NET/SITE yayını hazırla ve doğrula.
-- [ ] Canlı kabulü, test sınırlarını ve kalan gerçek bağımlılıkları operasyon raporuna kaydet.
+- [x] Canlı kabulü, test sınırlarını ve kalan gerçek bağımlılıkları operasyon raporuna kaydet.
