@@ -1,5 +1,5 @@
 [data-storefront-theme="lilyum-deniz"] .lf-logo img { mix-blend-mode:normal; }
-[data-storefront-theme="lilyum-deniz"] .lf-footer-logo[data-refined-logo="true"] img { filter:brightness(0) invert(1); mix-blend-mode:normal; }
+[data-storefront-theme="lilyum-deniz"] .lf-footer-logo[data-refined-logo="true"] img { background:transparent;filter:brightness(0) invert(1);mix-blend-mode:normal; }
 [data-storefront-theme="lilyum-deniz"] .lf-product-detail { padding-bottom:40px; }
 [data-storefront-theme="lilyum-deniz"] .lf-product-breadcrumb { display:flex;flex-wrap:wrap;gap:8px;padding:22px 0 10px;color:#70776e;font-size:11px;line-height:1.7; }
 [data-storefront-theme="lilyum-deniz"] .lf-product-breadcrumb>span { display:inline-flex;gap:8px; }
