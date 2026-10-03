@@ -1,4 +1,5 @@
 import assert from"node:assert/strict";import test from"node:test";import{MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,MERCHANT_ADMIN_RECORD_KINDS,type MerchantAdminProviderRecordKind}from"@celebix/saas-contracts";import{createMerchantAdminApi}from"./client.ts";const NOW="2026-07-22T19:00:00.000Z",ID="71000000-0000-4000-8000-000000000001",OP="72000000-0000-4000-8000-000000000001";
+import { createDefaultContactWidgetConfig } from "@celebix/saas-contracts";
 function providerKindTypeBoundary(api:ReturnType<typeof createMerchantAdminApi>){if(false){
  // @ts-expect-error non-provider records must not compile at the browser provider list boundary
  void api.providerJobs("discount");
@@ -50,7 +51,7 @@ test("merchant family client executes exact CRUD for every finite kind and every
   assert.ok(recordMatch,path);
   const recordKind=recordMatch[1]!;
   if(init?.method!=="POST"){
-   const value={id:ID,kind:recordKind,name:`${recordKind} fixture`,config:{},status:"active",version:1,createdAt:NOW,updatedAt:NOW};
+   const value={id:ID,kind:recordKind,name:`${recordKind} fixture`,config:recordKind === "contact_widget" ? createDefaultContactWidgetConfig() : {},status:"active",version:1,createdAt:NOW,updatedAt:NOW};
    return response(recordMatch[2]?value:{items:[value]});
   }
   if(path.endsWith("/archive"))return response({id:ID,kind:recordKind,status:"archived",version:3,updatedAt:NOW,replayed:false});

@@ -94,6 +94,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/settings/analytics",
       "/settings/artificial-intelligence",
       "/settings/design",
+      "/settings/store-tools",
       "/accounting",
       "/accounting/receivables",
       "/accounting/accounts",
@@ -360,6 +361,21 @@ test("AI settings navigation is exact and query-safe", () => {
   assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence", "/settings/artificial-intelligence"), true);
   assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence-evil", "/settings/artificial-intelligence"), false);
   assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence?tab=provider", "/settings/artificial-intelligence"), false);
+});
+
+test("store tools navigation has truthful initial metadata and exact activation", () => {
+  const settings = findNavigationItem("settings");
+  const appearance = settings?.children?.slice(-2);
+  assert.deepEqual(appearance?.map(({ label, href }) => ({ label, href })), [
+    { label: "Tasarım", href: "/settings/design" },
+    { label: "Mağaza araçları", href: "/settings/store-tools" },
+  ]);
+  assert.equal(appearance?.at(-1)?.icon, "settings");
+  assert.equal(getPanelRoutePresentation("/settings/store-tools").title, "Mağaza araçları");
+  assert.deepEqual(activeLabels("/settings/store-tools"), ["Ayarlar", "Mağaza araçları"]);
+  for (const path of ["/settings/store-tools-evil", "/settings/store-tools/child", "/settings/store-tools?tab=contact", "/settings/store-tools#contact"]) {
+    assert.equal(isPanelNavigationPathActive(path, "/settings/store-tools"), false, path);
+  }
 });
 
 test("selects only exact customer children and safe detail descendants", () => {

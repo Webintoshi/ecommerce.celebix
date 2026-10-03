@@ -17,6 +17,7 @@ import {
   PostgresPublicAbandonedCartRepository,
   PostgresPublicStorefrontRepository,
   PostgresPublicStorefrontContentRepository,
+  PostgresPublicContactWidgetRepository,
   PostgresPublicSeoRepository,
   PostgresNewsletterRepository,
   PostgresStorefrontCommerceRepository,
@@ -28,6 +29,7 @@ import {
   parseMerchantProviderCredentialKeyring,
   type PaymentAttemptRepository,
   type PublicStorefrontContentRepository,
+  type PublicContactWidgetRepository,
   type PublicSeoRepository,
   type PublicStorefrontRepository,
   type NewsletterRepository,
@@ -79,6 +81,7 @@ const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lock
 export type PublicStorefrontRuntime = Readonly<{
   repository: PublicStorefrontRepository;
   content: PublicStorefrontContentRepository;
+  contactWidgets?: PublicContactWidgetRepository;
   seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
@@ -335,6 +338,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     return Object.freeze({
       repository: publicRepository,
       content,
+      contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       ...(seo ? { seo } : {}),
       commerce,
       cart,

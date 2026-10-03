@@ -358,6 +358,7 @@ async function compileBoundPage(
   const designAccess = Object.freeze({ readiness: Object.freeze({ mode: "approved_staging" as const }), panelOrigin: "https://panel.test" });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "next/navigation") return { redirect(destination: string) { throw new Error(`unexpected_redirect:${destination}`); } };
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === componentModule) return { [componentExport]: Component };
     if (specifier === "@/components/panel/PanelWorkspaceShell") return { PanelWorkspaceShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children) };
@@ -568,6 +569,7 @@ test("merchant route matrix invokes every actual page, production console, clien
 
   const genericDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind, family }) => family !== "seo" && ![
     "ai_setting",
+    "contact_widget",
     "discount",
     "payment_setting",
     "category_showcase",
@@ -938,6 +940,7 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
         "/settings/analytics",
         "/settings/artificial-intelligence",
         "/settings/design",
+        "/settings/store-tools",
       ],
     },
     {
@@ -964,6 +967,16 @@ test("static merchant hubs invoke actual pages and expose only canonical destina
     assert.deepEqual(destinations, entry.destinations, entry.route);
     assert.doesNotMatch(window.document.body.textContent, /Toplam kayıt|Kalıcı kayıt/u, entry.route);
     await window.happyDOM.close();
+  }
+});
+
+test("store tools binds configuration permission to its dedicated editor", async () => {
+  const Component = () => null;
+  for (const [role, canManage] of [["store_owner", true], ["admin", true], ["editor", false], ["analyst", false]] as const) {
+    const Page = await compileBoundPage("/settings/store-tools", "@/components/settings/StoreToolsConsole", "StoreToolsConsole", Component, role);
+    const element = findElement(await Page(), element => element.type === Component);
+    assert.equal(element.props.canManage, canManage, role);
+    assert.equal(element.props.tenantContext, undefined, role);
   }
 });
 

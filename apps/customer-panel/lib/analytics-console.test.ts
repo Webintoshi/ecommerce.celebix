@@ -813,7 +813,7 @@ test("five typed storefront settings expose exact safe field contracts without s
     )?.allowedValues,
     ["none", "sparkle", "truck", "shield"],
   );
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 34);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 35);
   assert.equal(
     JSON.stringify(MERCHANT_MODULE_DEFINITIONS).match(
       /secret|password|credential|token|api.?key/gi,

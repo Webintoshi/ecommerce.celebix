@@ -691,3 +691,4 @@ export * from './accounting/index.ts';
 
 export { parseProductVariantGallery, parseProductVariantGalleryAssignments } from "./media/variant-gallery.ts";
 export type { ProductVariantGallery, ProductVariantGalleryAssignment } from "./media/variant-gallery.ts";
+export * from "./contact-widget/index.ts";

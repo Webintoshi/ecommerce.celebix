@@ -151,6 +151,7 @@ export async function renderProductPage({
   const breadcrumbs = [{ name: storefront.presentation.displayName, path: "/" }, ...(item.categoryPath ?? []).map(({ name, slug }) => ({ name, path: categoryPath(storefront.locale, slug) })), { name: item.title, path: seo.path }];
   return (
     <StorefrontFrame storefront={storefront} design={selected.design} immersiveProduct={siora}>
+      <span hidden data-contact-product-title={item.title} data-contact-product-path={productPath(storefront.locale, item.slug)} data-contact-product-canonical={seo.canonical} />
       <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description)} />
       <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent

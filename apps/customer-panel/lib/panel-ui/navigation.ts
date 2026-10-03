@@ -42,6 +42,7 @@ export type PanelNavigationHref =
   | "/marketplaces"
   | "/settings"
   | "/settings/design"
+  | "/settings/store-tools"
   | "/settings/domains"
   | "/settings/general"
   | "/settings/language"
@@ -212,6 +213,7 @@ const SETTINGS_CHILDREN = Object.freeze([
   item("analytics-settings", "Analitik ve sepet", "/settings/analytics", "analytics"),
   item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "settings"),
   item("design-settings", "Tasarım", "/settings/design", "design"),
+  item("store-tools-settings", "Mağaza araçları", "/settings/store-tools", "settings"),
 ]);
 
 const ACCOUNTING_CHILDREN = Object.freeze([
@@ -310,6 +312,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/marketplaces": presentation("Pazar Yerleri"),
   "/settings": presentation("Ayarlar"),
   "/settings/design": presentation("Tasarım Ayarları"),
+  "/settings/store-tools": presentation("Mağaza araçları"),
   "/settings/domains": presentation("Alan Adı"),
   "/settings/general": presentation("Genel Ayarlar"),
   "/settings/language": presentation("Dil Ayarları"),
