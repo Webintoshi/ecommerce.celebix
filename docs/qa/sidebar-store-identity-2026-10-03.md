@@ -1,6 +1,6 @@
 # Sidebar mağaza kimliği — uygulama kontrolü
 
-Tarih: 2026-10-03. Başlangıç: `0ee2e9b6`. Kullanıcı HTML önerisini “evet uygula” ile onayladı. Bu teslimat yerel ortak Customer Panel kodudur; canlı yayın yapılmadı.
+Tarih: 2026-10-03. Başlangıç: `0ee2e9b6`. Kullanıcı HTML önerisini “evet uygula” ile onayladı. İlk teslimat yerel ortak Customer Panel koduydu. Onaylı değişiklik aşağıdaki ortak yayınla canlıya ulaştı.
 
 ## Uygulama
 
@@ -93,3 +93,24 @@ Odak düzeltmesi sonrası eski HookTestHost yardımcı nesnesi, gerçek DOM'un c
 - category manager keeps create and refresh available at the shell mobile breakpoint with predictable drawer focus
 - login and logout remain fail-closed without approved staging auth authority
 - catalog subresource pages lock resource kinds in server-authorized routes
+
+## Ortak canlı yayın — 2026-10-03
+
+Kullanıcının canlı yayın ve sohbetler arası koordinasyon izniyle CEMO'nun ortak yayın paketine dahil edildi. Uygulama commit'i `810e7c44cbde602083b90317d2e6e2a301b77892`, birleştirme `f56786eb8d84c6b5333be931231b8181d21410d7`; iki panelde çalışan sürüm `02611e0b9e9cbce2cc18ca563efc3509cdc6596a`, dal `codex/storefront-contact-tools`.
+
+| Hedef | Dağıtım | Sonuç |
+|---|---|---|
+| Ortak panel NET | `wohrfpdmey2c26sy9bspe5vx` | finished; hata işareti yok |
+| Ortak panel SITE | `irfun8x08bwiqvm7tnj8o7h1` | finished; hata işareti yok |
+
+Mira'nın bağımsız kontrolü 12:11 UTC'de geçti:
+
+- 12 onaylı uygulama yolu kaynak kontrolünde PASS: 11 dosya birebir aynı; package.json yalnız iki ek test yolu içeriyor, onaylı testler korunmuş.
+- Her iki çalışan image tam olarak hedef UUID + canlı SHA; durum running. Docker health tanımlı değil; gerçek HTTP sağlık endpointleri ayrıca doğrulandı.
+- İki image'da 9 üretim dosyasının gerçek hash'i, SOURCE_COMMIT ve derlenmiş yan menü client/server grupları PASS.
+- Güzide, Butik Siora ve Alpler: health HTTP 200/status ok/Redis ready; doğru ve birbirinden farklı mağaza kimlikleri. Oturumsuz girişler aynı hosttaki login'e gidiyor ve HTTP 200.
+- Kullanılmayan ayrı sidebar yayın kiti DRAFT_LOCKED kaldı. Mira ek kuyruk, pin değişikliği, migration veya sağlayıcı çağrısı yapmadı. Ortak paketin diğer özelliklerini ve yayın işlemlerini CEMO yönetti.
+
+Kanıtlar: [kaynak](evidence/sidebar-store-identity/live-source-02611e0b.json), [çalışan image ve derlenmiş kod](evidence/sidebar-store-identity/live-runtime-02611e0b.json), [adres ve tenant sağlık kontrolü](evidence/sidebar-store-identity/live-public-health-2026-10-03.json).
+
+Canlı panel için oturumlu görsel etkileşim Mira tarafından yapılmadı; geçici kontrol sekmesi giriş istedi ve kapatıldı. Görünüm ve klavye davranışları yukarıdaki gerçek bileşen fixture'larıyla doğrulandı; bunlar canlı ekran görüntüsü olarak sunulmadı.

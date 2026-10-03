@@ -1,0 +1,107 @@
+{
+  "scope": "source-only; no runtime or release proof",
+  "approvedCommit": "810e7c44cbde602083b90317d2e6e2a301b77892",
+  "candidateCommit": "02611e0b9e9cbce2cc18ca563efc3509cdc6596a",
+  "pass": true,
+  "results": [
+    {
+      "path": "apps/customer-panel/components/panel/PanelShell.tsx",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "c0da852593f612da45157a5c4daca07d7aea03bca9ffe0640de72f3b016b9084",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelSidebar.behavior.test.ts",
+      "kind": "test",
+      "pass": true,
+      "exact": true,
+      "sha256": "7a15e9a3a6084f4415393e4a64010bb3024fa81b0e56c2e9d0c1ad9e23e40a8d",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/components/panel/PanelSidebar.tsx",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "7f77c7b6fd51e9d3ac9b8758df4b098c276659d560c712fe587a8a6f7324fc4d",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/components/panel/StoreSwitcher.tsx",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "d4316b2669f5b69f533c9909a4f5eb464091283e4bc4baf6e3d05fab63d3ebfa",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/components/panel/panel-shell.module.css",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "ea2d39ab8de08da0e285e4aa702a8ec4099e51fcab9cb4dafdf638cba8ed0d0a",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-shell.test.ts",
+      "kind": "test",
+      "pass": true,
+      "exact": true,
+      "sha256": "b9091588393dbd1c90dadc0ec3e438a8883beafefefae473ac7cb87c63b2d347",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/panel-ui/client-chrome-model.ts",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "5eebfb38ddfe7404e14c4b6882abb5f5834a810ea9ae9985fa072d6317de17dd",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/server-panel-access/postgres-runtime.ts",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "75797348fcf9047e6cec7d512d7ac71eee9f10582136edbb9dd6e60a329b38d2",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/server-panel-branding/default.ts",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "907e7df7ad3fcdabab2d3147434f83eb6894ac23a8a46f739c0c0d7eb1265305",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/server-panel-branding/service.test.ts",
+      "kind": "test",
+      "pass": true,
+      "exact": true,
+      "sha256": "11aa38985065c9377ace45f14dbc7dddce46b68bd53ecf7c687149a78382397b",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/lib/server-panel-branding/service.ts",
+      "kind": "production",
+      "pass": true,
+      "exact": true,
+      "sha256": "8bc10a371f603e2296e61908dfefbfa155ac5bc07cf754f609a808ab8d6ea688",
+      "detail": "byte-identical"
+    },
+    {
+      "path": "apps/customer-panel/package.json",
+      "kind": "production",
+      "pass": true,
+      "exact": false,
+      "sha256": "69ba2ab2b039fcd5df2ca1064fdd517949f9e617cd367bddb3c1b74f699c5444",
+      "detail": [
+        "components/catalog-admin/CatalogExtras.behavior.test.ts",
+        "components/settings/StoreToolsConsole.behavior.test.ts"
+      ]
+    }
+  ]
+}

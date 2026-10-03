@@ -3,7 +3,7 @@ import {createDefaultRestockAlertsConfig,parseRestockAlertsConfig,type MerchantA
 import {Bell,ArrowUpRight,X} from 'lucide-react';
 import {useCallback,useEffect,useRef,useState,type FormEvent,type KeyboardEvent} from 'react';
 import {MerchantAdminApiError,merchantAdminApi} from '@/lib/merchant-admin-ui/client';
-import styles from './store-tools.module.css';
+import styles from './restock-frame.module.css';
 import local from './restock-tool.module.css';
 type Stats={awaitingConfirmation:number;pendingConfirmed:number;sent:number;failed:number;recent:{productTitle:string;variantTitle:string;emailMask:string;status:string;error:string|null;createdAt:string}[]};
 const labels:Record<string,string>={awaiting_confirmation:'Onay bekliyor',confirmed:'Stok bekliyor',notified:'Gönderildi',cancelled:'İptal edildi',expired:'Onay süresi doldu',failed:'Gönderilemedi'};
