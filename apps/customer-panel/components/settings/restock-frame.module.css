@@ -4,9 +4,9 @@
 .toolCopy h2 { margin: 0 0 8px; font-size: 16px; font-weight: 650; }
 .toolCopy p { margin: 0 0 8px; color: var(--cp-text-secondary); font-size: 14px; }
 .toolCopy span,.status,.toolSkeleton { color: var(--cp-text-secondary); font-size: 13px; }
-.workspace button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 16px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.workspace button:disabled { opacity: .5; cursor: not-allowed; }
-.workspace button:focus-visible,.workspace a:focus-visible,.workspace input:focus-visible,.workspace select:focus-visible,.workspace textarea:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
+.toolRow > button,.toolSkeleton button,.modal button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 16px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.toolRow > button:disabled,.toolSkeleton button:disabled,.modal button:disabled { opacity: .5; cursor: not-allowed; }
+.toolRow > button:focus-visible,.toolSkeleton button:focus-visible,.modal button:focus-visible,.modal a:focus-visible,.modal input:focus-visible,.modal select:focus-visible,.modal textarea:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
 .toolSkeleton { padding: 32px 0; }
 .backdrop { position: fixed; inset: 0; z-index: 110; background: color-mix(in srgb,var(--cp-sidebar) 40%,transparent); }
 .modal { position: fixed; z-index: 111; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(1080px,calc(100vw - 48px)); max-height: min(900px,calc(100dvh - 48px)); display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 16px; background: var(--cp-canvas); color: var(--cp-text-primary); }
@@ -80,7 +80,8 @@
 .modalFooter { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--cp-border); background: var(--cp-canvas); padding: 16px 24px; }
 .modalFooter > span { color: var(--cp-text-secondary); font-size: 12px; }
 .modalFooter > div { display: flex; gap: 12px; }
-.workspace .primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); border-color: var(--cp-action-primary); }
+.modalFooter button { min-height: 44px; min-width: 96px; }
+.modal .primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); border-color: var(--cp-action-primary); }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .workspace [hidden] { display: none; }
 @media (max-width: 1024px) { .contentGrid { gap: 24px; grid-template-columns: minmax(0,1fr) minmax(240px,280px); } .channelFields { grid-template-columns: 1fr; } }
