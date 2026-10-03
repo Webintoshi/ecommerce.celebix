@@ -5,6 +5,7 @@ import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTra
 import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
 import { resolveStorefrontPage } from "../lib/page-context.ts";
 import { StorefrontFrame } from "../components/StorefrontFrame";
+import { StorefrontNavigationScroll } from "../components/StorefrontNavigationScroll";
 import { ContactWidget } from "../components/ContactWidget";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import "./globals.css";
@@ -37,6 +38,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {page.kind === "active" && guzideThemeFor(page.context.storefront)
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
           : children}
+        <StorefrontNavigationScroll />
         {page.kind === "active" && page.context.contactWidget?.enabled ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} /> : null}
         {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>

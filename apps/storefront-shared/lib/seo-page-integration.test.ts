@@ -43,6 +43,7 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context }) }, "@/lib/page-resolution.ts": { requireStorefrontPage: (value: { context: unknown }) => value.context, StorefrontUnavailableError: class extends Error {} },
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError, StorefrontContentRepositoryError: RepositoryError }, "@celebix/saas-contracts": {}, "@celebix/storefront-design-ui": {},
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
+    "../../../components/RestockAlerts": { RestockAlertsProvider: "RestockAlertsProvider" },
     "../../../themes/siora/theme.ts": sioraTheme,
     "../../../themes/siora/SioraProductDetailExperience": { SioraProductDetailExperience: "SioraProductDetailExperience" },
     "../../../themes/siora/product-options.ts": sioraProductOptions,
