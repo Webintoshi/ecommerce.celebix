@@ -15,7 +15,7 @@ export function LilyumProductDetailExperience({ product, locale, relatedProducts
   options: StarterProductDetailConfigV2; cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"]; imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"]; showQuantitySelector: boolean; supportEmail?: string;
 }>) {
   const related = availableProductsFirst(relatedProducts);
-  return <div className="lf-product lf-container" data-lilyum-product data-mobile-sticky={options.mobileStickyPurchase ? "true" : undefined}>
+  return <div className="lf-product-detail lf-container" data-lilyum-product data-mobile-sticky={options.mobileStickyPurchase ? "true" : undefined}>
     {options.showBreadcrumbs ? <nav className="lf-product-breadcrumb" aria-label="İçerik yolu"><Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>{(product.categoryPath ?? []).map(category => <span key={category.slug}><Link href={categoryPath(locale, category.slug)}>{category.name}</Link><span aria-hidden="true">/</span></span>)}<span aria-current="page">{product.title}</span></nav> : null}
     <Link className="lf-product-back" href={product.categoryPath?.[0] ? categoryPath(locale, product.categoryPath[0].slug) : productIndexPath(locale)}><LilyumIcon name="arrow" />Çiçekleri keşfet</Link>
     <ProductVariantMediaProvider key={product.id} product={product}>
