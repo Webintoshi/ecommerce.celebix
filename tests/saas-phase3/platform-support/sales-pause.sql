@@ -40,7 +40,7 @@ BEGIN
  INSERT INTO saas.platform_operators(id,issuer,subject,principal_id,email,active) VALUES(op,'https://qa.celebix.invalid','pos208',pr,'sdkahmetcelebi@icloud.com',true);
  INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,created_at,updated_at,management) VALUES(gen_random_uuid(),st,'pos-support.admin.example.test','platform_subdomain','active',true,started,started,started,'platform');
  support_value:=saas.platform_support_issue(op,st,'pos-support.admin.example.test','Verify pending sale recovery',1,'pos-support.issue',repeat('c',64));
- PERFORM saas.platform_support_redeem(support_value->>'handoff','pos-support.admin.example.test');
+ PERFORM saas.platform_support_redeem(support_value->>'handoff','pos-support.admin.example.test',repeat('f',64));
  SELECT id INTO support_member FROM saas.memberships WHERE support_session_id=(support_value->>'id')::uuid;
 
 

@@ -3,7 +3,7 @@
 ## Implemented
 
 - SQL210 creates restricted NOLOGIN runtime role, hashed 30-minute host-bound support sessions, support membership provenance, independent sales policy, immutable write journal, and reversible native function patches.
-- Issue takes seven arguments, including controller-derived HMAC64 handoff. Matching retry returns the identical token; only its hash is stored. Redemption is one use and independently emits a hashed server credential.
+- Issue takes seven arguments, including controller-derived HMAC64 handoff. Matching retry returns the identical token; only its hash is stored. Redemption consumes one support session, using a deterministic server HMAC credential so matching retries recover a lost commit response without a second session or expiry extension.
 - App uses a separate Secure/HttpOnly/Strict __Host cookie. Every request resolves the actual operator principal and real current store plan; no feature bypass or TenantContext extension. Banner, countdown and end control appear in all panel layouts. Revoked/expired sessions clean the overriding cookie through /support/ended.
 - Native membership authority uses real clock expiry, revocation, active immutable operator identity and verified admin domain. Normal session creation, cross-host handoffs, staff lists and usage ignore support memberships.
 - Writes initiate an atomic operator/session journal in native mutation functions and on business tables. Worker job updates retain durable initiating operator/journal identity while executing as workflow, including after support revocation; they acquire no interactive support rights.
@@ -14,7 +14,7 @@
 ## Exact native helpers
 
 - platform_support_issue(operator UUID, store UUID, host TEXT, reason TEXT, expected_version BIGINT, idempotency_key TEXT, deterministic_handoff TEXT) -> projection + handoff/replayed. Initial expected version is 1.
-- platform_support_redeem(handoff, host) -> projection + credential.
+- platform_support_redeem(handoff, host, deterministic_server_credential) -> projection + credential/replayed. The former two-argument signature is absent.
 - platform_support_resolve(credential, host, request_id) -> support sidecar + unchanged TenantContext, or null.
 - platform_support_end(credential, host); platform_support_revoke(operator, session, version, key); platform_support_list(operator, query).
 - platform_sales_policy_get(operator, store); platform_sales_policy_set(operator, store, paused, reason, expected_policy_version, key). Absent policy version is 1.
@@ -22,9 +22,9 @@
 
 ## Runtime configuration
 
-Customer-panel only: CELEBIX_PLATFORM_SUPPORT_ENABLED=true (enable only after rollout reader checks), CELEBIX_SUPPORT_DATABASE_URL, CELEBIX_SAAS_DATABASE_NAME and existing optional CELEBIX_STAGING_DB_CA_B64. URL must target that exact shared database with a dedicated non-superuser, non-bypass-RLS login having only membership in celebix_saas_support_runtime. The pool refuses owner/bootstrap/operator/app/identity/workflow/migrator memberships and privileged role attributes. It SET LOCAL ROLEs runtime per request, bounds checkout/statement/lock/transaction time and destroys uncertain-commit connections. General business APIs retain their existing independently scoped database pool.
+Customer-panel only: CELEBIX_PLATFORM_SUPPORT_ENABLED=true (enable only after rollout reader checks), CELEBIX_SUPPORT_DATABASE_URL, CELEBIX_SAAS_DATABASE_NAME, the shared 32-byte base64url CELEBIX_PLATFORM_HANDOFF_KEY_B64URL, and existing optional CELEBIX_STAGING_DB_CA_B64. URL must target that exact shared database with a dedicated non-superuser, non-bypass-RLS login having only membership in celebix_saas_support_runtime. The pool refuses owner/bootstrap/operator/app/identity/workflow/migrator memberships and privileged role attributes. It SET LOCAL ROLEs runtime per request, bounds checkout/statement/lock/transaction time and destroys uncertain-commit connections. General business APIs retain their existing independently scoped database pool.
 
-Owner requires controller CELEBIX_PLATFORM_HANDOFF_KEY_B64URL to be identical on both Owner distributions; fixed HMAC derivation is controller-owned. Shared admin and storefront retain their existing environment contract for pause readers.
+Owner and customer-panel require CELEBIX_PLATFORM_HANDOFF_KEY_B64URL to be identical on both corresponding distributions. Purpose-separated fixed HMAC derivations stay server-only. Shared admin and storefront retain their existing environment contract for pause readers. Final recovery, native predecessor and rollback evidence is recorded in task-2-final-review.md.
 
 ## Verification
 

@@ -23,7 +23,7 @@ export async function supportQuery(action:'resolve'|'redeem'|'end',values:unknow
   if(role.rows[0]?.rolsuper!==false||role.rows[0]?.rolbypassrls!==false||role.rows[0]?.rolcreaterole!==false||role.rows[0]?.rolcreatedb!==false||role.rows[0]?.rolreplication!==false||role.rows[0]?.support!==true||role.rows[0]?.excessive!==false)throw Error('support_database_role_invalid');
   await client.query(action==='resolve'?'BEGIN READ ONLY':'BEGIN');
   await client.query('SET LOCAL ROLE celebix_saas_support_runtime');
-  const query=action==='resolve'?'SELECT saas.platform_support_resolve($1,$2,$3) AS result':action==='redeem'?'SELECT saas.platform_support_redeem($1,$2) AS result':'SELECT saas.platform_support_end($1,$2) AS result';
+  const query=action==='resolve'?'SELECT saas.platform_support_resolve($1,$2,$3) AS result':action==='redeem'?'SELECT saas.platform_support_redeem($1,$2,$3) AS result':'SELECT saas.platform_support_end($1,$2) AS result';
   const result=await client.query(query,values);
   try { await client.query('COMMIT'); }catch { terminal=true;client.release(true);throw Error('support_unavailable'); }
   return result.rows[0]?.result;

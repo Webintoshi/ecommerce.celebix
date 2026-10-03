@@ -113,19 +113,25 @@ BEGIN
  INSERT INTO saas.platform_audit(id,operator_id,store_id,action,payload,created_at) VALUES(gen_random_uuid(),p_operator,p_store,'support.issue',jsonb_build_object('sessionId',s.id,'reason',s.reason,'adminHost',p_host),moment);
  RETURN saas.platform_support_projection(s.id)||jsonb_build_object('handoff',token,'replayed',false);
 END $f$;
-CREATE FUNCTION saas.platform_support_redeem(p_handoff text,p_host text) RETURNS jsonb
+CREATE FUNCTION saas.platform_support_redeem(p_handoff text,p_host text,p_credential text) RETURNS jsonb
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE s saas.platform_support_sessions; token text;
 BEGIN
- IF p_handoff IS NULL OR p_handoff!~'^[a-f0-9]{64}$' THEN RAISE EXCEPTION 'support_denied'; END IF;
+ IF p_handoff IS NULL OR p_handoff!~'^[a-f0-9]{64}$' OR p_credential IS NULL OR p_credential!~'^[a-f0-9]{64}$' THEN RAISE EXCEPTION 'support_denied'; END IF;
  SELECT * INTO s FROM saas.platform_support_sessions WHERE handoff_hash=encode(sha256(convert_to(p_handoff,'UTF8')),'hex') FOR UPDATE;
- IF s.id IS NULL OR s.admin_host IS DISTINCT FROM p_host OR s.redeemed_at IS NOT NULL OR s.revoked_at IS NOT NULL OR s.expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'support_denied'; END IF;
+ IF s.id IS NULL OR s.admin_host IS DISTINCT FROM p_host OR s.revoked_at IS NOT NULL OR s.expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'support_denied'; END IF;
  PERFORM saas.platform_operator_require_active(s.operator_id);
  IF NOT EXISTS(SELECT 1 FROM saas.admin_domains WHERE hostname=p_host AND store_id=s.store_id AND status='active' AND verified_at<=clock_timestamp()) THEN RAISE EXCEPTION 'support_denied'; END IF;
- token:=encode(sha256(convert_to(gen_random_uuid()::text||gen_random_uuid()::text,'UTF8')),'hex');
+ token:=p_credential;
+ IF s.redeemed_at IS NOT NULL THEN
+  IF s.credential_hash IS DISTINCT FROM encode(sha256(convert_to(token,'UTF8')),'hex') THEN RAISE EXCEPTION 'support_denied'; END IF;
+  -- Recover the original redemption after a lost commit response. The server
+  -- derives this credential from its private key; expiry and host stay fixed.
+  RETURN saas.platform_support_projection(s.id)||jsonb_build_object('credential',token,'replayed',true);
+ END IF;
  UPDATE saas.platform_support_sessions SET redeemed_at=clock_timestamp(),credential_hash=encode(sha256(convert_to(token,'UTF8')),'hex') WHERE id=s.id;
  INSERT INTO saas.platform_audit(id,operator_id,store_id,action,payload,created_at) VALUES(gen_random_uuid(),s.operator_id,s.store_id,'support.redeem',jsonb_build_object('sessionId',s.id),clock_timestamp());
- RETURN saas.platform_support_projection(s.id)||jsonb_build_object('credential',token);
+ RETURN saas.platform_support_projection(s.id)||jsonb_build_object('credential',token,'replayed',false);
 END $f$;
 CREATE FUNCTION saas.platform_support_resolve(p_credential text,p_host text,p_request_id text) RETURNS jsonb
  LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -238,7 +244,7 @@ BEGIN
  FOR f IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND (p.proname LIKE 'platform_support_%' OR p.proname LIKE 'platform_sales_%' OR p.proname IN ('platform_membership_is_authorized','platform_new_sales_allowed')) LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f.oid::regprocedure); END LOOP;
 END $privileges$;
 GRANT USAGE ON SCHEMA saas TO celebix_saas_support_runtime;
-GRANT EXECUTE ON FUNCTION saas.platform_support_redeem(text,text),saas.platform_support_resolve(text,text,text),saas.platform_support_end(text,text) TO celebix_saas_support_runtime;
+GRANT EXECUTE ON FUNCTION saas.platform_support_redeem(text,text,text),saas.platform_support_resolve(text,text,text),saas.platform_support_end(text,text) TO celebix_saas_support_runtime;
 GRANT EXECUTE ON FUNCTION saas.platform_support_issue(uuid,uuid,text,text,bigint,text,text),saas.platform_support_revoke(uuid,uuid,bigint,text),saas.platform_support_list(uuid,jsonb),saas.platform_sales_policy_get(uuid,uuid),saas.platform_sales_policy_set(uuid,uuid,boolean,text,bigint,text) TO celebix_saas_platform_operator;
 REVOKE ALL ON saas.platform_authorized_memberships,saas.platform_normal_memberships,saas.platform_provenance_memberships FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_platform_operator,celebix_saas_support_runtime;
 COMMIT;
