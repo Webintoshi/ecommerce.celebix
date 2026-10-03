@@ -1,9 +1,9 @@
 import { isMerchantActionAllowed } from "@celebix/saas-contracts";
-import { CatalogResourceEditor } from "@/components/catalog-admin/CatalogResourceEditor";
+import { CatalogExtraEditor } from "@/components/catalog-admin/extras/CatalogExtraEditor";
 import { requireServerPanelAccess } from "@/lib/server-access";
 
 export default async function EditExtraPage({ params }: { params: Promise<{ resourceId: string }> }) {
   const { resourceId } = await params;
   const { tenantContext } = await requireServerPanelAccess();
-  return <CatalogResourceEditor kind="extra" resourceId={resourceId} canManage={isMerchantActionAllowed(tenantContext.membership.role, "catalog_admin.manage")} />;
+  return <CatalogExtraEditor resourceId={resourceId} canManage={isMerchantActionAllowed(tenantContext.membership.role, "catalog_admin.manage")} />;
 }

@@ -22,6 +22,7 @@ export type MerchantContentBodyFieldProps = Readonly<{
   value: string;
   bodyFormat: MerchantContentBodyFormat;
   readOnly?: boolean;
+  hideCounter?: boolean;
   onChange(value: string, bodyFormat: MerchantContentBodyFormat, valid: boolean): void;
   onEditorReady?(editor: Editor | null): void;
   onTransaction?(editor: Editor): void;
@@ -43,7 +44,7 @@ function blockType(editor: Editor | null): string {
   return 'paragraph';
 }
 
-export function MerchantContentBodyField({value, bodyFormat, readOnly = false, onChange, onEditorReady, onTransaction}: MerchantContentBodyFieldProps) {
+export function MerchantContentBodyField({value, bodyFormat, readOnly = false, hideCounter = false, onChange, onEditorReady, onTransaction}: MerchantContentBodyFieldProps) {
   const linkId = useId();
   const latest = useRef({value, bodyFormat, onChange, onEditorReady, onTransaction, readOnly});
   latest.current = {value, bodyFormat, onChange, onEditorReady, onTransaction, readOnly};
@@ -153,7 +154,7 @@ export function MerchantContentBodyField({value, bodyFormat, readOnly = false, o
         <div className={styles.linkControls}><button type="button" onClick={() => latest.current.onChange('', 'normalized_html', true)}>Boş metinle devam et</button><button type="button" onClick={() => setReplaceOpen(false)}>Vazgeç</button></div>
       </div> : null}
       {error ? <p role="alert" className={styles.fallbackNotice}>{error}</p> : null}
-      <output className={styles.fallbackNotice}>{countText}</output>
+      {!hideCounter ? <output className={styles.fallbackNotice}>{countText}</output> : null}
     </section>;
   }
 
@@ -203,6 +204,6 @@ export function MerchantContentBodyField({value, bodyFormat, readOnly = false, o
         <button type="button" onClick={applyLink}>Uygula</button><button type="button" onClick={() => {setLinkOpen(false);editor?.commands.focus();}}>Vazgeç</button></div>
     </div> : null}
     <EditorContent editor={editor} />
-    <p className={styles.fallbackNotice}>{error ? <span role="alert">{error}</span> : null}<output aria-live="polite">{countText}</output></p>
+    {error || !hideCounter ? <p className={styles.fallbackNotice}>{error ? <span role="alert">{error}</span> : null}{!hideCounter ? <output aria-live="polite">{countText}</output> : null}</p> : null}
   </section>;
 }
