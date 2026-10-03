@@ -19,3 +19,6 @@ apps/storefront-shared/.seo-worker/
 
 # Bundled shared catalog synchronization worker
 apps/storefront-shared/.search-worker/
+
+# Bundled shared transactional review and stock notifications
+apps/storefront-shared/.engagement-worker/

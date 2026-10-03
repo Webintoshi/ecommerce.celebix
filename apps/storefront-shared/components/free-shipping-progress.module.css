@@ -1,0 +1,6 @@
+.progress { margin: 0 0 16px; color: var(--store-text, inherit); }
+.progress p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+.progress strong { font-weight: 600; }
+.track { height: 4px; overflow: hidden; border-radius: 4px; background: color-mix(in srgb, currentColor 12%, transparent); }
+.track span { display: block; height: 100%; border-radius: inherit; background: var(--store-primary, currentColor); transition: width 180ms ease; }
+@media (prefers-reduced-motion: reduce) { .track span { transition: none; } }

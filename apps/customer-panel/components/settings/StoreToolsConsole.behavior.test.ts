@@ -45,6 +45,7 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; recor
     return compiled.exports;
   }
   const requireModule = (id: string) => {
+    if (id === "./RestockTool") return { RestockTool: () => null };
     if (id === "react") return React;
     if (id === "react/jsx-runtime") return jsxRuntime;
     if (id === "lucide-react") return new Proxy({}, { get: () => () => null });

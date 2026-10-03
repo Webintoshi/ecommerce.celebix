@@ -3,7 +3,7 @@ export const MERCHANT_ADMIN_RECORD_KINDS = Object.freeze([
   "email_campaign", "phone_campaign", "whatsapp_campaign",
   "blog_post", "page", "policy",
   "marketplace_connection",
-  "general_setting", "language_setting", "payment_setting", "shipping_setting", "administrator_invite", "contact_widget",
+  "general_setting", "language_setting", "payment_setting", "shipping_setting", "administrator_invite", "contact_widget", "restock_alerts",
   "accounting_profile", "invoice_integration",
   "seo_control", "sitemap", "social_preview", "code_integration", "indexing_request",
   "notification_setting", "theme_setting", "hero_banner", "promotion_banner", "marquee_setting", "category_showcase", "starter_theme_composition",

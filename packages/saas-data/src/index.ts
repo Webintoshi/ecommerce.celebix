@@ -188,3 +188,6 @@ export * from "./catalog-search/index.ts";
 export * from './accounting/index.ts';
 
 export * from "./contact-widget/index.ts";
+
+export * from "./restock-alerts/repository.ts";
+export * from "./review-collection/index.ts";

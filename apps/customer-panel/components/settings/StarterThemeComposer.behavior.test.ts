@@ -83,6 +83,7 @@ function compileComposer(categories: readonly unknown[] = [], resourceReads?: { 
   }).outputText;
   const module = { exports: {} };
   const load = (id: string): unknown => {
+    if (id === "./ShippingProgressSettings") return compile(new URL("./ShippingProgressSettings.tsx", import.meta.url), { "@/lib/catalog-ui/money": require("../../lib/catalog-ui/money.ts") });
     if (id.endsWith(".css")) return { __esModule: true, default: styles };
     if (id === "@/components/settings/StarterThemePreview") return { StarterThemePreview: () => null };
     if (id === "@/components/settings/StarterFooterEditor") return { StarterFooterEditor: () => React.createElement("fieldset", null, React.createElement("legend", null, "Footer ayarları")) };

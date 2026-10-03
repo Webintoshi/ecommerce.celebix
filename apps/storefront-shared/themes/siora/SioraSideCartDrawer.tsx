@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { PublicCartLine, PublicStarterThemePresentationV2 } from "@celebix/saas-contracts";
+import { FreeShippingProgress } from "../../components/FreeShippingProgress";
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { sideCartPresentation } from "../../components/campaign-ui-model";
 import { mutateSideCartLine } from "../../components/side-cart-mutation";
@@ -116,6 +117,7 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                 </Link>)}</div></section> : null}
               </div>
               <footer className={styles.footer}>
+                <FreeShippingProgress cart={cart} presentation={presentation} />
                 <div className={styles.subtotal}><span>Ara toplam</span><strong>{formatTry(cart.subtotalCents)}</strong></div>
                 {checkoutBlocked ? <p className={styles.notice}>Sepetinizde stok veya fiyatı değişen bir ürün var. Devam etmeden önce sepetinizi güncelleyin.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "payment_unavailable" ? <p className={styles.notice}>Ödeme yöntemi henüz yapılandırılmadı.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "shipping_unavailable" ? <p className={styles.notice}>Teslimat yöntemi henüz yapılandırılmadı.</p> : null}
                 {checkoutBlocked || pendingVariant !== null ? <span className={styles.checkout} aria-disabled="true">Ödemeye geç</span> : <Link className={styles.checkout} href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}

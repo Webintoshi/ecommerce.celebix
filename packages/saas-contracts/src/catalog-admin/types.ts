@@ -59,6 +59,7 @@ export interface ProductReview {
   readonly body: string;
   readonly status: ProductReviewStatus;
   readonly merchantReply?: string;
+  readonly verifiedPurchase?: boolean;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;

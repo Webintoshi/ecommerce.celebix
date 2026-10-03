@@ -18,6 +18,8 @@ import {
   PostgresPublicStorefrontRepository,
   PostgresPublicStorefrontContentRepository,
   PostgresPublicContactWidgetRepository,
+  PostgresPublicRestockRepository,
+  PostgresReviewCollectionRepository,
   PostgresPublicSeoRepository,
   PostgresNewsletterRepository,
   PostgresStorefrontCommerceRepository,
@@ -82,6 +84,8 @@ export type PublicStorefrontRuntime = Readonly<{
   repository: PublicStorefrontRepository;
   content: PublicStorefrontContentRepository;
   contactWidgets?: PublicContactWidgetRepository;
+  restockAlerts?: PostgresPublicRestockRepository;
+  reviewCollection?: PostgresReviewCollectionRepository;
   seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
@@ -338,6 +342,8 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     return Object.freeze({
       repository: publicRepository,
       content,
+      restockAlerts: new PostgresPublicRestockRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+      reviewCollection: new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       ...(seo ? { seo } : {}),
       commerce,

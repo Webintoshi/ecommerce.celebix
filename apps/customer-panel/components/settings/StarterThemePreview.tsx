@@ -146,7 +146,7 @@ export function StarterThemePreview(props: PreviewProps) {
               {composition.schemaVersion === 2 && composition.cart.showQuantitySelector ? <div className={styles.previewQuantity} aria-label="Miktar seçici önizlemesi"><button aria-label="Azalt" type="button">−</button><span>1</span><button aria-label="Artır" type="button">+</button></div> : null}
               <button type="button">Ödemeye geç</button>
               <small>{composition.productDetail.mobileStickyPurchase ? "Mobil satın alma sabit" : "Mobil satın alma sayfa akışında"}</small>
-              {composition.cart.showShippingProgress ? <small>Kargo ilerlemesi gösterilmiyor: canonical ücretsiz kargo eşiği sağlanmadı.</small> : null}
+              {composition.cart.showShippingProgress && composition.cart.freeShippingThresholdCents ? <small>Ücretsiz kargo eşiği: {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(composition.cart.freeShippingThresholdCents / 100)}</small> : null}
             </section>
           </div>
 

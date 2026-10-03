@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {TenantContext} from '@celebix/saas-contracts';
 import type {ServerInStoreSalesRuntime} from '../server-in-store-sales/runtime.ts';
+import {InStoreSalesRepositoryError} from '@celebix/saas-data';
 import {createInStoreSalesHttpHandlers} from './handler.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const origin='https://panel.saas-staging.celebix.net';
@@ -54,4 +55,12 @@ test('v3 creates only POS customer contact and rejects caller customer authority
  assert.equal((await h.createCustomer(req('customers',{...body,storeId:id}))).status,400);
  assert.equal((await h.createCustomer(req('customers',body,{origin:'https://foreign.example'}))).status,403);
  assert.equal((await h.searchCustomers(req('customers?query=Ali&limit=20'))).status,200);
+});
+
+test('invalid collection remains a useful client error instead of an unknown service failure',async()=>{
+  const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{prepareSale:async()=>{throw new InStoreSalesRepositoryError('collection_invalid');}}} as unknown as ServerInStoreSalesRuntime;
+  const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});
+  const response=await h.prepareSale(req(`sales/${id}/prepare`,{expectedVersion:1,expectedTotalCents:1100000},{'x-celebix-in-store-version':'3'}),id);
+  assert.equal(response.status,400);assert.deepEqual(await response.json(),{code:'collection_invalid'});
+  assert.equal(response.headers.get('cache-control'),'no-store');
 });

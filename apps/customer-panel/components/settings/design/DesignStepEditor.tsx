@@ -55,6 +55,7 @@ interface DesignStepEditorProps {
   readonly previewMode: "desktop" | "mobile";
   readonly onChange: (design: StorefrontDesignDocument) => void;
   readonly surface?: "announcement" | "navigation" | string;
+  readonly onValidationChange?: (invalid: boolean) => void;
   readonly onMediaBusyChange?: (id: string, busy: boolean) => void;
   readonly onAssetUploaded?: (asset: StorefrontAsset) => void;
   readonly onUpload: (file: File, altText: string) => Promise<StorefrontDesignMediaOption>;
@@ -75,6 +76,7 @@ export function DesignStepEditor({
   onUpload,
   surface,
   onMediaBusyChange,
+  onValidationChange,
   onAssetUploaded,
 }: Readonly<DesignStepEditorProps>) {
   const inspector = (section: "brand" | "colors" | "typography" | "hero" | "promotion" | "announcement") => <DesignInspector
@@ -98,6 +100,7 @@ export function DesignStepEditor({
       destinations={destinations}
       showAnnouncement={activePanel !== "navigation"}
       onMediaBusyChange={onMediaBusyChange}
+      onValidationChange={onValidationChange}
       onAssetUploaded={onAssetUploaded}
       onChange={(value) => onChange(synchronizeCompositionAnnouncement(design, value))}
     />

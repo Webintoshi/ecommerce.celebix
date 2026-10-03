@@ -1,4 +1,5 @@
 "use client";
+import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ export function SioraProductPurchase({ product, storefrontId, locale, options, s
   showQuantitySelector: boolean; sizeGuide?: ReactNode; sizeGuideHeading?: string;
 }>) {
   const router = useRouter();
+  const restockConfig = useRestockAlertsConfig();
   const pathname = usePathname();
   const hydrated = useHydrated();
   const { cart, openDrawer, drawerOpen, replaceCart } = useCartStatus();
@@ -49,6 +51,7 @@ export function SioraProductPurchase({ product, storefrontId, locale, options, s
   const modalTitleId = useId();
   const quantityLimit = variant?.stockTracking ? Math.max(1, Math.min(99, variant.stockQuantity)) : 99;
   const available = product.available && Boolean(group?.variants.some(({ available }) => available));
+  const canPurchase = available && (!variant || variant.available);
   const amount = variant?.priceCents ?? selectedVariant?.priceCents ?? product.priceCents;
   const prices = group?.variants.filter(({ available }) => available).map(({ priceCents }) => priceCents) ?? [];
   const priceText = !variant && prices.length && Math.min(...prices) !== Math.max(...prices)
@@ -126,10 +129,11 @@ export function SioraProductPurchase({ product, storefrontId, locale, options, s
       {sizeGuide ? <button type="button" className={styles.sizeHelp} onClick={(event) => openModal("guide", event.currentTarget)}><span aria-hidden="true">▱</span> {sizeGuideHeading}</button> : null}
       <div className={styles.price}>{compareAt && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}<span>{priceText}</span></div>
       {showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi"><span>Adet</span><button type="button" aria-label="Adedi azalt" disabled={pending !== null || quantity <= 1} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><output aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || quantity >= quantityLimit} onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}>+</button></div> : null}
-      <div className={styles.actions} ref={purchaseRef}><button type="button" disabled={pending !== null || !available} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button><button type="button" disabled={pending !== null || !available} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button></div>
+      <div className={styles.actions} ref={purchaseRef}><button type="button" disabled={pending !== null || !canPurchase} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button><button type="button" disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button></div>
+      <RestockSubscriptionForm product={product} variant={variant} />
       <p className={styles.status} aria-live="polite" role="status">{status}</p>
     </section>
-    {options.mobileStickyPurchase ? <div className={styles.sticky} data-siora-sticky-purchase data-visible={sticky && !modal && !drawerOpen ? "true" : undefined} aria-hidden={!sticky || Boolean(modal || drawerOpen)}><span>{priceText}</span><button type="button" tabIndex={sticky && !modal && !drawerOpen ? 0 : -1} disabled={pending !== null || !available} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button></div> : null}
-    <dialog ref={dialogRef} className={styles.dialog} data-modal={modal} aria-labelledby={modalTitleId} onClose={afterClose} onCancel={(event) => { event.preventDefault(); closeModal(); }}><header><h2 id={modalTitleId}>{modal === "guide" ? sizeGuideHeading : `${choiceLabel} seçin`}</h2><button type="button" aria-label="Pencereyi kapat" onClick={closeModal}>×</button></header>{modal === "guide" ? <div className={styles.guide}>{sizeGuide}</div> : <div className={styles.optionList}>{group?.variants.map((item) => <button type="button" key={item.id} disabled={!item.available || pending !== null} aria-pressed={item.id === choiceId} onClick={() => { selectVariant(item.id); setChoiceId(item.id); setQuantity(1); setStatus(""); closeModal(); }}><span>{sioraOptionLabel(item)}</span><small>{item.available ? formatTry(item.priceCents) : "Tükendi"}</small></button>)}</div>}</dialog>
+    {options.mobileStickyPurchase ? <div className={styles.sticky} data-siora-sticky-purchase data-visible={sticky && !modal && !drawerOpen ? "true" : undefined} aria-hidden={!sticky || Boolean(modal || drawerOpen)}><span>{priceText}</span><button type="button" tabIndex={sticky && !modal && !drawerOpen ? 0 : -1} disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button></div> : null}
+    <dialog ref={dialogRef} className={styles.dialog} data-modal={modal} aria-labelledby={modalTitleId} onClose={afterClose} onCancel={(event) => { event.preventDefault(); closeModal(); }}><header><h2 id={modalTitleId}>{modal === "guide" ? sizeGuideHeading : `${choiceLabel} seçin`}</h2><button type="button" aria-label="Pencereyi kapat" onClick={closeModal}>×</button></header>{modal === "guide" ? <div className={styles.guide}>{sizeGuide}</div> : <div className={styles.optionList}>{group?.variants.map((item) => <button type="button" key={item.id} disabled={(!item.available && !restockConfig?.enabled) || pending !== null} aria-pressed={item.id === choiceId} onClick={() => { selectVariant(item.id); setChoiceId(item.id); setQuantity(1); setStatus(""); closeModal(); }}><span>{sioraOptionLabel(item)}</span><small>{item.available ? formatTry(item.priceCents) : "Tükendi"}</small></button>)}</div>}</dialog>
   </>;
 }

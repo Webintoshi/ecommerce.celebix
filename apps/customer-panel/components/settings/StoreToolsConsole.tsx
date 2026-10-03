@@ -1,4 +1,5 @@
 "use client";
+import { RestockTool } from "./RestockTool";
 
 import {
   createDefaultContactWidgetConfig,
@@ -317,6 +318,7 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
           <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: "content", label: "Kanallar" }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true" /></button>)}</nav>
         </div><button id="tool-edit-contact-widget" ref={triggerRef} className={primary} type="button" data-tool-edit="contact_widget" onClick={() => startEditing()}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
       </article><a className={styles.attribution} href="https://www.flaticon.com/free-icon/whatsapp_3781677" target="_blank" rel="noopener noreferrer">WhatsApp simgesi: Magnific · Flaticon</a></> : null}
+    {!open ? <RestockTool canManage={canManage} /> : null}
     {loaded && open ? <form ref={editorRef} onSubmit={apply} onKeyDown={event => { if (event.key === "Escape" && !dialog) { event.preventDefault(); requestExit(); } }} noValidate data-settings-dirty={dirty} className={styles.editor}>
       <header className={styles.contextBar}><div><button className={ghost + " " + styles.iconButton} type="button" data-tool-close disabled={busy || reloading} aria-label="Araçlara dön" onClick={requestExit}><ArrowLeft size={20} aria-hidden="true" /></button><h2>İletişim balonu</h2></div>
         <label className={styles.enabledControl}><span>{draft.enabled ? "Açık" : "Kapalı"}</span><span className={styles.switch}><input name="enabled" aria-label="İletişim balonu açık" type="checkbox" role="switch" disabled={locked} checked={draft.enabled} onChange={event => change(config => ({ ...config, enabled: event.target.checked }))} /><span /></span></label>

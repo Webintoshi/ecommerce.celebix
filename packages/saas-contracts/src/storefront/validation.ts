@@ -558,12 +558,12 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
   }
   const cartValue = exact(parsed.cart, retail
     ? ["showCheckoutReadiness", "showShippingProgress", "showQuantitySelector"]
-    : ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage"]);
+    : ["showCheckoutReadiness", "showShippingProgress"], ["trustMessage", "freeShippingThresholdCents"]);
   const common = {
     announcement: Object.freeze({ enabled: announcementEnabled, items: announcementItems, ...(Object.hasOwn(announcementValue, "destination") ? { destination: destination(announcementValue.destination) } : {}) }),
     navigation: Object.freeze({ rootCategoryIds: uuidArray(navigationValue.rootCategoryIds, 0, 8), ...(rootLinks ? { rootLinks } : {}), ...(hasFeaturedCategory ? { featuredCategoryId: uuid(navigationValue.featuredCategoryId), featuredAssetId: uuid(navigationValue.featuredAssetId) } : {}) }),
     sections,
-    cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
+    cart: Object.freeze({ showCheckoutReadiness: boolean(cartValue.showCheckoutReadiness), showShippingProgress: boolean(cartValue.showShippingProgress), ...(Object.hasOwn(cartValue, "freeShippingThresholdCents") ? { freeShippingThresholdCents: integer(cartValue.freeShippingThresholdCents, 1, 100_000_000) } : {}), ...(retail ? { showQuantitySelector: boolean(cartValue.showQuantitySelector) } : {}), ...(Object.hasOwn(cartValue, "trustMessage") ? { trustMessage: string(cartValue.trustMessage, 1, 160) } : {}) }),
   };
   if (modular) return Object.freeze({ schemaVersion: 4, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV4);
   if (versioned) return Object.freeze({ schemaVersion: 3, visual: parseVisualV2(parsed.visual), ...common, productDetail: parseProductDetailV2(parsed.productDetail), footer: parseFooterConfig(parsed.footer) } as StarterThemeCompositionConfigV3);
@@ -605,11 +605,13 @@ function parseAnnouncement(value: unknown): NonNullable<PublicStarterThemePresen
 }
 
 function parsePublicReview(value: unknown): PublicStarterReview {
-  const parsed = exact(value, ["reviewerName", "rating", "body"], ["title", "merchantReply"]);
+  const parsed = exact(value, ["reviewerName", "rating", "body"], ["title", "merchantReply", "verifiedPurchase"]);
+  if (parsed.verifiedPurchase !== undefined && typeof parsed.verifiedPurchase !== "boolean") invalid();
   const rating = integer(parsed.rating, 1, 5) as 1 | 2 | 3 | 4 | 5;
   return Object.freeze({
     reviewerName: string(parsed.reviewerName, 1, 120),
     rating,
+    ...(parsed.verifiedPurchase === undefined ? {} : { verifiedPurchase: parsed.verifiedPurchase as boolean }),
     ...(Object.hasOwn(parsed, "title") ? { title: string(parsed.title, 1, 200) } : {}),
     body: string(parsed.body, 1, 2000),
     ...(Object.hasOwn(parsed, "merchantReply") ? { merchantReply: string(parsed.merchantReply, 1, 1000) } : {}),
@@ -744,8 +746,8 @@ function parseProductDetail(value: unknown): PublicStarterThemePresentationV2["p
 }
 
 function parseCartOptions(value: unknown): PublicStarterThemePresentationV2["cart"] {
-  const parsed = exact(value, ["showCheckoutReadiness", "showShippingProgress", "showQuantitySelector"], ["trustMessage"]);
-  return Object.freeze({ showCheckoutReadiness: boolean(parsed.showCheckoutReadiness), showShippingProgress: boolean(parsed.showShippingProgress), showQuantitySelector: boolean(parsed.showQuantitySelector), ...(Object.hasOwn(parsed, "trustMessage") ? { trustMessage: string(parsed.trustMessage, 1, 160) } : {}) });
+  const parsed = exact(value, ["showCheckoutReadiness", "showShippingProgress", "showQuantitySelector"], ["trustMessage", "freeShippingThresholdCents"]);
+  return Object.freeze({ showCheckoutReadiness: boolean(parsed.showCheckoutReadiness), showShippingProgress: boolean(parsed.showShippingProgress), ...(Object.hasOwn(parsed, "freeShippingThresholdCents") ? { freeShippingThresholdCents: integer(parsed.freeShippingThresholdCents, 1, 100_000_000) } : {}), showQuantitySelector: boolean(parsed.showQuantitySelector), ...(Object.hasOwn(parsed, "trustMessage") ? { trustMessage: string(parsed.trustMessage, 1, 160) } : {}) });
 }
 
 function parsePresentationV1(value: unknown): PublicStarterThemePresentationV1 {
