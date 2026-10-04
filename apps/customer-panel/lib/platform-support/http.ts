@@ -13,8 +13,8 @@ async function boundedBody(request:Request):Promise<string>{
 }
 async function redeem(request:Request,query:typeof supportQuery,derive:typeof supportRedemptionCredential):Promise<Response>{
  try{const host=normalizeAdminRequestHostname(request.headers.get('host'));if(request.headers.get('origin')!==`https://${host}`)return fail(403);
- const raw=await boundedBody(request);const payload=JSON.parse(raw);if(Object.keys(payload).length!==1||typeof payload.handoff!=='string'||!(/^[a-f0-9]{64}$/).test(payload.handoff))return fail(400);
- const result=await query('redeem',[payload.handoff,host,derive(payload.handoff,host)]) as {credential:string;expiresAt:string};
+ const raw=await boundedBody(request);const payload=JSON.parse(raw);if(Object.keys(payload).length!==2||typeof payload.handoff!=='string'||!(/^[a-f0-9]{64}$/).test(payload.handoff)||typeof payload.browserBinding!=='string'||!(/^[a-f0-9]{64}$/).test(payload.browserBinding))return fail(400);
+ const result=await query('redeem',[payload.handoff,host,derive(payload.handoff,host,payload.browserBinding)]) as {credential:string;expiresAt:string};
  return Response.json({ok:true},{headers:{...headers,'Set-Cookie':supportCookie(result.credential,(Date.parse(result.expiresAt)-Date.now())/1000)}});
  }catch{return fail(503);}
 }
