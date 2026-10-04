@@ -81,7 +81,7 @@ function initialLines(mode: Mode, record?: RecordValue, variantId = ""): readonl
     lineId: line.id, variantId: line.variantId, quantity: String(line.orderedQuantity), unitCost: formatInventoryMoneyInput(line.unitCostCents),
   })));
   if (isCount(record)) return Object.freeze(record.lines.map((line) => Object.freeze({
-    lineId: line.id, variantId: line.variantId, quantity: String(line.countedQuantity ?? ""), unitCost: "0,00",
+    lineId: line.id, variantId: line.variantId, quantity: record.status === "draft" ? "" : String(line.countedQuantity ?? ""), unitCost: "0,00",
   })));
   if (isTransfer(record)) return Object.freeze(record.lines.map((line) => Object.freeze({
     lineId: line.id, variantId: line.variantId, quantity: String(line.quantity), unitCost: "0,00",
@@ -166,7 +166,7 @@ export function InventoryOperationForm(props: Props) {
     if (!props.canManage || disabled || empty) return;
     let submittedLines: readonly InventoryOperationDraftLine[];
     try {
-      submittedLines = lines.map(({ unitCost, ...line }) => ({ ...line, unitCostCents: props.mode === "purchase" ? String(parseInventoryMoneyToCents(unitCost)) : "0" }));
+      submittedLines = lines.map(({ unitCost, ...line }) => ({ ...line, ...(countDraft ? { quantity: "" } : {}), unitCostCents: props.mode === "purchase" ? String(parseInventoryMoneyToCents(unitCost)) : "0" }));
     } catch {
       setValidation("Birim maliyeti TL olarak girin. Örnek: 14,89.");
       return;
@@ -206,12 +206,13 @@ export function InventoryOperationForm(props: Props) {
       <fieldset disabled={disabled || empty}>
         <legend>Kalemler <span className={styles.fieldCount}>{lines.length}</span></legend>
         {!fixedCountAuthority ? <label className={styles.productSearch}><span>Ürün veya SKU ara</span><input type="search" value={productSearch} onChange={event => setProductSearch(event.target.value)} aria-describedby={`${props.mode}-search-help`} /><small id={`${props.mode}-search-help`}>En fazla 50 eşleşme gösterilir. Seçtiğiniz ürünler korunur.</small></label> : null}
-        {countDraft ? <p className={styles.formHelp}>Ürünleri seçin. Sayımı başlattığınızda depo stoku sabitlenir ve saydığınız miktarları girebilirsiniz.</p> : null}
+        {props.mode === "purchase" ? <p className={styles.formHelp}>Kaydettiğinizde satın alma kaydı oluşturulur. Stok, ürünleri teslim aldığınızda artar.</p> : props.mode === "transfer" ? <p className={styles.formHelp}>Kaydettiğinizde taşıma başlar ve kaynak stok azalır. Hedef stok, teslim aldığınızda artar.</p> : null}
+        {countDraft ? <p className={styles.formHelp}>Ürünleri seçip kaydedin. Sayım hemen başlar; ardından saydığınız miktarları girebilirsiniz.</p> : null}
         <div className={styles.desktopFormTable} role="region" tabIndex={0} aria-label="Düzenlenen işlem kalemleri"><table><thead><tr><th>Ürün / Varyant</th>{!countDraft ? <th>{quantityLabel}</th> : null}{props.mode === "purchase" ? <th>Birim maliyet (₺)</th> : null}<th /></tr></thead><tbody>{lines.map((line, index) => <tr key={`${line.lineId || "new"}-${index}`}><td>{variantSelect(line, index)}</td>{!countDraft ? <td><input aria-label={`${index + 1}. kalem miktarı`} inputMode="numeric" value={line.quantity} onChange={event => updateLine(index, { quantity: event.target.value })} /></td> : null}{props.mode === "purchase" ? <td><input aria-label={`${index + 1}. kalem birim maliyeti, TL`} inputMode="decimal" value={line.unitCost} onChange={event => updateLine(index, { unitCost: event.target.value })} /></td> : null}<td>{!fixedCountAuthority ? <button type="button" disabled={lines.length === 1} onClick={() => removeLine(index)}>Kaldır</button> : null}</td></tr>)}</tbody></table></div>
         <div className={styles.mobileFormCards}>{lines.map((line, index) => <article key={`${line.lineId || "new"}-${index}`}><strong className={styles.lineHeading}>{index + 1}. ürün</strong><label><span>Ürün / Varyant</span>{variantSelect(line, index)}</label>{!countDraft ? <label><span>{quantityLabel}</span><input inputMode="numeric" value={line.quantity} onChange={event => updateLine(index, { quantity: event.target.value })} /></label> : null}{props.mode === "purchase" ? <label><span>Birim maliyet (₺)</span><input inputMode="decimal" value={line.unitCost} onChange={event => updateLine(index, { unitCost: event.target.value })} /></label> : null}{!fixedCountAuthority ? <button type="button" disabled={lines.length === 1} onClick={() => removeLine(index)}>Ürünü kaldır</button> : null}</article>)}</div>
         {!fixedCountAuthority ? <button className={styles.secondaryAction} type="button" disabled={lines.length >= 500} onClick={addLine}>Ürün ekle</button> : null}
       </fieldset>
-      <div className={styles.actions}><button className={props.record ? undefined : styles.primary} type="submit" disabled={disabled || empty}>{props.pending ? "Kaydediliyor…" : props.record ? "Değişiklikleri kaydet" : "Taslağı oluştur"}</button></div>
+      <div className={styles.actions}><button className={props.record ? undefined : styles.primary} type="submit" disabled={disabled || empty}>{props.pending ? "Kaydediliyor…" : "Kaydet"}</button></div>
     </form>
   </section>;
 }

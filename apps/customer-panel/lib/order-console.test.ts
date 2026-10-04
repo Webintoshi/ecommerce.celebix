@@ -364,8 +364,8 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
 }
 
 async function compileOrderModule(
-  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx" | "components/orders/OrderPrintView.tsx",
-  overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown> }> = {},
+  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx" | "components/orders/OrderPrintView.tsx" | "components/orders/OrderDraftEditor.tsx",
+  overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown>; replace?(path: string): void }> = {},
 ) {
   const output = ts.transpileModule(await source(path), {
     compilerOptions: {
@@ -431,8 +431,12 @@ async function compileOrderModule(
     if (specifier === "react/jsx-runtime") return { ...jsxRuntime, jsx: renderJsx(jsxRuntime.jsx), jsxs: renderJsx(jsxRuntime.jsxs) };
     if (specifier === "react") return controllerReact;
     if (specifier === "next/link") return Link;
+    if (specifier === "next/navigation") return { useRouter: () => ({ replace: overrides.replace ?? (() => {}) }) };
+    if (specifier === "@/lib/catalog-ui/variant-choices") return { loadCatalogVariantChoices: async () => ({ products: [], variants: [] }) };
+    if (specifier === "@/lib/customer-ui/client") return { customerApi: { list: async () => ({ items: [] }) } };
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
+    if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({ storeSlug: "fixture" }) };
     if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     // Financial behavior is exercised by the real OrderFinancePanel DOM suite.
     if (specifier === "@/components/accounting/OrderFinancePanel") return { OrderFinancePanel: () => null };
@@ -442,12 +446,13 @@ async function compileOrderModule(
     if (specifier === "@/lib/order-ui/client") return {
       OrderApiError: CompiledOrderApiError,
       orderApi: Object.freeze(overrides.orderApi ?? {}),
+      scopedOrderApi: () => Object.freeze(overrides.orderApi ?? {}),
     };
     if (specifier === "@celebix/saas-contracts") return {
       ORDER_PAYMENT_STATUSES: ["pending", "processing", "completed", "failed", "refunded"],
       ORDER_STATUSES: ["pending", "confirmed", "preparing", "shipped", "delivered", "cancelled", "refunded"],
     };
-    if (["./order-console.module.css", "./order-list.module.css", "./order-detail.module.css"].includes(specifier)) return styles;
+    if (["./order-console.module.css", "./order-list.module.css", "./order-detail.module.css", "./order-drafts.module.css"].includes(specifier)) return styles;
     if (specifier === "./OrderActionDialog") return { OrderActionDialog: Dialog };
     throw new Error(`unexpected_order_console_import:${specifier}`);
   };
@@ -564,6 +569,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
     if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
     if (specifier === "recharts") return new Proxy({}, { get: () => Chart });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
+    if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({ storeSlug: "fixture" }) };
     if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel() { return {}; } };
     if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
@@ -827,7 +833,7 @@ test("order client fails closed on unsafe payloads and contains no browser autho
   });
   await assert.rejects(() => responseGuarded.getOrder(ORDER_ID), (error: unknown) => error instanceof OrderApiError && error.code === "unavailable");
   const client = await source("lib/order-ui/client.ts");
-  assert.doesNotMatch(client, /localStorage|sessionStorage|document[.]cookie|authorization|x-(?:store|tenant|principal|membership)|TenantContext|storeId|principalId|membershipId/i);
+  assert.doesNotMatch(client, /localStorage|document[.]cookie|authorization|x-(?:store|tenant|principal|membership)|TenantContext|storeId|principalId|membershipId/i);
   assert.doesNotMatch(client, /https?:\/\/|\/api\/admin|supabase/i);
 });
 
@@ -892,6 +898,113 @@ test("draft client uses exact same-origin routes strict DTOs and no private auth
     name: "TypeError", message: "order_client_invalid",
   });
   assert.equal(fetches, 0);
+});
+
+test("manual order Save retries the identical operation after a lost response and preserves legacy APIs", async () => {
+  const { createOrderApiClient, OrderApiError } = await import("./order-ui/client.ts");
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const conversion = { draftId: DRAFT_ID, draftVersion: 2, orderId: ORDER_ID, orderNumber: "HMN-1001", adjustedInventory: true, replayed: true };
+  let generated = 0;
+  const api = createOrderApiClient({ randomUUID: () => { generated++; return OPERATION_ID; }, fetch: async (url, init) => {
+    calls.push([url, init]);
+    if (calls.length === 1) throw new Error("response lost after native conversion");
+    if (init?.method === "GET") return json({ items: [] });
+    return json(conversion);
+  } });
+  await assert.rejects(api.applyDraft(draftIntent), error => error instanceof OrderApiError && error.code === "unavailable");
+  assert.equal(api.draftApplyLocked(), true);
+  await api.listDrafts();
+  await assert.rejects(api.applyDraft({ ...draftIntent, note: "changed" }), error => error instanceof OrderApiError && error.code === "operation_mismatch");
+  assert.equal(calls.length, 2);
+  const replay = await api.retryDraftApply();
+  assert.deepEqual(replay, conversion);
+  assert.equal(generated, 1);
+  assert.equal(calls[0]?.[0], "/api/orders/drafts");
+  assert.equal(calls[2]?.[0], calls[0]?.[0]);
+  assert.equal(calls[2]?.[1]?.body, calls[0]?.[1]?.body);
+  assert.equal(new Headers(calls[2]?.[1]?.headers).get("idempotency-key"), OPERATION_ID);
+  assert.equal(JSON.parse(String(calls[0]?.[1]?.body)).apply, true);
+  assert.equal(api.draftApplyLocked(), false);
+});
+
+test("manual order editor resolves a lost Save response and disables another Save before navigation finishes", async () => {
+  const { createOrderApiClient } = await import("./order-ui/client.ts");
+  const hooks = createHookRuntime();
+  const postBodies: string[] = [], paths: string[] = [];
+  const api = createOrderApiClient({ randomUUID: () => OPERATION_ID, fetch: async (_url, init) => {
+    if (init?.method === "GET") return json(draftDetail);
+    postBodies.push(String(init?.body));
+    if (postBodies.length === 1) throw new Error("lost reply");
+    return json({ draftId: DRAFT_ID, draftVersion: 3, orderId: ORDER_ID, orderNumber: "HMN-1001", adjustedInventory: true, replayed: true });
+  } });
+  const compiled = await compileOrderModule("components/orders/OrderDraftEditor.tsx", { react: hooks.runtime, orderApi: api, replace: path => paths.push(path) });
+  const Editor = compiled.exports.OrderDraftEditor as (props: Record<string, unknown>) => ReactNode;
+  const render = () => Editor({ draftId: DRAFT_ID, canManage: true });
+  const elements = (node: ReactNode) => { const result: React.ReactElement<Record<string, unknown>>[] = []; visitElements(node, item => result.push(item)); return result; };
+  let node = await hooks.flush(render);
+  const form = elements(node).find(element => element.type === "form")!;
+  (form.props.onSubmit as (event: { preventDefault(): void }) => void)({ preventDefault() {} });
+  for (let pass = 0; pass < 30 && !api.draftApplyLocked(); pass++) { await new Promise(resolve => setTimeout(resolve, 1)); node = await hooks.flush(render); }
+  node = await hooks.flush(render);
+  assert.equal(postBodies.length, 1);
+  assert.ok(elements(node).some(element => element.type === "fieldset" && element.props.disabled === true));
+  const recover = elements(node).find(element => element.type === "button" && element.props.children === "Kaydı doğrula")!;
+  assert.ok(recover);
+  (recover.props.onClick as () => void)();
+  for (let pass = 0; pass < 30 && paths.length === 0; pass++) { await new Promise(resolve => setTimeout(resolve, 1)); node = await hooks.flush(render); }
+  node = await hooks.flush(render);
+  assert.deepEqual(postBodies, [postBodies[0], postBodies[0]]);
+  assert.deepEqual(paths, [`/orders/${ORDER_ID}`]);
+  assert.equal(elements(node).some(element => element.type === "button" && element.props.children === "Kaydet"), false);
+  const completedForm = elements(node).find(element => element.type === "form")!;
+  (completedForm.props.onSubmit as (event: { preventDefault(): void }) => void)({ preventDefault() {} });
+  await hooks.flush(render);
+  assert.equal(postBodies.length, 2);
+});
+
+test("manual order reload keeps a tenant-scoped opaque fence and replays the same canonical body", async () => {
+  const { createOrderApiClient, OrderApiError } = await import("./order-ui/client.ts");
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const calls: RequestInit[] = [];
+  let first = true;
+  const fetcher = async (_url: RequestInfo | URL, init?: RequestInit) => {
+    calls.push(init!);
+    if (first) { first = false; throw new Error("commit reply lost"); }
+    return json({ draftId: DRAFT_ID, draftVersion: 2, orderId: ORDER_ID, orderNumber: "HMN-1001", adjustedInventory: true, replayed: true });
+  };
+  const original = createOrderApiClient({ fetch: fetcher, randomUUID: () => OPERATION_ID, durableScope: "atlas", storage });
+  await assert.rejects(original.applyDraft(draftIntent), error => error instanceof OrderApiError && error.code === "unavailable");
+  assert.equal(values.size, 1);
+  assert.doesNotMatch([...values.values()].join(""), /Ada|Lovelace|example|recipient|lineId|customer|note|shipping/i);
+  const reloaded = createOrderApiClient({ fetch: fetcher, randomUUID: () => { throw new Error("must retain the key"); }, durableScope: "atlas", storage });
+  assert.equal(reloaded.draftApplyLocked(), true);
+  assert.equal(reloaded.draftApplyNeedsInput(), true);
+  await assert.rejects(reloaded.applyDraft({ ...draftIntent, note: "new order" }), error => error instanceof OrderApiError && error.code === "operation_mismatch");
+  assert.equal(calls.length, 1);
+  const sameInput = { ...draftIntent, lines: draftIntent.lines.map(line => ({ ...line, lineId: EVENT_ID })) };
+  await reloaded.applyDraft(sameInput);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]!.body, calls[1]!.body);
+  assert.equal(new Headers(calls[1]!.headers).get("idempotency-key"), OPERATION_ID);
+  assert.equal(values.size, 0);
+  const anotherTenant = createOrderApiClient({ fetch: fetcher, randomUUID: () => OPERATION_ID, durableScope: "other", storage });
+  assert.equal(anotherTenant.draftApplyLocked(), false);
+});
+
+test("manual order storage failures fail closed before a durable write and preserve an unreadable fence", async () => {
+  const { createOrderApiClient, OrderApiError } = await import("./order-ui/client.ts");
+  for (const failure of ["read", "write"] as const) {
+    let fetches = 0, removals = 0;
+    const api = createOrderApiClient({ durableScope: "atlas", randomUUID: () => OPERATION_ID, storage: {
+      getItem() { if (failure === "read") throw new Error("disabled"); return null; },
+      setItem() { throw new Error("quota"); }, removeItem() { removals++; },
+    }, fetch: async () => { fetches++; return json({}); } });
+    await assert.rejects(api.applyDraft(draftIntent), error => error instanceof OrderApiError && error.code === "unavailable");
+    assert.equal(fetches, 0);
+    assert.equal(api.draftApplyLocked(), true);
+    assert.equal(removals, 0);
+  }
 });
 
 test("order list renders a controlled loading state without records", async () => {
@@ -1426,7 +1539,7 @@ test("orders navigation exposes every genuine child with exact activation and sa
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
   assert.deepEqual(orders?.children?.map(({ label, href }) => [label, href]), [
     ["Tüm Siparişler", "/orders"],
-    ["Taslak Siparişler", "/orders/drafts"],
+    ["Manuel siparişler", "/orders/drafts"],
     ["Mağaza satışı", "/orders/quick-links"],
     ["Ödeme bağlantıları", "/orders/payment-links"],
     ["Terk Edilen Sepetler", "/orders/abandoned-carts"],
@@ -1437,9 +1550,9 @@ test("orders navigation exposes every genuine child with exact activation and sa
     assert.equal(navigation.isPanelNavigationPathActive(unsafe, "/orders"), false);
   }
   assert.equal(navigation.getPanelRoutePresentation("/orders").title, "Siparişler");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Taslak Siparişler");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Yeni Taslak Sipariş");
-  assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Taslak Sipariş Ayrıntısı");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Manuel siparişler");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Yeni manuel sipariş");
+  assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Manuel sipariş ayrıntısı");
   assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Mağaza satışı");
   assert.equal(navigation.getPanelRoutePresentation("/orders/abandoned-carts").title, "Terk Edilen Sepetler");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/${ORDER_ID}`).title, "Sipariş ayrıntısı");
@@ -1459,10 +1572,9 @@ test("manual order draft workspace is wired to real catalog customer and durable
   assert.match(list, /href=\{`\/orders\/drafts\/\$\{draft[.]id\}`\}/);
   assert.match(editor, /loadCatalogVariantChoices/);
   assert.match(editor, /customerApi[.]list/);
-  assert.match(editor, /orderApi[.]createDraft/);
-  assert.match(editor, /orderApi[.]updateDraft/);
+  assert.match(editor, /orderApi[.]applyDraft/);
   assert.match(editor, /orderApi[.]archiveDraft/);
-  assert.match(editor, /orderApi[.]convertDraft/);
+  assert.doesNotMatch(editor, /orderApi[.]convertDraft|Siparişe dönüştür/);
   assert.match(editor, /router[.]replace\(`\/orders\/\$\{result[.]orderId\}`\)/);
   assert.match(editor, /expectedVersion/);
   assert.match(newPage, /orders[.]manage/);

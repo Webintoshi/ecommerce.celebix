@@ -949,25 +949,26 @@ function buttonWithText(node: ReactNode, text: string): React.ReactElement<Recor
   return result;
 }
 
-test("new inventory consoles expose the real next step after canonical draft creation", async () => {
+test("new inventory consoles save directly into active records without another draft action", async () => {
   const controllerModule = await controllers();
   for (const [path, name, kind, created, nextAction] of [
-    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountConsole", "count", count({ status: "draft", version: 1 }), "Sayımı başlat"],
-    ["components/inventory/PurchasingConsole.tsx", "PurchasingConsole", "purchase", purchase({ status: "draft", version: 1 }), "Siparişi ver"],
-    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferConsole", "transfer", transfer({ status: "draft", version: 1 }), "Sevk et"],
+    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountConsole", "count", count({ status: "counting", version: 2, lines: Object.freeze([Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 7 })]) }), "Sayımı başlat"],
+    ["components/inventory/PurchasingConsole.tsx", "PurchasingConsole", "purchase", purchase({ status: "ordered", version: 2 }), "Siparişi ver"],
+    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferConsole", "transfer", transfer({ status: "in_transit", version: 2 }), "Sevk et"],
   ] as const) {
     const hooks = createHookRuntime();
+    const activities: Array<{ dirty?: boolean }> = [];
     const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
     const intent = kind === "purchase"
       ? { locationId: LOCATION, supplierName: "Kalıcı Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 5, unitCostCents: 1250 }] }
       : kind === "count"
-        ? { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 5 }] }
+        ? { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] }
         : { sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] };
     const api = {
       async getCount() { return created; }, async getPurchaseOrder() { return created; }, async getTransfer() { return created; },
-      async saveCount() { return mutation(created.id, "draft", 1); },
-      async savePurchaseOrder() { return mutation(created.id, "draft", 1); },
-      async saveTransfer() { return mutation(created.id, "draft", 1); },
+      async saveCountAndStart() { return mutation(created.id, "counting", 2); },
+      async savePurchaseOrderAndOrder() { return mutation(created.id, "ordered", 2); },
+      async saveTransferAndDispatch() { return mutation(created.id, "in_transit", 2); },
     };
     const module = await compileWith(hooks.runtime, path, specifier => {
       if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
@@ -980,20 +981,22 @@ test("new inventory consoles expose the real next step after canonical draft cre
       if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
       if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
       if (specifier === "./InventoryListState") return { useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }) };
-      if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: (props: { onSave(value: unknown): void }) => createElement("button", { onClick: () => props.onSave(intent) }, "Taslağı oluştur"), PurchaseReceiptForm: () => null };
+      if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: (props: { onSave(value: unknown): void; onDirtyChange?(dirty: boolean): void }) => createElement("button", { onClick: () => { props.onDirtyChange?.(true); props.onSave(intent); } }, "Kaydet"), PurchaseReceiptForm: () => null };
       if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
       if (specifier.endsWith("inventory-console.module.css")) return styles;
       throw new Error(`unexpected_create_flow_import:${specifier}`);
     });
     const Console = module[name] as (props: Record<string, unknown>) => ReactNode;
-    const render = () => resolveComponents(Console({ mode: "new", embedded: true, canRead: true, canManage: true }));
+    const render = () => resolveComponents(Console({ mode: "new", embedded: true, canRead: true, canManage: true, onStateChange: (activity: { dirty?: boolean }) => activities.push(activity) }));
     let tree = await hooks.flush(render);
     assert.equal(buttonWithText(tree, nextAction), undefined, kind);
-    const create = buttonWithText(tree, "Taslağı oluştur");
+    const create = buttonWithText(tree, "Kaydet");
     assert.ok(create, kind);
     (create.props.onClick as () => void)();
     tree = await hooks.flush(render);
-    assert.ok(buttonWithText(tree, nextAction), `${kind}: successful creation must expose ${nextAction}`);
+    assert.equal(buttonWithText(tree, nextAction), undefined, `${kind}: successful save must not require ${nextAction}`);
+    assert.equal(activities.at(-1)?.dirty, false, `${kind}: committed save must allow the operation window to close`);
+    assert.match(renderToStaticMarkup(tree as React.ReactElement), kind === "count" ? /Sayılıyor/ : kind === "purchase" ? /Sipariş verildi/ : /Yolda/);
   }
 });
 
@@ -1335,4 +1338,55 @@ test("legacy stock list, create and detail URLs preserve the exact operation in 
       }
     }
   }
+});
+
+test("direct purchasing saves one active record, protects duplicate clicks and never auto-receives stock", async () => {
+  const module = await controllers();
+  const pending = deferred<InventoryMutationResult>();
+  let saves = 0, transitions = 0, receipts = 0;
+  const canonical = purchase({ status: "ordered", version: 2, lines: Object.freeze([Object.freeze({ ...purchase().lines[0]!, receivedQuantity: 0 })]) });
+  const subject = (module.createPurchasingConsoleController as Function)({ canManage: true, directSave: true, api: {
+    savePurchaseOrderAndOrder() { saves++; return pending.promise; },
+    async savePurchaseOrder() { throw Error("legacy draft save must not run"); },
+    async transitionPurchaseOrder() { transitions++; throw Error("no second browser request"); },
+    async receivePurchaseOrder() { receipts++; throw Error("receipt must stay explicit"); },
+    async getPurchaseOrder() { return canonical; },
+  } });
+  const intent = { locationId: LOCATION, supplierName: "Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 100 }] };
+  const first = subject.save(intent), duplicate = subject.save(intent);
+  assert.equal(saves, 1); assert.equal(subject.getSnapshot().pending, true);
+  pending.resolve(mutation(ORDER, "ordered", 2)); await Promise.all([first, duplicate]);
+  assert.equal(subject.getSnapshot().record, canonical); assert.equal(subject.getSnapshot().phase, "committed");
+  assert.equal(transitions, 0); assert.equal(receipts, 0);
+});
+
+test("direct counts begin once and preserve the explicit count and physical adjustment lifecycle", async () => {
+  const module = await controllers();
+  let starts = 0, ordinarySaves = 0, commits = 0;
+  let canonical = count({ status: "counting", version: 2, lines: Object.freeze([Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 7 })]) });
+  const subject = (module.createInventoryCountConsoleController as Function)({ canManage: true, directSave: true, api: {
+    async saveCountAndStart(input: { lines: unknown[] }) { starts++; assert.deepEqual(input.lines, [{ lineId: LINE, variantId: VARIANT }]); return mutation(COUNT, "counting", 2); },
+    async saveCount() { ordinarySaves++; canonical = count({ version: 3 }); return mutation(COUNT, "counting", 3); },
+    async startCount() { throw Error("no separate start request"); },
+    async commitCount() { commits++; canonical = count({ status: "committed", version: 4 }); return mutation(COUNT, "committed", 4); },
+    async getCount() { return canonical; },
+  } });
+  await subject.save({ locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] });
+  assert.equal(starts, 1); assert.equal(subject.getSnapshot().record.status, "counting"); assert.equal(commits, 0);
+  await subject.save({ countId: COUNT, expectedVersion: 2, locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 5 }] });
+  assert.equal(starts, 1); assert.equal(ordinarySaves, 1); assert.equal(commits, 0);
+  await subject.commit(); assert.equal(commits, 1); assert.equal(subject.getSnapshot().record.status, "committed");
+});
+
+test("direct transfer save activates an old record once without receiving at the target", async () => {
+  const module = await controllers();
+  let saves = 0, received = 0;
+  const subject = (module.createInventoryTransferConsoleController as Function)({ initial: transfer({ status: "draft", version: 2 }), canManage: true, directSave: true, api: {
+    async saveTransferAndDispatch(input: { expectedVersion: number }) { saves++; assert.equal(input.expectedVersion, 2); return mutation(TRANSFER, "in_transit", 4); },
+    async saveTransfer() { throw Error("draft save must not run"); },
+    async receiveTransfer() { received++; throw Error("delivery remains explicit"); },
+    async getTransfer() { return transfer({ status: "in_transit", version: 4 }); },
+  } });
+  await subject.save({ transferId: TRANSFER, expectedVersion: 2, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] });
+  assert.equal(saves, 1); assert.equal(received, 0); assert.equal(subject.getSnapshot().record.status, "in_transit");
 });

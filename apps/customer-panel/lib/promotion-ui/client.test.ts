@@ -21,6 +21,25 @@ function memoryStorage() {
   };
 }
 
+test("campaign apply returns an effective scheduled record with one retained write", async () => {
+  const calls: Request[] = [];
+  const storage = memoryStorage();
+  const draft = updatePromotionDraft(createPromotionDraft("free_shipping"), { name: "Planlı kampanya", startsAt: "2026-10-10T00:00:00.000Z" });
+  const client = new PromotionApiClient(async (input, init) => {
+    calls.push(new Request(input, init));
+    if (calls.length === 1) throw new Error("response lost");
+    return response({ promotion: { id: PROMOTION_ID, version: 2, name: draft.name, status: "scheduled", ruleDocument: promotionRuleDocument(draft), createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:00:00.000Z" }, replayed: true }, 201);
+  }, () => "00000000-0000-4000-8000-000000000099", storage);
+  await assert.rejects(client.apply(draft), /response lost/);
+  await assert.rejects(client.apply(updatePromotionDraft(draft, { name: "Changed" })), /promotion_operation_unresolved/);
+  const result = await client.apply(draft);
+  assert.equal(result.kind, "saved");
+  assert.equal(result.kind === "saved" ? result.promotion.status : undefined, "scheduled");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]!.headers.get("idempotency-key"), calls[1]!.headers.get("idempotency-key"));
+  assert.deepEqual(await calls[0]!.json(), await calls[1]!.json());
+});
+
 test("invokes browser-style fetch without using the API client as its receiver", async () => {
   const browserFetch = function(this: unknown, _input: RequestInfo | URL, _init?: RequestInit) {
     if (this !== undefined) return Promise.reject(new TypeError("Illegal invocation"));

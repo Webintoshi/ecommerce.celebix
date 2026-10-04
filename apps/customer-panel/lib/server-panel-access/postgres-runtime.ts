@@ -89,7 +89,7 @@ import { registerServerToshiChatRuntime } from "../server-toshi-chat/runtime.ts"
 import { createDefaultShippingAdapter } from "../server-shipping/default.ts";
 import { registerServerShippingRuntime } from "../server-shipping/runtime.ts";
 import { createToshiProviderAdapterRegistry } from "../toshi-provider-adapters/registry.ts";
-import { createPostCommitInvalidatingRepository } from "../server-cache/invalidation.ts";
+import { createPostCommitInvalidatingRepository, DIRECT_SAVE_INVALIDATION } from "../server-cache/invalidation.ts";
 import { registerPanelBrandingRepository } from "../server-panel-branding/service.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
@@ -1064,7 +1064,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       createCategory: ["catalog"], updateCategory: ["catalog"], archiveCategory: ["catalog"], deleteCategory: ["settings"],
       reorderCategoryProducts: ["catalog"], reorderCategories: ["catalog"],
     }));
-    registerServerOrderRepository(access, orderRepository);
+    registerServerOrderRepository(access, createPostCommitInvalidatingRepository(orderRepository, DIRECT_SAVE_INVALIDATION.orders));
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
       prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
     }));
@@ -1123,17 +1123,21 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     );
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, createPostCommitInvalidatingRepository(inventoryRepository, {
+      ...DIRECT_SAVE_INVALIDATION.inventory,
       savePurchaseOrder: ["catalog"], transitionPurchaseOrder: ["catalog"], receivePurchaseOrder: ["catalog"],
       saveCount: ["catalog"], startCount: ["catalog"], commitCount: ["catalog"], cancelCount: ["catalog"],
       saveTransfer: ["catalog"], dispatchTransfer: ["catalog"], receiveTransfer: ["catalog"], cancelTransfer: ["catalog"],
     }));
     registerServerPricingRepository(access, createPostCommitInvalidatingRepository(pricingRepository, {
+      ...DIRECT_SAVE_INVALIDATION.pricing,
       save: ["catalog"], activate: ["catalog"], archive: ["catalog"],
     }));
     registerServerReferencePricingRepository(access, createPostCommitInvalidatingRepository(referencePricingRepository, {
+      ...DIRECT_SAVE_INVALIDATION.referencePricing,
       activate: ["catalog"], savePolicy: ["catalog"],
     }));
     registerServerPromotionsRepository(access, createPostCommitInvalidatingRepository(promotionRepository, {
+      ...DIRECT_SAVE_INVALIDATION.promotions,
       create: ["promotions"],
       update: ["promotions"],
       publish: ["promotions"],

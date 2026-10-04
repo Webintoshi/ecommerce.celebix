@@ -6,7 +6,15 @@ const METHODS = Object.freeze(["list", "get", "save", "activate", "archive", "pr
 const repositories = new WeakMap<ServerPanelAccessRuntime, PricingRepository>();
 function invalid(): never { throw new Error("server_pricing_runtime_invalid"); }
 function facade(repository: PricingRepository): PricingRepository {
-  try { if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid(); return Object.freeze(Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)]))) as unknown as PricingRepository; } catch { return invalid(); }
+  try {
+    if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
+    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as PricingRepository;
+    if (repository.apply !== undefined) {
+      if (typeof repository.apply !== "function") invalid();
+      methods.apply = repository.apply.bind(repository);
+    }
+    return Object.freeze(methods);
+  } catch { return invalid(); }
 }
 export function registerServerPricingRepository(access: ServerPanelAccessRuntime, repository: PricingRepository): void {
   try { if (!access || access.readiness.mode !== "approved_staging" || access.panelOrigin === null || repositories.has(access)) invalid(); repositories.set(access, facade(repository)); } catch { invalid(); }

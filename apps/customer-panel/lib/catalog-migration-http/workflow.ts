@@ -1,6 +1,7 @@
 import type { CatalogMigrationBatchResult, CatalogMigrationCategory, CatalogMigrationJob, CatalogMigrationProduct, CatalogMigrationTaxonomy, CatalogMigrationVariant } from "@celebix/saas-data";
 
 export interface CatalogMigrationManifest {
+  readonly warningCounts?: Readonly<{ missingPriceDrafted: number }>;
   readonly sourceDigest: string;
   readonly products: readonly Readonly<Omit<CatalogMigrationProduct, "variant" | "additionalVariants" | "sourceImageDigests"> & { variants: readonly CatalogMigrationVariant[]; sourceImages: readonly string[] }>[];
   readonly categories: readonly CatalogMigrationCategory[];
@@ -45,6 +46,7 @@ export async function runWooCommerceMigration(
   uuid: () => string,
   progress: (value: WooCommerceMigrationProgress) => void = () => undefined,
 ): Promise<CatalogMigrationJob> {
+  if ((manifest.warningCounts?.missingPriceDrafted ?? 0) > 0) throw new Error("catalog_import_missing_price");
   const compiled = await products(manifest);
   let current = await api.begin({ sourceDigest: manifest.sourceDigest, totalProducts: compiled.length, totalMedia: manifest.mediaCount, categories: manifest.categories, brands: manifest.brands }, uuid());
   if (current.sourceDigest !== manifest.sourceDigest || current.totalProducts !== compiled.length || current.totalMedia !== manifest.mediaCount) throw new Error("woocommerce_migration_workflow_invalid");

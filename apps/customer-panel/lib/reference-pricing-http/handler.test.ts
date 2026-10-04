@@ -55,6 +55,13 @@ async function handler(pricing: ReferencePricingRepository, role: "store_owner" 
   return { handle, credentialCalls: () => credentials };
 }
 
+test("one reference apply request carries state and gram selection with server authority",async()=>{
+ const calls:unknown[]=[];const api=repository({async apply(input){calls.push(input);return {setId:SET,version:1,stateVersion:1,activatedAt:UTC};}});const {handle}=await handler(api);const input={apply:true,operationId:OP,setId:SET,expectedStateVersion:0,values:[{referenceId:REFERENCE,rateTry:"40",active:true}],channel:"storefront",catalogGramReferenceId:REFERENCE};
+ assert.equal((await handle(request("/api/reference-pricing/sets",{method:"POST",body:input}))).status,200);assert.equal(calls.length,1);assert.equal("apply" in (calls[0] as object),false);
+ const reader=await handler(api,"editor");assert.equal((await reader.handle(request("/api/reference-pricing/sets",{method:"POST",body:input}))).status,403);
+ assert.equal((await handle(request("/api/reference-pricing/sets",{method:"POST",body:{...input,catalogGramReferenceId:"bad"}}))).status,400);assert.equal(calls.length,1);
+});
+
 test("native grams intent retains server authority and rejects malformed reference IDs", async () => {
   const calls: Array<Record<string, unknown>> = [];
   const preview = { setId: SET, scopeDigest: DIGEST, affectedProducts: 0, affectedVariants: 0, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [], nextCursor: null };
@@ -81,8 +88,8 @@ test("native grams intent retains server authority and rejects malformed referen
 
 test("finite read and write routes pass only parsed input with server tenant authority", async () => {
   const calls: Array<[string, Record<string, unknown>]> = [];
-  const observe = <K extends keyof ReferencePricingRepository>(name: K, result: Awaited<ReturnType<ReferencePricingRepository[K]>>): ReferencePricingRepository[K] =>
-    (async (input: Parameters<ReferencePricingRepository[K]>[0]) => {
+  const observe = <K extends keyof ReferencePricingRepository>(name: K, result: Awaited<ReturnType<NonNullable<ReferencePricingRepository[K]>>>): ReferencePricingRepository[K] =>
+    (async (input: Parameters<NonNullable<ReferencePricingRepository[K]>>[0]) => {
       calls.push([name, input as unknown as Record<string, unknown>]);
       return result;
     }) as ReferencePricingRepository[K];

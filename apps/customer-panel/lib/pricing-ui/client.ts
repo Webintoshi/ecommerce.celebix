@@ -240,6 +240,8 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
     }
   }
   function operation() { return id(uuid()); }
+  let retainedApply: { signature: string; operationId: string; uncertain: boolean } | undefined;
+  let applyPending = false;
   return Object.freeze({
     async list(signal?: AbortSignal) { return request("/api/pricing/price-lists", items, undefined, signal); },
     async get(priceListId: string, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}`, parsePriceList, undefined, signal); },
@@ -249,6 +251,30 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
       const safeItems = Object.freeze(dense(parsed.items, 1, 500).map(parsePriceListItem));
       const safeRules = Object.freeze(dense(parsed.rules, 1, 100).map(parsePriceListRule));
       return request("/api/pricing/price-lists", parsePriceList, { operationId: operation(), ...(parsed.priceListId === undefined ? {} : { priceListId: id(parsed.priceListId), expectedVersion: version(parsed.expectedVersion) }), name: parsed.name, items: safeItems, rules: safeRules }, signal);
+    },
+    async apply(value: SavePriceListIntent, signal?: AbortSignal) {
+      const parsed = exact(value, ["name", "items", "rules"], ["priceListId", "expectedVersion"]);
+      if (typeof parsed.name !== "string" || ((parsed.priceListId === undefined) !== (parsed.expectedVersion === undefined))) return invalid();
+      const safeItems = Object.freeze(dense(parsed.items, 1, 500).map(parsePriceListItem));
+      const safeRules = Object.freeze(dense(parsed.rules, 1, 100).map(parsePriceListRule));
+      const body = { apply: true, ...(parsed.priceListId === undefined ? {} : { priceListId: id(parsed.priceListId), expectedVersion: version(parsed.expectedVersion) }), name: parsed.name, items: safeItems, rules: safeRules };
+      const signature = JSON.stringify(body);
+      if (applyPending || (retainedApply?.uncertain && retainedApply.signature !== signature)) throw new PricingApiError("verification_unavailable", 503);
+      if (!retainedApply || retainedApply.signature !== signature) retainedApply = { signature, operationId: operation(), uncertain: false };
+      const retained = retainedApply;
+      applyPending = true;
+      try {
+        const result = await request("/api/pricing/price-lists", value => {
+          const result = parsePriceList(value);
+          if (result.status !== "active" || result.version !== (parsed.expectedVersion === undefined ? 2 : version(parsed.expectedVersion) + 2) || (parsed.priceListId !== undefined && result.id !== parsed.priceListId)) invalid();
+          return result;
+        }, { ...body, operationId: retained.operationId }, signal);
+        retainedApply = undefined;
+        return result;
+      } catch (error) {
+        if ((error instanceof PricingApiError && (error.code === "unavailable" || error.code === "verification_unavailable")) || (error instanceof DOMException && error.name === "AbortError")) retained.uncertain = true;
+        throw error;
+      } finally { applyPending = false; }
     },
     async activate(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/activate`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
     async archive(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/archive`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
@@ -384,14 +410,14 @@ export function createPricingRequestLifecycle() {
   });
 }
 
-export function createPricingMutationController(api: Pick<PricingApi, "save" | "activate" | "archive">) {
+export function createPricingMutationController(api: Pick<PricingApi, "save" | "activate" | "archive"> & Partial<Pick<PricingApi,"apply">>) {
   if (!api || typeof api.save !== "function" || typeof api.activate !== "function" || typeof api.archive !== "function") return invalid();
   let current: PricingMutationState = "idle";
   let pending: Readonly<{ promise: Promise<PriceList>; controller: AbortController; reject(error: unknown): void; settled(): boolean; markSettled(): void }> | undefined;
 
   function locked(): Promise<PriceList> { return Promise.reject(new PricingApiError("verification_unavailable", 503)); }
-  function execute(operation: (signal: AbortSignal) => Promise<PriceList>): Promise<PriceList> {
-    if (current === "verification_unavailable") return locked();
+  function execute(operation: (signal: AbortSignal) => Promise<PriceList>, recovery = false): Promise<PriceList> {
+    if (current === "verification_unavailable" && !recovery) return locked();
     if (pending) return Promise.reject(new PricingApiError("mutation_pending", 409));
     const controller = new AbortController(); let resolve!: (value: PriceList) => void, reject!: (error: unknown) => void, done = false;
     const promise = new Promise<PriceList>((accept, deny) => { resolve = accept; reject = deny; });
@@ -406,7 +432,7 @@ export function createPricingMutationController(api: Pick<PricingApi, "save" | "
       }).catch((error: unknown) => {
         if (owned.settled()) return;
         owned.markSettled(); pending = undefined;
-        if ((error instanceof PricingApiError && error.code === "unavailable") || (error instanceof DOMException && error.name === "AbortError")) {
+        if ((error instanceof PricingApiError && (error.code === "unavailable" || error.code === "verification_unavailable")) || (error instanceof DOMException && error.name === "AbortError")) {
           current = "verification_unavailable";
           reject(new PricingApiError("verification_unavailable", 503));
         } else { current = "idle"; reject(error); }
@@ -418,6 +444,7 @@ export function createPricingMutationController(api: Pick<PricingApi, "save" | "
   return Object.freeze({
     state: () => current,
     save: (value: SavePriceListIntent) => execute((signal) => api.save(value, signal)),
+    apply: (value: SavePriceListIntent) => execute((signal) => api.apply ? api.apply(value,signal) : Promise.reject(new PricingApiError("unavailable",503)), true),
     activate: (priceListId: string, expectedVersion: number) => execute((signal) => api.activate(priceListId, expectedVersion, signal)),
     archive: (priceListId: string, expectedVersion: number) => execute((signal) => api.archive(priceListId, expectedVersion, signal)),
     dispose() {

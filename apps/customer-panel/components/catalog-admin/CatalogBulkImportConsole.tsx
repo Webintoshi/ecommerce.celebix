@@ -113,12 +113,15 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
       if (provider === "woocommerce" || provider === "qukasoft") {
         const manifest = provider === "qukasoft" ? await compileQukasoftMigration(source) : await compileWooCommerceMigration(source);
         if (previewRequestRef.current !== requestId) return;
+        if (manifest.warningCounts.missingPriceDrafted > 0) {
+          setError(`${manifest.warningCounts.missingPriceDrafted} ürünün fiyatı eksik. Fiyatları tamamlayıp dosyayı yeniden seçin.`);
+          return;
+        }
         migrationManifestRef.current = manifest;
         const warningCount = Object.values(manifest.warningCounts).reduce((total, value) => total + value, 0);
         const variantCount = manifest.products.reduce((total, product) => total + product.variants.length, 0);
         const counts = manifest.warningCounts;
         const warnings: string[] = [];
-        if (counts.missingPriceDrafted) warnings.push(`${counts.missingPriceDrafted} ürün fiyatı eksik olduğu için taslak aktarılacak.`);
         if (counts.missingImage) warnings.push(`${counts.missingImage} üründe görsel bulunmuyor.`);
         if (counts.availabilityStockMapped) warnings.push(`${counts.availabilityStockMapped} ürünün stok adedi bulunmadığı için stok durumu adede dönüştürüldü.`);
         if (counts.duplicateImagesRemoved) warnings.push(`${counts.duplicateImagesRemoved} tekrarlanan görsel tek kez aktarılacak.`);

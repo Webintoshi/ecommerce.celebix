@@ -87,8 +87,8 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
           </div>
           {canManage ? <div className={styles.actions}>
             {pending.current && !busy ? <button type="button" onClick={() => void save(pending.current!.status)}>Yeniden dene</button> : conflict ? <button type="button" onClick={() => void load()}>Güncel ayarı yükle</button> : <>
-              <button type="button" disabled={!editable} onClick={() => void save("draft")}>Taslağı kaydet</button>
-              <button className={styles.primary} type="submit" disabled={!editable}>{busy ? "Kaydediliyor…" : workspace.record?.status === "active" ? "Kaydet ve etkinleştir" : "Teslimatı etkinleştir"}</button>
+
+              <button className={styles.primary} type="submit" disabled={!editable}>{busy ? "Kaydediliyor…" : "Kaydet"}</button>
             </>}
           </div> : <p className={styles.state}>Bu ayarı düzenleme yetkiniz yok.</p>}
         </form>

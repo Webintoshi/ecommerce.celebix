@@ -11,6 +11,18 @@ const manifest = Object.freeze({
 });
 function job(overrides: Record<string, unknown> = {}) { return { jobId: JOB, sourceDigest: manifest.sourceDigest, status: "processing" as const, totalProducts: 1, importedProducts: 0, totalMedia: 2, committedMedia: 0, failedMedia: 0, categoryCount: 1, brandCount: 0, version: 1, updatedAt: "2026-07-28T12:00:00.000Z", replayed: false, ...overrides }; }
 
+test("missing source prices stop before a migration job or any product is saved", async () => {
+  let writes = 0;
+  const api: WooCommerceMigrationApi = {
+    async begin() { writes += 1; return job(); },
+    async batch() { throw new Error("must not run"); },
+    async media() { throw new Error("must not run"); },
+    async status() { throw new Error("must not run"); },
+  };
+  await assert.rejects(runWooCommerceMigration({ ...manifest, warningCounts: { ...manifest.warningCounts, missingPriceDrafted: 1 } }, api, () => crypto.randomUUID()), /catalog_import_missing_price/);
+  assert.equal(writes, 0);
+});
+
 test("imports product batches before two-worker media ingestion and reports durable progress", async () => {
   const calls: string[] = []; let media = 0;
   const api: WooCommerceMigrationApi = {

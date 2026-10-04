@@ -13,7 +13,7 @@ import { useOptionalInventoryWorkspace } from "./InventoryWorkspaceContext";
 import type { InventoryConsoleActivity } from "./InventoryOperationForm";
 import styles from "./inventory-console.module.css";
 
-const LABELS: Readonly<Record<PurchaseOrderStatus, string>> = Object.freeze({ draft: "Taslak", ordered: "Sipariş verildi", partially_received: "Kısmen teslim", received: "Teslim alındı", cancelled: "İptal" });
+const LABELS: Readonly<Record<PurchaseOrderStatus, string>> = Object.freeze({ draft: "İşlem bekliyor", ordered: "Sipariş verildi", partially_received: "Kısmen teslim", received: "Teslim alındı", cancelled: "İptal" });
 const money = (cents: number) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(cents / 100);
 const date = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const number = (id: string) => `ST-${id.slice(0, 8).toUpperCase()}`;
@@ -59,9 +59,10 @@ function PurchasingDetail(props: Readonly<{ initial?: PurchaseOrder; resourceId?
   const [dirty, setDirty] = useState(false);
   const lifecycle = useRef<ReturnType<typeof createInventoryConsoleLifecycle<ReturnType<typeof createPurchasingConsoleController>>> | null>(null);
   const [state, setState] = useState<InventoryConsoleSnapshot<PurchaseOrder>>({ phase: props.canRead ? (props.initial ? "loaded" : "loading") : "denied", ...(props.initial ? { record: props.initial } : {}), pending: false, locked: false, message: "" });
-  if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createPurchasingConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState }));
+  if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createPurchasingConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, directSave: true, api: inventoryApi, onChange: setState }));
   useEffect(() => lifecycle.current!.setup(), []);
   const item = state.record;
+  useEffect(() => { if (state.phase === "committed" || state.phase === "replayed") setDirty(false); }, [state.phase, state.record?.id, state.record?.version]);
   useEffect(() => { props.onStateChange?.({ pending: state.pending, locked: state.locked, dirty }); }, [state.pending, state.locked, dirty, props.onStateChange]);
   return <>{!props.create || item ? <PurchasingDetailPresentation state={state} canManage={props.canManage} hasUnsavedChanges={dirty} onOrder={() => { void lifecycle.current?.getCurrent()?.order(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
     {((props.create && !item) || item?.status === "draft") ? <InventoryOperationForm mode="purchase" record={item} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onDirtyChange={setDirty} canManage={props.canManage} phase={state.phase} pending={state.pending} locked={state.locked} message={state.message} onSave={(value) => { void lifecycle.current?.getCurrent()?.save(value as Parameters<ReturnType<typeof createPurchasingConsoleController>["save"]>[0]); }} /> : null}

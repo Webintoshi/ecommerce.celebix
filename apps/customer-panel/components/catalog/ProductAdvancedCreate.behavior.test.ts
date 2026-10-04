@@ -107,7 +107,7 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   const container = browser.document.createElement("div"); browser.document.body.append(container);
   const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
   let latest = (supplied.draftSession as drafts.ProductDraftSession | undefined) ?? draft();
-  const props = { options, onCancel() {}, onCreated() {}, api: { createProduct: async () => created, publishAfterMedia: async () => created, getProductEditor: async () => created }, mediaClient: { upload: async () => ({}) }, draftSession: latest, onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; }, ...supplied };
+  const props = { options, onCancel() {}, onCreated() {}, mediaClient: { upload: async () => ({}) }, draftSession: latest, onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; }, ...supplied, api: { createProduct: async () => created, publishAfterMedia: async () => ({ ...created, product: { ...created.product, status: "active" } }), getProductEditor: async () => created, ...(supplied.api as Record<string, unknown> ?? {}) } };
   let key = 0;
   try {
     await act(async () => { root.render(createElement(Advanced, { ...props, key })); });
@@ -128,7 +128,7 @@ async function click(container: HTMLElement, text: string) {
 }
 async function submit(container: HTMLElement, browser: Window) {
   const form = container.querySelector("form")!;
-  await act(async () => { form.dispatchEvent(new browser.SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: container.querySelector('button[value="draft"]') as never }) as unknown as Event); });
+  await act(async () => { form.dispatchEvent(new browser.SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: container.querySelector('button[value="publish"]') as never }) as unknown as Event); });
 }
 
 const standard = draft().current.variants[0]!;
@@ -240,11 +240,11 @@ test("pending real barcode reservation blocks save and the generated barcode is 
   const session = drafts.updateProductDraft(draft(), { variants: [{ ...standard, barcode: "" }] });
   await withAdvanced({ draftSession: session, api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; }, publishAfterMedia: async () => created, getProductEditor: async () => created } }, async ({ container, browser }) => {
     await act(async () => { (container.querySelector('button[aria-label="Dahili barkod oluştur"]') as HTMLButtonElement).click(); });
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, true);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, true);
     await submit(container, browser);
     assert.equal(intents.length, 0);
     await act(async () => { resolve("9800000000007"); });
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, false);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, false);
     await submit(container, browser);
     assert.equal(intents.length, 1);
     assert.equal((intents[0] as { variants: { barcode: string }[] }).variants[0]!.barcode, "9800000000007");
@@ -267,7 +267,7 @@ test("a delayed barcode reservation survives price and stock edits on the same c
     await act(async () => { resolve("9800000000007"); });
     assert.equal((container.querySelector('input[aria-label="S barkod"]') as HTMLInputElement).value, "9800000000007");
     assert.deepEqual([latest().current.variants[0]!.price, latest().current.variants[0]!.stockQuantity, latest().current.variants[0]!.barcode], ["275,00", "3", "9800000000007"]);
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, false);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, false);
   }, () => new Promise<string>((done) => { resolve = done; }));
 });
 
@@ -432,7 +432,7 @@ test("advanced product resumes the same draft after gallery reply loss and remou
   assert.equal(container.querySelector<HTMLTextAreaElement>('textarea[name="description"]')!.readOnly,true,"rich product description is also immutable during recovery");
   await act(async()=>removeButton.click());
   assert.equal(latest().current.media.length,2);assert.deepEqual(latest().current.creationRecovery,recovery.current.creationRecovery);
-  assert.equal(container.querySelector<HTMLButtonElement>('button[value="draft"]')!.matches(":disabled"),false,"recovery retry stays enabled");
+  assert.equal(container.querySelector<HTMLButtonElement>('button[value="publish"]')!.matches(":disabled"),false,"recovery retry stays enabled");
   await remount(recovery);
   // Native FormData excludes descendants of a disabled fieldset; happy-dom does not.
   const NativeFormData=browser.FormData;
@@ -452,5 +452,16 @@ test("removing a local product image clears its variant links before creation",a
   assert.equal(latest().current.variants[0]!.mediaIds?.length,1);
   await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Seçili görseli kaldır"]')!.click());
   assert.deepEqual(latest().current.variants[0]!.mediaIds,[]);
+ });
+});
+
+test("advanced one Save publishes after uploading and accepts keyboard submission", async () => {
+ const calls: string[] = [], intents: any[] = [], finished: any[] = [];
+ await withAdvanced({api:{createProduct:async(input:any)=>{intents.push(input);calls.push("create");return created;},publishAfterMedia:async()=>{calls.push("publish");return{...created,product:{...created.product,status:"active"}};},getProductEditor:async()=>created},onCreated:(value:any)=>finished.push(value)},async({container,browser})=>{
+  assert.deepEqual([...container.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].map(button=>button.textContent),["Kaydet"]);
+  await act(async()=>{container.querySelector("form")!.dispatchEvent(new browser.SubmitEvent("submit",{bubbles:true,cancelable:true}) as unknown as Event);});
+  assert.equal(intents[0].publish,true);
+  assert.deepEqual(calls,["create","publish"]);
+  assert.equal(finished[0].product.status,"active");
  });
 });

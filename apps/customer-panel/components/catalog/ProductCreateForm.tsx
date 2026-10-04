@@ -108,7 +108,7 @@ export function ProductCreateForm({ initialMode = "choose" }: Readonly<{ initial
       <h1 className={styles.srOnly} id="create-title">Yeni ürün oluştur</h1>
       <div className={styles.navigation}>
         {mode === "choose" ? <Link className={styles.backLink} href="/products"><ArrowLeft aria-hidden="true" />Ürünlere dön</Link> : <button type="button" className={styles.backLink} disabled={busy} onClick={() => selectMode("choose")}><ArrowLeft aria-hidden="true" />Yöntemlere dön</button>}
-        {mode !== "choose" ? <span className={styles.draftState}>Taslak</span> : null}
+        {mode !== "choose" ? <span className={styles.draftState}>Kaydedilmedi</span> : null}
       </div>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Seçenekler yüklenemedi</strong><p>{error}</p><button type="button" onClick={() => setLoadRevision((revision) => revision + 1)}>Tekrar dene</button></div></div> : null}
       {mode === "choose" ? <div className={styles.createChoices} role="group" aria-label="Ürün yükleme yöntemi">

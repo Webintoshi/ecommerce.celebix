@@ -37,40 +37,40 @@ async function mounted(options:Options,verify:(element:HTMLElement,browser:Windo
 async function input(element:HTMLElement,browser:Window,name:string,value:string){const field=element.querySelector<HTMLInputElement>(`input[name="${name}"]`);assert.ok(field);await act(async()=>{const setter=Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,"value")!.set!;setter.call(field,value);field.dispatchEvent(new browser.Event("input",{bubbles:true}) as unknown as Event);});}
 const button=(element:HTMLElement,label:string)=>Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(x=>x.textContent?.trim()===label)!;
 test("editor submits exact Turkish cents and preserves legacy config and version",async()=>{await mounted({},async(element,browser,writes)=>{
- await input(element,browser,"price","14,89");await input(element,browser,"days","365");await act(async()=>button(element,"Kaydet ve etkinleştir").click());
+ await input(element,browser,"price","14,89");await input(element,browser,"days","365");await act(async()=>button(element,"Kaydet").click());
  assert.equal(writes.length,1);assert.deepEqual(writes[0].body,{recordId:ID,expectedVersion:7,name:"Teslimat",config:{regions:"Türkiye",freeShippingThresholdCents:50000,shippingPriceCents:1489,estimatedDays:365},status:"active"});assert.match(element.textContent??"",/14,89 TL/);assert.match(element.textContent??"",/Etkin/);
 });});
-test("empty fee is rejected and explicit zero can be saved as an inactive draft",async()=>{await mounted({empty:true},async(element,browser,writes)=>{
- await act(async()=>button(element,"Teslimatı etkinleştir").click());assert.equal(writes.length,0);assert.ok(element.querySelector('[role="alert"]'));
- await input(element,browser,"price","0");await act(async()=>button(element,"Taslağı kaydet").click());assert.equal(writes[0].body.status,"draft");assert.deepEqual(writes[0].body.config,{shippingPriceCents:0});assert.match(element.textContent??"",/Ücretsiz teslimat/);assert.match(element.textContent??"",/Taslak/);
+test("empty fee is rejected and explicit zero is saved directly as the active checkout fee",async()=>{await mounted({empty:true},async(element,browser,writes)=>{
+ await act(async()=>button(element,"Kaydet").click());assert.equal(writes.length,0);assert.ok(element.querySelector('[role="alert"]'));
+ await input(element,browser,"price","0");await act(async()=>button(element,"Kaydet").click());assert.equal(writes[0].body.status,"active");assert.deepEqual(writes[0].body.config,{shippingPriceCents:0});assert.match(element.textContent??"",/Ücretsiz teslimat/);assert.match(element.textContent??"",/Etkin/);
 });});
 test("read-only permissions prevent even a programmatically submitted mutation",async()=>{await mounted({canManage:false},async(element,browser,writes)=>{
  const field=element.querySelector<HTMLInputElement>('input[name="price"]');assert.ok(field?.disabled);await act(async()=>element.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(writes.length,0);
 });await mounted({canRead:false},async(element,_browser,writes)=>{assert.equal(element.querySelector("form"),null);assert.match(element.textContent??"",/yetkiniz yok/);assert.equal(writes.length,0);});});
 test("stale version keeps entered values until the merchant explicitly reloads",async()=>{await mounted({failure:409},async(element,browser,writes)=>{
- await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet ve etkinleştir").click());assert.equal(writes.length,1);assert.equal(element.querySelector<HTMLInputElement>('input[name="price"]')?.value,"14,89");assert.match(element.textContent??"",/güncellendi/);assert.ok(button(element,"Güncel ayarı yükle"));
+ await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet").click());assert.equal(writes.length,1);assert.equal(element.querySelector<HTMLInputElement>('input[name="price"]')?.value,"14,89");assert.match(element.textContent??"",/güncellendi/);assert.ok(button(element,"Güncel ayarı yükle"));
 });});
 test("uncertain save retries the same payload and operation without allowing input changes",async()=>{await mounted({failure:503},async(element,browser,writes)=>{
- await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet ve etkinleştir").click());assert.equal(element.querySelector<HTMLInputElement>('input[name="price"]')?.disabled,true);await act(async()=>button(element,"Yeniden dene").click());assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);assert.match(element.textContent??"",/14,89 TL/);
+ await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet").click());assert.equal(element.querySelector<HTMLInputElement>('input[name="price"]')?.disabled,true);await act(async()=>button(element,"Yeniden dene").click());assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);assert.match(element.textContent??"",/14,89 TL/);
 });});
 test("adding a fee preserves the valid existing day until the merchant clears it",async()=>{
  const legacy={...record,config:{regions:"Türkiye",estimatedDays:2}};
  await mounted({records:[legacy]},async(element,browser,writes)=>{
   assert.equal(element.querySelector<HTMLInputElement>('input[name="days"]')?.value,"2");
-  await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet ve etkinleştir").click());
+  await input(element,browser,"price","14,89");await act(async()=>button(element,"Kaydet").click());
   assert.deepEqual(writes[0].body.config,{regions:"Türkiye",shippingPriceCents:1489,estimatedDays:2});
  });
  await mounted({records:[legacy]},async(element,browser,writes)=>{
-  await input(element,browser,"price","14,89");await input(element,browser,"days","");await act(async()=>button(element,"Kaydet ve etkinleştir").click());
+  await input(element,browser,"price","14,89");await input(element,browser,"days","");await act(async()=>button(element,"Kaydet").click());
   assert.deepEqual(writes[0].body.config,{regions:"Türkiye",shippingPriceCents:1489});
  });
 });
-test("saving one draft shows the older active checkout fee without promising global closure",async()=>{
+test("one save updates the selected active checkout fee without a separate activation",async()=>{
  const older={...record,id:"71000000-0000-4000-8000-000000000002",config:{shippingPriceCents:2500},updatedAt:"2026-09-26T00:00:00.000Z"};
  await mounted({records:[record,older]},async(element,_browser,writes)=>{
   assert.doesNotMatch(element.textContent??"",/Teslimatı kapat/);
-  await act(async()=>button(element,"Taslağı kaydet").click());
-  assert.equal(writes.length,1);assert.equal(writes[0].body.recordId,ID);assert.equal(writes[0].body.status,"draft");
-  assert.match(element.textContent??"",/Ödeme adımında 25,00 TL kullanılıyor/);
+  await act(async()=>button(element,"Kaydet").click());
+  assert.equal(writes.length,1);assert.equal(writes[0].body.recordId,ID);assert.equal(writes[0].body.status,"active");
+  assert.match(element.textContent??"",/10,00 TL/);
  });
 });

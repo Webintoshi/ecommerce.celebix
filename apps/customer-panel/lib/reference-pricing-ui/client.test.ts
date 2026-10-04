@@ -20,6 +20,27 @@ const candidate = { variantId: VARIANT, oldPriceCents: 10_000, newPriceCents: 12
 
 async function clientModule() { return import("./client.ts"); }
 
+test("reference apply retains the complete intent and operation after an uncertain response", async () => {
+  const { createReferencePricingApi, ReferencePricingApiError } = await clientModule();
+  const calls: Array<RequestInit | undefined> = [];
+  let generated = 0;
+  const api = createReferencePricingApi(async (_input, init) => {
+    calls.push(init);
+    if (calls.length === 1) throw new Error("lost response");
+    return Response.json({ setId: SET, version: 1, stateVersion: 3, activatedAt: UTC });
+  }, () => { generated++; return OP; });
+  const intent = { setId: SET, expectedStateVersion: 2, values: [{ referenceId: REFERENCE, rateTry: "40.5", active: true }], channel: "storefront" as const, catalogGramReferenceId: REFERENCE };
+  await assert.rejects(api.apply(intent), error => error instanceof ReferencePricingApiError && error.code === "verification_unavailable");
+  await assert.rejects(api.apply({ ...intent, channel: "quick_order" }), error => error instanceof ReferencePricingApiError && error.code === "verification_unavailable");
+  const result = await api.apply(intent);
+  assert.equal(result.stateVersion, 3);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]?.body, calls[1]?.body);
+  // A rejected changed intent must not allocate a key or replace the retained operation.
+  assert.equal(JSON.parse(String(calls[1]?.body)).operationId, OP);
+  assert.equal(generated, 1);
+});
+
 test("native catalog grams is an explicit validated preview and activation intent", async () => {
   const { createReferencePricingApi } = await clientModule();
   const calls: Array<[string, RequestInit | undefined]> = [];

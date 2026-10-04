@@ -2,6 +2,14 @@ import { resolveDefaultCacheRuntime, type Cache, type CacheDataClass } from "@ce
 
 export type CacheInvalidationRules<T extends object> = Partial<Readonly<Record<Extract<keyof T, string>, readonly CacheDataClass[]>>>;
 
+export const DIRECT_SAVE_INVALIDATION = Object.freeze({
+  inventory: Object.freeze({ savePurchaseOrderAndOrder: ["catalog"] as const, saveCountAndStart: ["catalog"] as const, saveTransferAndDispatch: ["catalog"] as const }),
+  pricing: Object.freeze({ apply: ["catalog"] as const }),
+  referencePricing: Object.freeze({ apply: ["catalog"] as const }),
+  promotions: Object.freeze({ apply: ["promotions"] as const }),
+  orders: Object.freeze({ applyDraft: ["catalog"] as const, convertDraft: ["catalog"] as const }),
+});
+
 function storeIdFromArguments(args: readonly unknown[]): string | null {
   const input = args[0];
   if (typeof input !== "object" || input === null) return null;

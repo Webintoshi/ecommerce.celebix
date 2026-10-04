@@ -147,6 +147,26 @@ export class PromotionApiClient {
       this.settleDurable(intent, false); return Object.freeze({ kind: "saved", promotion: parsed.promotion });
     } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); }
   }
+  async apply(draft: PromotionDraft, promotionId?: string, expectedVersion?: number, expectedStatus?: PromotionDetail["status"]): Promise<SaveResult> {
+    const update = promotionId !== undefined;
+    const payload = update ? parsePromotionUpdateRequest({ expectedVersion, name: draft.name, ruleDocument: promotionRuleDocument(draft) }) : parsePromotionCreateRequest({ name: draft.name, ruleDocument: promotionRuleDocument(draft) });
+    const path = update ? `/api/promotions/${promotionId}` : "/api/promotions", method = update ? "PATCH" : "POST", requestBody = JSON.stringify({...payload,apply:true});
+    const intent = durableIntent(method, path, requestBody), operation = this.beginDurable(intent);
+    let response: Response; try { response = await this.fetcher(apiPath(path), { method, cache: "no-store", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json", "idempotency-key": operation }, body: requestBody }); } catch (error) { this.settleDurable(intent, true); throw error; }
+    const value = await body(response); if (response.status === 409) {
+      const code = conflictCode(response.status, value, update ? ["operation_mismatch", "promotion_limit_reached", "code_conflict", "active_code_batches", "invalid_transition", "version_conflict", "publish_blocked", "invalid_reference"] : ["operation_mismatch", "conflict", "code_conflict", "invalid_reference","publish_blocked","promotion_limit_reached","invalid_transition"]); if (code === "promotion_unavailable" || (code === "version_conflict" && !promotionId)) { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } if (code === "version_conflict" && promotionId) { try { const current = parsePromotionDetail((value as { current?: unknown }).current); if (current.id !== promotionId || expectedVersion === undefined || current.version <= expectedVersion) throw new Error(); this.settleDurable(intent, false); return Object.freeze({ kind: "version_conflict", current }); } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } }
+      if (code === "publish_blocked") { try { const readiness = parsePromotionConflictCheck((value as { readiness?: unknown }).readiness); if (!readiness.blocking) throw new Error(); this.settleDurable(intent, false); return Object.freeze({ kind: "publish_blocked", readiness }); } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); } }
+      this.settleDurable(intent, false);
+      return Object.freeze({ kind: "conflict", message: promotionErrorMessage(code) });
+    }
+    if (!response.ok) { const code = statusErrorCode(response.status, value); this.settleDurable(intent, response.status >= 500 || code === "promotion_unavailable"); throw new Error(code); }
+    try {
+      const parsed = parsePromotionMutationEnvelope(value);
+      const expectedFinalVersion=update?expectedVersion!+(expectedStatus==="draft"?2:1):2;
+      if (!exact(parsed.promotion.name,payload.name)||!exact(parsed.promotion.ruleDocument,payload.ruleDocument)||parsed.promotion.status==="draft"||parsed.promotion.version!==expectedFinalVersion||(update?(response.status!==200||parsed.promotion.id!==promotionId||expectedStatus===undefined||(expectedStatus!=="draft"&&parsed.promotion.status!==expectedStatus)):(response.status!==201||!["active","scheduled"].includes(parsed.promotion.status))))throw new Error();
+      this.settleDurable(intent, false); return Object.freeze({ kind: "saved", promotion: parsed.promotion });
+    } catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); }
+  }
   async detail(promotionId: string, signal?: AbortSignal): Promise<PromotionDetail> {
     const response = await this.fetcher(apiPath(`/api/promotions/${promotionId}`), { cache: "no-store", credentials: "same-origin", signal, headers: { accept: "application/json" } });
     const value = await body(response); if (!response.ok) throw new Error(statusErrorCode(response.status, value)); try { const parsed = parsePromotionDetail(value); if (parsed.id !== promotionId) throw new Error(); return parsed; } catch { throw new Error("promotion_unavailable"); }

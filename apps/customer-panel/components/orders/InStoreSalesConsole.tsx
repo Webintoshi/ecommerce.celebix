@@ -15,7 +15,7 @@ const time=(value:string)=>new Intl.DateTimeFormat("tr-TR",{dateStyle:"short",ti
 type DialogKind="collect"|"price"|"discount"|"customer"|"held"|"pending"|"recent"|"unpaid"|"staff"|null;
 const STAFF_ROLE_LABELS:Readonly<Record<string,string>>={store_owner:"Mağaza sahibi",admin:"Yönetici",cashier:"Kasiyer"};
 const eligibleStaff=(grants:readonly InStoreStaffGrant[])=>grants.filter(grant=>Object.hasOwn(STAFF_ROLE_LABELS,grant.role));
-const STATUS_LABELS={draft:"Taslak",held:"Bekletiliyor",payment_pending:"Tahsilat bekliyor",payment_received:"Ödeme beyanı alındı",completed:"Tamamlandı",cancelled:"İptal"} as const;
+const STATUS_LABELS={draft:"Sepet",held:"Bekletiliyor",payment_pending:"Tahsilat bekliyor",payment_received:"Ödeme beyanı alındı",completed:"Tamamlandı",cancelled:"İptal"} as const;
 type PricePreviewLine=Readonly<{unitPriceCents:number|null;catalogUnitPriceCents?:number;quantity:number;discountEligible:boolean}>;
 function previewWithPermission(lines:readonly PricePreviewLine[],discount:InStoreDiscount|null,limitBps:number){
   try{

@@ -26,9 +26,12 @@ function invalid(): never { throw new Error("server_promotions_runtime_invalid")
 function facade(repository: PromotionRepository): PromotionRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-    return Object.freeze(Object.fromEntries(
-      METHODS.map((method) => [method, repository[method].bind(repository)]),
-    )) as unknown as PromotionRepository;
+    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as PromotionRepository;
+    if (repository.apply !== undefined) {
+      if (typeof repository.apply !== "function") invalid();
+      methods.apply = repository.apply.bind(repository);
+    }
+    return Object.freeze(methods);
   } catch { return invalid(); }
 }
 

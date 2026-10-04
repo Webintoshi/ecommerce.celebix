@@ -55,7 +55,7 @@ function saveButton(host: HTMLElement): HTMLButtonElement {
 }
 
 function published(host: HTMLElement): HTMLInputElement {
-  const input = host.querySelector<HTMLInputElement>('input[type="radio"][value="published"]');
+  const input = host.querySelector<HTMLInputElement>('input[type="checkbox"][name="policy-publication"]');
   assert.ok(input, "Published status must remain available as a native labeled control");
   return input;
 }
@@ -77,7 +77,7 @@ async function select(host: HTMLElement, key: string) {
 }
 
 async function choosePublished(host: HTMLElement) {
-  await act(async () => published(host).click());
+  if (!published(host).checked) await act(async () => published(host).click());
 }
 
 async function recover(host: HTMLElement) {
@@ -96,6 +96,7 @@ test("switching fixed policies keeps each unsaved body and publication choice in
     await select(host, "kvkk");
     assert.equal(textField(host).value, initial[2].body);
     await write(window, host, "İkinci korunacak taslak");
+    await act(async () => published(host).click());
     await select(host, "privacy_security");
     assert.equal(textField(host).value, "Birinci korunacak taslak");
     assert.equal(published(host).checked, true);
@@ -113,7 +114,7 @@ test("save uses the selected canonical version and trims the body before transpo
     save: async (_key: string, input: SaveInput) => { saves.push(input); return { ...initial[0], ...input, version: 4 }; },
   });
   await mounted(PolicyConsole, { canManage: true }, async (host, window) => {
-    assert.equal(saveButton(host).disabled, true);
+    assert.equal(published(host).checked, true);
     await write(window, host, "  Mağazanın korunacak metni\n\n ");
     await choosePublished(host);
     await click(host, "Kaydet");
@@ -425,8 +426,8 @@ test("different opaque scopes and read-only mounts never restore another editor'
   });
   await mounted(PolicyConsole, { canManage: true, recoveryScope: "opaque-policy-isolation-b" }, async (host) => {
     assert.equal(textField(host).value, initial[0].body);
-    assert.equal(published(host).checked, false);
-    assert.equal(saveButton(host).disabled, true);
+    assert.equal(published(host).checked, true);
+    assert.equal(saveButton(host).disabled, false);
   });
   await mounted(PolicyConsole, { canManage: false, recoveryScope: "opaque-policy-isolation-a" }, async (host) => {
     assert.equal(textField(host).value, initial[0].body);
@@ -469,4 +470,18 @@ test("a recovered draft with a changed canonical version stays blocked until exp
     await click(host, "Kaydet");
     assert.deepEqual(saves[0], { expectedVersion: 5, body: "Dönüşte korunacak eski sürüm taslağı", status: "published" });
   });
+});
+
+test("policy save publishes directly while explicit hiding stays available", async () => {
+ const initial = pages(), saves: SaveInput[] = [];
+ const { PolicyConsole } = policyModule({ list: async () => initial, save: async (_key: string, input: SaveInput) => { saves.push(input); return { ...initial[0], ...input, version: 4 }; } });
+ await mounted(PolicyConsole, { canManage: true }, async (host, window) => {
+  assert.equal(published(host).checked, true);
+  await write(window, host, "Yeni politika metni");
+  await click(host, "Kaydet");
+  assert.equal(saves[0].status, "published");
+  await act(async () => published(host).click());
+  await click(host, "Kaydet");
+  assert.equal(saves[1].status, "draft");
+ });
 });

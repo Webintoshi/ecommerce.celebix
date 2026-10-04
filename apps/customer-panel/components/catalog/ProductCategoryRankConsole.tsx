@@ -203,7 +203,7 @@ export function ProductCategoryRankConsole({
               ><GripVertical aria-hidden="true" /></button>
               <span className={styles.thumbnail} aria-hidden="true">{image ? <img src={image.publicUrl} alt="" loading="lazy" decoding="async" /> : <Package />}</span>
               <span className={styles.product}><strong>{item.title}</strong><small>{item.slug}</small></span>
-              <span className={`${styles.status} ${item.status === "active" ? styles.active : ""}`}>{item.status === "active" ? "Yayında" : "Taslak"}</span>
+              <span className={`${styles.status} ${item.status === "active" ? styles.active : ""}`}>{item.status === "active" ? "Yayında" : "Satışa kapalı"}</span>
               <span className={styles.moveButtons}>
                 <button type="button" disabled={saving || index === 0} aria-label={`${item.title} ürününü bir sıra yukarı taşı`} onClick={() => move(item.productId, index - 1)}><ArrowUp aria-hidden="true" /></button>
                 <button type="button" disabled={saving || index === items.length - 1} aria-label={`${item.title} ürününü bir sıra aşağı taşı`} onClick={() => move(item.productId, index + 1)}><ArrowDown aria-hidden="true" /></button>

@@ -246,3 +246,33 @@ test("inventory client accepts only stable error envelopes", async () => {
     (error: unknown) => error instanceof InventoryApiError && error.code === "unavailable" && !error.message.includes("private"),
   );
 });
+
+test("direct inventory save opts into atomic activation and accepts the final version only", async () => {
+  const cases = [
+    ["savePurchaseOrderAndOrder", "purchase_order", ORDER, "ordered", "/api/inventory/purchase-orders", { locationId: LOCATION, supplierName: "Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 1489 }] }, { orderId: ORDER, expectedVersion: 4 }],
+    ["saveCountAndStart", "inventory_count", COUNT, "counting", "/api/inventory/counts", { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] }, { countId: COUNT, expectedVersion: 4 }],
+    ["saveTransferAndDispatch", "inventory_transfer", TRANSFER, "in_transit", "/api/inventory/transfers", { sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] }, { transferId: TRANSFER, expectedVersion: 4 }],
+  ] as const;
+  for (const [method, kind, target, status, path, input, existing] of cases) {
+    for (const edit of [false, true]) {
+      const calls: { path: string; body: Record<string, unknown> }[] = [];
+      const api = createInventoryApi(async (url, init) => { calls.push({ path: String(url), body: JSON.parse(String(init?.body)) }); return Response.json(taggedMutation(kind, target, status, edit ? 6 : 2)); }, () => OPERATION);
+      const result = await (api[method] as Function)({ ...input, ...(edit ? existing : {}) });
+      assert.equal(result.status, status); assert.equal(result.version, edit ? 6 : 2);
+      assert.deepEqual(calls, [{ path, body: { ...input, ...(edit ? existing : {}), activation: "start", operationId: OPERATION } }]);
+      const wrong = createInventoryApi(async () => Response.json(taggedMutation(kind, target, "draft", edit ? 5 : 1)), () => OPERATION);
+      await assert.rejects(() => (wrong[method] as Function)({ ...input, ...(edit ? existing : {}) }), error => error instanceof InventoryApiError && error.code === "unavailable");
+    }
+  }
+});
+
+test("direct count activation rejects counted inputs and all direct writes keep the 500 line boundary", () => {
+  let calls = 0;
+  const api = createInventoryApi(async () => { calls++; throw new Error("unexpected"); }, () => OPERATION);
+  assert.throws(() => api.saveCountAndStart({ locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 0 }] }), /inventory_client_invalid/);
+  const lines = Array.from({ length: 501 }, (_, index) => ({ lineId: `70000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, variantId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}` }));
+  assert.throws(() => api.savePurchaseOrderAndOrder({ locationId: LOCATION, supplierName: "Tedarikçi", lines: lines.map(line => ({ ...line, orderedQuantity: 1, unitCostCents: 1 })) }), /inventory_client_invalid/);
+  assert.throws(() => api.saveCountAndStart({ locationId: LOCATION, lines }), /inventory_client_invalid/);
+  assert.throws(() => api.saveTransferAndDispatch({ sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: lines.map(line => ({ ...line, quantity: 1 })) }), /inventory_client_invalid/);
+  assert.equal(calls, 0);
+});

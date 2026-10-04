@@ -25,8 +25,14 @@ function invalid(): never { throw new Error("server_inventory_runtime_invalid");
 function facade(repository: InventoryRepository): InventoryRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
+    const directMethods = (["savePurchaseOrderAndOrder", "saveCountAndStart", "saveTransferAndDispatch"] as const)
+      .filter((method) => {
+        if (repository[method] === undefined) return false;
+        if (typeof repository[method] !== "function") invalid();
+        return true;
+      });
     return Object.freeze(Object.fromEntries(
-      METHODS.map((method) => [method, repository[method].bind(repository)]),
+      [...METHODS, ...directMethods].map((method) => [method, repository[method].bind(repository)]),
     )) as unknown as InventoryRepository;
   } catch { return invalid(); }
 }

@@ -18,7 +18,7 @@ import {
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import type { ValidatedOrderAuthority } from "../orders/validation.ts";
-import { canonicalInventoryLines, inventoryFingerprint } from "./canonical.ts";
+import { canonicalInventoryLines, inventoryFingerprint, inventoryActivationOperationId } from "./canonical.ts";
 import {
   INVENTORY_ERROR_CODES,
   inventoryFailure,
@@ -91,6 +91,9 @@ const SQL = Object.freeze({
 
 type Spec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser<Result extends InventoryMutationResult = InventoryMutationResult> = (value: unknown, replayed: boolean) => Result;
+type MutationContinuation<Result extends InventoryMutationResult> = (saved: Result) => Readonly<{
+  operationId: string; fingerprint: string; successOutcome: string; spec: Spec; parser: MutationParser<Result>;
+}>;
 const ERRORS = new Set<string>(INVENTORY_ERROR_CODES);
 
 function unavailable(): Error { return inventoryFailure("unavailable"); }
@@ -268,6 +271,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     spec: Spec,
     parser: MutationParser<Result>,
     recoverSql: string = SQL.recover,
+    continuation?: MutationContinuation<Result>,
   ): Promise<Result> {
     const client = await this.acquire();
     let began = false;
@@ -280,7 +284,19 @@ export class PostgresInventoryRepository implements InventoryRepository {
       const expected = this.expected(result.outcome);
       if (expected) throw expected;
       if (result.outcome !== successOutcome && result.outcome !== "operation_replayed") throw unavailable();
-      const parsed = parser(result.result, result.outcome === "operation_replayed");
+      let parsed = parser(result.result, result.outcome === "operation_replayed");
+      let recoveryOperationId = operationId, recoveryFingerprint = fingerprint, recoveryParser = parser;
+      if (continuation) {
+        const next = continuation(parsed);
+        const activated = row(await this.query(client, next.spec.text, next.spec.values));
+        const rejected = this.expected(activated.outcome);
+        if (rejected) throw rejected;
+        if (activated.outcome !== next.successOutcome && activated.outcome !== "operation_replayed") throw unavailable();
+        parsed = next.parser(activated.result, activated.outcome === "operation_replayed");
+        recoveryOperationId = next.operationId;
+        recoveryFingerprint = next.fingerprint;
+        recoveryParser = next.parser;
+      }
       try {
         await this.query(client, "COMMIT");
         terminal = true;
@@ -290,7 +306,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
         terminal = true;
         release(client, true);
         this.emitUnknownCommit();
-        return await this.recover(authority, operationId, fingerprint, parser, parsed, recoverSql);
+        return await this.recover(authority, recoveryOperationId, recoveryFingerprint, recoveryParser, parsed, recoverSql);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -298,6 +314,30 @@ export class PostgresInventoryRepository implements InventoryRepository {
       if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
       throw unavailable();
     }
+  }
+
+  private activationContinuation(
+    authority: ValidatedOrderAuthority, operationId: string, saveFingerprint: string,
+    kind: "purchase_order" | "count_start" | "transfer_dispatch",
+  ): MutationContinuation<InventoryMutationResult> {
+    const activationId = inventoryActivationOperationId(authority.storeId, operationId, kind);
+    return (saved) => {
+      if (saved.status !== "draft") throw inventoryFailure("invalid_transition");
+      // A replay can point to a prior generated target; always follow its durable ID.
+      const expectedVersion = inventoryVersion(saved.version);
+      const fingerprint = inventoryFingerprint(`activate_${kind}_v1`, authority.storeId, saved.id, expectedVersion, { saveFingerprint });
+      const definition = {
+        purchase_order: [SQL.transitionPurchaseOrder, "transitioned", "ordered"],
+        count_start: [SQL.startCount, "started", "counting"],
+        transfer_dispatch: [SQL.dispatchTransfer, "dispatched", "in_transit"],
+      } as const;
+      const [text, successOutcome, status] = definition[kind];
+      return {
+        operationId: activationId, fingerprint, successOutcome,
+        spec: { text, values: [...authorityValues(authority), activationId, fingerprint, saved.id, expectedVersion, ...(kind === "purchase_order" ? ["order"] : [])] },
+        parser: this.mutationParser(saved.id, expectedVersion + 1, [status], false),
+      };
+    };
   }
 
   private validated(input: unknown, required: readonly string[], optional: readonly string[] = []) {
@@ -448,7 +488,10 @@ export class PostgresInventoryRepository implements InventoryRepository {
     });
   }
 
-  async savePurchaseOrder(input: SavePurchaseOrderInput): Promise<InventoryMutationResult> {
+  savePurchaseOrder(input: SavePurchaseOrderInput): Promise<InventoryMutationResult> { return this.savePurchaseOrderRecord(input, false); }
+  savePurchaseOrderAndOrder(input: SavePurchaseOrderInput): Promise<InventoryMutationResult> { return this.savePurchaseOrderRecord(input, true); }
+
+  private async savePurchaseOrderRecord(input: SavePurchaseOrderInput, activate: boolean): Promise<InventoryMutationResult> {
     const { parsed, authority } = this.validated(
       input, ["tenantContext", "now", "operationId", "locationId", "supplierName", "lines"], ["orderId", "expectedVersion"],
     );
@@ -456,17 +499,19 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const existingId = parsed.orderId === undefined ? undefined : inventoryUuid(parsed.orderId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
     if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
+    if (activate && expectedVersion !== undefined && expectedVersion > Number.MAX_SAFE_INTEGER - 2) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId();
     const locationId = inventoryUuid(parsed.locationId);
     const supplierName = inventoryText(parsed.supplierName, 1, 200);
     const lines = canonicalInventoryLines(purchaseSaveLines(parsed.lines));
-    const fingerprint = inventoryFingerprint("purchase_save", authority.storeId, existingId ?? null, expectedVersion ?? null, {
+    const fingerprint = inventoryFingerprint(activate ? "purchase_save_and_order_v1" : "purchase_save", authority.storeId, existingId ?? null, expectedVersion ?? null, {
       lines, locationId, supplierName,
     });
     return this.mutate(authority, operationId, fingerprint, "saved", {
       text: SQL.savePurchaseOrder,
       values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, locationId, supplierName, JSON.stringify(lines)],
-    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["draft"], existingId === undefined));
+    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["draft"], existingId === undefined), SQL.recover,
+      activate ? this.activationContinuation(authority, operationId, fingerprint, "purchase_order") : undefined);
   }
 
   async transitionPurchaseOrder(input: TransitionPurchaseOrderInput): Promise<InventoryMutationResult> {
@@ -507,7 +552,10 @@ export class PostgresInventoryRepository implements InventoryRepository {
     });
   }
 
-  async saveCount(input: SaveInventoryCountInput): Promise<InventoryMutationResult> {
+  saveCount(input: SaveInventoryCountInput): Promise<InventoryMutationResult> { return this.saveCountRecord(input, false); }
+  saveCountAndStart(input: SaveInventoryCountInput): Promise<InventoryMutationResult> { return this.saveCountRecord(input, true); }
+
+  private async saveCountRecord(input: SaveInventoryCountInput, activate: boolean): Promise<InventoryMutationResult> {
     const { parsed, authority } = this.validated(
       input, ["tenantContext", "now", "operationId", "locationId", "lines"], ["countId", "expectedVersion"],
     );
@@ -515,13 +563,16 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const existingId = parsed.countId === undefined ? undefined : inventoryUuid(parsed.countId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
     if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
+    if (activate && expectedVersion !== undefined && expectedVersion > Number.MAX_SAFE_INTEGER - 2) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId(), locationId = inventoryUuid(parsed.locationId);
     const lines = canonicalInventoryLines(countSaveLines(parsed.lines));
-    const fingerprint = inventoryFingerprint("count_save", authority.storeId, existingId ?? null, expectedVersion ?? null, { lines, locationId });
+    if (activate && lines.some(line => line.countedQuantity !== undefined)) throw inventoryFailure("invalid_input");
+    const fingerprint = inventoryFingerprint(activate ? "count_save_and_start_v1" : "count_save", authority.storeId, existingId ?? null, expectedVersion ?? null, { lines, locationId });
     return this.mutate(authority, operationId, fingerprint, "saved", {
       text: SQL.saveCount,
       values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, locationId, JSON.stringify(lines)],
-    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, existingId === undefined ? ["draft"] : ["draft", "counting"], existingId === undefined));
+    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, existingId === undefined ? ["draft"] : ["draft", "counting"], existingId === undefined), SQL.recover,
+      activate ? this.activationContinuation(authority, operationId, fingerprint, "count_start") : undefined);
   }
 
   private countOperation(
@@ -565,7 +616,10 @@ export class PostgresInventoryRepository implements InventoryRepository {
     });
   }
 
-  async saveTransfer(input: SaveInventoryTransferInput): Promise<InventoryMutationResult> {
+  saveTransfer(input: SaveInventoryTransferInput): Promise<InventoryMutationResult> { return this.saveTransferRecord(input, false); }
+  saveTransferAndDispatch(input: SaveInventoryTransferInput): Promise<InventoryMutationResult> { return this.saveTransferRecord(input, true); }
+
+  private async saveTransferRecord(input: SaveInventoryTransferInput, activate: boolean): Promise<InventoryMutationResult> {
     const { parsed, authority } = this.validated(
       input, ["tenantContext", "now", "operationId", "sourceLocationId", "destinationLocationId", "lines"], ["transferId", "expectedVersion"],
     );
@@ -573,16 +627,18 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const existingId = parsed.transferId === undefined ? undefined : inventoryUuid(parsed.transferId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
     if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
+    if (activate && expectedVersion !== undefined && expectedVersion > Number.MAX_SAFE_INTEGER - 2) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId(), sourceLocationId = inventoryUuid(parsed.sourceLocationId), destinationLocationId = inventoryUuid(parsed.destinationLocationId);
     if (sourceLocationId === destinationLocationId) throw inventoryFailure("invalid_input");
     const lines = canonicalInventoryLines(transferSaveLines(parsed.lines));
-    const fingerprint = inventoryFingerprint("transfer_save", authority.storeId, existingId ?? null, expectedVersion ?? null, {
+    const fingerprint = inventoryFingerprint(activate ? "transfer_save_and_dispatch_v1" : "transfer_save", authority.storeId, existingId ?? null, expectedVersion ?? null, {
       destinationLocationId, lines, sourceLocationId,
     });
     return this.mutate(authority, operationId, fingerprint, "saved", {
       text: SQL.saveTransfer,
       values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, sourceLocationId, destinationLocationId, JSON.stringify(lines)],
-    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["draft"], existingId === undefined));
+    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["draft"], existingId === undefined), SQL.recover,
+      activate ? this.activationContinuation(authority, operationId, fingerprint, "transfer_dispatch") : undefined);
   }
 
   private transferOperation(

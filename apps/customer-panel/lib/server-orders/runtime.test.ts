@@ -2,6 +2,32 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+test("direct save methods survive registration and keep their repository receiver", async () => {
+  for (const method of ["applyDraft"] as const) {
+    const approved = approvedAccess();
+    const input = Object.freeze({ operationId: "10000000-0000-4000-8000-000000000001" });
+    const result = Object.freeze({ applied: true });
+    let calls = 0;
+    const implementation = Object.assign(orders(), {
+      async [method](this: OrderRepository, received: unknown) {
+        assert.equal(this, implementation);
+        assert.equal(received, input);
+        calls++;
+        return result;
+      },
+    }) as unknown as OrderRepository;
+    registerServerOrderRepository(approved, implementation);
+    const runtime = resolveServerOrdersRuntime(approved);
+    assert.ok(runtime);
+    const operation = runtime.orders[method] as unknown as (input: unknown) => Promise<unknown>;
+    assert.equal(typeof operation, "function", method);
+    assert.equal(await operation(input), result);
+    assert.equal(calls, 1);
+    assert.equal(Object.isFrozen(runtime.orders), true);
+  }
+});
+
+
 import type { OrderRepository } from "@celebix/saas-data";
 
 import {
@@ -107,7 +133,7 @@ test("approved staging preflight gates one shared pool on exact order tables and
   const source = readFileSync(new URL("../server-panel-access/postgres-runtime.ts", import.meta.url), "utf8");
   assert.equal((source.match(/new Pool\(/g) ?? []).length, 1);
   assert.match(source, /new PostgresOrderRepository\([\s\S]*?pool,/);
-  assert.match(source, /registerServerOrderRepository\(access, orderRepository\)/);
+  assert.match(source, /registerServerOrderRepository\(access, createPostCommitInvalidatingRepository\(orderRepository, DIRECT_SAVE_INVALIDATION.orders\)\)/);
   for (const table of ["orders", "order_items", "order_events", "order_notes", "order_operations", "order_email_deliveries"]) {
     assert.match(source, new RegExp(`to_regclass\\('saas\\.${table}'\\) IS NOT NULL`));
   }

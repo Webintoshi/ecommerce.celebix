@@ -37,12 +37,14 @@ export function createStockFixtureTransport(origin: string, state: "loaded" | "r
     if (method !== "POST") return reply({ code: "method_not_allowed" }, 405);
     if (state === "readonly") return reply({ code: "forbidden" }, 403);
     const body = JSON.parse(String(init?.body ?? "{}"));
+    if ("activation" in body && body.activation !== "start") return reply({ code: "invalid_input" }, 400);
+    if (body.activation === "start" && parts[0] === "counts" && body.lines?.some((line: any) => "countedQuantity" in line)) return reply({ code: "invalid_input" }, 400);
     if (operations.has(body.operationId)) return reply({ ...(operations.get(body.operationId) as object), replayed: true });
     const key = parts[0] === "counts" ? "countId" : parts[0] === "purchase-orders" ? "orderId" : "transferId";
     const id = parts[1] ?? body[key] ?? crypto.randomUUID();
     const prior = group[id];
     if (prior && body.expectedVersion !== prior.version) return reply({ code: "conflict" }, 409);
-    const version = prior ? prior.version + 1 : 1;
+    const version = (prior ? prior.version + 1 : 1) + (body.activation === "start" ? 1 : 0);
     let next = prior ? clone(prior) : { id, version, status: "draft", createdAt: STOCK_NOW, updatedAt: STOCK_NOW };
     if (!parts[2]) {
       const lines = body.lines.map((line: any) => parts[0] === "counts" ? {
@@ -55,6 +57,19 @@ export function createStockFixtureTransport(origin: string, state: "loaded" | "r
       } : { id: line.lineId, variantId: line.variantId, quantity: line.quantity });
       next = { ...next, ...("locationId" in body ? { locationId: body.locationId } : { sourceLocationId: body.sourceLocationId, destinationLocationId: body.destinationLocationId }), lines };
       if (parts[0] === "purchase-orders") next = { ...next, supplierName: body.supplierName, totalCostCents: lines.reduce((sum: number, line: any) => sum + line.lineCostCents, 0) };
+      if (body.activation === "start") {
+        if (prior && prior.status !== "draft") return reply({ code: "conflict" }, 409);
+        if (parts[0] === "counts") {
+          if (next.lines.some((line: any) => !balances.get(next.locationId)?.some(item => item.variantId === line.variantId))) return reply({ code: "conflict" }, 409);
+          next.status = "counting";
+          next.lines = next.lines.map((line: any) => ({ id: line.id, variantId: line.variantId, expectedQuantity: balances.get(next.locationId)!.find(item => item.variantId === line.variantId)!.quantity }));
+        } else if (parts[0] === "purchase-orders") next.status = "ordered";
+        else {
+          if (next.lines.some((line: any) => (balances.get(next.sourceLocationId)?.find(item => item.variantId === line.variantId)?.quantity ?? 0) < line.quantity)) return reply({ code: "conflict" }, 409);
+          next.status = "in_transit";
+          next.lines.forEach((line: any) => adjust(next.sourceLocationId, line.variantId, -line.quantity));
+        }
+      }
     } else if (parts[2] === "start") {
       next.status = "counting";
       next.lines = next.lines.map((line: any) => ({ id: line.id, variantId: line.variantId, expectedQuantity: balances.get(next.locationId)?.find(item => item.variantId === line.variantId)?.quantity ?? 0 }));

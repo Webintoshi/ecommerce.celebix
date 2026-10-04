@@ -159,6 +159,42 @@ function repository(pool: PostgresPoolLike, audit: string[] = [], generatedId = 
 
 function authority() { return { tenantContext: tenant(), now: new Date(NOW) }; }
 
+test("campaign save publishes once in the same transaction and schedule stays server-authoritative",async()=>{
+ for(const scheduled of [false,true]){
+  const document=rule();const selected=scheduled?{...document,schedule:{...document.schedule,startsAt:"2026-09-06T12:00:00.000Z"}}:document;
+  const client=new Client((text)=>text.includes("promotion_recover_operation_v1(")?{outcome:"not_found",result_payload:null}:text.includes("promotion_create_v1(")?{outcome:"created",result_payload:detail({ruleDocument:selected})}:text.includes("promotion_lifecycle_v1(")?{outcome:"updated",result_payload:detail({version:2,status:scheduled?"scheduled":"active",ruleDocument:selected})}:undefined);
+  const result=await repository(new Pool([client])).apply!({...authority(),operationId:OPERATION,name:detail().name,ruleDocument:selected});
+  assert.equal(result.promotion.status,scheduled?"scheduled":"active");assert.equal(client.queries.filter(q=>q.text.startsWith("BEGIN")).length,1);assert.equal(client.queries.filter(q=>q.text==="COMMIT").length,1);const calls=client.queries.filter(q=>q.text.startsWith("SELECT outcome"));assert.notEqual(calls[0]!.values[7],OPERATION);const effect=calls.find(q=>q.text.includes("promotion_lifecycle_v1("))!;assert.equal(effect.values[7],OPERATION);assert.equal(effect.values[10],1);assert.equal(effect.values[11],scheduled?"scheduled":"active");
+ }
+});
+test("campaign direct save does not silently activate a paused record",async()=>{
+ const client=new Client(text=>text.includes("promotion_update_v1(")?{outcome:"updated",result_payload:detail({version:2,status:"paused"})}:undefined);
+ const result=await repository(new Pool([client])).apply!({...authority(),operationId:OPERATION,promotionId:PROMOTION,expectedVersion:1,name:detail().name,ruleDocument:rule()});assert.equal(result.promotion.status,"paused");assert.equal(client.queries.some(q=>q.text.includes("promotion_lifecycle_v1(")),false);assert.equal(client.queries.filter(q=>q.text==="COMMIT").length,1);
+});
+
+test("campaign scheduled replay after its start reuses the existing effect and rejects changed Save input", async () => {
+  const document = { ...rule(), schedule: { ...rule().schedule, startsAt: "2026-09-06T12:00:00.000Z" } };
+  let savedHash = "", effectHash = "", effects = 0;
+  const clients = Array.from({ length: 3 }, () => new Client((text, values) => {
+    if (text.includes("promotion_create_v1(")) {
+      if (savedHash && savedHash !== values[8]) return { outcome: "operation_mismatch", result_payload: null };
+      savedHash = String(values[8]);
+      return { outcome: "created", result_payload: detail({ ruleDocument: document }) };
+    }
+    if (text.includes("promotion_recover_operation_v1(")) return effectHash ? { outcome: effectHash === values[9] ? "operation_replayed" : "operation_mismatch", result_payload: detail({ status: "scheduled", version: 2, ruleDocument: document }) } : { outcome: "not_found", result_payload: null };
+    if (text.includes("promotion_lifecycle_v1(")) { effects++; effectHash = String(values[8]); return { outcome: "updated", result_payload: detail({ status: "scheduled", version: 2, ruleDocument: document }) }; }
+    return undefined;
+  }));
+  const repo = repository(new Pool(clients));
+  const input = { ...authority(), operationId: OPERATION, name: detail().name, ruleDocument: document };
+  assert.equal((await repo.apply!(input)).promotion.status, "scheduled");
+  assert.equal((await repo.apply!({ ...input, now: new Date("2026-09-07T12:00:00.000Z") })).promotion.status, "scheduled");
+  assert.equal(effects, 1);
+  await assert.rejects(repo.apply!({ ...input, name: "Changed" }), error => promotionRepositoryErrorCode(error) === "idempotency_mismatch");
+  assert.equal(clients[2]!.queries.some(query => query.text.includes("promotion_recover_operation_v1(")), false);
+  assert.equal(clients[2]!.queries.at(-1)?.text, "ROLLBACK");
+});
+
 function operationQuery(client: Client, begin: string, terminal: string): QueryLog {
   assert.equal(client.queries[0]?.text, begin);
   assert.deepEqual(client.queries.slice(1, 5).map(({ text }) => text), [

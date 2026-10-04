@@ -24,6 +24,12 @@ function repo(overrides: Partial<PricingRepository> = {}): PricingRepository { c
 function handler(pricing: PricingRepository) { const runtime = { pricing, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext: tenant(), session: {} } as never; }, async rotateCredential() { return { kind: "unavailable" } as const; }, async revokeCredential() { return { kind: "unavailable" } as const; } } } satisfies ServerPricingRuntime; return createPricingHttpHandler({ async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST }); }
 function request(path: string, options: { method?: string; body?: unknown; origin?: string | null; cookie?: string | null; headers?: HeadersInit } = {}) { const method = options.method ?? "GET"; const headers = new Headers(options.headers); if (options.cookie !== null) headers.set("cookie", options.cookie ?? COOKIE); if (method === "POST") { headers.set("content-type", "application/json"); if (options.origin !== null) headers.set("origin", options.origin ?? ORIGIN); } return new Request(`http://internal:3400${path}`, { method, headers, body: method === "POST" ? JSON.stringify(options.body ?? {}) : undefined }); }
 
+test("apply save invokes one composite method while legacy save remains a draft",async()=>{
+ const calls:string[]=[];const handle=handler(repo({async apply(){calls.push("apply");return list("active",2);},async save(){calls.push("save");return list();}}));const input={operationId:OP,name:list().name,items:list().items,rules:list().rules};
+ assert.equal((await handle(request("/api/pricing/price-lists",{method:"POST",body:{...input,apply:true}}))).status,200);assert.equal((await handle(request("/api/pricing/price-lists",{method:"POST",body:input}))).status,200);assert.deepEqual(calls,["apply","save"]);
+ for(const apply of [false,"true",null])assert.equal((await handle(request("/api/pricing/price-lists",{method:"POST",body:{...input,apply}}))).status,400);
+});
+
 test("finite pricing routes call one repository method with server-only authority", async () => {
   const calls: Array<[string, object]> = [];
   const pricing = repo({

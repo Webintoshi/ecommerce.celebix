@@ -32,6 +32,7 @@ export interface PricingRepository {
   list(input: ListPriceListsInput): Promise<readonly PriceList[]>;
   get(input: GetPriceListInput): Promise<PriceList>;
   save(input: SavePriceListInput): Promise<PriceList>;
+  apply?(input: SavePriceListInput): Promise<PriceList>;
   activate(input: PriceListOperationInput): Promise<PriceList>;
   archive(input: PriceListOperationInput): Promise<PriceList>;
   preview(input: PricingPreviewInput): Promise<PricingPreviewResult>;

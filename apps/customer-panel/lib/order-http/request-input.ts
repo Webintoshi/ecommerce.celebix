@@ -293,7 +293,7 @@ export type OrderDraftMutationValue<K extends OrderDraftMutationKind> =
 export async function readOrderDraftMutationInput<K extends OrderDraftMutationKind>(
   request: Request,
   kind: K,
-): Promise<Invalid | Readonly<{ kind: "valid"; operationId: string; value: OrderDraftMutationValue<K> }>> {
+): Promise<Invalid | Readonly<{ kind: "valid"; operationId: string; apply?: true; value: OrderDraftMutationValue<K> }>> {
   const operationId = request.headers.get("idempotency-key");
   if (operationId === null || !UUID.test(operationId) || operationId !== operationId.trim() || operationId.includes(",")) {
     return INVALID;
@@ -312,7 +312,10 @@ export async function readOrderDraftMutationInput<K extends OrderDraftMutationKi
       });
   }
   try {
-    const parsed = parseOrderDraftSaveIntent(raw);
+    const apply=typeof raw==="object"&&raw!==null&&Object.hasOwn(raw,"apply")?(raw as {apply?:unknown}).apply:undefined;
+    if(apply!==undefined&&apply!==true)return INVALID;
+    const {apply:ignored,...value}=raw as Record<string,unknown>;
+    const parsed = parseOrderDraftSaveIntent(value);
     if (
       (kind === "create" && parsed.expectedVersion !== undefined) ||
       (kind === "update" && parsed.expectedVersion === undefined)
@@ -320,6 +323,7 @@ export async function readOrderDraftMutationInput<K extends OrderDraftMutationKi
     return Object.freeze({
       kind: "valid" as const,
       operationId,
+      ...(apply===true?{apply:true as const}:{}),
       value: parsed as OrderDraftMutationValue<K>,
     });
   } catch { return INVALID; }

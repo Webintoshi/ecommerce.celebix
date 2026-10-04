@@ -15,9 +15,9 @@ test('selection preserves existing order and unseen links, appends only new sele
 test('automatic pin order never synthesizes membership and retains unmatched historical pins',()=>{
  assert.deepEqual(moveProduct(['a','b','c'],'c',0,['gone','b']),['c','a','b','gone']);
 });
-test('legacy configuration defaults to manual draft and keeps IDs',()=>{
+test('new and legacy collection edits default to published without losing IDs',()=>{
  const draft=collectionDraft({name:'Yaz',slug:'yaz',config:{featured:true},productIds:['a','b']});
- assert.equal(draft.mode,'manual');assert.equal(draft.publicationStatus,'draft');assert.equal(draft.featured,true);assert.deepEqual(draft.productIds,['a','b']);
+ assert.equal(draft.mode,'manual');assert.equal(draft.publicationStatus,'published');assert.equal(draft.featured,true);assert.deepEqual(draft.productIds,['a','b']);
  assert.equal(draftFingerprint(draft),draftFingerprint({...draft}));
 });
 test('automatic rules are required, complete and bounded; names required',()=>{

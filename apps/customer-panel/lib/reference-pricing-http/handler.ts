@@ -144,9 +144,11 @@ function mutationInput(value: unknown, route: Route): Readonly<Record<string, un
     });
   }
   if (route.kind === "saveSet") {
-    const raw = exact(value, ["operationId", "setId", "expectedStateVersion", "values"]);
+    const raw = exact(value, ["operationId", "setId", "expectedStateVersion", "values"], ["apply","channel","catalogGramReferenceId"]);
+    if(raw.apply!==undefined && raw.apply!==true || raw.apply!==true && (raw.channel!==undefined || raw.catalogGramReferenceId!==undefined) || raw.apply===true && raw.channel!=="storefront" && raw.channel!=="quick_order")throw new TypeError("invalid_apply");
     return Object.freeze({ operationId: id(raw.operationId), setId: id(raw.setId),
       expectedStateVersion: integer(raw.expectedStateVersion, 0), values: setValues(raw.values),
+      ...(raw.apply===true?{apply:true,channel:raw.channel,...(raw.catalogGramReferenceId===undefined?{}:{catalogGramReferenceId:id(raw.catalogGramReferenceId)})}:{}),
     });
   }
   if (route.kind === "activate") {
@@ -248,6 +250,7 @@ export function createReferencePricingHttpHandler(dependencies: Dependencies) {
       }
       if (route.kind === "saveSet") {
         const safe = input as Parameters<ReferencePricingRepository["saveSet"]>[0];
+        if ((input as {apply?:true}).apply) { const {apply,...value}=input as Parameters<NonNullable<ReferencePricingRepository["apply"]>>[0] & {apply:true};if(!pricing.apply)return error("unavailable",503);const result=activatedOutput(await pricing.apply({...authority,...value}));return result.setId===safe.setId&&result.stateVersion===safe.expectedStateVersion+1?response(result):error("unavailable",503); }
         const result = setOutput(await pricing.saveSet({ ...authority, ...safe }));
         return result.setId === safe.setId && !result.isActive ? response(result) : error("unavailable", 503);
       }

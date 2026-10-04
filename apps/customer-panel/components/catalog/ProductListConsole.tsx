@@ -71,7 +71,7 @@ type BulkOutcome = Readonly<{
   reconciliation: "succeeded" | "failed";
 }>;
 
-const STATUS_LABELS = Object.freeze({ draft: "Taslak", active: "Aktif", archived: "Arşivlenmiş" });
+const STATUS_LABELS = Object.freeze({ draft: "Kapalı", active: "Aktif", archived: "Arşivlenmiş" });
 
 function safeMessage(error: unknown) {
   return error instanceof CatalogApiError ? error.message : "Ürünler yüklenemedi. Lütfen yeniden deneyin.";
@@ -112,7 +112,7 @@ export function csvCell(value: string | number) {
 
 export type ProductSummaryMetric = Readonly<{
   key: "total" | "active" | "draft" | "out-of-stock";
-  label: "Toplam" | "Aktif" | "Taslak" | "Stoksuz";
+  label: "Toplam" | "Aktif" | "Kapalı" | "Stoksuz";
   value: string;
   accessibleValue: string;
 }>;
@@ -120,7 +120,7 @@ export type ProductSummaryMetric = Readonly<{
 const PRODUCT_SUMMARY_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "total", label: "Toplam", field: "totalProducts" }),
   Object.freeze({ key: "active", label: "Aktif", field: "activeProducts" }),
-  Object.freeze({ key: "draft", label: "Taslak", field: "draftProducts" }),
+  Object.freeze({ key: "draft", label: "Kapalı", field: "draftProducts" }),
   Object.freeze({ key: "out-of-stock", label: "Stoksuz", field: "outOfStockVariants" }),
 ] as const);
 

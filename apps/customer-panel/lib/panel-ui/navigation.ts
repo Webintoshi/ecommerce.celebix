@@ -149,7 +149,7 @@ function item(
 
 const ORDER_CHILDREN = Object.freeze([
   item("all-orders", "Tüm Siparişler", "/orders", "orders"),
-  item("order-drafts", "Taslak Siparişler", "/orders/drafts", "orders"),
+  item("order-drafts", "Manuel siparişler", "/orders/drafts", "orders"),
   item("quick-orders", "Mağaza satışı", "/orders/quick-links", "quick-orders"),
   item("payment-links", "Ödeme bağlantıları", "/orders/payment-links", "quick-orders"),
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
@@ -271,7 +271,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/": presentation("Özet"),
   "/analytics": presentation("Analizler"),
   "/orders": presentation("Siparişler"),
-  "/orders/drafts": presentation("Taslak Siparişler"),
+  "/orders/drafts": presentation("Manuel siparişler"),
   "/orders/quick-links": presentation("Mağaza satışı"),
   "/orders/payment-links": presentation("Ödeme bağlantıları"),
   "/orders/abandoned-carts": presentation("Terk Edilen Sepetler"),
@@ -501,8 +501,8 @@ const DYNAMIC_TITLES = Object.freeze<readonly Readonly<{
   pattern: readonly string[];
   presentation: PanelRoutePresentation;
 }>[]>([
-  { pattern: ["orders", "drafts", "new"], presentation: presentation("Yeni Taslak Sipariş") },
-  { pattern: ["orders", "drafts", "*"], presentation: presentation("Taslak Sipariş Ayrıntısı") },
+  { pattern: ["orders", "drafts", "new"], presentation: presentation("Yeni manuel sipariş") },
+  { pattern: ["orders", "drafts", "*"], presentation: presentation("Manuel sipariş ayrıntısı") },
   { pattern: ["customers", "*", "edit"], presentation: presentation("Müşteriyi düzenle") },
   { pattern: ["products", "collections", "new"], presentation: presentation("Yeni koleksiyon") },
   { pattern: ["products", "collections", "*", "edit"], presentation: presentation("Koleksiyonu düzenle") },

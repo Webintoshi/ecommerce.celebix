@@ -10,17 +10,17 @@ test("category SEO updates retain custom canonical path and clear empty override
   assert.deepEqual(categorySeoState([{ ...record, status: "archived" }], categoryId).draft, { metaTitle: "", metaDescription: "" });
   assert.throws(() => categorySeoState([record, { ...record, id: "30000000-0000-4000-8000-000000000001" }], categoryId), /birden fazla/);
 });
-test("category SEO client uses existing record version and preserves draft publication state", async () => {
+test("category SEO Save activates the existing legacy draft and preserves its identity and canonical", async () => {
   let supplied: Parameters<typeof import("../merchant-admin-ui/client.ts").merchantAdminApi.save>[1] | undefined;
   const draftRecord = { ...record, status: "draft" as const };
   const client = createCategorySeoClient({
     records: async () => [draftRecord],
-    save: async (_kind, value) => { supplied = value;return { id: record.id, kind: "seo_category_entry", version: 4, status: "draft", updatedAt: record.updatedAt, replayed: false }; },
-    record: async () => ({ ...draftRecord, version: 4, config: { ...record.config, metaTitle: "Yeni" } }),
+    save: async (_kind, value) => { supplied = value;return { id: record.id, kind: "seo_category_entry", version: 4, status: "active", updatedAt: record.updatedAt, replayed: false }; },
+    record: async () => ({ ...record, version: 4, config: { ...record.config, metaTitle: "Yeni" } }),
   });
   const state = await client.load(categoryId);
   const result = await client.save(categoryId, "Kategori", state, { metaTitle: "Yeni", metaDescription: "Açıklama" });
-  assert.equal(supplied?.recordId, record.id);assert.equal(supplied?.expectedVersion, 3);assert.equal(supplied?.status, "draft");assert.equal(result.record?.version, 4);
+  assert.equal(supplied?.recordId, record.id);assert.equal(supplied?.expectedVersion, 3);assert.equal(supplied?.status, "active");assert.equal(result.record?.version, 4);
 });
 
 test("category SEO retries an uncertain saved result with the same proof", async () => {
@@ -36,4 +36,9 @@ test("category SEO retries an uncertain saved result with the same proof", async
   await assert.rejects(client.save(categoryId, "Kategori", state, draft), /read_failed/);
   const saved = await client.save(categoryId, "Kategori", state, draft);
   assert.equal(proofs[0], proofs[1]);assert.equal(saved.record?.version, 4);
+});
+
+test("category SEO does not report publication if the canonical saved record remains inactive", async () => {
+ const client=createCategorySeoClient({records:async()=>[record],save:async()=>({id:record.id,kind:"seo_category_entry",version:4,status:"active",updatedAt:record.updatedAt,replayed:false}),record:async()=>({...record,status:"draft",version:4})});
+ await assert.rejects(client.save(categoryId,"Kategori",{record,draft:{metaTitle:"Başlık",metaDescription:"Açıklama"}},{metaTitle:"Yeni",metaDescription:"Açıklama"}),/doğrulanamadı/);
 });

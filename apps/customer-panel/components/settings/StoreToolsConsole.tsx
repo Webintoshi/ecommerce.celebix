@@ -393,7 +393,7 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
           </section>
           <button className={secondary + " " + styles.mobilePreviewTrigger} type="button" aria-expanded={mobilePreviewVisible} aria-controls="tool-preview" onClick={() => { const visible = !mobilePreviewVisible; setMobilePreviewVisible(visible); if (visible) setFocusTarget({ id: "tool-preview" }); }}><Eye size={18} aria-hidden="true" />{mobilePreviewVisible ? "Önizlemeyi gizle" : "Önizlemeyi göster"}</button>
         </div>
-        <section id="tool-preview" ref={previewRef} tabIndex={-1} className={styles.previewPane} aria-label="Taslak önizleme" data-tool-preview data-mobile-preview={mobilePreviewVisible}>
+        <section id="tool-preview" ref={previewRef} tabIndex={-1} className={styles.previewPane} aria-label="Önizleme" data-tool-preview data-mobile-preview={mobilePreviewVisible}>
           <header className={styles.previewToolbar}><h3>Önizleme</h3><div className={styles.segmented} role="group" aria-label="Önizleme cihazı"><button type="button" aria-label="Masaüstü önizleme" aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}><Monitor size={18} aria-hidden="true" /></button><button type="button" aria-label="Mobil önizleme" aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}><Smartphone size={18} aria-hidden="true" /></button></div></header>
           <div className={styles.previewCanvas} data-device={previewDevice} data-position={draft.position}>
             <div className={styles.previewStore} aria-hidden="true"><div className={styles.storeAnnouncement} /><div className={styles.storeHeader}>Mağazanız</div><div className={styles.storeHero}><ToolArtwork store /></div><div className={styles.storeProducts}><span /><span /><span /></div></div>
@@ -405,7 +405,7 @@ export function StoreToolsConsole({ canManage }: Readonly<{ canManage: boolean }
               <button type="button" className={styles.previewLauncher} aria-label="Önizleme balonunu aç veya kapat" aria-expanded={previewOpen} onClick={() => setPreviewOpen(current => !current)}><BubbleIcon size={21} aria-hidden="true" /><span>{draft.buttonLabel}</span></button>
             </div>}
           </div>
-          <p className={styles.previewHint}><Info size={16} aria-hidden="true" /><span>{draft.enabled ? "Taslak önizleme" : "Balon kapalı · taslak önizleme"}</span></p>
+          <p className={styles.previewHint}><Info size={16} aria-hidden="true" /><span>{draft.enabled ? "Önizleme" : "Balon kapalı · önizleme"}</span></p>
           <div className={styles.previewOptions}><select aria-label="Önizlenen sayfa" value={previewPage} onChange={event => setPreviewPage(event.target.value as typeof previewPage)}>{PAGES.map(page => <option key={page.key} value={page.key}>{page.label}</option>)}</select><label className={styles.checkRow}><input name="previewOutside" type="checkbox" checked={previewOutside} onChange={event => setPreviewOutside(event.target.checked)} /><span>Mesai dışı</span></label></div>
         </section>
       </div>

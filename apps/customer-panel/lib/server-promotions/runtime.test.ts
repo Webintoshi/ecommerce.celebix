@@ -2,6 +2,32 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+test("direct save methods survive registration and keep their repository receiver", async () => {
+  for (const method of ["apply"] as const) {
+    const approved = access();
+    const input = Object.freeze({ operationId: "10000000-0000-4000-8000-000000000001" });
+    const result = Object.freeze({ applied: true });
+    let calls = 0;
+    const implementation = Object.assign(repository(), {
+      async [method](this: PromotionRepository, received: unknown) {
+        assert.equal(this, implementation);
+        assert.equal(received, input);
+        calls++;
+        return result;
+      },
+    }) as unknown as PromotionRepository;
+    registerServerPromotionsRepository(approved, implementation);
+    const runtime = resolveServerPromotionsRuntime(approved);
+    assert.ok(runtime);
+    const operation = runtime.promotions[method] as unknown as (input: unknown) => Promise<unknown>;
+    assert.equal(typeof operation, "function", method);
+    assert.equal(await operation(input), result);
+    assert.equal(calls, 1);
+    assert.equal(Object.isFrozen(runtime.promotions), true);
+  }
+});
+
+
 import type { PromotionRepository } from "@celebix/saas-data";
 
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";

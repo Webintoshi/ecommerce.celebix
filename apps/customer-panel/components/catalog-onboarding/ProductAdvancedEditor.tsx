@@ -473,7 +473,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
     if (!editing && variantBuilderOpen) { setError("Varyant seçimlerini ekleyin veya kapatın."); return; }
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const data = new FormData(event.currentTarget);
-    const publish = (event.nativeEvent as SubmitEvent).submitter instanceof HTMLButtonElement && (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "publish";
+    const publish = true;
     const parsedCreateVariants = editing ? [] : variants.map((variant) => variantIntent(variant, productType));
     if (!editing) {
       setShowValidation(true);
@@ -534,7 +534,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
       const outcome = await completeProductMedia({
         result: created,
         files: Object.freeze(media.map(({ localId, file, altText }) => Object.freeze({ localId, file, altText: altText.trim() }))),
-        publish: recoveryRef.current!.publish,
+        publish,
         state: recoveryRef.current!.state,
         onState: state => updateRecovery({...recoveryRef.current!,state}),
         assign: async mediaIds => {
@@ -559,11 +559,11 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
         recover: (productId) => api.getProductEditor(productId),
         onProgress: ({ index, count, value }) => setProgress(Math.round(((index + value / 100) / Math.max(1, count)) * 100)),
       });
-      if (outcome.kind === "published" || outcome.kind === "draft") onCreated?.(outcome.result);
+      if (outcome.kind === "published") onCreated?.(outcome.result);
       else if (outcome.kind === "published_recovered") onCreated?.(Object.freeze({ ...outcome.projection, variants: Object.freeze(outcome.projection.variants.map(({ variant }) => variant)), replayed: false }));
-      else if (outcome.kind === "draft_media_failed") setError(`${outcome.uploadedCount} / ${media.length} görsel yüklendi. Taslağınız korunuyor; kaydet düğmesiyle kalan yüklemelere devam edin.`);
+      else if (outcome.kind === "draft_media_failed") setError(`${outcome.uploadedCount} / ${media.length} görsel yüklendi. Ürün kaydı korunuyor; Kaydet ile kalan yüklemelere devam edin.`);
       else if (outcome.kind === "draft_gallery_failed") setError(outcome.error);
-      else setError("Satışa açma sonucu doğrulanamadı. Taslağınız ve görselleriniz korunuyor; tekrar deneyin.");
+      else setError("Satışa açma sonucu doğrulanamadı. Ürün kaydı ve görselleriniz korunuyor; tekrar deneyin.");
     } catch (failure) {
       if (failure instanceof CatalogOnboardingApiError && failure.code === "version_conflict") {
         setConflict(true);
@@ -629,7 +629,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
         </aside>
       </div>
     </fieldset>
-    <footer className={createStyles.actions}><button type="button" className={createStyles.cancel} onClick={requestCancel} disabled={createBlocked}>Vazgeç</button><div>{createPending ? <span className={createStyles.pendingStatus} role="status">{pendingBarcodeCount ? "Barkod oluşturuluyor…" : "Nitelik kaydediliyor…"}</span> : null}<button type="submit" name="intent" value="draft" className={createStyles.secondary} disabled={createBlocked || variantBuilderOpen}>Taslak kaydet</button><button type="submit" name="intent" value="publish" className={createStyles.primary} disabled={createBlocked || variantBuilderOpen}>{busy ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button></div></footer>
+    <footer className={createStyles.actions}><button type="button" className={createStyles.cancel} onClick={requestCancel} disabled={createBlocked}>Vazgeç</button><div>{createPending ? <span className={createStyles.pendingStatus} role="status">{pendingBarcodeCount ? "Barkod oluşturuluyor…" : "Nitelik kaydediliyor…"}</span> : null}<button type="submit" name="intent" value="publish" className={createStyles.primary} disabled={createBlocked || variantBuilderOpen}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div></footer>
   </form>;
 
   if (presentation === "rail" && editor) return <form ref={formRef} className={`${styles.advancedEditor} ${styles.editSettings} ${styles.railSettings}`} onSubmit={submit} onChange={(event) => {

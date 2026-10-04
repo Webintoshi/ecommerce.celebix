@@ -93,8 +93,7 @@ async function withQuickCreate(
   const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
   const suppliedProps = typeof supplied === "function" ? supplied(browser) : supplied;
   const props = { open: true, options, mode: "page", onClose() {}, onCreated() {}, onAdvanced() {},
-    api: { createProduct: async () => created, publishAfterMedia: async () => ({ ...created, product: { ...created.product, status: "active" } }), getProductEditor: async () => created },
-    mediaClient: { upload: async () => ({}) }, ...suppliedProps };
+    mediaClient: { upload: async () => ({}) }, ...suppliedProps, api: { createProduct: async () => created, publishAfterMedia: async () => ({ ...created, product: { ...created.product, status: "active" } }), getProductEditor: async () => created, ...(suppliedProps.api as Record<string, unknown> ?? {}) } };
   try {
     await act(async () => { root.render(createElement(ProductQuickCreateDialog, props)); });
     await verify(container as unknown as HTMLElement, browser, async (next) => {
@@ -114,6 +113,24 @@ async function submit(container: HTMLElement, browser: Window, intent: "draft" |
   const button = container.querySelector(`button[value="${intent}"]`)!;
   await act(async () => { form.dispatchEvent(new browser.SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button as never }) as unknown as Event); });
 }
+
+test("one save publishes after media completion even when submitted with Enter", async () => {
+  const intents: { publish: boolean }[] = [];
+  const finished: unknown[] = [];
+  const sequence: string[] = [];
+  await withQuickCreate({ draftSession: draft(), api: {
+    createProduct: async (intent: { publish: boolean }) => { intents.push(intent); sequence.push("create"); return created; },
+    publishAfterMedia: async () => { sequence.push("publish"); return { ...created, product: { ...created.product, status: "active" } }; },
+    getProductEditor: async () => created,
+  }, onCreated: (result: unknown) => finished.push(result) }, async (container, browser) => {
+    const saves = [...container.querySelectorAll<HTMLButtonElement>('button[type="submit"]')];
+    assert.deepEqual(saves.map(button => button.textContent), ["Kaydet"]);
+    await act(async () => { container.querySelector("form")!.dispatchEvent(new browser.SubmitEvent("submit", { bubbles: true, cancelable: true }) as unknown as Event); });
+    assert.equal(intents[0]?.publish, true);
+    assert.deepEqual(sequence, ["create", "publish"]);
+    assert.equal(finished.length, 1);
+  });
+});
 
 async function input(container: HTMLElement, browser: Window, name: string, value: string) {
   const field = container.querySelector(`input[name="${name}"]`) as HTMLInputElement;
@@ -173,7 +190,7 @@ test("quick optional fields stay blank-save compatible and persist all selected 
     const values = { weight: "14,89", volume: "250.125", length: "3", width: "2.1", depth: "4,2", height: "0.001", area: "5,55", packageCount: "6" };
     for (const [key, value] of Object.entries(values)) await input(container, browser, `measurement-${key}`, value);
     assert.deepEqual(projections.at(-1)?.current.variants[0]?.measurements, values);
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(intents.length, 1);
     assert.deepEqual((intents[0] as Record<string, unknown>).measurements, {
       weight: { valueMilli: 14890, unit: "g" }, volume: { valueMilli: 250125, unit: "ml" },
@@ -182,7 +199,7 @@ test("quick optional fields stay blank-save compatible and persist all selected 
     });
   });
   await withQuickCreate({ draftSession: draft(), api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async (container, browser) => {
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(Object.hasOwn(intents.at(-1) as object, "measurements"), false);
   });
 });
@@ -191,7 +208,7 @@ test("invalid optional quick measurements keep entered values and reveal their g
   let creates = 0;
   await withQuickCreate({ draftSession: draft(), api: { createProduct: async () => { creates++; return created; } } }, async (container, browser) => {
     await input(container, browser, "measurement-weight", "14,8912");
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(creates, 0);
     const weight = container.querySelector('input[name="measurement-weight"]') as HTMLInputElement;
     assert.equal(weight.value, "14,8912");
@@ -199,7 +216,7 @@ test("invalid optional quick measurements keep entered values and reveal their g
     assert.equal(weight.closest("details")?.open, true);
     assert.match(container.textContent ?? "", /üç ondalık/);
     await input(container, browser, "measurement-weight", "");
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(creates, 1);
   });
 });
@@ -216,15 +233,15 @@ test("media recovery retries the existing product and blocks duplicate creates",
     onCreated: (result: unknown) => finished.push(result),
     onCreatedProductChange: (productId: string) => createdIds.push(productId),
   }), async (container, browser) => {
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(creates, 1);
     assert.equal(uploads, 1);
     assert.equal(finished.length, 0);
     assert.deepEqual(createdIds, [created.product.id]);
-    assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Taslak güvende/);
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, true);
+    assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Ürün kaydı korundu/);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, true);
     assert.equal(container.querySelector('a[href="/products/product-created"]')?.textContent, "Ürüne git");
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     await submit(container, browser, "publish");
     assert.equal(creates, 1);
     assert.equal(uploads, 1);
@@ -314,8 +331,8 @@ test("detailed metadata and variant drafts cannot be reduced to a quick create",
     await withQuickCreate({ draftSession: protectedDraft, onDraftSessionChange: (next: drafts.ProductDraftSession) => projections.push(next), onAdvanced: () => { advanced++; },
       api: { createProduct: async () => { creates++; return created; }, publishAfterMedia: async () => created, getProductEditor: async () => created },
     }, async (container, browser) => {
-      assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, true);
-      await submit(container, browser, "draft");
+      assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, true);
+      await submit(container, browser, "publish");
       assert.equal(creates, 0);
       assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /detaylı formdan/);
       const handoff = [...container.querySelectorAll("button")].find((button) => button.textContent === "Detaylı forma dön")!;
@@ -344,17 +361,17 @@ test("page mode does not trap Tab and barcode reservation blocks saving and deta
     await rerender({ mode: "dialog" });
     await act(async () => { (container.querySelector('button[aria-label="Dahili barkod oluştur"]') as HTMLButtonElement).click(); });
     assert.equal(busy.at(-1), true);
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, true);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, true);
     const handoff = [...container.querySelectorAll("button")].find((button) => button.textContent === "Gelişmiş ürün eklemeye geç")!;
     assert.equal(handoff.disabled, true);
     await act(async () => { handoff.click(); });
-    await submit(container, browser, "draft");
+    await submit(container, browser, "publish");
     assert.equal(creates, 0);
     assert.equal(advanced, 0);
     await act(async () => { resolveBarcode("9800000000007"); });
     assert.equal(busy.at(-1), false);
     assert.equal((container.querySelector('input[name="barcode"]') as HTMLInputElement).value, "9800000000007");
-    assert.equal((container.querySelector('button[value="draft"]') as HTMLButtonElement).disabled, false);
+    assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, false);
     assert.equal(handoff.disabled, false);
   }, () => new Promise<string>((resolve) => { resolveBarcode = resolve; }));
 });

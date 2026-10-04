@@ -164,6 +164,20 @@ function request(path: string, options: Readonly<{
   return new Request(`http://internal:3400${path}`, { method, headers, body: method === "GET" ? undefined : JSON.stringify(options.body ?? {}) });
 }
 
+test("direct campaign Save requires publish authority while legacy draft Save stays available to editors", async () => {
+  const calls: string[] = [];
+  const repo = repository({
+    async apply(input) { calls.push("apply"); return { promotion: { ...detail(), name: input.name, ruleDocument: input.ruleDocument, version: 2, status: "active" }, replayed: false }; },
+    async create() { calls.push("create"); return { promotion: detail(), replayed: false }; },
+  });
+  const save = () => request("/api/promotions", { method: "POST", body: { apply: true, name: "Atlas", ruleDocument: RULE } });
+  assert.equal((await handler(repo)(save())).status, 201);
+  assert.equal((await handler(repo, { role: "editor" })(save())).status, 403);
+  assert.deepEqual(calls, ["apply"]);
+  assert.equal((await handler(repo, { role: "editor" })(request("/api/promotions", { method: "POST", body: { name: "Atlas", ruleDocument: RULE } }))).status, 201);
+  assert.deepEqual(calls, ["apply", "create"]);
+});
+
 test("the finite REST matrix calls every repository method with only server-derived authority", async () => {
   const calls: Array<readonly [string, Record<string, unknown>]> = [];
   const capture = (name: string, input: unknown) => calls.push([name, input as Record<string, unknown>]);

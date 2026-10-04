@@ -76,80 +76,24 @@ function settingsApi(selected = definitions) {
     listDefinitions: async () => ({ items: selected }),
     listSets: async () => ({ activeSetId: SET, stateVersion: 1, items: [], nextCursor: null }),
     getSet: async () => active,
-    saveSet: async (intent: Record<string, unknown>) => ({ ...active, setId: intent.setId, isActive: false }),
+    apply: async (intent:Record<string,unknown>)=>{activationRequests.push(intent);if(unavailableVariants)throw new ReferencePricingApiError("conflict",409);return {setId:intent.setId,version:2,stateVersion:2,activatedAt:UTC};},
     preview: async (intent: Record<string, unknown>) => { previewRequests.push(intent); return preview(intent); },
     activate: async (intent: Record<string, unknown>) => { activationRequests.push(intent); return { setId: intent.setId, version: 2, stateVersion: 2, activatedAt: UTC }; },
   };
   return { api, previewRequests, activationRequests, preview, unavailable(value: number) { unavailableVariants = value; } };
 }
 
-test("catalog gram binding is explicit and the selected tariff reaches preview and activation", async () => {
-  const fixture = settingsApi();
-  const view = await mount("./ReferencePricingConsole.tsx", "ReferencePricingConsole", fixture.api, { canRead: true, canManage: true });
-  try {
-    const choice = view.input("Gramı olan ürünleri bu tarifeye bağla");
-    assert.equal(choice.checked, false);
-    await act(async () => choice.click());
-    await act(async () => view.button("Taslağı kaydet").click());
-    await act(async () => view.button("Fiyat önizlemesi").click());
-    await act(async () => view.button("Sunucuda önizle").click());
-    assert.equal(fixture.previewRequests[0]?.catalogGramReferenceId, GOLD);
-    assert.equal(view.button("Onayla ve uygula").disabled, false);
-    await act(async () => view.button("Onayla ve uygula").click());
-    assert.equal(fixture.activationRequests[0]?.catalogGramReferenceId, GOLD);
-    assert.match(view.confirmations[0]!, /3 ürün ve 4 varyant/);
-  } finally { await view.cleanup(); }
+test("one Kaydet directly applies the selected gram tariff without another durable call",async()=>{
+ const fixture=settingsApi();const view=await mount("./ReferencePricingConsole.tsx","ReferencePricingConsole",fixture.api,{canRead:true,canManage:true});
+ try{await act(async()=>view.input("Gramı olan ürünleri bu tarifeye bağla").click());await act(async()=>view.button("Kaydet").click());assert.equal(fixture.activationRequests.length,1);assert.equal(fixture.activationRequests[0]?.catalogGramReferenceId,GOLD);assert.equal(fixture.previewRequests.length,0);assert.match(view.container.textContent!,/kaydedildi ve uygulandı/);assert.equal(view.button("Onayla ve uygula"),undefined);}finally{await view.cleanup();}
 });
-
-test("multiple gram tariffs require a choice and unavailable native gram prices cannot be applied", async () => {
-  const fixture = settingsApi([...definitions, { id: OTHER_GOLD, kind: "gold_gram", label: "Diğer gram satış", createdAt: UTC }]);
-  fixture.unavailable(1);
-  const view = await mount("./ReferencePricingConsole.tsx", "ReferencePricingConsole", fixture.api, { canRead: true, canManage: true });
-  try {
-    await act(async () => view.input("Gramı olan ürünleri bu tarifeye bağla").click());
-    const tariff = view.select("Gram tarifesi");
-    assert.equal(tariff.value, "");
-    await act(async () => view.button("Taslağı kaydet").click());
-    await act(async () => view.button("Fiyat önizlemesi").click());
-    assert.equal(view.button("Sunucuda önizle").disabled, true);
-    await act(async () => { tariff.value = OTHER_GOLD; tariff.dispatchEvent(new view.browser.Event("change", { bubbles: true })); });
-    await act(async () => view.button("Sunucuda önizle").click());
-    assert.equal(fixture.previewRequests[0]?.catalogGramReferenceId, OTHER_GOLD);
-    assert.equal(view.button("Onayla ve uygula").disabled, true);
-    assert.match(view.container.textContent!, /hesaplanamıyor/);
-    assert.equal(fixture.activationRequests.length, 0);
-    await act(async () => { tariff.value = GOLD; tariff.dispatchEvent(new view.browser.Event("change", { bubbles: true })); });
-    assert.equal(view.button("Onayla ve uygula"), undefined);
-    fixture.unavailable(0);
-    await act(async () => view.button("Sunucuda önizle").click());
-    assert.equal(fixture.previewRequests[1]?.catalogGramReferenceId, GOLD);
-    assert.equal(view.button("Onayla ve uygula").disabled, false);
-    await act(async () => { const rate = view.input("Mağaza satış referansı (TL)"); Object.getOwnPropertyDescriptor(view.browser.HTMLInputElement.prototype, "value")!.set!.call(rate, "6600"); rate.dispatchEvent(new view.browser.Event("input", { bubbles: true })); });
-    assert.equal(view.button("Onayla ve uygula"), undefined);
-    assert.equal(view.button("Sunucuda önizle").disabled, true);
-  } finally { await view.cleanup(); }
+test("missing tariff blocks saving and unavailable native gram prices preserve fields",async()=>{
+ const fixture=settingsApi([...definitions,{id:OTHER_GOLD,kind:"gold_gram",label:"Diğer gram satış",createdAt:UTC}]);fixture.unavailable(1);const view=await mount("./ReferencePricingConsole.tsx","ReferencePricingConsole",fixture.api,{canRead:true,canManage:true});
+ try{await act(async()=>view.input("Gramı olan ürünleri bu tarifeye bağla").click());assert.equal(view.button("Kaydet").disabled,true);await act(async()=>view.button("Kaydet").click());assert.equal(fixture.activationRequests.length,0);await act(async()=>{const tariff=view.select("Gram tarifesi");tariff.value=OTHER_GOLD;tariff.dispatchEvent(new view.browser.Event("change",{bubbles:true}));});await act(async()=>view.button("Kaydet").click());assert.equal(fixture.activationRequests[0]?.catalogGramReferenceId,OTHER_GOLD);assert.ok(view.container.querySelector('[role="alert"]'));assert.equal(view.input("Mağaza satış referansı (TL)").value,"5000");}finally{await view.cleanup();}
 });
-
-test("changing gram binding rejects an in-flight preview and ordinary preview omits the binding", async () => {
-  const fixture = settingsApi();
-  let resolvePreview!: (value: unknown) => void;
-  fixture.api.preview = async (intent: Record<string, unknown>) => { fixture.previewRequests.push(intent); return new Promise((resolve) => { resolvePreview = resolve; }); };
-  const view = await mount("./ReferencePricingConsole.tsx", "ReferencePricingConsole", fixture.api, { canRead: true, canManage: true });
-  try {
-    await act(async () => view.input("Gramı olan ürünleri bu tarifeye bağla").click());
-    await act(async () => view.button("Taslağı kaydet").click());
-    await act(async () => view.button("Fiyat önizlemesi").click());
-    await act(async () => view.button("Sunucuda önizle").click());
-    await act(async () => view.input("Gramı olan ürünleri bu tarifeye bağla").click());
-    await act(async () => resolvePreview(fixture.preview(fixture.previewRequests[0]!)));
-    assert.equal(view.button("Onayla ve uygula"), undefined);
-    await act(async () => view.button("Sunucuda önizle").click());
-    assert.equal(Object.hasOwn(fixture.previewRequests[1]!, "catalogGramReferenceId"), false);
-    await act(async () => resolvePreview(fixture.preview(fixture.previewRequests[1]!)));
-    assert.equal(view.button("Onayla ve uygula").disabled, false);
-    await act(async () => { const channel = view.select("Kanal"); channel.value = "quick_order"; channel.dispatchEvent(new view.browser.Event("change", { bubbles: true })); });
-    assert.equal(view.button("Onayla ve uygula"), undefined);
-  } finally { await view.cleanup(); }
+test("unknown application result freezes fields and resolves the same saved intent",async()=>{
+ const fixture=settingsApi();const calls:Record<string,unknown>[]=[];fixture.api.apply=async(intent:Record<string,unknown>)=>{calls.push(intent);if(calls.length===1)throw new ReferencePricingApiError("verification_unavailable",503);return {setId:intent.setId,version:2,stateVersion:2,activatedAt:UTC};};const view=await mount("./ReferencePricingConsole.tsx","ReferencePricingConsole",fixture.api,{canRead:true,canManage:true});
+ try{await act(async()=>view.button("Kaydet").click());assert.equal(calls.length,1);assert.equal(view.input("Mağaza satış referansı (TL)").disabled,true);await act(async()=>view.button("Kaydı doğrula").click());assert.equal(calls.length,2);assert.deepEqual(calls[1],calls[0]);assert.match(view.container.textContent!,/kaydedildi ve uygulandı/);}finally{await view.cleanup();}
 });
 
 test("gold policy prefill uses native grams and preserves merchant text across method switches", async () => {

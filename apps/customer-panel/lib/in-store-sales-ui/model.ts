@@ -188,7 +188,7 @@ export class InStoreRegisterController {
           // absent sale) may offer explicit reentry. Never reset a payment stage.
           const canReenterDraft=["create","update"].includes(marker.kind)&&!this.pendingRequest&&(!sale||sale.status==="draft");
           if(!this.pendingRequest)this.hydrate(sale,true);
-          this.set({recovery:marker,busy:null,canReenterDraft,error:canReenterDraft?"Son taslak değişikliğinin sonucu doğrulanamadı. Sunucudaki sepeti yükle veya aynı satış için ürünleri yeniden okut.":"İşlemin sonucu henüz doğrulanamadı. Fiziksel tahsilatı tekrar alma; aynı satışın durumunu kontrol et."});return;
+          this.set({recovery:marker,busy:null,canReenterDraft,error:canReenterDraft?"Son sepet değişikliğinin sonucu doğrulanamadı. Sunucudaki sepeti yükle veya aynı satış için ürünleri yeniden okut.":"İşlemin sonucu henüz doğrulanamadı. Fiziksel tahsilatı tekrar alma; aynı satışın durumunu kontrol et."});return;
         }
       }
       if(result.sale.id!==marker.saleId)throw new Error("İşlem başka bir satışa ait. Sonuç doğrulanamadı.");
@@ -220,7 +220,7 @@ export class InStoreRegisterController {
       if(operation){await this.recoverInternal(false);return;}
       const sale=await this.authoritativeSale(marker.saleId);
       if(sale&&sale.status!=="draft"){this.hydrate(sale,true);this.set({recovery:marker,busy:null,error:"Satış ödeme aşamasına geçmiş. POS slipini kontrol et; yeniden tahsilat yapma."});return;}
-      this.hydrate(sale);this.set({recovery:null,busy:null,notice:sale?"Sunucudaki taslak yüklendi. Son değişikliklerini ve tutarı yeniden kontrol et.":"Bu satış için ürünleri yeniden okut."});
+      this.hydrate(sale);this.set({recovery:null,busy:null,notice:sale?"Kaydedilmiş sepet yüklendi. Son değişikliklerini ve tutarı yeniden kontrol et.":"Bu satış için ürünleri yeniden okut."});
       if(sale)clearMarker(this.storage,marker.scopeKey);
       else this.newSaleId=marker.saleId; // Keep the stored anchor until a new exact write; a delayed create cannot make a second sale UUID.
       await this.refreshLists();

@@ -299,12 +299,13 @@ export function createInventoryLocationConsoleController(options: Readonly<{
   });
 }
 
-type PurchasingApi = Pick<typeof inventoryApi, "getPurchaseOrder" | "savePurchaseOrder" | "receivePurchaseOrder" | "transitionPurchaseOrder">;
+type PurchasingApi = Pick<typeof inventoryApi, "getPurchaseOrder" | "savePurchaseOrder" | "receivePurchaseOrder" | "transitionPurchaseOrder"> & Partial<Pick<typeof inventoryApi, "savePurchaseOrderAndOrder">>;
 export function createPurchasingConsoleController(options: Readonly<{
   initial?: PurchaseOrder;
   resourceId?: string;
   canRead?: boolean;
   canManage: boolean;
+  directSave?: boolean;
   api: PurchasingApi;
   onChange?: Change<PurchaseOrder>;
 }>) {
@@ -322,7 +323,7 @@ export function createPurchasingConsoleController(options: Readonly<{
         (record && (record.status !== "draft" || value.orderId !== record.id || value.expectedVersion !== record.version)) ||
         (!record && (value.orderId !== undefined || value.expectedVersion !== undefined))
       ) return Promise.resolve();
-      return controller.mutate((_record, signal) => options.api.savePurchaseOrder(value, signal));
+      return controller.mutate((_record, signal) => options.directSave ? options.api.savePurchaseOrderAndOrder!(value, signal) : options.api.savePurchaseOrder(value, signal));
     },
     receive(lines: ReceivePurchaseOrderIntent["lines"]) {
       const record = controller.getSnapshot().record;
@@ -355,12 +356,13 @@ export function createPurchasingConsoleController(options: Readonly<{
   });
 }
 
-type CountApi = Pick<typeof inventoryApi, "getCount" | "saveCount" | "startCount" | "commitCount" | "cancelCount">;
+type CountApi = Pick<typeof inventoryApi, "getCount" | "saveCount" | "startCount" | "commitCount" | "cancelCount"> & Partial<Pick<typeof inventoryApi, "saveCountAndStart">>;
 export function createInventoryCountConsoleController(options: Readonly<{
   initial?: InventoryCount;
   resourceId?: string;
   canRead?: boolean;
   canManage: boolean;
+  directSave?: boolean;
   api: CountApi;
   onChange?: Change<InventoryCount>;
 }>) {
@@ -378,7 +380,7 @@ export function createInventoryCountConsoleController(options: Readonly<{
         (record && (!["draft", "counting"].includes(record.status) || value.countId !== record.id || value.expectedVersion !== record.version)) ||
         (!record && (value.countId !== undefined || value.expectedVersion !== undefined))
       ) return Promise.resolve();
-      return controller.mutate((_record, signal) => options.api.saveCount(value, signal));
+      return controller.mutate((_record, signal) => options.directSave && (!record || record.status === "draft") ? options.api.saveCountAndStart!(value, signal) : options.api.saveCount(value, signal));
     },
     start: () => allowed(["draft"], (record, signal) => options.api.startCount(record.id, record.version, signal)),
     commit: () => allowed(["counting"], (record, signal) => options.api.commitCount(record.id, record.version, signal)),
@@ -387,12 +389,13 @@ export function createInventoryCountConsoleController(options: Readonly<{
   });
 }
 
-type TransferApi = Pick<typeof inventoryApi, "getTransfer" | "saveTransfer" | "dispatchTransfer" | "receiveTransfer" | "cancelTransfer">;
+type TransferApi = Pick<typeof inventoryApi, "getTransfer" | "saveTransfer" | "dispatchTransfer" | "receiveTransfer" | "cancelTransfer"> & Partial<Pick<typeof inventoryApi, "saveTransferAndDispatch">>;
 export function createInventoryTransferConsoleController(options: Readonly<{
   initial?: InventoryTransfer;
   resourceId?: string;
   canRead?: boolean;
   canManage: boolean;
+  directSave?: boolean;
   api: TransferApi;
   onChange?: Change<InventoryTransfer>;
 }>) {
@@ -410,7 +413,7 @@ export function createInventoryTransferConsoleController(options: Readonly<{
         (record && (record.status !== "draft" || value.transferId !== record.id || value.expectedVersion !== record.version)) ||
         (!record && (value.transferId !== undefined || value.expectedVersion !== undefined))
       ) return Promise.resolve();
-      return controller.mutate((_record, signal) => options.api.saveTransfer(value, signal));
+      return controller.mutate((_record, signal) => options.directSave ? options.api.saveTransferAndDispatch!(value, signal) : options.api.saveTransfer(value, signal));
     },
     dispatch: () => allowed(["draft"], (record, signal) => options.api.dispatchTransfer(record.id, record.version, signal)),
     receive: () => allowed(["in_transit"], (record, signal) => options.api.receiveTransfer(record.id, record.version, signal)),

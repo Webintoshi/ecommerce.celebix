@@ -156,18 +156,27 @@ export function createInventoryHttpHandler(dependencies: Dependencies): (request
       case "balances": return execute(() => repository.listBalances({ ...authority, locationId: (input as { locationId: string }).locationId }), (value) => items(value, parseInventoryBalance, 5_000));
       case "purchase_list": return execute(() => repository.listPurchaseOrders(authority), (value) => items(value, parsePurchaseOrder));
       case "purchase_get": return execute(() => repository.getPurchaseOrder({ ...authority, orderId: route.id }), parsePurchaseOrder);
-      case "purchase_save": return execute(() => repository.savePurchaseOrder({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "purchase_save" }>).value }), (value) => mutation("purchase_order", value));
+      case "purchase_save": {
+        const { activation, ...value } = (input as Extract<InventoryMutationInput, { kind: "purchase_save" }>).value;
+        return execute(() => activation === "start" ? repository.savePurchaseOrderAndOrder({ ...authority, ...value }) : repository.savePurchaseOrder({ ...authority, ...value }), (result) => mutation("purchase_order", result));
+      }
       case "purchase_transition": return execute(() => repository.transitionPurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_transition" }>).value }), (value) => mutation("purchase_order", value));
       case "purchase_receive": return execute(() => repository.receivePurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_receive" }>).value }), (value) => mutation("purchase_order", value));
       case "count_list": return execute(() => repository.listCounts(authority), (value) => items(value, parseInventoryCount));
       case "count_get": return execute(() => repository.getCount({ ...authority, countId: route.id }), parseInventoryCount);
-      case "count_save": return execute(() => repository.saveCount({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "count_save" }>).value }), (value) => mutation("inventory_count", value));
+      case "count_save": {
+        const { activation, ...value } = (input as Extract<InventoryMutationInput, { kind: "count_save" }>).value;
+        return execute(() => activation === "start" ? repository.saveCountAndStart({ ...authority, ...value }) : repository.saveCount({ ...authority, ...value }), (result) => mutation("inventory_count", result));
+      }
       case "count_start": return execute(() => repository.startCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
       case "count_commit": return execute(() => repository.commitCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
       case "count_cancel": return execute(() => repository.cancelCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
       case "transfer_list": return execute(() => repository.listTransfers(authority), (value) => items(value, parseInventoryTransfer));
       case "transfer_get": return execute(() => repository.getTransfer({ ...authority, transferId: route.id }), parseInventoryTransfer);
-      case "transfer_save": return execute(() => repository.saveTransfer({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "transfer_save" }>).value }), (value) => mutation("inventory_transfer", value));
+      case "transfer_save": {
+        const { activation, ...value } = (input as Extract<InventoryMutationInput, { kind: "transfer_save" }>).value;
+        return execute(() => activation === "start" ? repository.saveTransferAndDispatch({ ...authority, ...value }) : repository.saveTransfer({ ...authority, ...value }), (result) => mutation("inventory_transfer", result));
+      }
       case "transfer_dispatch": return execute(() => repository.dispatchTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));
       case "transfer_receive": return execute(() => repository.receiveTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));
       case "transfer_cancel": return execute(() => repository.cancelTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));

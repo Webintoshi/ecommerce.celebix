@@ -22,9 +22,12 @@ function invalid(): never { throw new Error("server_reference_pricing_runtime_in
 function facade(repository: ReferencePricingRepository): ReferencePricingRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-    return Object.freeze(Object.fromEntries(
-      METHODS.map((method) => [method, repository[method].bind(repository)]),
-    )) as unknown as ReferencePricingRepository;
+    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as ReferencePricingRepository;
+    if (repository.apply !== undefined) {
+      if (typeof repository.apply !== "function") invalid();
+      methods.apply = repository.apply.bind(repository);
+    }
+    return Object.freeze(methods);
   } catch { return invalid(); }
 }
 

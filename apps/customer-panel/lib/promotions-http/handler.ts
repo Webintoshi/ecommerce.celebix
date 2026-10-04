@@ -109,6 +109,7 @@ async function authorize(
   dependencies: Dependencies,
   request: Request,
   route: PromotionRoute,
+  apply=false,
 ): Promise<Response | Authorized> {
   const cookie = readOrderPanelSessionCookie(request);
   if (cookie.kind !== "present") return error("unauthenticated", 401);
@@ -150,7 +151,7 @@ async function authorize(
     if (tenant.entitlements.status !== "active" || !tenant.entitlements.features.some((feature) => feature === "promotions")) {
       return error("feature_not_enabled", 403);
     }
-    if (!isMerchantActionAllowed(tenant.membership.role, requiredAction(route))) {
+    if (!isMerchantActionAllowed(tenant.membership.role, requiredAction(route)) || apply && !isMerchantActionAllowed(tenant.membership.role,"promotions.publish")) {
       return error("membership_denied", 403);
     }
     return Object.freeze({ runtime, tenantContext: tenant, now: new Date(Date.prototype.getTime.call(now)) });
@@ -272,7 +273,8 @@ const FAILURE_ROUTES: Readonly<Record<string, ReadonlySet<string>>> = Object.fre
   version_conflict: new Set(["update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_status"]),
   publish_blocked: new Set(["update", "publish", "resume"]),
 });
-function failureAllowed(route: PromotionRoute, code: string): boolean {
+function failureAllowed(route: PromotionRoute, code: string, input?:ParsedInput): boolean {
+  if(input && "apply" in input && input.apply===true && ["create","update"].includes(route.kind) && ["publish_blocked","promotion_limit_reached","invalid_transition","invalid_reference","version_conflict","operation_mismatch"].includes(code))return true;
   if (["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled"].includes(code)) return true;
   if (code === "idempotency_mismatch") return DURABLE_ROUTES.has(route.kind);
   return FAILURE_ROUTES[code]?.has(route.kind) === true;
@@ -286,7 +288,7 @@ function repositoryFailure(caught: unknown, route: PromotionRoute, input: Parsed
   try {
     const failure = promotionRepositoryError(caught);
     if (failure === undefined) return unavailable();
-    if (!failureAllowed(route, failure.code)) return unavailable();
+    if (!failureAllowed(route, failure.code,input)) return unavailable();
     switch (failure.code) {
       case "invalid_input": return error("invalid_input", 400);
       case "unauthenticated": return error("unauthenticated", 401);
@@ -401,10 +403,12 @@ async function dispatch(route: PromotionRoute, input: ParsedInput, authorized: A
       });
     case "create": {
       const value = mutationValue(input) as PromotionCreateRequest;
+      if((input as PromotionMutationInput).apply){if(!repository.apply)return unavailable();return execute(route,input,()=>repository.apply!({...authority,operationId:operationId(input),...value}),result=>{const parsed=promotionMutation(result,{version:2});if(!["active","scheduled"].includes(parsed.promotion.status))throw Error();return json(parsed,201);});}
       return execute(route, input, () => repository.create({ ...authority, operationId: operationId(input), ...value }), (result) => json(promotionMutation(result, { version: 1, status: "draft" }), 201));
     }
     case "update": {
       const value = mutationValue(input) as PromotionUpdateRequest;
+      if((input as PromotionMutationInput).apply){if(!repository.apply)return unavailable();return execute(route,input,()=>repository.apply!({...authority,operationId:operationId(input),promotionId:route.promotionId,...value}),result=>{const parsed=promotionMutation(result,{id:route.promotionId});if(parsed.promotion.status==="draft"||![value.expectedVersion+1,value.expectedVersion+2].includes(parsed.promotion.version))throw Error();return json(parsed);});}
       return execute(route, input, () => repository.update({ ...authority, operationId: operationId(input), promotionId: route.promotionId, ...value }), (result) => json(promotionMutation(result, { id: route.promotionId, version: value.expectedVersion + 1 })));
     }
     case "publish": {
@@ -501,7 +505,7 @@ export function createPromotionsHttpHandler(dependencies: Dependencies) {
       ? readPromotionGetInput(request, decision.route)
       : await readPromotionMutationInput(request, decision.route);
     if (input.kind !== "valid") return error("invalid_input", 400);
-    const authorized = await authorize(dependencies, request, decision.route);
+    const authorized = await authorize(dependencies, request, decision.route, "apply" in input && input.apply===true);
     if (authorized instanceof Response) return authorized;
     try { return await dispatch(decision.route, input, authorized); }
     catch { return unavailable(); }

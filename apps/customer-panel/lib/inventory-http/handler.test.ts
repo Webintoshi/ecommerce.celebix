@@ -572,3 +572,37 @@ test("disabled default runtime remains unavailable and contains no database cons
   assert.match(source, /resolveDefaultServerPanelAccessRuntime/);
   assert.doesNotMatch(source, /new Pool|PostgresInventoryRepository|approved_staging/);
 });
+
+test("explicit activation selects one atomic repository operation without changing legacy save requests", async () => {
+  const captures: { method: string; input: Record<string, unknown> }[] = [];
+  const cases = [
+    ["/api/inventory/purchase-orders", "savePurchaseOrderAndOrder", ORDER, "ordered", { locationId: LOCATION, supplierName: "Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 100 }] }],
+    ["/api/inventory/counts", "saveCountAndStart", COUNT, "counting", { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] }],
+    ["/api/inventory/transfers", "saveTransferAndDispatch", TRANSFER, "in_transit", { sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] }],
+  ] as const;
+  for (const [path, method, target, status, input] of cases) {
+    const handle = handler(repository({ [method]: async (value: unknown) => { captures.push({ method, input: value as Record<string, unknown> }); return mutation(target, status); } }));
+    const response = await handle(request(path, { method: "POST", body: { ...input, operationId: OPERATION, activation: "start" } }));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, status);
+    assert.deepEqual(captures.at(-1)?.input, { ...input, operationId: OPERATION, tenantContext: tenant(), now: NOW });
+    for (const activation of [false, true, null, "draft", "finish"]) {
+      const rejected = await handle(request(path, { method: "POST", body: { ...input, operationId: OPERATION, activation } }));
+      assert.equal(rejected.status, 400);
+    }
+  }
+  assert.equal(captures.length, 3);
+});
+
+test("count activation prevents silently clearing quantities and honors existing authorization and conflict results", async () => {
+  let writes = 0;
+  const inventory = repository({ async saveCountAndStart() { writes++; throw inventoryFailure("version_conflict"); } });
+  const body = { operationId: OPERATION, locationId: LOCATION, activation: "start", lines: [{ lineId: LINE, variantId: VARIANT }] };
+  const handle = handler(inventory);
+  assert.equal((await handle(request("/api/inventory/counts", { method: "POST", body: { ...body, lines: [{ ...body.lines[0], countedQuantity: 0 }] } }))).status, 400);
+  assert.equal(writes, 0);
+  assert.equal((await handler(inventory, "unauthenticated")(request("/api/inventory/counts", { method: "POST", body }))).status, 401);
+  assert.equal(writes, 0);
+  assert.equal((await handle(request("/api/inventory/counts", { method: "POST", body }))).status, 409);
+  assert.equal(writes, 1);
+});

@@ -4,6 +4,7 @@ import type {
   CustomerListItem,
   OrderAddress,
   OrderDraftDetail,
+  OrderDraftConversionResult,
   OrderDraftSaveIntent,
 } from "@celebix/saas-contracts";
 import Link from "next/link";
@@ -20,12 +21,13 @@ import {
   type CatalogVariantChoice,
 } from "@/lib/catalog-ui/variant-choices";
 import { customerApi } from "@/lib/customer-ui/client";
-import { OrderApiError, orderApi } from "@/lib/order-ui/client";
+import { OrderApiError, scopedOrderApi } from "@/lib/order-ui/client";
+import { usePanelChromeModel } from "@/components/panel/PanelLayoutClient";
 import styles from "./order-drafts.module.css";
 
 type Phase = "loading" | "ready" | "error";
-type Busy = "" | "saving" | "archiving" | "converting";
-type Confirmation = "" | "archive" | "convert";
+type Busy = "" | "saving" | "archiving";
+type Confirmation = "" | "archive";
 type AddressDraft = Readonly<{
   recipientName: string;
   line1: string;
@@ -119,7 +121,7 @@ function lineDrafts(record: OrderDraftDetail): readonly LineDraft[] {
 function errorMessage(error: unknown) {
   if (error instanceof OrderApiError) return error.message;
   if (error instanceof TypeError && error.message === "order_draft_money_invalid") return "Tutar alanlarını TL biçiminde kontrol edin.";
-  return "Taslak sipariş işlemi tamamlanamadı. Lütfen yeniden deneyin.";
+  return "Sipariş işlemi tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
 function AddressFields(props: Readonly<{
@@ -145,6 +147,8 @@ function AddressFields(props: Readonly<{
 
 export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: boolean }>) {
   const router = useRouter();
+  const { storeSlug } = usePanelChromeModel();
+  const orderApi = useMemo(() => scopedOrderApi(storeSlug), [storeSlug]);
   const confirmationRef = useRef<HTMLDialogElement>(null);
   const backLinkRef = useRef<HTMLAnchorElement>(null);
   const focusBackAfterClose = useRef(false);
@@ -170,6 +174,15 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
   const [confirmation, setConfirmation] = useState<Confirmation>("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [completed, setCompleted] = useState<Readonly<OrderDraftConversionResult>>();
+  const [uncertain, setUncertain] = useState(() => orderApi.draftApplyLocked());
+
+  useEffect(() => {
+    if (typeof window === "undefined" || (!busy && !uncertain)) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [busy, uncertain]);
 
   useEffect(() => {
     const dialog = confirmationRef.current;
@@ -238,8 +251,9 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
     return () => { current = false; };
   }, [hydrate, props.draftId, retry]);
 
-  const readOnly = !props.canManage || Boolean(record && record.status !== "draft");
-  const disabled = readOnly || busy !== "";
+  const readOnly = !props.canManage || Boolean(completed) || Boolean(record && record.status !== "draft");
+  const needsRecoveryInput = uncertain && orderApi.draftApplyNeedsInput();
+  const disabled = readOnly || busy !== "" || (uncertain && !needsRecoveryInput);
   const selectedVariants = useMemo(() => new Map(variants.map((variant) => [variant.variantId, variant])), [variants]);
   const savedSubtotal = record?.subtotalCents ?? 0;
   const enteredShipping = useMemo(() => { try { return cents(shipping); } catch { return 0; } }, [shipping]);
@@ -303,21 +317,21 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
   }
 
   async function save() {
-    if (disabled) return;
+    if (readOnly || busy) return;
     setBusy("saving");
     setNotice("Kaydediliyor…");
     setError("");
     setConfirmation("");
     try {
-      const next = record
-        ? await orderApi.updateDraft(record.id, intent())
-        : await orderApi.createDraft(intent());
-      hydrate(next);
-      setNotice("Taslak kaydedildi.");
-      if (!record) router.replace(`/orders/drafts/${next.id}`);
+      const result = uncertain && !needsRecoveryInput ? await orderApi.retryDraftApply() : await orderApi.applyDraft(intent(), record?.id);
+      setCompleted(result);
+      setUncertain(false);
+      setNotice(`Sipariş ${result.orderNumber} oluşturuldu.`);
+      router.replace(`/orders/${result.orderId}`);
     } catch (failure) {
       setNotice("");
-      setError(errorMessage(failure));
+      setUncertain(orderApi.draftApplyLocked());
+      setError(orderApi.draftApplyLocked() ? "Kayıt sonucu doğrulanamadı. Kaydı doğrula ile aynı işlemin sonucunu kontrol edin; girilen bilgiler korunuyor." : errorMessage(failure));
     } finally {
       setBusy("");
     }
@@ -332,7 +346,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
       focusBackAfterClose.current = true;
       hydrate(next);
       setConfirmation("");
-      setNotice("Taslak arşivlendi. Sipariş veya stok kaydı oluşturulmadı.");
+      setNotice("Tamamlanmamış kayıt arşivlendi.");
     } catch (failure) {
       setConfirmation("");
       setError(errorMessage(failure));
@@ -341,38 +355,25 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
     }
   }
 
-  async function convert() {
-    if (!record || disabled || confirmation !== "convert") return;
-    setBusy("converting");
-    setError("");
-    try {
-      const result = await orderApi.convertDraft(record.id, { expectedVersion: record.version });
-      router.replace(`/orders/${result.orderId}`);
-    } catch (failure) {
-      setConfirmation("");
-      setError(errorMessage(failure));
-      setBusy("");
-    }
-  }
-
   if (!props.draftId && !props.canManage) return (
-    <PanelPageShell><PanelPageHeader title="Yeni Taslak Sipariş" /><h1 className="sr-only">Yeni Taslak Sipariş</h1><div className={styles.denied} role="status">Taslak sipariş oluşturma yetkiniz yok.</div></PanelPageShell>
+    <PanelPageShell><PanelPageHeader title="Yeni manuel sipariş" /><h1 className="sr-only">Yeni manuel sipariş</h1><div className={styles.denied} role="status">Sipariş oluşturma yetkiniz yok.</div></PanelPageShell>
   );
 
-  const title = record?.draftNumber ?? (props.draftId ? "Taslak Sipariş" : "Yeni Taslak Sipariş");
+  const title = record?.draftNumber ?? (props.draftId ? "Manuel sipariş" : "Yeni manuel sipariş");
   return (
     <PanelPageShell>
       <PanelPageHeader title={title} />
       <h1 className="sr-only">{title}</h1>
-      <div className={styles.editorToolbar}><Link ref={backLinkRef} className={styles.secondaryAction} href="/orders/drafts">Taslaklara dön</Link>{record ? <span>{record.draftNumber}</span> : null}</div>
-      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Taslak sipariş yükleniyor</strong><i aria-hidden="true" /></div> : null}
-      {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Taslak açılamadı</h2><p>{error}</p></div><button type="button" onClick={() => setRetry((current) => current + 1)}>Tekrar dene</button></div> : null}
+      <div className={styles.editorToolbar}><Link ref={backLinkRef} className={styles.secondaryAction} href="/orders/drafts">Manuel siparişlere dön</Link>{record ? <span>{record.draftNumber}</span> : null}</div>
+      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Manuel sipariş yükleniyor</strong><i aria-hidden="true" /></div> : null}
+      {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Kayıt açılamadı</h2><p>{error}</p></div><button type="button" onClick={() => setRetry((current) => current + 1)}>Tekrar dene</button></div> : null}
       {phase === "ready" ? (
         <div className={styles.editorWorkspace}>
           <form id="order-draft-form" className={styles.editorForm} onSubmit={(event) => { event.preventDefault(); void save(); }}>
             {error ? <p className={styles.formError} role="alert">{error}</p> : null}
             {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
-            {readOnly ? <p className={styles.readOnlyNotice} role="status">{record?.status === "converted" ? "Bu taslak siparişe dönüştürüldüğü için salt okunur." : record?.status === "archived" ? "Bu taslak arşivlendiği için salt okunur." : "Bu kaydı değiştirme yetkiniz yok."}</p> : null}
+            {needsRecoveryInput ? <p className={styles.formError} role="alert">Önceki kayıt sonucu belirsiz. Aynı bilgileri girip Kaydı doğrula ile kontrol edin.</p> : null}
+            {readOnly ? <p className={styles.readOnlyNotice} role="status">{completed || record?.status === "converted" ? "Sipariş oluşturuldu. Bu kayıt yalnız görüntülenebilir." : record?.status === "archived" ? "Bu kayıt arşivlendiği için yalnız görüntülenebilir." : "Bu kaydı değiştirme yetkiniz yok."}</p> : null}
             <section className={styles.formSection}>
               <div className={styles.sectionHeading}><div><h2>Müşteri</h2></div></div>
               <fieldset className={styles.fieldGrid} disabled={disabled}>
@@ -394,7 +395,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
                   <label>Satır indirimi (TL)<input inputMode="decimal" required value={line.discount} onChange={(event) => updateLine(line.lineId, { discount: event.target.value })} /></label>
                   <button type="button" onClick={() => setLines((current) => Object.freeze(current.filter((candidate) => candidate.lineId !== line.lineId)))}>Kaldır</button>
                 </article>)}</div>
-                {lines.length === 0 ? <p className={styles.inlineEmpty}>Taslağı kaydetmek için en az bir ürün ekleyin.</p> : null}
+                {lines.length === 0 ? <p className={styles.inlineEmpty}>Siparişi kaydetmek için en az bir ürün ekleyin.</p> : null}
               </fieldset>
             </section>
 
@@ -411,13 +412,13 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
                 <label>Kargo ücreti (TL)<input required inputMode="decimal" value={shipping} onChange={(event) => setShipping(event.target.value)} /></label>
                 <label>Sipariş indirimi (TL)<input required inputMode="decimal" value={discount} onChange={(event) => setDiscount(event.target.value)} /></label>
                 <label className={styles.fullField}>Sipariş notu <span>(isteğe bağlı)</span><textarea maxLength={2000} rows={4} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-                <label className={`${styles.checkRow} ${styles.fullField}`}><input type="checkbox" checked={adjustInventory} onChange={(event) => setAdjustInventory(event.target.checked)} /><span>Siparişe dönüştürürken stokları düş</span></label>
+                <label className={`${styles.checkRow} ${styles.fullField}`}><input type="checkbox" checked={adjustInventory} onChange={(event) => setAdjustInventory(event.target.checked)} /><span>Kaydederken stokları düş</span></label>
               </fieldset>
             </section>
           </form>
 
-          <aside className={styles.summaryCard} aria-label="Taslak sipariş özeti">
-            <div className={styles.summaryHeading}><div><span>Taslak özeti</span><strong>{record?.draftNumber ?? "Yeni kayıt"}</strong></div>{record ? <PanelStatusBadge tone={record.status === "converted" ? "success" : "neutral"}>{record.status === "draft" ? "Taslak" : record.status === "converted" ? "Dönüştürüldü" : "Arşivlendi"}</PanelStatusBadge> : null}</div>
+          <aside className={styles.summaryCard} aria-label="Sipariş özeti">
+            <div className={styles.summaryHeading}><div><span>Sipariş özeti</span><strong>{completed?.orderNumber ?? record?.draftNumber ?? "Yeni kayıt"}</strong></div>{completed ? <PanelStatusBadge tone="success">Kaydedildi</PanelStatusBadge> : record ? <PanelStatusBadge tone={record.status === "converted" ? "success" : "neutral"}>{record.status === "draft" ? "Tamamlanmamış" : record.status === "converted" ? "Dönüştürüldü" : "Arşivlendi"}</PanelStatusBadge> : null}</div>
             <dl className={styles.summaryFacts}>
               <div><dt>Ürün satırı</dt><dd>{lines.length.toLocaleString("tr-TR")}</dd></div>
               <div><dt>Kayıtlı ara toplam</dt><dd>{record ? money(record.subtotalCents) : "Kayıttan sonra hesaplanır"}</dd></div>
@@ -425,14 +426,15 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
               <div><dt>İndirim</dt><dd>− {money(enteredDiscount)}</dd></div>
               <div className={styles.summaryTotal}><dt>Görünen toplam</dt><dd>{displayedTotal === undefined ? "Kayıttan sonra hesaplanır" : money(displayedTotal)}</dd></div>
             </dl>
-            <p className={styles.summaryHint}>Fiyatlar ve stok, kaydetme ve dönüştürme sırasında doğrulanır.</p>
-            {props.canManage && !readOnly && !confirmation ? <button className={styles.primaryButton} form="order-draft-form" type="submit" disabled={busy !== "" || lines.length === 0}>{busy === "saving" ? "Kaydediliyor…" : record ? "Değişiklikleri kaydet" : "Taslağı kaydet"}</button> : null}
-            {record?.status === "draft" && props.canManage ? <div className={styles.secondaryButtons}><button type="button" disabled={busy !== ""} onClick={() => setConfirmation("convert")}>Siparişe dönüştür</button><button className={styles.dangerButton} type="button" disabled={busy !== ""} onClick={() => setConfirmation("archive")}>Taslağı arşivle</button></div> : null}
+            <p className={styles.summaryHint}>Fiyatlar ve stok kaydederken doğrulanır.</p>
+            {props.canManage && !readOnly && !confirmation ? <button className={styles.primaryButton} form={uncertain && !needsRecoveryInput ? undefined : "order-draft-form"} type={uncertain && !needsRecoveryInput ? "button" : "submit"} onClick={uncertain && !needsRecoveryInput ? () => void save() : undefined} disabled={busy !== "" || ((!uncertain || needsRecoveryInput) && lines.length === 0)}>{busy === "saving" ? "Kaydediliyor…" : uncertain ? "Kaydı doğrula" : "Kaydet"}</button> : null}
+            {record?.status === "draft" && props.canManage && !completed ? <div className={styles.secondaryButtons}><button className={styles.dangerButton} type="button" disabled={disabled} onClick={() => setConfirmation("archive")}>Kaydı arşivle</button></div> : null}
+            {completed ? <Link className={styles.primaryLink} href={`/orders/${completed.orderId}`}>Oluşan siparişi aç</Link> : null}
             {record?.status === "converted" && record.convertedOrderId ? <Link className={styles.primaryLink} href={`/orders/${record.convertedOrderId}`}>Oluşan siparişi aç</Link> : null}
             <dialog ref={confirmationRef} className={styles.confirmation} aria-labelledby="draft-confirm-title" aria-describedby="draft-confirm-description" onCancel={(event) => { if (busy) event.preventDefault(); else setConfirmation(""); }}>
-              <h2 id="draft-confirm-title">{confirmation === "convert" ? "Sipariş oluşturulsun mu?" : "Taslak arşivlensin mi?"}</h2>
-              <p id="draft-confirm-description">{confirmation === "convert" ? (record?.adjustInventory ? "Kaydedilmiş taslaktan sipariş oluşturulacak ve stok düşülecek. Son değişikliklerinizi önce kaydedin." : "Kaydedilmiş taslaktan sipariş oluşturulacak; stok değişmeyecek. Son değişikliklerinizi önce kaydedin.") : "Taslak salt okunur olacak. Sipariş ve stok kaydı oluşmayacak."}</p>
-              <div><button type="button" disabled={busy !== ""} autoFocus onClick={() => setConfirmation("")}>Vazgeç</button><button className={confirmation === "archive" ? styles.dangerButton : styles.primaryButton} type="button" disabled={busy !== ""} onClick={() => void (confirmation === "archive" ? archive() : convert())}>{busy ? "İşleniyor…" : confirmation === "archive" ? "Evet, arşivle" : "Evet, sipariş oluştur"}</button></div>
+              <h2 id="draft-confirm-title">Tamamlanmamış kayıt arşivlensin mi?</h2>
+              <p id="draft-confirm-description">Kayıt yalnız görüntülenebilir olacak.</p>
+              <div><button type="button" disabled={busy !== ""} autoFocus onClick={() => setConfirmation("")}>Vazgeç</button><button className={styles.dangerButton} type="button" disabled={busy !== ""} onClick={() => void archive()}>{busy ? "İşleniyor…" : "Evet, arşivle"}</button></div>
             </dialog>
           </aside>
         </div>

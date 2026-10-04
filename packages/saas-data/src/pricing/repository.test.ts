@@ -78,6 +78,22 @@ function operationQuery(client: Client, begin: string, terminal: string) {
   return client.queries[5]!;
 }
 
+test("direct pricing save activates within one commit and rolls back conflict",async()=>{
+ for(const conflict of [false,true]){
+  const client=new Client(values=>values.length===14?{outcome:"saved",result_payload:priceList("draft",2)}:{outcome:conflict?"pricing_conflict":"activated",result_payload:priceList("active",3)});
+  const run=()=>repository(new Pool([client])).apply!({...authority(),operationId:OPERATION,priceListId:LIST,expectedVersion:1,name:priceList().name,items:priceList().items,rules:priceList().rules});
+  if(conflict)await assert.rejects(run,error=>pricingRepositoryErrorCode(error)==="pricing_conflict");else assert.equal((await run()).status,"active");
+  assert.equal(client.queries.filter(q=>q.text.startsWith("BEGIN")).length,1);assert.equal(client.queries.filter(q=>q.text==="COMMIT").length,conflict?0:1);assert.equal(client.queries.at(-1)?.text,conflict?"ROLLBACK":"COMMIT");
+  const calls=client.queries.filter(q=>q.text.startsWith("SELECT outcome"));assert.match(calls[0]!.text,/pricing_save/);assert.match(calls[1]!.text,/pricing_activate/);assert.notEqual(calls[0]!.values?.[7],OPERATION);assert.equal(calls[1]!.values?.[7],OPERATION);assert.equal(calls[1]!.values?.[10],2);
+ }
+});
+test("direct pricing uncertain commit recovers only the exact final activation",async()=>{
+ const client=new Client(values=>values.length===14?{outcome:"saved",result_payload:priceList("draft",2)}:{outcome:"activated",result_payload:priceList("active",3)},true);
+ const recovered=new Client({outcome:"operation_replayed",result_payload:priceList("active",3)});const audit:string[]=[];
+ const result=await repository(new Pool([client,recovered]),audit).apply!({...authority(),operationId:OPERATION,priceListId:LIST,expectedVersion:1,name:priceList().name,items:priceList().items,rules:priceList().rules});
+ assert.equal(result.status,"active");assert.deepEqual(audit,["pricing_commit_unknown"]);assert.equal(recovered.queries[0]?.text,"BEGIN READ ONLY");const query=recovered.queries.find(q=>q.text.includes("pricing_recover_operation"));assert.equal(query?.values?.[7],OPERATION);assert.equal(query?.values?.[8],client.queries.find(q=>q.text.includes("pricing_activate("))?.values?.[8]);
+});
+
 test("pricing repository executes one exact PostgreSQL function for every public method", async () => {
   const cases = [
     ["SELECT outcome,result_payload FROM saas.pricing_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)", { outcome: "listed", result_payload: { items: [priceList()] } }, (repo: PricingRepository) => repo.list(authority())],

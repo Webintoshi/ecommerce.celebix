@@ -65,7 +65,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   const [items, setItems] = useState<readonly StorePolicyAdminPage[]>([]);
   const [selected, setSelected] = useState<StorePolicyAdminPage | null>(null);
   const [body, setBody] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<StorePolicyStatus>("draft");
+  const [selectedStatus, setSelectedStatus] = useState<StorePolicyStatus>("published");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -97,14 +97,14 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
     const draft = draftsRef.current.get(page.key);
     setSelected(page);
     setBody(draft?.body ?? page.body);
-    setSelectedStatus(draft?.status ?? page.status);
+    setSelectedStatus(draft?.status ?? (canManage ? "published" : page.status));
     setRecovery(draft?.recovery ?? null);
     setMessage("");
     setError(draft?.recovery === "unknown" ? UNKNOWN_COMMIT_ERROR : draft?.recovery ? CONFLICT_REFRESH_ERROR : "");
     setView("edit"); setSplit(false); setHelp(false);
     focusEditorRef.current = focus;
     if (window.matchMedia("(max-width: 760px)").matches && pickerRef.current) pickerRef.current.open = false;
-  }, []);
+  }, [canManage]);
 
   const load = useCallback(async (initial = false) => {
     if (busyRef.current) return;
@@ -235,7 +235,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
     try {
       const saved = await storePolicyApi.save(key, { expectedVersion: selected.version, body: body.trim(), status: selectedStatus });
       updateSaved(saved); setBody(saved.body); setSelectedStatus(saved.status); setRecovery(null); draftsRef.current.delete(key);
-      setMessage(saved.status === "published" ? "Kaydedildi · Mağazada yayında" : "Taslak kaydedildi.");
+      setMessage(saved.status === "published" ? "Kaydedildi · Mağazada yayında" : "Kaydedildi · Mağazada gizli");
     } catch (caught) {
       if (caught instanceof StorePolicyApiError && caught.code === "version_conflict") {
         draftsRef.current.set(key, { ...pending, recovery: "conflict" }); setRecovery("conflict");
@@ -274,7 +274,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
         <dl className={styles.summary} aria-label="Politika özeti">
           <div className={styles.total}><dt className={styles.srOnly}>Mağaza metinleri</dt><dd>{items.length}<span>metin</span></dd></div>
           <div><dt>Yayındaki metinler</dt><dd><i className={styles.publishedDot} />{publishedCount}<span>yayında</span></dd></div>
-          <div><dt>Taslak metinler</dt><dd>{draftCount}<span>taslak</span></dd></div>
+          <div><dt>Gizli metinler</dt><dd>{draftCount}<span>gizli</span></dd></div>
         </dl>
         <button className={styles.button} type="button" onClick={() => void load()} disabled={loading || busy}><RefreshCcw aria-hidden="true" />Yenile</button>
       </div>
@@ -300,7 +300,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
                   onClick={() => { if (page) open(page); }}>
                   <Icon className={styles.policyIcon} aria-hidden="true" />
                   <span className={styles.policyText}><strong>{definition.label}</strong><span className={styles.policyMeta} id={`policy-meta-${definition.key}`}>
-                    {page ? <>{page.status === "published" ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}<span>{page.status === "published" ? "Yayında" : "Taslak"}</span><time dateTime={page.updatedAt}>{updatedAt(page.updatedAt, true)}</time></> : <span>Kullanılamıyor</span>}
+                    {page ? <>{page.status === "published" ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}<span>{page.status === "published" ? "Yayında" : "Gizli"}</span><time dateTime={page.updatedAt}>{updatedAt(page.updatedAt, true)}</time></> : <span>Kullanılamıyor</span>}
                     {unsaved ? <><i className={styles.dirtyDot} aria-hidden="true" /><span className={styles.srOnly}>Kaydedilmemiş değişiklikler</span></> : null}
                   </span><code>{definition.route}</code></span>
                   <ChevronRight className={styles.chevron} aria-hidden="true" />
@@ -314,11 +314,11 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && !editorRef.current?.querySelector('dialog[open], [role="dialog"]')) { event.preventDefault(); void save(); }
         }}>
           {selected ? <>
-            <header className={styles.editorHeader}><div><h2>{selected.label}</h2><code>{selected.route}</code><p>Son kayıt <time dateTime={selected.updatedAt}>{updatedAt(selected.updatedAt)}</time><span> · Kaydedilen: {selected.status === "published" ? "Yayında" : "Taslak"}</span></p></div><button className={styles.iconButton} type="button" aria-label="Düzenleyiciyi kapat" ref={closeRef} onClick={close} disabled={busy}><X aria-hidden="true" /></button></header>
+            <header className={styles.editorHeader}><div><h2>{selected.label}</h2><code>{selected.route}</code><p>Son kayıt <time dateTime={selected.updatedAt}>{updatedAt(selected.updatedAt)}</time><span> · Kaydedilen: {selected.status === "published" ? "Yayında" : "Gizli"}</span></p></div><button className={styles.iconButton} type="button" aria-label="Düzenleyiciyi kapat" ref={closeRef} onClick={close} disabled={busy}><X aria-hidden="true" /></button></header>
             {!canManage ? <p className={styles.readonly}><Info aria-hidden="true" />Bu metinleri yalnızca görüntüleyebilirsiniz.</p> : null}
             {error ? <div className={styles.notice} role="alert"><Info aria-hidden="true" /><p>{error}</p>{recovery ? <button className={styles.button} type="button" disabled={busy || loading} onClick={() => void refreshVersion()}>{recovery === "unknown" ? "Sonucu doğrula" : "Güncel sürümü al"}</button> : null}</div> : null}
             <div className={styles.statusLine}>
-              <fieldset className={styles.publication} disabled={!canManage || busy || loading}><legend>Yayın durumu</legend><div role="radiogroup" aria-label="Yayın durumu">{(["draft", "published"] as const).map((value) => <label key={value} className={selectedStatus === value ? styles.checked : ""}><input type="radio" name="policy-publication" value={value} checked={selectedStatus === value} onChange={() => changeStatus(value)} />{value === "published" ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}{value === "published" ? "Yayında" : "Taslak"}</label>)}</div></fieldset>
+              <fieldset className={styles.publication} disabled={!canManage || busy || loading}><legend>Görünürlük</legend><label className={selectedStatus === "published" ? styles.checked : ""}><input type="checkbox" name="policy-publication" checked={selectedStatus === "published"} onChange={event => changeStatus(event.currentTarget.checked ? "published" : "draft")} />Mağazada göster</label></fieldset>
               <p>{selectedStatus === "published" ? "Kaydedildiğinde mağazada görünür." : selected.status === "published" ? "Kaydedildiğinde mağazadan kaldırılır." : "Yalnızca panelde saklanır."}</p>
             </div>
             <div className={styles.editSurface}>

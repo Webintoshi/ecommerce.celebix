@@ -30,6 +30,7 @@ import {
 } from "@celebix/saas-contracts";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { atomicNativeWrite, nativeStepId } from "../postgres/atomic-write.ts";
 import { resolveProductThumbnails } from "../product-thumbnails.ts";
 import {
   canonicalOrderJson,
@@ -906,6 +907,18 @@ export class PostgresOrderRepository implements OrderRepository {
       text: "SELECT outcome, result_payload FROM saas.order_drafts_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
       values: [...authorityValues(authority), operationId, fingerprint, draftId, expectedVersion],
     }, parser, "archived", "order_drafts_recover_operation");
+  }
+
+  async applyDraft(input: CreateOrderDraftInput & Readonly<{draftId?:string}>):Promise<OrderDraftConversionResult>{
+    const exact=exactOrderInput(input,["tenantContext","now","operationId","intent"],["draftId"]);const authority=orderAuthority(exact.tenantContext as TenantContext,exact.now as Date),operationId=orderUuid(exact.operationId);
+    const draftId=exact.draftId===undefined?undefined:orderUuid(exact.draftId);const intent=orderDraftSaveIntent(exact.intent);
+    if((draftId===undefined)!==(intent.expectedVersion===undefined))throw new OrderRepositoryError("invalid_input");
+    let saved:OrderDraftDetail;
+    try{return await atomicNativeWrite({pool:this.options.pool,poolCheckoutMs:this.options.timeouts.poolCheckoutMs,onUnknown:()=>this.emitUnknownCommitAudit(),recover:observed=>this.recover(authority,operationId,orderFingerprint("draft_convert",authority.storeId,{draftId:saved.id,expectedVersion:saved.version}),(value,replayed)=>{const result=parseOrderDraftConversionResult(value);if(result.draftId!==observed.draftId||result.orderId!==observed.orderId||result.orderNumber!==observed.orderNumber||result.draftVersion!==observed.draftVersion||result.adjustedInventory!==observed.adjustedInventory)throw unavailable();return Object.freeze({...result,replayed});},"order_drafts_recover_operation")},async pool=>{
+      const pending=new PostgresOrderRepository({...this.options,pool});const step=nativeStepId(operationId,"order.save");
+      saved=draftId?await pending.updateDraft({tenantContext:input.tenantContext,now:input.now,operationId:step,draftId,expectedVersion:intent.expectedVersion!,intent}):await pending.createDraft({tenantContext:input.tenantContext,now:input.now,operationId:step,intent});
+      return pending.convertDraft({tenantContext:input.tenantContext,now:input.now,operationId,draftId:saved.id,expectedVersion:saved.version});
+    });}catch(error){if(error instanceof OrderRepositoryError)throw error;throw unavailable();}
   }
 
   async convertDraft(input: OrderDraftOperationInput): Promise<OrderDraftConversionResult> {

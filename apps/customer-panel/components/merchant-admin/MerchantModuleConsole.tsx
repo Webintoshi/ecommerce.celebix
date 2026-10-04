@@ -183,7 +183,7 @@ function formErrorMessage(error: unknown): string {
 function statusPresentation(record: MerchantAdminRecord) {
   const status = merchantRecordPresentationStatus(record);
   if (status === "active") return Object.freeze({ label: record.kind === "page" ? "Yayında" : "Aktif", tone: "success" as const });
-  if (status === "draft") return Object.freeze({ label: "Taslak", tone: "warning" as const });
+  if (status === "draft") return Object.freeze({ label: "Kapalı", tone: "neutral" as const });
   return Object.freeze({ label: "Arşivlendi", tone: "neutral" as const });
 }
 
@@ -624,13 +624,13 @@ export function MerchantModuleConsole({
         {([
           ["all", "Toplam", summary.total, ""],
           ["active", definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
-          ["draft", "Taslak", summary.draft, ""],
+          ["draft", "Kapalı", summary.draft, ""],
           ["archived", "Arşiv", summary.archived, ""],
         ] as const).map(([filter, label, count, detail]) => <button type="button" className={operations.metric} key={filter} aria-pressed={statusFilter === filter} onClick={() => setStatusFilter(filter)}><span>{label}</span><strong>{hasLoaded ? count.toLocaleString("tr-TR") : "—"}</strong>{detail ? <small>{detail}</small> : null}</button>)}
       </section> : kind !== "page" && !singleton && !compactAdministrators ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
         <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
-        <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
+        <PanelMetricCard label="Kapalı" value={summary.draft.toLocaleString("tr-TR")} detail="Etkin olmayan kayıtlar" />
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
       </section> : null}
 
@@ -733,7 +733,7 @@ export function MerchantModuleConsole({
             >
               <option value="all">Tümü</option>
               <option value="active">Aktif</option>
-              <option value="draft">Taslak</option>
+              <option value="draft">Kapalı</option>
               <option value="archived">Arşiv</option>
             </select>
           </label>
@@ -834,7 +834,7 @@ export function MerchantModuleConsole({
             {error ? <p className={styles.error} role="alert">{error} Bilgileriniz korundu.</p> : null}
             <form key={editing?.id ?? "new"} className={styles.form} aria-busy={busy} onSubmit={submit}>
               <label>Ad<input disabled={busy} autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
-              <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+              <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue="active"><option value="draft">Kapalı</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
               {definition.fields.map((field) => field.type === "enum-list" ? (
                 <fieldset disabled={busy} className={styles.wide} key={field.key}>
                   <legend>{field.label}</legend>

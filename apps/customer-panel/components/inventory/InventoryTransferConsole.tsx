@@ -14,7 +14,7 @@ import type { InventoryConsoleActivity } from "./InventoryOperationForm";
 import styles from "./inventory-console.module.css";
 import { InventoryLocationConsole } from "./InventoryLocationConsole";
 
-const LABELS: Readonly<Record<InventoryTransferStatus, string>> = Object.freeze({ draft: "Taslak", in_transit: "Yolda", received: "Teslim alındı", cancelled: "İptal" });
+const LABELS: Readonly<Record<InventoryTransferStatus, string>> = Object.freeze({ draft: "İşlem bekliyor", in_transit: "Yolda", received: "Teslim alındı", cancelled: "İptal" });
 const date = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const number = (id: string) => `TR-${id.slice(0, 8).toUpperCase()}`;
 const quantity = (item: InventoryTransfer) => item.lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -51,9 +51,10 @@ function InventoryTransferDetail(props: Readonly<{ initial?: InventoryTransfer; 
   const [dirty, setDirty] = useState(false);
   const lifecycle = useRef<ReturnType<typeof createInventoryConsoleLifecycle<ReturnType<typeof createInventoryTransferConsoleController>>> | null>(null);
   const [state, setState] = useState<InventoryConsoleSnapshot<InventoryTransfer>>({ phase: props.canRead ? (props.initial ? "loaded" : "loading") : "denied", ...(props.initial ? { record: props.initial } : {}), pending: false, locked: false, message: "" });
-  if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createInventoryTransferConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState }));
+  if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createInventoryTransferConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, directSave: true, api: inventoryApi, onChange: setState }));
   useEffect(() => lifecycle.current!.setup(), []);
   const item = state.record;
+  useEffect(() => { if (state.phase === "committed" || state.phase === "replayed") setDirty(false); }, [state.phase, state.record?.id, state.record?.version]);
   useEffect(() => { props.onStateChange?.({ pending: state.pending, locked: state.locked, dirty }); }, [state.pending, state.locked, dirty, props.onStateChange]);
   return <>{!props.create || item ? <InventoryTransferPresentation state={state} canManage={props.canManage} hasUnsavedChanges={dirty} onDispatch={() => { void lifecycle.current?.getCurrent()?.dispatch(); }} onReceive={() => { void lifecycle.current?.getCurrent()?.receive(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
     {((props.create && !item) || item?.status === "draft") ? <InventoryOperationForm mode="transfer" record={item} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onDirtyChange={setDirty} canManage={props.canManage} phase={state.phase} pending={state.pending} locked={state.locked} message={state.message} onSave={(value) => { void lifecycle.current?.getCurrent()?.save(value as Parameters<ReturnType<typeof createInventoryTransferConsoleController>["save"]>[0]); }} /> : null}

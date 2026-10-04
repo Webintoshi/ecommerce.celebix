@@ -1375,7 +1375,7 @@ test("quick creation remains bound to the durable onboarding and media workflow"
   assert.match(dialog, /mediaClient\.upload\(productId, input\)/);
   assert.match(dialog, /api\.publishAfterMedia/);
   assert.match(dialog, /api\.getProductEditor/);
-  assert.match(dialog, /outcome\.kind === "draft_media_failed"[\s\S]*setRecovery[\s\S]*Ürün taslağı kaydedildi. Yüklenemeyen görselleri yeniden dene/);
+  assert.match(dialog, /outcome\.kind === "draft_media_failed"[\s\S]*setRecovery[\s\S]*Ürün kaydı oluşturuldu. Satışa açılması için yüklenemeyen görselleri yeniden dene/);
   assert.match(dialog, /Görselleri yeniden yükle/);
   assert.match(dialog, /Ürüne git/);
   assert.match(advanced, /function initialChannelIds/);

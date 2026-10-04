@@ -55,7 +55,7 @@ export function SettingsRecordForm({ kind, record, canManage, busy, onSubmit, on
         <legend className={styles.srOnly}>{section.title}</legend>
         {section.keys.map((key) => {
           if (key === "name") return <label key={key}>Ad<input name="name" required maxLength={160} defaultValue={record?.name ?? ""} autoComplete="off" /></label>;
-          if (key === "status") return <label key={key}>Davet durumu<select name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>;
+          if (key === "status") return <label key={key}>Davet durumu<select name="status" defaultValue="active"><option value="draft">Kapalı</option><option value="active">Aktif</option></select></label>;
           const field = definition.fields.find((field) => field.key === key)!;
           const help = key === "skuPrefix" ? "Yeni SKU'larda kullanılır. Mevcut kodlar değişmez." : key === "enabledLocales" ? "Her satıra bir dil kodu: tr-TR, en-US…" : key === "timezone" ? "Örn. Europe/Istanbul" : undefined;
           if (field.type === "boolean") return <label className={`${styles.switchRow} ${styles.wide}`} key={key}><span>{field.label}</span><input name={key} type="checkbox" role="switch" defaultChecked={record?.config[key] === true} /></label>;

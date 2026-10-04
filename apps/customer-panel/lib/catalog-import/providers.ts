@@ -375,9 +375,10 @@ function rowDisabled(record: SourceRecord, definition: ProviderDefinition, canon
 }
 
 function productStatus(record: SourceRecord, definition: ProviderDefinition, canonical: boolean): "draft" | "active" {
-  if (canonical) return "draft";
+  if (canonical) return "active";
   const status = field(record, definition, "status").toLowerCase();
   const published = field(record, definition, "published");
+  if (!status && !published) return "active";
   return ["active", "published"].includes(status) || (definition.id === "opencart" && status === "1") || truthy(published) ? "active" : "draft";
 }
 

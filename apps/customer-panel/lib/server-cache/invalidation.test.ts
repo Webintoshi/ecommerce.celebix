@@ -3,10 +3,30 @@ import test from "node:test";
 
 import type { Cache } from "@celebix/saas-cache";
 
-import { createPostCommitInvalidatingRepository } from "./invalidation.ts";
+import { createPostCommitInvalidatingRepository, DIRECT_SAVE_INVALIDATION } from "./invalidation.ts";
 
 const STORE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const input = Object.freeze({ tenantContext: Object.freeze({ store: Object.freeze({ id: STORE_ID }) }) });
+
+test("every direct save refreshes the correct tenant only after its final commit", async () => {
+  for (const [family, rules] of Object.entries(DIRECT_SAVE_INVALIDATION)) {
+    for (const [method, namespaces] of Object.entries(rules)) {
+      const selected = cacheFixture();
+      let commit!: () => void;
+      const finalCommit = new Promise<void>(resolve => { commit = resolve; });
+      const implementation = { [method]: async (_input: unknown) => { await finalCommit; return { committed: true }; } };
+      const repository = createPostCommitInvalidatingRepository(implementation, rules, selected.cache);
+      const pending = repository[method]!(input);
+      assert.deepEqual(selected.rotations, [], `${family}.${method} must wait for commit`);
+      commit();
+      assert.deepEqual(await pending, { committed: true });
+      assert.deepEqual(selected.rotations, namespaces.map((namespace: string) => `${STORE_ID}:${namespace}`));
+      const failed = createPostCommitInvalidatingRepository({ [method]: async () => { throw new Error("rolled back"); } }, rules, selected.cache);
+      await assert.rejects(failed[method]!(), /rolled back/);
+      assert.equal(selected.rotations.length, namespaces.length);
+    }
+  }
+});
 
 function cacheFixture(fail = false) {
   const rotations: string[] = [];

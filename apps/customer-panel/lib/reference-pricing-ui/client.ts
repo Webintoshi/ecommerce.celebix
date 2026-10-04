@@ -88,6 +88,9 @@ export function referencePricingErrorState(value: unknown): ReferencePricingErro
 export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => string = () => crypto.randomUUID()) {
   if (typeof fetcher !== "function" || typeof uuid !== "function") invalid();
   const operationId = () => id(uuid());
+  const applyOperations=new Map<string,string>();
+  let applyUnknown: string | undefined;
+  let applyPending = false;
 
   async function request<T>(path: string, parser: (value: unknown) => T, body?: unknown, signal?: AbortSignal, isMutation = false): Promise<T> {
     const isPost = body !== undefined;
@@ -202,6 +205,16 @@ export function createReferencePricingApi(fetcher: Fetcher = fetch, uuid: () => 
         if (result.setId !== safe.setId || result.isActive) invalid();
         return result;
       }, safe, undefined, true);
+    },
+    async apply(intent: Readonly<{setId:string;expectedStateVersion:number;values:readonly ReferenceSetValue[];channel:"storefront"|"quick_order";catalogGramReferenceId?:string}>):Promise<ActivatedReferenceSet>{
+      const safe=safeInput(()=>{const raw=exact(intent,["setId","expectedStateVersion","values","channel"],["catalogGramReferenceId"]);if(raw.channel!=="storefront"&&raw.channel!=="quick_order")invalid();return {apply:true,setId:id(raw.setId),expectedStateVersion:integer(raw.expectedStateVersion,0),values:setValues(raw.values),channel:raw.channel,...(raw.catalogGramReferenceId===undefined?{}:{catalogGramReferenceId:id(raw.catalogGramReferenceId)})};});
+      const signature=JSON.stringify(safe);
+      if(applyUnknown && applyUnknown !== signature)throw new ReferencePricingApiError("verification_unavailable",503);
+      if(applyPending)throw new ReferencePricingApiError("conflict",409);
+      let key=applyOperations.get(signature);if(!key){key=operationId();applyOperations.set(signature,key);}
+      applyPending=true;
+      try{const result=await request(`${BASE}/sets`,value=>{const result=activatedOutput(value);if(result.setId!==safe.setId||result.stateVersion!==safe.expectedStateVersion+1)invalid();return result;},{...safe,operationId:key},undefined,true);applyOperations.delete(signature);applyUnknown=undefined;return result;}
+      catch(error){if(error instanceof ReferencePricingApiError&&error.code==="verification_unavailable")applyUnknown=signature;throw error;}finally{applyPending=false;}
     },
     async activate(intent: Readonly<{ setId: string; expectedStateVersion: number; expectedScopeDigest: string; catalogGramReferenceId?: string }>): Promise<ActivatedReferenceSet> {
       const safe = safeInput(() => {

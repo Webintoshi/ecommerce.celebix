@@ -59,7 +59,7 @@ export function buildInventoryOperationIntent(
       variantIds.add(line.variantId);
     }
     if (draft.mode === "purchase") {
-      if (draft.record && (!purchase(draft.record) || draft.record.status !== "draft")) return fail("Yalnız taslak satın alma siparişi düzenlenebilir.");
+      if (draft.record && (!purchase(draft.record) || draft.record.status !== "draft")) return fail("Başlatılmış satın alma kaydının ürünleri değiştirilemez.");
       if (
         draft.supplierName.length < 1 || draft.supplierName.length > 200 ||
         draft.supplierName !== draft.supplierName.trim() || CONTROL.test(draft.supplierName) ||
@@ -84,7 +84,7 @@ export function buildInventoryOperationIntent(
     }
     if (draft.mode === "count") {
       if (draft.record && (!count(draft.record) || !["draft", "counting"].includes(draft.record.status))) {
-        return fail("Yalnız taslak veya devam eden stok sayımı düzenlenebilir.");
+        return fail("Yalnız devam eden stok sayımı düzenlenebilir.");
       }
       const counting = count(draft.record) && draft.record.status === "counting";
       if (!choices.locationIds.has(draft.locationId) || draft.lines.some((line) => !(line.quantity === "" && !counting) && !integer(line.quantity, 0))) {
@@ -100,7 +100,7 @@ export function buildInventoryOperationIntent(
       }));
     }
     if (draft.mode !== "transfer") return fail("Envanter işlem türü geçersiz.");
-    if (draft.record && (!transfer(draft.record) || draft.record.status !== "draft")) return fail("Yalnız taslak stok transferi düzenlenebilir.");
+    if (draft.record && (!transfer(draft.record) || draft.record.status !== "draft")) return fail("Başlatılmış taşımanın ürünleri değiştirilemez.");
     if (
       !choices.locationIds.has(draft.sourceLocationId) ||
       !choices.locationIds.has(draft.destinationLocationId) ||

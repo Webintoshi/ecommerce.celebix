@@ -202,6 +202,7 @@ function mutationResult(
     targetId?: string;
     expectedVersion?: number;
     statuses: readonly string[];
+    versionIncrement?: number;
   }>,
 ): InventoryMutationResult {
   const parsed = object(value, ["kind", "id", "status", "version", "updatedAt", "replayed"]);
@@ -216,7 +217,7 @@ function mutationResult(
   if (
     (expected.targetId !== undefined && result.id !== expected.targetId) ||
     !expected.statuses.includes(result.status) ||
-    result.version !== (expected.expectedVersion === undefined ? 1 : expected.expectedVersion + 1)
+    result.version !== (expected.expectedVersion ?? 0) + (expected.versionIncrement ?? 1)
   ) invalid();
   return result;
 }
@@ -285,6 +286,62 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     }), signal);
   }
 
+  function savePurchaseOrder(value: SavePurchaseOrderIntent, signal?: AbortSignal, activate = false): Promise<InventoryMutationResult> {
+    const parsed = object(value, ["locationId", "supplierName", "lines"], ["orderId", "expectedVersion"]);
+    const prior = existing(parsed, "orderId");
+    if (activate && typeof prior.expectedVersion === "number" && prior.expectedVersion > Number.MAX_SAFE_INTEGER - 2) invalid();
+    return post("/api/inventory/purchase-orders", {
+      ...prior, ...(activate ? { activation: "start" } : {}), locationId: id(parsed.locationId),
+      supplierName: text(parsed.supplierName, 1, 200), lines: purchaseLines(parsed.lines),
+    }, (result) => mutationResult(result, {
+      kind: "purchase_order",
+      ...((prior as { orderId?: string }).orderId ? {
+        targetId: (prior as { orderId: string }).orderId,
+        expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
+      } : {}),
+      statuses: [activate ? "ordered" : "draft"],
+      versionIncrement: activate ? 2 : 1,
+    }), signal);
+  }
+
+  function saveCount(value: SaveInventoryCountIntent, signal?: AbortSignal, activate = false): Promise<InventoryMutationResult> {
+    const parsed = object(value, ["locationId", "lines"], ["countId", "expectedVersion"]);
+    const prior = existing(parsed, "countId");
+    if (activate && typeof prior.expectedVersion === "number" && prior.expectedVersion > Number.MAX_SAFE_INTEGER - 2) invalid();
+    const selectedLines = countLines(parsed.lines);
+    if (activate && selectedLines.some(line => line.countedQuantity !== undefined)) invalid();
+    return post("/api/inventory/counts", {
+      ...prior, ...(activate ? { activation: "start" } : {}), locationId: id(parsed.locationId), lines: selectedLines,
+    }, (result) => mutationResult(result, {
+      kind: "inventory_count",
+      ...((prior as { countId?: string }).countId ? {
+        targetId: (prior as { countId: string }).countId,
+        expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
+      } : {}),
+      statuses: activate ? ["counting"] : (prior as { countId?: string }).countId ? ["draft", "counting"] : ["draft"],
+      versionIncrement: activate ? 2 : 1,
+    }), signal);
+  }
+
+  function saveTransfer(value: SaveInventoryTransferIntent, signal?: AbortSignal, activate = false): Promise<InventoryMutationResult> {
+    const parsed = object(value, ["sourceLocationId", "destinationLocationId", "lines"], ["transferId", "expectedVersion"]);
+    const sourceLocationId = id(parsed.sourceLocationId), destinationLocationId = id(parsed.destinationLocationId);
+    if (sourceLocationId === destinationLocationId) invalid();
+    const prior = existing(parsed, "transferId");
+    if (activate && typeof prior.expectedVersion === "number" && prior.expectedVersion > Number.MAX_SAFE_INTEGER - 2) invalid();
+    return post("/api/inventory/transfers", {
+      ...prior, ...(activate ? { activation: "start" } : {}), sourceLocationId, destinationLocationId, lines: transferLines(parsed.lines),
+    }, (result) => mutationResult(result, {
+      kind: "inventory_transfer",
+      ...((prior as { transferId?: string }).transferId ? {
+        targetId: (prior as { transferId: string }).transferId,
+        expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
+      } : {}),
+      statuses: [activate ? "in_transit" : "draft"],
+      versionIncrement: activate ? 2 : 1,
+    }), signal);
+  }
+
   return Object.freeze({
     listLocations(signal?: AbortSignal): Promise<readonly InventoryLocation[]> {
       return request("/api/inventory/locations", (value) => items(value, parseInventoryLocation), undefined, signal);
@@ -308,21 +365,8 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     getPurchaseOrder(orderId: string, signal?: AbortSignal): Promise<PurchaseOrder> {
       return request(`/api/inventory/purchase-orders/${id(orderId)}`, parsePurchaseOrder, undefined, signal);
     },
-    savePurchaseOrder(value: SavePurchaseOrderIntent, signal?: AbortSignal): Promise<InventoryMutationResult> {
-      const parsed = object(value, ["locationId", "supplierName", "lines"], ["orderId", "expectedVersion"]);
-      const prior = existing(parsed, "orderId");
-      return post("/api/inventory/purchase-orders", {
-        ...prior, locationId: id(parsed.locationId),
-        supplierName: text(parsed.supplierName, 1, 200), lines: purchaseLines(parsed.lines),
-      }, (result) => mutationResult(result, {
-        kind: "purchase_order",
-        ...((prior as { orderId?: string }).orderId ? {
-          targetId: (prior as { orderId: string }).orderId,
-          expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
-        } : {}),
-        statuses: ["draft"],
-      }), signal);
-    },
+    savePurchaseOrder(value: SavePurchaseOrderIntent, signal?: AbortSignal) { return savePurchaseOrder(value, signal); },
+    savePurchaseOrderAndOrder(value: SavePurchaseOrderIntent, signal?: AbortSignal) { return savePurchaseOrder(value, signal, true); },
     transitionPurchaseOrder(orderId: string, value: Readonly<{ expectedVersion: number; transition: "order" | "cancel" }>, signal?: AbortSignal) {
       const parsed = object(value, ["expectedVersion", "transition"]);
       if (parsed.transition !== "order" && parsed.transition !== "cancel") invalid();
@@ -348,20 +392,8 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     getCount(countId: string, signal?: AbortSignal): Promise<InventoryCount> {
       return request(`/api/inventory/counts/${id(countId)}`, parseInventoryCount, undefined, signal);
     },
-    saveCount(value: SaveInventoryCountIntent, signal?: AbortSignal): Promise<InventoryMutationResult> {
-      const parsed = object(value, ["locationId", "lines"], ["countId", "expectedVersion"]);
-      const prior = existing(parsed, "countId");
-      return post("/api/inventory/counts", {
-        ...prior, locationId: id(parsed.locationId), lines: countLines(parsed.lines),
-      }, (result) => mutationResult(result, {
-        kind: "inventory_count",
-        ...((prior as { countId?: string }).countId ? {
-          targetId: (prior as { countId: string }).countId,
-          expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
-        } : {}),
-        statuses: (prior as { countId?: string }).countId ? ["draft", "counting"] : ["draft"],
-      }), signal);
-    },
+    saveCount(value: SaveInventoryCountIntent, signal?: AbortSignal) { return saveCount(value, signal); },
+    saveCountAndStart(value: SaveInventoryCountIntent, signal?: AbortSignal) { return saveCount(value, signal, true); },
     startCount(countId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(countId); return action(`/api/inventory/counts/${targetId}/start`, expectedVersion, { kind: "inventory_count", targetId, statuses: ["counting"] }, signal); },
     commitCount(countId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(countId); return action(`/api/inventory/counts/${targetId}/commit`, expectedVersion, { kind: "inventory_count", targetId, statuses: ["committed"] }, signal); },
     cancelCount(countId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(countId); return action(`/api/inventory/counts/${targetId}/cancel`, expectedVersion, { kind: "inventory_count", targetId, statuses: ["cancelled"] }, signal); },
@@ -371,22 +403,8 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     getTransfer(transferId: string, signal?: AbortSignal): Promise<InventoryTransfer> {
       return request(`/api/inventory/transfers/${id(transferId)}`, parseInventoryTransfer, undefined, signal);
     },
-    saveTransfer(value: SaveInventoryTransferIntent, signal?: AbortSignal): Promise<InventoryMutationResult> {
-      const parsed = object(value, ["sourceLocationId", "destinationLocationId", "lines"], ["transferId", "expectedVersion"]);
-      const sourceLocationId = id(parsed.sourceLocationId), destinationLocationId = id(parsed.destinationLocationId);
-      if (sourceLocationId === destinationLocationId) invalid();
-      const prior = existing(parsed, "transferId");
-      return post("/api/inventory/transfers", {
-        ...prior, sourceLocationId, destinationLocationId, lines: transferLines(parsed.lines),
-      }, (result) => mutationResult(result, {
-        kind: "inventory_transfer",
-        ...((prior as { transferId?: string }).transferId ? {
-          targetId: (prior as { transferId: string }).transferId,
-          expectedVersion: (prior as { expectedVersion: number }).expectedVersion,
-        } : {}),
-        statuses: ["draft"],
-      }), signal);
-    },
+    saveTransfer(value: SaveInventoryTransferIntent, signal?: AbortSignal) { return saveTransfer(value, signal); },
+    saveTransferAndDispatch(value: SaveInventoryTransferIntent, signal?: AbortSignal) { return saveTransfer(value, signal, true); },
     dispatchTransfer(transferId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(transferId); return action(`/api/inventory/transfers/${targetId}/dispatch`, expectedVersion, { kind: "inventory_transfer", targetId, statuses: ["in_transit"] }, signal); },
     receiveTransfer(transferId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(transferId); return action(`/api/inventory/transfers/${targetId}/receive`, expectedVersion, { kind: "inventory_transfer", targetId, statuses: ["received"] }, signal); },
     cancelTransfer(transferId: string, expectedVersion: number, signal?: AbortSignal) { const targetId = id(transferId); return action(`/api/inventory/transfers/${targetId}/cancel`, expectedVersion, { kind: "inventory_transfer", targetId, statuses: ["cancelled"] }, signal); },

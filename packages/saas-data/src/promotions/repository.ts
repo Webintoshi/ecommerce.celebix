@@ -19,6 +19,7 @@ import {
   type TenantContext,
 } from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { atomicNativeWrite, nativeStepId } from "../postgres/atomic-write.ts";
 import type { ValidatedOrderAuthority } from "../orders/validation.ts";
 import { equalPromotionProjection, promotionCursorBinding, promotionFingerprint, type PromotionOperationKind } from "./canonical.ts";
 import { promotionFailure, promotionRepositoryErrorCode, type PromotionRepositoryErrorCode } from "./errors.ts";
@@ -399,6 +400,31 @@ export class PostgresPromotionRepository implements PromotionRepository {
       if (parsed.id !== id) throw unavailable();
       return parsed;
     }, acceptedFailures("not_found"));
+  }
+
+  async apply(input: CreatePromotionInput & Readonly<{promotionId?:string;expectedVersion?:number}>):Promise<PromotionMutationResult>{
+    const {input:raw,authority}=this.validated(input,["tenantContext","now","operationId","name","ruleDocument"],["promotionId","expectedVersion"],"publish");
+    const operationId=promotionUuid(raw.operationId),id=raw.promotionId===undefined?undefined:promotionUuid(raw.promotionId),expectedVersion=raw.expectedVersion===undefined?undefined:promotionVersion(raw.expectedVersion),name=promotionName(raw.name),ruleDocument=promotionRule(raw.ruleDocument);
+    if((id===undefined)!==(expectedVersion===undefined))throw promotionFailure("invalid_input");
+    const step=nativeStepId(operationId,"promotion.save");let saved:PromotionMutationResult;let finalId=operationId,kind:PromotionOperationKind="lifecycle",hash="";
+    try{return await atomicNativeWrite({pool:this.options.pool,poolCheckoutMs:this.options.timeouts.poolCheckoutMs,onUnknown:()=>this.emitUnknown(),recover:async observed=>{const promotion=await this.recover(authority,finalId,kind,hash,observed.promotion,value=>this.parseDetail(value));return Object.freeze({promotion,replayed:true});}},async pool=>{
+      const pending=new PostgresPromotionRepository({...this.options,pool});
+      saved=id?await pending.update({tenantContext:input.tenantContext,now:input.now,operationId:step,promotionId:id,expectedVersion:expectedVersion!,name,ruleDocument}):await pending.create({tenantContext:input.tenantContext,now:input.now,operationId:step,name,ruleDocument});
+      if(saved.promotion.status!=="draft") {finalId=step;kind="update";hash=promotionFingerprint("update",authority.storeId,{id,expectedVersion,name,ruleDocument});return saved;}
+      // Replay the final lifecycle even if the scheduled start has passed since the original request.
+      const connection=await pool.connect();
+      for(const candidateStatus of ["active","scheduled"] as const){
+        const candidateHash=promotionFingerprint("lifecycle",authority.storeId,{id:saved.promotion.id,expectedVersion:saved.promotion.version,nextStatus:candidateStatus});
+        const prior=selectedRow(await pending.query(connection,SQL.recover,[...authorityValues(authority),operationId,"lifecycle",candidateHash]));
+        if(prior.outcome==="not_found")break;
+        if(prior.outcome==="operation_replayed"){const result=this.parseDetail(prior.result);if(result.id!==saved.promotion.id||result.version!==saved.promotion.version+1||result.status!==candidateStatus)throw unavailable();hash=candidateHash;return Object.freeze({promotion:result,replayed:true});}
+        if(prior.outcome!=="operation_mismatch"){const known=pending.mapped(prior.outcome,prior.result,RECOVERY_FAILURES);if(known)throw known;throw unavailable();}
+        if(candidateStatus==="scheduled")throw promotionFailure("idempotency_mismatch");
+      }
+      const nextStatus=ruleDocument.schedule.startsAt&&ruleDocument.schedule.startsAt>authority.now.toISOString()?"scheduled":"active";
+      hash=promotionFingerprint("lifecycle",authority.storeId,{id:saved.promotion.id,expectedVersion:saved.promotion.version,nextStatus});
+      return pending.publish({tenantContext:input.tenantContext,now:input.now,operationId,promotionId:saved.promotion.id,expectedVersion:saved.promotion.version,nextStatus});
+    });}catch(error){if(promotionRepositoryErrorCode(error))throw error;throw unavailable();}
   }
 
   async create(input: CreatePromotionInput): Promise<PromotionMutationResult> {

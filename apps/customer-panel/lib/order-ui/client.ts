@@ -88,6 +88,18 @@ function isOrderApiError(value: unknown): value is OrderApiError {
 }
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type DraftApplyStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type DraftApplyFence = Readonly<{ fingerprint: string; operationId: string }>;
+
+async function intentHash(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function applyLineId(operationId: string, index: number, variantId: string): Promise<string> {
+  const digest = await intentHash(`celebix.order.apply.line.v1:${operationId}:${index}:${variantId}`);
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-${((parseInt(digest[16]!, 16) & 3) | 8).toString(16)}${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+}
 type RandomUUID = () => string;
 export type OrderListResult = Readonly<{ items: readonly OrderListItem[]; nextCursor?: string }>;
 export type OrderDraftListResult = Readonly<{ items: readonly OrderDraftListItem[]; nextCursor?: string }>;
@@ -287,12 +299,47 @@ function safeParse<T>(parser: () => T): T {
   }
 }
 
-export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID }>) {
-  const configured = local(() => exactDataObject(options ?? {}, [], ["fetch", "randomUUID"]));
+export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID; durableScope?: string; storage?: DraftApplyStorage }>) {
+  const configured = local(() => exactDataObject(options ?? {}, [], ["fetch", "randomUUID", "durableScope", "storage"]));
   if (configured.fetch !== undefined && typeof configured.fetch !== "function") invalid();
   if (configured.randomUUID !== undefined && typeof configured.randomUUID !== "function") invalid();
   const fetchImpl = (configured.fetch as Fetch | undefined) ?? ((input, init) => fetch(input, init));
   const randomUUID = (configured.randomUUID as RandomUUID | undefined) ?? (() => crypto.randomUUID());
+  const durableScope = configured.durableScope;
+  if (durableScope !== undefined && (typeof durableScope !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(durableScope) || durableScope.length > 63)) invalid();
+  const storageKey = durableScope === undefined ? undefined : `celebix.orders.apply.v1:${durableScope}`;
+  let storage = configured.storage as DraftApplyStorage | undefined;
+  let storageUnavailable = false;
+  let durableFence: DraftApplyFence | undefined;
+  if (storageKey) {
+    try {
+      storage ??= typeof window === "undefined" ? undefined : window.sessionStorage;
+      if (!storage && typeof window !== "undefined") throw new Error("storage_unavailable");
+      const raw = storage?.getItem(storageKey);
+      if (raw !== undefined && raw !== null) {
+        const parsed = exactDataObject(JSON.parse(raw), ["fingerprint", "operationId"]);
+        if (typeof parsed.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(parsed.fingerprint) || typeof parsed.operationId !== "string" || !UUID.test(parsed.operationId)) throw new Error("fence_invalid");
+        durableFence = { fingerprint: parsed.fingerprint, operationId: parsed.operationId };
+      }
+    } catch { storageUnavailable = true; }
+  }
+
+  function persistApplyFence(fence: DraftApplyFence) {
+    if (storageUnavailable) throw new OrderApiError("unavailable", 503);
+    if (storageKey && storage) {
+      try { storage.setItem(storageKey, JSON.stringify(fence)); if (storage.getItem(storageKey) !== JSON.stringify(fence)) throw new Error(); }
+      catch { storageUnavailable = true; throw new OrderApiError("unavailable", 503); }
+    }
+    durableFence = fence;
+  }
+
+  function clearApplyFence() {
+    if (storageKey && storage) {
+      try { storage.removeItem(storageKey); if (storage.getItem(storageKey) !== null) throw new Error(); }
+      catch { storageUnavailable = true; return; }
+    }
+    durableFence = undefined;
+  }
 
   async function request(path: string, init: RequestInit): Promise<unknown> {
     let response: Response;
@@ -320,12 +367,19 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
     return safeParse(() => parseMutation(result));
   }
 
+  let unresolvedDraftApply: {
+    signature: string; operationId: string; uncertain: boolean;
+    path: string; parsed: Readonly<OrderDraftSaveIntent>; draft?: string;
+  } | undefined;
+  let draftApplyPending = false;
+
   async function draftMutation<T>(
     path: string,
     body: unknown,
     parser: (value: unknown) => T,
+    retainedOperationId?: string,
   ): Promise<T> {
-    const operationId = local(() => randomUUID());
+    const operationId = retainedOperationId ?? local(() => randomUUID());
     if (typeof operationId !== "string" || !UUID.test(operationId)) throw new TypeError("order_client_invalid");
     const result = await request(path, {
       method: "POST",
@@ -334,6 +388,25 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       body: local(() => JSON.stringify(body)),
     });
     return safeParse(() => parser(result));
+  }
+
+  async function executeDraftApply(operation: NonNullable<typeof unresolvedDraftApply>): Promise<Readonly<OrderDraftConversionResult>> {
+    if (draftApplyPending) throw new OrderApiError("operation_mismatch", 409);
+    draftApplyPending = true;
+    try {
+      const result = await draftMutation(operation.path, { ...operation.parsed, apply: true }, value => {
+        const result = parseOrderDraftConversionResult(value);
+        if ((operation.draft && result.draftId !== operation.draft) || result.draftVersion !== (operation.parsed.expectedVersion ?? 0) + 2 || result.adjustedInventory !== operation.parsed.adjustInventory) invalid();
+        return result;
+      }, operation.operationId);
+      unresolvedDraftApply = undefined;
+      clearApplyFence();
+      return result;
+    } catch (error) {
+      if (!isOrderApiError(error) || error.code === "unavailable") operation.uncertain = true;
+      else if (!operation.uncertain) { unresolvedDraftApply = undefined; clearApplyFence(); }
+      throw error;
+    } finally { draftApplyPending = false; }
   }
 
   return Object.freeze({
@@ -535,6 +608,34 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       return safeParse(() => parseOrderDraftDetail(result));
     },
 
+    async applyDraft(intent: Readonly<OrderDraftSaveIntent>, draftId?: string): Promise<Readonly<OrderDraftConversionResult>> {
+      const parsed = local(() => parseOrderDraftSaveIntent(intent));
+      const draft = draftId === undefined ? undefined : local(() => id(draftId));
+      if ((draft === undefined) !== (parsed.expectedVersion === undefined)) invalid();
+      const path = draft ? `/api/orders/drafts/${draft}` : "/api/orders/drafts";
+      const body = { ...parsed, apply: true };
+      const signature = await intentHash(JSON.stringify([path, { ...body, lines: parsed.lines.map(({ lineId: _lineId, ...line }) => line) }]));
+      if (storageUnavailable) throw new OrderApiError("unavailable", 503);
+      if (durableFence && durableFence.fingerprint !== signature) throw new OrderApiError("operation_mismatch", 409);
+      if (draftApplyPending || (unresolvedDraftApply?.uncertain && unresolvedDraftApply.signature !== signature)) {
+        throw new OrderApiError("operation_mismatch", 409);
+      }
+      if (!unresolvedDraftApply || unresolvedDraftApply.signature !== signature) {
+        const operationId = durableFence?.operationId ?? local(() => randomUUID());
+        if (typeof operationId !== "string" || !UUID.test(operationId)) invalid();
+        const wasUncertain = durableFence !== undefined;
+        persistApplyFence({ fingerprint: signature, operationId });
+        const lines = await Promise.all(parsed.lines.map(async (line, index) => ({ ...line, lineId: await applyLineId(operationId, index, line.variantId) })));
+        unresolvedDraftApply = { signature, operationId, uncertain: wasUncertain, path, parsed: { ...parsed, lines }, ...(draft ? { draft } : {}) };
+      }
+      return executeDraftApply(unresolvedDraftApply);
+    },
+    draftApplyLocked: () => storageUnavailable || durableFence !== undefined || unresolvedDraftApply?.uncertain === true,
+    draftApplyNeedsInput: () => !unresolvedDraftApply && (durableFence !== undefined || storageUnavailable),
+    retryDraftApply(): Promise<Readonly<OrderDraftConversionResult>> {
+      if (!unresolvedDraftApply?.uncertain) throw new OrderApiError("operation_mismatch", 409);
+      return executeDraftApply(unresolvedDraftApply);
+    },
     createDraft(intent: Readonly<OrderDraftSaveIntent>): Promise<Readonly<OrderDraftDetail>> {
       const parsed = local(() => parseOrderDraftSaveIntent(intent));
       if (parsed.expectedVersion !== undefined) invalid();
@@ -567,4 +668,10 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
   });
 }
 
+const scopedOrderApis = new Map<string, ReturnType<typeof createOrderApiClient>>();
+export function scopedOrderApi(scope: string) {
+  let client = scopedOrderApis.get(scope);
+  if (!client) { client = createOrderApiClient({ durableScope: scope }); scopedOrderApis.set(scope, client); }
+  return client;
+}
 export const orderApi = createOrderApiClient();

@@ -204,7 +204,7 @@ export function ProductQuickCreateDialog({
   }
 
   function finish(outcome: Awaited<ReturnType<typeof completeMedia>>, publish: boolean, files: readonly ProductMediaSelection[]) {
-    if (outcome.kind === "published" || outcome.kind === "draft") { onCreated(outcome.result); return; }
+    if (outcome.kind === "published") { onCreated(outcome.result); return; }
     if (outcome.kind === "published_recovered") {
       const projection = outcome.projection;
       onCreated(Object.freeze({ ...projection, variants: Object.freeze(projection.variants.map(({ variant }) => variant)), replayed: false }));
@@ -217,11 +217,11 @@ export function ProductQuickCreateDialog({
         files: Object.freeze(files.slice(outcome.uploadedCount)),
         publish,
       }));
-      setError("Ürün taslağı kaydedildi. Yüklenemeyen görselleri yeniden dene veya ürünü aç.");
+      setError("Ürün kaydı oluşturuldu. Satışa açılması için yüklenemeyen görselleri yeniden dene veya ürünü aç.");
       return;
     }
     setCreatedProductId(outcome.result.product.id);
-    setError("Taslak kaydedildi. Satış durumunu ürünü açarak kontrol et.");
+    setError("Ürün kaydı oluşturuldu. Satış durumunu ürünü açarak kontrol et.");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -231,8 +231,7 @@ export function ProductQuickCreateDialog({
     const form = event.currentTarget;
     const data = new FormData(form);
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const publish = submitter instanceof HTMLButtonElement && submitter.value === "publish";
+    const publish = true;
     setShowMeasurementValidation(true);
     const parsed = buildQuickCreateIntent({
       title: field(data, "title"),
@@ -304,7 +303,7 @@ export function ProductQuickCreateDialog({
       {mode === "dialog" ? <button className={`${styles.iconButton} ${workspace.close}`} type="button" onClick={requestClose} aria-label="Ürün ekleme penceresini kapat"><X aria-hidden="true" /></button> : null}
 
       <form className={styles.form} onSubmit={submit} noValidate>
-        {error ? <div className={styles.error} role="alert"><strong>{recovery ? "Taslak güvende" : "Formu kontrol edin"}</strong><span>{error}</span></div> : null}
+        {error ? <div className={styles.error} role="alert"><strong>{recovery ? "Ürün kaydı korundu" : "Formu kontrol edin"}</strong><span>{error}</span></div> : null}
         {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
         <fieldset disabled={submitting || options === null || Boolean(createdProductId)} className={workspace.layout}>
           <div className={workspace.mediaColumn}>
@@ -342,8 +341,8 @@ export function ProductQuickCreateDialog({
           {recovery ? <button type="button" className={styles.secondary} onClick={() => void retryMedia()} disabled={submitting}>Görselleri yeniden yükle</button> : null}
           {createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}
           {mode === "dialog" ? <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting || barcodeBusy}>Gelişmiş ürün eklemeye geç</button> : <button type="button" className={workspace.cancel} onClick={requestClose} disabled={submitting || barcodeBusy}>Vazgeç</button>}
-          <button type="submit" name="intent" value="draft" className={styles.secondary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>Taslak kaydet</button>
-          <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>{submitting ? "Kaydediliyor…" : "Kaydet ve satışa aç"}</button>
+
+          <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>{submitting ? "Kaydediliyor…" : "Kaydet"}</button>
         </div>
       </form>
     </div>

@@ -65,6 +65,7 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
   const [bindCatalogGrams, setBindCatalogGrams] = useState(false);
   const [catalogGramReferenceId, setCatalogGramReferenceId] = useState("");
   const previewGeneration = useRef(0);
+  const applyIntent = useRef<{signature:string;setId:string}|null>(null);
   const definitionDialogRef = useRef<HTMLDialogElement>(null);
   const definitionTriggerRef = useRef<HTMLButtonElement>(null);
   const goldReferences = definitions.filter((definition) => definition.kind === "gold_gram");
@@ -202,21 +203,19 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
   }
 
   async function save() {
-    if (!canManage || busy || locked || !listing) return;
+    if (!canManage || busy || (locked && !applyIntent.current) || !listing || gramChoiceMissing) return;
     resetNotice();
     let values;
     try { values = buildReferenceSetValues(definitions, rates); }
     catch { setProblem("Her etkin referansa sıfırdan büyük bir satış değeri girin. Sayı biçimi için 2,5 veya 5.000,50 kullanın."); return; }
     setBusy("save");
     try {
-      const result = await referencePricingApi.saveSet({ setId: crypto.randomUUID(), expectedStateVersion: listing.stateVersion, values });
-      setSavedSet(result);
-      setDraftDirty(false);
-      setListing((previous) => previous ? { ...previous, stateVersion: result.stateVersion,
-        items: [{ setId: result.setId, version: result.version, createdAt: result.createdAt, isActive: false }, ...previous.items].slice(0, 20),
-      } : previous);
-      clearReferencePreview();
-      setNotice("Referans değerleri taslak olarak kaydedildi. Etkiyi sunucuda önizleyip sonra uygulayın.");
+      const signature=JSON.stringify({expectedStateVersion:listing.stateVersion,values,channel,catalogGramReferenceId:catalogGramChoice});
+      if(applyIntent.current?.signature!==signature)applyIntent.current={signature,setId:crypto.randomUUID()};
+      await referencePricingApi.apply({ setId: applyIntent.current.setId, expectedStateVersion: listing.stateVersion, values,channel,...(catalogGramChoice?{catalogGramReferenceId:catalogGramChoice}:{}) });
+      applyIntent.current=null;
+      setLocked(false);setDraftDirty(false);clearReferencePreview();
+      await reload();setNotice("Referans değerleri kaydedildi ve uygulandı.");
     } catch (failure) { mutationFailure(failure); }
     finally { setBusy(""); }
   }
@@ -246,24 +245,6 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
     }
   }
 
-  async function activate() {
-    if (!canManage || busy || locked || !savedSet || !listing || gramChoiceMissing
-      || !canActivateReferenceSet({ savedSetId: savedSet.setId, preview, dirty: draftDirty, catalogGramReferenceId: catalogGramChoice })) return;
-    const unavailableNotice = preview!.unavailableVariants > 0
-      ? `\n\n${preview!.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor ve yeni satışa geçici olarak kapanacak. Sabit TL ürünleri etkilenmez.`
-      : "";
-    if (!window.confirm(`${preview!.affectedProducts} ürün ve ${preview!.affectedVariants} varyant için yeni manuel referans değerleri uygulanacak.${unavailableNotice}\n\nDevam edilsin mi?`)) return;
-    resetNotice();
-    setBusy("activate");
-    try {
-      await referencePricingApi.activate({ setId: savedSet.setId, expectedStateVersion: listing.stateVersion, expectedScopeDigest: preview!.scopeDigest,
-        ...(catalogGramChoice ? { catalogGramReferenceId: catalogGramChoice } : {}),
-      });
-      setNotice("Manuel referans sürümü etkinleştirildi. Güncel fiyatlar sunucu tarafından yeniden çözümlenir.");
-      await reload();
-    } catch (failure) { mutationFailure(failure); }
-    finally { setBusy(""); }
-  }
 
   async function openHistorySet(setId: string) {
     if (busy || locked) return;
@@ -281,7 +262,7 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
         }));
         setDraftDirty(false);
         clearReferencePreview();
-        setNotice("Taslak sürüm açıldı. Etkiyi önizleyip aynı sürümü uygulayabilirsiniz.");
+        setNotice("Önceki sürümün değerleri açıldı. Kaydet ile yeni sürüm olarak uygulayabilirsiniz.");
         setWorkspaceTab("references");
         requestAnimationFrame(() => document.getElementById("pricing-tab-references")?.focus());
       }
@@ -314,7 +295,7 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
         <p className={styles.subtle}>Bu değerler piyasa verisi değildir; siz değiştirene kadar geçerlidir. TRY sabit 1’dir ve burada düzenlenmez.</p>
         {notice ? <p className={styles.success} role="status">{notice}</p> : null}
         {problem ? <p className={styles.feedback} role="alert">{problem}</p> : null}
-        {locked ? <p className={styles.warning} role="alert">İşlem sonucu doğrulanmadan başka kayıt yapılamaz. <a href="/settings/pricing">Sayfayı tamamen yenile</a>.</p> : null}
+        {locked ? <p className={styles.warning} role="alert">İşlem sonucu doğrulanamadı. Kaydı doğrula ile aynı kaydın sonucunu kontrol edin.</p> : null}
         {!canManage ? <p className={styles.state} role="status">Görüntüleme modundasınız; referansları değiştirmek için fiyatlandırma yetkisi gerekir.</p> : null}
         <nav className={styles.tabs} role="tablist" aria-label="Fiyat referansı görünümleri">{WORKSPACE_TABS.map(({ id, label }) => <button key={id} id={`pricing-tab-${id}`} type="button" role="tab" aria-selected={workspaceTab === id} aria-controls={`pricing-panel-${id}`} tabIndex={workspaceTab === id ? 0 : -1} onClick={() => setWorkspaceTab(id)} onKeyDown={(event) => navigateTabs(event, id)}>{label}</button>)}</nav>
 
@@ -331,20 +312,20 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
             <label className={styles.toggle}><input type="checkbox" checked={bindCatalogGrams} onChange={(event) => updateCatalogGramBinding(event.target.checked)} disabled={Boolean(busy) || locked} /><span>Gramı olan ürünleri bu tarifeye bağla</span></label>
             {bindCatalogGrams && goldReferences.length > 1 ? <label><span>Gram tarifesi</span><select value={catalogGramReferenceId} onChange={(event) => { setCatalogGramReferenceId(event.target.value); clearReferencePreview(); }} disabled={Boolean(busy) || locked}><option value="">Tarife seçin</option>{goldReferences.map((definition) => <option key={definition.id} value={definition.id}>{definition.label}</option>)}</select></label> : null}
             <small>Gram × gram fiyatı; gramı olmayan ürünler sabit kalır.</small>
-            {gramChoiceMissing ? <small role="status">Önizlemek için bir gram tarifesi seçin.</small> : null}
+            {gramChoiceMissing ? <small role="status">Kaydetmek için bir gram tarifesi seçin.</small> : null}
           </div> : null}
-          {canManage && definitions.length > 0 ? <div className={styles.actions}><button className={savedSet && !draftDirty ? undefined : styles.primary} type="button" onClick={() => void save()} disabled={Boolean(busy) || locked}>{busy === "save" ? "Kaydediliyor…" : "Taslağı kaydet"}</button><span>Kaydetmek canlı fiyatı değiştirmez.</span></div> : null}
+          {canManage && definitions.length > 0 ? <div className={styles.actions}><button className={savedSet && !draftDirty ? undefined : styles.primary} type="button" onClick={() => void save()} disabled={Boolean(busy) || (locked && !applyIntent.current) || gramChoiceMissing}>{busy === "save" ? "Kaydediliyor…" : locked ? "Kaydı doğrula" : "Kaydet"}</button></div> : null}
         </section>
 
         {canManage ? <dialog ref={definitionDialogRef} className={styles.definitionDialog} aria-labelledby="new-reference-title" onCancel={(event) => { if (busy) event.preventDefault(); else setDefinitionOpen(false); }} onClose={() => setDefinitionOpen(false)}><header className={styles.definitionHeader}><h2 id="new-reference-title">Yeni referans tanımı</h2><button type="button" className={styles.closeButton} onClick={() => setDefinitionOpen(false)} disabled={Boolean(busy)} aria-label="Referans tanımı penceresini kapat"><X size={20} /></button></header><p className={styles.definitionHelp}>Tanımın adını veya saflık temelini sonra sessizce değiştirmek yerine yeni tanım oluşturun.</p>{problem ? <p className={styles.feedback} role="alert">{problem}</p> : null}<form className={styles.definitionForm} onSubmit={(event) => void defineReference(event)}><label><span>Birim</span><select value={kind} onChange={(event) => { const next = event.target.value as Kind; setKind(next); setReferenceLabel(next === "usd" ? "USD satış" : next === "eur" ? "EUR satış" : "Gram altın satış"); }} disabled={Boolean(busy) || locked}><option value="usd" disabled={definitions.some((item) => item.kind === "usd")}>USD</option><option value="eur" disabled={definitions.some((item) => item.kind === "eur")}>EUR</option><option value="gold_gram">Gram altın</option></select></label><label><span>Tanım adı</span><input required maxLength={120} value={referenceLabel} onChange={(event) => setReferenceLabel(event.target.value)} disabled={Boolean(busy) || locked} /></label>{kind === "gold_gram" ? <label><span>Referans saflığı (isteğe bağlı)</span><input inputMode="decimal" placeholder="0,916" value={purityText} onChange={(event) => setPurityText(event.target.value)} disabled={Boolean(busy) || locked} /><small>Oran modunda kullanılacaksa gerçek saflık oranını girin.</small></label> : null}<footer className={styles.definitionActions}><button type="button" onClick={() => setDefinitionOpen(false)} disabled={Boolean(busy)}>Vazgeç</button><button className={styles.primary} type="submit" disabled={Boolean(busy) || locked}>{busy === "define" ? "Ekleniyor…" : "Tanım ekle"}</button></footer></form></dialog> : null}
 
         <section className={styles.section} id="pricing-panel-preview" role="tabpanel" aria-labelledby="pricing-tab-preview" hidden={workspaceTab !== "preview"}><div className={styles.sectionHeading}><div><h2 id="impact-title">Etkiyi önizle ve uygula</h2><p>Fiyat hesabı yalnız sunucuda yapılır. Sabit fiyat listeleri ayrı kalır; eski siparişler değişmez.</p></div></div><div className={styles.previewControls}><label><span>Kanal</span><select value={channel} onChange={(event) => { setChannel(event.target.value as "storefront" | "quick_order"); clearReferencePreview(); }}><option value="storefront">Mağaza</option><option value="quick_order">Hızlı sipariş</option></select></label><button type="button" onClick={() => void loadPreview()} disabled={!savedSet || draftDirty || gramChoiceMissing || Boolean(busy) || previewPhase === "loading"}>{previewPhase === "loading" ? "Hesaplanıyor…" : "Sunucuda önizle"}</button></div>
-          {!savedSet ? <p className={styles.state}>Önizleme için önce bir referans taslağı kaydedin.</p> : draftDirty ? <p className={styles.warning}>Taslak kayıttan sonra değişti. Yeniden kaydedip etkiyi tekrar önizleyin.</p> : null}
+          {!savedSet ? <p className={styles.state}>Kaydedilen fiyatların etkisi burada görüntülenir. Değerleri Kaydet ile uygulayın.</p> : draftDirty ? <p className={styles.warning}>Değerler değişti. Kaydet ile uyguladıktan sonra etkiyi görüntüleyin.</p> : null}
           {previewPhase === "error" ? <p className={styles.feedback} role="alert">Önizleme yüklenemedi. Verileriniz korundu; tekrar deneyin.</p> : null}
-          {preview ? <><div className={styles.impactStats}><div><span>Etkilenen ürün</span><strong>{preview.affectedProducts}</strong></div><div><span>Etkilenen varyant</span><strong>{preview.affectedVariants}</strong></div><div><span>Sabit liste etkisi</span><strong>{preview.fixedOverrideVariants}</strong></div><div><span>Hesaplanamayan</span><strong>{preview.unavailableVariants}</strong></div></div><p className={styles.subtle}>Toplamlar tüm katalog için sunucudan gelir; aşağıdaki kayıtlar sayfalıdır.</p><div className={styles.tableScroll}><table><caption>Sunucu fiyat etkisi, {channel === "storefront" ? "mağaza" : "hızlı sipariş"} kanalı</caption><thead><tr><th>Varyant</th><th>Eski fiyat</th><th>Yeni fiyat</th><th>Not</th></tr></thead><tbody>{previewEntries.length ? previewEntries.map((entry) => <tr key={entry.variantId}><td>{entry.variantId.slice(0, 8)}…</td><td>{formatCents(entry.oldPriceCents)}</td><td>{formatCents(entry.newPriceCents)}</td><td>{entry.overriddenByPriceList ? "Sabit liste geçerli" : entry.newPriceCents === null ? "Satışa kapalı" : "Referans fiyatı"}</td></tr>) : <tr><td colSpan={4}>Bu setin fiyatını değiştirdiği varyant yok.</td></tr>}</tbody></table></div>{previewCursor ? <button className={styles.more} type="button" onClick={() => void loadPreview(previewCursor)} disabled={previewPhase === "loading"}>Sonraki varyantları göster</button> : null}{preview.unavailableVariants > 0 ? <p className={styles.warning} role="alert">{catalogGramChoice ? `${preview.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor. Gram tarifesini uygulamak için referans değerlerini düzeltip yeniden önizleyin.` : `${preview.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor. Bu set etkinleştirilirse yalnız bağlı yeni satışlar kapanır; devam etmek için açık teyit gerekir.`}</p> : null}{canManage ? <div className={styles.actions}><button className={styles.primary} type="button" onClick={() => void activate()} disabled={Boolean(busy) || locked || previewPhase !== "ready" || gramChoiceMissing || !canActivateReferenceSet({ savedSetId: savedSet?.setId ?? null, preview, dirty: draftDirty, catalogGramReferenceId: catalogGramChoice })}>{busy === "activate" ? "Uygulanıyor…" : "Onayla ve uygula"}</button><span>Etkinleştirme anında kapsam ve sürüm yeniden doğrulanır.</span></div> : null}</> : null}
+          {preview ? <><div className={styles.impactStats}><div><span>Etkilenen ürün</span><strong>{preview.affectedProducts}</strong></div><div><span>Etkilenen varyant</span><strong>{preview.affectedVariants}</strong></div><div><span>Sabit liste etkisi</span><strong>{preview.fixedOverrideVariants}</strong></div><div><span>Hesaplanamayan</span><strong>{preview.unavailableVariants}</strong></div></div><p className={styles.subtle}>Toplamlar tüm katalog için sunucudan gelir; aşağıdaki kayıtlar sayfalıdır.</p><div className={styles.tableScroll}><table><caption>Sunucu fiyat etkisi, {channel === "storefront" ? "mağaza" : "hızlı sipariş"} kanalı</caption><thead><tr><th>Varyant</th><th>Eski fiyat</th><th>Yeni fiyat</th><th>Not</th></tr></thead><tbody>{previewEntries.length ? previewEntries.map((entry) => <tr key={entry.variantId}><td>{entry.variantId.slice(0, 8)}…</td><td>{formatCents(entry.oldPriceCents)}</td><td>{formatCents(entry.newPriceCents)}</td><td>{entry.overriddenByPriceList ? "Sabit liste geçerli" : entry.newPriceCents === null ? "Satışa kapalı" : "Referans fiyatı"}</td></tr>) : <tr><td colSpan={4}>Bu setin fiyatını değiştirdiği varyant yok.</td></tr>}</tbody></table></div>{previewCursor ? <button className={styles.more} type="button" onClick={() => void loadPreview(previewCursor)} disabled={previewPhase === "loading"}>Sonraki varyantları göster</button> : null}{preview.unavailableVariants > 0 ? <p className={styles.warning} role="alert">{catalogGramChoice ? `${preview.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor. Gram tarifesini uygulamak için referans değerlerini düzeltip yeniden önizleyin.` : `${preview.unavailableVariants} varyantın yeni satış fiyatı hesaplanamıyor. Bu set etkinleştirilirse yalnız bağlı yeni satışlar kapanır; devam etmek için açık teyit gerekir.`}</p> : null}</> : null}
         </section>
 
-        <section className={styles.section} id="pricing-panel-history" role="tabpanel" aria-labelledby="pricing-tab-history" hidden={workspaceTab !== "history"}><div className={styles.sectionHeading}><div><h2 id="history-title">Sürüm geçmişi</h2><p>Etkin ve taslak sürümler; eski kayıtları gerektiğinde açabilirsiniz.</p></div></div>{listing?.items.length ? <><div className={styles.tableScroll}><table><caption>Manuel referans seti geçmişi</caption><thead><tr><th>Oluşturuldu</th><th>Sürüm</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{listing.items.map((item) => <tr key={item.setId}><td>{fmtDate(item.createdAt)}</td><td>v{item.version}</td><td><PanelStatusBadge tone={item.isActive ? "success" : "neutral"}>{item.isActive ? "Etkin" : "Taslak"}</PanelStatusBadge></td><td><button type="button" onClick={() => void openHistorySet(item.setId)} disabled={Boolean(busy) || locked}>{item.isActive ? "Görüntüle" : "Taslağı aç"}</button></td></tr>)}</tbody></table></div>{listing.nextCursor ? <button className={styles.more} type="button" onClick={() => void loadOlderHistory()} disabled={Boolean(busy)}>Daha eski sürümler</button> : null}{historyDetail ? <div className={styles.historyDetail}><h3>v{historyDetail.version} · {historyDetail.isActive ? "Etkin" : "Taslak"}</h3><dl>{historyDetail.values.map((item) => <div key={item.referenceId}><dt>{item.label}</dt><dd>{item.rateTry === null ? "Değer yok" : `${displayDecimal(item.rateTry)} TL`}{item.active ? " · Kullanımda" : " · Pasif"}</dd></div>)}</dl></div> : null}</> : <p className={styles.state}>Henüz kaydedilmiş referans sürümü yok.</p>}</section>
+        <section className={styles.section} id="pricing-panel-history" role="tabpanel" aria-labelledby="pricing-tab-history" hidden={workspaceTab !== "history"}><div className={styles.sectionHeading}><div><h2 id="history-title">Sürüm geçmişi</h2><p>Etkin ve önceki sürümler; kaydedilmiş değerleri açabilirsiniz.</p></div></div>{listing?.items.length ? <><div className={styles.tableScroll}><table><caption>Manuel referans seti geçmişi</caption><thead><tr><th>Oluşturuldu</th><th>Sürüm</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{listing.items.map((item) => <tr key={item.setId}><td>{fmtDate(item.createdAt)}</td><td>v{item.version}</td><td><PanelStatusBadge tone={item.isActive ? "success" : "neutral"}>{item.isActive ? "Etkin" : "Önceki sürüm"}</PanelStatusBadge></td><td><button type="button" onClick={() => void openHistorySet(item.setId)} disabled={Boolean(busy) || locked}>{item.isActive ? "Görüntüle" : "Değerleri aç"}</button></td></tr>)}</tbody></table></div>{listing.nextCursor ? <button className={styles.more} type="button" onClick={() => void loadOlderHistory()} disabled={Boolean(busy)}>Daha eski sürümler</button> : null}{historyDetail ? <div className={styles.historyDetail}><h3>v{historyDetail.version} · {historyDetail.isActive ? "Etkin" : "Önceki sürüm"}</h3><dl>{historyDetail.values.map((item) => <div key={item.referenceId}><dt>{item.label}</dt><dd>{item.rateTry === null ? "Değer yok" : `${displayDecimal(item.rateTry)} TL`}{item.active ? " · Kullanımda" : " · Pasif"}</dd></div>)}</dl></div> : null}</> : <p className={styles.state}>Henüz kaydedilmiş referans sürümü yok.</p>}</section>
       </> : null}
     </div>
   </PanelPageShell>;

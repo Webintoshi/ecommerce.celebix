@@ -18,7 +18,7 @@ test("quick create exposes only two required merchant fields", async () => {
   assert.match(dialog, /name="title"[^>]*required/);
   assert.match(dialog, /name="price"[^>]*required/);
   assert.doesNotMatch(dialog, /name="slug"[^>]*required|name="sku"[^>]*required|name="barcode"[^>]*required/);
-  for (const label of ["Taslak kaydet", "Kaydet ve satışa aç", "Gelişmiş ürün eklemeye geç"]) {
+  for (const label of ["Kaydet", "Gelişmiş ürün eklemeye geç"]) {
     assert.match(dialog, new RegExp(label));
   }
   assert.match(dialog, /Satışa açmak için gerekli/);
@@ -67,7 +67,7 @@ test("dialog preserves focus, keyboard, duplicate-submit and close safety", asyn
 
 test("media failure remains an honest draft with recovery links", async () => {
   const dialog = await source("components/catalog-onboarding/ProductQuickCreateDialog.tsx");
-  assert.match(dialog, /Ürün taslağı kaydedildi\. Yüklenemeyen görselleri yeniden dene/);
+  assert.match(dialog, /Ürün kaydı oluşturuldu\. Satışa açılması için yüklenemeyen görselleri yeniden dene/);
   assert.match(dialog, /Görselleri yeniden yükle/);
   assert.match(dialog, /Ürüne git/);
   assert.match(dialog, /completeProductMedia/);

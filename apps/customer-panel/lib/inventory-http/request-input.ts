@@ -16,12 +16,12 @@ type Invalid = typeof INVALID;
 export type InventoryMutationInput =
   | Readonly<{ kind: "location_save"; value: Readonly<{ operationId: string; locationId?: string; expectedVersion?: number; name: string }> }>
   | Readonly<{ kind: "location_archive"; value: Readonly<{ operationId: string; expectedVersion: number }> }>
-  | Readonly<{ kind: "purchase_save"; value: Readonly<{ operationId: string; orderId?: string; expectedVersion?: number; locationId: string; supplierName: string; lines: readonly PurchaseOrderSaveLineInput[] }> }>
+  | Readonly<{ kind: "purchase_save"; value: Readonly<{ operationId: string; activation?: "start"; orderId?: string; expectedVersion?: number; locationId: string; supplierName: string; lines: readonly PurchaseOrderSaveLineInput[] }> }>
   | Readonly<{ kind: "purchase_transition"; value: Readonly<{ operationId: string; expectedVersion: number; transition: "order" | "cancel" }> }>
   | Readonly<{ kind: "purchase_receive"; value: Readonly<{ operationId: string; expectedVersion: number; locationId: string; lines: readonly PurchaseOrderReceiptLineInput[] }> }>
-  | Readonly<{ kind: "count_save"; value: Readonly<{ operationId: string; countId?: string; expectedVersion?: number; locationId: string; lines: readonly InventoryCountSaveLineInput[] }> }>
+  | Readonly<{ kind: "count_save"; value: Readonly<{ operationId: string; activation?: "start"; countId?: string; expectedVersion?: number; locationId: string; lines: readonly InventoryCountSaveLineInput[] }> }>
   | Readonly<{ kind: "count_start" | "count_commit" | "count_cancel"; value: Readonly<{ operationId: string; expectedVersion: number }> }>
-  | Readonly<{ kind: "transfer_save"; value: Readonly<{ operationId: string; transferId?: string; expectedVersion?: number; sourceLocationId: string; destinationLocationId: string; lines: readonly InventoryTransferSaveLineInput[] }> }>
+  | Readonly<{ kind: "transfer_save"; value: Readonly<{ operationId: string; activation?: "start"; transferId?: string; expectedVersion?: number; sourceLocationId: string; destinationLocationId: string; lines: readonly InventoryTransferSaveLineInput[] }> }>
   | Readonly<{ kind: "transfer_dispatch" | "transfer_receive" | "transfer_cancel"; value: Readonly<{ operationId: string; expectedVersion: number }> }>;
 
 function object(value: unknown): Record<string, unknown> | null {
@@ -138,14 +138,15 @@ export async function readInventoryMutationInput(request: Request, route: Invent
     return parsed && operationId && expectedVersion ? Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, expectedVersion }) }) : INVALID;
   }
   if (route.kind === "purchase_save") {
-    const parsed = exact(raw, ["operationId", "locationId", "supplierName", "lines"], ["orderId", "expectedVersion"]);
+    const parsed = exact(raw, ["operationId", "locationId", "supplierName", "lines"], ["orderId", "expectedVersion", "activation"]);
+    if (parsed && Object.hasOwn(parsed, "activation") && parsed.activation !== "start") return INVALID;
     const operationId = id(parsed?.operationId), orderId = parsed?.orderId === undefined ? undefined : id(parsed.orderId), expectedVersion = parsed?.expectedVersion === undefined ? undefined : version(parsed.expectedVersion), locationId = id(parsed?.locationId), supplierName = text(parsed?.supplierName, 1, 200), selectedLines = lines(parsed?.lines, purchaseLine);
     if (
       !parsed || !operationId || !locationId || !supplierName || !selectedLines ||
       selectedLines.reduce((total, line) => total + line.orderedQuantity * line.unitCostCents, 0) > 8_000_000_000 ||
       (orderId === undefined) !== (expectedVersion === undefined) || orderId === null || expectedVersion === null
     ) return INVALID;
-    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(orderId ? { orderId, expectedVersion: expectedVersion! } : {}), locationId, supplierName, lines: selectedLines }) });
+    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(parsed.activation === "start" ? { activation: "start" as const } : {}), ...(orderId ? { orderId, expectedVersion: expectedVersion! } : {}), locationId, supplierName, lines: selectedLines }) });
   }
   if (route.kind === "purchase_transition") {
     const parsed = exact(raw, ["operationId", "expectedVersion", "transition"]), operationId = id(parsed?.operationId), expectedVersion = version(parsed?.expectedVersion);
@@ -158,16 +159,19 @@ export async function readInventoryMutationInput(request: Request, route: Invent
       ? Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, expectedVersion, locationId, lines: selectedLines }) }) : INVALID;
   }
   if (route.kind === "count_save") {
-    const parsed = exact(raw, ["operationId", "locationId", "lines"], ["countId", "expectedVersion"]);
+    const parsed = exact(raw, ["operationId", "locationId", "lines"], ["countId", "expectedVersion", "activation"]);
+    if (parsed && Object.hasOwn(parsed, "activation") && parsed.activation !== "start") return INVALID;
     const operationId = id(parsed?.operationId), countId = parsed?.countId === undefined ? undefined : id(parsed.countId), expectedVersion = parsed?.expectedVersion === undefined ? undefined : version(parsed.expectedVersion), locationId = id(parsed?.locationId), selectedLines = lines(parsed?.lines, countLine);
     if (!parsed || !operationId || !locationId || !selectedLines || (countId === undefined) !== (expectedVersion === undefined) || countId === null || expectedVersion === null) return INVALID;
-    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(countId ? { countId, expectedVersion: expectedVersion! } : {}), locationId, lines: selectedLines }) });
+    if (parsed.activation === "start" && selectedLines.some(line => line.countedQuantity !== undefined)) return INVALID;
+    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(parsed.activation === "start" ? { activation: "start" as const } : {}), ...(countId ? { countId, expectedVersion: expectedVersion! } : {}), locationId, lines: selectedLines }) });
   }
   if (route.kind === "transfer_save") {
-    const parsed = exact(raw, ["operationId", "sourceLocationId", "destinationLocationId", "lines"], ["transferId", "expectedVersion"]);
+    const parsed = exact(raw, ["operationId", "sourceLocationId", "destinationLocationId", "lines"], ["transferId", "expectedVersion", "activation"]);
+    if (parsed && Object.hasOwn(parsed, "activation") && parsed.activation !== "start") return INVALID;
     const operationId = id(parsed?.operationId), transferId = parsed?.transferId === undefined ? undefined : id(parsed.transferId), expectedVersion = parsed?.expectedVersion === undefined ? undefined : version(parsed.expectedVersion), sourceLocationId = id(parsed?.sourceLocationId), destinationLocationId = id(parsed?.destinationLocationId), selectedLines = lines(parsed?.lines, transferLine);
     if (!parsed || !operationId || !sourceLocationId || !destinationLocationId || sourceLocationId === destinationLocationId || !selectedLines || (transferId === undefined) !== (expectedVersion === undefined) || transferId === null || expectedVersion === null) return INVALID;
-    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(transferId ? { transferId, expectedVersion: expectedVersion! } : {}), sourceLocationId, destinationLocationId, lines: selectedLines }) });
+    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(parsed.activation === "start" ? { activation: "start" as const } : {}), ...(transferId ? { transferId, expectedVersion: expectedVersion! } : {}), sourceLocationId, destinationLocationId, lines: selectedLines }) });
   }
   const parsed = exact(raw, ["operationId", "expectedVersion"]), operationId = id(parsed?.operationId), expectedVersion = version(parsed?.expectedVersion);
   return parsed && operationId && expectedVersion

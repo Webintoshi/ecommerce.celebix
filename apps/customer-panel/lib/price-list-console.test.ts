@@ -22,8 +22,8 @@ test("price-list editor is fixed-price, versioned, finite-channel and persisted-
   for (const marker of ["priceCents", "variantId", "customerTagId", "expectedVersion", "storefront", "quick_order", "datetime-local"]) assert.match(component, new RegExp(marker));
   assert.match(component, /customerApi[.]tags\(\)/);
   assert.match(component, /loadCatalogVariantChoices/);
-  assert.match(component, /Açıklayıcı önizleme/);
-  assert.match(component, /PostgreSQL/);
+  assert.match(component, /Fiyat karşılaştırması/);
+  assert.match(component, /createPricingPreviewController/);
   assert.match(component, /status === "active"/);
   assert.match(component, /disabled=\{controlsDisabled/);
   assert.match(component, /draftRules[.]map/);
@@ -39,7 +39,7 @@ test("price-list editor uses complete shared catalog choices and only server pri
   assert.match(component, /pricingApi[.]preview|previewController/);
   assert.match(component, /Taban fiyat/);
   assert.match(component, /Mevcut efektif fiyat/);
-  assert.match(component, /Taslak fiyat/);
+  assert.match(component, /Girilen fiyat/);
   assert.match(component, /Önizleme kullanılamıyor/);
   assert.doesNotMatch(component, /variant[.]priceCents/);
   assert.doesNotMatch(component, /effectivePriceCents\s*[:=]\s*item[.]priceCents/);
@@ -56,11 +56,11 @@ test("price-list console uses durable API results for conflict permission empty 
   assert.match(component, /Fiyat listeleri yüklenemedi/);
   assert.match(component, /Fiyat listesi bulunamadı/);
   assert.match(component, /Fiyatlandırma hizmeti kullanılamıyor/);
-  assert.match(component, /İşlem sonucu doğrulanamıyor/);
+  assert.match(component, /İşlem sonucu doğrulanamadı/);
   assert.match(component, /createPricingMutationController/);
-  assert.match(component, /mutations[.]activate/);
+  assert.doesNotMatch(component, /mutations[.]activate/);
   assert.match(component, /mutations[.]archive/);
-  assert.match(component, /mutations[.]save/);
+  assert.match(component, /mutations[.]apply/);
   assert.match(component, /mutationPending/);
   assert.match(component, /disabled=\{mutationPending\}/);
   assert.match(component, /createPricingRequestLifecycle/);
@@ -110,7 +110,7 @@ test("Mira price-list editor keeps failed drafts visible and tablet actions abov
   const css = await source("components/pricing/price-list-console.module.css");
   assert.match(component, /<h1 className=\{styles[.]srOnly\}>/);
   assert.match(component, /props[.]resourceId && phase !== "loaded" && !record/);
-  assert.match(component, /Taslağınız korunuyor/);
+  assert.match(component, /Girdikleriniz korunuyor/);
   assert.match(component, /className=\{styles[.]pageAction\}/);
   assert.match(css, /--pricing-text:\s*#2B2B2B/);
   assert.match(css, /--pricing-surface:\s*#FFFDFC/);

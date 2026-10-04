@@ -63,6 +63,7 @@ type PromotionMutationValue =
 export type PromotionMutationInput = Readonly<{
   kind: "valid";
   operationId?: string;
+  apply?: true;
   value: PromotionMutationValue;
 }>;
 
@@ -148,8 +149,11 @@ export async function readPromotionMutationInput(
   const raw = await boundedJson(request, BODY_LIMITS[kind]);
   if (raw === null) return INVALID;
   try {
-    const value = parseMutation(kind, raw);
-    return Object.freeze({ kind: "valid" as const, ...(durable ? { operationId: operationId! } : {}), value });
+    const apply=typeof raw==="object"&&raw!==null&&Object.hasOwn(raw,"apply")?(raw as {apply?:unknown}).apply:undefined;
+    if(apply!==undefined&&(apply!==true||(kind!=="create"&&kind!=="update")))return INVALID;
+    const selected=apply===true?Object.fromEntries(Object.entries(raw as Record<string,unknown>).filter(([key])=>key!=="apply")):raw;
+    const value = parseMutation(kind, selected);
+    return Object.freeze({ kind: "valid" as const, ...(durable ? { operationId: operationId! } : {}), ...(apply===true?{apply:true as const}:{}),value });
   } catch {
     return INVALID;
   }

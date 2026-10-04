@@ -50,6 +50,55 @@ function repository(client: Client) {
   });
 }
 
+test("direct reference apply composes save preview activation and binds channel and gram intent",async()=>{
+ const hashes:string[]=[];
+ for(const channel of ["storefront","quick_order"] as const){
+  const active={setId:SET,version:1,stateVersion:1,activatedAt:"2026-09-20T12:00:00.000000Z"};
+  class Composite extends Client{override async query(text:string,values?:unknown[]){this.queries.push({text,values});let outcome="not_found",payload:unknown=null;
+   if(text.includes("pricing_reference_set_save(")){hashes.push(String(values?.[8]));outcome="saved";payload={setId:SET,version:1,stateVersion:0,isActive:false,createdAt:active.activatedAt,values:[{referenceId:REFERENCE,kind:"gold_gram",label:"Gram",referencePurity:"1",rateTry:"100",active:true}]};}
+   if(text.includes("pricing_reference_set_preview_v2(")){outcome="previewed";payload={setId:SET,scopeDigest:"a".repeat(64),affectedProducts:0,affectedVariants:0,fixedOverrideVariants:0,unavailableVariants:0,entries:[],nextCursor:null};}
+   if(text.includes("pricing_reference_set_activate_v2(")){outcome="activated";payload=active;}
+   const rows=text.startsWith("SELECT outcome")?[{outcome,result_payload:payload}]:[];return {rows,rowCount:rows.length} as unknown as QueryResult<Record<string,unknown>>;
+  }}
+  const client=new Composite({outcome:"not_found",result_payload:null});const result=await repository(client).apply({...authority(),operationId:OPERATION,setId:SET,expectedStateVersion:0,values:[{referenceId:REFERENCE,rateTry:"100",active:true}],channel,catalogGramReferenceId:REFERENCE});
+  assert.equal(result.stateVersion,1);assert.equal(client.queries.filter(q=>q.text.startsWith("BEGIN")).length,1);assert.equal(client.queries.filter(q=>q.text==="COMMIT").length,1);assert.equal(client.queries.at(-1)?.text,"COMMIT");const calls=client.queries.filter(q=>q.text.startsWith("SELECT outcome"));assert.notEqual(calls[0]!.values?.[7],OPERATION);assert.equal(calls.at(-1)?.values?.[7],OPERATION);assert.equal(calls.at(-1)?.values?.[12],REFERENCE);
+ }
+ assert.notEqual(hashes[0],hashes[1]);
+});
+
+test("reference replay validates the full Save intent before accepting an earlier activation", async () => {
+  const active = { setId: SET, version: 1, stateVersion: 1, activatedAt: "2026-09-20T12:00:00.000000Z" };
+  const saved = { setId: SET, version: 1, stateVersion: 0, isActive: false, createdAt: active.activatedAt, values: [{ referenceId: REFERENCE, kind: "gold_gram", label: "Gram", rateTry: "100", active: true }] };
+  let hash = "", activated = false, effectCalls = 0, recoveryCalls = 0;
+  class ReplayClient extends Client {
+    override async query(text: string, values?: unknown[]) {
+      this.queries.push({ text, values });
+      let outcome = "not_found", payload: unknown = null;
+      if (text.includes("pricing_reference_set_save(")) {
+        if (hash && hash !== values?.[8]) outcome = "operation_mismatch";
+        else { hash = String(values?.[8]); outcome = "saved"; payload = saved; }
+      }
+      if (text.includes("pricing_reference_operation_get(")) { recoveryCalls++; if (activated) { outcome = "found"; payload = { operationKind: "activate", result: active }; } }
+      if (text.includes("pricing_reference_set_preview_v2(")) { outcome = "previewed"; payload = { setId: SET, scopeDigest: "a".repeat(64), affectedProducts: 0, affectedVariants: 0, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [], nextCursor: null }; }
+      if (text.includes("pricing_reference_set_activate_v2(")) { activated = true; effectCalls++; outcome = "activated"; payload = active; }
+      const rows = text.startsWith("SELECT outcome") ? [{ outcome, result_payload: payload }] : [];
+      return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
+    }
+  }
+  const client = new ReplayClient({ outcome: "not_found", result_payload: null });
+  const repo = repository(client);
+  const input = { ...authority(), operationId: OPERATION, setId: SET, expectedStateVersion: 0, values: [{ referenceId: REFERENCE, rateTry: "100", active: true }], channel: "storefront" as const, catalogGramReferenceId: REFERENCE };
+  await repo.apply(input);
+  await repo.apply(input);
+  assert.equal(effectCalls, 1);
+  const reads = recoveryCalls;
+  for (const changed of [{ ...input, channel: "quick_order" as const }, { ...input, catalogGramReferenceId: VARIANT }]) {
+    await assert.rejects(repo.apply(changed), error => referencePricingRepositoryErrorCode(error) === "operation_mismatch");
+    assert.equal(recoveryCalls, reads);
+    assert.equal(client.queries.at(-1)?.text, "ROLLBACK");
+  }
+});
+
 test("catalog gram intent uses V2 RPCs and distinguishes activation fingerprints", async () => {
   const preview = { setId: SET, scopeDigest: "a".repeat(64), affectedProducts: 0, affectedVariants: 0, fixedOverrideVariants: 0, unavailableVariants: 0, entries: [], nextCursor: null };
   const client = new Client({ outcome: "previewed", result_payload: preview });

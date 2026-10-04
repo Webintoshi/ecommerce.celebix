@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { parseReferenceIdentity, type ReferenceIdentity } from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { atomicNativeWrite, nativeStepId } from "../postgres/atomic-write.ts";
 import type { ValidatedOrderAuthority } from "../orders/validation.ts";
 import { failure, referencePricingRepositoryErrorCode, type ReferencePricingErrorCode } from "./errors.ts";
 import type {
-  PostgresReferencePricingRepositoryOptions, ReferencePricingRepository,
+  PostgresReferencePricingRepositoryOptions, ReferencePricingRepository, ActivatedReferenceSet,
 } from "./types.ts";
 import {
   authorityInput, decimal, digest, exact, integer, label, parseActivated,
@@ -261,6 +262,28 @@ export class PostgresReferencePricingRepository implements ReferencePricingRepos
         if (result.setId !== setId || result.stateVersion !== expected + 1) return unavailable();
         return result;
       });
+  }
+  async apply(input: Parameters<NonNullable<ReferencePricingRepository["apply"]>>[0]):Promise<ActivatedReferenceSet> {
+    const {parsed,authority}=authorityInput(input,["operationId","setId","expectedStateVersion","values","channel"],["catalogGramReferenceId"]);
+    const operationId=uuid(parsed.operationId),setId=uuid(parsed.setId),expected=integer(parsed.expectedStateVersion,0),values=setValues(parsed.values);
+    if(parsed.channel!=="storefront"&&parsed.channel!=="quick_order")throw failure("invalid_input");
+    const catalogGramReferenceId=parsed.catalogGramReferenceId===undefined?undefined:uuid(parsed.catalogGramReferenceId);
+    const parser=(value:unknown)=>{const result=parseActivated(value);if(result.setId!==setId||result.stateVersion!==expected+1)return unavailable();return result;};
+    try {
+      return await atomicNativeWrite<ActivatedReferenceSet>({pool:this.options.pool,poolCheckoutMs:this.options.timeouts.poolCheckoutMs,onUnknown:()=>this.emitUnknown(),recover:observed=>this.recover(authority,operationId,"activate",observed,parser)},async pool=>{
+        const pending=new PostgresReferencePricingRepository({...this.options,pool});
+        const step=nativeStepId(operationId,"reference.save");
+        const saveHash=fingerprint("save_set",authority.storeId,{setId,expected,values,channel:parsed.channel,catalogGramReferenceId:catalogGramReferenceId??null,composite:"apply.v1"});
+        await pending.mutate(authority,step,"save_set","saved",SQL.saveSet,[...authorityValues(authority),step,saveHash,setId,expected,JSON.stringify(values)],value=>{const result=parseSavedSet(value);if(result.setId!==setId)return unavailable();return result;});
+        // The saved step verifies the full original intent before any final replay is accepted.
+        const connection=await pool.connect();const existing=row(await pending.query(connection,SQL.recover,[...authorityValues(authority),operationId]));
+        if(existing.outcome==="found") {const envelope=exact(existing.payload,["operationKind","result"],[],true);if(envelope.operationKind!=="activate")throw failure("operation_mismatch");return parser(envelope.result);}
+        if(existing.outcome!=="not_found"&&existing.outcome!=="resource_not_found") {const code=mapped(existing.outcome);if(code)throw failure(code);return unavailable();}
+        const preview=await pending.preview({tenantContext:input.tenantContext,now:input.now,setId,channel:parsed.channel as "storefront"|"quick_order",pageSize:1,...(catalogGramReferenceId?{catalogGramReferenceId}:{})});
+        if(preview.unavailableVariants>0)throw failure("scope_conflict");
+        return pending.activate({tenantContext:input.tenantContext,now:input.now,operationId,setId,expectedStateVersion:expected,expectedScopeDigest:preview.scopeDigest,...(catalogGramReferenceId?{catalogGramReferenceId}:{})});
+      });
+    } catch(error) {if(referencePricingRepositoryErrorCode(error))throw error;return unavailable();}
   }
   async savePolicy(input: Parameters<ReferencePricingRepository["savePolicy"]>[0]) {
     const { parsed, authority } = authorityInput(input, ["operationId", "variantId", "expectedVariantVersion", "expectedPolicyVersion", "policy", "expectedScopeDigest"]);

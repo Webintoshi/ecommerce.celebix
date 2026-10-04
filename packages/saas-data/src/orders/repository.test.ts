@@ -377,6 +377,16 @@ function functionCall(client: FakeClient, name: string) {
   return call;
 }
 
+test("manual order Kaydet creates and converts atomically with native inventory policy",async()=>{
+ for(const blocked of [false,true]){
+  const conversion={draftId:DRAFT_ID,orderId:ORDER_ID,orderNumber:"MAN-1",draftVersion:2,adjustedInventory:true,replayed:false};
+  const client=new FakeClient(text=>text.includes("order_drafts_create(")?[{outcome:"created",result_payload:draftDetail()}]:text.includes("order_drafts_convert(")?[{outcome:blocked?"inventory_conflict":"converted",result_payload:conversion}]:[]);
+  const run=()=>repository(new FakePool(client),{generateId:()=>DRAFT_ID}).applyDraft({tenantContext:tenantContext(),now:NOW,operationId:DRAFT_OPERATION_ID,intent:draftIntent()});
+  if(blocked)await assert.rejects(run,error=>error instanceof OrderRepositoryError&&error.code==="inventory_conflict");else assert.deepEqual(await run(),conversion);
+  assert.equal(client.calls.filter(q=>q.text.startsWith("BEGIN")).length,1);assert.equal(client.calls.filter(q=>q.text==="COMMIT").length,blocked?0:1);assert.equal(client.calls.at(-1)?.text,blocked?"ROLLBACK":"COMMIT");assert.equal(functionCall(client,"order_drafts_convert").values[7],DRAFT_OPERATION_ID);assert.notEqual(functionCall(client,"order_drafts_create").values[7],DRAFT_OPERATION_ID);
+ }
+});
+
 function orderError(code: string) {
   return (error: unknown) => (
     error instanceof OrderRepositoryError &&

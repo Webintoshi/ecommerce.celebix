@@ -198,6 +198,7 @@ export interface PromotionRepository {
   list(input: ListPromotionsInput): Promise<PromotionListResult>;
   detail(input: GetPromotionInput): Promise<PromotionDetail>;
   create(input: CreatePromotionInput): Promise<PromotionMutationResult>;
+  apply?(input: CreatePromotionInput & Readonly<{promotionId?:string;expectedVersion?:number}>): Promise<PromotionMutationResult>;
   update(input: UpdatePromotionInput): Promise<PromotionMutationResult>;
   publish(input: PublishPromotionInput): Promise<PromotionMutationResult>;
   pause(input: PausePromotionInput): Promise<PromotionMutationResult>;

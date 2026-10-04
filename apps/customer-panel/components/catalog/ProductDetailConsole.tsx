@@ -572,7 +572,7 @@ export function ProductDetailConsole({
     await mutation("restore-product", async () => {
       await catalogApi.restoreProduct(productId, detail.product.version);
       await load();
-      setNotice("Ürün taslak olarak geri yüklendi. Yayınlamak için manuel olarak aktifleştirin.");
+      setNotice("Ürün geri yüklendi. Şu anda satışa kapalı.");
     });
   }
 
@@ -631,7 +631,7 @@ export function ProductDetailConsole({
 
   const { product, variants } = detail;
   const archived = product.status === "archived";
-  const statusLabel = product.status === "active" ? "Satışta" : archived ? "Arşivlenmiş" : "Taslak";
+  const statusLabel = product.status === "active" ? "Satışta" : archived ? "Arşivlenmiş" : "Satışa kapalı";
   const priceValues = variants.flatMap((variant) => {
     const current = currentVariantPrice(variant);
     return current === null ? [] : [current];

@@ -287,12 +287,12 @@ export function MerchantRecordEditor({
           }}>
             <section><h2>{recordId ? record?.name || "Kayıt" : "Kayıt bilgileri"}</h2><div className={operations.fields}>
               <label>Ad<input disabled={busy} name="name" required maxLength={160} defaultValue={record?.name ?? ""} /></label>
-              <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+              <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select disabled={busy} name="status" defaultValue="active"><option value="draft">Kapalı</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
               {otherFields.map(renderField)}
             </div></section>
             {contentFields.length ? <section><h2>{definition.family === "marketing" ? "Mesaj" : kind === "lucky_wheel" ? "Ödüller ve koşullar" : "İçerik"}</h2><div className={operations.fields}>{contentFields.map(renderField)}</div></section> : null}
             {optionFields.length ? <section><h2>Tercihler</h2><div className={operations.fields}>{optionFields.map(renderField)}</div></section> : null}
-            <footer className={operations.saveBar}><span role="status">{busy ? "Kaydediliyor…" : dirty ? "Kaydedilmedi" : record ? `v${record.version}` : "Taslak"}</span><div><Link href={returnTo} className={styles.button} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div></footer>
+            <footer className={operations.saveBar}><span role="status">{busy ? "Kaydediliyor…" : dirty ? "Kaydedilmedi" : record ? `v${record.version}` : "Yeni kayıt"}</span><div><Link href={returnTo} className={styles.button} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div></footer>
           </form>
           <RecordPreview kind={kind} config={previewValue.config} name={previewValue.name} />
         </div> : null}
@@ -309,7 +309,7 @@ export function MerchantRecordEditor({
     {!loading && !error && definition.execution === "provider_required" ? <p className={styles.notice}>{definition.notice} Bu ekranda yalnız güvenli yapılandırma kaydedilir; harici çalıştırma başlatılmaz.</p> : null}
     {!loading && !error ? <form className={styles.form} onSubmit={submit}>
       <label>Ad<input name="name" required maxLength={160} defaultValue={record?.name ?? ""} /></label>
-      <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={record?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
+      <label>{definition.execution === "provider_required" ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue="active"><option value="draft">Kapalı</option><option value="active">{definition.execution === "provider_required" ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
       {definition.fields.map((field) => field.type === "enum-list" ? (
         <fieldset className={styles.wide} key={field.key}>
           <legend>{field.label}</legend>

@@ -388,6 +388,7 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
       if (isResponse(authorized)) return authorized;
       const input = await readOrderDraftMutationInput(request, "create");
       if (input.kind !== "valid") return error("invalid_input", 400);
+      if(input.apply){if(!authorized.runtime.orders.applyDraft)return error("unavailable",503);return execute(()=>authorized.runtime.orders.applyDraft!({tenantContext:authorized.tenantContext,now:authorized.now,operationId:input.operationId,intent:input.value}),parseOrderDraftConversionResult);}
       return execute(
         () => authorized.runtime.orders.createDraft({
           tenantContext: authorized.tenantContext,
@@ -425,6 +426,7 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
       if (isResponse(authorized)) return authorized;
       const input = await readOrderDraftMutationInput(request, "update");
       if (input.kind !== "valid" || input.value.expectedVersion === undefined) return error("invalid_input", 400);
+      if(input.apply){if(!authorized.runtime.orders.applyDraft)return error("unavailable",503);return execute(()=>authorized.runtime.orders.applyDraft!({tenantContext:authorized.tenantContext,now:authorized.now,operationId:input.operationId,draftId,intent:input.value}),parseOrderDraftConversionResult);}
       return execute(
         () => authorized.runtime.orders.updateDraft({
           tenantContext: authorized.tenantContext,

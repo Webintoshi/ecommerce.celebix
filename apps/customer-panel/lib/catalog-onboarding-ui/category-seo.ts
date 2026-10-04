@@ -33,14 +33,14 @@ export function createCategorySeoClient(api: Pick<typeof merchantAdminApi, "reco
         ...(record ? { recordId: record.id, expectedVersion: record.version } : {}),
         name: record?.name ?? categoryName,
         config: categorySeoConfig(record, categoryId, draft),
-        status: record?.status === "draft" ? "draft" as const : "active" as const,
+        status: "active" as const,
       };
       const key = JSON.stringify([categoryId, value]);
       const operationId = pending.get(key) ?? crypto.randomUUID();
       pending.set(key, operationId);
       const result = await api.save("seo_category_entry", value, operationId);
       const saved = await api.record("seo_category_entry", result.id);
-      if (saved.config.resourceId !== categoryId || saved.version !== result.version) throw new Error("SEO kaydı doğrulanamadı. Kategori SEO bölümünü kontrol edin.");
+      if (result.status !== "active" || saved.status !== "active" || saved.config.resourceId !== categoryId || saved.version !== result.version) throw new Error("SEO kaydı doğrulanamadı. Kategori SEO bölümünü kontrol edin.");
       pending.delete(key);
       return categorySeoState([saved], categoryId);
     },

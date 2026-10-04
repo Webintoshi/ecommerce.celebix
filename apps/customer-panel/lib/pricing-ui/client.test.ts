@@ -42,6 +42,25 @@ test("pricing client rejects hostile inputs and malformed responses before autho
   assert.equal(calls, 1);
 });
 
+test("price-list apply uses one active final write and recovers the retained key after a lost response", async () => {
+  const calls: Array<RequestInit | undefined> = [];
+  let generated = 0;
+  const api = createPricingApi(async (_input, init) => {
+    calls.push(init);
+    if (calls.length === 1) throw new Error("lost response");
+    return Response.json(list("active", 2));
+  }, () => { generated++; return OP; });
+  const intent = { name: "VIP", items: list().items, rules: list().rules };
+  await assert.rejects(api.apply(intent), error => error instanceof PricingApiError && error.code === "unavailable");
+  await assert.rejects(api.apply({ ...intent, name: "Changed" }), error => error instanceof PricingApiError && error.code === "verification_unavailable");
+  const applied = await api.apply(intent);
+  assert.equal(applied.status, "active");
+  assert.equal(generated, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]?.body, calls[1]?.body);
+  assert.equal(JSON.parse(String(calls[1]?.body)).apply, true);
+});
+
 test("pricing client preview is abortable read-only and contains no browser authority", async () => {
   const calls: Array<[string, RequestInit | undefined]> = [];
   const controller = new AbortController();

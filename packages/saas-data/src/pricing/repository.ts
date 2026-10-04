@@ -6,6 +6,7 @@ import {
   type TenantContext,
 } from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { atomicNativeWrite, nativeStepId } from "../postgres/atomic-write.ts";
 import { canonicalPricingItems, canonicalPricingRules, deterministicPricingCreateId, equalPricingProjection, pricingFingerprint } from "./canonical.ts";
 import { PRICING_ERROR_CODES, pricingFailure, pricingRepositoryErrorCode, type PricingErrorCode } from "./errors.ts";
 import type { PostgresPricingRepositoryOptions, PriceListOperationInput, PricingRepository, SavePriceListInput } from "./types.ts";
@@ -76,6 +77,18 @@ export class PostgresPricingRepository implements PricingRepository {
   async save(input: SavePriceListInput) { const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "name", "items", "rules"], ["priceListId", "expectedVersion"]); const operationId = pricingUuid(parsed.operationId), existing = parsed.priceListId === undefined ? undefined : pricingUuid(parsed.priceListId), expected = parsed.expectedVersion === undefined ? undefined : pricingVersion(parsed.expectedVersion); if ((existing === undefined) !== (expected === undefined)) throw pricingFailure("invalid_input"); const name = pricingText(parsed.name), items = canonicalPricingItems(pricingItems(parsed.items)), rules = canonicalPricingRules(pricingRules(parsed.rules)), payload = { items, name, rules }; const id = existing ?? deterministicPricingCreateId(authority.storeId, operationId, payload); const fingerprint = pricingFingerprint("save", authority.storeId, id, expected ?? null, payload); return this.mutate(authority, operationId, fingerprint, "saved", SQL.save, [...authorityValues(authority), operationId, fingerprint, id, expected ?? null, name, JSON.stringify(items), JSON.stringify(rules)], (value) => this.projection(value, id, "draft", (expected ?? 0) + 1)); }
   private operation(input: PriceListOperationInput, kind: "activate" | "archive") { const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "priceListId", "expectedVersion"]); const operationId = pricingUuid(parsed.operationId), id = pricingUuid(parsed.priceListId), expected = pricingVersion(parsed.expectedVersion), fingerprint = pricingFingerprint(kind, authority.storeId, id, expected, {}), status = kind === "activate" ? "active" : "archived"; return this.mutate(authority, operationId, fingerprint, kind === "activate" ? "activated" : "archived", SQL[kind], [...authorityValues(authority), operationId, fingerprint, id, expected], (value) => this.projection(value, id, status, expected + 1)); }
   activate(input: PriceListOperationInput) { return this.operation(input, "activate"); }
+  async apply(input: SavePriceListInput): Promise<PriceList> {
+    const { parsed, authority } = this.validated(input,["tenantContext","now","operationId","name","items","rules"],["priceListId","expectedVersion"]);
+    const operationId = pricingUuid(parsed.operationId);
+    let saved: PriceList;
+    try {
+      return await atomicNativeWrite({ pool:this.options.pool,poolCheckoutMs:this.options.timeouts.poolCheckoutMs,onUnknown:()=>this.emitUnknown(),recover:observed=>this.recover(authority,operationId,pricingFingerprint("activate",authority.storeId,saved.id,saved.version,{}),observed,value=>this.projection(value,saved.id,"active",saved.version+1)) },async pool=>{
+        const pending=new PostgresPricingRepository({...this.options,pool});
+        saved=await pending.save({...input,operationId:nativeStepId(operationId,"pricing.save")});
+        return pending.activate({tenantContext:input.tenantContext,now:input.now,operationId,priceListId:saved.id,expectedVersion:saved.version});
+      });
+    } catch(error) { if(pricingRepositoryErrorCode(error))throw error;throw unavailable(); }
+  }
   archive(input: PriceListOperationInput) { return this.operation(input, "archive"); }
   async preview(input: Parameters<PricingRepository["preview"]>[0]) {
     const { parsed, authority } = this.validated(

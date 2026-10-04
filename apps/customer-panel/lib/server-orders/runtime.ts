@@ -47,6 +47,10 @@ function facade(repository: OrderRepository): OrderRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
     const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as OrderRepository;
+    if (repository.applyDraft !== undefined) {
+      if (typeof repository.applyDraft !== "function") invalid();
+      methods.applyDraft = repository.applyDraft.bind(repository);
+    }
     return Object.freeze(methods);
   } catch { return invalid(); }
 }

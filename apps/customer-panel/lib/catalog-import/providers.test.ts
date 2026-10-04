@@ -91,7 +91,7 @@ test("OpenCart numeric status imports only enabled products as active", () => {
   assert.equal(parsed.products[0]?.variants[0]?.sku, "OPEN-ON");
 });
 
-test("canonical Celebix CSV remains backward compatible and treats priceCents as cents", () => {
+test("canonical Celebix CSV records ready products as active and keeps priceCents as cents", () => {
   const parsed = parseCatalogImportSource(
     '\uFEFFtitle,slug,priceCents,sku,stockQuantity\r\n"Keten, Gömlek",keten-gomlek,12900,KETEN-1,8\r\n',
     { provider: "generic", format: "csv" },
@@ -100,7 +100,7 @@ test("canonical Celebix CSV remains backward compatible and treats priceCents as
   assert.deepEqual(parsed.products, [{
     title: "Keten, Gömlek",
     slug: "keten-gomlek",
-    status: "draft",
+    status: "active",
     variants: [{ title: "Varsayılan", sku: "KETEN-1", priceCents: 12900, stockQuantity: 8, attributes: {} }],
   }]);
 });

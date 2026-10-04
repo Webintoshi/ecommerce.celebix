@@ -159,6 +159,7 @@ export interface OrderRepository {
   updateDraft(input: UpdateOrderDraftInput): Promise<OrderDraftDetail>;
   archiveDraft(input: OrderDraftOperationInput): Promise<OrderDraftDetail>;
   convertDraft(input: OrderDraftOperationInput): Promise<OrderDraftConversionResult>;
+  applyDraft?(input: CreateOrderDraftInput & Readonly<{draftId?:string}>): Promise<OrderDraftConversionResult>;
 }
 
 export interface OrderAuditEvent {
