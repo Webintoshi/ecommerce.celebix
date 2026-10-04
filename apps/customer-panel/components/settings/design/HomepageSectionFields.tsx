@@ -15,6 +15,9 @@ export function sectionFieldErrors(section: StarterThemeSectionConfigV4): FieldE
   if ("heading" in section && !section.heading.trim()) errors.heading = "Başlık yazın.";
   if (section.kind === "brand_story" && !section.body.trim()) errors.body = "Hikâye metni yazın.";
   if (section.kind === "product_row" && section.source === "category" && !section.categoryId) errors.categoryId = "Kategori seçin.";
+  if (section.enabled && section.kind === "category_grid" && section.categoryImages !== undefined) section.categoryIds.forEach((categoryId,index) => {
+    if (!section.categoryImages!.some(image => image.categoryId === categoryId)) errors[`category${index}Image`] = "Kategori kartı için görsel seçin.";
+  });
   if (section.kind === "split_campaign") section.panels.forEach((panel,index) => {
     if (!panel.heading.trim()) errors[`panel${index}Heading`] = "Başlık yazın.";
     if (!panel.assetId) errors[`panel${index}Asset`] = "Kampanya görseli seçin.";
@@ -69,7 +72,7 @@ export function HomepageSectionFields({ section, assets, media = [], destination
    const category=categories.find(item=>item.resourceId===categoryId), selectedImage=section.categoryImages?.find(item=>item.categoryId===categoryId)?.assetId??"";
    const move=(direction:-1|1)=>{const ids=[...section.categoryIds];[ids[index],ids[index+direction]]=[ids[index+direction]!,ids[index]!];onUpdate({...section,categoryIds:ids});};
    return <fieldset key={categoryId}><legend>{index+1}. {category?.label??"Kategori bulunamadı"}</legend><div className={styles.homepageItemActions}><button type="button" disabled={disabled||index===0} aria-label={`${category?.label??"Kategori"} yukarı taşı`} onClick={()=>move(-1)}><ChevronUp size={16}/></button><button type="button" disabled={disabled||index===section.categoryIds.length-1} aria-label={`${category?.label??"Kategori"} aşağı taşı`} onClick={()=>move(1)}><ChevronDown size={16}/></button></div>
-   <DesignAssetField label="Kart görseli" value={selectedImage} assets={categoryAssets} kind="category" frame="portrait" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={category?.label||"Kategori görseli"} onChange={assetId=>{const latest=latestSection.current;if(latest.kind!=="category_grid")return;const categoryImages=(latest.categoryImages??[]).filter(item=>item.categoryId!==categoryId);if(assetId)categoryImages.push({categoryId,assetId});onUpdate({...latest,categoryImages});}} />
+   <DesignAssetField label="Kart görseli" value={selectedImage} assets={categoryAssets} kind="category" frame="portrait" disabled={disabled} onBusyChange={onMediaBusyChange} onUploaded={onAssetUploaded} altText={category?.label||"Kategori görseli"} onChange={assetId=>{const latest=latestSection.current;if(latest.kind!=="category_grid")return;const categoryImages=(latest.categoryImages??[]).filter(item=>item.categoryId!==categoryId);if(assetId)categoryImages.push({categoryId,assetId});onUpdate({...latest,categoryImages});}} />{error(`category${index}Image`)}
 
    </fieldset>;
   })}

@@ -9,8 +9,8 @@ function button(container:HTMLElement,label:string){const found=Array.from(conta
 const baseline=()=>normalizeStorefrontDesignDocumentV5({...DESIGN,promotion:{...DESIGN.promotion,headline:"Published"}});
 const media={id:"40000000-0000-4000-8000-000000000001",url:"https://fixture.invalid/banner.webp",altText:"Banner image",mediaType:"image/webp" as const,width:1600,height:900,reference:{kind:"asset" as const,assetId:"40000000-0000-4000-8000-000000000001"},assetKind:"hero" as const};
 type MediaUploadInput=Readonly<{file:File;altText:string;operationId?:string}>;
-function fixture(canManage=true,uploadResponse?:(input:MediaUploadInput)=>Promise<StorefrontDesignMediaOption>){
- let live:StorefrontDesignEditorWorkspace={schemaVersion:1,publishedVersion:4,publishedAt:NOW,design:baseline(),store:{name:"Fixture",timezone:"UTC"},media:[media],destinations:[]};
+function fixture(canManage=true,uploadResponse?:(input:MediaUploadInput)=>Promise<StorefrontDesignMediaOption>,initialDesign=baseline()){
+ let live:StorefrontDesignEditorWorkspace={schemaVersion:1,publishedVersion:4,publishedAt:NOW,design:initialDesign,store:{name:"Fixture",timezone:"UTC"},media:[media],destinations:[]};
  let failure:string|undefined;let hold:Promise<void>|undefined;let release:(()=>void)|undefined;
  const requests:{input:{expectedPublishedVersion:number;design:StorefrontDesignDocument};operationId:string}[]=[];
  const mediaRequests:MediaUploadInput[]=[];let uploadFromEditor:((file:File)=>Promise<StorefrontDesignMediaOption>)|undefined;
@@ -79,6 +79,15 @@ test("removing an incomplete section clears validation and applies its removal",
  await click(button(container,"Edit section 1"));await change(container.querySelector<HTMLInputElement>('label input')!,"");assert.equal(button(container,"Uygula").disabled,true);
  await click(button(container,"Kaldır"));assert.match(container.textContent??"",/Bölüm kaldırıldı/);assert.equal(button(container,"Uygula").disabled,false);
  await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(app.live.design.composition.sections.length,0);
+}));
+test("Apply identifies another section's missing category images and recovery keeps edited values",async()=>withEditor(async({container,render,click,change})=>{
+ const initial=baseline();const categoryIds=["40000000-0000-4000-8000-000000000011","40000000-0000-4000-8000-000000000012"];
+ const app=fixture(true,undefined,{...initial,composition:{...initial.composition,sections:[{kind:"value_propositions",sectionId:"home_values",enabled:true,items:[{icon:"shield",heading:"Güven",body:"Güvenli alışveriş"},{icon:"truck",heading:"Teslimat",body:"Özenle teslim"}]},{kind:"category_grid",sectionId:"home_categories",enabled:true,heading:"Yüzük koleksiyonları",layout:"grid",categoryIds,categoryImages:[]}]}});
+ await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit section 1"));await change(container.querySelector('fieldset input')!,"Yeni güven başlığı");
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,0,"an unrelated edit must not send a design with explicitly missing category images");assert.match(container.querySelector('[role="alert"]')?.textContent??"",/Yüzük koleksiyonları/);
+ await click(button(container,"Eksik bölümü düzenle"));assert.match(container.querySelector("output")?.textContent??"",/Yeni güven başlığı/);assert.equal(button(container,"Uygula").disabled,true);
+ await click(button(container,"Gizle"));assert.equal(button(container,"Uygula").disabled,false);await click(button(container,"Uygula"));assert.equal(app.requests.length,1);
+ const values=app.live.design.composition.sections[0],category=app.live.design.composition.sections[1];if(values?.kind==="value_propositions")assert.equal(values.items[0]?.heading,"Yeni güven başlığı");assert.equal(category?.enabled,false);if(category?.kind==="category_grid"){assert.deepEqual(category.categoryIds,categoryIds);assert.deepEqual(category.categoryImages,[]);}
 }));
 test("permission denial preserves input; read-only callbacks cannot create an Apply",async()=>withEditor(async({container,render,click,change})=>{
  const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>("input")!,"Preserved");app.fail("membership_denied");await click(button(container,"Uygula"));assert.equal(container.querySelector<HTMLInputElement>("input")?.value,"Preserved");assert.match(container.textContent??"",/yetkiniz yok/);

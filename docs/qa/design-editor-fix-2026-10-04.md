@@ -101,4 +101,20 @@ Tam paket başarı iddiası yoktur. Eski başarısızlıklar aşağıda adlarıy
 
 ### Yayın ve canlı kabul
 
-Ortak panel tip kontrolü ve taze üretim derlemesi EXIT 0. Bağımsız incelemede P1/P2 veya işlev kaybı bulunmadı; ilgili dört test dosyası 29/29 geçti. Yayın ve canlı tarayıcı kabulü aşağıda tamamlanacak.
+Ortak panel tip kontrolü ve taze üretim derlemesi EXIT 0. Bağımsız incelemede P1/P2 veya işlev kaybı bulunmadı; ilgili dört test dosyası 29/29 geçti.
+
+- İlk dar düzeltme: `5614a4a95450164a11152a2392b164535563ab96`.
+- NET yayını `poey8mtcplzy0ydf40x1cdti`, SITE yayını `rdzyc9p807oau16d2f08r6f4`: ikisi de finished. Gerçek container kaynakları, dört derlenmiş route, istemci davranışı ve ödeme yetkisi kontrolleri geçti; son kontrol globalIdle=true.
+- Her iki vitrin `0f4a7d69efed60f7646e0e13c216039e4a05dbc9` ve native 214 korundu. Yapılandırma geri alma provası, güncel PayTR/native salt okuma kanıtı ve özel release manifesti geçti.
+- Güzide Chrome'da yeni JS yüklendikten sonra boş başlık, boş açıklama, tekrarlanan başlık, değeri kaldırma, yeni değer ekleme ve Vazgeç doğrulandı. Eksik girişte pencere açık kalıyor; alan uyarısı ve Uygula kilidi çalışıyor. Ürün bölümünden Vazgeç sonrası değer önerilerinin kayıt düğmesi doğru açılıyor.
+- Ücretsiz kargo girişinde `1.000,50` geçerli; kargo ayarı Vazgeç ile bırakıldı. 1440/1024/390 pikselde yatay taşma 0; mobil Tab odağı pencere içinde kaldı ve Escape mevcut değişiklikleri bıraktı. Ekran ölçüsü geri alındı.
+
+### Canlı kabulde bulunan ikinci kayıt engeli
+
+Güzide'nin mevcut v96 yayını, dört aktif kategori içeren fakat `categoryImages: []` olan etkin bir kategori vitrini taşıyordu. Kategorilerin mevcut görselleri yoktu; eski ortak showcase arşivliydi. Belge doğrulaması geçiyor, yayın referansı doğrulaması geçmiyordu. Bu bölüm gerçek vitrinde zaten tamamen atlanıyordu. Diğer altı bölümün referansları geçerliydi.
+
+Kullanıcıya işlem açıklanarak bu görselsiz bölüm **Gizle → Uygula** ile kapatıldı; dört kategori seçimi ve bölüm sırası korunuyor. Bölüm silinmedi. Tasarım v97 oldu. Değer önerilerinde kontrollü yerel değişiklik orijinal metne döndürüldükten sonra Uygula başarıyla v98 oluşturdu. V97 işlem kaydındaki tam tasarım belgesi v98 yayınıyla birebir aynı; MD5 `250c4a3233ee85be3303f509be1bd714`. V96 tam belge snapshot'ı yok; tam geçmiş farkı iddiası yapılmaz.
+
+V98 belge/referans/yayın kontrolleri geçiyor; yedi bölüm kaydı ve altı etkin vitrindeki bölüm korunuyor. Alpler v8, Siora v12 ve Lilyum v2 geçerli ve değişmedi. Salt okuma raporu `.tmp/design-editor-live-readonly/findings.md`.
+
+Ortak v5 yayın kontrolü yardımcı fonksiyonu erken `null` dönerek kategori görseli ön kontrolünü atlıyordu. Ek düzeltme yalnız UI'da açıkça boş/eksik kategori görseli eşlemelerini yakalar; eski, eşleme alanı bulunmayan kaydın fallback davranışı ve sunucu doğrulaması korunur. Hata etkilenen bölümü adlandırır. **Eksik bölümü düzenle** düğmesi başka penceredeki girilmiş değerleri koruyarak geçiş yapar. Kategori alanlarında eksik kart görseli uyarısı gösterilir. Root'un doğru `experimental-transform-types` çalıştırıcısıyla üç odaklı dosyası **27/27**, tip kontrolü EXIT 0; bağımsız inceleme P1/P2 bulgusuz. Bu ek dar yayının üretim derlemesi ve yayın kaydı kabulden sonra eklenecek.

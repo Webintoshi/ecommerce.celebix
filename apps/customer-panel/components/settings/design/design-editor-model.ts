@@ -1,4 +1,16 @@
-import {normalizeStarterThemeCompositionV3, type StorefrontDesignDocument} from "@celebix/saas-contracts";
+import {getStorefrontDesignPublishIssue, normalizeStarterThemeCompositionV3, normalizeStarterThemeCompositionV4, type StorefrontDesignDocument, type StorefrontDesignPublishIssue} from "@celebix/saas-contracts";
+
+export function getDesignEditorPublishIssue(design:StorefrontDesignDocument):StorefrontDesignPublishIssue|null {
+ const issue=getStorefrontDesignPublishIssue(design);
+ if(issue)return issue;
+ for(const section of normalizeStarterThemeCompositionV4(design.composition).sections){
+  if(section.enabled&&section.kind==="category_grid"&&section.categoryImages!==undefined){
+   const categoryId=section.categoryIds.find(id=>!section.categoryImages!.some(image=>image.categoryId===id));
+   if(categoryId)return {code:"category_grid_image_missing",sectionId:section.sectionId,categoryId};
+  }
+ }
+ return null;
+}
 
 export function synchronizeCompositionAnnouncement(design:StorefrontDesignDocument,composition:StorefrontDesignDocument["composition"]):StorefrontDesignDocument {
  const nextComposition={...composition,schemaVersion:design.composition.schemaVersion,sections:design.composition.sections} as StorefrontDesignDocument["composition"];
