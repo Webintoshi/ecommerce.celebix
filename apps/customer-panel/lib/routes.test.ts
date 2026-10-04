@@ -435,9 +435,7 @@ test("completed index and configuration routes have literal navigation destinati
     "/analytics",
     "/products/tags",
     "/products/barcode-labels",
-    "/products/purchasing",
-    "/products/inventory-counts",
-    "/products/transfers",
+    "/products/stock",
     "/products/price-lists",
     "/settings/design",
     "/marketing/email",
@@ -445,6 +443,10 @@ test("completed index and configuration routes have literal navigation destinati
     "/accounting/invoicing-integration",
     "/seo/content",
   ]) assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  // Legacy stock URLs remain compatible, but the menu exposes one stock workspace.
+  for (const href of ["/products/purchasing", "/products/inventory-counts", "/products/transfers"]) {
+    assert.doesNotMatch(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  }
   for (const href of ["/customers/new", "/products/new", "/discounts/new"]) {
     assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
   }
