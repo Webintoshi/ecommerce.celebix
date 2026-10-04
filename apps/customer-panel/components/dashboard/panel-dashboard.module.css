@@ -18,16 +18,16 @@
   gap: 0.5rem;
 }
 
-.liveVisitors {
-  min-height: 2.75rem;
-  border: 1px solid #E7E2DD;
-  border-radius: 0.625rem;
-  background: #FFFDFC;
+.periodControl {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
 }
 
 .periodFilter {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) 12px;
   grid-template-rows: var(--cp-control-height, 44px);
   min-height: var(--cp-control-height, 44px);
   align-items: center;
@@ -53,7 +53,9 @@
   border: 0;
   outline: 0;
   background: transparent;
+  appearance: none;
   padding: 0;
+  width: 100%;
   color: inherit;
   font: inherit;
   font-size: var(--cp-control-font-size, 14px);
@@ -61,23 +63,17 @@
   cursor: pointer;
 }
 
-.periodFilter:has(small) select {
-  padding-bottom: 14px;
+.periodFilter > .periodChevron {
+  grid-column: 3;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
 }
 
-.periodFilter small {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: end;
-  max-width: 15rem;
-  margin-bottom: 4px;
-  overflow: hidden;
-  color: var(--cp-text-secondary, #69635E);
-  font-size: 11px;
-  line-height: 12px;
-  text-overflow: ellipsis;
+.periodRange {
+  color: var(--cp-text-secondary);
+  font-size: 12px;
   white-space: nowrap;
-  pointer-events: none;
 }
 
 .statusAction:focus-visible,
@@ -91,30 +87,32 @@
 }
 
 .liveVisitors {
-  display: grid;
-  min-width: 7.5rem;
-  align-content: center;
-  gap: 0.15rem;
-  padding: 0.3rem 0.65rem;
+  display: flex;
+  min-width: 0;
+  min-height: var(--cp-control-height);
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
 }
 
 .liveVisitors span {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: #7c7069;
-  font-size: 0.68rem;
+  color: var(--cp-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .liveVisitors svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: #16a34a;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--cp-text-secondary);
 }
 
 .liveVisitors strong {
-  color: #2B2B2B;
-  font-size: 0.78rem;
+  color: var(--cp-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .storeStatusBar {
@@ -266,7 +264,7 @@
   min-height: var(--cp-control-height, 44px);
   border-color: var(--cp-control-border, transparent);
   border-radius: var(--cp-control-radius, 8px);
-  background: var(--cp-control-background, var(--cp-soft, #F0EDE8));
+  background: transparent;
   padding: 8px 12px;
   color: var(--cp-text-primary, #2B2B2B);
   font-size: var(--cp-control-font-size, 14px);
@@ -274,6 +272,12 @@
   box-shadow: none;
   transform: none;
   transition: none;
+}
+
+.dashboardTopbarActions a svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .kpiGrid {
@@ -908,6 +912,7 @@
 }
 
 @media (max-width: 1180px) {
+  .periodRange { display: none; }
   .primaryGrid { grid-template-columns: minmax(0, 1.6fr) minmax(15rem, 0.9fr); }
   .actionItemsCard { grid-column: 1 / -1; }
   .attentionList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
@@ -928,7 +933,7 @@
 
 @media (max-width: 720px) {
   .dashboardTopbarContext { width: 100%; justify-content: stretch; }
-  .periodFilter { flex: 1; }
+  .periodControl, .periodFilter { flex: 1; }
   .liveVisitors { flex: 1; min-width: 0; }
   .storeStatusBar { grid-template-columns: 1fr; }
   .storeMeta { grid-column: auto; grid-row: auto; flex-wrap: wrap; }
@@ -952,8 +957,10 @@
 }
 
 @media (max-width: 520px) {
-  .dashboardTopbarContext { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
-  .periodFilter small { display: none; }
+  .dashboardTopbarContext { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .liveVisitors { min-height: 20px; padding: 0; }
+  .liveVisitors span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .liveVisitors strong { font-size: 12px; white-space: normal; }
   .kpiCard { min-height: 7rem; padding: 0.8rem; }
   .kpiIcon { width: 2.7rem; height: 2.7rem; flex-basis: 2.7rem; }
   .kpiIcon svg { width: 1.25rem; height: 1.25rem; }
@@ -987,7 +994,6 @@
   .operationsGrid,
   .insightGrid,
   .quickActions { max-width: 100%; }
-  .dashboardTopbarContext { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
   .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpiCard { min-height: 7rem; align-items: flex-start; flex-direction: column; gap: 0.5rem; }
   .orderStatusBody { grid-template-columns: 1fr; }
@@ -1654,7 +1660,6 @@
 
 @media (max-width: 520px) {
   .periodFilter select { font-size: 16px; }
-  .periodFilter:has(small) select { padding-bottom: 0; }
   .focusBanner { min-height: 210px; align-items: flex-start; }
   .focusCopy { max-width: 100%; }
   .focusCopy h2 { padding-right: 30px; font-size: 19px; }

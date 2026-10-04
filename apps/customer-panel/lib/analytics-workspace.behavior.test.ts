@@ -141,12 +141,15 @@ test("all five real tabs accept the fixture contracts and keep intentional traff
   });
 });
 
-test("first-touch provider degradation stays quiet while real worker delays remain visible", async () => {
+test("first-touch provider degradation stays quiet while worker health remains in its disclosure", async () => {
   for (const worker of [{ retry: 0, deadLetter: 0, oldestPendingSeconds: 18 }, { retry: 1, deadLetter: 0, oldestPendingSeconds: 18 }, { retry: 0, deadLetter: 1, oldestPendingSeconds: 18 }, { retry: 0, deadLetter: 0, oldestPendingSeconds: 301 }]) {
     await workspace("/analytics?tab=acquisition&touch=first&range=90d", async ({ host }) => {
-      const delayed = worker.retry > 0 || worker.deadLetter > 0 || worker.oldestPendingSeconds > 300;
-      assert.equal(Boolean(host.querySelector(".warning")), delayed);
-      assert.doesNotMatch(textOf(host), /Trafik verisi alınamıyor/);
+      assert.equal(host.querySelector(".warning"), null);
+      assert.doesNotMatch(textOf(host), /Trafik verisi alınamıyor|Veriler gecikiyor|Ölçümde gecikme var/);
+      const health = host.querySelector(".technical");
+      assert.match(health.textContent, new RegExp(`Tekrar ${worker.retry}`));
+      assert.match(health.textContent, new RegExp(`Hatalı ${worker.deadLetter}`));
+      assert.match(health.textContent, new RegExp(`En eski ${worker.oldestPendingSeconds} sn`));
       assert.match(textOf(host), /İlk temasta ziyaretçi adımları ölçülmüyor/);
       assert.ok(host.querySelector('table[aria-label="Trafik kaynakları"]'));
     }, async (record) => {
@@ -161,8 +164,9 @@ test("first-touch provider degradation stays quiet while real worker delays rema
 test("missing traffic with a delayed commerce worker never claims commerce freshness", async () => {
   await workspace("/analytics?range=30d", async ({ host }) => {
     const content = textOf(host);
-    assert.match(content, /Veriler gecikiyor/);
-    assert.match(content, /Satış ve sepet verileri gecikiyor[.]/);
+    assert.doesNotMatch(content, /Veriler gecikiyor|Ölçümde gecikme var/);
+    assert.match(content, /Trafik verisi alınamıyor/);
+    assert.match(host.querySelector(".technical").textContent, /Tekrar 1/);
     assert.doesNotMatch(content, /Satış verileri güncel|Satış ve sepet verileri güncel|Veriler güncel/);
     assert.ok(content.includes(money(12_845_000)));
   }, async (record) => {

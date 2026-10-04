@@ -28,9 +28,10 @@
 .root :is(h2, h3) { color: var(--analytics-ink); line-height: 1.35; }
 .root button:disabled { cursor: not-allowed; opacity: 0.6; }
 .topbarLiveMetric { display: flex; min-width: 0; justify-content: flex-end; }
-.topbarLiveMetric > article { display: flex; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--analytics-line); border-radius: 999px; background: var(--analytics-surface); padding: 8px 12px; box-shadow: none; }
-.topbarLiveMetric > article span { color: var(--analytics-muted); font-size: 12px; }
-.topbarLiveMetric > article strong { color: var(--analytics-ink); font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.activeVisitors { display: inline-flex; min-width: 0; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px; box-shadow: none; }
+.activeVisitors > svg { flex: 0 0 auto; color: var(--cp-text-primary); }
+.visitorsLabel { color: var(--cp-text-secondary); font-size: 12px; }
+.activeVisitors strong { color: var(--cp-text-primary); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .liveStatus { display: inline-flex; min-width: 0; align-items: center; gap: 8px; color: var(--analytics-muted); font-size: 12px; }
 
 .pageTop, .contextRow, .quickControls, .sectionHeading, .panelHeading {
@@ -251,8 +252,7 @@
   .lowerGrid, .secondaryGrid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .topbarLiveMetric > article span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-  .topbarLiveMetric > article strong { white-space: nowrap; }
+  .visitorsLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .root, .overview, .detailPage, .reportPanel { gap: 16px; }
   .tabs { gap: 16px; padding-inline: 4px; }
   .quickControls { justify-content: flex-start; }

@@ -48,7 +48,7 @@ const COUNT_ID = "88888888-8888-4888-8888-888888888888";
 const TRANSFER_ID = "99999999-9999-4999-8999-999999999999";
 const PRICE_LIST_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
-const MODEL = Object.freeze({
+export const MODEL = Object.freeze({
   analyticsAvailable: false,
   storeSlug: "browser-kabul-magazasi",
   membershipLabel: "Mağaza sahibi",
@@ -59,7 +59,7 @@ const MODEL = Object.freeze({
   locale: "tr-TR",
 });
 
-const DASHBOARD = createMerchantDashboardViewModel(
+export const DASHBOARD = createMerchantDashboardViewModel(
   MODEL,
   readyAuthority(Object.freeze({
     totalProducts: 12,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronRight, CircleDollarSign, Package, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, CircleDollarSign, Package, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
 import {
   ANALYTICS_PERIODS,
   type AbandonedCartSummary,
@@ -267,8 +267,9 @@ function DashboardLiveVisitors({ enabled }: Readonly<{ enabled: boolean }>) {
         ? "1 ziyaretçi"
         : `${snapshot.activeVisitors} ziyaretçi`;
   return (
-    <article className={styles.liveVisitors} aria-live="polite">
-      <span><Activity aria-hidden="true" />Şu anda</span>
+    <article className={styles.liveVisitors} aria-live="polite" data-state={!enabled || snapshot?.status === "unavailable" ? "unavailable" : snapshot === null ? "loading" : "ready"}>
+      <Activity aria-hidden="true" />
+      <span>Şu anda</span>
       <strong>{value}</strong>
     </article>
   );
@@ -308,20 +309,24 @@ function DashboardTopbarContext({ analytics, activeVisitorsEnabled, period, onPe
   period: AnalyticsPeriod;
   onPeriodChange?: (period: AnalyticsPeriod) => void;
 }>) {
+  const rangeId = "dashboard-period-range";
   return (
     <div className={styles.dashboardTopbarContext}>
       <DashboardLiveVisitors enabled={activeVisitorsEnabled} />
-      <label className={styles.periodFilter}>
-        <CalendarDays aria-hidden="true" />
-        <span className={styles.visuallyHidden}>Dönem</span>
-        <select aria-label="Dönem" value={period} onChange={(event) => {
-          const nextPeriod = event.target.value as AnalyticsPeriod;
-          if (ANALYTICS_PERIODS.includes(nextPeriod)) onPeriodChange?.(nextPeriod);
-        }}>
-          {ANALYTICS_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
-        </select>
-        {analytics ? <small>{formatRange(analytics.rangeStart, analytics.rangeEnd)}</small> : null}
-      </label>
+      <div className={styles.periodControl}>
+        <label className={styles.periodFilter}>
+          <CalendarDays aria-hidden="true" />
+          <span className={styles.visuallyHidden}>Dönem</span>
+          <select aria-label="Dönem" aria-describedby={analytics ? rangeId : undefined} value={period} onChange={(event) => {
+            const nextPeriod = event.target.value as AnalyticsPeriod;
+            if (ANALYTICS_PERIODS.includes(nextPeriod)) onPeriodChange?.(nextPeriod);
+          }}>
+            {ANALYTICS_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
+          </select>
+          <ChevronDown className={styles.periodChevron} aria-hidden="true" />
+        </label>
+        {analytics ? <><span className={styles.visuallyHidden} id={rangeId}>{formatRange(analytics.rangeStart, analytics.rangeEnd)}</span><small className={styles.periodRange} aria-hidden="true">{formatRange(analytics.rangeStart, analytics.rangeEnd)}</small></> : null}
+      </div>
     </div>
   );
 }
@@ -567,7 +572,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links">Mağaza satışı</PanelActionButton></div>} />
+      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links"><Store aria-hidden="true" />Mağaza satışı</PanelActionButton></div>} />
       <div className={styles.dashboardPage}>
         <h1 className={styles.visuallyHidden}>Genel bakış</h1>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />

@@ -20,6 +20,16 @@ function fixtureMutationTarget(path: string) {
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const path = await selectedPath(context);
+  // Only the dedicated Extras QA URL can select these in-memory states.
+  let extrasState: string | null = null;
+  try {
+    const referer = new URL(request.headers.get("referer") ?? "");
+    if (referer.pathname === "/products/extras") extrasState = referer.searchParams.get("state");
+  } catch { /* Other fixture callers keep their existing responses. */ }
+  if (path === "admin/resources/extra") {
+    if (extrasState === "empty" || extrasState === "read-only") return Response.json({ items: [] });
+    if (extrasState === "error") return Response.json({ code: "unavailable" }, { status: 503 });
+  }
   let designFixture = false;
   try { designFixture = new URL(request.headers.get("referer") ?? "").pathname === "/design-settings-fix"; } catch { /* Other isolated fixture datasets stay unchanged. */ }
   if (designFixture && (path === "products/v2" || path === "products")) return Response.json({ items: fixtureProducts.map((item) => ({ id: item.id, storeId: "91000000-0000-4000-8000-000000000001", title: item.title, slug: item.slug, description: item.description, status: item.status, currency: item.currency, createdAt: NOW, updatedAt: NOW, version: 1 })), catalogTotal: fixtureProducts.length });
