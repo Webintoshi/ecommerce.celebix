@@ -38,7 +38,7 @@ network only.
 ## Evidence checks
 
 - At 1440, 1024 and 390 px, list order is Hakkımızda / İletişim / Blog / custom;
-  required records have a short “Zorunlu” badge and no archive action. The custom
+  there are no “Zorunlu” labels and required records have no archive action. The custom
   page retains its archive control. No horizontal overflow or console errors.
 - Required editors omit address/language controls. Name, formatted body,
   publishing and SEO fields remain editable. Keyboard tab order, focus styles,

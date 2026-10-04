@@ -33,7 +33,7 @@ test('required page editor hides route fields and saves editable content with st
   const api = { get: async () => source, save: async (input: unknown) => { captured.push(input); return { document: { ...source, version: 5, name: 'Mağazamız' }, replayed: false }; }, versions: async () => [] };
   await mount(async ({ container, change, submit }) => {
     for (const label of ['URL anahtarı', 'Dil', 'Durum', 'Özet', 'Yayınla']) assert.equal(container.querySelector(`[aria-label="${label}"]`), null, label);
-    assert.match(container.textContent ?? '', /Zorunlu/);
+    assert.doesNotMatch(container.textContent ?? '', /Zorunlu/);
     await change('Ad', 'Mağazamız');
     await change('İçerik metni', '<p>Kendi hikayemiz</p>');
     await change('Yayın durumu', 'published');
