@@ -13,7 +13,7 @@ import { useGuzideMobileExperience } from "./GuzideMobileExperience";
 import type { GuzideMenuImages } from "./guzide-menu.ts";
 import styles from "./guzide-mobile-menu.module.css";
 
-type Props = Pick<CampaignHeaderClientProps, "displayName" | "locale" | "logo" | "navigation"> & Readonly<{ menuImages: GuzideMenuImages; supportEmail?: string; onClose: () => void; onNavigate?: (href: string) => void }>;
+type Props = Pick<CampaignHeaderClientProps, "displayName" | "locale" | "logo" | "navigation"> & Readonly<{ menuImages: GuzideMenuImages; supportEmail?: string; onClose: () => void; onNavigate?: (href: string) => void; onSearch?: (trigger: HTMLElement) => void }>;
 
 function MenuPhoto({ image, hero = false }: { image?: PublicStorefrontAsset; hero?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -22,7 +22,7 @@ function MenuPhoto({ image, hero = false }: { image?: PublicStorefrontAsset; her
     loading={hero ? "eager" : "lazy"} decoding="async" onError={() => setFailed(true)} />;
 }
 
-export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuImages, supportEmail, onClose, onNavigate }: Props) {
+export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuImages, supportEmail, onClose, onNavigate, onSearch }: Props) {
   const router = useRouter(), pathname = usePathname();
   const [trail, setTrail] = useState<readonly number[]>([]);
   const inputRef = useRef<HTMLInputElement>(null), backRef = useRef<HTMLButtonElement>(null),
@@ -79,11 +79,11 @@ export function GuzideMobileMenu({ displayName, locale, logo, navigation, menuIm
         {logo ? <img src={logo.url} alt={logo.altText || displayName} width={logo.width ?? 190} height={logo.height ?? 88} /> : <span>{displayName}</span>}
       </Link>
     </header>
-    <form className={styles.search} role="search" action="/search" method="get" onSubmit={submit}>
+    {onSearch ? <button className={styles.searchEntry} type="button" onClick={event => onSearch(event.currentTarget)} aria-haspopup="dialog" aria-controls="guzide-search-panel"><Search aria-hidden="true" /><span>Ürün veya kategori ara</span></button> : <form className={styles.search} role="search" action="/search" method="get" onSubmit={submit}>
       <button type="submit" aria-label="Ürün ara"><Search aria-hidden="true" /></button>
       <label className="sr-only" htmlFor="guzide-menu-search">Ürün veya kategori ara</label>
       <input id="guzide-menu-search" ref={inputRef} type="search" name="q" placeholder="Ürün veya kategori ara" autoComplete="off" enterKeyHint="search" required maxLength={100} onInput={event => event.currentTarget.setCustomValidity("")} />
-    </form>
+    </form>}
     <div className={styles.scroll} ref={scrollRef}>
       <div className={styles.content}>
         {current ? <>

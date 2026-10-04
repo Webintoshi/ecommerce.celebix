@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { StoreUtilities } from "./StoreUtilities";
+import { StoreUtilities, type StoreSearchControl } from "./StoreUtilities";
 import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-header.module.css";
 
@@ -30,6 +30,8 @@ export type CampaignHeaderClientProps = Readonly<{
   logo?: Readonly<{ url: string; altText: string; width?: number; height?: number }> | null;
   navigation: PublicStarterNavigation;
   desktopNavigation: ReactNode;
+  desktopSearch?: ReactNode;
+  searchControl?: StoreSearchControl;
   renderMobileMenu?: (close: () => void) => ReactNode;
   mobileMenuClassName?: string;
   mobileMenuController?: Readonly<{ isOpen: boolean; open(trigger: HTMLElement): void; close(): void; linkClick(event: MouseEvent<HTMLElement>): void }>;
@@ -41,6 +43,8 @@ export function CampaignHeaderClient({
   logo,
   navigation,
   desktopNavigation,
+  desktopSearch,
+  searchControl,
   renderMobileMenu,
   mobileMenuClassName,
   mobileMenuController,
@@ -130,8 +134,9 @@ export function CampaignHeaderClient({
         data-storefront-header-bar
         className={`${styles.bar} ${opaque && !nonHome ? styles.opaque : ""} ${nonHome}`}
       >
-        <div className={styles.container} data-storefront-header-container>
+        <div className={styles.container} data-storefront-header-container inert={searchControl?.isOpen || undefined}>
           {desktopNavigation}
+          {desktopSearch}
           <Link
             className={styles.wordmark}
             data-storefront-wordmark
@@ -150,7 +155,7 @@ export function CampaignHeaderClient({
             )}
           </Link>
           <div className={styles.actions} data-storefront-header-actions>
-            <StoreUtilities />
+            <StoreUtilities searchControl={searchControl} />
             <button
               className={styles.menuButton}
               ref={triggerRef}

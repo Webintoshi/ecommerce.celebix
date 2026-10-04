@@ -5,14 +5,14 @@
 .stage { display: grid; grid-template-columns: minmax(0, 2.15fr) minmax(290px, .95fr); gap: clamp(32px, 4vw, 64px); align-items: start; padding-top: 4px; }
 .purchasePanel { min-width: 0; }
 .titleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.experience .titleRow h1 { min-width: 0; margin: -3px 0 16px; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(32px, 3.2vw, 48px); font-weight: 500; line-height: 1.12; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.experience .titleRow h1 { min-width: 0; margin: -3px 0 16px; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(24px, 1.9vw, 30px); font-weight: 500; line-height: 1.35; letter-spacing: -.02em; overflow-wrap: break-word; text-wrap: pretty; }
 .favorite { flex: 0 0 44px; }
 .favorite :global(.favorite-button) { display: grid; width: 44px; height: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 0; padding: 0; color: var(--ink); background: transparent; }
 .favorite :global(.favorite-button) svg { width: 26px; height: 26px; stroke-width: 1.3; }
 .favorite :global(.favorite-button[aria-pressed="true"]) svg { fill: currentColor; }
 .brand { display: inline-flex; width: fit-content; min-height: 28px; align-items: center; margin-bottom: 4px; color: var(--muted); font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
 .sku { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
-.price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 18px 0 24px; font-size: clamp(28px, 2.7vw, 38px); line-height: 1.1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 18px 0 28px; font-size: clamp(24px, 1.8vw, 28px); line-height: 1.25; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
 .price strong { font-weight: 450; }
 .price del { color: var(--muted); font-size: 16px; font-weight: 400; letter-spacing: 0; }
 .highlights { display: grid; gap: 8px; margin: 0 0 22px; padding-left: 17px; color: var(--muted); font-size: 12px; line-height: 1.7; }
@@ -72,7 +72,7 @@
 
 @media (max-width: 1100px) and (min-width: 901px) {
   .stage { grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); gap: 30px; }
-  .experience .titleRow h1 { font-size: 32px; }
+  .experience .titleRow h1 { font-size: 24px; }
 }
 @media (max-width: 900px) {
   :global([data-storefront-theme="guzide-deniz"]):has(.experience[data-mobile-sticky="true"]) { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
@@ -80,9 +80,9 @@
   .breadcrumb { min-height: 52px; padding-block: 14px; font-size: 10px; }
   .stage { display: block; padding-top: 0; }
   .purchasePanel { padding-top: 24px; }
-  .experience .titleRow h1 { margin: 0 0 16px; font-size: clamp(30px, 6.5vw, 40px); line-height: 1.12; }
+  .experience .titleRow h1 { margin: 0 0 12px; font-size: clamp(23px, 4.5vw, 28px); line-height: 1.35; }
   .favorite { margin-right: -6px; }
-  .price { margin: 18px 0 24px; font-size: 32px; }
+  .price { margin: 14px 0 24px; font-size: 26px; }
   .information summary { min-height: 58px; }
   .related { margin-top: 46px; padding-top: 24px; }
   .related h2 { margin-bottom: 22px; font-size: 28px; }
