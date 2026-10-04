@@ -56,6 +56,30 @@ test("ordering and section visibility remain local until Apply; Cancel discards 
  await click(button(container,"Sıralama"));await click(button(container,"Marka hikâyesi 2 yukarı taşı"));assert.match(container.querySelector("output")?.textContent??"",/Story/);assert.equal(app.requests.length,0);await click(button(container,"Vazgeç"));const preview=JSON.parse(container.querySelector("output")!.textContent!) as StorefrontDesignDocument;assert.equal(preview.composition.sections[0]?.kind,"product_row");
  await click(button(container,"Edit section 1"));await click(button(container,"Gizle"));assert.equal(app.requests.length,0);await click(button(container,"Uygula"));assert.equal(app.live.design.composition.sections[0]?.enabled,false);
 }));
+test("value edits block incomplete Apply and preserve four values across a failed save and retry",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));
+ await click(button(container,"Insert start"));await click(button(container,"Değer önerileri"));
+ const add=()=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(item=>item.textContent?.includes("Değer ekle"))!;
+ await click(add());await click(add());assert.equal(container.querySelectorAll("fieldset").length,4);
+ const heading=()=>container.querySelectorAll("fieldset")[3]!.querySelectorAll<HTMLInputElement>("input")[0]!;
+ await change(heading(),"");assert.equal(button(container,"Uygula").disabled,true);assert.equal(heading().value,"");await click(button(container,"Uygula"));assert.equal(app.requests.length,0);
+ await change(heading(),"Özel değer");assert.equal(button(container,"Uygula").disabled,false);
+ app.fail();await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(heading().value,"Özel değer");assert.equal(container.querySelectorAll("fieldset").length,4);assert.equal(app.live.design.composition.sections.some(section=>section.kind==="value_propositions"),false);
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,2);assert.equal(app.requests[0]?.operationId,app.requests[1]?.operationId);assert.deepEqual(app.requests[0]?.input,app.requests[1]?.input);
+ const values=app.live.design.composition.sections[0];assert.equal(values?.kind,"value_propositions");if(values?.kind==="value_propositions"){assert.equal(values.items.length,4);assert.equal(values.items[3]?.heading,"Özel değer");}
+}));
+test("canceling an invalid section resets validation before editing another popup",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));
+ await click(button(container,"Edit section 1"));await change(container.querySelector<HTMLInputElement>('label input')!,"");assert.equal(button(container,"Uygula").disabled,true);
+ await click(button(container,"Vazgeç"));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"After cancel");assert.equal(button(container,"Uygula").disabled,false);
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(app.live.design.promotion.headline,"After cancel");assert.equal(app.live.design.composition.sections[0]?.kind,"product_row");
+}));
+test("removing an incomplete section clears validation and applies its removal",async()=>withEditor(async({container,render,click,change})=>{
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));
+ await click(button(container,"Edit section 1"));await change(container.querySelector<HTMLInputElement>('label input')!,"");assert.equal(button(container,"Uygula").disabled,true);
+ await click(button(container,"Kaldır"));assert.match(container.textContent??"",/Bölüm kaldırıldı/);assert.equal(button(container,"Uygula").disabled,false);
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(app.live.design.composition.sections.length,0);
+}));
 test("permission denial preserves input; read-only callbacks cannot create an Apply",async()=>withEditor(async({container,render,click,change})=>{
  const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>("input")!,"Preserved");app.fail("membership_denied");await click(button(container,"Uygula"));assert.equal(container.querySelector<HTMLInputElement>("input")?.value,"Preserved");assert.match(container.textContent??"",/yetkiniz yok/);
  const readonly=fixture(false);await render(React.createElement(readonly.DesignWorkspace,{workspace:readonly.live,initialPreviewResources:{},canManage:false}));await click(button(container,"Edit brand"));assert.equal(container.querySelector<HTMLInputElement>("input")?.disabled,true);assert.equal(button(container,"Uygula").disabled,true);assert.equal(readonly.requests.length,0);

@@ -20,3 +20,19 @@ test('free shipping settings preserves dot/comma input and blocks Apply until th
   await click(container.querySelector('input[type=checkbox]')!);await paint();assert.equal(invalid,false);assert.equal(config.showShippingProgress,false);assert.equal((config as Record<string,unknown>).freeShippingThresholdCents,1489);
  });
 });
+
+test('free shipping threshold distinguishes Turkish grouping from decimal dots and preserves invalid input',async()=>{
+ const {ShippingProgressSettings}=feature();
+ await withEditor(async({container,render,change})=>{
+  let config={showShippingProgress:true,showCheckoutReadiness:true,showQuantitySelector:true,freeShippingThresholdCents:1489}, invalid=false;
+  const paint=()=>render(React.createElement(ShippingProgressSettings,{cart:config,disabled:false,onChange:(value:typeof config)=>{config=value;},onValidationChange:(value:boolean)=>{invalid=value;}}));
+  await paint();
+  const input=container.querySelector<HTMLInputElement>('input[inputmode=decimal]')!;
+  for(const [typed,cents] of [['1.000,50',100050],['1.000',100000],['1.000.000,00',100000000],['1000.50',100050],['14.89',1489]] as const){
+   await change(input,typed);await paint();assert.equal(config.freeShippingThresholdCents,cents,typed);assert.equal(invalid,false,typed);assert.equal(input.value,typed);
+  }
+  for(const typed of ['12.34,56','1.000.001','1.000,','']){
+   await change(input,typed);await paint();assert.equal(config.freeShippingThresholdCents,1489,typed);assert.equal(invalid,true,typed);assert.equal(input.value,typed);
+  }
+ });
+});

@@ -30,6 +30,25 @@ test("section fields keep incomplete local text editable and preserve unrelated 
  let current=design(row);const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_products",media:[],destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await change(field(container,"Başlık"),"");await draw();assert.equal(field(container,"Başlık").value,"");assert.match(container.textContent??"",/Başlık yazın/);
  await change(field(container,"Ürün sayısı"),"12");await draw();assert.equal(field(container,"Başlık").value,"");await change(field(container,"Başlık"),"Complete");await draw();const section=current.composition.sections[0];assert.equal(section?.kind,"product_row");if(section?.kind==="product_row"){assert.equal(section.limit,12);assert.equal(section.heading,"Complete");}
 }));
+test("value additions, removals and incomplete edits preserve input and report Apply validity",async()=>withEditor(async({container,render,change,click})=>{
+ let current=design({kind:"value_propositions",sectionId:"home_values",enabled:true,items:[{icon:"shield",heading:"Güvenli alışveriş",body:"Güvenle hazırlanır."},{icon:"truck",heading:"Teslimat",body:"Özenle paketlenir."}]});
+ const validation:boolean[]=[];
+ const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_values",media:[],destinations:[],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{},onValidationChange:(invalid:boolean)=>validation.push(invalid)}));
+ await draw();assert.equal(validation.at(-1),false);
+ await click(button(container,"Değer ekle"));await draw();await click(button(container,"Değer ekle"));await draw();
+ assert.equal(container.querySelectorAll("fieldset").length,4);assert.equal(button(container,"Değer ekle").disabled,true);
+ await change(field(container.querySelectorAll("fieldset")[3]!,"Başlık"),"");await draw();
+ assert.equal(field(container.querySelectorAll("fieldset")[3]!,"Başlık").value,"");assert.equal(validation.at(-1),true);assert.match(container.textContent??"",/Başlık yazın/);
+ await change(field(container.querySelectorAll("fieldset")[3]!,"Başlık"),"Güvenli alışveriş");await draw();assert.equal(validation.at(-1),true);assert.match(container.textContent??"",/farklı başlık/);
+ await change(field(container.querySelectorAll("fieldset")[3]!,"Başlık"),"Özel değer");await draw();
+ await change(field(container.querySelectorAll("fieldset")[3]!,"Açıklama"),"");await draw();assert.equal(validation.at(-1),true);
+ await change(field(container.querySelectorAll("fieldset")[3]!,"Açıklama"),"Yeni avantaj");await draw();assert.equal(validation.at(-1),false);
+ await click(button(container.querySelectorAll("fieldset")[2]!,"Değeri kaldır"));await draw();
+ assert.equal(field(container.querySelectorAll("fieldset")[2]!,"Başlık").value,"Özel değer");assert.equal(field(container.querySelectorAll("fieldset")[2]!,"Açıklama").value,"Yeni avantaj");assert.equal(validation.at(-1),false);
+ await click(button(container.querySelectorAll("fieldset")[2]!,"Değeri kaldır"));await draw();assert.equal(container.querySelectorAll("fieldset").length,2);assert.equal(button(container,"Değeri kaldır").disabled,true);
+ normalizeStorefrontDesignDocumentV5(current);
+ current={...current,composition:{...current.composition,sections:[]}};await draw();assert.equal(validation.at(-1),false);assert.match(container.textContent??"",/Bölüm kaldırıldı/);
+}));
 test("campaign image changes keep eyebrow and body; second card can be completed first",async()=>withEditor(async({container,render,change,click})=>{
  let current=design({kind:"split_campaign",sectionId:"home_campaign",enabled:true,panels:[{heading:"First",eyebrow:"Eyebrow",body:"Body",assetId:asset.id,destination:"/products"}]});const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_campaign",media:[],assets:[asset,{...asset,id:id(2)}],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await chooseImage(container,"Görsel",id(2),click);await draw();const first=current.composition.sections[0];assert.equal(first?.kind,"split_campaign");if(first?.kind==="split_campaign"){assert.equal(first.panels[0]?.body,"Body");assert.equal(first.panels[0]?.eyebrow,"Eyebrow");}
  const second=container.querySelectorAll("fieldset")[1]!;await change(field(second,"Başlık"),"Second");await draw();await chooseImage(container.querySelectorAll("fieldset")[1]!,"Görsel",asset.id,click);await draw();await change(field(container.querySelectorAll("fieldset")[1]!,"Bağlantı"),categories[0]!.path);await draw();const section=current.composition.sections[0];if(section?.kind==="split_campaign")assert.deepEqual(section.panels.map(panel=>panel.heading),["First","Second"]);

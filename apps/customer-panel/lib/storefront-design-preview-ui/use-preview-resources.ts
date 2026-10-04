@@ -32,11 +32,15 @@ function hasLoadingResource(resources: StorefrontDesignPreviewResources): boolea
 
 export function useStorefrontDesignPreviewResources(composition: StarterThemeComposition, initial: StorefrontDesignPreviewResources, api: StorefrontDesignPreviewApi = storefrontDesignPreviewApi, previewProductId?: string): StorefrontDesignPreviewResources {
   const [resources, setResources] = useState(initial);
-  const dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId);
+  // Local form edits can be incomplete. Only validated compositions may request
+  // preview resources; the editor retains the input and shows its field errors.
+  let dependencyKey: string | null = null;
+  try { dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId); } catch { /* Keep the last resources until the input is complete. */ }
   const compositionRef = useRef(composition); compositionRef.current = composition;
   const resourcesRef = useRef(resources); resourcesRef.current = resources;
   const coordinator = useMemo(() => createStorefrontDesignPreviewRequestCoordinator({ request: (selected, signal, productId) => api.preview(selected, signal, productId), apply: setResources, fail: (selected, productId) => setResources(unavailableStorefrontDesignPreviewResources(selected, productId)) }), [api]);
   useEffect(() => {
+    if (dependencyKey === null) { coordinator.cancel(); return () => coordinator.cancel(); }
     const selected = compositionRef.current;
     if (resourcesRef.current.dependencyKey === dependencyKey && !hasLoadingResource(resourcesRef.current)) { coordinator.cancel(); return () => coordinator.cancel(); }
     setResources(loadingStorefrontDesignPreviewResources(selected, previewProductId));

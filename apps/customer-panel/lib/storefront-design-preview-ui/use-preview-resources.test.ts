@@ -4,7 +4,7 @@ import test from "node:test";
 import { Window } from "happy-dom";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { createDefaultStarterThemeComposition, type StarterThemeComposition } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, normalizeStarterThemeCompositionV4, type StarterThemeComposition } from "@celebix/saas-contracts";
 import { storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "../storefront-design-preview-model.ts";
 import { createStorefrontDesignPreviewRequestCoordinator, useStorefrontDesignPreviewResources } from "./use-preview-resources.ts";
 
@@ -115,6 +115,62 @@ test("clearing inherited category images refreshes the preview to an empty selec
     pending.resolve({ ...initialResources, dependencyKey: storefrontDesignPreviewDependencyKey(cleared), categoryShowcase: { status: "missing" } });
     await React.act(async () => { await pending.promise; });
     assert.equal(container.textContent, "missing:0");
+  } finally {
+    await React.act(async () => root.unmount()); await window.happyDOM.close();
+    globalThis.window = previousWindow; globalThis.document = previousDocument;
+  }
+});
+
+test("incomplete section edits keep preview resources, cancel stale requests and recover when corrected", async () => {
+  const baseline = normalizeStarterThemeCompositionV4(createDefaultStarterThemeComposition());
+  const values = { kind: "value_propositions", sectionId: "home_values", enabled: true, items: [1, 2, 3, 4].map(number => ({ icon: "shield", heading: `Value ${number}`, body: `Benefit ${number}` })) } as const;
+  const initialComposition = { ...baseline, sections: [values] } as StarterThemeComposition;
+  const changedComposition = { ...baseline, sections: [values, { kind: "product_row", sectionId: "home_products", enabled: true, heading: "Products", source: "latest", limit: 4 }] } as StarterThemeComposition;
+  const initialResources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(initialComposition), productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "missing" } } as StorefrontDesignPreviewResources;
+  const pending = [deferred<StorefrontDesignPreviewResources>(), deferred<StorefrontDesignPreviewResources>()];
+  const requests: { composition: StarterThemeComposition; signal?: AbortSignal }[] = [];
+  const api = { preview: async (composition: StarterThemeComposition, signal?: AbortSignal) => { requests.push({ composition, signal }); return pending[requests.length - 1]!.promise; } };
+  function Harness({ composition }: Readonly<{ composition: StarterThemeComposition }>) {
+    const resources = useStorefrontDesignPreviewResources(composition, initialResources, api);
+    return React.createElement("output", null, resources.dependencyKey);
+  }
+  const window = new Window({ url: "https://fixture.invalid/settings/design" });
+  const previousWindow = globalThis.window, previousDocument = globalThis.document;
+  globalThis.window = window as unknown as Window & typeof globalThis.window;
+  globalThis.document = window.document as unknown as Document;
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = window.document.createElement("div"); window.document.body.append(container);
+  const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
+  const render = async (composition: StarterThemeComposition) => { await React.act(async () => root.render(React.createElement(Harness, { composition }))); };
+  try {
+    await render(initialComposition);
+    await render(changedComposition);
+    assert.equal(requests.length, 1);
+    const loadingKey = container.textContent;
+    const incompleteValues = [
+      { ...values, items: values.items.map((item, index) => index === 3 ? { ...item, heading: "" } : item) },
+      { ...values, items: values.items.map((item, index) => index === 3 ? { ...item, body: "" } : item) },
+      { ...values, items: values.items.map((item, index) => index === 3 ? { ...item, heading: values.items[0]!.heading } : item) },
+    ];
+    const otherIncompleteSections = [
+      { kind: "brand_story", sectionId: "home_story", enabled: true, heading: "Story", body: "" },
+      { kind: "product_row", sectionId: "home_products", enabled: true, heading: "", source: "latest", limit: 4 },
+      { kind: "split_campaign", sectionId: "home_campaign", enabled: true, panels: [{ heading: "", assetId: "", destination: "" }] },
+    ];
+    for (const section of [...incompleteValues, ...otherIncompleteSections]) {
+      await render({ ...baseline, sections: [section] } as StarterThemeComposition);
+      assert.equal(container.textContent, loadingKey, "last resources stay available while a field is incomplete");
+      assert.equal(requests.length, 1, "incomplete edits must not reach the preview API");
+    }
+    assert.equal(requests[0]?.signal?.aborted, true);
+    pending[0]!.resolve({ ...initialResources, dependencyKey: "stale" });
+    await React.act(async () => { await pending[0]!.promise; });
+    assert.equal(container.textContent, loadingKey);
+    await render(changedComposition);
+    assert.equal(requests.length, 2, "correcting input retries the canceled dependency");
+    pending[1]!.resolve({ ...initialResources, dependencyKey: storefrontDesignPreviewDependencyKey(changedComposition) });
+    await React.act(async () => { await pending[1]!.promise; });
+    assert.equal(container.textContent, storefrontDesignPreviewDependencyKey(changedComposition));
   } finally {
     await React.act(async () => root.unmount()); await window.happyDOM.close();
     globalThis.window = previousWindow; globalThis.document = previousDocument;
