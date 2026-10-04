@@ -1,10 +1,12 @@
 "use client";
+import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreEngagementCampaign } from '@celebix/saas-contracts';
 import { usePanelChromeModel } from '@/components/panel/PanelLayoutClient';
 import { scopedStoreEngagementApi,type CampaignInput } from '@/lib/store-engagement-ui/client';
 import { EngagementEditor, type EngagementPermissions } from '../promotions/PopupStudio';
-import styles from '../promotions/popup-studio.module.css';
+import { CartCaptureArtwork } from './CartCaptureArtwork';
+import styles from './store-tools.module.css';
 export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPermissions & Readonly<{
     onOpenChange?: (open: boolean) => void;
 }>) {
@@ -39,15 +41,13 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
     };
     return <>
     <article className={styles.toolRow}>
-    <div className={styles.toolArtwork} aria-hidden="true">
-    ↗
-    </div>
+    <CartCaptureArtwork />
     <div className={styles.toolCopy}>
     <h2>
     Sepet yakalama
     </h2>
     <p>
-    Sepetini tamamlamayan ziyaretçiden iletişim bilgisi isteyin. İsterseniz bir kupon ekleyin.
+    Sepeti tamamlamayan ziyaretçiden iletişim bilgisi alın. Kupon ekleyebilirsiniz.
     </p>
     {phase === 'loading' ? <span role="status">
     Yükleniyor…
@@ -65,12 +65,13 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
     </div>
     {phase === 'error'&&!ownRecovery ? <button type="button" className="button button-secondary" onClick={() => setRevision(value => value + 1)}>
     Tekrar dene
-    </button> : <button type="button" className="button button-secondary" disabled={ownRecovery?!permissions.canManage:phase!=='ready'||api.hasUnresolved()} data-tool-edit="cart_capture" onClick={event => {
+    </button> : <button type="button" className="button button-primary" disabled={ownRecovery?!permissions.canManage:phase!=='ready'||api.hasUnresolved()} data-tool-edit="cart_capture" onClick={event => {
         trigger.current = event.currentTarget;
         setOpen(true);
         onOpenChange?.(true);
     }}>
     {ownRecovery?'Önceki kaydı doğrula':permissions.canManage ? 'Düzenle' : 'Görüntüle'}
+    <ArrowUpRight size={16} aria-hidden="true" />
     </button>}
     </article>
     {open ? <EngagementEditor {...permissions} kind="cart_capture" campaign={campaign} recoveryInput={ownRecovery&&recovery?recovery:undefined} returnFocusRef={trigger} onClose={close} onSaved={saved => {

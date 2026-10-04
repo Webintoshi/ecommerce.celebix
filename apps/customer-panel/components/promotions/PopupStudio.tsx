@@ -6,6 +6,7 @@ import { usePanelChromeModel } from '@/components/panel/PanelLayoutClient';
 import { scopedStoreEngagementApi, type CampaignInput } from '@/lib/store-engagement-ui/client';
 import { promotionApi, promotionErrorMessage } from '@/lib/promotion-ui/client';
 import { createPromotionDraft, updatePromotionDraft } from '@/lib/promotion-ui/model';
+import { Monitor, ShoppingBag, Smartphone } from 'lucide-react';
 import { storefrontDesignApi } from '@/lib/storefront-design-ui/client';
 import { DesignSettingsModal } from '../settings/design/DesignSettingsDrawer';
 import { DesignImageField, type DesignImageOption } from '../settings/design/DesignImageField';
@@ -17,6 +18,7 @@ export interface EngagementPermissions {
     readonly timezone?: string;
 }
 const TABS = [['design', 'Tasarım'], ['content', 'İçerik'], ['visibility', 'Gösterim'], ['coupon', 'Kupon']] as const;
+const CART_TABS = [['content', 'İçerik'], ['design', 'Görünüm'], ['visibility', 'Gösterim'], ['coupon', 'Kupon']] as const;
 type Tab = (typeof TABS)[number][0];
 const TEMPLATES = [['minimal', 'Sade'], ['image_left', 'Görselli'], ['discount', 'Kupon']] as const;
 const keyOf = (image?: StoreEngagementImageReference) => image ? (image.kind === 'media' ? 'media:' + image.mediaId : 'asset:' + image.assetId) : '';
@@ -46,7 +48,8 @@ export function EngagementPreview({ config, imageUrl, couponCode, kind, mobile =
     kind: StoreEngagementCampaignKind;
     mobile?: boolean;
 }>) {
-    return <div className={styles.previewFrame + (mobile ? ' ' + styles.mobilePreview : '')} data-engagement-preview aria-label="Canlı önizleme">
+    return <div className={[styles.previewFrame, mobile ? styles.mobilePreview : '', kind === 'cart_capture' ? styles.cartPreviewFrame : ''].filter(Boolean).join(' ')} data-engagement-preview aria-label="Canlı önizleme">
+    {kind === 'cart_capture' ? <div className={styles.storePreviewHeader} aria-hidden="true"><span /><i /><ShoppingBag size={16} /></div> : null}
     <div className={styles.previewBackdrop}>
     <article className={styles.previewCard + ' ' + styles[config.template]}>
     <span className={styles.previewClose} aria-hidden="true">
@@ -104,7 +107,8 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             campaignId: campaign.id, expectedVersion: campaign.version
         } : {}), kind, name: campaign?.name ?? (kind === 'popup' ? 'Yeni popup' : 'Sepet yakalama'), enabled: campaign?.enabled ?? true, config: campaign?.config ?? createDefaultStoreEngagementConfig(kind)
     });
-    const [draft, setDraft] = useState(initial.current), [tab, setTab] = useState<Tab>('design'), [mobile, setMobile] = useState(false), [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState(Boolean(recoveryInput)), [conflict, setConflict] = useState(false), [error, setError] = useState(''), [discard, setDiscard] = useState(false);
+    const tabs = kind === 'cart_capture' ? CART_TABS : TABS;
+    const [draft, setDraft] = useState(initial.current), [tab, setTab] = useState<Tab>(kind === 'cart_capture' ? 'content' : 'design'), [mobile, setMobile] = useState(false), [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState(Boolean(recoveryInput)), [conflict, setConflict] = useState(false), [error, setError] = useState(''), [discard, setDiscard] = useState(false);
     const [images, setImages] = useState<readonly DesignImageOption[]>([]), [imageError, setImageError] = useState(''), [imageRevision, setImageRevision] = useState(0);
     const [couponItems, setCouponItems] = useState<readonly PromotionAdminListItem[]>([]), [coupon, setCoupon] = useState<Coupon | null>(null), [couponBusy, setCouponBusy] = useState(false), [couponError, setCouponError] = useState(''), [couponCursor, setCouponCursor] = useState<string | null>(null), [couponCode, setCouponCode] = useState(''), [percentage, setPercentage] = useState('3'), [couponUnknown, setCouponUnknown] = useState(false);
     const couponIntent = useRef<ReturnType<typeof createPromotionDraft> | null>(null), couponGeneration = useRef(0), writing = useRef(false);
@@ -341,7 +345,8 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     const selectedImage = images.find(image => image.key === keyOf(draft.config.image));
     return <DesignSettingsModal open surface={{
         label: campaign ? title(kind) + ' düzenle' : title(kind) + ' ekle', hint: 'Değişiklikleri Uygula ile kaydedin.'
-    }} returnFocusRef={returnFocusRef} onClose={closeModal} onApply={() => void apply()} applying={busy || couponBusy} applyDisabled={!canManage || conflict || couponUnknown}>
+    }} className={kind === 'cart_capture' ? styles.cartModal : undefined} returnFocusRef={returnFocusRef} onClose={closeModal} onApply={() => void apply()} applying={busy || couponBusy} applyDisabled={!canManage || conflict || couponUnknown}>
+    <div className={kind === 'cart_capture' ? styles.cartEditor : undefined}>
     {api.hasUnresolved() ? <p className={styles.notice} role="status">
     Önceki kayıt sonucu belirsiz. Korunan bilgilerle Uygula düğmesine basarak doğrulayın.
     </p> : null}
@@ -371,17 +376,18 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     <input name="engagement-enabled" type="checkbox" role="switch" checked={draft.enabled} disabled={locked} onChange={event => change({
         enabled: event.currentTarget.checked
     })}/>
+    {kind === 'cart_capture' ? <span className={styles.switchTrack} aria-hidden="true" /> : null}
     {draft.enabled ? 'Açık' : 'Kapalı'}
     </label>
     </div>
-    <div className={styles.tabs} role="tablist" aria-label="Popup ayarları">
-        {TABS.map(([key, label]) => <button key={key} id={'engagement-tab-' + key} type="button" role="tab" aria-selected={tab === key} aria-controls={'engagement-panel-' + key} tabIndex={tab === key ? 0 : -1} onKeyDown={event => {
+    <div className={styles.tabs} role="tablist" aria-label={title(kind) + ' ayarları'}>
+        {tabs.map(([key, label]) => <button key={key} id={'engagement-tab-' + key} type="button" role="tab" aria-selected={tab === key} aria-controls={'engagement-panel-' + key} tabIndex={tab === key ? 0 : -1} onKeyDown={event => {
                 if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
                     return;
                 event.preventDefault();
-                const index = TABS.findIndex(([item]) => item === tab), next = event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
-                setTab(TABS[next]![0]);
-                document.getElementById('engagement-tab-' + TABS[next]![0])?.focus();
+                const index = tabs.findIndex(([item]) => item === tab), next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+                setTab(tabs[next]![0]);
+                document.getElementById('engagement-tab-' + tabs[next]![0])?.focus();
             }} onClick={() => setTab(key)}>
         {label}
         </button>)}
@@ -406,7 +412,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             </label>)}
         </fieldset>
             {draft.config.template === 'image_left' ? <>
-            <DesignImageField label="Popup görseli" value={keyOf(draft.config.image)} options={images} disabled={locked} frame="portrait" onChange={key => {
+            <DesignImageField label={kind === 'cart_capture' ? 'Görsel' : 'Popup görseli'} value={keyOf(draft.config.image)} options={images} disabled={locked} frame="portrait" onChange={key => {
                     const image = referenceOf(key);
                     if (image)
                         configChange({
@@ -592,15 +598,22 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     <span>
     Önizleme
     </span>
-    <button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>
+    <button type="button" aria-label="Masaüstü önizleme" aria-pressed={!mobile} onClick={() => setMobile(false)}>
+    {kind === 'cart_capture' ? <Monitor size={18} aria-hidden="true" /> : null}
+    <span className={kind === 'cart_capture' ? styles.srOnly : undefined}>
     Masaüstü
+    </span>
     </button>
-    <button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>
+    <button type="button" aria-label="Mobil önizleme" aria-pressed={mobile} onClick={() => setMobile(true)}>
+    {kind === 'cart_capture' ? <Smartphone size={18} aria-hidden="true" /> : null}
+    <span className={kind === 'cart_capture' ? styles.srOnly : undefined}>
     Mobil
+    </span>
     </button>
     </div>
     <EngagementPreview kind={kind} config={draft.config} imageUrl={selectedImage?.url} couponCode={coupon?.code} mobile={mobile}/>
     </section>
+    </div>
     </div>
     </DesignSettingsModal>;
 }

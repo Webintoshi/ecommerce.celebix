@@ -6,9 +6,10 @@ import styles from "../design-settings.module.css";
 interface DesignSettingsModalProps {
  readonly open:boolean; readonly surface:Pick<DesignCanvasSurfaceItem,"label"|"hint">; readonly children:ReactNode;
  readonly onClose:()=>void; readonly onApply?:()=>void; readonly applying?:boolean; readonly applyDisabled?:boolean;
+ readonly className?:string;
  readonly returnFocusRef:RefObject<DesignCanvasTrigger|null>;
 }
-export function DesignSettingsModal({open,surface,children,onClose,onApply,applying=false,applyDisabled=false,returnFocusRef}:Readonly<DesignSettingsModalProps>){
+export function DesignSettingsModal({open,surface,children,onClose,onApply,applying=false,applyDisabled=false,returnFocusRef,className}:Readonly<DesignSettingsModalProps>){
  const closeButtonRef=useRef<HTMLButtonElement>(null),modalRef=useRef<HTMLElement>(null);
  useEffect(()=>{
   if(!open)return;
@@ -27,7 +28,7 @@ export function DesignSettingsModal({open,surface,children,onClose,onApply,apply
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
  };
  if(!open)return null;
- return <><div className={styles.modalBackdrop} aria-hidden="true" onClick={()=>{if(!applying)onClose();}}/><aside ref={modalRef} className={styles.settingsModal} role="dialog" aria-modal="true" aria-labelledby="design-modal-title" aria-describedby="design-modal-description" onKeyDown={keepFocus}>
+ return <><div className={styles.modalBackdrop} aria-hidden="true" onClick={()=>{if(!applying)onClose();}}/><aside ref={modalRef} className={[styles.settingsModal,className].filter(Boolean).join(" ")} role="dialog" aria-modal="true" aria-labelledby="design-modal-title" aria-describedby="design-modal-description" onKeyDown={keepFocus}>
   <header className={styles.modalHeader}><div><h2 id="design-modal-title">{surface.label}</h2><p className={styles.srOnly} id="design-modal-description">{surface.hint}</p></div><button ref={closeButtonRef} type="button" disabled={applying} aria-label="Vazgeç ve kapat" onClick={onClose}><X size={20}/></button></header>
   <div className={styles.modalBody}>{children}</div>
   <footer className={styles.modalFooter}><button type="button" className={styles.cancelButton} disabled={applying} onClick={onClose}>Vazgeç</button><button type="button" disabled={applying||applyDisabled} onClick={onApply}>{applying?"Uygulanıyor…":"Uygula"}</button></footer>
