@@ -30,7 +30,7 @@ Eski ürün-onboarding kaynak metni testlerinden üçü mevcut başlangıç sür
 
 ## Yayın
 
-Başlangıç: iki admin 4c477071f86bf0053bb95fd7ca25c04b5204f50e; storefront 7d864534c4f3d71f6a20717135aa20ded2a03f15; native schema 214. 
+Başlangıç: iki admin 4c477071f86bf0053bb95fd7ca25c04b5204f50e; storefront 7d864534c4f3d71f6a20717135aa20ded2a03f15; native schema 214.
 
 ## Tamamlanan yayın ve kabul
 
