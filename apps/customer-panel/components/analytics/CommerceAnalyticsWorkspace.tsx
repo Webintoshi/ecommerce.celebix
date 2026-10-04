@@ -1119,6 +1119,9 @@ export function CommerceAnalyticsWorkspace({
   const workerDelayed = Boolean(data && (data.commerce.worker.deadLetter > 0 || data.commerce.worker.retry > 0 || data.commerce.worker.oldestPendingSeconds > 300));
   const applicableDegradation = data?.status === "degraded" && (trafficExpected || workerDelayed);
   const currencyFiltered = Boolean(searchParams.get("currency"));
+  const dataHealthLabel = viewState === "ready" && data
+    ? workerDelayed ? null : trafficMissing ? "Satış verileri güncel" : applicableDegradation ? "Bazı ölçümler eksik" : "Veriler güncel"
+    : viewState === "loading" ? "Yükleniyor" : "Veri alınamadı";
 
   return (
     <PanelPageShell>
@@ -1182,10 +1185,7 @@ export function CommerceAnalyticsWorkspace({
 
         <div className={styles.contextRow}>
           <div className={styles.dataStatus} role="status">
-            <span className={viewState !== "ready" ? styles.statusNeutral : trafficMissing || applicableDegradation ? styles.statusAmber : styles.statusDot} aria-hidden="true" />
-            {viewState === "ready" && data
-              ? workerDelayed ? "Veriler gecikiyor" : trafficMissing ? "Satış verileri güncel" : applicableDegradation ? "Bazı ölçümler eksik" : "Veriler güncel"
-              : viewState === "loading" ? "Yükleniyor" : "Veri alınamadı"}
+            {dataHealthLabel ? <><span className={viewState !== "ready" ? styles.statusNeutral : trafficMissing || applicableDegradation ? styles.statusAmber : styles.statusDot} aria-hidden="true" />{dataHealthLabel}</> : null}
             {viewState === "ready" && data ? <span className={styles.contextMeta}>{new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(data.range.start))} – {new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(Date.parse(data.range.end) - 1))} · {activeTimezone}</span> : null}
           </div>
           <details
@@ -1298,12 +1298,12 @@ export function CommerceAnalyticsWorkspace({
         ) : null}
         {viewState === "ready" && data ? (
           <>
-            {trafficMissing || applicableDegradation ? (
+            {trafficMissing || (applicableDegradation && !workerDelayed) ? (
               <div className={styles.warning} role="status">
                 <CircleAlert size={18} aria-hidden="true" />
                 <div>
-                  <strong>{trafficMissing ? currencyFiltered ? "Bu para biriminde trafik ölçülmüyor" : "Trafik verisi alınamıyor" : workerDelayed ? "Ölçümde gecikme var" : "Bazı ölçümler kullanılamıyor"}</strong>
-                  {trafficMissing ? <span>{workerDelayed ? "Satış ve sepet verileri gecikiyor." : "Satış ve sepet verileri güncel."}</span> : null}
+                  <strong>{trafficMissing ? currencyFiltered ? "Bu para biriminde trafik ölçülmüyor" : "Trafik verisi alınamıyor" : "Bazı ölçümler kullanılamıyor"}</strong>
+                  {trafficMissing && !workerDelayed ? <span>Satış ve sepet verileri güncel.</span> : null}
                 </div>
               </div>
             ) : null}

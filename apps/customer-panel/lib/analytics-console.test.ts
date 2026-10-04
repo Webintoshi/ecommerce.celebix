@@ -99,9 +99,10 @@ test("analytics moves the honest active visitor card into a titleless sticky top
   assert.doesNotMatch(workspace, /className=\{styles[.]pageHeader\}/);
   assert.doesNotMatch(workspace, /aria-label="İçerik yolu"/);
   assert.doesNotMatch(workspace, /Mağazanızın performansını detaylı verilerle analiz edin[.]/);
-  assert.match(component, /Şu anda sitenizde/);
+  assert.match(component, /Şu anda/);
+  assert.match(component, /ziyaretçi/);
   assert.match(component, /Veri alınamıyor/);
-  assert.match(component, /Analytics kuruluyor/);
+  assert.match(component, /Yükleniyor/);
   assert.match(component, /visibilitychange/);
   assert.match(component, /api[.]active/);
   assert.match(poller, /30_000/);
@@ -148,9 +149,9 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /focus-visible/);
   assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--analytics-ink:\s*var\(--cp-text-primary,[^)]+\);[^}]*--analytics-line:\s*var\(--cp-border,[^)]+\);/);
-  assert.match(css, /[.]topbarLiveMetric > article \{[^}]*min-height: 44px;/);
-  assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]topbarLiveMetric > article span\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
-  assert.doesNotMatch(css, /[.]topbarLiveMetric > article span\s*\{\s*display:\s*none;/);
+  assert.match(css, /[.]activeVisitors \{[^}]*min-height: 44px;[^}]*border-radius: var\(--cp-control-radius\);/);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]visitorsLabel\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
+  assert.doesNotMatch(css, /[.]visitorsLabel\s*\{\s*display:\s*none;/);
   assert.doesNotMatch(component, /İstanbul\s*%|Ankara\s*%|Sadık müşteriler|Pasif müşteriler/);
   assert.doesNotMatch(component, /Analiz Raporu Oluştur|Özel Rapor Talebi/);
   assert.doesNotMatch(component, /284[.]590|489[.]020|156[.]300/);

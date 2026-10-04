@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Activity } from "lucide-react";
 import type { AnalyticsActiveVisitors } from "@celebix/saas-contracts";
 
-import { PanelMetricCard } from "@/components/panel/PanelPageShell";
 import { createAnalyticsBrowserApi } from "@/lib/analytics-ui/client";
 import { createActiveVisitorPoller } from "@/lib/analytics-ui/active-visitors";
+import styles from "./commerce-analytics-workspace.module.css";
 
 const api = createAnalyticsBrowserApi();
 
@@ -32,11 +33,15 @@ export function ActiveVisitorsCard() {
   }, []);
   const value =
     snapshot === null
-      ? "Analytics kuruluyor"
+      ? "Yükleniyor"
       : snapshot.status === "unavailable"
         ? "Veri alınamıyor"
-        : snapshot.activeVisitors === 1
-          ? "1 kişi var"
-          : `${snapshot.activeVisitors} kişi var`;
-  return <PanelMetricCard label="Şu anda sitenizde" value={value} />;
+        : `${snapshot.activeVisitors} ziyaretçi`;
+  return (
+    <article className={styles.activeVisitors} role="status" aria-live="polite" aria-atomic="true">
+      <Activity size={16} aria-hidden="true" />
+      <span className={styles.visitorsLabel}>Şu anda</span>
+      <strong>{value}</strong>
+    </article>
+  );
 }
