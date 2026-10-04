@@ -21,7 +21,10 @@ Primary task: find a page, edit its content, then save/publish.
 ## Local verification
 
 - Focused editor/presentation/isolated transport suite: **40/40 PASS**.
-- Customer panel production build: PASS; final source build receipt below.
+- Customer panel final production build: **PASS**, exit 0. Compile, TypeScript,
+  page generation and standalone output completed. A local disk/cache warning
+  was resolved by clearing this worktree's generated cache; the final build
+  completed successfully.
 - Actual Chrome UI at **1440, 1024 and 390 px**: list and editor, page-level
   horizontal overflow **0** at all six views.
 - Search for İletişim, all four status filters/counts, empty archive, edit/view
@@ -43,7 +46,37 @@ This is recorded rather than claiming a completely clean development console.
 
 ## Release
 
-Pending final candidate binding and the two sequential normal shared panel
-rollouts. Storefront and Owner applications are outside this presentation change.
-SQL213/214 are retained; neither migration is reapplied. Deployment acceptance
-will use exact source/runtime and current native/payment readiness witnesses.
+Released source: **efa6c30621b0f4cd30ac6a8a026f81cdc58a66cc**.
+
+Two sequential normal shared Customer Panel rollouts finished successfully:
+
+| Target | Application | Deployment |
+| --- | --- | --- |
+| NET | e4xe74cmii7jucbkyor0o412 | xqh2bopph0uu2xtogiwgllwn |
+| SITE | yk1h6d97z7ex0h74ok3zrj5c | yyvqtb3vqwhocsmppxpf9yqp |
+
+- Atlas independently reviewed the exact sealed release package: **PASS**.
+  Local source/lint and 361 pure release guards passed.
+- Each normal queue was dispatched once. Final verification at 11:05 UTC:
+  both target pins and running images exact `efa6c306`; global queue idle.
+- Both actual deployed panels passed the 39-file source, compiled routes and
+  two UI feature group checks. All four target/witness runtime checks passed,
+  including generated/compiled payment metadata, profiles and database authority.
+- Fresh read-only gates passed: 106 schema authorities, 52 financial authorities,
+  20 payment authorities and 7 real startup preflights. Original SQL213-after-214
+  apply provenance remains bound to `7d864534`; no migration was reapplied.
+- SOURCE_COMMIT/application commit pins were the only configuration changes.
+  Branch, raw remaining configuration, previews and payment settings were preserved.
+  Storefront NET/SITE remain `7d864534`; Owner was not deployed by this task.
+- Authenticated real Chrome: Butik Siora and Güzide lists and Hakkımızda editors
+  loaded with the new controls and no visible `Zorunlu` label. Existing Güzide
+  published Blog status remained intact. Desktop editors and Siora at 390 px had
+  horizontal overflow 0. No customer content was changed during live acceptance.
+
+Live evidence: [Güzide list](evidence/content-pages-polish/live-guzide-list.jpg),
+[Güzide editor](evidence/content-pages-polish/live-guzide-editor.jpg),
+[Siora list](evidence/content-pages-polish/live-siora-list.jpg),
+[Siora editor](evidence/content-pages-polish/live-siora-editor.jpg),
+[Siora mobile](evidence/content-pages-polish/live-siora-390.jpg).
+
+The final documentation/evidence commit is not a deployment candidate.
