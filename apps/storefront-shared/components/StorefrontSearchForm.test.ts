@@ -39,7 +39,7 @@ test("live search debounces typing, discards obsolete replies and supports keybo
   } finally { globalThis.fetch = previous; }
 });
 
-async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { container: HTMLElement; pushes: string[]; reopen: () => Promise<void> }) => Promise<void>) {
+async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { container: HTMLElement; pushes: string[]; reopen: () => Promise<void> }) => Promise<void>, onNavigate?: (href: string) => void) {
   const pushes: string[] = [];
   const previous = globalThis.fetch;
   globalThis.fetch = (async () => Response.json({ items: [{ id: "necklace", title: "Altın Kolye", href: "/urun/altin-kolye", priceCents: 10000, currency: "TRY", imageUrl: null, imageAlt: "", available: true }] })) as typeof fetch;
@@ -49,7 +49,7 @@ async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { c
     await withProductBrowser(async ({ container, render }) => {
       let key = 0;
       const reopen = async () => {
-        await render(React.createElement(Form, { key: ++key, defaultValue: "altın kolye", clientNavigation }));
+        await render(React.createElement(Form, { key: ++key, defaultValue: "altın kolye", clientNavigation, onNavigate }));
         await React.act(async () => { container.querySelector<HTMLInputElement>('input[name="q"]')!.focus(); });
         await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
         assert.ok(container.querySelector('a[href="/urun/altin-kolye"]'), "real suggestion is ready");
@@ -80,6 +80,35 @@ test("Güzide search suggestions and all-results links navigate within the app a
     assert.deepEqual(pushes, ["/urun/altin-kolye", "/search?q=alt%C4%B1n%20kolye"]);
     assert.equal(container.querySelector(".store-search-suggestions"), null);
   });
+});
+
+test("search can defer result, keyboard and form navigation to its enclosing overlay", async () => {
+  const destinations: string[] = [];
+  await withSuggestionLinks(true, async ({ container, pushes, reopen }) => {
+    await activate(container, 'a[href="/urun/altin-kolye"]');
+    assert.deepEqual(destinations, ["/urun/altin-kolye"]);
+    assert.deepEqual(pushes, [], "the overlay must consume its history entry before routing");
+    await reopen();
+    const input = container.querySelector<HTMLInputElement>('input[name="q"]')!;
+    await React.act(async () => {
+      input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+    });
+    await React.act(async () => {
+      input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    });
+    assert.equal(destinations.length, 2);
+    await reopen();
+    const previous = globalThis.FormData;
+    try {
+      globalThis.FormData = window.FormData;
+      await React.act(async () => {
+        container.querySelector("form")!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+      });
+    } finally { globalThis.FormData = previous; }
+    assert.deepEqual(destinations, ["/urun/altin-kolye", "/urun/altin-kolye", "/search?q=alt%C4%B1n%20kolye"]);
+    assert.deepEqual(pushes, []);
+    assert.equal(container.querySelector(".store-search-suggestions"), null);
+  }, href => destinations.push(href));
 });
 
 test("Güzide client search preserves modified-click behavior and other tenant defaults do not push routes", async () => {

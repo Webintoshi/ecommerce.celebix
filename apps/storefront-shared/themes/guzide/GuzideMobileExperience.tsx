@@ -14,8 +14,10 @@ import styles from "./guzide-mobile-experience.module.css";
 type Session = Readonly<{
   storefrontId: string;
   menuOpen: boolean;
+  searchOpen: boolean;
   frameActive: boolean;
   setMenuOpen(open: boolean): void;
+  setSearchOpen(open: boolean): void;
   registerMenu(handler: (trigger: HTMLElement) => void): () => void;
   openMenu(trigger: HTMLElement): void;
   registerMenuBack(handler: () => boolean): () => void;
@@ -62,6 +64,7 @@ export function GuzideClientFrame({ storefrontId, className, style, publishedDes
   const pathname = usePathname(), mode = routeMode(pathname), enabled = Boolean(guzideThemeFor({ id: storefrontId }));
   const cart = useCartStatus(), favorites = useFavoriteStatus();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menu = useRef<((trigger: HTMLElement) => void) | null>(null), menuBack = useRef<(() => boolean) | null>(null);
   const previous = useRef(pathname);
   const registerMenu = useCallback((handler: (trigger: HTMLElement) => void) => { menu.current = handler; return () => { if (menu.current === handler) menu.current = null; }; }, []);
@@ -75,14 +78,15 @@ export function GuzideClientFrame({ storefrontId, className, style, publishedDes
     if (!enabled || previous.current === pathname) return;
     const before = routeMode(previous.current); previous.current = pathname;
     setMenuOpen(false);
+    setSearchOpen(false);
     if (cart.drawerOpen) void cart.closeDrawerAndWait(false);
     // A persistent provider must still revalidate server cart authority at checkout boundaries.
     if ((mode.checkout && !before.checkout) || (before.checkout && !mode.checkout) || (before.standalone && !mode.standalone)) void cart.refresh();
     if (before.standalone) void favorites.refresh();
   }, [pathname, enabled, mode.checkout, cart.drawerOpen, cart.closeDrawerAndWait, cart.refresh, favorites.refresh]);
-  const session = useMemo<Session>(() => ({ storefrontId, menuOpen, frameActive: !mode.standalone, setMenuOpen, registerMenu, registerMenuBack, backWithinMenu, openMenu }), [storefrontId, menuOpen, mode.standalone, registerMenu, registerMenuBack, backWithinMenu, openMenu]);
+  const session = useMemo<Session>(() => ({ storefrontId, menuOpen, searchOpen, frameActive: !mode.standalone, setMenuOpen, setSearchOpen, registerMenu, registerMenuBack, backWithinMenu, openMenu }), [storefrontId, menuOpen, searchOpen, mode.standalone, registerMenu, registerMenuBack, backWithinMenu, openMenu]);
   if (!enabled) return children;
-  const overlayOpen = menuOpen || cart.drawerOpen;
+  const overlayOpen = menuOpen || searchOpen || cart.drawerOpen;
   return <Context.Provider value={session}>
     <Suspense fallback={null}><GuzideBrowsingContinuity storefrontId={storefrontId} overlayOpen={overlayOpen} /></Suspense>
     {mode.standalone ? children : <div className={`${className} ${styles.frame}`} style={style} data-published-design={publishedDesign} data-font={font} data-storefront-theme="guzide-deniz" data-storefront-checkout={mode.checkoutChrome ? "true" : undefined} data-guzide-mobile-nav={mode.nav ? "true" : undefined} data-guzide-product={mode.product ? "true" : undefined}>

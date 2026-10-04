@@ -20,7 +20,7 @@
   width: min(calc(100% - var(--guzide-gutter) * 2), 1328px);
 }
 [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] [data-storefront-header-container] {
-  grid-template-rows: 94px 48px;
+  grid-template-rows: 94px 50px;
 }
 [data-storefront-theme="guzide-deniz"] [data-storefront-wordmark] img {
   width: 156px;
@@ -30,9 +30,36 @@
 [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] [aria-label="Ana menü"] { height: 48px; }
 [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a,
 [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div > a {
-  padding-inline: 16px;
-  font-size: 10px;
-  letter-spacing: .12em;
+  position: relative;
+  padding-inline: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+[data-storefront-theme="guzide-deniz"] .guzide-header-search-trigger { display: none; }
+@media (min-width: 1025px) {
+  [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] [data-storefront-header-bar] [data-storefront-header-container] { grid-template-areas: "search brand actions" "nav nav nav"; grid-template-rows: 94px 50px; }
+  [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] [data-storefront-header-bar] [data-storefront-wordmark] { grid-column: 2; }
+  [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] .guzide-header-search-trigger { grid-area: search; display: flex; align-items: center; gap: 12px; width: min(100%, 190px); min-height: 44px; justify-self: start; border: 0; border-bottom: 1px solid currentColor; padding: 0; color: inherit; background: transparent; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  [data-storefront-theme="guzide-deniz"] .guzide-header-search-trigger svg { width: 20px; height: 20px; stroke-width: 1.4; }
+  [data-storefront-theme="guzide-deniz"] .guzide-header-search-trigger:focus-visible { outline: 2px solid var(--guzide-gold); outline-offset: 5px; }
+  [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] .store-utilities > button[aria-label="Ara"] { display: none; }
+  [data-storefront-theme="guzide-deniz"] [data-header-layout="stacked"] [aria-label="Ana menü"] { height: 50px; border-top: 1px solid var(--line); }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a::after,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div > a::after { position: absolute; right: 20px; bottom: 10px; left: 20px; height: 1px; background: currentColor; content: ""; transform: scaleX(0); transform-origin: left; transition: transform .18s ease; }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a:hover,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div > a:hover { text-decoration: none; }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a:hover::after,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a:focus-visible::after,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div:hover > a::after,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div:focus-within > a::after { transform: scaleX(1); }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] [data-featured] { width: min(calc(100% - var(--guzide-gutter) * 2), 1328px); border-radius: 0; border-color: var(--line); padding: 30px; box-shadow: 0 16px 30px rgb(0 0 0 / .06); }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] [data-featured] > div > strong { font-family: inherit; font-size: 18px; }
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] [data-featured] > div > a { border-radius: 0; font-size: 13px; font-weight: 400; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > a::after,
+  [data-storefront-theme="guzide-deniz"] [aria-label="Ana menü"] > div > a::after { transition: none; }
 }
 [data-storefront-theme="guzide-deniz"] [data-campaign-home] { gap: var(--store-section-spacing, 70px); padding-bottom: 0; }
 [data-storefront-theme="guzide-deniz"] [data-campaign-home] > [data-campaign-product-row]:first-child { margin-top: 46px; }
