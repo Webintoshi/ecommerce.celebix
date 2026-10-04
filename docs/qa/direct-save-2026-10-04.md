@@ -30,4 +30,19 @@ Eski ürün-onboarding kaynak metni testlerinden üçü mevcut başlangıç sür
 
 ## Yayın
 
-Başlangıç: iki admin 4c477071f86bf0053bb95fd7ca25c04b5204f50e; storefront 7d864534c4f3d71f6a20717135aa20ded2a03f15; native schema 214. Son tip kontrolü, gerçek ortak admin build ve NET→SITE kabul kayıtları yayın doğrulamasından sonra bu belgeye eklenecek. Üretimde sahte satış veya tahsilat oluşturulmayacak.
+Başlangıç: iki admin 4c477071f86bf0053bb95fd7ca25c04b5204f50e; storefront 7d864534c4f3d71f6a20717135aa20ded2a03f15; native schema 214. 
+
+## Tamamlanan yayın ve kabul
+
+- Uygulama kaynağı: `bf84a3d1802dfed2e01a714af495920870c9c007`.
+- Ortak admin gerçek üretim build EXIT 0; 23 route, 19 istemci grubu ve değişmeyen 5000 stok okuyucusu gerçek derlenmiş çıktıda doğrulandı.
+- NET: `efh4ktn8x3zotuczmxxaoatz`, finished; SITE: `y11cw7rk09kxkadh2dq35i44`, finished. Normal kuyruk bir kez ve NET→SITE sırasıyla kullanıldı.
+- Her iki gerçek admin image/source/çalışma durumu, 184 paketlenmiş kaynak dosyası ve derlenmiş 23 route/19 istemci grubu doğrulandı.
+- Yayın öncesinde vitrinlerin ayrı bir arama/görünüm yayınıyla `0f4a7d69efed60f7646e0e13c216039e4a05dbc9` / `codex/guzide-header-search` sürümüne geçtiği tespit edildi. İlk mühürlü paket canlı uygulama değişikliğinden önce durdu. Ayrı yeni paket, bu güncel vitrinleri değiştirmeden doğruladı; native şema kaynağı `7d864534c4f3d71f6a20717135aa20ded2a03f15` ayrı tutuldu.
+- Dört uygulamanın gerçek ödeme meta verisi, derlenmiş yetkileri ve çalışma kipleri korunuyor. Güncel native 214 için 106 şema kontrolü, 52 finans/fiyat işlevi, 20 ödeme yetki işlevi ve 7 ödeme başlangıç kontrolü geçti.
+- Geri alma provası doğrulandı; ödeme/preview/diğer ayarlar korundu. Son yayın doğrulamasında kuyruk boş, iki hedef ve iki vitrin tanığı doğrulandı.
+- Üretimde sahte ürün, stok, sipariş veya tahsilat oluşturulmadı; kayıt davranışı izole fixture/repository/HTTP/UI testleriyle, canlı kabul gerçek image/source/derlenmiş çıktı ve salt okunur native kontrollerle yapıldı. Tarayıcıda mevcut Güzide oturumu giriş istediği için yeni oturumla gerçek kayıt yapılmadı.
+
+Yeni davranış için yayın öncesinden açık panel sekmesi bir kez yenilenmelidir. Eski kayıtlara okuma sırasında toplu yayın uygulanmadı. Kasten gizlenmiş/arşivlenmiş kayıtlar ve gerçek teslim/tahsilat aşamaları korunuyor.
+
+Yayın kanıtları (yerel): `.tmp/direct-save-current-release/` içindeki mühür, kaynak/ödeme kanıtları, `root-build-review.json`, `runtime-all.json`, `cohort-all.json` ve güncel salt okunur native makbuzlar. Eski mühürlü paket korundu.
