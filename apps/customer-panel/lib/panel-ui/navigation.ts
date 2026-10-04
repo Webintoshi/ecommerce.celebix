@@ -21,6 +21,7 @@ export type PanelNavigationHref =
   | "/products/definitions"
   | "/products/tags"
   | "/products/barcode-labels"
+  | "/products/stock"
   | "/products/purchasing"
   | "/products/inventory-counts"
   | "/products/transfers"
@@ -173,9 +174,7 @@ const CATALOG_CHILDREN = Object.freeze([
   item("definitions", "Tanımlamalar", "/products/definitions", "definitions"),
   item("product-tags", "Etiketler", "/products/tags", "tags"),
   item("barcode-labels", "Barkod Etiketleri", "/products/barcode-labels", "barcode"),
-  item("purchasing", "Satın Alma", "/products/purchasing", "purchasing"),
-  item("inventory-counts", "Stok Sayımları", "/products/inventory-counts", "inventory"),
-  item("transfers", "Stok Konumları ve Transferler", "/products/transfers", "inventory"),
+  item("stock", "Stok", "/products/stock", "inventory"),
   item("price-lists", "Fiyat Listeleri", "/products/price-lists", "price-lists"),
   item("imports", "İçe Aktarma", "/products/auto-import", "bulk-upload"),
   item("bulk-upload", "Toplu Yükle", "/products/bulk-upload", "bulk-upload"),
@@ -291,6 +290,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/products/definitions": presentation("Tanımlamalar"),
   "/products/tags": presentation("Ürün etiketleri"),
   "/products/barcode-labels": presentation("Barkod etiketleri"),
+  "/products/stock": presentation("Stok"),
   "/products/purchasing": presentation("Satın alma"),
   "/products/inventory-counts": presentation("Stok sayımları"),
   "/products/transfers": presentation("Stok transferleri"),

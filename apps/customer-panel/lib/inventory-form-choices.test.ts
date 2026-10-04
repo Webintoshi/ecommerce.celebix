@@ -35,8 +35,8 @@ test("choice loader follows catalog cursors and includes active variants from pr
       async listProducts(input: { cursor?: string }) {
         cursors.push(input.cursor);
         return input.cursor === undefined
-          ? { items: products.slice(0, 20), nextCursor: "page_two" }
-          : { items: products.slice(20) };
+          ? { catalogTotal: 21, items: products.slice(0, 20), nextCursor: "page_two" }
+          : { catalogTotal: 21, items: products.slice(20) };
       },
       async getProduct(productId: string) {
         const number = Number(productId.slice(0, 8));
@@ -61,7 +61,7 @@ test("choice loader rejects duplicate/non-progressing cursors and partial over-b
   assert.equal(typeof module.loadInventoryFormChoices, "function");
   await assert.rejects(() => (module.loadInventoryFormChoices as Function)({
     catalog: {
-      async listProducts() { return { items: [product(1)], nextCursor: "same" }; },
+      async listProducts() { return { catalogTotal: 2, items: [product(1)], nextCursor: "same" }; },
       async getProduct() { return { product: product(1), variants: [variant(1)] }; },
     },
     inventory: { async listLocations() { return [location()]; } },
@@ -70,7 +70,7 @@ test("choice loader rejects duplicate/non-progressing cursors and partial over-b
   let calls = 0;
   await assert.rejects(() => (module.loadInventoryFormChoices as Function)({
     catalog: {
-      async listProducts() { calls += 1; return { items: [product(calls)], nextCursor: "same" }; },
+      async listProducts() { calls += 1; return { catalogTotal: 2, items: [product(calls)], nextCursor: "same" }; },
       async getProduct() { return { product: product(1), variants: [variant(1)] }; },
     },
     inventory: { async listLocations() { return [location()]; } },
@@ -104,7 +104,7 @@ test("choice loader exposes only server-returned active locations", async () => 
   assert.equal(typeof module.loadInventoryFormChoices, "function");
   const choices = await (module.loadInventoryFormChoices as Function)({
     catalog: {
-      async listProducts() { return { items: [] }; },
+      async listProducts() { return { catalogTotal: 0, items: [] }; },
       async getProduct() { throw new Error("unexpected"); },
     },
     inventory: {
@@ -125,7 +125,7 @@ test("choice loader propagates one lifecycle signal through catalog pages detail
   const observed: AbortSignal[] = [];
   await (module.loadInventoryFormChoices as Function)({
     catalog: {
-      async listProducts(_input: unknown, signal: AbortSignal) { observed.push(signal); return { items: [product(1)] }; },
+      async listProducts(_input: unknown, signal: AbortSignal) { observed.push(signal); return { catalogTotal: 2, items: [product(1)] }; },
       async getProduct(_id: string, signal: AbortSignal) { observed.push(signal); return { product: product(1), variants: [variant(1)] }; },
     },
     inventory: { async listLocations(signal: AbortSignal) { observed.push(signal); return [location()]; } },
@@ -205,15 +205,15 @@ test("choice boundary fails closed on hostile proxies, bounds, duplicates and in
   const signal = new AbortController().signal;
   const base = () => ({
     catalog: {
-      async listProducts() { return { items: [product(1)] }; },
+      async listProducts() { return { catalogTotal: 2, items: [product(1)] }; },
       async getProduct() { return { product: product(1), variants: [variant(1)] }; },
     },
     inventory: { async listLocations() { return [location()]; } },
   });
   const cases: Array<{ dependencies: unknown; limits?: unknown }> = [
     { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return new Proxy({}, { get() { throw new Error("hostile list projection"); } }); } } } },
-    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { items: [product(1), product(2)] }; } } }, limits: { maximumProducts: 1 } },
-    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { items: [product(1), product(1)] }; } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { catalogTotal: 2, items: [product(1), product(2)] }; } } }, limits: { maximumProducts: 1 } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { catalogTotal: 2, items: [product(1), product(1)] }; } } } },
     { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(2), variants: [variant(2)] }; } } } },
     { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { throw new Error("detail unavailable"); } } } },
     { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(1), variants: [variant(1), Object.freeze({ ...variant(1), id: id(202) })] }; } } }, limits: { maximumVariants: 1 } },

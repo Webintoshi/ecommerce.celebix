@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryLocationConsoleController, type InventoryLocationConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
+import { useOptionalInventoryWorkspace } from "./InventoryWorkspaceContext";
+import type { InventoryConsoleActivity } from "./InventoryOperationForm";
 import styles from "./inventory-console.module.css";
 
 const ARCHIVE_REASON = Object.freeze({
@@ -71,7 +73,7 @@ export function InventoryLocationRenameDialog(props: Readonly<{
       aria-describedby={feedback ? "inventory-location-rename-feedback" : undefined}
     >
       <h3 id="inventory-location-rename-title">Konum adını düzenle</h3>
-      <p>{props.location.name} · <code>{props.location.id}</code></p>
+      <p>{props.location.name}</p>
       <form onSubmit={(event) => { event.preventDefault(); props.onSubmit(); }}>
         <label htmlFor="inventory-location-rename-name">Yeni konum adı</label>
         <input
@@ -112,7 +114,7 @@ export function InventoryLocationPresentation(props: Readonly<{
   if (props.state.phase === "error") return <section className={styles.error} role="alert">{props.state.message}</section>;
   return <section className={styles.locationManager} aria-labelledby="inventory-locations-title">
     <div className={styles.locationContent} inert={Boolean(props.rename)}>
-    <header><div><h2 id="inventory-locations-title">Konumlar <span className={styles.fieldCount}>{props.state.items.length}</span></h2></div></header>
+    <header><div><h2 id="inventory-locations-title">Depolar <span className={styles.fieldCount}>{props.state.items.length}</span></h2></div></header>
     {props.state.message ? <p className={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? styles.errorNotice : styles.notice} role={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? "alert" : "status"}>{props.state.message}</p> : null}
     {props.canManage ? <form className={styles.locationCreate} onSubmit={(event) => { event.preventDefault(); props.onCreate(); }}>
       <label htmlFor="inventory-location-name">Yeni konum adı</label>
@@ -127,7 +129,7 @@ export function InventoryLocationPresentation(props: Readonly<{
       const archiveDisabled = props.state.pending || props.state.locked || !location.archiveEligibility.canArchive;
       return <article className={styles.locationCard} key={location.id}>
         <div><strong>{location.name}</strong><PanelStatusBadge tone={location.status === "active" ? "success" : "neutral"}>{location.status === "active" ? "Aktif" : "Arşivlenmiş"}</PanelStatusBadge></div>
-        <code>{location.id}</code><p>Sürüm {location.version}</p><p>{reason}</p>
+        <p>{reason}</p><details className={styles.recordInformation}><summary>Depo bilgisi</summary><dl><div><dt>Kimlik</dt><dd><code>{location.id}</code></dd></div><div><dt>Sürüm</dt><dd>{location.version}</dd></div></dl></details>
         {props.canManage ? <div className={styles.locationActions}>
           <button type="button" disabled={editDisabled} onClick={(event) => props.onEdit(location, event.currentTarget)}>Adı düzenle</button>
           <button type="button" disabled={archiveDisabled} onClick={() => props.onArchive(location)}>Arşivle</button>
@@ -147,13 +149,18 @@ export function InventoryLocationPresentation(props: Readonly<{
   </section>;
 }
 
-export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; canManage: boolean }>) {
+export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; canManage: boolean; embedded?: boolean; onStateChange?(state: InventoryConsoleActivity): void }>) {
+  const workspace = useOptionalInventoryWorkspace();
   const [name, setName] = useState("");
   const [rename, setRename] = useState<Readonly<{ location: InventoryLocation; name: string; error: string }> | undefined>();
   const [state, setState] = useState<InventoryLocationConsoleSnapshot>({ phase: props.canRead ? "loading" : "denied", items: [], pending: false, locked: false, message: "" });
   const controller = useRef<ReturnType<typeof createInventoryLocationConsoleController> | null>(null);
   const renameTrigger = useRef<HTMLButtonElement | null>(null);
   const renameSubmitting = useRef(false);
+  const dirty = Boolean(name.length || (rename && rename.name !== rename.location.name));
+  useEffect(() => {
+    props.onStateChange?.({ pending: state.pending, locked: state.locked, dirty });
+  }, [state.pending, state.locked, dirty, props.onStateChange]);
   useEffect(() => {
     const next = createInventoryLocationConsoleController({ canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState });
     controller.current = next; void next.load();
@@ -173,7 +180,7 @@ export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; can
       void (async () => {
         await controller.current?.save({ name: selected });
         const phase = controller.current?.getSnapshot().phase;
-        if (phase === "committed" || phase === "replayed") setName("");
+        if (phase === "committed" || phase === "replayed") { setName(""); workspace?.reload(); }
       })();
     }}
     rename={rename}
@@ -202,6 +209,7 @@ export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; can
         const phase = controller.current?.getSnapshot().phase;
         if (phase === "committed" || phase === "replayed") {
           closeRename();
+          workspace?.reload();
           return;
         }
         setRename((current) => current ? {
@@ -210,5 +218,5 @@ export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; can
         } : current);
       })();
     }}
-    onArchive={(location) => { void controller.current?.archive(location); }} />;
+    onArchive={location => { void (async () => { await controller.current?.archive(location); const phase = controller.current?.getSnapshot().phase; if (phase === "committed" || phase === "replayed") workspace?.reload(); })(); }} />;
 }

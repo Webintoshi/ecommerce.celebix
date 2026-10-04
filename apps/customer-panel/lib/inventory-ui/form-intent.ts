@@ -86,14 +86,16 @@ export function buildInventoryOperationIntent(
       if (draft.record && (!count(draft.record) || !["draft", "counting"].includes(draft.record.status))) {
         return fail("Yalnız taslak veya devam eden stok sayımı düzenlenebilir.");
       }
-      if (!choices.locationIds.has(draft.locationId) || draft.lines.some((line) => !integer(line.quantity, 0))) {
+      const counting = count(draft.record) && draft.record.status === "counting";
+      if (!choices.locationIds.has(draft.locationId) || draft.lines.some((line) => !(line.quantity === "" && !counting) && !integer(line.quantity, 0))) {
         return fail("Etkin konum ve sıfır veya daha büyük sayım miktarı girin.");
       }
       return success(Object.freeze({
         ...(count(draft.record) ? { countId: draft.record.id, expectedVersion: draft.record.version } : {}),
         locationId: draft.locationId,
         lines: Object.freeze(draft.lines.map((line) => Object.freeze({
-          lineId: line.lineId, variantId: line.variantId, countedQuantity: Number(line.quantity),
+          lineId: line.lineId, variantId: line.variantId,
+          ...(line.quantity === "" ? {} : { countedQuantity: Number(line.quantity) }),
         }))),
       }));
     }

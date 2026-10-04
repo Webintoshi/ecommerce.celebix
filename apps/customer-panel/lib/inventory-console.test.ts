@@ -754,6 +754,8 @@ async function compilePresentation(path: string, exportName: string) {
     if (specifier === "@/lib/inventory-ui/console-controller") return {};
     if (specifier === "@/lib/inventory-ui/form-choices") return {};
     if (specifier === "@/lib/inventory-ui/form-intent") return {};
+    if (specifier === "@/lib/inventory-ui/form-presentation" || specifier === "@/lib/inventory-ui/money") return {};
+    if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => ({ locationName: (id: string) => id === LOCATION ? "Ana depo" : "Şube", variantName: () => "Altın yüzük — 14 Ayar (SKU-1)" }) };
     if (specifier === "./InventoryListState") return {
       InventoryListState: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }),
@@ -773,8 +775,8 @@ test("analyst detail presentations show records and no mutation controls", async
     state: { phase: "loaded", record: count(), pending: false, message: "" }, canManage: false,
     onStart() {}, onCommit() {}, onCancel() {},
   }));
-  assert.match(html, /Kalemler/);
-  assert.match(html, /Sürüm 4/);
+  assert.match(html, /Ürün \/ Varyant/);
+  assert.match(html, /<details[^>]*class="recordInformation"[\s\S]*Sürüm<\/dt><dd>4/);
   assert.doesNotMatch(html, /Sayımı tamamla|Sayımı başlat|İptal et/);
 });
 
@@ -808,7 +810,7 @@ test("location presentation is truthful about default and non-archivable reasons
   assert.match(html, /Varsayılan konum arşivlenemez/);
   assert.match(html, /Pozitif stok bakiyesi bulunduğu için arşivlenemez/);
   assert.match(html, /Arşivlenmiş konum değiştirilemez/);
-  assert.match(html, /Sürüm 1/);
+  assert.match(html, /<details[^>]*class="recordInformation"[\s\S]*Sürüm<\/dt><dd>1/);
   assert.match(html, /disabled=""/);
   const css = await readFile(new URL("components/inventory/inventory-console.module.css", ROOT), "utf8");
   assert.match(css, /\.locationActions[\s\S]*min-height:\s*48px/);
@@ -851,10 +853,10 @@ test("list presentations expose fixed columns and labeled mobile facts", async (
     for (const label of labels) assert.match(html, new RegExp(label));
     assert.match(html, new RegExp(status));
     assert.match(html, /class="mobileCards"/);
-    assert.match(html, /Sürüm/);
-    assert.match(html, /href="\/products\/(?:purchasing|inventory-counts|transfers)\/[0-9a-f-]+"/);
-    assert.match(html, /Kalıcı Tedarikçi|44444444-4444-4444-8444-444444444444/);
-    if (path.includes("Transfer")) assert.match(html, /55555555-5555-4555-8555-555555555555/);
+    assert.doesNotMatch(html, /Sürüm/);
+    assert.match(html, /href="\/products\/stock\?tab=(?:purchases|counts|transfers)&amp;kind=(?:purchase|count|transfer)&amp;id=[0-9a-f-]+"/);
+    assert.match(html, /Kalıcı Tedarikçi|Ana depo/);
+    if (path.includes("Transfer")) assert.match(html, /Şube/);
   }
 });
 
@@ -871,11 +873,11 @@ function classSubtree(html: string, className: string) {
   assert.fail(`unclosed ${className} subtree`);
 }
 
-test("each rendered mobileCards subtree independently contains its labels, status, full identities and exact hit-target link", async () => {
+test("each rendered mobileCards subtree contains named depots, status and its unified detail link", async () => {
   const cases = [
-    ["components/inventory/PurchasingConsole.tsx", "PurchasingListPresentation", purchase(), "Sipariş verildi", `/products/purchasing/${ORDER}`, ["Tedarikçi", "Konum", "Sipariş", "Teslim", "Toplam", "Güncellendi", "Sürüm"], [LOCATION]],
-    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountListPresentation", count(), "Sayılıyor", `/products/inventory-counts/${COUNT}`, ["Konum", "Kalem", "Fark", "Güncellendi", "Sürüm"], [LOCATION]],
-    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferListPresentation", transfer(), "Yolda", `/products/transfers/${TRANSFER}`, ["Kaynak", "Hedef", "Kalem", "Miktar", "Güncellendi", "Sürüm"], [LOCATION, DESTINATION]],
+    ["components/inventory/PurchasingConsole.tsx", "PurchasingListPresentation", purchase(), "Sipariş verildi", `/products/stock?tab=purchases&amp;kind=purchase&amp;id=${ORDER}`, ["Tedarikçi", "Konum", "Sipariş", "Teslim", "Toplam", "Güncellendi"], ["Ana depo"]],
+    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountListPresentation", count(), "Sayılıyor", `/products/stock?tab=counts&amp;kind=count&amp;id=${COUNT}`, ["Konum", "Kalem", "Fark", "Güncellendi"], ["Ana depo"]],
+    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferListPresentation", transfer(), "Yolda", `/products/stock?tab=transfers&amp;kind=transfer&amp;id=${TRANSFER}`, ["Kaynak", "Hedef", "Kalem", "Miktar", "Güncellendi"], ["Ana depo", "Şube"]],
   ] as const;
   for (const [path, exportName, record, status, href, labels, identities] of cases) {
     const Presentation = await compilePresentation(path, exportName);
@@ -884,7 +886,8 @@ test("each rendered mobileCards subtree independently contains its labels, statu
     for (const label of labels) assert.match(mobile, new RegExp(`(?:<dt>|>)${label}(?:<|</dt>)`), `${path}: ${label}`);
     assert.match(mobile, new RegExp(status), path);
     for (const identity of identities) assert.match(mobile, new RegExp(identity), `${path}: ${identity}`);
-    assert.match(mobile, new RegExp(`<a class="mobileRecordLink" href="${href}">`), path);
+    assert.ok(mobile.includes(`<a class="mobileRecordLink" href="${href}">`), path);
+    assert.doesNotMatch(mobile, /Sürüm|44444444-4444-4444-8444-444444444444|55555555-5555-4555-8555-555555555555/);
   }
   const css = await readFile(new URL("components/inventory/inventory-console.module.css", ROOT), "utf8");
   const rule = css.match(/\.mobileRecordLink\s*\{([^}]*)\}/)?.[1] ?? "";
@@ -908,6 +911,7 @@ function createHookRuntime() {
     },
     useRef<T>(initial: T) { const index = cursor++; if (!(index in slots)) slots[index] = { current: initial }; return slots[index] as { current: T }; },
     useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) { const index = cursor++; const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined; if (!prior || !same(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback }; return (slots[index] as { value: T }).value; },
+    useMemo<T>(factory: () => T, deps: readonly unknown[]) { const index = cursor++; const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined; if (!prior || !same(prior.deps, deps)) slots[index] = { deps: [...deps], value: factory() }; return (slots[index] as { value: T }).value; },
     useEffect(effect: () => void | (() => void), deps: readonly unknown[]) { const index = cursor++; const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined; if (prior && same(prior.deps, deps)) return; prior?.cleanup?.(); const cleanup = effect(); slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) }; },
   } as unknown as typeof React;
   return { runtime, async flush(component: () => ReactNode) { for (let pass = 0; pass < 20; pass += 1) { if (dirty || latest === undefined) { dirty = false; cursor = 0; latest = component(); } await tick(); if (!dirty) return latest; } throw new Error("inventory_hook_flush_exhausted"); } };
@@ -936,6 +940,183 @@ function resolveComponents(node: ReactNode): ReactNode {
     React.Children.map(node.props.children as ReactNode, resolveComponents),
   );
 }
+
+function buttonWithText(node: ReactNode, text: string): React.ReactElement<Record<string, unknown>> | undefined {
+  if (!React.isValidElement<Record<string, unknown>>(node)) return;
+  if (node.type === "button" && React.Children.toArray(node.props.children as ReactNode).join("") === text) return node;
+  let result: React.ReactElement<Record<string, unknown>> | undefined;
+  React.Children.forEach(node.props.children as ReactNode, child => { result ??= buttonWithText(child, text); });
+  return result;
+}
+
+test("new inventory consoles expose the real next step after canonical draft creation", async () => {
+  const controllerModule = await controllers();
+  for (const [path, name, kind, created, nextAction] of [
+    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountConsole", "count", count({ status: "draft", version: 1 }), "Sayımı başlat"],
+    ["components/inventory/PurchasingConsole.tsx", "PurchasingConsole", "purchase", purchase({ status: "draft", version: 1 }), "Siparişi ver"],
+    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferConsole", "transfer", transfer({ status: "draft", version: 1 }), "Sevk et"],
+  ] as const) {
+    const hooks = createHookRuntime();
+    const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
+    const intent = kind === "purchase"
+      ? { locationId: LOCATION, supplierName: "Kalıcı Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 5, unitCostCents: 1250 }] }
+      : kind === "count"
+        ? { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 5 }] }
+        : { sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] };
+    const api = {
+      async getCount() { return created; }, async getPurchaseOrder() { return created; }, async getTransfer() { return created; },
+      async saveCount() { return mutation(created.id, "draft", 1); },
+      async savePurchaseOrder() { return mutation(created.id, "draft", 1); },
+      async saveTransfer() { return mutation(created.id, "draft", 1); },
+    };
+    const module = await compileWith(hooks.runtime, path, specifier => {
+      if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+      if (specifier === "@/components/panel/PanelPageShell") return {
+        PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+        PanelPageHeader: () => null, PanelActionButton: () => null,
+        PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children),
+      };
+      if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: api };
+      if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
+      if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
+      if (specifier === "./InventoryListState") return { useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }) };
+      if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: (props: { onSave(value: unknown): void }) => createElement("button", { onClick: () => props.onSave(intent) }, "Taslağı oluştur"), PurchaseReceiptForm: () => null };
+      if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
+      if (specifier.endsWith("inventory-console.module.css")) return styles;
+      throw new Error(`unexpected_create_flow_import:${specifier}`);
+    });
+    const Console = module[name] as (props: Record<string, unknown>) => ReactNode;
+    const render = () => resolveComponents(Console({ mode: "new", embedded: true, canRead: true, canManage: true }));
+    let tree = await hooks.flush(render);
+    assert.equal(buttonWithText(tree, nextAction), undefined, kind);
+    const create = buttonWithText(tree, "Taslağı oluştur");
+    assert.ok(create, kind);
+    (create.props.onClick as () => void)();
+    tree = await hooks.flush(render);
+    assert.ok(buttonWithText(tree, nextAction), `${kind}: successful creation must expose ${nextAction}`);
+  }
+});
+
+test("count completion reviews saved per-product differences before committing", async () => {
+  const hooks = createHookRuntime();
+  let commits = 0;
+  const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
+  const module = await compileWith(hooks.runtime, "components/inventory/InventoryCountConsole.tsx", specifier => {
+    if (specifier === "next/link") return () => null;
+    if (specifier === "@/components/panel/PanelPageShell") return { PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children) };
+    if (specifier === "@/lib/inventory-ui/client" || specifier === "@/lib/inventory-ui/console-controller") return {};
+    if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
+    if (specifier === "./InventoryListState" || specifier === "./InventoryOperationForm") return {};
+    if (specifier.endsWith("inventory-console.module.css")) return styles;
+    throw new Error(`unexpected_count_review_import:${specifier}`);
+  });
+  const Presentation = module.InventoryCountPresentation as (props: Record<string, unknown>) => ReactNode;
+  const render = () => resolveComponents(Presentation({ state: { phase: "loaded", record: count(), pending: false, locked: false, message: "" }, canManage: true, onStart() {}, onCancel() {}, onCommit() { commits++; } }));
+  let tree = await hooks.flush(render);
+  const complete = buttonWithText(tree, "Sayımı tamamla");
+  assert.ok(complete);
+  (complete.props.onClick as () => void)();
+  tree = await hooks.flush(render);
+  assert.equal(commits, 0, "review must not commit");
+  assert.match(renderToStaticMarkup(tree), /Sayılan − Beklenen/);
+  const confirm = buttonWithText(tree, "Farkları uygula");
+  assert.ok(confirm);
+  (confirm.props.onClick as () => void)();
+  assert.equal(commits, 1);
+});
+
+test("workspace purchase form uses shared choices, defaults its depot and submits decimal lira as exact cents", async () => {
+  const hooks = createHookRuntime();
+  const money = await import("./inventory-ui/money.ts");
+  const presentation = await import("./inventory-ui/form-presentation.ts");
+  const formIntent = await import("./inventory-ui/form-intent.ts");
+  const formChoices = {
+    products: [{ productId: ORDER, title: "Altın yüzük" }],
+    variants: [{ productId: ORDER, productTitle: "Altın yüzük", variantId: VARIANT, variantTitle: "14 Ayar", sku: "SKU-1" }],
+    locations: [{ locationId: LOCATION, name: "Ana depo", isDefault: true }],
+  };
+  const context = { phase: "loaded", formChoices };
+  let extraChoiceLoads = 0;
+  let saved: unknown;
+  const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
+  const module = await compileWith(hooks.runtime, "components/inventory/InventoryOperationForm.tsx", specifier => {
+    if (specifier === "@/lib/inventory-ui/form-choices") return { createInventoryFormChoiceLifecycle: () => ({ setup() { extraChoiceLoads++; return () => {}; } }) };
+    if (specifier === "@/lib/inventory-ui/form-intent") return formIntent;
+    if (specifier === "@/lib/inventory-ui/form-presentation") return presentation;
+    if (specifier === "@/lib/inventory-ui/money") return money;
+    if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => context };
+    if (specifier.endsWith("inventory-console.module.css")) return styles;
+    throw new Error(`unexpected_shared_form_import:${specifier}`);
+  });
+  const Form = module.InventoryOperationForm as (props: Record<string, unknown>) => ReactNode;
+  const render = () => resolveComponents(Form({ mode: "purchase", initialVariantId: VARIANT, canManage: true, phase: "loaded", pending: false, locked: false, message: "", onSave(value: unknown) { saved = value; } }));
+  function elements(node: ReactNode, type: string): Array<React.ReactElement<Record<string, unknown>>> {
+    if (!React.isValidElement<Record<string, unknown>>(node)) return [];
+    return [...(node.type === type ? [node] : []), ...React.Children.toArray(node.props.children as ReactNode).flatMap(child => elements(child, type))];
+  }
+  let tree = await hooks.flush(render);
+  assert.equal(extraChoiceLoads, 0);
+  const selects = elements(tree, "select");
+  assert.equal(selects[0]?.props.value, LOCATION);
+  assert.match(renderToStaticMarkup(tree), /Altın yüzük — 14 Ayar \(SKU-1\)/);
+  assert.doesNotMatch(renderToStaticMarkup(tree), /Gönderimde atanacak|Birim maliyet \(kuruş\)/);
+  const inputs = elements(tree, "input");
+  (inputs[0]!.props.onChange as Function)({ target: { value: "Tedarikçi" } });
+  const cost = inputs.find(input => input.props["aria-label"] === "1. kalem birim maliyeti, TL");
+  assert.ok(cost);
+  (cost.props.onChange as Function)({ target: { value: "14.89" } });
+  tree = await hooks.flush(render);
+  (elements(tree, "form")[0]!.props.onSubmit as Function)({ preventDefault() {} });
+  assert.equal((saved as { locationId: string }).locationId, LOCATION);
+  assert.equal((saved as { lines: Array<{ unitCostCents: number }> }).lines[0]?.unitCostCents, 1489);
+  assert.equal(extraChoiceLoads, 0);
+});
+
+test("location console reports a pending create and preserves an ambiguous controller lock", async () => {
+  const hooks = createHookRuntime();
+  const controllerModule = await controllers();
+  const saving = deferred<InventoryMutationResult>();
+  const activities: Array<{ pending: boolean; locked: boolean; dirty?: boolean }> = [];
+  let saves = 0;
+  const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
+  const api = { async listLocations() { return [location()]; }, saveLocation() { saves++; return saving.promise; } };
+  const module = await compileWith(hooks.runtime, "components/inventory/InventoryLocationConsole.tsx", specifier => {
+    if (specifier === "@/components/panel/PanelPageShell") return { PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children) };
+    if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: api };
+    if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
+    if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
+    if (specifier.endsWith("inventory-console.module.css")) return styles;
+    throw new Error(`unexpected_location_activity_import:${specifier}`);
+  });
+  const Console = module.InventoryLocationConsole as (props: Record<string, unknown>) => ReactNode;
+  const onStateChange = (activity: typeof activities[number]) => activities.push(activity);
+  const render = () => resolveComponents(Console({ canRead: true, canManage: true, onStateChange }));
+  function element(node: ReactNode, type: string): React.ReactElement<Record<string, unknown>> | undefined {
+    if (!React.isValidElement<Record<string, unknown>>(node)) return;
+    if (node.type === type) return node;
+    let result: React.ReactElement<Record<string, unknown>> | undefined;
+    React.Children.forEach(node.props.children as ReactNode, child => { result ??= element(child, type); });
+    return result;
+  }
+  let tree = await hooks.flush(render);
+  const input = element(tree, "input");
+  assert.ok(input);
+  (input.props.onChange as Function)({ currentTarget: { value: "Şube" } });
+  tree = await hooks.flush(render);
+  assert.equal(activities.at(-1)?.dirty, true);
+  const form = element(tree, "form");
+  assert.ok(form);
+  (form.props.onSubmit as Function)({ preventDefault() {} });
+  tree = await hooks.flush(render);
+  assert.deepEqual(activities.at(-1), { pending: true, locked: true, dirty: true });
+  saving.reject(new InventoryApiError("unavailable", 503));
+  tree = await hooks.flush(render);
+  assert.deepEqual(activities.at(-1), { pending: false, locked: true, dirty: true });
+  assert.match(renderToStaticMarkup(tree), /İşlem sonucu belirsiz/);
+  (element(tree, "form")!.props.onSubmit as Function)({ preventDefault() {} });
+  await hooks.flush(render);
+  assert.equal(saves, 1);
+});
 
 test("inventory detail route wrappers render loading, denied, not-found, unavailable and loaded truth states", async () => {
   const cases = [
@@ -1017,6 +1198,7 @@ test("inventory detail route wrappers render loading, denied, not-found, unavail
         if (specifier === "@/components/panel/PanelPageShell") return shell;
         if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: {} };
         if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
+        if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
         if (specifier === "./InventoryListState") return listModule;
         if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
         if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: () => null, PurchaseReceiptForm: () => null };
@@ -1096,7 +1278,8 @@ test("detail mode calls only the exact resource loader and never the collection 
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: api };
     if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
-    if (specifier === "./InventoryListState") return listModule;
+    if (specifier === "./InventoryWorkspaceContext") return { useOptionalInventoryWorkspace: () => null };
+        if (specifier === "./InventoryListState") return listModule;
     if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: () => null, PurchaseReceiptForm: () => null };
     if (specifier.endsWith("inventory-console.module.css")) return styles;
     throw new Error(`unexpected_console_import:${specifier}`);
@@ -1107,33 +1290,49 @@ test("detail mode calls only the exact resource loader and never the collection 
   assert.deepEqual(calls, [`get:${ORDER}`]);
 });
 
-test("executed pages derive exact read and manage props without passing tenant authority", async () => {
-  const cases = [
-    ["app/products/purchasing/page.tsx", "PurchasingConsole", "purchasing.read", "purchasing.manage", undefined, undefined],
-    ["app/products/purchasing/[purchaseOrderId]/page.tsx", "PurchasingConsole", "purchasing.read", "purchasing.manage", "purchaseOrderId", ORDER],
-    ["app/products/inventory-counts/page.tsx", "InventoryCountConsole", "inventory.read", "inventory.manage", undefined, undefined],
-    ["app/products/inventory-counts/[countId]/page.tsx", "InventoryCountConsole", "inventory.read", "inventory.manage", "countId", COUNT],
-    ["app/products/transfers/page.tsx", "InventoryTransferConsole", "inventory.read", "inventory.manage", undefined, undefined],
-    ["app/products/transfers/[transferId]/page.tsx", "InventoryTransferConsole", "inventory.read", "inventory.manage", "transferId", TRANSFER],
-  ] as const;
-  for (const [path, componentName, read, manage, parameter, value] of cases) {
+test("shared Stock server page independently derives four permissions without tenant authority", async () => {
+  for (const allowed of [new Set(["inventory.read"]), new Set(["purchasing.read", "purchasing.manage"]), new Set<string>()]) {
     const actions: string[] = [];
     const Console = (props: Record<string, unknown>) => createElement("output", props);
-    const page = await compileWith(React, path, (specifier) => {
-      if (specifier === "@celebix/saas-contracts") return { isMerchantActionAllowed(_role: string, action: string) { actions.push(action); return action === read; } };
-      if (specifier === `@/components/inventory/${componentName}`) return { [componentName]: Console };
+    const page = await compileWith(React, "app/products/stock/page.tsx", (specifier) => {
+      if (specifier === "@celebix/saas-contracts") return { isMerchantActionAllowed(_role: string, action: string) { actions.push(action); return allowed.has(action); } };
+      if (specifier === "@/components/inventory/StockWorkspace") return { StockWorkspace: Console };
+      if (specifier === "@/components/panel/PanelPageShell") return { PanelLoadingState: () => null };
       if (specifier === "@/lib/server-access") return { async resolveServerPanelAccess() { return { tenantContext: { membership: { role: "analyst" } } }; } };
       throw new Error(`unexpected_page_import:${specifier}`);
     });
-    const Page = page.default as (props?: Record<string, unknown>) => Promise<React.ReactElement<Record<string, unknown>>>;
-    const rendered = await Page(parameter ? { params: Promise.resolve({ [parameter]: value }) } : undefined);
-    assert.deepEqual(actions, [read, manage]);
-    assert.equal(rendered.type, Console);
-    assert.deepEqual(rendered.props, {
-      ...(parameter ? { resourceId: value } : {}),
-      canRead: true,
-      canManage: false,
+    const Page = page.default as () => Promise<React.ReactElement<{ children: React.ReactElement<Record<string, unknown>> }>>;
+    const rendered = await Page();
+    assert.deepEqual(actions, ["inventory.read", "inventory.manage", "purchasing.read", "purchasing.manage"]);
+    assert.equal(rendered.props.children.type, Console);
+    assert.deepEqual(rendered.props.children.props, {
+      canReadInventory: allowed.has("inventory.read"), canManageInventory: allowed.has("inventory.manage"),
+      canReadPurchasing: allowed.has("purchasing.read"), canManagePurchasing: allowed.has("purchasing.manage"),
     });
-    assert.equal("tenantContext" in rendered.props, false);
+  }
+});
+
+test("legacy stock list, create and detail URLs preserve the exact operation in one workspace", async () => {
+  for (const [folder, tab, kind, parameter, id] of [
+    ["purchasing", "purchases", "purchase", "purchaseOrderId", ORDER],
+    ["inventory-counts", "counts", "count", "countId", COUNT],
+    ["transfers", "transfers", "transfer", "transferId", TRANSFER],
+  ] as const) {
+    for (const suffix of ["", "/new", `/[${parameter}]`]) {
+      const page = await compileWith(React, `app/products/${folder}${suffix}/page.tsx`, (specifier) => {
+        if (specifier === "next/navigation") return { redirect(destination: string) { throw new Error(`redirect:${destination}`); }, notFound() { throw new Error("not_found"); } };
+        throw new Error(`unexpected_redirect_import:${specifier}`);
+      });
+      const Page = page.default as (props?: Record<string, unknown>) => Promise<void> | void;
+      const params = suffix.startsWith("/[") ? { params: Promise.resolve({ [parameter]: id }) } : undefined;
+      const expected = `/products/stock?tab=${tab}${suffix === "/new" ? `&kind=${kind}&new=1` : params ? `&kind=${kind}&id=${id}` : ""}`;
+      await assert.rejects(async () => Page(params), { message: `redirect:${expected}` });
+      if (params) {
+        for (const invalid of ["not-a-uuid", id.toUpperCase(), id.replace("-4000-", "-0000-")]) {
+          if (invalid === id) continue;
+          await assert.rejects(async () => Page({ params: Promise.resolve({ [parameter]: invalid }) }), { message: "not_found" });
+        }
+      }
+    }
   }
 });

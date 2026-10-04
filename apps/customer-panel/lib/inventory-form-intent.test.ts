@@ -112,6 +112,14 @@ test("count accepts exact zero while transfer requires distinct persisted active
   });
 });
 
+test("count draft may omit a quantity before the start snapshot while counting requires an explicit number", () => {
+  const input = draft({ mode: "count", supplierName: "", lines: [{ ...line, quantity: "" }] });
+  assert.deepEqual(buildInventoryOperationIntent(input, choices), {
+    ok: true, value: { locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] },
+  });
+  assert.equal(buildInventoryOperationIntent({ ...input, record: { ...count, status: "counting" } }, choices).ok, false);
+});
+
 test("rejects unknown duplicate variants and out-of-contract finite quantities", () => {
   assert.equal(buildInventoryOperationIntent(draft({ lines: Object.freeze([line, { ...line, lineId: ORDER }]) }), choices).ok, false);
   assert.equal(buildInventoryOperationIntent(draft({ lines: Object.freeze([{ ...line, variantId: ORDER }]) }), choices).ok, false);

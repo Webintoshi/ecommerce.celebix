@@ -169,7 +169,7 @@ function createController<RecordType extends Resource>(options: Readonly<{
           record: canonical,
           pending: false,
           locked: false,
-          message: result.replayed ? "Daha önce tamamlanan işlem kalıcı kayıttan yeniden gösterildi." : "İşlem tamamlandı ve kalıcı kayıt yeniden yüklendi.",
+          message: result.replayed ? "Bu işlem zaten kaydedildi." : "Kaydedildi.",
         });
       } catch {
         if (current(selected)) publish({ phase: "verification_unavailable", ...(record ? { record } : {}), pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
@@ -349,7 +349,7 @@ export function createPurchasingConsoleController(options: Readonly<{
       return allowed(["draft"], (record, signal) => options.api.transitionPurchaseOrder(record.id, { expectedVersion: record.version, transition: "order" }, signal));
     },
     cancel() {
-      return allowed(["draft", "ordered", "partially_received"], (record, signal) => options.api.transitionPurchaseOrder(record.id, { expectedVersion: record.version, transition: "cancel" }, signal));
+      return allowed(["draft", "ordered"], (record, signal) => options.api.transitionPurchaseOrder(record.id, { expectedVersion: record.version, transition: "cancel" }, signal));
     },
     dispose: controller.dispose,
   });

@@ -64,9 +64,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/products/definitions",
       "/products/tags",
       "/products/barcode-labels",
-      "/products/purchasing",
-      "/products/inventory-counts",
-      "/products/transfers",
+      "/products/stock",
       "/products/price-lists",
       "/products/auto-import",
       "/products/bulk-upload",
@@ -123,9 +121,7 @@ test("navigation exposes approved workspace shortcuts and keeps unsafe detail ro
     "/products/categories",
     "/products/tags",
     "/products/barcode-labels",
-    "/products/purchasing",
-    "/products/inventory-counts",
-    "/products/transfers",
+    "/products/stock",
     "/products/price-lists",
     "/settings/design",
     "/marketplaces",
@@ -227,7 +223,7 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "İçe Aktarma", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Kategoriler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Stok", "Fiyat Listeleri", "İçe Aktarma", "Toplu Yükle"]);
 });
 
 test("sidebar presents approved families as workspaces", () => {
@@ -277,11 +273,11 @@ test("category navigation is exact and near matches stay inactive", () => {
   assert.equal(getPanelRoutePresentation("/products/categories").title, "Kategoriler");
 });
 
-test("inventory operations are exact catalog destinations with safe detail descendants", () => {
+test("one Stock destination replaces the three menus and retains safe legacy descendants", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
   assert.deepEqual(
-    catalog?.children?.filter(({ href }) => href.includes("purchasing") || href.includes("inventory-counts") || href.includes("transfers")).map(({ href }) => href),
-    ["/products/purchasing", "/products/inventory-counts", "/products/transfers"],
+    catalog?.children?.filter(({ href }) => href === "/products/stock" || href.includes("purchasing") || href.includes("inventory-counts") || href.includes("transfers")).map(({ href }) => href),
+    ["/products/stock"],
   );
   for (const href of ["/products/purchasing", "/products/inventory-counts", "/products/transfers"] as const) {
     assert.equal(isPanelNavigationPathActive(href, href), true);
@@ -580,4 +576,13 @@ test("resolves only the exact Toshi workspace route without adding sidebar navig
     ...(item.children ?? []).map((child) => child.href),
   ]);
   assert.equal(hrefs.includes("/toshi" as never), false);
+});
+
+
+test("Stock is an exact accessible destination rather than a product detail", () => {
+  assert.equal(getPanelRoutePresentation("/products/stock").title, "Stok");
+  assert.equal(isPanelNavigationPathActive("/products/stock", "/products/stock"), true);
+  for (const path of ["/products/stock-evil", "/products/stock/child", "/products/stock?tab=counts", "/products/stock#x", "/products%2Fstock"]) {
+    assert.equal(isPanelNavigationPathActive(path, "/products/stock"), false);
+  }
 });
