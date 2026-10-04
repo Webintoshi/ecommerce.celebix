@@ -189,9 +189,9 @@ function apiError(value: unknown, status: number): InventoryApiError {
     return new InventoryApiError(status === expected ? code : "unavailable", status === expected ? status : 503);
   } catch { return new InventoryApiError("unavailable", 503); }
 }
-function items<T>(value: unknown, parser: (entry: unknown) => T): readonly T[] {
+function items<T>(value: unknown, parser: (entry: unknown) => T, maximum = 500): readonly T[] {
   const parsed = object(value, ["items"]);
-  if (!Array.isArray(parsed.items) || parsed.items.length > 500) throw new InventoryApiError("unavailable", 503);
+  if (!Array.isArray(parsed.items) || parsed.items.length > maximum) throw new InventoryApiError("unavailable", 503);
   try { return Object.freeze(parsed.items.map(parser)); } catch { throw new InventoryApiError("unavailable", 503); }
 }
 type MutationKind = "purchase_order" | "inventory_count" | "inventory_transfer";
@@ -300,7 +300,7 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     },
     listBalances(locationId: string, signal?: AbortSignal): Promise<readonly InventoryBalance[]> {
       const selected = id(locationId);
-      return request(`/api/inventory/balances?locationId=${selected}`, (value) => items(value, parseInventoryBalance), undefined, signal);
+      return request(`/api/inventory/balances?locationId=${selected}`, (value) => items(value, parseInventoryBalance, 5_000), undefined, signal);
     },
     listPurchaseOrders(signal?: AbortSignal): Promise<readonly PurchaseOrder[]> {
       return request("/api/inventory/purchase-orders", (value) => items(value, parsePurchaseOrder), undefined, signal);

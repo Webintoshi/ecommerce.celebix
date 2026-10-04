@@ -316,9 +316,10 @@ export class PostgresInventoryRepository implements InventoryRepository {
     value: unknown,
     parser: (entry: unknown) => T,
     ordered?: (left: T, right: T) => number,
+    maximum = 500,
   ): readonly T[] {
     const envelope = record(value, ["items"]);
-    const rawItems = denseArray(envelope.items, 0, 500);
+    const rawItems = denseArray(envelope.items, 0, maximum);
     let items: readonly T[];
     try { items = Object.freeze(rawItems.map(parser)); } catch { throw unavailable(); }
     if (ordered) {
@@ -429,7 +430,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const { parsed, authority } = this.validated(input, ["tenantContext", "now", "locationId"]);
     const locationId = inventoryUuid(parsed.locationId);
     return this.read({ text: SQL.listBalances, values: [...authorityValues(authority), locationId] }, "listed", (value) =>
-      this.list(value, parseInventoryBalance, (left, right) => left.variantId < right.variantId ? -1 : left.variantId > right.variantId ? 1 : 0));
+      this.list(value, parseInventoryBalance, (left, right) => left.variantId < right.variantId ? -1 : left.variantId > right.variantId ? 1 : 0, 5_000));
   }
 
   async listPurchaseOrders(input: ListPurchaseOrdersInput): Promise<readonly PurchaseOrder[]> {

@@ -54,6 +54,28 @@ const count = () => ({ id: COUNT, locationId: LOCATION, status: "draft" as const
 const transfer = () => ({ id: TRANSFER, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, status: "draft" as const, lines: [{ id: LINE, variantId: VARIANT, quantity: 2 }], version: 1, createdAt: timestamp, updatedAt: timestamp });
 const mutation = (id = ORDER, status = "draft") => ({ id, status, version: 2, updatedAt: timestamp, replayed: false });
 
+test("balance reads retain every row for catalogues larger than 500 variants", async () => {
+  for (const size of [501, 1213, 5000]) {
+    const rows = Array.from({ length: size }, (_, index) => ({
+      ...balance(), variantId: `30000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, "0")}`,
+    }));
+    const handle = handler(repository({ async listBalances() { return rows; } }));
+    const response = await handle(request(`/api/inventory/balances?locationId=${LOCATION}`));
+    assert.equal(response.status, 200, `${size} valid balance rows must load`);
+    assert.deepEqual((await response.json()).items, rows.map((row) => ({ ...row, updatedAt: "2026-07-23T11:00:00.000000Z" })));
+  }
+});
+
+test("balance read bound stays finite without expanding other inventory lists", async () => {
+  const rows = Array.from({ length: 5001 }, (_, index) => ({
+    ...balance(), variantId: `30000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, "0")}`,
+  }));
+  const balances = handler(repository({ async listBalances() { return rows; } }));
+  assert.equal((await balances(request(`/api/inventory/balances?locationId=${LOCATION}`))).status, 503);
+  const locations = handler(repository({ async listLocations() { return Array.from({ length: 501 }, location); } }));
+  assert.equal((await locations(request("/api/inventory/locations"))).status, 503);
+});
+
 function repository(overrides: Partial<InventoryRepository> = {}): InventoryRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
   return {

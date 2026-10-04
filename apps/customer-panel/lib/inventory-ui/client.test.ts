@@ -109,6 +109,44 @@ test("inventory client validates IDs and UUID generation before fetch", async ()
   assert.equal(calls, 0);
 });
 
+for (const size of [501, 5_000]) {
+  test(`inventory balance reads accept ${size} validated rows`, async () => {
+    const items = Array.from({ length: size }, (_, index) => ({
+      ...balance(),
+      variantId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      quantity: index,
+    }));
+    assert.ok(new TextEncoder().encode(JSON.stringify({ items })).byteLength < 1_048_576);
+    const api = createInventoryApi(async () => Response.json({ items }));
+    const actual = await api.listBalances(LOCATION);
+    assert.equal(actual.length, size);
+    assert.equal(actual[0]?.variantId, items[0]?.variantId);
+    assert.equal(actual.at(-1)?.variantId, items.at(-1)?.variantId);
+    assert.equal(actual.at(-1)?.quantity, size - 1);
+    assert.ok(Object.isFrozen(actual));
+  });
+}
+
+test("inventory balance reads reject 5001 rows and preserve the 500 row limits on other lists and mutations", async () => {
+  const balances = Array.from({ length: 5_001 }, (_, index) => ({
+    ...balance(),
+    variantId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  }));
+  const balanceApi = createInventoryApi(async () => Response.json({ items: balances }));
+  await assert.rejects(() => balanceApi.listBalances(LOCATION), (error: unknown) => error instanceof InventoryApiError && error.code === "unavailable");
+  const oversized = createInventoryApi(async () => new Response("{}".padEnd(1_048_577, " "), { headers: { "content-type": "application/json" } }));
+  await assert.rejects(() => oversized.listBalances(LOCATION), (error: unknown) => error instanceof InventoryApiError && error.code === "unavailable");
+  const locationApi = createInventoryApi(async () => Response.json({ items: Array.from({ length: 501 }, location) }));
+  await assert.rejects(() => locationApi.listLocations(), (error: unknown) => error instanceof InventoryApiError && error.code === "unavailable");
+  let mutationCalls = 0;
+  const mutationApi = createInventoryApi(async () => { mutationCalls += 1; return Response.json({}); });
+  assert.throws(() => mutationApi.saveCount({ locationId: LOCATION, lines: Array.from({ length: 501 }, (_, index) => ({
+    lineId: `70000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    variantId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  })) }), /inventory_client_invalid/);
+  assert.equal(mutationCalls, 0);
+});
+
 test("inventory client rejects generic or cross-entity mutation results for every mutation action", async () => {
   const api = createInventoryApi(async () => Response.json(mutation()), () => OPERATION);
   const calls = [

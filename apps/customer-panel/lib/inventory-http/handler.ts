@@ -89,8 +89,8 @@ function denseArray(value: unknown, maximum: number): readonly unknown[] {
     return copied;
   } catch { throw new TypeError("inventory_http_output_invalid"); }
 }
-function items(value: unknown, parser: (entry: unknown) => unknown): Readonly<{ items: readonly unknown[] }> {
-  return Object.freeze({ items: Object.freeze(denseArray(value, 500).map(parser)) });
+function items(value: unknown, parser: (entry: unknown) => unknown, maximum = 500): Readonly<{ items: readonly unknown[] }> {
+  return Object.freeze({ items: Object.freeze(denseArray(value, maximum).map(parser)) });
 }
 function mutation(kind: "purchase_order" | "inventory_count" | "inventory_transfer", value: unknown) {
   return Object.freeze({ kind, ...parseInventoryMutationResult(value) });
@@ -153,7 +153,7 @@ export function createInventoryHttpHandler(dependencies: Dependencies): (request
       case "locations": return execute(() => repository.listLocations(authority), (value) => items(value, parseInventoryLocation));
       case "location_save": return execute(() => repository.saveLocation({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "location_save" }>).value }), locationMutation);
       case "location_archive": return execute(() => repository.archiveLocation({ ...authority, locationId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "location_archive" }>).value }), locationMutation);
-      case "balances": return execute(() => repository.listBalances({ ...authority, locationId: (input as { locationId: string }).locationId }), (value) => items(value, parseInventoryBalance));
+      case "balances": return execute(() => repository.listBalances({ ...authority, locationId: (input as { locationId: string }).locationId }), (value) => items(value, parseInventoryBalance, 5_000));
       case "purchase_list": return execute(() => repository.listPurchaseOrders(authority), (value) => items(value, parsePurchaseOrder));
       case "purchase_get": return execute(() => repository.getPurchaseOrder({ ...authority, orderId: route.id }), parsePurchaseOrder);
       case "purchase_save": return execute(() => repository.savePurchaseOrder({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "purchase_save" }>).value }), (value) => mutation("purchase_order", value));

@@ -48,3 +48,34 @@ Yerel disk yetersizliği nedeniyle ilk build kesildi. Yalnız eski inactive Seo 
 Ortak branch'e güncel a1929760 belge kabulü alınır; ardından bu aday eklenir.
 NET→SITE sıralı normal yayın ve gerçek çalışan imaj/kaynak/payment/native okuyucu
 kontrolleri bitmeden canlı kabul tamamlandı sayılmaz. Canlı sonuç ayrı kayıtla eklenir.
+
+## İlk canlı yayın ve büyük katalog düzeltmesi
+
+İlk aday `1fc45e89213a04c295a417a9f52d7b1e5bbb9cbe` iki panelde normal sırayla tamamlandı:
+NET `d11aowdjkcb1j90rfh91d55f`, SITE `bbtsj4of2f4mvg2x873ggv5y`.
+Gerçek imaj/kaynak/cohort, dört PayTR okuyucusu, native214 ve ham yapılandırma
+korumaları geçti; global yayın kuyruğu boş. Storefrontlar `7d864534` kaldı.
+
+Chrome'da Butik Siora gerçek stokları, tek menü girişi, satın alma penceresi ve üç eski
+liste adresinin doğru sekmeye yönlenmesi doğrulandı. Üretimde stok/sayım/mal kabulü
+kaydı oluşturulmadı. 264 depo satırının 250'si aktif katalog varyantı; diğer14 satır
+arşivlenmiş varyant bakiyesi. Aktif kayıp varyant yok; bu kayıtlar değiştirme işlemi
+açmadan korunuyor.
+
+Güzide'de canlı kabul, eski genel liste sınırını ortaya çıkardı: 1.213 geçerli depo
+bakiye satırı repository'deki500 sınırını aşıp503 oluşturuyordu. Bunların1.194'ü aktif
+katalog varyantı,19'u arşivlenmiş varyant; DTO/geçersiz bakiye yok. Bu nedenle ilk
+yayın canlı kabul tamamlandı olarak raporlanmadı.
+
+Düzeltme yalnız depo bakiyesi **okumasında**, repository→HTTP→istemci üç katmanında
+5.000 sınırı kullanır. Diğer liste ve yazma kalemleri500, yanıt1MiB, tekil DTO,
+sıralı/benzersiz varyant, mağaza/depo yetkisi, stok aritmetiği, işlem anahtarı ve
+beklenen sürüm korunur. SQL/veri şeması değişmez. 501/5.000 satır regresyonları önce
+beklenen hata ile başarısız oldu; düzeltme sonrası repository21/21, HTTP21/21,
+istemci11/11, stok regresyon102/102 geçti. 5.001 ve sınır dışı kayıtlar reddedilir.
+
+Yerel bağımlılıklar yeniden indirilmedi. Donor bağımlılık dosyaları tekrar kullanılırken
+18 `@celebix` workspace bağlantısı bu çalışma ağacındaki gerçek paketlere bağlandı;
+testlerdeki ikinci hata sınıfı örneği ve yerel build'in eski repository okuması önlendi.
+Paket/lock/build ayarı değişmedi. Son birleşmiş adayın derlemesi ve sıralı canlı kabulü
+ayrıca doğrulanacak.

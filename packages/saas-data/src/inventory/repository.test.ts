@@ -81,6 +81,11 @@ const transfer = () => ({
 const mutation = (id: string, status: string, version: number) => ({ id, status, version, updatedAt: TIMESTAMP, replayed: false });
 const authority = () => ({ tenantContext: tenant(), now: new Date(NOW) });
 const hasCode = (value: unknown, code: string) => inventoryRepositoryErrorCode(value) === code;
+const sequenceId = (prefix: string, value: number) => `${prefix}-0000-4000-8000-${String(value).padStart(12, "0")}`;
+const balanceRows = (length: number) => Array.from({ length }, (_, index) => ({
+  ...balance(), variantId: sequenceId("30000000", index + 1), quantity: index % 17, version: index + 1,
+  updatedAt: TIMESTAMP.replace(".000Z", ".000000Z"),
+}));
 
 type QueryLog = Readonly<{ text: string; values?: unknown[] }>;
 type ResultRow = Readonly<{ outcome: string; result_payload: unknown }>;
@@ -220,6 +225,85 @@ test("inventory repository descriptor-copies exact SQL envelopes and rejects spa
     assert.deepEqual(client.releases, [undefined]);
   }
   assert.equal(accessorReads, 0);
+});
+
+for (const length of [501, 5_000]) {
+  test(`inventory balances parse every one of ${length} rows in the exact read-only transaction`, async () => {
+    const expected = balanceRows(length);
+    const client = new Client({ outcome: "listed", result_payload: { items: expected } });
+    const result = await repository(new Pool(client)).listBalances({ ...authority(), locationId: LOCATION });
+    assert.deepEqual(result, expected);
+    assert.equal(result.length, length);
+    assert.ok(Object.isFrozen(result) && result.every(Object.isFrozen));
+    const query = assertConfigured(client, "BEGIN READ ONLY", "COMMIT");
+    assert.equal(query.text, "SELECT outcome,result_payload FROM saas.inventory_list_balances($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)");
+    assert.deepEqual(query.values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, LOCATION]);
+    assert.deepEqual(client.releases, [undefined]);
+  });
+}
+
+test("inventory balances reject 5001 rows before committing the read", async () => {
+  const client = new Client({ outcome: "listed", result_payload: { items: balanceRows(5_001) } });
+  await assert.rejects(
+    () => repository(new Pool(client)).listBalances({ ...authority(), locationId: LOCATION }),
+    (error: unknown) => hasCode(error, "unavailable"),
+  );
+  assertConfigured(client, "BEGIN READ ONLY", "ROLLBACK");
+  assert.equal(client.queries.some(({ text }) => text === "COMMIT"), false);
+});
+
+test("inventory balance rows beyond 500 retain exact DTO, quantity and strict ordering checks", async () => {
+  const privateField = balanceRows(501);
+  Object.assign(privateField[500]!, { storeId: STORE });
+  const invalidQuantity = balanceRows(501);
+  invalidQuantity[500]!.quantity = -1;
+  const duplicate = balanceRows(501);
+  duplicate[500]!.variantId = duplicate[0]!.variantId;
+  const unordered = balanceRows(501);
+  [unordered[499], unordered[500]] = [unordered[500]!, unordered[499]!];
+  for (const items of [privateField, invalidQuantity, duplicate, unordered]) {
+    const client = new Client({ outcome: "listed", result_payload: { items } });
+    await assert.rejects(
+      () => repository(new Pool(client)).listBalances({ ...authority(), locationId: LOCATION }),
+      (error: unknown) => hasCode(error, "unavailable"),
+    );
+    assertConfigured(client, "BEGIN READ ONLY", "ROLLBACK");
+    assert.equal(client.queries.some(({ text }) => text === "COMMIT"), false);
+  }
+});
+
+test("inventory balance read expansion keeps every other collection at 500 rows", async () => {
+  const cases = [
+    { row: (index: number) => ({ ...location(), id: sequenceId("20000000", index + 1), isDefault: index === 0, archiveEligibility: index === 0 ? { canArchive: false, reason: "default" } : { canArchive: true, reason: null } }), invoke: (repo: InventoryRepository) => repo.listLocations(authority()) },
+    { row: (index: number) => ({ ...purchase(), id: sequenceId("40000000", 1_000 - index) }), invoke: (repo: InventoryRepository) => repo.listPurchaseOrders(authority()) },
+    { row: (index: number) => ({ ...count(), id: sequenceId("50000000", 1_000 - index) }), invoke: (repo: InventoryRepository) => repo.listCounts(authority()) },
+    { row: (index: number) => ({ ...transfer(), id: sequenceId("60000000", 1_000 - index) }), invoke: (repo: InventoryRepository) => repo.listTransfers(authority()) },
+  ];
+  for (const entry of cases) {
+    const valid = new Client({ outcome: "listed", result_payload: { items: Array.from({ length: 500 }, (_, index) => entry.row(index)) } });
+    assert.equal((await entry.invoke(repository(new Pool(valid)))).length, 500);
+    assertConfigured(valid, "BEGIN READ ONLY", "COMMIT");
+    const oversized = new Client({ outcome: "listed", result_payload: { items: Array.from({ length: 501 }, (_, index) => entry.row(index)) } });
+    await assert.rejects(() => entry.invoke(repository(new Pool(oversized))), (error: unknown) => hasCode(error, "unavailable"));
+    assertConfigured(oversized, "BEGIN READ ONLY", "ROLLBACK");
+  }
+});
+
+test("inventory balance read expansion keeps all four line mutations bounded before pool checkout", async () => {
+  const lines = Array.from({ length: 501 }, (_, index) => ({ lineId: sequenceId("70000000", index + 1), variantId: sequenceId("30000000", index + 1) }));
+  const operations = [
+    (repo: InventoryRepository) => repo.savePurchaseOrder({ ...authority(), operationId: OPERATION, locationId: LOCATION, supplierName: "Tedarikçi", lines: lines.map(line => ({ ...line, orderedQuantity: 1, unitCostCents: 100 })) }),
+    (repo: InventoryRepository) => repo.receivePurchaseOrder({ ...authority(), operationId: OPERATION, orderId: ORDER, expectedVersion: 1, locationId: LOCATION, lines: lines.map(({ lineId }) => ({ lineId, quantity: 1 })) }),
+    (repo: InventoryRepository) => repo.saveCount({ ...authority(), operationId: OPERATION, locationId: LOCATION, lines: lines.map(line => ({ ...line, countedQuantity: 1 })) }),
+    (repo: InventoryRepository) => repo.saveTransfer({ ...authority(), operationId: OPERATION, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: lines.map(line => ({ ...line, quantity: 1 })) }),
+  ];
+  for (const invoke of operations) {
+    const client = new Client({ outcome: "saved", result_payload: mutation(ORDER, "draft", 1) });
+    const pool = new Pool(client);
+    await assert.rejects(() => invoke(repository(pool)), (error: unknown) => hasCode(error, "invalid_input"));
+    assert.equal(pool.connectCount, 0);
+    assert.equal(client.queries.length, 0);
+  }
 });
 
 test("inventory repository exposes the thirteen exact mutation SQL signatures", async () => {
