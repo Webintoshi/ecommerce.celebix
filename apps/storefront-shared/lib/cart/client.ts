@@ -8,6 +8,8 @@ import {
 } from "@celebix/saas-contracts";
 import type { StorefrontCartClient } from "./types.ts";
 import { readCommerceAttribution } from "../analytics/attribution.ts";
+import { notifySuccessfulCartAdd } from "../engagement/integration.ts";
+import { queueStorefrontQuoteRequest } from "../checkout/quote-queue.ts";
 
 const MAXIMUM = 524_288;
 type Fetcher = (
@@ -172,6 +174,10 @@ export function createStorefrontCartClient(
     if (!root) throw new StorefrontCartClientError("invalid_response");
     return cart(root.cart);
   };
+  const quote = (intentKind: "cart" | "buy_now", normalizedCodes?: readonly string[]) => {
+    const body = { intentKind, ...(normalizedCodes === undefined ? {} : { normalizedCodes: Object.freeze([...normalizedCodes]) }), attribution: readCommerceAttribution() };
+    return queueStorefrontQuoteRequest(async () => confirmedQuote(await call("/api/checkout/quote", body)));
+  };
   return Object.freeze({
     async resolve() {
       const root = exact(await call("/api/cart", undefined, "GET"), ["cart"]);
@@ -179,7 +185,9 @@ export function createStorefrontCartClient(
       return cart(root.cart);
     },
     async add(input) {
-      return mutation("/api/cart/add", { operationId: uuid(), ...input });
+      const nextCart = await mutation("/api/cart/add", { operationId: uuid(), ...input });
+      notifySuccessfulCartAdd(nextCart);
+      return nextCart;
     },
     async setQuantity(input) {
       return mutation("/api/cart/quantity", { operationId: uuid(), ...input });
@@ -203,30 +211,13 @@ export function createStorefrontCartClient(
       });
     },
     async quote(intentKind) {
-      return confirmedQuote(
-        await call("/api/checkout/quote", {
-          intentKind,
-          attribution: readCommerceAttribution(),
-        }),
-      ).quote;
+      return (await quote(intentKind)).quote;
     },
     async quotePromotions(intentKind, normalizedCodes) {
-      return confirmedQuote(
-        await call("/api/checkout/quote", {
-          intentKind,
-          normalizedCodes,
-          attribution: readCommerceAttribution(),
-        }),
-      ).quote;
+      return (await quote(intentKind, normalizedCodes)).quote;
     },
     async quotePromotionsWithDigest(intentKind, normalizedCodes) {
-      return confirmedQuote(
-        await call("/api/checkout/quote", {
-          intentKind,
-          normalizedCodes,
-          attribution: readCommerceAttribution(),
-        }),
-      );
+      return quote(intentKind, normalizedCodes);
     },
     async startHosted(input) {
       const root = exact(

@@ -695,5 +695,6 @@ export type { ProductVariantGallery, ProductVariantGalleryAssignment } from "./m
 export * from "./contact-widget/index.ts";
 
 export * from "./restock-alerts/index.ts";
+export * from "./store-engagement/index.ts";
 export * from "./review-collection/index.ts";
 export * from './platform/index.ts';

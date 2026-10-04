@@ -17,6 +17,12 @@ test('cashier chrome exposes only the shared store register and preserves separa
   assert.equal(getPanelRoutePresentation('/orders/quick-links').title,'Mağaza satışı');
 });
 
+test('Popuplar is a distinct discount destination with its own route title',()=>{
+ const discounts=PANEL_NAVIGATION.find(item=>item.key==='discounts');
+ assert.ok(discounts?.children?.some(item=>item.href==='/discounts/popups'&&item.label==='Popuplar'));
+ assert.equal(getPanelRoutePresentation('/discounts/popups').title,'Popuplar');
+});
+
 function findNavigationItem(key: string) {
   return PANEL_NAVIGATION.find((item) => item.key === key);
 }
@@ -70,6 +76,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/products/bulk-upload",
       "/discounts",
       "/discounts/new",
+      "/discounts/popups",
       "/discounts/lucky-wheel",
       "/marketing",
       "/marketing/email",

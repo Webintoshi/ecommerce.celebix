@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createStorefrontCredential } from '../cart/credential.ts';
+import { createStoreEngagementRuntime } from './runtime.ts';
+const keyring={activeKeyId:'current',keys:[{keyId:'current',key:new Uint8Array(32).fill(5)}]},NOW=new Date('2026-10-04T12:00:00Z');
+const input={operationId:'78000000-0000-4000-8000-000000000001',campaignId:'78000000-0000-4000-8000-000000000002',email:'contact@example.test',marketingConsent:false};
+function harness(){const calls:unknown[]=[];const runtime=createStoreEngagementRuntime({keyring,now:()=>NOW,repository:{publicSettings:async()=>({popups:[],cartCapture:null}),capture:async(x:unknown)=>{calls.push(x);return {contactCaptured:true,couponCode:null};}}});return {calls,runtime};}
+test('capture hashes current c1 credential server-side, preserving native commerce cookie',async()=>{const h=harness(),credential=createStorefrontCredential('cart',keyring,()=>new Uint8Array(32).fill(1));assert.deepEqual(await h.runtime.capture('store.example',`__Host-celebix_cart=${credential.value}`,input),{contactCaptured:true,couponCode:null});assert.deepEqual(h.calls,[{hostname:'store.example',cartTokenDigest:credential.digest,now:NOW,...input}]);assert.equal(JSON.stringify(h.calls).includes(credential.value),false);});
+test('missing, duplicate, raw legacy or unknown credential cannot capture another cart',async()=>{const h=harness();for(const cookie of [null,'',`__Host-celebix_cart=${Buffer.alloc(32,1).toString('base64url')}`,`__Host-celebix_cart=c1.unknown.${Buffer.alloc(32,1).toString('base64url')}`,`__Host-celebix_cart=c1.current.${Buffer.alloc(32,1).toString('base64url')}; __Host-celebix_cart=c1.current.${Buffer.alloc(32,1).toString('base64url')}`])await assert.rejects(h.runtime.capture('store.example',cookie,input));assert.equal(h.calls.length,0);});

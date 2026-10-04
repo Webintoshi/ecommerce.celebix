@@ -26,7 +26,7 @@ const pageRecord = { id: "82000000-0000-4000-8000-000000000001", kind: "page", n
 const languageRecord = { id: "83000000-0000-4000-8000-000000000001", kind: "language_setting", name: "Mağaza dili", config: { defaultLocale: "tr", enabledLocales: ["tr", "en"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function screen(options: { canManage?: boolean; workspace?: boolean; restock?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
+async function screen(options: { canManage?: boolean; workspace?: boolean; restock?: boolean; cartCapture?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
   const browser = new Window({ url: "https://panel.example.test/settings/store-tools" });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLTextAreaElement: browser.HTMLTextAreaElement, HTMLSelectElement: browser.HTMLSelectElement, Event: browser.Event, KeyboardEvent: browser.KeyboardEvent, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -45,6 +45,10 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; resto
     return compiled.exports;
   }
   const requireModule = (id: string) => {
+    if (id === "./CartCaptureTool") return { CartCaptureTool: options.cartCapture ? ({ onOpenChange }: any) => {
+      const [open, setOpen] = React.useState(false);
+      return createElement("button", { "data-test-cart-capture-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Sepet aracını kapat" : "Sepet aracını aç");
+    } : () => null };
     if (id === "./RestockTool") return { RestockTool: options.restock ? ({ onOpenChange }: any) => {
       const [open, setOpen] = React.useState(false);
       return createElement("button", { "data-test-restock-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Stok aracını kapat" : "Stok aracını aç");
@@ -115,6 +119,18 @@ test("independent restock editing hides unrelated contact loading and errors unt
       assert.match(container.textContent, /Mağaza araçları (yükleniyor|yüklenemedi)/);
     });
   }
+});
+
+test("cart capture editing hides unrelated contact errors and the restock action until returning", async () => {
+  await screen({ cartCapture: true, restock: true, records: async () => { throw Error("unavailable"); } }, async ({ container, click }: any) => {
+    assert.match(container.textContent, /Mağaza araçları yüklenemedi/);
+    await click("[data-test-cart-capture-toggle]");
+    assert.doesNotMatch(container.textContent, /Mağaza araçları yüklenemedi/);
+    assert.equal(container.querySelector('[data-test-restock-toggle]'), null);
+    await click("[data-test-cart-capture-toggle]");
+    assert.match(container.textContent, /Mağaza araçları yüklenemedi/);
+    assert.ok(container.querySelector('[data-test-restock-toggle]'));
+  });
 });
 
 test("discarding a changed tool restores saved content and returns focus to its edit action", async () => {

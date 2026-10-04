@@ -4,11 +4,43 @@ import test from "node:test";
 import type { PublicCart } from "@celebix/saas-contracts";
 import { createStorefrontCartClient, StorefrontCartClientError } from "./client.ts";
 import * as cartClientModule from "./client.ts";
+import { registerEngagementCart, subscribeSuccessfulCartAdd } from "../engagement/integration.ts";
 
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
 const VARIANT = "20000000-0000-4000-8000-000000000001";
 const OPERATION = "30000000-0000-4000-8000-000000000001";
 const PAYMENT_METHOD = "40000000-0000-4000-8000-000000000001";
+
+test("only a parsed successful add signals engagement; load, quantity, removal and failed add do not", async () => {
+  const previous = globalThis.window;
+  Object.assign(globalThis, { window: { location: { host: "shop.example", pathname: "/products/one", search: "" }, setTimeout } });
+  const result = { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: [{ productId: PRODUCT, variantId: VARIANT, slug: "urun", title: "Ürün", variantTitle: "Standart", quantity: 1, unitPriceCents: 100, lineTotalCents: 100, available: true }] } satisfies PublicCart;
+  const retire = registerEngagementCart({ storefrontId: PRODUCT, getCart: () => result, closeDrawerAndWait: async () => true });
+  let count = 0; const unsubscribe = subscribeSuccessfulCartAdd(() => { count++; });
+  let failed = false;
+  const client = createStorefrontCartClient(async () => new Response(JSON.stringify(failed ? { code: "stock_unavailable" } : { cart: result }), { status: failed ? 409 : 200, headers: { "content-type": "application/json" } }), () => OPERATION);
+  try {
+    await client.resolve(); await client.setQuantity({ variantId: VARIANT, quantity: 1, expectedVersion: 1 }); await client.remove({ variantId: VARIANT, expectedVersion: 1 });
+    failed = true; await assert.rejects(client.add({ productId: PRODUCT, variantId: VARIANT, quantity: 1 }));
+    await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(count, 0);
+    failed = false; await client.add({ productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+    await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(count, 1);
+  } finally { unsubscribe(); retire(); Object.assign(globalThis, { window: previous }); }
+});
+
+test("separate popup and checkout clients serialize quote HTTP responses at the shared cookie boundary", async () => {
+  const quote = { cart: { version: 1, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0, totalCents: 0, checkoutReady: false, checkoutBlocker: "empty_cart", items: [] }, paymentMethods: [], promotionStatus: { kind: "evaluated" }, appliedPromotions: [], rejectedPromotions: [], gifts: [], progressMessages: [] };
+  const response = () => new Response(JSON.stringify({ quote, quoteDigest: "a".repeat(64) }), { headers: { "content-type": "application/json" } });
+  let finish!: (value: Response) => void;
+  const started: string[] = [];
+  const popup = createStorefrontCartClient(async () => { started.push("popup"); return new Promise<Response>(resolve => { finish = resolve; }); });
+  const checkout = createStorefrontCartClient(async () => { started.push("checkout"); return response(); });
+  const first = popup.quotePromotionsWithDigest("cart", ["POPUP"]), second = checkout.quotePromotionsWithDigest("cart", []);
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(started, ["popup"], "a newer checkout must wait for the popup's Set-Cookie response");
+  finish(response()); await first; await second;
+  assert.deepEqual(started, ["popup", "checkout"]);
+});
 
 test("add-to-cart opens the drawer before the network result and then installs the canonical cart", async () => {
   const candidate = (cartClientModule as unknown as Record<string, unknown>).addCartLineAndOpenDrawer;

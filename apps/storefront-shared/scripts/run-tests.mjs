@@ -4,9 +4,10 @@ import path from "node:path";
 
 const browserTests = ["components/GuzideSearchPanel.test.ts", "components/GuzideHeaderSearch.test.ts", "components/StorefrontNavigationScroll.test.ts", "components/RestockAlerts.test.ts", "components/FreeShippingProgress.test.ts","components/ContactWidget.test.ts", "components/LilyumProduct.test.ts", "components/LilyumHeader.test.ts", "components/ProductSizeGuide.test.ts", "components/GuzideCartHistory.test.ts", "components/GuzideMobileExperience.test.ts", "components/GuzideBrowsingContinuity.test.ts", "components/GuzideProductExplorer.test.ts", "components/StorefrontSearchForm.test.ts", "components/CampaignSectionContent.test.ts", "components/SharedCampaignPreview.test.ts", "components/ProductVariantMedia.test.ts", "components/GuzideProductPurchase.test.ts", "components/GuzideMobileMenu.test.ts", "components/SioraProductPurchase.test.ts", "components/SioraCatalogReturn.test.ts", "components/SioraHeader.test.ts", "components/StorefrontFrame.test.ts", "components/SioraSideCartDrawer.test.ts", "components/CheckoutInteractions.test.ts", "components/SharedFooterSignature.test.ts"];
 const directories = [
-  "lib", "lib/account", "lib/cart", "lib/checkout", "lib/payment-adapters",
+  "lib", "lib/account", "lib/cart", "lib/checkout", "lib/payment-adapters", "lib/engagement",
   "lib/customer-engagement", "lib/restock", "lib/reviews", "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",
 ];
+browserTests.push("components/StoreEngagement.test.ts");
 const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))

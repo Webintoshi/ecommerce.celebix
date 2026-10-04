@@ -31,6 +31,7 @@ export type PanelNavigationHref =
   | "/products/bulk-upload"
   | "/discounts"
   | "/discounts/new"
+  | "/discounts/popups"
   | "/discounts/lucky-wheel"
   | "/marketing"
   | "/marketing/email"
@@ -183,6 +184,7 @@ const CATALOG_CHILDREN = Object.freeze([
 const DISCOUNT_CHILDREN = Object.freeze([
   item("all-discounts", "Tüm İndirimler", "/discounts", "discounts"),
   item("new-discount", "Yeni indirim", "/discounts/new", "discounts"),
+  item("popups", "Popuplar", "/discounts/popups", "discounts"),
   item("lucky-wheel", "Şans Çarkı", "/discounts/lucky-wheel", "lucky-wheel"),
 ]);
 
@@ -300,6 +302,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/products/bulk-upload": presentation("Toplu Yükle"),
   "/discounts": presentation("İndirimler"),
   "/discounts/new": presentation("Yeni İndirim"),
+  "/discounts/popups": presentation("Popuplar"),
   "/discounts/lucky-wheel": presentation("Şans Çarkı"),
   "/marketing": presentation("Pazarlama Özeti"),
   "/marketing/email": presentation("E-posta Kampanyaları"),

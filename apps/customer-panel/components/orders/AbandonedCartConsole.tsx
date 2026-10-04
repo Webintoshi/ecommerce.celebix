@@ -690,7 +690,7 @@ export function AbandonedCartDetailPresentation(
                 <UserRound aria-hidden="true" />
                 Müşteri
               </dt>
-              <dd>{cart.customerName ?? "Anonim sepet"}</dd>
+              <dd>{customer(cart)}</dd>
             </div>
             <div>
               <dt>

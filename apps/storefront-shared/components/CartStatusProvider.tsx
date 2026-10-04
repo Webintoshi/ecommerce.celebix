@@ -11,6 +11,7 @@ import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
 import { useGuzidePanelHistory } from "../themes/guzide/useGuzidePanelHistory";
 import { useSioraPanelHistory } from "../themes/siora/useSioraPanelHistory";
+import { registerEngagementCart } from "../lib/engagement/integration.ts";
 
 export type CartStatus = Readonly<{
   cart: PublicCart | null;
@@ -66,6 +67,8 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
   const [unavailable, setUnavailable] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
   const drawerOpenRef = useRef(false);
   const drawerHistoryRef = useRef<DrawerHistory | null>(null);
   const pendingDrawerGateRef = useRef<Promise<boolean> | null>(null);
@@ -152,6 +155,16 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
     setLoading(false);
   }, []);
   const value = useMemo<CartStatus>(() => Object.freeze({ cart, loading, unavailable, drawerOpen, visualTheme, showQuantitySelector, refresh, registerDrawerGate: guzide ? registerDrawerGate : undefined, replaceCart, openDrawer, closeDrawer, closeDrawerAndWait }), [cart, loading, unavailable, drawerOpen, visualTheme, showQuantitySelector, refresh, guzide, registerDrawerGate, replaceCart, openDrawer, closeDrawer, closeDrawerAndWait]);
+  useEffect(() => {
+    if (!storefrontId) return;
+    return registerEngagementCart({ storefrontId, getCart: () => cartRef.current, getTrigger: () => triggerRef.current,
+      async closeDrawerAndWait(restoreFocus = false) {
+        const waiting = pendingDrawerGateRef.current;
+        if (waiting && !await waiting.catch(() => false)) return false;
+        return closeDrawerAndWait(restoreFocus);
+      },
+    });
+  }, [storefrontId, closeDrawerAndWait]);
   return <Context.Provider value={value}>{alpler ? <AlplerCartHistory bridge={drawerHistoryRef} onClose={hideDrawer} /> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
