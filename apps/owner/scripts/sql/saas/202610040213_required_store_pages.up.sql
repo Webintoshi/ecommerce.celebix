@@ -6,8 +6,8 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 LOCK TABLE saas.stores,saas.merchant_admin_records IN SHARE ROW EXCLUSIVE MODE;
 DO $precondition$ BEGIN
- IF to_regclass('saas.store_required_pages') IS NOT NULL OR to_regclass('saas.required_pages_209_backup') IS NOT NULL THEN RAISE EXCEPTION 'REQUIRED_PAGES_209_ALREADY_PRESENT';END IF;
- IF to_regprocedure('saas.restock_alerts_config_valid(jsonb)') IS NULL OR to_regprocedure('saas.merchant_content_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,jsonb)') IS NULL THEN RAISE EXCEPTION 'REQUIRED_PAGES_209_PREDECESSOR_MISSING';END IF;
+ IF to_regclass('saas.store_required_pages') IS NOT NULL OR to_regclass('saas.required_pages_213_backup') IS NOT NULL THEN RAISE EXCEPTION 'REQUIRED_PAGES_213_ALREADY_PRESENT';END IF;
+ IF to_regprocedure('saas.restock_alerts_config_valid(jsonb)') IS NULL OR to_regprocedure('saas.merchant_content_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,jsonb)') IS NULL THEN RAISE EXCEPTION 'REQUIRED_PAGES_213_PREDECESSOR_MISSING';END IF;
 END $precondition$;
 CREATE TABLE saas.store_required_pages(
  store_id uuid NOT NULL REFERENCES saas.stores(id),page_key text NOT NULL CHECK(page_key IN('about','contact','blog')),
@@ -15,12 +15,12 @@ CREATE TABLE saas.store_required_pages(
  locale text NOT NULL CHECK(locale~'^[a-z]{2,3}(-[A-Z]{2})?$'),generated boolean NOT NULL,created_at timestamptz NOT NULL,
  PRIMARY KEY(store_id,page_key),UNIQUE(store_id,record_id),FOREIGN KEY(store_id,record_id) REFERENCES saas.merchant_admin_records(store_id,id) ON DELETE RESTRICT
 );
-CREATE TABLE saas.required_pages_209_backup(identity text PRIMARY KEY,definition text NOT NULL,migrated_definition text NOT NULL,function_attributes jsonb NOT NULL);
+CREATE TABLE saas.required_pages_213_backup(identity text PRIMARY KEY,definition text NOT NULL,migrated_definition text NOT NULL,function_attributes jsonb NOT NULL);
 ALTER TABLE saas.store_required_pages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.store_required_pages FORCE ROW LEVEL SECURITY;
-ALTER TABLE saas.required_pages_209_backup ENABLE ROW LEVEL SECURITY;
-ALTER TABLE saas.required_pages_209_backup FORCE ROW LEVEL SECURITY;
-REVOKE ALL ON saas.store_required_pages,saas.required_pages_209_backup FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+ALTER TABLE saas.required_pages_213_backup ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saas.required_pages_213_backup FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON saas.store_required_pages,saas.required_pages_213_backup FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 -- No invented principal or idempotency operation for the initial system-authored blank version.
 ALTER TABLE saas.merchant_content_versions ALTER COLUMN operation_id DROP NOT NULL,ALTER COLUMN principal_id DROP NOT NULL;
 ALTER TABLE saas.merchant_content_versions DROP CONSTRAINT merchant_content_versions_write_source_check;
@@ -220,8 +220,8 @@ DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; v saas.merchant_conte
  RETURN QUERY SELECT 'operation_replayed',v.snapshot || CASE WHEN current_setting('saas.required_pages_projection_version',true)='1' AND EXISTS(SELECT 1 FROM saas.store_required_pages q WHERE q.store_id=p_store_id AND q.record_id=v.record_id) THEN jsonb_build_object('requiredPageKey',(SELECT q.page_key FROM saas.store_required_pages q WHERE q.store_id=p_store_id AND q.record_id=v.record_id)) ELSE '{}'::jsonb END;
 END
 $next_7$),
-('saas.merchant_content_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)','0f4bf81e43239ae5dacfc0f254420b744162d879821e01935616b4981180a7db',$next_8$
-DECLARE e text; r saas.merchant_admin_records%ROWTYPE; b saas.merchant_content_bodies%ROWTYPE; old_doc jsonb; v jsonb; origins jsonb; cfg jsonb; result jsonb; rid uuid; kind text; expected bigint; action text; body_format text; exists_record boolean;resolved jsonb; BEGIN
+('saas.merchant_content_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,jsonb)','90ed7c7e870feeea596f2916cca747b952a2b1dcb7f8d2d1e2c95fed290939f4',$next_8$
+DECLARE e text; r saas.merchant_admin_records%ROWTYPE; b saas.merchant_content_bodies%ROWTYPE; old_doc jsonb; v jsonb; origins jsonb; cfg jsonb; result jsonb; rid uuid; kind text; expected bigint; action text; body_format text; exists_record boolean;resolved jsonb; BEGIN PERFORM saas.platform_support_begin(p_store_id,p_principal_id,p_membership_id,'merchant_content_save');
  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'page',true);IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb;RETURN;END IF;
  IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' OR jsonb_typeof(p_request) IS DISTINCT FROM 'object' OR octet_length(p_request::text)>262144 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('content_authoring.store:'||p_store_id::text,170));
@@ -268,9 +268,9 @@ DECLARE e text; r saas.merchant_admin_records%ROWTYPE; b saas.merchant_content_b
  RETURN QUERY SELECT 'saved',result;
 END
 $next_8$),
-('saas.merchant_admin_save_without_category_showcase(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)','0565e9890b0f69da32aa9444240759fb838af0c3abb9b4fc5827c24f520442b0',$next_9$
+('saas.merchant_admin_save_without_category_showcase(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)','69d3cbbe120588e7b15128b70a2ffd6fc5a0694001a35f8384445d09460a6196',$next_9$
 DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; current_record saas.merchant_admin_records%ROWTYPE; result jsonb; projection jsonb;
-BEGIN
+BEGIN PERFORM saas.platform_support_begin(p_store_id,p_principal_id,p_membership_id,'merchant_admin_save_without_category_showcase');
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.merchant.admin.operation:'||p_operation_id::text,0));
  SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id;
  IF FOUND THEN
@@ -288,7 +288,7 @@ BEGIN
  INSERT INTO saas.merchant_admin_events(id,store_id,record_id,record_kind,event_kind,summary,occurred_at) VALUES(p_operation_id,p_store_id,p_record_id,p_kind,'saved',projection,p_now);
  INSERT INTO saas.merchant_admin_operations VALUES(p_operation_id,p_store_id,'save',p_fingerprint,result,p_now); RETURN QUERY SELECT 'saved',result;
 END $next_9$),
-('saas.merchant_admin_archive_before_content_bodies(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)','c5a754b5615e2f04c6891043af947be3d3ad92ae270c47050dbc0d1a37e51a29',$next_10$ DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; r saas.merchant_admin_records%ROWTYPE; result jsonb; BEGIN
+('saas.merchant_admin_archive_before_content_bodies(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)','d236832aa53df97798d1169e875b010604fd55fd69f47ce1eb0e78be3f83c1ae',$next_10$ DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; r saas.merchant_admin_records%ROWTYPE; result jsonb; BEGIN PERFORM saas.platform_support_begin(p_store_id,p_principal_id,p_membership_id,'merchant_admin_archive_before_content_bodies');
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.merchant.admin.operation:'||p_operation_id::text,0));
  SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id; IF FOUND THEN
   SELECT * INTO r FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=(op.result_payload->>'id')::uuid;
@@ -450,12 +450,12 @@ BEGIN
 END $next_18$)
  ) edits(identity,expected_source,next_source) LOOP
   SELECT * INTO before FROM pg_proc WHERE oid=to_regprocedure(target.identity);
-  IF NOT FOUND OR before.proowner<>(SELECT oid FROM pg_roles WHERE rolname='celebix_saas_owner') OR encode(sha256(convert_to(before.prosrc,'UTF8')),'hex')<>target.expected_source THEN RAISE EXCEPTION 'REQUIRED_PAGES_209_SOURCE_DRIFT: %',target.identity;END IF;
-  definition:=pg_get_functiondef(before.oid);IF strpos(definition,before.prosrc)=0 THEN RAISE EXCEPTION 'REQUIRED_PAGES_209_SOURCE_UNBOUND';END IF;
+  IF NOT FOUND OR before.proowner<>(SELECT oid FROM pg_roles WHERE rolname='celebix_saas_owner') OR encode(sha256(convert_to(before.prosrc,'UTF8')),'hex')<>target.expected_source THEN RAISE EXCEPTION 'REQUIRED_PAGES_213_SOURCE_DRIFT: %',target.identity;END IF;
+  definition:=pg_get_functiondef(before.oid);IF strpos(definition,before.prosrc)=0 THEN RAISE EXCEPTION 'REQUIRED_PAGES_213_SOURCE_UNBOUND';END IF;
   EXECUTE replace(definition,before.prosrc,target.next_source);
   SELECT * INTO after FROM pg_proc WHERE oid=before.oid;
-  IF to_jsonb(before)-ARRAY['prosrc','proargdefaults'] IS DISTINCT FROM to_jsonb(after)-ARRAY['prosrc','proargdefaults'] OR pg_get_expr(before.proargdefaults,0) IS DISTINCT FROM pg_get_expr(after.proargdefaults,0) OR after.prosrc IS DISTINCT FROM target.next_source THEN RAISE EXCEPTION 'REQUIRED_PAGES_209_AUTHORITY_CHANGED: %, attrs %, source %',target.identity,(SELECT array_agg(k) FROM jsonb_each(to_jsonb(before)-'prosrc') x(k,v) WHERE to_jsonb(after)->k IS DISTINCT FROM v),after.prosrc IS DISTINCT FROM target.next_source;END IF;
-  INSERT INTO saas.required_pages_209_backup VALUES(target.identity,definition,pg_get_functiondef(after.oid),to_jsonb(before)-'prosrc');
+  IF to_jsonb(before)-ARRAY['prosrc','proargdefaults'] IS DISTINCT FROM to_jsonb(after)-ARRAY['prosrc','proargdefaults'] OR pg_get_expr(before.proargdefaults,0) IS DISTINCT FROM pg_get_expr(after.proargdefaults,0) OR after.prosrc IS DISTINCT FROM target.next_source THEN RAISE EXCEPTION 'REQUIRED_PAGES_213_AUTHORITY_CHANGED: %, attrs %, source %',target.identity,(SELECT array_agg(k) FROM jsonb_each(to_jsonb(before)-'prosrc') x(k,v) WHERE to_jsonb(after)->k IS DISTINCT FROM v),after.prosrc IS DISTINCT FROM target.next_source;END IF;
+  INSERT INTO saas.required_pages_213_backup VALUES(target.identity,definition,pg_get_functiondef(after.oid),to_jsonb(before)-'prosrc');
  END LOOP;
 END $patch$;
 REVOKE ALL ON FUNCTION saas.required_page_public_locale_allowed(uuid,uuid),saas.required_page_content_locale(uuid,uuid,text),saas.required_page_content_path(uuid,uuid,text),saas.required_page_transition_valid(uuid,uuid,text,jsonb,text),saas.guard_required_page_record(),saas.guard_required_page_mapping(),saas.required_page_seed_plan(uuid),saas.seed_store_required_pages(uuid,timestamptz),saas.create_store_required_pages(),saas.public_required_page_get(text,timestamptz,text,text) FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;

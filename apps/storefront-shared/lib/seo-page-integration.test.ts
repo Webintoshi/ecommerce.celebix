@@ -45,7 +45,6 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "@/lib/policy-page.ts": { buildPublicPolicyPage: () => null }, "@/lib/analytics/events.ts": { productViewEvent: () => ({ name: "product_view" }) },
     "../../../components/RestockAlerts": { RestockAlertsProvider: "RestockAlertsProvider" },
     "../../../themes/siora/theme.ts": sioraTheme,
-    "../../../components/RestockAlerts": { RestockAlertsProvider: "RestockAlertsProvider" },
     "../../../themes/siora/SioraProductDetailExperience": { SioraProductDetailExperience: "SioraProductDetailExperience" },
     "../../../themes/siora/product-options.ts": sioraProductOptions,
     "../../../themes/alpler/theme.ts": alplerTheme,

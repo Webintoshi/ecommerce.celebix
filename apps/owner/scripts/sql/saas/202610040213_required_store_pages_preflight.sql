@@ -1,4 +1,4 @@
--- Read-only review before SQL209. No table mutation, raw body, credentials or fake actor.
+-- Read-only review before SQL213. No table mutation, raw body, credentials or fake actor.
 BEGIN READ ONLY;
 SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL statement_timeout='30s';

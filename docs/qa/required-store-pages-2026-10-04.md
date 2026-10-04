@@ -9,7 +9,7 @@ The page list pins the three identities before custom pages, with a small
 editing while hiding their server-owned address and locale. Required pages
 cannot be archived, deleted, reassigned, or have their captured route changed.
 
-SQL 209 also fills missing pages for existing stores. An unambiguous usable
+SQL 213 also fills missing pages for existing stores. An unambiguous usable
 existing page is adopted without modifying its record, body, versions or
 publication state. Ambiguous or temporary UUID routes stay untouched; a new
 draft uses an available canonical slug. The shared content locale configuration
@@ -22,7 +22,7 @@ server-owned mapping.
 
 ## Verification
 
-- Full shared contract suite: **548/548 passed**. Required identity is optional
+- Full shared contract suite: **549/549 passed**. Required identity is optional
   response metadata; write requests cannot claim it.
 - Merchant admin/content repositories: **32/32 passed**, including transaction
   local read-shape negotiation and lost-commit recovery.
@@ -40,12 +40,12 @@ server-owned mapping.
 - Full data package suite: 847 passed, 2 skipped, 1 subprocess timeout while
   builds ran concurrently. That unchanged hosted-checkout case passed when run
   alone; the full suite is not reported as entirely passing.
-- Native PostgreSQL verification: **25/25 scenarios passed** in a disposable
+- Native PostgreSQL verification: **26/26 scenarios passed** in a disposable
   local database. This covers registration atomicity/rollback, safe adoption and
   ambiguous legacy records, CAS/replay/recovery, initial version history, route
   and locale locks, tenant/role isolation, canonical public paths, disabled
   locales, and retention of required pages in the bounded 200-item projection.
-  All **1554 unrelated functions** remain byte-exact; the 19 changed functions
+  An active support session can save pages while retaining its write audit and row journal; an unredeemed, wrong-host or revoked session cannot write. All **1589 unrelated functions** remain byte-exact; the 19 changed functions
   retain their owner, grants, arguments, defaults and authority attributes.
 
 Native verification command:
@@ -81,14 +81,16 @@ Implementation and local verification only; **not deployed**. Existing live
 data has not been backfilled. On a separately authorized release:
 
 1. Review the owner-only read-only seed plan in
-   `apps/owner/scripts/sql/saas/202610040209_required_store_pages_preflight.sql`
+   `apps/owner/scripts/sql/saas/202610040213_required_store_pages_preflight.sql`
    and source-drift preconditions.
-2. Apply SQL 209 before updating the shared panel and storefront.
+2. Apply SQL 213 before updating the shared panel and storefront.
 3. New repositories request metadata using the transaction-local
    `saas.required_pages_projection_version=1` setting. Old callers retain their
    exact legacy DTO shape; this setting grants no authority.
 4. Deploy the common panel and storefront, preserving the independently
    published storefront navigation changes. Verify every tenant/domain.
 
+The release branch also preserves the current owner control-plane, invitation, support, checkout and storefront navigation sources. Merged panel/storefront builds passed; 40 panel/fixture tests, 38 focused storefront tests and 7 navigation tests passed. A duplicate pre-existing RestockAlerts test mock and missing platform export whitelist entries were reconciled.
+
 The migration down script refuses populated mappings/seed history instead of
-destroying tenant content. Rolling back an app must retain SQL 209.
+destroying tenant content. Rolling back an app must retain SQL 213.
