@@ -1,13 +1,7 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+import { notFound, redirect } from "next/navigation";
 
-import { InventoryCountConsole } from "@/components/inventory/InventoryCountConsole";
-import { resolveServerPanelAccess } from "@/lib/server-access";
-
-export const dynamic = "force-dynamic";
-
-export default async function InventoryCountPage({ params }: { params: Promise<{ countId: string }> }) {
-  const access = await resolveServerPanelAccess();
-  const role = access.tenantContext.membership.role;
+export default async function LegacyInventoryDetailPage({ params }: { params: Promise<{ countId: string }> }) {
   const { countId } = await params;
-  return <InventoryCountConsole resourceId={countId} canRead={isMerchantActionAllowed(role, "inventory.read")} canManage={isMerchantActionAllowed(role, "inventory.manage")} />;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(countId)) notFound();
+  redirect(`/products/stock?tab=counts&kind=count&id=${countId}`);
 }

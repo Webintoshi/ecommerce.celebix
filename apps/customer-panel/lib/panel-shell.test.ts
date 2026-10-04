@@ -1232,8 +1232,9 @@ test("sidebar search reveals deep product and SEO links without losing the acces
     const hrefs = () => harness.hosts().filter((host) => host.type === "a").map((host) => host.props.href);
 
     setSearch("stok");
-    assert.ok(hrefs().includes("/products/inventory-counts"));
-    assert.ok(hrefs().includes("/products/transfers"));
+    assert.ok(hrefs().includes("/products/stock"));
+    assert.ok(!hrefs().includes("/products/inventory-counts"));
+    assert.ok(!hrefs().includes("/products/transfers"));
     assert.ok(!hrefs().includes("/products/new"));
 
     setSearch("seo");
@@ -1292,7 +1293,7 @@ test("sidebar keyboard shortcut focuses search and arrow navigation reaches resu
 
     (search()?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "stok" } });
     harness.flush();
-    const firstResult = harness.hosts().find((host) => host.type === "a" && host.props.href === "/products/inventory-counts");
+    const firstResult = harness.hosts().find((host) => host.type === "a" && host.props.href === "/products/stock");
     assert.ok(firstResult);
     (search()?.props.onKeyDown as (event: { key: string; preventDefault: () => void }) => void)({ key: "ArrowDown", preventDefault() {} });
     assert.equal(firstResult.focusCount, 1);

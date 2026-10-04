@@ -702,3 +702,38 @@
 .locationCreate input, .locationRenameDialog input { min-width: 0; max-width: 100%; }
 .mobileCards { --inventory-accent: var(--cp-brand); --inventory-text: var(--cp-text-primary); }
 .cardHeading a { color: var(--cp-text-primary); }
+
+.productSearch { display: grid; min-width: 0; gap: 8px; max-width: 480px; color: var(--cp-text-primary); font-size: 14px; }
+.productSearch input { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; }
+.productSearch small, .formHelp { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
+.desktopFormTable select { max-width: 100%; }
+.desktopFormTable table { min-width: 580px; }
+.lineTable table { min-width: 480px; }
+.lineTable td:first-child { min-width: 180px; overflow-wrap: anywhere; }
+.recordInformation { min-width: 0; margin-top: 16px; color: var(--cp-text-secondary); font-size: 12px; }
+.recordInformation summary { display: flex; min-height: 44px; align-items: center; cursor: pointer; font-size: 13px; }
+.recordInformation dl { display: grid; gap: 12px; margin: 8px 0 0; }
+.recordInformation dl > div { display: grid; min-width: 0; gap: 4px; }
+.recordInformation dd { margin: 0; overflow-wrap: anywhere; }
+.recordInformation code { font-size: 11px; overflow-wrap: anywhere; }
+.locationCard > .recordInformation { grid-column: 1; margin-top: 0; }
+.locationCard .recordInformation p { margin: 0; }
+.countSteps { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 20px; padding: 0; list-style: none; }
+.countSteps li { display: flex; align-items: center; gap: 8px; color: var(--cp-text-secondary); font-size: 12px; }
+.countSteps li > span { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border: 1px solid var(--cp-border); border-radius: 50%; font-variant-numeric: tabular-nums; }
+.countSteps [aria-current="step"] { color: var(--cp-text-primary); font-weight: 600; }
+.countSteps [aria-current="step"] > span { border-color: var(--cp-brand); }
+.countReview { margin-top: 20px; padding: 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
+.countReview h2 { margin: 0; color: var(--cp-text-primary); font-size: 16px; font-weight: 600; }
+.countReview p { color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.countReview dl { display: grid; gap: 12px; font-size: 13px; }
+.countReview dl > div { display: flex; justify-content: space-between; gap: 16px; }
+.countReview dt { min-width: 0; overflow-wrap: anywhere; }
+.countReview dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+:is(.recordInformation, .productSearch, .countReview) :is(button, input, summary):focus-visible { outline: 2px solid var(--cp-text-primary); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .countSteps { gap: 8px; }
+  .countSteps li { gap: 4px; font-size: 12px; }
+  .countReview dl > div { display: grid; gap: 4px; }
+  .lineTable table { min-width: 480px; }
+}

@@ -1,13 +1,7 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+import { notFound, redirect } from "next/navigation";
 
-import { InventoryTransferConsole } from "@/components/inventory/InventoryTransferConsole";
-import { resolveServerPanelAccess } from "@/lib/server-access";
-
-export const dynamic = "force-dynamic";
-
-export default async function InventoryTransferPage({ params }: { params: Promise<{ transferId: string }> }) {
-  const access = await resolveServerPanelAccess();
-  const role = access.tenantContext.membership.role;
+export default async function LegacyInventoryDetailPage({ params }: { params: Promise<{ transferId: string }> }) {
   const { transferId } = await params;
-  return <InventoryTransferConsole resourceId={transferId} canRead={isMerchantActionAllowed(role, "inventory.read")} canManage={isMerchantActionAllowed(role, "inventory.manage")} />;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(transferId)) notFound();
+  redirect(`/products/stock?tab=transfers&kind=transfer&id=${transferId}`);
 }

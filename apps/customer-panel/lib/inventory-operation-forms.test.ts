@@ -5,18 +5,21 @@ import test from "node:test";
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
-test("three finite new routes derive exact server permissions without browser authority", async () => {
-  for (const [path, read, manage] of [
-    ["app/products/purchasing/new/page.tsx", "purchasing.read", "purchasing.manage"],
-    ["app/products/inventory-counts/new/page.tsx", "inventory.read", "inventory.manage"],
-    ["app/products/transfers/new/page.tsx", "inventory.read", "inventory.manage"],
+test("the shared Stock route derives separate server permissions and old create routes preserve their action", async () => {
+  const page = await source("app/products/stock/page.tsx");
+  assert.match(page, /resolveServerPanelAccess\(\)/);
+  for (const action of ["inventory.read", "inventory.manage", "purchasing.read", "purchasing.manage"]) {
+    assert.ok(page.includes(JSON.stringify(action)));
+  }
+  assert.doesNotMatch(page, /tenantContext=|storeId=|tenantId=|headers\(\)|cookies\(\)/);
+  for (const [path, destination] of [
+    ["app/products/purchasing/new/page.tsx", "/products/stock?tab=purchases&kind=purchase&new=1"],
+    ["app/products/inventory-counts/new/page.tsx", "/products/stock?tab=counts&kind=count&new=1"],
+    ["app/products/transfers/new/page.tsx", "/products/stock?tab=transfers&kind=transfer&new=1"],
   ] as const) {
-    const page = await source(path);
-    assert.match(page, /resolveServerPanelAccess\(\)/);
-    assert.match(page, new RegExp(read.replace(".", "[.]")));
-    assert.match(page, new RegExp(manage.replace(".", "[.]")));
-    assert.match(page, /mode="new"/);
-    assert.doesNotMatch(page, /tenantContext=|storeId=|tenantId=|currency=|searchParams|headers\(\)|cookies\(\)/);
+    const legacy = await source(path);
+    assert.ok(legacy.includes(JSON.stringify(destination)));
+    assert.match(legacy, /redirect\(/);
   }
 });
 
@@ -50,11 +53,11 @@ test("inventory forms and list create actions remain Hemenaku responsive and per
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /@media\s*\(max-width:\s*760px\)/);
   for (const [sourceText, href] of [
-    [purchase, "/products/purchasing/new"],
-    [count, "/products/inventory-counts/new"],
-    [transfer, "/products/transfers/new"],
+    [purchase, "/products/stock?tab=purchases&kind=purchase&new=1"],
+    [count, "/products/stock?tab=counts&kind=count&new=1"],
+    [transfer, "/products/stock?tab=transfers&kind=transfer&new=1"],
   ]) {
-    assert.match(sourceText, new RegExp(href));
+    assert.ok(sourceText.includes(href));
     assert.match(sourceText, /canManage/);
   }
 });
@@ -113,7 +116,7 @@ test("Mira inventory presentation keeps one responsive create action and dock-sa
     assert.match(component, /className=\{styles[.]pageAction\}/);
     assert.match(component, /<h1 className=\{styles[.]srOnly\}>/);
     assert.doesNotMatch(component, /\?\s*"warning"/);
-    assert.equal(component.match(/href="\/products\/[^\"]+\/new"/g)?.length, 1, title);
+    assert.equal(component.match(/href="\/products\/stock\?[^\"]+new=1"/g)?.length, 1, title);
   }
   assert.match(location, /phase === "committed" \|\| phase === "replayed"/);
   assert.match(operationForm, /Sipariş bilgileri/);
