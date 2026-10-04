@@ -26,4 +26,21 @@ Fixtures are isolated test routes with memory responses; no live customer record
 
 ## Release
 
-Pending exact combined source, production build, fresh release guards and serialized normal two-panel rollout after the coordinated Stock release. Storefront witnesses and existing backend contracts must remain unchanged.
+Published combined source `4c477071f86bf0053bb95fd7ca25c04b5204f50e` through the coordinated, serialized normal two-panel rollout:
+
+- NET: `sin13ehzluhyklg1xqwt3mhj` — finished.
+- SITE: `my2j4w4lhuf0sajrjm96pcf6` — finished.
+- The seven UI production files remain byte-identical to the approved `2fa18642` UI candidate. The separate large-stock-list read fix is documented in `stock-workspace-2026-10-04.md`.
+- Exact combined production build reports exit 0 and 95 generated pages. Independent inspection found all five UI feature groups in its actual compiled chunks. The release coordinator verified both running images, source, 14 routes, eight combined feature groups and the balance read limit.
+- Final native, financial, payment and raw configuration guards passed; global deployment queue was idle. Storefront witnesses remain `7d864534c4f3d71f6a20717135aa20ded2a03f15`.
+
+## Live browser acceptance
+
+Authenticated Chrome checks used the actual Güzide and Butik Siora panels; no live record was created, saved or archived.
+
+- Both at 1471 px: flat Extras illustration and one main-canvas CTA; Enter opens the actual two-type chooser. Dashboard has compact visitors, 44 px period and store-sale controls, working today/month selection and the full accessible date range. Analytics loads real data with the compact visitor indicator; both requested delay phrases are absent, including with diagnostics expanded. Genuine missing-source information and worker counters remain available. No page-level horizontal overflow at this size.
+- Actual Güzide at 390 × 844: Extras CTA is 44 px high and reachable; Extras and Analytics have zero page-level horizontal overflow. Dashboard header fits 390 px and retains the complete “Bu hafta” label and accessible date range.
+- Existing dashboard limitation outside these changed controls: filled recent-order rows retain an unchanged `min-width: 580px` rule, producing horizontal page overflow at 390 px. The table rules are unchanged between the live baseline and this release; the header itself does not overflow. Do not infer full-dashboard mobile overflow acceptance from the empty fixture.
+- Temporary viewport override was reset after verification. Nine live screenshots are in `evidence/controls-extras-polish/live-*.jpg`; the Güzide Extras tab was left as the deliverable.
+
+This receipt and screenshots are documentation only; the running source remains `4c477071` and needs no additional deployment.
