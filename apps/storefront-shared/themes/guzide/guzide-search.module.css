@@ -10,7 +10,8 @@
 .panel :global(.guzide-panel-search) > button svg { width: 22px; height: 22px; stroke-width: 1.4; }
 .panel :global(.guzide-panel-search) > input { width: 100%; min-width: 0; height: 56px; border: 0; border-radius: 0; padding: 0 8px 0 0; color: inherit; background: transparent; font: inherit; font-size: 18px; outline: 0; }
 .panel :global(.guzide-panel-search):focus-within { box-shadow: 0 1px 0 var(--ink); }
-.panel :global(.store-search-suggestions) { position: static; grid-column: 1 / -1; width: 100%; max-height: none; overflow: visible; margin: 8px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 22px 0 0; color: inherit; background: transparent; box-shadow: none; }
+/* The shared search popup must never win when production chunks arrive in another order. */
+.panel :global(.guzide-panel-search) :global(.store-search-suggestions) { position: static; grid-column: 1 / -1; width: 100%; max-height: none; overflow: visible; margin: 8px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 22px 0 0; color: inherit; background: transparent; box-shadow: none; }
 .panel :global(.store-search-status) { margin: 0 0 18px; padding: 0; color: var(--muted); font-size: 12px; font-weight: 400; }
 .panel :global(.store-search-suggestions) ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; max-height: none; overflow: visible; margin: 0; padding: 0; list-style: none; }
 .panel :global(.store-search-suggestions) li { min-width: 0; border-bottom: 1px solid var(--line); }
