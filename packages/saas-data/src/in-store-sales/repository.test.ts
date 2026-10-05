@@ -119,3 +119,37 @@ test('cashier customer creation is a narrow typed transaction and rejected malfo
  const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
  await assert.rejects(()=>r.createCustomer({...authority('cashier'),operationId:OP,intent:{firstName:'Ali',lastName:'Veli',phone:'05551234567',email:null}}),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
 });
+
+function discardedSale(contractVersion:1|2|3) {
+ const original=sale('cancelled',2);
+ const v2={...original,paymentMethod:'cash',items:original.items.map(line=>({...line,catalogUnitPriceCents:line.unitPriceCents,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null}))};
+ return contractVersion===1?original:contractVersion===2?v2:{...v2,contractVersion:3,customerId:null,customer:null,initialCollectionCents:10000,dueDate:null,finance:null};
+}
+test('discard uses its own versioned native operation and leaves legacy cancel routing intact',async()=>{
+ for(const contractVersion of [1,2,3] as const) {
+  const c=new Client({outcome:'committed',result_payload:{sale:discardedSale(contractVersion),replayed:false,priceChanged:false}});
+  const result=await repo(c).discardSale({...authority(),contractVersion,operationId:OP,saleId:SALE,expectedVersion:1,confirmUnpaid:true});
+  assert.equal(result.sale.status,'cancelled');
+  const suffix=contractVersion===1?'':`_v${contractVersion}`;
+  const query=c.queries.find(q=>q.text.includes(`FROM saas.in_store_sales_discard${suffix}(`));assert.ok(query);
+  assert.deepEqual(query.values?.slice(0,7),[STORE,PRINCIPAL,MEMBERSHIP,PLAN,'growth',2,NOW]);
+  assert.deepEqual(query.values?.slice(-3),[SALE,1,true]);
+  assert.ok(!c.queries.some(q=>q.text.includes('in_store_sales_cancel')));
+  assert.equal(c.queries.at(-1)?.text,'COMMIT');
+ }
+ const c=new Client({outcome:'committed',result_payload:{sale:sale(),replayed:false,priceChanged:false}});
+ await repo(c).cancelSale({...authority(),operationId:OP,saleId:SALE,expectedVersion:1,confirmUnpaid:true});
+ assert.ok(c.queries.some(q=>q.text.includes('FROM saas.in_store_sales_cancel(')));
+});
+test('unknown discard commit recovers its same operation and rejects unpaid or caller authority bypass before access',async()=>{
+ const contractVersion=3;const frozen=discardedSale(contractVersion);
+ const first=new Client({outcome:'committed',result_payload:{sale:frozen,replayed:false,priceChanged:false}},true);
+ const recovery=new Client({outcome:'found',result_payload:{sale:frozen,replayed:true,priceChanged:false}});
+ const result=await repo(first,recovery).discardSale({...authority(),contractVersion,operationId:OP,saleId:SALE,expectedVersion:1,confirmUnpaid:true});
+ assert.equal(result.replayed,true);assert.equal(result.sale.status,'cancelled');assert.equal(first.released[0],true);
+ const query=recovery.queries.find(q=>q.text.includes('in_store_sales_get_operation_v3'));
+ assert.ok(query);assert.ok(query.values?.includes(OP));
+ const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
+ for(const extra of [{confirmUnpaid:false},{storeId:STORE},{expectedVersion:0}])await assert.rejects(()=>r.discardSale({...authority(),operationId:OP,saleId:SALE,expectedVersion:1,confirmUnpaid:true,...extra} as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');
+ assert.equal(pool.calls,0);
+});

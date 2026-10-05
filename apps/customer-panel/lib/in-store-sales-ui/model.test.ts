@@ -78,6 +78,12 @@ function fixture(barcode="000123",v2=false){
     prepareSale:async(_id:string,input:{expectedVersion:number;expectedTotalCents:number},key:string)=>{if(input.expectedVersion!==server!.version)throw new InStoreSalesUiError("version_conflict",409,false);calls.push({kind:"prepare",key,total:input.expectedTotalCents});const changed=input.expectedTotalCents!==server!.totals.totalCents;server=sale(intent(),input.expectedVersion+1,changed?"draft":"payment_pending");const r={...result(key),priceChanged:changed};operations.set(key,r);return r;},
     confirmPayment:async(_id:string,input:{expectedVersion:number;slipReference:null;paymentMethod?:"card"|"cash"|null},key:string)=>{assert.equal(input.slipReference,null);calls.push({kind:"payment",key,version:input.expectedVersion});server=sale({...intent(),...(v2?{paymentMethod:server?.paymentMethod??input.paymentMethod??null}:{})},input.expectedVersion+1,"payment_received");return result(key);},
     cancelSale:async(_id:string,input:{expectedVersion:number;confirmUnpaid:true},key:string)=>{calls.push({kind:"cancel",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,"draft");return result(key);},
+    discardSale:async(id:string,input:{expectedVersion:number;confirmUnpaid:true},key:string)=>{
+      const replay=operations.get(key);if(replay)return {...replay,replayed:true};
+      assert.equal(id,server!.id);assert.equal(input.confirmUnpaid,true);assert.equal(input.expectedVersion,server!.version);
+      if(!["draft","held","payment_pending"].includes(server!.status))throw new InStoreSalesUiError("invalid_transition",409,false);
+      calls.push({kind:"discard",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,"cancelled");return result(key);
+    },
     takeoverSale:async(_id:string,input:{expectedVersion:number},key:string)=>{calls.push({kind:"takeover",key,version:input.expectedVersion});server=sale(intent(),input.expectedVersion+1,server!.status);return result(key);},
     completeSale:async(_id:string,input:{expectedVersion:number},key:string)=>{calls.push({kind:"complete",key,version:input.expectedVersion});if(completeFailures-->0)throw new InStoreSalesUiError("unavailable",503,true);server=sale(intent(),input.expectedVersion+1,"completed");return result(key);},
   } as unknown as MutableClient;
@@ -310,6 +316,8 @@ function creditFixture(collectionCents:number|null=0,creditPermission=true){
   let server:InStoreSale|null=null;const originalCreate=api.createSale,originalUpdate=api.updateSale;
   api.createSale=async(input,key)=>{const value=await originalCreate(input,key);server={...value.sale,contractVersion:3,customerId:input.intent.customerId??null,customer:input.intent.customerId?customer:null,initialCollectionCents:input.intent.initialCollectionCents??value.sale.totals.totalCents,dueDate:input.intent.dueDate??null,finance:null};return{...value,sale:server!};};
   api.updateSale=async(id,input,key)=>{const value=await originalUpdate(id,input,key);server={...value.sale,contractVersion:3,customerId:input.intent.customerId??null,customer:input.intent.customerId?customer:null,initialCollectionCents:input.intent.initialCollectionCents??value.sale.totals.totalCents,dueDate:input.intent.dueDate??null,finance:null};return{...value,sale:server!};};
+  const originalDiscard=api.discardSale;
+  api.discardSale=async(id,input,key,version)=>{const value=await originalDiscard(id,input,key,version);server={...server!,status:"cancelled",version:input.expectedVersion+1};return{...value,sale:server!};};
   api.prepareSale=async()=>{server={...server!,status:"payment_pending",version:server!.version+1};return{sale:server,replayed:false,priceChanged:false};};
   api.getSale=async()=>server!;
   api.completeSale=async()=>{const collected=server!.initialCollectionCents!,due=server!.totals.totalCents-collected;server={...server!,status:"completed",version:server!.version+1,completedAt:date,finance:{status:due?collected?"partial":"unpaid":"paid",collectedCents:collected,dueCents:due,refundDueCents:0,version:1,receipts:[]}};return{sale:server,replayed:false,priceChanged:false};};
@@ -337,4 +345,104 @@ test("V3 default full collection follows the cart until prepared and rejects ove
   assert.equal(f.controller.getSnapshot().initialCollectionCents,null,"default means collect full current total");
   f.controller.setCreditTerms(200001,null);f.controller.setPaymentMethod("cash");await f.controller.prepare();assert.match(f.controller.getSnapshot().error??"",/toplam/i);
   f.controller.setCreditTerms(null,null);await f.controller.prepare();assert.equal(f.controller.getSnapshot().sale!.initialCollectionCents,200000);f.controller.dispose();
+});
+
+test("discarding an editable sale clears customer, credit, payment, discount and note before a new sale",async()=>{
+  const f=creditFixture(),controller=f.controller;await controller.initialize();await controller.addProduct(f.p);
+  controller.selectCustomer(f.customer);controller.setCreditTerms(50000,"2026-11-02");controller.setPaymentMethod("cash");
+  controller.setDiscount({kind:"percentage",percentageBps:1000});controller.setCustomer(f.customer.name,"Önceki sepet notu");await controller.flush();
+  const oldId=controller.getSnapshot().sale!.id;
+  try{
+    await controller.discardSale();
+    const next=controller.getSnapshot();
+    assert.equal(f.getServer()?.status,"cancelled");assert.equal(next.sale,null);assert.deepEqual(next.cart,[]);
+    assert.equal(next.customer,null);assert.equal(next.customerId,null);assert.equal(next.customerName,"");
+    assert.equal(next.initialCollectionCents,null);assert.equal(next.dueDate,null);assert.equal(next.paymentMethod,null);
+    assert.equal(next.discount,null);assert.equal(next.note,"");assert.equal(next.dirty,false);assert.equal(next.recovery,null);
+    await controller.addProduct(f.p);assert.notEqual(controller.getSnapshot().sale!.id,oldId);
+    assert.equal(controller.getSnapshot().sale!.customerId,null);assert.equal(controller.getSnapshot().sale!.note,null);
+  }finally{controller.dispose();}
+});
+
+test("removing the last saved item discards the sale instead of submitting an invalid empty update",async()=>{
+  const f=fixture(),controller=f.controller();await controller.initialize();await controller.addProduct(f.p);
+  const update=f.api.updateSale;
+  f.api.updateSale=async(id,input,key,version)=>{
+    if(!input.intent.items.length)throw new InStoreSalesUiError("invalid_input",400,false);
+    return update(id,input,key,version);
+  };
+  try{
+    controller.setQuantity(f.p.variantId,0);await controller.flush();
+    assert.equal(f.getServer()?.status,"cancelled");assert.deepEqual(f.calls.map(call=>call.kind),["create","discard"]);
+    assert.equal(controller.getSnapshot().sale,null);assert.equal(controller.getSnapshot().dirty,false);
+    const reloaded=f.controller();try{await reloaded.initialize();assert.equal(reloaded.getSnapshot().bootstrap?.activeDraft,null);assert.deepEqual(reloaded.getSnapshot().cart,[]);}finally{reloaded.dispose();}
+  }finally{controller.dispose();}
+});
+
+test("unknown discard reload retries the same command and stays fenced until cancellation is verified",async()=>{
+  const f=fixture("000123",true),first=f.controller();await first.initialize();await first.addProduct(f.p);
+  const discard=f.api.discardSale,attempts:{key:string;body:unknown;version:number|undefined}[]=[];let phase=0;
+  f.api.discardSale=async(id,input,key,version=f.api.contractVersion)=>{
+    attempts.push({key,body:input,version});
+    if(phase++===0)throw new InStoreSalesUiError("unavailable",503,true);
+    if(phase===2)return {sale:f.getServer()!,replayed:false,priceChanged:false};
+    return discard(id,input,key,version);
+  };
+  let second:InStoreRegisterController|undefined;
+  try{
+    await first.discardSale();const marker=first.getSnapshot().recovery!;
+    assert.equal(marker.kind,"discard");assert.equal(readRecoveryMarker(f.storage,"fixture-actor")?.operationId,marker.operationId);
+    await first.newSale();assert.equal(first.getSnapshot().sale?.id,marker.saleId);first.dispose();
+    second=f.controller();await second.initialize();assert.equal(second.getSnapshot().recovery?.operationId,marker.operationId);
+    await second.recover(true);assert.equal(second.getSnapshot().recovery?.operationId,marker.operationId,"a draft response does not prove terminal cancellation");
+    assert.equal(second.getSnapshot().sale?.id,marker.saleId);await second.newSale();assert.equal(second.getSnapshot().sale?.id,marker.saleId);
+    await second.recover(true);
+    assert.deepEqual(attempts,[{key:marker.operationId,body:{expectedVersion:1,confirmUnpaid:true},version:2},{key:marker.operationId,body:{expectedVersion:1,confirmUnpaid:true},version:2},{key:marker.operationId,body:{expectedVersion:1,confirmUnpaid:true},version:2}]);
+    assert.equal(f.getServer()?.status,"cancelled");assert.equal(second.getSnapshot().recovery,null);assert.equal(second.getSnapshot().sale,null);
+    assert.equal(readRecoveryMarker(f.storage,"fixture-actor"),null);assert.equal(f.calls.filter(call=>call.kind==="discard").length,1);
+  }finally{first.dispose();second?.dispose();}
+});
+
+test("discard cannot reset payment stages or an unresolved draft operation",async()=>{
+  for(const status of ["payment_pending","payment_received","completed"] as const){
+    const f=fixture(),controller=f.controller();await controller.initialize();await controller.addProduct(f.p);await controller.prepare();
+    if(status==="payment_received"){
+      const sale=f.getServer()!;await f.api.confirmPayment(sale.id,{expectedVersion:sale.version,slipReference:null},f.api.newId());
+      controller.dispose();const reopened=f.controller();try{await reopened.initialize();await reopened.openSale(sale.id);await reopened.discardSale();assert.equal(reopened.getSnapshot().sale?.status,status);assert.equal(f.calls.some(call=>call.kind==="discard"),false);}finally{reopened.dispose();}
+    }else{
+      try{if(status==="completed")await controller.finish();await controller.discardSale();assert.equal(controller.getSnapshot().sale?.status,status);assert.equal(f.calls.some(call=>call.kind==="discard"),false);}finally{controller.dispose();}
+    }
+  }
+  const f=fixture(),controller=f.controller();await controller.initialize();await controller.addProduct(f.p);
+  f.api.updateSale=async()=>{throw new InStoreSalesUiError("unavailable",503,true);};
+  try{
+    controller.setQuantity(f.p.variantId,2);await assert.rejects(controller.flush());const marker=controller.getSnapshot().recovery!;
+    await controller.discardSale();await controller.newSale();
+    assert.equal(controller.getSnapshot().recovery?.operationId,marker.operationId);assert.equal(controller.getSnapshot().cart[0].quantity,2);
+    assert.equal(f.calls.some(call=>call.kind==="discard"),false);
+  }finally{controller.dispose();}
+});
+
+test("discard waits for an in-flight save and uses its returned sale version",async()=>{
+  const f=fixture(),controller=f.controller();await controller.initialize();await controller.addProduct(f.p);
+  let started!:()=>void,release!:()=>void;const start=new Promise<void>(resolve=>{started=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+  const update=f.api.updateSale;f.api.updateSale=async(...args)=>{started();await gate;return update(...args);};
+  try{
+    controller.setQuantity(f.p.variantId,2);const saving=controller.flush();await start;const abandoning=controller.discardSale();
+    await Promise.resolve();assert.equal(f.calls.some(call=>call.kind==="discard"),false);assert.equal(controller.getSnapshot().cart[0].quantity,2);
+    release();await Promise.all([saving,abandoning]);
+    assert.deepEqual(f.calls.map(call=>call.kind),["create","update","discard"]);assert.equal(f.calls.at(-1)?.version,2);
+    assert.equal(f.getServer()?.status,"cancelled");assert.equal(controller.getSnapshot().sale,null);assert.deepEqual(controller.getSnapshot().cart,[]);
+  }finally{release();controller.dispose();}
+});
+
+test("deselecting the credit customer clears credit terms while keeping the products",async()=>{
+  const f=creditFixture(),controller=f.controller;await controller.initialize();await controller.addProduct(f.p);
+  try{
+    controller.selectCustomer(f.customer);controller.setCreditTerms(0,"2026-11-02");controller.selectCustomer(null);
+    assert.equal(controller.getSnapshot().customerId,null);assert.equal(controller.getSnapshot().customerName,"");
+    assert.equal(controller.getSnapshot().initialCollectionCents,null);assert.equal(controller.getSnapshot().dueDate,null);
+    assert.equal(controller.getSnapshot().cart[0].variantId,f.p.variantId);assert.equal(controller.getSnapshot().cart[0].quantity,1);
+    await controller.flush();assert.equal(controller.getSnapshot().sale?.customerId,null);assert.equal(controller.getSnapshot().sale?.initialCollectionCents,200000);
+  }finally{controller.dispose();}
 });

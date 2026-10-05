@@ -55,3 +55,12 @@ test('v3 payment and staff accept bank transfer and separate credit/collection g
  assert.deepEqual((await readInStoreMutationInput(request(grant),'staff',3))?.value,grant);
  assert.equal(await readInStoreMutationInput(request(grant),'staff',2),null);
 });
+
+test('discard requires a positive expected version, exact acknowledgement and one operation key for every client version',async()=>{
+ for(const version of [1,2,3] as const) {
+  const body={expectedVersion:1,confirmUnpaid:true};
+  assert.deepEqual(await readInStoreMutationInput(request(body),'discard',version),{operationId:id,value:body});
+  for(const invalid of [{...body,confirmUnpaid:false},{...body,expectedVersion:0},{...body,storeId:id},{expectedVersion:1}])assert.equal(await readInStoreMutationInput(request(invalid),'discard',version),null);
+  assert.equal(await readInStoreMutationInput(request(body,{'idempotency-key':`${id},${id}`}),'discard',version),null);
+ }
+});

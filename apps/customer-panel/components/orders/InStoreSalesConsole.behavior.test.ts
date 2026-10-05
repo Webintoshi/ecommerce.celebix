@@ -61,6 +61,34 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
 }
 const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>(x.textContent?.trim()===label||x.getAttribute("aria-label")===label))!;
 
+test("an unpaid cart can be abandoned through one confirmation and starts a clean sale",async()=>{
+  let discarded=0;
+  await mounted(async(container)=>{
+    const abandon=button(container,"Satıştan vazgeç");assert.ok(abandon);
+    await act(async()=>abandon.click());
+    const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+    assert.equal(dialog.open,true);
+    await act(async()=>button(dialog,"Satışta kal").click());
+    assert.equal(discarded,0);assert.ok(container.querySelector(".cartRow"));
+    await act(async()=>button(container,"Satıştan vazgeç").click());
+    await act(async()=>button(dialog,"Vazgeç ve yeni satış aç").click());
+    assert.equal(discarded,1);assert.equal(dialog.open,false);
+    assert.equal(Boolean(container.querySelector(".cartRow")),false);
+    assert.equal(container.querySelector(".customerInfo strong")?.textContent,"Müşteri ve satış notu");
+    assert.equal(container.querySelector(".customerInfo small")?.textContent,"İsteğe bağlı");
+    assert.equal(Boolean(container.querySelector(".saleId")),false);
+    assert.equal(button(container,"Ödemeye geç").disabled,true);
+  },"draft",async(api)=>{
+    const initial=await api.getSale(ID),base=await api.bootstrap();
+    api.discardSale=async(_id,input)=>{assert.equal(input.confirmUnpaid,true);discarded++;return{sale:{...initial,status:"cancelled",version:initial.version+1},replayed:false,priceChanged:false};};
+    api.bootstrap=async()=>({...base,activeDraft:discarded?null:initial});
+  });
+});
+
+test("a collected sale never offers the abandon-cart command",async()=>{
+  await mounted(async(container)=>{assert.equal(button(container,"Satıştan vazgeç"),undefined);},"payment_received");
+});
+
 test("a cart product whose photo fails keeps its thumbnail frame and shows the package fallback",async()=>{
   await mounted(async(container,browser)=>{
     const thumbnail=container.querySelector<HTMLElement>(".cartRow .thumbnail")!;

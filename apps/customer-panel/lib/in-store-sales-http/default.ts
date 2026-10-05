@@ -19,6 +19,7 @@ export async function handleDefaultInStorePrepareSale(request:Request,context:Ro
 export async function handleDefaultInStoreConfirmPayment(request:Request,context:RouteContext){return handlers.confirmPayment(request,(await context.params).saleId);}
 export async function handleDefaultInStoreCompleteSale(request:Request,context:RouteContext){return handlers.completeSale(request,(await context.params).saleId);}
 export async function handleDefaultInStoreCancelSale(request:Request,context:RouteContext){return handlers.cancelSale(request,(await context.params).saleId);}
+export async function handleDefaultInStoreDiscardSale(request:Request,context:RouteContext){return handlers.discardSale(request,(await context.params).saleId);}
 export async function handleDefaultInStoreTakeoverSale(request:Request,context:RouteContext){return handlers.takeoverSale(request,(await context.params).saleId);}
 export async function handleDefaultInStoreGetOperation(request:Request,context:RouteContext){return handlers.getOperation(request,(await context.params).operationId);}
 export async function handleDefaultInStoreSetStaffGrant(request:Request,context:RouteContext){return handlers.setStaffGrant(request,(await context.params).membershipId);}

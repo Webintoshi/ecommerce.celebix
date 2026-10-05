@@ -9,11 +9,12 @@ export type InStoreMutationBodies = {
   payment:Readonly<{expectedVersion:number;slipReference:string|null;paymentMethod?:'card'|'cash'|'bank_transfer'|null}>;
   complete:Readonly<{expectedVersion:number}>;
   cancel:Readonly<{expectedVersion:number;confirmUnpaid:true}>;
+  discard:Readonly<{expectedVersion:number;confirmUnpaid:true}>;
   takeover:Readonly<{expectedVersion:number}>;
   staff:Readonly<{expectedVersion:number;enabled:boolean;locationIds:readonly string[];discountLimitBps:number;canEditPrice?:boolean;canSellOnCredit?:boolean;canCollectReceivables?:boolean}>;
 };
 export type InStoreMutationKind=keyof InStoreMutationBodies;
-const keys:Readonly<Record<InStoreMutationKind,readonly string[]>>={create:['saleId','intent'],update:['expectedVersion','intent'],hold:['expectedVersion','held'],prepare:['expectedVersion','expectedTotalCents'],payment:['expectedVersion','slipReference'],complete:['expectedVersion'],cancel:['expectedVersion','confirmUnpaid'],takeover:['expectedVersion'],staff:['expectedVersion','enabled','locationIds','discountLimitBps']};
+const keys:Readonly<Record<InStoreMutationKind,readonly string[]>>={create:['saleId','intent'],update:['expectedVersion','intent'],hold:['expectedVersion','held'],prepare:['expectedVersion','expectedTotalCents'],payment:['expectedVersion','slipReference'],complete:['expectedVersion'],cancel:['expectedVersion','confirmUnpaid'],discard:['expectedVersion','confirmUnpaid'],takeover:['expectedVersion'],staff:['expectedVersion','enabled','locationIds','discountLimitBps']};
 export async function readInStoreMutationInput<K extends InStoreMutationKind>(request:Request,kind:K,contractVersion:1|2|3=1):Promise<Readonly<{operationId:string;value:InStoreMutationBodies[K]}>|null> {
   try {
     const operationId=parseInStoreUuid(request.headers.get('idempotency-key'));
@@ -26,7 +27,7 @@ export async function readInStoreMutationInput<K extends InStoreMutationKind>(re
       else if(kind==='hold'){if(typeof raw.held!=='boolean')return null;value={expectedVersion,held:raw.held};}
       else if(kind==='prepare')value={expectedVersion,expectedTotalCents:parseInStoreInteger(raw.expectedTotalCents,1)};
       else if(kind==='payment'){if(contractVersion>=2&&raw.paymentMethod!==null&&raw.paymentMethod!=='card'&&raw.paymentMethod!=='cash'&&!(contractVersion===3&&raw.paymentMethod==='bank_transfer'))return null;if(raw.slipReference!==null&&(typeof raw.slipReference!=='string'||raw.slipReference.length<1||raw.slipReference.length>100||raw.slipReference!==raw.slipReference.trim()||/[\u0000-\u001f\u007f]/.test(raw.slipReference)))return null;value={expectedVersion,slipReference:raw.slipReference as string|null,...(contractVersion>=2?{paymentMethod:raw.paymentMethod as 'card'|'cash'|'bank_transfer'|null}:{})};}
-      else if(kind==='cancel'){if(raw.confirmUnpaid!==true)return null;value={expectedVersion,confirmUnpaid:true};}
+      else if((kind==='cancel'||kind==='discard')){if(raw.confirmUnpaid!==true)return null;value={expectedVersion,confirmUnpaid:true};}
       else if(kind==='staff'){
         if(contractVersion>=2&&typeof raw.canEditPrice!=='boolean'||contractVersion===3&&(typeof raw.canSellOnCredit!=='boolean'||typeof raw.canCollectReceivables!=='boolean'))return null;
         if(typeof raw.enabled!=='boolean'||!Array.isArray(raw.locationIds)||raw.locationIds.length>100)return null;

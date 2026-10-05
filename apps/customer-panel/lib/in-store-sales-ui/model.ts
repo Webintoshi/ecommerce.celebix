@@ -8,7 +8,7 @@ export function parseMinorUnits(input:string):number|null {
 }
 export const previewTotals=calculateInStoreTotals;
 export function createSerialQueue(){let tail:Promise<unknown>=Promise.resolve();return Object.freeze({run<T>(task:()=>Promise<T>):Promise<T>{const next=tail.then(task);tail=next.catch(()=>undefined);return next;}});}
-export type RecoveryKind="create"|"update"|"hold"|"prepare"|"payment"|"complete"|"cancel"|"takeover";
+export type RecoveryKind="create"|"update"|"hold"|"prepare"|"payment"|"complete"|"cancel"|"discard"|"takeover";
 export type RecoveryMarker=Readonly<{scopeKey:string;kind:RecoveryKind;saleId:string;operationId:string;expectedVersion:number;expectedTotalCents:number;held?:boolean;contractVersion?:2|3;paymentMethod?:"card"|"cash"|"bank_transfer"|null}>;
 export type RecoveryStorage=Pick<Storage,"getItem"|"setItem"|"removeItem">;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -16,12 +16,12 @@ const markerKey=(scope:string)=>`celebix-in-store-operation:${scope}`;
 export function readRecoveryMarker(storage:RecoveryStorage|undefined,scopeKey:string):RecoveryMarker|null {
   try{const value=JSON.parse(storage?.getItem(markerKey(scopeKey))??"null") as RecoveryMarker|null;if(!value)return null;const base="expectedTotalCents,expectedVersion,kind,operationId,saleId,scopeKey";
     const allowed=new Set(["scopeKey","kind","saleId","operationId","expectedVersion","expectedTotalCents","held","contractVersion","paymentMethod"]);
-    if(Object.keys(value).some(key=>!allowed.has(key))||base.split(",").some(key=>!Object.hasOwn(value,key))||Object.hasOwn(value,"held")&&(value.kind!=="hold"||typeof value.held!=="boolean")||Object.hasOwn(value,"contractVersion")&&![2,3].includes(value.contractVersion!)||Object.hasOwn(value,"paymentMethod")&&(![2,3].includes(value.contractVersion!)||value.kind!=="payment"||value.paymentMethod!==null&&value.paymentMethod!=="card"&&value.paymentMethod!=="cash"&&!(value.contractVersion===3&&value.paymentMethod==="bank_transfer"))||[2,3].includes(value.contractVersion!)&&value.kind==="payment"&&!Object.hasOwn(value,"paymentMethod")||value.scopeKey!==scopeKey||!["create","update","hold","prepare","payment","complete","cancel","takeover"].includes(value.kind)||!UUID.test(value.saleId)||!UUID.test(value.operationId)||!Number.isSafeInteger(value.expectedVersion)||value.expectedVersion<0||!Number.isSafeInteger(value.expectedTotalCents)||value.expectedTotalCents<0)return null;return Object.freeze(value);}catch{return null;}
+    if(Object.keys(value).some(key=>!allowed.has(key))||base.split(",").some(key=>!Object.hasOwn(value,key))||Object.hasOwn(value,"held")&&(value.kind!=="hold"||typeof value.held!=="boolean")||Object.hasOwn(value,"contractVersion")&&![2,3].includes(value.contractVersion!)||Object.hasOwn(value,"paymentMethod")&&(![2,3].includes(value.contractVersion!)||value.kind!=="payment"||value.paymentMethod!==null&&value.paymentMethod!=="card"&&value.paymentMethod!=="cash"&&!(value.contractVersion===3&&value.paymentMethod==="bank_transfer"))||[2,3].includes(value.contractVersion!)&&value.kind==="payment"&&!Object.hasOwn(value,"paymentMethod")||value.scopeKey!==scopeKey||!["create","update","hold","prepare","payment","complete","cancel","discard","takeover"].includes(value.kind)||!UUID.test(value.saleId)||!UUID.test(value.operationId)||!Number.isSafeInteger(value.expectedVersion)||value.expectedVersion<0||!Number.isSafeInteger(value.expectedTotalCents)||value.expectedTotalCents<0)return null;return Object.freeze(value);}catch{return null;}
 }
 export function writeRecoveryMarker(storage:RecoveryStorage|undefined,marker:RecoveryMarker):void { storage?.setItem(markerKey(marker.scopeKey),JSON.stringify(marker)); }
 function clearMarker(storage:RecoveryStorage|undefined,scope:string){try{storage?.removeItem(markerKey(scope));}catch{}}
 export type RegisterCartLine=Readonly<InStoreProduct&{quantity:number;catalogUnitPriceCents?:number;unitPriceOverrideCents?:number|null}>;
-export type RegisterBusy="scan"|"save"|"prepare"|"payment"|"complete"|"hold"|"cancel"|"recover"|"takeover"|null;
+export type RegisterBusy="scan"|"save"|"prepare"|"payment"|"complete"|"hold"|"cancel"|"discard"|"recover"|"takeover"|null;
 export type RegisterSnapshot=Readonly<{
   phase:"loading"|"ready"|"error";bootstrap:InStoreBootstrap|null;sale:InStoreSale|null;cart:readonly RegisterCartLine[];
   locationId:string;paymentMethod:"card"|"cash"|"bank_transfer"|null;customer:import("./client.ts").PosCustomer|null;customerId:string|null;initialCollectionCents:number|null;dueDate:string|null;discount:InStoreDiscount|null;customerName:string;note:string;dirty:boolean;busy:RegisterBusy;
@@ -36,7 +36,7 @@ export class InStoreRegisterController {
   getSnapshot=()=>this.snapshot;
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   private set(patch:Partial<RegisterSnapshot>){this.snapshot=Object.freeze({...this.snapshot,...patch});this.listeners.forEach(listener=>listener());}
-  isEditable(){const s=this.snapshot;return s.phase==="ready"&&Boolean(s.bootstrap?.permissions.canSell)&&!s.conflict&&(!s.recovery||s.busy==="save")&&(!s.sale||s.sale.status==="draft")&&!["prepare","payment","complete","hold","cancel","takeover","recover"].includes(s.busy??"");}
+  isEditable(){const s=this.snapshot;return s.phase==="ready"&&Boolean(s.bootstrap?.permissions.canSell)&&!s.conflict&&(!s.recovery||s.busy==="save")&&(!s.sale||s.sale.status==="draft")&&!["prepare","payment","complete","hold","cancel","discard","takeover","recover"].includes(s.busy??"");}
   private hydrate(sale:InStoreSale|null,resumed=false,retainPhotos=false){
     this.newSaleId=null;this.revision++;
     // Mutation/replay snapshots stay immutable; retain only the known display photo.
@@ -57,7 +57,7 @@ export class InStoreRegisterController {
   private changed(patch:Partial<RegisterSnapshot>){if(!this.isEditable())return;this.revision++;this.set({...patch,dirty:true,error:null,notice:null,priceChanged:false});clearTimeout(this.timer);this.timer=setTimeout(()=>{void this.flush().catch(()=>undefined);},350);}
   setLocation(locationId:string){if(!this.snapshot.bootstrap?.locations.some(x=>x.id===locationId))return;this.changed({locationId});}
   setCustomer(customerName:string,note:string){this.changed({customerName:customerName.trim(),note:note.trim()});}
-  selectCustomer(customer:import("./client.ts").PosCustomer|null){if(customer?.archived)return;this.changed({customer,customerId:customer?.id??null,customerName:customer?.name??""});}
+  selectCustomer(customer:import("./client.ts").PosCustomer|null){if(customer?.archived)return;this.changed({customer,customerId:customer?.id??null,customerName:customer?.name??"",...(customer===null?{initialCollectionCents:null,dueDate:null}:{})});}
   setCreditTerms(initialCollectionCents:number|null,dueDate:string|null){if(initialCollectionCents!==null&&(!Number.isSafeInteger(initialCollectionCents)||initialCollectionCents<0))return;if(dueDate!==null&&!/^\d{4}-\d{2}-\d{2}$/.test(dueDate))return;this.changed({initialCollectionCents,dueDate});}
   setDiscount(discount:InStoreDiscount|null){if(discount&&!this.snapshot.bootstrap?.permissions.canDiscount)return;this.changed({discount});}
   setQuantity(variantId:string,quantity:number){if(!Number.isInteger(quantity)||quantity<0||quantity>9999)return;this.changed({cart:this.snapshot.cart.flatMap(row=>row.variantId!==variantId?[row]:quantity?[{...row,quantity}]:[])});}
@@ -93,6 +93,7 @@ export class InStoreRegisterController {
     clearTimeout(this.timer);
     while(this.snapshot.dirty&&this.isEditable()){
       if(!this.snapshot.cart.length&&!this.snapshot.sale){this.set({dirty:false});return;}
+      if(!this.snapshot.cart.length){await this.discardInternal();return;}
       const revision=this.revision,intent=this.intent(),sale=this.snapshot.sale;
       const saleId=sale?.id??this.newSaleId??(this.newSaleId=this.api.newId());
       this.set({busy:"save"});
@@ -144,6 +145,24 @@ export class InStoreRegisterController {
     }catch(error){this.fail(error);}
   });}
   async cancelUnpaid(){return this.queue.run(async()=>{const sale=this.snapshot.sale;if(!sale||sale.status!=="payment_pending"||this.snapshot.recovery)return;try{this.set({busy:"cancel",error:null});const result=await this.mutate("cancel",sale.id,sale.version,sale.totals.totalCents,()=>this.api.cancelSale(sale.id,{expectedVersion:sale.version,confirmUnpaid:true},this.snapshot.recovery!.operationId));this.hydrate(result.sale,false,true);this.set({busy:null});}catch(error){this.fail(error);}});}
+  async discardSale(){clearTimeout(this.timer);return this.queue.run(()=>this.discardInternal());}
+  private async discardInternal():Promise<boolean>{
+    const s=this.snapshot;
+    if(s.phase!=="ready"||!s.bootstrap?.permissions.canSell||s.recovery||s.conflict||s.sale&&s.sale.status!=="draft"||s.busy&&s.busy!=="save")return false;
+    clearTimeout(this.timer);
+    if(!s.sale){this.hydrate(null);this.set({error:null,notice:null});return true;}
+    const sale=s.sale;
+    try{
+      this.set({busy:"discard",error:null});
+      const result=await this.mutate("discard",sale.id,sale.version,sale.totals.totalCents,async()=>{
+        const value=await this.api.discardSale(sale.id,{expectedVersion:sale.version,confirmUnpaid:true},this.snapshot.recovery!.operationId);
+        if(value.sale.status!=="cancelled"||value.sale.paymentReceivedAt!==null||value.sale.orderId!==null)throw new InStoreSalesUiError("unavailable",503,true);
+        return value;
+      });
+      this.hydrate(null);this.set({busy:null,error:null,notice:"Satıştan vazgeçildi. Yeni ürün okutabilirsin."});
+      await this.refreshLists();return true;
+    }catch(error){this.fail(error);return false;}
+  }
   async hold(){return this.queue.run(async()=>{if(!this.isEditable())return;try{await this.flushInternal();const sale=this.snapshot.sale;if(!sale||!sale.items.length)return;this.set({busy:"hold",error:null});const result=await this.mutate("hold",sale.id,sale.version,0,()=>this.api.holdSale(sale.id,{expectedVersion:sale.version,held:true},this.snapshot.recovery!.operationId),this.revision,true);if(result.sale.status!=="held")throw new Error("Sepet bekletilemedi.");this.hydrate(null);this.set({busy:null,notice:"Sepet bekletildi."});await this.refreshLists();}catch(error){this.fail(error);}});}
   async openSale(saleId:string){return this.queue.run(async()=>{
     if(this.snapshot.recovery||this.snapshot.conflict||!["draft","held","completed",undefined].includes(this.snapshot.sale?.status))return;
@@ -166,6 +185,7 @@ export class InStoreRegisterController {
       case "payment":return this.api.confirmPayment(marker.saleId,{...version,slipReference:null,...(contractVersion>=2?{paymentMethod:marker.paymentMethod??null}:{})},marker.operationId,contractVersion);
       case "complete":return this.api.completeSale(marker.saleId,version,marker.operationId,contractVersion);
       case "cancel":return this.api.cancelSale(marker.saleId,{...version,confirmUnpaid:true},marker.operationId,contractVersion);
+      case "discard":return this.api.discardSale(marker.saleId,{...version,confirmUnpaid:true},marker.operationId,contractVersion);
       case "takeover":return this.api.takeoverSale(marker.saleId,version,marker.operationId,contractVersion);
       case "hold":return typeof marker.held==="boolean"?this.api.holdSale(marker.saleId,{...version,held:marker.held},marker.operationId,contractVersion):null;
       default:return null;
@@ -177,7 +197,7 @@ export class InStoreRegisterController {
       let result=await this.api.getOperation(marker.operationId);
       if(!result){
         const sale=await this.authoritativeSale(marker.saleId);
-        if(marker.kind==="payment"&&sale&&["payment_received","completed"].includes(sale.status)||marker.kind==="complete"&&sale?.status==="completed")result={sale:sale!,replayed:true,priceChanged:false};
+        if(marker.kind==="payment"&&sale&&["payment_received","completed"].includes(sale.status)||marker.kind==="complete"&&sale?.status==="completed"||marker.kind==="discard"&&sale?.status==="cancelled"&&sale.paymentReceivedAt===null&&sale.orderId===null)result={sale:sale!,replayed:true,priceChanged:false};
         else if(retry){
           // A missing create must not block its retained immutable command.
           if(this.pendingRequest)result=await this.pendingRequest();
@@ -188,18 +208,19 @@ export class InStoreRegisterController {
           // absent sale) may offer explicit reentry. Never reset a payment stage.
           const canReenterDraft=["create","update"].includes(marker.kind)&&!this.pendingRequest&&(!sale||sale.status==="draft");
           if(!this.pendingRequest)this.hydrate(sale,true);
-          this.set({recovery:marker,busy:null,canReenterDraft,error:canReenterDraft?"Son sepet değişikliğinin sonucu doğrulanamadı. Sunucudaki sepeti yükle veya aynı satış için ürünleri yeniden okut.":"İşlemin sonucu henüz doğrulanamadı. Fiziksel tahsilatı tekrar alma; aynı satışın durumunu kontrol et."});return;
+          this.set({recovery:marker,busy:null,canReenterDraft,error:marker.kind==="discard"?"Sepetin kapatıldığı henüz doğrulanamadı. Aynı işlemin durumunu kontrol et.":canReenterDraft?"Son sepet değişikliğinin sonucu doğrulanamadı. Sunucudaki sepeti yükle veya aynı satış için ürünleri yeniden okut.":"İşlemin sonucu henüz doğrulanamadı. Fiziksel tahsilatı tekrar alma; aynı satışın durumunu kontrol et."});return;
         }
       }
       if(result.sale.id!==marker.saleId)throw new Error("İşlem başka bir satışa ait. Sonuç doğrulanamadı.");
       const current=await this.api.getSale(marker.saleId),operationSale=result.sale;
       const advancedIntent=Boolean(this.pendingRequest&&["create","update"].includes(marker.kind)&&this.revision!==this.pendingRevision);
       if(current.version>=result.sale.version)result={...result,sale:current,priceChanged:result.priceChanged&&current.version===result.sale.version};
+      if(marker.kind==="discard"&&(result.sale.status!=="cancelled"||result.sale.paymentReceivedAt!==null||result.sale.orderId!==null))throw new InStoreSalesUiError("unavailable",503,true);
       clearMarker(this.storage,marker.scopeKey);this.pendingRequest=null;
       if(advancedIntent&&current.status==="draft"&&current.version===operationSale.version&&current.ownerMembershipId===operationSale.ownerMembershipId){
         this.newSaleId=null;this.set({sale:current,busy:null,recovery:null,dirty:true});await this.flushInternal();
       }else if(advancedIntent){this.set({busy:null,recovery:null,conflict:current,error:"Sepet başka bir işlemde değişti. Güncel sepeti yükleyip tutarı kontrol et."});}
-      else{this.hydrate(result.sale,true);this.set({busy:null,recovery:null,priceChanged:result.priceChanged});}
+      else{this.hydrate(marker.kind==="discard"?null:result.sale,true);this.set({busy:null,recovery:null,priceChanged:result.priceChanged});}
       await this.refreshLists();
     }catch(error){
       if(!["payment","complete"].includes(marker.kind)&&error instanceof InStoreSalesUiError&&["version_conflict","invalid_transition","client_upgrade_required"].includes(error.code)){

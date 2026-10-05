@@ -78,3 +78,64 @@ test("V3 customer creation preserves its key and only sends CRM contact fields",
   const client=createInStoreSalesUiClient({contractVersion:3,fetch:async(_input,init)=>{body=JSON.parse(String(init?.body));key=new Headers(init?.headers).get("idempotency-key");return reply({data:{customer,replayed:false}});}});
   const input={firstName:"Ayşe",lastName:"Kaya",phone:"+905550001122",email:null};assert.equal((await client.createCustomer(input,OP)).customer.id,SALE_ID);assert.deepEqual(body,input);assert.equal(key,OP);
 });
+
+function cancelledSaleV3(){
+  const timestamp="2026-09-26T00:00:00.000Z";
+  return {
+    id:SALE_ID,saleNumber:"MS-101",status:"cancelled",version:4,contractVersion:3,
+    locationId:LOCATION,locationName:"Mağaza",ownerMembershipId:LOCATION,ownerLabel:"Kasiyer",
+    customerName:null,customerId:null,customer:null,initialCollectionCents:200000,dueDate:null,finance:null,
+    note:null,discount:null,paymentMethod:null,
+    items:[{productId:SALE_ID,variantId:OP,productName:"Ürün",variantName:"Siyah M",sku:null,barcode:"000123",imageUrl:null,
+      unitPriceCents:200000,catalogUnitPriceCents:200000,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null,
+      discountEligible:true,quantity:1,lineSubtotalCents:200000,allocatedDiscountCents:0,lineNetCents:200000}],
+    totals:{subtotalCents:200000,eligibleSubtotalCents:200000,discountCents:0,totalCents:200000},
+    createdAt:timestamp,updatedAt:timestamp,paymentReceivedAt:null,completedAt:null,orderId:null,orderNumber:null,
+  };
+}
+
+test("V3 discard posts the confirmed unpaid command and accepts only the terminal cancelled sale",async()=>{
+  let submitted:RequestInit|undefined,url="";
+  const client=createInStoreSalesUiClient({contractVersion:3,fetch:async(input,init)=>{
+    url=String(input);submitted=init;return reply({data:{sale:cancelledSaleV3(),replayed:false,priceChanged:false}});
+  }});
+  const result=await client.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true},OP,3);
+  assert.equal(url,`/api/orders/in-store/sales/${SALE_ID}/discard`);assert.equal(submitted?.method,"POST");
+  assert.deepEqual(JSON.parse(String(submitted?.body)),{expectedVersion:3,confirmUnpaid:true});
+  assert.equal(new Headers(submitted?.headers).get("idempotency-key"),OP);
+  assert.equal(new Headers(submitted?.headers).get("x-celebix-in-store-version"),"3");
+  assert.equal(result.sale.status,"cancelled");assert.equal(result.sale.id,SALE_ID);assert.equal(result.sale.contractVersion,3);
+});
+
+test("discard validates its command before fetch and retains the caller key across an unknown response",async()=>{
+  let calls=0;const validation=createInStoreSalesUiClient({contractVersion:3,fetch:async()=>{calls++;return reply({data:null});}});
+  await assert.rejects(validation.discardSale("bad-sale",{expectedVersion:3,confirmUnpaid:true},OP));
+  await assert.rejects(validation.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true},"bad-operation"));
+  await assert.rejects(validation.discardSale(SALE_ID,{expectedVersion:0,confirmUnpaid:true},OP));
+  await assert.rejects(validation.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:false} as never,OP));
+  await assert.rejects(validation.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true,storeId:LOCATION} as never,OP));
+  assert.equal(calls,0);
+  const sale=cancelledSaleV3();
+  for(const body of [
+    {data:{sale:{...sale,id:LOCATION},replayed:false,priceChanged:false}},
+    {data:{sale:{...sale,status:"draft"},replayed:false,priceChanged:false}},
+    {data:{sale:{},replayed:false,priceChanged:false}},
+    {data:{sale,replayed:false,priceChanged:false},authority:"forged"},
+  ]){
+    let attempts=0;const malformed=createInStoreSalesUiClient({contractVersion:3,fetch:async()=>{attempts++;return reply(body);}});
+    await assert.rejects(malformed.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true},OP),
+      (error:unknown)=>error instanceof InStoreSalesUiError&&error.unknownResult);
+    assert.equal(attempts,1,"an uncertain discard is never retried automatically");
+  }
+  const attempts:{key:string|null;body:string}[]=[];
+  const client=createInStoreSalesUiClient({contractVersion:3,fetch:async(_input,init)=>{
+    attempts.push({key:new Headers(init?.headers).get("idempotency-key"),body:String(init?.body)});
+    if(attempts.length===1)throw new Error("response lost");
+    return reply({data:{sale,replayed:true,priceChanged:false}});
+  }});
+  await assert.rejects(client.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true},OP),
+    (error:unknown)=>error instanceof InStoreSalesUiError&&error.unknownResult);
+  assert.equal(attempts.length,1);const recovered=await client.discardSale(SALE_ID,{expectedVersion:3,confirmUnpaid:true},OP);
+  assert.equal(recovered.sale.status,"cancelled");assert.equal(recovered.replayed,true);
+  assert.deepEqual(attempts,[{key:OP,body:'{"expectedVersion":3,"confirmUnpaid":true}'},{key:OP,body:'{"expectedVersion":3,"confirmUnpaid":true}'}]);
+});

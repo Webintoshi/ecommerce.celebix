@@ -5,7 +5,10 @@ const repositories=new WeakMap<ServerPanelAccessRuntime,InStoreSalesRepository>(
 const methods=['searchCustomers','createCustomer','bootstrap','searchProducts','listSales','getSale','getOperation','createSale','updateSale','holdSale','prepareSale','confirmPayment','completeSale','cancelSale','takeoverSale','listStaff','setStaffGrant'] as const;
 export function registerServerInStoreSalesRepository(access:ServerPanelAccessRuntime,repository:InStoreSalesRepository):void {
   if(!access||access.readiness.mode!=='approved_staging'||access.panelOrigin===null||repositories.has(access)||!repository||methods.some(method=>typeof repository[method]!=='function'))throw new Error('server_in_store_sales_runtime_invalid');
-  repositories.set(access,Object.freeze(Object.fromEntries(methods.map(method=>[method,repository[method].bind(repository)]))) as unknown as InStoreSalesRepository);
+  const bound:[string,unknown][]=methods.map(method=>[method,repository[method].bind(repository)]);
+  // Keep existing registrations compatible while exposing the new native operation.
+  if(typeof repository.discardSale==='function')bound.push(['discardSale',repository.discardSale.bind(repository)]);
+  repositories.set(access,Object.freeze(Object.fromEntries(bound)) as unknown as InStoreSalesRepository);
 }
 export function resolveServerInStoreSalesRuntime(access:ServerPanelAccessRuntime):ServerInStoreSalesRuntime|null {
   if(!access||access.readiness.mode!=='approved_staging'||access.panelOrigin===null)return null;

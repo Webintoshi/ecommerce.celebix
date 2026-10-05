@@ -75,6 +75,7 @@ export interface InStoreSalesRepository {
     confirmPayment(input: ConfirmInStorePaymentInput): Promise<InStoreSaleResult>;
     completeSale(input: VersionedInStoreSaleInput): Promise<InStoreSaleResult>;
     cancelSale(input: CancelInStoreSaleInput): Promise<InStoreSaleResult>;
+    discardSale(input: CancelInStoreSaleInput): Promise<InStoreSaleResult>;
     takeoverSale(input: VersionedInStoreSaleInput): Promise<InStoreSaleResult>;
     listStaff(input: InStoreAuthorityInput): Promise<Readonly<{
         staff: readonly InStoreStaffGrant[];

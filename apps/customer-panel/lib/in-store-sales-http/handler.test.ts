@@ -64,3 +64,26 @@ test('invalid collection remains a useful client error instead of an unknown ser
   assert.equal(response.status,400);assert.deepEqual(await response.json(),{code:'collection_invalid'});
   assert.equal(response.headers.get('cache-control'),'no-store');
 });
+
+test('discard has a distinct authorized route with negotiated version and no caller authority',async()=>{
+ for(const contractVersion of [1,2,3] as const) {
+  const calls:unknown[]=[];let cancelled=0;
+  const saved={...sale,status:'cancelled',version:2,...(contractVersion>=2?{paymentMethod:null}:{}),...(contractVersion===3?{contractVersion:3,customerId:null,customer:null,initialCollectionCents:0,dueDate:null,finance:null}:{})};
+  const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{discardSale:async(input:unknown)=>{calls.push(input);return {sale:saved,replayed:false,priceChanged:false};},cancelSale:async()=>{cancelled++;}}} as unknown as ServerInStoreSalesRuntime;
+  const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});
+  const headers={'x-celebix-in-store-version':String(contractVersion)},body={expectedVersion:1,confirmUnpaid:true};
+  const response=await h.discardSale(req(`sales/${id}/discard`,body,headers),id);
+  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.deepEqual(calls,[{tenantContext,now,saleId:id,operationId:id,...(contractVersion>=2?{contractVersion}:{}),...body}]);
+  assert.equal((await h.discardSale(req(`sales/${id}/discard`,body,{...headers,origin:'https://foreign.example'}),id)).status,403);
+  assert.equal((await h.discardSale(req(`sales/${id}/discard`,{...body,storeId:id},headers),id)).status,400);
+  assert.equal((await h.discardSale(req(`sales/${id}/cancel`,body,headers),id)).status,400);
+  assert.equal(calls.length,1);assert.equal(cancelled,0);
+ }
+});
+test('discard reports native payment lock or unknown result without falling back to cancel',async()=>{
+ const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{discardSale:async()=>{throw new InStoreSalesRepositoryError('invalid_transition');}}} as unknown as ServerInStoreSalesRuntime;
+ const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});
+ const response=await h.discardSale(req(`sales/${id}/discard`,{expectedVersion:1,confirmUnpaid:true}),id);
+ assert.equal(response.status,409);assert.deepEqual(await response.json(),{code:'invalid_transition'});
+});
