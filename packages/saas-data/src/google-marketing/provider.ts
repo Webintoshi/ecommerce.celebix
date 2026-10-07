@@ -11,6 +11,15 @@ type Progress=Record<string,unknown>;
 function numeric(value:unknown):string {if(typeof value!=='string'||!/^\d{1,20}$/.test(value))googleError('resource_denied');return value;}
 function name(value:unknown):string {if(typeof value!=='string'||!value.trim()||value.length>160||/[\x00-\x1f<>]/.test(value))googleError('provider_unavailable');return value;}
 function list(value:unknown,max=500):Json[]{if(value===undefined)return [];if(!Array.isArray(value)||value.length>max)googleError('provider_limit');return value;}
+function metaVerificationToken(value:unknown):string {
+ if(typeof value!=='string'||value.length>512)googleError('provider_unavailable');
+ const token=value.trim();if(/^[A-Za-z0-9_-]{1,128}$/.test(token))return token;
+ // Google's META response is a complete tag. Persist only its bounded content;
+ // provider HTML is never stored or injected into the storefront.
+ const nameFirst=token.match(/^<meta\s+name\s*=\s*(["'])google-site-verification\1\s+content\s*=\s*(["'])([A-Za-z0-9_-]{1,128})\2\s*\/?>$/i);
+ const contentFirst=token.match(/^<meta\s+content\s*=\s*(["'])([A-Za-z0-9_-]{1,128})\1\s+name\s*=\s*(["'])google-site-verification\3\s*\/?>$/i);
+ const content=nameFirst?.[3]??contentFirst?.[2];if(!content)googleError('provider_unavailable');return content;
+}
 function options(values:Json[],id:string):GoogleMarketingResourceOption[]{return values.map(v=>({id:numeric(v[id]),name:name(v.name)}));}
 function safeContainer(version:Json):void{
  const allowed=new Set(['gclidw','awct','gaawc','gaawe','googtag','gads']);
@@ -105,7 +114,7 @@ export class GoogleMarketingProvider {
  }
  async applySearchConsole(token:string,selection:GoogleMarketingSelection,domain:string,progress:Progress,checkpoint:(progress:Progress)=>Promise<void>):Promise<{selection:GoogleMarketingSelection;verificationToken?:string}>{
   const selected=await this.validateSelection('search_console',token,selection,domain);const site=`https://${domain}/`;let verificationToken=typeof progress.verificationToken==='string'?progress.verificationToken:undefined;
-  if(selected.create){if(!verificationToken){const response=await this.request(`${GOOGLE}/siteVerification/v1/token`,token,{method:'POST',body:JSON.stringify({site:{type:'SITE',identifier:site},verificationMethod:'META'})});if(typeof response.token!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(response.token))googleError('provider_unavailable');verificationToken=response.token;await checkpoint({...progress,verificationToken});}
+  if(selected.create){if(!verificationToken){const response=await this.request(`${GOOGLE}/siteVerification/v1/token`,token,{method:'POST',body:JSON.stringify({site:{type:'SITE',identifier:site},verificationMethod:'META'})});verificationToken=metaVerificationToken(response.token);await checkpoint({...progress,verificationToken});}
    // The trusted storefront exposes this checkpointed token. Google alone verifies ownership.
    if(!progress.verified){try{await this.request(`${GOOGLE}/siteVerification/v1/webResource?verificationMethod=META`,token,{method:'POST',body:JSON.stringify({site:{type:'SITE',identifier:site}})});}catch(error){if(error instanceof GoogleMarketingRepositoryError&&['provider_unavailable','provider_denied'].includes(error.code))googleError('verification_pending');throw error;}progress={...progress,verificationToken,verified:true};await checkpoint(progress);}
    await this.request(`${GOOGLE}/webmasters/v3/sites/${encodeURIComponent(site)}`,token,{method:'PUT'});

@@ -69,6 +69,30 @@ test('Search Console checkpoints meta token before verification and retries with
  await assert.rejects(()=>provider.applySearchConsole('secret',selection,'store.example.com',{},async p=>{checkpoints.push(p);}),(error:any)=>error.code==='verification_pending'&&!String(error).includes('SECRET'));
  confirmed=true;const result=await provider.applySearchConsole('secret',selection,'store.example.com',checkpoints.at(-1),async p=>{checkpoints.push(p);});assert.equal(result.verificationToken,'safe-meta-token');assert.equal(calls.filter(p=>p.endsWith('/token')).length,1);assert.ok(calls.at(-1)?.includes('/sitemaps/'));
 });
+test('Search Console extracts only the content from the Google META response before checkpointing and retry',async()=>{
+ const checkpoints:any[]=[];let tokenRequests=0;let confirmed=false;
+ const provider=new GoogleMarketingProvider({},async(url)=>{const path=new URL(String(url)).pathname;
+  if(path.endsWith('/token')){tokenRequests++;return Response.json({method:'META',token:'<meta name="google-site-verification" content="safe-meta-token" />'});}
+  if(path.endsWith('/webResource')){assert.equal(checkpoints[0]?.verificationToken,'safe-meta-token');return confirmed?Response.json({id:'verified'}):Response.json({error:{message:'not propagated'}},{status:400});}
+  return new Response(null,{status:204});
+ });
+ const selection={accountId:'site',resourceId:'https://store.example.com/',resourceName:'Store',create:true};
+ await assert.rejects(()=>provider.applySearchConsole('access',selection,'store.example.com',{},async p=>{checkpoints.push(p);}),(error:any)=>error.code==='verification_pending');
+ confirmed=true;
+ const result=await provider.applySearchConsole('access',selection,'store.example.com',checkpoints.at(-1),async p=>{checkpoints.push(p);});
+ assert.equal(result.verificationToken,'safe-meta-token');assert.equal(tokenRequests,1);assert.ok(checkpoints.every(p=>!/</.test(p.verificationToken)));
+});
+test('Search Console accepts quoted META attribute ordering but rejects executable or ambiguous HTML',async()=>{
+ const selection={accountId:'site',resourceId:'https://store.example.com/',resourceName:'Store',create:true};
+ for(const token of ["<meta content='safe-meta-token' name='google-site-verification'>",' <META name = "google-site-verification" content = "safe-meta-token"> ']){
+  const checkpoints:any[]=[];const provider=new GoogleMarketingProvider({},async(url)=>new URL(String(url)).pathname.endsWith('/token')?Response.json({method:'META',token}):new Response(null,{status:204}));
+  const result=await provider.applySearchConsole('access',selection,'store.example.com',{},async p=>{checkpoints.push(p);});assert.equal(result.verificationToken,'safe-meta-token');assert.equal(checkpoints[0].verificationToken,'safe-meta-token');
+ }
+ for(const token of ['<script>alert(1)</script><meta name="google-site-verification" content="safe-meta-token">','<meta name="google-site-verification" content="safe-meta-token" onload="alert(1)">','<meta name="other" content="safe-meta-token">','<meta name="google-site-verification" content="first" content="second">','<meta name="google-site-verification" content="bad&lt;token">','<meta name="google-site-verification" content="'+ 'a'.repeat(129) +'">']){
+  let checkpoints=0;const provider=new GoogleMarketingProvider({},async()=>Response.json({method:'META',token}));
+  await assert.rejects(()=>provider.applySearchConsole('access',selection,'store.example.com',{},async()=>{checkpoints++;}),(error:any)=>error.code==='provider_unavailable');assert.equal(checkpoints,0);
+ }
+});
 test('Ads uses the effective conversion owner of the selected advertiser account',async()=>{
  const owners:string[]=[];const provider=new GoogleMarketingProvider({adsProjectId:'production-project'},async(url,init)=>{const path=new URL(String(url)).pathname;if(path.endsWith('customers:listAccessibleCustomers'))return Response.json({resourceNames:['customers/123']});const query=JSON.parse(String(init?.body)).query;if(query.includes('conversion_tracking_setting'))return Response.json({results:[{customer:{conversionTrackingSetting:{googleAdsConversionCustomer:'customers/999'}}}]});if(query.includes('FROM customer'))return Response.json({results:[{customer:{id:'123',descriptiveName:'Advertiser',manager:false}}]});owners.push(path);return Response.json({results:[{conversionAction:{id:'456',name:'Purchase',type:'WEBPAGE',category:'PURCHASE',status:'ENABLED',tagSnippets:[{eventSnippet:"gtag('event','conversion',{'send_to':'AW-999999/owner_Label'});"}]}}]});});
  const resources=await provider.resources('ads','access','123');assert.equal(resources.resources[0]?.tagId,'AW-999999');assert.ok(owners[0]?.includes('/customers/999/'));assert.equal(resources.resources[0]?.parentId,'123');
