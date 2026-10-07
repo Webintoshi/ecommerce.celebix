@@ -36,3 +36,12 @@ Satın alma için yalnız süreli, mağazaya bağlı hosted-checkout makbuzunun 
 SQL220 yalnız dört Google tablosu ve altı yeni fonksiyon ekler. Önce yedek ve izole up/down/reapply kanıtı alınır; sonra ortak vitrin NET → SITE ve admin NET → SITE yayımlanır. Mevcut PayTR kanıtları, ortam bayrakları, ödeme işlevleri ve kullanıcı verileri korunur. İzole SQL assertion dosyası üretimde çalıştırılmaz.
 
 Geri almada önce önceki uygulama kaynaklarına dönülür. Google bağlantıları kullanılmaya başlandıysa veriyi silen down dosyası çalıştırılmaz; anahtarların ve bağlantı kayıtlarının korunması gerekir.
+
+## 2026-10-08 yazılım yayını ve kalan aktivasyon
+
+- Canlı kaynak: `9dcdbd721a50390c18a00e90d45eaafe85cec907`. Vitrin NET → SITE, ardından admin NET → SITE yayımlandı; dört çalışan görüntü, kaynak manifesti ve derlenmiş Google/ödeme okuyucuları doğrulandı. Yayın kuyruğu boş.
+- SQL220 eklendi. Önce tam yedek ve izole geri alma/yeniden uygulama yapıldı; mevcut 333 tablonun verisi ve 1701 fonksiyonun tanımı/yetkileri korundu. Dört Google tablosu ve altı fonksiyon eklendi. Üretimde finansal test kaydı veya sağlayıcı işlemi oluşturulmadı.
+- 62 odaklı Google testi ve iki uygulama derlemesi geçti. Masaüstü ve mobil arayüz kabulü yapıldı. Güzide, Alpler, Lilyum ve Butik Siora'da oturum koruması, güvenli callback, anonim satın alma yanıtı ve yapılandırılmamış vitrinde Google yüklenmemesi doğrulandı. Güzide'de mevcut sahip oturumuyla yeni menü ve kartlar kontrol edildi.
+- PayTR kaynakları, mevcut izinler, ortam değerleri ve bayrakları korundu. Bu yayın gerçek bir ödeme denemesi yapmadı.
+- Merkezi Google kurulumu **aktif değil**. Google Cloud'da veri politikası ve OAuth istemcisi için işlem anında kullanıcı onayı bekleniyor. Sonrasında istemci/API yapılandırması, gerçek hesapla OAuth/kaynak kaydı ve Tag Assistant/Ads tanılaması ayrıca tamamlanacak. Test ve üretim Google projeleri ayrı tutulacak; genel kullanım Google'ın üretim erişim koşullarına bağlı.
+- Özel yayın kanıtları, veritabanı yedeği ve canlı ekran görüntüsü çalışma ağacındaki `.tmp/google-marketing-release-20261008/` altında tutulur; gizli kaynaklar repoya eklenmez. Yerel arayüz test sunucusu kapatıldı, yeniden üretilebilir derleme önbellekleri temizlendi.

@@ -33,13 +33,15 @@ Files: packages/saas-contracts/src/google-marketing storefront projection, share
 ## Task 4: HTTP/runtime/integration and release
 Files: apps/customer-panel/lib/google-marketing-http/*, server-google-marketing/*, API routes; runtime registration; ops docs.
 - [x] Test host/session/origin/support/state/error redaction.
-- [ ] Wire real service, central configured OAuth and callback safe completion.
+- [x] Wire real service and callback safe completion.
+- [ ] Activate central Google OAuth after policy/credential authorization.
 - [x] Typecheck/build affected apps; independent security review, address findings.
 - [ ] Verify actual Cloud setup; ask for required account login only if missing while continuing code.
-- [ ] Stage migration + readers then admin NET->SITE; verify exact running sources and live acceptance.
+- [x] Stage migration + readers then admin NET->SITE; verify exact running sources and live software acceptance.
 
 
 ## Activation status
 - Server routes and callback are wired; central OAuth is deliberately unconfigured pending Google data-policy/credential authorization.
 - Code/transport fixtures are not real Google account acceptance. Google production verification and Ads project access remain external prerequisites.
 - Independent review fixes: disconnect race cancellation, Ads destination gating, unpublished GTM version preservation, late captured-result proof reread.
+- SQL220 and all four shared application deployments verified at `9dcdbd721a50390c18a00e90d45eaafe85cec907` on 2026-10-08. Authenticated Güzide UI shows the three cards with connections disabled while central OAuth remains unconfigured. No actual Google account/provider acceptance has been claimed.
