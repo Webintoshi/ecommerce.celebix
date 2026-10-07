@@ -34,14 +34,16 @@ Files: packages/saas-contracts/src/google-marketing storefront projection, share
 Files: apps/customer-panel/lib/google-marketing-http/*, server-google-marketing/*, API routes; runtime registration; ops docs.
 - [x] Test host/session/origin/support/state/error redaction.
 - [x] Wire real service and callback safe completion.
-- [ ] Activate central Google OAuth after policy/credential authorization.
+- [x] Activate central Google OAuth after policy/credential authorization.
 - [x] Typecheck/build affected apps; independent security review, address findings.
-- [ ] Verify actual Cloud setup; ask for required account login only if missing while continuing code.
+- [x] Verify actual Cloud client, exact callback, four enabled APIs and saved scopes.
+- [ ] Accept a real merchant OAuth grant and source selection; complete Google production/Ads access prerequisites before general availability.
 - [x] Stage migration + readers then admin NET->SITE; verify exact running sources and live software acceptance.
 
 
 ## Activation status
-- Server routes and callback are wired; central OAuth is deliberately unconfigured pending Google data-policy/credential authorization.
+- Server routes and callback are wired; central OAuth is configured on both shared panels after the user's exact client/API/server-secret authorization.
 - Code/transport fixtures are not real Google account acceptance. Google production verification and Ads project access remain external prerequisites.
 - Independent review fixes: disconnect race cancellation, Ads destination gating, unpublished GTM version preservation, late captured-result proof reread.
-- SQL220 and all four shared application deployments verified at `9dcdbd721a50390c18a00e90d45eaafe85cec907` on 2026-10-08. Authenticated Güzide UI shows the three cards with connections disabled while central OAuth remains unconfigured. No actual Google account/provider acceptance has been claimed.
+- SQL220 and all four shared application deployments verified at `9dcdbd721a50390c18a00e90d45eaafe85cec907` on 2026-10-08. Central configuration activation reuses that source: panel NET `curylcef4zq4mxqhn32lmwus`, then SITE `d64uaff8c8c4dvdfap4il4v6`. Exact runtime/payment/keyring/configuration checks and four-store HTTP acceptance passed; global queues idle. Authenticated Güzide UI shows three enabled connection buttons.
+- Actual Google Cloud state: brand Celebix, External/Testing, no test users; Ads Test access. A separate user request is pending to add `celebixco@gmail.com` as test user and grant only GTM read access for Güzide. No real merchant account/provider acceptance or general production availability is claimed.
