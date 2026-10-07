@@ -4,7 +4,7 @@ import {
   type InStoreSaleIntent, type InStoreSaleLine, type InStoreSaleResult, type InStoreStaffGrant,
 } from "@celebix/saas-contracts";
 
-export const POS_SCENARIOS = ["filled", "empty", "loading", "error", "readonly", "partial", "pending", "received", "completed"] as const;
+export const POS_SCENARIOS = ["filled", "empty", "loading", "error", "readonly", "partial", "pending", "received", "completed", "manual", "manual-pending"] as const;
 export type PosScenario = typeof POS_SCENARIOS[number];
 type FixtureOptions = { scenario: PosScenario; latency?: number; mutation?: string; origin?: string };
 const uuid = (suffix: number) => `a7100000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
@@ -26,7 +26,7 @@ export const FIXTURE_PRODUCTS: readonly InStoreProduct[] = [
 ];
 
 const clone = <T,>(value: T): T => structuredClone(value);
-const json = (data: unknown) => new Response(JSON.stringify({ data }), { headers: { "content-type": "application/json" } });
+const rawJson = (data: unknown) => new Response(JSON.stringify({ data }), { headers: { "content-type": "application/json" } });
 const failure = (code: string, status = 422) => new Response(JSON.stringify({ code }), { status, headers: { "content-type": "application/json" } });
 class FixtureFailure extends Error { constructor(readonly code: string, readonly status = 422) { super(code); } }
 const requireCondition = (condition: unknown, code: string, status = 422) => { if (!condition) throw new FixtureFailure(code, status); };
@@ -34,6 +34,7 @@ const normalized = (value: string) => value.toLocaleLowerCase("tr-TR");
 
 /** Isolated local transport. It never calls a server or an original fetch function. */
 export function createPosFixtureTransport(options: FixtureOptions) {
+  const manualV4=options.scenario==="manual"||options.scenario==="manual-pending";
   const origin = options.origin ?? "http://127.0.0.1:3527";
   const products = clone(FIXTURE_PRODUCTS) as InStoreProduct[], customers = clone(FIXTURE_CUSTOMERS) as InStorePosCustomer[];
   const sales = new Map<string, InStoreSale>(), operations = new Map<string, { fingerprint: string; result: unknown }>();
@@ -44,7 +45,9 @@ export function createPosFixtureTransport(options: FixtureOptions) {
   const scopeKey = `mira-pos-approved:${options.scenario}:${crypto.randomUUID()}`;
   const locations = [{ id: LOCATION_ID, name: "Ana mağaza", isDefault: true }, { id: SECOND_LOCATION_ID, name: "Merkez depo", isDefault: false }];
 
-  function fromIntent(id: string, intent: InStoreSaleIntent, previous?: InStoreSale): InStoreSale {
+  function additiveSale(value:InStoreSale):InStoreSale{return {...value,salesChannel:value.salesChannel??"manual",socialPlatform:value.socialPlatform??null,socialReference:value.socialReference??null,fulfillmentMethod:value.fulfillmentMethod??"pickup",shippingAddress:value.shippingAddress??null,billingAddress:value.billingAddress??null,shippingCents:value.shippingCents??0,paymentParts:value.paymentParts??[],prepareOperationId:value.prepareOperationId??null,abortRequested:value.abortRequested??false,totals:{...value.totals,shippingCents:value.shippingCents??0}};}
+  function projectV4(data:unknown):unknown{if(!data||typeof data!=="object")return data;const r=data as Record<string,unknown>;if("saleNumber" in r)return additiveSale(data as InStoreSale);if("sale" in r)return {...r,sale:projectV4(r.sale)};if("permissions" in r){const b=data as InStoreBootstrap;return{...b,permissions:{...b.permissions,manualSalesV4Available:manualV4},activeDraft:b.activeDraft?additiveSale(b.activeDraft):null,heldSales:b.heldSales.map(additiveSale),pendingSales:b.pendingSales.map(additiveSale),recentSales:b.recentSales.map(additiveSale)};}if("sales" in r)return{...r,sales:(r.sales as InStoreSale[]).map(additiveSale)};return data;}
+  function fromIntent(id: string, intent: InStoreSaleIntent, previous?: InStoreSale, version:3|4=3): InStoreSale {
     const customer = customers.find(item => item.id === intent.customerId) ?? null;
     const lines = intent.items.map(item => {
       const product = products.find(row => row.variantId === item.variantId);
@@ -53,18 +56,18 @@ export function createPosFixtureTransport(options: FixtureOptions) {
       requireCondition(product!.discountEligible || price >= product!.unitPriceCents!, "discount_denied");
       return { productId: product!.productId, variantId: product!.variantId, productName: product!.productName, variantName: product!.variantName, sku: product!.sku, barcode: product!.barcode, imageUrl: product!.imageUrl, unitPriceCents: price, catalogUnitPriceCents: product!.unitPriceCents!, unitPriceOverrideCents: item.unitPriceOverrideCents ?? null, priceOverrideActorMembershipId: item.unitPriceOverrideCents == null ? null : ACTOR_ID, quantity: item.quantity, discountEligible: product!.discountEligible, lineSubtotalCents: price * item.quantity, allocatedDiscountCents: 0, lineNetCents: price * item.quantity };
     });
-    const totals = calculateInStoreTotals(lines, intent.discount);
+    const productTotals = calculateInStoreTotals(lines, intent.discount),totals={...productTotals,...(version===4?{shippingCents:intent.shippingCents??0,totalCents:productTotals.totalCents+(intent.shippingCents??0)}:{})};
     let remaining = totals.discountCents;
     const eligible = lines.filter(line => line.discountEligible);
     for (const line of eligible) {
       const allocated = line === eligible.at(-1) ? remaining : Math.floor(totals.discountCents * line.lineSubtotalCents / totals.eligibleSubtotalCents);
       line.allocatedDiscountCents = allocated; line.lineNetCents -= allocated; remaining -= allocated;
     }
-    const collection = intent.initialCollectionCents ?? totals.totalCents;
+    const collection = version===4?(intent.paymentParts??[]).reduce((sum,p)=>sum+p.amountCents,0):intent.initialCollectionCents ?? totals.totalCents;
     requireCondition(collection <= totals.totalCents, "collection_invalid");
-    requireCondition(collection >= totals.totalCents || customer && !customer.archived && customer.phone, "customer_required");
+    if(version===3)requireCondition(collection >= totals.totalCents || customer && !customer.archived && customer.phone, "customer_required");
     if (intent.customerId) requireCondition(customer && !customer.archived, "customer_archived");
-    return parseInStoreSale({ id, saleNumber: previous?.saleNumber ?? `MS-001${sales.size + 1}`, status: "draft", version: (previous?.version ?? 0) + 1, locationId: intent.locationId, locationName: locations.find(location => location.id === intent.locationId)?.name ?? "Ana mağaza", ownerMembershipId: ACTOR_ID, ownerLabel: "Elif · Mağaza sahibi", customerName: customer?.name ?? intent.customerName, note: intent.note, discount: intent.discount, paymentMethod: collection === 0 ? null : intent.paymentMethod ?? null, items: lines, totals, createdAt: previous?.createdAt ?? NOW, updatedAt: NOW, paymentReceivedAt: null, completedAt: null, orderId: null, orderNumber: null, contractVersion: 3, customerId: customer?.id ?? null, customer, initialCollectionCents: collection, dueDate: intent.dueDate ?? null, finance: null }, 3);
+    return parseInStoreSale({...(version===4?{salesChannel:intent.salesChannel??"manual",socialPlatform:intent.socialPlatform??null,socialReference:intent.socialReference??null,fulfillmentMethod:intent.fulfillmentMethod??"pickup",shippingAddress:intent.shippingAddress??null,billingAddress:intent.billingAddress??intent.shippingAddress??null,shippingCents:intent.shippingCents??0,paymentParts:(intent.paymentParts??[]).map(p=>({...p,receiptId:null,receivedAt:null,actorMembershipId:null,refundEventId:null,returnedAt:null})),prepareOperationId:null,abortRequested:false}:{}), id, saleNumber: previous?.saleNumber ?? `MS-001${sales.size + 1}`, status: "draft", version: (previous?.version ?? 0) + 1, locationId: intent.locationId, locationName: locations.find(location => location.id === intent.locationId)?.name ?? "Ana mağaza", ownerMembershipId: ACTOR_ID, ownerLabel: "Elif · Mağaza sahibi", customerName: customer?.name ?? intent.customerName, note: intent.note, discount: intent.discount, paymentMethod: collection === 0 ? null : intent.paymentMethod ?? null, items: lines, totals, createdAt: previous?.createdAt ?? NOW, updatedAt: NOW, paymentReceivedAt: null, completedAt: null, orderId: null, orderNumber: null, contractVersion: version, customerId: customer?.id ?? null, customer, initialCollectionCents: collection, dueDate: intent.dueDate ?? null, finance: null }, version);
   }
 
   const baseIntent = (credit = false): InStoreSaleIntent => ({ locationId: LOCATION_ID, items: FIXTURE_PRODUCTS.slice(0, 4).map((product, index) => ({ variantId: product.variantId, quantity: index === 1 ? 2 : 1, unitPriceOverrideCents: null })), discount: { kind: "percentage", percentageBps: 500 }, customerId: credit ? customers[0].id : null, customerName: credit ? customers[0].name : null, note: credit ? "Teslimat mağazadan yapıldı." : null, paymentMethod: "cash", initialCollectionCents: credit ? 200000 : null, dueDate: credit ? "2026-10-15" : null });
@@ -77,14 +80,16 @@ export function createPosFixtureTransport(options: FixtureOptions) {
   for (let i = 0; i < 25; i++) { const seed = fromIntent(uuid(60 + i), baseIntent(i === 0)); sales.set(seed.id, completedSale({ ...seed, saleNumber: `MS-${String(100 + i).padStart(7, "0")}` }, i, i === 0)); }
   let recoveryMarker: { scopeKey: string; kind: string; saleId: string; operationId: string; expectedVersion: number; expectedTotalCents: number; contractVersion: number; paymentMethod?: null } | null = null;
   if (!["empty", "loading"].includes(options.scenario)) {
-    let sale = fromIntent(SALE_ID, baseIntent(options.scenario === "partial" || options.scenario === "completed"));
+    const seedIntent=baseIntent(options.scenario === "partial" || options.scenario === "completed");
+    let sale = fromIntent(SALE_ID, manualV4?{...seedIntent,customerId:null,paymentParts:[{partId:uuid(25),paymentMethod:"cash",amountCents:calculateInStoreTotals(FIXTURE_PRODUCTS.slice(0,4).map((p,i)=>({unitPriceCents:p.unitPriceCents!,quantity:i===1?2:1,discountEligible:p.discountEligible})),seedIntent.discount).totalCents}]}:seedIntent,undefined,manualV4?4:3);
+    if(options.scenario==="manual-pending")sale=parseInStoreSale({...sale,status:"payment_pending",prepareOperationId:RECOVERY_ID,paymentParts:[{partId:uuid(25),paymentMethod:"cash",amountCents:60000,receiptId:uuid(26),receivedAt:NOW,actorMembershipId:ACTOR_ID,refundEventId:null,returnedAt:null},{partId:uuid(27),paymentMethod:"card",amountCents:sale.totals.totalCents-60000,receiptId:null,receivedAt:null,actorMembershipId:null,refundEventId:null,returnedAt:null}]},4);
     if (options.scenario === "pending") sale = parseInStoreSale({ ...sale, status: "payment_pending", version: 2 }, 3);
     if (options.scenario === "received") sale = parseInStoreSale({ ...sale, status: "payment_received", paymentReceivedAt: NOW, version: 3 }, 3);
     if (options.scenario === "completed") sale = completedSale(sale, 50, true);
     sales.set(sale.id, sale);
-    if (["pending", "received", "completed"].includes(options.scenario)) {
-      const kind = options.scenario === "pending" ? "prepare" : options.scenario === "received" ? "payment" : "complete";
-      recoveryMarker = { scopeKey, kind, saleId: sale.id, operationId: RECOVERY_ID, expectedVersion: sale.version - 1, expectedTotalCents: sale.totals.totalCents, contractVersion: 3, ...(kind === "payment" ? { paymentMethod: null } : {}) };
+    if (["pending", "received", "completed", "manual-pending"].includes(options.scenario)) {
+      const kind = options.scenario === "pending" || options.scenario === "manual-pending" ? "prepare" : options.scenario === "received" ? "payment" : "complete";
+      recoveryMarker = { scopeKey, kind, saleId: sale.id, operationId: RECOVERY_ID, expectedVersion: sale.version - 1, expectedTotalCents: sale.totals.totalCents, contractVersion: manualV4?4:3, ...(kind === "payment" ? { paymentMethod: null } : {}) };
       operations.set(RECOVERY_ID, { fingerprint: "fixture-startup-recovery", result: { sale, replayed: false, priceChanged: false } });
     } else activeId = sale.id;
   }
@@ -129,6 +134,7 @@ export function createPosFixtureTransport(options: FixtureOptions) {
     const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const path = url.pathname, params = url.searchParams, headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    const json=(data:unknown)=>rawJson(headers.get("x-celebix-in-store-version")==="4"?projectV4(data):data);
     const operationId = headers.get("idempotency-key"); requests.push({ method, path, operationId });
     const delay = options.scenario === "loading" && path.endsWith("/bootstrap") ? Infinity : options.latency ?? 100;
     if (delay > 0) await new Promise<void>((resolve, reject) => {
@@ -162,9 +168,9 @@ export function createPosFixtureTransport(options: FixtureOptions) {
           const filtered = [...sales.values()].filter(sale => status === "pending" ? ["payment_pending", "payment_received"].includes(sale.status) : sale.status === status);
           return json({ sales: filtered.slice(offset, offset + pageSize), nextCursor: offset + pageSize < filtered.length ? String(offset + pageSize) : null });
         }
-        return json(recordOperation(operationId!, fingerprint, () => { requireCondition(!sales.has(body.saleId), "invalid_input", 409); const intent = parseInStoreSaleIntent(body.intent, 3), sale = fromIntent(body.saleId, intent); sales.set(sale.id, sale); activeId = sale.id; return result(sale); }));
+        return json(recordOperation(operationId!, fingerprint, () => { requireCondition(!sales.has(body.saleId), "invalid_input", 409); const intent = parseInStoreSaleIntent(body.intent, headers.get("x-celebix-in-store-version")==="4"?4:3), sale = fromIntent(body.saleId, intent,undefined,headers.get("x-celebix-in-store-version")==="4"?4:3); sales.set(sale.id, sale); activeId = sale.id; return result(sale); }));
       }
-      const saleMatch = path.match(/^\/api\/orders\/in-store\/sales\/([^/]+)(?:\/(hold|prepare|payment|complete|cancel|takeover))?$/);
+      const saleMatch = path.match(/^\/api\/orders\/in-store\/sales\/([^/]+)(?:\/(hold|prepare|payment|complete|cancel|takeover|discard|revise-payments|abort|return-payment))?$/);
       if (saleMatch) {
         const id = saleMatch[1], action = saleMatch[2];
         const stored = sales.get(id); requireCondition(stored, "not_found", 404);
@@ -172,25 +178,32 @@ export function createPosFixtureTransport(options: FixtureOptions) {
         return json(recordOperation(operationId!, fingerprint, () => {
           const current = sales.get(id)!; requireCondition(body.expectedVersion === current.version, "version_conflict", 409);
           let sale: InStoreSale = current;
-          if (!action) { requireCondition(current.status === "draft", "invalid_transition", 409); sale = fromIntent(id, parseInStoreSaleIntent(body.intent, 3), current); }
+          if (!action) { requireCondition(current.status === "draft", "invalid_transition", 409); sale = fromIntent(id, parseInStoreSaleIntent(body.intent, headers.get("x-celebix-in-store-version")==="4"?4:3), current,headers.get("x-celebix-in-store-version")==="4"?4:3); }
           else if (action === "hold") { requireCondition(["draft", "held"].includes(current.status), "invalid_transition", 409); sale = { ...current, status: body.held ? "held" : "draft", version: current.version + 1 }; }
           else if (action === "prepare") {
             requireCondition(current.status === "draft" && body.expectedTotalCents === current.totals.totalCents && current.totals.totalCents > 0, "invalid_transition", 409);
             requireCondition(current.items.every(line => !products.find(product => product.variantId === line.variantId)?.stockTracking || line.quantity <= products.find(product => product.variantId === line.variantId)!.availableQuantity), "inventory_conflict", 409);
-            requireCondition(current.initialCollectionCents === 0 || current.paymentMethod, "payment_method_required");
-            sale = { ...current, status: "payment_pending", version: current.version + 1 };
+            requireCondition(current.contractVersion===4||current.initialCollectionCents === 0 || current.paymentMethod, "payment_method_required");
+            requireCondition(current.initialCollectionCents===current.totals.totalCents||current.customer?.phone,"customer_required");
+            sale = { ...current, status: "payment_pending", version: current.version + 1,...(current.contractVersion===4?{prepareOperationId:operationId!}: {}) };
           } else if (action === "payment") {
             requireCondition(current.status === "payment_pending" && current.initialCollectionCents! > 0, "invalid_transition", 409);
-            sale = { ...current, paymentMethod: current.paymentMethod ?? body.paymentMethod, status: "payment_received", paymentReceivedAt: NOW, version: current.version + 1 };
+            if(current.contractVersion===4){requireCondition(!current.abortRequested&&current.prepareOperationId===body.prepareOperationId,"invalid_transition",409);const selected=current.paymentParts?.find(p=>p.partId===body.partId);requireCondition(selected&&!selected.receivedAt,"invalid_transition",409);const parts=current.paymentParts!.map(p=>p.partId===body.partId?{...p,receiptId:operationId!,receivedAt:NOW,actorMembershipId:ACTOR_ID}:p),paid=parts.every(p=>p.receivedAt);sale={...current,paymentParts:parts,status:paid?"payment_received":"payment_pending",paymentReceivedAt:paid?NOW:null,version:current.version+1};}
+            else sale = { ...current, paymentMethod: current.paymentMethod ?? body.paymentMethod, status: "payment_received", paymentReceivedAt: NOW, version: current.version + 1 };
           } else if (action === "complete") {
             requireCondition(current.status === "payment_received" || current.status === "payment_pending" && current.initialCollectionCents === 0, "invalid_transition", 409);
-            sale = completedSale(current, sales.size + 1, current.initialCollectionCents! < current.totals.totalCents);
+            if(current.contractVersion!==4)sale = completedSale(current, sales.size + 1, current.initialCollectionCents! < current.totals.totalCents);
             const collected = current.initialCollectionCents!; sale = { ...sale, initialCollectionCents: collected, version: current.version + 1, paymentReceivedAt: collected ? NOW : null, finance: { status: collected === 0 ? "unpaid" : collected < current.totals.totalCents ? "partial" : "paid", collectedCents: collected, dueCents: current.totals.totalCents - collected, refundDueCents: 0, version: 1, receipts: collected ? [{ id: uuid(1000 + sales.size), amountCents: collected, paymentMethod: current.paymentMethod!, receivedAt: NOW, actorMembershipId: ACTOR_ID, reversed: false }] : [] } };
+            if(current.contractVersion===4){const receipts=current.paymentParts!.map(p=>({id:p.receiptId!,amountCents:p.amountCents,paymentMethod:p.paymentMethod,receivedAt:p.receivedAt!,actorMembershipId:p.actorMembershipId!,reversed:false}));sale={...sale,status:"completed",orderId:uuid(900+sales.size),orderNumber:`POS-${sales.size}`,completedAt:NOW,finance:{...sale.finance!,receipts}};}
             for (const line of current.items) { const index = products.findIndex(product => product.variantId === line.variantId); if (products[index].stockTracking) products[index] = { ...products[index], availableQuantity: products[index].availableQuantity - line.quantity }; }
             if (sale.customerId) accountVersions.set(sale.customerId, (accountVersions.get(sale.customerId) ?? 1) + 1);
-          } else if (action === "cancel") { requireCondition(current.status === "payment_pending" && body.confirmUnpaid === true && !current.paymentReceivedAt, "invalid_transition", 409); sale = { ...current, status: "draft", version: current.version + 1 }; }
+          } else if(action==="revise-payments"){requireCondition(current.contractVersion===4&&!current.abortRequested&&["payment_pending","payment_received"].includes(current.status),"invalid_transition",409);const parts=body.paymentParts.map((p:any)=>current.paymentParts?.find(old=>old.partId===p.partId&&old.receivedAt)??{...p,receiptId:null,receivedAt:null,actorMembershipId:null,refundEventId:null,returnedAt:null});sale={...current,paymentParts:parts,initialCollectionCents:parts.reduce((n:number,p:any)=>n+p.amountCents,0),customerId:body.customerId,customer:customers.find(c=>c.id===body.customerId)??null,dueDate:body.dueDate,status:parts.every((p:any)=>p.receivedAt)&&parts.length?"payment_received":"payment_pending",version:current.version+1};}
+          else if(action==="abort"){requireCondition(current.contractVersion===4&&["payment_pending","payment_received"].includes(current.status),"invalid_transition",409);sale={...current,abortRequested:true,status:current.paymentParts?.some(p=>p.receivedAt&&!p.returnedAt)?current.status:"cancelled",version:current.version+1};}
+          else if(action==="return-payment"){requireCondition(current.abortRequested&&current.paymentParts?.some(p=>p.partId===body.partId&&p.receivedAt&&!p.returnedAt),"invalid_transition",409);const parts=current.paymentParts!.map(p=>p.partId===body.partId?{...p,returnedAt:NOW,refundEventId:operationId!}:p);sale={...current,paymentParts:parts,status:parts.some(p=>p.receivedAt&&!p.returnedAt)?"payment_pending":"cancelled",version:current.version+1};}
+          else if(action==="discard"){requireCondition(["draft","held"].includes(current.status)&&body.confirmUnpaid,"invalid_transition",409);sale={...current,status:"cancelled",version:current.version+1};}
+          else if (action === "cancel") { requireCondition(current.status === "payment_pending" && body.confirmUnpaid === true && !current.paymentReceivedAt, "invalid_transition", 409); sale = { ...current, status: "draft", version: current.version + 1 }; }
           else if (action === "takeover") sale = { ...current, ownerMembershipId: ACTOR_ID, ownerLabel: "Elif · Mağaza sahibi", version: current.version + 1 };
-          sale = parseInStoreSale(sale, 3); sales.set(id, sale); activeId = sale.status === "draft" ? id : activeId === id ? null : activeId; return result(sale);
+          sale = parseInStoreSale(sale, current.contractVersion===4?4:3); sales.set(id, sale); activeId = sale.status === "draft" ? id : activeId === id ? null : activeId; return result(sale);
         }));
       }
       if (path.startsWith("/api/orders/in-store/operations/")) return json(operations.get(path.split("/").at(-1)!)?.result ?? null);

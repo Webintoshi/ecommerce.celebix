@@ -251,7 +251,7 @@ export function createPanelDashboardModel(
     Object.freeze({ label: "Ticari analitiği görüntüle", href: "/analytics" as const }),
     Object.freeze({ label: "Siparişleri yönet", href: "/orders" as const }),
     Object.freeze({
-      label: "Mağaza satışı yap",
+      label: "Manuel satış yap",
       href: "/orders/quick-links" as const,
     }),
     Object.freeze({

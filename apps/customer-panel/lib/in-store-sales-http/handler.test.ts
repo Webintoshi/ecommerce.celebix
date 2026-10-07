@@ -42,7 +42,7 @@ test('v2 request forwards negotiated authority and rejects unsupported versions'
   const response=await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'2'}));
   assert.equal(response.status,200);assert.equal((calls[1] as {sale:{contractVersion:number}}).sale.contractVersion,2);
   const count=calls.length;
-  assert.equal((await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'4'}))).status,400);
+  assert.equal((await handlers.createSale(req('sales',{saleId:id,intent},{'x-celebix-in-store-version':'5'}))).status,400);
   assert.equal(calls.length,count);
 });
 
@@ -86,4 +86,21 @@ test('discard reports native payment lock or unknown result without falling back
  const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});
  const response=await h.discardSale(req(`sales/${id}/discard`,{expectedVersion:1,confirmUnpaid:true}),id);
  assert.equal(response.status,409);assert.deepEqual(await response.json(),{code:'invalid_transition'});
+});
+
+test('v4 routes confirm exactly one prepared part and keep abort/refund domain commands authorized',async()=>{
+ const v4sale={...sale,paymentMethod:null,contractVersion:4,customerId:null,customer:null,initialCollectionCents:0,dueDate:null,finance:null,salesChannel:'manual',socialPlatform:null,socialReference:null,fulfillmentMethod:'pickup',shippingAddress:null,billingAddress:null,shippingCents:0,totals:{...sale.totals,shippingCents:0},paymentParts:[],prepareOperationId:null,abortRequested:false};
+ const calls:unknown[]=[];const capture=async(input:unknown)=>{calls.push(input);return {sale:v4sale,replayed:false,priceChanged:false};};
+ const runtime={access:{readiness:{mode:'approved_staging'},panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{confirmPayment:capture,revisePendingPayments:capture,beginPendingAbort:capture,returnPendingPart:capture,reconcileObsoletePayment:capture}} as unknown as ServerInStoreSalesRuntime;
+ const handlers=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id});const headers={'x-celebix-in-store-version':'4'};
+ assert.equal((await handlers.confirmPayment(req(`sales/${id}/payment`,{expectedVersion:2,partId:id,prepareOperationId:id,slipReference:null},headers),id)).status,200);
+ assert.deepEqual(calls[0],{tenantContext,now,saleId:id,operationId:id,contractVersion:4,expectedVersion:2,partId:id,prepareOperationId:id,slipReference:null});
+ assert.equal((await handlers.beginPendingAbort(req(`sales/${id}/abort`,{expectedVersion:3},headers),id)).status,200);
+ assert.equal((await handlers.returnPendingPart(req(`sales/${id}/return-payment`,{expectedVersion:4,partId:id,reason:'Müşteriye iade'},headers),id)).status,200);
+ assert.equal((await handlers.revisePendingPayments(req(`sales/${id}/revise-payments`,{expectedVersion:3,paymentParts:[],customerId:id,dueDate:null},headers),id)).status,200);
+ assert.equal((await handlers.confirmPayment(req(`sales/${id}/payment`,{expectedVersion:2,partId:id,prepareOperationId:id,slipReference:null,amountCents:999},headers),id)).status,400);
+ assert.equal((await handlers.reconcileObsoletePayment(req(`sales/${id}/reconcile-payment`,{expectedVersion:4,originalOperationId:id,prepareOperationId:id,partId:id},headers),id)).status,200);
+ assert.equal((await handlers.reconcileObsoletePayment(req(`sales/${id}/reconcile-payment`,{expectedVersion:4,originalOperationId:id,prepareOperationId:id,partId:id,amountCents:40000},headers),id)).status,400);
+ assert.equal((await handlers.beginPendingAbort(req(`sales/${id}/abort`,{expectedVersion:3},{'x-celebix-in-store-version':'3'}),id)).status,400);
+ assert.equal(calls.length,5);
 });

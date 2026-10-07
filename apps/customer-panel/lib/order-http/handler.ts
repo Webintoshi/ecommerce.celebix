@@ -3,6 +3,8 @@ import {
   parseOrderArchiveResult,
   parseOrderArchiveEligibility,
   parseOrderDetail,
+  parseOrderDetailV2,
+  parseOrderListItemV2,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
   parseOrderDraftListItem,
@@ -101,10 +103,11 @@ function repositoryError(value: unknown): Response {
   } catch { return error("unavailable", 503); }
 }
 
-function privateAuthorityPresent(request: Request, allowInStoreVersion = false): boolean {
+function privateAuthorityPresent(request: Request, allowInStoreVersion = false, allowOrdersVersion = false): boolean {
   try {
     for (const [name] of request.headers) {
       if (allowInStoreVersion && name === "x-celebix-in-store-version") continue;
+      if (allowOrdersVersion && name === "x-celebix-orders-version") continue;
       if (
         name === "authorization" || name.startsWith("x-celebix") ||
         [
@@ -132,6 +135,7 @@ async function authorize(
   request: Request,
   expectation: OrderRequestExpectation,
   allowInStoreVersion = false,
+  allowOrdersVersion = false,
 ): Promise<Response | AuthorizedRequest> {
   let runtime: ServerOrdersRuntime | null;
   try { runtime = await dependencies.resolveRuntime(); }
@@ -144,7 +148,7 @@ async function authorize(
   } catch { return error("unavailable", 503); }
   const denied = authorityFailure(decision, expectation.method);
   if (denied) return denied;
-  if (privateAuthorityPresent(request, allowInStoreVersion)) return error("invalid_input", 400);
+  if (privateAuthorityPresent(request, allowInStoreVersion, allowOrdersVersion)) return error("invalid_input", 400);
   let cookie;
   try { cookie = readOrderPanelSessionCookie(request); }
   catch { return error("unauthenticated", 401); }
@@ -191,6 +195,11 @@ function pathId(value: unknown): string | Response {
 
 function deliveryPathId(value: unknown): string | Response {
   try { return parseOrderDeliveryId(value); } catch { return error("invalid_input", 400); }
+}
+
+function ordersReaderVersion(request: Request): 1 | 2 | Response {
+  const value = request.headers.get("x-celebix-orders-version");
+  return value === null || value === "1" ? 1 : value === "2" ? 2 : error("invalid_input", 400);
 }
 
 function mutationResult(value: unknown): Readonly<OrderMutationResult> {
@@ -298,13 +307,14 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
       return execute(()=>authorized.runtime.orders.getArchiveEligibility({tenantContext:authorized.tenantContext,now:authorized.now,orderId}),parseOrderArchiveEligibility);
     },
     async listArchivedOrders(request:Request) {
-      const authorized=await authorize(dependencies,request,{method:"GET",pathname:`${ORDERS_PATH}/archive`,query:"allowed"});
+      const version=ordersReaderVersion(request); if(isResponse(version)) return version;
+      const authorized=await authorize(dependencies,request,{method:"GET",pathname:`${ORDERS_PATH}/archive`,query:"allowed"},false,true);
       if(isResponse(authorized)) return authorized;
       const input=readOrderListInput(request);if(input.kind!=="valid")return error("invalid_input",400);
-      return execute(()=>authorized.runtime.orders.listArchivedOrders({tenantContext:authorized.tenantContext,now:authorized.now,...input.value}),result=>{
+      return execute(()=>authorized.runtime.orders.listArchivedOrders({tenantContext:authorized.tenantContext,now:authorized.now,...input.value,...(version===2?{ordersVersion:2 as const}:{})}),result=>{
         if(Object.keys(result).sort().join(",")!=="items"&&Object.keys(result).sort().join(",")!=="items,nextCursor") throw new TypeError("invalid");
         if(result.nextCursor!==undefined&&!/^[A-Za-z0-9_-]{1,1024}$/.test(result.nextCursor)) throw new TypeError("invalid");
-        return {...result,items:result.items.map(parseOrderListItem)};
+        return {...result,items:result.items.map(version===2?parseOrderListItemV2:parseOrderListItem)};
       });
     },
     async getDashboardSummary(request: Request): Promise<Response> {
@@ -322,9 +332,10 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
     },
 
     async listOrders(request: Request): Promise<Response> {
+      const version=ordersReaderVersion(request); if(isResponse(version)) return version;
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: ORDERS_PATH, query: "allowed",
-      });
+      }, false, true);
       if (isResponse(authorized)) return authorized;
       const input = readOrderListInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
@@ -333,6 +344,7 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
           tenantContext: authorized.tenantContext,
           now: authorized.now,
           ...input.value,
+          ...(version===2?{ordersVersion:2 as const}:{}),
         }),
         (result) => {
           if (
@@ -344,7 +356,7 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
             ))
           ) throw new TypeError("invalid");
           return Object.freeze({
-            items: Object.freeze(result.items.map(parseOrderListItem)),
+            items: Object.freeze(result.items.map(version===2?parseOrderListItemV2:parseOrderListItem)),
             ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
           });
         },
@@ -483,11 +495,12 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
     },
 
     async getOrder(request: Request, rawOrderId: unknown): Promise<Response> {
+      const version=ordersReaderVersion(request); if(isResponse(version)) return version;
       const orderId = pathId(rawOrderId);
       if (isResponse(orderId)) return orderId;
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: `${ORDERS_PATH}/${orderId}`, query: "forbidden",
-      }, true);
+      }, true, true);
       if (isResponse(authorized)) return authorized;
       const inStoreVersion = request.headers.get("x-celebix-in-store-version");
       if (inStoreVersion !== null && inStoreVersion !== "1" && inStoreVersion !== "2") return error("invalid_input", 400);
@@ -497,8 +510,10 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
           now: authorized.now,
           orderId,
           ...(inStoreVersion === "2" ? { inStoreVersion: 2 as const } : {}),
+          ...(version===2?{ordersVersion:2 as const}:{}),
         }),
         (value) => {
+          if(version===2) return parseOrderDetailV2(value);
           const detail = parseOrderDetail(value);
           if (inStoreVersion === "2") return detail;
           const { inStorePaymentMethod: _method, ...legacy } = detail;

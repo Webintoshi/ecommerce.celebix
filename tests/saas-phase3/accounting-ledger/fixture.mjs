@@ -20,7 +20,18 @@ export function startAccountingFixture(through=184){
 const signatures=[...numbering.matchAll(/\('(saas\.[^']+)',\s*'[a-f0-9]{64}'/g)].map(match=>match[1]);assert.equal(signatures.length,10,'SQL161 predecessor manifest cardinality drift');
 const missing=JSON.parse(value("SELECT coalesce(jsonb_agg(signature ORDER BY signature),'[]'::jsonb) FROM unnest(ARRAY["+signatures.map(signature=>"'"+signature.replaceAll("'","''")+"'").join(',')+"]) signature WHERE to_regprocedure(signature) IS NULL;"));
 assert.deepEqual(missing,['saas.storefront_checkout_payment_attempt_terminal()','saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'],'unexpected missing SQL161 predecessor');
-sql(numbering.replace(anchor,anchor.replace(' LOOP'," WHERE to_regprocedure(signature) IS NOT NULL LOOP")));}else if(!file.includes('seed_guzide_pilot_admin_domain'))apply(file);}
+sql(numbering.replace(anchor,anchor.replace(' LOOP'," WHERE to_regprocedure(signature) IS NOT NULL LOOP")));}else if(file==='202610040214_platform_payment_preflight_compatibility.up.sql'){
+const compatibility=readFileSync(path.join(SQL,file),'utf8'),anchor="FOR item IN SELECT value FROM jsonb_array_elements(manifest->'protected') LOOP";
+assert.equal(compatibility.split(anchor).length,2,'SQL214 protected manifest anchor drift');
+const manifest=JSON.parse(compatibility.split('$manifest$')[1]),signatures=manifest.protected.map(row=>row.signature);
+assert.equal(signatures.length,12,'SQL214 protected manifest cardinality drift');
+const missing=JSON.parse(value("SELECT coalesce(jsonb_agg(signature ORDER BY signature),'[]'::jsonb) FROM unnest(ARRAY["+signatures.map(signature=>"'"+signature.replaceAll("'","''")+"'").join(',')+"]) signature WHERE to_regprocedure(signature) IS NULL;"));
+// The same omitted legacy WEB function from SQL161 remains absent in a fresh
+// repository fixture. All eleven available protected proofs and all validator
+// transformations remain exact; live SQL214 is never changed by this harness.
+assert.deepEqual(missing,['saas.storefront_checkout_submit_builtin(text,text,bigint,uuid,text,text,uuid,timestamp with time zone)'],'unexpected missing SQL214 predecessor');
+sql(compatibility.replace(anchor,anchor.replace(' LOOP'," WHERE to_regprocedure(value->>'signature') IS NOT NULL LOOP")));
+}else if(!file.includes('seed_guzide_pilot_admin_domain'))apply(file);}
  return {socket,port,sql,value,apply,stop,connection:{host:socket,port,user:'postgres',database:'postgres'}};
  }catch(error){stop();throw error;}
 }

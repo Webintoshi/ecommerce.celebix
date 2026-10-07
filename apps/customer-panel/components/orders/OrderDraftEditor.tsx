@@ -145,7 +145,7 @@ function AddressFields(props: Readonly<{
   );
 }
 
-export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: boolean }>) {
+export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: boolean; legacyReadOnly?: boolean }>) {
   const router = useRouter();
   const { storeSlug } = usePanelChromeModel();
   const orderApi = useMemo(() => scopedOrderApi(storeSlug), [storeSlug]);
@@ -241,6 +241,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
     setError("");
     void orderApi.getDraft(props.draftId).then((draft) => {
       if (!current) return;
+      if (props.legacyReadOnly && draft.status === "converted" && draft.convertedOrderId) { router.replace(`/orders/${draft.convertedOrderId}`); return; }
       hydrate(draft);
       setPhase("ready");
     }).catch((failure) => {
@@ -249,7 +250,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
       setPhase("error");
     });
     return () => { current = false; };
-  }, [hydrate, props.draftId, retry]);
+  }, [hydrate, props.draftId, props.legacyReadOnly, retry]);
 
   const readOnly = !props.canManage || Boolean(completed) || Boolean(record && record.status !== "draft");
   const needsRecoveryInput = uncertain && orderApi.draftApplyNeedsInput();
@@ -359,13 +360,13 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
     <PanelPageShell><PanelPageHeader title="Yeni manuel sipariş" /><h1 className="sr-only">Yeni manuel sipariş</h1><div className={styles.denied} role="status">Sipariş oluşturma yetkiniz yok.</div></PanelPageShell>
   );
 
-  const title = record?.draftNumber ?? (props.draftId ? "Manuel sipariş" : "Yeni manuel sipariş");
+  const title = record?.draftNumber ?? (props.draftId ? "Geçmiş manuel satış" : "Manuel satış");
   return (
     <PanelPageShell>
       <PanelPageHeader title={title} />
       <h1 className="sr-only">{title}</h1>
-      <div className={styles.editorToolbar}><Link ref={backLinkRef} className={styles.secondaryAction} href="/orders/drafts">Manuel siparişlere dön</Link>{record ? <span>{record.draftNumber}</span> : null}</div>
-      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Manuel sipariş yükleniyor</strong><i aria-hidden="true" /></div> : null}
+      <div className={styles.editorToolbar}><Link ref={backLinkRef} className={styles.secondaryAction} href="/orders/drafts">Manuel satışa dön</Link>{record ? <span>{record.draftNumber}</span> : null}</div>
+      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Geçmiş manuel satış yükleniyor</strong><i aria-hidden="true" /></div> : null}
       {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Kayıt açılamadı</h2><p>{error}</p></div><button type="button" onClick={() => setRetry((current) => current + 1)}>Tekrar dene</button></div> : null}
       {phase === "ready" ? (
         <div className={styles.editorWorkspace}>

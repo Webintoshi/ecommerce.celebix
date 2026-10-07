@@ -1,4 +1,24 @@
 import assert from "node:assert/strict";
+test("orders version 2 negotiates current customer for list archive and detail without widening legacy responses", async () => {
+  const metadata = { customerId: NOTE_ID, currentCustomer: { id: NOTE_ID, name: "Corrected name", email: null, phone: null, archived: true }, salesChannel: null, socialPlatform: null, socialReference: null, fulfillmentMethod: null };
+  const calls: unknown[] = [];
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async listOrders(input) { calls.push(input); return { items: [{ ...listItem(), ...metadata }] }; },
+    async listArchivedOrders(input) { calls.push(input); return { items: [{ ...listItem(), ...metadata }] }; },
+    async getOrder(input) { calls.push(input); return { ...detail(), ...metadata, billingAddress: null }; },
+  })));
+  const header = { "X-Celebix-Orders-Version": "2" };
+  for (const [path, read] of [[ORDERS, handlers.listOrders], [`${ORDERS}/archive`, handlers.listArchivedOrders]] as const) {
+    const response = await read(request(path, { headers: header }));
+    assert.equal(response.status, 200);
+    assert.equal((await body(response)).items[0].currentCustomer.email, null);
+    assert.equal((calls.at(-1) as { ordersVersion: number }).ordersVersion, 2);
+  }
+  const response = await handlers.getOrder(request(`${ORDERS}/${ORDER_ID}`, { headers: header }), ORDER_ID);
+  assert.equal(response.status, 200);
+  assert.equal((await body(response)).currentCustomer.phone, null);
+  for (const version of ["", "3", "02", "1,2"]) assert.equal((await handlers.listOrders(request(ORDERS, { headers: { "X-Celebix-Orders-Version": version } }))).status, 400);
+});
 test('archive restore uses server authority and rejects client authority or cross origin',async()=>{
  const calls:unknown[]=[];
  const value={id:ORDER_ID,archived:false,operationId:OPERATION_ID,changedAt:NOW.toISOString(),replayed:false};

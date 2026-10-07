@@ -572,7 +572,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links"><Store aria-hidden="true" />Mağaza satışı</PanelActionButton></div>} />
+      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links"><Store aria-hidden="true" />Manuel satış</PanelActionButton></div>} />
       <div className={styles.dashboardPage}>
         <h1 className={styles.visuallyHidden}>Genel bakış</h1>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />

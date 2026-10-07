@@ -85,6 +85,12 @@ export interface OrderNote {
 }
 
 export interface OrderListItem {
+  readonly customerId?: string | null;
+  readonly currentCustomer?: Readonly<OrderCurrentCustomer> | null;
+  readonly salesChannel?: "manual" | "social" | null;
+  readonly socialPlatform?: OrderSocialPlatform | null;
+  readonly socialReference?: string | null;
+  readonly fulfillmentMethod?: "pickup" | "shipping" | null;
   readonly id: string;
   readonly orderNumber: string;
   readonly source: OrderSource;
@@ -101,6 +107,7 @@ export interface OrderListItem {
 }
 
 export interface OrderDetail extends OrderListItem {
+  readonly billingAddress?: Readonly<OrderAddress> | null;
   readonly inStorePaymentMethod?: "card" | "cash" | "bank_transfer" | null;
   readonly archive?: Readonly<{ archived: boolean; changedAt: string }>;
   readonly customerPhone?: string;
@@ -113,6 +120,26 @@ export interface OrderDetail extends OrderListItem {
   readonly events: readonly OrderEvent[];
   readonly notes: readonly OrderNote[];
 }
+
+export type OrderSocialPlatform = "instagram" | "facebook" | "x" | "pinterest" | "tiktok" | "whatsapp" | "other";
+export interface OrderCurrentCustomer {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly archived: boolean;
+}
+export interface OrderListItemV2 extends OrderListItem {
+  readonly customerId: string | null;
+  readonly currentCustomer: Readonly<OrderCurrentCustomer> | null;
+  readonly salesChannel: "manual" | "social" | null;
+  readonly socialPlatform: OrderSocialPlatform | null;
+  readonly socialReference: string | null;
+  readonly fulfillmentMethod: "pickup" | "shipping" | null;
+}
+export type OrderDetailV2 = OrderDetail & OrderListItemV2 & {
+  readonly billingAddress: Readonly<OrderAddress> | null;
+};
 
 export interface OrderNeighbor {
   readonly id: string;

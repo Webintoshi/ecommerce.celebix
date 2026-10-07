@@ -1534,13 +1534,24 @@ test("order print clears the previously loaded snapshot while a new route is loa
   assert.doesNotMatch(html, /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel/i);
 });
 
+test("print uses the current profile contact and historic delivery/billing addresses", async () => {
+  const hooks = createHookRuntime();
+  const loaded = { ...detail, currentCustomer: { id: ORDER_ID, name: "Corrected printed customer", email: null, phone: "+905552190222", archived: true }, billingAddress: { ...detail.shippingAddress, recipientName: "Historic invoice recipient" } };
+  const { exports } = await compileOrderModule("components/orders/OrderPrintView.tsx", { react: hooks.runtime, orderApi: { getOrder: async () => loaded } });
+  const View = exports.OrderPrintView as (props: { orderId: string }) => ReactNode;
+  const markup = renderToStaticMarkup(await hooks.flush(() => View({ orderId: ORDER_ID })));
+  assert.match(markup, /Corrected printed customer/);
+  assert.match(markup, /905552190222/);
+  assert.match(markup, /Historic invoice recipient/);
+  assert.doesNotMatch(markup, /ada@example.com/);
+});
+
 test("orders navigation exposes every genuine child with exact activation and safe route titles", async () => {
   const navigation = await import("./panel-ui/navigation.ts");
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
   assert.deepEqual(orders?.children?.map(({ label, href }) => [label, href]), [
     ["Tüm Siparişler", "/orders"],
-    ["Manuel siparişler", "/orders/drafts"],
-    ["Mağaza satışı", "/orders/quick-links"],
+    ["Manuel satış", "/orders/quick-links"],
     ["Ödeme bağlantıları", "/orders/payment-links"],
     ["Terk Edilen Sepetler", "/orders/abandoned-carts"],
   ]);
@@ -1550,15 +1561,15 @@ test("orders navigation exposes every genuine child with exact activation and sa
     assert.equal(navigation.isPanelNavigationPathActive(unsafe, "/orders"), false);
   }
   assert.equal(navigation.getPanelRoutePresentation("/orders").title, "Siparişler");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Manuel siparişler");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Yeni manuel sipariş");
-  assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Manuel sipariş ayrıntısı");
-  assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Mağaza satışı");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts").title, "Manuel satış");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/drafts/new").title, "Manuel satış");
+  assert.equal(navigation.getPanelRoutePresentation(`/orders/drafts/${DRAFT_ID}`).title, "Geçmiş manuel satış");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Manuel satış");
   assert.equal(navigation.getPanelRoutePresentation("/orders/abandoned-carts").title, "Terk Edilen Sepetler");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/${ORDER_ID}`).title, "Sipariş ayrıntısı");
 });
 
-test("manual order draft workspace is wired to real catalog customer and durable order routes", async () => {
+test("legacy manual draft routes redirect creation and preserve a read-only historic detail", async () => {
   const list = await source("components/orders/OrderDraftListConsole.tsx");
   const editor = await source("components/orders/OrderDraftEditor.tsx");
   const styles = await source("components/orders/order-drafts.module.css");
@@ -1577,9 +1588,11 @@ test("manual order draft workspace is wired to real catalog customer and durable
   assert.doesNotMatch(editor, /orderApi[.]convertDraft|Siparişe dönüştür/);
   assert.match(editor, /router[.]replace\(`\/orders\/\$\{result[.]orderId\}`\)/);
   assert.match(editor, /expectedVersion/);
-  assert.match(newPage, /orders[.]manage/);
-  assert.match(detailPage, /orders[.]manage/);
-  assert.match(orderList, /href="\/orders\/drafts\/new"/);
+  assert.match(listPage, /redirect\("\/orders\/quick-links"\)/);
+  assert.match(newPage, /redirect\("\/orders\/quick-links"\)/);
+  assert.match(detailPage, /canManage=\{false\} legacyReadOnly/);
+  assert.match(editor, /props[.]legacyReadOnly && draft[.]status === "converted"/);
+  assert.match(orderList, /href="\/orders\/quick-links"/);
   assert.match(styles, /position:\s*sticky/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
   assert.match(styles, /@media\s*\(max-width:\s*640px\)/);

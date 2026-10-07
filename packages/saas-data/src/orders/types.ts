@@ -27,6 +27,7 @@ export interface OrderAuthorityInput {
 }
 
 export interface ListOrdersInput extends OrderAuthorityInput {
+  readonly ordersVersion?: 2;
   readonly pageSize: number;
   readonly cursor?: string;
   readonly status?: OrderStatus;
@@ -35,6 +36,7 @@ export interface ListOrdersInput extends OrderAuthorityInput {
 }
 
 export interface GetOrderInput extends OrderAuthorityInput {
+  readonly ordersVersion?: 2;
   readonly orderId: string;
   readonly inStoreVersion?: 2;
 }

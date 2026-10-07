@@ -150,8 +150,7 @@ function item(
 
 const ORDER_CHILDREN = Object.freeze([
   item("all-orders", "Tüm Siparişler", "/orders", "orders"),
-  item("order-drafts", "Manuel siparişler", "/orders/drafts", "orders"),
-  item("quick-orders", "Mağaza satışı", "/orders/quick-links", "quick-orders"),
+  item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
   item("payment-links", "Ödeme bağlantıları", "/orders/payment-links", "quick-orders"),
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
 ]);
@@ -261,7 +260,7 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
 ]);
 
 export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register" }>): readonly PanelNavigationItem[] {
-  if (input?.navigationMode === "register") return Object.freeze([item("quick-orders", "Mağaza satışı", "/orders/quick-links", "quick-orders")]);
+  if (input?.navigationMode === "register") return Object.freeze([item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders")]);
   return input?.analyticsAvailable === true
     ? PANEL_NAVIGATION
     : Object.freeze(PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"));
@@ -273,8 +272,8 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/": presentation("Özet"),
   "/analytics": presentation("Analizler"),
   "/orders": presentation("Siparişler"),
-  "/orders/drafts": presentation("Manuel siparişler"),
-  "/orders/quick-links": presentation("Mağaza satışı"),
+  "/orders/drafts": presentation("Manuel satış"),
+  "/orders/quick-links": presentation("Manuel satış"),
   "/orders/payment-links": presentation("Ödeme bağlantıları"),
   "/orders/abandoned-carts": presentation("Terk Edilen Sepetler"),
   "/customers": presentation("Müşteriler"),
@@ -504,8 +503,8 @@ const DYNAMIC_TITLES = Object.freeze<readonly Readonly<{
   pattern: readonly string[];
   presentation: PanelRoutePresentation;
 }>[]>([
-  { pattern: ["orders", "drafts", "new"], presentation: presentation("Yeni manuel sipariş") },
-  { pattern: ["orders", "drafts", "*"], presentation: presentation("Manuel sipariş ayrıntısı") },
+  { pattern: ["orders", "drafts", "new"], presentation: presentation("Manuel satış") },
+  { pattern: ["orders", "drafts", "*"], presentation: presentation("Geçmiş manuel satış") },
   { pattern: ["customers", "*", "edit"], presentation: presentation("Müşteriyi düzenle") },
   { pattern: ["products", "collections", "new"], presentation: presentation("Yeni koleksiyon") },
   { pattern: ["products", "collections", "*", "edit"], presentation: presentation("Koleksiyonu düzenle") },

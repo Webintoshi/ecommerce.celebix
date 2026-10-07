@@ -19,12 +19,16 @@ function message(error: unknown) {
 }
 
 function OrderSnapshotTable({ order }: Readonly<{ order: OrderDetail }>) {
+  const customer = order.currentCustomer ?? { name: order.customerName, email: order.customerEmail, phone: order.customerPhone };
   return (
     <>
       <section className={styles.printSummary} aria-label="Sipariş teslimat özeti">
-        <div><span>Müşteri</span><strong>{order.customerName ?? "Mağaza müşterisi"}</strong></div>
+        <div><span>Müşteri</span><strong>{customer.name ?? "Mağaza müşterisi"}</strong></div>
+        {customer.email ? <div><span>E-posta</span><strong>{customer.email}</strong></div> : null}
+        {customer.phone ? <div><span>Telefon</span><strong>{customer.phone}</strong></div> : null}
         <div><span>Sipariş tarihi</span><strong>{date(order.createdAt)}</strong></div>
-        {order.shippingAddress ? <div><span>Teslimat adresi</span><strong>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</strong></div> : <div><span>Teslimat</span><strong>Mağazadan teslim · Manuel POS</strong></div>}
+        {order.shippingAddress ? <div><span>Teslimat adresi</span><strong>{order.shippingAddress.recipientName}<br />{order.shippingAddress.line1}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")} · {order.shippingAddress.country}</strong></div> : <div><span>Teslimat</span><strong>Mağazadan teslim · Manuel satış</strong></div>}
+      {order.billingAddress ? <div><span>Fatura adresi</span><strong>{order.billingAddress.recipientName}<br />{order.billingAddress.line1}<br />{[order.billingAddress.district, order.billingAddress.city, order.billingAddress.postalCode].filter(Boolean).join(" / ")} · {order.billingAddress.country}</strong></div> : null}
       </section>
       <table className={styles.printTable}>
         <thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col">Birim fiyat</th><th scope="col">Tutar</th></tr></thead>

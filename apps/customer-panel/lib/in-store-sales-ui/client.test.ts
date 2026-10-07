@@ -139,3 +139,5 @@ test("discard validates its command before fetch and retains the caller key acro
   assert.equal(recovered.sale.status,"cancelled");assert.equal(recovered.replayed,true);
   assert.deepEqual(attempts,[{key:OP,body:'{"expectedVersion":3,"confirmUnpaid":true}'},{key:OP,body:'{"expectedVersion":3,"confirmUnpaid":true}'}]);
 });
+
+test("V4 pending refund reports a known insufficient account balance without an unknown outcome",async()=>{const client=createInStoreSalesUiClient({contractVersion:4,fetch:async()=>reply({code:"insufficient_funds"},422)});await assert.rejects(client.returnPendingPart(SALE_ID,{expectedVersion:3,partId:LOCATION,reason:"Fiziksel iade yapıldı"},OP),(error:unknown)=>error instanceof InStoreSalesUiError&&error.code===("insufficient_funds" as never)&&!error.unknownResult);});

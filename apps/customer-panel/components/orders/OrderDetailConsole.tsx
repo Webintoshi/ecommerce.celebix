@@ -46,8 +46,8 @@ const SOURCE_LABELS: Readonly<Record<OrderDetail["source"], string>> = Object.fr
   quick_link: "Hızlı sipariş",
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
-  manual: "Manuel sipariş",
-  in_store: "Mağaza satışı",
+  manual: "Manuel satış",
+  in_store: "Manuel satış",
 });
 const EMAIL_EVENT_LABELS: Readonly<Record<OrderEmailEventType, string>> = Object.freeze({
   order_received: "Sipariş alındı",
@@ -74,7 +74,9 @@ const ARCHIVE_EVIDENCE_REFERENCE = "merchant-panel/orders/archive";
 export function getAuthorizedOrderStatusOptions(
   current: OrderStatus,
   capabilities: Pick<OrderUiCapabilities, "fulfill" | "manage">,
+  order?: Pick<OrderDetail, "source" | "fulfillmentMethod">,
 ): readonly OrderStatus[] {
+  if (order?.source === "in_store" && order.fulfillmentMethod !== "shipping") return Object.freeze([]);
   const next: OrderStatus[] = [];
   if (current === "pending") {
     if (capabilities.fulfill) next.push("confirmed");
@@ -90,7 +92,8 @@ export function getAuthorizedOrderStatusOptions(
   } else if (current === "delivered" && capabilities.manage) {
     next.push("refunded");
   }
-  return next.length === 0 ? Object.freeze([]) : Object.freeze([current, ...next]);
+  const permitted = order?.source === "in_store" ? next.filter(status => status !== "cancelled" && status !== "refunded") : next;
+  return permitted.length === 0 ? Object.freeze([]) : Object.freeze([current, ...permitted]);
 }
 
 export function getAuthorizedOrderPaymentOptions(
@@ -276,8 +279,12 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   if (props.detail === undefined) return <PanelPageShell><section className={styles.detailRoot}><h1 className="sr-only">Sipariş detayı</h1><Link className={styles.backLink} href="/orders"><ArrowLeft size={18} aria-hidden="true" />Siparişlere dön</Link><div className={styles.errorState} role="alert"><h2>Sipariş açılamadı</h2><p>{props.error || "Sipariş bulunamadı."}</p><button className={styles.secondaryButton} type="button" onClick={props.onRetry}>Tekrar dene</button></div></section></PanelPageShell>;
   const order = props.detail;
   const inStore = order.source === "in_store";
+  const hasShipping = !inStore || order.fulfillmentMethod === "shipping";
+  const customer = order.currentCustomer ?? { name: order.customerName, email: order.customerEmail, phone: order.customerPhone };
+  const saleLabel = order.salesChannel === "social" ? "Sosyal medya" : SOURCE_LABELS[order.source];
+  const platformLabel = order.socialPlatform ? ({instagram:"Instagram",facebook:"Facebook",x:"X",pinterest:"Pinterest",tiktok:"TikTok",whatsapp:"WhatsApp",other:"Diğer"} as const)[order.socialPlatform] : null;
   const inStorePaymentLabel = order.inStorePaymentMethod === "card" ? "Kart" : order.inStorePaymentMethod === "cash" ? "Nakit" : order.inStorePaymentMethod === "bank_transfer" ? "Banka havalesi" : "manuel POS";
-  const statusOptions = inStore ? [] : getAuthorizedOrderStatusOptions(order.status, props.capabilities).filter(status => status !== order.status);
+  const statusOptions = getAuthorizedOrderStatusOptions(order.status, props.capabilities, order).filter(status => status !== order.status);
   const paymentOptions = inStore ? [] : getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment).filter(status => status !== order.paymentStatus);
   const progress = !order.archive?.archived ? PROGRESS_ACTIONS[order.status] : undefined;
   const primary = progress && statusOptions.includes(progress.next) ? progress : undefined;
@@ -317,16 +324,16 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     </header>
     {!dialog && props.error ? <div className={styles.inlineError} role="alert">{props.error}<button type="button" className={styles.quietButton} onClick={props.onRetry}>Yenile</button></div> : null}
     {!dialog && props.notice ? <p className={styles.notice} role="status">{props.notice}</p> : null}
-    {!inStore && stage >= 0 ? <ol className={styles.journey} aria-label="Sipariş akışı">{stages.map((status, index) => <li key={status} data-stage={index < stage ? "done" : index === stage ? "current" : "future"} aria-current={index === stage ? "step" : undefined}><span>{index < stage ? <Check size={12} aria-hidden="true" /> : index === stage ? <CircleDot size={12} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}</span><span>{STATUS_LABELS[status]}</span></li>)}</ol> : inStore ? <p className={styles.storeDelivery}><Store size={16} aria-hidden="true" />{`Mağazadan teslim · ${inStorePaymentLabel}`}</p> : null}
+    {hasShipping && stage >= 0 ? <ol className={styles.journey} aria-label="Sipariş akışı">{stages.map((status, index) => <li key={status} data-stage={index < stage ? "done" : index === stage ? "current" : "future"} aria-current={index === stage ? "step" : undefined}><span>{index < stage ? <Check size={12} aria-hidden="true" /> : index === stage ? <CircleDot size={12} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}</span><span>{STATUS_LABELS[status]}</span></li>)}</ol> : inStore ? <p className={styles.storeDelivery}><Store size={16} aria-hidden="true" />{`Mağazadan teslim · ${inStorePaymentLabel}`}</p> : null}
     <div className={styles.workspace}>
       <div className={styles.main}>
-        <section className={styles.itemsPanel} aria-labelledby="order-items-title"><header className={styles.sectionHeading}><h2 id="order-items-title">Ürünler <span>{order.itemCount}</span></h2><span className={styles.source}><Store size={14} aria-hidden="true" />{SOURCE_LABELS[order.source]}</span></header>
+        <section className={styles.itemsPanel} aria-labelledby="order-items-title"><header className={styles.sectionHeading}><h2 id="order-items-title">Ürünler <span>{order.itemCount}</span></h2><span className={styles.source}><Store size={14} aria-hidden="true" />{saleLabel}{platformLabel ? ` · ${platformLabel}` : ""}{order.socialReference ? ` · ${order.socialReference}` : ""}</span></header>
           <table className={styles.itemsTable}><thead><tr><th scope="col">Ürün</th><th scope="col">Adet</th><th scope="col" className={styles.unitPrice}>Birim fiyat</th><th scope="col">Toplam</th></tr></thead><tbody>{order.items.map(item => <tr key={item.id}><td><div className={styles.itemIdentity}><ProductThumbnail imageUrl={item.imageUrl} className={styles.productPlaceholder} /><div><strong>{item.productName}</strong><small>{item.variantName ?? "Standart"}{item.sku ? ` · ${item.sku}` : ""}</small><small className={styles.mobileUnit}>Birim: {money(item.unitPriceCents, order.currency)}</small>{item.discountCents > 0 ? <small>İndirim: {money(item.discountCents, order.currency)}</small> : null}</div></div></td><td>{item.quantity}</td><td className={styles.unitPrice}>{money(item.unitPriceCents, order.currency)}</td><td>{money(item.lineTotalCents, order.currency)}</td></tr>)}</tbody></table>
           <dl className={styles.totals}><div><dt>Ara toplam</dt><dd>{money(order.subtotalCents, order.currency)}</dd></div><div><dt>Kargo</dt><dd>{money(order.shippingCents, order.currency)}</dd></div><div><dt>İndirim</dt><dd>− {money(order.discountCents, order.currency)}</dd></div><div className={styles.grandTotal}><dt>Toplam</dt><dd>{money(order.totalCents, order.currency)}</dd></div></dl>
           {inStore?<OrderFinancePanel orderId={order.id} currency={order.currency}/>:null}
           <footer className={styles.paymentLine}><div><CreditCard size={16} aria-hidden="true" /><strong>Ödeme</strong><span className={styles.paymentStatus} data-state={order.paymentStatus}>{PAYMENT_LABELS[order.paymentStatus]}</span></div>{paymentOptions.length ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("payment")}>Durumu güncelle <ChevronRight size={16} aria-hidden="true" /></button> : null}</footer>
         </section>
-        {!inStore ? <section className={styles.section} aria-labelledby="shipping-title"><header className={styles.sectionHeading}><h2 id="shipping-title"><Truck size={16} aria-hidden="true" />Kargo</h2>{props.capabilities.shipping ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")}><Pencil size={16} aria-hidden="true" />Elle düzenle</button> : null}</header>
+        {hasShipping ? <section className={styles.section} aria-labelledby="shipping-title"><header className={styles.sectionHeading}><h2 id="shipping-title"><Truck size={16} aria-hidden="true" />Kargo</h2>{props.capabilities.shipping ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")}><Pencil size={16} aria-hidden="true" />Elle düzenle</button> : null}</header>
           {order.tracking ? <div className={styles.tracking}><strong>{order.tracking.carrier}</strong><span><Barcode size={16} aria-hidden="true" />{order.tracking.trackingNumber}</span>{order.tracking.shippedAt ? <time dateTime={order.tracking.shippedAt}>{date(order.tracking.shippedAt)}</time> : null}{trackingUrl ? <a href={trackingUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" />Takip bağlantısı</a> : null}</div> : null}
           {order.shippingAddress ? props.capabilities.shipping ? <OrderShipmentConsole key={order.id} orderId={order.id} orderVersion={order.version} /> : !order.tracking ? <p className={styles.muted}>Takip kaydı yok.</p> : null : <p className={styles.muted}>Teslimat adresi yok.</p>}
         </section> : null}
@@ -337,9 +344,10 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <section className={styles.section} aria-labelledby="timeline-title"><header className={styles.sectionHeading}><h2 id="timeline-title"><History size={16} aria-hidden="true" />Geçmiş</h2><span className={styles.muted}>{order.events.length} kayıt</span></header>{order.events.length ? <ol className={styles.timeline}>{order.events.map(event => <li key={event.id}><div><strong>{event.message}</strong><time dateTime={event.createdAt}>{date(event.createdAt)} · {event.type}</time></div></li>)}</ol> : <p className={styles.muted}>Geçmiş kaydı yok.</p>}</section>
       </div>
       <aside className={styles.rail} aria-label="Müşteri ve teslimat">
-        <section className={styles.section} aria-labelledby="customer-title"><header className={styles.sectionHeading}><h2 id="customer-title"><UserRound size={16} aria-hidden="true" />Müşteri</h2></header><div className={styles.customerIdentity}><span aria-hidden="true">{order.customerName ? order.customerName.split(/\s+/).map(part => part[0]).slice(0, 2).join("") : <UserRound size={16} />}</span><strong>{order.customerName ?? "Mağaza müşterisi"}</strong></div>{order.customerEmail ? <a className={styles.contact} href={`mailto:${order.customerEmail}`}><Mail size={16} aria-hidden="true" /><span>{order.customerEmail}</span></a> : <p className={styles.muted}>E-posta belirtilmemiş.</p>}{order.customerPhone ? <a className={styles.contact} href={`tel:${order.customerPhone}`}><Phone size={16} aria-hidden="true" /><span>{order.customerPhone}</span></a> : null}</section>
-        {!inStore ? <section className={styles.section} aria-labelledby="address-title"><header className={styles.sectionHeading}><h2 id="address-title"><MapPin size={16} aria-hidden="true" />Teslimat adresi</h2>{props.capabilities.shipping ? <button className={styles.iconButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")} aria-label="Teslimat adresini düzenle"><Pencil size={16} aria-hidden="true" /></button> : null}</header>{order.shippingAddress ? <address><strong>{order.shippingAddress.recipientName}</strong><br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")}<br />{order.shippingAddress.country === "TR" ? "Türkiye" : order.shippingAddress.country}</address> : <p className={styles.muted}>Adres belirtilmemiş.</p>}</section> : null}
+        <section className={styles.section} aria-labelledby="customer-title"><header className={styles.sectionHeading}><h2 id="customer-title"><UserRound size={16} aria-hidden="true" />Müşteri</h2></header><div className={styles.customerIdentity}><span aria-hidden="true">{customer.name ? customer.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("") : <UserRound size={16} />}</span><strong>{customer.name ?? "Mağaza müşterisi"}</strong></div>{customer.email ? <a className={styles.contact} href={`mailto:${customer.email}`}><Mail size={16} aria-hidden="true" /><span>{customer.email}</span></a> : <p className={styles.muted}>E-posta belirtilmemiş.</p>}{customer.phone ? <a className={styles.contact} href={`tel:${customer.phone}`}><Phone size={16} aria-hidden="true" /><span>{customer.phone}</span></a> : null}</section>
+        {hasShipping ? <section className={styles.section} aria-labelledby="address-title"><header className={styles.sectionHeading}><h2 id="address-title"><MapPin size={16} aria-hidden="true" />Teslimat adresi</h2>{props.capabilities.shipping ? <button className={styles.iconButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")} aria-label="Teslimat adresini düzenle"><Pencil size={16} aria-hidden="true" /></button> : null}</header>{order.shippingAddress ? <address><strong>{order.shippingAddress.recipientName}</strong><br />{order.shippingAddress.line1}{order.shippingAddress.line2 ? <><br />{order.shippingAddress.line2}</> : null}<br />{[order.shippingAddress.district, order.shippingAddress.city, order.shippingAddress.postalCode].filter(Boolean).join(" / ")}<br />{order.shippingAddress.country === "TR" ? "Türkiye" : order.shippingAddress.country}</address> : <p className={styles.muted}>Adres belirtilmemiş.</p>}</section> : null}
         {notifications.length ? <section className={styles.section}><details className={styles.notifications}><summary><h2><Bell size={16} aria-hidden="true" />Bildirimler</h2><span>{notifications.length}<ChevronDown size={14} aria-hidden="true" /></span></summary><div>{notifications.map(notification => <article key={notification.id}><div><strong>{EMAIL_EVENT_LABELS[notification.eventType]}</strong><span>{notification.recipientMask}</span><time dateTime={notification.occurredAt}>{date(notification.occurredAt)}</time></div><div><span className={styles.notificationStatus} data-state={notification.status}>{EMAIL_STATUS_LABELS[notification.status]}</span>{notification.canRetry && props.onNotificationRetry ? <button className={styles.quietButton} type="button" disabled={Boolean(props.notificationBusy)} onClick={() => props.onNotificationRetry?.(notification.id)}>{props.notificationBusy === notification.id ? "Gönderiliyor…" : "Tekrar dene"}</button> : null}</div></article>)}</div></details></section> : null}
+        {order.billingAddress ? <section className={styles.section} aria-labelledby="billing-title"><header className={styles.sectionHeading}><h2 id="billing-title"><MapPin size={16} aria-hidden="true" />Fatura adresi</h2></header><address><strong>{order.billingAddress.recipientName}</strong><br />{order.billingAddress.line1}{order.billingAddress.line2 ? <><br />{order.billingAddress.line2}</> : null}<br />{[order.billingAddress.district, order.billingAddress.city, order.billingAddress.postalCode].filter(Boolean).join(" / ")}<br />{order.billingAddress.country === "TR" ? "Türkiye" : order.billingAddress.country}</address></section> : null}
       </aside>
     </div>
     <OrderActionDialog open={dialog !== ""} title={dialog ? modalTitle[dialog] : "Sipariş işlemi"} onClose={closeDialog} busy={modalBusy} footer={<><button type="button" className={styles.secondaryButton} disabled={modalBusy} onClick={closeDialog}>{dialog === "metadata" ? "Kapat" : "Vazgeç"}</button>{modalSubmit}</>}>
@@ -350,7 +358,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       {dialog === "archive" ? <form id={formId} className={styles.modalForm} onSubmit={props.onArchiveSubmit}><label>Arşivleme nedeni<textarea name="reason" required maxLength={500} rows={3} /></label></form> : null}
       {dialog === "restore" ? <form id={formId} className={styles.modalForm} onSubmit={props.onRestoreSubmit}><label>Geri alma nedeni<textarea name="reason" required maxLength={500} rows={3} /></label><label>Kanıt referansı<input name="evidenceReference" required maxLength={500} /></label></form> : null}
       {dialog === "delete" ? props.deletionImpact ? <form id={formId} className={styles.modalForm} onSubmit={props.onDeleteSubmit}><p>Bu işlem geri alınamaz. Sipariş ve bağlı panel kayıtları silinir; dış ödeme ve kargo kayıtları değişmez.</p><dl className={styles.impact}>{props.deletionImpact.effects.map(effect => <div key={effect.kind}><dt>{DELETION_LABELS[effect.kind] ?? effect.kind}</dt><dd>{effect.count}{effect.disposition === "external_unchanged" ? " · Değişmez" : effect.disposition === "detach" ? " · Bağlantı kaldırılır" : effect.disposition === "retain_snapshot" ? " · Korunur" : ""}</dd></div>)}</dl><label>Onaylamak için <strong>{props.deletionImpact.confirmationLabel}</strong> yazın<input name="confirmation" required maxLength={200} autoComplete="off" /></label><label className={styles.check}><input name="acknowledged" type="checkbox" required />İşlemin geri alınamayacağını anlıyorum.</label></form> : <div className={styles.modalForm}>{props.busy === "deletion-impact" ? <p role="status">Silme etkisi yükleniyor…</p> : <button className={styles.secondaryButton} type="button" onClick={props.onDeletionImpactRequest}>Silme etkisini yeniden yükle</button>}</div> : null}
-      {dialog === "metadata" ? <dl className={styles.metadata}><div><dt>Kanal</dt><dd>{SOURCE_LABELS[order.source]}</dd></div><div><dt>Oluşturulma</dt><dd>{date(order.createdAt)}</dd></div><div><dt>Son güncelleme</dt><dd>{date(order.updatedAt)}</dd></div><div><dt>Kayıt sürümü</dt><dd>{order.version}</dd></div>{order.archive?.archived ? <div><dt>Arşivlenme</dt><dd>{date(order.archive.changedAt)}</dd></div> : null}</dl> : null}
+      {dialog === "metadata" ? <dl className={styles.metadata}><div><dt>Kanal</dt><dd>{saleLabel}{platformLabel ? ` · ${platformLabel}` : ""}{order.socialReference ? ` · ${order.socialReference}` : ""}</dd></div><div><dt>Oluşturulma</dt><dd>{date(order.createdAt)}</dd></div><div><dt>Son güncelleme</dt><dd>{date(order.updatedAt)}</dd></div><div><dt>Kayıt sürümü</dt><dd>{order.version}</dd></div>{order.archive?.archived ? <div><dt>Arşivlenme</dt><dd>{date(order.archive.changedAt)}</dd></div> : null}</dl> : null}
       {dialog === "note" ? <form id={formId} className={styles.modalForm} onSubmit={event => { event.preventDefault(); if (noteId) props.onNoteArchive(noteId); }}><p>{order.notes.find(note => note.id === noteId)?.body}</p></form> : null}
     </OrderActionDialog>
   </section></PanelPageShell>;
@@ -424,6 +432,18 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     return () => { orderScope.current += 1; loadSequence.current += 1; if (currentOrderId.current === orderId) currentOrderId.current = ""; };
   }, [load]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refresh = (event: Event) => {
+      if (event.type === "pageshow" && !(event as PageTransitionEvent).persisted) return;
+      if (inFlight.current || notificationInFlight.current || document.querySelector("dialog[open]")) return;
+      void load();
+    };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("pageshow", refresh); };
+  }, [load]);
+
   async function mutation(name: string, operation: () => Promise<unknown>, success: string): Promise<OrderMutationOutcome> {
     if (inFlight.current || currentOrderId.current !== orderId) return Object.freeze({ state: "error", failure: new Error("operation in progress") });
     inFlight.current = true;
@@ -438,7 +458,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   }
 
   function transitionStatus(nextStatus: OrderStatus) {
-    if (!detail || detail.source === "in_store" || inFlight.current || nextStatus === detail.status || !getAuthorizedOrderStatusOptions(detail.status, capabilities).includes(nextStatus)) return;
+    if (!detail || inFlight.current || nextStatus === detail.status || !getAuthorizedOrderStatusOptions(detail.status, capabilities, detail).includes(nextStatus)) return;
     void mutation("status", () => orderApi.transitionStatus(orderId, { expectedVersion: detail.version, nextStatus }), "Sipariş durumu güncellendi.");
   }
 
@@ -449,7 +469,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
 
   function updateShipping(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!detail || detail.source === "in_store" || !capabilities.shipping || inFlight.current) return;
+    if (!detail || (detail.source === "in_store" && detail.fulfillmentMethod !== "shipping") || !capabilities.shipping || inFlight.current) return;
     const data = new FormData(event.currentTarget);
     if (Boolean(field(data, "carrier")) !== Boolean(field(data, "trackingNumber"))) { setError("Kargo firması ve takip numarasını birlikte girin."); return; }
     const shippedAt = field(data, "shippedAt");

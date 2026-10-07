@@ -2,7 +2,7 @@ import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, 
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 export interface InStoreAuthorityInput {
     readonly tenantContext: TenantContext;
-    readonly contractVersion?: 1 | 2 | 3;
+    readonly contractVersion?: 1 | 2 | 3 | 4;
     readonly now: Date;
 }
 export interface SearchInStoreProductsInput extends InStoreAuthorityInput {
@@ -41,6 +41,7 @@ export interface PrepareInStoreSaleInput extends VersionedInStoreSaleInput {
 }
 export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
     readonly slipReference: string | null;
+    readonly prepareOperationId?:string;readonly partId?:string;
     readonly paymentMethod?: "card" | "cash" | "bank_transfer" | null;
 }
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
@@ -58,7 +59,14 @@ export interface SetInStoreStaffGrantInput extends InStoreAuthorityInput {
 }
 export interface SearchInStoreCustomersInput extends InStoreAuthorityInput { readonly query:string;readonly limit:number; }
 export interface CreateInStoreCustomerInput extends InStoreAuthorityInput { readonly operationId:string;readonly intent:InStorePosCustomerIntent; }
+export interface RevisePendingPaymentsInput extends VersionedInStoreSaleInput { readonly paymentParts:readonly import('@celebix/saas-contracts').InStorePaymentPart[];readonly customerId:string|null;readonly dueDate:string|null; }
+export interface ReconcileObsoletePaymentInput extends VersionedInStoreSaleInput {readonly originalOperationId:string;readonly prepareOperationId:string;readonly partId:string;}
+export interface ReturnPendingPartInput extends VersionedInStoreSaleInput {readonly partId:string;readonly reason:string;}
 export interface InStoreSalesRepository {
+    reconcileObsoletePayment(input:ReconcileObsoletePaymentInput):Promise<InStoreSaleResult>;
+    revisePendingPayments(input:RevisePendingPaymentsInput):Promise<InStoreSaleResult>;
+    beginPendingAbort(input:VersionedInStoreSaleInput):Promise<InStoreSaleResult>;
+    returnPendingPart(input:ReturnPendingPartInput):Promise<InStoreSaleResult>;
     searchCustomers(input:SearchInStoreCustomersInput):Promise<Readonly<{customers:readonly InStorePosCustomer[]}>>;
     createCustomer(input:CreateInStoreCustomerInput):Promise<InStorePosCustomerResult>;
     bootstrap(input: InStoreAuthorityInput): Promise<InStoreBootstrap>;

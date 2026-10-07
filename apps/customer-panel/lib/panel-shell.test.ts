@@ -1506,7 +1506,7 @@ test("content and settings hubs remain directly navigable", async () => {
   }
 });
 
-test("orders/quick-links marks only Mağaza satışı as the current page", async () => {
+test("orders/quick-links marks only Manuel satış as the current page", async () => {
   const html = await renderPanelNavigation("/orders/quick-links");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
     .map(([link]) => ({
@@ -1514,7 +1514,7 @@ test("orders/quick-links marks only Mağaza satışı as the current page", asyn
       label: link.replace(/<[^>]*>/g, ""),
     }));
 
-  assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Mağaza satışı" }]);
+  assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Manuel satış" }]);
 });
 
 test('cashier sidebar renders the real register destination without general admin links',async()=>{
@@ -2129,7 +2129,7 @@ test("dashboard presentation follows the approved Celebix merchant anatomy using
     "Atlas Kupa",
     "pilot-store.celebix.site",
     "3 sipariş işlem bekliyor",
-    "Mağaza satışı",
+    "Manuel satış",
     "Ürün Ekle",
     "Yapılacaklar",
     "3 sipariş işlem bekliyor",

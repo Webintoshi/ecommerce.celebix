@@ -75,7 +75,18 @@ test("in-store orders stay pickup records in loaded delivery filters and CSV", a
   assert.deepEqual(filter([pickup], { dateRange: "all", payment: "all", fulfillment: "not_applicable" }), [pickup]);
   assert.deepEqual(filter([pickup], { dateRange: "all", payment: "all", fulfillment: "delivered" }), []);
   const csv = exported.serializeOrderListCsv as (items: readonly OrderListItem[]) => string;
-  assert.match(csv([pickup]), /Mağazadan teslim,Mağaza satışı/);
+  assert.match(csv([pickup]), /Mağazadan teslim,Manuel satış/);
+});
+
+test("orders list CSV uses current contact without restoring cleared email and recognizes shipped social sales", async () => {
+  const exported = await compile({ async listOrders() { return { items: [] }; } }, React);
+  const order: OrderListItem = { ...item, source: "in_store", fulfillmentMethod: "shipping", status: "shipped", salesChannel: "social", socialPlatform: "instagram", currentCustomer: { id: item.id, name: "Corrected customer", email: null, phone: null, archived: true } };
+  const csv = exported.serializeOrderListCsv as (items: readonly OrderListItem[]) => string;
+  assert.match(csv([order]), /Corrected customer,,/);
+  assert.doesNotMatch(csv([order]), /test@example.test|Mağazadan teslim/);
+  assert.match(csv([order]), /Sosyal medya/);
+  const filter = exported.filterOrderListItems as (items: readonly OrderListItem[], filters: { dateRange: string; payment: string; fulfillment: string }) => OrderListItem[];
+  assert.deepEqual(filter([order], { dateRange: "all", payment: "all", fulfillment: "shipped" }), [order]);
 });
 
 test("search stays submit-based and clearing a submitted query restores the server list", async () => {

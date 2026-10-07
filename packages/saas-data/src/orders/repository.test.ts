@@ -1,4 +1,19 @@
 import assert from "node:assert/strict";
+test("orders reader 2 selects additive list and detail RPCs while reader 1 retains its shape", async () => {
+  const metadata = { customerId: NOTE_ID, currentCustomer: { id: NOTE_ID, name: "Corrected name", email: null, phone: null, archived: true }, salesChannel: null, socialPlatform: null, socialReference: null, fulfillmentMethod: null };
+  const client = () => new FakeClient(sql => {
+    if (sql.includes("saas.orders_list_v2(")) return [{ outcome: "listed", result_payload: { items: [{ ...listItem(), ...metadata }] } }];
+    if (sql.includes("saas.orders_get_v2(")) return [{ outcome: "found", result_payload: { ...detail(), ...metadata, billingAddress: null } }];
+    if (sql.includes("saas.orders_list(")) return [{ outcome: "listed", result_payload: { items: [listItem()] } }];
+    return [];
+  });
+  const repo = repository(new FakePool(client(), client(), client()));
+  const authority = { tenantContext: tenantContext(), now: NOW };
+  const v2 = await repo.listOrders({ ...authority, pageSize: 20, ordersVersion: 2 } as never);
+  assert.equal(v2.items[0]!.currentCustomer!.email, null);
+  assert.equal((await repo.getOrder({ ...authority, orderId: ORDER_ID, ordersVersion: 2 } as never)).customerId, NOTE_ID);
+  assert.equal(Object.hasOwn((await repo.listOrders({ ...authority, pageSize: 20 })).items[0]!, "currentCustomer"), false);
+});
 test('archive validates intent and replays committed operation through the same RPC', async()=>{
   const result={id:ORDER_ID,archived:true,operationId:OPERATION_ID,changedAt:NOW.toISOString(),replayed:true};
   const client=new FakeClient((sql,values)=>{

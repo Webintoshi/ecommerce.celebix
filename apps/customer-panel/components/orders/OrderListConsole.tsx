@@ -39,8 +39,8 @@ const SOURCE_LABELS: Readonly<Record<OrderListItem["source"], string>> = Object.
   quick_link: "Hızlı sipariş",
   marketplace: "Pazar yeri",
   manual_import: "Manuel aktarım",
-  manual: "Manuel sipariş",
-  in_store: "Mağaza satışı",
+  manual: "Manuel satış",
+  in_store: "Manuel satış",
 });
 const FULFILLMENT_FILTER_LABELS: Readonly<Record<OrderFulfillment, string>> = Object.freeze({
   all: "Tüm teslimatlar",
@@ -92,8 +92,16 @@ function fulfillment(status: OrderStatus): Exclude<OrderFulfillment, "all"> {
   return "not_applicable";
 }
 
-function fulfillmentLabel(status: OrderStatus, source?: OrderListItem["source"]) {
-  if (source === "in_store") return "Mağazadan teslim";
+function currentContact(order: OrderListItem) {
+  return order.currentCustomer ?? { name: order.customerName, email: order.customerEmail };
+}
+
+function sourceLabel(order: OrderListItem) {
+  return order.salesChannel === "social" ? "Sosyal medya" : SOURCE_LABELS[order.source];
+}
+
+function fulfillmentLabel(status: OrderStatus, source?: OrderListItem["source"], method?: OrderListItem["fulfillmentMethod"]) {
+  if (source === "in_store" && method !== "shipping") return "Mağazadan teslim";
   if (status === "pending") return "Onay bekliyor";
   if (status === "confirmed") return "Hazırlama bekliyor";
   return FULFILLMENT_FILTER_LABELS[fulfillment(status)];
@@ -120,7 +128,7 @@ export function filterOrderListItems(
       )
     );
     const paymentMatches = filters.payment === "all" || order.paymentStatus === filters.payment;
-    const fulfillmentMatches = filters.fulfillment === "all" || (order.source === "in_store" ? "not_applicable" : fulfillment(order.status)) === filters.fulfillment;
+    const fulfillmentMatches = filters.fulfillment === "all" || (order.source === "in_store" && order.fulfillmentMethod !== "shipping" ? "not_applicable" : fulfillment(order.status)) === filters.fulfillment;
     return dateMatches && paymentMatches && fulfillmentMatches;
   });
   return Object.freeze(filtered);
@@ -137,12 +145,12 @@ export function serializeOrderListCsv(items: readonly OrderListItem[]) {
   const rows = items.map((order) => [
     order.orderNumber,
     order.createdAt,
-    order.customerName ?? "Mağaza müşterisi",
-    order.customerEmail ?? "",
+    currentContact(order).name ?? "Mağaza müşterisi",
+    currentContact(order).email ?? "",
     STATUS_LABELS[order.status],
     PAYMENT_LABELS[order.paymentStatus],
-    fulfillmentLabel(order.status, order.source),
-    SOURCE_LABELS[order.source],
+    fulfillmentLabel(order.status, order.source, order.fulfillmentMethod),
+    sourceLabel(order),
     order.itemCount,
     (order.totalCents / 100).toFixed(2),
     order.currency,
@@ -216,9 +224,9 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
         <div className={styles.cardOrderIdentity}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link>{visibleColumns.date ? <small>{date(order.createdAt)}</small> : null}</div>
         {visibleColumns.total ? <strong className={styles.cardTotal}>{money(order.totalCents, order.currency)}</strong> : null}
       </div>
-      {visibleColumns.customer ? <div className={styles.cardCustomer}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong>{order.customerEmail ? <small>{order.customerEmail}</small> : null}</div> : null}
+      {visibleColumns.customer ? <div className={styles.cardCustomer}><strong>{currentContact(order).name ?? "Mağaza müşterisi"}</strong>{currentContact(order).email ? <small>{currentContact(order).email}</small> : null}</div> : null}
       <div className={styles.cardStatuses}>{visibleColumns.status ? <OrderStateBadge order={order} /> : null}{visibleColumns.payment ? <PaymentStatus status={order.paymentStatus} /> : null}</div>
-      <div className={styles.cardFooter}><div className={styles.cardMeta}>{visibleColumns.items ? <span><Package aria-hidden="true" />{order.itemCount.toLocaleString("tr-TR")} ürün</span> : null}{visibleColumns.source ? <span>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{SOURCE_LABELS[order.source]}</span> : null}</div><Link className={styles.detailLink} href={`/orders/${order.id}`} aria-label={`${order.orderNumber} — Sipariş detayını aç`}>Detay <ArrowRight aria-hidden="true" /></Link></div>
+      <div className={styles.cardFooter}><div className={styles.cardMeta}>{visibleColumns.items ? <span><Package aria-hidden="true" />{order.itemCount.toLocaleString("tr-TR")} ürün</span> : null}{visibleColumns.source ? <span>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{sourceLabel(order)}</span> : null}</div><Link className={styles.detailLink} href={`/orders/${order.id}`} aria-label={`${order.orderNumber} — Sipariş detayını aç`}>Detay <ArrowRight aria-hidden="true" /></Link></div>
     </article>
   );
 }
@@ -273,12 +281,12 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
       <div className={styles.desktopTable} role="region" aria-label="Sipariş tablosu" tabIndex={0}>
         <table aria-label="Sipariş listesi"><thead><tr><th scope="col">Sipariş</th>{props.visibleColumns.date ? <th scope="col">Tarih</th> : null}{props.visibleColumns.customer ? <th scope="col">Müşteri</th> : null}{props.visibleColumns.status ? <th scope="col">Durum</th> : null}{props.visibleColumns.payment ? <th scope="col">Ödeme</th> : null}{props.visibleColumns.items ? <th scope="col" className={styles.itemsCell}>Ürün</th> : null}{props.visibleColumns.source ? <th scope="col">Kanal</th> : null}{props.visibleColumns.total ? <th scope="col" className={styles.totalCell}>Toplam</th> : null}<th scope="col"><span className="sr-only">Detay</span></th></tr></thead>
         <tbody>{props.items.map((order) => <tr key={order.id}>
-          <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status, order.source)}</small></td>
+          <td className={styles.orderCell}><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link><small>{fulfillmentLabel(order.status, order.source, order.fulfillmentMethod)}</small></td>
           {props.visibleColumns.date ? <td className={styles.dateCell}><time dateTime={order.createdAt}>{new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(order.createdAt))}<small>{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(order.createdAt))}</small></time></td> : null}
-          {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{order.customerName ?? "Mağaza müşterisi"}</strong>{order.customerEmail ? <small title={order.customerEmail}>{order.customerEmail}</small> : null}</td> : null}
+          {props.visibleColumns.customer ? <td className={styles.customerCell}><strong>{currentContact(order).name ?? "Mağaza müşterisi"}</strong>{currentContact(order).email ? <small title={currentContact(order).email ?? undefined}>{currentContact(order).email}</small> : null}</td> : null}
           {props.visibleColumns.status ? <td><OrderStateBadge order={order} /></td> : null}{props.visibleColumns.payment ? <td><PaymentStatus status={order.paymentStatus} /></td> : null}
           {props.visibleColumns.items ? <td className={styles.itemsCell}>{order.itemCount.toLocaleString("tr-TR")}</td> : null}
-          {props.visibleColumns.source ? <td><span className={styles.channelBadge}>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{SOURCE_LABELS[order.source]}</span></td> : null}
+          {props.visibleColumns.source ? <td><span className={styles.channelBadge}>{order.source === "in_store" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}{sourceLabel(order)}</span></td> : null}
           {props.visibleColumns.total ? <td className={styles.totalCell}><strong>{money(order.totalCents, order.currency)}</strong></td> : null}
           <td className={styles.actionCell}><Link className={styles.rowDetailLink} href={`/orders/${order.id}`} aria-label={`${order.orderNumber} — Sipariş detayını aç`}><ChevronRight aria-hidden="true" /></Link></td>
         </tr>)}</tbody></table>
@@ -292,7 +300,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
       <div className={styles.toolbar}>
         <form className={styles.searchField} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}><Search aria-hidden="true" /><label className="sr-only" htmlFor="order-search">Sipariş ara</label><input ref={searchRef} id="order-search" type="search" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş, müşteri, e-posta veya telefon ara" maxLength={200} />{props.search ? <button className={styles.iconButton} type="button" aria-label="Aramayı temizle" onClick={clearSearch}><X aria-hidden="true" /></button> : null}<button className={styles.iconButton} type="submit" aria-label="Ara"><ArrowRight aria-hidden="true" /></button></form>
-        <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/drafts/new"><Plus aria-hidden="true" /><span>Manuel sipariş</span></Link></div>
+        <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/quick-links"><Plus aria-hidden="true" /><span>Manuel satış</span></Link></div>
       </div>
       <div className={styles.viewbar}><div className={styles.statusShortcuts} aria-label="Sipariş durumu">{([ ["all", "Tümü"], ["pending", "Onay bekleyen"], ["preparing", "Hazırlanıyor"], ["shipped", "Kargolandı"], ["delivered", "Teslim edildi"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={props.status === value} className={props.status === value ? styles.activeShortcut : styles.shortcut} onClick={() => props.onStatusChange(value)}>{label}</button>)}</div><div className={styles.viewTools}><button className={styles.quietButton} type="button" onClick={openFilters} aria-haspopup="dialog"><SlidersHorizontal aria-hidden="true" />Filtreler{activeFilters ? <span className={styles.filterCount}>{activeFilters}</span> : null}</button><label className={styles.sortControl}><ArrowDownUp aria-hidden="true" /><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten</option><option value="lowest">Tutar: düşükten</option></select></label></div></div>
       {activeFilters > 0 ? <div className={styles.appliedFilters}><span>{props.state === "loaded" ? `${props.items.length} gösteriliyor` : "Filtreler uygulanıyor"}{hasLocalFilter ? " · Yüklenen siparişlerde" : ""}</span><button className={styles.quietButton} type="button" onClick={resetFilters}>Filtreleri temizle <X aria-hidden="true" /></button></div> : null}
@@ -350,6 +358,18 @@ export function OrderListConsole() {
   }, [search, sort, status]);
 
   useEffect(() => { void load(); return () => { sequence.current += 1; appendRequest.current = false; }; }, [load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refresh = (event: Event) => {
+      if (event.type === "pageshow" && !(event as PageTransitionEvent).persisted) return;
+      if (appendRequest.current || document.querySelector("dialog[open]")) return;
+      void load();
+    };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("pageshow", refresh); };
+  }, [load]);
 
   function submitSearch(event?: FormEvent) {
     event?.preventDefault();

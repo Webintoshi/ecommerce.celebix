@@ -8,6 +8,7 @@ export function registerServerInStoreSalesRepository(access:ServerPanelAccessRun
   const bound:[string,unknown][]=methods.map(method=>[method,repository[method].bind(repository)]);
   // Keep existing registrations compatible while exposing the new native operation.
   if(typeof repository.discardSale==='function')bound.push(['discardSale',repository.discardSale.bind(repository)]);
+  for(const method of ['revisePendingPayments','beginPendingAbort','returnPendingPart','reconcileObsoletePayment'] as const)if(typeof repository[method]==='function')bound.push([method,repository[method].bind(repository)]);
   repositories.set(access,Object.freeze(Object.fromEntries(bound)) as unknown as InStoreSalesRepository);
 }
 export function resolveServerInStoreSalesRuntime(access:ServerPanelAccessRuntime):ServerInStoreSalesRuntime|null {

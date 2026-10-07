@@ -7,13 +7,13 @@ import {inStoreRequestAuthorityDecision,type InStoreRequestExpectation} from './
 import {readInStoreMutationInput,readInStoreProductsInput,readInStoreSalesInput,readInStoreCustomersInput,readInStoreCustomerCreateInput,type InStoreMutationKind} from './request-input.ts';
 export type InStoreSalesHttpDependencies=Readonly<{resolveRuntime():Promise<ServerInStoreSalesRuntime|null>;now():Date;requestId():string}>;
 const BASE='/api/orders/in-store';
-const errors:Readonly<Record<string,number>>=Object.freeze({invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,sales_paused:409,feature_not_enabled:403,origin_denied:403,not_found:404,ambiguous_barcode:409,version_conflict:409,operation_mismatch:409,invalid_transition:409,inventory_conflict:409,pricing_unavailable:409,discount_denied:403,discount_invalid:400,credit_denied:403,customer_required:400,collection_invalid:400,customer_duplicate:409,customer_archived:409,price_denied:403,payment_method_required:400,client_upgrade_required:409,unavailable:503});
+const errors:Readonly<Record<string,number>>=Object.freeze({invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,sales_paused:409,feature_not_enabled:403,origin_denied:403,not_found:404,ambiguous_barcode:409,version_conflict:409,operation_mismatch:409,invalid_transition:409,inventory_conflict:409,pricing_unavailable:409,discount_denied:403,discount_invalid:400,credit_denied:403,customer_required:400,collection_invalid:400,customer_duplicate:409,customer_archived:409,price_denied:403,payment_method_required:400,client_upgrade_required:409,insufficient_funds:409,amount_overflow:409,unavailable:503});
 function json(value:unknown,status=200,headers:HeadersInit={}):Response{return Response.json(value,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff',...headers}});}
 function error(code:string,status=errors[code]??503,headers:HeadersInit={}):Response{return json({code},status,headers);}
-type Authorized={runtime:ServerInStoreSalesRuntime;tenantContext:TenantContext;now:Date;contractVersion:1|2|3};
+type Authorized={runtime:ServerInStoreSalesRuntime;tenantContext:TenantContext;now:Date;contractVersion:1|2|3|4};
 async function authorize(deps:InStoreSalesHttpDependencies,request:Request,expectation:InStoreRequestExpectation):Promise<Authorized|Response> {
   try {
-    const header=request.headers.get('x-celebix-in-store-version');if(header!==null&&header!=='1'&&header!=='2'&&header!=='3')return error('invalid_input');const contractVersion=header==='3'?3:header==='2'?2:1;
+    const header=request.headers.get('x-celebix-in-store-version');if(header!==null&&header!=='1'&&header!=='2'&&header!=='3'&&header!=='4')return error('invalid_input');const contractVersion=header==='4'?4:header==='3'?3:header==='2'?2:1;
     const runtime=await deps.resolveRuntime();if(!runtime)return error('unavailable');
     const decision=inStoreRequestAuthorityDecision(request,expectation,runtime.access.panelOrigin);
     if(decision==='method_not_allowed')return error(decision,405,{allow:expectation.method});if(decision!=='approved')return error(decision);
@@ -33,7 +33,7 @@ function collection<T>(value:unknown,key:string,max:number,parse:(value:unknown)
 }
 export function createInStoreSalesHttpHandlers(deps:InStoreSalesHttpDependencies) {
   if(!deps||typeof deps.resolveRuntime!=='function'||typeof deps.now!=='function'||typeof deps.requestId!=='function')throw new TypeError('in_store_http_invalid');
-  async function read(request:Request,path:string,query:boolean,run:(auth:Authorized)=>Promise<unknown>,parse:(value:unknown,version:1|2|3)=>unknown){
+  async function read(request:Request,path:string,query:boolean,run:(auth:Authorized)=>Promise<unknown>,parse:(value:unknown,version:1|2|3|4)=>unknown){
     const auth=await authorize(deps,request,{method:'GET',pathname:BASE+path,query});if(auth instanceof Response)return auth;return execute(()=>run(auth),v=>parse(v,auth.contractVersion));
   }
   async function mutate(request:Request,kind:Exclude<InStoreMutationKind,'create'|'staff'>,rawId:unknown) {
@@ -49,6 +49,10 @@ export function createInStoreSalesHttpHandlers(deps:InStoreSalesHttpDependencies
         case 'hold':return repo.holdSale({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['hold']});
         case 'prepare':return repo.prepareSale({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['prepare']});
         case 'payment':return repo.confirmPayment({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['payment']});
+        case 'revise-payments':return repo.revisePendingPayments({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['revise-payments']});
+        case 'reconcile-payment':return repo.reconcileObsoletePayment({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['reconcile-payment']});
+        case 'abort':return repo.beginPendingAbort({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['abort']});
+        case 'return-payment':return repo.returnPendingPart({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['return-payment']});
         case 'complete':return repo.completeSale({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['complete']});
         case 'cancel':return repo.cancelSale({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['cancel']});
         case 'discard':return repo.discardSale({...base,...input.value as import('./request-input.ts').InStoreMutationBodies['discard']});
@@ -66,6 +70,7 @@ export function createInStoreSalesHttpHandlers(deps:InStoreSalesHttpDependencies
     async getOperation(request:Request,rawId:unknown){let operationId:string;try{operationId=parseInStoreUuid(rawId);}catch{return error('invalid_input');}return read(request,`/operations/${operationId}`,false,a=>a.runtime.sales.getOperation({tenantContext:a.tenantContext,now:a.now,...(a.contractVersion>=2?{contractVersion:a.contractVersion}:{}),operationId}),(v,version)=>v===null?null:parseInStoreSaleResult(v,version));},
     async createSale(request:Request){const a=await authorize(deps,request,{method:'POST',pathname:BASE+'/sales'});if(a instanceof Response)return a;const input=await readInStoreMutationInput(request,'create',a.contractVersion);if(!input)return error('invalid_input');return execute(()=>a.runtime.sales.createSale({tenantContext:a.tenantContext,now:a.now,...(a.contractVersion>=2?{contractVersion:a.contractVersion}:{}),operationId:input.operationId,...input.value}),v=>parseInStoreSaleResult(v,a.contractVersion));},
     updateSale:(request:Request,id:unknown)=>mutate(request,'update',id),holdSale:(request:Request,id:unknown)=>mutate(request,'hold',id),prepareSale:(request:Request,id:unknown)=>mutate(request,'prepare',id),confirmPayment:(request:Request,id:unknown)=>mutate(request,'payment',id),completeSale:(request:Request,id:unknown)=>mutate(request,'complete',id),cancelSale:(request:Request,id:unknown)=>mutate(request,'cancel',id),discardSale:(request:Request,id:unknown)=>mutate(request,'discard',id),takeoverSale:(request:Request,id:unknown)=>mutate(request,'takeover',id),
+    revisePendingPayments:(request:Request,id:unknown)=>mutate(request,'revise-payments',id),reconcileObsoletePayment:(request:Request,id:unknown)=>mutate(request,'reconcile-payment',id),beginPendingAbort:(request:Request,id:unknown)=>mutate(request,'abort',id),returnPendingPart:(request:Request,id:unknown)=>mutate(request,'return-payment',id),
     listStaff:(request:Request)=>read(request,'/staff',false,a=>a.runtime.sales.listStaff({tenantContext:a.tenantContext,now:a.now,...(a.contractVersion>=2?{contractVersion:a.contractVersion}:{})}),(v,version)=>collection(v,'staff',1000,x=>parseInStoreStaffGrant(x,version))),
     async setStaffGrant(request:Request,rawId:unknown){let membershipId:string;try{membershipId=parseInStoreUuid(rawId);}catch{return error('invalid_input');}const a=await authorize(deps,request,{method:'POST',pathname:`${BASE}/staff/${membershipId}`});if(a instanceof Response)return a;const input=await readInStoreMutationInput(request,'staff',a.contractVersion);if(!input)return error('invalid_input');return execute(()=>a.runtime.sales.setStaffGrant({tenantContext:a.tenantContext,now:a.now,...(a.contractVersion>=2?{contractVersion:a.contractVersion}:{}),membershipId,operationId:input.operationId,...input.value}),v=>parseInStoreStaffGrant(v,a.contractVersion));},
   });

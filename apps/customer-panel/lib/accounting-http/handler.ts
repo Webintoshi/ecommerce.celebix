@@ -49,7 +49,7 @@ export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
     async get(request:Request,area:AccountingReadArea){
       if(!['overview','receivables','accounts','expenses','collection-accounts'].includes(area))return failure('invalid_input');
       const auth=await authorize(deps,request,'GET',`/api/accounting/${area}`,true,area==='receivables'||area==='collection-accounts');if(auth instanceof Response)return auth;
-      let filters;try{filters=query(request,area==='collection-accounts'?[]:['dateFrom','dateTo','channel','currency','query','customerId','orderId']);}catch{return failure('invalid_input');}
+      let filters;try{filters=query(request,area==='collection-accounts'?[]:['dateFrom','dateTo','channel','salesChannel','currency','query','customerId','orderId']);}catch{return failure('invalid_input');}
       if(area==='collection-accounts')return execute(()=>auth.runtime.accounting.collectionAccounts({tenantContext:auth.tenantContext,now:auth.now}));
       return execute(()=>auth.runtime.accounting[area]({tenantContext:auth.tenantContext,now:auth.now,filters}));
     },

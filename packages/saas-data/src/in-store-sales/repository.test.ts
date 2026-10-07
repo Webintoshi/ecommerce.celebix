@@ -153,3 +153,21 @@ test('unknown discard commit recovers its same operation and rejects unpaid or c
  for(const extra of [{confirmUnpaid:false},{storeId:STORE},{expectedVersion:0}])await assert.rejects(()=>r.discardSale({...authority(),operationId:OP,saleId:SALE,expectedVersion:1,confirmUnpaid:true,...extra} as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');
  assert.equal(pool.calls,0);
 });
+
+test('v4 confirms one named part using frozen preparation and recovers that exact command after lost commit',async()=>{
+ const base=sale('payment_pending',3);const part={partId:VARIANT,paymentMethod:'cash',amountCents:10000,receiptId:OP,receivedAt:NOW.toISOString(),actorMembershipId:MEMBERSHIP,refundEventId:null,returnedAt:null};
+ const value={...base,status:'payment_received',paymentReceivedAt:NOW.toISOString(),contractVersion:4,paymentMethod:'cash',customerId:null,customer:null,initialCollectionCents:10000,dueDate:null,finance:null,items:base.items.map(i=>({...i,catalogUnitPriceCents:i.unitPriceCents,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null})),totals:{...base.totals,shippingCents:0},salesChannel:'manual',socialPlatform:null,socialReference:null,fulfillmentMethod:'pickup',shippingAddress:null,billingAddress:null,shippingCents:0,paymentParts:[part],prepareOperationId:SALE,abortRequested:false};
+ const c=new Client({outcome:'committed',result_payload:{sale:value,replayed:false,priceChanged:false}},true),r=new Client({outcome:'found',result_payload:{sale:value,replayed:true,priceChanged:false}});
+ const result=await repo(c,r).confirmPayment({...authority(),contractVersion:4,operationId:OP,saleId:SALE,expectedVersion:2,prepareOperationId:SALE,partId:VARIANT,slipReference:null});
+ assert.equal(result.replayed,true);const call=c.queries.find(q=>q.text.includes('in_store_sales_confirm_payment_v4'))!;assert.ok(call);assert.ok(call.values?.includes(VARIANT));assert.ok(r.queries.some(q=>q.text.includes('in_store_sales_get_operation_v4')));
+});
+
+test('v4 staff grant carries every permission, fingerprints changes, and recovers the same operation',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:500,version:1,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false};
+ const first=new Client({outcome:'committed',result_payload:grant},true),recovered=new Client({outcome:'found',result_payload:grant});
+ const input={...authority(),contractVersion:4 as const,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:500,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false};
+ const result=await repo(first,recovered).setStaffGrant(input);assert.equal(result.canSellOnCredit,true);
+ const command=first.queries.find(q=>q.text.includes('in_store_sales_set_staff_v4'))!;const recovery=recovered.queries.find(q=>q.text.includes('in_store_sales_recover_staff_v4'))!;
+ assert.equal(command.values?.length,17);assert.deepEqual(command.values?.slice(-3),[true,true,false]);assert.equal(command.values?.[8],recovery.values?.[8]);
+ const changed=new Client({outcome:'committed',result_payload:{...grant,canCollectReceivables:true}});await repo(changed).setStaffGrant({...input,canCollectReceivables:true});assert.notEqual(command.values?.[8],changed.queries.find(q=>q.text.includes('in_store_sales_set_staff_v4'))?.values?.[8]);
+});

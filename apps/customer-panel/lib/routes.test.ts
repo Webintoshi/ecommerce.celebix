@@ -524,6 +524,6 @@ test("quick-order routes expose only the reviewed merchant methods and activate 
     }
   }
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
-  assert.match(navigation, /item\("quick-orders",\s*"Mağaza satışı",\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Manuel satış",\s*"\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /ödeme linki/i);
 });

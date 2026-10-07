@@ -5,6 +5,8 @@ import {
   parseOrderArchiveResult,
   parseOrderArchiveEligibility,
   parseOrderDetail,
+  parseOrderDetailV2,
+  parseOrderListItemV2,
   parseOrderEmailDeliverySummary,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
@@ -490,16 +492,18 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   private async listOrderScope(input: ListOrdersInput, archived: boolean): Promise<ListOrdersResult> {
-    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort"]);
+    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort", "ordersVersion"]);
+    if (exact.ordersVersion !== undefined && exact.ordersVersion !== 2) throw new OrderRepositoryError("invalid_input");
+    const readerV2 = exact.ordersVersion === 2;
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const pageSize = orderPageSize(exact.pageSize);
     const status = orderStatusFilter(exact.status);
     const search = orderSearch(exact.search);
     const sort = orderSort(exact.sort);
-    const cursorScope = archived ? `${authority.storeId}:archive` : authority.storeId;
+    const cursorScope = (archived ? `${authority.storeId}:archive` : authority.storeId) + (readerV2 ? ":reader2" : "");
     const cursor = decodeOrderCursor(exact.cursor as string | undefined, cursorScope, status, search, sort);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.${archived ? "orders_list_archived" : "orders_list"}(
+      text: `SELECT outcome, result_payload FROM saas.${(archived ? "orders_list_archived" : "orders_list") + (readerV2 ? "_v2" : "")}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
         $8::text,$9::text,$10::text,$11::bigint,$12::bigint,$13::timestamptz,$14::uuid
       )`,
@@ -515,7 +519,7 @@ export class PostgresOrderRepository implements OrderRepository {
         return value as Record<string, unknown>;
       })();
       if (!Array.isArray(envelope.items) || envelope.items.length > pageSize) throw unavailable();
-      const items = Object.freeze(envelope.items.map(safeListItem));
+      const items = Object.freeze(envelope.items.map(item => readerV2 ? parseOrderListItemV2(item) : safeListItem(item)));
       for (let index = 1; index < items.length; index += 1) {
         const previous = items[index - 1]!;
         const current = items[index]!;
@@ -531,23 +535,26 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   async getOrder(input: GetOrderInput): Promise<OrderDetail> {
-    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"], ["inStoreVersion"]);
+    const exact = exactOrderInput(input, ["tenantContext", "now", "orderId"], ["inStoreVersion", "ordersVersion"]);
     if (exact.inStoreVersion !== undefined && exact.inStoreVersion !== 2) throw new OrderRepositoryError("invalid_input");
+    if (exact.ordersVersion !== undefined && exact.ordersVersion !== 2) throw new OrderRepositoryError("invalid_input");
+    const readerV2 = exact.ordersVersion === 2;
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const orderId = orderUuid(exact.orderId);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.${exact.inStoreVersion === 2 ? "orders_get_with_archive_v2" : "orders_get_with_archive"}(
+      text: `SELECT outcome, result_payload FROM saas.${readerV2 ? "orders_get_v2" : exact.inStoreVersion === 2 ? "orders_get_with_archive_v2" : "orders_get_with_archive"}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
       )`,
       values: [...authorityValues(authority), orderId],
     }, "found", async (value, client) => {
-      const result = safeDetail(value);
+      const result = readerV2 ? parseOrderDetailV2(value) : safeDetail(value);
       if (result.id !== orderId) throw unavailable();
       const images = await resolveProductThumbnails(client, authorityValues(authority), "orders", result.items.map(({ id }) => ({ key: id, orderId, orderItemId: id })));
-      return safeDetail({ ...result, items: result.items.map((item) => {
+      const projected = { ...result, items: result.items.map((item) => {
         const imageUrl = images.get(item.id);
         return { ...item, ...(imageUrl ? { imageUrl } : {}) };
-      }) });
+      }) };
+      return readerV2 ? parseOrderDetailV2(projected) : safeDetail(projected);
     });
   }
 

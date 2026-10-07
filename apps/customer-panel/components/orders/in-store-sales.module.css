@@ -24,6 +24,8 @@
 .location > svg { color: var(--register-muted); }
 .location select { min-height: 44px; max-width: 240px; border: 0; border-radius: 8px; background: transparent; padding: 8px; color: inherit; font: inherit; font-size: 14px; font-weight: 500; }
 .secondaryActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.registerActions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.saleOptions { display: flex; gap: 8px; }
 .secondary, .primary, .quiet, .iconButton {
   display: inline-flex; justify-content: center; align-items: center; gap: 8px;
   min-width: 44px; min-height: 44px; border-radius: var(--cp-control-radius); padding: 8px 16px;
@@ -229,6 +231,8 @@
 @media(max-width:760px) {
   .console { gap: 24px; padding-bottom: calc(220px + env(safe-area-inset-bottom,0px)); }
   .commandbar { gap: 8px; align-items: start; }
+  .registerActions { display: grid; width: 100%; gap: 8px; }
+  .saleOptions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
   .location select { max-width: 224px; font-size: 16px; }
   .secondaryActions { display: grid; width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)) 44px 44px; gap: 8px; }
   .secondaryActions .secondary { min-width: 0; padding: 8px; font-size: 12px; gap: 4px; }
@@ -285,3 +289,28 @@
   .receipt { padding: 24px 0; }
 }
 @media(prefers-reduced-motion:reduce) { .console *, .dialog * { scroll-behavior: auto; animation: none !important; transition: none !important; } }
+
+.platforms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.platforms button { min-height: 44px; border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); border-radius: 8px; }
+.platforms button[aria-pressed="true"] { border-color: var(--cp-brand); background: rgba(254, 97, 0, 0.06); }
+.addressFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.addressFields > :nth-child(-n+3) { grid-column: 1 / -1; }
+.checkboxField { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--cp-text-primary); font-size: 13px; }
+.checkboxField input { width: 20px; height: 20px; accent-color: var(--cp-brand); }
+.paymentParts { display: grid; gap: 12px; padding: 16px 0; border-top: 1px solid var(--cp-border); }
+.partsHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.partsHeader h3 { margin: 0; font-size: 14px; }
+.paymentPart { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--cp-border); }
+.paymentPart > div { display: grid; gap: 4px; min-width: 0; font-size: 13px; }
+.paymentPart small { color: var(--cp-text-secondary); }
+.paymentEditorRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; align-items: end; gap: 8px; }
+.customerPicker { display: grid; gap: 12px; }
+.field select { min-height: 44px; width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); }
+.platforms button:focus-visible, .field select:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .addressFields { grid-template-columns: minmax(0, 1fr); }
+  .paymentEditorRow { grid-template-columns: minmax(0, 1fr) 44px; }
+  .paymentEditorRow > :first-child { grid-column: 1 / -1; }
+  .paymentPart { flex-wrap: wrap; }
+  .partsHeader { flex-wrap: wrap; }
+}

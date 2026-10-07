@@ -19,6 +19,9 @@ import {
   type OrderEmailEventType,
   type OrderEmailRecipientKind,
   type OrderDetail,
+  type OrderDetailV2,
+  type OrderListItemV2,
+  type OrderSocialPlatform,
   type OrderEvent,
   type OrderItem,
   type OrderListItem,
@@ -257,6 +260,54 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
     updatedAt,
     version: safeInteger(parsed.version, 1),
   } satisfies OrderListItem);
+}
+
+const READER_V2_KEYS = ["customerId", "currentCustomer", "salesChannel", "socialPlatform", "socialReference", "fulfillmentMethod"] as const;
+
+function readerV2(value: unknown) {
+  const parsed = exact(value, READER_V2_KEYS);
+  const customerId = parsed.customerId === null ? null : uuid(parsed.customerId);
+  const current = parsed.currentCustomer === null ? null : exact(parsed.currentCustomer, ["id", "name", "email", "phone", "archived"]);
+  const currentCustomer = current === null ? null : {
+    id: uuid(current.id), name: string(current.name, 1, 201),
+    email: current.email === null ? null : string(current.email, 3, 320),
+    phone: current.phone === null ? null : string(current.phone, 3, 32),
+    archived: boolean(current.archived),
+  };
+  if (currentCustomer !== null && currentCustomer.id !== customerId) invalid();
+  const salesChannel = parsed.salesChannel === null ? null : status<"manual" | "social">(parsed.salesChannel, ["manual", "social"]);
+  const socialPlatform = parsed.socialPlatform === null ? null : status<OrderSocialPlatform>(parsed.socialPlatform, ["instagram", "facebook", "x", "pinterest", "tiktok", "whatsapp", "other"]);
+  const socialReference = parsed.socialReference === null ? null : string(parsed.socialReference, 1, 500);
+  if ((salesChannel === "social") !== (socialPlatform !== null) || (salesChannel !== "social" && socialReference !== null)) invalid();
+  const fulfillmentMethod = parsed.fulfillmentMethod === null ? null : status<"pickup" | "shipping">(parsed.fulfillmentMethod, ["pickup", "shipping"]);
+  return { customerId, currentCustomer, salesChannel, socialPlatform, socialReference, fulfillmentMethod };
+}
+
+function withoutReaderV2(value: unknown, detail: boolean) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
+  const copy = { ...(value as Record<string, unknown>) };
+  for (const key of READER_V2_KEYS) {
+    if (!Object.hasOwn(copy, key)) invalid();
+    delete copy[key];
+  }
+  if (detail) { if (!Object.hasOwn(copy, "billingAddress")) invalid(); delete copy.billingAddress; }
+  return copy;
+}
+
+export function parseOrderListItemV2(value: unknown): Readonly<OrderListItemV2> {
+  const base = parseOrderListItem(withoutReaderV2(value, false));
+  const source = value as Record<string, unknown>;
+  const metadata = readerV2(Object.fromEntries(READER_V2_KEYS.map(key => [key, source[key]])));
+  return freeze({ ...base, ...metadata });
+}
+
+export function parseOrderDetailV2(value: unknown): Readonly<OrderDetailV2> {
+  const base = parseOrderDetail(withoutReaderV2(value, true));
+  const source = value as Record<string, unknown>;
+  const metadata = readerV2(Object.fromEntries(READER_V2_KEYS.map(key => [key, source[key]])));
+  const billingAddress = source.billingAddress === null ? null : parseAddress(source.billingAddress);
+  if (base.source === "in_store" && metadata.fulfillmentMethod === "shipping" && base.shippingAddress === null) invalid();
+  return freeze({ ...base, ...metadata, billingAddress });
 }
 
 export function parseOrderArchiveResult(value: unknown) {

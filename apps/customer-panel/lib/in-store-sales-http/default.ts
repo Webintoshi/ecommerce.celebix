@@ -23,3 +23,9 @@ export async function handleDefaultInStoreDiscardSale(request:Request,context:Ro
 export async function handleDefaultInStoreTakeoverSale(request:Request,context:RouteContext){return handlers.takeoverSale(request,(await context.params).saleId);}
 export async function handleDefaultInStoreGetOperation(request:Request,context:RouteContext){return handlers.getOperation(request,(await context.params).operationId);}
 export async function handleDefaultInStoreSetStaffGrant(request:Request,context:RouteContext){return handlers.setStaffGrant(request,(await context.params).membershipId);}
+
+export async function handleDefaultInStoreRevisePendingPayments(request:Request,context:RouteContext){return handlers.revisePendingPayments(request,(await context.params).saleId);}
+export async function handleDefaultInStoreBeginPendingAbort(request:Request,context:RouteContext){return handlers.beginPendingAbort(request,(await context.params).saleId);}
+export async function handleDefaultInStoreReturnPendingPart(request:Request,context:RouteContext){return handlers.returnPendingPart(request,(await context.params).saleId);}
+
+export async function handleDefaultInStoreReconcileObsoletePayment(request:Request,context:RouteContext){return handlers.reconcileObsoletePayment(request,(await context.params).saleId);}

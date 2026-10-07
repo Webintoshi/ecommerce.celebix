@@ -16,6 +16,25 @@ const ID="9e000000-0000-4000-8000-000000000001",BANK="9e000000-0000-4000-8000-00
 const cash={id:ID,name:"Kasa",type:"cash",currency:"TRY",balanceCents:500000,version:1,createdAt:date},bank={...cash,id:BANK,name:"Banka",type:"bank"};
 const row={id:ID,customerId:ID,customerName:"Ayşe Kaya",customerPhone:"+905550001122",customerArchived:true,orderId:ID,orderNumber:"POS-1",channel:"POS",currency:"TRY",saleCents:1100000,collectedCents:500000,returnCents:0,refundedCents:0,dueCents:600000,refundDueCents:0,occurredAt:date,dueDate:null,version:1};
 const event:AccountingEvent={id:ID,kind:"expense",currency:"TRY",amountCents:12500,accountId:ID,customerId:null,orderId:null,channel:null,paymentMethod:"cash",note:"Ofis gideri",category:"Kira",documentNumber:null,metadata:{},actorMembershipId:ID,occurredAt:date,createdAt:date,reversesEventId:null,reversed:false,allocations:[]};
+
+test("pending manual receipt is shown in accounts without a generic reversal action",async()=>{
+ await mounted("accounts",async(container)=>{
+  assert.match(container.textContent??"",/Bekleyen manuel satış/);
+  assert.match(container.textContent??"",/Nakit/);
+  assert.equal(button(container,"Ters kayıt"),undefined);
+ },value=>{value.accounts=async()=>({accounts:[cash,bank],events:[{...event,kind:"collection",channel:"POS",paymentMethod:"cash",metadata:{saleId:ID,partId:BANK},note:null}]});});
+});
+
+test("social channel selection requests POS receipts with social source",async()=>{
+ let sent:unknown;
+ await mounted("overview",async(container,browser)=>{
+  const channel=Array.from(container.querySelectorAll<HTMLSelectElement>("select")).find(s=>Array.from(s.options).some(o=>o.value==="social"));
+  assert.ok(channel,"social sales must be selectable as a channel");
+  await act(async()=>{channel.value="social";channel.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
+  await act(async()=>container.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));
+  assert.deepEqual(sent,{channel:"POS",salesChannel:"social"});
+ },value=>{value.overview=async(filters?:unknown)=>{sent=filters;return{currencies:[],accounts:[cash,bank],recentEvents:[]};};});
+});
 function api(){let n=10;return{newId:()=>`9e000000-0000-4000-8000-${String(n++).padStart(12,"0")}`,overview:async()=>({currencies:[],accounts:[cash,bank],recentEvents:[]}),accounts:async()=>({accounts:[cash,bank],events:[event]}),receivables:async()=>({receivables:[row]}),expenses:async()=>({expenses:[event]}),customerAccount:async()=>({customerId:ID,customerName:row.customerName,customerPhone:row.customerPhone,customerArchived:true,currency:"TRY",version:1,dueCents:600000,refundDueCents:0,receivables:[row],events:[]}),collectionPreview:async()=>({customerId:ID,currency:"TRY",version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:200000}]}),orderFinance:async()=>({status:"partial",collectedCents:500000,dueCents:300000,refundDueCents:50000,version:1,receipts:[{id:ID,amountCents:500000,paymentMethod:"cash",receivedAt:date,actorMembershipId:ID,reversed:true}]}),getOperation:async()=>null,mutate:async(_kind:string,_input:unknown,key:string)=>({operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null})};}
 type Api=ReturnType<typeof api>;
 function button(container:HTMLElement,label:string){return Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent?.trim()===label)!;}

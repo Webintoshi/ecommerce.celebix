@@ -6,6 +6,8 @@ import {
   parseOrderArchiveResult,
   parseOrderArchiveEligibility,
   parseOrderDetail,
+  parseOrderDetailV2,
+  parseOrderListItemV2,
   parseOrderDraftConversionResult,
   parseOrderDraftDetail,
   parseOrderDraftListItem,
@@ -299,8 +301,10 @@ function safeParse<T>(parser: () => T): T {
   }
 }
 
-export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID; durableScope?: string; storage?: DraftApplyStorage }>) {
-  const configured = local(() => exactDataObject(options ?? {}, [], ["fetch", "randomUUID", "durableScope", "storage"]));
+export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID; durableScope?: string; storage?: DraftApplyStorage; ordersVersion?: 2 }>) {
+  const configured = local(() => exactDataObject(options ?? {}, [], ["fetch", "randomUUID", "durableScope", "storage", "ordersVersion"]));
+  if(configured.ordersVersion!==undefined && configured.ordersVersion!==2) invalid();
+  const readerV2=configured.ordersVersion===2;
   if (configured.fetch !== undefined && typeof configured.fetch !== "function") invalid();
   if (configured.randomUUID !== undefined && typeof configured.randomUUID !== "function") invalid();
   const fetchImpl = (configured.fetch as Fetch | undefined) ?? ((input, init) => fetch(input, init));
@@ -491,7 +495,7 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       if (parsed.status !== undefined) query.set("status", parsed.status);
       if (parsed.search !== undefined) query.set("search", parsed.search);
       query.set("sort", parsed.sort);
-      const result = await request(`/api/orders?${query}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      const result = await request(`/api/orders?${query}`, { method: "GET", credentials: "same-origin", cache: "no-store", ...(readerV2?{headers:{"X-Celebix-Orders-Version":"2"}}:{}) });
       return safeParse(() => {
         const body = record(result);
         if (body === null || !Array.isArray(body.items) || !["items", "items,nextCursor"].includes(Object.keys(body).sort().join(","))) {
@@ -501,7 +505,7 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
           throw new TypeError("order_response_invalid");
         }
         return Object.freeze({
-          items: Object.freeze(body.items.map(parseOrderListItem)),
+          items: Object.freeze(body.items.map(readerV2?parseOrderListItemV2:parseOrderListItem)),
           ...(body.nextCursor === undefined ? {} : { nextCursor: body.nextCursor }),
         });
       });
@@ -509,8 +513,8 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
 
     async getOrder(orderId: string): Promise<Readonly<OrderDetail>> {
       const order = local(() => id(orderId));
-      const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store", headers: { "X-Celebix-In-Store-Version": "2" } });
-      return safeParse(() => parseOrderDetail(body));
+      const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store", headers: { "X-Celebix-In-Store-Version": "2", ...(readerV2?{"X-Celebix-Orders-Version":"2"}:{}) } });
+      return safeParse(() => readerV2?parseOrderDetailV2(body):parseOrderDetail(body));
     },
 
     async getOrderNeighbors(orderId: string): Promise<Readonly<OrderNeighbors>> {
@@ -671,7 +675,7 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
 const scopedOrderApis = new Map<string, ReturnType<typeof createOrderApiClient>>();
 export function scopedOrderApi(scope: string) {
   let client = scopedOrderApis.get(scope);
-  if (!client) { client = createOrderApiClient({ durableScope: scope }); scopedOrderApis.set(scope, client); }
+  if (!client) { client = createOrderApiClient({ durableScope: scope, ordersVersion:2 }); scopedOrderApis.set(scope, client); }
   return client;
 }
-export const orderApi = createOrderApiClient();
+export const orderApi = createOrderApiClient({ordersVersion:2});

@@ -1,14 +1,21 @@
+import type {OrderAddress} from '../orders/types.ts';
 export const IN_STORE_SALE_STATUSES = Object.freeze(['draft','held','payment_pending','payment_received','completed','cancelled'] as const);
 export type InStoreSaleStatus = typeof IN_STORE_SALE_STATUSES[number];
 export type InStoreDiscount = Readonly<{kind:'percentage';percentageBps:number}|{kind:'fixed_amount';amountCents:number}>;
 export type InStorePaymentMethod = 'card' | 'cash' | 'bank_transfer';
-export type InStoreContractVersion = 1 | 2 | 3;
+export type InStoreContractVersion = 1 | 2 | 3 | 4;
 export interface InStorePosCustomer { readonly id:string;readonly name:string;readonly firstName:string;readonly lastName:string;readonly phone:string|null;readonly email:string|null;readonly archived:boolean; }
 export interface InStorePosCustomerIntent { readonly firstName:string;readonly lastName:string;readonly phone:string;readonly email:string|null; }
 export interface InStoreFinanceReceipt { readonly reversed:boolean;readonly id:string;readonly amountCents:number;readonly paymentMethod:InStorePaymentMethod;readonly receivedAt:string;readonly actorMembershipId:string; }
 export interface InStoreFinance { readonly status:'unpaid'|'partial'|'paid';readonly collectedCents:number;readonly dueCents:number;readonly refundDueCents:number;readonly version:number;readonly receipts:readonly InStoreFinanceReceipt[]; }
 export interface InStorePosCustomerResult { readonly customer:InStorePosCustomer;readonly replayed:boolean; }
-export interface InStoreSaleIntent {
+export type InStoreSalesChannel = 'manual'|'social';
+export type InStoreSocialPlatform = 'instagram'|'facebook'|'x'|'pinterest'|'tiktok'|'whatsapp'|'other';
+export interface InStorePaymentPart { readonly partId:string;readonly paymentMethod:InStorePaymentMethod;readonly amountCents:number; }
+export interface InStoreSalePaymentPart extends InStorePaymentPart { readonly receiptId:string|null;readonly receivedAt:string|null;readonly actorMembershipId:string|null;readonly refundEventId:string|null;readonly returnedAt:string|null; }
+export interface InStoreManualMetadata { readonly salesChannel?:InStoreSalesChannel;readonly socialPlatform?:InStoreSocialPlatform|null;readonly socialReference?:string|null;readonly fulfillmentMethod?:'pickup'|'shipping';readonly shippingAddress?:Readonly<OrderAddress>|null;readonly billingAddress?:Readonly<OrderAddress>|null;readonly shippingCents?:number; }
+export interface InStoreSaleIntent extends InStoreManualMetadata {
+  readonly paymentParts?:readonly InStorePaymentPart[];
   readonly customerId?:string|null;readonly initialCollectionCents?:number|null;readonly dueDate?:string|null;
   readonly paymentMethod?:InStorePaymentMethod|null;
   readonly locationId:string;
@@ -31,9 +38,11 @@ export interface InStoreSaleLine {
   readonly lineSubtotalCents:number;readonly allocatedDiscountCents:number;readonly lineNetCents:number;
 }
 export interface InStoreSaleTotals {
+  readonly shippingCents?:number;
   readonly subtotalCents:number;readonly eligibleSubtotalCents:number;readonly discountCents:number;readonly totalCents:number;
 }
-export interface InStoreSale {
+export interface InStoreSale extends InStoreManualMetadata {
+  readonly paymentParts?:readonly InStoreSalePaymentPart[];readonly prepareOperationId?:string|null;readonly abortRequested?:boolean;
   readonly contractVersion?:InStoreContractVersion;readonly customerId?:string|null;readonly customer?:InStorePosCustomer|null;readonly initialCollectionCents?:number;readonly dueDate?:string|null;readonly finance?:InStoreFinance|null;
   readonly paymentMethod?:InStorePaymentMethod|null;
   readonly id:string;readonly saleNumber:string;readonly status:InStoreSaleStatus;readonly version:number;
@@ -44,7 +53,7 @@ export interface InStoreSale {
   readonly completedAt:string|null;readonly orderId:string|null;readonly orderNumber:string|null;
 }
 export interface InStoreSaleResult { readonly sale:InStoreSale;readonly replayed:boolean;readonly priceChanged:boolean; }
-export interface InStorePermissions { readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;readonly creditSalesAvailable?:boolean; readonly canEditPrice?:boolean; readonly canSell:boolean;readonly canDiscount:boolean;readonly discountLimitBps:number;readonly canResolve:boolean;readonly canManageStaff:boolean; }
+export interface InStorePermissions { readonly manualSalesV4Available?:boolean; readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;readonly creditSalesAvailable?:boolean; readonly canEditPrice?:boolean; readonly canSell:boolean;readonly canDiscount:boolean;readonly discountLimitBps:number;readonly canResolve:boolean;readonly canManageStaff:boolean; }
 export interface InStoreBootstrap {
   readonly scopeKey:string;
   readonly locations:readonly Readonly<{id:string;name:string;isDefault:boolean}>[];

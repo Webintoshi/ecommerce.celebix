@@ -14,7 +14,7 @@ test('cashier chrome exposes only the shared store register and preserves separa
   assert.deepEqual(navigation.map(item=>item.href),['/orders/quick-links']);
   const general=getPanelNavigation({analyticsAvailable:false}).flatMap(item=>[item,...(item.children??[])]);
   assert.ok(general.some(item=>item.href==='/orders/payment-links'));
-  assert.equal(getPanelRoutePresentation('/orders/quick-links').title,'Mağaza satışı');
+  assert.equal(getPanelRoutePresentation('/orders/quick-links').title,'Manuel satış');
 });
 
 test('Popuplar is a distinct discount destination with its own route title',()=>{
@@ -51,7 +51,6 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/",
       "/analytics",
       "/orders",
-      "/orders/drafts",
       "/orders/quick-links",
       "/orders/payment-links",
       "/orders/abandoned-carts",
@@ -469,7 +468,7 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
     [
       "Özet",
       "Siparişler",
-      "Mağaza satışı",
+      "Manuel satış",
       "Ödeme bağlantıları",
       "Terk Edilen Sepetler",
       "Sepet ayrıntısı",
@@ -593,3 +592,5 @@ test("Stock is an exact accessible destination rather than a product detail", ()
     assert.equal(isPanelNavigationPathActive(path, "/products/stock"), false);
   }
 });
+
+test("manual sales has one navigation destination without a duplicate draft creation entry",()=>{const orders=PANEL_NAVIGATION.find(x=>x.key==="orders")!;assert.equal(orders.children?.some(x=>x.href==="/orders/drafts"),false);assert.equal(orders.children?.find(x=>x.href==="/orders/quick-links")?.label,"Manuel satış");});

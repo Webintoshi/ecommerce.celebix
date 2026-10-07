@@ -14,6 +14,38 @@ const ID = "93000000-0000-4000-8000-000000000001";
 const SECOND = "93000000-0000-4000-8000-000000000002";
 const caps = { fulfill: true, manage: true, payment: true, shipping: true, note: true, delete: true };
 const base: OrderDetail = { id: ID, orderNumber: "WEB-000001", source: "storefront", customerName: "Örnek müşteri", customerEmail: "test@example.test", currency: "TRY", totalCents: 10000, subtotalCents: 10000, shippingCents: 0, discountCents: 0, status: "confirmed", paymentStatus: "completed", itemCount: 0, version: 1, createdAt: "2026-09-26T12:00:00Z", updatedAt: "2026-09-26T12:00:00Z", items: [], events: [], notes: [], shippingAddress: { recipientName: "Örnek müşteri", line1: "Örnek adres", city: "İstanbul", country: "TR" }, tracking: { carrier: "Örnek kargo", trackingNumber: "TEST-1", shippedAt: "2026-09-26T12:00:37.123Z" } };
+test("shipping manual sales show current cleared contact and delivery actions while financial cancellation stays protected", async () => {
+  const initial: OrderDetail = { ...base, customerPhone: "+905552190111", source: "in_store", salesChannel: "social", socialPlatform: "instagram", socialReference: "DM42", fulfillmentMethod: "shipping", billingAddress: { ...base.shippingAddress!, recipientName: "Historic invoice recipient" }, currentCustomer: { id: ID, name: "Corrected customer", email: null, phone: null, archived: true } };
+  await mounted({}, async ({ container }) => {
+    assert.match(container.textContent!, /Corrected customer/);
+    assert.equal(container.querySelector('a[href="mailto:test@example.test"]'), null);
+    assert.equal(container.querySelector('a[href="tel:+905552190111"]'), null);
+    assert.match(container.textContent!, /Hazırlamaya başla/);
+    assert.match(container.textContent!, /Kargo/);
+    assert.match(container.textContent!, /Historic invoice recipient/);
+    assert.doesNotMatch(container.textContent!, /Mağazadan teslim/);
+  }, initial, true);
+  await mounted({}, async ({ props }) => {
+    const options = props();
+    assert.ok(options.detail.currentCustomer);
+    options.onStatusChange("cancelled");
+    assert.equal(options.busy, "");
+  }, initial);
+});
+
+test("returning to an order refreshes current contact while an open form preserves its buffer", async () => {
+  let reads = 0;
+  await mounted({ getOrder: async () => { reads++; return { ...base, currentCustomer: { id: ID, name: reads > 1 ? "Updated profile" : "Initial profile", email: null, phone: null, archived: false } }; } }, async ({ browser, container }) => {
+    assert.equal(reads, 1);
+    await act(async () => browser.dispatchEvent(new browser.Event("focus")));
+    assert.equal(reads, 2);
+    assert.match(container.textContent!, /Updated profile/);
+    const dialog = browser.document.createElement("dialog"); dialog.open = true; browser.document.body.append(dialog);
+    await act(async () => browser.dispatchEvent(new browser.Event("focus")));
+    assert.equal(reads, 2);
+    dialog.remove();
+  }, base, true);
+});
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 type View = Record<string, any>;

@@ -2,7 +2,7 @@ export const ACCOUNTING_MUTATIONS = ['collect','openingDebt','saveAccount','open
 export type AccountingMutation = typeof ACCOUNTING_MUTATIONS[number];
 export type AccountingPaymentMethod = 'cash'|'card'|'bank_transfer';
 export type AccountingChannel = 'WEB'|'POS';
-export interface AccountingFilters { readonly dateFrom?:string; readonly dateTo?:string; readonly channel?:AccountingChannel; readonly currency?:string; readonly query?:string; readonly customerId?:string; readonly orderId?:string; }
+export interface AccountingFilters { readonly dateFrom?:string; readonly dateTo?:string; readonly channel?:AccountingChannel; readonly salesChannel?:'manual'|'social'; readonly currency?:string; readonly query?:string; readonly customerId?:string; readonly orderId?:string; }
 export interface AccountingReceipt { readonly id:string; readonly amountCents:number; readonly paymentMethod:AccountingPaymentMethod; readonly receivedAt:string; readonly actorMembershipId:string; readonly reversed:boolean; }
 export interface AccountingOrderFinance { readonly status:'unpaid'|'partial'|'paid'; readonly collectedCents:number; readonly dueCents:number; readonly refundDueCents:number; readonly version:number; readonly receipts:readonly AccountingReceipt[]; }
 export interface AccountingAllocation { readonly receivableId:string; readonly orderId:string|null; readonly amountCents:number; }
