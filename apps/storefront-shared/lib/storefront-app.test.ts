@@ -746,14 +746,21 @@ test("iframe and return routes are token-free browser surfaces and return is not
 });
 
 test("proxy owns exact checkout form and PayTR iframe CSP while every near-match stays denied", async () => {
-  const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
-  assert.match(proxy, /form-action https:\/\/\$\{authority[.]hostname\}/);
-  assert.match(proxy, /hostedPaymentFrameSources/);
-  assert.match(proxy, /pathname === "\/odeme\/hizli"/);
-  assert.match(proxy, /pathname === "\/odeme\/hizli\/odeme"/);
-  assert.match(proxy, /search === ""/);
-  assert.match(proxy, /FALLBACK_CSP/);
-  assert.doesNotMatch(proxy, /form-action 'self'|form-action https:(?:[;'\s])|form-action \*|frame-src \*/);
+  const { createStorefrontProxy } = await import("../proxy.ts");
+  const { NextRequest } = await import("next/server.js");
+  const handler = createStorefrontProxy({
+    selectAuthority: () => ({ kind: "trusted", hostname: "shop.example.com" }),
+    resolveMediaOrigin: () => "https://media.example.com", authorizePaytrIframe: async () => true, now: () => new Date(),
+  });
+  const form = await handler(new NextRequest("https://internal.example/odeme/hizli"));
+  assert.match(form.headers.get("content-security-policy") ?? "", /form-action https:\/\/shop.example.com(?:;|$)/u);
+  const iframe = await handler(new NextRequest("https://internal.example/odeme/hizli/odeme"));
+  assert.match(iframe.headers.get("content-security-policy") ?? "", /frame-src https:\/\/www.paytr.com/u);
+  for (const path of ["/odeme/hizli?x=1", "/odeme/hizli/", "/odeme/hizli/odeme?x=1", "/odeme/hizli/odeme/"]) {
+    const response = await handler(new NextRequest("https://internal.example" + path));
+    const csp = response.headers.get("content-security-policy") ?? "";
+    assert.match(csp, /form-action 'none'/u); assert.doesNotMatch(csp, /frame-src|form-action https:/u);
+  }
 });
 
 test("storefront CSP permits only the exact Google stylesheet and font origins", async () => {

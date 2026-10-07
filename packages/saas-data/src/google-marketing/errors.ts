@@ -1,0 +1,5 @@
+export const GOOGLE_MARKETING_ERROR_CODES=['invalid_input','membership_denied','store_inactive','durable_authority_invalid','feature_not_enabled','oauth_unconfigured','crypto_unavailable','oauth_denied','oauth_state_invalid','needs_reconnect','provider_denied','provider_timeout','provider_unavailable','provider_limit','ads_project_unapproved','resource_denied','wrong_domain','unsafe_container','live_version_conflict','version_conflict','operation_mismatch','operation_busy','incremental_authorization_required','verification_pending','unavailable','commit_unknown'] as const;
+export type GoogleMarketingErrorCode=typeof GOOGLE_MARKETING_ERROR_CODES[number];
+export class GoogleMarketingRepositoryError extends Error {readonly code:GoogleMarketingErrorCode;constructor(code:GoogleMarketingErrorCode){super(code);this.name='GoogleMarketingRepositoryError';this.code=code;}}
+export function googleMarketingErrorCode(error:unknown):GoogleMarketingErrorCode {return error instanceof GoogleMarketingRepositoryError?error.code:'unavailable';}
+export function googleError(code:GoogleMarketingErrorCode):never {throw new GoogleMarketingRepositoryError(code);}

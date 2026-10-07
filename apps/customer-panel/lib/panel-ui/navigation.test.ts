@@ -81,6 +81,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/marketing/email",
       "/marketing/phone",
       "/marketing/whatsapp",
+      "/marketing/google",
       "/content",
       "/content/blog",
       "/content/pages",
@@ -244,6 +245,7 @@ test("sidebar presents approved families as workspaces", () => {
     "/marketing/email",
     "/marketing/phone",
     "/marketing/whatsapp",
+    "/marketing/google",
   ]);
   assert.deepEqual(findNavigationItem("content")?.children?.map(({ href }) => href), [
     "/content",

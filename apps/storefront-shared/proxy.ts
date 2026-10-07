@@ -8,6 +8,7 @@ import { digestRedemptionCredential, parseRedemptionCookie } from "./lib/checkou
 import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authority.ts";
 import { createCanonicalStorefrontLocation } from "./lib/custom-domain-canonicalization.ts";
 import { hostedPaymentFrameSources } from "./lib/checkout/paytr-frame-policy.ts";
+import { googleMarketingCspSources } from "./lib/google-marketing.ts";
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store, no-transform", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
@@ -59,6 +60,7 @@ type StorefrontProxyDependencies = Readonly<{
   resolveCanonicalHostname?: (input: Readonly<{hostname:string;now:Date}>) => Promise<string|null>;
   resolveCollectionAvailability?: (input: Readonly<{hostname:string;slug:string;now:Date}>) => Promise<boolean>;
   resolveAnalytics?: (input: Readonly<{hostname:string;now:Date}>) => Promise<Readonly<{scriptOrigin:string;collectorOrigin:string}>|null>;
+  resolveGoogleMarketing?: (input: Readonly<{hostname:string;now:Date}>) => Promise<unknown>;
 }>;
 
 async function defaultIframeAuthorization(input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>): Promise<boolean> {
@@ -157,6 +159,13 @@ const DEFAULT_DEPENDENCIES: StorefrontProxyDependencies = Object.freeze({
     const tracker = await runtime.analytics.getTrackerConfig({ hostname: input.hostname, now: new Date(input.now) });
     return tracker ? Object.freeze({ scriptOrigin: new URL(runtime.analyticsCollector.trackerScriptUrl).origin, collectorOrigin: runtime.analyticsCollector.collectorOrigin }) : null;
   },
+  async resolveGoogleMarketing(input) {
+    const { resolveDefaultPublicStorefrontRuntime } = await import("./lib/default-runtime.ts");
+    const runtime = await resolveDefaultPublicStorefrontRuntime();
+    if (!runtime?.googleMarketing) return null;
+    const storefront = await runtime.repository.getPublicStorefront({ hostname: input.hostname, now: new Date(input.now) });
+    return runtime.googleMarketing.projection(storefront.id);
+  },
   async resolveCollectionAvailability(input) {
     const [{ resolveDefaultPublicStorefrontRuntime }, { PublicStorefrontRepositoryError }] = await Promise.all([
       import("./lib/default-runtime.ts"), import("@celebix/saas-data"),
@@ -217,8 +226,16 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     let analytics:Readonly<{scriptOrigin:string;collectorOrigin:string}>|null=null;
     if(dependencies.resolveAnalytics){try{analytics=await dependencies.resolveAnalytics({hostname:authority.hostname,now:dependencies.now()})}catch{analytics=null}}
-    const scriptDestination=analytics?` ${analytics.scriptOrigin}`:"",connectDestination=analytics?`'self' ${analytics.collectorOrigin}`:"'self'";
-    const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src ${connectDestination}`;
+    let googleProjection: unknown = null;
+    if (dependencies.resolveGoogleMarketing && !pathname.startsWith("/api/") && pathname !== "/odeme/hizli/odeme" && pathname !== "/odeme/hizli/sonuc") {
+      try { googleProjection = await dependencies.resolveGoogleMarketing({ hostname: authority.hostname, now: dependencies.now() }); } catch { /* unavailable integration stays disabled */ }
+    }
+    const google = googleMarketingCspSources(googleProjection), hasGoogle = google.script.length > 0;
+    const destinations = (sources: readonly string[]) => sources.length ? ` ${sources.join(" ")}` : "";
+    const scriptDestination = destinations([...(analytics ? [analytics.scriptOrigin] : []), ...google.script]);
+    const connectDestination = `'self'${destinations([...(analytics ? [analytics.collectorOrigin] : []), ...google.connect])}`;
+    const pageCsp = (formAction: string) => `default-src 'none'; script-src 'nonce-${nonce}' ${hasGoogle ? "'self'" : "'strict-dynamic'"}${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}${destinations(google.image)}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action ${formAction}; object-src 'none'; connect-src ${connectDestination}${google.frame.length ? `; frame-src ${google.frame.join(" ")}` : ""}`;
+    const defaultCsp = pageCsp("'none'");
     const paytrHostedReturnBridge = request.method === "GET" && isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash);
     let iframeAuthorized = false;
     if ((exactTarget && pathname === "/odeme/hizli/odeme") || (paytrHostedReturnBridge && !dependencies.authorizePaytrReturn)) {
@@ -248,7 +265,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
       : standardIframeAuthorized
       ? paytrIframeCsp(authority.hostname, true)
       : accountVerificationForm || quickOrderForm
-      ? `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'${scriptDestination}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: ${mediaOrigin}; font-src 'self' data: https://fonts.gstatic.com; base-uri 'none'; frame-ancestors 'none'; form-action https://${authority.hostname}; object-src 'none'; connect-src ${connectDestination}`
+      ? pageCsp(`https://${authority.hostname}`)
       : iframeAuthorized
         ? paytrIframeCsp(authority.hostname, false)
         : defaultCsp;

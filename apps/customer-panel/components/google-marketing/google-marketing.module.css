@@ -1,0 +1,51 @@
+.workspace { display: grid; gap: 20px; min-width: 0; color: var(--cp-text-primary); }
+.domain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; }
+.domain strong { color: var(--cp-text-primary); font-weight: 500; overflow-wrap: anywhere; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; padding: 24px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; }
+.cardHeading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cardHeading h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.icon { width: 40px; height: 40px; display: grid; flex: 0 0 40px; place-items: center; color: var(--cp-text-primary); background: var(--cp-canvas); border-radius: 8px; }
+.description { margin: 0; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; min-height: 64px; }
+.selectionSummary { display: grid; gap: 4px; width: 100%; min-width: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.selectionSummary strong { font-weight: 500; }
+.selectionSummary span, .email { color: var(--cp-text-secondary); }
+.email { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.card > .button { margin-top: auto; }
+.button, .link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
+.button:hover:not(:disabled), .link:hover { background: var(--cp-canvas); }
+.button:disabled { cursor: default; opacity: .5; }
+.button:focus-visible, .link:focus-visible, .field select:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
+.primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); border-color: var(--cp-action-primary); }
+.primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
+.feedback { padding: 16px; margin: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-canvas); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.feedback p { margin: 0 0 12px; }
+.cardError, .readOnly, .help { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); overflow-wrap: anywhere; }
+.form { display: grid; gap: 20px; min-width: 0; }
+.scope { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 16px; font-size: 13px; line-height: 1.5; }
+.scope span { color: var(--cp-text-secondary); }
+.scope strong { font-weight: 500; overflow-wrap: anywhere; }
+.field { display: grid; gap: 8px; min-width: 0; font-size: 13px; font-weight: 500; }
+.field select { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.field select:disabled { opacity: .65; }
+.empty, .connectPrompt { display: grid; justify-items: start; gap: 12px; }
+.empty p, .connectPrompt p, .applySummary p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); }
+.link { text-align: left; justify-content: flex-start; max-width: 100%; overflow-wrap: anywhere; }
+.applySummary { display: grid; gap: 12px; border-top: 1px solid var(--cp-border); padding-top: 16px; }
+.resourceActions, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions { justify-content: flex-end; width: 100%; }
+.actions > :first-child:not(:last-child) { margin-right: auto; }
+.skeleton { display: grid; gap: 8px; width: 100%; }
+.skeleton > span { display: block; width: 100%; min-height: 16px; }
+@media (max-width: 1100px) { .cards { grid-template-columns: minmax(0, 1fr); } .card { padding: 20px; } .description { min-height: 0; } }
+@media (max-width: 640px) {
+  .workspace { gap: 16px; }
+  .card { padding: 16px; }
+  .scope { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .scope strong:not(:last-child) { margin-bottom: 12px; }
+  .resourceActions { flex-direction: column; align-items: stretch; }
+  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .actions > :first-child:not(:last-child) { margin-right: 0; }
+  .actions > :first-child:nth-last-child(3) { grid-column: 1 / -1; justify-self: start; }
+  .actions > .primary { grid-column: 2; }
+}

@@ -7,6 +7,8 @@ import { resolveStorefrontPage } from "../lib/page-context.ts";
 import { StorefrontFrame } from "../components/StorefrontFrame";
 import { StorefrontNavigationScroll } from "../components/StorefrontNavigationScroll";
 import { ContactWidget } from "../components/ContactWidget";
+import { GoogleMarketingConsent } from "../components/GoogleMarketingConsent.tsx";
+import { hasGoogleMarketingTags } from "../lib/google-marketing.ts";
 import { StoreEngagement } from "../components/StoreEngagement";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import "./globals.css";
@@ -19,6 +21,7 @@ import "../themes/guzide/guzide-footer.css";
 import "../themes/lilyum/lilyum.css";
 import "../themes/lilyum/lilyum-product.css";
 import "../components/checkout/checkout.css";
+import "../components/google-marketing-consent.css";
 
 export const metadata: Metadata = {
   title: "Celebix Mağaza",
@@ -33,9 +36,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const tracker = page.kind === "active" ? page.context.tracker : null;
   const locale = page.kind === "active" ? page.context.storefront.locale : "tr";
   const nonce = requestHeaders.get("x-nonce") ?? "";
+  const googleMarketing = page.kind === "active" ? page.context.googleMarketing : null;
   return (
     <html lang={locale} data-scroll-behavior={page.kind === "active" && guzideThemeFor(page.context.storefront) ? "smooth" : undefined}>
+      <head>{googleMarketing?.verificationToken ? <meta name="google-site-verification" content={googleMarketing.verificationToken} /> : null}</head>
       <body>
+        {page.kind === "active" && googleMarketing && nonce && hasGoogleMarketingTags(googleMarketing) ? <GoogleMarketingConsent storeId={page.context.storefront.id} hostname={page.context.storefront.primaryHostname} nonce={nonce} projection={googleMarketing} /> : null}
         {page.kind === "active" && guzideThemeFor(page.context.storefront)
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
           : children}

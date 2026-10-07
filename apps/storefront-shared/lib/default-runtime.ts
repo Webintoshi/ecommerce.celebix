@@ -79,6 +79,7 @@ import { createCachedPublicStorefrontRepository } from "./cache/public-storefron
 import { createCatalogSearchContentRepository, createMeilisearchCatalogSearchProvider, PostgresPublicCatalogSearchScopeRepository } from "@celebix/saas-data";
 import { parseCatalogSearchConfig } from "./catalog-search-config.ts";
 import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
+import { createPublicGoogleMarketingRuntime, type PublicGoogleMarketingRuntime } from "./google-marketing-runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -86,6 +87,7 @@ export type PublicStorefrontRuntime = Readonly<{
   repository: PublicStorefrontRepository;
   content: PublicStorefrontContentRepository;
   contactWidgets?: PublicContactWidgetRepository;
+  googleMarketing?: PublicGoogleMarketingRuntime;
   restockAlerts?: PostgresPublicRestockRepository;
   reviewCollection?: PostgresReviewCollectionRepository;
   seo?: PublicSeoRepository;
@@ -348,6 +350,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       restockAlerts: new PostgresPublicRestockRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       reviewCollection: new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+      googleMarketing: createPublicGoogleMarketingRuntime({ keyring: commerceKeyring, now: () => new Date(), query: (text, values) => queryAsHostResolverRole(pool, text, values) }),
       ...(seo ? { seo } : {}),
       commerce,
       cart,

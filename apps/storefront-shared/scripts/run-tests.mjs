@@ -8,6 +8,7 @@ const directories = [
   "lib/customer-engagement", "lib/restock", "lib/reviews", "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",
 ];
 browserTests.push("components/StoreEngagement.test.ts");
+browserTests.push("components/GoogleMarketingConsent.test.ts");
 const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))

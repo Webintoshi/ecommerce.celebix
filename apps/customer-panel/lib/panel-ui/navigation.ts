@@ -37,6 +37,7 @@ export type PanelNavigationHref =
   | "/marketing/email"
   | "/marketing/phone"
   | "/marketing/whatsapp"
+  | "/marketing/google"
   | "/content"
   | "/content/blog"
   | "/content/pages"
@@ -192,6 +193,7 @@ const MARKETING_CHILDREN = Object.freeze([
   item("email-marketing", "E-posta Kampanyaları", "/marketing/email", "email"),
   item("phone-marketing", "Telefon Kampanyaları", "/marketing/phone", "phone"),
   item("whatsapp-marketing", "WhatsApp Kampanyaları", "/marketing/whatsapp", "whatsapp"),
+  item("google-marketing", "Google Bağlantıları", "/marketing/google", "marketing"),
 ]);
 
 const CONTENT_CHILDREN = Object.freeze([
@@ -307,6 +309,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/marketing/email": presentation("E-posta Kampanyaları"),
   "/marketing/phone": presentation("Telefon Kampanyaları"),
   "/marketing/whatsapp": presentation("WhatsApp Kampanyaları"),
+  "/marketing/google": presentation("Google Bağlantıları"),
   "/content": presentation("İçerik"),
   "/content/blog": presentation("Blog"),
   "/content/pages": presentation("Sayfalar"),

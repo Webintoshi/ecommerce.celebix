@@ -704,3 +704,5 @@ export * from "./restock-alerts/index.ts";
 export * from "./store-engagement/index.ts";
 export * from "./review-collection/index.ts";
 export * from './platform/index.ts';
+
+export * from './google-marketing/index.ts';

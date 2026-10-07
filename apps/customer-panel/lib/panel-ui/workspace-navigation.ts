@@ -18,6 +18,7 @@ export const MARKETING_WORKSPACE_TABS = tabs([
   { label: "E-posta", href: "/marketing/email" },
   { label: "Telefon", href: "/marketing/phone" },
   { label: "WhatsApp", href: "/marketing/whatsapp" },
+  { label: "Google Bağlantıları", href: "/marketing/google" },
 ]);
 
 export const CONTENT_WORKSPACE_TABS = tabs([

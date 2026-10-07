@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 
+import { GoogleMarketingCapturedResultSignal } from "@/components/GoogleMarketingCapturedResultSignal";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
@@ -32,6 +33,7 @@ export default async function HostedCheckoutResultPage() {
     || hostedStatus?.status === "captured";
 
   return <StorefrontFrame storefront={storefront} design={design}>
+    {hostedStatus?.status === "captured" ? <GoogleMarketingCapturedResultSignal sessionId={hostedStatus.sessionId} version={hostedStatus.version} /> : null}
     <div className="checkout-result-page store-container">
       {hostedStatus?.status === "captured" ? <article className="checkout-result-state checkout-result-success">
         <span className="checkout-result-mark" aria-hidden="true">✓</span>

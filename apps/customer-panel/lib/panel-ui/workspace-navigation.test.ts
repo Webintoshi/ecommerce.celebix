@@ -20,6 +20,7 @@ test("defines the approved route-backed workspace tabs", () => {
     { label: "E-posta", href: "/marketing/email" },
     { label: "Telefon", href: "/marketing/phone" },
     { label: "WhatsApp", href: "/marketing/whatsapp" },
+    { label: "Google Bağlantıları", href: "/marketing/google" },
   ]);
   assert.deepEqual(CONTENT_WORKSPACE_TABS, [
     { label: "Blog", href: "/content/blog" },
