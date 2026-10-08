@@ -8,6 +8,17 @@ export const GTM_INSTALL_SCOPES=['https://www.googleapis.com/auth/tagmanager.edi
 export const GOOGLE_SCOPES={gtm:['https://www.googleapis.com/auth/tagmanager.readonly',...GTM_INSTALL_SCOPES],ads:['https://www.googleapis.com/auth/adwords'],search_console:['https://www.googleapis.com/auth/webmasters','https://www.googleapis.com/auth/siteverification']} as const;
 type Json=Record<string,any>;
 type Progress=Record<string,unknown>;
+// Internal marker only. Provider messages and account details never reach API errors.
+class AdsAccountUnavailableError extends GoogleMarketingRepositoryError {}
+function unavailableAdsAccount(payload:Json):boolean {
+ const details=payload.error?.details;
+ return Array.isArray(details)&&details.length>0&&details.every(detail=>
+  detail&&typeof detail['@type']==='string'&&/^type\.googleapis\.com\/google\.ads\.googleads\.v\d{2}\.errors\.GoogleAdsFailure$/.test(detail['@type'])&&
+  Array.isArray(detail.errors)&&detail.errors.length>0&&detail.errors.every((error:Json)=>{
+   const entries=error&&error.errorCode&&typeof error.errorCode==='object'?Object.entries(error.errorCode):[];
+   return entries.length===1&&((entries[0][0]==='authorizationError'&&(entries[0][1]==='CUSTOMER_NOT_ENABLED'||entries[0][1]==='INCOMPLETE_SIGNUP'))||(entries[0][0]==='authenticationError'&&entries[0][1]==='CUSTOMER_NOT_FOUND'));
+  }));
+}
 function numeric(value:unknown):string {if(typeof value!=='string'||!/^\d{1,20}$/.test(value))googleError('resource_denied');return value;}
 function name(value:unknown):string {if(typeof value!=='string'||!value.trim()||value.length>160||/[\x00-\x1f<>]/.test(value))googleError('provider_unavailable');return value;}
 function list(value:unknown,max=500):Json[]{if(value===undefined)return [];if(!Array.isArray(value)||value.length>max)googleError('provider_limit');return value;}
@@ -42,7 +53,7 @@ export class GoogleMarketingProvider {
    let body='';if(response.body){const reader=response.body.getReader();const chunks:Uint8Array[]=[];let size=0;try{for(;;){const read=await reader.read();if(read.done)break;size+=read.value.length;if(size>1048576){await reader.cancel();googleError('provider_limit');}chunks.push(read.value);}body=Buffer.concat(chunks).toString('utf8');}finally{reader.releaseLock();}}
    let payload:Json={};try{payload=body?JSON.parse(body):{};}catch{googleError('provider_unavailable');}
    if(response.status===404&&(parsed.pathname.endsWith('/versions:live')||parsed.pathname.endsWith('/version_headers:latest')))return {containerVersionId:'0'};
-   if(!response.ok){if(oauth)googleError('oauth_denied');const errors=JSON.stringify(payload.error?.details??[]);if(/CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION|ACTION_NOT_PERMITTED/.test(errors))googleError('ads_project_unapproved');if(response.status===401)googleError('needs_reconnect');if(response.status===403)googleError('provider_denied');if(response.status===429)googleError('provider_limit');googleError('provider_unavailable');}
+   if(!response.ok){if(oauth)googleError('oauth_denied');const errors=JSON.stringify(payload.error?.details??[]);if(/CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION|ACTION_NOT_PERMITTED/.test(errors))googleError('ads_project_unapproved');if(response.status===429)googleError('provider_limit');const code=response.status===401?'needs_reconnect':response.status===403?'provider_denied':'provider_unavailable';if(parsed.hostname==='googleads.googleapis.com'&&unavailableAdsAccount(payload))throw new AdsAccountUnavailableError(code);googleError(code);}
    if(!payload||typeof payload!=='object'||Array.isArray(payload))googleError('provider_unavailable');return payload;
   }catch(error){if(error instanceof GoogleMarketingRepositoryError)throw error;googleError(controller.signal.aborted?'provider_timeout':'provider_unavailable');}finally{clearTimeout(timer);}
  }
@@ -65,10 +76,11 @@ export class GoogleMarketingProvider {
  private async adsSearch(token:string,id:string,query:string,login?:string):Promise<Json[]>{const response=await this.request(`${this.adsBase()}/customers/${numeric(id)}/googleAds:search`,token,{method:'POST',headers:this.adsHeaders(login),body:JSON.stringify({query})});if(response.nextPageToken)googleError('provider_limit');return list(response.results,100);}
  private async adsAccounts(token:string):Promise<Array<GoogleMarketingResourceOption&{login:string}>>{
   const initial=await this.request(`${this.adsBase()}/customers:listAccessibleCustomers`,token,{headers:this.adsHeaders()});const roots=list(initial.resourceNames,20) as unknown as string[];
-  const accounts:Array<GoogleMarketingResourceOption&{login:string}>=[];const seen=new Set<string>();const queue=roots.map(resource=>({id:numeric(String(resource).replace(/^customers\//,'')),login:numeric(String(resource).replace(/^customers\//,'')),depth:0}));
-  while(queue.length){const item=queue.shift()!;if(seen.has(item.id))continue;seen.add(item.id);if(seen.size>50)googleError('provider_limit');const customer=(await this.adsSearch(token,item.id,'SELECT customer.id, customer.descriptive_name, customer.manager, customer.test_account FROM customer',item.login))[0]?.customer;
+  const accounts:Array<GoogleMarketingResourceOption&{login:string}>=[];let unavailable=0;const seen=new Set<string>();const queue=roots.map(resource=>({id:numeric(String(resource).replace(/^customers\//,'')),login:numeric(String(resource).replace(/^customers\//,'')),depth:0}));
+  while(queue.length){const item=queue.shift()!;if(seen.has(item.id))continue;seen.add(item.id);if(seen.size>50)googleError('provider_limit');let customer:Json|undefined;
+   try{customer=(await this.adsSearch(token,item.id,'SELECT customer.id, customer.descriptive_name, customer.manager, customer.test_account FROM customer',item.login))[0]?.customer;}catch(error){if(error instanceof AdsAccountUnavailableError){unavailable++;continue;}throw error;}
    if(!customer)googleError('resource_denied');if(customer.manager){if(item.depth>=3)continue;const children=await this.adsSearch(token,item.id,'SELECT customer_client.id, customer_client.level, customer_client.client_customer, customer_client.manager, customer_client.descriptive_name FROM customer_client WHERE customer_client.level = 1',item.login);for(const child of children){const id=numeric(String(child.customerClient?.id));queue.push({id,login:item.login,depth:item.depth+1});}}else accounts.push({id:item.id,name:name(customer.descriptiveName||`Google Ads ${item.id}`),login:item.login});
-  }return accounts;
+  }if(!accounts.length&&unavailable)googleError('provider_denied');return accounts;
  }
  async resources(service:GoogleMarketingService,token:string,accountId?:string):Promise<GoogleMarketingResources>{
   if(service==='gtm'){const accounts=options(await this.paged(`${GTM}/accounts?`,token,'account'),'accountId');if(!accountId)return {accounts,resources:[]};if(!accounts.some(a=>a.id===accountId))googleError('resource_denied');const containers=await this.paged(`${GTM}/accounts/${numeric(accountId)}/containers?`,token,'container');return {accounts,resources:containers.filter(c=>Array.isArray(c.usageContext)&&c.usageContext.includes('web')).map(c=>{if(!/^GTM-[A-Z0-9]{4,24}$/.test(c.publicId))googleError('provider_unavailable');return {id:numeric(c.containerId),name:name(c.name),parentId:accountId,tagId:c.publicId};})};}

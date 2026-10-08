@@ -30,6 +30,90 @@ test('Ads discovers the actual manual website purchase snippet and no developer-
  assert.equal(resources.resources[0]?.tagId,'AW-987654');assert.equal(resources.resources[0]?.conversionLabel,'real_Label');
  assert.ok(calls.every(call=>!new Headers(call.init?.headers).has('developer-token')));
 });
+
+type AdsFixtureErrorCode={authorizationError?:string;authenticationError?:string};
+function adsFixtureFailure(status:number,codes?:readonly AdsFixtureErrorCode[]):Response{
+ return Response.json({error:{code:status,message:'TEST_PROVIDER_DETAIL',status:status===401?'UNAUTHENTICATED':status===404?'NOT_FOUND':'PERMISSION_DENIED',...(codes?{details:[{'@type':'type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure',errors:codes.map(errorCode=>({errorCode,message:'TEST_PROVIDER_DETAIL'})),requestId:'test-request'}]}:{})}},{status});
+}
+function adsRootFixture(roots:readonly string[],failure:()=>Response,initialFailure?:()=>Response):GoogleMarketingProvider{
+ return new GoogleMarketingProvider({adsProjectId:'production-project'},async(url,init)=>{
+  const path=new URL(String(url)).pathname;
+  if(path.endsWith('customers:listAccessibleCustomers'))return initialFailure?initialFailure():Response.json({resourceNames:roots.map(id=>`customers/${id}`)});
+  if(path.includes('/customers/789/'))return failure();
+  if(!path.includes('/customers/123/'))throw new Error('Unexpected Ads fixture customer');
+  const query=JSON.parse(String(init?.body)).query;
+  if(query.includes('conversion_tracking_setting'))return Response.json({results:[{customer:{conversionTrackingSetting:{googleAdsConversionCustomer:'customers/123'}}}]});
+  if(query.includes('FROM customer'))return Response.json({results:[{customer:{id:'123',descriptiveName:'Ready store',manager:false,testAccount:false}}]});
+  if(query.includes('FROM conversion_action'))return Response.json({results:[{conversionAction:{id:'456',name:'Purchase',type:'WEBPAGE',category:'PURCHASE',status:'ENABLED',tagSnippets:[{type:'WEBPAGE',pageFormat:'HTML',eventSnippet:"gtag('event','conversion',{'send_to':'AW-987654/real_Label'});"}]}}]});
+  throw new Error('Unexpected Ads fixture query');
+ });
+}
+const unavailableAdsRoots=[
+ {name:'INCOMPLETE_SIGNUP',status:403,errorCode:{authorizationError:'INCOMPLETE_SIGNUP'}},
+ {name:'CUSTOMER_NOT_ENABLED',status:403,errorCode:{authorizationError:'CUSTOMER_NOT_ENABLED'}},
+ {name:'CUSTOMER_NOT_FOUND',status:404,errorCode:{authenticationError:'CUSTOMER_NOT_FOUND'}},
+] as const;
+for(const unavailable of unavailableAdsRoots){
+ for(const roots of [['789','123'],['123','789']] as const)test(`Ads retains a ready account when ${unavailable.name} root is ${roots[0]==='789'?'first':'last'}`,async()=>{
+  const provider=adsRootFixture(roots,()=>adsFixtureFailure(unavailable.status,[unavailable.errorCode]));
+  assert.deepEqual(await provider.resources('ads','access'),{accounts:[{id:'123',name:'Ready store'}],resources:[]});
+ });
+ test(`Ads reads the selected ready account purchase despite a ${unavailable.name} root`,async()=>{
+  const provider=adsRootFixture(['789','123'],()=>adsFixtureFailure(unavailable.status,[unavailable.errorCode]));
+  assert.deepEqual(await provider.resources('ads','access','123'),{accounts:[{id:'123',name:'Ready store'}],resources:[{id:'456',name:'Purchase',parentId:'123',tagId:'AW-987654',conversionLabel:'real_Label'}]});
+ });
+ test(`Ads reports provider_denied when every discovered root is ${unavailable.name}`,async()=>{
+  const provider=adsRootFixture(['789'],()=>adsFixtureFailure(unavailable.status,[unavailable.errorCode]));
+  await assert.rejects(()=>provider.resources('ads','access'),(error:any)=>error.code==='provider_denied'&&!String(error).includes('TEST_PROVIDER_DETAIL'));
+ });
+}
+for(const failure of [
+ {name:'unclassified HTTP 403',status:403,codes:undefined,expected:'provider_denied'},
+ {name:'unclassified HTTP 401',status:401,codes:undefined,expected:'needs_reconnect'},
+ {name:'Cloud production approval error',status:403,codes:[{authorizationError:'CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION'}],expected:'ads_project_unapproved'},
+ {name:'mixed unavailable and user permission errors',status:403,codes:[{authorizationError:'CUSTOMER_NOT_ENABLED'},{authorizationError:'USER_PERMISSION_DENIED'}],expected:'provider_denied'},
+ {name:'mixed unavailable and Cloud approval errors',status:403,codes:[{authorizationError:'CUSTOMER_NOT_ENABLED'},{authorizationError:'CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION'}],expected:'ads_project_unapproved'},
+])test(`Ads fails closed on ${failure.name} even after reading a ready account`,async()=>{
+ const provider=adsRootFixture(['123','789'],()=>adsFixtureFailure(failure.status,failure.codes));
+ await assert.rejects(()=>provider.resources('ads','access'),(error:any)=>error.code===failure.expected&&!String(error).includes('TEST_PROVIDER_DETAIL'));
+});
+test('Ads never skips an account-state error from the initial accessible-customer request',async()=>{
+ const failure=()=>adsFixtureFailure(403,[{authorizationError:'CUSTOMER_NOT_ENABLED'}]);
+ const provider=adsRootFixture(['123'],failure,failure);
+ await assert.rejects(()=>provider.resources('ads','access'),(error:any)=>error.code==='provider_denied');
+});
+test('Ads distinguishes a genuinely empty accessible-account list from unavailable roots',async()=>{
+ const provider=adsRootFixture([],()=>adsFixtureFailure(403));
+ assert.deepEqual(await provider.resources('ads','access'),{accounts:[],resources:[]});
+});
+test('Ads denies selecting an unavailable account while another account remains ready',async()=>{
+ for(const unavailable of unavailableAdsRoots){
+  const provider=adsRootFixture(['123','789'],()=>adsFixtureFailure(unavailable.status,[unavailable.errorCode]));
+  await assert.rejects(()=>provider.validateSelection('ads','access',{accountId:'789',resourceId:'456',resourceName:'Purchase',tagId:'AW-987654',conversionLabel:'real_Label'},'store.example.com'),(error:any)=>error.code==='resource_denied');
+ }
+});
+test('Ads never skips malformed or untyped account-state failures',async()=>{
+ const type='type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure';
+ const errors=[{errorCode:{authorizationError:'CUSTOMER_NOT_ENABLED'},message:'TEST_PROVIDER_DETAIL'}];
+ for(const detail of [
+  {'@type':'type.googleapis.com/google.rpc.ErrorInfo',errors},
+  {errors},
+  {'@type':[type],errors},
+  {'@type':type,errors:[{errorCode:{authorizationError:['CUSTOMER_NOT_ENABLED']},message:'TEST_PROVIDER_DETAIL'}]},
+ ]){
+  const provider=adsRootFixture(['123','789'],()=>Response.json({error:{code:403,status:'PERMISSION_DENIED',message:'TEST_PROVIDER_DETAIL',details:[detail]}},{status:403}));
+  await assert.rejects(()=>provider.resources('ads','access'),(error:any)=>error.code==='provider_denied');
+ }
+});
+test('Ads never skips account-state failures containing extra or unknown error codes',async()=>{
+ for(const codes of [
+  [{authorizationError:'CUSTOMER_NOT_ENABLED',unknownError:'FUTURE_ERROR'}],
+  [{authorizationError:'CUSTOMER_NOT_ENABLED'},{authorizationError:'FUTURE_ERROR'}],
+ ]){
+  const provider=adsRootFixture(['123','789'],()=>adsFixtureFailure(403,codes));
+  await assert.rejects(()=>provider.resources('ads','access'),(error:any)=>error.code==='provider_denied');
+ }
+});
 test('GTM refuses existing custom HTML without modifying any Google entity',async()=>{
  const methods:string[]=[];
  const provider=new GoogleMarketingProvider({},async(url,init)=>{methods.push(init?.method??'GET'); if(new URL(String(url)).pathname.endsWith('/accounts'))return Response.json({account:[{accountId:'1',name:'Tenant'}]});if(new URL(String(url)).pathname.endsWith('/containers'))return Response.json({container:[{containerId:'2',name:'Web',publicId:'GTM-ABC123',usageContext:['web']}]});return Response.json({containerVersion:{containerVersionId:'3',fingerprint:'fp',tag:[{type:'html',name:'unsafe'}]}});});
