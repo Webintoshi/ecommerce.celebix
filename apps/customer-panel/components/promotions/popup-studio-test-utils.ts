@@ -7,13 +7,21 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     save?: (input: any) => Promise<any>;
     records?: any[];
     canManage?: boolean;
+    canReadCoupons?: boolean;
+    canCreateCoupon?: boolean;
     applyCoupon?: () => Promise<any>;
     couponDetail?: any;
     couponItems?: any[];
     recoveryInput?: any;
     recoveryDeletion?: any;
+    media?: any[];
+    images?: any[];
+    editor?: () => Promise<any>;
+    uploadMedia?: (input: any) => Promise<any>;
+    list?: () => Promise<any[]>;
+    listError?: Error;
 } = {}) {
-    const writes: any[] = [], coupons: any[] = [];
+    const writes: any[] = [], coupons: any[] = [], uploads: any[] = [], reads: string[] = [];
     let unresolved = Boolean(options.recoveryInput || options.recoveryDeletion);
     class ApiError extends Error {
         constructor(readonly code: string) {
@@ -23,7 +31,11 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     const api = {
         pendingIntent: async()=>options.recoveryInput??null,
         pendingDeletion: async()=>options.recoveryDeletion??null,
-        list: async () => options.records ?? [], hasUnresolved: () => unresolved, save: async (input: any) => {
+        list: async () => {
+            reads.push('campaigns');
+            if (options.listError) throw options.listError;
+            return options.list ? options.list() : options.records ?? [];
+        }, hasUnresolved: () => unresolved, save: async (input: any) => {
             writes.push(input);
             try {
                 const result = options.save ? await options.save(input) : {
@@ -49,9 +61,21 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
             scopedStoreEngagementApi: () => api, StoreEngagementApiError: ApiError
         }, '@/lib/storefront-design-ui/client': {
             storefrontDesignApi: {
-                editor: async () => ({
-                    media: []
-                })
+                editor: async () => {
+                    reads.push('media');
+                    return options.editor ? options.editor() : {
+                        media: options.media ?? options.images ?? []
+                    };
+                },
+                uploadMedia: async (input: any) => {
+                    uploads.push(input);
+                    return options.uploadMedia ? options.uploadMedia(input) : {
+                        id: '00000000-0000-4000-8000-000000000002',
+                        url: 'https://fixture.invalid/popup.webp',
+                        altText: input.altText,
+                        mediaType: 'image/webp', width: 600, height: 800
+                    };
+                }
             }
         }, '@/lib/promotion-ui/client': {
             promotionApi: {
@@ -89,13 +113,20 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
             });
         };
         await screen.render(React.createElement(options.kind === 'cart_capture' ? CartCaptureTool : PopupStudio, {
-            canManage: options.canManage ?? true, canReadCoupons: true, canCreateCoupon: true
+            canManage: options.canManage ?? true,
+            canReadCoupons: options.canReadCoupons ?? true,
+            canCreateCoupon: options.canCreateCoupon ?? true
         }));
         await settle();
-        const click = async (label: string) => {
-            const button = Array.from(screen.container.querySelectorAll('button')).find(button => button.textContent?.trim() === label);
-            assert.ok(button, `button ${label}`);
-            await screen.click(button);
+        const button = (label: string, within: ParentNode = screen.container): HTMLButtonElement => {
+            const buttons = Array.from(within.querySelectorAll<HTMLButtonElement>('button'));
+            const result = buttons.find(item => item.getAttribute('aria-label') === label)
+                ?? buttons.find(item => item.textContent?.trim() === label);
+            assert.ok(result, `button ${label}`);
+            return result;
+        };
+        const click = async (label: string, within?: ParentNode) => {
+            await screen.click(button(label, within));
             await settle();
         };
         const change = async (name: string, value: string) => {
@@ -105,7 +136,8 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
             await settle();
         };
         await run({
-            ...screen, click, change, settle, writes, coupons, ApiError
+            ...screen, clickElement: screen.click, changeElement: screen.change,
+            button, click, change, settle, writes, coupons, uploads, reads, ApiError
         });
     });
 }

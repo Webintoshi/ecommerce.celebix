@@ -1,0 +1,59 @@
+.artwork {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  overflow: visible;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.paper {
+  fill: var(--cp-surface);
+  stroke: var(--cp-art-outline);
+  stroke-width: 4;
+}
+
+.line {
+  fill: none;
+  stroke: var(--cp-art-outline);
+  stroke-width: 4;
+}
+
+.detail {
+  fill: none;
+  stroke: var(--cp-art-outline);
+  stroke-width: 4;
+}
+
+.mutedLine {
+  fill: none;
+  stroke: var(--cp-art-muted);
+  stroke-width: 6;
+}
+
+.accent {
+  fill: none;
+  stroke: var(--cp-brand);
+  stroke-width: 4;
+}
+
+.accentFill {
+  fill: var(--cp-brand);
+}
+
+.soft {
+  fill: var(--cp-art-soft);
+}
+
+.muted {
+  fill: var(--cp-art-muted);
+}
+
+.peach {
+  fill: var(--cp-art-peach);
+}
+
+.leaf {
+  fill: var(--cp-art-leaf);
+}

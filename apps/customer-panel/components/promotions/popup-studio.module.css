@@ -568,3 +568,110 @@
   .cartEditor .templates label { padding: 8px; }
   .cartEditor .devices label { flex-basis: 112px; }
 }
+
+/* Popup-only surfaces. The cart editor retains its existing four sections. */
+.popupList { color: var(--cp-text-primary); min-width: 0; }
+.popupList .toolbar { margin: 0 0 16px; gap: 16px; flex-wrap: wrap; }
+.searchField { display: flex; align-items: center; gap: 10px; flex: 1 1 220px; max-width: 360px; min-width: 0; padding: 0 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-secondary); }
+.searchField svg { flex: none; }
+.searchField input { min-width: 0; max-width: none; border: 0; background: transparent; padding-inline: 0; outline: none; }
+.searchField:focus-within { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.searchField input:focus-visible { outline: none; }
+.statusFilters { display: flex; gap: 4px; align-items: center; }
+.statusFilters button { border: 0; border-radius: var(--cp-control-radius); background: transparent; color: var(--cp-text-secondary); font: inherit; font-size: 14px; font-weight: 500; min-height: 44px; padding: 10px 16px; cursor: pointer; }
+.statusFilters button[aria-pressed=true] { color: var(--cp-text-primary); background: var(--cp-soft); }
+.statusFilters button:hover { background: var(--cp-soft); }
+.statusFilters button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.popupList .toolbar > button { margin-left: auto; }
+.popupList .listRow { grid-template-columns: 112px minmax(0,1fr) auto; gap: 24px; padding: 24px 0; }
+.listArtwork { width: 112px; height: 80px; }
+.popupList .listCopy h2 { margin-bottom: 6px; font-weight: 600; overflow-wrap: anywhere; }
+.popupList .listCopy p { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+.listMeta { display: flex; gap: 8px 16px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-secondary); }
+.statusBadge { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 3px 8px; border-radius: 6px; background: var(--cp-soft); color: var(--cp-text-secondary); }
+.statusBadge[data-enabled=true] { background: var(--cp-soft); color: var(--cp-success); }
+.popupList .empty { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 56px 16px; }
+.emptyArtwork { width: min(260px,100%); height: 174px; margin-bottom: 8px; }
+.popupList .empty h2 { margin: 0; color: var(--cp-text-primary); font-size: 17px; font-weight: 600; line-height: 1.5; }
+.popupList .empty p { margin: 0; font-size: 14px; }
+.popupList .notice, .popupList .error { border: 0; background: var(--cp-soft); }
+.loadingRow { display: grid; grid-template-columns: 112px minmax(0,1fr) 112px; gap: 24px; align-items: center; padding: 24px 0; border-bottom: 1px solid var(--cp-border); }
+.loadingRow i { display: block; height: 44px; border-radius: 8px; background: var(--cp-soft); }
+.loadingRow > i:first-child { height: 80px; }
+.loadingRow > div { display: grid; gap: 12px; }
+.loadingRow > div i { height: 12px; width: min(180px,80%); }
+.loadingRow > div i + i { width: min(280px,100%); }
+.popupModal.popupModal { width: min(1100px,calc(100vw - 48px)); }
+.popupEditor, .popupEditor *, .popupPreviewFrame * { box-sizing: border-box; }
+.popupEditor { min-width: 0; color: var(--cp-text-primary); }
+.popupEditor .editorTop { gap: 24px; justify-content: space-between; margin-bottom: 24px; }
+.popupEditor .editorTop > .field { max-width: 460px; }
+.popupEditor .enabled { position: relative; padding-left: 52px; font-size: 13px; font-weight: 500; }
+.popupEditor .enabled input { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: 0; opacity: 0; z-index: 1; cursor: pointer; }
+.popupEditor .enabled input:checked + .switchTrack { background: var(--cp-action-primary); }
+.popupEditor .enabled input:checked + .switchTrack::after { transform: translateX(16px); }
+.popupEditor .enabled input:focus-visible + .switchTrack { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
+.popupEditor .enabled input:disabled + .switchTrack { opacity: .5; }
+.popupEditor .tabs { gap: 24px; margin-bottom: 24px; }
+.popupEditor .tabs button { min-height: 48px; padding: 8px 4px; font-size: 14px; }
+.popupEditor .tabs button[aria-selected=true] { border-bottom-color: var(--cp-brand); font-weight: 500; }
+.popupEditor .tabs button:disabled { cursor: default; }
+.popupEditor .editorGrid { grid-template-columns: minmax(0,1fr) 360px; gap: 40px; align-items: start; }
+.popupEditor .fields { gap: 20px; }
+.popupEditor .field { font-weight: 500; }
+.popupEditor .field :is(input,textarea,select) { border-radius: var(--cp-control-radius); min-height: var(--cp-control-height); }
+.popupEditor .field textarea { min-height: 88px; }
+.popupEditor .templates { gap: 12px; }
+.popupEditor .templates legend, .popupEditor .devices legend, .popupEditor .couponCreate legend { font-size: 14px; font-weight: 500; }
+.popupEditor .templates label { position: relative; padding: 8px 8px 12px; gap: 8px; background: var(--cp-surface); font-size: 13px; }
+.popupEditor .templates input { position: absolute; width: 16px; height: 16px; bottom: 11px; left: 10px; margin: 0; }
+.popupEditor .templates .selectedTemplate { background: var(--cp-soft); }
+.popupEditor .templates label:focus-within { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.templateArtwork { width: 100%; height: 80px; }
+.popupEditor .devices { gap: 12px; }
+.popupEditor .devices label { flex: 1 1 140px; gap: 10px; min-height: 52px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); font-size: 14px; background: var(--cp-surface); }
+.popupEditor .devices label:has(input:checked) { border-color: var(--cp-graphite); background: var(--cp-soft); }
+.popupEditor .devices input { width: 16px; height: 16px; margin: 0; }
+.popupEditor .previewSection { position: sticky; top: 0; }
+.popupEditor .previewControls { font-size: 14px; font-weight: 500; margin-bottom: 16px; }
+.popupEditor .previewControls button { display: grid; place-items: center; min-height: 44px; min-width: 44px; border: 0; background: transparent; padding: 8px; border-radius: var(--cp-control-radius); }
+.popupEditor .previewControls button[aria-pressed=true] { background: var(--cp-soft); }
+.popupEditor .notice, .popupEditor .error { border: 0; background: var(--cp-soft); padding: 16px; font-size: 13px; }
+.popupEditor .error { color: var(--cp-danger); }
+.popupEditor .notice p { margin: 0 0 8px; }
+.popupEditor .couponSummary { background: var(--cp-soft); padding: 16px; }
+.popupEditor .couponCreate { padding-top: 24px; gap: 16px; }
+.stepNavigation { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid var(--cp-border); }
+.stepNavigation .help { max-width: 220px; text-align: right; }
+.popupPreviewFrame { background: var(--cp-art-soft); border-radius: 12px; }
+.popupPreviewFrame .previewBackdrop { min-height: 340px; padding: 24px 16px; }
+.popupPreviewFrame .previewCopy { padding: 32px 20px 20px; gap: 12px; }
+.popupPreviewFrame .previewButton { min-height: 44px; border-radius: var(--cp-control-radius); font-size: 13px; }
+.popupPreviewFrame.mobilePreview { max-width: 276px; }
+@media (max-width: 1100px) {
+  .popupEditor .editorGrid { grid-template-columns: minmax(0,1fr) 320px; gap: 24px; }
+}
+@media (max-width: 760px) {
+  .popupModal.popupModal { inset: 0; width: 100%; height: 100dvh; max-height: none; border-radius: 0; transform: none; }
+  .popupList .toolbar { gap: 12px; }
+  .searchField { max-width: none; flex-basis: 100%; }
+  .statusFilters { gap: 0; }
+  .statusFilters button { padding-inline: 12px; }
+  .popupList .toolbar > button { min-width: 0; padding-inline: 12px; }
+  .popupList .listRow { grid-template-columns: 72px minmax(0,1fr); gap: 12px; padding: 20px 0; }
+  .listArtwork { width: 72px; height: 64px; }
+  .listMeta { gap: 8px 12px; }
+  .popupList .empty { padding-block: 40px; }
+  .loadingRow { grid-template-columns: 72px minmax(0,1fr); gap: 12px; }
+  .loadingRow > i:last-child { grid-column: 2; width: 112px; }
+  .popupEditor .editorTop { align-items: flex-end; gap: 16px; margin-bottom: 16px; }
+  .popupEditor .tabs { gap: 12px; margin-bottom: 20px; }
+  .popupEditor .tabs button { flex: 1; padding-inline: 0; font-size: 13px; }
+  .popupEditor .editorGrid { grid-template-columns: minmax(0,1fr); gap: 24px; }
+  .popupEditor .previewSection { position: static; padding-top: 24px; }
+  .popupEditor .templates { gap: 8px; }
+  .popupEditor .templates label { padding: 8px 6px 12px; }
+  .popupEditor .templates input { left: 6px; bottom: 10px; width: 14px; height: 14px; }
+  .templateArtwork { height: 64px; }
+  .popupEditor .field :is(input,select,textarea) { font-size: 16px; }
+}

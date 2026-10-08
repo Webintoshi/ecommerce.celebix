@@ -6,10 +6,11 @@ import { usePanelChromeModel } from '@/components/panel/PanelLayoutClient';
 import { scopedStoreEngagementApi, type CampaignInput } from '@/lib/store-engagement-ui/client';
 import { promotionApi, promotionErrorMessage } from '@/lib/promotion-ui/client';
 import { createPromotionDraft, updatePromotionDraft } from '@/lib/promotion-ui/model';
-import { Monitor, ShoppingBag, Smartphone } from 'lucide-react';
+import { ArrowRight, Check, Monitor, Plus, Search, ShoppingBag, Smartphone } from 'lucide-react';
 import { storefrontDesignApi } from '@/lib/storefront-design-ui/client';
 import { DesignSettingsModal } from '../settings/design/DesignSettingsDrawer';
 import { DesignImageField, type DesignImageOption } from '../settings/design/DesignImageField';
+import { PopupArtwork } from './PopupArtwork';
 import styles from './popup-studio.module.css';
 export interface EngagementPermissions {
     readonly canManage: boolean;
@@ -17,9 +18,9 @@ export interface EngagementPermissions {
     readonly canCreateCoupon?: boolean;
     readonly timezone?: string;
 }
-const TABS = [['design', 'Tasarım'], ['content', 'İçerik'], ['visibility', 'Gösterim'], ['coupon', 'Kupon']] as const;
+const TABS = [['content', 'Tasarım'], ['visibility', 'Gösterim'], ['coupon', 'Kupon']] as const;
 const CART_TABS = [['content', 'İçerik'], ['design', 'Görünüm'], ['visibility', 'Gösterim'], ['coupon', 'Kupon']] as const;
-type Tab = (typeof TABS)[number][0];
+type Tab = (typeof CART_TABS)[number][0];
 const TEMPLATES = [['minimal', 'Sade'], ['image_left', 'Görselli'], ['discount', 'Kupon']] as const;
 const keyOf = (image?: StoreEngagementImageReference) => image ? (image.kind === 'media' ? 'media:' + image.mediaId : 'asset:' + image.assetId) : '';
 const referenceOf = (key: string): StoreEngagementImageReference | undefined => key.startsWith('media:') ? {
@@ -48,8 +49,8 @@ export function EngagementPreview({ config, imageUrl, couponCode, kind, mobile =
     kind: StoreEngagementCampaignKind;
     mobile?: boolean;
 }>) {
-    return <div className={[styles.previewFrame, mobile ? styles.mobilePreview : '', kind === 'cart_capture' ? styles.cartPreviewFrame : ''].filter(Boolean).join(' ')} data-engagement-preview aria-label="Canlı önizleme">
-    {kind === 'cart_capture' ? <div className={styles.storePreviewHeader} aria-hidden="true"><span /><i /><ShoppingBag size={16} /></div> : null}
+    return <div className={[styles.previewFrame, mobile ? styles.mobilePreview : '', kind === 'cart_capture' ? styles.cartPreviewFrame : styles.popupPreviewFrame].filter(Boolean).join(' ')} data-engagement-preview aria-label="Canlı önizleme">
+    <div className={styles.storePreviewHeader} aria-hidden="true"><span /><i /><ShoppingBag size={16} /></div>
     <div className={styles.previewBackdrop}>
     <article className={styles.previewCard + ' ' + styles[config.template]}>
     <span className={styles.previewClose} aria-hidden="true">
@@ -108,11 +109,14 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         } : {}), kind, name: campaign?.name ?? (kind === 'popup' ? 'Yeni popup' : 'Sepet yakalama'), enabled: campaign?.enabled ?? true, config: campaign?.config ?? createDefaultStoreEngagementConfig(kind)
     });
     const tabs = kind === 'cart_capture' ? CART_TABS : TABS;
-    const [draft, setDraft] = useState(initial.current), [tab, setTab] = useState<Tab>(kind === 'cart_capture' ? 'content' : 'design'), [mobile, setMobile] = useState(false), [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState(Boolean(recoveryInput)), [conflict, setConflict] = useState(false), [error, setError] = useState(''), [discard, setDiscard] = useState(false);
+    const [draft, setDraft] = useState(initial.current), [tab, setTab] = useState<Tab>('content'), [mobile, setMobile] = useState(false), [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState(Boolean(recoveryInput)), [conflict, setConflict] = useState(false), [error, setError] = useState(''), [discard, setDiscard] = useState(false);
     const [images, setImages] = useState<readonly DesignImageOption[]>([]), [imageError, setImageError] = useState(''), [imageRevision, setImageRevision] = useState(0);
     const [couponItems, setCouponItems] = useState<readonly PromotionAdminListItem[]>([]), [coupon, setCoupon] = useState<Coupon | null>(null), [couponBusy, setCouponBusy] = useState(false), [couponError, setCouponError] = useState(''), [couponCursor, setCouponCursor] = useState<string | null>(null), [couponCode, setCouponCode] = useState(''), [percentage, setPercentage] = useState('3'), [couponUnknown, setCouponUnknown] = useState(false);
+    const [imageBusy, setImageBusy] = useState(false), [imagePending, setImagePending] = useState(false);
+    const imageState = useRef({ busy: false, pending: false });
+    const mediaAttempts = useRef(new WeakMap<File, { operationId: string; altText: string }>());
     const couponIntent = useRef<ReturnType<typeof createPromotionDraft> | null>(null), couponGeneration = useRef(0), writing = useRef(false);
-    const dirty = JSON.stringify(draft) !== JSON.stringify(initial.current), locked = !canManage || busy || uncertain || conflict || couponBusy || couponUnknown;
+    const dirty = JSON.stringify(draft) !== JSON.stringify(initial.current), baseLocked = !canManage || busy || uncertain || conflict || couponBusy || couponUnknown, locked = baseLocked || imageBusy || imagePending;
     const change = useCallback((patch: Partial<CampaignInput>) => {
         if (locked)
             return;
@@ -127,6 +131,44 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             ...draft.config, ...patch
         }
     });
+    const imageBusyChange = useCallback((id: string, value: boolean) => {
+        imageState.current.busy = value;
+        setImageBusy(value);
+        if (!value) window.requestAnimationFrame(() => {
+            if (document.activeElement === document.body) document.getElementById(id + '-label')?.closest('section')?.querySelector<HTMLButtonElement>('[data-image-dropzone]')?.focus();
+        });
+    }, []);
+    const imagePendingChange = useCallback((_id: string, value: boolean) => {
+        imageState.current.pending = value;
+        setImagePending(value);
+    }, []);
+    async function uploadImage(file: File): Promise<DesignImageOption> {
+        let attempt = mediaAttempts.current.get(file);
+        if (!attempt) {
+            attempt = { operationId: crypto.randomUUID(), altText: draft.name.trim() || 'Popup görseli' };
+            mediaAttempts.current.set(file, attempt);
+        }
+        const uploaded = await storefrontDesignApi.uploadMedia({ file, ...attempt });
+        const option = { key: 'media:' + uploaded.id, url: uploaded.url, altText: uploaded.altText, width: uploaded.width, height: uploaded.height };
+        mediaAttempts.current.delete(file);
+        setImages(items => [option, ...items.filter(item => item.key !== option.key)]);
+        return option;
+    }
+    function selectImage(key: string) {
+        if (baseLocked) return;
+        const image = referenceOf(key);
+        setDraft(value => {
+            const { image: _previous, ...config } = value.config;
+            return { ...value, config: { ...config, ...(image ? { image } : {}) } };
+        });
+        setError('');
+        setDiscard(false);
+    }
+    function navigate(next: Tab, moveFocus = false) {
+        if (imageState.current.busy || imageState.current.pending) return;
+        setTab(next);
+        if (moveFocus) window.requestAnimationFrame(() => document.getElementById('engagement-tab-' + next)?.focus());
+    }
     useEffect(() => {
         const controller = new AbortController();
         let active = true;
@@ -135,9 +177,9 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             signal: controller.signal
         }).then(workspace => {
             if (active)
-                setImages(workspace.media.map(option => ({
+                setImages(items => [...items, ...workspace.media.map(option => ({
                     key: keyOf(option.reference), url: option.url, altText: option.altText, width: option.width, height: option.height
-                })));
+                })).filter(option => !items.some(item => item.key === option.key))]);
         }).catch(() => {
             if (active)
                 setImageError('Görsel kütüphanesi yüklenemedi.');
@@ -186,7 +228,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         };
     }, [campaign?.config.promotionId, canReadCoupons]);
     useEffect(() => {
-        if (!dirty && !busy && !uncertain && !couponUnknown)
+        if (!dirty && !busy && !uncertain && !couponUnknown && !imageBusy && !imagePending)
             return;
         const unload = (event: BeforeUnloadEvent) => {
             event.preventDefault();
@@ -194,8 +236,12 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         };
         window.addEventListener('beforeunload', unload);
         return () => window.removeEventListener('beforeunload', unload);
-    }, [dirty, busy, uncertain, couponUnknown]);
+    }, [dirty, busy, uncertain, couponUnknown, imageBusy, imagePending]);
     const requestClose = useCallback(() => {
+        if (imageState.current.busy || imageState.current.pending) {
+            setError('Görsel yüklemesini tamamlayın veya görsel seçimini kaldırın.');
+            return;
+        }
         if (busy || uncertain || couponBusy || couponUnknown) {
             setError('Önce aynı bilgilerle işlemin sonucunu doğrulayın.');
             return;
@@ -207,9 +253,23 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         onClose();
     }, [busy, uncertain, couponBusy, couponUnknown, dirty, onClose]);
     async function apply() {
-        if (!canManage || busy || writing.current || conflict || couponBusy || couponUnknown)
+        if (!canManage || busy || writing.current || conflict || couponBusy || couponUnknown || imageState.current.busy || imageState.current.pending)
             return;
         let payload: CampaignInput;
+        if (kind === 'popup') {
+            const invalid = !draft.name.trim() ? ['content', 'engagement-name', 'Kayıt adını girin.']
+                : !draft.config.heading.trim() ? ['content', 'engagement-heading', 'Başlığı girin.']
+                : !draft.config.buttonLabel.trim() ? ['content', 'engagement-button-label', 'Buton metnini girin.']
+                : !draft.config.devices.desktop && !draft.config.devices.mobile ? ['visibility', 'engagement-device-desktop', 'En az bir cihaz seçin.']
+                : !Number.isInteger(draft.config.delaySeconds) || draft.config.delaySeconds < 0 || draft.config.delaySeconds > 120 ? ['visibility', 'engagement-delay', 'Gecikme 0–120 saniye olmalı.']
+                : !Number.isInteger(draft.config.repeatDays) || draft.config.repeatDays < 1 || draft.config.repeatDays > 90 ? ['visibility', 'engagement-repeat', 'Tekrar süresi 1–90 gün olmalı.'] : null;
+            if (invalid) {
+                setError(invalid[2]!);
+                setTab(invalid[0] as Tab);
+                window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[name="' + invalid[1] + '"]')?.focus());
+                return;
+            }
+        }
         try {
             payload = {
                 ...draft, name: draft.name.trim(), config: parseStoreEngagementConfig({
@@ -287,7 +347,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         }
     }
     async function createCoupon() {
-        if (!canManage || !canCreateCoupon || busy || writing.current || couponBusy || uncertain || conflict)
+        if (!canManage || !canCreateCoupon || busy || writing.current || couponBusy || uncertain || conflict || imageState.current.busy || imageState.current.pending)
             return;
         const codeValue = couponCode.trim().toUpperCase(), percent = Number(percentage.replace(',', '.'));
         if (!/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(codeValue) || !Number.isFinite(percent) || percent <= 0 || percent > 100 || !Number.isInteger(percent * 100)) {
@@ -345,8 +405,8 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     const selectedImage = images.find(image => image.key === keyOf(draft.config.image));
     return <DesignSettingsModal open surface={{
         label: campaign ? title(kind) + ' düzenle' : title(kind) + ' ekle', hint: 'Değişiklikleri Uygula ile kaydedin.'
-    }} className={kind === 'cart_capture' ? styles.cartModal : undefined} returnFocusRef={returnFocusRef} onClose={closeModal} onApply={() => void apply()} applying={busy || couponBusy} applyDisabled={!canManage || conflict || couponUnknown}>
-    <div className={kind === 'cart_capture' ? styles.cartEditor : undefined}>
+    }} className={kind === 'cart_capture' ? styles.cartModal : styles.popupModal} returnFocusRef={returnFocusRef} onClose={closeModal} onApply={() => void apply()} applying={busy || couponBusy} applyDisabled={!canManage || conflict || couponUnknown || imageBusy || imagePending}>
+    <div className={kind === 'cart_capture' ? styles.cartEditor : styles.popupEditor}>
     {api.hasUnresolved() ? <p className={styles.notice} role="status">
     Önceki kayıt sonucu belirsiz. Korunan bilgilerle Uygula düğmesine basarak doğrulayın.
     </p> : null}
@@ -376,25 +436,25 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     <input name="engagement-enabled" type="checkbox" role="switch" checked={draft.enabled} disabled={locked} onChange={event => change({
         enabled: event.currentTarget.checked
     })}/>
-    {kind === 'cart_capture' ? <span className={styles.switchTrack} aria-hidden="true" /> : null}
+    <span className={styles.switchTrack} aria-hidden="true" />
     {draft.enabled ? 'Açık' : 'Kapalı'}
     </label>
     </div>
     <div className={styles.tabs} role="tablist" aria-label={title(kind) + ' ayarları'}>
-        {tabs.map(([key, label]) => <button key={key} id={'engagement-tab-' + key} type="button" role="tab" aria-selected={tab === key} aria-controls={'engagement-panel-' + key} tabIndex={tab === key ? 0 : -1} onKeyDown={event => {
+        {tabs.map(([key, label]) => <button key={key} id={'engagement-tab-' + key} type="button" role="tab" aria-selected={tab === key} aria-controls={'engagement-panel-' + key} tabIndex={tab === key ? 0 : -1} disabled={imageBusy || imagePending} onKeyDown={event => {
                 if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
                     return;
                 event.preventDefault();
                 const index = tabs.findIndex(([item]) => item === tab), next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
-                setTab(tabs[next]![0]);
+                navigate(tabs[next]![0]);
                 document.getElementById('engagement-tab-' + tabs[next]![0])?.focus();
-            }} onClick={() => setTab(key)}>
+            }} onClick={() => navigate(key)}>
         {label}
         </button>)}
     </div>
     <div className={styles.editorGrid}>
     <section id={'engagement-panel-' + tab} role="tabpanel" aria-labelledby={'engagement-tab-' + tab} className={styles.fields}>
-        {tab === 'design' ? <>
+        {tab === 'design' || (kind === 'popup' && tab === 'content') ? <>
         <fieldset className={styles.templates} disabled={locked}>
         <legend>
         Düzen
@@ -403,28 +463,15 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             <input type="radio" name="engagement-template" value={value} checked={draft.config.template === value} onChange={() => configChange({
                 template: value
             })}/>
-            <span className={styles.templateSketch + ' ' + styles[value]} aria-hidden="true">
-            <i />
-            <b />
-            <em />
-            </span>
+            {kind === 'popup' ? <PopupArtwork variant={value} className={styles.templateArtwork} /> : <span className={styles.templateSketch + ' ' + styles[value]} aria-hidden="true"><i /><b /><em /></span>}
             {label}
             </label>)}
         </fieldset>
             {draft.config.template === 'image_left' ? <>
-            <DesignImageField label={kind === 'cart_capture' ? 'Görsel' : 'Popup görseli'} value={keyOf(draft.config.image)} options={images} disabled={locked} frame="portrait" onChange={key => {
-                    const image = referenceOf(key);
-                    if (image)
-                        configChange({
-                            image
-                        });
-                    else {
-                        const { image: _, ...config } = draft.config;
-                        change({
-                            config
-                        });
-                    }
-                }}/>
+            <DesignImageField label={kind === 'cart_capture' ? 'Görsel' : 'Popup görseli'} value={keyOf(draft.config.image)} options={images} disabled={baseLocked} frame="portrait" onChange={selectImage}
+                onUpload={kind === 'popup' && canManage ? uploadImage : undefined}
+                onBusyChange={kind === 'popup' ? imageBusyChange : undefined}
+                onPendingChange={kind === 'popup' ? imagePendingChange : undefined} />
                 {imageError ? <p className={styles.error}>
                 {imageError}
                 <button type="button" className="button button-text" onClick={() => setImageRevision(value => value + 1)}>
@@ -504,13 +551,14 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
                     }
                 });
             }}/>
+            {kind === 'popup' ? device === 'desktop' ? <Monitor size={18} aria-hidden="true" /> : <Smartphone size={18} aria-hidden="true" /> : null}
             {device === 'desktop' ? 'Masaüstü' : 'Mobil'}
             </label>)}
         </fieldset>
         <label className={styles.field}>
         Gösterim gecikmesi
         <span>
-        Saniye
+        {kind === 'popup' ? 'Sayfa açıldıktan sonra · saniye' : 'Saniye'}
         </span>
         <input name="engagement-delay" type="number" min={0} max={120} value={draft.config.delaySeconds} disabled={locked} onChange={event => configChange({
             delaySeconds: Number(event.currentTarget.value)
@@ -519,7 +567,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         <label className={styles.field}>
         Tekrar gösterme
         <span>
-        Gün
+        {kind === 'popup' ? 'Aynı ziyaretçiye · gün sonra' : 'Gün'}
         </span>
         <input name="engagement-repeat" type="number" min={1} max={90} value={draft.config.repeatDays} disabled={locked} onChange={event => configChange({
             repeatDays: Number(event.currentTarget.value)
@@ -529,6 +577,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         {tab === 'coupon' ? <>
         <label className={styles.field}>
         Kupon
+        {kind === 'popup' ? <span>İsteğe bağlı</span> : null}
         <select name="engagement-promotion" value={draft.config.promotionId ?? ''} disabled={locked || !canReadCoupons} onChange={event => {
             const value = event.currentTarget.value;
             void selectCoupon(value);
@@ -592,6 +641,10 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         {couponError}
         </p> : null}
         </> : null}
+    {kind === 'popup' ? <div className={styles.stepNavigation}>
+        {tab !== 'content' ? <button type="button" className="button button-text" disabled={imageBusy || imagePending} onClick={() => navigate(tab === 'coupon' ? 'visibility' : 'content', true)}>Geri</button> : <span />}
+        {tab !== 'coupon' ? <button type="button" className="button button-secondary" disabled={imageBusy || imagePending} onClick={() => navigate(tab === 'content' ? 'visibility' : 'coupon', true)}>Devam<ArrowRight size={16} aria-hidden="true" /></button> : <span className={styles.help}>Kupon kullanmadan da kaydedebilirsiniz.</span>}
+    </div> : null}
     </section>
     <section className={styles.previewSection} aria-label="Önizleme">
     <div className={styles.previewControls}>
@@ -599,14 +652,14 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     Önizleme
     </span>
     <button type="button" aria-label="Masaüstü önizleme" aria-pressed={!mobile} onClick={() => setMobile(false)}>
-    {kind === 'cart_capture' ? <Monitor size={18} aria-hidden="true" /> : null}
-    <span className={kind === 'cart_capture' ? styles.srOnly : undefined}>
+    <Monitor size={18} aria-hidden="true" />
+    <span className={styles.srOnly}>
     Masaüstü
     </span>
     </button>
     <button type="button" aria-label="Mobil önizleme" aria-pressed={mobile} onClick={() => setMobile(true)}>
-    {kind === 'cart_capture' ? <Smartphone size={18} aria-hidden="true" /> : null}
-    <span className={kind === 'cart_capture' ? styles.srOnly : undefined}>
+    <Smartphone size={18} aria-hidden="true" />
+    <span className={styles.srOnly}>
     Mobil
     </span>
     </button>
@@ -642,81 +695,40 @@ export function PopupStudio(props: EngagementPermissions) {
         };
     }, [api, revision]);
     const visible = records.filter(item => item.name.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR')) && (filter === 'all' || item.enabled === (filter === 'enabled')));
-    return <PanelPageShell>
-    <h1 className={styles.srOnly}>
-    Popuplar
-    </h1>
-    <PanelPageHeader title="Popuplar" actions={props.canManage ? <button type="button" disabled={api.hasUnresolved()} className="button button-primary" onClick={event => {
-        trigger.current = event.currentTarget;
+    const openNew = (element: HTMLElement) => {
+        trigger.current = element;
         setRecovering(false);
         setEditor(null);
-    }}>
-    Popup ekle
-    </button> : undefined}/>
-    {notice ? <p className={styles.notice} role="status">
-    {notice}
-    </p> : null}
-    {recovery&&api.hasUnresolved()?<div className={styles.notice} role="status"><p>Önceki kayıt sonucu henüz doğrulanamadı. Bilgileriniz korunuyor.</p>{recovery.kind==='popup'?<button type="button" className="button button-secondary" disabled={!props.canManage} onClick={event=>{trigger.current=event.currentTarget;setRecovering(true);setEditor(null);}}>Önceki kaydı doğrula</button>:<a href="/settings/store-tools">Sepet kaydını doğrula</a>}</div>:null}
-        {phase === 'loading' ? <p role="status">
-        Popuplar yükleniyor…
-        </p> : phase === 'error' ? <div className={styles.notice} role="alert">
-        Popuplar yüklenemedi.
-        <button type="button" className="button button-secondary" onClick={() => setRevision(value => value + 1)}>
-        Tekrar dene
-        </button>
-        </div> : <>
-        <div className={styles.toolbar}>
-        <input aria-label="Popup ara" placeholder="Popup ara" value={search} onChange={event => setSearch(event.currentTarget.value)}/>
-        <select aria-label="Popup durumu" value={filter} onChange={event => setFilter(event.currentTarget.value)}>
-        <option value="all">
-        Tümü
-        </option>
-        <option value="enabled">
-        Açık
-        </option>
-        <option value="disabled">
-        Kapalı
-        </option>
-        </select>
+    };
+    return <PanelPageShell>
+    <div className={styles.popupList}>
+    <h1 className={styles.srOnly}>Popuplar</h1>
+    <PanelPageHeader title="Popuplar" />
+    {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
+    {recovery && api.hasUnresolved() ? <div className={styles.notice} role="status"><p>Önceki kayıt sonucu henüz doğrulanamadı. Bilgileriniz korunuyor.</p>{recovery.kind === 'popup' ? <button type="button" className="button button-secondary" disabled={!props.canManage} onClick={event => { trigger.current = event.currentTarget; setRecovering(true); setEditor(null); }}>Önceki kaydı doğrula</button> : <a href="/settings/store-tools">Sepet kaydını doğrula</a>}</div> : null}
+    <header className={styles.toolbar}>
+        <label className={styles.searchField}><Search size={18} aria-hidden="true" /><input aria-label="Popup ara" placeholder="Popup ara" value={search} onChange={event => setSearch(event.currentTarget.value)} /></label>
+        <div className={styles.statusFilters} role="group" aria-label="Popup durumu">
+            {([['all', 'Tümü'], ['enabled', 'Açık'], ['disabled', 'Kapalı']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}
         </div>
-            {visible.length ? <div className={styles.list}>
-                {visible.map(item => <article key={item.id} className={styles.listRow}>
-                <div className={styles.listSketch} aria-hidden="true">
-                <span>
-                {item.config.template === 'discount' ? '%' : item.config.template === 'image_left' ? '▧' : 'Aa'}
-                </span>
-                </div>
-                <div className={styles.listCopy}>
-                <h2>
-                {item.name}
-                </h2>
-                <p>
-                {item.config.heading}
-                </p>
-                <span>
-                {item.enabled ? 'Açık' : 'Kapalı'}
-                 ·
-                {item.config.devices.desktop && item.config.devices.mobile ? 'Tüm cihazlar' : item.config.devices.mobile ? 'Mobil' : 'Masaüstü'}
-                {item.config.promotionId ? ' · Kupon bağlı' : ''}
-                </span>
-                </div>
-                <button type="button" disabled={api.hasUnresolved()} className="button button-secondary" onClick={event => {
-                    trigger.current = event.currentTarget;
-                    setRecovering(false);
-                    setEditor(item);
-                }}>
-                {props.canManage ? 'Düzenle' : 'Görüntüle'}
-                </button>
-                </article>)}
-            </div> : <div className={styles.empty}>
-            {records.length ? 'Aramanıza uygun popup yok.' : 'Henüz popup eklenmedi.'}
-            </div>}
-        </>}
+        {props.canManage ? <button type="button" disabled={api.hasUnresolved()} className="button button-primary" onClick={event => openNew(event.currentTarget)}><Plus size={18} aria-hidden="true" />Popup ekle</button> : null}
+    </header>
+    {phase === 'loading' ? <div className={styles.loadingList} role="status"><span className={styles.srOnly}>Popuplar yükleniyor…</span>{[0, 1, 2].map(index => <div key={index} className={styles.loadingRow} aria-hidden="true"><i /><div><i /><i /></div><i /></div>)}</div>
+        : phase === 'error' ? <div className={styles.empty} role="alert"><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>Popuplar yüklenemedi.</h2><button type="button" className="button button-secondary" onClick={() => setRevision(value => value + 1)}>Tekrar dene</button></div>
+        : visible.length ? <div className={styles.list}>
+            {visible.map(item => <article key={item.id} className={styles.listRow}>
+                <PopupArtwork variant={item.config.template} className={styles.listArtwork} />
+                <div className={styles.listCopy}><h2>{item.name}</h2><p>{item.config.heading}</p><div className={styles.listMeta}><span className={styles.statusBadge} data-enabled={item.enabled}>{item.enabled ? <Check size={12} aria-hidden="true" /> : null}{item.enabled ? 'Açık' : 'Kapalı'}</span><span>{item.config.devices.desktop && item.config.devices.mobile ? 'Tüm cihazlar' : item.config.devices.mobile ? 'Mobil' : 'Masaüstü'}</span>{item.config.promotionId ? <span>Kupon bağlı</span> : null}</div></div>
+                <button type="button" disabled={api.hasUnresolved()} className="button button-secondary" onClick={event => { trigger.current = event.currentTarget; setRecovering(false); setEditor(item); }}>{props.canManage ? 'Düzenle' : 'Görüntüle'}<ArrowRight size={16} aria-hidden="true" /></button>
+            </article>)}
+        </div>
+        : <div className={styles.empty}><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>{records.length ? 'Aramanıza uygun popup yok.' : 'İlk popupınızı ekleyin'}</h2>{records.length ? <button type="button" className="button button-secondary" onClick={() => { setSearch(''); setFilter('all'); }}>Filtreleri temizle</button> : props.canManage ? <button type="button" disabled={api.hasUnresolved()} className="button button-secondary" onClick={event => openNew(event.currentTarget)}>İlk popupı ekle<ArrowRight size={16} aria-hidden="true" /></button> : <p>Henüz popup eklenmedi.</p>}</div>}
     {editor !== undefined ? <EngagementEditor key={recovering?'recovery':editor?.id ?? 'new'} {...props} kind="popup" campaign={editor} recoveryInput={recovering&&recovery?recovery:undefined} returnFocusRef={trigger} onClose={() => {setEditor(undefined);setRecovering(false);if(!api.hasUnresolved())setRecovery(null);}} onSaved={saved => {
         setRecords(items => [saved, ...items.filter(item => item.id !== saved.id)]);
         setNotice(saved.enabled ? 'Popup uygulandı.' : 'Popup kapalı olarak kaydedildi.');
         setEditor(undefined);
         setRecovery(null);setRecovering(false);
     }}/> : null}
+    </div>
     </PanelPageShell>;
 }
