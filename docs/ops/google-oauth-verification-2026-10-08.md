@@ -11,8 +11,8 @@
 
 ## Başvuruyu tamamlamak için
 
-1. Mevcut gizlilik politikasına Google bağlantılarının veri erişimi, kullanım, paylaşım, koruma ve silme davranışını açıklayan ek yayımlanmalı. Canlı `/tr/gizlilik` hâlen genel metindir. Yerel öneri yayımlanmış politika veya işletmenin Limited Use uygunluk beyanı değildir.
-2. Bağlantı ekranında bu açıklamaya erişilebilir bağlantı sağlanmalı. Yedek, personel erişimi ve veri talebi/silme süreçleri işletme tarafından netleştirilmeden otomatik silme süresi veya tam uygunluk beyanı verilmemeli.
+1. Google veri kullanımı eki kullanıcının açık onayıyla `/tr/gizlilik` ve EN karşılığında yayımlandı. Erişim, kullanım, şifreli saklama ve bağlantı kesmenin gerçek davranışı açıklanır; otomatik saklama süresi veya doğrulanmamış Limited Use uygunluk beyanı verilmez.
+2. Bütün Google bağlantı pencerelerinde canlı gizlilik bağlantısı iki ortak admin üzerinde yayımlandı. Yedek, personel erişimi ve veri talebi/silme süreçleri işletme tarafından netleştirilmeden ek süre veya tam uygunluk beyanı verilmemeli.
 3. İngilizce OAuth ekranı, görünür istemci kimliği, gerekli GTM ek izinleri ve her hassas kapsamın gerçek kullanımı kaydedilmeli. Parola, OAuth kodu, token ve müşteri verisi videoya alınmamalı. Gerçek hesap/kaynak bilgilerinin liste dışı YouTube'a aktarılması için açık izin alınmalı.
 4. Gerçek video bağlantısı ve kapsam gerekçeleri kaydedilmeli; doğruluk/politika beyanı tamamlandıktan sonra Google incelemesine gönderilmeli. Başvuru sonucu ve inceleme onayı ayrı durumlar olarak izlenmeli.
 
@@ -20,7 +20,21 @@ Google güvenlik uyarısını agent geçmez; ilgili Google izin ekranı kullanı
 
 ## Ayrı, sonraki iyileştirme
 
-Search Console için kullanılan `getToken` ve `insert`, `siteverification.verify_only` kabul eder. Mevcut geniş `siteverification` daraltılabilir; kod, Cloud kapsam listesi ve mevcut bağlantıların uyumlu geçişi birlikte ele alınmalıdır. Bu kontrol kaynak, şema, ortam veya dağıtım değiştirmedi. Ads üretim API erişimi ve gerçek GTM/Ads kurulum kabulü ayrıca bekliyor.
+Search Console için kullanılan `getToken` ve `insert`, `siteverification.verify_only` kabul eder. Mevcut geniş `siteverification` daraltılabilir; kod, Cloud kapsam listesi ve mevcut bağlantıların uyumlu geçişi birlikte ele alınmalıdır. Bu arayüz/gizlilik yayını kapsamları, şemayı veya sunucu ortamını değiştirmedi. Ads üretim API erişimi ve gerçek GTM/Ads kurulum kabulü ayrıca bekliyor.
+
+## Tamamlanan gizlilik ve arayüz yayını
+
+- Kamu sitesi yalnız gizlilik değişikliğiyle `55369e5f8da743d2805a60ae916d985dc3d62d9d` kaynağına yayımlandı; doğrudan tabanı önceki gerçek canlı `7455ab335ef44a1abcf31161222ebff97061d539`. Coolify işlemi `f4de3328213d3ea5984413d30846522f` finished; TR/EN HTTP200 ve gerçek Chrome kabulü tamamlandı. Sunucu ortamı ve SaaS uygulamaları korundu.
+- Kamu `main` kaynağı `0f505c060f87e695e3fe1ba28ac812148f965182` korunmuştur. Güncel-main tabanlı aynı ek `b90c6277e6d8e36c0166821f672f37827a7e1131` adayında vardır; sonraki main yayınında bu ek de korunmalıdır. Mevcut diğer blog/middleware farkları bu yayına alınmadı.
+- Ortak admin arayüzü `625644c075c78438a725eb654f3ea895d4494716`: NET `hv3d3z80r50x17ctlne38ap4` → SITE `hxnaqa3b2mk5ftimei5xuym7` finished. Son kök kontrolü global kuyrukların boşluğunu, iki panel kaynağını, ödeme/Google/keyring/ham ortam kayıtlarını ve iki değişmeyen vitrin konteynerini doğruladı. Yeni SQL veya ortam kaydı yoktur.
+- GTM penceresinde **Yeni Tag Manager hesabı oluştur** bağlantısı Google'ın resmî arayüzünü açar. Hesap oluşturma API'de bulunmadığı için Google'daki **Hesap Oluştur** işlemi kullanılır; sonra panelden liste yenilenir. Erişilebilir hesapta mağaza konteyneri oluşturma akışı korunur.
+- 24 davranış testi, üretim derlemesi ve bağımsız inceleme geçti. Güzide'nin oturumlu Chrome kabulünde yeni bağlantı/etiket/gizlilik, resmî Google hesabı oluşturma girişi, yenileme sonrası hesap/konteyner seçiminin korunması ve Vazgeç doğrulandı. Yeni ek için 390 piksel denemesi gerçek ekranı değiştirmedi (1680 piksel gözlendi); ayrı mobil canlı kabulü iddia edilmez. Google kurulumuna Uygula veya sağlayıcı mutasyonu yapılmadı.
+
+## Yerel kullanıcı kaydı ve bekleyen adımlar
+
+Kullanıcının 24,61 saniyelik Masaüstü videosu Google giriş/izin akışını ve GTM hesap listesine dönüşü gösterir. Ayrıntılı kapsamlar, GTM Uygula/yayın sonucu ve Ads kullanım kanıtı eksiktir. İlgisiz Google hesap kimlikleri de görünür; video yerelde tutuldu, YouTube'a yüklenmedi. Başvuru hâlâ gönderilmemiştir. Güvenlik uyarısı ve ek Google izinleri kullanıcı tarafından tamamlanmalıdır.
+
+Arayüz kabulünden sonra kullanıcı Chrome'da yeni Güzide GTM hesabını/konteynerini seçip kurulumu tamamladı. Gerçek ekranda **Bağlantı uygulandı / Bağlı**, `guzidekuyumcu.com` ve `GTM-P8PBNLXG` görüldü. Root Uygula veya Google izin düğmesine basmadı; bu kullanıcı işlemi ortak arayüz yayınının sağlayıcı mutasyonu değildir. Bu ekran kanıtı, tüm kapsamların demo videosu veya gerçek ziyaretçi ölçüm kabulünün tamamlandığı anlamına gelmez.
 
 ## Kanıt ve kaynaklar
 
