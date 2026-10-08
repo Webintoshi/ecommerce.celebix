@@ -54,7 +54,7 @@ test("malformed marker cannot inject an authority or version",()=>{
 });
 
 import { InStoreRegisterController } from "./model.ts";
-import { InStoreSalesUiError, type InStoreSalesUiClient } from "./client.ts";
+import { createInStoreSalesUiClient, InStoreSalesUiError, type InStoreSalesUiClient, type UiPaymentPart } from "./client.ts";
 import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSaleResult } from "@celebix/saas-contracts";
 const LOCATION="9e000000-0000-4000-8000-000000000003";
 type MutableClient={-readonly[K in keyof InStoreSalesUiClient]:InStoreSalesUiClient[K]};
@@ -445,4 +445,64 @@ test("deselecting the credit customer clears credit terms while keeping the prod
     assert.equal(controller.getSnapshot().cart[0].variantId,f.p.variantId);assert.equal(controller.getSnapshot().cart[0].quantity,1);
     await controller.flush();assert.equal(controller.getSnapshot().sale?.customerId,null);assert.equal(controller.getSnapshot().sale?.initialCollectionCents,200000);
   }finally{controller.dispose();}
+});
+
+function splitDraftFixture(){
+  const id=(value:number)=>`9e000000-0000-4000-8000-${String(value).padStart(12,"0")}`;
+  const at="2026-10-07T00:00:00.000Z";
+  const parts:readonly UiPaymentPart[]=[{partId:id(3),paymentMethod:"cash",amountCents:60000},{partId:id(4),paymentMethod:"card",amountCents:40000}];
+  const unpaid=(part:UiPaymentPart)=>({...part,receiptId:null,receivedAt:null,actorMembershipId:null,refundEventId:null,returnedAt:null});
+  let sequence=10,server:InStoreSale={
+    id:id(1),saleNumber:"POS-1",status:"draft",version:1,contractVersion:4,locationId:LOCATION,locationName:"Mağaza",ownerMembershipId:LOCATION,ownerLabel:"Kasiyer",
+    customerName:null,customerId:null,customer:null,initialCollectionCents:0,dueDate:null,finance:null,paymentMethod:null,note:null,discount:null,
+    salesChannel:"manual",socialPlatform:null,socialReference:null,fulfillmentMethod:"pickup",shippingAddress:null,billingAddress:null,shippingCents:0,paymentParts:[],prepareOperationId:null,abortRequested:false,
+    items:[{productId:id(1),variantId:id(5),productName:"Ürün",variantName:"M",sku:null,barcode:"123",imageUrl:null,unitPriceCents:100000,catalogUnitPriceCents:100000,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null,discountEligible:true,quantity:1,lineSubtotalCents:100000,allocatedDiscountCents:0,lineNetCents:100000}],
+    totals:{subtotalCents:100000,eligibleSubtotalCents:100000,discountCents:0,shippingCents:0,totalCents:100000},createdAt:at,updatedAt:at,paymentReceivedAt:null,completedAt:null,orderId:null,orderNumber:null,
+  };
+  const calls:{method:string;body:unknown}[]=[];
+  const bootstrap=():InStoreBootstrap=>({
+    scopeKey:"split-draft-actor",locations:[{id:LOCATION,name:"Mağaza",isDefault:true}],
+    permissions:{canSell:true,canEditPrice:true,canDiscount:true,discountLimitBps:9999,canSellOnCredit:true,canCollectReceivables:true,creditSalesAvailable:true,canResolve:true,canManageStaff:false,manualSalesV4Available:true},
+    activeDraft:server.status==="draft"?server:null,heldSales:[],pendingSales:server.status==="payment_pending"?[server]:[],recentSales:[],
+    summary:{completedCount:0,grossCents:0,discountCents:0,netCents:0,pendingPaymentCount:server.status==="payment_pending"?1:0},
+  });
+  const api=createInStoreSalesUiClient({contractVersion:4,randomUUID:()=>id(sequence++),fetch:async(url,init)=>{
+    const path=String(url),method=init?.method??"GET";
+    if(path==="/api/orders/in-store/bootstrap")return Response.json({data:bootstrap()});
+    const body=JSON.parse(String(init?.body));calls.push({method,body});
+    if(method==="PATCH"&&path===`/api/orders/in-store/sales/${server.id}`){
+      const intent=body.intent as InStoreSaleIntent;
+      server={...server,...intent,items:server.items,version:server.version+1,initialCollectionCents:100000,paymentMethod:null,paymentParts:intent.paymentParts!.map(unpaid)};
+    }else if(method==="POST"&&path===`/api/orders/in-store/sales/${server.id}/prepare`){
+      server={...server,status:"payment_pending",version:server.version+1,prepareOperationId:new Headers(init?.headers).get("idempotency-key")};
+    }else throw new Error(`unexpected request ${method} ${path}`);
+    return Response.json({data:{sale:server,replayed:false,priceChanged:false}});
+  }});
+  return{parts,calls,controller:()=>new InStoreRegisterController(api),getServer:()=>server};
+}
+
+test("an autosaved V4 split payment plan can prepare with its persisted receipt fields",async()=>{
+  const f=splitDraftFixture(),controller=f.controller();
+  try{
+    await controller.initialize();controller.setPaymentParts(f.parts);await controller.flush();
+    const savedParts=controller.getSnapshot().paymentParts;
+    assert.equal(Object.hasOwn(savedParts[0],"receiptId"),true);
+    await controller.prepare();
+    assert.equal(controller.getSnapshot().error,null);
+    assert.equal(controller.getSnapshot().sale?.status,"payment_pending");
+    assert.deepEqual(controller.getSnapshot().paymentParts,savedParts,"preparing keeps each persisted receipt field");
+    assert.equal(f.calls.filter(call=>call.method==="POST").length,1);
+  }finally{controller.dispose();}
+});
+
+test("a reopened V4 split payment draft can prepare without rewriting its saved plan",async()=>{
+  const f=splitDraftFixture(),first=f.controller();let reopened:InStoreRegisterController|undefined;
+  try{
+    await first.initialize();first.setPaymentParts(f.parts);await first.flush();first.dispose();
+    reopened=f.controller();await reopened.initialize();await reopened.prepare();
+    assert.equal(reopened.getSnapshot().error,null);
+    assert.equal(reopened.getSnapshot().sale?.status,"payment_pending");
+    assert.deepEqual(reopened.getSnapshot().paymentParts,f.getServer().paymentParts);
+    assert.deepEqual(f.calls.map(call=>call.method),["PATCH","POST"]);
+  }finally{first.dispose();reopened?.dispose();}
 });
