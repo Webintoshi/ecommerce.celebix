@@ -837,6 +837,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseStoreEngagementCaptureRequest",
     "parseStoreEngagementCaptureResult",
     "parseStoreEngagementConfig",
+    "parseStoreEngagementDeleteResult",
     "parseStoreEngagementPublicSettings",
     "parseStorefrontAccountMutationResult",
     "parseStorefrontAccountOrder",

@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreEngagementCampaign } from '@celebix/saas-contracts';
 import { usePanelChromeModel } from '@/components/panel/PanelLayoutClient';
-import { scopedStoreEngagementApi,type CampaignInput } from '@/lib/store-engagement-ui/client';
+import { scopedStoreEngagementApi,type PopupDeletionInput,type CampaignInput } from '@/lib/store-engagement-ui/client';
 import { EngagementEditor, type EngagementPermissions } from '../promotions/PopupStudio';
 import { CartCaptureArtwork } from './CartCaptureArtwork';
 import styles from './store-tools.module.css';
@@ -13,8 +13,8 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
     const { storeSlug } = usePanelChromeModel(), api = useMemo(() => scopedStoreEngagementApi(storeSlug), [storeSlug]);
     const [campaign, setCampaign] = useState<StoreEngagementCampaign | null>(null), [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading'), [revision, setRevision] = useState(0), [open, setOpen] = useState(false), [notice, setNotice] = useState('');
     const trigger = useRef<HTMLElement | null>(null);
-    const [recovery,setRecovery]=useState<CampaignInput|null>(null);
-    useEffect(()=>{let active=true;api.pendingIntent().then(intent=>{if(active)setRecovery(intent);}).catch(reason=>{if(active)setNotice(reason instanceof Error?reason.message:'Kayıt doğrulanamadı.');});return()=>{active=false;};},[api,revision]);
+    const [recovery,setRecovery]=useState<CampaignInput|null>(null),[deletionRecovery,setDeletionRecovery]=useState<PopupDeletionInput|null>(null);
+    useEffect(()=>{let active=true;Promise.all([api.pendingIntent(),api.pendingDeletion()]).then(([intent,deletion])=>{if(active){setRecovery(intent);setDeletionRecovery(deletion);}}).catch(reason=>{if(active)setNotice(reason instanceof Error?reason.message:'Kayıt doğrulanamadı.');});return()=>{active=false;};},[api,revision]);
     const ownRecovery=recovery?.kind==='cart_capture'&&api.hasUnresolved();
     useEffect(() => {
         let active = true;
@@ -61,6 +61,7 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
     {notice ? <p role="status">
     {notice}
     </p> : null}
+    {deletionRecovery&&api.hasUnresolved()?<p role="status">Önceki popup silme işlemi doğrulanamadı. <a href="/discounts/popups">Popup silmeyi doğrula</a></p>:null}
     {recovery&&api.hasUnresolved()?<p role="status">Önceki kayıt sonucu belirsiz. Bilgileriniz korunuyor.{recovery.kind==='popup'?<a href="/discounts/popups">Popup kaydını doğrula</a>:null}</p>:null}
     </div>
     {phase === 'error'&&!ownRecovery ? <button type="button" className="button button-secondary" onClick={() => setRevision(value => value + 1)}>

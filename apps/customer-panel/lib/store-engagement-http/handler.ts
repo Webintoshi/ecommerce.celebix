@@ -1,4 +1,4 @@
-import { isMerchantActionAllowed, parseStoreEngagementCampaign, parseStoreEngagementConfig } from '@celebix/saas-contracts';
+import { isMerchantActionAllowed, parseStoreEngagementCampaign, parseStoreEngagementConfig, parseStoreEngagementDeleteResult } from '@celebix/saas-contracts';
 import { StoreEngagementRepositoryError } from '@celebix/saas-data';
 import { authorizeCatalogAdminRequest, catalogAdminHttpError, readCatalogAdminJsonBody, exactCatalogAdminHttpInput, catalogAdminOperationId, catalogAdminHttpId, catalogAdminHttpVersion } from '../catalog-admin-http/handler.ts';
 import type { ServerStoreEngagementRuntime } from '../server-store-engagement/runtime.ts';
@@ -25,6 +25,14 @@ export function createStoreEngagementHandlers(deps:Dependencies){
    if(campaignId===null||expectedVersion===null||(campaignId===undefined)!==(expectedVersion===undefined))return catalogAdminHttpError('invalid_input',400);
    let config;try{config=parseStoreEngagementConfig(row.config);}catch{return catalogAdminHttpError('invalid_input',400);}
    try{const campaign=await (auth.runtime as ServerStoreEngagementRuntime).engagement.save({tenantContext:auth.tenantContext,now:auth.now,operationId,...(campaignId===undefined?{}:{campaignId,expectedVersion}),kind:row.kind as 'popup'|'cart_capture',name:row.name,enabled:row.enabled,config});return json({campaign:parseStoreEngagementCampaign(campaign)});}catch(error){return failure(error);}
+  },
+  async deletePopup(request:Request):Promise<Response>{
+   const auth=await authorizeCatalogAdminRequest(deps,request,'POST',`${PATH}/delete`,'forbidden');if(auth instanceof Response)return auth;
+   if(!isMerchantActionAllowed(auth.tenantContext.membership.role,'configuration.manage'))return catalogAdminHttpError('membership_denied',403);
+   const operationId=catalogAdminOperationId(request),row=exactCatalogAdminHttpInput(await readCatalogAdminJsonBody(request,1024),['campaignId','expectedVersion']);
+   const campaignId=row?catalogAdminHttpId(row.campaignId):null,expectedVersion=row?catalogAdminHttpVersion(row.expectedVersion):null;
+   if(!operationId||!campaignId||!expectedVersion)return catalogAdminHttpError('invalid_input',400);
+   try{const result=parseStoreEngagementDeleteResult(await (auth.runtime as ServerStoreEngagementRuntime).engagement.deletePopup({tenantContext:auth.tenantContext,now:auth.now,operationId,campaignId,expectedVersion}));if(result.campaignId!==campaignId)throw new Error('invalid_result');return json({deletion:result});}catch(error){return failure(error);}
   },
  });
 }

@@ -13,3 +13,18 @@ test('uncertain COMMIT destroys original connection and recovers exact operation
 test('failed operation rolls back, typed conflict preserves retry and no recovery query',async()=>{const a=await api(),s=setup(null,'version_conflict'),r=new a.PostgresStoreEngagementAdminRepository(options(s.pool,'celebix_saas_app'));await assert.rejects(r.save({tenantContext:context,now,operationId:id,campaignId:id,expectedVersion:1,kind:'popup',name:campaign.name,enabled:true,config:campaign.config}),(e:any)=>e.code==='version_conflict');assert.equal(s.calls.some(x=>x.text==='ROLLBACK'),true);assert.equal(s.calls.some(x=>x.text.includes('operation_get(')),false);});
 test('public settings read uses read-only transaction and rejects invalid resolved image',async()=>{const a=await api(),s=setup({popups:[{...campaign,imageUrl:'javascript:alert(1)',couponCode:null}],cartCapture:null}),r=new a.PostgresPublicStoreEngagementRepository(options(s.pool));await assert.rejects(r.publicSettings({hostname:'store.example.com',now}));assert.equal(s.calls.some(x=>x.text==='BEGIN READ ONLY'),true);assert.throws(()=>new a.PostgresPublicStoreEngagementRepository(options(s.pool,'celebix_saas_app')));});
 test('capture conflicts commit only the native durable quota and return typed error',async()=>{const a=await api(),s=setup(null,'contact_conflict'),r=new a.PostgresPublicStoreEngagementRepository(options(s.pool));await assert.rejects(r.capture({hostname:'store.example.com',cartTokenDigest:'a'.repeat(64),now,operationId:id,campaignId:id,email:'person@example.com',marketingConsent:false}),(e:any)=>e.code==='contact_conflict');assert.equal(s.calls.some(x=>x.text==='COMMIT'),true);assert.equal(s.calls.some(x=>x.text==='ROLLBACK'),false);});
+test('popup deletion recovers an uncertain commit with the exact operation without deleting twice',async()=>{
+ const a=await api(),receipt={campaignId:id,deleted:true},s=setup(receipt,'saved',true),r=new a.PostgresStoreEngagementAdminRepository(options(s.pool,'celebix_saas_app'));
+ assert.equal(typeof r.deletePopup,'function','popup deletion must be a durable repository operation');
+ assert.deepEqual(await r.deletePopup({tenantContext:context,now,operationId:id,campaignId:id,expectedVersion:3}),receipt);
+ const calls=s.calls.filter(x=>x.text.includes('popup_delete('));assert.equal(calls.length,1);
+ assert.deepEqual(calls[0]?.values?.slice(9),[id,3]);
+ const recovery=s.calls.find(x=>x.text.includes('admin_operation_get('));assert.equal(recovery?.values?.[7],id);assert.equal(recovery?.values?.[8],calls[0]?.values?.[8]);
+ assert.deepEqual(s.released,[true,false]);
+});
+test('popup deletion rejects forged scope and invalid versions before connecting and rejects unrelated receipts',async()=>{
+ const a=await api(),s=setup({campaignId:'21500000-0000-4000-8000-000000000002',deleted:true},'saved'),r=new a.PostgresStoreEngagementAdminRepository(options(s.pool,'celebix_saas_app'));
+ assert.equal(typeof r.deletePopup,'function');const input={tenantContext:context,now,operationId:id,campaignId:id,expectedVersion:1};
+ for(const value of[{...input,storeId:id},{...input,expectedVersion:0},{...input,campaignId:'invalid'}])await assert.rejects(r.deletePopup(value));
+ assert.equal(s.calls.length,0);await assert.rejects(r.deletePopup(input),(error:any)=>error.code==='unavailable');
+});

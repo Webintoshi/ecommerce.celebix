@@ -28,3 +28,11 @@ test('cart recovery confirms the original create intent even after the committed
  const observed={...retained,id:'00000000-0000-4000-8000-000000000001',version:1,updatedAt:'2026-10-04T10:00:00.000Z'};
  await popupScreen(async({click,container,writes})=>{await click('Önceki kaydı doğrula');await click('İçerik');assert.equal(container.querySelector('[name="engagement-heading"]').value,retained.config.heading);await click('Uygula');assert.deepEqual(writes,[retained]);assert.equal(container.querySelector('[role="dialog"]'),null);},{kind:'cart_capture',recoveryInput:retained,records:[observed]});
 });
+
+
+test('unresolved popup deletion keeps capture edits fenced and provides the popup recovery route',async()=>{
+ await popupScreen(async({container,writes})=>{
+  const link=container.querySelector('a[href="/discounts/popups"]');assert.ok(link);assert.match(link.textContent,/silme/);
+  assert.equal(container.querySelector('[data-tool-edit="cart_capture"]').disabled,true);assert.equal(writes.length,0);
+ },{kind:'cart_capture',recoveryDeletion:{campaignId:'00000000-0000-4000-8000-000000000001',expectedVersion:4}});
+});

@@ -11,9 +11,10 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     couponDetail?: any;
     couponItems?: any[];
     recoveryInput?: any;
+    recoveryDeletion?: any;
 } = {}) {
     const writes: any[] = [], coupons: any[] = [];
-    let unresolved = Boolean(options.recoveryInput);
+    let unresolved = Boolean(options.recoveryInput || options.recoveryDeletion);
     class ApiError extends Error {
         constructor(readonly code: string) {
             super('Kayıt tamamlanamadı');
@@ -21,6 +22,7 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     }
     const api = {
         pendingIntent: async()=>options.recoveryInput??null,
+        pendingDeletion: async()=>options.recoveryDeletion??null,
         list: async () => options.records ?? [], hasUnresolved: () => unresolved, save: async (input: any) => {
             writes.push(input);
             try {

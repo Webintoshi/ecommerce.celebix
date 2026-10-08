@@ -1,4 +1,4 @@
-import { parseStoreEngagementCampaign, parseStoreEngagementConfig, type StoreEngagementCampaign, type StoreEngagementCampaignKind, type StoreEngagementConfig } from '@celebix/saas-contracts';
+import { parseStoreEngagementCampaign, parseStoreEngagementConfig, parseStoreEngagementDeleteResult, type StoreEngagementDeleteResult, type StoreEngagementCampaign, type StoreEngagementCampaignKind, type StoreEngagementConfig } from '@celebix/saas-contracts';
 export type CampaignInput = Readonly<{
     campaignId?: string;
     expectedVersion?: number;
@@ -8,11 +8,8 @@ export type CampaignInput = Readonly<{
     config: StoreEngagementConfig;
 }>;
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem' | 'removeItem'>;
-type Fence = Readonly<{
-    fingerprint: string;
-    operationId: string;
-    intent: CampaignInput;
-}>;
+export type PopupDeletionInput = Readonly<{campaignId:string;expectedVersion:number}>;
+type Fence = Readonly<{fingerprint:string;operationId:string}> & (Readonly<{intent:CampaignInput}> | Readonly<{deletion:PopupDeletionInput}>);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MESSAGES: Readonly<Record<string, string>> = {
     invalid_input: 'Bilgileri kontrol edin.', unauthenticated: 'Oturumunuz sona erdi. Yeniden giriş yapın.', membership_denied: 'Bu işlem için yetkiniz yok.', origin_denied: 'Güvenlik doğrulaması başarısız oldu.', store_inactive: 'Mağaza şu anda etkin değil.', feature_not_enabled: 'Bu araç planınızda etkin değil.', rate_limited: 'Çok sık denediniz. Biraz sonra tekrar deneyin.', limit_exceeded: 'Popup sınırına ulaştınız.', image_invalid: 'Seçilen görsel kullanılamıyor.', campaign_unavailable: 'Kampanya şu anda kullanılamıyor.', promotion_unavailable: 'Seçilen kupon şu anda kullanılamıyor.', cart_unavailable: 'Sepet şu anda kullanılamıyor.', contact_conflict: 'İletişim bilgisi başka bir kayıtta kullanılıyor.', invalid_reference: 'Seçilen görsel veya kupon artık kullanılamıyor.', not_found: 'Kayıt bulunamadı.', version_conflict: 'Kayıt başka bir oturumda değişti. Güncel kaydı yükleyin.', operation_mismatch: 'İşlem güvenle tekrarlanamadı.', conflict: 'Bu kayıt zaten var.', unresolved: 'Önceki kayıt sonucu belirsiz. Aynı bilgilerle Uygula düğmesine basarak doğrulayın.', storage_unavailable: 'Tarayıcı kayıt güvencesi oluşturulamadı. Tarayıcı depolamasını açıp sayfayı yenileyin.', unavailable: 'İşlem şu anda tamamlanamadı. Aynı bilgilerle tekrar deneyin.'
@@ -55,6 +52,16 @@ function input(value: CampaignInput): CampaignInput {
     catch {
         throw new StoreEngagementApiError('invalid_input', 400);
     }
+}
+function deletionInput(value: PopupDeletionInput): PopupDeletionInput {
+    try {
+        object(value, ['campaignId','expectedVersion']);
+        if (typeof value.campaignId !== 'string' || !UUID.test(value.campaignId) || !Number.isSafeInteger(value.expectedVersion) || value.expectedVersion < 1) throw Error();
+        return {campaignId:value.campaignId,expectedVersion:value.expectedVersion};
+    } catch { throw new StoreEngagementApiError('invalid_input',400); }
+}
+function fencePayload(value:Fence) {
+    return 'intent' in value ? value.intent : {action:'delete_popup',...value.deletion};
 }
 async function json(response: Response): Promise<unknown> {
     const length = response.headers.get('content-length');
@@ -121,10 +128,12 @@ export function createStoreEngagementApi(options: Readonly<{
             const raw = storage?.getItem(storageKey);
             if (raw) {
                 if(raw.length>8192)throw Error();
-                const parsed = object(JSON.parse(raw), ['fingerprint', 'operationId','intent']);
+                const value = JSON.parse(raw);
+                const deleting = typeof value === 'object' && value !== null && Object.hasOwn(value,'deletion');
+                const parsed = object(value, ['fingerprint', 'operationId',deleting?'deletion':'intent']);
                 if (typeof parsed.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(parsed.fingerprint) || typeof parsed.operationId !== 'string' || !UUID.test(parsed.operationId))
                     throw Error();
-                fence = {fingerprint:parsed.fingerprint,operationId:parsed.operationId,intent:input(parsed.intent as CampaignInput)};
+                fence = {fingerprint:parsed.fingerprint,operationId:parsed.operationId,...(deleting?{deletion:deletionInput(parsed.deletion as PopupDeletionInput)}:{intent:input(parsed.intent as CampaignInput)})};
             }
         }
         catch {
@@ -163,11 +172,12 @@ export function createStoreEngagementApi(options: Readonly<{
     }
     async function verifyFence(){
         if(storageFailed)throw new StoreEngagementApiError('storage_unavailable');
-        if(fence&&await fingerprint(fence.intent)!==fence.fingerprint){storageFailed=true;throw new StoreEngagementApiError('storage_unavailable');}
+        if(fence&&await fingerprint(fencePayload(fence))!==fence.fingerprint){storageFailed=true;throw new StoreEngagementApiError('storage_unavailable');}
     }
     return Object.freeze({
         hasUnresolved: () => Boolean(fence) || storageFailed,
-        async pendingIntent():Promise<CampaignInput|null>{await verifyFence();return fence?.intent??null;},
+        async pendingIntent():Promise<CampaignInput|null>{await verifyFence();return fence&&'intent' in fence?fence.intent:null;},
+        async pendingDeletion():Promise<PopupDeletionInput|null>{await verifyFence();return fence&&'deletion' in fence?fence.deletion:null;},
         async list(signal?: AbortSignal): Promise<readonly StoreEngagementCampaign[]> {
             try {
                 const response = await fetcher('/api/store-engagement/campaigns', {
@@ -192,6 +202,35 @@ export function createStoreEngagementApi(options: Readonly<{
                 throw new StoreEngagementApiError();
             }
         },
+        async deletePopup(raw:PopupDeletionInput):Promise<StoreEngagementDeleteResult> {
+            const payload=deletionInput(raw);
+            if(pending) throw new StoreEngagementApiError('unresolved');
+            pending=true;
+            try {
+                await verifyFence();
+                const hash=await fingerprint({action:'delete_popup',...payload});
+                if(fence&&(!('deletion' in fence)||fence.fingerprint!==hash)) throw new StoreEngagementApiError('unresolved');
+                const operationId=fence?.operationId??uuid();
+                if(!UUID.test(operationId)) throw new StoreEngagementApiError('invalid_input',400);
+                persist({fingerprint:hash,operationId,deletion:payload});
+                const response=await fetcher('/api/store-engagement/campaigns/delete',{
+                    method:'POST',cache:'no-store',credentials:'same-origin',headers:{accept:'application/json','content-type':'application/json','idempotency-key':operationId},body:JSON.stringify(payload)
+                });
+                const value=await json(response);
+                if(!response.ok){
+                    const error=responseError(response.status,value);
+                    if(error.code!=='unavailable'&&error.code!=='operation_mismatch') clear();
+                    throw error;
+                }
+                const receipt=parseStoreEngagementDeleteResult(object(value,['deletion']).deletion);
+                if(receipt.campaignId!==payload.campaignId) throw new StoreEngagementApiError();
+                clear();
+                return receipt;
+            } catch(error){
+                if(error instanceof StoreEngagementApiError) throw error;
+                throw new StoreEngagementApiError();
+            } finally {pending=false;}
+        },
         async save(raw: CampaignInput): Promise<StoreEngagementCampaign> {
             const payload = input(raw);
             if (pending)
@@ -200,7 +239,7 @@ export function createStoreEngagementApi(options: Readonly<{
             try {
                 await verifyFence();
                 const hash = await fingerprint(payload);
-                if (fence && fence.fingerprint !== hash)
+                if (fence && (!('intent' in fence) || fence.fingerprint !== hash))
                     throw new StoreEngagementApiError('unresolved');
                 const operationId = fence?.operationId ?? uuid();
                 if (!UUID.test(operationId))

@@ -1,0 +1,4 @@
+import { storeEngagementHandlers } from '../../../../../lib/store-engagement-http/default.ts';
+export const dynamic='force-dynamic';
+export const runtime='nodejs';
+export const POST=storeEngagementHandlers.deletePopup;

@@ -10,6 +10,7 @@ export type StoreEngagementPublicCampaign = StoreEngagementCampaign & Readonly<{
 export type StoreEngagementPublicSettings = Readonly<{popups:readonly StoreEngagementPublicCampaign[];cartCapture:StoreEngagementPublicCampaign|null}>;
 export type StoreEngagementCaptureRequest = Readonly<{operationId:string;campaignId:string;email?:string;phone?:string;marketingConsent:boolean}>;
 export type StoreEngagementCaptureResult = Readonly<{contactCaptured:boolean;couponCode:string|null}>;
+export type StoreEngagementDeleteResult = Readonly<{campaignId:string;deleted:true}>;
 export class StoreEngagementContractError extends Error {constructor(){super('store_engagement_contract_invalid');this.name='StoreEngagementContractError';}}
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 function invalid():never{throw new StoreEngagementContractError();}
@@ -67,4 +68,8 @@ export function parseStoreEngagementCaptureRequest(value:unknown):StoreEngagemen
 }
 export function parseStoreEngagementCaptureResult(value:unknown):StoreEngagementCaptureResult{
   const row=exact(value,['contactCaptured','couponCode']);if(row.couponCode!==null&&(typeof row.couponCode!=='string'||!/^[A-Z0-9][A-Z0-9_-]{0,63}$/u.test(row.couponCode)))invalid();return Object.freeze({contactCaptured:bool(row.contactCaptured),couponCode:row.couponCode as string|null});
+}
+export function parseStoreEngagementDeleteResult(value:unknown):StoreEngagementDeleteResult{
+  const row=exact(value,['campaignId','deleted']);if(row.deleted!==true)invalid();
+  return Object.freeze({campaignId:storeEngagementUuid(row.campaignId),deleted:true});
 }
