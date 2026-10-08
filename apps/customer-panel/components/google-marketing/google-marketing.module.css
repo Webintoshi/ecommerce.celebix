@@ -21,6 +21,8 @@
 .feedback { padding: 16px; margin: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-canvas); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .feedback p { margin: 0 0 12px; }
 .cardError, .readOnly, .help { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); overflow-wrap: anywhere; }
+.help a { color: inherit; text-underline-offset: 3px; }
+.help a:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }
 .form { display: grid; gap: 20px; min-width: 0; }
 .scope { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 16px; font-size: 13px; line-height: 1.5; }
 .scope span { color: var(--cp-text-secondary); }

@@ -195,6 +195,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
   }
 
   const definition = SERVICES.find(item => item.service === editor?.service);
+  const accountLabel = editor?.service === "gtm" ? "Tag Manager hesabı" : "Google hesabı";
   const reconnect = editor && (!editor.connection.googleEmail || editor.connection.status === "needs_reconnect" || ["needs_reconnect", "incremental_authorization_required", "oauth_denied", "oauth_state_invalid"].includes(editor.error));
   const conflict = editor && CONFLICTS.has(editor.error);
   const selection = editor?.draft.selection;
@@ -232,8 +233,9 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
         {editor.error ? <p role="alert" className={styles.feedback}>{errorMessage(editor.error)}</p> : null}
         {conflict ? <button type="button" className={styles.button} disabled={Boolean(busy) || overviewLoading} onClick={() => void loadOverview(true)}>Güncel bağlantıyı yükle</button> : null}
         <div className={styles.scope}><span>Mağaza</span><strong>{overview?.storeDomain || "Alan adı bulunamadı"}</strong>{editor.connection.googleEmail ? <><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></> : null}</div>
+        {editor.service === "gtm" ? <div className={styles.empty}><a className={styles.link} href="https://tagmanager.google.com/" target="_blank" rel="noopener noreferrer">Yeni Tag Manager hesabı oluştur<span className="sr-only"> (yeni sekme)</span></a><p className={styles.help}>{reconnect ? "Google’da hesabınızı oluşturun, sonra buradan Google’a bağlanın." : "Google’da aynı hesapla oluşturun, sonra burada listeyi yenileyin."}</p></div> : null}
         {reconnect ? <div className={styles.connectPrompt}><p>{editor.connection.googleEmail ? "Google erişimini tamamlayıp bu seçime geri dönün." : "Erişebildiğiniz hesap ve kaynakları seçmek için Google’a bağlanın."}</p><button type="button" className={styles.button} disabled={Boolean(busy)} onClick={() => void connect()}>{busy === "connect" ? "Google’a yönlendiriliyor…" : editor.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan"}</button></div> : <>
-          <label className={styles.field}>Google hesabı<select aria-label="Google hesabı" value={editor.accountId} disabled={locked || editor.loading} onChange={event => chooseAccount(event.target.value)}><option value="">Hesap seçin</option>{editor.resources.accounts.map(account => <option value={account.id} key={account.id}>{account.name} · {account.id}</option>)}</select></label>
+          <label className={styles.field}>{accountLabel}<select aria-label={accountLabel} value={editor.accountId} disabled={locked || editor.loading} onChange={event => chooseAccount(event.target.value)}><option value="">Hesap seçin</option>{editor.resources.accounts.map(account => <option value={account.id} key={account.id}>{account.name} · {account.id}</option>)}</select></label>
           {editor.loading ? <p role="status" className={styles.help}>Google kaynakları yükleniyor…</p> : null}
           {!editor.loading && !editor.error && editor.resources.accounts.length === 0 ? <p className={styles.help}>Bu Google hesabında erişebildiğiniz bir kaynak bulunamadı. Google hesap izinlerinizi kontrol edin.</p> : null}
           {editor.accountId ? <>
@@ -243,6 +245,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
           </> : null}
           <div className={styles.resourceActions}><button className={styles.button} type="button" disabled={Boolean(busy) || editor.loading || locked} onClick={() => void discover(editor, editor.accountId || undefined)}>Listeyi yenile</button><button className={styles.button} type="button" disabled={Boolean(busy) || Boolean(editor.draft.disconnect)} onClick={() => void connect()}>Google hesabını değiştir</button></div>
         </>}
+        <p className={styles.help}>Google bağlantılarında veri kullanımı: <a href="https://celebix.net/tr/gizlilik" target="_blank" rel="noopener noreferrer">Gizlilik politikası<span className="sr-only"> (yeni sekme)</span></a></p>
       </div> : null}
     </OrderActionDialog>
   </div>;

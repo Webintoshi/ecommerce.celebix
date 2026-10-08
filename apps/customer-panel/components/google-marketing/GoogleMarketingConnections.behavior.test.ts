@@ -67,6 +67,58 @@ test("accounts load only after setup opens; cancellation leaves the existing con
   });
 });
 
+test("GTM account creation stays available before authorization and with empty or existing accounts", async () => {
+  for (const state of ["unauthorized", "empty", "existing"]) {
+    const connections = initial.connections.map(item => item.service === "gtm" && state !== "existing" ? { ...item, status: "disconnected", googleEmail: state === "unauthorized" ? null : email, selection: null } : item);
+    const Component = consumer({ overview: async () => ({ ...initial, connections }), resources: async () => state === "empty" ? { accounts: [], resources: [] } : resources });
+    await mounted(Component, { canManage: true }, async (host: HTMLElement) => {
+      await click(host, "Google Tag Manager bağlantısını yönet");
+      const link = host.querySelector<HTMLAnchorElement>('a[href="https://tagmanager.google.com/"]');
+      assert.ok(link, `Account creation must be available in ${state} setup`);
+      assert.match(link.textContent ?? "", /Yeni Tag Manager hesabı oluştur/);
+      assert.equal(link.target, "_blank");
+      assert.deepEqual(link.rel.split(/\s+/).sort(), ["noopener", "noreferrer"]);
+      if (state === "unauthorized") assert.ok(button(host, "Google ile bağlan"));
+      else assert.ok(host.querySelector('select[aria-label="Tag Manager hesabı"]'));
+    });
+  }
+});
+
+test("refreshing GTM accounts after external creation preserves the selected container and its local buffer", async () => {
+  let refreshed = false;
+  const Component = consumer({ overview: async () => initial, resources: async () => ({ ...resources, accounts: refreshed ? [...resources.accounts, { id: "56", name: "New account" }] : resources.accounts }) });
+  await mounted(Component, { canManage: true }, async (host: HTMLElement, window) => {
+    await click(host, "Google Tag Manager bağlantısını yönet");
+    await select(host, window, "Web konteyneri", "35");
+    const stored = window.sessionStorage.getItem(`celebix-google:store.example.test:${email}:gtm`);
+    refreshed = true;
+    await click(host, "Listeyi yenile");
+    assert.equal(host.querySelector<HTMLSelectElement>('select[aria-label="Tag Manager hesabı"]')?.value, "12");
+    assert.equal(host.querySelector<HTMLSelectElement>('select[aria-label="Web konteyneri"]')?.value, "35");
+    assert.match(host.querySelector('select[aria-label="Tag Manager hesabı"]')?.textContent ?? "", /New account/);
+    assert.equal(window.sessionStorage.getItem(`celebix-google:store.example.test:${email}:gtm`), stored);
+    await click(host, "Vazgeç");
+    await click(host, "Google Tag Manager bağlantısını yönet");
+    assert.equal(host.querySelector<HTMLSelectElement>('select[aria-label="Web konteyneri"]')?.value, "35");
+  });
+});
+
+test("all Google setup dialogs expose the privacy policy while GTM actions stay scoped to GTM", async () => {
+  const Component = consumer({ overview: async () => initial, resources: async () => resources });
+  await mounted(Component, { canManage: true }, async (host: HTMLElement) => {
+    for (const service of ["Google Tag Manager", "Google Ads", "Google Search Console"]) {
+      await click(host, `${service} bağlantısını yönet`);
+      const link = host.querySelector<HTMLAnchorElement>('a[href="https://celebix.net/tr/gizlilik"]');
+      assert.ok(link);
+      assert.equal(link.target, "_blank");
+      assert.deepEqual(link.rel.split(/\s+/).sort(), ["noopener", "noreferrer"]);
+      assert.equal(Boolean(host.querySelector('a[href="https://tagmanager.google.com/"]')), service === "Google Tag Manager");
+      if (service === "Google Ads") assert.ok(host.querySelector('select[aria-label="Google hesabı"]'));
+      await click(host, "Vazgeç");
+    }
+  });
+});
+
 test("failed apply preserves resource and repeats the same operation until successful activation", async () => {
   const requests: { input: any; key: string }[] = [];
   const Component = consumer({ overview: async () => initial, resources: async () => resources, apply: async (input: any, key: string) => { requests.push({ input, key }); if (requests.length === 1) throw Object.assign(new Error("unavailable"), { code: "unavailable" }); return { ...initial.connections[0], version: 2, selection: input.selection }; } });
