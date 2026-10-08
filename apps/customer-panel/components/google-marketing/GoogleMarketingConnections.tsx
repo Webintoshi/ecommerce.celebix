@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Check, ChevronRight, RefreshCw, ShieldCheck } from "lucide-react";
 import type { GoogleMarketingConnection, GoogleMarketingOverview, GoogleMarketingResources, GoogleMarketingSelection, GoogleMarketingService } from "@celebix/saas-contracts";
 import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
 import { PanelSkeletonBlock, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { googleMarketingClient, type GoogleMarketingClient } from "./client";
 import { SERVICES, createSelection, draftKey, emptyConnection, errorCode, errorMessage, readDraft, statusLabel, storeDraft, type Draft } from "./model";
+import { GoogleConnectionArtwork } from "./GoogleConnectionArtwork";
 import styles from "./google-marketing.module.css";
 
 type Editor = {
@@ -20,13 +22,16 @@ type Editor = {
 const EMPTY_RESOURCES: GoogleMarketingResources = { accounts: [], resources: [] };
 const CONFLICTS = new Set(["version_conflict", "live_version_conflict", "operation_mismatch"]);
 const DEFINITIVE_FAILURES = new Set(["invalid_input", "resource_denied", "wrong_domain", "unsafe_container", "membership_denied", "durable_authority_invalid", "store_inactive", "oauth_unconfigured", "crypto_unavailable", "ads_project_unapproved"]);
-function ProviderIcon({ service }: { service: GoogleMarketingService }) {
-  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {service === "gtm" ? <><path d="m12 3 9 9-9 9-9-9Z" /><path d="m8 12 4 4 4-4M12 8v8" /></> : service === "ads" ? <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="m12 12 7-7M16 5h3v3" /></> : <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z" /></>}
-  </svg>;
+const PURPOSES = {
+  gtm: "Google etiketlerini tek yerden yönetin.",
+  ads: "Tamamlanan siparişleri dönüşüm olarak ölçün.",
+  search_console: "Mağazanızı doğrulayın, site haritasını gönderin.",
+};
+function readFailureMessage(code: string, fallback: string) {
+  return ["unavailable", "provider_unavailable", "provider_timeout", "commit_unknown"].includes(code) ? fallback : errorMessage(code);
 }
-function SelectionSummary({ selection }: { selection: GoogleMarketingSelection | null }) {
-  return selection ? <div className={styles.selectionSummary}><strong>{selection.resourceName}</strong><span>{selection.tagId ?? selection.resourceId}</span></div> : null;
+function SelectionSummary({ selection, detailed = false }: { selection: GoogleMarketingSelection | null; detailed?: boolean }) {
+  return selection ? <div className={styles.selectionSummary}><strong>{selection.resourceName}</strong>{detailed ? <span>{selection.tagId ?? selection.resourceId}</span> : null}</div> : null;
 }
 
 export function GoogleMarketingConnections({ canManage, onAuthorize, client = googleMarketingClient }: Readonly<{ canManage: boolean; onAuthorize?: (url: string) => void; client?: GoogleMarketingClient }>) {
@@ -36,6 +41,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
   const [editor, setEditor] = useState<Editor | null>(null);
   const [busy, setBusy] = useState<"connect" | "apply" | "disconnect" | null>(null);
   const [notice, setNotice] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const alive = useRef(true);
   const discovery = useRef(0);
   const drafts = useRef(new Map<string, Draft>());
@@ -56,6 +62,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
     if (busyRef.current) return;
     discovery.current++;
     setEditor(null);
+    setConfirmRemove(false);
   }
   async function discover(current: Editor, accountId?: string) {
     const ticket = ++discovery.current;
@@ -88,6 +95,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
   function openService(service: GoogleMarketingService, value = overviewRef.current) {
     if (!value?.oauthConfigured || !canManage || busyRef.current) return;
     setNotice("");
+    setConfirmRemove(false);
     const connection = value.connections.find(item => item.service === service) ?? emptyConnection(service);
     const key = draftKey(value.storeDomain, connection.googleEmail, service);
     const saved = drafts.current.get(key) ?? readDraft(key);
@@ -189,6 +197,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
         const code = errorCode(error);
         const preserved: Draft = DEFINITIVE_FAILURES.has(code) ? { selection: current.draft.selection } : draft;
         saveDraft(current.service, current.connection, preserved);
+        setConfirmRemove(false);
         setEditor(value => value ? { ...value, draft: preserved, error: code } : value);
       }
     } finally { busyRef.current = false; if (alive.current) setBusy(null); }
@@ -202,50 +211,73 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
   const knownSelection = selection?.create || editor?.resources.resources.some(item => item.id === selection?.resourceId && (!item.parentId || item.parentId === editor.accountId));
   const canApply = Boolean(editor && !editor.loading && !busy && !reconnect && !conflict && !editor.draft.disconnect && selection && (knownSelection || editor.draft.apply));
   const locked = Boolean(busy || editor?.draft.apply || editor?.draft.disconnect);
+  const connectLabel = busy === "connect" ? "Google’a yönlendiriliyor…" : editor?.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor?.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan";
   return <div className={styles.workspace}>
-    {overview?.storeDomain ? <p className={styles.domain}>Mağaza <strong>{overview.storeDomain}</strong></p> : null}
-    {notice ? <p role="status" className={styles.feedback}>{notice}</p> : null}
-    {overviewError ? <div className={styles.feedback}><p role="alert">{errorMessage(overviewError)}</p><button type="button" className={styles.button} disabled={overviewLoading} onClick={() => void loadOverview()}>Tekrar dene</button></div> : null}
+    {overview?.storeDomain ? <p className={styles.domain}><span>Mağaza</span><strong>{overview.storeDomain}</strong></p> : null}
+    {notice ? <p role="status" className={styles.notice}><Check size={16} aria-hidden="true" />{notice}</p> : null}
+    {overviewError ? <div className={styles.feedback}><p role="alert">{readFailureMessage(overviewError, "Bağlantılar yüklenemedi. Tekrar deneyin.")}</p><button type="button" className="button button-secondary" disabled={overviewLoading} onClick={() => void loadOverview()}>Tekrar dene</button></div> : null}
     {overview && !overview.oauthConfigured ? <p className={styles.feedback} role="status">{errorMessage("oauth_unconfigured")}</p> : null}
-    {!canManage ? <p className={styles.readOnly}>Bağlantıları değiştirmek için entegrasyon yönetimi yetkisi gerekir.</p> : null}
-    <div className={styles.cards} aria-busy={overviewLoading || undefined}>
+    {!canManage ? <p className={styles.help}>Bağlantıları değiştirmek için entegrasyon yönetimi yetkisi gerekir.</p> : null}
+    <div className={styles.services} aria-busy={overviewLoading || undefined}>
       {SERVICES.map(item => {
         const connection = overview?.connections.find(value => value.service === item.service) ?? emptyConnection(item.service);
-        return <article className={styles.card} key={item.service}>
-          <div className={styles.cardHeading}><span className={styles.icon}><ProviderIcon service={item.service} /></span><h2>{item.name}</h2></div>
-          <p className={styles.description}>{item.description}</p>
-          {overviewLoading && !overview ? <div className={styles.skeleton} aria-label="Bağlantı yükleniyor" role="status"><PanelSkeletonBlock /><PanelSkeletonBlock /></div> : <>
-            <PanelStatusBadge tone={connection.status === "connected" ? "success" : connection.status === "needs_reconnect" || connection.status === "error" ? "warning" : "neutral"}>{statusLabel(connection)}</PanelStatusBadge>
-            <SelectionSummary selection={connection.selection} />
-            {connection.googleEmail ? <p className={styles.email}>{connection.googleEmail}</p> : null}
-            {connection.errorCode ? <p className={styles.cardError}>{errorMessage(connection.errorCode)}</p> : null}
-          </>}
-          {canManage ? <button type="button" data-service={item.service} className={styles.button} disabled={!overview?.oauthConfigured || overviewLoading || Boolean(busy)} aria-label={`${item.name} bağlantısını yönet`} aria-haspopup="dialog" onClick={() => openService(item.service)}>{connection.status === "connected" ? "Yönet" : connection.googleEmail ? "Kurulumu tamamla" : "Bağlan"}</button> : null}
+        return <article className={styles.serviceRow} key={item.service}>
+          <GoogleConnectionArtwork service={item.service} />
+          <div className={styles.serviceContent}>
+            <div className={styles.serviceHeading}><h2>{item.name}</h2>{!overviewLoading || overview ? <PanelStatusBadge tone={connection.status === "connected" ? "success" : connection.status === "needs_reconnect" || connection.status === "error" ? "warning" : "neutral"}>{statusLabel(connection)}</PanelStatusBadge> : null}</div>
+            <p className={styles.description}>{PURPOSES[item.service]}</p>
+            {overviewLoading && !overview ? <div className={styles.skeleton} aria-label="Bağlantı yükleniyor" role="status"><PanelSkeletonBlock /><PanelSkeletonBlock /></div> : <>
+              <SelectionSummary selection={connection.selection} />
+              {connection.googleEmail ? <p className={styles.email}>{connection.googleEmail}</p> : null}
+              {connection.errorCode ? <p className={styles.cardError}>{errorMessage(connection.errorCode)}</p> : null}
+              {connection.selection ? <details className={styles.details}><summary>Ayrıntılar</summary><SelectionSummary selection={connection.selection} detailed /></details> : null}
+            </>}
+          </div>
+          {canManage ? <button type="button" data-service={item.service} className={`button button-secondary ${styles.manage}`} disabled={!overview?.oauthConfigured || overviewLoading || Boolean(busy)} aria-label={`${item.name} bağlantısını yönet`} aria-haspopup="dialog" onClick={() => openService(item.service)}>{connection.status === "connected" ? "Yönet" : connection.googleEmail ? "Kurulumu tamamla" : "Bağlan"}<ArrowUpRight size={16} aria-hidden="true" /></button> : null}
         </article>;
       })}
     </div>
-    <OrderActionDialog open={Boolean(editor)} title={definition?.name ?? "Google bağlantısı"} busy={Boolean(busy)} onClose={close} footer={editor ? <div className={styles.actions}>
-      {editor.connection.googleEmail ? <button className={styles.button} type="button" disabled={Boolean(busy) || Boolean(editor.draft.apply)} onClick={() => void mutate("disconnect")}>{busy === "disconnect" ? "Kaldırılıyor…" : editor.draft.disconnect ? "Kaldırmayı tekrar dene" : "Bağlantıyı kaldır"}</button> : null}
-      <button type="button" className={styles.button} disabled={Boolean(busy)} onClick={close}>Vazgeç</button>
-      <button type="button" className={`${styles.button} ${styles.primary}`} disabled={!canApply} onClick={() => void mutate("apply")}>{busy === "apply" ? "Uygulanıyor…" : editor.draft.apply ? "Tekrar uygula" : "Uygula"}</button>
+    <OrderActionDialog open={Boolean(editor)} title={definition?.name ?? "Google bağlantısı"} className={styles.dialog} busy={Boolean(busy)} onClose={close} footer={editor ? <div className={styles.actions}>
+      {confirmRemove ? <>
+        <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => setConfirmRemove(false)}>Vazgeç</button>
+        <button type="button" className={`button button-primary ${styles.removeConfirm}`} disabled={Boolean(busy)} onClick={() => void mutate("disconnect")}>{busy === "disconnect" ? "Kaldırılıyor…" : "Evet, bağlantıyı kaldır"}</button>
+      </> : <>
+        {editor.connection.googleEmail ? <button className={`button button-text ${styles.disconnect}`} type="button" disabled={Boolean(busy) || Boolean(editor.draft.apply)} onClick={() => editor.draft.disconnect ? void mutate("disconnect") : setConfirmRemove(true)}>{busy === "disconnect" ? "Kaldırılıyor…" : editor.draft.disconnect ? "Kaldırmayı tekrar dene" : "Bağlantıyı kaldır"}</button> : null}
+        <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={close}>Vazgeç</button>
+        {reconnect ? <button type="button" className="button button-primary" disabled={Boolean(busy)} onClick={() => void connect()}>{connectLabel}</button> : <button type="button" className="button button-primary" disabled={!canApply} onClick={() => void mutate("apply")}>{busy === "apply" ? "Uygulanıyor…" : editor.draft.apply ? "Tekrar uygula" : "Uygula"}</button>}
+      </>}
     </div> : null}>
       {editor ? <div className={styles.form}>
-        {editor.error ? <p role="alert" className={styles.feedback}>{errorMessage(editor.error)}</p> : null}
-        {conflict ? <button type="button" className={styles.button} disabled={Boolean(busy) || overviewLoading} onClick={() => void loadOverview(true)}>Güncel bağlantıyı yükle</button> : null}
-        <div className={styles.scope}><span>Mağaza</span><strong>{overview?.storeDomain || "Alan adı bulunamadı"}</strong>{editor.connection.googleEmail ? <><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></> : null}</div>
-        {editor.service === "gtm" ? <div className={styles.empty}><a className={styles.link} href="https://tagmanager.google.com/" target="_blank" rel="noopener noreferrer">Yeni Tag Manager hesabı oluştur<span className="sr-only"> (yeni sekme)</span></a><p className={styles.help}>{reconnect ? "Google’da hesabınızı oluşturun, sonra buradan Google’a bağlanın." : "Google’da aynı hesapla oluşturun, sonra burada listeyi yenileyin."}</p></div> : null}
-        {reconnect ? <div className={styles.connectPrompt}><p>{editor.connection.googleEmail ? "Google erişimini tamamlayıp bu seçime geri dönün." : "Erişebildiğiniz hesap ve kaynakları seçmek için Google’a bağlanın."}</p><button type="button" className={styles.button} disabled={Boolean(busy)} onClick={() => void connect()}>{busy === "connect" ? "Google’a yönlendiriliyor…" : editor.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan"}</button></div> : <>
-          <label className={styles.field}>{accountLabel}<select aria-label={accountLabel} value={editor.accountId} disabled={locked || editor.loading} onChange={event => chooseAccount(event.target.value)}><option value="">Hesap seçin</option>{editor.resources.accounts.map(account => <option value={account.id} key={account.id}>{account.name} · {account.id}</option>)}</select></label>
-          {editor.loading ? <p role="status" className={styles.help}>Google kaynakları yükleniyor…</p> : null}
-          {!editor.loading && !editor.error && editor.resources.accounts.length === 0 ? <p className={styles.help}>Bu Google hesabında erişebildiğiniz bir kaynak bulunamadı. Google hesap izinlerinizi kontrol edin.</p> : null}
-          {editor.accountId ? <>
-            <label className={styles.field}>{definition?.resourceLabel}<select aria-label={definition?.resourceLabel} value={selection?.create ? "__create__" : selection?.resourceId ?? ""} disabled={locked || editor.loading} onChange={event => chooseResource(event.target.value)}><option value="">{definition?.resourceLabel} seçin</option>{editor.resources.resources.map(resource => <option value={resource.id} key={resource.id}>{resource.name} · {resource.tagId ?? resource.id}</option>)}{editor.service !== "ads" && overview?.storeDomain ? <option value="__create__">{editor.service === "gtm" ? "Yeni mağaza konteyneri oluştur" : "Mağazanın sitesini doğrula"}</option> : null}</select></label>
-            {editor.service === "ads" && !editor.loading && editor.resources.resources.length === 0 && !editor.error ? <div className={styles.empty}><p>Bu hesapta etiketle ölçülen satın alma dönüşümü bulunamadı.</p><a className={styles.link} href="https://ads.google.com/aw/conversions" target="_blank" rel="noopener noreferrer">Google Ads’te satın alma dönüşümü oluştur<span className="sr-only"> (yeni sekme)</span></a><p className={styles.help}>Web sitesi için manuel satın alma dönüşümü oluşturduktan sonra listeyi yenileyin.</p></div> : null}
-            {selection ? <div className={styles.applySummary}><SelectionSummary selection={selection} /><p>{editor.service === "gtm" ? "Uygula, standart Google etiket kurulumunu bu konteynerde yayınlar. Mevcut etiketler korunur." : editor.service === "ads" ? "Bu dönüşüm ödemesi tamamlanan web siparişlerinde kullanılır." : "Uygula, mağazanın sitesini doğrular ve site haritasını gönderir."}</p></div> : null}
-          </> : null}
-          <div className={styles.resourceActions}><button className={styles.button} type="button" disabled={Boolean(busy) || editor.loading || locked} onClick={() => void discover(editor, editor.accountId || undefined)}>Listeyi yenile</button><button className={styles.button} type="button" disabled={Boolean(busy) || Boolean(editor.draft.disconnect)} onClick={() => void connect()}>Google hesabını değiştir</button></div>
+        <ol className={styles.steps} aria-label="Bağlantı adımları">
+          <li aria-current={reconnect ? "step" : undefined}><span className={styles.stepNumber}>{reconnect ? "1" : <Check size={14} aria-hidden="true" />}</span>Google hesabı</li>
+          <li aria-hidden="true" className={styles.stepArrow}><ChevronRight size={16} /></li>
+          <li aria-current={!reconnect ? "step" : undefined}><span className={styles.stepNumber}>2</span>Mağazaya bağla</li>
+        </ol>
+        {editor.error ? <p role="alert" className={styles.feedback}>{!editor.draft.apply && !editor.draft.disconnect && !reconnect ? readFailureMessage(editor.error, "Google kaynakları yüklenemedi. Listeyi yenileyin.") : errorMessage(editor.error)}</p> : null}
+        {conflict ? <button type="button" className="button button-secondary" disabled={Boolean(busy) || overviewLoading} onClick={() => void loadOverview(true)}>Güncel bağlantıyı yükle</button> : null}
+        {confirmRemove ? <section className={styles.removePrompt} aria-label="Bağlantıyı kaldırma onayı"><h3>Bağlantı kaldırılsın mı?</h3><p>Celebix bağlantısı durur. Google hesabınız ve Google’daki kaynaklarınız silinmez.</p></section> : <>
+          {reconnect ? <div className={styles.connectPrompt}>
+            <GoogleConnectionArtwork service={editor.service} />
+            <div><h3>Google hesabınızı bağlayın</h3><p>{editor.connection.googleEmail ? "Erişimi tamamlayın; seçiminiz korunur." : "Google’da hesabınızı seçin. Dönüşte buradan devam edin."}</p></div>
+          </div> : <>
+            <div className={styles.scope}><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></div>
+            <section className={styles.choiceGroup} aria-label="Hesap ve kaynak seçimi">
+              {editor.service !== "search_console" ? <label className={styles.field}>{accountLabel}<select aria-label={accountLabel} value={editor.accountId} disabled={locked || editor.loading} onChange={event => chooseAccount(event.target.value)}><option value="">Hesap seçin</option>{editor.resources.accounts.map(account => <option value={account.id} key={account.id}>{account.name}{editor.resources.accounts.some(other => other.id !== account.id && other.name === account.name) ? ` · ${account.id}` : ""}</option>)}</select></label> : null}
+              {editor.loading ? <div role="status" className={styles.loading}><PanelSkeletonBlock /><span>Google kaynakları yükleniyor…</span></div> : null}
+              {!editor.loading && !editor.error && editor.resources.accounts.length === 0 ? <p className={styles.help}>Bu Google hesabında erişebildiğiniz bir kaynak bulunamadı. Hesap izinlerinizi kontrol edin.</p> : null}
+              {editor.accountId ? <>
+                <label className={styles.field}>{definition?.resourceLabel}<select aria-label={definition?.resourceLabel} value={selection?.create ? "__create__" : selection?.resourceId ?? ""} disabled={locked || editor.loading} onChange={event => chooseResource(event.target.value)}><option value="">{definition?.resourceLabel} seçin</option>{editor.resources.resources.map(resource => <option value={resource.id} key={resource.id}>{resource.name}{editor.resources.resources.some(other => other.id !== resource.id && other.name === resource.name) ? ` · ${resource.tagId ?? resource.id}` : ""}</option>)}{editor.service !== "ads" && overview?.storeDomain ? <option value="__create__">{editor.service === "gtm" ? "Yeni mağaza konteyneri oluştur" : "Mağazanın sitesini doğrula"}</option> : null}</select></label>
+                {editor.service !== "ads" && overview?.storeDomain && !selection?.create ? <button className={`button button-text ${styles.createResource}`} type="button" disabled={locked || editor.loading} onClick={() => chooseResource("__create__")}>{editor.service === "gtm" ? "Mağazam için yeni konteyner oluştur" : "Bu mağazanın sitesini doğrula"}<ChevronRight size={16} aria-hidden="true" /></button> : null}
+                {editor.service === "ads" && !editor.loading && editor.resources.resources.length === 0 && !editor.error ? <div className={styles.empty}><p>Bu hesapta satın alma dönüşümü bulunamadı.</p><a className={styles.link} href="https://ads.google.com/aw/conversions" target="_blank" rel="noopener noreferrer">Google Ads’te satın alma dönüşümü oluştur<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a><p className={styles.help}>Web sitesi için manuel dönüşüm oluşturun, sonra listeyi yenileyin.</p></div> : null}
+                {selection ? <div className={styles.applySummary}><ShieldCheck size={20} aria-hidden="true" /><div><SelectionSummary selection={selection} /><p>{editor.service === "gtm" ? "Standart etiketler kurulup yayımlanır. Mevcut etiketler korunur." : editor.service === "ads" ? "Ödemesi tamamlanan web siparişleri ölçülür. Bağlı Tag Manager’ın etiketleri de güncellenip yayımlanır." : "Mağazanız doğrulanır ve site haritası Google’a gönderilir."}</p></div></div> : null}
+              </> : null}
+            </section>
+            <div className={styles.resourceActions}><button className="button button-text" type="button" disabled={Boolean(busy) || editor.loading || locked} onClick={() => void discover(editor, editor.accountId || undefined)}><RefreshCw size={16} aria-hidden="true" />Listeyi yenile</button><button className="button button-text" type="button" disabled={Boolean(busy) || Boolean(editor.draft.disconnect)} onClick={() => void connect()}>Google hesabını değiştir</button></div>
+          </>}
+          {editor.service === "gtm" ? <div className={styles.externalHelp}><a className={styles.link} href="https://tagmanager.google.com/" target="_blank" rel="noopener noreferrer">Yeni Tag Manager hesabı oluştur<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a>{reconnect || editor.resources.accounts.length === 0 ? <p className={styles.help}>{reconnect ? "Hesabınız yoksa Google’da oluşturun, sonra buradan bağlanın." : "Aynı Google hesabıyla oluşturun, sonra listeyi yenileyin."}</p> : null}</div> : null}
         </>}
-        <p className={styles.help}>Google bağlantılarında veri kullanımı: <a href="https://celebix.net/tr/gizlilik" target="_blank" rel="noopener noreferrer">Gizlilik politikası<span className="sr-only"> (yeni sekme)</span></a></p>
+        <div className={styles.metaLinks}><details className={styles.details}><summary>Ayrıntılar</summary><div className={styles.scope}><span>Mağaza</span><strong>{overview?.storeDomain || "Alan adı bulunamadı"}</strong>{editor.connection.googleEmail ? <><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></> : null}{selection?.accountId && editor.service !== "search_console" ? <><span>Hesap kimliği</span><strong>{selection.accountId}</strong></> : null}</div><SelectionSummary selection={selection ?? null} detailed /></details>
+        <a className={styles.privacy} href="https://celebix.net/tr/gizlilik" target="_blank" rel="noopener noreferrer">Gizlilik politikası<span className="sr-only"> (yeni sekme)</span></a></div>
       </div> : null}
     </OrderActionDialog>
   </div>;
