@@ -728,7 +728,7 @@ export function PopupStudio(props: EngagementPermissions) {
             </article>)}
         </div>
         : <div className={styles.empty}><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>{records.length ? 'Aramanıza uygun popup yok.' : 'İlk popupınızı ekleyin'}</h2>{records.length ? <button type="button" className="button button-secondary" onClick={() => { setSearch(''); setFilter('all'); }}>Filtreleri temizle</button> : props.canManage ? <button type="button" disabled={api.hasUnresolved() || deleteBusy} className="button button-secondary" onClick={event => openNew(event.currentTarget)}>İlk popupı ekle<ArrowRight size={16} aria-hidden="true" /></button> : <p>Henüz popup eklenmedi.</p>}</div>}
-    {editor !== undefined ? <EngagementEditor key={recovering?'recovery':editor?.id ?? 'new'} {...props} kind="popup" campaign={editor} recoveryInput={recovering&&recovery?recovery:undefined} returnFocusRef={createTrigger} onClose={(refresh) => {setEditor(undefined);setRecovering(false);if(!api.hasUnresolved())setRecovery(null);if(refresh)setRevision(value=>value+1);}} onSaved={saved => {
+    {editor !== undefined ? <EngagementEditor key={recovering?'recovery':editor?.id ?? 'new'} {...props} kind="popup" campaign={editor} recoveryInput={recovering&&recovery?recovery:undefined} returnFocusRef={props.canManage?createTrigger:trigger} onClose={(refresh) => {setEditor(undefined);setRecovering(false);if(!api.hasUnresolved())setRecovery(null);if(refresh)setRevision(value=>value+1);}} onSaved={saved => {
         setRecords(items => [saved, ...items.filter(item => item.id !== saved.id)]);
         setNotice(saved.enabled ? 'Popup uygulandı.' : 'Popup kapalı olarak kaydedildi.');
         setEditor(undefined);

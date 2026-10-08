@@ -415,3 +415,7 @@ test('definitive edit version conflict reloads canonical popup before a new dele
   await React.act(async()=>container.querySelector('[aria-label="Popup sil: Güncel"]').click());await settle();const confirm=Array.from(container.querySelectorAll('[role="dialog"] button')).find((b:any)=>b.textContent.trim()==='Sil') as any;await React.act(async()=>confirm.click());await settle();assert.deepEqual(deletions,[{campaignId:id,expectedVersion:5}]);
  },{records:[deletionRecord],list:async()=>[current],save:async()=>{current={...deletionRecord,name:'Güncel',version:5};throw Object.assign(Error('Kayıt değişti'),{code:'version_conflict'});}});
 });
+
+test('read-only popup viewer cancellation restores its visible row trigger',async()=>{
+ await popupScreen(async({container,click,window})=>{const view=Array.from(container.querySelectorAll('button')).find((b:any)=>b.textContent.includes('Görüntüle')) as HTMLButtonElement;view.focus();await click('Görüntüle');await click('Vazgeç');assert.equal(window.document.activeElement===view,true);},{records:[deletionRecord],canManage:false});
+});
