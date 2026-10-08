@@ -3,13 +3,14 @@ import { createDefaultStoreEngagementConfig, parseStoreEngagementConfig, type St
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { PanelPageHeader, PanelPageShell } from '@/components/panel/PanelPageShell';
 import { usePanelChromeModel } from '@/components/panel/PanelLayoutClient';
-import { scopedStoreEngagementApi, type CampaignInput } from '@/lib/store-engagement-ui/client';
+import { scopedStoreEngagementApi, type CampaignInput, type PopupDeletionInput } from '@/lib/store-engagement-ui/client';
 import { promotionApi, promotionErrorMessage } from '@/lib/promotion-ui/client';
 import { createPromotionDraft, updatePromotionDraft } from '@/lib/promotion-ui/model';
-import { ArrowRight, Check, Monitor, Plus, Search, ShoppingBag, Smartphone } from 'lucide-react';
+import { ArrowRight, Check, Monitor, Plus, Search, ShoppingBag, Smartphone, Trash2 } from 'lucide-react';
 import { storefrontDesignApi } from '@/lib/storefront-design-ui/client';
 import { DesignSettingsModal } from '../settings/design/DesignSettingsDrawer';
 import { DesignImageField, type DesignImageOption } from '../settings/design/DesignImageField';
+import { PopupDeleteDialog } from './PopupDeleteDialog';
 import { PopupArtwork } from './PopupArtwork';
 import styles from './popup-studio.module.css';
 export interface EngagementPermissions {
@@ -99,7 +100,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
     campaign: StoreEngagementCampaign | null;
     recoveryInput?: CampaignInput;
     onSaved: (campaign: StoreEngagementCampaign) => void;
-    onClose: () => void;
+    onClose: (refresh?:boolean) => void;
     returnFocusRef: RefObject<HTMLElement | null>;
 }>) {
     const { storeSlug } = usePanelChromeModel(), api = useMemo(() => scopedStoreEngagementApi(storeSlug), [storeSlug]);
@@ -250,8 +251,8 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
             setDiscard(true);
             return;
         }
-        onClose();
-    }, [busy, uncertain, couponBusy, couponUnknown, dirty, onClose]);
+        onClose(conflict);
+    }, [busy, uncertain, couponBusy, couponUnknown, dirty, conflict, onClose]);
     async function apply() {
         if (!canManage || busy || writing.current || conflict || couponBusy || couponUnknown || imageState.current.busy || imageState.current.pending)
             return;
@@ -421,7 +422,7 @@ export function EngagementEditor({ kind, campaign, recoveryInput, canManage, can
         <button type="button" className="button button-secondary" onClick={() => setDiscard(false)}>
         Düzenlemeye devam et
         </button>
-        <button type="button" className="button button-text" onClick={onClose}>
+        <button type="button" className="button button-text" onClick={()=>onClose(conflict)}>
         Değişiklikleri bırak
         </button>
         </div> : null}
@@ -675,7 +676,9 @@ export function PopupStudio(props: EngagementPermissions) {
     const [records, setRecords] = useState<readonly StoreEngagementCampaign[]>([]), [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading'), [revision, setRevision] = useState(0), [editor, setEditor] = useState<StoreEngagementCampaign | null | undefined>(), [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [notice, setNotice] = useState('');
     const trigger = useRef<HTMLElement | null>(null);
     const [recovery,setRecovery]=useState<CampaignInput|null>(null),[recovering,setRecovering]=useState(false);
-    useEffect(()=>{let active=true;api.pendingIntent().then(intent=>{if(active)setRecovery(intent);}).catch(reason=>{if(active)setNotice(message(reason));});return()=>{active=false;};},[api,revision]);
+    const [deleteRecovery,setDeleteRecovery]=useState<PopupDeletionInput|null>(null),[deleteTarget,setDeleteTarget]=useState<{intent:PopupDeletionInput;name?:string;recovery?:boolean}>(),[deleteBusy,setDeleteBusy]=useState(false);
+    const deleteTrigger=useRef<HTMLElement|null>(null),createTrigger=useRef<HTMLButtonElement|null>(null);
+    useEffect(()=>{let active=true;Promise.all([api.pendingIntent(),api.pendingDeletion()]).then(([intent,deletion])=>{if(active){setRecovery(intent);setDeleteRecovery(deletion);}}).catch(reason=>{if(active)setNotice(message(reason));});return()=>{active=false;};},[api,revision]);
     useEffect(() => {
         let active = true;
         const controller = new AbortController();
@@ -706,12 +709,13 @@ export function PopupStudio(props: EngagementPermissions) {
     <PanelPageHeader title="Popuplar" />
     {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
     {recovery && api.hasUnresolved() ? <div className={styles.notice} role="status"><p>Önceki kayıt sonucu henüz doğrulanamadı. Bilgileriniz korunuyor.</p>{recovery.kind === 'popup' ? <button type="button" className="button button-secondary" disabled={!props.canManage} onClick={event => { trigger.current = event.currentTarget; setRecovering(true); setEditor(null); }}>Önceki kaydı doğrula</button> : <a href="/settings/store-tools">Sepet kaydını doğrula</a>}</div> : null}
+    {deleteRecovery && api.hasUnresolved() ? <div className={styles.notice} role="status"><p>Önceki silme işleminin sonucunu doğrulayın.</p><button type="button" className="button button-secondary" disabled={!props.canManage || deleteBusy} onClick={event=>{deleteTrigger.current=event.currentTarget;setDeleteTarget({intent:deleteRecovery,recovery:true,name:records.find(item=>item.id===deleteRecovery.campaignId)?.name});}}>Önceki silmeyi doğrula</button></div>:null}
     <header className={styles.toolbar}>
         <label className={styles.searchField}><Search size={18} aria-hidden="true" /><input aria-label="Popup ara" placeholder="Popup ara" value={search} onChange={event => setSearch(event.currentTarget.value)} /></label>
         <div className={styles.statusFilters} role="group" aria-label="Popup durumu">
             {([['all', 'Tümü'], ['enabled', 'Açık'], ['disabled', 'Kapalı']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}
         </div>
-        {props.canManage ? <button type="button" disabled={api.hasUnresolved()} className="button button-primary" onClick={event => openNew(event.currentTarget)}><Plus size={18} aria-hidden="true" />Popup ekle</button> : null}
+        {props.canManage ? <button type="button" ref={createTrigger} disabled={api.hasUnresolved() || deleteBusy} className="button button-primary" onClick={event => openNew(event.currentTarget)}><Plus size={18} aria-hidden="true" />Popup ekle</button> : null}
     </header>
     {phase === 'loading' ? <div className={styles.loadingList} role="status"><span className={styles.srOnly}>Popuplar yükleniyor…</span>{[0, 1, 2].map(index => <div key={index} className={styles.loadingRow} aria-hidden="true"><i /><div><i /><i /></div><i /></div>)}</div>
         : phase === 'error' ? <div className={styles.empty} role="alert"><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>Popuplar yüklenemedi.</h2><button type="button" className="button button-secondary" onClick={() => setRevision(value => value + 1)}>Tekrar dene</button></div>
@@ -719,16 +723,19 @@ export function PopupStudio(props: EngagementPermissions) {
             {visible.map(item => <article key={item.id} className={styles.listRow}>
                 <PopupArtwork variant={item.config.template} className={styles.listArtwork} />
                 <div className={styles.listCopy}><h2>{item.name}</h2><p>{item.config.heading}</p><div className={styles.listMeta}><span className={styles.statusBadge} data-enabled={item.enabled}>{item.enabled ? <Check size={12} aria-hidden="true" /> : null}{item.enabled ? 'Açık' : 'Kapalı'}</span><span>{item.config.devices.desktop && item.config.devices.mobile ? 'Tüm cihazlar' : item.config.devices.mobile ? 'Mobil' : 'Masaüstü'}</span>{item.config.promotionId ? <span>Kupon bağlı</span> : null}</div></div>
-                <button type="button" disabled={api.hasUnresolved()} className="button button-secondary" onClick={event => { trigger.current = event.currentTarget; setRecovering(false); setEditor(item); }}>{props.canManage ? 'Düzenle' : 'Görüntüle'}<ArrowRight size={16} aria-hidden="true" /></button>
+                <div className={styles.rowActions}><button type="button" disabled={api.hasUnresolved() || deleteBusy} className="button button-secondary" onClick={event => { trigger.current = event.currentTarget; setRecovering(false); setEditor(item); }}>{props.canManage ? 'Düzenle' : 'Görüntüle'}<ArrowRight size={16} aria-hidden="true" /></button>
+                {props.canManage?<button type="button" className="button button-text" aria-label={'Popup sil: '+item.name} disabled={api.hasUnresolved() || deleteBusy} onClick={event=>{deleteTrigger.current=event.currentTarget;setDeleteTarget({intent:{campaignId:item.id,expectedVersion:item.version},name:item.name});}}><Trash2 size={16} aria-hidden="true"/>Sil</button>:null}</div>
             </article>)}
         </div>
-        : <div className={styles.empty}><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>{records.length ? 'Aramanıza uygun popup yok.' : 'İlk popupınızı ekleyin'}</h2>{records.length ? <button type="button" className="button button-secondary" onClick={() => { setSearch(''); setFilter('all'); }}>Filtreleri temizle</button> : props.canManage ? <button type="button" disabled={api.hasUnresolved()} className="button button-secondary" onClick={event => openNew(event.currentTarget)}>İlk popupı ekle<ArrowRight size={16} aria-hidden="true" /></button> : <p>Henüz popup eklenmedi.</p>}</div>}
-    {editor !== undefined ? <EngagementEditor key={recovering?'recovery':editor?.id ?? 'new'} {...props} kind="popup" campaign={editor} recoveryInput={recovering&&recovery?recovery:undefined} returnFocusRef={trigger} onClose={() => {setEditor(undefined);setRecovering(false);if(!api.hasUnresolved())setRecovery(null);}} onSaved={saved => {
+        : <div className={styles.empty}><PopupArtwork variant="empty" className={styles.emptyArtwork} /><h2>{records.length ? 'Aramanıza uygun popup yok.' : 'İlk popupınızı ekleyin'}</h2>{records.length ? <button type="button" className="button button-secondary" onClick={() => { setSearch(''); setFilter('all'); }}>Filtreleri temizle</button> : props.canManage ? <button type="button" disabled={api.hasUnresolved() || deleteBusy} className="button button-secondary" onClick={event => openNew(event.currentTarget)}>İlk popupı ekle<ArrowRight size={16} aria-hidden="true" /></button> : <p>Henüz popup eklenmedi.</p>}</div>}
+    {editor !== undefined ? <EngagementEditor key={recovering?'recovery':editor?.id ?? 'new'} {...props} kind="popup" campaign={editor} recoveryInput={recovering&&recovery?recovery:undefined} returnFocusRef={createTrigger} onClose={(refresh) => {setEditor(undefined);setRecovering(false);if(!api.hasUnresolved())setRecovery(null);if(refresh)setRevision(value=>value+1);}} onSaved={saved => {
         setRecords(items => [saved, ...items.filter(item => item.id !== saved.id)]);
         setNotice(saved.enabled ? 'Popup uygulandı.' : 'Popup kapalı olarak kaydedildi.');
         setEditor(undefined);
         setRecovery(null);setRecovering(false);
+        setRevision(value=>value+1);
     }}/> : null}
+    {deleteTarget?<PopupDeleteDialog key={deleteTarget.intent.campaignId} {...deleteTarget} api={api} returnFocusRef={createTrigger} onMutationChanged={setDeleteBusy} onCancel={()=>{setDeleteTarget(undefined);if(!api.hasUnresolved()){setDeleteRecovery(null);setRevision(value=>value+1);}}} onDeleted={receipt=>{setRecords(items=>items.filter(item=>item.id!==receipt.campaignId));setDeleteTarget(undefined);setDeleteRecovery(null);setNotice('Popup silindi.');setRevision(value=>value+1);window.requestAnimationFrame(()=>createTrigger.current?.focus());}}/>:null}
     </div>
     </PanelPageShell>;
 }

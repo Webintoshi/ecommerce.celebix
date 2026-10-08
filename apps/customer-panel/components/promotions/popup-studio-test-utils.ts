@@ -14,6 +14,7 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     couponItems?: any[];
     recoveryInput?: any;
     recoveryDeletion?: any;
+    deletePopup?: (input:any)=>Promise<any>;
     media?: any[];
     images?: any[];
     editor?: () => Promise<any>;
@@ -21,7 +22,8 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     list?: () => Promise<any[]>;
     listError?: Error;
 } = {}) {
-    const writes: any[] = [], coupons: any[] = [], uploads: any[] = [], reads: string[] = [];
+    const writes: any[] = [], coupons: any[] = [], uploads: any[] = [], reads: string[] = [], deletions:any[]=[];
+    let listed=options.records??[];
     let unresolved = Boolean(options.recoveryInput || options.recoveryDeletion);
     class ApiError extends Error {
         constructor(readonly code: string) {
@@ -31,10 +33,11 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
     const api = {
         pendingIntent: async()=>options.recoveryInput??null,
         pendingDeletion: async()=>options.recoveryDeletion??null,
+        deletePopup: async (input:any)=>{deletions.push(input);try{const result=options.deletePopup?await options.deletePopup(input):{campaignId:input.campaignId,deleted:true};listed=listed.filter(item=>item.id!==result.campaignId);unresolved=false;return result;}catch(error){unresolved=true;throw error;}},
         list: async () => {
             reads.push('campaigns');
             if (options.listError) throw options.listError;
-            return options.list ? options.list() : options.records ?? [];
+            return options.list ? options.list() : listed;
         }, hasUnresolved: () => unresolved, save: async (input: any) => {
             writes.push(input);
             try {
@@ -42,6 +45,7 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
                     ...input, id, version: (input.expectedVersion ?? 0) + 1, updatedAt: '2026-10-04T10:00:00.000Z'
                 };
                 unresolved = false;
+                listed=[result,...listed.filter(item=>item.id!==result.id)];
                 return result;
             }
             catch (error) {
@@ -137,7 +141,7 @@ export async function popupScreen(run: (screen: any) => Promise<void>, options: 
         };
         await run({
             ...screen, clickElement: screen.click, changeElement: screen.change,
-            button, click, change, settle, writes, coupons, uploads, reads, ApiError
+            button, click, change, settle, writes, coupons, uploads, reads, deletions, ApiError
         });
     });
 }

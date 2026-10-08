@@ -370,3 +370,48 @@ test('a filtered empty list can clear its search and status without creating or 
         assert.equal(coupons.length, 0);
     }, { records: [record()] });
 });
+
+
+const deletionRecord={id,kind:'popup' as const,name:'Silinecek',enabled:true,version:4,config:createDefaultStoreEngagementConfig(),updatedAt:'2026-10-04T10:00:00.000Z'};
+test('popup list delete cancellation retains row and explicit confirmation removes only selected popup',async()=>{
+ await popupScreen(async({container,click,settle,deletions,window})=>{
+  const remove=container.querySelector('[aria-label="Popup sil: Silinecek"]');assert.ok(remove);
+  await React.act(async()=>remove.click());await settle();await click('Vazgeç');assert.equal(deletions.length,0);assert.ok(container.querySelector('[aria-label="Popup sil: Silinecek"]'));
+  await React.act(async()=>{await new Promise(resolve=>setTimeout(resolve,30));});assert.equal(window.document.activeElement.textContent.trim(),'Popup ekle');
+  await React.act(async()=>container.querySelector('[aria-label="Popup sil: Silinecek"]').click());await settle();const confirm=Array.from(container.querySelectorAll('[role="dialog"] button')).find((b:any)=>b.textContent.trim()==='Sil') as any;assert.ok(confirm);await React.act(async()=>confirm.click());await settle();
+  assert.deepEqual(deletions,[{campaignId:id,expectedVersion:4}]);assert.equal(container.querySelector('[aria-label="Popup sil: Silinecek"]'),null);assert.match(container.textContent,/Korunan/);assert.equal(container.querySelector('[role="dialog"]'),null);
+ },{records:[deletionRecord,{...deletionRecord,id:'00000000-0000-4000-8000-000000000003',name:'Korunan'}]});
+});
+test('read-only popup list never exposes delete action',async()=>{
+ await popupScreen(async({container,deletions})=>{assert.equal(container.querySelector('[aria-label^="Popup sil:"]'),null);assert.equal(deletions.length,0);},{records:[deletionRecord],canManage:false});
+});
+test('reload deletion recovery stays available even after server GET omits the deleted popup',async()=>{
+ await popupScreen(async({click,container,deletions})=>{
+  assert.ok(container.querySelector('[role="status"]'));await click('Önceki silmeyi doğrula');await click('Silmeyi doğrula');assert.deepEqual(deletions,[{campaignId:id,expectedVersion:4}]);assert.equal(container.querySelector('[role="dialog"]'),null);
+ },{recoveryDeletion:{campaignId:id,expectedVersion:4},records:[]});
+});
+
+
+test('popup deletion lost response blocks new edits and retries the original version in the open dialog',async()=>{
+ let attempts=0;
+ await popupScreen(async({container,click,settle,deletions,window})=>{
+  await React.act(async()=>container.querySelector('[aria-label="Popup sil: Silinecek"]').click());await settle();
+  const confirm=Array.from(container.querySelectorAll('[role="dialog"] button')).find((b:any)=>b.textContent.trim()==='Sil') as any;await React.act(async()=>confirm.click());await settle();
+  assert.ok(container.querySelector('[role="alert"]'));assert.equal((Array.from(container.querySelectorAll('button')).find((b:any)=>b.textContent.trim()==='Popup ekle') as HTMLButtonElement).disabled,true);
+  await click('Vazgeç');assert.ok(container.querySelector('[role="dialog"]'));
+  await click('Silmeyi doğrula');assert.deepEqual(deletions,[{campaignId:id,expectedVersion:4},{campaignId:id,expectedVersion:4}]);assert.equal(container.querySelector('[role="dialog"]'),null);
+  await React.act(async()=>{await new Promise(resolve=>setTimeout(resolve,30));});assert.equal(window.document.activeElement.textContent.trim(),'Popup ekle');
+ },{records:[deletionRecord],deletePopup:async()=>{if(++attempts===1)throw Error('response lost');return{campaignId:id,deleted:true};}});
+});
+test('old save replay refreshes canonical list so an already deleted popup cannot reappear',async()=>{
+ const retained={kind:'popup',name:'Önceki popup',enabled:true,config:createDefaultStoreEngagementConfig()};
+ await popupScreen(async({click,container,reads})=>{await click('Önceki kaydı doğrula');await click('Uygula');assert.ok(reads.length>=2);assert.equal(container.querySelector('[aria-label="Popup sil: Önceki popup"]'),null);},{recoveryInput:retained,list:async()=>[]});
+});
+
+test('definitive edit version conflict reloads canonical popup before a new deletion',async()=>{
+ let current=deletionRecord;
+ await popupScreen(async({container,click,change,settle,deletions})=>{
+  await click('Düzenle');await change('engagement-name','Güncelleme');await click('Uygula');assert.ok(container.querySelector('[role="alert"]'));await click('Vazgeç');await click('Değişiklikleri bırak');await settle();
+  await React.act(async()=>container.querySelector('[aria-label="Popup sil: Güncel"]').click());await settle();const confirm=Array.from(container.querySelectorAll('[role="dialog"] button')).find((b:any)=>b.textContent.trim()==='Sil') as any;await React.act(async()=>confirm.click());await settle();assert.deepEqual(deletions,[{campaignId:id,expectedVersion:5}]);
+ },{records:[deletionRecord],list:async()=>[current],save:async()=>{current={...deletionRecord,name:'Güncel',version:5};throw Object.assign(Error('Kayıt değişti'),{code:'version_conflict'});}});
+});

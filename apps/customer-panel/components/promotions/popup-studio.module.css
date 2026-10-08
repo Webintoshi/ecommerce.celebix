@@ -675,3 +675,6 @@
   .templateArtwork { height: 64px; }
   .popupEditor .field :is(input,select,textarea) { font-size: 16px; }
 }
+
+.rowActions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+@media(max-width:760px) { .rowActions { grid-column:2; justify-self:start; } .rowActions button { min-height:44px; } }

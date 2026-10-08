@@ -20,12 +20,12 @@ export function PopupDeleteDialog({intent,name,recovery=false,api,returnFocusRef
   inFlight.current=true;setBusy(true);setError('');onMutationChanged(true);
   try{const receipt=await api.deletePopup(original.current);setUncertain(false);onDeleted(receipt);}
   catch(reason){
-   const unknown=!(reason instanceof StoreEngagementApiError)||['unavailable','operation_mismatch','storage_unavailable','unresolved'].includes(reason.code);
+   const unknown=!(reason instanceof StoreEngagementApiError)||['unavailable','operation_mismatch'].includes(reason.code);
    setUncertain(unknown||api.hasUnresolved());
    setError(reason instanceof StoreEngagementApiError?reason.message:'Silme sonucu doğrulanamadı. Aynı işlemi tekrar deneyin.');
   }finally{inFlight.current=false;setBusy(false);onMutationChanged(false);}
  };
- return <DesignSettingsModal open surface={{label:'Popup sil',hint:'Silinecek popup için onay'}} returnFocusRef={returnFocusRef} onClose={close} onApply={()=>void apply()} applying={busy} applyLabel={uncertain?'Silmeyi doğrula':'Sil'} applyingLabel="Siliniyor…">
+ return <DesignSettingsModal open surface={{label:'Popup sil',hint:'Silinecek popup için onay'}} returnFocusRef={returnFocusRef} onClose={close} onApply={()=>void apply()} applying={busy} closeDisabled={uncertain} applyLabel={uncertain?'Silmeyi doğrula':'Sil'} applyingLabel="Siliniyor…">
   <p>{name?<strong>{name}</strong>:'Bu popup'} silinsin mi?</p>
   <p>Mağazada gösterilmeyecek. Bağlı kupon ve görseller korunur.</p>
   {error?<p role="alert">{error}</p>:null}

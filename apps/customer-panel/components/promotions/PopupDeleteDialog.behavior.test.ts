@@ -3,8 +3,9 @@ import test from 'node:test';
 import React from 'react';
 import {compile,withEditor} from '../settings/design/design-editor-test-utils.ts';
 const campaignId='00000000-0000-4000-8000-000000000001',intent={campaignId,expectedVersion:4};
+class ApiError extends Error {constructor(readonly code:string){super(code);}}
 async function screen(run:(context:any)=>Promise<void>,deletePopup:(input:any)=>Promise<any>,recovery=false){
- const {PopupDeleteDialog}=compile<any>(new URL('./PopupDeleteDialog.tsx',import.meta.url));
+ const {PopupDeleteDialog}=compile<any>(new URL('./PopupDeleteDialog.tsx',import.meta.url),{'../../lib/store-engagement-ui/client':{StoreEngagementApiError:ApiError}});
  await withEditor(async ctx=>{
   const trigger=ctx.window.document.createElement('button');trigger.textContent='Popup sil';ctx.window.document.body.prepend(trigger);trigger.focus();
   let closed=0;const deleted:any[]=[];
@@ -26,6 +27,8 @@ test('lost delete result keeps dialog open and retry uses exact identity and CAS
  const writes:any[]=[];let attempt=0;
  await screen(async({click,deleted,closed,container,window,settle})=>{
   await click('Sil');assert.equal(deleted.length,0);assert.ok(container.querySelector('[role="alert"]'));
+  assert.equal(container.querySelector('[aria-label="Vazgeç ve kapat"]').disabled,true);
+  assert.equal((Array.from(container.querySelectorAll('button')).find((b:any)=>b.textContent.trim()==='Vazgeç') as HTMLButtonElement).disabled,true);
   await click('Vazgeç');assert.equal(closed(),0);
   await React.act(async()=>window.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));await settle();assert.equal(closed(),0);
   await click('Silmeyi doğrula');assert.deepEqual(writes,[intent,intent]);assert.equal(deleted.length,1);
@@ -37,4 +40,8 @@ test('reload recovery cannot discard unresolved deletion and does not automatica
   assert.equal(writes,0);await click('Vazgeç');assert.equal(closed(),0);
   await click('Silmeyi doğrula');assert.equal(writes,1);assert.equal(deleted.length,1);
  },async()=>{writes++;return{campaignId,deleted:true};},true);
+});
+
+test('storage failure before dispatch preserves an available cancel action',async()=>{
+ await screen(async({click,closed,container})=>{await click('Sil');assert.equal(container.querySelector('[aria-label="Vazgeç ve kapat"]').disabled,false);await click('Vazgeç');assert.equal(closed(),1);},async()=>{throw new ApiError('storage_unavailable');});
 });
