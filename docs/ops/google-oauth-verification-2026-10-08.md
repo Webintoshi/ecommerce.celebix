@@ -13,7 +13,7 @@
 
 1. Google veri kullanımı eki kullanıcının açık onayıyla `/tr/gizlilik` ve EN karşılığında yayımlandı. Erişim, kullanım, şifreli saklama ve bağlantı kesmenin gerçek davranışı açıklanır; otomatik saklama süresi veya doğrulanmamış Limited Use uygunluk beyanı verilmez.
 2. Bütün Google bağlantı pencerelerinde canlı gizlilik bağlantısı iki ortak admin üzerinde yayımlandı. Yedek, personel erişimi ve veri talebi/silme süreçleri işletme tarafından netleştirilmeden ek süre veya tam uygunluk beyanı verilmemeli.
-3. İngilizce OAuth ekranı, görünür istemci kimliği, gerekli GTM ek izinleri ve her hassas kapsamın gerçek kullanımı kaydedilmeli. Parola, OAuth kodu, token ve müşteri verisi videoya alınmamalı. Gerçek hesap/kaynak bilgilerinin liste dışı YouTube'a aktarılması için açık izin alınmalı.
+3. İngilizce OAuth ekranı, görünür istemci kimliği, ilk bağlantıda birlikte istenen bütün GTM izinleri ve her hassas kapsamın gerçek kullanımı kaydedilmeli. Parola, OAuth kodu, token ve müşteri verisi videoya alınmamalı. Gerçek hesap/kaynak bilgilerinin liste dışı YouTube'a aktarılması için açık izin alınmalı.
 4. Gerçek video bağlantısı ve kapsam gerekçeleri kaydedilmeli; doğruluk/politika beyanı tamamlandıktan sonra Google incelemesine gönderilmeli. Başvuru sonucu ve inceleme onayı ayrı durumlar olarak izlenmeli.
 
 Google güvenlik uyarısını agent geçmez; ilgili Google izin ekranı kullanıcıya bırakılır. Başka bir OAuth projesi veya test modu uyarıyı ortadan kaldıran çözüm sayılmaz.
@@ -32,7 +32,7 @@ Search Console için kullanılan `getToken` ve `insert`, `siteverification.verif
 
 ## Yerel kullanıcı kaydı ve bekleyen adımlar
 
-Kullanıcının 24,61 saniyelik Masaüstü videosu Google giriş/izin akışını ve GTM hesap listesine dönüşü gösterir. Ayrıntılı kapsamlar, GTM Uygula/yayın sonucu ve Ads kullanım kanıtı eksiktir. İlgisiz Google hesap kimlikleri de görünür; video yerelde tutuldu, YouTube'a yüklenmedi. Başvuru hâlâ gönderilmemiştir. Güvenlik uyarısı ve ek Google izinleri kullanıcı tarafından tamamlanmalıdır.
+Kullanıcının 24,61 saniyelik Masaüstü videosu Google giriş/izin akışını ve GTM hesap listesine dönüşü gösterir. Ayrıntılı kapsamlar, GTM Uygula/yayın sonucu ve Ads kullanım kanıtı eksiktir. İlgisiz Google hesap kimlikleri de görünür; video yerelde tutuldu, YouTube'a yüklenmedi. Başvuru hâlâ gönderilmemiştir. Güvenlik uyarısı ve Google izinleri kullanıcı tarafından tamamlanmalıdır.
 
 Arayüz kabulünden sonra kullanıcı Chrome'da yeni Güzide GTM hesabını/konteynerini seçip kurulumu tamamladı. Gerçek ekranda **Bağlantı uygulandı / Bağlı**, `guzidekuyumcu.com` ve `GTM-P8PBNLXG` görüldü. Root Uygula veya Google izin düğmesine basmadı; bu kullanıcı işlemi ortak arayüz yayınının sağlayıcı mutasyonu değildir. Bu ekran kanıtı, tüm kapsamların demo videosu veya gerçek ziyaretçi ölçüm kabulünün tamamlandığı anlamına gelmez.
 

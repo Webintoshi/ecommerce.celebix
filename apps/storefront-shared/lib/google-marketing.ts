@@ -33,14 +33,15 @@ export function googleMarketingCspSources(value: unknown) {
     image: ["https://www.googletagmanager.com", ...analytics, ...ads], frame: ["https://www.googletagmanager.com"] };
 }
 export type GoogleMarketingClient = Readonly<{ consent(): GoogleConsent; setConsent(value: "granted" | "denied"): void;
-  commerce(value: PublicCommerceEvent): boolean; purchase(value: unknown): boolean; onReady(callback: () => void): () => void }>;
+  commerce(value: PublicCommerceEvent): boolean; purchase(value: unknown): boolean; onReady(callback: () => void): () => void;
+  hasStarted(): boolean; dispose(): void }>;
 
 export function createGoogleMarketingClient(input: Readonly<{ storeId: string; hostname: string; nonce: string; projection: unknown; browser: Browser }>): GoogleMarketingClient {
   const projection = safeProjection(input.projection), browser = input.browser;
   const safe = UUID.test(input.storeId) && browser.location.protocol === "https:" && browser.location.hostname === input.hostname && /^[A-Za-z0-9+/=_-]{16,128}$/u.test(input.nonce);
   const consentKey = `celebix:google-consent:v1:${input.storeId}:${input.hostname}`;
   const purchaseKey = `celebix:google-purchases:v1:${input.storeId}:${projection.gtmContainerId ?? projection.ads?.tagId ?? "disabled"}:${projection.ads?.conversionLabel ?? ""}`;
-  let consent: GoogleConsent = "undecided", script: Script | null = null, ready = false;
+  let consent: GoogleConsent = "undecided", script: Script | null = null, ready = false, started = false, disposed = false;
   const seen = new Set<string>(), listeners = new Set<() => void>(), pendingCommerce: unknown[] = [];
   if (!Array.isArray(browser.dataLayer)) browser.dataLayer = [];
   const layer = browser.dataLayer;
@@ -50,7 +51,7 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
     layer.push({ "gtm.allowlist": ["google", "googtag"], "gtm.blocklist": ["customScripts", "customPixels", "nonGoogleScripts", "nonGooglePixels", "nonGoogleIframes", "sandboxedScripts"] });
   }
   function load() {
-    if (!safe || !hasGoogleMarketingTags(projection) || script || consent !== "granted") return;
+    if (disposed || !safe || !hasGoogleMarketingTags(projection) || script || consent !== "granted") return;
     script = browser.document.createElement("script"); script.async = true; script.nonce = input.nonce;
     if (projection.gtmContainerId) {
       layer.push({ "gtm.start": Date.now(), event: "gtm.js" });
@@ -59,12 +60,13 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
       command("js", new Date()); command("config", projection.ads.tagId, { allow_enhanced_conversions: false });
       script.src = `https://www.googletagmanager.com/gtag/js?id=${projection.ads.tagId}`;
     }
-    script.onload = () => { if (consent !== "granted") return; ready = true; layer.push(...pendingCommerce.splice(0)); for (const listener of listeners) listener(); };
-    script.onerror = () => { ready = false; script?.remove(); script = null; };
+    script.onload = () => { if (disposed || consent !== "granted") return; ready = true; layer.push(...pendingCommerce.splice(0)); for (const listener of listeners) listener(); };
+    script.onerror = () => { if (disposed) return; ready = false; script?.remove(); script = null; };
+    started = true;
     browser.document.head.appendChild(script);
   }
   function setConsent(value: "granted" | "denied") {
-    if (!safe || value !== "granted" && value !== "denied") return;
+    if (disposed || !safe || value !== "granted" && value !== "denied") return;
     consent = value;
     try { browser.localStorage?.setItem(consentKey, JSON.stringify({ version: 1, value, expires: Date.now() + 180 * 86_400_000 })); } catch { /* choice remains effective in this page */ }
     if (hasGoogleMarketingTags(projection)) command("consent", "update", value === "granted" ? { ad_storage: "granted", ad_user_data: "granted", ad_personalization: "granted", analytics_storage: "granted" } : DEFAULTS);
@@ -81,9 +83,17 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
   }
   try { const stored = JSON.parse(browser.localStorage?.getItem(consentKey) ?? "null"); if (stored?.version === 1 && Number.isFinite(stored.expires) && stored.expires > Date.now() && ["granted", "denied"].includes(stored.value)) setConsent(stored.value); } catch { /* missing or corrupt consent means no permission */ }
   return Object.freeze({ consent: () => consent, setConsent,
-    onReady(callback: () => void) { listeners.add(callback); if (ready && consent === "granted") callback(); return () => { listeners.delete(callback); }; },
+    hasStarted: () => started,
+    dispose() {
+      if (disposed) return;
+      disposed = true; ready = false; listeners.clear(); pendingCommerce.length = 0;
+      if (script) { script.onload = null; script.onerror = null; script.remove(); script = null; }
+      // Stop measurement in this document without changing the visitor's saved choice.
+      if (started) command("consent", "update", DEFAULTS);
+    },
+    onReady(callback: () => void) { if (disposed) return () => {}; listeners.add(callback); if (ready && consent === "granted") callback(); return () => { listeners.delete(callback); }; },
     commerce(value: PublicCommerceEvent) {
-      if (!safe || consent !== "granted" || !projection.gtmContainerId) return false;
+      if (disposed || !safe || consent !== "granted" || !projection.gtmContainerId) return false;
       try {
         if (!value || typeof value !== "object" || Object.keys(value).sort().join(",") !== "data,name") return false;
         const event = parseBrowserCommerceEvent({ ...value.data, schemaVersion: 1, eventName: value.name, occurredAt: new Date().toISOString() });
@@ -98,7 +108,7 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
       } catch { return false; }
     },
     purchase(value: unknown) {
-      if (!safe || consent !== "granted" || !ready) return false;
+      if (disposed || !safe || consent !== "granted" || !ready) return false;
       const purchase = parseGoogleConfirmedPurchase(value); if (!purchase) return false;
       try { const stored = JSON.parse(browser.localStorage?.getItem(purchaseKey) ?? "[]"); if (Array.isArray(stored) && stored.length <= 100 && stored.every((id) => typeof id === "string" && UUID.test(id))) for (const id of stored) seen.add(id); } catch { /* transaction_id still gives provider dedup when storage is unavailable */ }
       if (seen.has(purchase.transactionId)) return false;

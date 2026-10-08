@@ -94,3 +94,19 @@ test("Google CSP is finite and excludes arbitrary scripts, eval and wildcard ori
   assert.deepEqual(module!.googleMarketingCspSources({ gtmContainerId: null, ads: null, verificationToken: null }), { script: [], connect: [], image: [], frame: [] });
   assert.doesNotMatch(JSON.stringify(sources), /\*|unsafe-eval|http:|attacker/);
 });
+test("disposing a started client disables saved callbacks and commerce without revoking stored consent", () => {
+  const { f, manager } = client(); let calls = 0;
+  assert.equal(manager.hasStarted(), false);
+  manager.onReady(() => { calls++; }); manager.setConsent("granted");
+  assert.equal(manager.hasStarted(), true);
+  const lateLoad = f.scripts[0]!.onload as () => void;
+  manager.commerce({ name: "add_to_cart", data: { productId: ORDER } }); manager.dispose();
+  assert.equal(f.scripts[0]!.removed, true);
+  assert.equal(manager.hasStarted(), true);
+  const before = f.browser.dataLayer.length;
+  lateLoad(); manager.setConsent("granted"); manager.onReady(() => { calls++; });
+  assert.equal(calls, 0); assert.equal(f.scripts.length, 1); assert.equal(f.browser.dataLayer.length, before);
+  assert.equal(manager.commerce({ name: "product_view", data: { productId: ORDER } }), false);
+  assert.equal(manager.purchase({ transactionId: ORDER, valueCents: 1250, currency: "TRY" }), false);
+  assert.equal(JSON.parse(f.storage.get(`celebix:google-consent:v1:${STORE}:shop.example.com`)!).value, "granted");
+});

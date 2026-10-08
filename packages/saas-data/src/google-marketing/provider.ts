@@ -4,8 +4,8 @@ import type {GoogleCredential} from './credential-crypto.ts';
 import {googleError,GoogleMarketingRepositoryError} from './errors.ts';
 const GOOGLE='https://www.googleapis.com';
 const GTM=`${GOOGLE}/tagmanager/v2`;
-export const GOOGLE_SCOPES={gtm:['https://www.googleapis.com/auth/tagmanager.readonly'],ads:['https://www.googleapis.com/auth/adwords'],search_console:['https://www.googleapis.com/auth/webmasters','https://www.googleapis.com/auth/siteverification']} as const;
 export const GTM_INSTALL_SCOPES=['https://www.googleapis.com/auth/tagmanager.edit.containers','https://www.googleapis.com/auth/tagmanager.edit.containerversions','https://www.googleapis.com/auth/tagmanager.publish'];
+export const GOOGLE_SCOPES={gtm:['https://www.googleapis.com/auth/tagmanager.readonly',...GTM_INSTALL_SCOPES],ads:['https://www.googleapis.com/auth/adwords'],search_console:['https://www.googleapis.com/auth/webmasters','https://www.googleapis.com/auth/siteverification']} as const;
 type Json=Record<string,any>;
 type Progress=Record<string,unknown>;
 function numeric(value:unknown):string {if(typeof value!=='string'||!/^\d{1,20}$/.test(value))googleError('resource_denied');return value;}
