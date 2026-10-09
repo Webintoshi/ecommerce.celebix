@@ -2,7 +2,7 @@
 
 Tarih: 9 Ekim 2026
 
-Durum: Kullanıcı 9 Ekim 2026'da Brevo ve Klaviyo çalışmasını onayladı; resmi logoların kullanılması kapsamına eklendi. Yazılı uygulama planı incelemesi bekliyor. Ürün kodu, veri güncellemesi, sağlayıcı hesabı bağlantısı veya canlı gönderim yapılmadı.
+Durum: Kullanıcı 9 Ekim 2026'da Brevo ve Klaviyo çalışmasını onayladı; resmi logoların kullanılması kapsamına eklendi. Kullanıcı uygulama planını ve aynı sohbet içinde kodlamayı onayladı. Ortak sözleşmeler, aday veri desteği, arka plan eşitlemesi, HTTP ve logolu ekran uygulandı. İzole kabul/yayın hazırlığı sürüyor; gerçek sağlayıcı hesabı kabulü ve üretim aktivasyonu bekliyor. Canlı veri güncellemesi, gerçek hesap bağlantısı veya gönderim yapılmadı.
 
 ## 1. Amaç ve karar
 

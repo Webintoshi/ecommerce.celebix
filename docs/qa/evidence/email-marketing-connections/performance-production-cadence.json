@@ -1,0 +1,302 @@
+{
+  "isolatedOnly": true,
+  "fixtureStores": 4,
+  "profilesPerStore": 250,
+  "realProviders": false,
+  "authBoundary": "synthetic approved session; actual HTTP handler/repository/native authority",
+  "sourceSaveBoundary": "native consent event + audience + outbox transaction, not complete customer form",
+  "workerIntervalMs": 5000,
+  "requestPaceMs": 80,
+  "productionIntervalMs": 5000,
+  "providerLatencyMs": 10,
+  "results": [
+    {
+      "run": 1,
+      "mode": "off",
+      "panelP95": 5.755417000000307,
+      "eventSaveP95": 4.200667000000067,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21008.305375000004,
+      "nodeCpuMs": 827.363,
+      "nodeRssMiB": 59.640625,
+      "poolWaitP95": 0.02479200000016135,
+      "providerCalls": 0,
+      "providerCallsPerSecond": 0,
+      "callsByStore": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 401,
+          "age": 30.380436
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 401,
+          "age": 30.278347
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 401,
+          "age": 30.190379
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 401,
+          "age": 30.117673
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "mode": "full",
+      "panelP95": 6.547375000001921,
+      "eventSaveP95": 5.252542000001995,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21137.742124999997,
+      "nodeCpuMs": 971.033,
+      "nodeRssMiB": 80.40625,
+      "poolWaitP95": 0.02895899999566609,
+      "providerCalls": 10,
+      "providerCallsPerSecond": 0.47308742536757586,
+      "callsByStore": [
+        2,
+        4,
+        2,
+        2
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 402,
+          "age": 30.78871
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 402,
+          "age": 30.665126
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 402,
+          "age": 30.55368
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 402,
+          "age": 30.459034
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "mode": "full",
+      "panelP95": 6.18291699999827,
+      "eventSaveP95": 4.910332999992534,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21046.368833999994,
+      "nodeCpuMs": 920.485,
+      "nodeRssMiB": 121.984375,
+      "poolWaitP95": 0.031749999994644895,
+      "providerCalls": 10,
+      "providerCallsPerSecond": 0.4751413452303087,
+      "callsByStore": [
+        2,
+        4,
+        2,
+        2
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 402,
+          "age": 30.56588
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 402,
+          "age": 30.490368
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 402,
+          "age": 30.424296
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 402,
+          "age": 30.361418
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "mode": "off",
+      "panelP95": 6.496666999999434,
+      "eventSaveP95": 4.8547920000128215,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21079.289000000004,
+      "nodeCpuMs": 890.42,
+      "nodeRssMiB": 158.46875,
+      "poolWaitP95": 0.03195800000685267,
+      "providerCalls": 0,
+      "providerCallsPerSecond": 0,
+      "callsByStore": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 401,
+          "age": 30.281397
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 401,
+          "age": 30.21964
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 401,
+          "age": 30.136515
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 401,
+          "age": 30.069574
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "mode": "off",
+      "panelP95": 5.736541999998735,
+      "eventSaveP95": 4.682999999989988,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21004.945792,
+      "nodeCpuMs": 871.284,
+      "nodeRssMiB": 71.21875,
+      "poolWaitP95": 0.024917000002460554,
+      "providerCalls": 0,
+      "providerCallsPerSecond": 0,
+      "callsByStore": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 401,
+          "age": 30.238108
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 401,
+          "age": 30.179066
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 401,
+          "age": 30.124598
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 401,
+          "age": 30.068585
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "mode": "full",
+      "panelP95": 6.2016249999869615,
+      "eventSaveP95": 4.769291000004159,
+      "panelRequests": 500,
+      "eventRequests": 500,
+      "requests": 1000,
+      "warmup": 200,
+      "elapsedMs": 21023.5815,
+      "nodeCpuMs": 887.966,
+      "nodeRssMiB": 161.328125,
+      "poolWaitP95": 0.026041000004624948,
+      "providerCalls": 8,
+      "providerCallsPerSecond": 0.38052507846962236,
+      "callsByStore": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "workerErrors": 0,
+      "queue": [
+        {
+          "store_id": "22900000-0000-4000-8000-000000000100",
+          "pending": 402,
+          "age": 25.467097
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000101",
+          "pending": 402,
+          "age": 25.407068
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000102",
+          "pending": 402,
+          "age": 25.353014
+        },
+        {
+          "store_id": "22900000-0000-4000-8000-000000000103",
+          "pending": 402,
+          "age": 25.29877
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "run": 1,
+      "panelP95ChangePercent": 13.760219285615127,
+      "eventP95ChangePercent": 25.040666160919468
+    },
+    {
+      "run": 2,
+      "panelP95ChangePercent": -4.829399444379579,
+      "eventP95ChangePercent": 1.144044893778462
+    },
+    {
+      "run": 3,
+      "panelP95ChangePercent": 8.107375488374856,
+      "eventP95ChangePercent": 1.8426436048335493
+    }
+  ],
+  "repeatablePanelRegression": false
+}

@@ -1,0 +1,23 @@
+{
+  "status": "candidate_not_deployed",
+  "date": "2026-10-09",
+  "branch": "codex/email-provider-connections",
+  "reviewedBase": "8ec4903155e8410548e5ce60e04edf7f9b2f87b9",
+  "sourceCommit": null,
+  "sourceCommitResolution": "Resolve and seal the actual release HEAD externally with fresh target baselines; this candidate manifest is not a production seal.",
+  "migrationId": null,
+  "migrationUp": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",
+  "migrationDown": "apps/owner/scripts/sql/saas/email-marketing-connections.down.sql",
+  "nativeProductionBaseline": null,
+  "runtimeContainers": [],
+  "configurationFingerprints": null,
+  "liveWorkerModeChanged": false,
+  "providerAcceptance": "pending_authorized_sandbox_keys_and_recipient_scope",
+  "publicationGates": [
+    "Brevo registration and encrypted merchant key clarification",
+    "Klaviyo provider-choice and mark/authentication permission",
+    "fresh shared release authority and baselines"
+  ],
+  "destructiveDown": "Refuses retained connection/evidence state; preserve revoke/readback/cleanup before compatible source rollback.",
+  "testedImplementationCommit": "2e7cec6495d74c9cf4be8f129ea44236b9ee6866"
+}

@@ -1,0 +1,201 @@
+{
+  "browser": "Chrome via Playwright",
+  "fallbackReason": "Browser plugin not available",
+  "fixtureOnly": true,
+  "results": [
+    {
+      "width": 1440,
+      "identity": true,
+      "meaningfulContent": true,
+      "noFrameworkOverlay": true,
+      "consoleErrors": [],
+      "assetWarnings": [
+        {
+          "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "location": {
+            "url": "http://localhost:3648/favicon.ico",
+            "line": 0,
+            "column": 0,
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "layout": {
+        "docWidth": 1440,
+        "viewport": 1440,
+        "dialog": {
+          "x": 450,
+          "y": 129.75,
+          "width": 540,
+          "height": 700.5,
+          "top": 129.75,
+          "right": 990,
+          "bottom": 830.25,
+          "left": 450
+        },
+        "footer": [
+          {
+            "text": "Vazgeç",
+            "rect": {
+              "x": 751.5625,
+              "y": 769.25,
+              "width": 82.203125,
+              "height": 44,
+              "top": 769.25,
+              "right": 833.765625,
+              "bottom": 813.25,
+              "left": 751.5625
+            }
+          },
+          {
+            "text": "Tekrar uygula",
+            "rect": {
+              "x": 841.765625,
+              "y": 769.25,
+              "width": 123.234375,
+              "height": 44,
+              "top": 769.25,
+              "right": 965,
+              "bottom": 813.25,
+              "left": 841.765625
+            }
+          }
+        ],
+        "keyVisible": false
+      },
+      "brevoDedicatedListAndAutomationNotice": true,
+      "retrySameOperation": true,
+      "focusAndEscape": true,
+      "requests": [
+        "http://localhost:3648/fixture-email-connections",
+        "http://localhost:3648/brands/brevo.svg",
+        "http://localhost:3648/brands/klaviyo.svg",
+        "http://localhost:3648/_next/static/css/app/fixture-email-connections/page.css?v=1791560201055",
+        "http://localhost:3648/_next/static/chunks/app/fixture-email-connections/page.js"
+      ]
+    },
+    {
+      "width": 1024,
+      "identity": true,
+      "meaningfulContent": true,
+      "noFrameworkOverlay": true,
+      "consoleErrors": [],
+      "assetWarnings": [],
+      "layout": {
+        "docWidth": 1024,
+        "viewport": 1024,
+        "dialog": {
+          "x": 242,
+          "y": 129.75,
+          "width": 540,
+          "height": 700.5,
+          "top": 129.75,
+          "right": 782,
+          "bottom": 830.25,
+          "left": 242
+        },
+        "footer": [
+          {
+            "text": "Vazgeç",
+            "rect": {
+              "x": 543.5625,
+              "y": 769.25,
+              "width": 82.203125,
+              "height": 44,
+              "top": 769.25,
+              "right": 625.765625,
+              "bottom": 813.25,
+              "left": 543.5625
+            }
+          },
+          {
+            "text": "Tekrar uygula",
+            "rect": {
+              "x": 633.765625,
+              "y": 769.25,
+              "width": 123.234375,
+              "height": 44,
+              "top": 769.25,
+              "right": 757,
+              "bottom": 813.25,
+              "left": 633.765625
+            }
+          }
+        ],
+        "keyVisible": false
+      },
+      "brevoDedicatedListAndAutomationNotice": true,
+      "retrySameOperation": true,
+      "focusAndEscape": true,
+      "requests": [
+        "http://localhost:3648/fixture-email-connections",
+        "http://localhost:3648/brands/brevo.svg",
+        "http://localhost:3648/brands/klaviyo.svg",
+        "http://localhost:3648/_next/static/css/app/fixture-email-connections/page.css?v=1791560202302",
+        "http://localhost:3648/_next/static/chunks/app/fixture-email-connections/page.js"
+      ]
+    },
+    {
+      "width": 390,
+      "identity": true,
+      "meaningfulContent": true,
+      "noFrameworkOverlay": true,
+      "consoleErrors": [],
+      "assetWarnings": [],
+      "layout": {
+        "docWidth": 390,
+        "viewport": 390,
+        "dialog": {
+          "x": 19,
+          "y": 43,
+          "width": 352,
+          "height": 758,
+          "top": 43,
+          "right": 371,
+          "bottom": 801,
+          "left": 19
+        },
+        "footer": [
+          {
+            "text": "Vazgeç",
+            "rect": {
+              "x": 140.5625,
+              "y": 740,
+              "width": 82.203125,
+              "height": 44,
+              "top": 740,
+              "right": 222.765625,
+              "bottom": 784,
+              "left": 140.5625
+            }
+          },
+          {
+            "text": "Tekrar uygula",
+            "rect": {
+              "x": 230.765625,
+              "y": 740,
+              "width": 123.234375,
+              "height": 44,
+              "top": 740,
+              "right": 354,
+              "bottom": 784,
+              "left": 230.765625
+            }
+          }
+        ],
+        "keyVisible": false
+      },
+      "brevoDedicatedListAndAutomationNotice": true,
+      "retrySameOperation": true,
+      "focusAndEscape": true,
+      "requests": [
+        "http://localhost:3648/fixture-email-connections",
+        "http://localhost:3648/brands/brevo.svg",
+        "http://localhost:3648/brands/klaviyo.svg",
+        "http://localhost:3648/_next/static/css/app/fixture-email-connections/page.css?v=1791560203456",
+        "http://localhost:3648/_next/static/chunks/app/fixture-email-connections/page.js"
+      ]
+    }
+  ]
+}

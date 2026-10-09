@@ -1,0 +1,36 @@
+{
+  "sourceCommit": "2e7cec6495d74c9cf4be8f129ea44236b9ee6866",
+  "productionBuild": true,
+  "method": "Next client-reference route chunk maps; zero non-email route chunks for email component",
+  "routes": [
+    {
+      "route": "orders/page",
+      "emailComponentChunks": []
+    },
+    {
+      "route": "products/page",
+      "emailComponentChunks": []
+    },
+    {
+      "route": "settings/design/page",
+      "emailComponentChunks": []
+    },
+    {
+      "route": "marketing/page",
+      "emailComponentChunks": []
+    },
+    {
+      "route": "marketing/email/page",
+      "emailComponentChunks": [
+        "20425",
+        "static/chunks/20425-6560d5261b03c305.js",
+        "58926",
+        "static/chunks/58926-6b019a76d0db7290.js",
+        "65144",
+        "static/chunks/65144-2618255b833367cb.js",
+        "85342",
+        "static/chunks/app/marketing/email/page-22b50cff89bf0707.js"
+      ]
+    }
+  ]
+}
