@@ -4,7 +4,7 @@ import React from "react";
 import type { ContactWidgetConfig } from "@celebix/saas-contracts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
-type Widget = React.ComponentType<{ config: ContactWidgetConfig | null; storefrontName: string; hostname: string; brandColor: string }>;
+type Widget = React.ComponentType<{ config: ContactWidgetConfig | null; storefrontName: string; hostname: string; brandColor: string; logo?: { url: string; altText: string } | null; fontFamily?: string }>;
 const config = (): ContactWidgetConfig => ({
   schemaVersion: 1, enabled: true, title: "Nasıl yardımcı olabiliriz?", greeting: "Size uygun iletişim yolunu seçin.", buttonLabel: "Bize ulaşın",
   position: "bottom-right", icon: "message", theme: "brand", devices: { desktop: true, mobile: true },
@@ -17,6 +17,71 @@ function loadWidget(route: { pathname: string }) {
 }
 const props = (value: ContactWidgetConfig | null) => ({ config: value, storefrontName: "Lilyum", hostname: "lilyum.example", brandColor: "#193e32" });
 async function settle() { await React.act(async () => { await new Promise(resolve => window.setTimeout(resolve, 5)); }); }
+
+test("the shared panel uses each merchant's logo, font, copy and configured channels", async () => {
+  const ContactWidget = loadWidget({ pathname: "/" });
+  await withProductBrowser(async ({ container, render, click }) => {
+    const merchant = (name: string, color: string, theme: ContactWidgetConfig["theme"]) => ({
+      ...props({ ...config(), title: `${name} ile iletişime geçin`, greeting: `${name} ekibi size yardımcı olsun.`, buttonLabel: `${name} iletişim`, theme, position: "bottom-left" as const }),
+      storefrontName: name,
+      logo: { url: `https://media.example/${name}.webp`, altText: `${name} logosu` },
+      brandColor: color,
+      fontFamily: '"Manrope", sans-serif',
+    });
+    const first = merchant("Siora", "#181818", "light");
+    await render(React.createElement(ContactWidget, first));
+    await click('button[aria-haspopup="dialog"]');
+    for (const value of [first, merchant("Alpler", "#0a2741", "dark"), merchant("Lilyum", "#43745a", "brand")]) {
+      await render(React.createElement(ContactWidget, value));
+      const dialog = container.querySelector('[role="dialog"]')!;
+      const logo = dialog.querySelector("img");
+      assert.ok(logo, "merchant logo replaces the generic initial avatar");
+      assert.equal(logo.getAttribute("src"), value.logo.url);
+      assert.equal(logo.getAttribute("alt"), value.logo.altText);
+      assert.equal(dialog.querySelector("h2")?.textContent, value.config!.title);
+      assert.ok(dialog.textContent?.includes(value.config!.greeting));
+      assert.equal(dialog.querySelectorAll("a").length, 1);
+      const widget = container.querySelector<HTMLElement>("[data-contact-widget]")!;
+      assert.equal(widget.style.getPropertyValue("--contact-font"), value.fontFamily);
+      assert.equal(widget.style.getPropertyValue("--contact-brand"), value.brandColor);
+      assert.equal(widget.dataset.theme, value.config!.theme);
+      assert.equal(widget.dataset.position, "bottom-left");
+      assert.equal(dialog.textContent?.includes("Güzide"), false);
+    }
+  });
+});
+
+test("absent or failed merchant logos fall back to the current store name and recover for a new logo", async () => {
+  const ContactWidget = loadWidget({ pathname: "/" });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(ContactWidget, props(config())));
+    await click('button[aria-haspopup="dialog"]');
+    assert.equal(container.querySelector('[data-contact-brand]')?.textContent, "Lilyum");
+    const branded = { ...props(config()), logo: { url: "https://media.example/first.webp", altText: "Lilyum logosu" } };
+    await render(React.createElement(ContactWidget, branded));
+    await React.act(async () => container.querySelector("img")!.dispatchEvent(new window.Event("error")));
+    assert.ok(!container.querySelector("img"));
+    assert.equal(container.querySelector('[data-contact-brand]')?.textContent, "Lilyum");
+    await render(React.createElement(ContactWidget, { ...branded, storefrontName: "Yeni mağaza", logo: { url: "https://media.example/second.webp", altText: "Yeni mağaza logosu" } }));
+    assert.equal(container.querySelector("img")?.getAttribute("src"), "https://media.example/second.webp");
+  });
+});
+
+test("mobile contact opens above the controls without a second launcher and restores keyboard focus on close", async () => {
+  const ContactWidget = loadWidget({ pathname: "/" });
+  await withProductBrowser(async ({ container, render, click }) => {
+    (window as unknown as { happyDOM: { setWindowSize(size: { width: number; height: number }): void } }).happyDOM.setWindowSize({ width: 390, height: 844 });
+    await render(React.createElement(ContactWidget, props(config())));
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
+    await click('button[aria-haspopup="dialog"]');
+    assert.equal(trigger.hidden, true);
+    assert.equal(container.querySelector('[role="dialog"]')?.getAttribute("aria-modal"), "false");
+    await click('button[aria-label="İletişim panelini kapat"]');
+    assert.equal(trigger.hidden, false);
+    assert.equal(document.activeElement, trigger);
+    assert.ok(!container.querySelector('[role="dialog"]'));
+  });
+});
 
 test("disabled widget and disabled channels never offer contact links", async () => {
   const ContactWidget = loadWidget({ pathname: "/" });

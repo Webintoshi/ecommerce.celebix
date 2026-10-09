@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { createStorefrontTypographyResources } from "@celebix/storefront-design-ui";
 
 import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTracker.tsx";
 import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
@@ -11,6 +12,7 @@ import { GoogleMarketingConsent } from "../components/GoogleMarketingConsent.tsx
 import { hasGoogleMarketingTags } from "../lib/google-marketing.ts";
 import { StoreEngagement } from "../components/StoreEngagement";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
+import { lilyumLogoFor } from "../themes/lilyum/logo.ts";
 import "./globals.css";
 import "../themes/siora/siora.css";
 import "../themes/siora/siora-mobile.css";
@@ -37,6 +39,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = page.kind === "active" ? page.context.storefront.locale : "tr";
   const nonce = requestHeaders.get("x-nonce") ?? "";
   const googleMarketing = page.kind === "active" ? page.context.googleMarketing : null;
+  const contactBrand = page.kind === "active" && page.context.contactWidget?.enabled ? {
+    logo: lilyumLogoFor(page.context.storefront, page.context.design.publicationVersion > 1
+      ? page.context.design.brand.logo ?? page.context.storefront.presentation.logo
+      : page.context.storefront.presentation.logo),
+    fontFamily: createStorefrontTypographyResources(page.context.design.typography).style["--store-body-font"],
+  } : null;
   return (
     <html lang={locale} data-scroll-behavior={page.kind === "active" && guzideThemeFor(page.context.storefront) ? "smooth" : undefined}>
       <head>{googleMarketing?.verificationToken ? <meta name="google-site-verification" content={googleMarketing.verificationToken} /> : null}</head>
@@ -47,7 +55,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           : children}
         <StorefrontNavigationScroll />
         {page.kind === "active" ? <StoreEngagement storefrontId={page.context.storefront.id} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} /> : null}
-        {page.kind === "active" && page.context.contactWidget?.enabled ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} /> : null}
+        {page.kind === "active" && page.context.contactWidget?.enabled && contactBrand ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} logo={contactBrand.logo} fontFamily={contactBrand.fontFamily} /> : null}
         {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>
     </html>
