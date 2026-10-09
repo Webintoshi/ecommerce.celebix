@@ -1,0 +1,2 @@
+import assert from 'node:assert/strict';import test from 'node:test';const module=await import('./state.ts').catch(()=>({})) as typeof import('./state.ts');
+test('unknown counts stay unknown and error copy distinguishes uncertain from rejected writes',()=>{assert.equal(typeof module.emailMarketingErrorMessage,'function');assert.match(module.emailMarketingErrorMessage('outcome_unknown'),/aynı işlemi/i);assert.equal(module.emailMarketingCount(null),'Bilinmiyor');assert.equal(module.emailMarketingCount(0),'0');});

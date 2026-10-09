@@ -96,7 +96,16 @@ BEGIN
  IF p_action='private' THEN SELECT * INTO c FROM saas.email_marketing_connections WHERE store_id=p_store AND status<>'disconnected';IF NOT FOUND THEN RETURN QUERY SELECT 'not_configured',NULL::jsonb;RETURN;END IF;RETURN QUERY SELECT 'found',jsonb_build_object('connection',saas.email_marketing_projection(p_store,c.id),'credential',c.credential);RETURN;END IF;
  IF p_action IN('candidate','lists','preview') THEN
   SELECT * INTO candidate FROM saas.email_marketing_candidates WHERE id=(p_input->>'candidateId')::uuid AND store_id=p_store AND principal_id=p_principal AND membership_id=p_membership AND session_hash=p_input->>'sessionHash';
-  IF NOT FOUND OR candidate.consumed_at IS NOT NULL OR candidate.expires_at<=moment OR candidate.account_id IS NULL THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
+  -- Expired discovery is never usable for a new intent. Only the original leased
+  -- apply may read the retained key to reconcile its already-dispatched list.
+  IF NOT FOUND OR candidate.consumed_at IS NOT NULL OR candidate.credential IS NULL OR candidate.account_id IS NULL OR
+    (candidate.expires_at<=moment AND NOT (p_action='candidate' AND EXISTS(
+      SELECT 1 FROM saas.email_marketing_operations recovery WHERE recovery.id=(p_input->>'operationId')::uuid
+      AND recovery.candidate_id=candidate.id AND recovery.store_id=p_store AND recovery.principal_id=p_principal AND recovery.membership_id=p_membership
+      AND recovery.kind='apply' AND recovery.phase<>'complete' AND recovery.created_at<candidate.expires_at
+      AND recovery.progress->>'listCreateDispatched'='true' AND recovery.progress->'selection'->>'kind'='create'
+      AND recovery.lease_token::text=p_input->>'leaseToken' AND recovery.lease_until>moment
+    ))) THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
   IF p_action='candidate' THEN RETURN QUERY SELECT 'found',jsonb_build_object('candidate',saas.email_marketing_candidate_projection(p_store,candidate.id),'credential',candidate.credential,'credentialVersion',candidate.credential_version,'lists',candidate.lists);RETURN;END IF;
   IF p_action='preview' THEN RETURN QUERY SELECT 'found',saas.email_marketing_preview(p_store,candidate.provider,moment);RETURN;END IF;
   -- Only validated server results are persisted by the lists checkpoint command.
@@ -142,6 +151,11 @@ BEGIN
  END IF;
  IF p_action='checkpoint' THEN
   IF jsonb_typeof(p_input->'progress') IS DISTINCT FROM 'object' OR length((p_input->'progress')::text)>8192 OR (p_input->'progress')-ARRAY['listId','listName','priorListIds','listCreateDispatched','selection','account','lists','cursor','createUnknown']<>'{}' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+  IF op.progress->>'listCreateDispatched'='true' AND p_input->'progress'->>'listCreateDispatched' IS DISTINCT FROM 'true' THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb;RETURN;END IF;
+  IF p_input->>'dispatched'='true' AND op.kind='apply' AND op.progress->>'listCreateDispatched' IS DISTINCT FROM 'true' THEN
+    SELECT * INTO candidate FROM saas.email_marketing_candidates WHERE id=op.candidate_id AND store_id=p_store FOR UPDATE;
+    IF NOT FOUND OR candidate.expires_at<=moment OR candidate.credential IS NULL OR candidate.consumed_at IS NOT NULL THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
+  END IF;
   UPDATE saas.email_marketing_operations SET progress=p_input->'progress',phase=CASE WHEN p_input->>'dispatched'='true' THEN 'dispatched' ELSE phase END,lease_until=moment+interval '2 minutes',updated_at=moment WHERE id=oid;RETURN QUERY SELECT 'saved',NULL::jsonb;RETURN;
  END IF;
  SELECT * INTO c FROM saas.email_marketing_connections WHERE store_id=p_store AND id=op.connection_id FOR UPDATE;
@@ -150,7 +164,9 @@ BEGIN
   IF NOT FOUND THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;projection:=saas.email_marketing_candidate_projection(p_store,op.candidate_id);
  ELSIF op.kind IN('apply','rotate') THEN
   SELECT * INTO candidate FROM saas.email_marketing_candidates WHERE id=op.candidate_id AND store_id=p_store AND principal_id=p_principal AND membership_id=p_membership FOR UPDATE;
-  IF NOT FOUND OR candidate.consumed_at IS NOT NULL OR candidate.expires_at<=moment THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
+  IF NOT FOUND OR candidate.consumed_at IS NOT NULL OR candidate.credential IS NULL OR
+    (candidate.expires_at<=moment AND NOT (op.kind='apply' AND op.created_at<candidate.expires_at AND op.progress->>'listCreateDispatched'='true' AND op.progress->'selection'->>'kind'='create'))
+    THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
   IF coalesce(c.version,0)<>op.expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;
   IF op.kind='apply' THEN
    INSERT INTO saas.email_marketing_connections(id,store_id,provider,account_id,account_name,list_id,list_name,status,sender_status,credential,last_checked_at) VALUES(op.connection_id,p_store,candidate.provider,candidate.account_id,candidate.account_name,p_input->'list'->>'id',p_input->'list'->>'name','connected',candidate.sender_status,p_input->'credential',moment);
@@ -349,7 +365,10 @@ BEGIN
  IF jsonb_typeof(p_input) IS DISTINCT FROM 'object' OR length(p_input::text)>65536 OR p_action NOT IN('claim','checkpoint','finish','bootstrap','cleanup','poll','schedule','event','rate','hook_checkpoint') THEN RAISE EXCEPTION 'invalid_input';END IF;
  IF p_action IN('claim','schedule') THEN
   selected_mode:=p_input->>'mode';IF selected_mode NOT IN('off','revoke_only','full') OR (p_input->>'limit')::integer NOT BETWEEN 1 AND 25 THEN RAISE EXCEPTION 'invalid_input';END IF;
-  UPDATE saas.email_marketing_candidates SET credential=NULL WHERE credential IS NOT NULL AND expires_at<=moment;
+  UPDATE saas.email_marketing_candidates candidate SET credential=NULL WHERE credential IS NOT NULL AND expires_at<=moment
+    AND NOT EXISTS(SELECT 1 FROM saas.email_marketing_operations recovery WHERE recovery.candidate_id=candidate.id AND recovery.store_id=candidate.store_id
+      AND recovery.kind='apply' AND recovery.phase<>'complete' AND recovery.created_at<candidate.expires_at
+      AND (recovery.progress->>'listCreateDispatched'='true' OR recovery.lease_until>moment));
   IF selected_mode='off' THEN RETURN CASE WHEN p_action='claim' THEN '[]'::jsonb ELSE '0'::jsonb END;END IF;
  END IF;
  IF p_action='schedule' THEN

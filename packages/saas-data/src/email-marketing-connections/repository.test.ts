@@ -40,3 +40,36 @@ async function createNativeFixture(pool:Pool):Promise<TenantContext>{
 async function cleanupNativeFixture(pool:Pool){
  const client=await pool.connect();try{await client.query('BEGIN');for(const table of ['email_marketing_sync_jobs','email_marketing_operations','email_marketing_candidates','email_marketing_contacts','email_marketing_connections'])await client.query(`DELETE FROM saas.${table} WHERE store_id=$1`,[fixture.store]);await client.query('COMMIT');}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }
+
+test('uncertain list creation remains recoverable after expiry and purge without another create', {skip: !configPath}, async () => {
+  const config = JSON.parse(await readFile(configPath!, 'utf8'));
+  assert.equal(config.database, 'email_marketing_isolated');
+  const pool = new Pool({...config, max: 1});
+  try {
+    const tenantContext = await createNativeFixture(pool);
+    let writes = 0, listVisible = false;
+    const adapter = {
+      account: async () => ({id: 'recovery-account', name: 'Test', senderStatus: 'unknown' as const}),
+      lists: async () => ({items: listVisible ? [{id: 'recovered', name: 'Recovery list'}] : []}),
+      createList: async () => {writes++; listVisible = true; return {kind: 'unknown' as const};},
+    };
+    const repo = api.createPostgresEmailMarketingConnectionRepository({pool, role: 'celebix_saas_app',
+      timeouts: {poolCheckoutMs: 3000, statementMs: 10000, lockMs: 3000, idleTransactionMs: 10000},
+      keyring: {activeKeyId: 'test', keys: [{keyId: 'test', key: new Uint8Array(32).fill(5)}]},
+      providers: {brevo: adapter, klaviyo: adapter}, uuid: () => crypto.randomUUID()});
+    const a = {tenantContext, now: new Date(), sessionBinding: 'recovery-session-opaque-123'};
+    const candidate = await repo.validate({...a, provider: 'brevo', apiKey: 'isolated-fixture-key', operationId: crypto.randomUUID()});
+    const input = {...a, candidateId: candidate.candidateId, expectedVersion: 0, operationId: crypto.randomUUID(), selection: {kind: 'create' as const, name: 'Recovery list'}};
+    await assert.rejects(repo.apply(input), (e: any) => e.code === 'outcome_unknown');
+    await pool.query("UPDATE saas.email_marketing_candidates SET created_at=statement_timestamp()-interval '20 minutes',expires_at=statement_timestamp()-interval '5 minutes' WHERE id=$1", [candidate.candidateId]);
+    await pool.query("UPDATE saas.email_marketing_operations SET created_at=clock_timestamp()-interval '19 minutes' WHERE id=$1", [input.operationId]);
+    await pool.query("SELECT saas.email_marketing_work('claim','{\"workerId\":\"expiry-fixture\",\"mode\":\"off\",\"limit\":1}')");
+    assert.ok((await pool.query('SELECT credential FROM saas.email_marketing_candidates WHERE id=$1', [candidate.candidateId])).rows[0].credential, 'unresolved effect needs its reconciliation credential');
+    await assert.rejects(repo.lists({...a, candidateId: candidate.candidateId}), (e: any) => e.code === 'candidate_expired');
+    await assert.rejects(repo.apply({...input, sessionBinding: 'different-session-opaque-123'}), (e: any) => e.code === 'operation_conflict');
+    const result = await repo.apply(input);
+    assert.equal(result.listId, 'recovered'); assert.equal(writes, 1);
+    assert.equal((await pool.query('SELECT credential FROM saas.email_marketing_candidates WHERE id=$1', [candidate.candidateId])).rows[0].credential, null);
+    assert.equal((await pool.query("SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap'", [tenantContext.store.id])).rows[0].count, '1');
+  } finally {await cleanupNativeFixture(pool); await pool.end();}
+});
