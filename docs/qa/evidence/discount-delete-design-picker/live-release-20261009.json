@@ -1,0 +1,191 @@
+{
+  "verified": true,
+  "acceptedAt": "2026-10-09T20:51:18.978478+00:00",
+  "candidate": "975f9b3950877df9b4be417c1ff653006e08df2e",
+  "previousPanelSource": "abce632b84caef64801ed3d89214595fc75efa60",
+  "releaseOrder": [
+    "panel_net",
+    "panel_site"
+  ],
+  "deployments": {
+    "panel_net": {
+      "deploymentUuid": "vabmfvosafxbfgacybaok6m3",
+      "checkedAt": "2026-10-09T20:44:26.897857+00:00",
+      "runtimeSha256": "d99565715cc695d0f903c628db637f98aaee9accee86575e43dac14955d81046",
+      "status": "finished",
+      "errorMarker": false,
+      "acceptanceSha256": "59660cb10f21600a0e37742d9e2e43908e8984b721f3a90f2e5fb39fb876b257"
+    },
+    "panel_site": {
+      "deploymentUuid": "ysdx8p8migorvx3egsk2ewsc",
+      "checkedAt": "2026-10-09T20:50:12.932698+00:00",
+      "runtimeSha256": "9d976509bc54fba5101484c1d2c13d411a7aae2457cec8d9b4962517a380a978",
+      "status": "finished",
+      "errorMarker": false,
+      "acceptanceSha256": "7cdd139bfb05e0fee6fde3694f8ebe22b9b3c97442d058fa1ef6bf1b390dbf29"
+    }
+  },
+  "runningSources": {
+    "panel_net": "975f9b3950877df9b4be417c1ff653006e08df2e",
+    "panel_site": "975f9b3950877df9b4be417c1ff653006e08df2e",
+    "owner_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "owner_site": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_site": "446557f574ef3d99081f54f2fe138b1fe487a55a"
+  },
+  "native": {
+    "version": 225,
+    "applied": true,
+    "sqlSha256": "444dea7b3d5903019c2cff49255ae7976095c5a93b33c6d5126d611a9c8fbf4c",
+    "receiptSha256": "95b30a48d8c1a6e737d6fc8105f34c31edfcee3545fbb75e94d81503c02481fa",
+    "freshCatalogVerified": true,
+    "unchangedTableData": 348,
+    "unchangedFunctions": 1712,
+    "paymentGoogleEmailFunctionsPreserved": true
+  },
+  "globalIdle": true,
+  "allConfigurationAndWitnessesPreserved": true,
+  "compiledDeleteAndPickerProof": true,
+  "compiledProofSha256": "e02a9fc06bac9e49922854b40b6e1f332756abbe72bd4564fba4df056588a0d6",
+  "runtimeReceiptSha256": "ce667c6ccb12ca943baf449b74831bb178700b4b8d8ed7dba251fb91bfb62d45",
+  "controlReceiptSha256": "8fab8943b6710974820a3f4e558e362617d301908055bcc48d4d6730b95fc145",
+  "ingress": [
+    {
+      "target": "panel_net",
+      "origin": "https://panel.saas-staging.celebix.net",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://butik-siora.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://alpler-spor.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://panel.saas-staging.celebix.site",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com.tr",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    }
+  ],
+  "isolatedAcceptance": {
+    "rollbackReapplyPassed": true,
+    "concurrencyScenariosPassed": 6,
+    "legacyReadersPassed": true,
+    "reservedSettlementHistoryPreserved": true,
+    "proofSha256": "ea174dfdbe811a0a7f003ddc1e637d568c790a337254b0b06f0f5a9fe77c27de"
+  },
+  "tests": {
+    "targetedChecksPassed": true,
+    "fullSuitePassed": false,
+    "fullSuiteFirstStageTotal": 2357,
+    "passed": 2295,
+    "baselineFailures": 61,
+    "skipped": 1,
+    "failureNamesExactlyEqual": true,
+    "comparisonSha256": "47979e3eaa90e0d55aaf9067487f24e84c44ca5a62dea9e65b04573b713318ff"
+  },
+  "liveMerchantDiscountDeleted": false,
+  "liveAuthenticatedMerchantMutationTested": false,
+  "providerInvoked": false,
+  "productionFixturesCreated": false,
+  "limitations": [
+    "Canlı kabul salt okunurdu; gerçek mağazada Sil veya tasarım Uygula işlemi denenmedi.",
+    "Geniş panel komutunun ilk bölümünde önceki kayıtla aynı adlara sahip 61 başarısız test devam ediyor; tüm panel suite geçti denilemez."
+  ]
+}
