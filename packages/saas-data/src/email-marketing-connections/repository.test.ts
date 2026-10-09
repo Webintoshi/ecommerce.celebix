@@ -14,11 +14,13 @@ test('apply replays without a second provider write and releases database during
  // Shared native fixtures expose authority only for this disposable database.
  const pool=new Pool({...config,max:1});
  try{
-  const tenantContext=await createNativeFixture(pool);let writes=0;
-  const adapter={account:async()=>({id:'repo-test-account',name:'Test',senderStatus:'unknown' as const}),lists:async()=>({items:[{id:'managed',name:'Celebix'}]}),createList:async()=>{writes++;const concurrency=await pool.query('SELECT 1 AS ok');assert.equal(concurrency.rows[0].ok,1);return {kind:'verified' as const,value:{id:'new-managed',name:'Test list'}};}};
+  const tenantContext=await createNativeFixture(pool);let writes=0, rejectOnce=true;
+  const adapter={account:async()=>({id:'repo-test-account',name:'Test',senderStatus:'unknown' as const}),lists:async()=>({items:[{id:'managed',name:'Celebix'}]}),createList:async()=>{if(rejectOnce){rejectOnce=false;const {EmailMarketingError}=await import('./errors.ts');const error=new EmailMarketingError('provider_rate_limited',30);Object.defineProperty(error,'effectNotApplied',{value:true});throw error;}writes++;const concurrency=await pool.query('SELECT 1 AS ok');assert.equal(concurrency.rows[0].ok,1);return {kind:'verified' as const,value:{id:'new-managed',name:'Test list'}};}};
   const repo=api.createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'test',keys:[{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
   const now=new Date();const a={tenantContext,now};const candidate=await repo.validate({...a,provider:'brevo',apiKey:'isolated-fixture-key',sessionBinding:'test-session-opaque-123',operationId:crypto.randomUUID()});
   const input={...a,candidateId:candidate.candidateId,sessionBinding:'test-session-opaque-123',expectedVersion:0,operationId:crypto.randomUUID(),selection:{kind:'create' as const,name:'Test list'}};
+  await assert.rejects(repo.apply(input),(e:any)=>e.code==='provider_rate_limited');
+  const proof=await pool.query('SELECT progress FROM saas.email_marketing_operations WHERE id=$1',[input.operationId]);assert.equal(proof.rows[0].progress.listCreateDispatched,undefined);
   const first=await repo.apply(input);const second=await repo.apply(input);assert.equal(first.id,second.id);assert.equal(second.version,1);assert.equal(writes,1);
   const rotatedRepo=api.createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'rotated',keys:[{keyId:'rotated',key:new Uint8Array(32).fill(6)},{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
   assert.equal((await rotatedRepo.apply(input)).id,first.id);assert.equal(writes,1);

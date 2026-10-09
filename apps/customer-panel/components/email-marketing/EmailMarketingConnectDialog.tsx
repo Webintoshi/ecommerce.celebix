@@ -135,10 +135,10 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
       {candidate ? <><dl className={styles.details}><dt>Servis hesabı</dt><dd>{candidate.accountName}</dd></dl>
         {active ? <p className={styles.hint}>Yeni anahtar mevcut hesap ve listeyi koruyarak uygulanacak.</p> : <>
           <label className={styles.field}>Aktarım listesi<select aria-label="Aktarım listesi" disabled={locked} value={selectedValue} onChange={event => chooseList(event.target.value)}>
-            <option value="">Liste seçin</option>{listItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            {selection?.kind === 'existing' && !listItems.some(i => i.id === selection.listId) ? <option value={selection.listId}>Seçiminiz korundu</option> : null}
+            <option value="">Liste seçin</option>{(provider === 'brevo' ? [] : listItems).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {provider !== 'brevo' && selection?.kind === 'existing' && !listItems.some(i => i.id === selection.listId) ? <option value={selection.listId}>Seçiminiz korundu</option> : null}
             <option value="__create__">Yeni liste oluştur</option></select></label>
-          {nextCursor ? <button className="button button-secondary" disabled={locked} onClick={() => void moreLists()}>Diğer listeleri getir</button> : null}
+          {provider !== 'brevo' && nextCursor ? <button className="button button-secondary" disabled={locked} onClick={() => void moreLists()}>Diğer listeleri getir</button> : null}
           {selection?.kind === 'create' ? <label className={styles.field}>Liste adı<input aria-label="Liste adı" maxLength={160} value={selection.name} disabled={locked} onChange={event => setSelection({kind: 'create', name: event.target.value})} /></label> : null}
           {selection && !preview && error ? <button className="button button-secondary" disabled={locked} onClick={() => void loadPreview(selection, candidate)}>Kişi sayısını yeniden kontrol et</button> : null}
         </>}
@@ -147,6 +147,7 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
       {preview ? <div className={styles.preview} aria-live="polite"><strong>{emailMarketingCount(preview.eligible)} izinli kişi</strong>
         <dl className={styles.details}><dt>İzin kanıtı eksik</dt><dd>{emailMarketingCount(preview.missingEvidence)}</dd><dt>İzin yenilemesi gereken</dt><dd>{emailMarketingCount(preview.needsRenewal)}</dd>
           <dt>Serviste engelli kişi</dt><dd>{emailMarketingCount(preview.providerBlocked)}</dd><dt>Paket sınırını aşan</dt><dd>{emailMarketingCount(preview.overLimit)}</dd></dl>
+        <p className={styles.notice}>Listeye eklenen kişiler için servisteki otomasyonlar tetiklenebilir. Bağlamadan önce karşılama ve diğer otomasyonları servis hesabınızdan kontrol edin.</p>
         <p className={styles.hint}>Yalnız e-posta, ad ve izin bilgileri aktarılır. Servisin engelleme kayıtları korunur.</p></div> : null}
       {active && !candidate && !showKey && !remove && !attempt.current && connection.status !== 'draining' ? <div className={styles.actions}>
         <button className="button button-secondary" disabled={busy} onClick={() => setRenewKey(true)}>API anahtarını değiştir</button>

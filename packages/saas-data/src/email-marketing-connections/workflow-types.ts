@@ -55,6 +55,8 @@ export type EmailMarketingSyncOutcome = Readonly<{
     errorCode?: string;
     profileUpdated?: boolean;
     retryAfterSeconds?: number;
+    effectNotApplied?: boolean;
+    credentialRejected?: boolean;
 }>;
 export interface EmailMarketingWorkflowRepository {
     claim(input: Readonly<{
@@ -84,7 +86,7 @@ export interface EmailMarketingWorkflowRepository {
         outcome: EmailMarketingSyncOutcome;
     }>): Promise<boolean>;
     hookCheckpoint(job: EmailMarketingSyncJob, result: Readonly<{
-        state: 'dispatched' | 'unknown' | 'verified' | 'removing' | 'removed';
+        state: 'dispatched' | 'unknown' | 'verified' | 'removing' | 'removed' | 'not_sent';
         credential?: SealedEmailMarketingCredential;
         tokenDigest?: string;
         id?: string;

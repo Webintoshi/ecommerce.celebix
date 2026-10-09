@@ -1,3 +1,4 @@
+import {EmailMarketingError} from './errors.ts';
 import { randomBytes, createHash } from 'node:crypto';
 import { sealEmailMarketingCredential, openEmailMarketingCredential } from './credential-crypto.ts';
 import type { MerchantProviderCredentialKeyring } from '../provider-execution/credential-crypto.ts';
@@ -25,7 +26,11 @@ export async function synchronizeEmailMarketingWebhook(job: EmailMarketingSyncJo
             const result = await adapter.createWebhook(deps.apiKey, url, secret);
             await mark(result.kind === 'verified' ? { state: 'verified', id: result.value } : { state: 'unknown' });
         }
-        catch {
+        catch (error) {
+            if(error instanceof EmailMarketingError && 'effectNotApplied' in error && error.effectNotApplied === true) {
+                await mark({state:'not_sent'});
+                throw error;
+            }
             await mark({ state: 'unknown' });
         }
         return false;

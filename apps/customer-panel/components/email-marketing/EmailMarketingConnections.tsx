@@ -48,7 +48,7 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
     {error ? <p role="alert" className={styles.notice}>{emailMarketingErrorMessage(error)}</p> : null}
     {loading ? <p role="status" className={styles.hint}>Bağlantılar kontrol ediliyor…</p> : null}
     {EMAIL_SERVICES.map(service => {
-      const connection = overview?.connections.filter(c => c.provider === service.provider).sort((a,b) => b.generation - a.generation)[0];
+      const connection = overview?.connections.find(c => c.provider === service.provider && c.status !== 'disconnected') ?? overview?.connections.find(c => c.provider === service.provider);
       const other = active && active.provider !== service.provider;
       return <article key={service.provider} className={styles.card} aria-label={service.name}>
         <div className={styles.service}><ProviderBrand provider={service.provider} /><p>{service.description}</p>
@@ -69,7 +69,7 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
       <span>Doğrulanan <strong>{emailMarketingCount(overview.sync.verified)}</strong></span>
       <span>Engellenen <strong>{emailMarketingCount(overview.sync.blocked)}</strong></span>
       <span>Kontrol gereken <strong>{emailMarketingCount(overview.sync.failed + overview.sync.pendingVerification)}</strong></span>
-      <small>Son kontrol: {emailMarketingDate(overview.sync.asOf)}</small></div> : null}
+      <small>Son kontrol: {emailMarketingDate(overview.sync.suppressionCheckedAt)}</small></div> : null}
     {editor ? <EmailMarketingConnectDialog key={editor} provider={editor} connection={overview?.connections.find(c => c.provider === editor && c.status !== 'disconnected')}
       api={api} pending={attempts.current.get(editor)} onPending={attempt => { if (attempt) attempts.current.set(editor, attempt); else attempts.current.delete(editor); }}
       onSaved={saved} onClose={() => setEditor(null)} /> : null}

@@ -26,7 +26,9 @@ export async function runEmailMarketingSyncJob(job: EmailMarketingSyncJob, deps:
     try {
         if (job.kind === 'bootstrap') {
             await deps.repository.bootstrap(job);
-            return 'verified';
+            // Native bootstrap persists one page; a boolean cannot attest that
+            // the entire import is complete. The overview reads actual job state.
+            return 'pending';
         }
         const key = openEmailMarketingCredential(job.phase !== 'queued' && job.reconciliationCredential ? job.reconciliationCredential : job.credential, { storeId: job.storeId, credentialOwnerId: job.connectionId, provider: job.provider, purpose: 'connection', credentialVersion: job.phase !== 'queued' && job.reconciliationCredential ? job.reconciliationCredentialVersion! : job.credentialVersion }, deps.keyring), adapter = deps.providers[job.provider];
         if (job.kind === 'cleanup') {
@@ -47,8 +49,8 @@ export async function runEmailMarketingSyncJob(job: EmailMarketingSyncJob, deps:
                 if (!previous || event.scope === 'account')
                     mapped.set(event.profileId, event);
             }
-            await deps.repository.poll(job, { events: [...mapped.values()], ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}), completedThrough: page.completedThrough });
-            return page.nextCursor ? 'pending' : 'verified';
+            const saved = await deps.repository.poll(job, { events: [...mapped.values()], ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}), completedThrough: page.completedThrough });
+            return saved && !page.nextCursor && page.completedThrough ? 'verified' : 'pending';
         }
         if (!job.email)
             return finish({ status: 'failed', errorCode: 'invalid_input' });
@@ -106,9 +108,10 @@ export async function runEmailMarketingSyncJob(job: EmailMarketingSyncJob, deps:
         return finish({ status: 'pending', errorCode: 'outcome_unknown' });
     }
     catch (error) {
-        const code = error instanceof EmailMarketingError ? error.code : 'provider_unavailable';
-        if (code === 'outcome_unknown')
+        const effectNotApplied = error instanceof EmailMarketingError && 'effectNotApplied' in error && error.effectNotApplied === true;
+        const code = effectNotApplied && error.code === 'outcome_unknown' ? 'provider_unavailable' : error instanceof EmailMarketingError ? error.code : 'provider_unavailable';
+        if (code === 'outcome_unknown' && !effectNotApplied)
             await deps.repository.checkpoint({ jobId: job.id, leaseToken: job.leaseToken, now: deps.now(), result: { phase: 'unknown' } });
-        return finish({ status: code === 'outcome_unknown' ? 'pending' : code === 'provider_unauthorized' || code === 'provider_forbidden' ? 'blocked' : 'retry', errorCode: code, ...(error instanceof EmailMarketingError && error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}) });
+        return finish({ status: code === 'outcome_unknown' ? 'pending' : code === 'provider_unauthorized' || code === 'provider_forbidden' && (!effectNotApplied || error instanceof EmailMarketingError && error.credentialRejected) ? 'blocked' : 'retry', errorCode: code, ...(effectNotApplied ? {effectNotApplied: true} : {}), ...(error instanceof EmailMarketingError && (error.credentialRejected || error.code === 'provider_unauthorized') ? {credentialRejected: true} : {}), ...(error instanceof EmailMarketingError && error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}) });
     }
 }
