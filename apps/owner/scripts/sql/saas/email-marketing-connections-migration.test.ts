@@ -11,7 +11,7 @@ test('native email schema isolates credentials, commands, account binding and re
   const server=await pool.query("SELECT current_setting('server_version_num')::int AS version,current_setting('listen_addresses') AS listen");assert.equal(server.rows[0].listen,'');assert.ok(server.rows[0].version>=160000&&server.rows[0].version<170000);
   const schema=await pool.query("SELECT to_regclass('saas.email_marketing_connections') AS relation");
   assert.ok(schema.rows[0].relation,'email marketing tables are missing');
-  const assertions=await readFile(new URL('./email-marketing-connections_assertions.sql',import.meta.url),'utf8');await pool.query(assertions);await pool.query(await readFile(new URL('./email-marketing-workflow_assertions.sql',import.meta.url),'utf8'));
+  const assertions=await readFile(new URL('./email-marketing-connections_assertions.sql',import.meta.url),'utf8');await pool.query(assertions);await pool.query(await readFile(new URL('./email-marketing-workflow_assertions.sql',import.meta.url),'utf8'));await pool.query(await readFile(new URL('./email-marketing-manual_assertions.sql',import.meta.url),'utf8'));
   await pool.query(assertions.replace(/\nROLLBACK;\s*$/,'\n'));
   const down=await readFile(new URL('./email-marketing-connections.down.sql',import.meta.url),'utf8');
   await assert.rejects(()=>pool.query(down),(e:unknown)=>e instanceof Error&&e.message==='EMAIL_MARKETING_ROLLBACK_RETAINED_EVIDENCE');
@@ -24,5 +24,15 @@ test('native email schema isolates credentials, commands, account binding and re
    END $fixture$;`);
   await pool.query('BEGIN; SET LOCAL ROLE celebix_saas_owner;'+fixture+'ROLLBACK;');
 
+ }finally{await pool.end();}
+});
+
+// Native queue construction must stay bounded even before a new store has statistics.
+test('manual sync snapshots 10000 proven contacts within the native timeout', {skip:!configPath}, async()=>{
+ const config=JSON.parse(await readFile(configPath!,'utf8'));assert.equal(config.database,'email_marketing_isolated');assert.match(config.host,/^\/tmp\/celebix-email-marketing-/);
+ const pool=new Pool({...config,max:1});try {
+  await pool.query("SET statement_timeout='10s'");
+  const assertions=await readFile(new URL('./email-marketing-manual_assertions.sql',import.meta.url),'utf8');
+  await pool.query(assertions.replace('generate_series(1,205)','generate_series(1,10000)').replaceAll('<>206','<>10001'));
  }finally{await pool.end();}
 });

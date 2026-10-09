@@ -70,6 +70,7 @@ export function createEmailMarketingApi(fetcher: typeof fetch = fetch) {
     rotate: ({operationId, ...body}: Readonly<{operationId: string; candidateId: string; expectedVersion: number}>) => request('/rotate', parseEmailMarketingConnection, body, operationId),
     recheck: ({operationId, ...body}: EmailMarketingVersionOperation) => request('/recheck', parseEmailMarketingConnection, body, operationId),
     disconnect: ({operationId, ...body}: EmailMarketingVersionOperation) => request('/disconnect', parseEmailMarketingConnection, body, operationId),
+    sync: ({operationId, ...body}: EmailMarketingVersionOperation) => request('/sync', parseEmailMarketingConnection, body, operationId),
   });
 }
 export type EmailMarketingApi = ReturnType<typeof createEmailMarketingApi>;

@@ -125,6 +125,7 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
     footer={<><button className="button button-secondary" disabled={busy} onClick={close}>Vazgeç</button>
       {ready ? <button className="button button-primary" disabled={busy} onClick={() => void perform(applyingKind)}>{busy ? 'Kontrol ediliyor…' : attempt.current ? 'Tekrar uygula' : 'Uygula'}</button> : null}</>}>
     <div className={styles.form}>
+      <p className={styles.hint}>Bağlantı kurmak müşterileri aktarmaz. Bağladıktan sonra Eşitle ile tek seferlik aktarım başlatabilirsiniz.</p>
       {error ? <p className={styles.notice} role="alert">{emailMarketingErrorMessage(error)}</p> : null}
       {active ? <dl className={styles.details}><dt>Servis hesabı</dt><dd>{connection.accountName ?? 'Bilinmiyor'}</dd><dt>Aktarım listesi</dt><dd>{connection.listName ?? 'Bilinmiyor'}</dd>
         <dt>Gönderici doğrulaması</dt><dd>{connection.senderStatus === 'verified' ? 'Doğrulanmış' : connection.senderStatus === 'pending' ? 'Bekliyor' : 'Bilinmiyor'}</dd></dl> : null}
@@ -144,10 +145,11 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
         </>}
       </> : null}
       {pending?.kind === 'apply' && !candidate ? <p className={styles.hint}>Kaydedilen liste seçimi korunuyor. Tekrar uygula aynı bağlantı işlemini kontrol eder.</p> : null}
-      {preview ? <div className={styles.preview} aria-live="polite"><strong>{emailMarketingCount(preview.eligible)} izinli kişi</strong>
-        <dl className={styles.details}><dt>İzin kanıtı eksik</dt><dd>{emailMarketingCount(preview.missingEvidence)}</dd><dt>İzin yenilemesi gereken</dt><dd>{emailMarketingCount(preview.needsRenewal)}</dd>
+      {preview ? <div className={styles.preview} aria-live="polite"><strong>Aktarılacak müşteriler: {emailMarketingCount(preview.eligible)}</strong>
+        <dl className={styles.details}><dt>İzin vermeyen</dt><dd>{emailMarketingCount(preview.denied)}</dd><dt>İzin kanıtı eksik</dt><dd>{emailMarketingCount(preview.missingEvidence)}</dd><dt>İzin yenilemesi gereken</dt><dd>{emailMarketingCount(preview.needsRenewal)}</dd>
           <dt>Serviste engelli kişi</dt><dd>{emailMarketingCount(preview.providerBlocked)}</dd><dt>Paket sınırını aşan</dt><dd>{emailMarketingCount(preview.overLimit)}</dd></dl>
-        <p className={styles.notice}>Listeye eklenen kişiler için servisteki otomasyonlar tetiklenebilir. Bağlamadan önce karşılama ve diğer otomasyonları servis hesabınızdan kontrol edin.</p>
+        <p className={styles.notice}>Listeye eklenen müşteriler için servisteki otomasyonlar tetiklenebilir. Eşitlemeden önce karşılama ve diğer otomasyonları servis hesabınızdan kontrol edin.</p>
+        <p className={styles.hint}>Yalnızca pazarlama izni kanıtlanan müşteriler aktarılır. Satın alma veya sözleşme onayı pazarlama izni sayılmaz.</p>
         <p className={styles.hint}>Yalnız e-posta, ad ve izin bilgileri aktarılır. Servisin engelleme kayıtları korunur.</p></div> : null}
       {active && !candidate && !showKey && !remove && !attempt.current && connection.status !== 'draining' ? <div className={styles.actions}>
         <button className="button button-secondary" disabled={busy} onClick={() => setRenewKey(true)}>API anahtarını değiştir</button>

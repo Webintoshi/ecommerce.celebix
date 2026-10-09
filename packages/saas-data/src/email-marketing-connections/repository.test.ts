@@ -24,7 +24,11 @@ test('apply replays without a second provider write and releases database during
   const first=await repo.apply(input);const second=await repo.apply(input);assert.equal(first.id,second.id);assert.equal(second.version,1);assert.equal(writes,1);
   const rotatedRepo=api.createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'rotated',keys:[{keyId:'rotated',key:new Uint8Array(32).fill(6)},{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
   assert.equal((await rotatedRepo.apply(input)).id,first.id);assert.equal(writes,1);
-  const state=await pool.query("SELECT (SELECT count(*) FROM saas.email_marketing_connections WHERE store_id=$1) AS connections,(SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap') AS jobs",[tenantContext.store.id]);assert.equal(state.rows[0].connections,'1');assert.equal(state.rows[0].jobs,'1');
+  const state=await pool.query("SELECT (SELECT count(*) FROM saas.email_marketing_connections WHERE store_id=$1) AS connections,(SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap') AS jobs",[tenantContext.store.id]);assert.equal(state.rows[0].connections,'1');assert.equal(state.rows[0].jobs,'0');
+  const syncInput={...a,expectedVersion:first.version,operationId:crypto.randomUUID()};
+  const synced=await repo.sync(syncInput);assert.equal(synced.version,2);assert.deepEqual(await repo.sync(syncInput),synced);assert.equal(writes,1);
+  await assert.rejects(repo.sync({...syncInput,operationId:crypto.randomUUID()}),(e:any)=>e.code==='version_conflict');
+  assert.equal((await pool.query('SELECT export_sequence FROM saas.email_marketing_connections WHERE id=$1',[first.id])).rows[0].export_sequence,'1');
  }finally{await cleanupNativeFixture(pool);await pool.end();}
 });
 
@@ -72,6 +76,6 @@ test('uncertain list creation remains recoverable after expiry and purge without
     const result = await repo.apply(input);
     assert.equal(result.listId, 'recovered'); assert.equal(writes, 1);
     assert.equal((await pool.query('SELECT credential FROM saas.email_marketing_candidates WHERE id=$1', [candidate.candidateId])).rows[0].credential, null);
-    assert.equal((await pool.query("SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap'", [tenantContext.store.id])).rows[0].count, '1');
+    assert.equal((await pool.query("SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap'", [tenantContext.store.id])).rows[0].count, '0');
   } finally {await cleanupNativeFixture(pool); await pool.end();}
 });

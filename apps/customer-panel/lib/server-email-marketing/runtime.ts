@@ -11,7 +11,7 @@ export type ServerEmailMarketingRuntime = Readonly<{
     email: EmailMarketingConnectionRepository;
 }>;
 const repositories = new WeakMap<ServerPanelAccessRuntime, EmailMarketingConnectionRepository>(), hooks = new WeakMap<ServerPanelAccessRuntime, EmailMarketingWebhookRepository>();
-const METHODS = ['overview', 'validate', 'lists', 'preview', 'apply', 'rotate', 'recheck', 'disconnect'] as const;
+const METHODS = ['overview', 'validate', 'lists', 'preview', 'apply', 'rotate', 'recheck', 'disconnect', 'sync'] as const;
 export function registerServerEmailMarketingRepository(access: ServerPanelAccessRuntime, repository: EmailMarketingConnectionRepository): void { if (access.readiness.mode !== 'approved_staging' || !access.panelOrigin || repositories.has(access) || METHODS.some(method => typeof repository[method] !== 'function'))
     throw Error('server_email_marketing_runtime_invalid'); repositories.set(access, Object.freeze(Object.fromEntries(METHODS.map(method => [method, repository[method].bind(repository)]))) as unknown as EmailMarketingConnectionRepository); }
 export function resolveServerEmailMarketingRuntime(access: ServerPanelAccessRuntime): ServerEmailMarketingRuntime | null { const email = repositories.get(access); return access.readiness.mode === 'approved_staging' && access.panelOrigin && email ? Object.freeze({ access: access as ApprovedServerPanelAccessRuntime, email }) : null; }

@@ -24,6 +24,7 @@ export interface EmailMarketingConnectionRepository {
  apply(a:CandidateInput&MutationInput&Readonly<{selection:EmailMarketingSelection}>):Promise<EmailMarketingConnection>;
  rotate(a:CandidateInput&MutationInput):Promise<EmailMarketingConnection>;
  recheck(a:MutationInput):Promise<EmailMarketingConnection>;
+ sync(a:MutationInput):Promise<EmailMarketingConnection>;
  disconnect(a:MutationInput):Promise<EmailMarketingConnection>;
 }
 export type PostgresEmailMarketingConnectionOptions=Readonly<{pool:PostgresPoolLike;role:'celebix_saas_app';timeouts:PostgresTimeoutOptions;keyring:MerchantProviderCredentialKeyring;providers:Readonly<Record<EmailMarketingProvider,EmailMarketingConnectionAdapter>>;uuid:()=>string}>;

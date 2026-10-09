@@ -4,7 +4,7 @@ function consumer(){assert.ok(existsSync(new URL('./EmailMarketingConnections.ts
 async function select(window:any,host:HTMLElement,value:string){const field=host.querySelector('select[aria-label="Aktarım listesi"]') as HTMLSelectElement;assert.ok(field);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value')!.set!.call(field,value);field.dispatchEvent(new window.Event('change',{bubbles:true}));});}
 function fixture(provider="klaviyo"){const applies:any[]=[];let validated=0;const api:any={overview:async()=>overview,validate:async()=>{validated++;return {candidateId:ID,provider,accountId:'org',accountName:'Fixture',expiresAt:'2030-01-01T00:00:00Z'};},lists:async()=>({items:[{id:'managed',name:'Celebix'}]}),preview:async()=>({eligible:5,denied:1,missingEvidence:2,needsRenewal:0,providerBlocked:null,unchecked:5,overLimit:null,providerCheckedAt:null}),apply:async(i:any)=>{applies.push(i);if(applies.length===1)throw {code:'outcome_unknown'};return {id:ID,provider,version:1,generation:1,credentialVersion:1,accountId:'org',accountName:'Fixture',listId:'managed',listName:'Celebix',status:'connected',senderStatus:'unknown',lastCheckedAt:null,lastSyncedAt:null,errorCode:null};}};return {api,applies,get validated(){return validated;}};}
 test('two branded provider cards are lazy and read-only access has no mutation controls',async()=>{const f=fixture();await mounted(consumer(),{canManage:false,configured:true,api:f.api},async(host:HTMLElement)=>{assert.equal(host.querySelectorAll('article').length,2);for(const provider of ['brevo','klaviyo'])assert.equal(host.querySelectorAll(`img[src="/brands/${provider}.svg"]`).length,1);assert.ok(host.querySelector('a[href="/marketing/email/history"]'));assert.equal(f.validated,0);assert.equal([...host.querySelectorAll('button')].some(b=>b.textContent==='Bağla'),false);assert.equal(host.querySelectorAll('h1:not(.srOnly)').length,0);});});
-test('brand and recovery are accessible; failed Apply retains selection and exact operation',async()=>{const f=fixture();await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host:HTMLElement,window)=>{await click(host,'Klaviyo bağlantısını yönet');await input(window,host.querySelector('input[aria-label="API anahtarı"]'),'fixture-secret');await click(host,'Anahtarı kontrol et');await select(window,host,'managed');assert.match(host.textContent??'',/5 izinli kişi/);assert.match(host.textContent??'',/Bilinmiyor/);await click(host,'Uygula');assert.match(host.textContent??'',/aynı işlemi/i);assert.equal((host.querySelector('select[aria-label="Aktarım listesi"]') as HTMLSelectElement).value,'managed');await click(host,'Tekrar uygula');assert.equal(f.applies.length,2);assert.equal(f.applies[0].operationId,f.applies[1].operationId);assert.deepEqual(f.applies[0].selection,f.applies[1].selection);assert.equal(host.querySelector('input[aria-label="API anahtarı"]'),null);assert.equal(window.localStorage.length,0);assert.equal(window.sessionStorage.length,0);});});
+test('brand and recovery are accessible; failed Apply retains selection and exact operation',async()=>{const f=fixture();await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host:HTMLElement,window)=>{await click(host,'Klaviyo bağlantısını yönet');await input(window,host.querySelector('input[aria-label="API anahtarı"]'),'fixture-secret');await click(host,'Anahtarı kontrol et');await select(window,host,'managed');assert.match(host.textContent??'',/Aktarılacak müşteriler: 5/);assert.match(host.textContent??'',/İzin vermeyen1/);assert.match(host.textContent??'',/satın alma.*sözleşme.*pazarlama izni/i);assert.match(host.textContent??'',/Bilinmiyor/);await click(host,'Uygula');assert.match(host.textContent??'',/aynı işlemi/i);assert.equal((host.querySelector('select[aria-label="Aktarım listesi"]') as HTMLSelectElement).value,'managed');await click(host,'Tekrar uygula');assert.equal(f.applies.length,2);assert.equal(f.applies[0].operationId,f.applies[1].operationId);assert.deepEqual(f.applies[0].selection,f.applies[1].selection);assert.equal(host.querySelector('input[aria-label="API anahtarı"]'),null);assert.equal(window.localStorage.length,0);assert.equal(window.sessionStorage.length,0);});});
 test('closing removes the key and a reopen does not reuse a cleared credential',async()=>{const f=fixture();await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host:HTMLElement,window)=>{await click(host,'Klaviyo bağlantısını yönet');await input(window,host.querySelector('input[aria-label="API anahtarı"]'),'fixture-secret');await click(host,'Vazgeç');await click(host,'Klaviyo bağlantısını yönet');assert.equal((host.querySelector('input[aria-label="API anahtarı"]') as HTMLInputElement).value,'');assert.equal(f.validated,0);});});
 test('official assets are passive SVGs with proportional viewBoxes',()=>{for(const provider of ['brevo','klaviyo']){const path=new URL(`../../public/brands/${provider}.svg`,import.meta.url);assert.ok(existsSync(path));const svg=readFileSync(path,'utf8');assert.match(svg,/xmlns="http:\/\/www.w3.org\/2000\/svg"/);assert.match(svg,/viewBox="0 0 [\d.]+ [\d.]+"/);assert.doesNotMatch(svg,/<(?:script|foreignObject|iframe|image|font|style)\b|\bon\w+\s*=|(?:href|src)\s*=|<!DOCTYPE|url\(/i);}});
 
@@ -87,3 +87,96 @@ test('React Strict Mode effect replay does not discard a successful validation',
 
 test('a replacement live connection wins over older disconnected generations',async()=>{const f=fixture();f.api.overview=async()=>({...overview,connections:[{id:ID,provider:'brevo',generation:2,status:'disconnected'},{id:ID.replace(/1$/,'2'),provider:'brevo',generation:1,status:'connected',accountName:'Replacement account',listName:'New list',lastSyncedAt:null}]});await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host)=>{const card=host.querySelector('article[aria-label="Brevo"]')!;assert.match(card.textContent??'',/Replacement account/);assert.match(card.textContent??'',/Kampanyaları aç/);});});
 test('Brevo first import offers only a dedicated new list and warns about automations',async()=>{const f=fixture('brevo');await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host,window)=>{await click(host,'Brevo bağlantısını yönet');await input(window,host.querySelector('input[aria-label="API anahtarı"]'),'fixture');await click(host,'Anahtarı kontrol et');assert.equal(host.querySelector('option[value="managed"]'),null);await select(window,host,'__create__');assert.match(host.textContent??'',/otomasyonlar.*tetiklenebilir/i);});});
+
+const connected = {id: ID, provider: 'brevo', version: 3, generation: 1, credentialVersion: 1, accountId: 'org', accountName: 'Fixture', listId: 'managed', listName: 'Celebix', status: 'connected', senderStatus: 'unknown', lastCheckedAt: null, lastSyncedAt: null, errorCode: null};
+test('a saved connection loads without export and manual sync refreshes the queued batch without a key', async () => {
+  const f = fixture(); let reads = 0; const syncs: any[] = [];
+  f.api.overview = async () => {reads++; return {...overview, connections: [connected], sync: {...overview.sync, queued: syncs.length ? 5 : 0}};};
+  f.api.sync = async (value: any) => {syncs.push(value); return connected;};
+  await mounted(consumer(), {canManage: true, configured: true, api: f.api}, async host => {
+    assert.equal(reads, 1);
+    assert.equal(syncs.length, 0);
+    assert.match(host.textContent ?? '', /Bağlantı kurmak müşterileri aktarmaz/);
+    assert.match(host.textContent ?? '', /tek seferlik/i);
+    const card = host.querySelector('article[aria-label="Brevo"]')!;
+    assert.match(card.textContent ?? '', /ayrı pazarlama izni kanıtlanan müşteriler/);
+    assert.match(card.textContent ?? '', /Satın alma veya sözleşme onayı/);
+    assert.match(card.textContent ?? '', /otomasyonları tetikleyebilir/);
+    await click(host, 'Eşitle');
+    assert.equal(syncs.length, 1);
+    assert.equal(syncs[0].expectedVersion, 3);
+    assert.equal(f.validated, 0);
+    assert.equal(host.querySelector('input[aria-label="API anahtarı"]'), null);
+    assert.equal(reads, 2);
+    assert.match(host.textContent ?? '', /Bekleyen 5/);
+    assert.match(host.textContent ?? '', /aktarım.*sıraya alındı/i);
+  });
+});
+test('manual sync keeps the exact operation after an uncertain result and rejects rapid duplicate clicks', async () => {
+  const f = fixture(); const syncs: any[] = []; let resolve: (value: any) => void;
+  f.api.overview = async () => ({...overview, connections: [connected]});
+  f.api.sync = async (value: any) => {syncs.push(value); if (syncs.length === 1) throw {code: 'outcome_unknown'}; return new Promise(r => {resolve = r;});};
+  await mounted(consumer(), {canManage: true, configured: true, api: f.api}, async (host, window) => {
+    await click(host, 'Eşitle');
+    assert.match(host.textContent ?? '', /aynı işlemi/i);
+    await click(host, 'Durumu yenile');
+    await click(host, 'Tekrar eşitle');
+    const button = host.querySelector('button[aria-label="Brevo müşterilerini eşitle"]')!;
+    await act(async () => {button.dispatchEvent(new window.Event('click', {bubbles: true}));});
+    assert.equal(syncs.length, 2);
+    assert.deepEqual(syncs[0], syncs[1]);
+    await act(async () => resolve!(connected));
+    assert.equal(window.localStorage.length, 0);
+    assert.equal(window.sessionStorage.length, 0);
+  });
+});
+test('connecting never starts export and read-only users cannot sync', async () => {
+  const f = fixture(); let synced = 0;
+  f.api.sync = async () => {synced++; return connected;};
+  f.api.apply = async () => ({...connected, provider: 'klaviyo'});
+  await mounted(consumer(), {canManage: true, configured: true, api: f.api}, async (host, window) => {
+    await click(host, 'Klaviyo bağlantısını yönet');
+    await input(window, host.querySelector('input[aria-label="API anahtarı"]'), 'fixture-secret');
+    await click(host, 'Anahtarı kontrol et');
+    await select(window, host, 'managed');
+    await click(host, 'Uygula');
+    assert.equal(synced, 0);
+    assert.ok(host.querySelector('button[aria-label="Klaviyo müşterilerini eşitle"]'));
+  });
+  f.api.overview = async () => ({...overview, connections: [connected]});
+  await mounted(consumer(), {canManage: false, configured: true, api: f.api}, async host => {
+    assert.equal(host.querySelector('button[aria-label="Brevo müşterilerini eşitle"]'), null);
+    assert.equal(synced, 0);
+  });
+});
+
+test('a stale sync waits for the current saved version before a new explicit operation', async () => {
+  const f = fixture(); const syncs: any[] = []; let reads = 0; let resolveOverview: (value: any) => void;
+  f.api.overview = async () => {reads++; return reads === 1 ? {...overview, connections: [connected]} : new Promise(r => {resolveOverview = r;});};
+  f.api.sync = async (value: any) => {syncs.push(value); if (syncs.length === 1) throw {code: 'version_conflict'}; return {...connected, version: 4};};
+  await mounted(consumer(), {canManage: true, configured: true, api: f.api}, async (host, window) => {
+    await click(host, 'Eşitle');
+    assert.equal((host.querySelector('button[aria-label="Brevo müşterilerini eşitle"]') as HTMLButtonElement).disabled, true);
+    await act(async () => resolveOverview!({...overview, connections: [{...connected, version: 4}]}));
+    await click(host, 'Eşitle');
+    assert.equal(syncs.length, 2);
+    assert.equal(syncs[1].expectedVersion, 4);
+    assert.notEqual(syncs[0].operationId, syncs[1].operationId);
+    await act(async () => resolveOverview!({...overview, connections: [{...connected, version: 4}]}));
+  });
+});
+
+test('a leased uncertain sync keeps the same batch intent until its outcome is resolved', async () => {
+  const f = fixture(); const syncs: any[] = [];
+  f.api.overview = async () => ({...overview, connections: [connected]});
+  f.api.sync = async (value: any) => {syncs.push(value); if (syncs.length < 3) throw {code: syncs.length === 1 ? 'outcome_unknown' : 'cleanup_pending'}; return connected;};
+  await mounted(consumer(), {canManage: true, configured: true, api: f.api}, async host => {
+    await click(host, 'Eşitle');
+    await click(host, 'Tekrar eşitle');
+    await click(host, 'Tekrar eşitle');
+    assert.equal(syncs.length, 3);
+    assert.deepEqual(syncs[0], syncs[1]);
+    assert.deepEqual(syncs[0], syncs[2]);
+    assert.match(host.textContent ?? '', /aktarım.*sıraya alındı/i);
+  });
+});

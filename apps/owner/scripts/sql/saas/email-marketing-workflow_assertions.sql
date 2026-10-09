@@ -9,6 +9,8 @@ BEGIN
  INSERT INTO saas.email_marketing_connections(id,store_id,provider,account_id,account_name,list_id,list_name,status,sender_status,credential) VALUES(conn_a,store_a,'klaviyo','workflow-canonical-a','Fixture','list-a','A','connected','unknown',envelope),(conn_b,store_b,'brevo','workflow-canonical-b','Fixture','12','B','connected','unknown',envelope);
  PERFORM saas.email_marketing_append_event(store_a,'ada@example.test','grant','newsletter','source-a','v1',clock_timestamp()-interval '1 day',clock_timestamp()-interval '1 day','v1');
  PERFORM saas.email_marketing_append_event(store_b,'bea@example.test','grant','newsletter','source-b','v1',clock_timestamp()-interval '1 day',clock_timestamp()-interval '1 day','v1');
+ UPDATE saas.email_marketing_connections SET export_sequence=1 WHERE id IN(conn_a,conn_b);
+ PERFORM saas.email_marketing_request_sync(conn_a,1,clock_timestamp());PERFORM saas.email_marketing_request_sync(conn_b,1,clock_timestamp());
  payload:=jsonb_build_object('workerId','owner-net','token',token,'mode','full','limit',25);
  batch:=saas.email_marketing_work('claim',payload);IF jsonb_array_length(batch)<>2 OR (SELECT count(DISTINCT value->>'storeId') FROM jsonb_array_elements(batch))<>2 THEN RAISE EXCEPTION 'EMAIL_GLOBAL_CAP_OR_FAIRNESS';END IF;
  other:=saas.email_marketing_work('claim',payload||'{"workerId":"owner-site"}');IF other<>'[]'::jsonb THEN RAISE EXCEPTION 'EMAIL_SECOND_OWNER_MULTIPLIED_CAP';END IF;
@@ -33,16 +35,14 @@ BEGIN
  INSERT INTO saas.email_marketing_sync_jobs(id,store_id,connection_id,generation,credential_version,kind,status,lease_token,lease_until) VALUES('22600000-0000-4000-8000-000000000010',store_a,conn_a,2,2,'cleanup','running',token,clock_timestamp()+interval '90 seconds');
  r:=saas.email_marketing_work('cleanup',jsonb_build_object('jobId','22600000-0000-4000-8000-000000000010','leaseToken',token));
  IF NOT EXISTS(SELECT 1 FROM saas.email_marketing_connections WHERE id=conn_a AND status='draining' AND credential IS NOT NULL) THEN RAISE EXCEPTION 'EMAIL_UNKNOWN_EFFECT_CLOSED_DRAIN';END IF;
- -- Atomic cursor enqueues every legacy proof, with no 200-person cap or replay duplication.
+ -- A second finite manual batch imports all 205 legacy proofs without a cap.
  INSERT INTO saas.storefront_newsletter_subscribers(store_id,email_digest,normalized_email,status,consent_version,consented_at,version,created_at,updated_at)
  SELECT store_b,encode(sha256(convert_to('bootstrap-'||lpad(n::text,3,'0')||'@example.test','UTF8')),'hex'),'bootstrap-'||lpad(n::text,3,'0')||'@example.test','subscribed','legacy-proof',clock_timestamp()-interval '1 day',1,clock_timestamp()-interval '2 days',clock_timestamp() FROM generate_series(1,205)n;
- INSERT INTO saas.email_marketing_sync_jobs(id,store_id,connection_id,generation,credential_version,kind,status,lease_token,lease_until) VALUES('22600000-0000-4000-8000-000000000011',store_b,conn_b,1,1,'bootstrap','running',token,clock_timestamp()+interval '90 seconds');
- FOR attempt IN 1..3 LOOP
-  UPDATE saas.email_marketing_sync_jobs SET status='running',lease_token=token,lease_until=clock_timestamp()+interval '90 seconds' WHERE id='22600000-0000-4000-8000-000000000011';
-  r:=saas.email_marketing_work('bootstrap',jsonb_build_object('jobId','22600000-0000-4000-8000-000000000011','leaseToken',token));
- END LOOP;
- IF (SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=conn_b AND kind='profile' AND email LIKE 'bootstrap-%')<>205 OR (SELECT status FROM saas.email_marketing_sync_jobs WHERE id='22600000-0000-4000-8000-000000000011')<>'verified' THEN RAISE EXCEPTION 'EMAIL_BOOTSTRAP_SKIPPED_PROOF';END IF;
- r:=saas.email_marketing_work('bootstrap',jsonb_build_object('jobId','22600000-0000-4000-8000-000000000011','leaseToken',token));IF r<>'false'::jsonb THEN RAISE EXCEPTION 'EMAIL_FINISHED_BOOTSTRAP_REPLAY_MUTATED';END IF;
+ UPDATE saas.email_marketing_connections SET export_sequence=2 WHERE id=conn_b;
+ PERFORM saas.email_marketing_request_sync(conn_b,2,clock_timestamp());
+ IF (SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=conn_b AND kind='profile' AND email LIKE 'bootstrap-%')<>205 THEN RAISE EXCEPTION 'EMAIL_MANUAL_IMPORT_SKIPPED_PROOF';END IF;
+ PERFORM saas.email_marketing_request_sync(conn_b,2,clock_timestamp());
+ IF (SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=conn_b AND kind='profile' AND email LIKE 'bootstrap-%')<>205 THEN RAISE EXCEPTION 'EMAIL_MANUAL_IMPORT_DUPLICATED';END IF;
  -- Partial page advances cursor but never a completed suppression watermark.
  INSERT INTO saas.email_marketing_sync_jobs(id,store_id,connection_id,generation,credential_version,kind,status,lease_token,lease_until,progress) VALUES('22600000-0000-4000-8000-000000000012',store_b,conn_b,1,1,'reconcile','running',token,clock_timestamp()+interval '90 seconds',jsonb_build_object('pollStartedAt',saas.orders_json_timestamp(clock_timestamp()),'fullSweep',true));
  r:=saas.email_marketing_work('poll',jsonb_build_object('jobId','22600000-0000-4000-8000-000000000012','leaseToken',token,'page','{"events":[],"nextCursor":"next-page","completedThrough":null}'::jsonb));
@@ -67,7 +67,7 @@ BEGIN
  UPDATE saas.email_marketing_contacts SET membership_epoch=membership_epoch+1 WHERE connection_id=conn_b AND email='bea@example.test';
  r:=saas.email_marketing_work('finish',jsonb_build_object('jobId',jid,'leaseToken',token,'outcome','{"status":"verified"}'::jsonb));IF (SELECT status FROM saas.email_marketing_sync_jobs WHERE id=jid)<>'queued' OR (SELECT state FROM saas.email_marketing_contacts WHERE connection_id=conn_b AND email='bea@example.test')='removed' THEN RAISE EXCEPTION 'EMAIL_STALE_REMOVAL_CLOSED';END IF;
  -- Native dispatch also checks immutable list denial evidence.
- INSERT INTO saas.email_marketing_sync_jobs(id,store_id,connection_id,generation,credential_version,email,consent_version,kind,status,lease_token,lease_until) SELECT '22600000-0000-4000-8000-000000000015',store_b,conn_b,1,1,'bea@example.test',sequence,'subscribe','running',token,clock_timestamp()+interval '90 seconds' FROM saas.email_marketing_audience WHERE store_id=store_b AND email='bea@example.test';
+ INSERT INTO saas.email_marketing_sync_jobs(id,store_id,connection_id,generation,credential_version,email,consent_version,kind,status,lease_token,lease_until,export_sequence,manual_audience) SELECT '22600000-0000-4000-8000-000000000015',store_b,conn_b,1,1,'bea@example.test',sequence,'subscribe','running',token,clock_timestamp()+interval '90 seconds',2,jsonb_build_object('kind','grant','sequence',sequence,'consentedAt',saas.orders_json_timestamp(consented_at),'source',source,'evidenceVersion',evidence_version) FROM saas.email_marketing_audience WHERE store_id=store_b AND email='bea@example.test';
  r:=saas.email_marketing_work('checkpoint',jsonb_build_object('jobId','22600000-0000-4000-8000-000000000015','leaseToken',token,'result','{"phase":"dispatched","credentialVersion":1,"action":"subscribe","state":{"kind":"absent"}}'::jsonb));IF r<>'false'::jsonb THEN RAISE EXCEPTION 'EMAIL_LIST_DENIAL_GRANT_DISPATCHED';END IF;
  -- A later explicit grant supersedes an unsent revoke under the audience lock.
  PERFORM saas.email_marketing_append_event(store_b,'new-grant@example.test','grant','newsletter','new-grant','1',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '3 hours','v1');
@@ -77,6 +77,8 @@ BEGIN
  UPDATE saas.email_marketing_sync_jobs SET status='running',lease_token=token,lease_until=clock_timestamp()+interval '90 seconds' WHERE id=jid;
  r:=saas.email_marketing_work('checkpoint',jsonb_build_object('jobId',jid,'leaseToken',token,'result','{"phase":"dispatched","credentialVersion":1,"action":"unsubscribe"}'::jsonb));IF r<>'false'::jsonb OR (SELECT phase FROM saas.email_marketing_sync_jobs WHERE id=jid)<>'queued' THEN RAISE EXCEPTION 'EMAIL_SUPERSEDED_REVOKE_DISPATCHED';END IF;
  -- The claimed key must still match at dispatch after a concurrent rotation.
+ UPDATE saas.email_marketing_connections SET export_sequence=3 WHERE id=conn_b;
+ PERFORM saas.email_marketing_request_sync(conn_b,3,clock_timestamp());
  SELECT id INTO jid FROM saas.email_marketing_sync_jobs WHERE connection_id=conn_b AND email='new-grant@example.test' AND kind='profile' ORDER BY consent_version DESC LIMIT 1;
  UPDATE saas.email_marketing_sync_jobs SET status='running',lease_token=token,lease_until=clock_timestamp()+interval '90 seconds' WHERE id=jid;
  UPDATE saas.email_marketing_connections SET credential_version=2,credential=envelope||'{"keyId":"new-fixture"}' WHERE id=conn_b;

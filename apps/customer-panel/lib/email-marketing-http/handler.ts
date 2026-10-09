@@ -6,7 +6,7 @@ import { approvedPanelMutationOriginForStore, hasApprovedPanelMutationOriginShap
 import type { ServerEmailMarketingRuntime } from '../server-email-marketing/runtime.ts';
 import { EMAIL_MARKETING_ROOT, emailMarketingRequestUrl, emailMarketingRequestBody, emailMarketingOperation, emailMarketingQuery } from './request-input.ts';
 type GetArea = 'overview' | 'lists' | 'preview';
-type PostArea = 'validate' | 'apply' | 'rotate' | 'recheck' | 'disconnect';
+type PostArea = 'validate' | 'apply' | 'rotate' | 'recheck' | 'disconnect' | 'sync';
 type Dependencies = Readonly<{
     resolveRuntime(): Promise<ServerEmailMarketingRuntime | null>;
     now(): Date;
@@ -78,7 +78,7 @@ export function createEmailMarketingHttpHandlers(deps: Dependencies) { return Ob
             const provider = parseEmailMarketingProvider(v.provider), apiKey = emailMarketingText(v.apiKey, 4096);
             return execute(() => runtime.email.validate({ tenantContext, now, sessionBinding, operationId, provider, apiKey }));
         }
-        if (area === 'recheck' || area === 'disconnect') {
+        if (area === 'recheck' || area === 'disconnect' || area === 'sync') {
             const v = emailMarketingObject(value, ['expectedVersion']), expectedVersion = emailMarketingInteger(v.expectedVersion);
             return execute(() => runtime.email[area]({ tenantContext, now, operationId, expectedVersion }));
         }

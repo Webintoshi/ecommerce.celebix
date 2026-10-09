@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS saas.email_marketing_candidates(
 CREATE INDEX IF NOT EXISTS email_marketing_candidate_expiry ON saas.email_marketing_candidates(expires_at) WHERE credential IS NOT NULL;
 CREATE TABLE IF NOT EXISTS saas.email_marketing_operations(
  id uuid PRIMARY KEY,store_id uuid NOT NULL REFERENCES saas.stores(id),principal_id uuid NOT NULL REFERENCES saas.principals(id),membership_id uuid NOT NULL,
- kind text NOT NULL CHECK(kind IN('validate','apply','rotate','recheck','disconnect')),fingerprint text NOT NULL CHECK(fingerprint~'^[a-f0-9]{64}$'),expected_version bigint NOT NULL,
+ kind text NOT NULL CHECK(kind IN('validate','apply','rotate','recheck','sync','disconnect')),fingerprint text NOT NULL CHECK(fingerprint~'^[a-f0-9]{64}$'),expected_version bigint NOT NULL,
  candidate_id uuid,connection_id uuid NOT NULL,phase text NOT NULL CHECK(phase IN('claimed','dispatched','unknown','complete','retryable')),
  lease_token uuid,lease_until timestamptz,progress jsonb NOT NULL DEFAULT '{}',result_payload jsonb,error_code text,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  FOREIGN KEY(store_id,membership_id) REFERENCES saas.memberships(store_id,id),FOREIGN KEY(store_id,candidate_id) REFERENCES saas.email_marketing_candidates(store_id,id),CHECK(length(progress::text)<=8192)
@@ -54,6 +54,21 @@ CREATE TABLE IF NOT EXISTS saas.email_marketing_sync_jobs(
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),error_code text,
  FOREIGN KEY(store_id,connection_id) REFERENCES saas.email_marketing_connections(store_id,id),UNIQUE(connection_id,generation,email,consent_version,kind)
 );
+-- A manual request is a finite batch; negative/cleanup jobs keep sequence zero.
+ALTER TABLE saas.email_marketing_connections ADD COLUMN IF NOT EXISTS export_sequence bigint NOT NULL DEFAULT 0 CHECK(export_sequence BETWEEN 0 AND 9007199254740991);
+ALTER TABLE saas.email_marketing_sync_jobs ADD COLUMN IF NOT EXISTS export_sequence bigint NOT NULL DEFAULT 0 CHECK(export_sequence BETWEEN 0 AND 9007199254740991);
+ALTER TABLE saas.email_marketing_sync_jobs ADD COLUMN IF NOT EXISTS manual_audience jsonb;
+ALTER TABLE saas.email_marketing_operations DROP CONSTRAINT IF EXISTS email_marketing_operations_kind_check;
+ALTER TABLE saas.email_marketing_operations ADD CONSTRAINT email_marketing_operations_kind_check CHECK(kind IN('validate','apply','rotate','recheck','sync','disconnect'));
+-- Replace the old per-consent key without relying on PostgreSQL's truncated name.
+DO $manual_key$ DECLARE k text;BEGIN
+ FOR k IN SELECT conname FROM pg_constraint WHERE conrelid='saas.email_marketing_sync_jobs'::regclass AND contype='u' AND pg_get_constraintdef(oid)='UNIQUE (connection_id, generation, email, consent_version, kind)' LOOP
+  EXECUTE format('ALTER TABLE saas.email_marketing_sync_jobs DROP CONSTRAINT %I',k);
+ END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='saas.email_marketing_sync_jobs'::regclass AND conname='email_marketing_job_intent') THEN
+  ALTER TABLE saas.email_marketing_sync_jobs ADD CONSTRAINT email_marketing_job_intent UNIQUE(connection_id,generation,email,consent_version,kind,export_sequence);
+ END IF;
+END $manual_key$;
 CREATE UNIQUE INDEX IF NOT EXISTS email_marketing_one_bootstrap ON saas.email_marketing_sync_jobs(connection_id,generation) WHERE kind='bootstrap';
 CREATE INDEX IF NOT EXISTS email_marketing_job_claim ON saas.email_marketing_sync_jobs(available_at,store_id,created_at) WHERE status IN('queued','running');
 CREATE INDEX IF NOT EXISTS email_marketing_job_store_summary ON saas.email_marketing_sync_jobs(store_id,status,phase);
@@ -118,7 +133,7 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('email.marketing:'||p_store::text,0));
  IF p_action='claim' THEN
   oid:=(p_input->>'operationId')::uuid;kind:=p_input->>'kind';
-  IF kind NOT IN('validate','apply','rotate','recheck','disconnect') OR p_input->>'fingerprint'!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+  IF kind NOT IN('validate','apply','rotate','recheck','sync','disconnect') OR p_input->>'fingerprint'!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
   IF p_input?'fingerprints' AND(jsonb_typeof(p_input->'fingerprints') IS DISTINCT FROM 'array' OR jsonb_array_length(p_input->'fingerprints') NOT BETWEEN 1 AND 16 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_input->'fingerprints') f WHERE jsonb_typeof(f) IS DISTINCT FROM 'string' OR (f#>>'{}')!~'^[a-f0-9]{64}$') OR NOT (p_input->'fingerprints'?(p_input->>'fingerprint'))) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
   SELECT * INTO op FROM saas.email_marketing_operations WHERE id=oid FOR UPDATE;
   IF FOUND THEN
@@ -131,7 +146,8 @@ BEGIN
   SELECT * INTO c FROM saas.email_marketing_connections WHERE store_id=p_store AND status<>'disconnected' FOR UPDATE;current_version:=coalesce(c.version,0);
   IF kind<>'validate' AND (p_input->>'expectedVersion')::bigint IS DISTINCT FROM current_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;
   IF kind='apply' AND c.id IS NOT NULL THEN RETURN QUERY SELECT 'cleanup_pending',NULL::jsonb;RETURN;END IF;
-  IF kind IN('rotate','recheck','disconnect') AND c.id IS NULL THEN RETURN QUERY SELECT 'not_configured',NULL::jsonb;RETURN;END IF;
+  IF kind IN('rotate','recheck','sync','disconnect') AND c.id IS NULL THEN RETURN QUERY SELECT 'not_configured',NULL::jsonb;RETURN;END IF;
+  IF kind='sync' AND(c.status<>'connected' OR EXISTS(SELECT 1 FROM saas.email_marketing_sync_jobs pending WHERE pending.connection_id=c.id AND pending.kind IN('bootstrap','profile','subscribe') AND(pending.status IN('queued','running','attention') OR pending.phase<>'queued' AND pending.status<>'verified'))) THEN RETURN QUERY SELECT 'cleanup_pending',NULL::jsonb;RETURN;END IF;
   PERFORM saas.platform_support_begin(p_store,p_principal,p_membership,'email_marketing_command.claim');
   IF kind='validate' THEN
    INSERT INTO saas.email_marketing_candidates(id,store_id,principal_id,membership_id,session_hash,provider,credential,created_at,expires_at) VALUES((p_input->>'candidateId')::uuid,p_store,p_principal,p_membership,p_input->>'sessionHash',p_input->>'provider',p_input->'credential',moment,moment+interval '15 minutes');
@@ -178,13 +194,18 @@ BEGIN
   IF coalesce(c.version,0)<>op.expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;
   IF op.kind='apply' THEN
    INSERT INTO saas.email_marketing_connections(id,store_id,provider,account_id,account_name,list_id,list_name,status,sender_status,credential,last_checked_at) VALUES(op.connection_id,p_store,candidate.provider,candidate.account_id,candidate.account_name,p_input->'list'->>'id',p_input->'list'->>'name','connected',candidate.sender_status,p_input->'credential',moment);
-   INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,kind) VALUES(p_store,op.connection_id,1,1,'bootstrap');
   ELSE
    IF c.account_id IS DISTINCT FROM candidate.account_id OR c.provider IS DISTINCT FROM candidate.provider THEN RETURN QUERY SELECT 'account_mismatch',NULL::jsonb;RETURN;END IF;
    UPDATE saas.email_marketing_connections SET credential=p_input->'credential',credential_version=credential_version+1,version=version+1,last_checked_at=moment,status=CASE WHEN status='needs_reconnect' THEN 'connected' ELSE status END,error_code=NULL WHERE id=c.id AND store_id=p_store;
    UPDATE saas.email_marketing_sync_jobs SET status='queued',available_at=moment,updated_at=moment WHERE connection_id=c.id AND phase='queued' AND status='blocked' AND error_code='credential_rejected';
   END IF;
   UPDATE saas.email_marketing_candidates SET consumed_at=moment,credential=NULL WHERE id=candidate.id;projection:=saas.email_marketing_projection(p_store,op.connection_id);
+ ELSIF op.kind='sync' THEN
+  IF c.version<>op.expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;
+  IF c.status<>'connected' OR EXISTS(SELECT 1 FROM saas.email_marketing_sync_jobs pending WHERE pending.connection_id=c.id AND pending.kind IN('bootstrap','profile','subscribe') AND(pending.status IN('queued','running','attention') OR pending.phase<>'queued' AND pending.status<>'verified')) THEN RETURN QUERY SELECT 'cleanup_pending',NULL::jsonb;RETURN;END IF;
+  UPDATE saas.email_marketing_connections SET version=version+1,export_sequence=export_sequence+1,updated_at=moment WHERE id=c.id;
+  PERFORM saas.email_marketing_request_sync(c.id,c.export_sequence+1,moment);
+  projection:=saas.email_marketing_projection(p_store,c.id);
  ELSIF op.kind='disconnect' THEN
   IF c.version<>op.expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;
   UPDATE saas.email_marketing_connections SET status='draining',version=version+1,generation=generation+1,updated_at=moment WHERE id=c.id;
@@ -220,8 +241,8 @@ BEGIN
  VALUES(p_store,p_email,seq,p_kind,p_source,p_source_id,p_consented,p_evidence,p_first,p_last)
  ON CONFLICT(store_id,email) DO UPDATE SET sequence=EXCLUDED.sequence,kind=EXCLUDED.kind,source=EXCLUDED.source,source_id=EXCLUDED.source_id,consented_at=EXCLUDED.consented_at,evidence_version=EXCLUDED.evidence_version,first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name;
  INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind)
- SELECT p_store,c.id,c.generation,c.credential_version,p_email,seq,CASE WHEN p_kind='grant' THEN 'profile' WHEN p_kind='deny' THEN 'unsubscribe' ELSE 'remove_membership' END
- FROM saas.email_marketing_connections c WHERE c.store_id=p_store AND c.status<>'disconnected' AND(p_kind<>'grant' OR c.status='connected') ON CONFLICT DO NOTHING;
+ SELECT p_store,c.id,c.generation,c.credential_version,p_email,seq,CASE WHEN p_kind='deny' THEN 'unsubscribe' ELSE 'remove_membership' END
+ FROM saas.email_marketing_connections c WHERE c.store_id=p_store AND c.status<>'disconnected' AND p_kind<>'grant' ON CONFLICT DO NOTHING;
  RETURN seq;
 END $f$;
 
@@ -244,11 +265,7 @@ BEGIN
  END IF;
  IF p_old_email IS NOT DISTINCT FROM c.email AND consent.status='granted' AND p_old_status='granted' AND c.status='active' THEN
   UPDATE saas.email_marketing_audience SET first_name=c.first_name,last_name=c.last_name WHERE store_id=p_store AND email=c.email AND kind='grant' AND(first_name IS DISTINCT FROM c.first_name OR last_name IS DISTINCT FROM c.last_name);
-  IF FOUND THEN
-   INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind)
-   SELECT p_store,k.id,k.generation,k.credential_version,c.email,a.sequence,'profile' FROM saas.email_marketing_connections k JOIN saas.email_marketing_audience a ON a.store_id=k.store_id AND a.email=c.email WHERE k.store_id=p_store AND k.status='connected'
-   ON CONFLICT(connection_id,generation,email,consent_version,kind) DO UPDATE SET status='queued',phase='queued',progress=saas.email_marketing_sync_jobs.progress-'profileUpdated',available_at=p_moment,updated_at=p_moment WHERE saas.email_marketing_sync_jobs.phase='queued' OR saas.email_marketing_sync_jobs.status='verified';
-  END IF;
+
  END IF;
 END $f$;
 
@@ -309,7 +326,7 @@ DECLARE c saas.email_marketing_connections;inserted text;seq bigint;BEGIN
   UPDATE saas.email_marketing_contacts SET state='blocked',list_denial_at=greatest(list_denial_at,coalesce(p_at,clock_timestamp())),membership_epoch=membership_epoch+1 WHERE connection_id=c.id AND email=p_email;
   UPDATE saas.email_marketing_sync_jobs SET status='blocked',error_code='provider_list_denial' WHERE connection_id=c.id AND email=p_email AND kind IN('profile','subscribe') AND phase='queued' AND status<>'verified';
   SELECT sequence INTO seq FROM saas.email_marketing_audience WHERE store_id=c.store_id AND email=p_email;
-  INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind,progress) VALUES(c.store_id,c.id,c.generation,c.credential_version,p_email,coalesce(seq,0),'remove_membership','{"providerListDenial":true}') ON CONFLICT(connection_id,generation,email,consent_version,kind) DO UPDATE SET status='queued',phase='queued',progress=saas.email_marketing_sync_jobs.progress||'{"providerListDenial":true}',available_at=clock_timestamp() WHERE saas.email_marketing_sync_jobs.status IN('verified','blocked','failed');
+  INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind,progress) VALUES(c.store_id,c.id,c.generation,c.credential_version,p_email,coalesce(seq,0),'remove_membership','{"providerListDenial":true}') ON CONFLICT(connection_id,generation,email,consent_version,kind,export_sequence) DO UPDATE SET status='queued',phase='queued',progress=saas.email_marketing_sync_jobs.progress||'{"providerListDenial":true}',available_at=clock_timestamp() WHERE saas.email_marketing_sync_jobs.status IN('verified','blocked','failed');
  END IF;
  RETURN true;
 END $f$;
@@ -339,6 +356,43 @@ CREATE OR REPLACE FUNCTION saas.email_marketing_audience_page(p_store uuid,p_con
 BEGIN
  IF p_limit NOT BETWEEN 1 AND 100 OR NOT EXISTS(SELECT 1 FROM saas.email_marketing_connections WHERE store_id=p_store AND id=p_connection AND status<>'disconnected') THEN RAISE EXCEPTION 'invalid_input';END IF;
  RETURN jsonb_build_object('items',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY email) FROM (SELECT DISTINCT ON(email) * FROM saas.email_marketing_proven_audience WHERE store_id=p_store AND(p_cursor IS NULL OR email>p_cursor) ORDER BY email,effective_at DESC,(kind='deny') DESC,(kind<>'grant') DESC,sequence DESC NULLS LAST LIMIT p_limit) a),'[]'::jsonb));
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_request_sync(p_connection uuid,p_sequence bigint,p_moment timestamptz) RETURNS integer LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE c saas.email_marketing_connections;count_rows integer;
+BEGIN
+ SELECT * INTO c FROM saas.email_marketing_connections WHERE id=p_connection;
+ IF c.status<>'connected' OR c.export_sequence<>p_sequence OR p_sequence<1 THEN RAISE EXCEPTION 'invalid_input';END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('email.marketing:'||c.store_id::text,0));
+ -- One statement snapshot freezes evidence and names. Bulk inserts avoid a
+ -- transaction/query per contact; later source changes wait for the next click.
+ WITH proof AS MATERIALIZED (
+  SELECT * FROM(SELECT DISTINCT ON(email) * FROM saas.email_marketing_proven_audience WHERE store_id=c.store_id ORDER BY email,effective_at DESC,(kind='deny') DESC,(kind<>'grant') DESC,sequence DESC NULLS LAST) audience
+  WHERE kind='grant' AND(c.provider<>'brevo' OR consented_at>=p_moment-interval '2 years')
+ ), inserted_events AS (
+  INSERT INTO saas.email_marketing_consent_events(store_id,email,kind,source,source_id,source_version,recorded_at,consented_at,evidence_version)
+  SELECT c.store_id,email,'grant',source,source_id,source_version,recorded_at,consented_at,evidence_version FROM proof WHERE sequence IS NULL
+  ON CONFLICT(store_id,source,source_id,source_version,email,kind) DO NOTHING RETURNING *
+ ), identities AS (
+  SELECT id,email,source,source_id,source_version FROM inserted_events
+  UNION ALL SELECT id,email,source,source_id,source_version FROM saas.email_marketing_consent_events WHERE store_id=c.store_id AND kind='grant'
+ ), resolved AS MATERIALIZED (
+  -- FULL JOIN plus the materialization boundary avoids nested rescans of a
+  -- just-inserted CTE when a new store has no statistics yet (quadratic work).
+  SELECT p.*,coalesce(p.sequence,e.id) AS evidence_sequence FROM proof p FULL JOIN identities e
+  ON e.email=p.email AND e.source=p.source AND e.source_id=p.source_id AND e.source_version=p.source_version
+ ), intended AS MATERIALIZED (
+  SELECT * FROM resolved WHERE email IS NOT NULL AND evidence_sequence IS NOT NULL
+ ), imported_audience AS (
+  INSERT INTO saas.email_marketing_audience(store_id,email,sequence,kind,source,source_id,consented_at,evidence_version,first_name,last_name)
+  SELECT c.store_id,email,evidence_sequence,'grant',source,source_id,consented_at,evidence_version,first_name,last_name FROM intended WHERE sequence IS NULL AND evidence_sequence IS NOT NULL
+  ON CONFLICT(store_id,email) DO UPDATE SET sequence=EXCLUDED.sequence,kind=EXCLUDED.kind,source=EXCLUDED.source,source_id=EXCLUDED.source_id,consented_at=EXCLUDED.consented_at,evidence_version=EXCLUDED.evidence_version,first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name RETURNING email,sequence
+ ), queued AS (
+  INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind,export_sequence,manual_audience)
+  SELECT c.store_id,c.id,c.generation,c.credential_version,p.email,p.evidence_sequence,'profile',p_sequence,jsonb_build_object('kind','grant','sequence',p.evidence_sequence,'consentedAt',saas.orders_json_timestamp(p.consented_at),'source',p.source,'evidenceVersion',p.evidence_version,'firstName',p.first_name,'lastName',p.last_name)
+  FROM intended p
+  ON CONFLICT DO NOTHING RETURNING id
+ ) SELECT count(*) INTO count_rows FROM queued;
+ RETURN count_rows;
 END $f$;
 CREATE OR REPLACE FUNCTION saas.email_marketing_preview(p_store uuid,p_provider text,p_now timestamptz) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
  WITH audience AS (SELECT DISTINCT ON(email) * FROM saas.email_marketing_proven_audience WHERE store_id=p_store ORDER BY email,effective_at DESC,(kind='deny') DESC,(kind<>'grant') DESC,sequence DESC NULLS LAST)
@@ -380,7 +434,7 @@ CREATE OR REPLACE FUNCTION saas.email_marketing_export_allowed(p_store uuid) RET
  WHERE st.id=p_store AND st.status='active' AND s.status='active' AND s.valid_from<=clock_timestamp() AND(s.valid_until IS NULL OR s.valid_until>clock_timestamp()) AND p.status='active' AND p.valid_from<=clock_timestamp() AND(p.valid_until IS NULL OR p.valid_until>clock_timestamp()))
 $f$;
 CREATE OR REPLACE FUNCTION saas.email_marketing_job_projection(p_job uuid) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
- SELECT jsonb_build_object('id',j.id,'storeId',j.store_id,'connectionId',j.connection_id,'generation',j.generation,'credentialVersion',CASE WHEN j.phase='queued' THEN c.credential_version ELSE j.credential_version END,'email',j.email,'consentVersion',j.consent_version,'kind',j.kind,'leaseToken',j.lease_token,'leaseUntil',saas.orders_json_timestamp(j.lease_until),'phase',j.phase,'providerReference',j.provider_reference,'provider',c.provider,'listId',c.list_id,'credential',CASE WHEN j.phase='queued' THEN c.credential ELSE j.credential_snapshot END,'reconciliationCredential',CASE WHEN j.phase<>'queued' AND c.credential_version<>j.credential_version THEN c.credential ELSE NULL END,'reconciliationCredentialVersion',c.credential_version,'webhook',jsonb_build_object('id',c.webhook_id,'credential',c.webhook_credential,'version',c.webhook_version,'state',c.webhook_state,'checkedAt',saas.orders_json_timestamp(c.webhook_checked_at)),'profileId',x.profile_id,'progress',j.progress,'audience',CASE WHEN j.phase='queued' THEN CASE WHEN a.sequence IS NULL THEN NULL ELSE jsonb_build_object('kind',a.kind,'sequence',a.sequence,'consentedAt',saas.orders_json_timestamp(a.consented_at),'source',a.source,'evidenceVersion',a.evidence_version,'firstName',a.first_name,'lastName',a.last_name) END ELSE j.audience_snapshot END)
+ SELECT jsonb_build_object('id',j.id,'storeId',j.store_id,'connectionId',j.connection_id,'generation',j.generation,'credentialVersion',CASE WHEN j.phase='queued' THEN c.credential_version ELSE j.credential_version END,'email',j.email,'consentVersion',j.consent_version,'kind',j.kind,'leaseToken',j.lease_token,'leaseUntil',saas.orders_json_timestamp(j.lease_until),'phase',j.phase,'providerReference',j.provider_reference,'provider',c.provider,'listId',c.list_id,'credential',CASE WHEN j.phase='queued' THEN c.credential ELSE j.credential_snapshot END,'reconciliationCredential',CASE WHEN j.phase<>'queued' AND c.credential_version<>j.credential_version THEN c.credential ELSE NULL END,'reconciliationCredentialVersion',c.credential_version,'webhook',jsonb_build_object('id',c.webhook_id,'credential',c.webhook_credential,'version',c.webhook_version,'state',c.webhook_state,'checkedAt',saas.orders_json_timestamp(c.webhook_checked_at)),'profileId',x.profile_id,'progress',j.progress,'audience',CASE WHEN j.phase='queued' THEN CASE WHEN j.kind IN('profile','subscribe') AND j.export_sequence>0 THEN CASE WHEN a.kind='grant' AND a.sequence=j.consent_version THEN j.manual_audience ELSE NULL END WHEN a.sequence IS NULL THEN NULL ELSE jsonb_build_object('kind',a.kind,'sequence',a.sequence,'consentedAt',saas.orders_json_timestamp(a.consented_at),'source',a.source,'evidenceVersion',a.evidence_version,'firstName',a.first_name,'lastName',a.last_name) END ELSE j.audience_snapshot END)
  FROM saas.email_marketing_sync_jobs j JOIN saas.email_marketing_connections c ON c.id=j.connection_id LEFT JOIN saas.email_marketing_audience a ON a.store_id=j.store_id AND a.email=j.email LEFT JOIN saas.email_marketing_contacts x ON x.connection_id=j.connection_id AND x.email=j.email WHERE j.id=p_job
 $f$;
 CREATE OR REPLACE FUNCTION saas.email_marketing_work(p_action text,p_input jsonb) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
@@ -408,7 +462,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('email.worker.capacity',0));
   SELECT greatest(0,2-count(*))::integer INTO remaining FROM saas.email_marketing_sync_jobs WHERE status='running' AND lease_until>moment;
   remaining:=least(remaining,(p_input->>'limit')::integer);IF remaining=0 THEN RETURN '[]'::jsonb;END IF;
-  UPDATE saas.email_marketing_sync_jobs j SET status='blocked',error_code='grant_closed',updated_at=moment WHERE j.phase='queued' AND j.status IN('queued','running') AND j.kind IN('bootstrap','profile','subscribe') AND EXISTS(SELECT 1 FROM saas.email_marketing_connections c WHERE c.id=j.connection_id AND(c.status NOT IN('connected','needs_reconnect') OR c.generation<>j.generation OR NOT saas.email_marketing_export_allowed(c.store_id)));
+  UPDATE saas.email_marketing_sync_jobs j SET status='blocked',error_code='grant_closed',updated_at=moment WHERE j.phase='queued' AND j.status IN('queued','running') AND j.kind IN('bootstrap','profile','subscribe') AND EXISTS(SELECT 1 FROM saas.email_marketing_connections c WHERE c.id=j.connection_id AND(c.status NOT IN('connected','needs_reconnect') OR c.generation<>j.generation OR j.export_sequence=0 OR j.kind IN('profile','subscribe') AND j.manual_audience IS NULL OR NOT saas.email_marketing_export_allowed(c.store_id)));
   -- Aggregate store fairness once. A correlated MAX for each queued job caused
   -- 1,004 full scans for a 1,004-job isolated queue (about100ms per claim).
   FOR claim IN WITH last_attempt AS MATERIALIZED (
@@ -468,7 +522,7 @@ BEGIN
   IF desired_status='dispatched' THEN
    IF j.phase<>'queued' OR (p_input->'result'->>'credentialVersion')::bigint IS DISTINCT FROM c.credential_version THEN RETURN 'false'::jsonb;END IF;action:=p_input->'result'->>'action';
    IF action IS NULL OR action NOT IN('subscribe','update_profile','add_membership','unsubscribe','remove_membership') THEN RAISE EXCEPTION 'invalid_input';END IF;
-   IF action IN('subscribe','update_profile','add_membership') AND(c.status<>'connected' OR c.generation<>j.generation OR a.kind IS DISTINCT FROM 'grant' OR a.sequence IS DISTINCT FROM j.consent_version OR NOT saas.email_marketing_export_allowed(c.store_id)) THEN RETURN 'false'::jsonb;END IF;
+   IF action IN('subscribe','update_profile','add_membership') AND(j.export_sequence<1 OR j.manual_audience IS NULL OR j.manual_audience->>'sequence' IS DISTINCT FROM j.consent_version::text OR c.status<>'connected' OR c.generation<>j.generation OR a.kind IS DISTINCT FROM 'grant' OR a.sequence IS DISTINCT FROM j.consent_version OR NOT saas.email_marketing_export_allowed(c.store_id)) THEN RETURN 'false'::jsonb;END IF;
    IF action IN('subscribe','update_profile','add_membership') AND EXISTS(SELECT 1 FROM saas.email_marketing_contacts x WHERE x.connection_id=c.id AND x.email=j.email AND x.list_denial_at IS NOT NULL) THEN
     provider_state:=p_input->'result'->'state';
     -- Only a newer verified provider-native reconsent may clear scoped evidence.
@@ -508,18 +562,18 @@ BEGIN
   IF desired_status='verified' AND j.kind='remove_membership' AND coalesce((j.progress->>'membershipEpoch')::bigint,0) IS DISTINCT FROM coalesce((SELECT membership_epoch FROM saas.email_marketing_contacts WHERE connection_id=c.id AND email=j.email),0) THEN
    UPDATE saas.email_marketing_sync_jobs SET status='queued',phase='queued',credential_snapshot=NULL,lease_token=NULL,lease_until=NULL,available_at=moment,progress=progress-'action'-'dispatchedAt' WHERE id=j.id;RETURN 'true'::jsonb;
   END IF;
-  IF desired_status='verified' AND j.progress->>'action'='subscribe' AND c.status='connected' AND a.kind='grant' AND a.sequence=j.consent_version AND(a.first_name IS NOT NULL OR a.last_name IS NOT NULL) THEN
+  IF desired_status='verified' AND j.progress->>'action'='subscribe' AND c.status='connected' AND a.kind='grant' AND a.sequence=j.consent_version AND(j.manual_audience->>'firstName' IS NOT NULL OR j.manual_audience->>'lastName' IS NOT NULL) THEN
    UPDATE saas.email_marketing_sync_jobs SET status='queued',phase='queued',credential_snapshot=NULL,audience_snapshot=NULL,progress=jsonb_build_object('subscribeCompleted',true),lease_token=NULL,lease_until=NULL,available_at=moment,updated_at=moment WHERE id=j.id;RETURN 'true'::jsonb;
   END IF;
   IF desired_status='verified' AND (p_input->'outcome'->>'profileUpdated')::boolean IS TRUE THEN
-   UPDATE saas.email_marketing_sync_jobs SET status='queued',phase='queued',credential_snapshot=NULL,audience_snapshot=NULL,progress=jsonb_build_object('profileUpdated',a.first_name IS NOT DISTINCT FROM j.audience_snapshot->>'firstName' AND a.last_name IS NOT DISTINCT FROM j.audience_snapshot->>'lastName','subscribeCompleted',coalesce((j.progress->>'subscribeCompleted')::boolean,false)),lease_token=NULL,lease_until=NULL,available_at=moment,updated_at=moment WHERE id=j.id;RETURN 'true'::jsonb;
+   UPDATE saas.email_marketing_sync_jobs SET status='queued',phase='queued',credential_snapshot=NULL,audience_snapshot=NULL,progress=jsonb_build_object('profileUpdated',true,'subscribeCompleted',coalesce((j.progress->>'subscribeCompleted')::boolean,false)),lease_token=NULL,lease_until=NULL,available_at=moment,updated_at=moment WHERE id=j.id;RETURN 'true'::jsonb;
   END IF;
   IF desired_status='verified' THEN
    UPDATE saas.email_marketing_sync_jobs SET status='verified',lease_token=NULL,lease_until=NULL,credential_snapshot=NULL,updated_at=moment,error_code=NULL WHERE id=j.id;
    UPDATE saas.email_marketing_contacts SET state=CASE WHEN j.kind='remove_membership' THEN 'removed' WHEN j.kind='unsubscribe' THEN 'blocked' WHEN c.status='connected' AND a.kind='grant' AND a.sequence=j.consent_version THEN 'verified' ELSE 'pending' END,last_checked_at=moment WHERE connection_id=c.id AND email=j.email;
    IF j.progress->>'action' IN('subscribe','add_membership','update_profile') AND(c.status<>'connected' OR a.kind IS DISTINCT FROM 'grant' OR a.sequence IS DISTINCT FROM j.consent_version OR EXISTS(SELECT 1 FROM saas.email_marketing_contacts x WHERE x.connection_id=c.id AND x.email=j.email AND x.list_denial_at IS NOT NULL)) THEN
     UPDATE saas.email_marketing_contacts SET membership_epoch=membership_epoch+1 WHERE connection_id=c.id AND email=j.email;
-    INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind,progress) VALUES(c.store_id,c.id,c.generation,c.credential_version,j.email,coalesce(a.sequence,0),CASE WHEN a.kind='deny' THEN 'unsubscribe' ELSE 'remove_membership' END,jsonb_build_object('providerListDenial',EXISTS(SELECT 1 FROM saas.email_marketing_contacts x WHERE x.connection_id=c.id AND x.email=j.email AND x.list_denial_at IS NOT NULL))) ON CONFLICT(connection_id,generation,email,consent_version,kind) DO UPDATE SET status='queued',phase='queued',progress=EXCLUDED.progress,available_at=moment,updated_at=moment WHERE saas.email_marketing_sync_jobs.status IN('verified','blocked','failed');END IF;
+    INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind,progress) VALUES(c.store_id,c.id,c.generation,c.credential_version,j.email,coalesce(a.sequence,0),CASE WHEN a.kind='deny' THEN 'unsubscribe' ELSE 'remove_membership' END,jsonb_build_object('providerListDenial',EXISTS(SELECT 1 FROM saas.email_marketing_contacts x WHERE x.connection_id=c.id AND x.email=j.email AND x.list_denial_at IS NOT NULL))) ON CONFLICT(connection_id,generation,email,consent_version,kind,export_sequence) DO UPDATE SET status='queued',phase='queued',progress=EXCLUDED.progress,available_at=moment,updated_at=moment WHERE saas.email_marketing_sync_jobs.status IN('verified','blocked','failed');END IF;
    UPDATE saas.email_marketing_connections SET last_synced_at=moment WHERE id=c.id;RETURN 'true'::jsonb;
   END IF;
   UPDATE saas.email_marketing_sync_jobs SET status=CASE WHEN j.phase<>'queued' THEN CASE WHEN desired_status='pending' THEN 'queued' ELSE 'attention' END WHEN desired_status IN('pending','retry') THEN 'queued' ELSE desired_status END,available_at=moment+greatest(30,least(86400,coalesce((p_input->'outcome'->>'retryAfterSeconds')::int,60)))*interval '1 second',lease_token=NULL,lease_until=NULL,error_code=CASE WHEN p_input->'outcome'->>'credentialRejected'='true' THEN 'credential_rejected' ELSE left(p_input->'outcome'->>'errorCode',80) END,updated_at=moment WHERE id=j.id;
@@ -527,15 +581,8 @@ BEGIN
   RETURN 'true'::jsonb;
  END IF;
  IF p_action='bootstrap' THEN
-  IF c.status<>'connected' OR j.generation<>c.generation OR NOT saas.email_marketing_export_allowed(c.store_id) THEN UPDATE saas.email_marketing_sync_jobs SET status='blocked',lease_token=NULL,lease_until=NULL WHERE id=j.id;RETURN 'false'::jsonb;END IF;
-  rows:=saas.email_marketing_audience_page(c.store_id,c.id,j.progress->>'bootstrapCursor',100)->'items';
-  FOR row_data IN SELECT value FROM jsonb_array_elements(rows) LOOP
-   IF row_data->>'sequence' IS NULL THEN PERFORM saas.email_marketing_append_event(c.store_id,row_data->>'email',row_data->>'kind',row_data->>'source',row_data->>'source_id',row_data->>'source_version',(row_data->>'recorded_at')::timestamptz,(row_data->>'consented_at')::timestamptz,row_data->>'evidence_version',row_data->>'first_name',row_data->>'last_name');END IF;
-   SELECT * INTO a FROM saas.email_marketing_audience WHERE store_id=c.store_id AND email=row_data->>'email';
-   IF a.kind='grant' AND(c.provider<>'brevo' OR a.consented_at>=moment-interval '2 years') THEN INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind) VALUES(c.store_id,c.id,c.generation,c.credential_version,a.email,a.sequence,'profile') ON CONFLICT DO NOTHING;END IF;
-  END LOOP;
-  next_cursor:=rows->(jsonb_array_length(rows)-1)->>'email';
-  UPDATE saas.email_marketing_sync_jobs SET status=CASE WHEN jsonb_array_length(rows)=100 THEN 'queued' ELSE 'verified' END,progress=jsonb_build_object('bootstrapCursor',next_cursor),lease_token=NULL,lease_until=NULL,updated_at=moment,available_at=moment WHERE id=j.id;RETURN 'true'::jsonb;
+  -- Older unsent automatic imports are fenced; a fresh manual command is required.
+  UPDATE saas.email_marketing_sync_jobs SET status='blocked',error_code='manual_sync_required',lease_token=NULL,lease_until=NULL WHERE id=j.id;RETURN 'false'::jsonb;
  END IF;
  IF p_action='poll' THEN
   IF jsonb_array_length(p_input->'page'->'events')>100 OR length(p_input->'page'->>'nextCursor')>2048 THEN RAISE EXCEPTION 'invalid_input';END IF;

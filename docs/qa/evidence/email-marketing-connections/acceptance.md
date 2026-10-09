@@ -100,3 +100,7 @@ The production route chunk map independently verifies no email component chunks 
 Before activation: resolve provider gates using the prepared unsent requests in `docs/ops/email-marketing-provider-approval-requests.md`; obtain merchant-authorized test-account/recipient/automation scope; refresh current release owner, running sources, keys and native/ACL baselines; allocate SQL under that release; publish compatible owner/readers, then shared panels NET → SITE; verify actual containers and only then enable controls/full worker and run real acceptance. Existing and future tenants receive the common application, with their own provider account/key and consent scope.
 
 Rollback closes new grants/imports with `revoke_only` while retaining incoming denials, readback and cleanup. Populated down is destructive and intentionally refused. If revocation processing cannot run, external sends must be paused and pending denials settled before rollback is complete. No production rollback was performed or claimed.
+
+## Subsequent manual-export correction
+
+The user's later manual-only request supersedes bootstrap/automatic name fanout in the original source. See [manual-acceptance.md](manual-acceptance.md) for revised behavior, scoped tests, large-list experiment and limitations. No live activation is implied by either document.

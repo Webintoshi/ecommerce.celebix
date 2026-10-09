@@ -18,3 +18,28 @@ test('safe stale/candidate errors expose no provider body or unknown code', asyn
     assert.equal(r.status, status);
     assert.equal((await r.text()).includes('private-fixture-key'), false);
 } });
+
+test('manual sync binds authority and operation to an explicit versioned POST without a key', async () => {
+    const inputs: any[] = [];
+    const h = fixture({sync: async (input: any) => {inputs.push(input); return {status: 'connected', version: 4};}}).h();
+    const response = await h.post(request('/sync', {expectedVersion: 4}), 'sync');
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {status: 'connected', version: 4});
+    assert.equal(inputs.length, 1);
+    assert.equal(inputs[0].tenantContext.store.id, ID);
+    assert.equal(inputs[0].operationId, OP);
+    assert.equal(inputs[0].expectedVersion, 4);
+    assert.equal('apiKey' in inputs[0], false);
+    for (const body of [{expectedVersion: 4, apiKey: 'unused'}, {expectedVersion: 4, storeId: ID}, {expectedVersion: -1}, {}]) {
+        assert.equal((await h.post(request('/sync', body), 'sync')).status, 400);
+    }
+    assert.equal(inputs.length, 1);
+});
+
+test('manual sync rejects read-only users and foreign origins before queueing any batch', async () => {
+    let queued = 0;
+    const email = {sync: async () => {queued++; return {status: 'connected'};}};
+    assert.equal((await fixture(email, 'analyst').h().post(request('/sync', {expectedVersion: 1}), 'sync')).status, 403);
+    assert.equal((await fixture(email).h().post(request('/sync', {expectedVersion: 1}, {origin: 'https://attacker.test'}), 'sync')).status, 403);
+    assert.equal(queued, 0);
+});

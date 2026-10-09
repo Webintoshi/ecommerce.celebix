@@ -203,3 +203,7 @@ Task 8 partial evidence: isolated Step 2 and read-only release preparation passe
 - Explicit limits: no campaign editor/send API, no native revenue reports, no catalog/order/cart-event export, no MailerLite/Sender activation, no invented sender quota or asset license. User-directed logo work is included, its primary-source usage scope is a publication prerequisite.
 - Review Focus cases are assigned to named RED/acceptance steps. Interfaces use the same repository/adapter/candidate names in later tasks. New customer evidence does not change old public read payloads or transfer ownership.
 - Recommendation: **Subagent-driven**, because consent, secrets and asynchronous provider effects need independent review at each task boundary before connecting live stores. Human must review this written plan and choose/confirm execution method before implementation under `superpowers:writing-plans`.
+
+## User-directed correction — manual synchronization (2026-10-09)
+
+This correction is explicitly authorized by the user's manual-only request and consent-provenance answer. Implement a sync command/route/button; remove Apply bootstrap and grant/name fanout; freeze each request's audience/names; retain denials/readback/cleanup; test retry/version/uncertainty, historical proof and large list queue construction. This local correction does not clear the outstanding real-provider/publication gates of Task 8.

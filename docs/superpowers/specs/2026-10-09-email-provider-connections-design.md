@@ -217,3 +217,9 @@ Resmi teknik belgeler:
 Araştırma notları ana projede `.tmp/email-campaign-research/2026-10-09` altında kayıtlıdır. Gerçek ücretsiz hesap kabulü yapılmadığı noktalar yukarıda açıkça ayrılmıştır.
 
 Resmi logo kaynakları: Brevo press sayfasının yayımladığı `https://corp-backend.brevo.com/wp-content/uploads/2023/04/Brevo-Logo-1.svg`; Klaviyo `https://www.klaviyo.com/newsroom` başlığındaki mevcut logo SVG'si. Brevo press indirimi, bağlantı arayüzünde kullanma veya kendi sunucunda barındırma iznini açıkça belirtmiyor; kapsam yayından önce resmi marka koşulları/izinle doğrulanmalıdır. Klaviyo kullanımı `https://www.klaviyo.com/legal/api-terms` ve newsroom marka yönlendirmelerine uygun olmalıdır. Kaynağın bulunması genel bir yeniden kullanım lisansı olarak raporlanmaz.
+
+## 2026-10-09 approved correction: manual exports
+
+The user's explicit correction supersedes automatic first import/source update scheduling in this design. **Uygula** saves only the connection; **Eşitle** requests one finite export of the then-current proven audience. Grants, names and newly created customers wait for another explicit request. A versioned/idempotent sync command queues immutable per-job name/proof snapshots with a monotonically numbered batch. It never resets uncertain prior effects; fresh source denials still fence dispatch. Incoming denials, provider reconciliation and disconnect cleanup continue automatically. No new dependency/editor/automatic campaign sender is introduced.
+
+The user clarified that current checkout obtains only order/contract acceptance. That is not represented as marketing consent, and no grant backfill is fabricated. Existing explicit newsletter/cart consent and attested customer evidence remain the eligibility sources. The prominent count reads “Aktarılacak müşteriler”; evidence and denial status remain factual. Checkout consent collection is a separate future feature, not silently added here.
