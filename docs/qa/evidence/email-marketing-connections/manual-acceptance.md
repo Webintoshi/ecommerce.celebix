@@ -20,4 +20,9 @@ Local verification only; no production/provider operation occurred. This superse
 - 10,000 historical contacts plus one existing proof passed two sequential native batches under a 10-second statement timeout. Final focused run observed 2.309 seconds; final complete target suite observed 3.014 seconds. These include fixture/assertion/rollback work, not provider export duration or production latency.
 - Original per-row queue construction and first bulk CTE attempt both exceeded 10 seconds. EXPLAIN at 1,001 rows showed two nested CTE rescans removing 1,000,000 join rows each. Bulk snapshot plus materialized FULL JOIN removes the quadratic rescans without changing global planner options.
 
-Production builds/empty rollback rehearsal are recorded below after completion. Provider registration/terms and authorized real-account acceptance remain the existing publication gates.
+## Final local release checks
+
+- Source commit: `13b92a27e468c4c771f16a86394e566c33b10b22`. All three source-bound production wrappers completed with exit 0: customer-panel, owner, and shared storefront. These are local builds, not deployments. Logs are retained in the ignored plan workspace as `manual-build-panel.log`, `manual-build-owner.log`, and `manual-build-storefront.log`.
+- Candidate SQL empty-module down → clean up → repeated up completed with exit 0 against the disposable local PG16 database. Populated destructive rollback refusal is covered by the native test. No production SQL number was allocated or applied.
+- Generated payment build metadata restored; temporary UI fixture/server removed. The owned disposable PostgreSQL server was stopped. The pre-existing untracked panel node_modules symlink was not modified or committed.
+- Provider registration/terms and authorized real-account acceptance remain the existing publication gates. No provider clarification request was sent, real merchant key collected, customer exported, or live deployment changed.
