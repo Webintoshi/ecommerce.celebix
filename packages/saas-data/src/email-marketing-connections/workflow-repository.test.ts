@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createPostgresEmailMarketingWorkflowRepository } from './workflow-repository.ts';
+const timeouts = { poolCheckoutMs: 2000, statementMs: 5000, lockMs: 2000, idleTransactionMs: 5000 }, uuid = '22600000-0000-4000-8000-000000000003';
+function fixture(failCommit = false) { const calls: string[] = []; let released = 0; const pool: any = { connect: async () => ({ query: async (sql: string, params: any[]) => { calls.push(sql); if (sql === 'COMMIT' && failCommit)
+            throw Error('raw-fixture-key'); if (sql.includes('email_marketing_work'))
+            return { rows: [{ result: params[0] === 'schedule' ? 1 : true }] }; return { rows: [] }; }, release: () => released++ }) }; return { calls, repository: createPostgresEmailMarketingWorkflowRepository({ pool, role: 'celebix_saas_workflow', timeouts }), released: () => released }; }
+test('workflow uses restricted role and releases a bounded transaction before returning', async () => { const f = fixture(); assert.equal(await f.repository.finish({ jobId: uuid, leaseToken: uuid, now: new Date(), outcome: { status: 'pending' } }), true); assert.equal(f.released(), 1); assert.equal(f.calls.includes('SET LOCAL ROLE celebix_saas_workflow'), true); assert.equal(f.calls.at(-1), 'COMMIT'); assert.equal(f.calls.some(c => /UPDATE|INSERT|DELETE/.test(c)), false); });
+test('uncertain database commit exposes only unknown outcome and destroys checked-out client', async () => { const f = fixture(true); await assert.rejects(f.repository.finish({ jobId: uuid, leaseToken: uuid, now: new Date(), outcome: { status: 'pending' } }), (e: any) => e.code === 'outcome_unknown' && !e.message.includes('fixture')); assert.equal(f.released(), 1); });
+test('invalid worker mode/limit/token never checks out a database connection', async () => { const f = fixture(); await assert.rejects(f.repository.claim({ workerId: 'owner', mode: 'full', limit: 26, token: uuid, now: new Date('2026-10-09T12:00:00Z'), leaseUntil: new Date('2026-10-09T12:01:30Z') })); assert.equal(f.calls.length, 0); });

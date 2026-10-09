@@ -5,3 +5,7 @@ export * from './repository.ts';
 export * from './consent.ts';
 export * from './provider.ts';
 export * from './providers/registry.ts';
+export * from './workflow-types.ts';
+export * from './workflow-repository.ts';
+export * from './sync.ts';
+export * from './webhook-repository.ts';

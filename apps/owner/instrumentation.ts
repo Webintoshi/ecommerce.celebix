@@ -13,7 +13,11 @@ export async function register(): Promise<void> {
   const { startDefaultOrderEmailProductionWorker } = await import(
     "./lib/order-email/default.ts"
   );
+  const emailMarketing = await import("./lib/email-marketing/default.ts")
+    .then(module => module.startDefaultEmailMarketingProductionWorker())
+    .catch(() => { console.error("email_marketing_worker_degraded"); return Object.freeze({ async stop() {} }); });
   root[RUNTIME] = Object.freeze({
+    emailMarketing,
     merchantProvider: await startDefaultMerchantProviderProductionWorker(),
     storeDomains: await startDefaultStoreDomainProductionWorker(),
     orderEmail: await startDefaultOrderEmailProductionWorker(),

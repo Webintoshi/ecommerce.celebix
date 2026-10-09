@@ -6,12 +6,12 @@ DECLARE t text;sig regprocedure;plan record;r record;s record;payload jsonb;toke
  envelope jsonb:='{"algorithm":"A256GCM","version":1,"keyId":"fixture","iv":"aaaa","tag":"aaaa","ciphertext":"aaaa"}';
 BEGIN
  IF current_database()<>'email_marketing_isolated' OR current_setting('listen_addresses')<>'' THEN RAISE EXCEPTION 'EMAIL_ISOLATED_ONLY';END IF;
- FOREACH t IN ARRAY ARRAY['email_marketing_connections','email_marketing_candidates','email_marketing_operations','email_marketing_contacts','email_marketing_consent_events','email_marketing_audience','email_marketing_sync_jobs','email_marketing_inbound_events'] LOOP
+ FOREACH t IN ARRAY ARRAY['email_marketing_connections','email_marketing_candidates','email_marketing_operations','email_marketing_contacts','email_marketing_consent_events','email_marketing_audience','email_marketing_sync_jobs','email_marketing_inbound_events','email_marketing_rate_windows'] LOOP
   IF has_table_privilege('celebix_saas_app','saas.'||t,'SELECT') OR has_table_privilege('celebix_saas_app','saas.'||t,'INSERT') OR has_table_privilege('celebix_saas_workflow','saas.'||t,'SELECT') THEN RAISE EXCEPTION 'EMAIL_PRIVATE_TABLE_LEAK:%',t;END IF;
   IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid=('saas.'||t)::regclass AND relrowsecurity AND relforcerowsecurity) OR NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=('saas.'||t)::regclass AND tgname='platform_support_atomic_journal') THEN RAISE EXCEPTION 'EMAIL_TABLE_AUTHORITY:%',t;END IF;
  END LOOP;
  FOR sig IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname LIKE 'email_marketing_%' LOOP
-  IF has_function_privilege('public',sig,'EXECUTE') OR (has_function_privilege('celebix_saas_host_resolver',sig,'EXECUTE') AND sig::text NOT LIKE 'saas.email_marketing_newsletter_subscribe(%' AND sig::text NOT LIKE 'saas.email_marketing_contact_capture(%') THEN RAISE EXCEPTION 'EMAIL_FUNCTION_LEAK:%',sig;END IF;
+  IF has_function_privilege('public',sig,'EXECUTE') OR (has_function_privilege('celebix_saas_host_resolver',sig,'EXECUTE') AND sig::text NOT LIKE 'saas.email_marketing_newsletter_subscribe(%' AND sig::text NOT LIKE 'saas.email_marketing_contact_capture(%' AND sig::text NOT LIKE 'saas.email_marketing_brevo_hook(%') THEN RAISE EXCEPTION 'EMAIL_FUNCTION_LEAK:%',sig;END IF;
  END LOOP;
  SELECT p.id,p.plan_code,p.version INTO plan FROM saas.plans p JOIN saas.plan_features f ON f.plan_id=p.id AND f.feature_key='integrations' AND f.enabled WHERE p.status='active' AND p.valid_from<=moment AND(p.valid_until IS NULL OR p.valid_until>moment) ORDER BY p.version DESC LIMIT 1;
  IF plan.id IS NULL THEN RAISE EXCEPTION 'EMAIL_FIXTURE_PLAN_MISSING';END IF;
