@@ -10,7 +10,7 @@ const props = { storeId: "11111111-1111-4111-8111-111111111111", hostname: "fixt
 async function withProductBrowser(run: Parameters<typeof withBaseProductBrowser>[0]) {
   await withBaseProductBrowser(async (browser) => { markDocumentNonce(props.nonce); await run(browser); });
 }
-type ConsentProps = Omit<typeof props, "projection"> & { projection: PublicGoogleMarketingProjection };
+type ConsentProps = Omit<typeof props, "projection"> & { projection: PublicGoogleMarketingProjection; preferencesPlacement?: "floating" | "footer" };
 function component(pathname = "/products/example") { return componentLoader({ "next/navigation": { usePathname: () => pathname } })<{ GoogleMarketingConsent: React.ComponentType<ConsentProps> }>(new URL("./GoogleMarketingConsent.tsx", import.meta.url)).GoogleMarketingConsent; }
 test("banner gives equal accept and reject controls with no initial Google loader", async () => {
   const Consent = component();
@@ -36,6 +36,47 @@ test("acceptance loads one GTM script across strict effects and preferences rema
     assert.equal(document.querySelectorAll('script[src*="googletagmanager"]').length, 1);
     assert.equal((document.querySelector('script[src*="googletagmanager"]') as HTMLScriptElement)?.nonce, props.nonce);
     assert.ok(container.querySelector('button[aria-expanded="false"]'));
+  });
+});
+for (const choice of ["granted", "denied"] as const) {
+  test(`footer preferences remove the floating control after ${choice} and still reopen the choice`, async () => {
+    const Consent = component();
+    await withProductBrowser(async ({ container, render, click }) => {
+      localGoogleScripts();
+      const footer = document.createElement("footer");
+      footer.setAttribute("data-google-consent-preferences-host", "");
+      document.body.append(footer);
+      await render(React.createElement(React.StrictMode, null, React.createElement(Consent, { ...props, preferencesPlacement: "footer" })));
+      await click(`[data-google-consent="${choice}"]`);
+      assert.equal(container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'), null);
+      assert.ok(!document.querySelector(".google-consent-preferences"), "footer mode must not leave a floating preferences control");
+      assert.equal(JSON.parse(window.localStorage.getItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`)!).value, choice);
+      const trigger = footer.querySelector("button");
+      assert.ok(trigger, "saved preferences remain available inside the footer");
+      await React.act(async () => trigger.click());
+      assert.ok(container.querySelector('[data-google-consent="granted"]'));
+      assert.equal(footer.querySelector("button"), null);
+      await click(`[data-google-consent="${choice}"]`);
+      assert.equal(container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'), null);
+      assert.ok(footer.querySelector("button"));
+      assert.equal(document.querySelectorAll('script[src*="googletagmanager"]').length, choice === "granted" ? 1 : 0);
+    });
+  });
+}
+test("saved footer consent stays hidden without a footer and follows a delayed or replaced footer", async () => {
+  const Consent = component();
+  await withProductBrowser(async ({ container, render }) => {
+    localGoogleScripts(); storedConsent("denied");
+    await render(React.createElement(Consent, { ...props, preferencesPlacement: "footer" }));
+    assert.ok(!container.querySelector("button"), "saved footer preferences stay hidden when no footer is present");
+    const footer = document.createElement("footer");
+    footer.setAttribute("data-google-consent-preferences-host", "");
+    await React.act(async () => document.body.append(footer));
+    assert.ok(footer.querySelector("button"));
+    const nextFooter = footer.cloneNode(false) as HTMLElement;
+    await React.act(async () => footer.replaceWith(nextFooter));
+    assert.ok(nextFooter.querySelector("button"));
+    assert.equal(document.querySelector(".google-consent-preferences"), null);
   });
 });
 test("a captured result signal rechecks payment proof on the same pathname after an initial pending result", async () => {
