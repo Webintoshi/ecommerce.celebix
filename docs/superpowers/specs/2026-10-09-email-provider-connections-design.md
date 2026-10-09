@@ -2,7 +2,7 @@
 
 Tarih: 9 Ekim 2026
 
-Durum: Yazılı tasarım incelemesi için öneri. Ürün kodu, veri güncellemesi, sağlayıcı hesabı bağlantısı veya canlı gönderim yapılmadı.
+Durum: Kullanıcı 9 Ekim 2026'da Brevo ve Klaviyo çalışmasını onayladı; resmi logoların kullanılması kapsamına eklendi. Yazılı uygulama planı incelemesi bekliyor. Ürün kodu, veri güncellemesi, sağlayıcı hesabı bağlantısı veya canlı gönderim yapılmadı.
 
 ## 1. Amaç ve karar
 
@@ -44,6 +44,8 @@ Resmi fiyat kaynakları:
 ### E-posta ekranı
 
 Mevcut Pazarlama → E-posta adresi korunur. İlk sürümde Brevo ve Klaviyo kartları görünür. Kartta servis adı, ücretsiz paket özeti, bağlı hesap/liste, bağlantı durumu ve son eşitleme bulunur. Aynı başlık ekran içinde tekrar edilmez; mevcut Celebix renkleri, düğmeleri ve ortadaki pencere yapısı kullanılır.
+
+Kartlarda resmi Brevo ve Klaviyo logoları küçük, orantılı ve markanın özgün görünümüyle kullanılır. Güvenliği ve kullanım kapsamı doğrulanan SVG'ler uygulamanın statik varlıklarından sunulur; üçüncü taraf logo kütüphanesi veya çalışma anında dış görsel isteği eklenmez. Resmi kaynak ve kullanım koşulları kayda alınır; bir ortaklık/onay rozeti üretilmez.
 
 Temel akış:
 
@@ -213,3 +215,5 @@ Resmi teknik belgeler:
 - https://api.sender.net/subscribers/get-one/
 
 Araştırma notları ana projede `.tmp/email-campaign-research/2026-10-09` altında kayıtlıdır. Gerçek ücretsiz hesap kabulü yapılmadığı noktalar yukarıda açıkça ayrılmıştır.
+
+Resmi logo kaynakları: Brevo press sayfasının yayımladığı `https://corp-backend.brevo.com/wp-content/uploads/2023/04/Brevo-Logo-1.svg`; Klaviyo `https://www.klaviyo.com/newsroom` başlığındaki mevcut logo SVG'si. Brevo press indirimi, bağlantı arayüzünde kullanma veya kendi sunucunda barındırma iznini açıkça belirtmiyor; kapsam yayından önce resmi marka koşulları/izinle doğrulanmalıdır. Klaviyo kullanımı `https://www.klaviyo.com/legal/api-terms` ve newsroom marka yönlendirmelerine uygun olmalıdır. Kaynağın bulunması genel bir yeniden kullanım lisansı olarak raporlanmaz.
