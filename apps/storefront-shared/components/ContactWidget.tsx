@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { contactWidgetAvailability, contactWidgetPageType, resolveContactWidgetHref, shouldShowContactWidget, type ContactWidgetConfig, type PublicDesignMedia } from "@celebix/saas-contracts";
-import { ContactChannelIcon } from "./ContactChannelIcon";
+import { ContactChannelIcon, ContactLauncherIcon, ContactUtilityIcon } from "./ContactChannelIcon";
 import styles from "./ContactWidget.module.css";
 
 type ProductContext = Readonly<{ productTitle: string; productUrl: string }>;
@@ -65,10 +65,6 @@ function brandInk(color: string) {
   return luminance > .179 ? "#17201c" : "#ffffff";
 }
 
-function ContactIcon({ headset = false }: Readonly<{ headset?: boolean }>) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{headset ? <><path d="M4 13v-2a8 8 0 0 1 16 0v2" /><path d="M5 11H3v7h3v-7Zm14 0h2v7h-3v-7ZM18 18c0 3-2 3-6 3" /><path d="M10 21h3" /></> : <><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2v-10A8.5 8.5 0 1 1 20 11.5Z" /><path d="M7 11h9M7 15h5" /></>}</svg>;
-}
-
 export function ContactWidget({ config, storefrontName, hostname, brandColor, logo, fontFamily }: Readonly<{ config: ContactWidgetConfig | null; storefrontName: string; hostname: string; brandColor: string; logo?: PublicDesignMedia; fontFamily?: string }>) {
   const pathname = usePathname() ?? "/", panelId = useId();
   const [state, setState] = useState<Environment | null>(null), [now, setNow] = useState<Date | null>(null), [open, setOpen] = useState(false);
@@ -127,19 +123,19 @@ export function ContactWidget({ config, storefrontName, hostname, brandColor, lo
     {open ? <section id={panelId} className={styles.panel} role="dialog" aria-modal="false" aria-label={config.title}>
       <header className={styles.header}>
         <div className={styles.brand} data-contact-brand>{logo?.url && failedLogoUrl !== logo.url ? <img className={styles.logo} src={logo.url} alt={logo.altText || storefrontName} width="144" height="48" onError={() => setFailedLogoUrl(logo.url)} /> : <span>{storefrontName}</span>}</div>
-        <button ref={closeRef} className={styles.close} type="button" aria-label="İletişim panelini kapat" onClick={() => close()}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+        <button ref={closeRef} className={styles.close} type="button" aria-label="İletişim panelini kapat" onClick={() => close()}><ContactUtilityIcon type="close" /></button>
       </header>
       <div className={styles.content}>
         <h2 className={styles.title}>{config.title}</h2>
         {config.greeting ? <p className={styles.greeting}>{config.greeting}</p> : null}
         {config.hours.enabled ? <div className={styles.hours}><span>{outsideHours ? "Mesai dışı" : "Çalışma saatleri"}</span><p>{outsideHours ? config.hours.outsideMessage : `${config.hours.opensAt} – ${config.hours.closesAt} · ${config.hours.timeZone}`}</p></div> : null}
         <div className={styles.channels}>{channels.map(({ channel, href }) => <a key={channel.type} className={styles.channel} data-contact-channel={channel.type} href={href} target={href.startsWith("https://") ? "_blank" : undefined} rel={href.startsWith("https://") ? "noopener noreferrer" : undefined}>
-          <span className={styles.channelIcon}><ContactChannelIcon type={channel.type} /></span>
+          <span className={styles.channelIcon} data-channel-icon={channel.type}><ContactChannelIcon type={channel.type} /></span>
           <span className={styles.channelText}><span>{channel.label || channelNames[channel.type]}</span><small>{channelDescriptions[channel.type]}</small></span>
-          <svg className={styles.arrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{href.startsWith("https://") ? <path d="M6 18 18 6M7 6h11v11" /> : <path d="m9 6 6 6-6 6" />}</svg>
+          <span className={styles.arrow}><ContactUtilityIcon type={href.startsWith("https://") ? "external" : "next"} /></span>
         </a>)}</div>
       </div>
     </section> : null}
-    <button ref={triggerRef} type="button" className={styles.launcher} hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><ContactIcon headset={config.icon === "headset"} /><span>{config.buttonLabel}</span></button>
+    <button ref={triggerRef} type="button" className={styles.launcher} hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><span className={styles.launcherIcon}><ContactLauncherIcon headset={config.icon === "headset"} /></span><span>{config.buttonLabel}</span></button>
   </div>;
 }
