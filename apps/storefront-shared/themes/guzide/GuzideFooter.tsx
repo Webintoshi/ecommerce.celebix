@@ -166,6 +166,7 @@ export function GuzideFooter({
         <div className="guzide-footer__bottom">
           <p className="guzide-footer__copyright">
             © {new Date().getUTCFullYear()} {presentation.displayName}
+            <span data-google-consent-preferences-host />
           </p>
           <span className="guzide-footer__locale">
             {storefront.currency} · {localeLabel}

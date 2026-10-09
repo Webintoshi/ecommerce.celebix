@@ -41,7 +41,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale} data-scroll-behavior={page.kind === "active" && guzideThemeFor(page.context.storefront) ? "smooth" : undefined}>
       <head>{googleMarketing?.verificationToken ? <meta name="google-site-verification" content={googleMarketing.verificationToken} /> : null}</head>
       <body>
-        {page.kind === "active" && googleMarketing && nonce && hasGoogleMarketingTags(googleMarketing) ? <GoogleMarketingConsent storeId={page.context.storefront.id} hostname={page.context.storefront.primaryHostname} nonce={nonce} projection={googleMarketing} /> : null}
+        {page.kind === "active" && googleMarketing && nonce && hasGoogleMarketingTags(googleMarketing) ? <GoogleMarketingConsent storeId={page.context.storefront.id} hostname={page.context.storefront.primaryHostname} nonce={nonce} projection={googleMarketing} preferencesPlacement={guzideThemeFor(page.context.storefront) ? "footer" : "floating"} /> : null}
         {page.kind === "active" && guzideThemeFor(page.context.storefront)
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
           : children}
