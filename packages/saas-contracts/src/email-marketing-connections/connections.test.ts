@@ -25,3 +25,11 @@ test('selection and overview preserve unknown counts and reject excess fields', 
  assert.equal(module.parseEmailMarketingOverview(overview).connections[0]?.provider,'brevo');
  assert.throws(()=>module.parseEmailMarketingOverview({...overview,credentials:{secret:'no'}}));
 });
+
+test('overview accepts optional server provider availability and rejects malformed flags', () => {
+ const overview={connections:[],sync:{queued:0,verified:0,blocked:0,failed:0,pendingVerification:0,asOf:'2026-10-09T00:00:00.000Z',suppressionCheckedAt:null},configured:true};
+ assert.equal(Object.hasOwn(module.parseEmailMarketingOverview(overview),'providerAvailability'),false);
+ let parsed:any;assert.doesNotThrow(()=>{parsed=module.parseEmailMarketingOverview({...overview,providerAvailability:{brevo:false,klaviyo:true}});});
+ assert.deepEqual(parsed.providerAvailability,{brevo:false,klaviyo:true});
+ for(const flags of [{brevo:'false',klaviyo:true},{klaviyo:true},{brevo:false,klaviyo:true,other:true}])assert.throws(()=>module.parseEmailMarketingOverview({...overview,providerAvailability:flags}));
+});

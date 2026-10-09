@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { isMerchantActionAllowed, emailMarketingObject, emailMarketingInteger, emailMarketingUuid, emailMarketingText, parseEmailMarketingProvider, parseEmailMarketingSelection, type TenantContext } from '@celebix/saas-contracts';
+import { isMerchantActionAllowed, emailMarketingObject, emailMarketingInteger, emailMarketingUuid, emailMarketingText, parseEmailMarketingProvider, parseEmailMarketingSelection, type EmailMarketingProvider, type TenantContext } from '@celebix/saas-contracts';
 import { EmailMarketingError } from '@celebix/saas-data';
 import { readOrderPanelSessionCookie } from '../order-http/request-input.ts';
 import { approvedPanelMutationOriginForStore, hasApprovedPanelMutationOriginShape } from '../panel-origin-authority.ts';
-import type { ServerEmailMarketingRuntime } from '../server-email-marketing/runtime.ts';
+import { DEFAULT_EMAIL_PROVIDER_AVAILABILITY, type ServerEmailMarketingRuntime } from '../server-email-marketing/runtime.ts';
 import { EMAIL_MARKETING_ROOT, emailMarketingRequestUrl, emailMarketingRequestBody, emailMarketingOperation, emailMarketingQuery } from './request-input.ts';
 type GetArea = 'overview' | 'lists' | 'preview';
 type PostArea = 'validate' | 'apply' | 'rotate' | 'recheck' | 'disconnect' | 'sync';
@@ -63,30 +63,63 @@ catch (caught) {
         r.headers.set('retry-after', String(caught.retryAfterSeconds));
     return r;
 } }
+function availableProviders(runtime:ServerEmailMarketingRuntime){return runtime.providerAvailability ?? DEFAULT_EMAIL_PROVIDER_AVAILABILITY;}
+function requireProvider(runtime:ServerEmailMarketingRuntime,provider:EmailMarketingProvider){if(!availableProviders(runtime)[provider])throw new EmailMarketingError('not_configured');}
+async function requireCleanupConnection({runtime,tenantContext,now}:Authorized,provider:EmailMarketingProvider,connectionId?:string){
+    const overview=await runtime.email.overview({tenantContext,now});
+    const connection=overview.connections.find(value=>value.provider===provider && value.status==='draining' && (!connectionId || value.id===connectionId));
+    if(!connection || !connection.accountId)throw new EmailMarketingError('not_configured');
+    return connection;
+}
+async function requireCandidateProvider(authorized:Authorized,candidateId:string,cleanupRotation=false){
+    const {runtime,tenantContext,now,sessionBinding}=authorized;
+    const enabled=availableProviders(runtime);
+    if(enabled.brevo && enabled.klaviyo)return;
+    if(!enabled.brevo && !enabled.klaviyo)throw new EmailMarketingError('not_configured');
+    const provider=await runtime.email.candidateProvider({tenantContext,now,sessionBinding,candidateId});
+    if(!enabled[provider] && cleanupRotation){await requireCleanupConnection(authorized,provider);return;}
+    requireProvider(runtime,provider);
+}
+async function requireSavedProvider({runtime,tenantContext,now}:Authorized){
+    const enabled=availableProviders(runtime);
+    if(enabled.brevo && enabled.klaviyo)return;
+    if(!enabled.brevo && !enabled.klaviyo)throw new EmailMarketingError('not_configured');
+    const overview=await runtime.email.overview({tenantContext,now});
+    const connection=overview.connections.find(value=>value.status!=='disconnected');
+    if(!connection)throw new EmailMarketingError('not_configured');
+    requireProvider(runtime,connection.provider);
+}
 export function createEmailMarketingHttpHandlers(deps: Dependencies) { return Object.freeze({ async get(request: Request, area: GetArea) { const authorized = await authorize(deps, request, 'GET', area === 'overview' ? EMAIL_MARKETING_ROOT : `${EMAIL_MARKETING_ROOT}/${area}`, area !== 'overview'); if (authorized instanceof Response)
         return authorized; const { runtime, tenantContext, now, sessionBinding } = authorized; if (area === 'overview')
-        return execute(() => runtime.email.overview({ tenantContext, now })); let query; try {
+        return execute(async () => ({...await runtime.email.overview({ tenantContext, now }),providerAvailability:availableProviders(runtime)})); let query; try {
         query = emailMarketingQuery(request, area);
     }
     catch {
         return error('invalid_input', 400);
-    } return execute(() => area === 'lists' ? runtime.email.lists({ tenantContext, now, sessionBinding, ...query }) : runtime.email.preview({ tenantContext, now, sessionBinding, ...query })); }, async post(request: Request, area: PostArea) { const authorized = await authorize(deps, request, 'POST', `${EMAIL_MARKETING_ROOT}/${area}`); if (authorized instanceof Response)
+    } return execute(async () => {await requireCandidateProvider(authorized,query.candidateId);return area === 'lists' ? runtime.email.lists({ tenantContext, now, sessionBinding, ...query }) : runtime.email.preview({ tenantContext, now, sessionBinding, ...query });}); }, async post(request: Request, area: PostArea) { const authorized = await authorize(deps, request, 'POST', `${EMAIL_MARKETING_ROOT}/${area}`); if (authorized instanceof Response)
         return authorized; const { runtime, tenantContext, now, sessionBinding } = authorized; try {
         const value = await emailMarketingRequestBody(request), operationId = emailMarketingOperation(request);
         if (area === 'validate') {
-            const v = emailMarketingObject(value, ['provider', 'apiKey']);
+            const v = emailMarketingObject(value, ['provider', 'apiKey'],['connectionId']);
             const provider = parseEmailMarketingProvider(v.provider), apiKey = emailMarketingText(v.apiKey, 4096);
-            return execute(() => runtime.email.validate({ tenantContext, now, sessionBinding, operationId, provider, apiKey }));
+            const connectionId=Object.hasOwn(v,'connectionId') ? emailMarketingUuid(v.connectionId) : undefined;
+            return execute(async () => {
+                const cleanup=connectionId ? await requireCleanupConnection(authorized,provider,connectionId) : null;
+                if(!cleanup)requireProvider(runtime,provider);
+                const result=await runtime.email.validate({ tenantContext, now, sessionBinding, operationId, provider, apiKey });
+                if(cleanup && (result.provider!==cleanup.provider || result.accountId!==cleanup.accountId))throw new EmailMarketingError('account_mismatch');
+                return result;
+            });
         }
         if (area === 'recheck' || area === 'disconnect' || area === 'sync') {
             const v = emailMarketingObject(value, ['expectedVersion']), expectedVersion = emailMarketingInteger(v.expectedVersion);
-            return execute(() => runtime.email[area]({ tenantContext, now, operationId, expectedVersion }));
+            return execute(async () => {if(area!=='disconnect')await requireSavedProvider(authorized);return runtime.email[area]({ tenantContext, now, operationId, expectedVersion });});
         }
         const v = emailMarketingObject(value, area === 'apply' ? ['candidateId', 'expectedVersion', 'selection'] : ['candidateId', 'expectedVersion']), candidateId = emailMarketingUuid(v.candidateId), expectedVersion = emailMarketingInteger(v.expectedVersion);
         if (area === 'rotate')
-            return execute(() => runtime.email.rotate({ tenantContext, now, sessionBinding, operationId, candidateId, expectedVersion }));
+            return execute(async () => {await requireCandidateProvider(authorized,candidateId,true);return runtime.email.rotate({ tenantContext, now, sessionBinding, operationId, candidateId, expectedVersion });});
         const selection = parseEmailMarketingSelection(v.selection);
-        return execute(() => runtime.email.apply({ tenantContext, now, sessionBinding, operationId, candidateId, expectedVersion, selection }));
+        return execute(async () => {await requireCandidateProvider(authorized,candidateId);return runtime.email.apply({ tenantContext, now, sessionBinding, operationId, candidateId, expectedVersion, selection });});
     }
     catch {
         return error('invalid_input', 400);

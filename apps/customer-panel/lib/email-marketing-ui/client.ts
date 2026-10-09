@@ -63,7 +63,7 @@ export function createEmailMarketingApi(fetcher: typeof fetch = fetch) {
   }
   return Object.freeze({
     overview: () => request('', parseEmailMarketingOverview),
-    validate: ({operationId, ...body}: Readonly<{operationId: string; provider: 'brevo' | 'klaviyo'; apiKey: string}>) => request('/validate', candidate, body, operationId),
+    validate: ({operationId, ...body}: Readonly<{operationId: string; provider: 'brevo' | 'klaviyo'; apiKey: string; connectionId?: string}>) => request('/validate', candidate, body, operationId),
     lists: (candidateId: string, cursor?: string) => request(`/lists?${new URLSearchParams({candidateId, ...(cursor ? {cursor} : {})})}`, lists),
     preview: (candidateId: string, listId?: string) => request(`/preview?${new URLSearchParams({candidateId, ...(listId ? {listId} : {})})}`, parseEmailMarketingAudiencePreview),
     apply: ({operationId, ...body}: EmailMarketingApply) => request('/apply', parseEmailMarketingConnection, body, operationId),

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import test from 'node:test';import {existsSync,readFileSync} from 'node:fs';import {act} from 'react';import {compile,mounted,click,input} from '../../lib/mira-final-test-support.ts';
-const ID='22800000-0000-4000-8000-000000000001';const overview={configured:true,connections:[],sync:{queued:0,verified:0,blocked:0,failed:0,pendingVerification:0,asOf:'2026-10-09T12:00:00Z',suppressionCheckedAt:null}};
+const ID='22800000-0000-4000-8000-000000000001';const overview={configured:true,providerAvailability:{brevo:true,klaviyo:true},connections:[],sync:{queued:0,verified:0,blocked:0,failed:0,pendingVerification:0,asOf:'2026-10-09T12:00:00Z',suppressionCheckedAt:null}};
 function consumer(){assert.ok(existsSync(new URL('./EmailMarketingConnections.tsx',import.meta.url)));return compile('components/email-marketing/EmailMarketingConnections.tsx').EmailMarketingConnections;}
 async function select(window:any,host:HTMLElement,value:string){const field=host.querySelector('select[aria-label="Aktarım listesi"]') as HTMLSelectElement;assert.ok(field);await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype,'value')!.set!.call(field,value);field.dispatchEvent(new window.Event('change',{bubbles:true}));});}
 function fixture(provider="klaviyo"){const applies:any[]=[];let validated=0;const api:any={overview:async()=>overview,validate:async()=>{validated++;return {candidateId:ID,provider,accountId:'org',accountName:'Fixture',expiresAt:'2030-01-01T00:00:00Z'};},lists:async()=>({items:[{id:'managed',name:'Celebix'}]}),preview:async()=>({eligible:5,denied:1,missingEvidence:2,needsRenewal:0,providerBlocked:null,unchecked:5,overLimit:null,providerCheckedAt:null}),apply:async(i:any)=>{applies.push(i);if(applies.length===1)throw {code:'outcome_unknown'};return {id:ID,provider,version:1,generation:1,credentialVersion:1,accountId:'org',accountName:'Fixture',listId:'managed',listName:'Celebix',status:'connected',senderStatus:'unknown',lastCheckedAt:null,lastSyncedAt:null,errorCode:null};}};return {api,applies,get validated(){return validated;}};}
@@ -178,5 +178,59 @@ test('a leased uncertain sync keeps the same batch intent until its outcome is r
     assert.deepEqual(syncs[0], syncs[1]);
     assert.deepEqual(syncs[0], syncs[2]);
     assert.match(host.textContent ?? '', /aktarım.*sıraya alındı/i);
+  });
+});
+
+test('server availability keeps Brevo visible and disabled while Klaviyo can connect', async () => {
+  const f=fixture();f.api.overview=async()=>({...overview,providerAvailability:{brevo:false,klaviyo:true}});
+  await mounted(consumer(),{canManage:true,configured:true,api:f.api},async host=>{
+    const brevo=host.querySelector('article[aria-label="Brevo"]')!;
+    assert.match(brevo.textContent??'',/Bağlantı hazırlığı sürüyor/);
+    assert.equal((brevo.querySelector('button[aria-label="Brevo bağlantısını yönet"]') as HTMLButtonElement).disabled,true);
+    assert.equal((host.querySelector('button[aria-label="Klaviyo bağlantısını yönet"]') as HTMLButtonElement).disabled,false);
+    await click(host,'Klaviyo bağlantısını yönet');assert.ok(host.querySelector('input[aria-label="API anahtarı"]'));
+    assert.equal(f.validated,0);
+  });
+});
+
+test('a disabled connected provider retains disconnect but offers no positive sync or recheck', async () => {
+  const f=fixture();let removed=0;
+  f.api.overview=async()=>({...overview,providerAvailability:{brevo:false,klaviyo:true},connections:[connected]});
+  f.api.disconnect=async()=>{removed++;return {...connected,status:'draining'};};
+  await mounted(consumer(),{canManage:true,configured:true,api:f.api},async host=>{
+    const sync=host.querySelector('button[aria-label="Brevo müşterilerini eşitle"]') as HTMLButtonElement|null;
+    assert.ok(!sync||sync.disabled);
+    await click(host,'Brevo bağlantısını yönet');
+    assert.equal([...host.querySelectorAll('button')].some(b=>b.textContent==='Yeniden kontrol et'),false);
+    assert.equal([...host.querySelectorAll('button')].some(b=>b.textContent==='API anahtarını değiştir'),false);
+    await click(host,'Bağlantıyı kaldır');await click(host,'Uygula');assert.equal(removed,1);
+  });
+});
+
+test('disabling a provider after an uncertain sync leaves its disconnect reachable', async () => {
+  const f=fixture();let available=true,removed=0;
+  f.api.overview=async()=>({...overview,providerAvailability:{brevo:available,klaviyo:true},connections:[connected]});
+  f.api.sync=async()=>{throw {code:'outcome_unknown'};};
+  f.api.disconnect=async()=>{removed++;return {...connected,status:'draining'};};
+  await mounted(consumer(),{canManage:true,configured:true,api:f.api},async host=>{
+    await click(host,'Eşitle');available=false;await click(host,'Durumu yenile');
+    assert.equal((host.querySelector('button[aria-label="Brevo bağlantısını yönet"]') as HTMLButtonElement).disabled,false);
+    await click(host,'Brevo bağlantısını yönet');await click(host,'Bağlantıyı kaldır');await click(host,'Uygula');assert.equal(removed,1);
+  });
+});
+
+test('a disabled draining connection can renew its own key solely to finish cleanup', async () => {
+  const f=fixture('brevo');const validations:any[]=[];const rotations:any[]=[];let discoveries=0;
+  f.api.overview=async()=>({...overview,providerAvailability:{brevo:false,klaviyo:true},connections:[{...connected,status:'draining'}]});
+  f.api.validate=async(input:any)=>{validations.push(input);return {candidateId:ID,provider:'brevo',accountId:'org',accountName:'Fixture',expiresAt:'2030-01-01T00:00:00Z'};};
+  f.api.lists=async()=>{discoveries++;throw Error('cleanup renewal needs no list discovery');};
+  f.api.rotate=async(input:any)=>{rotations.push(input);return {...connected,status:'draining',version:4};};
+  await mounted(consumer(),{canManage:true,configured:true,api:f.api},async(host,window)=>{
+    await click(host,'Brevo bağlantısını yönet');await click(host,'Temizlik için API anahtarını yenile');
+    await input(window,host.querySelector('input[aria-label="API anahtarı"]'),'cleanup-fixture-key');await click(host,'Anahtarı kontrol et');
+    assert.equal(validations.length,1);assert.equal(validations[0].connectionId,ID);assert.equal(discoveries,0);
+    await click(host,'Uygula');assert.equal(rotations.length,1);assert.equal(rotations[0].expectedVersion,3);
+    assert.match(host.textContent??'',/Bağlantı kaldırılıyor/);assert.equal(host.querySelector('input[aria-label="API anahtarı"]'),null);
+    assert.equal(host.querySelector('button[aria-label="Brevo müşterilerini eşitle"]'),null);
   });
 });

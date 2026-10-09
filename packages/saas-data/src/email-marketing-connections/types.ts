@@ -18,6 +18,7 @@ type CandidateInput=EmailMarketingAuthorityInput&Readonly<{candidateId:string;se
 type MutationInput=EmailMarketingAuthorityInput&Readonly<{expectedVersion:number;operationId:string}>;
 export interface EmailMarketingConnectionRepository {
  overview(a:EmailMarketingAuthorityInput):Promise<EmailMarketingOverview>;
+ candidateProvider(a:CandidateInput):Promise<EmailMarketingProvider>;
  validate(a:EmailMarketingAuthorityInput&Readonly<{provider:EmailMarketingProvider;apiKey:string;sessionBinding:string;operationId:string}>):Promise<EmailMarketingCandidate>;
  lists(a:CandidateInput&Readonly<{cursor?:string}>):Promise<EmailMarketingListPage>;
  preview(a:CandidateInput&Readonly<{listId?:string}>):Promise<EmailMarketingAudiencePreview>;

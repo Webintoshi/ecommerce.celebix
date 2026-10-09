@@ -31,6 +31,7 @@ export function createPostgresEmailMarketingConnectionRepository(options:Postgre
  async function fail(a:EmailMarketingAuthorityInput,operationId:string,leaseToken:string,error:unknown){try{await command(a,'fail',{operationId,leaseToken,errorCode:error instanceof EmailMarketingError?error.code:'provider_unavailable',...(error instanceof EmailMarketingError&&'effectNotApplied' in error&&error.effectNotApplied===true?{effectNotApplied:true}:{})},['saved']);}catch{/* Original failure is safe; operation remains recoverable by its key. */}}
  const repo:EmailMarketingConnectionRepository={
   async overview(a){return parseEmailMarketingOverview((await command(a,'overview',{})).result);},
+  async candidateProvider(a){return parseEmailMarketingProvider((await command(a,'candidate_provider',{candidateId:emailMarketingUuid(a.candidateId),sessionHash:session(a.sessionBinding)})).result.provider);},
   async validate(a){const provider=parseEmailMarketingProvider(a.provider),operationId=emailMarketingUuid(a.operationId),candidateId=emailMarketingUuid(options.uuid()),sessionHash=session(a.sessionBinding);const sealed=seal(a.apiKey,a,candidateId,provider,'candidate');
    const claimed=await command(a,'claim',{kind:'validate',operationId,candidateId,connectionId:emailMarketingUuid(options.uuid()),sessionHash,provider,credential:sealed,expectedVersion:0,...operationFingerprints([1,'validate',provider,a.apiKey,sessionHash])},['claimed','replayed']);
    if(claimed.outcome==='replayed')return candidate(claimed.result);

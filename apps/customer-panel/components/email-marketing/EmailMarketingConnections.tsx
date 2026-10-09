@@ -77,11 +77,14 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
     {loading ? <p role="status" className={styles.hint}>Bağlantılar kontrol ediliyor…</p> : null}
     {EMAIL_SERVICES.map(service => {
       const connection = overview?.connections.find(c => c.provider === service.provider && c.status !== 'disconnected') ?? overview?.connections.find(c => c.provider === service.provider);
+      const providerAvailable = overview?.providerAvailability?.[service.provider] ?? service.provider === 'klaviyo';
+      const connected = !!connection && connection.status !== 'disconnected';
       const other = active && active.provider !== service.provider;
       return <article key={service.provider} className={styles.card} aria-label={service.name}>
         <div className={styles.service}><ProviderBrand provider={service.provider} /><p>{service.description}</p>
           <a href={service.pricingUrl} target="_blank" rel="noopener noreferrer" className={styles.hint}>Ücretsiz plan ve güncel sınırlar ↗</a></div>
-        <div className={styles.connection}><span className={styles.status} data-status={connection?.status ?? 'disconnected'}>{emailMarketingStatus(connection)}</span>
+        <div className={styles.connection}><span className={styles.status} data-status={connection?.status ?? 'disconnected'}>{enabled && !providerAvailable && !connected ? 'Bağlantı hazırlığı sürüyor' : emailMarketingStatus(connection)}</span>
+          {enabled && !providerAvailable && connected ? <small>Bağlantı hazırlığı sürüyor.</small> : null}
           {connection && connection.status !== 'disconnected' ? <><strong>{connection.accountName ?? 'Bilinmiyor'}</strong><span>{connection.listName ?? 'Liste bilinmiyor'}</span>
             <small>Son aktarım: {emailMarketingDate(connection.lastSyncedAt)}</small>
             {connection.errorCode ? <small>{emailMarketingErrorMessage(connection.errorCode)}</small> : null}</> : null}
@@ -89,8 +92,8 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
           {syncFeedback?.provider === service.provider ? <small role={syncFeedback.error ? 'alert' : 'status'}>{syncFeedback.error === 'outcome_unknown' ? 'Aktarımın sonucu henüz doğrulanamadı. Aynı işlemi tekrar eşitleyerek kontrol edin.' : syncFeedback.error === 'cleanup_pending' ? 'Bu aktarım işlemi sürüyor. Aynı işlemi tekrar eşitleyerek kontrol edin.' : syncFeedback.error ? emailMarketingErrorMessage(syncFeedback.error) : syncFeedback.message}</small> : null}
           {other ? <small>Önce {serviceName(active.provider)} bağlantısını kaldırın.</small> : null}</div>
         <div className={styles.cardActions}>
-          {canManage ? <button className={`button ${connection?.status === 'connected' ? 'button-secondary' : 'button-primary'}`} aria-label={`${service.name} bağlantısını yönet`} disabled={!enabled || !!other || syncing === service.provider || !!(connection && syncAttempts.current.has(connection.id))} onClick={() => setEditor(service.provider)}>{connection && connection.status !== 'disconnected' ? 'Yönet' : 'Bağla'}</button> : null}
-          {canManage && connection?.status === 'connected' ? <button className="button button-primary" aria-label={`${service.name} müşterilerini eşitle`} aria-describedby={`${service.provider}-sync-scope`} disabled={!enabled || loading || !!editor || syncing !== null} onClick={() => void sync(connection)}>{syncing === service.provider ? 'Eşitleniyor…' : syncAttempts.current.has(connection.id) ? 'Tekrar eşitle' : 'Eşitle'}</button> : null}
+          {canManage ? <button className={`button ${connection?.status === 'connected' ? 'button-secondary' : 'button-primary'}`} aria-label={`${service.name} bağlantısını yönet`} disabled={!enabled || !!other || (!providerAvailable && !connected) || syncing === service.provider || !!(providerAvailable && connection && syncAttempts.current.has(connection.id))} onClick={() => setEditor(service.provider)}>{connected ? 'Yönet' : 'Bağla'}</button> : null}
+          {canManage && connection?.status === 'connected' ? <button className="button button-primary" aria-label={`${service.name} müşterilerini eşitle`} aria-describedby={`${service.provider}-sync-scope`} disabled={!enabled || !providerAvailable || loading || !!editor || syncing !== null} onClick={() => void sync(connection)}>{syncing === service.provider ? 'Eşitleniyor…' : syncAttempts.current.has(connection.id) ? 'Tekrar eşitle' : 'Eşitle'}</button> : null}
           {connection?.status === 'connected' ? <a className="button button-secondary" href={service.campaignUrl} target="_blank" rel="noopener noreferrer">Kampanyaları aç ↗</a>
             : <a href={service.accountUrl} target="_blank" rel="noopener noreferrer">Hesap oluştur ↗</a>}</div>
       </article>;
@@ -102,6 +105,7 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
       <span>Kontrol gereken <strong>{emailMarketingCount(overview.sync.failed + overview.sync.pendingVerification)}</strong></span>
       <small>Son kontrol: {emailMarketingDate(overview.sync.suppressionCheckedAt)}</small></div> : null}
     {editor ? <EmailMarketingConnectDialog key={editor} provider={editor} connection={overview?.connections.find(c => c.provider === editor && c.status !== 'disconnected')}
+      providerAvailable={overview?.providerAvailability?.[editor] ?? editor === 'klaviyo'}
       api={api} pending={attempts.current.get(editor)} onPending={attempt => { if (attempt) attempts.current.set(editor, attempt); else attempts.current.delete(editor); }}
       onSaved={saved} onClose={() => setEditor(null)} /> : null}
   </section>;

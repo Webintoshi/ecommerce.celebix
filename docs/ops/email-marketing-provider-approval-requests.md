@@ -12,7 +12,7 @@ Please provide the registration process required by Developer Terms §7.1 and co
 
 We can provide a demo with synthetic recipients, a data-flow diagram, retention/revocation description and requested security evidence. No customer data or credentials will be included.
 
-## Klaviyo
+## Klaviyo — optional clarification draft, not a prerequisite
 
 Subject: Celebix optional Klaviyo connection and provider-choice permission
 
@@ -21,3 +21,5 @@ Celebix is a multi-tenant commerce platform. Its email settings offer Brevo and 
 Before activation, please confirm written permission for this optional two-provider chooser under the competitor/aggregated-view provisions of the API Terms and for factual interoperability use of the official Klaviyo mark. Please confirm whether private-key authentication is permitted for this deployment outside a published marketplace app, or whether partner registration/OAuth is required. Credentials are encrypted and tenant-bound; disconnect preserves only the minimum credential/evidence required to finish revocations and cleanup.
 
 No real merchant key or customer export has been used in acceptance testing. We can provide a synthetic demonstration and architecture/security evidence through your approved channel.
+
+2026-10-09 source review: Klaviyo documents private-key use by trusted third parties outside marketplace publication. The draft above is optional clarification; it has not been sent and is not treated as a universal private-key activation prerequisite. Brevo registration and its key-handling clause remain separate outstanding gates.

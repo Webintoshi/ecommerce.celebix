@@ -7,6 +7,20 @@ const api=await import('./repository.ts').catch(()=>({})) as typeof import('./re
 test('connection commands are available through a bounded repository',()=>{
  assert.equal(typeof api.createPostgresEmailMarketingConnectionRepository,'function');
 });
+
+test('candidate provider lookup is a tenant and session bound local command without decrypting or provider IO', async () => {
+ const commands: any[] = [];let providerCalls=0;
+ const client:any={query:async(sql:string,values?:any[])=>{if(sql.startsWith('SELECT outcome,result_payload')){commands.push(values);return {rows:[{outcome:'found',result_payload:{provider:'klaviyo',credential:{invalid:'must not decrypt'}}}]};}return {rows:[]};},release:()=>{}};
+ const adapter={account:async()=>{providerCalls++;throw Error('provider IO');},lists:async()=>{providerCalls++;throw Error('provider IO');},createList:async()=>{providerCalls++;throw Error('provider IO');}};
+ const repo:any=api.createPostgresEmailMarketingConnectionRepository({pool:{connect:async()=>client},role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'test',keys:[{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
+ assert.equal(typeof repo.candidateProvider,'function');
+ const id='22500000-0000-4000-8000-000000000009';
+ const tenantContext:any={schemaVersion:1,store:{id,status:'active'},principal:{id},membership:{id,status:'active'},entitlements:{planId:id,planCode:'fixture',version:1,status:'active',features:['integrations']}};
+ assert.equal(await repo.candidateProvider({tenantContext,now:new Date('2026-10-09T12:00:00Z'),candidateId:id,sessionBinding:'local-provider-session-opaque'}),'klaviyo');
+ assert.equal(commands.length,1);assert.equal(commands[0][0],id);assert.equal(commands[0][1],id);assert.equal(commands[0][2],id);assert.equal(commands[0][7],'candidate_provider');
+ const body=JSON.parse(commands[0][8]);assert.equal(body.candidateId,id);assert.match(body.sessionHash,/^[a-f0-9]{64}$/);assert.notEqual(body.sessionHash,'local-provider-session-opaque');assert.equal(providerCalls,0);
+ await assert.rejects(repo.candidateProvider({tenantContext,now:new Date(),candidateId:id,sessionBinding:'bad'}),(e:any)=>e.code==='invalid_input');assert.equal(commands.length,1);
+});
 const configPath=process.env.CELEBIX_EMAIL_ISOLATED_PG_CONFIG;
 test('apply replays without a second provider write and releases database during provider IO',{skip:!configPath},async()=>{
  assert.equal(typeof api.createPostgresEmailMarketingConnectionRepository,'function');
@@ -22,6 +36,8 @@ test('apply replays without a second provider write and releases database during
   await assert.rejects(repo.apply(input),(e:any)=>e.code==='provider_rate_limited');
   const proof=await pool.query('SELECT progress FROM saas.email_marketing_operations WHERE id=$1',[input.operationId]);assert.equal(proof.rows[0].progress.listCreateDispatched,undefined);
   const first=await repo.apply(input);const second=await repo.apply(input);assert.equal(first.id,second.id);assert.equal(second.version,1);assert.equal(writes,1);
+  assert.equal(await (repo as any).candidateProvider({...a,candidateId:candidate.candidateId,sessionBinding:'test-session-opaque-123'}),'brevo');
+  await assert.rejects((repo as any).candidateProvider({...a,candidateId:candidate.candidateId,sessionBinding:'wrong-session-opaque-123'}),(e:any)=>e.code==='candidate_expired');
   const rotatedRepo=api.createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'rotated',keys:[{keyId:'rotated',key:new Uint8Array(32).fill(6)},{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
   assert.equal((await rotatedRepo.apply(input)).id,first.id);assert.equal(writes,1);
   const state=await pool.query("SELECT (SELECT count(*) FROM saas.email_marketing_connections WHERE store_id=$1) AS connections,(SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap') AS jobs",[tenantContext.store.id]);assert.equal(state.rows[0].connections,'1');assert.equal(state.rows[0].jobs,'0');

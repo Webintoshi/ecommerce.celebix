@@ -1104,8 +1104,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }
     if (emailMarketingReady) {
       registerServerEmailMarketingWebhookRepository(access, createPostgresEmailMarketingWebhookRepository({pool,timeouts:TIMEOUTS}));
-      if (emailMarketingConfiguration(process.env,providerCredentialKeyring).enabled) {
-        registerServerEmailMarketingRepository(access,createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS,keyring:providerCredentialKeyring,providers:createEmailMarketingProviders({fetch:(url,init)=>globalThis.fetch(url,init),now:()=>new Date()}),uuid:randomUUID}));
+      const emailConfiguration=emailMarketingConfiguration(process.env,providerCredentialKeyring);
+      if (emailConfiguration.enabled) {
+        registerServerEmailMarketingRepository(access,createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS,keyring:providerCredentialKeyring,providers:createEmailMarketingProviders({fetch:(url,init)=>globalThis.fetch(url,init),now:()=>new Date()}),uuid:randomUUID}),emailConfiguration.providerAvailability);
       }
     }
     if (googleMarketingReady) {

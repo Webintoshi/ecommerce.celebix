@@ -1,5 +1,6 @@
 export const EMAIL_MARKETING_PROVIDERS = ['brevo', 'klaviyo'] as const;
 export type EmailMarketingProvider = typeof EMAIL_MARKETING_PROVIDERS[number];
+export type EmailMarketingProviderAvailability = Readonly<Record<EmailMarketingProvider, boolean>>;
 export type EmailMarketingSenderStatus = 'verified' | 'pending' | 'unknown';
 export type EmailMarketingConnection = Readonly<{
   id: string; provider: EmailMarketingProvider; version: number; generation: number; credentialVersion: number;
@@ -15,7 +16,7 @@ export type EmailMarketingSyncSummary = Readonly<{
   queued: number; verified: number; blocked: number; failed: number; pendingVerification: number;
   asOf: string; suppressionCheckedAt: string | null;
 }>;
-export type EmailMarketingOverview = Readonly<{connections: readonly EmailMarketingConnection[]; sync: EmailMarketingSyncSummary; configured: boolean}>;
+export type EmailMarketingOverview = Readonly<{connections: readonly EmailMarketingConnection[]; sync: EmailMarketingSyncSummary; configured: boolean; providerAvailability?: EmailMarketingProviderAvailability}>;
 export type EmailMarketingSelection = Readonly<{kind: 'existing'; listId: string}> | Readonly<{kind: 'create'; name: string}>;
 export type EmailMarketingApplyIntent = Readonly<{candidateId: string; expectedVersion: number; selection: EmailMarketingSelection}>;
 export type EmailMarketingList = Readonly<{id: string; name: string}>;

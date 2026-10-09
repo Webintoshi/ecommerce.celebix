@@ -13,11 +13,12 @@ export type EmailMarketingAttempt =
   | Readonly<{kind: 'disconnect' | 'recheck'; input: {operationId: string; expectedVersion: number}}>;
 type Props = Readonly<{
   provider: EmailMarketingProvider; connection?: EmailMarketingConnection; api: EmailMarketingApi;
+  providerAvailable?: boolean;
   pending?: EmailMarketingAttempt; onPending(attempt: EmailMarketingAttempt | undefined): void;
   onSaved(connection: EmailMarketingConnection): void; onClose(): void;
 }>;
 
-export function EmailMarketingConnectDialog({provider, connection, api, pending, onPending, onSaved, onClose}: Props) {
+export function EmailMarketingConnectDialog({provider, connection, api, providerAvailable = true, pending, onPending, onSaved, onClose}: Props) {
   const [apiKey, setApiKey] = useState('');
   const [candidate, setCandidate] = useState<EmailMarketingCandidate | null>(null);
   const [listItems, setListItems] = useState<readonly EmailMarketingList[]>([]);
@@ -33,8 +34,10 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
   const discovery = useRef(0);
   const attempt = useRef<EmailMarketingAttempt | undefined>(pending);
   const active = !!connection && connection.status !== 'disconnected';
-  const showKey = !candidate && (!active || renewKey || connection.status === 'needs_reconnect') && !attempt.current;
-  const locked = busy || !!attempt.current;
+  const cleanupRecovery = !providerAvailable && connection?.status === 'draining';
+  const canValidateKey = providerAvailable || cleanupRecovery;
+  const showKey = canValidateKey && !candidate && (!active || renewKey || connection.status === 'needs_reconnect') && !attempt.current;
+  const locked = busy || !!attempt.current || !providerAvailable;
 
   useEffect(() => {
     alive.current = true;
@@ -43,6 +46,7 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
   function close() { if (!guard.current) { setApiKey(''); discovery.current++; onClose(); } }
   function remember(value?: EmailMarketingAttempt) { attempt.current = value; onPending(value); }
   async function loadPreview(value: EmailMarketingSelection, current: EmailMarketingCandidate) {
+    if(!providerAvailable)return;
     const ticket = ++discovery.current;
     setPreview(null);
     setError('');
@@ -52,14 +56,14 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
     } catch (caught) { if (alive.current && ticket === discovery.current) setError(emailMarketingCode(caught)); }
   }
   async function validate() {
-    if (guard.current || !apiKey.trim()) return;
+    if (guard.current || !canValidateKey || !apiKey.trim()) return;
     guard.current = true; setBusy(true); setError('');
     const ticket = ++discovery.current;
     try {
-      const result = await api.validate({provider, apiKey: apiKey.trim(), operationId: crypto.randomUUID()});
+      const result = await api.validate({provider, apiKey: apiKey.trim(), operationId: crypto.randomUUID(),...(cleanupRecovery ? {connectionId:connection.id} : {})});
       if (!alive.current || ticket !== discovery.current) return;
       if (result.provider !== provider) throw {code: 'provider_invalid_response'};
-      const page = await api.lists(result.candidateId);
+      const page = active ? {items:[] as readonly EmailMarketingList[],nextCursor:undefined} : await api.lists(result.candidateId);
       if (!alive.current || ticket !== discovery.current) return;
       setCandidate(result); setApiKey(''); setListItems(page.items); setNextCursor(page.nextCursor);
       if (selection) void loadPreview(selection, result);
@@ -74,7 +78,7 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
     else discovery.current++;
   }
   async function moreLists() {
-    if (!candidate || !nextCursor || guard.current) return;
+    if (!candidate || !nextCursor || guard.current || !providerAvailable) return;
     guard.current = true; setBusy(true); setError('');
     const ticket = ++discovery.current;
     try {
@@ -86,7 +90,7 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
     finally { guard.current = false; if (alive.current) setBusy(false); }
   }
   async function perform(kind: EmailMarketingAttempt['kind']) {
-    if (guard.current) return;
+    if (guard.current || !providerAvailable && kind !== 'disconnect' && !(cleanupRecovery && kind === 'rotate')) return;
     let current = attempt.current;
     if (!current) {
       const operationId = crypto.randomUUID(), expectedVersion = connection?.version ?? 0;
@@ -120,12 +124,13 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
   }
   const selectedValue = selection?.kind === 'create' ? '__create__' : selection?.kind === 'existing' ? selection.listId : '';
   const applyingKind = attempt.current?.kind ?? (remove ? 'disconnect' : active ? 'rotate' : 'apply');
-  const ready = !!attempt.current || remove || (!!candidate && (active || (!!selection && !!preview)));
+  const ready = (providerAvailable || applyingKind === 'disconnect' || cleanupRecovery && applyingKind === 'rotate') && (!!attempt.current || remove || (!!candidate && (active || (!!selection && !!preview))));
   return <OrderActionDialog open title={`${serviceName(provider)} bağlantısı`} onClose={close} busy={busy} className={styles.dialog}
     footer={<><button className="button button-secondary" disabled={busy} onClick={close}>Vazgeç</button>
       {ready ? <button className="button button-primary" disabled={busy} onClick={() => void perform(applyingKind)}>{busy ? 'Kontrol ediliyor…' : attempt.current ? 'Tekrar uygula' : 'Uygula'}</button> : null}</>}>
     <div className={styles.form}>
       <p className={styles.hint}>Bağlantı kurmak müşterileri aktarmaz. Bağladıktan sonra Eşitle ile tek seferlik aktarım başlatabilirsiniz.</p>
+      {!providerAvailable ? <p className={styles.notice}>{cleanupRecovery ? 'Temizliği tamamlamak için aynı servis hesabına ait yeni API anahtarını kullanabilirsiniz.' : 'Bağlantı hazırlığı sürüyor. Mevcut bağlantıyı kaldırabilirsiniz.'}</p> : null}
       {error ? <p className={styles.notice} role="alert">{emailMarketingErrorMessage(error)}</p> : null}
       {active ? <dl className={styles.details}><dt>Servis hesabı</dt><dd>{connection.accountName ?? 'Bilinmiyor'}</dd><dt>Aktarım listesi</dt><dd>{connection.listName ?? 'Bilinmiyor'}</dd>
         <dt>Gönderici doğrulaması</dt><dd>{connection.senderStatus === 'verified' ? 'Doğrulanmış' : connection.senderStatus === 'pending' ? 'Bekliyor' : 'Bilinmiyor'}</dd></dl> : null}
@@ -151,10 +156,11 @@ export function EmailMarketingConnectDialog({provider, connection, api, pending,
         <p className={styles.notice}>Listeye eklenen müşteriler için servisteki otomasyonlar tetiklenebilir. Eşitlemeden önce karşılama ve diğer otomasyonları servis hesabınızdan kontrol edin.</p>
         <p className={styles.hint}>Yalnızca pazarlama izni kanıtlanan müşteriler aktarılır. Satın alma veya sözleşme onayı pazarlama izni sayılmaz.</p>
         <p className={styles.hint}>Yalnız e-posta, ad ve izin bilgileri aktarılır. Servisin engelleme kayıtları korunur.</p></div> : null}
-      {active && !candidate && !showKey && !remove && !attempt.current && connection.status !== 'draining' ? <div className={styles.actions}>
-        <button className="button button-secondary" disabled={busy} onClick={() => setRenewKey(true)}>API anahtarını değiştir</button>
-        <button className="button button-secondary" disabled={busy} onClick={() => void perform('recheck')}>Yeniden kontrol et</button>
-        <button className="button button-secondary" disabled={busy} onClick={() => setRemove(true)}>Bağlantıyı kaldır</button></div> : null}
+      {active && !candidate && !showKey && !remove && (!attempt.current || !providerAvailable) && connection.status !== 'draining' ? <div className={styles.actions}>
+        {providerAvailable ? <><button className="button button-secondary" disabled={busy} onClick={() => setRenewKey(true)}>API anahtarını değiştir</button>
+        <button className="button button-secondary" disabled={busy} onClick={() => void perform('recheck')}>Yeniden kontrol et</button></> : null}
+        <button className="button button-secondary" disabled={busy} onClick={() => {if(!providerAvailable && attempt.current?.kind !== 'disconnect')remember();setRemove(true);}}>Bağlantıyı kaldır</button></div> : null}
+      {cleanupRecovery && !candidate && !showKey && !attempt.current ? <button className="button button-secondary" disabled={busy} onClick={() => setRenewKey(true)}>Temizlik için API anahtarını yenile</button> : null}
       {connection?.status === 'draining' ? <p className={styles.notice}>Temizlik ve önceki işlemlerin doğrulaması sürüyor. Bu sırada yeni bağlantı kurulamaz.</p> : null}
       {provider === 'brevo' && !active ? <p className={styles.disclosure}>Bu Celebix bağlantısı Brevo tarafından incelenmiş, test edilmiş, onaylanmış veya desteklenmiş değildir. Bağlantıyı kendi sorumluluğunuzla kullanırsınız.</p> : null}
     </div>
