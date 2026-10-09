@@ -6,7 +6,7 @@ export const PROMOTION_REPOSITORY_ERROR_CODES = Object.freeze([
   "durable_authority_invalid",
   "resource_not_found", "invalid_transition", "version_conflict", "idempotency_mismatch",
   "invalid_reference", "code_conflict", "active_code_batches", "promotion_limit_reached", "publish_blocked",
-  "projection_unavailable", "operation_result_invalid", "conflict", "unavailable",
+  "projection_unavailable", "operation_result_invalid", "conflict", "unavailable", "deletion_blocked",
 ] as const);
 export type PromotionRepositoryErrorCode = (typeof PROMOTION_REPOSITORY_ERROR_CODES)[number];
 

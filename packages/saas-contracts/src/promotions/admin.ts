@@ -59,6 +59,17 @@ export interface PromotionPageQuery { readonly limit: number; readonly cursor?: 
 export interface PromotionBatchCreateRequest { readonly count: number; readonly prefix: string; readonly codeLength: number; readonly perCustomerUsage: number; readonly expiresAt: string | null }
 export interface PromotionBatchStatusRequest extends PromotionVersionRequest { readonly nextStatus: "active" | "paused" | "revoked" }
 export interface PromotionMutationEnvelope { readonly promotion: PromotionDetail; readonly replayed: boolean }
+export interface PromotionDeletionImpact {
+  readonly id: string;
+  readonly version: number;
+  readonly name: string;
+  readonly codeCount: number;
+  readonly preservedRedemptionCount: number;
+  readonly pendingReservationCount: number;
+  readonly linkedTools: readonly Readonly<{ id: string; kind: "popup" | "cart_capture"; name: string; enabled: boolean }>[];
+  readonly canDelete: boolean;
+}
+export interface PromotionDeletionEnvelope { readonly id: string; readonly deletedAt: string; readonly replayed: boolean }
 export interface PromotionCodeBatchMutationEnvelope { readonly batch: PromotionCodeBatch; readonly replayed: boolean }
 export interface PromotionAdminListItem {
   readonly id: string;
@@ -226,6 +237,27 @@ export function parsePromotionAdminListQuery(value: unknown): PromotionAdminList
 export function parsePromotionCreateRequest(value: unknown): PromotionCreateRequest { return guarded(() => { const input = exact(value, ["name", "ruleDocument"]); return Object.freeze({ name: name(input.name), ruleDocument: interactiveRule(input.ruleDocument) }); }); }
 export function parsePromotionUpdateRequest(value: unknown): PromotionUpdateRequest { return guarded(() => { const input = exact(value, ["expectedVersion", "name", "ruleDocument"]); return Object.freeze({ expectedVersion: integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER), name: name(input.name), ruleDocument: interactiveRule(input.ruleDocument) }); }); }
 export function parsePromotionVersionRequest(value: unknown): PromotionVersionRequest { return guarded(() => { const input = exact(value, ["expectedVersion"]); return Object.freeze({ expectedVersion: integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER) }); }); }
+export function parsePromotionDeletionImpact(value: unknown): PromotionDeletionImpact {
+  return guarded(() => {
+    const input = exact(value, ["id", "version", "name", "codeCount", "preservedRedemptionCount", "pendingReservationCount", "linkedTools", "canDelete"]);
+    const linkedTools = array(input.linkedTools, 0, 100, (value) => {
+      const tool = exact(value, ["id", "kind", "name", "enabled"]);
+      if (tool.kind !== "popup" && tool.kind !== "cart_capture") invalid();
+      return Object.freeze({ id: uuid(tool.id), kind: tool.kind, name: text(tool.name, 1, 160), enabled: boolean(tool.enabled) });
+    });
+    if (new Set(linkedTools.map((tool) => tool.id)).size !== linkedTools.length) invalid();
+    const pendingReservationCount = integer(input.pendingReservationCount, 0, Number.MAX_SAFE_INTEGER);
+    const canDelete = boolean(input.canDelete);
+    if (canDelete !== (pendingReservationCount === 0 && !linkedTools.some((tool) => tool.enabled))) invalid();
+    return Object.freeze({ id: uuid(input.id), version: integer(input.version, 1, Number.MAX_SAFE_INTEGER), name: name(input.name), codeCount: integer(input.codeCount, 0, Number.MAX_SAFE_INTEGER), preservedRedemptionCount: integer(input.preservedRedemptionCount, 0, Number.MAX_SAFE_INTEGER), pendingReservationCount, linkedTools, canDelete });
+  });
+}
+export function parsePromotionDeletionEnvelope(value: unknown): PromotionDeletionEnvelope {
+  return guarded(() => {
+    const input = exact(value, ["id", "deletedAt", "replayed"]);
+    return Object.freeze({ id: uuid(input.id), deletedAt: timestamp(input.deletedAt), replayed: boolean(input.replayed) });
+  });
+}
 export function parsePromotionLifecycleTargetRequest(value: unknown): PromotionLifecycleTargetRequest { return guarded(() => { const input = exact(value, ["expectedVersion", "nextStatus"]); if (input.nextStatus !== "active" && input.nextStatus !== "scheduled") invalid(); return Object.freeze({ expectedVersion: integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER), nextStatus: input.nextStatus }); }); }
 export function parsePromotionDuplicateRequest(value: unknown): PromotionDuplicateRequest { return guarded(() => { const input = exact(value, ["expectedVersion", "name", "codes"]); const codes = array(input.codes, 0, 10_000, normalizePromotionCode); if (new Set(codes).size !== codes.length) invalid(); return Object.freeze({ expectedVersion: integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER), name: name(input.name), codes: Object.freeze([...codes].sort()) }); }); }
 export function parsePromotionSimulationRequest(value: unknown): PromotionSimulationRequest { return guarded(() => { const input = exact(value, ["promotionId", "expectedVersion", "name", "ruleDocument", "context"]); const expectedVersion = input.expectedVersion === null ? null : integer(input.expectedVersion, 1, Number.MAX_SAFE_INTEGER); return Object.freeze({ promotionId: uuid(input.promotionId), expectedVersion, name: name(input.name), ruleDocument: interactiveRule(input.ruleDocument), context: adminContext(input.context) }); }); }

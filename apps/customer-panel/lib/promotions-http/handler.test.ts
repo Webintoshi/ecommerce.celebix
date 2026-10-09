@@ -149,6 +149,28 @@ function handler(promotions: PromotionRepository, options: Readonly<{
   });
 }
 
+test("permanent delete accepts one scoped versioned operation and exposes its narrow receipt", async () => {
+  const selected = handler(repository({ async delete(input) {
+    assert.equal(input.tenantContext.store.id, STORE);
+    assert.equal(input.operationId, OPERATION);
+    assert.equal(input.expectedVersion, 1);
+    return { id: PROMOTION, deletedAt: NOW.toISOString(), replayed: false };
+  }}));
+  const result = await selected(request(`/api/promotions/${PROMOTION}/delete`, { method: "POST", body: { expectedVersion: 1 }, headers: { "idempotency-key": OPERATION } }));
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { id: PROMOTION, deletedAt: NOW.toISOString(), replayed: false });
+});
+
+test("delete preview and mutation require owner/admin permission and reject active collection conflicts", async () => {
+  const denied = handler(repository(), { role: "editor" });
+  const preview = await denied(request(`/api/promotions/${PROMOTION}/delete-impact`));
+  assert.equal(preview.status, 403);
+  const selected = handler(repository({ async delete() { throw promotionFailure("deletion_blocked"); } }));
+  const result = await selected(request(`/api/promotions/${PROMOTION}/delete`, { method: "POST", body: { expectedVersion: 1 }, headers: { "idempotency-key": OPERATION } }));
+  assert.equal(result.status, 409);
+  assert.deepEqual(await result.json(), { code: "deletion_blocked" });
+});
+
 const DURABLE = new Set(["POST /api/promotions", "PATCH", "publish", "pause", "resume", "duplicate", "archive", "code-batches", "status"]);
 function request(path: string, options: Readonly<{
   method?: string; body?: unknown; origin?: string | null; cookie?: string | null; headers?: HeadersInit;

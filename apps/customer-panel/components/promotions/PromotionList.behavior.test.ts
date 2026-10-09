@@ -24,15 +24,22 @@ type Options = {
   list?: (query: client.ListQuery, attempt: number) => Promise<Page>;
   overview?: (days: 7 | 30 | 90, attempt: number) => Promise<PromotionOverviewResult>;
   lifecycle?: (...args: any[]) => Promise<any>; duplicate?: (...args: any[]) => Promise<any>;
+  impact?: (...args: any[]) => Promise<any>; delete?: (...args: any[]) => Promise<any>;
+  pendingDeletion?: number;
 };
 
 async function promotionScreen(run: (screen: any) => Promise<void>, options: Options = {}) {
-  const reads: client.ListQuery[] = [], summaries: number[] = [], mutations: any[][] = [], duplicates: any[][] = [];
+  const reads: client.ListQuery[] = [], summaries: number[] = [], mutations: any[][] = [], duplicates: any[][] = [], deletions: any[][] = [];
+  let pending: number | null = options.pendingDeletion ?? null;
   const api = {
     list: async (query: client.ListQuery) => { reads.push(structuredClone(query)); return options.list ? options.list(query, reads.length) : { items: options.records ?? [record()], nextCursor: null }; },
     overview: async (days: 7 | 30 | 90) => { summaries.push(days); return options.overview ? options.overview(days, summaries.length) : overview(days); },
     lifecycle: async (...args: any[]) => { mutations.push(args); return options.lifecycle ? options.lifecycle(...args) : { kind: "saved", promotion: { id: args[0] } }; },
     duplicate: async (...args: any[]) => { duplicates.push(args); return options.duplicate ? options.duplicate(...args) : { kind: "conflict", message: "Kopya doğrulanamadı." }; },
+    deletionImpact: async (id: string) => options.impact ? options.impact(id) : { id, version: 7, name: "Kampanya 1", codeCount: 2, preservedRedemptionCount: 3, pendingReservationCount: 0, linkedTools: [], canDelete: true },
+    pendingDeletion: () => pending,
+    pendingDeletions: () => pending === null ? [] : [{ id: record().id, version: pending }],
+    delete: async (...args: any[]) => { deletions.push(args); try { const result = options.delete ? await options.delete(...args) : { id: args[0], deletedAt: "2026-10-09T20:00:00.000Z", replayed: false }; pending = null; return result; } catch (error) { pending = args[1]; throw error; } },
   };
   const { PromotionList } = compile<any>(new URL("./PromotionList.tsx", import.meta.url), {
     "next/link": { __esModule: true, default: ({ children, ...props }: any) => React.createElement("a", props, children) },
@@ -76,7 +83,7 @@ async function promotionScreen(run: (screen: any) => Promise<void>, options: Opt
       canPublish: options.canPublish ?? true, canArchive: options.canArchive ?? true, api,
     }));
     await settle();
-    await run({ ...context, button, click, field, change, row, settle, reads, summaries, mutations, duplicates });
+    await run({ ...context, button, click, field, change, row, settle, reads, summaries, mutations, duplicates, deletions });
   });
 }
 
@@ -145,6 +152,7 @@ test("manage publish and archive permission flags gate their own actions indepen
       assert.equal(labels.includes("Çoğalt"), permitted === "manage");
       assert.equal(labels.includes("Duraklat"), permitted === "publish");
       assert.equal(labels.includes("Arşivle"), permitted === "archive");
+      assert.equal(labels.includes("Sil"), permitted === "archive");
       assert.equal(Boolean(container.querySelector(`a[href="/discounts/${record().id}/edit"]`)), permitted === "manage");
     }, { canManage: permitted === "manage", canPublish: permitted === "publish", canArchive: permitted === "archive" });
   }
@@ -157,9 +165,63 @@ test("read-only access retains view analytics and coupon links while omitting mu
     assert.equal(container.querySelector(`a[href="/discounts/${item.id}/edit"]`), null);
     assert.equal(container.querySelector('a[href="/discounts/new"]'), null);
     const labels = Array.from(container.querySelectorAll("button") as NodeListOf<HTMLButtonElement>).map(element => element.textContent?.trim());
-    for (const label of ["Çoğalt", "Duraklat", "Devam ettir", "Arşivle"]) assert.equal(labels.includes(label), false);
+    for (const label of ["Çoğalt", "Duraklat", "Devam ettir", "Arşivle", "Sil"]) assert.equal(labels.includes(label), false);
     assert.deepEqual(mutations, []); assert.deepEqual(duplicates, []);
   }, { canManage: false, canPublish: false, canArchive: false });
+});
+
+test("direct deletion needs confirmation without an archive step and keeps the applied filter", async () => {
+  await promotionScreen(async ({ click, row, container, deletions, mutations, reads, summaries, window, button }) => {
+    await click("Aktif"); await click("Sil", row("Kampanya 1"));
+    const dialog = container.querySelector('[role="dialog"]'); assert.ok(dialog);
+    assert.match(dialog.textContent, /Geçmiş sipariş/); assert.equal(deletions.length, 0);
+    await click("Vazgeç", dialog); assert.equal(deletions.length, 0);
+    await click("Sil", row("Kampanya 1")); await click("Sil", container.querySelector('[role="dialog"]'));
+    assert.deepEqual(deletions, [[record().id, 7]]); assert.deepEqual(mutations, []);
+    assert.deepEqual(reads.at(-1), { effectiveStatuses: ["active"] });
+    assert.deepEqual(summaries, [30, 30]); assert.match(container.textContent, /İndirim silindi/);
+    assert.equal(window.document.activeElement, button("Filtreler"));
+  }, { list: async (_query, attempt) => ({ items: attempt > 2 ? [] : [record()], nextCursor: null }) });
+});
+
+test("archived discounts can be deleted and enabled tool or payment blockers prevent submission", async () => {
+  await promotionScreen(async ({ click, row, container, button, deletions }) => {
+    await click("Sil", row("Arşivde"));
+    const dialog = container.querySelector('[role="dialog"]');
+    assert.match(dialog.textContent, /Yaz popup/); assert.match(dialog.textContent, /2.*ödeme/);
+    assert.equal(button("Sil", dialog).disabled, true); assert.equal(deletions.length, 0);
+    await click("Vazgeç", dialog); assert.equal(container.querySelector('[role="dialog"]'), null);
+  }, { records: [record(1, { name: "Arşivde", status: "archived", effectiveStatus: "archived" })], impact: async id => ({ id, version: 7, name: "Arşivde", codeCount: 2, preservedRedemptionCount: 1, pendingReservationCount: 2, linkedTools: [{ id: record(2).id, kind: "popup", name: "Yaz popup", enabled: true }], canDelete: false }) });
+});
+
+test("lost deletion response can be cancelled and resumed with the original version", async () => {
+  let attempt = 0;
+  await promotionScreen(async ({ click, row, container, deletions }) => {
+    await click("Sil", row("Kampanya 1")); await click("Sil", container.querySelector('[role="dialog"]'));
+    assert.match(container.textContent, /sonucu doğrulanamadı/);
+    await click("Vazgeç", container.querySelector('[role="dialog"]'));
+    await click("Sil", row("Kampanya 1")); await click("Silmeyi doğrula", container.querySelector('[role="dialog"]'));
+    assert.deepEqual(deletions, [[record().id, 7], [record().id, 7]]);
+  }, { delete: async id => { if (++attempt === 1) throw Error("connection lost"); return { id, deletedAt: "2026-10-09T20:00:00.000Z", replayed: true }; } });
+});
+
+test("unavailable impact preserves the discount and never enables deletion", async () => {
+  await promotionScreen(async ({ click, row, container, button, deletions }) => {
+    await click("Sil", row("Kampanya 1"));
+    const dialog = container.querySelector('[role="dialog"]'); assert.ok(dialog);
+    assert.equal(button("Sil", dialog).disabled, true); assert.equal(deletions.length, 0);
+    await click("Vazgeç", dialog); assert.ok(row("Kampanya 1"));
+  }, { impact: async () => { throw Error("promotion_unavailable"); } });
+});
+
+test("reload recovery remains reachable when the committed deletion no longer appears in the list", async () => {
+  await promotionScreen(async ({ click, container, deletions }) => {
+    assert.equal(container.querySelectorAll("tbody tr").length, 0);
+    await click("Silmeyi doğrula"); await click("Silmeyi doğrula", container.querySelector('[role="dialog"]'));
+    assert.deepEqual(deletions, [[record().id, 7]]);
+    assert.equal(container.querySelector('[aria-label="Bekleyen silme doğrulamaları"]'), null);
+    assert.match(container.textContent, /İndirim silindi/);
+  }, { records: [], pendingDeletion: 7, impact: async () => { throw Error("not_found"); } });
 });
 
 test("lifecycle actions retain the record version, status semantics and current server filter after conflict", async () => {

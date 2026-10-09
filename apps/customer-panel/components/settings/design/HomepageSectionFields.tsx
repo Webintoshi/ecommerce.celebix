@@ -82,6 +82,7 @@ export function HomepageSectionFields({ section, assets, media = [], destination
    const source=event.target.value as typeof section.source;
    const {productIds,...rest}=section;
    const categoryId="categoryId" in section?section.categoryId:undefined;
+   if("categoryId" in rest)delete rest.categoryId;
    onUpdate({...rest,source,...(source==="category"?{categoryId:categoryId??categories[0]?.resourceId??""}:{}),...(source==="manual"?{productIds:productIds??[],limit:12}: {})});
   }}><option value="latest">Yeni ürünler</option><option value="sale">İndirimli ürünler</option><option value="category">Bir kategori</option><option value="manual">Ürünleri ben seçeyim</option></select></label>
   {section.source==="category"?<label>Kategori<select disabled={disabled} value={section.categoryId??""} aria-invalid={Boolean(errors.categoryId)} aria-describedby={errors.categoryId?"homepage-error-categoryId":undefined} onChange={event=>onUpdate({...section,categoryId:event.target.value})}><option value="">Kategori seçin</option>{categories.map(item=><option key={item.resourceId} value={item.resourceId}>{item.label}</option>)}</select>{error("categoryId")}</label>:null}

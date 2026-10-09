@@ -11,6 +11,8 @@ import {
   parsePromotionMarginCheck,
   parsePromotionMutationEnvelope,
   parsePromotionOverviewResult,
+  parsePromotionDeletionImpact,
+  parsePromotionDeletionEnvelope,
   parsePromotionLegacyProjection,
   parsePromotionPickerResolve,
   parsePromotionSimulatorResponse,
@@ -86,7 +88,7 @@ function accessFailure(result: Exclude<ServerPanelAccessResult, { kind: "authent
 }
 
 function requiredAction(route: PromotionRoute): MerchantAction {
-  if (route.kind === "archive") return "promotions.archive";
+  if (route.kind === "archive" || route.kind === "delete" || route.kind === "delete_impact") return "promotions.archive";
   switch (route.kind) {
     case "create":
     case "update":
@@ -261,16 +263,17 @@ function targetId(route: PromotionRoute, input: ParsedInput): string | undefined
   return undefined;
 }
 
-const DURABLE_ROUTES = new Set(["create", "update", "publish", "pause", "resume", "duplicate", "archive", "code_batch_create", "code_batch_status"]);
+const DURABLE_ROUTES = new Set(["create", "update", "publish", "pause", "resume", "duplicate", "archive", "delete", "code_batch_create", "code_batch_status"]);
 const FAILURE_ROUTES: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
-  resource_not_found: new Set(["detail", "update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_list", "code_batch_create", "code_batch_status", "code_batch_csv", "analytics", "legacy_resolve"]),
+  resource_not_found: new Set(["detail", "delete_impact", "delete", "update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_list", "code_batch_create", "code_batch_status", "code_batch_csv", "analytics", "legacy_resolve"]),
+  deletion_blocked: new Set(["delete"]),
   invalid_reference: new Set(["create", "update", "publish", "resume", "duplicate", "simulate"]),
   code_conflict: new Set(["create", "update", "duplicate", "code_batch_create"]),
   active_code_batches: new Set(["update"]),
   invalid_transition: new Set(["update", "publish", "pause", "resume", "archive", "code_batch_status"]),
   promotion_limit_reached: new Set(["publish", "resume"]),
   conflict: new Set(["create", "duplicate"]),
-  version_conflict: new Set(["update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_status"]),
+  version_conflict: new Set(["delete", "update", "publish", "pause", "resume", "duplicate", "archive", "simulate", "conflicts", "margin", "code_batch_status"]),
   publish_blocked: new Set(["update", "publish", "resume"]),
 });
 function failureAllowed(route: PromotionRoute, code: string, input?:ParsedInput): boolean {
@@ -303,6 +306,7 @@ function repositoryFailure(caught: unknown, route: PromotionRoute, input: Parsed
       case "invalid_transition":
       case "promotion_limit_reached":
       case "conflict": return error(failure.code, 409);
+      case "deletion_blocked": return error(failure.code, 409);
       case "version_conflict": {
         const expectedId = targetId(route, input);
         if (expectedId === undefined) return unavailable();
@@ -434,6 +438,23 @@ async function dispatch(route: PromotionRoute, input: ParsedInput, authorized: A
     case "archive": {
       const value = mutationValue(input) as PromotionVersionRequest;
       return execute(route, input, () => repository.archive({ ...authority, operationId: operationId(input), promotionId: route.promotionId, ...value }), (result) => json(promotionMutation(result, { id: route.promotionId, version: value.expectedVersion + 1, status: "archived" })));
+    }
+    case "delete_impact": {
+      if (!repository.deletionImpact) return unavailable();
+      return execute(route, input, () => repository.deletionImpact!({ ...authority, promotionId: route.promotionId }), (result) => {
+        const parsed = parsePromotionDeletionImpact(result);
+        if (parsed.id !== route.promotionId) throw new TypeError("promotion_http_output_invalid");
+        return json(parsed);
+      });
+    }
+    case "delete": {
+      if (!repository.delete) return unavailable();
+      const value = mutationValue(input) as PromotionVersionRequest;
+      return execute(route, input, () => repository.delete!({ ...authority, operationId: operationId(input), promotionId: route.promotionId, ...value }), (result) => {
+        const parsed = parsePromotionDeletionEnvelope(result);
+        if (parsed.id !== route.promotionId || parsed.deletedAt > authorized.now.toISOString()) throw new TypeError("promotion_http_output_invalid");
+        return json(parsed);
+      });
     }
     case "simulate": {
       const value = mutationValue(input) as PromotionSimulationRequest;

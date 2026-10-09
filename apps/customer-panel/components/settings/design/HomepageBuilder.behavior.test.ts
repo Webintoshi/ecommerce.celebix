@@ -58,6 +58,22 @@ test("manual product picker searches SKU and barcode, filters category and prese
  await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"SKU-1");await click(button(container,"Seç"));await draw();await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"869002");await click(button(container,"Seç"));await draw();await click(button(container,"Ürün 2 yukarı taşı"));await draw();const selected=current.composition.sections[0];if(selected?.kind==="product_row")assert.deepEqual(selected.productIds,[products[1]!.resourceId,products[0]!.resourceId]);
  await change(container.querySelector<HTMLInputElement>('input[type="search"]')!,"");await change(field(container,"Kategori filtresi"),categories[1]!.resourceId);assert.match(container.querySelector("ul.productPickerList")?.textContent??"",/Ürün 3/);assert.doesNotMatch(container.querySelector("ul.productPickerList")?.textContent??"",/Ürün 1/);
 }));
+test("changing a category product row to manual selection produces a valid design and keeps selected products",async()=>withEditor(async({container,render,change,click})=>{
+ const products=[1,2].map(number=>({kind:"product",resourceId:id(number+20),label:`Ürün ${number}`,path:`/products/${number}`,searchTerms:[`SKU-${number}`],categoryIds:[categories[0]!.resourceId]}));
+ let current=design({...row,source:"category",categoryId:categories[0]!.resourceId});
+ const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:row.sectionId,media:[],destinations:[...categories,...products],disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));
+ await draw();await change(field(container,"Hangi ürünler?"),"manual");await draw();
+ await click(button(container,"Seç"));await draw();
+ const parsed=normalizeStorefrontDesignDocumentV5(current),selected=parsed.composition.sections[0];
+ assert.equal(selected?.kind,"product_row");if(selected?.kind==="product_row"){assert.equal(selected.source,"manual");assert.deepEqual(selected.productIds,[products[0]!.resourceId]);assert.equal(Object.hasOwn(selected,"categoryId"),false);}
+ assert.match(container.querySelector("ol.productPickerList")?.textContent??"",/Ürün 1/);
+}));
+for(const source of ["latest","sale"] as const)test(`changing a category product row to ${source} removes its category constraint`,async()=>withEditor(async({container,render,change})=>{
+ let current=design({...row,source:"category",categoryId:categories[0]!.resourceId});
+ const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:row.sectionId,media:[],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));
+ await draw();await change(field(container,"Hangi ürünler?"),source);await draw();
+ const selected=normalizeStorefrontDesignDocumentV5(current).composition.sections[0];assert.equal(selected?.kind,"product_row");if(selected?.kind==="product_row"){assert.equal(selected.source,source);assert.equal(Object.hasOwn(selected,"categoryId"),false);assert.equal(Object.hasOwn(selected,"productIds"),false);assert.equal(selected.limit,8);}
+}));
 test("category sections keep their selected categories, image overrides and ordering",async()=>withEditor(async({container,render,change,click})=>{
  let current=design({kind:"category_grid",sectionId:"home_categories",enabled:true,heading:"Categories",layout:"grid",categoryIds:categories.map(item=>item.resourceId)});const draw=()=>render(React.createElement(HomepageSectionEditor,{design:current,sectionId:"home_categories",media:[],assets:[{...asset,kind:"category"}],destinations:categories,disabled:false,onChange:(next:StorefrontDesignDocument)=>{current=next;},onSelectSection:()=>{}}));await draw();await chooseImage(container,"Kart görseli",asset.id,click);await draw();await click(button(container,"Kategori 2 yukarı taşı"));await draw();const section=current.composition.sections[0];if(section?.kind==="category_grid"){assert.deepEqual(section.categoryIds,[categories[1]!.resourceId,categories[0]!.resourceId]);assert.deepEqual(section.categoryImages,[{categoryId:categories[0]!.resourceId,assetId:asset.id}]);}
 }));

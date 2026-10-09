@@ -9,7 +9,7 @@ export const PROMOTION_ERROR_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied",
   "not_found", "method_not_allowed", "version_conflict", "operation_mismatch", "invalid_reference", "code_conflict",
   "active_code_batches", "invalid_transition", "promotion_limit_reached", "publish_blocked", "conflict",
-  "promotion_unavailable", "not_eligible", "invalid_code",
+  "promotion_unavailable", "deletion_blocked", "not_eligible", "invalid_code",
 ] as const);
 export const PROMOTION_REJECTION_REASONS = Object.freeze(["customer_identity_required", "margin_unknown_cost", "conditions_not_met", "not_combinable", "not_eligible", "order_line_limit"] as const);
 

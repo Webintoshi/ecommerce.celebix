@@ -159,6 +159,24 @@ function repository(pool: PostgresPoolLike, audit: string[] = [], generatedId = 
 
 function authority() { return { tenantContext: tenant(), now: new Date(NOW) }; }
 
+test("permanent deletion scopes authority and rejects blocked obligations without retrying a new operation", async () => {
+  const client = new Client((text) => text.includes("promotion_delete_v1(") ? { outcome: "deletion_blocked", result_payload: null } : undefined);
+  const instance = repository(new Pool([client]));
+  assert.equal(typeof instance.delete, "function");
+  await assert.rejects(instance.delete!({ ...authority(), operationId: OPERATION, promotionId: PROMOTION, expectedVersion: 1 }), (error) => promotionRepositoryErrorCode(error) === "deletion_blocked");
+  assert.deepEqual(client.queries.at(-1)?.text, "ROLLBACK");
+});
+
+test("lost deletion commit recovers the same saved receipt through a separate read operation", async () => {
+  const receipt = { id: PROMOTION, deletedAt: NOW.toISOString() };
+  const first = new Client((text) => text.includes("promotion_delete_v1(") ? { outcome: "deleted", result_payload: receipt } : undefined, true);
+  const recovery = new Client((text) => text.includes("promotion_delete_recover_v1(") ? { outcome: "operation_replayed", result_payload: receipt } : undefined);
+  const instance = repository(new Pool([first, recovery]));
+  assert.equal(typeof instance.delete, "function");
+  assert.deepEqual(await instance.delete!({ ...authority(), operationId: OPERATION, promotionId: PROMOTION, expectedVersion: 1 }), { ...receipt, replayed: true });
+  assert.equal(first.releases[0], true);
+});
+
 test("campaign save publishes once in the same transaction and schedule stays server-authoritative",async()=>{
  for(const scheduled of [false,true]){
   const document=rule();const selected=scheduled?{...document,schedule:{...document.schedule,startsAt:"2026-09-06T12:00:00.000Z"}}:document;
@@ -655,4 +673,12 @@ test("transaction setup and rollback failures have explicit reusable versus dest
   const readCommit = new Client((text) => text.includes("promotion_detail_v1") ? { outcome: "found", result_payload: detail() } : undefined, true);
   await assert.rejects(() => repository(new Pool([readCommit])).detail({ ...authority(), promotionId: PROMOTION }), (error: unknown) => promotionRepositoryErrorCode(error) === "unavailable");
   assert.deepEqual(readCommit.releases, [true]);
+});
+
+test("permanent deletion reports a newer current version without changing its receipt or operation", async () => {
+  const current = detail({ version: 2, status: "active" });
+  const client = new Client((text) => text.includes("promotion_delete_v1(") ? { outcome: "version_conflict", result_payload: current } : undefined);
+  const instance = repository(new Pool([client]));
+  await assert.rejects(instance.delete!({ ...authority(), operationId: OPERATION, promotionId: PROMOTION, expectedVersion: 1 }), (error) => promotionRepositoryErrorCode(error) === "version_conflict");
+  assert.equal(client.queries.at(-1)?.text, "ROLLBACK");
 });

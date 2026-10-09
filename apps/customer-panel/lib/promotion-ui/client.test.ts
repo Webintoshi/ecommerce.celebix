@@ -21,6 +21,47 @@ function memoryStorage() {
   };
 }
 
+test("permanent deletion reads its impact and retains the exact request after a lost response", async () => {
+  const calls: Request[] = [], storage = memoryStorage();
+  const impact = { id: PROMOTION_ID, version: 7, name: "Bahar", codeCount: 2, preservedRedemptionCount: 3, pendingReservationCount: 0, linkedTools: [], canDelete: true };
+  const receipt = { id: PROMOTION_ID, deletedAt: "2026-10-09T20:00:00.000Z", replayed: true };
+  const client = new PromotionApiClient(async (input, init) => {
+    const request = new Request(input, init); calls.push(request);
+    if (request.method === "GET") return response(impact);
+    if (calls.length === 2) throw Error("response lost");
+    return response(receipt);
+  }, () => "00000000-0000-4000-8000-000000000099", storage);
+  assert.deepEqual(await client.deletionImpact(PROMOTION_ID), impact);
+  await assert.rejects(client.delete(PROMOTION_ID, 7), /response lost/);
+  assert.deepEqual(client.pendingDeletions(), [{ id: PROMOTION_ID, version: 7 }]);
+  await assert.rejects(client.delete(PROMOTION_ID, 8), /promotion_operation_unresolved/);
+  assert.deepEqual(await client.delete(PROMOTION_ID, 7), receipt);
+  assert.equal(new URL(calls[0]!.url).pathname, `/api/promotions/${PROMOTION_ID}/delete-impact`);
+  assert.equal(new URL(calls[1]!.url).pathname, `/api/promotions/${PROMOTION_ID}/delete`);
+  assert.deepEqual(await calls[1]!.json(), { expectedVersion: 7 });
+  assert.deepEqual(await calls[2]!.json(), { expectedVersion: 7 });
+  assert.equal(calls[1]!.headers.get("idempotency-key"), calls[2]!.headers.get("idempotency-key"));
+  assert.equal(storage.values.size, 0);
+});
+
+test("deletion rejects another record's receipt and preserves its identity across reload", async () => {
+  const storage = memoryStorage(), calls: Request[] = [];
+  const first = new PromotionApiClient(async (input, init) => { calls.push(new Request(input, init)); return response({ id: SECOND_PROMOTION_ID, deletedAt: "2026-10-09T20:00:00.000Z", replayed: false }); }, () => "00000000-0000-4000-8000-000000000099", storage);
+  await assert.rejects(first.delete(PROMOTION_ID, 7), /promotion_unavailable/);
+  const reloaded = new PromotionApiClient(async (input, init) => { calls.push(new Request(input, init)); return response({ id: PROMOTION_ID, deletedAt: "2026-10-09T20:00:00.000Z", replayed: true }); }, () => "00000000-0000-4000-8000-000000000098", storage);
+  assert.deepEqual(reloaded.pendingDeletions(), [{ id: PROMOTION_ID, version: 7 }]);
+  await reloaded.delete(PROMOTION_ID, 7);
+  assert.equal(calls[0]!.headers.get("idempotency-key"), calls[1]!.headers.get("idempotency-key"));
+});
+
+test("deletion blockers are definitive failures and impact from another record is rejected", async () => {
+  const blocked = new PromotionApiClient(async () => response({ code: "deletion_blocked" }, 409));
+  await assert.rejects(blocked.delete(PROMOTION_ID, 7), /deletion_blocked/);
+  assert.match(promotionErrorMessage("deletion_blocked"), /ödeme|popup/i);
+  const wrongImpact = new PromotionApiClient(async () => response({ id: SECOND_PROMOTION_ID, version: 7, name: "Other", codeCount: 0, preservedRedemptionCount: 0, pendingReservationCount: 0, linkedTools: [], canDelete: true }));
+  await assert.rejects(wrongImpact.deletionImpact(PROMOTION_ID), /promotion_unavailable/);
+});
+
 test("campaign apply returns an effective scheduled record with one retained write", async () => {
   const calls: Request[] = [];
   const storage = memoryStorage();

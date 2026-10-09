@@ -45,6 +45,7 @@ const BODY_LIMITS = Object.freeze({
   resume: 8_192,
   duplicate: 786_432,
   archive: 8_192,
+  delete: 8_192,
   simulate: 655_360,
   conflicts: 393_216,
   margin: 393_216,
@@ -73,7 +74,7 @@ export type PromotionGetInput = Readonly<{
 }>;
 
 const DURABLE_MUTATIONS = new Set<MutationKind>([
-  "create", "update", "publish", "pause", "resume", "duplicate", "archive",
+  "create", "update", "publish", "pause", "resume", "duplicate", "archive", "delete",
   "code_batch_create", "code_batch_status",
 ]);
 
@@ -126,6 +127,7 @@ function parseMutation(kind: MutationKind, value: unknown): PromotionMutationVal
     case "publish":
     case "resume": return parsePromotionLifecycleTargetRequest(value);
     case "pause":
+    case "delete":
     case "archive": return parsePromotionVersionRequest(value);
     case "duplicate": return parsePromotionDuplicateRequest(value);
     case "simulate": return parsePromotionSimulationRequest(value);

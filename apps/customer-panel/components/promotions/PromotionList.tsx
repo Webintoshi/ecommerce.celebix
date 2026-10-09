@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowRight, BarChart3, ChevronDown, Copy, Eye, Gift, Layers, MoreHorizontal, Package, Pause, Pencil, Percent, Play, Plus, Search, SlidersHorizontal, Tag, Ticket, Truck, Archive } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronDown, Copy, Eye, Gift, Layers, MoreHorizontal, Package, Pause, Pencil, Percent, Play, Plus, Search, SlidersHorizontal, Tag, Ticket, Truck, Archive, Trash2 } from "lucide-react";
 import type { PromotionAdminEffectiveStatus, PromotionAdminListItem, PromotionOverviewResult } from "@celebix/saas-contracts";
 import { PanelActionButton, PanelEmptyState, PanelPageHeader, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { DesignSettingsModal } from "@/components/settings/design/DesignSettingsDrawer";
 import { PromotionListLoader, promotionApi as defaultPromotionApi, promotionErrorMessage, type ListQuery, type PromotionApiClient } from "@/lib/promotion-ui/client";
 import { formatPromotionMinor, zonedCivilDayStartToIso } from "@/lib/promotion-ui/model";
+import { PromotionDeleteDialog } from "./PromotionDeleteDialog";
 import { PromotionIllustration } from "./PromotionIllustration";
 import emptyStyles from "./promotion-list-empty.module.css";
 import styles from "./promotion-list.module.css";
@@ -26,20 +27,21 @@ function overviewMoney(value: PromotionOverviewResult | null, field: "discountMi
 }
 function dates(item: PromotionAdminListItem, timezone: string) { const formatter = new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeZone: timezone }); return `${item.startsAt ? formatter.format(new Date(item.startsAt)) : "Yayınlandığında"} – ${item.endsAt ? formatter.format(new Date(item.endsAt)) : "Süresiz"}`; }
 
-type RowAction = "pause" | "resume" | "archive" | "duplicate";
+type RowAction = "pause" | "resume" | "archive" | "duplicate" | "delete";
 type FilterSnapshot = Readonly<{ status: string; trigger: string; benefit: string; audience: string; from: string; to: string }>;
 const QUICK_STATUSES = [{ value: "", label: "Tümü" }, { value: "active", label: "Aktif" }, { value: "scheduled", label: "Planlandı" }, { value: "draft", label: "Taslak" }];
 const BENEFIT_ICONS = { percentage: Percent, fixed_amount: Tag, free_shipping: Truck, buy_x_get_y: Gift, quantity_tiers: Layers, bundle_price: Package, gift: Gift };
 
-function PromotionActions({ item, canManage, canPublish, canArchive, busy, onAction }: Readonly<{ item: PromotionAdminListItem; canManage: boolean; canPublish: boolean; canArchive: boolean; busy: boolean; onAction: (item: PromotionAdminListItem, action: RowAction) => void }>) {
+function PromotionActions({ item, canManage, canPublish, canArchive, busy, onAction }: Readonly<{ item: PromotionAdminListItem; canManage: boolean; canPublish: boolean; canArchive: boolean; busy: boolean; onAction: (item: PromotionAdminListItem, action: RowAction, trigger?: HTMLElement | null) => void }>) {
   const id = useId();
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const run = (action: RowAction) => { menuRef.current?.hidePopover(); onAction(item, action); };
+  const run = (action: RowAction) => { menuRef.current?.hidePopover(); onAction(item, action, triggerRef.current); };
   return <div className={styles.rowActions}>
     <Link href={`/discounts/${item.id}`} className="button button-text icon-only-button" aria-label={`${item.name} görüntüle`} title="Görüntüle"><Eye size={18} aria-hidden="true" /></Link>
-    <button type="button" className="button button-text icon-only-button" aria-label={`${item.name} işlemleri`} title="İşlemler" aria-controls={id} aria-expanded={expanded} popoverTarget={id} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); setPosition({ left: Math.max(16, Math.min(rect.right - 232, window.innerWidth - 248)), top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - 400)) }); }}><MoreHorizontal size={20} aria-hidden="true" /></button>
+    <button ref={triggerRef} type="button" className="button button-text icon-only-button" aria-label={`${item.name} işlemleri`} title="İşlemler" aria-controls={id} aria-expanded={expanded} popoverTarget={id} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); setPosition({ left: Math.max(16, Math.min(rect.right - 232, window.innerWidth - 248)), top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - 400)) }); }}><MoreHorizontal size={20} aria-hidden="true" /></button>
     <div ref={menuRef} id={id} popover="auto" className={styles.rowMenu} style={position} role="group" aria-label={`${item.name} işlemleri`} onToggle={event => setExpanded((event.nativeEvent as ToggleEvent).newState === "open")}>
       <Link href={`/discounts/${item.id}/analytics`}><BarChart3 size={16} aria-hidden="true" />Analiz</Link>
       <Link href={`/discounts/${item.id}/codes`}><Ticket size={16} aria-hidden="true" />Kuponlar</Link>
@@ -48,12 +50,16 @@ function PromotionActions({ item, canManage, canPublish, canArchive, busy, onAct
       {canPublish && (item.status === "active" || item.status === "scheduled") ? <button type="button" disabled={busy} onClick={() => run("pause")}><Pause size={16} aria-hidden="true" />Duraklat</button> : null}
       {canPublish && item.status === "paused" ? <button type="button" disabled={busy} onClick={() => run("resume")}><Play size={16} aria-hidden="true" />Devam ettir</button> : null}
       {canArchive && item.status !== "archived" ? <button type="button" disabled={busy} onClick={() => run("archive")}><Archive size={16} aria-hidden="true" />Arşivle</button> : null}
+      {canArchive ? <button type="button" disabled={busy} onClick={() => run("delete")}><Trash2 size={16} aria-hidden="true" />Sil</button> : null}
     </div>
   </div>;
 }
 
 export function PromotionList({ timezone, canManage, canPublish, canArchive, api = defaultPromotionApi }: Readonly<{ timezone: string; canManage: boolean; canPublish: boolean; canArchive: boolean; api?: PromotionApiClient }>) {
   const promotionApi = api;
+  const [deleteItem, setDeleteItem] = useState<Readonly<{ id: string; name: string }> | null>(null);
+  const [deletionRecovery, setDeletionRecovery] = useState(() => promotionApi.pendingDeletions());
+  const deleteFocus = useRef<HTMLElement | null>(null);
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -135,8 +141,9 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     appliedQueryRef.current = selected; setAppliedQuery(selected); setItems([]); setNextCursor(null); load(selected); setFiltersOpen(false); setFilterError("");
   }
 
-  const action = (item: PromotionAdminListItem, selected: "pause" | "resume" | "archive" | "duplicate") => {
+  const action = (item: PromotionAdminListItem, selected: RowAction, trigger?: HTMLElement | null) => {
     if (busy.includes(item.id)) return;
+    if (selected === "delete") { if (canArchive) { deleteFocus.current = trigger ?? null; setDeleteItem(item); } return; }
     if (selected === "archive" && !window.confirm("Kampanya arşivlensin mi? Geçmiş siparişler korunur.")) return;
     const replacementCode = selected === "duplicate" && item.triggerKind === "code" ? window.prompt("Kopya kampanya için kullanılmamış yeni kupon kodunu yazın.", "") : "";
     if (replacementCode === null || (selected === "duplicate" && item.triggerKind === "code" && replacementCode.trim() === "")) { if (replacementCode !== null) setMessage("Kodlu kampanya kopyası için yeni bir kupon kodu gerekir."); return; }
@@ -184,6 +191,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     </div>
     {filterCount > 0 ? <div className={styles.appliedFilters}><span>{appliedLabels.join(" · ")}</span><button type="button" className="button button-text" onClick={clearFilters}>Temizle</button></div> : null}
     {message && !filtersOpen ? <p role="status" className={styles.feedback}>{message}</p> : null}
+    {canArchive && deletionRecovery.length ? <section aria-label="Bekleyen silme doğrulamaları" className={styles.feedback}><p>Önceki silme işleminin sonucu doğrulanamadı.</p>{deletionRecovery.map((entry, index) => <button key={entry.id} type="button" className="button button-secondary" onClick={event => { deleteFocus.current = event.currentTarget; setDeleteItem({ id: entry.id, name: "Bu indirim" }); }}>Silmeyi doğrula{deletionRecovery.length > 1 ? ` ${index + 1}` : ""}</button>)}</section> : null}
     {phase === "loading" ? <div role="status" aria-label="Kampanyalar yükleniyor" className={styles.loading}><span className={styles.srOnly}>Kampanyalar yükleniyor…</span>{[0, 1, 2].map(row => <div key={row} aria-hidden="true"><span /><span /><span /></div>)}</div> : null}
     {phase === "error" ? <div role="alert" className={styles.feedback}><span>İndirimler yüklenemedi.</span><button type="button" className="button button-secondary" onClick={() => load(appliedQuery)}>Yeniden dene</button></div> : null}
     {phase === "empty" ? <div className={emptyStyles.empty}>
@@ -196,6 +204,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
       {appendError ? <p className={styles.feedback} role="alert">Sonraki indirimler yüklenemedi. Mevcut liste korunuyor.</p> : null}
       <div className={styles.listFooter}><p className={styles.count} role="status">{items.length} kampanya gösteriliyor{nextCursor ? " · Devamı var" : ""}</p>{nextCursor ? <button type="button" className="button button-secondary" disabled={loadingMore} onClick={() => load(appliedQuery, nextCursor)}>{loadingMore ? "Yükleniyor…" : appendError ? "Yeniden dene" : "Daha fazla göster"}<ChevronDown size={16} aria-hidden="true" /></button> : null}</div>
     </> : null}
+    {deleteItem ? <PromotionDeleteDialog key={deleteItem.id} id={deleteItem.id} name={deleteItem.name} api={promotionApi} returnFocusRef={deleteFocus} onCancel={() => { setDeleteItem(null); setDeletionRecovery(promotionApi.pendingDeletions()); }} onDeleted={() => { setDeleteItem(null); window.setTimeout(() => filterTrigger.current?.focus(), 0); setDeletionRecovery(promotionApi.pendingDeletions()); setMessage("İndirim silindi."); setOverviewRetry(value => value + 1); load(appliedQueryRef.current, undefined, true); }} /> : null}
     <DesignSettingsModal open={filtersOpen} surface={{ label: "Filtreler", hint: "İndirimleri durum, tür, hedef kitle ve tarihe göre daraltın." }} onClose={closeFilters} onApply={applyFilters} applyLabel="Filtreleri uygula" returnFocusRef={filterTrigger} className={styles.filterModal}>
       <form className={styles.filterFields} onSubmit={event => { event.preventDefault(); applyFilters(); }}>
         <label>Durum<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">Tümü</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

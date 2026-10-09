@@ -10,6 +10,8 @@ import type {
   PromotionEvaluatorContext,
   PromotionLegacyProjection,
   PromotionOverviewResult,
+  PromotionDeletionImpact,
+  PromotionDeletionEnvelope,
   PromotionRuleDocument,
   PromotionSimulatorResponse,
   TenantContext,
@@ -205,6 +207,8 @@ export interface PromotionRepository {
   resume(input: ResumePromotionInput): Promise<PromotionMutationResult>;
   duplicate(input: DuplicatePromotionInput): Promise<PromotionMutationResult>;
   archive(input: ArchivePromotionInput): Promise<PromotionMutationResult>;
+  deletionImpact?(input: GetPromotionInput): Promise<PromotionDeletionImpact>;
+  delete?(input: PromotionOperationInput): Promise<PromotionDeletionEnvelope>;
   simulate(input: SimulatePromotionInput): Promise<PromotionSimulatorResponse>;
   conflicts(input: CheckPromotionInput): Promise<PromotionConflictCheck>;
   margin(input: CheckPromotionInput): Promise<PromotionMarginCheck>;

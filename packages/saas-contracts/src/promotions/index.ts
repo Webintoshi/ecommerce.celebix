@@ -10,6 +10,7 @@ export {
   parsePromotionLifecycleTargetRequest, parsePromotionMarginCheck, parsePromotionMutationEnvelope,
   parsePromotionPageQuery, parsePromotionPickerList, parsePromotionPickerResolve, parsePromotionSimulationRequest, parsePromotionTargetListQuery,
   parsePromotionTargetResolveRequest, parsePromotionUpdateRequest, parsePromotionVersionRequest,
+  parsePromotionDeletionImpact, parsePromotionDeletionEnvelope,
 } from "./admin.ts";
 export type {
   PromotionAdminAnalyticsItem, PromotionAdminAnalyticsResult, PromotionAdminEffectiveStatus, PromotionAnalyticsDetailResult, PromotionAnalyticsPeriodDays, PromotionAnalyticsQuery, PromotionOverviewResult,
@@ -20,4 +21,5 @@ export type {
   PromotionMarginFinding, PromotionMutationEnvelope, PromotionPageQuery, PromotionPickerItem, PromotionPickerKind,
   PromotionPickerList, PromotionSimulationRequest,
   PromotionTargetListQuery, PromotionTargetResolveRequest, PromotionUpdateRequest, PromotionVersionRequest,
+  PromotionDeletionImpact, PromotionDeletionEnvelope,
 } from "./admin.ts";

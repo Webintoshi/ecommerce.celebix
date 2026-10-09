@@ -13,8 +13,9 @@ export type PromotionRoute =
   | Readonly<{ kind: "list"; method: "GET"; pathname: "/api/promotions" }>
   | Readonly<{ kind: "create"; method: "POST"; pathname: "/api/promotions" }>
   | Readonly<{ kind: "detail"; method: "GET"; pathname: string; promotionId: string }>
+  | Readonly<{ kind: "delete_impact"; method: "GET"; pathname: string; promotionId: string }>
   | Readonly<{ kind: "update"; method: "PATCH"; pathname: string; promotionId: string }>
-  | Readonly<{ kind: "publish" | "pause" | "resume" | "duplicate" | "archive"; method: "POST"; pathname: string; promotionId: string }>
+  | Readonly<{ kind: "publish" | "pause" | "resume" | "duplicate" | "archive" | "delete"; method: "POST"; pathname: string; promotionId: string }>
   | Readonly<{ kind: "simulate" | "conflicts" | "margin" | "target_resolve"; method: "POST"; pathname: string }>
   | Readonly<{ kind: "target_list" | "legacy"; method: "GET"; pathname: string }>
   | Readonly<{ kind: "legacy_resolve"; method: "GET"; pathname: string; legacyRecordId: string }>
@@ -83,7 +84,8 @@ function selectRoute(pathname: string, method: string): PromotionRouteDecision {
     const batchCsv = new RegExp(`^/api/promotions/code-batches/(${UUID})/csv$`).exec(pathname);
     const batchCollection = new RegExp(`^/api/promotions/(${UUID})/code-batches$`).exec(pathname);
     const legacyResolve = new RegExp(`^/api/promotions/legacy/(${UUID})$`).exec(pathname);
-    const action = new RegExp(`^/api/promotions/(${UUID})/(publish|pause|resume|duplicate|archive)$`).exec(pathname);
+    const action = new RegExp(`^/api/promotions/(${UUID})/(publish|pause|resume|duplicate|archive|delete)$`).exec(pathname);
+    const deleteImpact = new RegExp(`^/api/promotions/(${UUID})/delete-impact$`).exec(pathname);
     const analytics = new RegExp(`^/api/promotions/(${UUID})/analytics$`).exec(pathname);
     const detail = new RegExp(`^/api/promotions/(${UUID})$`).exec(pathname);
     if (legacyResolve) {
@@ -99,7 +101,9 @@ function selectRoute(pathname: string, method: string): PromotionRouteDecision {
         : { kind: "code_batch_list", method: "GET", pathname, promotionId: batchCollection[1]! };
     } else if (action) {
       allow = "POST";
-      selected = { kind: action[2] as "publish" | "pause" | "resume" | "duplicate" | "archive", method: "POST", pathname, promotionId: action[1]! };
+      selected = { kind: action[2] as "publish" | "pause" | "resume" | "duplicate" | "archive" | "delete", method: "POST", pathname, promotionId: action[1]! };
+    } else if (deleteImpact) {
+      allow = "GET"; selected = { kind: "delete_impact", method: "GET", pathname, promotionId: deleteImpact[1]! };
     } else if (analytics) {
       allow = "GET"; selected = { kind: "analytics", method: "GET", pathname, promotionId: analytics[1]! };
     } else if (detail) {

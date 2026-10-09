@@ -61,7 +61,7 @@ export type PromotionOperationKind =
   | "create" | "update" | "lifecycle" | "archive" | "duplicate"
   | "code_batch" | "code_batch_status";
 
-export function promotionFingerprint(kind: PromotionOperationKind, storeId: string, payload: unknown): string {
+export function promotionFingerprint(kind: PromotionOperationKind | "delete", storeId: string, payload: unknown): string {
   return createHash("sha256")
     .update(canonical({ kind, storeId, payload }), "utf8")
     .digest("hex");

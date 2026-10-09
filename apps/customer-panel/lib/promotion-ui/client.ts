@@ -1,4 +1,4 @@
-import { parsePromotionAdminListItem, parsePromotionAdminListQuery, parsePromotionAnalyticsDetailResult, parsePromotionAnalyticsQuery, parsePromotionBatchCreateRequest, parsePromotionBatchStatusRequest, parsePromotionCheckRequest, parsePromotionCodeBatchListItem, parsePromotionCodeBatchMutationEnvelope, parsePromotionConflictCheck, parsePromotionCreateRequest, parsePromotionDetail, parsePromotionDuplicateRequest, parsePromotionLegacyProjection, parsePromotionLifecycleTargetRequest, parsePromotionMarginCheck, parsePromotionMutationEnvelope, parsePromotionOverviewResult, parsePromotionPickerResolve, parsePromotionSimulationRequest, parsePromotionSimulatorResponse, parsePromotionTargetListQuery, parsePromotionTargetResolveRequest, parsePromotionUpdateRequest, parsePromotionVersionRequest, type PromotionAdminListItem, type PromotionAnalyticsDetailResult, type PromotionCodeBatchListItem, type PromotionDetail, type PromotionLegacyProjection, type PromotionOverviewResult, type PromotionPickerItem, type PromotionPickerKind } from "@celebix/saas-contracts";
+import { parsePromotionAdminListItem, parsePromotionAdminListQuery, parsePromotionAnalyticsDetailResult, parsePromotionAnalyticsQuery, parsePromotionBatchCreateRequest, parsePromotionBatchStatusRequest, parsePromotionCheckRequest, parsePromotionCodeBatchListItem, parsePromotionCodeBatchMutationEnvelope, parsePromotionConflictCheck, parsePromotionCreateRequest, parsePromotionDeletionImpact, parsePromotionDeletionEnvelope, parsePromotionDetail, parsePromotionDuplicateRequest, parsePromotionLegacyProjection, parsePromotionLifecycleTargetRequest, parsePromotionMarginCheck, parsePromotionMutationEnvelope, parsePromotionOverviewResult, parsePromotionPickerResolve, parsePromotionSimulationRequest, parsePromotionSimulatorResponse, parsePromotionTargetListQuery, parsePromotionTargetResolveRequest, parsePromotionUpdateRequest, parsePromotionVersionRequest, type PromotionAdminListItem, type PromotionAnalyticsDetailResult, type PromotionCodeBatchListItem, type PromotionDeletionImpact, type PromotionDeletionEnvelope, type PromotionDetail, type PromotionLegacyProjection, type PromotionOverviewResult, type PromotionPickerItem, type PromotionPickerKind } from "@celebix/saas-contracts";
 import { promotionRuleDocument, type PromotionDraft, type PromotionTarget } from "./model.ts";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -9,7 +9,7 @@ const ID = "00000000-0000-4000-8000-000000000001";
 
 function origin(): string { return typeof window === "undefined" ? "https://panel.invalid" : window.location.origin; }
 function apiPath(path: string) { return new URL(path, origin()).toString(); }
-const SAFE_ERROR_CODES = new Set(["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied", "not_found", "operation_mismatch", "conflict", "code_conflict", "active_code_batches", "invalid_transition", "promotion_limit_reached", "version_conflict", "publish_blocked", "invalid_reference", "invalid_code", "not_eligible", "promotion_unavailable"]);
+const SAFE_ERROR_CODES = new Set(["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "origin_denied", "not_found", "operation_mismatch", "conflict", "code_conflict", "active_code_batches", "invalid_transition", "promotion_limit_reached", "version_conflict", "publish_blocked", "invalid_reference", "invalid_code", "not_eligible", "deletion_blocked", "promotion_unavailable"]);
 function errorCode(value: unknown): string {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return "promotion_unavailable";
   const body = value as Record<string, unknown>, code = body.code;
@@ -25,7 +25,7 @@ function statusErrorCode(status: number, value: unknown): string {
     : status === 401 ? ["unauthenticated"]
       : status === 403 ? ["membership_denied", "store_inactive", "feature_not_enabled", "origin_denied"]
         : status === 404 ? ["not_found"]
-          : status === 409 ? ["operation_mismatch", "conflict", "code_conflict", "active_code_batches", "invalid_transition", "promotion_limit_reached", "version_conflict", "publish_blocked", "invalid_reference", "invalid_code", "not_eligible"]
+          : status === 409 ? ["operation_mismatch", "conflict", "code_conflict", "active_code_batches", "invalid_transition", "promotion_limit_reached", "version_conflict", "publish_blocked", "invalid_reference", "invalid_code", "not_eligible", "deletion_blocked"]
             : status === 503 ? ["promotion_unavailable"] : [];
   return allowed.includes(code) ? code : "promotion_unavailable";
 }
@@ -59,7 +59,7 @@ function durableFamily(intent: string): string {
 function browserDurableStorage(): DurableStorage | undefined { try { return typeof window === "undefined" ? undefined : window.sessionStorage; } catch { return undefined; } }
 
 export function promotionErrorMessage(code: string): string {
-  return ({ promotion_operation_unresolved: "Önceki işlem henüz doğrulanamadı. Aynı bilgilerle tekrar deneyin veya sayfayı yenileyerek sonucu kontrol edin.", invalid_input: "Girdiğiniz bilgileri kontrol edip tekrar deneyin.", unauthenticated: "Oturumunuz sona erdi. Yeniden giriş yapın.", membership_denied: "Bu işlem için yetkiniz yok.", store_inactive: "Mağaza etkin olmadığı için işlem yapılamıyor.", feature_not_enabled: "Kampanyalar bu paket için etkin değil.", origin_denied: "Bu işlem yalnız güvenli mağaza panelinden yapılabilir.", not_found: "Kampanya bulunamadı.", version_conflict: "Bu kampanya başka bir değişiklikle güncellendi. Sayfayı yenileyip tekrar deneyin.", operation_mismatch: "Önceki işlemle uyuşmayan bir tekrar algılandı. Sayfayı yenileyin.", conflict: "Kampanya başka bir kampanyayla çakışıyor.", code_conflict: "Bu kupon kodu başka bir kampanyada kullanılıyor.", active_code_batches: "Önce etkin kupon gruplarını durdurun.", invalid_transition: "Kampanya bu durumdan seçilen duruma geçirilemez.", promotion_limit_reached: "Mağazanızın kampanya sınırına ulaşıldı.", publish_blocked: "Kampanya yayın için hazır değil.", invalid_reference: "Seçtiğiniz kayıt artık kullanılamıyor.", invalid_code: "Kupon kodu geçerli değil.", not_eligible: "Kampanya koşulları bu sepet için sağlanmıyor." } as Record<string, string>)[code] ?? "Şu anda işlem tamamlanamadı. Lütfen tekrar deneyin.";
+  return ({ promotion_operation_unresolved: "Önceki işlem henüz doğrulanamadı. Aynı bilgilerle tekrar deneyin veya sayfayı yenileyerek sonucu kontrol edin.", invalid_input: "Girdiğiniz bilgileri kontrol edip tekrar deneyin.", unauthenticated: "Oturumunuz sona erdi. Yeniden giriş yapın.", membership_denied: "Bu işlem için yetkiniz yok.", store_inactive: "Mağaza etkin olmadığı için işlem yapılamıyor.", feature_not_enabled: "Kampanyalar bu paket için etkin değil.", origin_denied: "Bu işlem yalnız güvenli mağaza panelinden yapılabilir.", not_found: "Kampanya bulunamadı.", deletion_blocked: "Devam eden ödeme veya etkin popup / sepet yakalama bağlantısı var. Bağlantıları kontrol edip tekrar deneyin.", version_conflict: "Bu kampanya başka bir değişiklikle güncellendi. Sayfayı yenileyip tekrar deneyin.", operation_mismatch: "Önceki işlemle uyuşmayan bir tekrar algılandı. Sayfayı yenileyin.", conflict: "Kampanya başka bir kampanyayla çakışıyor.", code_conflict: "Bu kupon kodu başka bir kampanyada kullanılıyor.", active_code_batches: "Önce etkin kupon gruplarını durdurun.", invalid_transition: "Kampanya bu durumdan seçilen duruma geçirilemez.", promotion_limit_reached: "Mağazanızın kampanya sınırına ulaşıldı.", publish_blocked: "Kampanya yayın için hazır değil.", invalid_reference: "Seçtiğiniz kayıt artık kullanılamıyor.", invalid_code: "Kupon kodu geçerli değil.", not_eligible: "Kampanya koşulları bu sepet için sağlanmıyor." } as Record<string, string>)[code] ?? "Şu anda işlem tamamlanamadı. Lütfen tekrar deneyin.";
 }
 
 export class PromotionApiClient {
@@ -170,6 +170,47 @@ export class PromotionApiClient {
   async detail(promotionId: string, signal?: AbortSignal): Promise<PromotionDetail> {
     const response = await this.fetcher(apiPath(`/api/promotions/${promotionId}`), { cache: "no-store", credentials: "same-origin", signal, headers: { accept: "application/json" } });
     const value = await body(response); if (!response.ok) throw new Error(statusErrorCode(response.status, value)); try { const parsed = parsePromotionDetail(value); if (parsed.id !== promotionId) throw new Error(); return parsed; } catch { throw new Error("promotion_unavailable"); }
+  }
+  pendingDeletion(promotionId: string): number | null {
+    const prefix = `POST:/api/promotions/${promotionId}/delete:`;
+    for (const [intent, entry] of this.durableOperations) {
+      if (entry.uncertain && intent.startsWith(prefix)) {
+        try { return parsePromotionVersionRequest(JSON.parse(intent.slice(prefix.length))).expectedVersion; } catch { return null; }
+      }
+    }
+    return null;
+  }
+  pendingDeletions(): readonly Readonly<{ id: string; version: number }>[] {
+    const results: { id: string; version: number }[] = [];
+    for (const [intent, entry] of this.durableOperations) {
+      const match = /^POST:\/api\/promotions\/([0-9a-f-]{36})\/delete:(.*)$/.exec(intent);
+      if (!entry.uncertain || !match) continue;
+      try { results.push({ id: match[1]!, version: parsePromotionVersionRequest(JSON.parse(match[2]!)).expectedVersion }); } catch { /* an invalid stored request cannot be retried */ }
+    }
+    return Object.freeze(results.map(value => Object.freeze(value)));
+  }
+  async deletionImpact(promotionId: string, signal?: AbortSignal): Promise<PromotionDeletionImpact> {
+    const response = await this.fetcher(apiPath(`/api/promotions/${promotionId}/delete-impact`), { cache: "no-store", credentials: "same-origin", signal, headers: { accept: "application/json" } });
+    const value = await body(response); if (!response.ok) throw new Error(statusErrorCode(response.status, value));
+    try { const parsed = parsePromotionDeletionImpact(value); if (parsed.id !== promotionId) throw new Error(); return parsed; } catch { throw new Error("promotion_unavailable"); }
+  }
+  async delete(promotionId: string, expectedVersion: number): Promise<PromotionDeletionEnvelope> {
+    const payload = parsePromotionVersionRequest({ expectedVersion }), path = `/api/promotions/${promotionId}/delete`, requestBody = JSON.stringify(payload);
+    const intent = durableIntent("POST", path, requestBody), operation = this.beginDurable(intent);
+    let response: Response;
+    try { response = await this.fetcher(apiPath(path), { method: "POST", cache: "no-store", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json", "idempotency-key": operation }, body: requestBody }); }
+    catch (error) { this.settleDurable(intent, true); throw error; }
+    const value = await body(response);
+    if (!response.ok) {
+      const code = response.status === 409 ? conflictCode(response.status, value, ["operation_mismatch", "version_conflict", "deletion_blocked"]) : statusErrorCode(response.status, value);
+      if (code === "version_conflict") {
+        try { const current = parsePromotionDetail((value as { current?: unknown }).current); if (current.id !== promotionId || current.version <= expectedVersion) throw new Error(); }
+        catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); }
+      }
+      this.settleDurable(intent, response.status >= 500 || code === "promotion_unavailable"); throw new Error(code);
+    }
+    try { const parsed = parsePromotionDeletionEnvelope(value); if (response.status !== 200 || parsed.id !== promotionId) throw new Error(); this.settleDurable(intent, false); return parsed; }
+    catch { this.settleDurable(intent, true); throw new Error("promotion_unavailable"); }
   }
   async analytics(promotionId: string, days: 7 | 30 | 90, signal?: AbortSignal): Promise<PromotionAnalyticsDetailResult> {
     const query = parsePromotionAnalyticsQuery({ days });

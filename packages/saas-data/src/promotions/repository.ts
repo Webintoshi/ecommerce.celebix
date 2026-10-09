@@ -13,8 +13,12 @@ import {
   parsePromotionPickerList,
   parsePromotionPickerResolve,
   parsePromotionOverviewResult,
+  parsePromotionDeletionImpact,
+  parsePromotionDeletionEnvelope,
   parsePromotionSimulatorResponse,
   type PromotionDetail,
+  type PromotionDeletionImpact,
+  type PromotionDeletionEnvelope,
   type PromotionLegacyProjection,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -25,6 +29,8 @@ import { equalPromotionProjection, promotionCursorBinding, promotionFingerprint,
 import { promotionFailure, promotionRepositoryErrorCode, type PromotionRepositoryErrorCode } from "./errors.ts";
 import type {
   ArchivePromotionInput,
+  GetPromotionInput,
+  PromotionOperationInput,
   CheckPromotionInput,
   CreatePromotionCodeBatchInput,
   CreatePromotionInput,
@@ -106,6 +112,9 @@ const SQL = Object.freeze({
   legacy: "SELECT outcome,result_payload FROM saas.promotion_legacy_list_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::integer,$9::timestamptz,$10::timestamptz,$11::uuid)",
   legacyResolve: "SELECT outcome,result_payload FROM saas.promotion_legacy_resolve_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   recover: "SELECT outcome,result_payload FROM saas.promotion_recover_operation_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::text)",
+  deletionImpact: "SELECT outcome,result_payload FROM saas.promotion_delete_impact_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
+  delete: "SELECT outcome,result_payload FROM saas.promotion_delete_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
+  deleteRecover: "SELECT outcome,result_payload FROM saas.promotion_delete_recover_v1($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
 });
 
 const AUTHORITY_FAILURES = Object.freeze([
@@ -321,14 +330,14 @@ export class PostgresPromotionRepository implements PromotionRepository {
   private parseDetail(value: unknown): PromotionDetail {
     try { return parsePromotionDetail(value); } catch { throw unavailable(); }
   }
-  private async recover<T>(authority: ValidatedOrderAuthority, operationId: string, kind: PromotionOperationKind, fingerprint: string, observed: T, parser: (value: unknown) => T): Promise<T> {
-    return this.transact("write", SQL.recover, [...authorityValues(authority), operationId, kind, fingerprint], ["operation_replayed"], (value) => {
+  private async recover<T>(authority: ValidatedOrderAuthority, operationId: string, kind: PromotionOperationKind | "delete", fingerprint: string, observed: T, parser: (value: unknown) => T): Promise<T> {
+    return this.transact("write", kind === "delete" ? SQL.deleteRecover : SQL.recover, [...authorityValues(authority), operationId, ...(kind === "delete" ? [] : [kind]), fingerprint], ["operation_replayed"], (value) => {
       const parsed = parser(value);
       if (!equalPromotionProjection(parsed, observed)) throw unavailable();
       return parsed;
     }, RECOVERY_FAILURES, undefined, true);
   }
-  private async mutate<T>(authority: ValidatedOrderAuthority, operationId: string, kind: PromotionOperationKind, fingerprint: string, textValue: string, values: unknown[], success: string, parser: (value: unknown, replayed: boolean) => T, allowedFailures: readonly string[], failureParser?: FailureParser): Promise<Readonly<{ value: T; replayed: boolean }>> {
+  private async mutate<T>(authority: ValidatedOrderAuthority, operationId: string, kind: PromotionOperationKind | "delete", fingerprint: string, textValue: string, values: unknown[], success: string, parser: (value: unknown, replayed: boolean) => T, allowedFailures: readonly string[], failureParser?: FailureParser): Promise<Readonly<{ value: T; replayed: boolean }>> {
     const client = await this.acquire(); let began = false, terminal = false;
     try {
       await this.query(client, "BEGIN ISOLATION LEVEL READ COMMITTED"); began = true;
@@ -473,6 +482,29 @@ export class PostgresPromotionRepository implements PromotionRepository {
   pause(input: PausePromotionInput): Promise<PromotionMutationResult> { return this.lifecycle(input, "paused"); }
   resume(input: ResumePromotionInput): Promise<PromotionMutationResult> { return this.lifecycle(input, null); }
   archive(input: ArchivePromotionInput): Promise<PromotionMutationResult> { return this.lifecycle(input, "archived"); }
+
+  async deletionImpact(input: GetPromotionInput): Promise<PromotionDeletionImpact> {
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "promotionId"], [], "archive");
+    const id = promotionUuid(raw.promotionId);
+    return this.read(SQL.deletionImpact, [...authorityValues(authority), id], "found", (value) => {
+      const parsed = parsePromotionDeletionImpact(value);
+      if (parsed.id !== id) throw unavailable();
+      return parsed;
+    }, acceptedFailures("not_found"));
+  }
+
+  async delete(input: PromotionOperationInput): Promise<PromotionDeletionEnvelope> {
+    const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion"], [], "archive");
+    const operationId = promotionUuid(raw.operationId), id = promotionUuid(raw.promotionId), expectedVersion = promotionVersion(raw.expectedVersion);
+    const fingerprint = promotionFingerprint("delete", authority.storeId, { id, expectedVersion });
+    const result = await this.mutate(authority, operationId, "delete", fingerprint, SQL.delete, [...authorityValues(authority), operationId, fingerprint, id, expectedVersion], "deleted", (value) => {
+      const receipt = exactObject(value, ["id", "deletedAt"]);
+      const parsed = parsePromotionDeletionEnvelope({ ...receipt, replayed: false });
+      if (parsed.id !== id || parsed.deletedAt > authority.now.toISOString()) throw unavailable();
+      return Object.freeze({ id: parsed.id, deletedAt: parsed.deletedAt });
+    }, acceptedFailures("operation_mismatch", "operation_result_invalid", "not_found", "version_conflict", "deletion_blocked"), (outcome, value) => this.detailFailure(id, outcome, value));
+    return Object.freeze({ ...result.value, replayed: result.replayed });
+  }
 
   async duplicate(input: DuplicatePromotionInput): Promise<PromotionMutationResult> {
     const { input: raw, authority } = this.validated(input, ["tenantContext", "now", "operationId", "promotionId", "expectedVersion", "name", "codes"], [], "manage_draft");
