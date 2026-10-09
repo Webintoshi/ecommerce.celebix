@@ -14,6 +14,7 @@ export function CustomerFormConsole() {
   const router = useRouter(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [emailConsent, setEmailConsent] = useState(false),
     [fieldErrors, setFieldErrors] = useState<
       Partial<Record<CustomerFormField, string>>
     >({});
@@ -91,6 +92,7 @@ export function CustomerFormConsole() {
           {
             channel: "email",
             status: f.get("emailConsent") === "on" ? "granted" : "denied",
+            ...(email && f.get("emailConsent") === "on" ? { targetEmail: email } : {}),
           },
           {
             channel: "phone",
@@ -180,7 +182,7 @@ export function CustomerFormConsole() {
                 maxLength={320}
                 aria-invalid={fieldErrors.email ? "true" : undefined}
                 aria-describedby="create-customer-email-help"
-                onChange={() => clearFieldError("email")}
+                onChange={() => { clearFieldError("email"); setEmailConsent(false); }}
               />
               <small
                 id="create-customer-email-help"
@@ -279,7 +281,7 @@ export function CustomerFormConsole() {
           </header>
           <div className={styles.createCustomerConsents}>
             <label className={styles.createCustomerConsent}>
-              <input name="emailConsent" type="checkbox" />
+              <input name="emailConsent" type="checkbox" checked={emailConsent} onChange={(event) => setEmailConsent(event.target.checked)} />
               <span><strong>E-posta</strong><small>E-posta iletişimine izin ver</small></span>
             </label>
             <label className={styles.createCustomerConsent}>

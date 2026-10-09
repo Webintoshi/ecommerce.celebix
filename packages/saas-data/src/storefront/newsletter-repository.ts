@@ -66,7 +66,7 @@ export class PostgresNewsletterRepository implements NewsletterRepository {
   async subscribe(input: Parameters<NewsletterRepository["subscribe"]>[0]): Promise<NewsletterSubscriptionResult> {
     const parsed = exact(input, ["hostname", "now", "email", "consentVersion"]);
     const values = [hostname(parsed.hostname), date(parsed.now), email(parsed.email), consentVersion(parsed.consentVersion)];
-    const result = await this.execute("SELECT outcome,result_payload FROM saas.public_newsletter_subscribe($1::text,$2::timestamptz,$3::text,$4::text)", values, this.options.publicRole, false);
+    const result = await this.execute("SELECT outcome,result_payload FROM saas.email_marketing_newsletter_subscribe($1::text,$2::timestamptz,$3::text,$4::text)", values, this.options.publicRole, false);
     if (result.outcome !== "subscribed" || !result.payload || typeof result.payload !== "object" || Array.isArray(result.payload) || Object.keys(result.payload).join(",") !== "outcome" || (result.payload as { outcome?: unknown }).outcome !== "subscribed") throw failure("unavailable");
     return Object.freeze({ outcome: "subscribed" });
   }

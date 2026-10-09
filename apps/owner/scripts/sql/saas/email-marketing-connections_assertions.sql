@@ -1,7 +1,7 @@
 -- Disposable PostgreSQL16 only. Native synthetic fixture rolls back.
 BEGIN;
 DO $proof$
-DECLARE t text;sig regprocedure;plan record;r record;s record;payload jsonb;token text;c_id uuid;before_rows bigint;operator_row record;support_member uuid:='22400000-0000-4000-8000-000000000033';support_session uuid:='22400000-0000-4000-8000-000000000032';
+DECLARE t text;sig regprocedure;plan record;r record;s record;payload jsonb;token text;c_id uuid;before_rows bigint;fixture_customer_id uuid:='22400000-0000-4000-8000-000000000080';page jsonb;cursor text;grant_time timestamptz:=clock_timestamp()-interval '1 hour';operator_row record;support_member uuid:='22400000-0000-4000-8000-000000000033';support_session uuid:='22400000-0000-4000-8000-000000000032';
  principal uuid:='22400000-0000-4000-8000-000000000001';store_a uuid:='22400000-0000-4000-8000-000000000002';store_b uuid:='22400000-0000-4000-8000-000000000003';member_a uuid:='22400000-0000-4000-8000-000000000004';member_b uuid:='22400000-0000-4000-8000-000000000005';moment timestamptz:=clock_timestamp();
  envelope jsonb:='{"algorithm":"A256GCM","version":1,"keyId":"fixture","iv":"aaaa","tag":"aaaa","ciphertext":"aaaa"}';
 BEGIN
@@ -11,7 +11,7 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid=('saas.'||t)::regclass AND relrowsecurity AND relforcerowsecurity) OR NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=('saas.'||t)::regclass AND tgname='platform_support_atomic_journal') THEN RAISE EXCEPTION 'EMAIL_TABLE_AUTHORITY:%',t;END IF;
  END LOOP;
  FOR sig IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname LIKE 'email_marketing_%' LOOP
-  IF has_function_privilege('public',sig,'EXECUTE') OR has_function_privilege('celebix_saas_host_resolver',sig,'EXECUTE') THEN RAISE EXCEPTION 'EMAIL_FUNCTION_LEAK:%',sig;END IF;
+  IF has_function_privilege('public',sig,'EXECUTE') OR (has_function_privilege('celebix_saas_host_resolver',sig,'EXECUTE') AND sig::text NOT LIKE 'saas.email_marketing_newsletter_subscribe(%' AND sig::text NOT LIKE 'saas.email_marketing_contact_capture(%') THEN RAISE EXCEPTION 'EMAIL_FUNCTION_LEAK:%',sig;END IF;
  END LOOP;
  SELECT p.id,p.plan_code,p.version INTO plan FROM saas.plans p JOIN saas.plan_features f ON f.plan_id=p.id AND f.feature_key='integrations' AND f.enabled WHERE p.status='active' AND p.valid_from<=moment AND(p.valid_until IS NULL OR p.valid_until>moment) ORDER BY p.version DESC LIMIT 1;
  IF plan.id IS NULL THEN RAISE EXCEPTION 'EMAIL_FIXTURE_PLAN_MISSING';END IF;
@@ -19,6 +19,7 @@ BEGIN
  INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES(store_a,'Email fixture A','email-fixture-a','active','tr','TRY','base',moment,moment),(store_b,'Email fixture B','email-fixture-b','active','tr','TRY','base',moment,moment);
  INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES(member_a,principal,store_a,'store_owner','active',moment,moment),(member_b,principal,store_b,'store_owner','active',moment,moment);
  INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at) VALUES('22400000-0000-4000-8000-000000000006',store_a,plan.id,plan.plan_code,plan.version,'active',moment-interval '1 day',moment,moment),('22400000-0000-4000-8000-000000000007',store_b,plan.id,plan.plan_code,plan.version,'active',moment-interval '1 day',moment,moment);
+ IF to_regprocedure('saas.email_marketing_customers_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,jsonb,jsonb)') IS NULL THEN RAISE EXCEPTION 'EMAIL_CONSENT_WRAPPER_MISSING';END IF;
  SELECT count(*) INTO before_rows FROM saas.email_marketing_operations;
  SELECT * INTO r FROM saas.email_marketing_command(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'overview','{}');
  IF r.outcome<>'found' OR r.result_payload->'connections'<>'[]'::jsonb OR (SELECT count(*) FROM saas.email_marketing_operations)<>before_rows THEN RAISE EXCEPTION 'EMAIL_OVERVIEW_MUTATED';END IF;
@@ -33,6 +34,51 @@ BEGIN
  SELECT * INTO r FROM saas.email_marketing_command(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'claim',payload);IF r.outcome<>'replayed' OR r.result_payload?'credential' OR(SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=c_id AND kind='bootstrap')<>1 THEN RAISE EXCEPTION 'EMAIL_APPLY_DUPLICATED';END IF;
  SELECT * INTO s FROM saas.email_marketing_command(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'checkpoint',jsonb_build_object('operationId',payload->>'operationId','leaseToken',token,'progress','{}'::jsonb));IF s.outcome<>'operation_conflict' THEN RAISE EXCEPTION 'EMAIL_COMPLETE_EVIDENCE_MUTABLE:%',s.outcome;END IF;
  SELECT * INTO r FROM saas.email_marketing_command(store_b,principal,member_b,plan.id,plan.plan_code,plan.version,moment,'claim',payload);IF r.outcome<>'operation_conflict' THEN RAISE EXCEPTION 'EMAIL_OPERATION_CROSS_STORE';END IF;
+ -- Native source + consent/outbox atomically, including the old-client address-change case.
+ SELECT * INTO r FROM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,grant_time,'22400000-0000-4000-8000-000000000081',repeat('1',64),fixture_customer_id,NULL,'Ada','Test','old@example.test',NULL,'[]','[{"channel":"email","status":"granted","targetEmail":"old@example.test"}]');
+ IF r.outcome<>'committed' OR NOT EXISTS(SELECT 1 FROM saas.email_marketing_audience WHERE store_id=store_a AND email='old@example.test' AND kind='grant' AND consented_at=grant_time) THEN RAISE EXCEPTION 'EMAIL_CUSTOMER_GRANT:%',r.outcome;END IF;
+ SELECT count(*) INTO before_rows FROM saas.email_marketing_consent_events WHERE store_id=store_a;
+ SELECT * INTO r FROM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'22400000-0000-4000-8000-000000000082',repeat('2',64),fixture_customer_id,1,'Ada','Edited','old@example.test',NULL,'[]','[{"channel":"email","status":"granted","targetEmail":"old@example.test"}]');
+ IF r.outcome<>'committed' OR (SELECT recorded_at FROM saas.customer_consents WHERE store_id=store_a AND customer_id='22400000-0000-4000-8000-000000000080' AND channel='email')<>grant_time OR (SELECT count(*) FROM saas.email_marketing_consent_events WHERE store_id=store_a)<>before_rows THEN RAISE EXCEPTION 'EMAIL_GENERIC_EDIT_RECONSENT:%',r.outcome;END IF;
+ SELECT * INTO r FROM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'22400000-0000-4000-8000-000000000083',repeat('3',64),fixture_customer_id,2,'Ada','Edited','new@example.test',NULL,'[]','[{"channel":"email","status":"granted"}]');
+ IF r.outcome<>'committed' OR EXISTS(SELECT 1 FROM saas.email_marketing_audience WHERE store_id=store_a AND email='new@example.test') OR (SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=c_id AND email='old@example.test' AND kind='remove_membership')<>1 OR EXISTS(SELECT 1 FROM saas.email_marketing_sync_jobs WHERE connection_id=c_id AND email='new@example.test' AND kind IN('profile','subscribe')) THEN RAISE EXCEPTION 'EMAIL_OLD_CHECKBOX_TRANSFERRED:%',r.outcome;END IF;
+ SELECT count(*) INTO before_rows FROM saas.email_marketing_consent_events WHERE store_id=store_a;
+ SELECT * INTO r FROM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'22400000-0000-4000-8000-000000000083',repeat('3',64),fixture_customer_id,2,'Ada','Edited','new@example.test',NULL,'[]','[{"channel":"email","status":"granted"}]');
+ IF r.outcome<>'operation_replayed' OR (SELECT count(*) FROM saas.email_marketing_consent_events WHERE store_id=store_a)<>before_rows THEN RAISE EXCEPTION 'EMAIL_REPLAY_CREATED_CONSENT';END IF;
+ -- Failed native source intent creates neither new evidence nor a new customer version.
+ SELECT * INTO r FROM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'22400000-0000-4000-8000-000000000084',repeat('4',64),fixture_customer_id,2,'Ada','Wrong version','new@example.test',NULL,'[]','[{"channel":"email","status":"granted","targetEmail":"new@example.test"}]');
+ IF r.outcome<>'version_conflict' OR (SELECT count(*) FROM saas.email_marketing_consent_events WHERE store_id=store_a)<>before_rows THEN RAISE EXCEPTION 'EMAIL_FAILED_SOURCE_CREATED_GRANT';END IF;
+ -- Inject a failing outbox insert. The surrounding exception block must roll back
+ -- the source mutation too; no partial customer save survives the failure.
+ EXECUTE $ddl$CREATE FUNCTION pg_temp.email_fixture_outbox_failure() RETURNS trigger LANGUAGE plpgsql AS $fn$BEGIN RAISE EXCEPTION 'email_fixture_outbox_failure';END $fn$$ddl$;
+ EXECUTE 'CREATE TRIGGER email_fixture_outbox_failure BEFORE INSERT ON saas.email_marketing_consent_events FOR EACH ROW EXECUTE FUNCTION pg_temp.email_fixture_outbox_failure()';
+ BEGIN
+  PERFORM saas.email_marketing_customers_save(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'22400000-0000-4000-8000-000000000085',repeat('5',64),fixture_customer_id,3,'Ada','Atomic','fault@example.test',NULL,'[]','[{"channel":"email","status":"granted","targetEmail":"fault@example.test"}]');
+  RAISE EXCEPTION 'EMAIL_OUTBOX_FAILURE_IGNORED';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'email_fixture_outbox_failure' THEN RAISE;END IF;END;
+ EXECUTE 'DROP TRIGGER email_fixture_outbox_failure ON saas.email_marketing_consent_events';EXECUTE 'DROP FUNCTION pg_temp.email_fixture_outbox_failure()';
+ IF EXISTS(SELECT 1 FROM saas.customer_operations WHERE operation_id='22400000-0000-4000-8000-000000000085') OR NOT EXISTS(SELECT 1 FROM saas.customers WHERE id=fixture_customer_id AND email='new@example.test' AND version=3) THEN RAISE EXCEPTION 'EMAIL_SOURCE_WITHOUT_ATOMIC_OUTBOX';END IF;
+ INSERT INTO saas.email_marketing_contacts(store_id,connection_id,email,profile_id) VALUES(store_a,c_id,'new@example.test','mapped-profile');
+ IF NOT saas.email_marketing_provider_denial(c_id,'provider-ret-1','new@example.test','mapped-profile','unsubscribe',moment) OR saas.email_marketing_provider_denial(c_id,'provider-ret-1','new@example.test','mapped-profile','unsubscribe',moment) OR saas.email_marketing_provider_denial(c_id,'unknown-profile','stranger@example.test','stranger','unsubscribe',moment) THEN RAISE EXCEPTION 'EMAIL_PROVIDER_DENIAL_SCOPE_OR_REPLAY';END IF;
+ IF (SELECT status FROM saas.customer_consents WHERE store_id=store_a AND customer_id=fixture_customer_id AND channel='email')<>'granted' THEN RAISE EXCEPTION 'EMAIL_PROVIDER_DENIAL_CHANGED_CUSTOMER_CHANNEL';END IF;
+ SELECT * INTO r FROM saas.email_marketing_customers_archive(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment+interval '1 millisecond','22400000-0000-4000-8000-000000000086',repeat('6',64),fixture_customer_id,3);
+ IF r.outcome<>'committed' OR (SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE connection_id=c_id AND email='new@example.test' AND kind='remove_membership')<>1 THEN RAISE EXCEPTION 'EMAIL_ARCHIVE_MEMBERSHIP_CLEANUP';END IF;
+ SELECT count(*) INTO before_rows FROM saas.email_marketing_consent_events WHERE store_id=store_a;
+ SELECT * INTO r FROM saas.email_marketing_customers_archive(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment+interval '1 millisecond','22400000-0000-4000-8000-000000000086',repeat('6',64),fixture_customer_id,3);
+ IF r.outcome<>'operation_replayed' OR (SELECT count(*) FROM saas.email_marketing_consent_events WHERE store_id=store_a)<>before_rows THEN RAISE EXCEPTION 'EMAIL_ARCHIVE_REPLAY_DUPLICATED';END IF;
+ -- Historical source imports cannot outrank a later provider denial.
+ PERFORM saas.email_marketing_append_event(store_a,'denied@example.test','deny','provider','denial','1',moment,NULL,NULL);
+ PERFORM saas.email_marketing_append_event(store_a,'denied@example.test','grant','newsletter','old-proof','1',grant_time,grant_time,'newsletter-v1');
+ IF (SELECT kind FROM saas.email_marketing_audience WHERE store_id=store_a AND email='denied@example.test')<>'deny' THEN RAISE EXCEPTION 'EMAIL_LATE_GRANT_UNDID_DENIAL';END IF;
+ -- 205 existing proof-bearing newsletter records are paged without the old 200 cap.
+ INSERT INTO saas.storefront_newsletter_subscribers(store_id,email_digest,normalized_email,status,consent_version,consented_at,version,created_at,updated_at)
+ SELECT store_a,encode(sha256(convert_to('page-'||lpad(n::text,3,'0')||'@example.test','UTF8')),'hex'),'page-'||lpad(n::text,3,'0')||'@example.test','subscribed','newsletter-v1',moment,1,moment,moment FROM generate_series(1,205) n;
+ page:=saas.email_marketing_audience_page(store_a,c_id,'page-',100);IF jsonb_array_length(page->'items')<>100 THEN RAISE EXCEPTION 'EMAIL_PAGE_FIRST';END IF;cursor:=page->'items'->99->>'email';
+ page:=saas.email_marketing_audience_page(store_a,c_id,cursor,100);IF jsonb_array_length(page->'items')<>100 THEN RAISE EXCEPTION 'EMAIL_PAGE_SECOND';END IF;cursor:=page->'items'->99->>'email';
+ page:=saas.email_marketing_audience_page(store_a,c_id,cursor,100);IF jsonb_array_length(page->'items')<>5 THEN RAISE EXCEPTION 'EMAIL_PAGE_THIRD';END IF;
+ SELECT count(*) INTO before_rows FROM saas.email_marketing_consent_events;
+ SELECT * INTO r FROM saas.email_marketing_newsletter_subscribe('unknown-email-fixture.example.test',moment,'anonymous@example.test','newsletter-v1');
+ IF r.outcome<>'subscribed' OR (SELECT count(*) FROM saas.email_marketing_consent_events)<>before_rows THEN RAISE EXCEPTION 'EMAIL_ANTI_ENUMERATION_CREATED_PROOF';END IF;
  -- A consumed candidate cannot be used for another operation, including rotation.
  SELECT * INTO r FROM saas.email_marketing_command(store_a,principal,member_a,plan.id,plan.plan_code,plan.version,moment,'claim',payload||jsonb_build_object('kind','rotate','operationId','22400000-0000-4000-8000-000000000020','expectedVersion',1));
  IF r.outcome<>'candidate_expired' THEN RAISE EXCEPTION 'EMAIL_CANDIDATE_REUSED:%',r.outcome;END IF;

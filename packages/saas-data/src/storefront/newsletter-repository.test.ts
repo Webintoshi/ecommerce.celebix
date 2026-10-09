@@ -37,7 +37,7 @@ function fixture() {
   const client = {
     async query(text: string, values: unknown[] = []) {
       calls.push({ text, values });
-      if (text.includes("saas.public_newsletter_subscribe")) return { rows: [{ outcome: "subscribed", result_payload: { outcome: "subscribed" } }] };
+      if (text.includes("saas.email_marketing_newsletter_subscribe")) return { rows: [{ outcome: "subscribed", result_payload: { outcome: "subscribed" } }] };
       if (text.includes("saas.merchant_newsletter_list")) return { rows: [{ outcome: "listed", result_payload: { items: [{ email: "ada@example.test", status: "subscribed", consentVersion: "starter-v1", consentedAt: "2026-08-02T09:00:00.000Z" }] } }] };
       return { rows: [] };
     },
@@ -59,7 +59,7 @@ test("newsletter subscription sends only hostname-derived store input and fixed 
   const selected = fixture();
   const result = await selected.repository.subscribe({ hostname: "shop.example.test", now: NOW, email: "Ada@Example.Test", consentVersion: "starter-v1" });
   assert.deepEqual(result, { outcome: "subscribed" });
-  const call = selected.calls.find(({ text }) => text.includes("saas.public_newsletter_subscribe"));
+  const call = selected.calls.find(({ text }) => text.includes("saas.email_marketing_newsletter_subscribe"));
   assert.ok(call);
   assert.deepEqual(call.values, ["shop.example.test", NOW, "Ada@Example.Test", "starter-v1"]);
   assert.equal(selected.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_host_resolver"), true);

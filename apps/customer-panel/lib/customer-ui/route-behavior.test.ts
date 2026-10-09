@@ -760,6 +760,12 @@ test("customer route matrix invokes actual list detail edit and new pages throug
       let view = await hooks.flush(render);
       assert.ok(paths.includes(`/api/customers/${CUSTOMER_ID}`), `${mode}:exact-edit-read-handler`);
       assert.ok(repositoryCalls.includes(`get:${CUSTOMER_ID}`), `${mode}:exact-edit-read-repository`);
+      const emailInput = findElement(view, (element) => element.props.name === "email");
+      const grantBox = findElement(view, (element) => element.props.name === "emailConsent");
+      assert.equal(grantBox.props.checked, true);
+      (emailInput.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "changed@example.test" } });
+      view = await hooks.flush(render);
+      assert.equal(findElement(view, (element) => element.props.name === "emailConsent").props.checked, false, "new address must not inherit permission");
       const form = findElement(view, (element) => element.type === "form");
       await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>> } }) => Promise<void>)({
         preventDefault() {},

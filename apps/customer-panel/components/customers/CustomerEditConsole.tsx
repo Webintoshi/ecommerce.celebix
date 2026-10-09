@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerDetail } from "@celebix/saas-contracts";
 import type { CustomerAddressInput } from "@celebix/saas-data";
@@ -50,6 +50,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
   const [addresses, setAddresses] = useState<readonly CustomerAddressInput[]>(() => initialCustomer ? customerAddresses(initialCustomer) : []);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
+  const [emailConsent, setEmailConsent] = useState(() => initialCustomer?.consents.some((c) => c.channel === "email" && c.status === "granted") ?? false);
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -64,6 +65,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
       if (requestSequence.current === sequence && result.id === customerId) {
         setCustomer(result);
         setAddresses(customerAddresses(result));
+        setEmailConsent(result.consents.some((c) => c.channel === "email" && c.status === "granted"));
       }
     } catch (caught) {
       if (requestSequence.current === sequence) setError(message(caught));
@@ -116,6 +118,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
     const formConsents = (["email", "phone", "whatsapp"] as const).map((channel) => ({
       channel,
       status: form.get(`${channel}Consent`) === "on" ? "granted" as const : "denied" as const,
+      ...(channel === "email" && email && form.get("emailConsent") === "on" ? { targetEmail: email } : {}),
     }));
     setBusy(true);
     setError("");
@@ -151,7 +154,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
           <div className={styles.grid}>
             <label>Ad<input name="firstName" autoComplete="given-name" defaultValue={customer.firstName} required maxLength={100} /></label>
             <label>Soyad<input name="lastName" autoComplete="family-name" defaultValue={customer.lastName} required maxLength={100} /></label>
-            <label>E-posta<input name="email" type="email" autoComplete="email" defaultValue={customer.email ?? ""} maxLength={320} /></label>
+            <label>E-posta<input name="email" type="email" autoComplete="email" defaultValue={customer.email ?? ""} maxLength={320} onChange={(event) => { if (event.target.value.trim().toLowerCase() !== customer.email) setEmailConsent(false); }} /></label>
             <label>Telefon<input name="phone" type="tel" autoComplete="tel" defaultValue={customer.phone ?? ""} maxLength={16} /></label>
           </div>
         </section>
@@ -184,7 +187,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
 
         <section className={styles.section} aria-labelledby="customer-edit-consent-title">
           <div className={styles.sectionHeader}><div><h2 id="customer-edit-consent-title">İletişim izinleri</h2><p>Yalnız müşterinin izin verdiği kanalları seçin.</p></div></div>
-          <div className={styles.checks}>{(["email", "phone", "whatsapp"] as const).map((channel) => <label className={styles.check} key={channel}><input name={`${channel}Consent`} type="checkbox" defaultChecked={customer.consents.some((consent) => consent.channel === channel && consent.status === "granted")} />{channel === "email" ? "E-posta" : channel === "phone" ? "Telefon" : "WhatsApp"}</label>)}</div>
+          <div className={styles.checks}>{(["email", "phone", "whatsapp"] as const).map((channel) => <label className={styles.check} key={channel}><input name={`${channel}Consent`} type="checkbox" {...(channel === "email" ? { checked: emailConsent, onChange: (event: ChangeEvent<HTMLInputElement>) => setEmailConsent(event.target.checked) } : { defaultChecked: customer.consents.some((consent) => consent.channel === channel && consent.status === "granted") })} />{channel === "email" ? "E-posta" : channel === "phone" ? "Telefon" : "WhatsApp"}</label>)}</div>
         </section>
         <footer className={styles.actions}><Link className={styles.button} href={`/customers/${encodeURIComponent(customer.id)}`}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}</button></footer>
       </form>

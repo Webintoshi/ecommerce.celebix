@@ -94,7 +94,7 @@ BEGIN
   SELECT * INTO candidate FROM saas.email_marketing_candidates WHERE id=(p_input->>'candidateId')::uuid AND store_id=p_store AND principal_id=p_principal AND membership_id=p_membership AND session_hash=p_input->>'sessionHash';
   IF NOT FOUND OR candidate.consumed_at IS NOT NULL OR candidate.expires_at<=moment OR candidate.account_id IS NULL THEN RETURN QUERY SELECT 'candidate_expired',NULL::jsonb;RETURN;END IF;
   IF p_action='candidate' THEN RETURN QUERY SELECT 'found',jsonb_build_object('candidate',saas.email_marketing_candidate_projection(p_store,candidate.id),'credential',candidate.credential,'credentialVersion',candidate.credential_version,'lists',candidate.lists);RETURN;END IF;
-  IF p_action='preview' THEN RETURN QUERY SELECT 'found',jsonb_build_object('eligible',(SELECT count(*) FROM saas.email_marketing_audience WHERE store_id=p_store AND kind='grant' AND (candidate.provider<>'brevo' OR consented_at>=moment-interval '2 years')),'denied',(SELECT count(*) FROM saas.email_marketing_audience WHERE store_id=p_store AND kind='deny'),'missingEvidence',0,'needsRenewal',(SELECT count(*) FROM saas.email_marketing_audience WHERE store_id=p_store AND kind='grant' AND candidate.provider='brevo' AND consented_at<moment-interval '2 years'),'providerBlocked',NULL,'unchecked',(SELECT count(*) FROM saas.email_marketing_audience WHERE store_id=p_store AND kind='grant'),'overLimit',NULL,'providerCheckedAt',NULL);RETURN;END IF;
+  IF p_action='preview' THEN RETURN QUERY SELECT 'found',saas.email_marketing_preview(p_store,candidate.provider,moment);RETURN;END IF;
   -- Only validated server results are persisted by the lists checkpoint command.
   RETURN QUERY SELECT 'found',candidate.lists;RETURN;
  END IF;
@@ -168,10 +168,130 @@ BEGIN
 EXCEPTION WHEN unique_violation THEN RETURN QUERY SELECT 'account_in_use',NULL::jsonb;
  WHEN invalid_text_representation OR check_violation OR not_null_violation THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;
 END $f$;
+-- Append proof and the outbound intent in one transaction with the source.
+CREATE OR REPLACE FUNCTION saas.email_marketing_append_event(p_store uuid,p_email text,p_kind text,p_source text,p_source_id text,p_source_version text,p_recorded timestamptz,p_consented timestamptz,p_evidence text,p_first text DEFAULT NULL,p_last text DEFAULT NULL)
+RETURNS bigint LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE seq bigint;old_event saas.email_marketing_consent_events;effective timestamptz;previous_time timestamptz;
+BEGIN
+ IF p_email IS NULL OR length(p_email)>254 THEN RETURN NULL;END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('email.consent:'||p_store::text||':'||p_email,0));
+ INSERT INTO saas.email_marketing_consent_events(store_id,email,kind,source,source_id,source_version,recorded_at,consented_at,evidence_version)
+ VALUES(p_store,p_email,p_kind,p_source,p_source_id,p_source_version,p_recorded,p_consented,p_evidence)
+ ON CONFLICT(store_id,source,source_id,source_version,email,kind) DO NOTHING RETURNING id INTO seq;
+ IF seq IS NULL THEN RETURN NULL;END IF;
+ SELECT e.* INTO old_event FROM saas.email_marketing_audience a JOIN saas.email_marketing_consent_events e ON e.id=a.sequence WHERE a.store_id=p_store AND a.email=p_email FOR UPDATE OF a;
+ effective:=CASE WHEN p_kind='grant' THEN p_consented ELSE p_recorded END;
+ previous_time:=CASE WHEN old_event.kind='grant' THEN old_event.consented_at ELSE old_event.recorded_at END;
+ IF old_event.id IS NOT NULL AND (effective<previous_time OR effective=previous_time AND ((p_kind='grant' AND old_event.kind<>'grant') OR (old_event.kind='deny' AND p_kind<>'deny'))) THEN RETURN seq;END IF;
+ INSERT INTO saas.email_marketing_audience(store_id,email,sequence,kind,source,source_id,consented_at,evidence_version,first_name,last_name)
+ VALUES(p_store,p_email,seq,p_kind,p_source,p_source_id,p_consented,p_evidence,p_first,p_last)
+ ON CONFLICT(store_id,email) DO UPDATE SET sequence=EXCLUDED.sequence,kind=EXCLUDED.kind,source=EXCLUDED.source,source_id=EXCLUDED.source_id,consented_at=EXCLUDED.consented_at,evidence_version=EXCLUDED.evidence_version,first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name;
+ INSERT INTO saas.email_marketing_sync_jobs(store_id,connection_id,generation,credential_version,email,consent_version,kind)
+ SELECT p_store,c.id,c.generation,c.credential_version,p_email,seq,CASE WHEN p_kind='grant' THEN 'profile' WHEN p_kind='deny' THEN 'unsubscribe' ELSE 'remove_membership' END
+ FROM saas.email_marketing_connections c WHERE c.store_id=p_store AND c.status<>'disconnected' AND(p_kind<>'grant' OR c.status='connected') ON CONFLICT DO NOTHING;
+ RETURN seq;
+END $f$;
+
+CREATE OR REPLACE FUNCTION saas.email_marketing_customer_after(p_store uuid,p_customer uuid,p_old_email text,p_old_status text,p_old_recorded timestamptz,p_attested text,p_moment timestamptz)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE c saas.customers;consent saas.customer_consents;
+BEGIN
+ SELECT * INTO c FROM saas.customers WHERE store_id=p_store AND id=p_customer;
+ SELECT * INTO consent FROM saas.customer_consents WHERE store_id=p_store AND customer_id=p_customer AND channel='email';
+ IF p_old_email IS NOT DISTINCT FROM c.email AND p_old_status IS NOT DISTINCT FROM consent.status AND p_old_recorded IS NOT NULL THEN
+  UPDATE saas.customer_consents SET recorded_at=p_old_recorded WHERE store_id=p_store AND customer_id=p_customer AND channel='email';
+ END IF;
+ IF p_old_email IS NOT NULL AND p_old_email IS DISTINCT FROM c.email THEN
+  PERFORM saas.email_marketing_append_event(p_store,p_old_email,'address_changed','customer',p_customer::text,c.version::text,p_moment,NULL,NULL);
+ END IF;
+ IF consent.status='denied' AND (p_old_status IS DISTINCT FROM 'denied' OR p_old_email IS DISTINCT FROM c.email) THEN
+  PERFORM saas.email_marketing_append_event(p_store,c.email,'deny','customer',p_customer::text,c.version::text,p_moment,NULL,NULL);
+ ELSIF consent.status='granted' AND p_attested=c.email AND (p_old_status IS DISTINCT FROM 'granted' OR p_old_email IS DISTINCT FROM c.email) THEN
+  PERFORM saas.email_marketing_append_event(p_store,c.email,'grant','customer',p_customer::text,c.version::text,p_moment,p_moment,'customer-email-v1',c.first_name,c.last_name);
+ END IF;
+END $f$;
+
+CREATE OR REPLACE FUNCTION saas.email_marketing_customers_save(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_customer_id uuid,p_expected_version bigint,p_first_name text,p_last_name text,p_email text,p_phone text,p_addresses jsonb,p_consents jsonb)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE old_email text;old_status text;old_recorded timestamptz;attested text;r record;
+BEGIN
+ IF jsonb_typeof(p_consents) IS DISTINCT FROM 'array' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_consents) x WHERE x?'targetEmail' AND(x->>'channel'<>'email' OR x->>'status'<>'granted' OR x->>'targetEmail' IS DISTINCT FROM p_email)) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+ SELECT x->>'targetEmail' INTO attested FROM jsonb_array_elements(p_consents) x WHERE x->>'channel'='email';
+ SELECT email INTO old_email FROM saas.customers WHERE store_id=p_store_id AND id=p_customer_id FOR UPDATE;
+ SELECT status,recorded_at INTO old_status,old_recorded FROM saas.customer_consents WHERE store_id=p_store_id AND customer_id=p_customer_id AND channel='email';
+ SELECT * INTO r FROM saas.customers_save(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,p_fingerprint,p_customer_id,p_expected_version,p_first_name,p_last_name,p_email,p_phone,p_addresses,p_consents);
+ IF r.outcome='committed' THEN PERFORM saas.email_marketing_customer_after(p_store_id,p_customer_id,old_email,old_status,old_recorded,attested,p_now);END IF;
+ RETURN QUERY SELECT r.outcome,r.result_payload;
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_customer_archived(p_store uuid,p_customer uuid,p_at timestamptz) RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE c saas.customers;BEGIN SELECT * INTO c FROM saas.customers WHERE store_id=p_store AND id=p_customer;PERFORM saas.email_marketing_append_event(p_store,c.email,'archive','customer',c.id::text,c.version::text,p_at,NULL,NULL);END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_customers_archive(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_customer_id uuid,p_expected_version bigint)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE r record;BEGIN
+ SELECT * INTO r FROM saas.customers_archive(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_operation_id,p_fingerprint,p_customer_id,p_expected_version);
+ IF r.outcome='committed' THEN PERFORM saas.email_marketing_customer_archived(p_store_id,p_customer_id,p_now);END IF;RETURN QUERY SELECT r.outcome,r.result_payload;
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_newsletter_subscribe(p_hostname text,p_now timestamptz,p_email text,p_consent_version text)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE r record;st uuid;n saas.storefront_newsletter_subscribers;BEGIN
+ SELECT * INTO r FROM saas.public_newsletter_subscribe(p_hostname,p_now,p_email,p_consent_version);
+ IF r.outcome='subscribed' THEN
+  st:=saas.store_policy_public_store(p_hostname,p_now);
+  SELECT * INTO n FROM saas.storefront_newsletter_subscribers WHERE store_id=st AND normalized_email=lower(p_email);
+  IF FOUND THEN PERFORM saas.email_marketing_append_event(st,n.normalized_email,CASE WHEN n.status='subscribed' THEN 'grant' ELSE 'deny' END,'newsletter',n.email_digest,n.version::text,CASE WHEN n.status='subscribed' THEN n.consented_at ELSE n.updated_at END,CASE WHEN n.status='subscribed' THEN n.consented_at END,n.consent_version);END IF;
+ END IF;RETURN QUERY SELECT r.outcome,r.result_payload;
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_contact_capture(p_hostname text,p_cart_digest text,p_now timestamptz,p_operation uuid,p_campaign uuid,p_email text,p_phone text,p_marketing_consent boolean,p_fingerprint text)
+RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE r record;st uuid;c saas.store_engagement_cart_contacts;BEGIN
+ SELECT * INTO r FROM saas.store_engagement_contact_capture(p_hostname,p_cart_digest,p_now,p_operation,p_campaign,p_email,p_phone,p_marketing_consent,p_fingerprint);
+ IF r.outcome='captured' THEN
+  st:=saas.store_policy_public_store(p_hostname,p_now);
+  SELECT contact.* INTO c FROM saas.store_engagement_capture_operations op JOIN saas.store_engagement_cart_contacts contact ON contact.store_id=op.store_id AND contact.source_cart_id=op.source_cart_id WHERE op.store_id=st AND op.operation_id=p_operation;
+  IF c.marketing_consent AND c.email IS NOT NULL AND c.marketing_label IS NOT NULL THEN PERFORM saas.email_marketing_append_event(st,c.email,'grant','cart_capture',c.source_cart_id::text,c.config_version::text,c.captured_at,c.captured_at,'cart-capture-'||c.config_version::text);END IF;
+ END IF;RETURN QUERY SELECT r.outcome,r.result_payload;
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_provider_denial(p_connection uuid,p_event_id text,p_email text,p_profile_id text,p_kind text,p_at timestamptz) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+DECLARE c saas.email_marketing_connections;inserted text;BEGIN
+ IF p_kind NOT IN('unsubscribe','suppressed') OR p_at IS NULL OR NOT isfinite(p_at) OR p_at>clock_timestamp()+interval '5 minutes' OR length(p_event_id) NOT BETWEEN 1 AND 1024 THEN RAISE EXCEPTION 'invalid_input';END IF;
+ SELECT * INTO c FROM saas.email_marketing_connections WHERE id=p_connection AND status<>'disconnected';
+ IF c.id IS NULL OR NOT EXISTS(SELECT 1 FROM saas.email_marketing_contacts WHERE connection_id=p_connection AND email=p_email AND (profile_id=p_profile_id OR profile_id IS NULL)) THEN RETURN false;END IF;
+ INSERT INTO saas.email_marketing_inbound_events(connection_id,store_id,event_id,event_at,email,profile_id,kind) VALUES(c.id,c.store_id,p_event_id,p_at,p_email,p_profile_id,p_kind) ON CONFLICT DO NOTHING RETURNING event_id INTO inserted;
+ IF inserted IS NULL THEN RETURN false;END IF;
+ PERFORM saas.email_marketing_append_event(c.store_id,p_email,'deny','provider',c.id::text,p_event_id,p_at,NULL,NULL);
+ RETURN true;
+END $f$;
+CREATE INDEX IF NOT EXISTS email_marketing_newsletter_cursor ON saas.storefront_newsletter_subscribers(store_id,normalized_email);
+CREATE INDEX IF NOT EXISTS email_marketing_capture_cursor ON saas.store_engagement_cart_contacts(store_id,email) WHERE marketing_consent;
+CREATE OR REPLACE VIEW saas.email_marketing_proven_audience AS
+ SELECT a.store_id,a.email,a.sequence,a.kind,a.source,a.source_id,e.source_version,e.recorded_at,
+ CASE WHEN a.kind='grant' THEN a.consented_at ELSE e.recorded_at END effective_at,a.consented_at,a.evidence_version,a.first_name,a.last_name
+ FROM saas.email_marketing_audience a JOIN saas.email_marketing_consent_events e ON e.id=a.sequence
+ UNION ALL
+ SELECT n.store_id,n.normalized_email,NULL::bigint,CASE WHEN n.status='subscribed' THEN 'grant' ELSE 'deny' END,'newsletter',n.email_digest,n.version::text,n.updated_at,
+ CASE WHEN n.status='subscribed' THEN n.consented_at ELSE n.updated_at END,n.consented_at,n.consent_version,NULL::text,NULL::text FROM saas.storefront_newsletter_subscribers n
+ UNION ALL
+ SELECT c.store_id,c.email,NULL::bigint,'grant','cart_capture',c.source_cart_id::text,c.config_version::text,c.captured_at,c.captured_at,c.captured_at,'cart-capture-'||c.config_version::text,NULL::text,NULL::text
+ FROM saas.store_engagement_cart_contacts c WHERE c.marketing_consent AND c.email IS NOT NULL AND c.marketing_label IS NOT NULL;
+REVOKE ALL ON saas.email_marketing_proven_audience FROM PUBLIC,celebix_saas_app,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_observability;
+CREATE OR REPLACE FUNCTION saas.email_marketing_audience_page(p_store uuid,p_connection uuid,p_cursor text,p_limit integer) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+BEGIN
+ IF p_limit NOT BETWEEN 1 AND 100 OR NOT EXISTS(SELECT 1 FROM saas.email_marketing_connections WHERE store_id=p_store AND id=p_connection AND status<>'disconnected') THEN RAISE EXCEPTION 'invalid_input';END IF;
+ RETURN jsonb_build_object('items',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY email) FROM (SELECT DISTINCT ON(email) * FROM saas.email_marketing_proven_audience WHERE store_id=p_store AND(p_cursor IS NULL OR email>p_cursor) ORDER BY email,effective_at DESC,(kind='deny') DESC,(kind<>'grant') DESC,sequence DESC NULLS LAST LIMIT p_limit) a),'[]'::jsonb));
+END $f$;
+CREATE OR REPLACE FUNCTION saas.email_marketing_preview(p_store uuid,p_provider text,p_now timestamptz) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
+ WITH audience AS (SELECT DISTINCT ON(email) * FROM saas.email_marketing_proven_audience WHERE store_id=p_store ORDER BY email,effective_at DESC,(kind='deny') DESC,(kind<>'grant') DESC,sequence DESC NULLS LAST)
+ SELECT jsonb_build_object('eligible',(SELECT count(*) FROM audience WHERE kind='grant' AND(p_provider<>'brevo' OR consented_at>=p_now-interval '2 years')),'denied',(SELECT count(*) FROM audience WHERE kind='deny'),'missingEvidence',(SELECT count(*) FROM saas.customers c JOIN saas.customer_consents x ON x.store_id=c.store_id AND x.customer_id=c.id AND x.channel='email' AND x.status='granted' WHERE c.store_id=p_store AND c.status='active' AND c.email IS NOT NULL AND NOT EXISTS(SELECT 1 FROM audience a WHERE a.email=c.email)), 'needsRenewal',(SELECT count(*) FROM audience WHERE kind='grant' AND p_provider='brevo' AND consented_at<p_now-interval '2 years'),'providerBlocked',NULL,'unchecked',(SELECT count(*) FROM audience WHERE kind='grant'),'overLimit',NULL,'providerCheckedAt',NULL)
+$f$;
 DO $acl$ DECLARE f regprocedure;BEGIN
- FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname IN('email_marketing_projection','email_marketing_candidate_projection','email_marketing_command') LOOP
+ FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname LIKE 'email_marketing_%' LOOP
  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,celebix_saas_app,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_observability',f);
  END LOOP;
  GRANT EXECUTE ON FUNCTION saas.email_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb) TO celebix_saas_app;
+ GRANT EXECUTE ON FUNCTION saas.email_marketing_customers_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,text,text,jsonb,jsonb),saas.email_marketing_customers_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint) TO celebix_saas_app;
+ GRANT EXECUTE ON FUNCTION saas.email_marketing_newsletter_subscribe(text,timestamptz,text,text),saas.email_marketing_contact_capture(text,text,timestamptz,uuid,uuid,text,text,boolean,text) TO celebix_saas_host_resolver;
+ GRANT EXECUTE ON FUNCTION saas.email_marketing_audience_page(uuid,uuid,text,integer) TO celebix_saas_workflow;
+ GRANT EXECUTE ON FUNCTION saas.email_marketing_provider_denial(uuid,text,text,text,text,timestamptz) TO celebix_saas_workflow;
 END $acl$;
 COMMIT;

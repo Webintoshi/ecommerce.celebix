@@ -5,7 +5,7 @@ export interface ListCustomersInput extends CustomerAuthorityInput{readonly page
 export interface ListCustomersResult{readonly items:readonly CustomerListItem[];readonly nextCursor?:string}
 export interface GetCustomerInput extends CustomerAuthorityInput{readonly customerId:string}
 export interface CustomerAddressInput{readonly id?:string;readonly label:string;readonly recipientName:string;readonly line1:string;readonly line2?:string;readonly city:string;readonly district?:string;readonly postalCode?:string;readonly country:string;readonly isDefault:boolean}
-export interface CustomerConsentInput{readonly channel:CustomerConsentChannel;readonly status:CustomerConsentStatus}
+export interface CustomerConsentInput{readonly channel:CustomerConsentChannel;readonly status:CustomerConsentStatus;readonly targetEmail?:string}
 export interface SaveCustomerInput extends CustomerAuthorityInput{readonly operationId:string;readonly customerId?:string;readonly expectedVersion?:number;readonly firstName:string;readonly lastName:string;readonly email?:string;readonly phone?:string;readonly addresses:readonly CustomerAddressInput[];readonly consents:readonly CustomerConsentInput[]}
 export interface ArchiveCustomerInput extends GetCustomerInput{readonly operationId:string;readonly expectedVersion:number}
 export interface AddCustomerNoteInput extends GetCustomerInput{readonly operationId:string;readonly text:string}
