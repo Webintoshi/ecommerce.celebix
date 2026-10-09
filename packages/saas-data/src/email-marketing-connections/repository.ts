@@ -1,0 +1,67 @@
+import {createHash,createHmac} from 'node:crypto';
+import {emailMarketingInteger,emailMarketingUuid,parseEmailMarketingProvider,parseEmailMarketingAccount,parseEmailMarketingList,parseEmailMarketingSelection,parseEmailMarketingConnection,parseEmailMarketingOverview,parseEmailMarketingAudiencePreview,type EmailMarketingList,type EmailMarketingProvider} from '@celebix/saas-contracts';
+import {acquirePostgresClient} from '../postgres/pool.ts';
+import {sealEmailMarketingCredential,openEmailMarketingCredential} from './credential-crypto.ts';
+import {EmailMarketingError,type EmailMarketingErrorCode} from './errors.ts';
+import type {EmailMarketingAuthorityInput,EmailMarketingCandidate,EmailMarketingConnectionRepository,PostgresEmailMarketingConnectionOptions,SealedEmailMarketingCredential} from './types.ts';
+function fingerprint(key:Uint8Array,value:unknown):string {return createHmac('sha256',key).update(JSON.stringify(value)).digest('hex');}
+function session(value:string):string {if(typeof value!=='string'||value.length<16||value.length>8192||/[\x00-\x20\x7f]/.test(value))throw new EmailMarketingError('invalid_input');return createHash('sha256').update(value).digest('hex');}
+function authority(a:EmailMarketingAuthorityInput):unknown[] {const t=a.tenantContext;if(!t||t.schemaVersion!==1||t.store.status!=='active'||t.membership.status!=='active'||t.entitlements.status!=='active'||!t.entitlements.features.includes('integrations')||!Number.isFinite(a.now.getTime()))throw new EmailMarketingError('forbidden');return [emailMarketingUuid(t.store.id),emailMarketingUuid(t.principal.id),emailMarketingUuid(t.membership.id),emailMarketingUuid(t.entitlements.planId),t.entitlements.planCode,emailMarketingInteger(t.entitlements.version,1),a.now.toISOString()];}
+// Private database projections never leave this module.
+type Payload=Record<string,any>;
+function candidate(value:Payload):EmailMarketingCandidate {return Object.freeze({candidateId:emailMarketingUuid(value.candidateId),provider:parseEmailMarketingProvider(value.provider),accountId:parseEmailMarketingAccount({id:value.accountId,name:value.accountName,senderStatus:'unknown'}).id,accountName:value.accountName,expiresAt:value.expiresAt});}
+export function createPostgresEmailMarketingConnectionRepository(options:PostgresEmailMarketingConnectionOptions):EmailMarketingConnectionRepository {
+ const timeouts={...options.timeouts};for(const timeout of Object.values(timeouts))if(!Number.isSafeInteger(timeout)||timeout<1||timeout>60000)throw new EmailMarketingError('not_configured');
+ if(options.role!=='celebix_saas_app')throw new EmailMarketingError('not_configured');
+ const activeKey=options.keyring.keys.find(k=>k.keyId===options.keyring.activeKeyId)?.key;if(!activeKey||activeKey.length!==32)throw new EmailMarketingError('not_configured');
+ async function command(a:EmailMarketingAuthorityInput,action:string,input:Payload,success:readonly string[]=['found']):Promise<{outcome:string;result:Payload}> {
+  const values=[...authority(a),action,JSON.stringify(input)];const client=await acquirePostgresClient(options.pool,timeouts.poolCheckoutMs);let released=false;
+  try{await client.query('BEGIN');await client.query("SELECT set_config('statement_timeout',$1,true),set_config('lock_timeout',$2,true),set_config('idle_in_transaction_session_timeout',$3,true)",[`${timeouts.statementMs}ms`,`${timeouts.lockMs}ms`,`${timeouts.idleTransactionMs}ms`]);await client.query('SET LOCAL ROLE celebix_saas_app');
+   const result=await client.query('SELECT outcome,result_payload FROM saas.email_marketing_command($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::jsonb)',values);const row=result.rows[0];if(result.rows.length!==1||typeof row?.outcome!=='string')throw new EmailMarketingError('provider_unavailable');
+   if(!success.includes(row.outcome))throw new EmailMarketingError(row.outcome as EmailMarketingErrorCode);
+   try{await client.query('COMMIT');released=true;client.release();}catch{released=true;client.release(true);throw new EmailMarketingError('outcome_unknown');}
+   return {outcome:row.outcome,result:row.result_payload as Payload};
+  }catch(error){if(!released){try{await client.query('ROLLBACK');client.release();}catch{client.release(true);}}if(error instanceof EmailMarketingError)throw error;throw new EmailMarketingError('provider_unavailable');}
+ }
+ function seal(key:string,a:EmailMarketingAuthorityInput,ownerId:string,provider:EmailMarketingProvider,purpose:'candidate'|'connection',credentialVersion=1){return sealEmailMarketingCredential(key,{storeId:a.tenantContext.store.id,credentialOwnerId:ownerId,provider,purpose,credentialVersion},options.keyring);}
+ function open(envelope:SealedEmailMarketingCredential,a:EmailMarketingAuthorityInput,ownerId:string,provider:EmailMarketingProvider,purpose:'candidate'|'connection',credentialVersion=1){return openEmailMarketingCredential(envelope,{storeId:a.tenantContext.store.id,credentialOwnerId:ownerId,provider,purpose,credentialVersion},options.keyring);}
+ async function getCandidate(a:EmailMarketingAuthorityInput&{candidateId:string;sessionBinding:string}){const r=await command(a,'candidate',{candidateId:emailMarketingUuid(a.candidateId),sessionHash:session(a.sessionBinding)});const parsed=candidate(r.result.candidate);return {summary:parsed,apiKey:open(r.result.credential,a,parsed.candidateId,parsed.provider,'candidate',r.result.credentialVersion),adapter:options.providers[parsed.provider]};}
+ async function findLists(provider:EmailMarketingProvider,key:string):Promise<readonly EmailMarketingList[]> {let cursor:string|undefined;const list:EmailMarketingList[]=[];const seen=new Set<string>();for(let page=0;page<10;page++){const result=await options.providers[provider].lists(key,cursor);for(const item of result.items)list.push(parseEmailMarketingList(item));if(!result.nextCursor)return list;if(seen.has(result.nextCursor))throw new EmailMarketingError('provider_invalid_response');seen.add(result.nextCursor);cursor=result.nextCursor;}throw new EmailMarketingError('cleanup_pending');}
+ async function fail(a:EmailMarketingAuthorityInput,operationId:string,leaseToken:string,error:unknown){try{await command(a,'fail',{operationId,leaseToken,errorCode:error instanceof EmailMarketingError?error.code:'provider_unavailable'},['saved']);}catch{/* Original failure is safe; operation remains recoverable by its key. */}}
+ const repo:EmailMarketingConnectionRepository={
+  async overview(a){return parseEmailMarketingOverview((await command(a,'overview',{})).result);},
+  async validate(a){const provider=parseEmailMarketingProvider(a.provider),operationId=emailMarketingUuid(a.operationId),candidateId=emailMarketingUuid(options.uuid()),sessionHash=session(a.sessionBinding);const sealed=seal(a.apiKey,a,candidateId,provider,'candidate');
+   const claimed=await command(a,'claim',{kind:'validate',operationId,candidateId,connectionId:emailMarketingUuid(options.uuid()),sessionHash,provider,credential:sealed,expectedVersion:0,fingerprint:fingerprint(activeKey,[1,'validate',provider,a.apiKey,sessionHash])},['claimed','replayed']);
+   if(claimed.outcome==='replayed')return candidate(claimed.result);
+   const leaseToken=claimed.result.leaseToken;
+   try{const account=parseEmailMarketingAccount(await options.providers[provider].account(a.apiKey));const lists=await options.providers[provider].lists(a.apiKey);const saved=await command(a,'finalize',{operationId,leaseToken,account,lists:lists.items.map(parseEmailMarketingList)},['saved','replayed']);return candidate(saved.result);}catch(error){await fail(a,operationId,leaseToken,error);throw error;}
+  },
+  async lists(a){const c=await getCandidate(a);const result=await c.adapter.lists(c.apiKey,a.cursor);return {items:result.items.map(parseEmailMarketingList),...(result.nextCursor?{nextCursor:result.nextCursor}:{})};},
+  async preview(a){return parseEmailMarketingAudiencePreview((await command(a,'preview',{candidateId:emailMarketingUuid(a.candidateId),sessionHash:session(a.sessionBinding),...(a.listId?{listId:a.listId}:{})})).result);},
+  async apply(a){const selection=parseEmailMarketingSelection(a.selection),operationId=emailMarketingUuid(a.operationId),candidateId=emailMarketingUuid(a.candidateId),expectedVersion=emailMarketingInteger(a.expectedVersion),sessionHash=session(a.sessionBinding);
+   const claimed=await command(a,'claim',{kind:'apply',operationId,candidateId,connectionId:emailMarketingUuid(options.uuid()),expectedVersion,sessionHash,progress:{selection},fingerprint:fingerprint(activeKey,[1,'apply',candidateId,expectedVersion,selection,sessionHash])},['claimed','replayed']);
+   if(claimed.outcome==='replayed')return parseEmailMarketingConnection(claimed.result);
+   const leaseToken=claimed.result.leaseToken,connectionId=claimed.result.connectionId;let progress:Payload=claimed.result.progress;
+   const checkpoint=async(next:Payload,dispatched=false)=>{await command(a,'checkpoint',{operationId,leaseToken,progress:next,dispatched},['saved']);progress=next;};
+   try{const c=await getCandidate(a);let list:EmailMarketingList|undefined;
+    if(progress.listId)list=parseEmailMarketingList({id:progress.listId,name:progress.listName});
+    else {const available=await findLists(c.summary.provider,c.apiKey);
+     if(selection.kind==='existing'){list=available.find(l=>l.id===selection.listId);if(!list)throw new EmailMarketingError('provider_forbidden');}
+     else if(progress.listCreateDispatched){const matches=available.filter(l=>l.name===selection.name&&!progress.priorListIds.includes(l.id));if(matches.length!==1)throw new EmailMarketingError('outcome_unknown');list=matches[0];}
+     else{if(available.some(l=>l.name===selection.name))throw new EmailMarketingError('operation_conflict');await checkpoint({...progress,priorListIds:available.map(l=>l.id),listCreateDispatched:true},true);const created=await c.adapter.createList(c.apiKey,selection.name);if(created.kind!=='verified')throw new EmailMarketingError('outcome_unknown');list=parseEmailMarketingList(created.value);}
+     await checkpoint({...progress,listId:list!.id,listName:list!.name});
+    }
+    const sealed=seal(c.apiKey,a,connectionId,c.summary.provider,'connection');const saved=await command(a,'finalize',{operationId,leaseToken,list,credential:sealed},['saved','replayed']);return parseEmailMarketingConnection(saved.result);
+   }catch(error){await fail(a,operationId,leaseToken,error);throw error;}
+  },
+  async rotate(a){const operationId=emailMarketingUuid(a.operationId),candidateId=emailMarketingUuid(a.candidateId),sessionHash=session(a.sessionBinding),expectedVersion=emailMarketingInteger(a.expectedVersion);const claimed=await command(a,'claim',{kind:'rotate',operationId,candidateId,sessionHash,expectedVersion,connectionId:emailMarketingUuid(options.uuid()),fingerprint:fingerprint(activeKey,[1,'rotate',candidateId,expectedVersion,sessionHash])},['claimed','replayed']);if(claimed.outcome==='replayed')return parseEmailMarketingConnection(claimed.result);
+   const leaseToken=claimed.result.leaseToken;
+   try{const c=await getCandidate(a);const current=(await command(a,'private',{})).result;const connection=parseEmailMarketingConnection(current.connection);const lists=await findLists(c.summary.provider,c.apiKey);if(!lists.some(l=>l.id===connection.listId))throw new EmailMarketingError('provider_forbidden');const sealed=seal(c.apiKey,a,connection.id,c.summary.provider,'connection',connection.credentialVersion+1);return parseEmailMarketingConnection((await command(a,'finalize',{operationId,leaseToken,credential:sealed},['saved','replayed'])).result);}catch(error){await fail(a,operationId,leaseToken,error);throw error;}
+  },
+  async recheck(a){const operationId=emailMarketingUuid(a.operationId),expectedVersion=emailMarketingInteger(a.expectedVersion);const claimed=await command(a,'claim',{kind:'recheck',operationId,connectionId:emailMarketingUuid(options.uuid()),expectedVersion,fingerprint:fingerprint(activeKey,[1,'recheck',expectedVersion])},['claimed','replayed']);if(claimed.outcome==='replayed')return parseEmailMarketingConnection(claimed.result);const leaseToken=claimed.result.leaseToken;
+   try{const current=(await command(a,'private',{})).result;const c=parseEmailMarketingConnection(current.connection);const key=open(current.credential,a,c.id,c.provider,'connection',c.credentialVersion);const account=parseEmailMarketingAccount(await options.providers[c.provider].account(key));if(account.id!==c.accountId)throw new EmailMarketingError('account_mismatch');if(!(await findLists(c.provider,key)).some(l=>l.id===c.listId))throw new EmailMarketingError('provider_forbidden');return parseEmailMarketingConnection((await command(a,'finalize',{operationId,leaseToken,account},['saved','replayed'])).result);}catch(error){await fail(a,operationId,leaseToken,error);throw error;}
+  },
+  async disconnect(a){const operationId=emailMarketingUuid(a.operationId),expectedVersion=emailMarketingInteger(a.expectedVersion);const claimed=await command(a,'claim',{kind:'disconnect',operationId,connectionId:emailMarketingUuid(options.uuid()),expectedVersion,fingerprint:fingerprint(activeKey,[1,'disconnect',expectedVersion])},['claimed','replayed']);if(claimed.outcome==='replayed')return parseEmailMarketingConnection(claimed.result);return parseEmailMarketingConnection((await command(a,'finalize',{operationId,leaseToken:claimed.result.leaseToken},['saved','replayed'])).result);}
+ };
+ return repo;
+}
