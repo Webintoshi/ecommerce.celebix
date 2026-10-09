@@ -26,7 +26,7 @@ const pageRecord = { id: "82000000-0000-4000-8000-000000000001", kind: "page", n
 const languageRecord = { id: "83000000-0000-4000-8000-000000000001", kind: "language_setting", name: "Mağaza dili", config: { defaultLocale: "tr", enabledLocales: ["tr", "en"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function screen(options: { canManage?: boolean; workspace?: boolean; restock?: boolean; cartCapture?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
+async function screen(options: { canManage?: boolean; workspace?: boolean; restock?: boolean; cartCapture?: boolean; orderBump?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
   const browser = new Window({ url: "https://panel.example.test/settings/store-tools" });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLTextAreaElement: browser.HTMLTextAreaElement, HTMLSelectElement: browser.HTMLSelectElement, Event: browser.Event, KeyboardEvent: browser.KeyboardEvent, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -45,6 +45,10 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; resto
     return compiled.exports;
   }
   const requireModule = (id: string) => {
+    if (id === "./OrderBumpTool") return { OrderBumpTool: options.orderBump ? ({ onOpenChange }: any) => {
+      const [open, setOpen] = React.useState(false);
+      return createElement("button", { "data-test-order-bump-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Öneri aracını kapat" : "Öneri aracını aç");
+    } : () => null };
     if (id === "./CartCaptureTool") return { CartCaptureTool: options.cartCapture ? ({ onOpenChange }: any) => {
       const [open, setOpen] = React.useState(false);
       return createElement("button", { "data-test-cart-capture-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Sepet aracını kapat" : "Sepet aracını aç");
@@ -106,6 +110,20 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; resto
   try { await act(async () => { const content = createElement(Component, { canManage: options.canManage ?? true }); root.render(Workspace ? createElement(Workspace, { children: content }) : content); await new Promise(resolve => setTimeout(resolve, 0)); }); await verify({ browser, container, settle, click, input, submit, openChannel, addChannel, pushes }); }
   finally { await act(async () => root.unmount()); for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key); await browser.happyDOM.close(); }
 }
+
+test("order bump editing isolates contact errors and other tools until returning", async () => {
+  await screen({ orderBump: true, restock: true, cartCapture: true, records: async () => { throw Error("contact_unavailable"); } }, async ({ click, container }) => {
+    assert.ok(container.querySelector("[role=alert]"));
+    await click("[data-test-order-bump-toggle]");
+    assert.equal(container.querySelector("[role=alert]"), null);
+    assert.equal(container.querySelector("[data-test-restock-toggle]"), null);
+    assert.equal(container.querySelector("[data-test-cart-capture-toggle]"), null);
+    await click("[data-test-order-bump-toggle]");
+    assert.ok(container.querySelector("[role=alert]"));
+    assert.ok(container.querySelector("[data-test-restock-toggle]"));
+    assert.ok(container.querySelector("[data-test-cart-capture-toggle]"));
+  });
+});
 
 test("independent restock editing hides unrelated contact loading and errors until returning", async () => {
   for (const records of [async () => new Promise(() => {}), async () => { throw Error("unavailable"); }]) {

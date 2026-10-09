@@ -18,7 +18,7 @@ const emptyCart: PublicCart = { ...cart, version: 9, itemCount: 0, subtotalCents
 const recommendation = (id: string): Recommendation => ({ id, slug: `urun-${id}`, title: `Öneri ${id}`, priceCents: 2500, media: { url: `https://media.example/${id}.webp`, altText: `Öneri fotoğrafı ${id}`, width: 400, height: 600 } });
 const text = (element: Element | null) => element?.textContent?.replace(/\s+/gu, " ").trim() ?? "";
 
-async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, options: Readonly<{ state?: Partial<DrawerState>; quantity?: boolean; trustMessage?: string; suggestions?: readonly Recommendation[]; recommendationFailure?: boolean; recommendationStatus?: number; removeFailure?: boolean; removalResult?: PublicCart }> = {}) {
+async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, options: Readonly<{ state?: Partial<DrawerState>; quantity?: boolean; trustMessage?: string; suggestions?: readonly Recommendation[]; recommendationFailure?: boolean; recommendationStatus?: number; removeFailure?: boolean; removalResult?: PublicCart; bumpOffers?: unknown; defaultDrawer?: boolean; add?: (input: unknown) => Promise<PublicCart> }> = {}) {
   const fetches: DrawerBrowser["fetches"] = [], removals: unknown[] = [], quantities: unknown[] = [], replaced: PublicCart[] = [];
   let closeCount = 0, refreshCount = 0;
   let updateState: ((value: Partial<DrawerState>) => void) | undefined;
@@ -31,11 +31,18 @@ async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, option
   const load = componentLoader({
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
     "../../components/CartStatusProvider": { useCartStatus() { const value = useContext(Context); assert.ok(value); return value; } },
+    "./CartStatusProvider": { useCartStatus() { const value = useContext(Context); assert.ok(value); return value; } },
+    "../lib/order-bumps/client.ts": { readOrderBumpOffers: async () => options.bumpOffers ?? { cartVersion: null, heading: null, offers: [] } },
+    "../lib/cart/client.ts": { storefrontCartClient: { add: options.add, resolve: async () => cart } },
+    "@/lib/cart/client.ts": { storefrontCartClient: {} },
+    "@/lib/format.ts": { formatTry: (value: number) => `₺${value / 100}` },
+    "@/lib/storefront-routes.ts": { productPath: (_locale: string, slug: string) => `/products/${slug}`, productIndexPath: () => "/products" },
+    "../lib/format.ts": { formatTry: (value: number) => `₺${value / 100}` },
     "../../lib/format.ts": { formatTry: (value: number) => `₺${value / 100}` },
     "../../lib/storefront-routes.ts": { productPath: (_locale: string, slug: string) => `/products/${slug}`, productIndexPath: () => "/products" },
     "../../lib/cart/client.ts": { storefrontCartClient: { async remove(input: { variantId: string }) { removals.push(input); if (options.removeFailure) throw new Error("write failed"); if (options.removalResult) return options.removalResult; const remaining = cart.items.filter((line) => line.variantId !== input.variantId); const subtotalCents = remaining.reduce((sum, line) => sum + line.lineTotalCents, 0); return { ...cart, version: 9, items: remaining, itemCount: remaining.reduce((sum, line) => sum + line.quantity, 0), subtotalCents, totalCents: subtotalCents + cart.shippingCents }; }, async setQuantity(input: { variantId: string; quantity: number }) { quantities.push(input); const items = cart.items.map((line) => line.variantId === input.variantId ? { ...line, quantity: input.quantity, lineTotalCents: line.unitPriceCents * input.quantity } : line); const subtotalCents = items.reduce((sum, line) => sum + line.lineTotalCents, 0); return { ...cart, version: 9, items, itemCount: items.reduce((sum, line) => sum + line.quantity, 0), subtotalCents, totalCents: subtotalCents + cart.shippingCents }; } } },
   });
-  const { SioraSideCartDrawer: Drawer } = load<{ SioraSideCartDrawer: Component }>(new URL("../themes/siora/SioraSideCartDrawer.tsx", import.meta.url));
+  const Drawer = options.defaultDrawer ? load<{ SideCartDrawer: Component }>(new URL("./SideCartDrawer.tsx", import.meta.url)).SideCartDrawer : load<{ SioraSideCartDrawer: Component }>(new URL("../themes/siora/SioraSideCartDrawer.tsx", import.meta.url)).SioraSideCartDrawer;
   await withProductBrowser(async (browser) => {
     // Model native dialog lifecycle explicitly; the DOM fixture cannot emulate a browser's top layer.
     const dialogPrototype = window.HTMLDialogElement.prototype;
@@ -89,6 +96,30 @@ test("drawer shows canonical cart lines, a truthful title, only the canonical su
     assert.equal(closes(), 1);
     assert.equal(container.querySelector("dialog"), null);
   });
+});
+
+test("configured cart offers replace Siora discovery cards while a disabled tool preserves them", async () => {
+  await withDrawer(async ({ container }) => {
+    assert.match(container.querySelector(".order-bump-offers")?.textContent ?? "", /Önerilen kemer/u);
+    assert.equal(container.querySelector('a[href="/products/urun-new-one"]'), null);
+    assert.ok(container.querySelector('a[href="/checkout"]'));
+  }, { bumpOffers: { cartVersion: 8, heading: "Tamamlayıcılar", offers: [{ ruleId: "30000000-0000-4000-8000-000000000001", productId: "10000000-0000-4000-8000-000000000001", variantId: "20000000-0000-4000-8000-000000000001", slug: "onerilen-kemer", title: "Önerilen kemer", variantTitle: "Varsayılan", priceCents: 2500, currency: "TRY", media: null }] } });
+  await withDrawer(async ({ container }) => { assert.ok(container.querySelector('a[href="/products/urun-new-one"]')); assert.equal(container.querySelector(".order-bump-add"), null); });
+});
+
+test("both drawers block checkout and quantity writes while an offer is being accepted", async () => {
+  for (const defaultDrawer of [false, true]) {
+    let finish!: (value: PublicCart) => void;
+    const added: unknown[] = [];
+    await withDrawer(async ({ container, click }) => {
+      await click(".order-bump-add");
+      assert.equal(container.querySelector('a[href="/checkout"]'), null);
+      assert.deepEqual(added, [{ productId: "10000000-0000-4000-8000-000000000001", variantId: "20000000-0000-4000-8000-000000000001", quantity: 1, expectedVersion: 8 }]);
+      assert.ok([...container.querySelectorAll<HTMLButtonElement>("button")].filter(button => /(?:adet artır|ürününü sil)/u.test(button.getAttribute("aria-label") ?? "") || button.textContent === "Kaldır").every(button => button.disabled));
+      await React.act(async () => finish({ ...cart, version: 9 }));
+      assert.ok(container.querySelector('a[href="/checkout"]'));
+    }, { defaultDrawer, quantity: true, add: async input => { added.push(input); return new Promise(resolve => { finish = resolve; }); }, bumpOffers: { cartVersion: 8, heading: "Tamamlayıcılar", offers: [{ ruleId: "30000000-0000-4000-8000-000000000001", productId: "10000000-0000-4000-8000-000000000001", variantId: "20000000-0000-4000-8000-000000000001", slug: "onerilen-kemer", title: "Önerilen kemer", variantTitle: "Varsayılan", priceCents: 2500, currency: "TRY", media: null }] } });
+  }
 });
 
 test("continue shopping closes the drawer directly without a cart-page destination", async () => {

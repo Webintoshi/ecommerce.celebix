@@ -706,3 +706,4 @@ export * from "./review-collection/index.ts";
 export * from './platform/index.ts';
 
 export * from './google-marketing/index.ts';
+export * from './order-bumps/index.ts';

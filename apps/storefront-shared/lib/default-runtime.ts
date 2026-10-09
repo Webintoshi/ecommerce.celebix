@@ -20,6 +20,7 @@ import {
   PostgresPublicContactWidgetRepository,
   PostgresPublicRestockRepository,
   PostgresPublicStoreEngagementRepository,
+  PostgresPublicOrderBumpRepository,
   PostgresReviewCollectionRepository,
   PostgresPublicSeoRepository,
   PostgresNewsletterRepository,
@@ -70,6 +71,7 @@ import type {
 import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
 import { parseStorefrontCommerceCredentialKeyring } from "./cart/credential.ts";
 import { createStoreEngagementRuntime, type StoreEngagementRuntime } from "./engagement/runtime.ts";
+import { createOrderBumpRuntime, type OrderBumpRuntime } from "./order-bumps/runtime.ts";
 import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
 import { createStandardHostedCheckoutRuntime, type StandardHostedCheckoutRuntime } from "./checkout/standard-hosted-payment.ts";
 import { createStorefrontLoginCode } from "./account/credential.ts";
@@ -94,6 +96,7 @@ export type PublicStorefrontRuntime = Readonly<{
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
   engagement: StoreEngagementRuntime;
+  orderBumps?: OrderBumpRuntime;
   hostedCheckout: StandardHostedCheckoutRuntime | null;
   checkout: CheckoutRuntime;
   abandonedCarts: InstanceType<typeof PostgresPublicAbandonedCartRepository>;
@@ -355,6 +358,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       commerce,
       cart,
       engagement: createStoreEngagementRuntime({ repository: new PostgresPublicStoreEngagementRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
+      orderBumps: createOrderBumpRuntime({ repository: new PostgresPublicOrderBumpRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
       hostedCheckout,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),
       abandonedCarts,

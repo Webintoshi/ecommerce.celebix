@@ -40,7 +40,9 @@ test("checkout submission contains only the exact server-owned contract and fixe
 test("checkout carries the opaque quote seal and requires a fresh customer submit after price drift", () => {
   assert.match(form, /quotePromotionsWithDigest/u);
   assert.match(form, /expectedQuoteDigest: quoteDigest/u);
-  assert.match(form, /response[.]status === 409/u);
+  // The complete endpoint now validates the exact bounded failure envelope before typing price drift.
+  assert.match(form, /completeCheckoutFailure\(response\)/u);
+  assert.match(form, /response[.]status !== \(code === "invalid_input" \? 400 : 409\)/u);
   assert.match(form, /price_changed/u);
   assert.match(form, /refreshAfterPriceChange/u);
   assert.match(form, /Fiyat güncellendi[.] Lütfen yeni toplamı kontrol edip yeniden onaylayın/u);

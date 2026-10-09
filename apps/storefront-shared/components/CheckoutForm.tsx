@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   PublicCheckoutQuote,
   PublicCheckoutQuoteV2,
+  PublicCart,
 } from "@celebix/saas-contracts";
 import {
   StorefrontCartClientError,
@@ -35,6 +36,7 @@ import { CheckoutPhoneField } from "./CheckoutPhoneField";
 import { PromotionCouponField } from "./PromotionCouponField";
 import { createCheckoutQuoteQueue } from "../lib/checkout/quote-queue.ts";
 import { reconcileCheckoutQuote } from "../lib/checkout/reconcile-quote.ts";
+import { OrderBumpOffers } from "./OrderBumpOffers";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
   firstName: "",
@@ -47,6 +49,36 @@ const EMPTY: CheckoutFormDraft = Object.freeze({
   postalCode: "",
   note: "",
 });
+
+const COMPLETE_FAILURE_CODES = ["invalid_input", "price_changed", "sales_paused", "cart_empty", "stock_unavailable", "shipping_unavailable", "payment_unavailable"] as const;
+async function completeCheckoutFailure(response: Response): Promise<StorefrontCartClientError | null> {
+  const maximum = 2048;
+  if (![400, 409].includes(response.status) || !response.body || response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return null;
+  const declared = response.headers.get("content-length");
+  if (declared !== null && (!/^(?:0|[1-9]\d*)$/u.test(declared) || Number(declared) > maximum)) return null;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let bytes: Uint8Array | undefined;
+  try {
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > maximum) { await reader.cancel().catch(() => undefined); return null; }
+      chunks.push(new Uint8Array(part.value));
+    }
+    bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const value: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype || Object.keys(value).length !== 1 || !Object.hasOwn(value, "code")) return null;
+    const code = (value as { code: unknown }).code;
+    if (!COMPLETE_FAILURE_CODES.some(candidate => candidate === code) || response.status !== (code === "invalid_input" ? 400 : 409)) return null;
+    return new StorefrontCartClientError(code as (typeof COMPLETE_FAILURE_CODES)[number]);
+  } catch { return null; }
+  finally { bytes?.fill(0); for (const chunk of chunks) chunk.fill(0); reader.releaseLock(); }
+}
 
 export function CheckoutForm({
   intentKind,
@@ -74,6 +106,10 @@ export function CheckoutForm({
   >("");
   const [identityNumber, setIdentityNumber] = useState("");
   const [pending, setPending] = useState(false);
+  const [bumpPending, setBumpPending] = useState(false);
+  const bumpBusy = useRef(false);
+  const [paymentUncertain, setPaymentUncertain] = useState(false);
+  const uncertainPayment = useRef(false);
   const [quotePending, setQuotePending] = useState(true);
   const [promotionStatus, setPromotionStatus] = useState("");
   const [noteExpanded, setNoteExpanded] = useState(false);
@@ -100,6 +136,7 @@ export function CheckoutForm({
   );
 
   useEffect(() => {
+    if (bumpBusy.current || uncertainPayment.current) return;
     let active = true;
     const sequence = ++quoteSequence.current;
     quoteBusy.current = true;
@@ -159,11 +196,48 @@ export function CheckoutForm({
   // Coupon edits quote explicitly. A cart change refreshes the latest candidates
   // through the same serialized queue and never grants client pricing authority.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intentKind, waitForCart, quoteCartVersion, requestQuote]);
+  }, [intentKind, waitForCart, quoteCartVersion, requestQuote, paymentUncertain]);
 
   useEffect(() => {
-    operation.current = null;
+    if (!uncertainPayment.current) operation.current = null;
   }, [appliedCodes]);
+
+  const beforeBumpAdd = () => {
+    if (pending || quoteBusy.current || bumpBusy.current || uncertainPayment.current || intentKind !== "cart") return false;
+    bumpBusy.current = true;
+    quoteBusy.current = true;
+    quoteSequence.current += 1;
+    setBumpPending(true);
+    setQuotePending(true);
+    setQuoteSettled(false);
+    setQuote(null);
+    setQuoteDigest(null);
+    // No financial request is uncertain here. The changed cart needs a new operation.
+    operation.current = null;
+    setStatus("Ürün ekleniyor. Sipariş özeti güncellenecek.");
+    return true;
+  };
+
+  const afterBumpAdd = async (resolved: PublicCart | null) => {
+    const sequence = ++quoteSequence.current;
+    try {
+      if (!resolved) throw new Error("cart_unverified");
+      const selected = await requestQuote(intentKind, appliedCodes);
+      if (sequence !== quoteSequence.current) return;
+      setQuote(selected.quote);
+      setQuoteDigest(selected.quoteDigest);
+      setAppliedCodes(selected.normalizedCodes);
+      setPromotionStatus(selected.rejectedCodes.length ? "Bu kod şu anda uygulanamıyor." : "");
+      setPaymentKind(kind => selected.quote.paymentMethods.some(method => method.kind === kind) ? kind : selected.quote.paymentMethods[0]?.kind ?? "");
+      setStatus(selected.quote.cart.checkoutReady ? "Sipariş özeti güncel. Yeni toplamı kontrol edin." : checkoutBlockerMessage(selected.quote.cart.checkoutBlocker) ?? "Sepet ödeme için hazır değil.");
+    } catch {
+      if (sequence === quoteSequence.current) setStatus("Güncel sepet ve toplam doğrulanamadı. Lütfen sepetinizi kontrol edin.");
+    } finally {
+      if (sequence === quoteSequence.current) { quoteBusy.current = false; setQuotePending(false); setQuoteSettled(true); }
+      bumpBusy.current = false;
+      setBumpPending(false);
+    }
+  };
 
   const field = (name: keyof CheckoutFormDraft) => ({
     value: draft[name],
@@ -238,7 +312,7 @@ export function CheckoutForm({
   };
 
   const applyCoupon = async (raw: string) => {
-    if (pending || quoteBusy.current) return false;
+    if (pending || bumpBusy.current || uncertainPayment.current || quoteBusy.current) return false;
     let normalized: string;
     try { normalized = normalizeCouponCandidate(raw); }
     catch { setPromotionStatus("Bu kod şu anda uygulanamıyor."); return false; }
@@ -254,12 +328,14 @@ export function CheckoutForm({
   };
 
   const removeCoupon = async (code: string) => {
-    if (pending || quoteBusy.current) return;
+    if (pending || bumpBusy.current || uncertainPayment.current || quoteBusy.current) return;
     const selected = await quoteCodes(Object.freeze(appliedCodes.filter(candidate => candidate !== code)));
     if (selected) setPromotionStatus("Kod kaldırıldı.");
   };
 
   const refreshAfterPriceChange = async () => {
+    uncertainPayment.current = false;
+    setPaymentUncertain(false);
     const sequence = ++quoteSequence.current;
     quoteBusy.current = true;
     setQuotePending(true);
@@ -290,7 +366,8 @@ export function CheckoutForm({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending || quotePending || quoteBusy.current) return;
+    if (pending || bumpBusy.current || quotePending || quoteBusy.current) return;
+    const retryingUncertainPayment = uncertainPayment.current;
     setAttemptedDelivery(true);
     if (!validation.ok) {
       emitStorefrontCommerceEvent({
@@ -347,6 +424,8 @@ export function CheckoutForm({
       });
     }
     setPending(true);
+    // Retain this operation until a known rejection or its exact retry resolves it.
+    uncertainPayment.current = true;
     setStatus(
       selectedMethod.kind === "hosted_card"
         ? "Güvenli ödeme ekranı hazırlanıyor."
@@ -390,13 +469,10 @@ export function CheckoutForm({
           ...(delivery.note ? { note: delivery.note } : {}),
         }),
       });
-      if (response.status === 409) {
-        const body: unknown = await response.json().catch(() => null);
-        if (typeof body === "object" && body !== null && !Array.isArray(body)
-          && Object.keys(body).length === 1 && (body as { code?: unknown }).code === "price_changed") {
-          await refreshAfterPriceChange();
-          return;
-        }
+      if (!response.ok) {
+        const failure = await completeCheckoutFailure(response);
+        if (failure) throw failure;
+        throw new Error("checkout_failed");
       }
       const destination = new URL(response.url, window.location.href);
       if (
@@ -410,10 +486,14 @@ export function CheckoutForm({
         throw new Error("checkout_failed");
       window.location.assign("/checkout/success");
     } catch (error: unknown) {
-      if (error instanceof StorefrontCartClientError && error.code === "price_changed") {
+      if (!retryingUncertainPayment && error instanceof StorefrontCartClientError && error.code === "price_changed") {
         await refreshAfterPriceChange();
         return;
       }
+      // A later rejection cannot prove that an earlier lost response did not create a payment.
+      const knownRejection = !retryingUncertainPayment && error instanceof StorefrontCartClientError && ["invalid_input", "sales_paused", "cart_empty", "stock_unavailable", "shipping_unavailable", "payment_unavailable"].includes(error.code);
+      uncertainPayment.current = !knownRejection;
+      setPaymentUncertain(!knownRejection);
       setStatus(
         selectedMethod.kind === "hosted_card"
           ? hostedCheckoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)
@@ -450,7 +530,7 @@ export function CheckoutForm({
             <span>1</span>
             <h2 id="checkout-contact-title">İletişim</h2>
           </header>
-          <fieldset disabled={pending}>
+          <fieldset disabled={pending || paymentUncertain}>
             <div className="checkout-fields">
               <label>
                 E-posta
@@ -487,7 +567,7 @@ export function CheckoutForm({
             <span>2</span>
             <h2 id="checkout-delivery-title">Teslimat adresi</h2>
           </header>
-          <fieldset disabled={pending}>
+          <fieldset disabled={pending || paymentUncertain}>
             <div className="checkout-fields">
               <div className="checkout-wide checkout-name-fields">
               <label>
@@ -597,7 +677,7 @@ export function CheckoutForm({
             <span>4</span>
             <h2 id="checkout-payment-title">Ödeme yöntemi</h2>
           </header>
-          <fieldset disabled={pending || quotePending}>
+          <fieldset disabled={pending || paymentUncertain || bumpPending || quotePending}>
             <div className="payment-methods">
               {quote?.paymentMethods.map((method) => (
                 <label key={method.kind}>
@@ -659,8 +739,8 @@ export function CheckoutForm({
       <SummaryRail
         totalCents={!quotePending && quote !== null && summaryState.kind === "summary" ? summaryState.cart.totalCents : undefined}
         unavailable={!quotePending && (quote === null || summaryState.kind === "unavailable")}
-        promotion={<PromotionCouponField embedded codes={appliedCodes} pending={pending || quotePending || (summaryState.kind === "summary" && summaryState.cart.items.length === 0)} status={promotionStatus} onApply={applyCoupon} onRemove={removeCoupon} />}
-      >{summary}</SummaryRail>
+        promotion={<PromotionCouponField embedded codes={appliedCodes} pending={pending || paymentUncertain || bumpPending || quotePending || (summaryState.kind === "summary" && summaryState.cart.items.length === 0)} status={promotionStatus} onApply={applyCoupon} onRemove={removeCoupon} />}
+      >{summary}{intentKind === "cart" ? <OrderBumpOffers cart={visibleCart} placement="checkout" locale={locale} active={hydrated} disabled={pending || paymentUncertain || bumpPending || quotePending} beforeAdd={beforeBumpAdd} afterAdd={afterBumpAdd} /> : null}</SummaryRail>
       <footer className="checkout-terminal">
         <p className="checkout-status" aria-live="polite">
           {status}
@@ -668,7 +748,7 @@ export function CheckoutForm({
         <button
           className="store-button checkout-submit"
           type="submit"
-          disabled={pending || quotePending || !quote?.cart.checkoutReady || !quoteDigest || !paymentKind}
+          disabled={pending || bumpPending || quotePending || !quote?.cart.checkoutReady || !quoteDigest || !paymentKind}
         >
           {pending
             ? "Hazırlanıyor…"

@@ -1,6 +1,7 @@
 "use client";
 import { RestockTool } from "./RestockTool";
 import { CartCaptureTool } from "./CartCaptureTool";
+import { OrderBumpTool } from "./OrderBumpTool";
 import type { EngagementPermissions } from "../promotions/PopupStudio";
 
 import {
@@ -109,6 +110,7 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
   const [mobilePreviewVisible, setMobilePreviewVisible] = useState(false);
   const [restockOpen, setRestockOpen] = useState(false);
   const [cartCaptureOpen, setCartCaptureOpen] = useState(false);
+  const [orderBumpOpen, setOrderBumpOpen] = useState(false);
   const [previewPage, setPreviewPage] = useState<ContactWidgetConfig["pages"][number]>("home");
   const [openChannel, setOpenChannel] = useState<ChannelType | null>(null), [revealedChannel, setRevealedChannel] = useState<ChannelType | null>(null), [revealedHours, setRevealedHours] = useState(false);
   const [dialog, setDialog] = useState<ToolDialog | null>(null), [focusTarget, setFocusTarget] = useState<{ id: string } | null>(null);
@@ -314,16 +316,17 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
   }
 
   return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
-    {message && !restockOpen && !cartCaptureOpen ? <p className={styles.status} role="status">{message}</p> : null}
-    {!restockOpen && !cartCaptureOpen && (loading ? <div className={styles.toolSkeleton} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
+    {message && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <p className={styles.status} role="status">{message}</p> : null}
+    {!restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={styles.toolSkeleton} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
       : loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" onClick={() => void load()}>Yeniden dene</button></div></div>
       : loaded && !open && !restockOpen ? <article className={styles.toolRow}>
         <ToolArtwork /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterileriniz size kolayca ulaşsın.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {baseline.channels.filter(channel => channel.enabled).length} kanal · {summaryDevices}{!canManage ? " · Salt okunur" : ""}</span>
           <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: "content", label: "Kanallar" }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true" /></button>)}</nav>
         </div><button id="tool-edit-contact-widget" ref={triggerRef} className={primary} type="button" data-tool-edit="contact_widget" onClick={() => startEditing()}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
       </article> : null)}
-    {!open && !cartCaptureOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
-    {!open && !restockOpen ? <CartCaptureTool canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
+    {!open && !cartCaptureOpen && !orderBumpOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
+    {!open && !restockOpen && !orderBumpOpen ? <CartCaptureTool canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
+    {!open && !restockOpen && !cartCaptureOpen ? <OrderBumpTool canManage={canManage} onOpenChange={setOrderBumpOpen} /> : null}
     {loaded && open ? <form ref={editorRef} onSubmit={apply} onKeyDown={event => { if (event.key === "Escape" && !dialog) { event.preventDefault(); requestExit(); } }} noValidate data-settings-dirty={dirty} className={styles.editor}>
       <header className={styles.contextBar}><div><button className={ghost + " " + styles.iconButton} type="button" data-tool-close disabled={busy || reloading} aria-label="Araçlara dön" onClick={requestExit}><ArrowLeft size={20} aria-hidden="true" /></button><h2>İletişim balonu</h2></div>
         <label className={styles.enabledControl}><span>{draft.enabled ? "Açık" : "Kapalı"}</span><span className={styles.switch}><input name="enabled" aria-label="İletişim balonu açık" type="checkbox" role="switch" disabled={locked} checked={draft.enabled} onChange={event => change(config => ({ ...config, enabled: event.target.checked }))} /><span /></span></label>

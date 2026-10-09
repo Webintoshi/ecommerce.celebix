@@ -30,7 +30,7 @@ class FixtureCartClientError extends Error {
   readonly code: string;
   constructor(code: string) { super(code); this.code = code; }
 }
-function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: StorefrontCartClient["startHosted"]; clientError?: typeof StorefrontCartClientError }> = {}) {
+function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: StorefrontCartClient["startHosted"]; clientError?: typeof StorefrontCartClientError; bumpOffers?: unknown; add?: StorefrontCartClient["add"]; resolve?: StorefrontCartClient["resolve"]; replaceCart?: (value: unknown) => void }> = {}) {
   const load = componentLoader({
     "next/link": { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode }) => React.createElement("a", props, children) },
     "@/lib/cart/client.ts": { StorefrontCartClientError: options.clientError ?? FixtureCartClientError, storefrontCartClient: { quotePromotionsWithDigest: quote, startHosted: options.startHosted } },
@@ -39,7 +39,9 @@ function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<
     "@/lib/promotions/model.ts": promotionModel,
     "@/lib/storefront-routes.ts": routes,
     "@/lib/analytics/events.ts": { emitStorefrontCommerceEvent() {}, couponAppliedEvent: () => null },
-    "./CartStatusProvider": { useCartStatus: () => ({ cart: options.getCart?.() ?? cart, loading: false }) },
+    "./CartStatusProvider": { useCartStatus: () => ({ cart: options.getCart?.() ?? cart, loading: false, replaceCart: options.replaceCart ?? (() => {}) }) },
+    "../lib/cart/client.ts": { storefrontCartClient: { add: options.add, resolve: options.resolve } },
+    "../lib/order-bumps/client.ts": { readOrderBumpOffers: async () => options.bumpOffers ?? { cartVersion: null, heading: null, offers: [] } },
     "./use-hydrated": { useHydrated: () => true },
   });
   return load<{ CheckoutForm: Form }>(new URL("./CheckoutForm.tsx", import.meta.url)).CheckoutForm;
@@ -60,6 +62,185 @@ test("checkout coupon application and removal re-quote the displayed total witho
     await click(".promotion-coupon-list button");
     assert.deepEqual(calls, [[], ["SAVE"], []]);
     assert.match(container.querySelector(".checkout-summary")?.textContent ?? "", /₺100/u);
+  });
+});
+
+const bumpOffer = { ruleId: "30000000-0000-4000-8000-000000000002", productId: "10000000-0000-4000-8000-000000000002", variantId: "20000000-0000-4000-8000-000000000002", slug: "tamamlayici", title: "Tamamlayıcı ürün", variantTitle: "Varsayılan", priceCents: 2500, currency: "TRY", media: null };
+const bumpProjection = { cartVersion: 1, heading: "Birlikte iyi gider", offers: [bumpOffer] };
+const validDraft = { firstName: "Ada", lastName: "Lovelace", email: "ada@example.test", phone: "+14155552671", addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "" };
+
+test("checkout acceptance fences the old digest until a fresh quote preserves coupon and delivery inputs", async () => {
+  let finishAdd!: (value: typeof cart) => void;
+  let finishQuote!: (value: unknown) => void;
+  let updated = false;
+  const calls: string[][] = [], additions: unknown[] = [];
+  const extra = { ...cart.items[0], productId: bumpOffer.productId, variantId: bumpOffer.variantId, slug: bumpOffer.slug, title: bumpOffer.title, unitPriceCents: 2500, lineTotalCents: 2500 };
+  const next = { ...cart, version: 2, itemCount: 2, items: [...cart.items, extra], subtotalCents: 12500, totalCents: 12500 };
+  const Form = loadForm(async (_intent, codes) => { calls.push([...codes]); if (updated) return new Promise(resolve => { finishQuote = resolve; }); return response(codes); }, {
+    bumpOffers: bumpProjection, add: async input => { additions.push(input); return new Promise(resolve => { finishAdd = resolve as never; }); }, replaceCart() { updated = true; },
+  });
+  await withProductBrowser(async ({ container, render, change, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft, initialNormalizedCodes: ["SAVE"] }));
+    await change('input[name="addressLine1"]', "Cadde 12");
+    await click(".order-bump-add");
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, true);
+    assert.equal(container.querySelector<HTMLButtonElement>(".promotion-coupon-controls button")?.disabled, true);
+    assert.doesNotMatch(container.querySelector(".checkout-summary")?.textContent ?? "", /₺90/u);
+    await React.act(async () => finishAdd(next));
+    assert.deepEqual(additions, [{ productId: bumpOffer.productId, variantId: bumpOffer.variantId, quantity: 1, expectedVersion: 1 }]);
+    assert.deepEqual(calls, [["SAVE"], ["SAVE"]]);
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, true);
+    const selected = response(["SAVE"]); const quote = { ...selected.quote, cart: { ...selected.quote.cart, version: 2, itemCount: 2, items: [...selected.quote.cart.items, { ...extra, discountCents: 0, payableCents: 2500 }], subtotalCents: 12500, totalCents: 11500 } };
+    await React.act(async () => finishQuote({ quote, quoteDigest: digest(quote) }));
+    assert.match(container.querySelector(".checkout-summary")?.textContent ?? "", /₺115/u);
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="addressLine1"]')?.value, "Cadde 12");
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, false);
+  });
+});
+
+test("buy now never offers products for an unrelated normal cart", async () => {
+  const Form = loadForm(async (_intent, codes) => response(codes), { bumpOffers: bumpProjection });
+  await withProductBrowser(async ({ container, render }) => { await render(React.createElement(Form, { intentKind: "buy_now" })); assert.equal(container.querySelector(".order-bump-add"), null); });
+});
+
+test("an uncertain payment keeps its financial operation retrievable and fences new items and coupons", async () => {
+  const submissions: unknown[] = [], additions: unknown[] = [];
+  const hosted = () => { const selected = response([]); const quote = { ...selected.quote, paymentMethods: [{ id: "30000000-0000-4000-8000-000000000001", kind: "hosted_card", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] }] }; return { quote, quoteDigest: digest(quote) }; };
+  const Form = loadForm(async () => hosted(), { bumpOffers: bumpProjection, add: async input => { additions.push(input); return cart as never; }, startHosted: async input => { submissions.push(input); throw new FixtureCartClientError("request_failed"); } });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit"); await click(".order-bump-add");
+    assert.deepEqual(additions, []); assert.equal(container.querySelector<HTMLButtonElement>(".promotion-coupon-controls button")?.disabled, true);
+    assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, true);
+    await click(".checkout-submit"); assert.equal(submissions.length, 2); assert.deepEqual(submissions[1], submissions[0]);
+  });
+});
+
+test("a later input rejection cannot clear an earlier uncertain financial attempt", async () => {
+  let attempts = 0;
+  const operations: unknown[] = [];
+  const Form = loadForm(async () => { const selected = response([]); const quote = { ...selected.quote, paymentMethods: [{ id: "30000000-0000-4000-8000-000000000001", kind: "hosted_card", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] }] }; return { quote, quoteDigest: digest(quote) }; }, {
+    bumpOffers: bumpProjection, startHosted: async input => { operations.push(input); throw new FixtureCartClientError(++attempts === 1 ? "request_failed" : "invalid_input"); },
+  });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit"); await click(".checkout-submit");
+    assert.equal(container.querySelector<HTMLButtonElement>(".order-bump-add")?.disabled, true);
+    assert.equal(container.querySelector<HTMLButtonElement>(".promotion-coupon-controls button")?.disabled, true);
+    assert.deepEqual(operations[1], operations[0]);
+  });
+});
+
+test("a known rejected payment followed by an accepted bump submits a fresh operation with the new quote", async () => {
+  let updated = false;
+  const operations: Record<string, unknown>[] = [];
+  const extra = { ...cart.items[0], productId: bumpOffer.productId, variantId: bumpOffer.variantId, title: bumpOffer.title, slug: bumpOffer.slug, unitPriceCents: 2500, lineTotalCents: 2500 };
+  const next = { ...cart, version: 2, itemCount: 2, items: [...cart.items, extra], subtotalCents: 12500, totalCents: 12500 };
+  const projected = () => { const selected = response([]); const snapshot = updated ? { ...selected.quote.cart, ...next, items: next.items.map(line => ({ ...line, discountCents: 0, payableCents: line.lineTotalCents })) } : selected.quote.cart; const quote = { ...selected.quote, cart: snapshot, paymentMethods: [{ id: "30000000-0000-4000-8000-000000000001", kind: "hosted_card", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] }] }; return { quote, quoteDigest: digest(quote) }; };
+  const Form = loadForm(async () => projected(), { bumpOffers: bumpProjection, add: async () => next as never, replaceCart() { updated = true; }, startHosted: async input => { operations.push(input as unknown as Record<string, unknown>); throw new FixtureCartClientError("invalid_input"); } });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit"); await click(".order-bump-add"); await click(".checkout-submit");
+    assert.equal(operations.length, 2); assert.notEqual(operations[0].operationId, operations[1].operationId);
+    assert.equal(operations[1].cartVersion, 2); assert.equal(operations[1].expectedQuoteDigest, projected().quoteDigest);
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="email"]')?.value, validDraft.email);
+  });
+});
+
+for (const paymentKind of ["bank_transfer", "cash_on_delivery"] as const) {
+  test(`a first ${paymentKind} input rejection preserves editable fields and permits a fresh bump operation`, async () => {
+    let updated = false;
+    const submissions: Record<string, unknown>[] = [];
+    const additions: unknown[] = [];
+    const extra = { ...cart.items[0], productId: bumpOffer.productId, variantId: bumpOffer.variantId, title: bumpOffer.title, slug: bumpOffer.slug, unitPriceCents: 2500, lineTotalCents: 2500 };
+    const next = { ...cart, version: 2, itemCount: 2, items: [...cart.items, extra], subtotalCents: 12500, totalCents: 12500 };
+    const projected = () => {
+      const selected = response([]);
+      const quote = { ...selected.quote, ...(updated ? { cart: { ...selected.quote.cart, ...next, items: next.items.map(line => ({ ...line, discountCents: 0, payableCents: line.lineTotalCents })) } } : {}), paymentMethods: [{ kind: paymentKind, label: "Ödeme", instructions: "Teslimatta ödeme", ...(paymentKind === "bank_transfer" ? { bankName: "Celebix Bank", accountHolder: "Mağaza", iban: "TR330006100519786457841326" } : {}) }] };
+      return { quote, quoteDigest: digest(quote) };
+    };
+    const Form = loadForm(async () => projected(), { bumpOffers: bumpProjection, add: async input => { additions.push(input); return next as never; }, replaceCart() { updated = true; } });
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (path, init) => {
+      assert.equal(path, "/api/checkout/complete");
+      submissions.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return Response.json({ code: "invalid_input" }, { status: 400 });
+    };
+    try {
+      await withProductBrowser(async ({ container, render, click, change }) => {
+        await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+        await click(".checkout-submit");
+        assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, false, "known rejection permits correcting the contact");
+        assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-delivery fieldset")?.disabled, false);
+        assert.equal(container.querySelector<HTMLButtonElement>(".order-bump-add")?.disabled, false);
+        await change('input[name="addressLine1"]', "Cadde 12");
+        await click(".order-bump-add");
+        await click(".checkout-submit");
+        assert.equal(additions.length, 1);
+        assert.equal(submissions.length, 2);
+        assert.notEqual(submissions[0].operationId, submissions[1].operationId);
+        assert.equal(submissions[1].cartVersion, 2);
+        assert.equal(submissions[1].expectedQuoteDigest, projected().quoteDigest);
+        assert.equal((submissions[1].shippingAddress as Record<string, unknown>).addressLine1, "Cadde 12");
+      });
+    } finally { globalThis.fetch = previousFetch; }
+  });
+}
+
+test("a later non-card input rejection preserves an earlier ambiguous financial attempt", async () => {
+  const submissions: Record<string, unknown>[] = [], additions: unknown[] = [];
+  const Form = loadForm(async (_intent, codes) => response(codes), { bumpOffers: bumpProjection, add: async input => { additions.push(input); return cart as never; } });
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (_path, init) => {
+    submissions.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    if (submissions.length === 1) throw new Error("lost response");
+    return Response.json({ code: "invalid_input" }, { status: 400 });
+  };
+  try {
+    await withProductBrowser(async ({ container, render, click }) => {
+      await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+      await click(".checkout-submit"); await click(".checkout-submit"); await click(".order-bump-add");
+      assert.deepEqual(submissions[1], submissions[0]);
+      assert.deepEqual(additions, []);
+      assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, true);
+      assert.equal(container.querySelector<HTMLButtonElement>(".promotion-coupon-controls button")?.disabled, true);
+    });
+  } finally { globalThis.fetch = previousFetch; }
+});
+
+for (const [name, rejected] of [
+  ["extra response fields", () => Response.json({ code: "invalid_input", detail: "untrusted" }, { status: 400 })],
+  ["unknown code", () => Response.json({ code: "operation_mismatch" }, { status: 409 })],
+  ["server failure", () => Response.json({ code: "invalid_input" }, { status: 500 })],
+  ["oversized actual body", () => new Response(JSON.stringify({ code: "invalid_input" }) + " ".repeat(2049), { status: 400, headers: { "content-type": "application/json" } })],
+  ["oversized declared body", () => Response.json({ code: "invalid_input" }, { status: 400, headers: { "content-length": "2049" } })],
+  ["incorrect content type", () => new Response(JSON.stringify({ code: "invalid_input" }), { status: 400, headers: { "content-type": "text/plain" } })],
+] as const) {
+  test(`a non-card rejection with ${name} cannot release the uncertain-payment fence`, async () => {
+    const submissions: Record<string, unknown>[] = [];
+    const Form = loadForm(async (_intent, codes) => response(codes), { bumpOffers: bumpProjection });
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (_path, init) => { submissions.push(JSON.parse(String(init?.body)) as Record<string, unknown>); return rejected(); };
+    try {
+      await withProductBrowser(async ({ container, render, click }) => {
+        await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+        await click(".checkout-submit");
+        assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, true);
+        assert.equal(container.querySelector<HTMLButtonElement>(".order-bump-add")?.disabled, true);
+        await click(".checkout-submit"); assert.deepEqual(submissions[1], submissions[0]);
+      });
+    } finally { globalThis.fetch = previousFetch; }
+  });
+}
+
+test("an unverified ambiguous add never restores the old checkout seal or replays the add", async () => {
+  let adds = 0, reads = 0, quotes = 0;
+  const Form = loadForm(async (_intent, codes) => { quotes++; return response(codes); }, { bumpOffers: bumpProjection, add: async () => { adds++; throw new Error("lost response"); }, resolve: async () => { reads++; throw new Error("unavailable"); } });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft })); await click(".order-bump-add");
+    assert.equal(adds, 1); assert.equal(reads, 1); assert.equal(quotes, 1);
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, true);
+    assert.equal(container.querySelector(".order-bump-add"), null); assert.doesNotMatch(container.querySelector(".checkout-summary")?.textContent ?? "", /₺100/u);
   });
 });
 

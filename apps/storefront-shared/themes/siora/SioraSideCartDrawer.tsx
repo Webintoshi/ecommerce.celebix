@@ -12,6 +12,7 @@ import { formatTry } from "../../lib/format.ts";
 import { productIndexPath, productPath } from "../../lib/storefront-routes.ts";
 import type { SioraCartRecommendation } from "./cart-recommendations.ts";
 import styles from "./siora-side-cart.module.css";
+import { OrderBumpOffers } from "../../components/OrderBumpOffers";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -20,6 +21,9 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
+  const [bumpPending, setBumpPending] = useState(false);
+  const [customOffers, setCustomOffers] = useState(false);
+  const mutationBusy = useRef(false);
   const [status, setStatus] = useState("");
   const [recommendations, setRecommendations] = useState<readonly SioraCartRecommendation[] | null>(null);
   const hasItems = Boolean(cart?.items.length);
@@ -63,12 +67,13 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
   const checkoutBlocked = cart?.checkoutBlocker === "stock_unavailable" || cart?.checkoutBlocker === "empty_cart";
 
   const mutate = async (line: PublicCartLine, quantity: number | null) => {
-    if (!cart || pendingVariant) return;
+    if (!cart || mutationBusy.current) return;
+    mutationBusy.current = true;
     setPendingVariant(line.variantId);
     setStatus("");
     try {
       setStatus(await mutateSideCartLine({ line, cartVersion: cart.version, quantity, client: storefrontCartClient, replaceCart, refresh }));
-    } finally { setPendingVariant(null); }
+    } finally { mutationBusy.current = false; setPendingVariant(null); }
   };
 
   const trapKeyboard = (event: KeyboardEvent<HTMLElement>) => {
@@ -97,7 +102,7 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
             : <>
               <div className={styles.content}>
                 <div className={styles.lines} aria-label="Sepetteki ürünler">{cart.items.map((line) => {
-                  const pending = pendingVariant !== null;
+                  const pending = pendingVariant !== null || bumpPending;
                   return <article className={styles.line} key={line.variantId}>
                     <Link className={styles.media} href={productPath(locale, line.slug)} onClick={closeDrawer}>
                       {line.media ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={line.media.url} alt={line.media.altText || line.title} width={line.media.width ?? 240} height={line.media.height ?? 300} /> : <span>Görsel yakında</span>}
@@ -111,7 +116,8 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                     </div>
                   </article>;
                 })}</div>
-                {suggestions.length ? <section className={styles.recommendations} aria-labelledby="siora-cart-recommendations"><h3 id="siora-cart-recommendations">Beğenebilecekleriniz</h3><div className={styles.suggestions}>{suggestions.map((item) => <Link className={styles.suggestion} key={item.id} href={productPath(locale, item.slug)} onClick={closeDrawer}>
+                <OrderBumpOffers cart={cart} placement="side_cart" locale={locale} active={typeof window !== "undefined" && !/^\/(?:checkout|payments|odeme)(?:\/|$)/iu.test(window.location.pathname)} disabled={pendingVariant !== null || bumpPending} beforeAdd={() => { if (mutationBusy.current) return false; mutationBusy.current = true; return true; }} onPendingChange={value => { setBumpPending(value); if (!value) mutationBusy.current = false; }} onAvailability={setCustomOffers} />
+                {!customOffers && suggestions.length ? <section className={styles.recommendations} aria-labelledby="siora-cart-recommendations"><h3 id="siora-cart-recommendations">Beğenebilecekleriniz</h3><div className={styles.suggestions}>{suggestions.map((item) => <Link className={styles.suggestion} key={item.id} href={productPath(locale, item.slug)} onClick={closeDrawer}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.media.url} alt={item.media.altText || item.title} width={item.media.width ?? 320} height={item.media.height ?? 400} loading="lazy" />
                   <span>{item.title}</span><small>{formatTry(item.priceCents)}</small>
                 </Link>)}</div></section> : null}
@@ -120,7 +126,7 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                 <FreeShippingProgress cart={cart} presentation={presentation} />
                 <div className={styles.subtotal}><span>Ara toplam</span><strong>{formatTry(cart.subtotalCents)}</strong></div>
                 {checkoutBlocked ? <p className={styles.notice}>Sepetinizde stok veya fiyatı değişen bir ürün var. Devam etmeden önce sepetinizi güncelleyin.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "payment_unavailable" ? <p className={styles.notice}>Ödeme yöntemi henüz yapılandırılmadı.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "shipping_unavailable" ? <p className={styles.notice}>Teslimat yöntemi henüz yapılandırılmadı.</p> : null}
-                {checkoutBlocked || pendingVariant !== null ? <span className={styles.checkout} aria-disabled="true">Ödemeye geç</span> : <Link className={styles.checkout} href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}
+                {checkoutBlocked || pendingVariant !== null || bumpPending ? <span className={styles.checkout} aria-disabled="true">Ödemeye geç</span> : <Link className={styles.checkout} href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}
                 <button className={styles.continue} type="button" onClick={closeDrawer}>Alışverişe devam et</button>
                 {settings.trustMessage ? <p className={styles.trust}>{settings.trustMessage}</p> : null}
               </footer>

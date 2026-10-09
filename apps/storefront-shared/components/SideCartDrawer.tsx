@@ -13,6 +13,7 @@ import { sideCartPresentation } from "./campaign-ui-model";
 import { mutateSideCartLine } from "./side-cart-mutation";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 import { SioraSideCartDrawer } from "../themes/siora/SioraSideCartDrawer";
+import { OrderBumpOffers } from "./OrderBumpOffers";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -26,6 +27,8 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme }: Readonly<{
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
+  const [bumpPending, setBumpPending] = useState(false);
+  const mutationBusy = useRef(false);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -39,11 +42,12 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme }: Readonly<{
   if (!drawerOpen) return null;
 
   const mutate = async (line: PublicCartLine, quantity: number | null) => {
-    if (!cart || pendingVariant) return;
+    if (!cart || mutationBusy.current) return;
+    mutationBusy.current = true;
     setPendingVariant(line.variantId); setStatus("");
     try {
       setStatus(await mutateSideCartLine({ line, cartVersion: cart.version, quantity, client: storefrontCartClient, replaceCart, refresh }));
-    } finally { setPendingVariant(null); }
+    } finally { mutationBusy.current = false; setPendingVariant(null); }
   };
 
   const trapKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -64,7 +68,7 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme }: Readonly<{
       <header className="side-cart-header"><div><h2 id="side-cart-title">Sepetim</h2>{cart ? <span className="side-cart-header-count">{cart.itemCount} ürün</span> : null}</div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
       {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)} onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
         <div className="side-cart-lines" aria-label="Sepetteki ürünler">{cart.items.map((line) => {
-          const pending = pendingVariant === line.variantId;
+          const pending = pendingVariant !== null || bumpPending;
           return <article className="side-cart-line campaign-side-cart-item" key={line.variantId}>
             <Link className="side-cart-media" href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.media ? /* eslint-disable-next-line @next/next/no-img-element */<img src={line.media.url} alt={line.media.altText || line.title} loading="lazy" width={line.media.width ?? 96} height={line.media.height ?? 96} /> : <span aria-hidden="true">◇</span>}</Link>
             <div className="side-cart-line-copy"><Link href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.title}</Link>{line.variantTitle && line.variantTitle !== "Varsayılan" ? <span>{line.variantTitle}</span> : null}<strong className="side-cart-line-price">{formatTry(line.unitPriceCents)}</strong>{line.available ? null : <em>Stok veya fiyat bilgisi değişti</em>}
@@ -76,8 +80,8 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme }: Readonly<{
             </div>
             {line.quantity > 1 ? <strong className="side-cart-line-total">{formatTry(line.lineTotalCents)}</strong> : null}
           </article>;
-        })}</div>
-        <footer className="side-cart-footer campaign-side-cart-summary"><FreeShippingProgress cart={cart} presentation={presentation} /><dl><div><dt>Ara toplam</dt><dd>{formatTry(cart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{cart.shippingCents === 0 ? "Ücretsiz" : formatTry(cart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(cart.totalCents)}</dd></div></dl>{campaignPresentation.trustMessage ? <p className="side-cart-trust">{campaignPresentation.trustMessage}</p> : null}{campaignPresentation.showCheckoutReadiness ? cart.checkoutBlocker === "payment_unavailable" ? <p className="side-cart-notice is-configuration">Ödeme yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "shipping_unavailable" ? <p className="side-cart-notice is-configuration">Teslimat yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "stock_unavailable" ? <p className="side-cart-notice is-error">Sepetinizde stok veya fiyatı değişen bir ürün var.</p> : null : null}<div className="side-cart-actions">{checkoutBlockedByStock ? <span className="store-button campaign-side-cart-checkout is-disabled" aria-disabled="true">Ödemeye geç</span> : <Link className="store-button campaign-side-cart-checkout" href="/checkout" onClick={closeDrawer}>{configurationBlocked ? "Ödeme durumunu görüntüle" : "Ödemeye geç"}</Link>}<Link className="side-cart-view-link" href="/cart" onClick={closeDrawer}>Sepeti görüntüle</Link></div></footer>
+        })}<OrderBumpOffers cart={cart} placement="side_cart" locale={locale} active={typeof window !== "undefined" && !/^\/(?:checkout|payments|odeme)(?:\/|$)/iu.test(window.location.pathname)} disabled={pendingVariant !== null || bumpPending} beforeAdd={() => { if (mutationBusy.current) return false; mutationBusy.current = true; return true; }} onPendingChange={value => { setBumpPending(value); if (!value) mutationBusy.current = false; }} /></div>
+        <footer className="side-cart-footer campaign-side-cart-summary"><FreeShippingProgress cart={cart} presentation={presentation} /><dl><div><dt>Ara toplam</dt><dd>{formatTry(cart.subtotalCents)}</dd></div><div><dt>Kargo</dt><dd>{cart.shippingCents === 0 ? "Ücretsiz" : formatTry(cart.shippingCents)}</dd></div><div><dt>Toplam</dt><dd>{formatTry(cart.totalCents)}</dd></div></dl>{campaignPresentation.trustMessage ? <p className="side-cart-trust">{campaignPresentation.trustMessage}</p> : null}{campaignPresentation.showCheckoutReadiness ? cart.checkoutBlocker === "payment_unavailable" ? <p className="side-cart-notice is-configuration">Ödeme yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "shipping_unavailable" ? <p className="side-cart-notice is-configuration">Teslimat yöntemi henüz yapılandırılmadı.</p> : cart.checkoutBlocker === "stock_unavailable" ? <p className="side-cart-notice is-error">Sepetinizde stok veya fiyatı değişen bir ürün var.</p> : null : null}<div className="side-cart-actions">{checkoutBlockedByStock || pendingVariant !== null || bumpPending ? <span className="store-button campaign-side-cart-checkout is-disabled" aria-disabled="true">Ödemeye geç</span> : <Link className="store-button campaign-side-cart-checkout" href="/checkout" onClick={closeDrawer}>{configurationBlocked ? "Ödeme durumunu görüntüle" : "Ödemeye geç"}</Link>}<Link className="side-cart-view-link" href="/cart" onClick={closeDrawer}>Sepeti görüntüle</Link></div></footer>
       </>}
       <p className="sr-only" aria-live="polite">{status}</p>
     </section>

@@ -1,0 +1,15 @@
+.section { padding-block: 16px; border-top: 1px solid var(--line, #e5e5e5); min-width: 0; }
+.section h3 { margin: 0 0 12px; font: inherit; font-size: 14px; font-weight: 600; }
+.list { display: grid; gap: 12px; }
+.offer { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.media { flex: 0 0 56px; width: 56px; }
+.media img { display: block; width: 56px; height: 70px; object-fit: cover; border-radius: 4px; }
+.copy { display: grid; gap: 4px; flex: 1; min-width: 0; font-size: 13px; }
+.copy a { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.copy small { color: #666; font-size: 11px; }
+.copy strong { font-size: 12px; font-weight: 500; }
+.add { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 4px; background: transparent; color: inherit; min-height: 48px; min-width: 48px; padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+.add:disabled { opacity: .5; cursor: default; }
+.add:focus-visible, .copy a:focus-visible, .media:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.status { margin: 8px 0 0; font-size: 12px; line-height: 1.5; }
+.status:empty { display: none; }
