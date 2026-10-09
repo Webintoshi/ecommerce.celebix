@@ -46,16 +46,25 @@ test("promotion editor collapses at tablet and keeps complete step and choice la
 });
 
 test("promotion list owns the shell topbar and keeps its one primary action graphite in every placement", async () => {
-  const [list, stylesheet] = await Promise.all([
+  const [list, stylesheet, sharedControls] = await Promise.all([
     source("components/promotions/PromotionList.tsx"),
-    source("components/promotions/promotion-studio.module.css"),
+    source("components/promotions/promotion-list.module.css"),
+    source("app/globals.css"),
   ]);
 
-  assert.match(list, /PanelPageHeader/);
-  assert.match(list, /title="İndirimler ve Kampanyalar"/);
-  assert.match(list, /actions=\{canManage \? <div className=\{styles[.]headerPrimary\}>/);
+  assert.equal(list.match(/<PanelPageHeader\b/g)?.length, 1);
+  assert.match(list, /<PanelPageHeader title="İndirimler"\s*\/>/);
+  assert.match(list, /<h1 className=\{styles[.]srOnly\}>İndirimler ve Kampanyalar<\/h1>/);
+  assert.equal(list.match(/<h1\b/g)?.length, 1);
   assert.doesNotMatch(list, /<header className=\{styles[.]pageHeader\}>/);
-  assert.match(stylesheet, /[.]headerPrimary a\s*\{[^}]*border-color:\s*var\(--cp-text-primary\);[^}]*background:\s*var\(--cp-text-primary\);[^}]*color:\s*var\(--cp-surface\);/s);
+  assert.equal(list.match(/className="button button-primary"/g)?.length, 1);
+  assert.match(list, /canManage \? <Link className="button button-primary" href="\/discounts\/new">/);
+  assert.match(sharedControls, /[.]button-primary\s*\{[^}]*background:\s*var\(--cp-action-primary\);[^}]*color:\s*var\(--cp-action-primary-text\);/s);
+  assert.match(sharedControls, /[.]button-primary:hover:not\(:disabled\)\s*\{[^}]*background:\s*var\(--cp-action-primary-hover\);/s);
+  assert.match(sharedControls, /--cp-action-primary:\s*#2b2b2b;/i);
+  assert.match(sharedControls, /--cp-action-primary-text:\s*#fffdfc;/i);
+  assert.match(stylesheet, /color:\s*var\(--cp-text-primary\)/);
+  assert.doesNotMatch(stylesheet, /#[0-9a-f]{3,8}\b/i, "list styling must use the shared neutral palette");
 });
 
 test("Taslak stays neutral and desktop and mobile use the same promotion status tone", async () => {
