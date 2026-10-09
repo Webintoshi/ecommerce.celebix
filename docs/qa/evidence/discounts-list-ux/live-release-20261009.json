@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "verified": true,
+  "acceptedAt": "2026-10-09T20:10:58.632830+00:00",
+  "candidate": "abce632b84caef64801ed3d89214595fc75efa60",
+  "parent": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+  "scope": "Customer Panel discounts list UI only",
+  "productionFiles": [
+    "apps/customer-panel/components/promotions/PromotionList.tsx",
+    "apps/customer-panel/components/promotions/promotion-list.module.css"
+  ],
+  "rolloutOrder": [
+    "panel_net",
+    "panel_site"
+  ],
+  "deployments": [
+    {
+      "target": "panel_net",
+      "deploymentUuid": "hego9y1dbuzu0vuor4ro79d5",
+      "candidate": "abce632b84caef64801ed3d89214595fc75efa60",
+      "finished": true,
+      "runtimeVerified": true,
+      "configurationAndWitnessesPreserved": true
+    },
+    {
+      "target": "panel_site",
+      "deploymentUuid": "hqh074kuhxlqp4df5wt4z2ax",
+      "candidate": "abce632b84caef64801ed3d89214595fc75efa60",
+      "finished": true,
+      "runtimeVerified": true,
+      "configurationAndWitnessesPreserved": true
+    }
+  ],
+  "runningSources": {
+    "panel_net": "abce632b84caef64801ed3d89214595fc75efa60",
+    "panel_site": "abce632b84caef64801ed3d89214595fc75efa60",
+    "owner_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "owner_site": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_site": "446557f574ef3d99081f54f2fe138b1fe487a55a"
+  },
+  "runtimeChecks": [
+    {
+      "target": "panel_net",
+      "verified": true
+    },
+    {
+      "target": "panel_site",
+      "verified": true
+    },
+    {
+      "target": "owner_net",
+      "verified": true
+    },
+    {
+      "target": "owner_site",
+      "verified": true
+    },
+    {
+      "target": "storefront_net",
+      "verified": true
+    },
+    {
+      "target": "storefront_site",
+      "verified": true
+    }
+  ],
+  "ingress": [
+    {
+      "target": "panel_net",
+      "origin": "https://panel.saas-staging.celebix.net",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://butik-siora.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://alpler-spor.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://panel.saas-staging.celebix.site",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com.tr",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 6
+    }
+  ],
+  "globalIdle": true,
+  "authoritativeConfigurationAndWitnessesPreserved": true,
+  "protectedRuntimeEnvironmentPreservedIncludingEmail": true,
+  "native224PreservationBasis": "Bound accepted Cemo handoff plus unchanged native/SQL/contracts source; no new full catalog audit",
+  "officialPaytrGeneratorAndCheck": {
+    "candidateAndBaseline": true,
+    "profiles": 3,
+    "providerInvoked": false
+  },
+  "paymentGoogleAndKeyringRuntimeVerified": true,
+  "publicLiveAuthenticatedBrowserPerformed": false,
+  "localBrowserWidths": [
+    1440,
+    1024,
+    390
+  ],
+  "behaviorTests": {
+    "passed": 8
+  },
+  "focusedPromotionTests": {
+    "total": 92,
+    "passed": 89,
+    "unchangedBaselineEditorAssertionFailures": 3
+  },
+  "typecheckPassed": true,
+  "productionBuildPassed": true,
+  "providerInvoked": false,
+  "privateKitSealSha256": "f78a302ad2e62fffc0aa0f278b7434d5d14fcb320b7eae92a8cb4ba953c89962"
+}
