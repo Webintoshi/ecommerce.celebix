@@ -1,6 +1,6 @@
 # Brevo / Klaviyo connections
 
-Implementation date: 2026-10-09. Software is implemented in `codex/email-provider-connections`. Production activation and real provider acceptance remain pending. This document is not a deployment record.
+Implementation and shared publication date: 2026-10-09. Source `446557f574ef3d99081f54f2fe138b1fe487a55a` is running on both owners, both storefronts and both Customer Panels. Native migration 224 is applied. Klaviyo controls and full workers are enabled; Brevo remains disabled pending registration and key-handling clarification. Real merchant-key acceptance remains outstanding. See the [live release record](../qa/evidence/email-marketing-connections/live-release-20261009.md).
 
 ## Merchant flow
 
@@ -19,6 +19,7 @@ Provider account denials are store-wide; list denials affect only the connected 
 Server-only settings:
 
 - Panel: `CELEBIX_EMAIL_MARKETING_CONNECTIONS_ENABLED=true` plus the existing merchant credential keyring. Default is disabled. The native capability probe must pass.
+- Panel: `CELEBIX_EMAIL_MARKETING_BREVO_ENABLED=false` independently gates Brevo. Enabling the global switch exposes Klaviyo without enabling Brevo.
 - Owner: `CELEBIX_EMAIL_MARKETING_WORKER_MODE=off|revoke_only|full` and unique `CELEBIX_EMAIL_MARKETING_WORKER_ID`. Default is `off`.
 - Owner database uses the current shared private database URL with `sslmode=verify-full`; restricted workflow role, PostgreSQL 16 and required native functions are checked before startup.
 - Both panels and owner must share the active encryption key and retain previous keys while referenced effects/candidates remain. Rotate using the existing merchant-keyring procedure; never expose environment values in a manifest.
@@ -35,15 +36,15 @@ Disconnect enters draining. Retained keys and original dispatched evidence survi
 
 ## Publication prerequisites and sequence
 
-The candidate migration is intentionally unnumbered: `apps/owner/scripts/sql/saas/email-marketing-connections.{up,down}.sql`. Allocate a number only under the current shared release owner. Re-read active source/container/config/SQL baselines; previous source pins are not current authority.
+Native migration 224 was allocated and applied under the shared release owner: `apps/owner/scripts/sql/saas/202610090224_email_marketing_connections.{up,down}.sql`. The unnumbered files remain identical implementation/test inputs. Re-read active source/container/config/SQL baselines before further release operations; historical source pins are not current authority.
 
-Before granting real access, resolve the explicit registration requirement and the following implementation-specific publication gates. Written clarification is our gate for ambiguous terms; it is not presented as a separate explicit provider mandate:
+Brevo remains disabled pending its explicit registration requirement and key-handling clarification. Klaviyo private-key use outside marketplace publication is supported by the official guides below. Written clarification is our gate for ambiguous Brevo terms; it is not presented as a separate explicit provider mandate:
 
 1. Brevo app registration and written clarification of its key-handling clause. Its [Developer Terms](https://developers.brevo.com/docs/apps-developer-terms) §§7.1 and 8(i) apply to distributable apps; §9.4 permits factual interoperability marks subject to terms. The required no-endorsement disclosure is in the dialog.
 2. Klaviyo private-key authentication is supported for trusted third-party integrations by the [authentication guide](https://developers.klaviyo.com/en/docs/authenticate_) and [private-key guide](https://help.klaviyo.com/hc/en-us/articles/7423954176283). Marketplace OAuth/review is a separate publication path. The API Terms contain competitor/aggregation restrictions, but do not expressly classify this alternative provider chooser as requiring prior review. This release does not combine provider reports or offer campaign sending. Factual brand use does not claim endorsement.
-3. Merchant-authorized sandbox accounts/recipient scope and automation settings. No production customer is a test fixture. Application requests are prepared in `email-marketing-provider-approval-requests.md`; none has been sent.
+3. Real merchant-key acceptance requires authorized accounts/recipient scope and automation settings. No production customer is a test fixture. The Brevo registration/key-handling request was sent with explicit user authorization on 2026-10-09; a response is pending. The optional Klaviyo clarification draft remains unsent.
 
-After clearance: back up/rehearse → guarded native SQL → compatible owner in revoke-only mode → required shared storefront readers NET→SITE → Customer Panel NET→SITE → verify running sources/readers → enable full worker and connection controls → authorized provider test. Preserve unrelated Google, payment, domain and encryption configuration. New tenants receive the feature through the common app; each merchant still supplies their own provider account/key.
+Completed rollout: back up/rehearse → guarded native SQL → compatible owners NET→SITE in revoke-only mode → shared storefront readers NET→SITE → Customer Panels NET→SITE → verify all running sources/readers → enable Klaviyo controls/full workers → official owner NET→SITE and panel NET→SITE runtime restarts → verify all six running applications. Unrelated Google, payment, domain and encryption configuration was preserved. Real merchant-key testing is a separate outstanding acceptance step. New tenants receive the feature through the common app; each merchant still supplies their own provider account/key.
 
 ## Rollback
 
@@ -53,4 +54,4 @@ See `docs/qa/evidence/email-marketing-connections/acceptance.md` for actual chec
 
 ## Shared rollout controls
 
-`CELEBIX_EMAIL_MARKETING_CONNECTIONS_ENABLED` remains false by default. Enabling it exposes Klaviyo. `CELEBIX_EMAIL_MARKETING_BREVO_ENABLED` is a separate server-side switch, false by default; Brevo is displayed as preparation pending. HTTP paths enforce availability, not only buttons. Disconnect and narrowly bound existing-account cleanup key recovery remain possible if a provider is subsequently disabled. No Brevo registration or provider application has been sent without human authorization. Real provider account acceptance remains distinct from software and deployment checks.
+`CELEBIX_EMAIL_MARKETING_CONNECTIONS_ENABLED` remains false by default and is now true on both shared panels. `CELEBIX_EMAIL_MARKETING_BREVO_ENABLED` is a separate server-side switch, false by default and still false in production; Brevo is displayed as preparation pending. HTTP paths enforce availability, not only buttons. Disconnect and narrowly bound existing-account cleanup key recovery remain possible if a provider is subsequently disabled. The authorized Brevo request has been sent; registration completion and provider approval have not been established. Real provider account acceptance remains distinct from software and deployment checks.

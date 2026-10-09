@@ -2,7 +2,7 @@
 
 Date: 2026-10-09. Branch: `codex/email-provider-connections`.
 
-**Status: implemented and isolated software acceptance passed; not deployed or enabled in production.** Tasks 1–7 are committed. Task 8 remains open for provider prerequisites, authorized real-account acceptance and the coordinated shared release. This is not a production deployment certificate.
+**Historical isolated acceptance record.** The checks below preceded production publication and retain their original scope. The subsequent [2026-10-09 live release](live-release-20261009.md) applied native migration 224 and enabled Klaviyo on both shared panels after all six applications passed runtime acceptance. Brevo prerequisites and authorized real-account acceptance remain outstanding; this historical record does not certify provider behavior.
 
 Reviewed base: `8ec4903155e8410548e5ce60e04edf7f9b2f87b9`.
 Final implementation/build source: `2e7cec6495d74c9cf4be8f129ea44236b9ee6866`.

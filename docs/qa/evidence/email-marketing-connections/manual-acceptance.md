@@ -1,6 +1,6 @@
 # Manual export correction — 2026-10-09
 
-Local verification only; no production/provider operation occurred. This supersedes automatic bootstrap/name scheduling described in the original acceptance record; original measurements remain historical.
+Historical local verification; no production/provider operation occurred during these checks. This supersedes automatic bootstrap/name scheduling described in the original acceptance record; original measurements remain historical. The subsequent [live release](live-release-20261009.md) applied native 224 and enabled Klaviyo. Brevo registration and real merchant-key acceptance remain outstanding.
 
 ## Verified behavior
 

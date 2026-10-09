@@ -1,0 +1,86 @@
+{
+  "acceptedAt": "2026-10-09T19:32:58.186995+00:00",
+  "source": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+  "nativeVersion": 224,
+  "deploymentTargets": [
+    "owner_net",
+    "owner_site",
+    "storefront_net",
+    "storefront_site",
+    "panel_net",
+    "panel_site"
+  ],
+  "restartTargets": [
+    "owner_net",
+    "owner_site",
+    "panel_net",
+    "panel_site"
+  ],
+  "queues": {
+    "queue": {
+      "owner_net": "hxwzqm81q8ykwe827jbuio5e",
+      "owner_site": "azjkjs6ljux9uxr8bibfps15",
+      "storefront_net": "nq3ea54yftjkziplyq0c245q",
+      "storefront_site": "mopzg0m8iab9tm5bfb8771mh",
+      "panel_net": "mpajpiis5qr9zuyw7ma4okr0",
+      "panel_site": "kvruvmviqajm9fg1cqoud25k"
+    },
+    "restart": {
+      "owner_net": "ftsxqnqiy5vv5n6npt78sstg",
+      "owner_site": "yr9eqof9fplz1w5ch61ozo2k",
+      "panel_net": "v1j8ctbbuwkficd6eqxyjvep",
+      "panel_site": "ybljshlxlutaxghma9xnjq1x"
+    }
+  },
+  "activation": {
+    "klaviyo": true,
+    "brevo": false,
+    "workerMode": "full",
+    "positiveExport": "explicit_manual_sync"
+  },
+  "preservation": {
+    "unchangedFunctions": 1717,
+    "unchangedTableData": 339,
+    "schemaRolesPreserved": true,
+    "paymentPreflights": 7
+  },
+  "backup": {
+    "bytes": 166504470,
+    "sha256": "e8e2029109c6a6657ef044d0548236ca8d9adfbf17d45e5b8c61fd462bf2f5e4",
+    "restoreRehearsalPassed": true
+  },
+  "providerAcceptance": {
+    "realMerchantKeyTested": false,
+    "providerInvokedByAcceptance": false,
+    "brevoRequestSent": true,
+    "brevoRegistrationApproved": false,
+    "brevoReplyPending": true
+  },
+  "httpSmoke": {
+    "observations": 21,
+    "checkedAt": null,
+    "recordedAt": "2026-10-09T19:22:51.648311+00:00",
+    "mutation": false
+  },
+  "httpSmokeAfterActivation": {
+    "observations": 8,
+    "checkedAt": "2026-10-09T19:32:42.048658+00:00",
+    "verified": true,
+    "mutation": false
+  },
+  "evidenceSHA256": {
+    "native224-receipt.json": "d0452333b1dd748b794f68cf184c0d61a2c7627e55c42d81ff9c880ae9ff372d",
+    "backup-receipt.json": "9a2ca3a12d96a17e373827151ccba2d2e9479623c958d1fabb78ff648eb8d53e",
+    "rollback-rehearsal.json": "58eabc07a963b973c53df93582c49a3785e8c7f058ae4c8f0b8108aa3a2f5ced",
+    "build-receipt.json": "a0b0cbab7de9ee3713c910d9aa80aec9f01d4e1a382925b6962eee8498c59fc3",
+    "push-receipt.json": "3b664e7fa58fa27e7d767950a92d4e551d1c52466cd45fa9646795a1e3f92340",
+    "runtime-compatible-receipt.json": "281a6422af52e7310c928e6ba133e880e913b59e4fd91a9a62f3e0d4016c612e",
+    "control-activate.json": "be5ec84880e7241b928d7f44f193f2154fef171ecc3ec692cf3edf352e0ffa41",
+    "control-finish.json": "a1030c8b8c9a74d21971b8c1bf85bc7ae22dbb2560871c202750cb7b9a57fc81",
+    "runtime-active-receipt.json": "3a0a653fc71239905d5165cf9a61ace96da3f852f1f7fc4a68515563f6564263",
+    "http-smoke-review.json": "f18b07447baa68ff4ddd3d34f9729fe23f814aa0c2b3027251dd3a6bc1a7c0cd",
+    "http-smoke-active.json": "27d933913c2fa7bed248b659cf196bdf373e47e0c9a97b802af43cc85d2e436e",
+    "brevo-request-receipt.json": "f97e9829392dc8f8ad6c4723b6ee97ea83400e824b1af31e204c1e272e9df617",
+    "route-probe-repair.json": "89994cfe246472a1bde8a1ed6c2ee901ecaf84875498df6b62ec0071f1e9dbe3"
+  }
+}

@@ -1,8 +1,10 @@
-# Prepared provider clarification requests
+# Provider clarification requests and submission status
 
-Prepared 2026-10-09. Not submitted. Route through each provider's verified developer/partner support channel; do not infer an email address. Human authorization is required before sending messages to another party.
+Prepared 2026-10-09. Brevo: sent with explicit user authorization; response pending. Klaviyo: optional draft, not submitted and not a private-key activation prerequisite. Future messages still require human authorization and a verified provider support channel.
 
-## Brevo
+## Brevo — sent; response pending
+
+Sent 2026-10-09 at 19:05:36 UTC (22:05:36 Europe/Istanbul), from `celebixco@gmail.com` to `support@brevo.com`, the notice address in [Developer Terms §14.8](https://developers.brevo.com/docs/apps-developer-terms). Gmail SENT status and exact message content were verified. A subsequent read found no reply or automatic acknowledgment. This requests the registration process and clarification; it is not completed registration or approval.
 
 Subject: Celebix distributable integration registration and encrypted merchant API keys
 
@@ -22,4 +24,4 @@ Before activation, please confirm written permission for this optional two-provi
 
 No real merchant key or customer export has been used in acceptance testing. We can provide a synthetic demonstration and architecture/security evidence through your approved channel.
 
-2026-10-09 source review: Klaviyo documents private-key use by trusted third parties outside marketplace publication. The draft above is optional clarification; it has not been sent and is not treated as a universal private-key activation prerequisite. Brevo registration and its key-handling clause remain separate outstanding gates.
+2026-10-09 source review: Klaviyo documents private-key use by trusted third parties outside marketplace publication. The draft above is optional clarification; it has not been sent and is not treated as a universal private-key activation prerequisite. The Brevo registration/key-handling request has been sent and awaits a response; Brevo remains disabled. No real merchant-key acceptance test has been performed.
