@@ -106,9 +106,10 @@ BEGIN
  IF p_action='claim' THEN
   oid:=(p_input->>'operationId')::uuid;kind:=p_input->>'kind';
   IF kind NOT IN('validate','apply','rotate','recheck','disconnect') OR p_input->>'fingerprint'!~'^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+  IF p_input?'fingerprints' AND(jsonb_typeof(p_input->'fingerprints') IS DISTINCT FROM 'array' OR jsonb_array_length(p_input->'fingerprints') NOT BETWEEN 1 AND 16 OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_input->'fingerprints') f WHERE jsonb_typeof(f) IS DISTINCT FROM 'string' OR (f#>>'{}')!~'^[a-f0-9]{64}$') OR NOT (p_input->'fingerprints'?(p_input->>'fingerprint'))) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
   SELECT * INTO op FROM saas.email_marketing_operations WHERE id=oid FOR UPDATE;
   IF FOUND THEN
-   IF op.store_id<>p_store OR op.principal_id<>p_principal OR op.membership_id<>p_membership OR op.kind<>kind OR op.fingerprint IS DISTINCT FROM p_input->>'fingerprint' THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb;RETURN;END IF;
+   IF op.store_id<>p_store OR op.principal_id<>p_principal OR op.membership_id<>p_membership OR op.kind<>kind OR op.fingerprint IS DISTINCT FROM p_input->>'fingerprint' AND NOT coalesce(p_input->'fingerprints'?op.fingerprint,false) THEN RETURN QUERY SELECT 'operation_conflict',NULL::jsonb;RETURN;END IF;
    IF op.phase='complete' THEN RETURN QUERY SELECT 'replayed',op.result_payload;RETURN;END IF;
    IF op.lease_until>moment THEN RETURN QUERY SELECT 'cleanup_pending',NULL::jsonb;RETURN;END IF;
    token:=gen_random_uuid();PERFORM saas.platform_support_begin(p_store,p_principal,p_membership,'email_marketing_command.claim');UPDATE saas.email_marketing_operations SET lease_token=token,lease_until=moment+interval '2 minutes' WHERE id=oid;

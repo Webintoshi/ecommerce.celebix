@@ -1,3 +1,6 @@
+import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMarketingWebhookRepository,createEmailMarketingProviders} from '@celebix/saas-data';
+import {emailMarketingConfiguration} from '../server-email-marketing/config.ts';
+import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebhookRepository} from '../server-email-marketing/runtime.ts';
 import "server-only";
 
 import { randomBytes, randomUUID } from "node:crypto";
@@ -830,6 +833,8 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.map((field) => [field, process.env[field]]),
     ));
     const providerCredentialKeyring = parseMerchantProviderCredentialKeyring(process.env);
+    const emailMarketingReady = await pool.query("SELECT to_regprocedure('saas.email_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)') IS NOT NULL AND to_regprocedure('saas.email_marketing_brevo_hook(text,uuid,text,jsonb)') IS NOT NULL AS ready").then(r=>r.rows[0]?.ready===true).catch(()=>false);
+
     const sessionRepository = createPostgresPanelSessionRepository(
       createPanelSessionPersistenceApproval("approved_staging"),
       {
@@ -1096,6 +1101,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         new PostgresSeoRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS, audit: () => undefined }),
         { saveResource: ["catalog", "settings"], saveSettings: ["catalog", "settings"], saveLink: ["settings"] },
       ));
+    }
+    if (emailMarketingReady) {
+      registerServerEmailMarketingWebhookRepository(access, createPostgresEmailMarketingWebhookRepository({pool,timeouts:TIMEOUTS}));
+      if (emailMarketingConfiguration(process.env,providerCredentialKeyring).enabled) {
+        registerServerEmailMarketingRepository(access,createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS,keyring:providerCredentialKeyring,providers:createEmailMarketingProviders({fetch:(url,init)=>globalThis.fetch(url,init),now:()=>new Date()}),uuid:randomUUID}));
+      }
     }
     if (googleMarketingReady) {
       registerServerGoogleMarketingRepository(access, createPostCommitInvalidatingRepository(

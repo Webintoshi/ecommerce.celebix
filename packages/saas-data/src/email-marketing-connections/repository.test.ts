@@ -20,6 +20,8 @@ test('apply replays without a second provider write and releases database during
   const now=new Date();const a={tenantContext,now};const candidate=await repo.validate({...a,provider:'brevo',apiKey:'isolated-fixture-key',sessionBinding:'test-session-opaque-123',operationId:crypto.randomUUID()});
   const input={...a,candidateId:candidate.candidateId,sessionBinding:'test-session-opaque-123',expectedVersion:0,operationId:crypto.randomUUID(),selection:{kind:'create' as const,name:'Test list'}};
   const first=await repo.apply(input);const second=await repo.apply(input);assert.equal(first.id,second.id);assert.equal(second.version,1);assert.equal(writes,1);
+  const rotatedRepo=api.createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:3000,statementMs:10000,lockMs:3000,idleTransactionMs:10000},keyring:{activeKeyId:'rotated',keys:[{keyId:'rotated',key:new Uint8Array(32).fill(6)},{keyId:'test',key:new Uint8Array(32).fill(5)}]},providers:{brevo:adapter,klaviyo:adapter},uuid:()=>crypto.randomUUID()});
+  assert.equal((await rotatedRepo.apply(input)).id,first.id);assert.equal(writes,1);
   const state=await pool.query("SELECT (SELECT count(*) FROM saas.email_marketing_connections WHERE store_id=$1) AS connections,(SELECT count(*) FROM saas.email_marketing_sync_jobs WHERE store_id=$1 AND kind='bootstrap') AS jobs",[tenantContext.store.id]);assert.equal(state.rows[0].connections,'1');assert.equal(state.rows[0].jobs,'1');
  }finally{await cleanupNativeFixture(pool);await pool.end();}
 });

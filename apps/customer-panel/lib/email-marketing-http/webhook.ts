@@ -22,8 +22,11 @@ function events(payload: unknown, connectionId: string): readonly EmailMarketing
         if (p.list_id !== undefined) {
             if (!Array.isArray(p.list_id) || p.list_id.length > 100)
                 throw Error('invalid');
-            lists = p.list_id.map(id => { if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)
-                throw Error('invalid'); return String(id); });
+            lists = p.list_id.map(id => {
+                if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1)
+                    throw Error('invalid');
+                return String(id);
+            });
         }
         if (kind === 'unsubscribe' && !lists.length)
             continue;
