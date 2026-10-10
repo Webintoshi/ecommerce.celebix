@@ -13,6 +13,50 @@ function assertAppRoleFunctionPrivilege(sql: string, signature: string): void {
   );
 }
 
+test("approved staging checks native 225 deletion authority before registering repositories", async () => {
+  let observedSql = "";
+  let released = 0;
+  let ended = 0;
+  class MissingPromotionDeletionPool {
+    on() { return this; }
+    async connect() {
+      return {
+        async query(sql: string) {
+          observedSql = sql;
+          const row = Object.fromEntries([...sql.matchAll(/\sAS\s+([a-z][a-z0-9_]+)/gi)].map(match => [match[1], true]));
+          Object.assign(row, { version_num: 160_014, database_name: "celebix_saas", is_superuser: false, promotion_repository: false });
+          return { rowCount: 1, rows: [row] };
+        },
+        release() { released += 1; },
+      };
+    }
+    async end() { ended += 1; }
+  }
+  const originalPool = Object.getOwnPropertyDescriptor(pg, "Pool");
+  assert.ok(originalPool);
+  Object.defineProperty(pg, "Pool", { configurable: true, value: MissingPromotionDeletionPool });
+  try {
+    const { initializeApprovedStagingServerPanelAccessRuntime } = await import(`./postgres-runtime.ts?promotion-delete=${Date.now()}`);
+    await assert.rejects(
+      initializeApprovedStagingServerPanelAccessRuntime({ database: { name: "celebix_saas" } } as CustomerPanelStagingAuthConfig),
+      /server_panel_access_database_contract_preflight_failed:promotion_repository/,
+    );
+  } finally {
+    Object.defineProperty(pg, "Pool", originalPool);
+  }
+  assert.equal(released, 1);
+  assert.equal(ended, 1);
+  assert.ok(observedSql.includes("to_regclass('saas.promotion_deletions') IS NOT NULL"));
+  for (const signature of [
+    "saas.promotion_delete_impact_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "saas.promotion_delete_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+    "saas.promotion_delete_recover_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+  ]) {
+    assert.ok(observedSql.includes(`to_regprocedure('${signature}') IS NOT NULL`), signature);
+    assertAppRoleFunctionPrivilege(observedSql, signature);
+  }
+});
+
 test("approved staging preflight targets the exact migration 056 onboarding relations", async () => {
   let checkedOut = 0;
   let released = 0;

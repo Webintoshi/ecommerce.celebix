@@ -474,6 +474,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.promotion_code_batches') IS NOT NULL
         AND to_regclass('saas.promotion_codes') IS NOT NULL
         AND to_regclass('saas.promotion_operations') IS NOT NULL
+        AND to_regclass('saas.promotion_deletions') IS NOT NULL
         AND to_regclass('saas.promotion_usage_reservations') IS NOT NULL
         AND to_regclass('saas.promotion_redemptions') IS NOT NULL
         AND to_regclass('saas.promotion_audit_events') IS NOT NULL
@@ -489,6 +490,24 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND has_function_privilege(
           'celebix_saas_app',
           'saas.promotion_detail_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_delete_impact_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_delete_impact_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_delete_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_delete_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)',
+          'EXECUTE'
+        )
+        AND to_regprocedure('saas.promotion_delete_recover_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL
+        AND has_function_privilege(
+          'celebix_saas_app',
+          'saas.promotion_delete_recover_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)',
           'EXECUTE'
         )
         AND to_regprocedure('saas.promotion_create_v1(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,jsonb)') IS NOT NULL

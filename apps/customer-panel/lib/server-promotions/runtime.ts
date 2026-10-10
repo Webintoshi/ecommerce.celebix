@@ -19,6 +19,7 @@ const METHODS = Object.freeze([
   "simulate", "conflicts", "margin", "listTargets", "resolveTargets", "createCodeBatch",
   "updateCodeBatchStatus", "listCodeBatches", "exportCodes", "analytics", "analyticsDetail", "overview", "listLegacy", "resolveLegacy",
 ] as const);
+const OPTIONAL_METHODS = Object.freeze(["apply", "deletionImpact", "delete"] as const);
 const repositories = new WeakMap<ServerPanelAccessRuntime, PromotionRepository>();
 
 function invalid(): never { throw new Error("server_promotions_runtime_invalid"); }
@@ -26,12 +27,14 @@ function invalid(): never { throw new Error("server_promotions_runtime_invalid")
 function facade(repository: PromotionRepository): PromotionRepository {
   try {
     if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
-    const methods = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)])) as unknown as PromotionRepository;
-    if (repository.apply !== undefined) {
-      if (typeof repository.apply !== "function") invalid();
-      methods.apply = repository.apply.bind(repository);
+    const methods: Record<string, unknown> = Object.fromEntries(METHODS.map((method) => [method, repository[method].bind(repository)]));
+    for (const method of OPTIONAL_METHODS) {
+      const implementation = repository[method];
+      if (implementation === undefined) continue;
+      if (typeof implementation !== "function") invalid();
+      methods[method] = implementation.bind(repository);
     }
-    return Object.freeze(methods);
+    return Object.freeze(methods) as unknown as PromotionRepository;
   } catch { return invalid(); }
 }
 

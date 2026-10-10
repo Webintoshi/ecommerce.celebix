@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-test("direct save methods survive registration and keep their repository receiver", async () => {
-  for (const method of ["apply"] as const) {
+test("optional promotion methods survive registration and keep their repository receiver", async () => {
+  for (const method of ["apply", "deletionImpact", "delete"] as const) {
     const approved = access();
     const input = Object.freeze({ operationId: "10000000-0000-4000-8000-000000000001" });
     const result = Object.freeze({ applied: true });
@@ -29,8 +29,10 @@ test("direct save methods survive registration and keep their repository receive
 
 
 import type { PromotionRepository } from "@celebix/saas-data";
+import type { TenantContext } from "@celebix/saas-contracts";
 
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
+import { createPromotionsHttpHandler } from "../promotions-http/handler.ts";
 import { registerServerPromotionsRepository, resolveServerPromotionsRuntime } from "./runtime.ts";
 
 const METHODS = [
@@ -104,6 +106,71 @@ test("disabled, malformed, hostile and duplicate promotions registration fail cl
   const hostile = new Proxy({} as ServerPanelAccessRuntime, { get() { throw new Error("private"); } });
   assert.equal(resolveServerPromotionsRuntime(hostile), null);
   assert.throws(() => registerServerPromotionsRepository(hostile, repository()), /^Error: server_promotions_runtime_invalid$/);
+});
+
+test("malformed optional promotion methods reject registration", () => {
+  for (const method of ["apply", "deletionImpact", "delete"] as const) {
+    for (const value of [null, true, "not a function"]) {
+      const approved = access();
+      const malformed = Object.assign(repository(), { [method]: value }) as unknown as PromotionRepository;
+      assert.throws(() => registerServerPromotionsRepository(approved, malformed), /server_promotions_runtime_invalid/, method);
+      assert.equal(resolveServerPromotionsRuntime(approved), null);
+    }
+  }
+});
+
+test("authenticated deletion preview and mutation use the registered promotions facade", async () => {
+  const promotionId = "20000000-0000-4000-8000-000000000001";
+  const operationId = "40000000-0000-4000-8000-000000000001";
+  const now = new Date("2026-10-09T20:00:00.000Z");
+  const tenantContext: TenantContext = {
+    schemaVersion: 1, requestId: "50000000-0000-4000-8000-000000000001",
+    principal: { id: "10000000-0000-4000-8000-000000000002", issuer: "https://identity.test/oidc", subject: "test" },
+    store: { id: "10000000-0000-4000-8000-000000000001", slug: "atlas-store", status: "active" },
+    membership: { id: "10000000-0000-4000-8000-000000000003", role: "store_owner", status: "active" },
+    entitlements: {
+      schemaVersion: 1, planId: "10000000-0000-4000-8000-000000000004", planCode: "growth", version: 2,
+      status: "active", features: ["promotions"], limits: { products: 100, staff: 5, storageBytes: 1_024 },
+      validFrom: "2026-01-01T00:00:00.000Z",
+    }, locale: "tr-TR",
+  };
+  const approved: ServerPanelAccessRuntime = Object.freeze({
+    ...access(),
+    async resolveCredential() { return { kind: "authenticated" as const, session: {} as never, tenantContext }; },
+  });
+  const impact = { id: promotionId, version: 7, name: "Atlas", codeCount: 2, preservedRedemptionCount: 3, pendingReservationCount: 0, linkedTools: [], canDelete: true };
+  const receipt = { id: promotionId, deletedAt: now.toISOString(), replayed: false };
+  const calls: string[] = [];
+  const implementation = Object.assign(repository(), {
+    async deletionImpact(input: Parameters<NonNullable<PromotionRepository["deletionImpact"]>>[0]) {
+      assert.equal(this, implementation);
+      assert.deepEqual(input, { tenantContext, now, promotionId });
+      calls.push("impact");
+      return impact;
+    },
+    async delete(input: Parameters<NonNullable<PromotionRepository["delete"]>>[0]) {
+      assert.equal(this, implementation);
+      assert.deepEqual(input, { tenantContext, now, promotionId, operationId, expectedVersion: 7 });
+      calls.push("delete");
+      return receipt;
+    },
+  });
+  registerServerPromotionsRepository(approved, implementation);
+  const handle = createPromotionsHttpHandler({
+    async resolveRuntime() { return resolveServerPromotionsRuntime(approved); },
+    now: () => new Date(now), requestId: () => tenantContext.requestId,
+  });
+  const cookie = `__Host-celebix_panel=v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
+  const preview = await handle(new Request(`http://internal:3400/api/promotions/${promotionId}/delete-impact`, { headers: { cookie } }));
+  assert.equal(preview.status, 200);
+  assert.deepEqual(await preview.json(), impact);
+  const deleted = await handle(new Request(`http://internal:3400/api/promotions/${promotionId}/delete`, {
+    method: "POST", headers: { cookie, origin: approved.panelOrigin!, "content-type": "application/json", "idempotency-key": operationId },
+    body: JSON.stringify({ expectedVersion: 7 }),
+  }));
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), receipt);
+  assert.deepEqual(calls, ["impact", "delete"]);
 });
 
 test("approved staging preflights migration 126 and registers one narrow repository on the shared pool", () => {

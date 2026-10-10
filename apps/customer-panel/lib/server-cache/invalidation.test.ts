@@ -69,6 +69,26 @@ test("promotion publication rotates only the tenant promotions namespace after c
   assert.deepEqual(selected.rotations, [`${STORE_ID}:promotions`]);
 });
 
+test("permanent promotion deletion refreshes its tenant namespace after commit", async () => {
+  const selected = cacheFixture();
+  let commit!: () => void;
+  const finalCommit = new Promise<void>(resolve => { commit = resolve; });
+  const receipt = { id: "20000000-0000-4000-8000-000000000001", deletedAt: "2026-10-09T20:00:00.000Z", replayed: false };
+  const repository = createPostCommitInvalidatingRepository({
+    async delete(received: typeof input) { assert.equal(received, input); await finalCommit; return receipt; },
+  }, DIRECT_SAVE_INVALIDATION.promotions, selected.cache);
+  const pending = repository.delete(input);
+  assert.deepEqual(selected.rotations, []);
+  commit();
+  assert.deepEqual(await pending, receipt);
+  assert.deepEqual(selected.rotations, [`${STORE_ID}:promotions`]);
+  const failed = createPostCommitInvalidatingRepository({
+    async delete(_received: typeof input) { throw new Error("rolled back"); },
+  }, DIRECT_SAVE_INVALIDATION.promotions, selected.cache);
+  await assert.rejects(failed.delete(input), /rolled back/);
+  assert.equal(selected.rotations.length, 1);
+});
+
 test("Redis invalidation failure is fail-open after a successful authoritative commit", async () => {
   const selected = cacheFixture(true);
   const repository = createPostCommitInvalidatingRepository({ async save(_received: unknown) { return { committed: true }; } }, { save: ["catalog"] }, selected.cache);
