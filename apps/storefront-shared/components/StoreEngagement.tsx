@@ -4,7 +4,9 @@ import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, ty
 import { usePathname } from "next/navigation";
 import type { StoreEngagementCaptureRequest, StoreEngagementPublicCampaign, StoreEngagementPublicSettings } from "@celebix/saas-contracts";
 import { createStoreEngagementClient, prepareEngagementContact, StoreEngagementClientError } from "../lib/engagement/client.ts";
-import { campaignWasShown, cartContactWasCaptured, clearPendingCoupon, engagementRouteAllowed, getEngagementCart, markCampaignShown, markCartContactCaptured, readPendingCoupon, rememberPendingCoupon, subscribeSuccessfulCartAdd, type SuccessfulCartAdd } from "../lib/engagement/integration.ts";
+import { acquireEngagementModal, campaignWasShown, cartContactWasCaptured, clearPendingCoupon, engagementRouteAllowed, getEngagementCart, markCampaignShown, markCartContactCaptured, readPendingCoupon, readPendingWheelOperation, releaseEngagementModal, rememberPendingCoupon, subscribeSuccessfulCartAdd, type SuccessfulCartAdd } from "../lib/engagement/integration.ts";
+import { createLuckyWheelClient } from "../lib/lucky-wheel/client.ts";
+import { LuckyWheelLauncher } from "./LuckyWheelLauncher.tsx";
 import { storefrontCartClient } from "../lib/cart/client.ts";
 import { createCheckoutQuoteQueue } from "../lib/checkout/quote-queue.ts";
 import styles from "./StoreEngagement.module.css";
@@ -43,9 +45,11 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
   if (!client.current) client.current = createStoreEngagementClient();
   const requestQuote = useRef(createCheckoutQuoteQueue((intent, codes) => storefrontCartClient.quotePromotionsWithDigest(intent, codes)));
   const applyingCoupons = useRef(new Map<string, Promise<string>>());
+  const modalOwner = useRef(Symbol("store-engagement"));
 
   const dismiss = useCallback(() => {
     generation.current++; opening.current = false;
+    releaseEngagementModal(modalOwner.current);
     const trigger = activeRef.current?.trigger;
     activeRef.current = null; setActive(null); setError(""); setEmail(""); setPhone(""); setMarketingConsent(false); command.current = null;
     window.requestAnimationFrame(() => { if (trigger?.isConnected) trigger.focus(); });
@@ -55,7 +59,7 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
     const abort = new AbortController();
     void client.current!.settings(abort.signal).then(value => { if (!abort.signal.aborted) setSettings(value); }).catch(() => undefined);
     const resize = () => setViewport(window.innerWidth); resize(); window.addEventListener("resize", resize);
-    return () => { alive.current = false; generation.current++; abort.abort(); if (captureTimer.current !== null) window.clearTimeout(captureTimer.current); window.removeEventListener("resize", resize); };
+    return () => { alive.current = false; generation.current++; releaseEngagementModal(modalOwner.current); abort.abort(); if (captureTimer.current !== null) window.clearTimeout(captureTimer.current); window.removeEventListener("resize", resize); };
   }, [storefrontId]);
   useEffect(() => {
     const abort = new AbortController(); setAccount("loading");
@@ -69,16 +73,23 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
     if (!engagementRouteAllowed(pathname) || (active && !deviceAllowed(active.campaign))) dismiss();
   }, [pathname, viewport, active, dismiss]);
 
-  const applyCoupon = useCallback((code: string): Promise<string> => {
-    rememberPendingCoupon(storefrontId, code);
+  const applyCoupon = useCallback((code: string, origin?: "wheel"): Promise<string> => {
+    const wheelOperation = readPendingCoupon(storefrontId) === code ? readPendingWheelOperation(storefrontId) : null;
+    rememberPendingCoupon(storefrontId, code, wheelOperation || origin === "wheel" ? "wheel" : undefined);
     const controller = getEngagementCart(storefrontId);
     if (!controller?.getCart()?.itemCount) return Promise.resolve("Kodu alışverişinizde kullanabilirsiniz.");
     if (!engagementRouteAllowed(window.location.pathname)) return Promise.resolve("Kodu ödeme adımında kullanabilirsiniz.");
     const inFlight = applyingCoupons.current.get(code);
     if (inFlight) return inFlight;
-    const result = requestQuote.current("cart", [code]).then(({ quote }) => {
-      if (readPendingCoupon(storefrontId) === code) clearPendingCoupon(storefrontId);
-      return quote.rejectedPromotions.some(item => item.normalizedCode === code) ? "Kod şu anda bu sepete uygulanamıyor. Koşullarını kontrol edin." : "Kod sepetinize uygulandı. Ödeme adımında tekrar kontrol edilir.";
+    const result = requestQuote.current("cart", [code]).then(async ({ quote }) => {
+      const rejected = quote.rejectedPromotions.find(item => item.normalizedCode === code);
+      let retain = false;
+      if (wheelOperation && rejected?.reason === "not_eligible") {
+        const award = await createLuckyWheelClient().result(wheelOperation.campaignId, wheelOperation.operationId).catch(() => null);
+        retain = Boolean(award && award.couponCode === code && ["active", "held"].includes(award.couponStatus) && Date.parse(award.expiresAt) > Date.now());
+      }
+      if (!retain && readPendingCoupon(storefrontId) === code) clearPendingCoupon(storefrontId);
+      return rejected ? retain ? "Sepetiniz kupon koşullarını henüz karşılamıyor. Kodunuz saklandı; ürün eklediğinizde yeniden kontrol edilecek." : "Kod şu anda bu sepete uygulanamıyor. Koşullarını kontrol edin." : "Kod sepetinize uygulandı. Ödeme adımında tekrar kontrol edilir.";
     }).catch(() => "Kodunuz hazır. Bağlantı kurulamadı; ödeme adımında kodu kullanabilirsiniz.");
     applyingCoupons.current.set(code, result);
     void result.finally(() => { if (applyingCoupons.current.get(code) === result) applyingCoupons.current.delete(code); });
@@ -92,6 +103,7 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
 
   const open = useCallback(async (campaign: StoreEngagementPublicCampaign) => {
     if (opening.current || activeRef.current || !deviceAllowed(campaign) || !engagementRouteAllowed(window.location.pathname)) return;
+    if (!acquireEngagementModal(modalOwner.current)) return;
     const token = ++generation.current, sourceRoute = `${window.location.pathname}${window.location.search}`;
     opening.current = true;
     const controller = getEngagementCart(storefrontId);
@@ -110,7 +122,7 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
         command.current = null; busy.current = false; setPending(false); setEmail(""); setPhone(""); setMarketingConsent(false); setError(""); setCaptured(false); setCoupon(campaign.couponCode); setCouponStatus("");
         markCampaignShown(storefrontId, campaign.id); setActive(selected); return;
       }
-    } finally { if (token === generation.current) opening.current = false; }
+    } finally { if (token === generation.current) opening.current = false; if (!activeRef.current) releaseEngagementModal(modalOwner.current); }
   }, [storefrontId]);
   useEffect(() => {
     const campaign = settings?.cartCapture;
@@ -174,9 +186,10 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
     if (alive.current && activeRef.current) setCouponStatus(`${copied ? "Kod kopyalandı. " : ""}${status}`);
     busy.current = false; if (alive.current) setPending(false);
   };
-  if (!active || !engagementRouteAllowed(pathname)) return null;
+  const wheel = <LuckyWheelLauncher storefrontId={storefrontId} storefrontName={storefrontName} applyCoupon={applyCoupon} />;
+  if (!active || !engagementRouteAllowed(pathname)) return wheel;
   const { config } = active.campaign, capture = active.campaign.kind === "cart_capture", locked = pending || Boolean(command.current);
-  return <div className={styles.backdrop} onMouseDown={event => { if (event.target === event.currentTarget) dismiss(); }}>
+  return <>{wheel}<div className={styles.backdrop} onMouseDown={event => { if (event.target === event.currentTarget) dismiss(); }}>
     <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={bodyId} data-store-engagement data-template={config.template} style={{ "--engagement-brand": brandColor } as CSSProperties}>
       <button className={styles.close} type="button" aria-label="Pencereyi kapat" data-engagement-dismiss onClick={dismiss}>×</button>
       {active.campaign.imageUrl && config.template === "image_left" ? <div className={styles.image}><img src={active.campaign.imageUrl} alt="" loading="lazy" /></div> : null}
@@ -199,5 +212,5 @@ export function StoreEngagement({ storefrontId, storefrontName, brandColor }: Re
         <button className={styles.secondary} type="button" data-engagement-dismiss onClick={dismiss}>{captured ? "Alışverişe devam et" : "Şimdi değil"}</button>
       </div>
     </section>
-  </div>;
+  </div></>;
 }

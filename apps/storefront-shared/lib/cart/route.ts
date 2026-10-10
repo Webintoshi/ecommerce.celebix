@@ -22,6 +22,7 @@ import {
 type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
   warmPromotions?(hostname: string): Promise<void>;
+  resolveWheelPendingCoupon?(hostname: string, cookie: string | null): Promise<string | null>;
   resolveRuntime(): Promise<Pick<
     StorefrontCommerceRuntime,
     "resolveCart" | "mutateCart" | "quote" | "complete"
@@ -292,7 +293,10 @@ export function createCheckoutQuoteRoute(dependencies: Dependencies) {
       const rejected = new Set(
         quote.rejectedPromotions.map((promotion) => promotion.normalizedCode),
       );
-      const retained = selectedCodes.filter((code) => !rejected.has(code));
+      const cookie = request.headers.get("cookie");
+      const wheelCode = cookie?.split(";").some(part => part.trim().startsWith("__Host-celebix_wheel_operation=")) && quote.rejectedPromotions.some(item => item.reason === "not_eligible")
+        ? await dependencies.resolveWheelPendingCoupon?.(selected.hostname, cookie).catch(() => null) ?? null : null;
+      const retained = selectedCodes.filter((code) => !rejected.has(code) || code === wheelCode && quote.rejectedPromotions.find(item => item.normalizedCode === code)?.reason === "not_eligible");
       const persist = retained.length > 0
         ? serializeCouponCandidateCookie(retained)
         : clearCouponCandidateCookie();

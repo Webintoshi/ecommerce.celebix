@@ -20,6 +20,7 @@ import {
   PostgresPublicContactWidgetRepository,
   PostgresPublicRestockRepository,
   PostgresPublicStoreEngagementRepository,
+  PostgresPublicLuckyWheelRepository,
   PostgresPublicOrderBumpRepository,
   PostgresReviewCollectionRepository,
   PostgresPublicSeoRepository,
@@ -71,6 +72,7 @@ import type {
 import { selectTrustedStorefrontHostAuthority } from "./trusted-host-authority.ts";
 import { parseStorefrontCommerceCredentialKeyring } from "./cart/credential.ts";
 import { createStoreEngagementRuntime, type StoreEngagementRuntime } from "./engagement/runtime.ts";
+import { createLuckyWheelRuntime, type LuckyWheelRuntime } from "./lucky-wheel/runtime.ts";
 import { createOrderBumpRuntime, type OrderBumpRuntime } from "./order-bumps/runtime.ts";
 import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
 import { createStandardHostedCheckoutRuntime, type StandardHostedCheckoutRuntime } from "./checkout/standard-hosted-payment.ts";
@@ -96,6 +98,7 @@ export type PublicStorefrontRuntime = Readonly<{
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
   engagement: StoreEngagementRuntime;
+  luckyWheel?: LuckyWheelRuntime;
   orderBumps?: OrderBumpRuntime;
   hostedCheckout: StandardHostedCheckoutRuntime | null;
   checkout: CheckoutRuntime;
@@ -358,6 +361,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       commerce,
       cart,
       engagement: createStoreEngagementRuntime({ repository: new PostgresPublicStoreEngagementRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
+      luckyWheel: createLuckyWheelRuntime({ repository: new PostgresPublicLuckyWheelRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), randomBytes, now: () => new Date() }),
       orderBumps: createOrderBumpRuntime({ repository: new PostgresPublicOrderBumpRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
       hostedCheckout,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),

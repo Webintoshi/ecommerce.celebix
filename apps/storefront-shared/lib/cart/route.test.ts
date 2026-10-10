@@ -343,6 +343,21 @@ test("payment-deferred candidate survives re-quote while rejected candidates are
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("set-cookie"), "__Host-celebix_coupon=ODEMEDE; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax");
 });
+test("only a database-proven live wheel award retains a temporarily ineligible coupon", async () => {
+  for (const proven of ["W-0123456789ABCDEF0123456789ABCDEF", null]) {
+    let recoveries = 0;
+    const handler = createCheckoutQuoteRoute({ selectAuthority: trusted, resolveWheelPendingCoupon: async () => { recoveries++; return proven; }, resolveRuntime: async () => ({ ...baseRuntime, quote: async (_host, _cookie, _intent, _attribution, codes) => quoteResponse({ ...QUOTE_V2, rejectedPromotions: Object.freeze((codes ?? []).map(normalizedCode => ({ normalizedCode, reason: "not_eligible" as const }))) }) }) });
+    const response = await handler(new Request("http://internal:3400/api/checkout/quote", { method: "POST", headers: { origin: `https://${HOST}`, "content-type": "application/json", cookie: "__Host-celebix_wheel_operation=21000000-0000-4000-8000-000000000001.22000000-0000-4000-8000-000000000001" }, body: JSON.stringify({ intentKind: "cart", normalizedCodes: ["W-0123456789ABCDEF0123456789ABCDEF", "NORMAL"] }) }));
+    assert.equal(response.status, 200); assert.equal(recoveries, 1);
+    assert.equal(response.headers.get("set-cookie"), proven ? `__Host-celebix_coupon=${proven}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax` : "__Host-celebix_coupon=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
+  }
+});
+test("a normal coupon quote does not query wheel records", async () => {
+  let recoveries = 0;
+  const handler = createCheckoutQuoteRoute({ selectAuthority: trusted, resolveWheelPendingCoupon: async () => { recoveries++; return "NORMAL"; }, resolveRuntime: async () => baseRuntime });
+  const response = await handler(new Request("http://internal:3400/api/checkout/quote", { method: "POST", headers: { origin: `https://${HOST}`, "content-type": "application/json" }, body: JSON.stringify({ intentKind: "cart", normalizedCodes: ["NORMAL"] }) }));
+  assert.equal(response.status, 200); assert.equal(recoveries, 0);
+});
 
 test("an absent code property remains an empty promotion set despite an ambient coupon cookie", async () => {
   const observed: Array<readonly unknown[]> = [];

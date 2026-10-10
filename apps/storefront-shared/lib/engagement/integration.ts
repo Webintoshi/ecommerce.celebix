@@ -7,7 +7,7 @@ export type EngagementCartController = Readonly<{
   closeDrawerAndWait(restoreFocus?: boolean): Promise<boolean>;
 }>;
 export type SuccessfulCartAdd = Readonly<{ storefrontId: string; cart: PublicCart; route: string }>;
-type BrowserState = { carts: Map<string, EngagementCartController>; listeners: Set<(event: SuccessfulCartAdd) => void>; memory: Map<string, string> };
+type BrowserState = { carts: Map<string, EngagementCartController>; listeners: Set<(event: SuccessfulCartAdd) => void>; memory: Map<string, string>; modalOwner?: symbol };
 // A document-local bridge coordinates the persistent layout with the page's
 // existing cart provider, including its owned browser history entry.
 const states = new WeakMap<Window, BrowserState>();
@@ -18,6 +18,8 @@ function state(): BrowserState | null {
   return selected;
 }
 export function engagementRouteAllowed(pathname: string): boolean { return !/^\/(?:checkout|account|payments|odeme)(?:\/|$)/i.test(pathname); }
+export function acquireEngagementModal(owner: symbol): boolean { const selected = state(); if (!selected || selected.modalOwner && selected.modalOwner !== owner) return false; selected.modalOwner = owner; return true; }
+export function releaseEngagementModal(owner: symbol): void { const selected = state(); if (selected?.modalOwner === owner) delete selected.modalOwner; }
 export function registerEngagementCart(controller: EngagementCartController): () => void {
   const selected = state(); selected?.carts.set(controller.storefrontId, controller);
   return () => { if (selected?.carts.get(controller.storefrontId) === controller) selected.carts.delete(controller.storefrontId); };
@@ -58,8 +60,12 @@ export function campaignWasShown(storefrontId: string, campaignId: string, repea
   const time = Number(raw); return Number.isSafeInteger(time) && now >= time && now - time < repeatDays * 86_400_000;
 }
 export function markCampaignShown(storefrontId: string, campaignId: string, now = Date.now()): void { write(storefrontId, `shown:${campaignId}`, String(now), true); }
-export function rememberPendingCoupon(storefrontId: string, code: string): void { if (/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code)) write(storefrontId, "coupon", code, false); }
+export function rememberPendingCoupon(storefrontId: string, code: string, origin?: "wheel"): void { if (/^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code)) { if (readPendingCoupon(storefrontId) !== code || !origin) write(storefrontId, "wheel-coupon-operation", null, false); write(storefrontId, "coupon", code, false); } }
+export function rememberPendingWheelCoupon(storefrontId: string, award: Readonly<{ couponCode: string; campaignId: string; operationId: string }>): void { rememberPendingCoupon(storefrontId, award.couponCode, "wheel"); write(storefrontId, "wheel-coupon-operation", `${award.campaignId}.${award.operationId}`, false); }
+export function readPendingWheelOperation(storefrontId: string): { campaignId: string; operationId: string } | null { const value = read(storefrontId, "wheel-coupon-operation", false); if (!value || !/^[a-f0-9-]{36}\.[a-f0-9-]{36}$/.test(value)) return null; const [campaignId, operationId] = value.split("."); return { campaignId: campaignId!, operationId: operationId! }; }
 export function readPendingCoupon(storefrontId: string): string | null { const code = read(storefrontId, "coupon", false); return code && /^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code) ? code : null; }
-export function clearPendingCoupon(storefrontId: string): void { write(storefrontId, "coupon", null, false); }
+export function clearPendingCoupon(storefrontId: string): void { write(storefrontId, "coupon", null, false); write(storefrontId, "wheel-coupon-operation", null, false); }
+export function readWheelParticipationOperation(storefrontId: string, campaignId: string): string | null { const value = read(storefrontId, `wheel-operation:${campaignId}`, false); return value && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value) ? value : null; }
+export function rememberWheelParticipationOperation(storefrontId: string, campaignId: string, value: string | null): void { write(storefrontId, `wheel-operation:${campaignId}`, value, false); }
 export function cartContactWasCaptured(storefrontId: string): boolean { return read(storefrontId, "contact-captured", true) === "1"; }
 export function markCartContactCaptured(storefrontId: string): void { write(storefrontId, "contact-captured", "1", true); }

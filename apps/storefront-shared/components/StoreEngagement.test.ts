@@ -3,13 +3,14 @@ import test from "node:test";
 import React from "react";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 import { parseStoreEngagementCaptureRequest, type PublicCart, type StoreEngagementPublicCampaign } from "@celebix/saas-contracts";
+import { wheelAward } from "../lib/lucky-wheel/test-utils.ts";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 const cart = { version: 1, currency: "TRY", itemCount: 1, subtotalCents: 100, shippingCents: 0, totalCents: 100, checkoutReady: true, checkoutBlocker: null, items: [] } as unknown as PublicCart;
 const campaign = (kind: "popup" | "cart_capture" = "cart_capture"): StoreEngagementPublicCampaign => ({ id: "20000000-0000-4000-8000-000000000001", kind, name: "Merhaba", enabled: true, version: 1, config: { schemaVersion: 1, template: "minimal", heading: "Sepetinizi saklayalım", body: "Alışverişinize daha sonra devam edebilirsiniz.", buttonLabel: "Devam et", delaySeconds: 0, repeatDays: 7, devices: { desktop: true, mobile: true }, collectMode: "email", marketingOptInLabel: "Kampanya haberlerini almak istiyorum" }, imageUrl: null, couponCode: null, updatedAt: "2026-10-04T10:00:00.000Z" });
-type Bridge = { registerEngagementCart(value: { storefrontId: string; getCart(): PublicCart; closeDrawerAndWait(): Promise<boolean> }): () => void; notifySuccessfulCartAdd(cart: PublicCart): void; readPendingCoupon(id: string): string | null };
+type Bridge = { registerEngagementCart(value: { storefrontId: string; getCart(): PublicCart; closeDrawerAndWait(): Promise<boolean> }): () => void; notifySuccessfulCartAdd(cart: PublicCart): void; readPendingCoupon(id: string): string | null; rememberPendingWheelCoupon(id: string, award: typeof wheelAward): void; acquireEngagementModal(owner: symbol): boolean; releaseEngagementModal(owner: symbol): void };
 async function settle(ms = 35) { await React.act(async () => { await new Promise(resolve => window.setTimeout(resolve, ms)); }); }
-async function fixture(run: (value: { container: HTMLElement; trigger: HTMLElement; click(selector: string): Promise<void>; add(): Promise<void>; releaseSettings(): Promise<void>; releaseAccount(): Promise<void>; releaseCapture(): Promise<void>; pendingCoupon(): string | null; renderRoute(pathname: string): Promise<void>; captures: Array<Record<string, unknown>>; quoteCalls: string[][] }) => Promise<void>, options: { authenticated?: boolean; sameRoute?: boolean; popup?: boolean; failCapture?: boolean; theme?: string; delayedSettings?: boolean; delayedAccount?: boolean; delayedCapture?: boolean; emptyCart?: boolean; mobileDisabled?: boolean; width?: number; delaySeconds?: number; template?: "minimal" | "image_left" | "discount" } = {}) {
+async function fixture(run: (value: { container: HTMLElement; trigger: HTMLElement; click(selector: string): Promise<void>; add(): Promise<void>; releaseSettings(): Promise<void>; releaseAccount(): Promise<void>; releaseCapture(): Promise<void>; pendingCoupon(): string | null; renderRoute(pathname: string): Promise<void>; captures: Array<Record<string, unknown>>; quoteCalls: string[][]; bridge: Bridge }) => Promise<void>, options: { authenticated?: boolean; sameRoute?: boolean; popup?: boolean; failCapture?: boolean; theme?: string; delayedSettings?: boolean; delayedAccount?: boolean; delayedCapture?: boolean; emptyCart?: boolean; mobileDisabled?: boolean; width?: number; delaySeconds?: number; template?: "minimal" | "image_left" | "discount"; ineligible?: boolean; revoked?: boolean } = {}) {
   const captures: Array<Record<string, unknown>> = [], quoteCalls: string[][] = [];
   let attempts = 0;
   const base = campaign(options.popup ? "popup" : "cart_capture");
@@ -20,7 +21,8 @@ async function fixture(run: (value: { container: HTMLElement; trigger: HTMLEleme
   const load = componentLoader({
     "next/navigation": { usePathname: () => window.location.pathname },
     "../lib/engagement/client.ts": { prepareEngagementContact: parseStoreEngagementCaptureRequest, StoreEngagementClientError: Error, createStoreEngagementClient: () => ({ settings: async () => { if (options.delayedSettings) await settingsGate.promise; return { popups: options.popup ? [selected] : [], cartCapture: options.popup ? null : selected }; }, accountSession: async () => { if (options.delayedAccount) await accountGate.promise; return options.authenticated ? "authenticated" : "anonymous"; }, captureContact: async (input: Record<string, unknown>) => { captures.push(input); if (options.delayedCapture) await captureGate.promise; attempts++; if (options.failCapture && attempts === 1) throw Error("request_failed"); return { contactCaptured: true, couponCode: "MERHABA10" }; } }) },
-    "../lib/cart/client.ts": { storefrontCartClient: { quotePromotionsWithDigest: async (_intent: string, codes: string[]) => { quoteCalls.push(codes); return { quote: { rejectedPromotions: [] } }; } } },
+    "../lib/cart/client.ts": { storefrontCartClient: { quotePromotionsWithDigest: async (_intent: string, codes: string[]) => { quoteCalls.push(codes); return { quote: { rejectedPromotions: options.ineligible ? codes.map(normalizedCode => ({ normalizedCode, reason: "not_eligible" })) : [] } }; } } },
+    "../lib/lucky-wheel/client.ts": { createLuckyWheelClient: () => ({ settings: async () => ({ campaign: null }), result: async () => ({ ...wheelAward, couponStatus: options.revoked ? "revoked" : "active" }) }) },
   });
   const module = load<{ StoreEngagement: React.ComponentType<{ storefrontId: string; storefrontName: string; brandColor: string }> }>(new URL("./StoreEngagement.tsx", import.meta.url));
   const bridge = load<Bridge>(new URL("../lib/engagement/integration.ts", import.meta.url));
@@ -34,7 +36,7 @@ async function fixture(run: (value: { container: HTMLElement; trigger: HTMLEleme
     try {
       await render(element); await settle();
       const release = async (selected: { release(): void }) => { await React.act(async () => selected.release()); await settle(); await settle(); };
-      await run({ container, trigger, click, captures, quoteCalls, pendingCoupon: () => bridge.readPendingCoupon(STORE), releaseSettings: () => release(settingsGate), releaseAccount: () => release(accountGate), releaseCapture: () => release(captureGate), add: async () => { currentCart = cart; await React.act(async () => bridge.notifySuccessfulCartAdd(cart)); await settle(); await settle(); }, renderRoute: async pathname => { window.history.replaceState(null, "", pathname); await render(React.cloneElement(element)); await settle(); } });
+      await run({ container, trigger, click, captures, quoteCalls, bridge, pendingCoupon: () => bridge.readPendingCoupon(STORE), releaseSettings: () => release(settingsGate), releaseAccount: () => release(accountGate), releaseCapture: () => release(captureGate), add: async () => { currentCart = cart; await React.act(async () => bridge.notifySuccessfulCartAdd(cart)); await settle(); await settle(); }, renderRoute: async pathname => { window.history.replaceState(null, "", pathname); await render(React.cloneElement(element)); await settle(); } });
     } finally { retire(); Object.assign(globalThis, { HTMLElement: previous }); }
   });
 }
@@ -74,6 +76,15 @@ test("normal popup is promotional, Escape restores focus and never posts a conta
     await settle(); assert.equal(document.activeElement, trigger);
   }, { popup: true });
 });
+test("an open popup holds the engagement modal lease until dismissal", async () => {
+  await fixture(async ({ container, click, bridge }) => {
+    assert.ok(container.querySelector('[role="dialog"]'));
+    const owner = Symbol("wheel");
+    assert.equal(bridge.acquireEngagementModal(owner), false);
+    await click('button[data-engagement-dismiss]');
+    assert.equal(bridge.acquireEngagementModal(owner), true); bridge.releaseEngagementModal(owner);
+  }, { popup: true });
+});
 test("successful add waits for delayed public configuration and account session without showing a form too soon", async () => {
   await fixture(async ({ container, add, releaseSettings, releaseAccount }) => {
     await add(); assert.equal(container.querySelector('[role="dialog"]'), null);
@@ -99,6 +110,9 @@ test("empty cart promotional coupon is remembered without a quote and applied on
     assert.deepEqual(quoteCalls, [["MERHABA10"]]); assert.equal(pendingCoupon(), null);
     await add(); assert.deepEqual(quoteCalls, [["MERHABA10"]]);
   }, { popup: true, emptyCart: true });
+});
+test("empty-cart wheel code survives minimum-basket rejection then requotes on later add; revoked code is cleared", async () => {
+  for (const revoked of [false, true]) await fixture(async ({ bridge, add, pendingCoupon, quoteCalls }) => { bridge.rememberPendingWheelCoupon(STORE, wheelAward); assert.equal(pendingCoupon(), wheelAward.couponCode); assert.deepEqual(quoteCalls, []); await add(); assert.equal(pendingCoupon(), revoked ? null : wheelAward.couponCode); await add(); assert.equal(quoteCalls.length, revoked ? 1 : 2); }, { emptyCart: true, ineligible: true, revoked });
 });
 test("double submit makes one contact command while pending, with cancel always available", async () => {
   await fixture(async ({ container, add, captures, releaseCapture, click }) => {
