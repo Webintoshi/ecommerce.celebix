@@ -46,9 +46,9 @@ export function createLuckyWheelRoutes(deps: Dependencies) {
     async result(request: Request) {
       const scope = authorize(deps, request, "/api/lucky-wheel/result", "GET", true); if (scope instanceof Response) return scope;
       const keys = [...scope.url.searchParams.keys()], campaignId = scope.url.searchParams.get("campaignId"), operationId = scope.url.searchParams.get("operationId");
-      if (!campaignId || !UUID.test(campaignId) || operationId !== null && !UUID.test(operationId) || keys.length !== new Set(keys).size || keys.some(key => !["campaignId", "operationId"].includes(key))) return json({ code: "invalid_input" }, 400);
+      if (keys.length > 0 && (!campaignId || !UUID.test(campaignId) || operationId !== null && !UUID.test(operationId) || keys.length !== new Set(keys).size || keys.some(key => !["campaignId", "operationId"].includes(key)))) return json({ code: "invalid_input" }, 400);
       const runtime = await resolve(); if (!runtime) return json({ code: "unavailable" }, 503);
-      try { const result = await runtime.result(scope.hostname, request.headers.get("cookie"), { campaignId, ...(operationId ? { operationId } : {}) }); return json(result, 200, result ? serializeWheelOperationCookie(result) : undefined); } catch (error) { return failure(error); }
+      try { const result = keys.length === 0 ? await runtime.recoverResult(scope.hostname, request.headers.get("cookie")) : await runtime.result(scope.hostname, request.headers.get("cookie"), { campaignId: campaignId!, ...(operationId ? { operationId } : {}) }); return json(result, 200, result ? serializeWheelOperationCookie(result) : undefined); } catch (error) { return failure(error); }
     },
   });
 }

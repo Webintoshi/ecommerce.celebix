@@ -5,9 +5,9 @@ import { createLuckyWheelRuntime } from "./runtime.ts";
 import { wheelAward, wheelCampaign, wheelCommand, WHEEL_CAMPAIGN_ID, WHEEL_OPERATION_ID } from "./test-utils.ts";
 
 const HOST = "store.example", TOKEN = Buffer.alloc(32, 17).toString("base64url"), NOW = new Date("2026-10-10T12:00:00Z");
-function fixture() {
+function fixture(closed = false) {
   const spins: unknown[] = [], results: unknown[] = [];
-  const runtime = createLuckyWheelRuntime({ repository: { publicSettings: async () => ({ campaign: wheelCampaign() }), spin: async input => { spins.push(input); return wheelAward; }, result: async input => { results.push(input); return wheelAward; } }, randomBytes: size => new Uint8Array(size).fill(17), now: () => NOW });
+  const runtime = createLuckyWheelRuntime({ repository: { publicSettings: async () => ({ campaign: closed ? null : wheelCampaign() }), spin: async input => { spins.push(input); return wheelAward; }, result: async input => { results.push(input); return wheelAward; } }, randomBytes: size => new Uint8Array(size).fill(17), now: () => NOW });
   return { spins, results, runtime, routes: createLuckyWheelRoutes({ selectAuthority: () => ({ kind: "trusted", hostname: HOST }), resolveRuntime: async () => runtime, allowSpin: () => true }) };
 }
 function request(path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -54,4 +54,9 @@ test("malformed persisted output is unavailable and preserves uncertain operatio
   const routes = createLuckyWheelRoutes({ selectAuthority: () => ({ kind: "trusted", hostname: HOST }), resolveRuntime: async () => runtime });
   const response = await routes.spin(request("/api/lucky-wheel/spin", wheelCommand));
   assert.equal(response.status, 503); assert.deepEqual(await response.json(), { code: "unavailable" });
+});
+test("queryless recovery reads only trusted operation cookie and visitor even when settings is unavailable", async () => {
+  const h = fixture(true); assert.deepEqual(await (await h.routes.settings(request("/api/lucky-wheel/settings"))).json(), { campaign: null }); const response = await h.routes.result(request("/api/lucky-wheel/result", undefined, { cookie: `__Host-celebix_wheel=${TOKEN}; __Host-celebix_wheel_operation=${WHEEL_CAMPAIGN_ID}.${WHEEL_OPERATION_ID}` }));
+  assert.equal(response.status, 200); assert.deepEqual(await response.json(), wheelAward); assert.equal(h.results.length, 1); assert.equal((h.results[0] as Record<string, unknown>).operationId, WHEEL_OPERATION_ID);
+  const empty = fixture(); const absent = await empty.routes.result(request("/api/lucky-wheel/result")); assert.equal(absent.status, 200); assert.equal(await absent.json(), null); assert.deepEqual(empty.results, []);
 });

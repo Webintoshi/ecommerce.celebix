@@ -20,6 +20,7 @@ export function createLuckyWheelClient(fetcher: Fetcher = fetch) {
     async settings(signal?: AbortSignal) { const value = await request("/api/lucky-wheel/settings", undefined, signal); return checked(() => parseLuckyWheelPublicSettings(value)); },
     async spin(raw: LuckyWheelSpinRequest) { let input; try { input = parseLuckyWheelSpinRequest(raw); } catch { throw new LuckyWheelClientError("invalid_input"); } const value = await request("/api/lucky-wheel/spin", input); const award = checked(() => parseLuckyWheelSpinResult(value)); if (award.operationId !== input.operationId || award.campaignId !== input.campaignId || award.campaignVersion !== input.expectedVersion) throw new LuckyWheelClientError("invalid_response"); return award; },
     async result(campaignId: string, operationId?: string) { const value = await request(`/api/lucky-wheel/result?campaignId=${encodeURIComponent(campaignId)}${operationId ? `&operationId=${encodeURIComponent(operationId)}` : ""}`); if (value === null) return null; const award = checked(() => parseLuckyWheelSpinResult(value)); if (award.campaignId !== campaignId || operationId && award.operationId !== operationId) throw new LuckyWheelClientError("invalid_response"); return award; },
+    async recoverResult(signal?: AbortSignal) { const value = await request("/api/lucky-wheel/result", undefined, signal); return value === null ? null : checked(() => parseLuckyWheelSpinResult(value)); },
   });
 }
 export type WheelClient = Pick<ReturnType<typeof createLuckyWheelClient>, "spin" | "result">;

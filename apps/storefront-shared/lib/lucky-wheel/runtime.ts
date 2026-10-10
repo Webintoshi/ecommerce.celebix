@@ -18,6 +18,10 @@ export function createLuckyWheelRuntime(deps: Readonly<{ repository: Repository;
     },
     async spin(hostname: string, cookie: string | null, raw: unknown) { const input = parseLuckyWheelSpinRequest(raw); const value = await deps.repository.spin({ ...scope(hostname, cookie), ...input }); return output(() => parseLuckyWheelSpinResult(value)); },
     result,
+    async recoverResult(hostname: string, cookie: string | null): Promise<LuckyWheelSpinResult | null> {
+      const operation = readWheelOperationCookie(cookie); if (!operation || readWheelCredential(cookie).kind !== "present") return null;
+      return result(hostname, cookie, operation);
+    },
     async pendingCoupon(hostname: string, cookie: string | null): Promise<string | null> {
       const operation = readWheelOperationCookie(cookie); if (!operation || readWheelCredential(cookie).kind !== "present") return null;
       const award = await result(hostname, cookie, operation);
