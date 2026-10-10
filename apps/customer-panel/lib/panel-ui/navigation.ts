@@ -85,11 +85,15 @@ export type PanelNavigationIcon =
   | "analytics"
   | "orders"
   | "quick-orders"
+  | "payment-links"
   | "abandoned-carts"
   | "customers"
+  | "new-customer"
   | "segments"
   | "tags"
   | "products"
+  | "new-product"
+  | "categories"
   | "collections"
   | "brands"
   | "attributes"
@@ -101,9 +105,14 @@ export type PanelNavigationIcon =
   | "inventory"
   | "price-lists"
   | "bulk-upload"
+  | "imports"
   | "discounts"
+  | "all-discounts"
+  | "new-discount"
+  | "popups"
   | "lucky-wheel"
   | "marketing"
+  | "google"
   | "email"
   | "phone"
   | "whatsapp"
@@ -113,14 +122,24 @@ export type PanelNavigationIcon =
   | "policies"
   | "marketplaces"
   | "settings"
+  | "general-settings"
+  | "domains"
+  | "notifications"
+  | "artificial-intelligence"
+  | "store-tools"
   | "design"
   | "language"
   | "payment"
   | "shipping"
   | "administrators"
   | "accounting"
+  | "accounts"
+  | "expenses"
+  | "business"
+  | "invoice-integration"
   | "invoice"
   | "seo"
+  | "content-seo"
   | "sitemap"
   | "social-preview"
   | "code"
@@ -152,21 +171,21 @@ function item(
 const ORDER_CHILDREN = Object.freeze([
   item("all-orders", "Tüm Siparişler", "/orders", "orders"),
   item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
-  item("payment-links", "Ödeme bağlantıları", "/orders/payment-links", "quick-orders"),
+  item("payment-links", "Ödeme bağlantıları", "/orders/payment-links", "payment-links"),
   item("abandoned-carts", "Terk Edilen Sepetler", "/orders/abandoned-carts", "abandoned-carts"),
 ]);
 
 const CUSTOMER_CHILDREN = Object.freeze([
   item("all-customers", "Tüm Müşteriler", "/customers", "customers"),
-  item("new-customer", "Yeni müşteri", "/customers/new", "customers"),
+  item("new-customer", "Yeni müşteri", "/customers/new", "new-customer"),
   item("customer-segments", "Segmentler", "/customers/segments", "segments"),
   item("customer-tags", "Etiketler", "/customers/tags", "tags"),
 ]);
 
 const CATALOG_CHILDREN = Object.freeze([
   item("products", "Tüm ürünler", "/products", "products"),
-  item("new-product", "Yeni ürün", "/products/new", "products"),
-  item("categories", "Kategoriler", "/products/categories", "collections"),
+  item("new-product", "Yeni ürün", "/products/new", "new-product"),
+  item("categories", "Kategoriler", "/products/categories", "categories"),
   item("collections", "Koleksiyonlar", "/products/collections", "collections"),
   item("brands", "Markalar", "/products/brands", "brands"),
   item("attributes", "Nitelikler", "/products/attributes", "attributes"),
@@ -177,14 +196,14 @@ const CATALOG_CHILDREN = Object.freeze([
   item("barcode-labels", "Barkod Etiketleri", "/products/barcode-labels", "barcode"),
   item("stock", "Stok", "/products/stock", "inventory"),
   item("price-lists", "Fiyat Listeleri", "/products/price-lists", "price-lists"),
-  item("imports", "İçe Aktarma", "/products/auto-import", "bulk-upload"),
+  item("imports", "İçe Aktarma", "/products/auto-import", "imports"),
   item("bulk-upload", "Toplu Yükle", "/products/bulk-upload", "bulk-upload"),
 ]);
 
 const DISCOUNT_CHILDREN = Object.freeze([
-  item("all-discounts", "Tüm İndirimler", "/discounts", "discounts"),
-  item("new-discount", "Yeni indirim", "/discounts/new", "discounts"),
-  item("popups", "Popuplar", "/discounts/popups", "discounts"),
+  item("all-discounts", "Tüm İndirimler", "/discounts", "all-discounts"),
+  item("new-discount", "Yeni indirim", "/discounts/new", "new-discount"),
+  item("popups", "Popuplar", "/discounts/popups", "popups"),
   item("lucky-wheel", "Şans Çarkı", "/discounts/lucky-wheel", "lucky-wheel"),
 ]);
 
@@ -193,7 +212,7 @@ const MARKETING_CHILDREN = Object.freeze([
   item("email-marketing", "E-posta Kampanyaları", "/marketing/email", "email"),
   item("phone-marketing", "Telefon Kampanyaları", "/marketing/phone", "phone"),
   item("whatsapp-marketing", "WhatsApp Kampanyaları", "/marketing/whatsapp", "whatsapp"),
-  item("google-marketing", "Google Bağlantıları", "/marketing/google", "marketing"),
+  item("google-marketing", "Google Bağlantıları", "/marketing/google", "google"),
 ]);
 
 const CONTENT_CHILDREN = Object.freeze([
@@ -204,39 +223,39 @@ const CONTENT_CHILDREN = Object.freeze([
 ]);
 
 const SETTINGS_CHILDREN = Object.freeze([
-  item("general-settings", "Genel", "/settings/general", "settings"),
-  item("domain-settings", "Alan Adı", "/settings/domains", "settings"),
+  item("general-settings", "Genel", "/settings/general", "general-settings"),
+  item("domain-settings", "Alan Adı", "/settings/domains", "domains"),
   item("language-settings", "Dil", "/settings/language", "language"),
   item("administrators", "Yöneticiler", "/settings/administrators", "administrators"),
   item("payment-settings", "Ödeme", "/settings/payment", "payment"),
   item("pricing-settings", "Fiyatlandırma", "/settings/pricing", "price-lists"),
   item("shipping-settings", "Kargo", "/settings/shipping", "shipping"),
-  item("notifications", "Bildirimler", "/settings/notifications", "email"),
+  item("notifications", "Bildirimler", "/settings/notifications", "notifications"),
   item("analytics-settings", "Analitik ve sepet", "/settings/analytics", "analytics"),
-  item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "settings"),
+  item("artificial-intelligence", "Yapay Zeka", "/settings/artificial-intelligence", "artificial-intelligence"),
   item("design-settings", "Tasarım", "/settings/design", "design"),
-  item("store-tools-settings", "Mağaza araçları", "/settings/store-tools", "settings"),
+  item("store-tools-settings", "Mağaza araçları", "/settings/store-tools", "store-tools"),
 ]);
 
 const ACCOUNTING_CHILDREN = Object.freeze([
   item("accounting-summary", "Özet", "/accounting", "accounting"),
   item("accounting-receivables", "Müşteri Hesapları", "/accounting/receivables", "customers"),
-  item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounting"),
-  item("accounting-expenses", "Giderler", "/accounting/expenses", "invoice"),
-  item("accounting-settings", "İşletme Bilgileri", "/accounting/settings", "settings"),
-  item("invoicing-integration", "Fatura Entegrasyonu", "/accounting/invoicing-integration", "invoice"),
+  item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounts"),
+  item("accounting-expenses", "Giderler", "/accounting/expenses", "expenses"),
+  item("accounting-settings", "İşletme Bilgileri", "/accounting/settings", "business"),
+  item("invoicing-integration", "Fatura Entegrasyonu", "/accounting/invoicing-integration", "invoice-integration"),
 ]);
 
 const SEO_CHILDREN = Object.freeze([
   item("seo-control", "SEO Kontrol", "/seo", "seo"),
-  item("content-seo", "İçerik SEO", "/seo/content", "seo"),
+  item("content-seo", "İçerik SEO", "/seo/content", "content-seo"),
   item("seo-settings", "SEO Ayarları", "/seo/settings", "settings"),
 ]);
 
 export const PANEL_WORKSPACE_ROUTE_DESTINATIONS = Object.freeze<readonly PanelNavigationItem[]>([
-  item("customer-create-route", "Yeni müşteri", "/customers/new", "customers"),
-  item("product-create-route", "Yeni ürün oluştur", "/products/new", "products"),
-  item("discount-create-route", "Yeni indirim", "/discounts/new", "discounts"),
+  item("customer-create-route", "Yeni müşteri", "/customers/new", "new-customer"),
+  item("product-create-route", "Yeni ürün oluştur", "/products/new", "new-product"),
+  item("discount-create-route", "Yeni indirim", "/discounts/new", "new-discount"),
   item("email-marketing-route", "E-posta Kampanyaları", "/marketing/email", "email"),
   item("phone-marketing-route", "Telefon Kampanyaları", "/marketing/phone", "phone"),
   item("whatsapp-marketing-route", "WhatsApp Kampanyaları", "/marketing/whatsapp", "whatsapp"),

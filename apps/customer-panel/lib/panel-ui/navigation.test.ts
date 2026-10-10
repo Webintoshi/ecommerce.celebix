@@ -374,7 +374,7 @@ test("store tools navigation has truthful initial metadata and exact activation"
     { label: "Tasarım", href: "/settings/design" },
     { label: "Mağaza araçları", href: "/settings/store-tools" },
   ]);
-  assert.equal(appearance?.at(-1)?.icon, "settings");
+  assert.equal(appearance?.at(-1)?.icon, "store-tools");
   assert.equal(getPanelRoutePresentation("/settings/store-tools").title, "Mağaza araçları");
   assert.deepEqual(activeLabels("/settings/store-tools"), ["Ayarlar", "Mağaza araçları"]);
   for (const path of ["/settings/store-tools-evil", "/settings/store-tools/child", "/settings/store-tools?tab=contact", "/settings/store-tools#contact"]) {
