@@ -62,7 +62,7 @@ All runtime receipts were collected and rechecked by the release owner. Anonymou
 | PANEL NET | `wheel266cba4a12ce6223f634` | 05:11:22 |
 | PANEL SITE | `wheela0b0a35a7954a62f4f69` | 05:17:09 |
 
-The rollout order was OWNER NET → OWNER SITE → STOREFRONT NET → STOREFRONT SITE → CUSTOMER PANEL NET → CUSTOMER PANEL SITE, with each acceptance gating the next publication. All six images and compiled route manifests match the candidate. HTTPS checks cover both owner hosts, all six storefront aliases and all eight admin aliases. All four distinct stores have disabled/null public settings; storefront runtime acceptances also checked empty results. No visitor cookie is issued for disabled settings.
+The rollout order was OWNER NET → OWNER SITE → STOREFRONT NET → STOREFRONT SITE → CUSTOMER PANEL NET → CUSTOMER PANEL SITE, with each acceptance gating the next publication. All six running images carry the candidate, and all six acceptance receipts record their BUILD_ID. The four admin/storefront receipts explicitly confirm required wheel-route presence; manifest hashes were not recorded. HTTPS checks cover both owner hosts, all six storefront aliases and all eight admin aliases. All four distinct stores have disabled/null public settings. No visitor cookie is issued for disabled settings.
 
 The authenticated Güzide source picker loaded normally and reported no eligible existing discount. Its new-source form exposes percentage, fixed amount and free shipping; no source or campaign was saved. The six-prize editor totals 100%, all five studio tabs and four color controls are present, and the contact-first/unchecked-consent preview is readable. Captured Chrome logs contained 481 historical entries, all before 04:49:10, and zero entries after the 05:17 release acceptance cutoff. Raw authenticated HTTP statuses were not captured; this is client acceptance, not an inferred wire-level assertion.
 
@@ -79,7 +79,7 @@ The full pre-native226 backup was verified at 175,622,363 bytes; SHA256 `eeb1e87
 
 - [Final six-reader/database/configuration verification](evidence/lucky-wheel/final-verification.json).
 - [Live native226 application receipt](evidence/lucky-wheel/live-native226-receipt.json), with applied timestamp and source SHA256.
-- Six `accept-*.json` files in [the evidence directory](evidence/lucky-wheel/), each with source/image/BUILD_ID/route/HTTPS proof.
+- Six `accept-*.json` files in [the evidence directory](evidence/lucky-wheel/), each with candidate image identity, BUILD_ID and approved-alias HTTPS results; the four admin/storefront receipts also record wheel-route presence.
 - [Authenticated Güzide UI acceptance](evidence/lucky-wheel/authenticated-ui.json) and [studio screenshot](evidence/lucky-wheel/authenticated-studio.jpg).
 - [Browser acceptance](evidence/lucky-wheel/browser-evidence.json), [recovery and keyboard acceptance](evidence/lucky-wheel/browser-recovery-keyboard.json), [isolated races](evidence/lucky-wheel/isolated-race-receipt.json), [test summary](evidence/lucky-wheel/test-summary.json).
 
