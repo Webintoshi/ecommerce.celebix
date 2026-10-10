@@ -65,7 +65,17 @@ export function rememberPendingWheelCoupon(storefrontId: string, award: Readonly
 export function readPendingWheelOperation(storefrontId: string): { campaignId: string; operationId: string } | null { const value = read(storefrontId, "wheel-coupon-operation", false); if (!value || !/^[a-f0-9-]{36}\.[a-f0-9-]{36}$/.test(value)) return null; const [campaignId, operationId] = value.split("."); return { campaignId: campaignId!, operationId: operationId! }; }
 export function readPendingCoupon(storefrontId: string): string | null { const code = read(storefrontId, "coupon", false); return code && /^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code) ? code : null; }
 export function clearPendingCoupon(storefrontId: string): void { write(storefrontId, "coupon", null, false); write(storefrontId, "wheel-coupon-operation", null, false); }
-export function readWheelParticipationOperation(storefrontId: string, campaignId: string): string | null { const value = read(storefrontId, `wheel-operation:${campaignId}`, false); return value && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value) ? value : null; }
-export function rememberWheelParticipationOperation(storefrontId: string, campaignId: string, value: string | null): void { write(storefrontId, `wheel-operation:${campaignId}`, value, false); }
+const wheelUuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+export function readWheelParticipationOperation(storefrontId: string, campaignId: string): string | null { const value = read(storefrontId, `wheel-operation:${campaignId}`, false); return value && wheelUuid.test(value) ? value : null; }
+export function readLatestWheelParticipationOperation(storefrontId: string): { campaignId: string; operationId: string } | null {
+  const parts = read(storefrontId, "wheel-latest-operation", false)?.split(".");
+  return parts?.length === 2 && wheelUuid.test(parts[0]!) && wheelUuid.test(parts[1]!) ? { campaignId: parts[0]!, operationId: parts[1]! } : null;
+}
+export function rememberWheelParticipationOperation(storefrontId: string, campaignId: string, value: string | null): void {
+  if (!wheelUuid.test(campaignId) || value !== null && !wheelUuid.test(value)) return;
+  write(storefrontId, `wheel-operation:${campaignId}`, value, false);
+  if (value !== null) write(storefrontId, "wheel-latest-operation", `${campaignId}.${value}`, false);
+  else if (readLatestWheelParticipationOperation(storefrontId)?.campaignId === campaignId) write(storefrontId, "wheel-latest-operation", null, false);
+}
 export function cartContactWasCaptured(storefrontId: string): boolean { return read(storefrontId, "contact-captured", true) === "1"; }
 export function markCartContactCaptured(storefrontId: string): void { write(storefrontId, "contact-captured", "1", true); }

@@ -45,3 +45,22 @@ test("pending coupons and frequency use only host/store scoped opaque data", asy
     assert.doesNotMatch(JSON.stringify([...selected.values]), /email|phone|customerId/i);
   } finally { Object.assign(globalThis, { window: previous }); }
 });
+test("latest wheel participation reference survives a new document and stays scoped to host and store", async () => {
+  const module = await api(), selected = browser(), previous = globalThis.window;
+  const campaignId = "21000000-0000-4000-8000-000000000001", operationId = "22000000-0000-4000-8000-000000000001";
+  Object.assign(globalThis, { window: selected });
+  try {
+    module.rememberWheelParticipationOperation("one", campaignId, operationId);
+    Object.assign(globalThis, { window: { ...selected } });
+    assert.deepEqual(module.readLatestWheelParticipationOperation("one"), { campaignId, operationId });
+    assert.equal(module.readLatestWheelParticipationOperation("two"), null);
+    window.location.host = "other.example"; assert.equal(module.readLatestWheelParticipationOperation("one"), null); window.location.host = "shop.example";
+    module.rememberWheelParticipationOperation("one", "21000000-0000-4000-8000-000000000002", "22000000-0000-4000-8000-000000000002");
+    module.rememberWheelParticipationOperation("one", campaignId, null);
+    assert.equal(module.readLatestWheelParticipationOperation("one")?.campaignId, "21000000-0000-4000-8000-000000000002");
+    module.rememberWheelParticipationOperation("one", "21000000-0000-4000-8000-000000000002", null);
+    assert.equal(module.readLatestWheelParticipationOperation("one"), null);
+    selected.values.set("celebix:engagement:shop.example:one:wheel-latest-operation", "contact@example.test");
+    assert.equal(module.readLatestWheelParticipationOperation("one"), null);
+  } finally { Object.assign(globalThis, { window: previous }); }
+});
