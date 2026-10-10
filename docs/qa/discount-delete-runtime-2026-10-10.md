@@ -24,4 +24,12 @@ No database migration, payment provider change, worker setting or storefront cha
 
 ## Live acceptance
 
-NET → SITE rollout, running-source verification and a fresh authenticated deletion-impact check will be recorded in the follow-up acceptance receipt. The current source candidate does not claim that a merchant promotion has been permanently deleted.
+NET → SITE rollout completed for `3fb989171f52c485a3905fc80ee481cd68195339`. NET `b132ioe18x0t9zc228bbu75m` and SITE `srxi0rwgu2jj6eebwjae8arm` finished, both running sources and the final six-application/seven-alias checks passed, and the global queue is idle. Full configuration and all four owner/storefront witnesses were preserved; native225 remains unchanged.
+
+The authenticated Chrome deletion modal for the reported promotion on `https://admin.guzidekuyumcu.com` now loads its impact, enables **Sil**, and clears the prior error. The client accepted the impact payload; raw HTTP status was not captured. No live deletion was submitted or performed during acceptance.
+
+The initial prepublication check held on a missing shared release lock. Root inspected its absence, recreated the private lock without application changes or a deployment, and manually resumed the guarded check. The final kit was independently reviewed with no material findings.
+
+Scoped checks and the production build passed. The full-suite limitation recorded above remains: 61 baseline failures plus 2 timing failures that passed in isolation without source edits.
+
+Sanitized acceptance: [machine receipt](evidence/discount-delete-runtime/live-release-20261010.json), [release record](evidence/discount-delete-runtime/live-release-20261010.md).

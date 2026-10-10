@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "verified": true,
+  "acceptedAt": "2026-10-10T02:16:12.874753+00:00",
+  "candidate": "3fb989171f52c485a3905fc80ee481cd68195339",
+  "previousPanelSource": "975f9b3950877df9b4be417c1ff653006e08df2e",
+  "releaseOrder": [
+    "panel_net",
+    "panel_site"
+  ],
+  "deployments": {
+    "panel_net": {
+      "deploymentUuid": "b132ioe18x0t9zc228bbu75m",
+      "checkedAt": "2026-10-10T02:07:51.425115+00:00",
+      "status": "finished",
+      "errorMarker": false,
+      "runtimeSha256": "bce88e9dc72bb073ce7e736c37816ed4ddaebdd2036e910f94d91669664e1804",
+      "acceptanceSha256": "5cad232eb4197e23ef2055afd117d8e311b7965a893905e07b5e2b2d37af2171"
+    },
+    "panel_site": {
+      "deploymentUuid": "srxi0rwgu2jj6eebwjae8arm",
+      "checkedAt": "2026-10-10T02:15:08.078998+00:00",
+      "status": "finished",
+      "errorMarker": false,
+      "runtimeSha256": "694e991ea0bf23c54f149e998f38b6ef793a4c15c5305a490d4e6ea44af2aa70",
+      "acceptanceSha256": "0cdd3757afe8f816dd7674d0c4902cb0685cc2f1fbed749bb8747605dd9aa85c"
+    }
+  },
+  "runningSources": {
+    "panel_net": "3fb989171f52c485a3905fc80ee481cd68195339",
+    "panel_site": "3fb989171f52c485a3905fc80ee481cd68195339",
+    "owner_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "owner_site": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_net": "446557f574ef3d99081f54f2fe138b1fe487a55a",
+    "storefront_site": "446557f574ef3d99081f54f2fe138b1fe487a55a"
+  },
+  "globalIdle": true,
+  "allConfigurationAndWitnessesPreserved": true,
+  "onlyTwoPanelSourceBindingsChanged": true,
+  "environmentRowsInserted": 0,
+  "native": {
+    "version": 225,
+    "appliedPreviously": true,
+    "appliedInThisRelease": false,
+    "originalCandidate": "975f9b3950877df9b4be417c1ff653006e08df2e",
+    "receiptSha256": "95b30a48d8c1a6e737d6fc8105f34c31edfcee3545fbb75e94d81503c02481fa",
+    "freshCatalogVerified": true,
+    "functionCount": 1743,
+    "schemaSha256": "972ac9a71f5e38453b3f78c8d5e30898d7ab19033f6188533dc8beb755b7191e"
+  },
+  "officialHelper": {
+    "sha256": "88e691ca32170f5b0588045c3026386b2541aeb681a17153fd9b213148267c0d",
+    "rootReviewed": true,
+    "independentCompatibilityReview": "PASS"
+  },
+  "globalReleaseLockRepair": {
+    "initialGuard": "remote_guard_RELEASE_LOCK_DIRECTORY_INVALID",
+    "inspectedAbsentOnHostAndContainer": true,
+    "manuallyRecreatedAfterInspection": true,
+    "existingFilesOverwritten": false,
+    "applicationConfigurationChanged": false,
+    "deploymentQueued": false,
+    "receiptSha256": "a066e5232528c691446b37611d1b6d58eff1734f6ded000f9e86446dd7159d92"
+  },
+  "compiledRuntimeFixVerified": true,
+  "compiledRuntimeMarkers": {
+    "panel_net": {
+      "optionalFacadeMethodsCompiled": true,
+      "optionalReceiverBindingCompiled": true,
+      "promotionDeleteNamespaceCompiled": true,
+      "native225DeletionReadinessCompiled": true
+    },
+    "panel_site": {
+      "optionalFacadeMethodsCompiled": true,
+      "optionalReceiverBindingCompiled": true,
+      "promotionDeleteNamespaceCompiled": true,
+      "native225DeletionReadinessCompiled": true
+    }
+  },
+  "ingress": [
+    {
+      "target": "panel_net",
+      "origin": "https://panel.saas-staging.celebix.net",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://butik-siora.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_net",
+      "origin": "https://alpler-spor.admin.saas-staging.celebix.net",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://panel.saas-staging.celebix.site",
+      "health": 404,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com.tr",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    },
+    {
+      "target": "panel_site",
+      "origin": "https://admin.guzidekuyumcu.com",
+      "health": 200,
+      "login": 200,
+      "discounts": 307,
+      "design": 307,
+      "unauthenticatedRoutes": {
+        "deleteImpact": 401,
+        "pickerResources": 401,
+        "delete": 401
+      },
+      "sameHostLoginRedirect": true,
+      "loginAssetsServed": 2,
+      "candidateAssetBytesVerified": 8
+    }
+  ],
+  "authenticatedImpactAcceptance": {
+    "checkedAt": "2026-10-10T02:15:42.961Z",
+    "source": "authenticated Chrome deletion modal",
+    "target": "panel_site",
+    "origin": "https://admin.guzidekuyumcu.com",
+    "authenticated": true,
+    "promotionId": "53746fbe-75c5-4575-b36c-73ad8b4ecbbf",
+    "impactResponseAcceptedByClient": true,
+    "networkStatusCaptured": false,
+    "httpStatus": null,
+    "impactVisible": true,
+    "confirmDeleteEnabled": true,
+    "previousPromotionUnavailableAbsent": true,
+    "deletionSubmitted": false,
+    "liveMerchantDiscountDeleted": false
+  },
+  "tests": {
+    "targetedChecksPassed": true,
+    "targetedPassed": 59,
+    "targetedFailed": 0,
+    "productionBuildPassed": true,
+    "staticPages": 97,
+    "fullSuitePassed": false,
+    "fullSuiteFirstStageTotal": 2357,
+    "passed": 2293,
+    "failed": 63,
+    "skipped": 1,
+    "baselineFailures": 61,
+    "allBaselineFailureNamesPreserved": true,
+    "additionalTimingFailures": 2,
+    "isolatedTimingPassed": 2,
+    "isolatedTimingFailed": 0,
+    "isolatedTimingSourceUnchanged": true,
+    "chainedSecondSuiteReached": false
+  },
+  "providerInvoked": false,
+  "productionFixturesCreated": false,
+  "liveMerchantDiscountDeleted": false,
+  "liveAuthenticatedDeletionSubmitted": false,
+  "evidenceSha256": {
+    "seal.json": "b28a55322aa9e4919b148ede22c5a5c0b84e7aea17079deff60ba820e83fad3f",
+    "root-approval.json": "b3a96fad208c949384b5833d5b3eba0757627a0be7b167e3f02c16a2a7245b95",
+    "final-kit-review.json": "d4240ebf6771354e400cdd6bdc69e1d894dba74e69612e1569942ac6bb4772a2",
+    "independent-review.json": "a82296b748c4213b1bcfe7cd39aaf9b1d7c20340dd4026e91b57b2a313699ff7",
+    "publish-receipt.json": "4647ea674fa1c15646e0757159b95230cfe5757fd75c37269ee63636428209da",
+    "runtime-baseline.json": "a2fce070a7164570c0b149579cd81d909be60f595bafcf3694b4fac8e816b9c2",
+    "runtime-all.json": "1584e90b1b460c7240cf3ba15cd60b8834c44609dd500230fb062bc45dfae03c",
+    "control-verify.json": "1293fa556b65f96e23f60a167f40b535c018c01ef950aea63682bc578cee780e",
+    "current-helper-audit.json": "3946bde0951589dcdc992f8f5d42a93265b29ee8a56fce6682aa96f5da0fb539",
+    "payment-proof.json": "69a5321a7643f7a58cafe635bc0650ebc1c7e4e340655fdb48418d7022b4c94c",
+    "compiled-runtime-fix-proof.json": "a3017c6abd197e8657572590ff833f69d217d0ca37f64e4edb82d706866af3b8",
+    "release-lock-repair.json": "a066e5232528c691446b37611d1b6d58eff1734f6ded000f9e86446dd7159d92",
+    "authenticated-impact-acceptance.json": "1877b5f76a2f10203ea76f93389ef16a06d083af1341585ba565fba6ff723634",
+    "control-queue-panel_net.json": "93517b05113199b5558a557a8824ad1047dd1dfb15e87f211ea1c1251d1253c9",
+    "runtime-panel_net.json": "bce88e9dc72bb073ce7e736c37816ed4ddaebdd2036e910f94d91669664e1804",
+    "accept-panel_net.json": "5cad232eb4197e23ef2055afd117d8e311b7965a893905e07b5e2b2d37af2171",
+    "control-queue-panel_site.json": "769c29ca5f3c2ba469033975b9d87ea78d5c90c3bcb8bccaf91b55c0d454a562",
+    "runtime-panel_site.json": "694e991ea0bf23c54f149e998f38b6ef793a4c15c5305a490d4e6ea44af2aa70",
+    "accept-panel_site.json": "0cdd3757afe8f816dd7674d0c4902cb0685cc2f1fbed749bb8747605dd9aa85c",
+    "full-suite-baseline-comparison.json": "fd7f9a8759a273e221d040e3fac7d124b5c7d39adb3889d821dbc9106a82afa2",
+    "extra-failures-isolated.log": "985a7609e925f7c71d5fee4e874148a4b81147baf209ca8953df5563b0489d00",
+    "build-result.json": "d6f5a4dbbda3c5b8ab0032bcfe5980483817e8b01eb624223e5c376d5a5411ee"
+  },
+  "limitations": [
+    "Authenticated Chrome acceptance observes the loaded deletion impact, enabled Sil control and absence of the prior error; raw network status was not captured.",
+    "No live merchant promotion was deleted or submitted for deletion during acceptance.",
+    "The full panel first-stage suite remains failing: 61 known baseline failures and 2 timing failures; the latter both pass in isolation without source edits."
+  ]
+}
