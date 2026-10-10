@@ -16,6 +16,7 @@ import {
   PostgresMerchantAdminRepository,
   PostgresRestockAdminRepository,
   PostgresStoreEngagementAdminRepository,
+  PostgresLuckyWheelAdminRepository,
   PostgresOrderBumpAdminRepository,
   PostgresReviewCollectionRepository,
   PostgresMerchantContentRepository,
@@ -67,6 +68,7 @@ import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerBarcodeLabelRepository } from "../server-barcode-labels/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
+import { registerServerLuckyWheelRepository } from "../server-lucky-wheel/runtime.ts";
 import { registerServerStoreEngagementRepository } from "../server-store-engagement/runtime.ts";
 import { registerServerOrderBumpRepository } from "../server-order-bumps/runtime.ts";
 import { registerServerRestockRepository } from "../server-restock/runtime.ts";
@@ -1108,6 +1110,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogAdminRepository(access, createPostCommitInvalidatingRepository(catalogAdminRepository, {
       saveResource: ["catalog"], archiveResource: ["catalog"], moderateReview: ["catalog"], importProducts: ["catalog"], importProductsV2: ["catalog"], commitImportPreview: ["catalog"],
     }));
+    registerServerLuckyWheelRepository(access, createPostCommitInvalidatingRepository(new PostgresLuckyWheelAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }), { save: ["promotions"], deleteCampaign: ["promotions"], revokeCoupons: ["promotions"] }));
     registerServerStoreEngagementRepository(access, new PostgresStoreEngagementAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerOrderBumpRepository(access, new PostgresOrderBumpAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerRestockRepository(access, new PostgresRestockAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));

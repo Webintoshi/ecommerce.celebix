@@ -25,7 +25,7 @@ type Options = {
   overview?: (days: 7 | 30 | 90, attempt: number) => Promise<PromotionOverviewResult>;
   lifecycle?: (...args: any[]) => Promise<any>; duplicate?: (...args: any[]) => Promise<any>;
   impact?: (...args: any[]) => Promise<any>; delete?: (...args: any[]) => Promise<any>;
-  pendingDeletion?: number;
+  pendingDeletion?: number; managedSources?: readonly any[];
 };
 
 async function promotionScreen(run: (screen: any) => Promise<void>, options: Options = {}) {
@@ -51,6 +51,7 @@ async function promotionScreen(run: (screen: any) => Promise<void>, options: Opt
       PanelLoadingState: ({ label }: any) => React.createElement("p", { role: "status" }, label),
     },
     "@/lib/promotion-ui/client": client,
+    "@/lib/lucky-wheel-ui/client": {createLuckyWheelApi:()=>({managedPromotions:async()=>({items:options.managedSources??[],hasMore:false,nextCursor:null})})},
     "@/lib/promotion-ui/model": model,
     "@/components/settings/design/DesignSettingsDrawer": compile(new URL("../settings/design/DesignSettingsDrawer.tsx", import.meta.url)),
     "./PromotionIllustration": { PromotionIllustration: () => null },
@@ -260,3 +261,4 @@ test("overview failure can retry independently while the loaded campaign list st
     assert.deepEqual(reads, [{}]); assert.deepEqual(summaries, [30, 30]);
   }, { overview: async (days, attempt) => { if (attempt === 1) throw Error("overview unavailable"); return overview(days); } });
 });
+test('historical deleted wheel rewards show truthful source counts and no ordinary coupon mutation actions',async()=>{await promotionScreen(async({container})=>{const row=container.querySelector('tbody tr')!;assert.match(row.textContent,/Kaynak: Şans Çarkı/);assert.match(row.textContent,/4 dağıtıldı · 2 kullanıldı/);assert.match(row.textContent,/silindi/);assert.ok(!Array.from(row.querySelectorAll('button')).some((b:any)=>['Sil','Arşivle','Çoğalt','Duraklat'].includes(b.textContent?.trim())));assert.equal(row.querySelector('a[href$="/edit"]'),null)},{managedSources:[{promotionId:record().id,campaignId:record(2).id,campaignName:'Önceki çark',issued:4,used:2,deleted:true}]})});

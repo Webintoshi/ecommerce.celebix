@@ -1,1 +1,2 @@
-import{isMerchantActionAllowed}from"@celebix/saas-contracts";import{MerchantModuleConsole}from"@/components/merchant-admin/MerchantModuleConsole";import{requireServerPanelAccess}from"@/lib/server-access";export default async function DiscountsLuckyWheelPageTsx(){const{tenantContext}=await requireServerPanelAccess();return<MerchantModuleConsole kind="lucky_wheel" canManage={isMerchantActionAllowed(tenantContext.membership.role,"promotions.manage")}/>}
+import {renderLuckyWheelPage} from '@/lib/server-lucky-wheel/page';
+export default function LuckyWheelPage(){return renderLuckyWheelPage()}

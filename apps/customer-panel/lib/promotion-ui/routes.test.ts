@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, root), "utf8"); }
 
-test("discount routes mount the dedicated studio while lucky wheel remains isolated", async () => {
+test("discount routes mount the dedicated studio and lucky wheel mounts its dedicated campaign adapter", async () => {
   const discounts = await source("app/discounts/page.tsx");
   const create = await source("app/discounts/new/page.tsx");
   const wheel = await source("app/discounts/lucky-wheel/page.tsx");
@@ -13,5 +13,5 @@ test("discount routes mount the dedicated studio while lucky wheel remains isola
   assert.match(discounts, /<PromotionStudio mode="list"/);
   assert.match(create, /<PromotionStudio mode="create"/);
   assert.doesNotMatch(discounts, /MerchantModuleConsole/);
-  assert.match(wheel, /<MerchantModuleConsole kind="lucky_wheel"/);
+  assert.match(wheel, /renderLuckyWheelPage/);
 });

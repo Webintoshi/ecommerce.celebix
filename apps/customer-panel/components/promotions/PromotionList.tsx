@@ -8,6 +8,7 @@ import { PanelActionButton, PanelEmptyState, PanelPageHeader, PanelStatusBadge }
 import { DesignSettingsModal } from "@/components/settings/design/DesignSettingsDrawer";
 import { PromotionListLoader, promotionApi as defaultPromotionApi, promotionErrorMessage, type ListQuery, type PromotionApiClient } from "@/lib/promotion-ui/client";
 import { formatPromotionMinor, zonedCivilDayStartToIso } from "@/lib/promotion-ui/model";
+import { useLuckyWheelPromotionSources, LuckyWheelPromotionSource } from "./LuckyWheelPromotionSource";
 import { PromotionDeleteDialog } from "./PromotionDeleteDialog";
 import { PromotionIllustration } from "./PromotionIllustration";
 import emptyStyles from "./promotion-list-empty.module.css";
@@ -57,6 +58,7 @@ function PromotionActions({ item, canManage, canPublish, canArchive, busy, onAct
 
 export function PromotionList({ timezone, canManage, canPublish, canArchive, api = defaultPromotionApi }: Readonly<{ timezone: string; canManage: boolean; canPublish: boolean; canArchive: boolean; api?: PromotionApiClient }>) {
   const promotionApi = api;
+  const wheelSources = useLuckyWheelPromotionSources();
   const [deleteItem, setDeleteItem] = useState<Readonly<{ id: string; name: string }> | null>(null);
   const [deletionRecovery, setDeletionRecovery] = useState(() => promotionApi.pendingDeletions());
   const deleteFocus = useRef<HTMLElement | null>(null);
@@ -142,7 +144,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
   }
 
   const action = (item: PromotionAdminListItem, selected: RowAction, trigger?: HTMLElement | null) => {
-    if (busy.includes(item.id)) return;
+    if (busy.includes(item.id) || wheelSources.phase !== "loaded" || wheelSources.sources.has(item.id)) return;
     if (selected === "delete") { if (canArchive) { deleteFocus.current = trigger ?? null; setDeleteItem(item); } return; }
     if (selected === "archive" && !window.confirm("Kampanya arşivlensin mi? Geçmiş siparişler korunur.")) return;
     const replacementCode = selected === "duplicate" && item.triggerKind === "code" ? window.prompt("Kopya kampanya için kullanılmamış yeni kupon kodunu yazın.", "") : "";
@@ -159,15 +161,16 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy((current) => current.filter((id) => id !== item.id)));
   };
 
-  const rowActions = (item: PromotionAdminListItem) => <PromotionActions item={item} canManage={canManage} canPublish={canPublish} canArchive={canArchive} busy={busy.includes(item.id)} onAction={action} />;
+  const rowActions = (item: PromotionAdminListItem) => <PromotionActions item={item} canManage={canManage && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canPublish={canPublish && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canArchive={canArchive && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} busy={busy.includes(item.id)} onAction={action} />;
   const identity = (item: PromotionAdminListItem) => {
     const Icon = BENEFIT_ICONS[item.benefitKind];
-    return <div className={styles.identity}><span className={styles.benefitIcon} aria-hidden="true"><Icon size={20} /></span><div><Link href={`/discounts/${item.id}`} className={styles.name}>{item.name}</Link><p>{item.humanMechanic}</p><small>{item.triggerKind === "code" ? `${item.activeCodeCount} aktif kod` : "Otomatik"}</small></div></div>;
+    return <div className={styles.identity}><span className={styles.benefitIcon} aria-hidden="true"><Icon size={20} /></span><div><Link href={`/discounts/${item.id}`} className={styles.name}>{item.name}</Link><p>{item.humanMechanic}</p>{wheelSources.sources.has(item.id) ? <LuckyWheelPromotionSource source={wheelSources.sources.get(item.id)!} /> : <small>{item.triggerKind === "code" ? `${item.activeCodeCount} aktif kod` : "Otomatik"}</small>}</div></div>;
   };
   const appliedStatus = appliedQuery.effectiveStatuses?.[0] ?? "";
 
   return <section className={styles.list}>
     <PanelPageHeader title="İndirimler" />
+    {wheelSources.phase === "error" ? <p role="alert">İndirim kaynakları doğrulanamadı. <button type="button" onClick={wheelSources.retry}>Kaynakları yeniden yükle</button></p> : null}
     <h1 className={styles.srOnly}>İndirimler ve Kampanyalar</h1>
     <section className={styles.summary} aria-label="Kampanya özeti">
       <div className={styles.summaryHeader}><h2 className={styles.srOnly}>Kampanya özeti</h2><div className={styles.range} role="group" aria-label="Özet dönemi">{([7, 30, 90] as const).map(day => <button key={day} type="button" aria-pressed={range === day} onClick={() => setRange(day)}>Son {day} gün</button>)}</div></div>
