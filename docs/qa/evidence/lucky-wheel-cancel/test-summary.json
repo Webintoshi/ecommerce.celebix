@@ -1,0 +1,40 @@
+{
+  "candidate": "e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+  "scope": "Customer Panel LuckyWheelEditor explicit dismissal",
+  "red": {
+    "observedFailures": 4,
+    "reason": "Changed editor did not close for cancel, header close, Escape or backdrop"
+  },
+  "green": {
+    "regressionsPassed": 4,
+    "luckyWheelSuitePassed": 33,
+    "failures": 0
+  },
+  "typecheck": {
+    "exitCode": 0
+  },
+  "build": {
+    "exitCode": 0
+  },
+  "sourceReview": {
+    "result": "PASS",
+    "blockingFindings": 0
+  },
+  "releaseKitReview": {
+    "result": "PASS",
+    "hostReceiptDirectoryPrepared": true
+  },
+  "releaseKitSha256": "13d708d310a8fd20eeb569bdc85f862b5890ea94ed75c06afdc2b709d440b461",
+  "runtimeAcceptanceSha256": "466d4abe76dc6cea2197ae27b0723288abc891abe5c25c4bab94275f8c12fbf3",
+  "assertions": [
+    "unsaved fields discarded",
+    "no save/coupon/delete/revoke mutation",
+    "dialog removed",
+    "trigger focus restored",
+    "body scroll unlocked",
+    "beforeunload listener removed",
+    "reopen uses persisted values",
+    "uncertain save retains close fence"
+  ],
+  "databaseMigrationRequired": false
+}

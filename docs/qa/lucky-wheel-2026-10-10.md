@@ -2,6 +2,8 @@
 
 Date: 2026-10-10. Candidate: **`0619ec57182af92eb23bc80d6fc16e5896a37043`**. Review base: `e59336cd1`. Independent source review: **PASS; no unresolved critical or important finding**.
 
+**Later UI follow-up:** explicit editor cancellation was corrected and published to both shared panels at `e2fbc9e204664e57997cc7854bd3368e2c803ea4`; see [cancel verification](lucky-wheel-cancel-2026-10-10.md). Owner/storefront readers and native226 remain as recorded below. The six-reader release statements in this report describe the original 05:19:32 UTC acceptance snapshot.
+
 **Publication completed.** Native226 and all six shared readers are live at the exact candidate. Final verification at **2026-10-10 05:19:32 UTC** confirmed preserved configuration/environment/settings, six matching running images, an idle global queue, four distinct store mappings and zero sample wheel/consent records. Authenticated Güzide Chrome acceptance loaded the new list, studio, real source picker and inline source form. Live customer spin/redemption was deliberately not submitted.
 
 ## Delivered behavior

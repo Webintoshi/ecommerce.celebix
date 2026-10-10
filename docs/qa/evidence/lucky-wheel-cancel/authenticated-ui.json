@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-10T05:43:38.583Z",
+  "host": "admin.guzidekuyumcu.com",
+  "candidate": "e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+  "changedCreateForm": true,
+  "footerCancelClosed": true,
+  "reopenedName": "Yeni çark",
+  "headerClosePassed": true,
+  "escapePassed": true,
+  "finalDom": {
+    "bodyOverflow": "",
+    "dialogCount": 0,
+    "focusedText": "Çark ekle"
+  },
+  "saveClicked": false,
+  "sourceCreationSubmitted": false,
+  "visitorSpinSubmitted": false,
+  "console": {
+    "capturedErrors": 21,
+    "chromeExtensionErrors": 21,
+    "applicationErrors": 0,
+    "warnings": 0
+  }
+}

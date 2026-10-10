@@ -1,0 +1,58 @@
+{
+  "verified": true,
+  "candidate": "e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+  "checkedAt": "2026-10-10T05:43:09.865149+00:00",
+  "configurationPreserved": true,
+  "environmentPreserved": true,
+  "settingsPreserved": true,
+  "automaticDeploymentDisabled": true,
+  "globalBusy": 0,
+  "deployments": {
+    "panel_net": {
+      "deployment_uuid": "wheel8d53fd6dccfbdd117921",
+      "status": "finished",
+      "commit": "e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+      "updated_at": "2026-10-10 05:38:00"
+    },
+    "panel_site": {
+      "deployment_uuid": "wheelc36fce31b318594b3fa8",
+      "status": "finished",
+      "commit": "e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+      "updated_at": "2026-10-10 05:42:10"
+    }
+  },
+  "runtimes": {
+    "owner_net": {
+      "image": "kfpz000ahmt6w3c13eu34cs2:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 50 minutes",
+      "source": "0619ec57182af92eb23bc80d6fc16e5896a37043"
+    },
+    "owner_site": {
+      "image": "bpsgdwfiswna06mooguu2mr3:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 44 minutes",
+      "source": "0619ec57182af92eb23bc80d6fc16e5896a37043"
+    },
+    "storefront_net": {
+      "image": "h55zoba9jh6ij8g6irpqzd9i:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 41 minutes (healthy)",
+      "source": "0619ec57182af92eb23bc80d6fc16e5896a37043"
+    },
+    "storefront_site": {
+      "image": "vtc2aah63jbqnmtxmvykn6jl:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 38 minutes (healthy)",
+      "source": "0619ec57182af92eb23bc80d6fc16e5896a37043"
+    },
+    "panel_net": {
+      "image": "e4xe74cmii7jucbkyor0o412:e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+      "status": "Up 5 minutes",
+      "source": "e2fbc9e204664e57997cc7854bd3368e2c803ea4"
+    },
+    "panel_site": {
+      "image": "yk1h6d97z7ex0h74ok3zrj5c:e2fbc9e204664e57997cc7854bd3368e2c803ea4",
+      "status": "Up About a minute",
+      "source": "e2fbc9e204664e57997cc7854bd3368e2c803ea4"
+    }
+  },
+  "databaseMigrationApplied": false,
+  "productionSampleWrites": false
+}
