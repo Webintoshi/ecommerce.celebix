@@ -708,3 +708,5 @@ export * from './platform/index.ts';
 export * from './google-marketing/index.ts';
 export * from './order-bumps/index.ts';
 export * from './email-marketing-connections/index.ts';
+
+export * from "./lucky-wheel/index.ts";
