@@ -1,0 +1,22 @@
+{
+  "phase": "post_up",
+  "migration": 226,
+  "wheelTables": 9,
+  "forceRlsTables": 9,
+  "ownerOnlyTables": 9,
+  "requiredFunctions": 24,
+  "adminExecFunctions": 7,
+  "publicExecFunctions": 4,
+  "baselineFunctions": 6,
+  "definitionHashDrift": 0,
+  "ownerDrift": 0,
+  "aclDrift": 0,
+  "storesChecked": 4,
+  "publicSettingsNull": 4,
+  "wheelDataRows": 0,
+  "wheelConsentRows": 0,
+  "readOnly": true,
+  "appliedAt": "2026-10-10T04:48:29.627748+00:00",
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "upSha256": "bb5817c3ae459c97e52e562c3431808af4ba17b77101d388f881bd28b6de207b"
+}

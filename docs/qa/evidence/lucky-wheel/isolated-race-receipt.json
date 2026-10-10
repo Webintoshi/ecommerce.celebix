@@ -1,0 +1,10 @@
+{
+  "database": "celebix_wheel226_20261010",
+  "sameVisitorOneAward": true,
+  "lastQuotaOneAward": true,
+  "oneCodeOneHold": true,
+  "releaseRestoresEligibility": true,
+  "saveSpinVersionConflict": true,
+  "rollbackRefusedAfterUse": true,
+  "fixtureRowsRemainOnlyInExplicitIsolatedDatabase": true
+}

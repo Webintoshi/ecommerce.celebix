@@ -1,0 +1,74 @@
+{
+  "verified": true,
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "target": "panel_net",
+  "applicationUuid": "e4xe74cmii7jucbkyor0o412",
+  "deploymentUuid": "wheel266cba4a12ce6223f634",
+  "checkedAt": "2026-10-10T05:11:22.764302+00:00",
+  "runtime": {
+    "container": "e4xe74cmii7jucbkyor0o412-20261010T050537",
+    "image": "e4xe74cmii7jucbkyor0o412:0619ec57182af92eb23bc80d6fc16e5896a37043",
+    "status": "Up 15 seconds",
+    "buildId": "BfrZXO3SiAAZXVlIAyGxd",
+    "wheelRoutesPresent": true
+  },
+  "checks": [
+    {
+      "host": "panel.saas-staging.celebix.net",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "7eac583071bd1813b7858839caa85e94b62801f9e03618ef5ac00b79a3a13d67",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "panel.saas-staging.celebix.net",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "bb8093547028ae233540400f3fe85e7abf3e10e616ca64903f25bda65fcd4663",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "butik-siora.admin.saas-staging.celebix.net",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "54ee094e78d607a1d7a188c9794ba65efc658c5b59daa4632067404a5debc4e5",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "alpler-spor.admin.saas-staging.celebix.net",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "lilyum-flora.admin.saas-staging.celebix.net",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "c0f51a16c83ac53b45c73244fa3f73fe64356302eebf1effa5a0c75295be3d14",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "lilyum-flora.admin.saas-staging.celebix.net",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    }
+  ],
+  "productionWrites": false
+}

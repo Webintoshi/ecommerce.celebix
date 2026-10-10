@@ -1,0 +1,106 @@
+{
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "checkedAt": "2026-10-10T05:19:32.719794+00:00",
+  "configuration": {
+    "configurationPreserved": true,
+    "busy": 0,
+    "queuedTargets": [
+      "owner_net",
+      "owner_site",
+      "storefront_net",
+      "storefront_site",
+      "panel_net",
+      "panel_site"
+    ]
+  },
+  "deployments": {
+    "owner_net": {
+      "deployment_uuid": "wheel1d6aaffcfe291a255036",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 04:52:15"
+    },
+    "owner_site": {
+      "deployment_uuid": "wheel6f6b5fde47f56c0eb387",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 04:58:28"
+    },
+    "storefront_net": {
+      "deployment_uuid": "wheela2b62ed6c098c5259b94",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 05:01:57"
+    },
+    "storefront_site": {
+      "deployment_uuid": "wheelb2d49018c39f243349a0",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 05:04:54"
+    },
+    "panel_net": {
+      "deployment_uuid": "wheel266cba4a12ce6223f634",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 05:11:04"
+    },
+    "panel_site": {
+      "deployment_uuid": "wheela0b0a35a7954a62f4f69",
+      "status": "finished",
+      "commit": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "updated_at": "2026-10-10 05:16:47"
+    }
+  },
+  "runtimes": {
+    "owner_net": {
+      "container": "kfpz000ahmt6w3c13eu34cs2-20261010T044836",
+      "image": "kfpz000ahmt6w3c13eu34cs2:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 27 minutes"
+    },
+    "owner_site": {
+      "container": "bpsgdwfiswna06mooguu2mr3-20261010T045557",
+      "image": "bpsgdwfiswna06mooguu2mr3:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 21 minutes"
+    },
+    "storefront_net": {
+      "container": "h55zoba9jh6ij8g6irpqzd9i-20261010T045838",
+      "image": "h55zoba9jh6ij8g6irpqzd9i:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 17 minutes (healthy)"
+    },
+    "storefront_site": {
+      "container": "vtc2aah63jbqnmtxmvykn6jl-20261010T050212",
+      "image": "vtc2aah63jbqnmtxmvykn6jl:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 14 minutes (healthy)"
+    },
+    "panel_net": {
+      "container": "e4xe74cmii7jucbkyor0o412-20261010T050537",
+      "image": "e4xe74cmii7jucbkyor0o412:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 8 minutes"
+    },
+    "panel_site": {
+      "container": "yk1h6d97z7ex0h74ok3zrj5c-20261010T051123",
+      "image": "yk1h6d97z7ex0h74ok3zrj5c:0619ec57182af92eb23bc80d6fc16e5896a37043",
+      "status": "Up 2 minutes"
+    }
+  },
+  "native226": {
+    "phase": "post_up",
+    "migration": 226,
+    "wheelTables": 9,
+    "forceRlsTables": 9,
+    "ownerOnlyTables": 9,
+    "requiredFunctions": 24,
+    "adminExecFunctions": 7,
+    "publicExecFunctions": 4,
+    "baselineFunctions": 6,
+    "definitionHashDrift": 0,
+    "ownerDrift": 0,
+    "aclDrift": 0,
+    "storesChecked": 4,
+    "publicSettingsNull": 4,
+    "wheelDataRows": 0,
+    "wheelConsentRows": 0,
+    "readOnly": true
+  },
+  "sampleBusinessWrites": false
+}

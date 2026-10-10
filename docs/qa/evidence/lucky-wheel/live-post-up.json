@@ -1,0 +1,19 @@
+{
+  "phase": "post_up",
+  "migration": 226,
+  "wheelTables": 9,
+  "forceRlsTables": 9,
+  "ownerOnlyTables": 9,
+  "requiredFunctions": 24,
+  "adminExecFunctions": 7,
+  "publicExecFunctions": 4,
+  "baselineFunctions": 6,
+  "definitionHashDrift": 0,
+  "ownerDrift": 0,
+  "aclDrift": 0,
+  "storesChecked": 4,
+  "publicSettingsNull": 4,
+  "wheelDataRows": 0,
+  "wheelConsentRows": 0,
+  "readOnly": true
+}

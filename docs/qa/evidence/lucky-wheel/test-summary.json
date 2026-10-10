@@ -1,0 +1,54 @@
+{
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "storefront": {
+    "passed": 1127,
+    "server": 884,
+    "browser": 243,
+    "failed": 0
+  },
+  "contracts": {
+    "passed": 579,
+    "failed": 0
+  },
+  "data": {
+    "passed": 1001,
+    "failed": 0,
+    "existingSkipped": 4,
+    "total": 1005
+  },
+  "adminWheel": {
+    "passed": 29,
+    "failed": 0
+  },
+  "managedPromotionBehavior": {
+    "passed": 18,
+    "failed": 0
+  },
+  "independentFocused": {
+    "passed": 84,
+    "failed": 0,
+    "overlapsBroaderSuites": true
+  },
+  "typechecksPassed": [
+    "contracts",
+    "data",
+    "storefront-shared",
+    "customer-panel",
+    "owner"
+  ],
+  "buildsPassed": [
+    "storefront-shared",
+    "customer-panel",
+    "owner"
+  ],
+  "neighborAdmin": {
+    "passed": 148,
+    "failed": 3,
+    "sameFailuresReproducedAtBase": true,
+    "baseSubsetPassed": 7,
+    "baseSubsetFailed": 3,
+    "base": "e59336cd1",
+    "scope": "obsolete draft/publish/source-string expectations"
+  },
+  "blanketAllWorkspacePassClaim": false
+}

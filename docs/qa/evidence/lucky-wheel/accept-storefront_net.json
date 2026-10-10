@@ -1,0 +1,66 @@
+{
+  "verified": true,
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "target": "storefront_net",
+  "applicationUuid": "h55zoba9jh6ij8g6irpqzd9i",
+  "deploymentUuid": "wheela2b62ed6c098c5259b94",
+  "checkedAt": "2026-10-10T05:02:11.299842+00:00",
+  "runtime": {
+    "container": "h55zoba9jh6ij8g6irpqzd9i-20261010T045838",
+    "image": "h55zoba9jh6ij8g6irpqzd9i:0619ec57182af92eb23bc80d6fc16e5896a37043",
+    "status": "Up 24 seconds (healthy)",
+    "buildId": "Bgr8V36wt4v92DPpULlzN",
+    "wheelRoutesPresent": true
+  },
+  "checks": [
+    {
+      "host": "butik-siora.saas-staging.celebix.net",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "77532e7d99e268856eb01501694e42f91fd6f513a6f0049e77b8eefb1856c7d6",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "butik-siora.saas-staging.celebix.net",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    },
+    {
+      "host": "alpler-spor.saas-staging.celebix.net",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "73af185eca0a76f13b2d22e08844a23c0471b8e77f86b5584e1b392d7d5e2697",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "alpler-spor.saas-staging.celebix.net",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    },
+    {
+      "host": "lilyumflora.net",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "880d04d788ad40fc038a0341f22e7d12ed9788577dac9bf0ef781f81b35334fb",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "lilyumflora.net",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    }
+  ],
+  "productionWrites": false
+}

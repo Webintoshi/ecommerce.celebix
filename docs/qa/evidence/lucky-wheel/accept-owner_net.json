@@ -1,0 +1,26 @@
+{
+  "verified": true,
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "target": "owner_net",
+  "applicationUuid": "kfpz000ahmt6w3c13eu34cs2",
+  "deploymentUuid": "wheel1d6aaffcfe291a255036",
+  "checkedAt": "2026-10-10T04:53:08.096071+00:00",
+  "runtime": {
+    "container": "kfpz000ahmt6w3c13eu34cs2-20261010T044836",
+    "image": "kfpz000ahmt6w3c13eu34cs2:0619ec57182af92eb23bc80d6fc16e5896a37043",
+    "status": "Up 55 seconds",
+    "buildId": "gG8UepqIqbbB9NRezx4pF",
+    "wheelRoutesPresent": false
+  },
+  "checks": [
+    {
+      "host": "owner.saas-staging.celebix.net",
+      "path": "/kayit",
+      "finalPath": "/kayit",
+      "status": 200,
+      "sha256": "c40c6cdeed9d42c2b195bc4921cecc2e65a59fc9f5a10298f28d982118eb6e06",
+      "acceptance": "public_page"
+    }
+  ],
+  "productionWrites": false
+}

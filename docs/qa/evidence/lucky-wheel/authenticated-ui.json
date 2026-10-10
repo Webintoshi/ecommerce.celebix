@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-10T05:21:18.296448+00:00",
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "host": "admin.guzidekuyumcu.com",
+  "path": "/discounts/lucky-wheel",
+  "authenticatedMerchantSession": true,
+  "emptyListLoaded": true,
+  "studioTabs": [
+    "Kampanya",
+    "G\u00f6r\u00fcn\u00fcm",
+    "\u00d6d\u00fcller",
+    "Kat\u0131l\u0131m",
+    "G\u00f6sterim"
+  ],
+  "defaultPrizeSlots": 6,
+  "defaultWeightPercentTotal": 100,
+  "colorControls": 4,
+  "contactFirstPreview": true,
+  "uncheckedMarketingPermissionPreview": true,
+  "existingSourcePickerLoaded": true,
+  "eligibleSourcesShown": 0,
+  "inlineSourceFormTypes": [
+    "percentage",
+    "fixed_amount",
+    "free_shipping"
+  ],
+  "visibleErrorState": false,
+  "rawHttpStatusesCaptured": false,
+  "console": {
+    "captureLimit": 1000,
+    "capturedEntries": 481,
+    "releaseCutoff": "2026-10-10T05:17:00.000Z",
+    "entriesAfterCutoff": 0,
+    "latestHistoricalEntry": "2026-10-10T04:49:09.077Z"
+  },
+  "sourceOrCampaignSaved": false,
+  "productionSpinOrRedemptionPerformed": false,
+  "sampleBusinessWrites": false,
+  "screenshot": "authenticated-studio.jpg"
+}

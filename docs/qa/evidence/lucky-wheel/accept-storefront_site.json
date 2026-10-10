@@ -1,0 +1,66 @@
+{
+  "verified": true,
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "target": "storefront_site",
+  "applicationUuid": "vtc2aah63jbqnmtxmvykn6jl",
+  "deploymentUuid": "wheelb2d49018c39f243349a0",
+  "checkedAt": "2026-10-10T05:05:36.239660+00:00",
+  "runtime": {
+    "container": "vtc2aah63jbqnmtxmvykn6jl-20261010T050212",
+    "image": "vtc2aah63jbqnmtxmvykn6jl:0619ec57182af92eb23bc80d6fc16e5896a37043",
+    "status": "Up 49 seconds (healthy)",
+    "buildId": "KWXhu-27-7jYjKG0iuT1G",
+    "wheelRoutesPresent": true
+  },
+  "checks": [
+    {
+      "host": "guzidekuyumcu.com",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "121a55fd529619028e39e137570bc9204d40b2adaa4eed43e2bed5d04971320b",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "guzidekuyumcu.com",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    },
+    {
+      "host": "guzidekuyumcu.com.tr",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "a3446267e4e4de8c257bdc204aebc3ce5b818ca716910c7d34d7c3aa10670614",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "guzidekuyumcu.com.tr",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    },
+    {
+      "host": "guzide-kuyumcu-4.saas-staging.celebix.site",
+      "path": "/",
+      "finalPath": "/",
+      "status": 200,
+      "sha256": "6ef782d2951cc6d8baf8d9226599e10eec21480d55d7d23808dd57ffc1f79d5c",
+      "acceptance": "public_page"
+    },
+    {
+      "host": "guzide-kuyumcu-4.saas-staging.celebix.site",
+      "path": "/api/lucky-wheel/settings",
+      "status": 200,
+      "campaign": null,
+      "noStore": true,
+      "cookieIssued": false
+    }
+  ],
+  "productionWrites": false
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "width": 1440,
+    "contactFirst": true,
+    "uncheckedConsent": true,
+    "oneAwardAcrossReopen": true,
+    "retainedFormAndSameSaveKey": true,
+    "noRuntimeErrors": true,
+    "noHorizontalOverflow": true
+  },
+  {
+    "width": 1024,
+    "contactFirst": true,
+    "uncheckedConsent": true,
+    "oneAwardAcrossReopen": true,
+    "retainedFormAndSameSaveKey": true,
+    "noRuntimeErrors": true,
+    "noHorizontalOverflow": true
+  },
+  {
+    "width": 390,
+    "contactFirst": true,
+    "uncheckedConsent": true,
+    "oneAwardAcrossReopen": true,
+    "retainedFormAndSameSaveKey": true,
+    "noRuntimeErrors": true,
+    "noHorizontalOverflow": true
+  }
+]

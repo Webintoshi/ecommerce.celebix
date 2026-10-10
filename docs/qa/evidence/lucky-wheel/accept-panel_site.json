@@ -1,0 +1,74 @@
+{
+  "verified": true,
+  "candidate": "0619ec57182af92eb23bc80d6fc16e5896a37043",
+  "target": "panel_site",
+  "applicationUuid": "yk1h6d97z7ex0h74ok3zrj5c",
+  "deploymentUuid": "wheela0b0a35a7954a62f4f69",
+  "checkedAt": "2026-10-10T05:17:09.267394+00:00",
+  "runtime": {
+    "container": "yk1h6d97z7ex0h74ok3zrj5c-20261010T051123",
+    "image": "yk1h6d97z7ex0h74ok3zrj5c:0619ec57182af92eb23bc80d6fc16e5896a37043",
+    "status": "Up 23 seconds",
+    "buildId": "QAq994PYHPACQe4etEUzL",
+    "wheelRoutesPresent": true
+  },
+  "checks": [
+    {
+      "host": "panel.saas-staging.celebix.site",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "2ef0de59afaa1ba439d5a335c87d7290e8a394d48d8df75c72f1744fab624fbd",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "panel.saas-staging.celebix.site",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "admin.guzidekuyumcu.com",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "5c058e4e9dce04add196a223b9bfe75a9706e91d4f3a8e0b73073e2f228c4d15",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "admin.guzidekuyumcu.com",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "admin.guzidekuyumcu.com.tr",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "8a3019580f52a29906acddd739f1c70481ae8ea23e2dd34ae58dc2c1515d8e1e",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "admin.guzidekuyumcu.com.tr",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    },
+    {
+      "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/discounts/lucky-wheel",
+      "finalPath": "/login",
+      "status": 200,
+      "sha256": "84a6be6ba41c226ab32256173e8ea60b6c4e96d2df7273e455c00046c6faae85",
+      "acceptance": "login_reachability"
+    },
+    {
+      "host": "guzide-kuyumcu-4.admin.saas-staging.celebix.site",
+      "path": "/api/discounts/lucky-wheel",
+      "status": 401,
+      "anonymousDenied": true
+    }
+  ],
+  "productionWrites": false
+}
