@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-12",
+  "verified": true,
+  "sourceSha": "5f36c075560e26909bbe6f4d35b02358ee5f769d",
+  "nativeReaderVersion": 227,
+  "oldFunctionsUnchanged": 1767,
+  "newFunctions": 3,
+  "deployments": {
+    "NET": "stp0xcsnkn2czbymtk0umf6g",
+    "SITE": "a75nww3eqh8w7qzkfnwp52v9"
+  },
+  "twoRunningImagesAndSourceCommitsVerified": true,
+  "globalQueueIdle": true,
+  "fourOwnerStorefrontContainersPreserved": true,
+  "protectedEnvironmentPreserved": true,
+  "compiledPaymentAndGooglePreserved": true,
+  "nativeReadOnlyRehearsalAndDownReapplyPassed": true,
+  "authorizedBrowserAcceptanceTenant": "butik-siora",
+  "siora": { "manual": 43, "social": 3, "instagram": 3, "whatsapp": 0 },
+  "manualCursorPageSizes": [20, 40, 43],
+  "responsiveWidths": [1440, 1024, 390],
+  "pageOverflow": 0,
+  "cancelFocusResetAccepted": true,
+  "anonymousFilteredOrdersApiStatus": 401,
+  "siteAuthorizedBrowserAcceptance": false,
+  "siteAuthorizedBrowserLimitation": "Guzide browser was signed out; runtime/source/authentication boundary verified without creating a session.",
+  "businessDataMutation": false,
+  "paymentOrGoogleProviderMutation": false
+}

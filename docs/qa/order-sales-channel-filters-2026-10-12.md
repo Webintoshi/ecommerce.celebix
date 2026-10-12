@@ -31,4 +31,17 @@ Yeni kanal/platform seçimleri tüm siparişleri sunucuda filtreler ve cursor ka
 - Gerçek liste/dialog bileşenleri ve CSS ile yerel tarayıcı kontrolü: 1440, 1024, 390 genişliklerinde sayfa taşması 0; Uygula görünür; konsol hata/uyarı 0. Sosyal+Instagram Uygula, manuel draft+Escape ile eski seçimin korunması/odak dönüşü ve Temizle+Uygula doğrulandı. Önizleme görselleri evidence/order-sales-channel-filters altında.
 - Atlas bağımsız kod/SQL incelemesinde engelleyici bulgu yok.
 
-Henüz canlıya yayımlanmadı. Canlı kabul ve dağıtım kimlikleri yayın sonrası eklenecek.
+## Canlı yayın ve kabul
+
+12 Ekim 2026 NET → SITE sırasıyla tamamlandı. İki çalışan panelin image ve SOURCE_COMMIT değeri `5f36c075560e26909bbe6f4d35b02358ee5f769d` olarak salt okunur doğrulandı. Global yayın kuyruğu boş.
+
+- NET dağıtımı: `stp0xcsnkn2czbymtk0umf6g` — finished.
+- SITE dağıtımı: `a75nww3eqh8w7qzkfnwp52v9` — finished.
+- SQL 227 yedek sonrası uygulandı: 1767 eski işlev tanım/sahip/ACL/config değeri aynı; yalnız üç yeni okuma işleviyle toplam 1770. İş/sipariş/ödeme/stok verisi yazılmadı. Sunucuda tutulan tam yedek arşivi doğrulandı; DOWN/yeniden uygulama izole PostgreSQL'de geçti. Geri alma sırası önce eski panel kodu, ardından gerekirse yeni okuyucuların DOWN dosyasıdır.
+- Kaynak ref atomik beklenen sürüm kontrolüyle ilerletildi. İki panelin yalnız mevcut SOURCE_COMMIT değeri ve git pin değişti; yeni env kaydı eklenmedi. Ham şifreli ortam kayıtları, bayraklar, dallar, Google/native keyring ve ödeme çalışma biçimleri korundu. Owner/vitrin dört çalışan container ve tüm diğer ayarlar aynı kaldı. Witness uygulamaların önceden farklı olan image/git pin ve SOURCE_COMMIT değerleri ayrıca korunmuştur.
+- Butik Siora'da gerçek oturumla sosyal medya 3, Instagram 3, WhatsApp 0 sonucu; manuel satış 20 → 40 → 43 cursor sayfalaması doğrulandı. Manuel sonuçlarda yalnız manuel kanal vardı. Manuel kanala geçişte platform kaldırıldı; filtre temizleme varsayılan listeyi geri getirdi.
+- Canlı NET'te 1440×900, 1024×900 ve 390×844: sayfa taşması 0, pencere ve Uygula görünür. Escape draft seçimi uygulamadan kapattı ve odağı Filtreler'e döndürdü. Uygulama kaynaklı konsol hata/uyarı yok; mevcut üçüncü taraf tarayıcı uzantısının M_ID hataları uygulama hatası olarak sayılmadı.
+- SITE'te çalışan kaynak ve derlenmiş çalışma zamanı/Google/ödeme korunması doğrulandı. Güzide tarayıcısı oturum açma sayfasındaydı; Güzide için yeni kimlik bilgisi veya oturum üretilmedi. Yetkili tarayıcı kabulü NET/Butik Siora'da yapıldı. NET ve SITE alan adlarında filtresi verilmiş anonim Sipariş API çağrıları 401 döndü.
+- Kalıcı test siparişi veya sahte tahsilat oluşturulmadı; ödeme sağlayıcısı ve Google mutasyonu çağrılmadı.
+
+Bu sürüm ortak Customer Panel uygulamalarını kullanan mevcut ve yeni mağazalara uygulanır. Özet kanıt `evidence/order-sales-channel-filters/final-verification.json`; canlı popup ekran görüntüsü müşteri bilgileri Git'e aktarılmadan yerelde tutulur.
