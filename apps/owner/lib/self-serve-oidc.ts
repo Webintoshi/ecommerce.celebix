@@ -1,5 +1,7 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../packages/platform-config/src/saas.ts";
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+import type { OidcVerifiedPasswordProof } from "./admin-login-password-proof/verifier.ts";
+import { ADMIN_PASSWORD_PROOF_RESOURCE, ADMIN_PASSWORD_PROOF_SCOPE } from "./admin-login-password-proof/customizer.ts";
 
 const OIDC_TRANSACTION_LIFETIME_MS = 10 * 60_000;
 const APPROVED_RETURN_PATHS = new Set(["/kayit", "/login"]);
@@ -38,6 +40,7 @@ export interface OidcAuthorizationRequest {
   codeChallengeMethod: "S256";
   redirectUri: string;
   prompt?: "login";
+  passwordProof?: Readonly<{ nonce: string }>;
 }
 
 export interface OidcCallbackInput {
@@ -52,6 +55,7 @@ export interface OidcProviderCallbackInput extends OidcCallbackInput {
   expectedNonce: string;
   expectedIssuer: string;
   expectedAudience: string;
+  passwordProof?: true;
 }
 
 export interface OidcVerifiedIdentity {
@@ -62,11 +66,31 @@ export interface OidcVerifiedIdentity {
   email: string;
   emailVerified: boolean;
   displayName?: string;
+  passwordProof?: OidcVerifiedPasswordProof;
 }
 
 export interface OidcProviderPort {
   buildAuthorizationUrl(input: OidcAuthorizationRequest): URL | Promise<URL>;
   verifyCallback(input: OidcProviderCallbackInput): Promise<OidcVerifiedIdentity>;
+}
+
+/** Authenticated Owner security operations only; never taken from callback flags. */
+export type AdminLoginSecurityContext = Readonly<{
+  purpose: "manage" | "change_phone";
+  expectedPrincipalId: string;
+}>;
+
+export function parseAdminLoginSecurityContext(value: unknown): AdminLoginSecurityContext {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC security context is invalid.");
+  }
+  const row = value as Record<string, unknown>;
+  if (Object.keys(row).length !== 2 || !Object.hasOwn(row, "purpose") || !Object.hasOwn(row, "expectedPrincipalId") ||
+      (row.purpose !== "manage" && row.purpose !== "change_phone") || typeof row.expectedPrincipalId !== "string" ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(row.expectedPrincipalId)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC security context is invalid.");
+  }
+  return Object.freeze({ purpose: row.purpose, expectedPrincipalId: row.expectedPrincipalId.toLowerCase() });
 }
 
 export interface OidcAuthorizationTransaction {
@@ -81,6 +105,8 @@ export interface OidcAuthorizationTransaction {
   expiresAt: string;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   panelLoginDestinationHostname?: string;
+  passwordProof?: true;
+  adminLoginSecurityContext?: AdminLoginSecurityContext;
 }
 
 export interface OidcTransactionStore {
@@ -103,6 +129,8 @@ export interface BeginOidcAuthorizationInput {
   allowLocalTestCallback?: boolean;
   panelLoginBinding?: Readonly<{ keyId: string; digest: string }>;
   panelLoginDestinationHostname?: string;
+  passwordProof?: true;
+  adminLoginSecurityContext?: AdminLoginSecurityContext;
   now?: () => Date;
 }
 
@@ -315,11 +343,18 @@ function assertAuthorizationUrl(input: {
   if (
     !hasExactly(url, "response_type", "code") ||
     !hasExactly(url, "response_mode", "query") ||
-    (request.prompt === "login" ? !hasExactly(url, "prompt", "login") : url.searchParams.has("prompt")) ||
+    (request.passwordProof ? !hasExactly(url, "prompt", "login consent") :
+      request.prompt === "login" ? !hasExactly(url, "prompt", "login") : url.searchParams.has("prompt")) ||
     url.searchParams.has("code_verifier")
   ) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC authorization response type is invalid.");
   }
+  if (request.passwordProof && (
+    !hasExactly(url, "resource", ADMIN_PASSWORD_PROOF_RESOURCE) ||
+    !hasExactly(url, "max_age", "0") ||
+    url.searchParams.getAll("scope").length !== 1 ||
+    !url.searchParams.get("scope")?.split(" ").includes(ADMIN_PASSWORD_PROOF_SCOPE)
+  )) throw new OidcFlowError("oidc_provider_rejected", "OIDC password proof authorization is invalid.");
 }
 
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
@@ -336,6 +371,13 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     (panelLoginBinding !== undefined) !== (panelLoginDestinationHostname !== undefined)
   ) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
+  }
+  if (input.passwordProof !== undefined && (input.passwordProof !== true || !panelLoginBinding)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC password proof transaction is invalid.");
+  }
+  const adminLoginSecurityContext = input.adminLoginSecurityContext === undefined ? undefined : parseAdminLoginSecurityContext(input.adminLoginSecurityContext);
+  if (adminLoginSecurityContext && (!panelLoginBinding || input.passwordProof !== true)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC security context is invalid.");
   }
   const state = randomOpaqueValue(32, panelLoginBinding ? "plogin_" : "");
   const nonce = randomOpaqueValue(32);
@@ -354,6 +396,8 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     expiresAt: new Date(now.getTime() + OIDC_TRANSACTION_LIFETIME_MS).toISOString(),
     ...(panelLoginBinding ? { panelLoginBinding } : {}),
     ...(panelLoginDestinationHostname ? { panelLoginDestinationHostname } : {}),
+    ...(input.passwordProof ? { passwordProof: true as const } : {}),
+    ...(adminLoginSecurityContext ? { adminLoginSecurityContext } : {}),
   };
 
   await input.transactionStore.save(transaction);
@@ -364,6 +408,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
     codeChallengeMethod: "S256",
     redirectUri: input.redirectUri,
     prompt: "login",
+    ...(input.passwordProof ? { passwordProof: Object.freeze({ nonce }) } : {}),
   };
   let authorizationUrl: URL;
   try {
@@ -474,6 +519,10 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   } else if (input.panelLoginBinding !== undefined) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC panel login binding is invalid.");
   }
+  const adminLoginSecurityContext = transaction.adminLoginSecurityContext === undefined ? undefined : parseAdminLoginSecurityContext(transaction.adminLoginSecurityContext);
+  if (adminLoginSecurityContext && (!transaction.panelLoginBinding || transaction.passwordProof !== true)) {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC security context is invalid.");
+  }
   assertResponseIssuer(responseIssuer, transaction);
   let identity: OidcVerifiedIdentity;
 
@@ -487,6 +536,7 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
       expectedNonce: transaction.nonce,
       expectedIssuer: transaction.expectedIssuer,
       expectedAudience: transaction.expectedAudience,
+      ...(transaction.passwordProof ? { passwordProof: true as const } : {}),
     });
   } catch (error) {
     if (error instanceof OidcFlowError) throw error;
@@ -499,5 +549,6 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
     identity,
     returnTo: transaction.returnTo,
     ...(transaction.panelLoginDestinationHostname ? { panelLoginDestinationHostname: transaction.panelLoginDestinationHostname } : {}),
+    ...(adminLoginSecurityContext ? { adminLoginSecurityContext } : {}),
   };
 }

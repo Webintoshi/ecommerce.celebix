@@ -8,12 +8,13 @@ import {
 import { createOwnerStagingAuthRouteSetResolver } from "./resolver.ts";
 import {resolveOnboardingStatusEnabled} from "../self-serve-status/types.ts";
 import { initializeOwnerStagingAuthRouteSet } from "./runtime.ts";
+import {parseOwnerAdminLoginSecurityConfig} from '../admin-login-security/config.ts';
 
 const resolver = createOwnerStagingAuthRouteSetResolver<OwnerSelfServeAuthRouteSet>({
   source: process.env,
   disabled: createDisabledOwnerSelfServeAuthRouteSet,
   unavailable: createUnavailableOwnerStagingAuthRouteSet,
-  initialize: config => initializeOwnerStagingAuthRouteSet(config,{onboardingStatusEnabled:resolveOnboardingStatusEnabled(process.env.CELEBIX_ONBOARDING_STATUS_ENABLED)}),
+  initialize: config => initializeOwnerStagingAuthRouteSet(config,{onboardingStatusEnabled:resolveOnboardingStatusEnabled(process.env.CELEBIX_ONBOARDING_STATUS_ENABLED),adminLoginSecurity:parseOwnerAdminLoginSecurityConfig(process.env)}),
   diagnostic(code) { console.error(code); },
 });
 

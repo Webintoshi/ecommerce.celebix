@@ -42,6 +42,9 @@ export type OwnerSelfServeAuthRouteReadiness = Readonly<{
 }>;
 
 export type OwnerSelfServeAuthRouteSet = Readonly<{
+  internalAdminLoginSecurity?:RouteHandler;
+  adminLoginWebhook?:RouteHandler;
+  adminLoginSupportReset?:RouteHandler;
   publicRegistration: RouteHandler;
   publicStatus?: RouteHandler;
   internalBrowserBinding: RouteHandler;

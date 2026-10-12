@@ -32,6 +32,14 @@ import { createOwnerStagingCallbackAudit, createOwnerStagingOidcAudit } from "./
 
 import {createOnboardingStatusCredentialCodec} from "../self-serve-status/credential-codec.ts";
 import {PostgresOnboardingStatusRepository} from "../self-serve-status/postgres-repository.ts";
+import {createOwnerAdminLoginSecurityService} from '../admin-login-security/service.ts';
+import type {OwnerAdminLoginSecurityConfig} from '../admin-login-security/config.ts';
+import {createPostgresAdminLoginSecurityRepository,PostgresAdminLoginInvalidationRepository} from '../../../../packages/saas-data/src/admin-login-security/repository.ts';
+import {createAdminVatanSmsWhatsAppDelivery} from '../../../../packages/saas-data/src/admin-login-security/delivery.ts';
+import {createAdminLoginInternalGateway} from '../../../../packages/saas-data/src/admin-login-security/internal.ts';
+import {createAdminSecurityBridge} from '../../../../packages/saas-data/src/admin-login-security/bridge.ts';
+import {createAdminLoginInvalidationWebhookHandler} from '../admin-login-security/webhook.ts';
+import {createAdminLoginSupportResetHandler} from '../admin-login-security/support-reset.ts';
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -77,7 +85,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
 
 export async function initializeOwnerStagingAuthRouteSet(
   config: OwnerStagingAuthConfig,
-  rollout: {onboardingStatusEnabled?:boolean} = {},
+  rollout: {onboardingStatusEnabled?:boolean;adminLoginSecurity?:OwnerAdminLoginSecurityConfig|null} = {},
 ): Promise<OwnerSelfServeAuthRouteSet> {
   const pool = new Pool({
     ...createOwnerStagingDatabasePoolConfig(config.database),
@@ -92,6 +100,19 @@ export async function initializeOwnerStagingAuthRouteSet(
   pool.on("error", () => undefined);
   try { await preflight(pool, config.database.name); }
   catch (error) { await pool.end().catch(() => undefined); throw error; }
+  if(rollout.adminLoginSecurity){
+    try {
+      const client=await pool.connect();
+      try {
+        const checked=await client.query("SELECT pg_has_role(current_user,'celebix_saas_workflow','MEMBER') AS workflow, to_regprocedure('saas.admin_login_security_command(text,jsonb)') IS NOT NULL AS commands, to_regprocedure('saas.admin_login_security_invalidate(jsonb)') IS NOT NULL AS invalidation");
+        const row=checked.rows[0];
+        if(!row||row.workflow!==true||row.commands!==true||row.invalidation!==true)throw Error('admin_login_security_preflight_failed');
+      } finally {client.release();}
+      for(const master of rollout.adminLoginSecurity.masterKeys.values())
+        for(const existing of [config.keys.identityHmac,config.keys.identityEncryption,config.keys.browserBootstrap,config.keys.browserBinding,config.keys.browserInternal,config.keys.callbackInternal,config.keys.handoff,config.keys.session])
+          if(Buffer.from(master).equals(Buffer.from(existing)))throw Error('admin_login_security_key_separation_failed');
+    } catch(error) {await pool.end().catch(()=>undefined);throw error;}
+  }
 
   const clock = () => new Date();
   const bytes = (size: number) => new Uint8Array(randomBytes(size));
@@ -155,6 +176,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     timeoutMs: 5_000,
     maximumResponseBytes: 65_536,
     audit: oidcAudit,
+    ...(rollout.adminLoginSecurity?{passwordProof:{resource:'urn:celebix:admin-signin-proof' as const}}:{}),
   });
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("approved_staging"),
@@ -203,7 +225,24 @@ export async function initializeOwnerStagingAuthRouteSet(
     timeouts: TIMEOUTS,
     audit: () => undefined,
   });
-  const returningLogin = createPanelReturningLoginService({
+  let returningLogin:ReturnType<typeof createPanelReturningLoginService>;
+  const adminConfig=rollout.adminLoginSecurity;
+  const adminSecurity=adminConfig?createOwnerAdminLoginSecurityService({
+    issuer:config.logto.issuer,clientId:config.logto.clientId,environment:'staging',
+    masterKeyId:adminConfig.masterKeyId,masterKeys:adminConfig.masterKeys,
+    handoffKeyId:config.keys.handoffKeyId,sessionKeyId:config.keys.sessionKeyId,sessionKeys:new Map([[config.keys.sessionKeyId,config.keys.session]]),clock,
+    browserDigest:credential=>browserCodec.digestBrowserBindingCredential(credential).digest,
+    repository:createPostgresAdminLoginSecurityRepository({pool,role:'celebix_saas_identity',timeouts:TIMEOUTS}),
+    delivery:createAdminVatanSmsWhatsAppDelivery({apiKey:adminConfig.whatsAppApiKey,regId:adminConfig.whatsAppRegId,fetch:globalThis.fetch}),
+    async startManagement(input){
+      const credential=input.browserCredential;
+      const started=await returningLogin.start(credential,new URL(input.destinationOrigin).hostname,{purpose:input.purpose,expectedPrincipalId:input.principalId});
+      if(started.kind!=='panel_login_ready')return {schemaVersion:1,code:'operation_uncertain'};
+      const bridge=createAdminSecurityBridge({secret:config.keys.callbackInternal,centralOrigin:config.authority.panelOrigin,environment:'staging',clock});
+      return {schemaVersion:1,code:'ok',securityHandoff:bridge.seal({action:'start',sourceOrigin:input.destinationOrigin,expiresAt:input.expiresAt,authorizationUrl:started.providerAuthorizationUrl,browserCredential:credential,browserExpiresAt:started.browserBindingExpiresAt})};
+    },
+  }):undefined;
+  returningLogin = createPanelReturningLoginService({
     provider,
     transactionStore: oidcStore,
     browserBindingCodec: browserCodec,
@@ -213,6 +252,7 @@ export async function initializeOwnerStagingAuthRouteSet(
     expectedAudience: config.logto.clientId,
     expectedAuthorizationOrigin: new URL(config.logto.issuer).origin,
     clock,
+    ...(adminSecurity?{adminLoginSecurity:adminSecurity}:{}),
   });
   const callbackAudit = createOwnerStagingCallbackAudit();
   const composition = createDisabledOwnerSelfServeAuthComposition({
@@ -250,9 +290,16 @@ export async function initializeOwnerStagingAuthRouteSet(
     initialCallbackAudit: callbackAudit,
     sessionHandoffGatewayAudit: () => undefined,
   });
-  return createApprovedStagingOwnerSelfServeAuthRouteSet({
+  const routes=createApprovedStagingOwnerSelfServeAuthRouteSet({
     approval: createOwnerSelfServeAuthRouteMountApproval("approved_staging"),
     environment: "approved_staging",
     composition,
+  });
+  if(!adminSecurity||!adminConfig)return routes;
+  const invalidation=new PostgresAdminLoginInvalidationRepository({pool,role:'celebix_saas_workflow',timeouts:TIMEOUTS});
+  return Object.freeze({...routes,
+    internalAdminLoginSecurity:createAdminLoginInternalGateway({ownerOrigin:config.authority.ownerOrigin,keys:new Map([[config.keys.callbackInternalKeyId,config.keys.callbackInternal]]),clock,handle:command=>adminSecurity.command(command)}),
+    adminLoginWebhook:createAdminLoginInvalidationWebhookHandler({issuer:config.logto.issuer,signingSecret:adminConfig.webhookSecret,clock,invalidate:input=>invalidation.invalidate(input)}),
+    adminLoginSupportReset:createAdminLoginSupportResetHandler({issuer:config.logto.issuer,allowedOrigin:config.authority.ownerOrigin,async requireOperator(){const {resolvePlatformIdentity}=await import('../platform/auth.ts');const identity=await resolvePlatformIdentity();if(identity.kind!=='authorized')throw Error('platform_access_denied');return {operatorId:identity.operator.operatorId,totpVerified:true};},invalidate:input=>invalidation.invalidate(input)}),
   });
 }

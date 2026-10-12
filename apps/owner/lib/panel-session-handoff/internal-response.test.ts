@@ -1,3 +1,4 @@
+import * as securityResponses from "./internal-response.ts";
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
@@ -129,4 +130,14 @@ test("pending202 preserves canonical schema and signs HTTP status", async()=>{
  assert.throws(()=>canonicalOwnerPanelSessionHandoffResult({status:202,body:{kind:"onboarding_pending",schemaVersion:1,statusUrl:`${new URL(ENDPOINT).origin}/onboarding/status`}} as never));
  assert.throws(()=>canonicalOwnerPanelSessionHandoffResult({status:200,body:result.body} as never));
  assert.throws(()=>createOnboardingPendingResult("http://owner.example.test"));
+});
+
+
+test("new MFA responses use exact canonical signed shapes with no full session material",async()=>{
+ const factory=(securityResponses as Record<string,unknown>).createPasswordLoginRequiredResult;const pendingFactory=(securityResponses as Record<string,unknown>).createWhatsAppRequiredResult;
+ assert.equal(typeof factory,"function");assert.equal(typeof pendingFactory,"function");
+ const results=[(factory as Function)(DESTINATION_ORIGIN),(pendingFactory as Function)("apc1.cGVuZGluZw",EXPIRES)];
+ const expected=[JSON.stringify({schemaVersion:1,kind:"password_login_required",destinationOrigin:DESTINATION_ORIGIN}),JSON.stringify({schemaVersion:1,kind:"whatsapp_required",pendingCookie:"apc1.cGVuZGluZw",expiresAt:EXPIRES})];
+ for(let i=0;i<results.length;i++){const response=createSignedOwnerPanelSessionHandoffResponse(results[i],await authority());assert.equal(response.status,200);assert.equal(await response.text(),expected[i]);assert.ok(response.headers.get("x-celebix-session-response-signature"));assert.equal(response.headers.has("set-cookie"),false);assert.throws(()=>canonicalOwnerPanelSessionHandoffResult({...results[i],body:{...results[i].body,sessionCredential:SESSION}}));}
+ assert.throws(()=>(factory as Function)("https://tenant.example.test/redirect"));assert.throws(()=>(pendingFactory as Function)("opaque; Domain=.example.test",EXPIRES));
 });

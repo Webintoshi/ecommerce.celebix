@@ -90,7 +90,7 @@ function runtimeFixture(hooks: { providerStarted?(): void; waitForProviderReleas
   return { runtime, providerInputs, attemptStates, get recoveryCalls() { return recoveryCalls; } };
 }
 
-function issuerFixture(boundary: ReturnType<typeof createInitialVerifiedCallbackGrantBoundary>, commitUnknown = false) {
+function issuerFixture(boundary: ReturnType<typeof createInitialVerifiedCallbackGrantBoundary>, commitUnknown = false, mfaRequired = false) {
   const states: string[] = [];
   const queries: string[] = [];
   let uuidIndex = 0;
@@ -126,6 +126,7 @@ function issuerFixture(boundary: ReturnType<typeof createInitialVerifiedCallback
           if (/^BEGIN|^COMMIT$|^ROLLBACK$|set_config|SET LOCAL ROLE/.test(text)) return { rows: [], rowCount: 0 };
           if (text.includes("create_panel_session_handoff")) {
             createValues = values;
+            if (mfaRequired) return { rows: [{ outcome: "mfa_required", authority: null }], rowCount: 1 };
             return { rows: [{ outcome: "handoff_created", authority: authority(values) }], rowCount: 1 };
           }
           return { rows: [{ outcome: "handoff_replayed", authority: authority(values) }], rowCount: 1 };
@@ -227,4 +228,15 @@ test("enabled cached ready permits one handoff within budget and never accepts t
   assert.equal(result.kind,"initial_callback_granted");if(result.kind!=="initial_callback_granted")assert.fail("grant expected");
   assert.equal(result.value.kind,ready===true?"handoff_ready":"onboarding_pending");assert.equal(issuer.queries.some(query=>query.includes("create_panel_session_handoff")),ready===true);
  }
+});
+
+
+test("completed registration becomes password login requirement when native MFA rejects initial handoff", async () => {
+ const fixture=runtimeFixture();const boundary=createInitialVerifiedCallbackGrantBoundary(fixture.runtime);const genuine=issuerFixture(boundary,false,true);
+ const executor=createInitialCallbackPanelSessionHandoffExecutor({runtime:fixture.runtime,boundary,issuer:genuine.issuer});
+ const result=await executor.execute({state:STATE,code:"verified-code"});
+ assert.equal(result.kind,"initial_callback_granted");if(result.kind!=="initial_callback_granted")assert.fail("completed tenant expected");
+ assert.equal(result.value.kind,"password_login_required");assert.equal(result.value.completion.panelUrl,result.completion.panelUrl);
+ assert.equal("handoff" in result.value,false);assert.equal(fixture.attemptStates.length,1);
+ assert.equal((await executor.execute({state:STATE,code:"verified-code"})).kind,"initial_callback_replayed");assert.equal(fixture.attemptStates.length,1);
 });

@@ -38,6 +38,12 @@ class FakeProvider implements OidcProviderPort {
     url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
     url.searchParams.set("redirect_uri", input.redirectUri);
     if (input.prompt) url.searchParams.set("prompt", input.prompt);
+    if (input.passwordProof) {
+      url.searchParams.set("resource", "urn:celebix:admin-signin-proof");
+      url.searchParams.set("scope", "openid profile email signin:proof");
+      url.searchParams.set("max_age", "0");
+      url.searchParams.set("prompt", "login consent");
+    }
     return this.mutateAuthorizationUrl?.(url, input) ?? url;
   }
 
@@ -366,6 +372,101 @@ test("returning panel login accepts only the exact persisted browser-binding pro
   }
 });
 
+test("password proof opt-in is bound to the saved panel login transaction", async () => {
+  const provider = new FakeProvider();
+  const store = new oidc.InMemoryOidcTransactionStore();
+  const binding = { keyId: "browser-active", digest: "a".repeat(64) };
+  const started = await oidc.beginOidcAuthorization({
+    provider, transactionStore: store, redirectUri: REDIRECT_URI, returnTo: "/login",
+    panelLoginBinding: binding, panelLoginDestinationHostname: "admin.example.test",
+    expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE,
+    expectedAuthorizationOrigin: "https://identity.example.test", now: () => NOW,
+    passwordProof: true,
+  });
+  const nonce = new URL(started.authorizationUrl).searchParams.get("nonce")!;
+  assert.deepEqual(provider.lastAuthorizationRequest?.passwordProof, { nonce });
+  provider.identities.set("proof-code", verifiedIdentity({ nonce }));
+  await oidc.completeOidcCallback({ provider, transactionStore: store, callback: { code: "proof-code", state: started.state }, panelLoginBinding: binding, now: () => NOW });
+  assert.equal(provider.lastCallbackInput?.passwordProof, true);
+});
+
+test("registration cannot request a panel password-proof transaction", async () => {
+  await assert.rejects(() => oidc.beginOidcAuthorization({
+    provider: new FakeProvider(), transactionStore: new oidc.InMemoryOidcTransactionStore(),
+    redirectUri: REDIRECT_URI, returnTo: "/kayit", expectedIssuer: EXPECTED_ISSUER,
+    expectedAudience: EXPECTED_AUDIENCE, now: () => NOW, passwordProof: true,
+  }));
+});
+
+const SECURITY_CONTEXT = Object.freeze({ purpose: "manage" as const, expectedPrincipalId: "60000000-0000-4000-8000-000000000001" });
+
+test("security context survives only the saved password-bound returning transaction", async () => {
+  const provider = new FakeProvider();
+  const store = new oidc.InMemoryOidcTransactionStore();
+  const binding = { keyId: "browser-active", digest: "a".repeat(64) };
+  const started = await oidc.beginOidcAuthorization({
+    provider, transactionStore: store, redirectUri: REDIRECT_URI, returnTo: "/login",
+    panelLoginBinding: binding, panelLoginDestinationHostname: "admin.example.test",
+    expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE,
+    expectedAuthorizationOrigin: "https://identity.example.test", now: () => NOW,
+    passwordProof: true, adminLoginSecurityContext: SECURITY_CONTEXT,
+  });
+  const nonce = new URL(started.authorizationUrl).searchParams.get("nonce")!;
+  assert.equal(started.authorizationUrl.includes(SECURITY_CONTEXT.expectedPrincipalId), false);
+  assert.equal(JSON.stringify(provider.lastAuthorizationRequest).includes("adminLoginSecurityContext"), false);
+  provider.identities.set("security-code", verifiedIdentity({ nonce }));
+  const completed = await oidc.completeOidcCallback({ provider, transactionStore: store,
+    callback: { code: "security-code", state: started.state, adminLoginSecurityContext: { ...SECURITY_CONTEXT, purpose: "change_phone" } } as OidcCallbackInput,
+    panelLoginBinding: binding, now: () => NOW });
+  assert.deepEqual(completed.adminLoginSecurityContext, SECURITY_CONTEXT);
+  assert.equal(provider.lastCallbackInput?.passwordProof, true);
+  assert.equal(JSON.stringify(provider.lastCallbackInput).includes("adminLoginSecurityContext"), false);
+});
+
+test("untrusted callback context cannot add security management to ordinary login", async () => {
+  const provider = new FakeProvider();
+  const { result, store } = await begin(provider);
+  provider.identities.set("ordinary-code", verifiedIdentity({ nonce: new URL(result.authorizationUrl).searchParams.get("nonce")! }));
+  const completed = await oidc.completeOidcCallback({ provider, transactionStore: store,
+    callback: { code: "ordinary-code", state: result.state, adminLoginSecurityContext: SECURITY_CONTEXT } as OidcCallbackInput,
+    now: () => NOW });
+  assert.equal(Object.hasOwn(completed, "adminLoginSecurityContext"), false);
+});
+
+test("security context rejects malformed optional values and registration or missing password proof", async () => {
+  for (const context of [null, [], {}, { purpose: "login", expectedPrincipalId: SECURITY_CONTEXT.expectedPrincipalId }, { purpose: "manage", expectedPrincipalId: "merchant" }, { ...SECURITY_CONTEXT, extra: true }, { ...SECURITY_CONTEXT, expectedPrincipalId: " 60000000-0000-4000-8000-000000000001" }]) {
+    const provider = new FakeProvider();
+    await assert.rejects(() => oidc.beginOidcAuthorization({
+      provider, transactionStore: new oidc.InMemoryOidcTransactionStore(), redirectUri: REDIRECT_URI, returnTo: "/login",
+      panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) }, panelLoginDestinationHostname: "admin.example.test",
+      expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => NOW,
+      passwordProof: true, adminLoginSecurityContext: context,
+    } as unknown as Parameters<OidcModule['beginOidcAuthorization']>[0]), (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback");
+    assert.equal(provider.lastAuthorizationRequest, null);
+  }
+  for (const panel of [false, true]) {
+    await assert.rejects(() => oidc.beginOidcAuthorization({
+      provider: new FakeProvider(), transactionStore: new oidc.InMemoryOidcTransactionStore(), redirectUri: REDIRECT_URI, returnTo: panel ? "/login" : "/kayit",
+      ...(panel ? { panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) }, panelLoginDestinationHostname: "admin.example.test" } : {}),
+      expectedIssuer: EXPECTED_ISSUER, expectedAudience: EXPECTED_AUDIENCE, now: () => NOW,
+      adminLoginSecurityContext: SECURITY_CONTEXT,
+    }));
+  }
+});
+
+test("consumed security context is checked before provider verification", async () => {
+  const provider = new FakeProvider();
+  const store = new oidc.InMemoryOidcTransactionStore();
+  const binding = { keyId: "browser-active", digest: "a".repeat(64) };
+  const started = await oidc.beginOidcAuthorization({ provider, transactionStore: store, redirectUri: REDIRECT_URI, returnTo: "/login",
+    panelLoginBinding: binding, panelLoginDestinationHostname: "admin.example.test", expectedIssuer: EXPECTED_ISSUER,
+    expectedAudience: EXPECTED_AUDIENCE, now: () => NOW, passwordProof: true, adminLoginSecurityContext: SECURITY_CONTEXT });
+  const consume = store.consume.bind(store);
+  store.consume = async (state: string, now: Date) => ({ ...await consume(state, now), passwordProof: undefined });
+  await assert.rejects(() => oidc.completeOidcCallback({ provider, transactionStore: store, callback: { code: 'valid-code', state: started.state }, panelLoginBinding: binding, now: () => NOW }), (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback");
+  assert.equal(provider.lastCallbackInput, null);
+});
+
 test("rejects blank normalized callback state and code before consuming state or calling provider", async () => {
   if (!oidc.completeOidcCallback || !oidc.InMemoryOidcTransactionStore) return;
   const provider = new FakeProvider();
@@ -468,3 +569,23 @@ for (const [name, mutate] of [
     );
   });
 }
+
+
+test("password proof authorization rejects missing, duplicate, or weakened freshness and consent", async () => {
+  for (const mutation of [
+    (url: URL) => url.searchParams.set("prompt", "login"),
+    (url: URL) => url.searchParams.set("prompt", "consent"),
+    (url: URL) => url.searchParams.append("prompt", "login consent"),
+    (url: URL) => url.searchParams.delete("max_age"),
+    (url: URL) => url.searchParams.append("max_age", "0"),
+    (url: URL) => url.searchParams.set("max_age", "300"),
+  ]) {
+    const provider = new FakeProvider();
+    const build = provider.buildAuthorizationUrl.bind(provider);
+    provider.buildAuthorizationUrl = async (input) => { const url = await build(input); mutation(url); return url; };
+    await assert.rejects(() => oidc.beginOidcAuthorization({ provider, transactionStore: new oidc.InMemoryOidcTransactionStore(),
+      redirectUri: REDIRECT_URI, returnTo: "/login", panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
+      panelLoginDestinationHostname: "admin.example.test", expectedIssuer: EXPECTED_ISSUER,
+      expectedAudience: EXPECTED_AUDIENCE, expectedAuthorizationOrigin: "https://identity.example.test", now: () => NOW, passwordProof: true }));
+  }
+});

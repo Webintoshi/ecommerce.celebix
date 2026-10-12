@@ -143,3 +143,39 @@ test("returns recoverable proofs after an unknown redemption commit without expo
   assert.equal(JSON.stringify(result).includes("tokenDigest"), false);
   assert.equal(JSON.stringify(result).includes("keyId"), false);
 });
+
+test("accepts a database-clamped source expiry and its shorter recovery interval", async () => {
+  const clampedExpiry = "2026-07-30T12:20:00.000Z";
+  const h = harness((_text, values) => ({
+    rows: [{ outcome: "redeemed", authority: { session: { ...sessionAuthority(values).session, expiresAt: clampedExpiry } } }], rowCount: 1,
+  }));
+  const credential = `v1.panel.handoff.v1.${Buffer.alloc(32, 0x32).toString("base64url")}`;
+  const first = await h.repository.redeemHandoff({ credential, destinationHostname: DESTINATION, now: NOW });
+  assert.equal(first.kind, "redeemed");
+  if (first.kind !== "redeemed") return;
+  assert.equal(first.session.expiresAt, clampedExpiry);
+  const recovered = await h.repository.recoverRedemption({
+    credential, destinationHostname: DESTINATION, sessionCredential: first.sessionCredential,
+    recovery: { operationId: OPERATION, sessionId: first.session.sessionId, familyId: first.session.familyId, issuedAt: NOW.toISOString(), expiresAt: clampedExpiry },
+  });
+  assert.equal(recovered.kind, "redeemed");
+  if (recovered.kind === "redeemed") assert.equal(recovered.session.expiresAt, clampedExpiry);
+});
+
+test("prepared issuance reuses the supplied candidate and identifiers without plaintext SQL", async () => {
+  const candidate=`v1.panel.handoff.v1.${Buffer.alloc(32,0x55).toString('base64url')}`;
+  const handoffId='80000000-0000-4000-8000-000000000001';
+  const h=harness((_text,values)=>({rows:[{outcome:'handoff_issued',authority:{destinationOrigin:DESTINATION_ORIGIN,expiresAt:(values[9] as Date).toISOString()}}],rowCount:1}));
+  const input={currentCredential:SOURCE,operationId:OPERATION,destinationStoreId:STORE,destinationHostname:DESTINATION,now:NOW,candidateCredential:candidate,handoffId};
+  const first=await h.repository.issuePreparedHandoff(input),second=await h.repository.issuePreparedHandoff(input);
+  assert.equal(first.kind,'handoff_issued');if(first.kind==='handoff_issued')assert.equal(first.credential,candidate);assert.deepEqual(first,second);
+  const queries=h.calls.filter(c=>c.text.includes('issue_cross_host_panel_handoff'));assert.equal(queries.length,2);assert.deepEqual(queries[0].values,queries[1].values);assert.equal(queries[0].values[2],handoffId);assert.equal(queries[0].values[3],OPERATION);assert.equal(JSON.stringify(queries).includes(candidate),false);
+});
+
+test("prepared issuance rejects malformed or unknown-key candidates before SQL and preserves commit recovery candidate",async()=>{
+  const candidate=`v1.panel.handoff.v1.${Buffer.alloc(32,0x55).toString('base64url')}`,handoffId='80000000-0000-4000-8000-000000000001';
+  const input={currentCredential:SOURCE,operationId:OPERATION,destinationStoreId:STORE,destinationHostname:DESTINATION,now:NOW,candidateCredential:candidate,handoffId};
+  for(const invalid of [candidate.replace('panel.handoff.v1','unknown'),candidate+'=',candidate.replace('v1.','h1.')]){const h=harness(()=>{throw Error('unexpected query');});assert.equal((await h.repository.issuePreparedHandoff({...input,candidateCredential:invalid})).kind,'unauthenticated');assert.equal(h.calls.length,0);}
+  const h=harness((_text,values)=>({rows:[{outcome:'handoff_issued',authority:{destinationOrigin:DESTINATION_ORIGIN,expiresAt:(values[9] as Date).toISOString()}}],rowCount:1}),true);
+  assert.deepEqual(await h.repository.issuePreparedHandoff(input),{kind:'commit_unknown',credential:candidate});
+});

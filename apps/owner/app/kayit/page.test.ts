@@ -122,12 +122,12 @@ test("/kayit customer-facing copy is store creation language, not an application
 });
 
 test("/kayit and legacy public aliases bypass Owner admin shell chrome", () => {
-  assert.match(rootLayoutSource, /PUBLIC_SELF_SERVE_PAGE_PATHS/);
+  assert.match(rootLayoutSource, /const publicPaths = new Set/);
   assert.match(rootLayoutSource, /"\/kayit"/);
   assert.match(rootLayoutSource, /"\/magaza-ac"/);
   assert.match(rootLayoutSource, /"\/onboarding"/);
   assert.match(rootLayoutSource, /"\/onboarding\/status"/);
-  assert.match(rootLayoutSource, /isPublicSelfServePage\s*\?\s*null/);
+  assert.match(rootLayoutSource, /publicPaths\.has\(pathname\)\s*\?\s*null/);
 
   assert.match(middlewareSource, /SELF_SERVE_PUBLIC_PREFIXES/);
   assert.match(middlewareSource, /return withSecurity\(request, nextResponse\(request\)\)/);

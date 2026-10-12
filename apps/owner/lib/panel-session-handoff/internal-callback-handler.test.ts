@@ -28,10 +28,11 @@ function fixture(options: {
   completion?: "tenant_created" | "in_progress";
   readCachedReady?: ()=>Promise<boolean>;
   commitUnknown?: boolean;
+  mfaRequired?: boolean;
   handlerNow?: Date;
   audit?: (event: unknown) => void | Promise<void>;
   claimKind?: "browser_callback_claimed" | "callback_replayed" | "operation_mismatch" | "expired" | "unauthenticated" | "durable_authority_invalid" | "commit_unknown" | "unavailable";
-  returningLogin?: "session_ready" | "callback_not_granted";
+  returningLogin?: "session_ready" | "callback_not_granted" | "whatsapp_required" | "password_login_required";
 } = {}) {
   const order: string[] = [];
   const edgeBoundary = createVerifiedEdgeTrustBoundary();
@@ -126,6 +127,7 @@ function fixture(options: {
           if (text.includes("create_panel_session_handoff")) {
             order.push("issuer");
             issueCalls += 1; createValues = values;
+            if(options.mfaRequired) return {rows:[{outcome:"mfa_required",authority:null}],rowCount:1};
             return { rows: [{ outcome: "handoff_created", authority: authority(values) }], rowCount: 1 };
           }
           recoveryCalls += 1;
@@ -157,6 +159,8 @@ function fixture(options: {
     ...(options.returningLogin ? { returningLogin: {
       async tryComplete() {
         order.push("returning_login");
+        if(options.returningLogin==="password_login_required")return {kind:"password_login_required" as const,destinationOrigin:"https://verified-store.admin.celebix.site"};
+        if(options.returningLogin==="whatsapp_required")return {kind:"whatsapp_required" as const,pendingCookie:"apc1.cGVuZGluZw",expiresAt:new Date(NOW.getTime()+600_000).toISOString()};
         return options.returningLogin === "session_ready"
           ? { kind: "session_ready" as const, credential: `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`, activeStoreId: "40000000-0000-4000-8000-000000000001", destinationOrigin: "https://verified-store.admin.celebix.site", issuedAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 28_800_000).toISOString() }
           : { kind: "fresh_login_required" as const, code: "callback_not_granted" as const };
@@ -386,4 +390,22 @@ test("enabled callback pending and exhausted original transport deadline issue n
  let reads=0;const current=fixture({readCachedReady:async()=>{reads++;return true;}});
  const result=await current.edgeBoundary.invokeWithVerifiedContext(context=>current.handler.handle(new Request(`${CALLBACK}?state=${STATE}&code=verified-code`),context,BINDING,NOW.getTime()));
  assert.equal(result.status,202);assert.equal(reads,0);assert.equal(current.issueCalls,0);
+});
+
+
+test("registration MFA sends password redirect from completed tenant without a handoff",async()=>{
+ const current=fixture({mfaRequired:true});const result=await invoke(current);
+ assert.deepEqual(result,{status:200,body:{schemaVersion:1,kind:"password_login_required",destinationOrigin:"https://verified-store.admin.celebix.site"}});
+ assert.equal(current.providerCalls,1);assert.equal(current.issueCalls,1);assert.equal(current.recoveryCalls,0);
+});
+test("returning MFA gate forwards only pending cookie and expiry before any registration fallback",async()=>{
+ const current=fixture({returningLogin:"whatsapp_required"});const result=await invoke(current);
+ assert.deepEqual(result,{status:200,body:{schemaVersion:1,kind:"whatsapp_required",pendingCookie:"apc1.cGVuZGluZw",expiresAt:new Date(NOW.getTime()+600_000).toISOString()}});
+ assert.equal(current.providerCalls,0);assert.equal(current.claimCalls,0);assert.equal(current.issueCalls,0);
+});
+
+test("returning missing password proof forwards signed password-login result without registration fallback",async()=>{
+ const current=fixture({returningLogin:"password_login_required"});const result=await invoke(current);
+ assert.deepEqual(result,{status:200,body:{schemaVersion:1,kind:"password_login_required",destinationOrigin:"https://verified-store.admin.celebix.site"}});
+ assert.equal(current.providerCalls,0);assert.equal(current.claimCalls,0);assert.equal(current.issueCalls,0);
 });

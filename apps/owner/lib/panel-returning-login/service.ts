@@ -5,10 +5,12 @@ import {
   beginOidcAuthorization,
   completeOidcCallback,
   OidcFlowError,
+  parseAdminLoginSecurityContext,
   rejectOidcProviderCallback,
   type OidcCallbackInput,
   type OidcProviderPort,
   type OidcTransactionStore,
+  type AdminLoginSecurityContext,
 } from "../self-serve-oidc.ts";
 import type { ReturningPanelSessionIssuerResult } from "./postgres-session-issuer.ts";
 
@@ -20,8 +22,17 @@ export type PanelReturningLoginStart = Readonly<
 export type PanelReturningLoginCompletion = Readonly<
   | { kind: "not_panel_login" }
   | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
+  | AdminLoginWhatsAppRequired
+  | AdminLoginPasswordRequired
   | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
 >;
+
+export type AdminLoginPasswordRequired = Readonly<{ kind: "password_login_required"; destinationOrigin: string }>;
+export type AdminLoginWhatsAppRequired = Readonly<{ kind: "whatsapp_required"; pendingCredential: string; pendingCookie: string; pendingId: string; expiresAt: string; destinationOrigin: string }>;
+export type AdminLoginFirstFactorGate = Readonly<{
+  requirePasswordProof: boolean;
+  begin(input: Readonly<{identity: import("../self-serve-oidc.ts").OidcVerifiedIdentity;destinationHostname:string;browserBindingCredential:string;adminLoginSecurityContext?:AdminLoginSecurityContext}>): Promise<AdminLoginWhatsAppRequired | AdminLoginPasswordRequired | Readonly<{kind:"not_required"}> | Readonly<{kind:"fresh_login_required";code:"callback_not_granted"|"callback_unavailable"|"membership_denied"}>>;
+}>;
 
 type InspectorResult = "denied" | "not_panel_login" | Readonly<{
   kind: "approved";
@@ -63,6 +74,7 @@ export function createPanelReturningLoginService(options: {
   expectedAudience: string;
   expectedAuthorizationOrigin: string;
   clock(): Date;
+  adminLoginSecurity?: AdminLoginFirstFactorGate;
 }) {
   if (
     !options?.provider || typeof options.provider.buildAuthorizationUrl !== "function" || typeof options.provider.verifyCallback !== "function" ||
@@ -73,10 +85,13 @@ export function createPanelReturningLoginService(options: {
     !options.sessionIssuer || typeof options.sessionIssuer.issue !== "function" || typeof options.clock !== "function"
   ) invalid();
   trustedNow(options.clock);
+  if (options.adminLoginSecurity && (typeof options.adminLoginSecurity.begin !== "function" || typeof options.adminLoginSecurity.requirePasswordProof !== "boolean")) invalid();
 
   return Object.freeze({
-    async start(browserBindingCredential: string, destinationHostname: string): Promise<PanelReturningLoginStart> {
+    async start(browserBindingCredential: string, destinationHostname: string, trustedSecurityContext?: AdminLoginSecurityContext): Promise<PanelReturningLoginStart> {
       try {
+        const adminLoginSecurityContext = trustedSecurityContext === undefined ? undefined : parseAdminLoginSecurityContext(trustedSecurityContext);
+        if (adminLoginSecurityContext && !options.adminLoginSecurity?.requirePasswordProof) invalid();
         const binding = options.browserBindingCodec.digestBrowserBindingCredential(browserBindingCredential);
         const normalizedDestinationHostname = parseExactAdminHttpsOrigin(`https://${destinationHostname}`).hostname;
         if (normalizedDestinationHostname !== destinationHostname) throw new Error("invalid");
@@ -87,6 +102,8 @@ export function createPanelReturningLoginService(options: {
           returnTo: "/login",
           panelLoginBinding: binding,
           panelLoginDestinationHostname: normalizedDestinationHostname,
+          ...(options.adminLoginSecurity?.requirePasswordProof ? { passwordProof: true as const } : {}),
+          ...(adminLoginSecurityContext ? { adminLoginSecurityContext } : {}),
           expectedIssuer: options.expectedIssuer,
           expectedAudience: options.expectedAudience,
           expectedAuthorizationOrigin: options.expectedAuthorizationOrigin,
@@ -125,6 +142,23 @@ export function createPanelReturningLoginService(options: {
         if (completed.returnTo !== "/login") return Object.freeze({ kind: "fresh_login_required", code: "callback_not_granted" });
         const destinationHostname = completed.panelLoginDestinationHostname;
         if (!destinationHostname) return Object.freeze({ kind: "fresh_login_required", code: "callback_not_granted" });
+        if (options.adminLoginSecurity) {
+          const security = await options.adminLoginSecurity.begin(Object.freeze({identity:completed.identity,destinationHostname,browserBindingCredential,
+            ...(completed.adminLoginSecurityContext ? { adminLoginSecurityContext: completed.adminLoginSecurityContext } : {})}));
+          if (security.kind === "password_login_required") {
+            const destinationOrigin = parseExactAdminHttpsOrigin(security.destinationOrigin).origin;
+            if (destinationOrigin !== `https://${destinationHostname}`) invalid();
+            return Object.freeze({ kind: "password_login_required", destinationOrigin });
+          }
+          if (security.kind === "whatsapp_required") {
+            const expires = Date.parse(security.expiresAt), current = trustedNow(options.clock).getTime();
+            if (!/^apl1\.[A-Za-z0-9._-]{1,64}\.[A-Za-z0-9_-]{43}$/u.test(security.pendingCredential) || typeof security.pendingCookie !== 'string' || security.pendingCookie.length > 2048 || !/^apc1\.[A-Za-z0-9_-]+$/u.test(security.pendingCookie) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(security.pendingId) || !Number.isFinite(expires) || expires<=current || expires>current+600_000 || security.destinationOrigin!==`https://${destinationHostname}`) invalid();
+            return Object.freeze({...security});
+          }
+          if (security.kind === "fresh_login_required") return Object.freeze({...security});
+          if (security.kind !== "not_required") invalid();
+        }
+        if (completed.adminLoginSecurityContext) return Object.freeze({ kind: "fresh_login_required", code: "callback_not_granted" });
         const issued = await options.sessionIssuer.issue(
           { issuer: completed.identity.issuer, subject: completed.identity.subject },
           destinationHostname,

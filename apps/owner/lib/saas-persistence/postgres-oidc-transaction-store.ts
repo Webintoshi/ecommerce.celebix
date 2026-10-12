@@ -2,6 +2,7 @@ import { PANEL_OIDC_CALLBACK_URL } from "../../../../packages/platform-config/sr
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import {
   OidcFlowError,
+  parseAdminLoginSecurityContext,
   type OidcAuthorizationTransaction,
   type OidcTransactionStore,
 } from "../self-serve-oidc.ts";
@@ -37,7 +38,10 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
   const required = [
     "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
   ];
-  const row = exactObject(value, required, schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? ["panelLoginBinding", "panelLoginDestinationHostname"] : []);
+  const row = exactObject(value, required, schemaVersion === PANEL_LOGIN_SCHEMA_VERSION ? ["panelLoginBinding", "panelLoginDestinationHostname", "passwordProof", "adminLoginSecurityContext"] : []);
+  if (row.passwordProof !== undefined && row.passwordProof !== true) throw new IdentityPersistenceError();
+  const adminLoginSecurityContext = row.adminLoginSecurityContext === undefined ? undefined : parseAdminLoginSecurityContext(row.adminLoginSecurityContext);
+  if (adminLoginSecurityContext && row.passwordProof !== true) throw new IdentityPersistenceError();
   const createdAt = canonicalTimestamp(row.createdAt);
   const expiresAt = canonicalTimestamp(row.expiresAt);
   if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
@@ -82,13 +86,15 @@ function payload(value: unknown, expectedCallbackAuthority: string, schemaVersio
     expiresAt,
     ...(panelLoginBinding ? { panelLoginBinding } : {}),
     ...(panelLoginDestinationHostname ? { panelLoginDestinationHostname } : {}),
+    ...(row.passwordProof === true ? { passwordProof: true as const } : {}),
+    ...(adminLoginSecurityContext ? { adminLoginSecurityContext } : {}),
   };
 }
 
 function transaction(value: unknown, expectedCallbackAuthority: string): { value: OidcAuthorizationTransaction; schemaVersion: number } {
   const row = exactObject(value, [
     "state", "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
-  ], ["panelLoginBinding", "panelLoginDestinationHostname"]);
+  ], ["panelLoginBinding", "panelLoginDestinationHostname", "passwordProof", "adminLoginSecurityContext"]);
   const state = requiredString(row.state, 1024);
   if (state.length < 16) throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   const schemaVersion = row.panelLoginBinding === undefined ? REGISTRATION_SCHEMA_VERSION : PANEL_LOGIN_SCHEMA_VERSION;
@@ -109,6 +115,8 @@ function transaction(value: unknown, expectedCallbackAuthority: string): { value
     expiresAt: row.expiresAt,
     ...(row.panelLoginBinding === undefined ? {} : { panelLoginBinding: row.panelLoginBinding }),
     ...(row.panelLoginDestinationHostname === undefined ? {} : { panelLoginDestinationHostname: row.panelLoginDestinationHostname }),
+    ...(row.passwordProof === undefined ? {} : { passwordProof: row.passwordProof }),
+    ...(row.adminLoginSecurityContext === undefined ? {} : { adminLoginSecurityContext: row.adminLoginSecurityContext }),
   }, expectedCallbackAuthority, schemaVersion) } };
 }
 

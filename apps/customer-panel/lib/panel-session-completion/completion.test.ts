@@ -303,3 +303,13 @@ test("pending redirects only to fixed Owner status and clears only Panel pre-aut
  const response=await current.handler(callback());assert.equal(response.status,303);assert.equal(response.headers.get("location"),statusUrl);assert.match(response.headers.get("set-cookie")!,/__Host-celebix_panel_pre_auth=;/);assert.doesNotMatch(response.headers.get("set-cookie")!,/onboarding_status/);assert.equal(current.redeemCalls,0);
  const rejected=fixture({onboardingStatusUrl:statusUrl,transportResult:Object.freeze({...result,statusUrl:"https://evil.example.test/onboarding/status"})});assert.equal((await rejected.handler(callback())).status,503);assert.equal(rejected.redeemCalls,0);
 });
+
+test("WhatsApp callback retains browser binding and redirects only to fixed verification page",async()=>{
+ const pendingCookie=`apc1.${Buffer.from('{"pending":"private","destinationOrigin":"https://admin.guzidekuyumcu.com.tr"}').toString("base64url")}`;
+ const current=fixture({transportResult:Object.freeze({schemaVersion:1,kind:"whatsapp_required",pendingCookie,expiresAt:new Date(NOW.getTime()+600000).toISOString()})});
+ const response=await current.handler(callback());assert.equal(response.status,303);assert.equal(response.headers.get("location"),"https://panel.celebix.site/auth/whatsapp");assert.match(response.headers.get("set-cookie")!,/__Host-celebix_admin_pending=apc1\..*HttpOnly; Secure; SameSite=Lax; Path=\/; Max-Age=600/);assert.doesNotMatch(response.headers.get("set-cookie")!,/panel_pre_auth=;/);assert.equal(current.redeemCalls,0);assert.equal(current.issueCalls,0);assert.ok(!(await response.text()).includes(pendingCookie));
+ const expired=fixture({transportResult:Object.freeze({schemaVersion:1,kind:"whatsapp_required",pendingCookie,expiresAt:NOW.toISOString()})});assert.ok((await expired.handler(callback())).status>=400);
+});
+test("social first factor redirects to fresh password entry for validated destination without session issuance",async()=>{
+ const current=fixture({transportResult:Object.freeze({schemaVersion:1,kind:"password_login_required",destinationOrigin:DESTINATION_ORIGIN})});const response=await current.handler(callback());assert.equal(response.status,303);assert.equal(response.headers.get("location"),"https://panel.celebix.site/auth/login?destination=admin.guzidekuyumcu.com.tr");assert.match(response.headers.get("set-cookie")!,/panel_pre_auth=;/);assert.equal(current.redeemCalls,0);assert.equal(current.issueCalls,0);
+});

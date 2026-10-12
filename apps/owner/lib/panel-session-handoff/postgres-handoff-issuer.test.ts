@@ -307,3 +307,10 @@ test("raw-state-only recovery API is absent and retained old candidates still ve
   assert.equal(h.connects, 0);
   assert.deepEqual(Object.keys(h.issuer).sort(), ["issueHandoff", "recoverHandoff"]);
 });
+
+
+test("native MFA requirement remains explicit and exposes no premature credential",async()=>{
+ const h=harness(()=>({rows:[{outcome:"mfa_required",authority:null}],rowCount:1}));
+ const result=await h.withGrant(grant=>h.issuer.issueHandoff({rawState:RAW_STATE,initialCallbackGrant:grant}));
+ assert.deepEqual(result,{kind:"mfa_required"});assert.equal("credential" in result,false);
+});

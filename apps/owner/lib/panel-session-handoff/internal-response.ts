@@ -33,6 +33,8 @@ export type OwnerPanelSessionFreshLoginCode =
   | "handoff_unavailable";
 
 export type OwnerPanelSessionHandoffInternalResult = Readonly<
+  | { status: 200; body: Readonly<{schemaVersion:1;kind:"password_login_required";destinationOrigin:string}> }
+  | { status: 200; body: Readonly<{schemaVersion:1;kind:"whatsapp_required";pendingCookie:string;expiresAt:string}> }
   | { status: 202; body: Readonly<{schemaVersion:1;kind:"onboarding_pending";statusUrl:string}> }
   | {
       status: 200;
@@ -162,6 +164,19 @@ export function createSessionReadyResult(
   return Object.freeze({ status: 200 as const, body });
 }
 
+function canonicalPendingCookie(value: unknown): string {
+  if (typeof value !== "string" || value.length > 2048 || !/^apc1\.[A-Za-z0-9_-]+$/.test(value)) invalid();
+  return value;
+}
+
+export function createPasswordLoginRequiredResult(destinationOrigin: string): OwnerPanelSessionHandoffInternalResult {
+  return Object.freeze({status:200,body:Object.freeze({schemaVersion:1,kind:"password_login_required",destinationOrigin:canonicalAdminOrigin(destinationOrigin)})});
+}
+
+export function createWhatsAppRequiredResult(pendingCookie: string, expiresAt: string): OwnerPanelSessionHandoffInternalResult {
+  return Object.freeze({status:200,body:Object.freeze({schemaVersion:1,kind:"whatsapp_required",pendingCookie:canonicalPendingCookie(pendingCookie),expiresAt:canonicalTimestamp(expiresAt)})});
+}
+
 export function createFreshLoginRequiredResult(
   code: OwnerPanelSessionFreshLoginCode,
 ): OwnerPanelSessionHandoffInternalResult {
@@ -199,7 +214,15 @@ export function canonicalOwnerPanelSessionHandoffResult(
     if (body.schemaVersion !== 1 || body.kind !== "onboarding_pending") invalid();
     canonical = JSON.stringify({schemaVersion:1,kind:"onboarding_pending",statusUrl:canonicalStatusUrl(body.statusUrl)});
   } else if (result.status === 200) {
-    if (body.kind === "session_ready") {
+    if (body.kind === "password_login_required") {
+      exactKeys(body,["schemaVersion","kind","destinationOrigin"]);
+      if(body.schemaVersion!==1)invalid();
+      canonical=JSON.stringify({schemaVersion:1,kind:"password_login_required",destinationOrigin:canonicalAdminOrigin(body.destinationOrigin)});
+    } else if(body.kind==="whatsapp_required") {
+      exactKeys(body,["schemaVersion","kind","pendingCookie","expiresAt"]);
+      if(body.schemaVersion!==1)invalid();
+      canonical=JSON.stringify({schemaVersion:1,kind:"whatsapp_required",pendingCookie:canonicalPendingCookie(body.pendingCookie),expiresAt:canonicalTimestamp(body.expiresAt)});
+    } else if (body.kind === "session_ready") {
       exactKeys(body, ["schemaVersion", "kind", "sessionCredential", "sessionIssuedAt", "sessionExpiresAt", "destinationStoreId", "destinationOrigin", "redirectPath"]);
       if (body.schemaVersion !== 1 || body.redirectPath !== "/") invalid();
       canonical = JSON.stringify({

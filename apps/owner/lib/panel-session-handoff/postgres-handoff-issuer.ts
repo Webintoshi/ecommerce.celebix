@@ -66,6 +66,7 @@ interface IssuerSnapshot {
 }
 
 export type PanelSessionHandoffIssuerKind =
+  | "mfa_required"
   | "handoff_created"
   | "handoff_replayed"
   | "expired"
@@ -83,7 +84,7 @@ export interface PanelSessionHandoffIssuerAuditEvent {
 export type PanelSessionHandoffIssuerResult =
   | { kind: "handoff_created" | "handoff_replayed"; credential: string; expiresAt: string; activeStoreId: string }
   | { kind: "commit_unknown"; credential: string }
-  | { kind: "expired" | "membership_denied" | "operation_mismatch" | "unavailable" | "durable_authority_invalid" };
+  | { kind: "mfa_required" | "expired" | "membership_denied" | "operation_mismatch" | "unavailable" | "durable_authority_invalid" };
 
 export interface PostgresPanelSessionHandoffIssuer {
   issueHandoff(input: { rawState: string; initialCallbackGrant: InitialVerifiedCallbackGrant }): Promise<PanelSessionHandoffIssuerResult>;
@@ -189,7 +190,7 @@ function authority(value: unknown): HandoffAuthority {
 
 function outcome(value: unknown): PanelSessionHandoffIssuerKind {
   const parsed = string(value, 64) as PanelSessionHandoffIssuerKind;
-  if (!["handoff_created", "handoff_replayed", "expired", "membership_denied", "operation_mismatch", "durable_authority_invalid"].includes(parsed)) {
+  if (!["mfa_required", "handoff_created", "handoff_replayed", "expired", "membership_denied", "operation_mismatch", "durable_authority_invalid"].includes(parsed)) {
     throw new Error("invalid");
   }
   return parsed;
@@ -321,7 +322,7 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
 
   function project(operation: "create" | "recover", kind: PanelSessionHandoffIssuerKind, candidate: DerivedPanelSessionHandoffCredential, value: unknown): PanelSessionHandoffIssuerResult {
     if (kind !== "handoff_created" && kind !== "handoff_replayed") {
-      return finish(operation, { kind: kind as "expired" | "membership_denied" | "operation_mismatch" | "durable_authority_invalid" });
+      return finish(operation, { kind: kind as "mfa_required" | "expired" | "membership_denied" | "operation_mismatch" | "durable_authority_invalid" });
     }
     try {
       const persisted = authority(value);

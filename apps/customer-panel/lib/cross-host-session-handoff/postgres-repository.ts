@@ -85,6 +85,18 @@ export interface PostgresCrossHostSessionHandoffRepository {
   }>): Promise<RedemptionResult>;
 }
 
+export interface PreparedPostgresCrossHostSessionHandoffRepository extends PostgresCrossHostSessionHandoffRepository {
+  issuePreparedHandoff(input: Readonly<{
+    currentCredential: string;
+    operationId: string;
+    destinationStoreId: string;
+    destinationHostname: string;
+    now: Date;
+    candidateCredential: string;
+    handoffId: string;
+  }>): Promise<IssueResult>;
+}
+
 function safeInteger(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > MAXIMUM_TIMEOUT_MS) throw new Error("cross_host_handoff_repository_invalid");
   return value;
@@ -252,7 +264,7 @@ function audit<T extends { kind: CrossHostHandoffSafeKind }>(dependencies: Depen
 export function createPostgresCrossHostSessionHandoffRepository(
   approval: unknown,
   rawDependencies: Dependencies,
-): PostgresCrossHostSessionHandoffRepository {
+): PreparedPostgresCrossHostSessionHandoffRepository {
   assertPanelSessionPersistenceApproval(approval);
   const dependencies = validate(rawDependencies);
   const handoffCodec = createPanelSessionCredentialCodec({
@@ -266,7 +278,7 @@ export function createPostgresCrossHostSessionHandoffRepository(
     randomBytes: dependencies.randomBytes,
   });
 
-  const repository: PostgresCrossHostSessionHandoffRepository = {
+  const repository: PreparedPostgresCrossHostSessionHandoffRepository = {
     async issueHandoff(input) {
       let sourceProof;
       let operationId: string;
@@ -286,6 +298,45 @@ export function createPostgresCrossHostSessionHandoffRepository(
       let handoffId: string;
       try { handoff = handoffCodec.issueCredential(); handoffId = createUuid(dependencies.randomBytes); }
       catch { return audit(dependencies, "issue", safeFailure("unavailable")) as IssueResult; }
+      const expiresAt = new Date(issuedAt.getTime() + HANDOFF_MS);
+      const executed = await transaction(
+        dependencies,
+        "write",
+        "SELECT outcome, authority FROM saas.issue_cross_host_panel_handoff($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+        [sourceProof.tokenKeyId, sourceProof.tokenDigest, handoffId, operationId, handoff.tokenKeyId, handoff.tokenDigest, destinationStoreId, destinationHostname, issuedAt, expiresAt],
+      );
+      if (executed.status === "commit_unknown") return audit(dependencies, "issue", { kind: "commit_unknown", credential: handoff.credential });
+      if (executed.status !== "ok") return audit(dependencies, "issue", safeFailure("unavailable")) as IssueResult;
+      let kind: CrossHostHandoffSafeKind;
+      try { kind = safeOutcome(executed.row.outcome); } catch { return audit(dependencies, "issue", safeFailure("durable_authority_invalid")) as IssueResult; }
+      if (kind === "handoff_issued" || kind === "operation_replayed") {
+        try {
+          const authority = handoffAuthority(executed.row.authority, destinationHostname, issuedAt);
+          return audit(dependencies, "issue", { kind, credential: handoff.credential, ...authority });
+        } catch { return audit(dependencies, "issue", safeFailure("durable_authority_invalid")) as IssueResult; }
+      }
+      return audit(dependencies, "issue", safeFailure(kind)) as IssueResult;
+    },
+
+    async issuePreparedHandoff(input) {
+      let sourceProof;
+      let operationId: string;
+      let destinationStoreId: string;
+      let destinationHostname: string;
+      let issuedAt: Date;
+      try {
+        sourceProof = sessionCodec.digestCredential(input.currentCredential);
+        operationId = uuid(input.operationId);
+        destinationStoreId = uuid(input.destinationStoreId);
+        destinationHostname = canonicalHostname(input.destinationHostname);
+        issuedAt = canonicalNow(input.now, dependencies.clock);
+      } catch (error) {
+        return audit(dependencies, "issue", safeFailure(error instanceof PanelSessionCredentialError ? "unauthenticated" : "durable_authority_invalid")) as IssueResult;
+      }
+      let handoff;
+      let handoffId: string;
+      try { handoff = { ...handoffCodec.digestCredential(input.candidateCredential), credential: input.candidateCredential }; handoffId = uuid(input.handoffId); }
+      catch (error) { return audit(dependencies, "issue", safeFailure(error instanceof PanelSessionCredentialError ? "unauthenticated" : "durable_authority_invalid")) as IssueResult; }
       const expiresAt = new Date(issuedAt.getTime() + HANDOFF_MS);
       const executed = await transaction(
         dependencies,
@@ -379,7 +430,7 @@ export function createPostgresCrossHostSessionHandoffRepository(
           issuedAt: timestamp(input.recovery.issuedAt),
           expiresAt: timestamp(input.recovery.expiresAt),
         });
-        if (Date.parse(recovery.expiresAt) !== Date.parse(recovery.issuedAt) + SESSION_MS) throw new Error("invalid");
+        if (Date.parse(recovery.expiresAt) <= Date.parse(recovery.issuedAt) || Date.parse(recovery.expiresAt) > Date.parse(recovery.issuedAt) + SESSION_MS) throw new Error("invalid");
       } catch (error) {
         return audit(dependencies, "recover_redemption", safeFailure(error instanceof PanelSessionCredentialError ? "unauthenticated" : "durable_authority_invalid")) as RedemptionResult;
       }

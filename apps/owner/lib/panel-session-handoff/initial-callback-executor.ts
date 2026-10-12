@@ -38,6 +38,7 @@ function snapshotCallback(callback: OidcCallbackInput): Readonly<OidcCallbackInp
 export type InitialCallbackPanelSessionHandoffResult = Readonly<
  | {kind:"handoff_ready";completion:InitialVerifiedCallbackCompletion;handoff:PanelSessionHandoffIssuerResult}
  | {kind:"onboarding_pending";completion:InitialVerifiedCallbackCompletion;handoff?:never}
+ | {kind:"password_login_required";completion:InitialVerifiedCallbackCompletion;handoff?:never}
 >;
 
 export interface InitialCallbackPanelSessionHandoffExecutor {
@@ -87,6 +88,7 @@ export function createInitialCallbackPanelSessionHandoffExecutor(input: {
             initialCallbackGrant,
           })
           : handoff;
+        if (recovered.kind === "mfa_required") return Object.freeze({ kind: "password_login_required", completion });
         return Object.freeze({ kind:"handoff_ready", completion, handoff: recovered });
       });
     },

@@ -8,6 +8,7 @@ import { PANEL_BROWSER_BINDING_DELETION_COOKIE } from "../panel-browser-binding/
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import { assertPanelSessionCompletionApproval } from "./activation.ts";
 import { serializePersistentPanelSessionCookie } from "./cookie.ts";
+import { serializeAdminDestinationCookie, serializeAdminPendingCookie } from "../admin-login-security/handler.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -154,6 +155,14 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
   if (!value || typeof value !== "object" || !Object.isFrozen(value)) invalid();
   const row = value as Record<string, unknown>;
   if (row.schemaVersion !== 1) invalid();
+  if(row.kind === "whatsapp_required") {
+    exact(row,["schemaVersion","kind","pendingCookie","expiresAt"]);
+    serializeAdminPendingCookie({credential:String(row.pendingCookie),expiresAt:String(row.expiresAt),now:now(clock)});
+    return row;
+  }
+  if(row.kind === "password_login_required") {
+    exact(row,["schemaVersion","kind","destinationOrigin"]);canonicalAdminOrigin(row.destinationOrigin);return row;
+  }
   if (row.kind === "onboarding_pending") {
     exact(row,["schemaVersion","kind","statusUrl"]);
     if(row.schemaVersion!==1 || typeof row.statusUrl!=="string") invalid();
@@ -313,6 +322,15 @@ export function createPanelSessionCompletionHandler(options: {
     if (callback.kind === "provider_error") {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });
       return failure("panel_session_provider_rejected", 400);
+    }
+    if(result.kind === "whatsapp_required") {
+      const pending=serializeAdminPendingCookie({credential:String(result.pendingCookie),expiresAt:String(result.expiresAt),now:now(clock)});
+      const headers=new Headers({location:`${new URL(authority).origin}/auth/whatsapp`,"cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff"});headers.append("set-cookie",pending);headers.append("set-cookie",serializeAdminDestinationCookie(String(result.pendingCookie)));
+      return new Response(null,{status:303,headers});
+    }
+    if(result.kind === "password_login_required") {
+      const login=new URL("/auth/login",authority);login.searchParams.set("destination",new URL(canonicalAdminOrigin(result.destinationOrigin)).hostname);
+      return new Response(null,{status:303,headers:{location:login.href,"cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff","set-cookie":PANEL_BROWSER_BINDING_DELETION_COOKIE}});
     }
     if (result.kind === "onboarding_pending") {
       if (!statusUrl || result.statusUrl !== statusUrl) return failure("panel_session_transport_unavailable",503);

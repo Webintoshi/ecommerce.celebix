@@ -39,6 +39,8 @@ export type PanelSessionCompletionFreshLoginCode =
 
 export type PanelSessionCompletionInternalResult = Readonly<
   | {schemaVersion:1;kind:"onboarding_pending";statusUrl:string}
+  | {schemaVersion:1;kind:"whatsapp_required";pendingCookie:string;expiresAt:string}
+  | {schemaVersion:1;kind:"password_login_required";destinationOrigin:string}
   | {
       schemaVersion: 1;
       kind: "session_handoff_ready";
@@ -137,7 +139,14 @@ function parseCanonicalResult(raw: string, status: number, ownerOrigin: string):
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
   const body = parsed as Record<string, unknown>;
   let result: PanelSessionCompletionInternalResult;
-  if (status === 202) {
+  if ((status === 200 || status === 202) && body.kind === "whatsapp_required") {
+    exactKeys(body,["schemaVersion","kind","pendingCookie","expiresAt"]);
+    if(body.schemaVersion!==1||typeof body.pendingCookie!=="string"||body.pendingCookie.length>2048||!/^apc1\.[A-Za-z0-9_-]+$/.test(body.pendingCookie))invalid();
+    result=Object.freeze({schemaVersion:1,kind:"whatsapp_required",pendingCookie:body.pendingCookie,expiresAt:canonicalTimestamp(body.expiresAt)});
+  } else if(status===200&&body.kind==="password_login_required") {
+    exactKeys(body,["schemaVersion","kind","destinationOrigin"]);if(body.schemaVersion!==1)invalid();
+    result=Object.freeze({schemaVersion:1,kind:"password_login_required",destinationOrigin:canonicalAdminOrigin(body.destinationOrigin)});
+  } else if (status === 202) {
     exactKeys(body,["schemaVersion","kind","statusUrl"]);
     if(body.schemaVersion!==1 || body.kind!=="onboarding_pending" || body.statusUrl!==`${ownerOrigin}/onboarding/status`) invalid();
     result=Object.freeze({schemaVersion:1,kind:"onboarding_pending",statusUrl:body.statusUrl});

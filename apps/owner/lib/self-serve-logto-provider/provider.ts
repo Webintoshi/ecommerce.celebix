@@ -1,4 +1,7 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createLocalJWKSet, errors, jwtVerify, type JSONWebKeySet } from "jose";
+import { ADMIN_PASSWORD_PROOF_RESOURCE, ADMIN_PASSWORD_PROOF_SCOPE } from "../admin-login-password-proof/customizer.ts";
+import { verifyAdminPasswordProof, type OidcVerifiedPasswordProof } from "../admin-login-password-proof/verifier.ts";
 
 import {
   OidcFlowError,
@@ -29,7 +32,8 @@ export type LogtoOidcProviderAuditEvent = Readonly<{
     | "id_token_verification"
     | "id_token_time_nonce"
     | "id_token_identity"
-    | "id_token_audience";
+    | "id_token_audience"
+    | "password_proof_verification";
   outcome: "accepted" | "rejected" | "unavailable";
 }>;
 
@@ -45,6 +49,7 @@ export type LogtoOidcProviderOptions = Readonly<{
   timeoutMs: number;
   maximumResponseBytes: number;
   audit?(event: LogtoOidcProviderAuditEvent): void | Promise<void>;
+  passwordProof?: Readonly<{ resource: typeof ADMIN_PASSWORD_PROOF_RESOURCE }>;
 }>;
 
 type Discovery = Readonly<{
@@ -187,6 +192,11 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
   const timeoutMs = boundedInteger(options.timeoutMs, 10_000);
   const maximumResponseBytes = boundedInteger(options.maximumResponseBytes, 1_048_576);
   const algorithms = Object.freeze([...options.algorithms]);
+  const passwordProofEnabled = options.passwordProof !== undefined;
+  if (passwordProofEnabled && (
+    !options.passwordProof || Object.keys(options.passwordProof).join(",") !== "resource" ||
+    options.passwordProof.resource !== ADMIN_PASSWORD_PROOF_RESOURCE
+  )) rejected();
   const fetcher = options.fetch;
   if (options.audit !== undefined && typeof options.audit !== "function") rejected();
   const auditSink = options.audit;
@@ -293,6 +303,10 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
     async buildAuthorizationUrl(input: OidcAuthorizationRequest): Promise<URL> {
       const discovery = await loadDiscovery();
       if (!input || input.codeChallengeMethod !== "S256") rejected();
+      if (input.passwordProof !== undefined && (
+        !passwordProofEnabled || !input.passwordProof || Object.keys(input.passwordProof).join(",") !== "nonce" ||
+        input.passwordProof.nonce !== input.nonce || !/^[A-Za-z0-9_-]{40,512}$/.test(input.nonce)
+      )) rejected();
       const url = new URL(discovery.authorizationEndpoint);
       const values = [
         ["response_type", "code"], ["response_mode", "query"], ["scope", "openid profile email"],
@@ -302,12 +316,19 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
       ] as const;
       for (const [name, value] of values) url.searchParams.set(name, value);
       if (input.prompt === "login") url.searchParams.set("prompt", "login");
+      if (input.passwordProof) {
+        url.searchParams.set("scope", `openid profile email ${ADMIN_PASSWORD_PROOF_SCOPE}`);
+        url.searchParams.set("resource", ADMIN_PASSWORD_PROOF_RESOURCE);
+        url.searchParams.set("max_age", "0");
+        url.searchParams.set("prompt", "login consent");
+      }
       return url;
     },
 
     async verifyCallback(input: OidcProviderCallbackInput): Promise<OidcVerifiedIdentity> {
       const discovery = await loadDiscovery();
       if (!input || input.expectedIssuer !== issuer || input.expectedAudience !== clientId) rejected();
+      if (input.passwordProof !== undefined && (!passwordProofEnabled || input.passwordProof !== true)) rejected();
       exactText(input.state, 1_024);
       const expectedNonce = exactText(input.expectedNonce, 512);
       const body = new URLSearchParams({
@@ -316,6 +337,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         redirect_uri: exactText(input.redirectUri, 2048),
         code_verifier: exactText(input.codeVerifier, 512),
       });
+      if (input.passwordProof) body.set("resource", ADMIN_PASSWORD_PROOF_RESOURCE);
       const headers: Record<string, string> = {
         accept: "application/json",
         "content-type": "application/x-www-form-urlencoded",
@@ -327,6 +349,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         body.set("client_secret", clientSecret);
       }
       let idToken: string;
+      let accessToken: string | undefined;
       try {
         const tokenResponse = await fetchJson(fetcher, discovery.tokenEndpoint, {
           method: "POST",
@@ -334,6 +357,10 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
           body: body.toString(),
         }, timeoutMs, maximumResponseBytes, JSON_MEDIA_TYPES);
         idToken = exactText(tokenResponse.id_token, maximumResponseBytes);
+        if (input.passwordProof) {
+          if (tokenResponse.token_type !== "Bearer") rejected();
+          accessToken = exactText(tokenResponse.access_token, maximumResponseBytes);
+        }
       } catch (error) {
         audit({ stage: "token_response", outcome: failedOutcome(error) });
         throw error;
@@ -413,6 +440,52 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         rejected();
       }
       audit({ stage: "id_token_audience", outcome: "accepted" });
+      let passwordProof: OidcVerifiedPasswordProof | undefined;
+      if (input.passwordProof) {
+        // Logto's authorization-code response signs the exact access token hash in
+        // the nonce-bound ID token. Never project the nonce onto an unbound token.
+        const hashBits = /^(?:RS|PS|ES)(256|384|512)$/.exec(verified.protectedHeader.alg)?.[1];
+        if (!hashBits || !Number.isSafeInteger(payload.auth_time) ||
+          (payload.auth_time as number) < nowSeconds - 300 ||
+          (payload.auth_time as number) > nowSeconds + 30 || typeof payload.at_hash !== "string") rejected();
+        const digest = createHash(`sha${hashBits}`).update(accessToken!, "ascii").digest();
+        const expectedHash = digest.subarray(0, digest.length / 2).toString("base64url");
+        const actualHash = Buffer.from(payload.at_hash, "utf8");
+        const requiredHash = Buffer.from(expectedHash, "utf8");
+        if (actualHash.length !== requiredHash.length || !timingSafeEqual(actualHash, requiredHash)) rejected();
+        const verifyProof = (keys: LocalJwks) => verifyAdminPasswordProof({
+          accessToken: accessToken!, jwks: keys, issuer, clientId, subject,
+          algorithms, now: safeClock(options.clock),
+        });
+        let accessProof: Awaited<ReturnType<typeof verifyAdminPasswordProof>>;
+        try {
+          try { accessProof = await verifyProof(localJwks); }
+          catch (error) {
+            if (!(error instanceof errors.JWKSNoMatchingKey)) throw error;
+            localJwks = await loadJwks(discovery, localJwks);
+            accessProof = await verifyProof(localJwks);
+          }
+        } catch (error) {
+          audit({ stage: "password_proof_verification", outcome: failedOutcome(error) });
+          if (error instanceof OidcFlowError) throw error;
+          return rejected();
+        }
+        if (accessProof) {
+          const prefix = "celebix:admin-password-record:";
+          const amr = payload.amr;
+          const hasScopedMarker = typeof amr === "string" ? amr.startsWith(prefix) :
+            Array.isArray(amr) && amr.some(value => typeof value === "string" && value.startsWith(prefix));
+          if (hasScopedMarker) {
+            // The authorization code snapshots this issuer-owned method/record pair.
+            // Mutable session customizer evidence alone can never grant assurance.
+            if (!Array.isArray(amr) || amr.length !== 2 || amr[0] !== "pwd" ||
+              amr[1] !== `${prefix}${accessProof.verificationId}`) rejected();
+            passwordProof = Object.freeze({ ...accessProof, nonce: expectedNonce,
+              verifiedAt: new Date((payload.auth_time as number) * 1000).toISOString() });
+          }
+        }
+        audit({ stage: "password_proof_verification", outcome: passwordProof ? "accepted" : "rejected" });
+      }
       return Object.freeze({
         issuer,
         subject,
@@ -421,6 +494,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         email,
         emailVerified: true,
         ...(displayName === undefined ? {} : { displayName }),
+        ...(passwordProof === undefined ? {} : { passwordProof }),
       });
     },
   });

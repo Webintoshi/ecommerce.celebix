@@ -4,6 +4,7 @@ export const SETTINGS_GROUPS = [
     { href: "/settings/domains", label: "Alan Adı", description: "Adresler ve bağlantı durumu", icon: "globe" },
     { href: "/settings/language", label: "Dil", description: "Varsayılan ve etkin diller", icon: "language" },
     { href: "/settings/administrators", label: "Yöneticiler", description: "Ekip ve yetkiler", icon: "users" },
+    { href: "/settings/security", label: "Giriş güvenliği", description: "WhatsApp doğrulaması ve cihazlar", icon: "users" },
   ] },
   { title: "Satış ve teslimat", illustration: "commerce", items: [
     { href: "/settings/payment", label: "Ödeme", description: "Yöntemler ve sağlayıcılar", icon: "card" },

@@ -1,0 +1,28 @@
+.console { display: grid; gap: 20px; max-width: 800px; min-width: 0; color: var(--cp-text-primary); }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.section { display: grid; gap: 12px; min-width: 0; padding: 20px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
+.sectionHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sectionHead svg { flex: none; color: var(--cp-text-secondary); }
+.section h3 { margin: 0; font-size: 18px; line-height: 1.4; }
+.section p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--cp-text-secondary); overflow-wrap: anywhere; }
+.state { margin-inline-start: auto; font-size: 12px; font-weight: 600; color: var(--cp-text-secondary); }
+.section .hint { font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions button { white-space: normal; }
+.devices { margin: 0; padding: 0; list-style: none; }
+.devices li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--cp-border); }
+.devices li > div { min-width: 0; }
+.devices h4 { margin: 0 0 8px; font-size: 14px; }
+.devices dl { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 0; font-size: 12px; color: var(--cp-text-secondary); }
+.devices dt { margin-bottom: 4px; }
+.devices dd { margin: 0; color: var(--cp-text-primary); }
+.empty { border-top: 1px solid var(--cp-border); padding-top: 12px; }
+.error { margin: 0; color: var(--cp-danger); font-size: 14px; line-height: 1.5; }
+.status { margin: 0; color: var(--cp-text-secondary); font-size: 14px; }
+@media (max-width: 600px) {
+  .section { padding: 16px; }
+  .actions { align-items: stretch; flex-direction: column; }
+  .actions button { width: 100%; }
+  .devices dl { flex-direction: column; gap: 8px; }
+  .devices li { align-items: flex-start; }
+}

@@ -1,0 +1,14 @@
+FROM svhd/logto@sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b
+
+ARG SOURCE_COMMIT
+LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
+LABEL net.celebix.logto.admin-password-proof="3"
+
+COPY infrastructure/logto/admin-password-proof.mjs /opt/celebix/infrastructure/logto/admin-password-proof.mjs
+COPY scripts/patch-logto-admin-password-proof.mjs /opt/celebix/scripts/patch-logto-admin-password-proof.mjs
+RUN node /opt/celebix/scripts/patch-logto-admin-password-proof.mjs \
+    && node --check /etc/logto/packages/core/build/main-Z4BG2XWW.js \
+    && node --check /etc/logto/node_modules/.pnpm/oidc-provider@https+++codeload.github.com+logto-io+node-oidc-provider+tar.gz+5570006785b44e0f125ee4cb6bf540338721b1f3/node_modules/oidc-provider/lib/actions/grants/authorization_code.js
+
+# Original entrypoint, runtime, signing keys, database and all login settings
+# remain inherited from the exact existing vendor image.

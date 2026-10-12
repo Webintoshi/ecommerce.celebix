@@ -1,0 +1,9 @@
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+ARG SOURCE_COMMIT
+LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
+WORKDIR /app
+COPY --chown=node:node scripts/admin-login-ingress-signer.mjs ./admin-login-ingress-signer.mjs
+USER node
+ENV NODE_ENV=production
+# Private coolify network only. Do not publish a host port or public router.
+CMD ["node", "--disable-proto=throw", "admin-login-ingress-signer.mjs"]

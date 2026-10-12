@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { X } from "lucide-react";
+import { ShieldCheck, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -59,6 +59,7 @@ function StoreIdentity({ model }: { model: PanelClientChromeModel }) {
 function SidebarFooter({ onBrandClick }: { onBrandClick?: () => void }) {
   return (
     <div className={styles.sidebarFooter}>
+      <Link className={styles.footerSecurity} href="/settings/security" onClick={onBrandClick}><ShieldCheck size={18} aria-hidden="true" /><span>Giriş güvenliği</span></Link>
       <PanelBrand onClick={onBrandClick} />
       <LogoutButton />
     </div>

@@ -1,0 +1,42 @@
+{
+  "migrationId": "native228",
+  "description": "Disabled-by-default merchant administrator WhatsApp MFA authority; operator support TOTP excluded",
+  "up": "202610120228_admin_login_security.up.sql",
+  "down": "202610120228_admin_login_security.down.sql",
+  "assertions": "202610120228_admin_login_security_assertions.sql",
+  "dependencies": [
+    "native015",
+    "native016",
+    "native068",
+    "native069",
+    "native071",
+    "native074",
+    "native120",
+    "native125",
+    "native158"
+  ],
+  "isolatedAcceptance": "node --test --test-concurrency=1 tests/saas-phase3/admin-login-security/native.test.mjs",
+  "activation": "Owner-only store policy enables isolated canary then Alpler while global remains disabled; global enables all current/future stores after ROOT acceptance. Cutoffs immutable; rollback requires every policy disabled.",
+  "functions": [
+    "admin_login_capture_cutover",
+    "admin_login_session_allowed",
+    "admin_login_guard_session",
+    "admin_login_projection",
+    "admin_login_security_command",
+    "admin_login_security_invalidate",
+    "admin_login_policy_enabled",
+    "admin_login_principal_enforced",
+    "admin_login_cleanup_expired_completions"
+  ],
+  "isolatedBaseline": {
+    "forwardArtifacts": 240,
+    "functionsBefore": 1744,
+    "functionsAfter": 1753,
+    "guardedPredecessors": 15,
+    "liveReportedFunctionsBefore": 1770,
+    "limitation": "Two absent legacy WEB predecessor checks are explicitly omitted only in isolated161/214 fixture application;26-function live/bootstrap gap remains a live read-only catalog gate.",
+    "manifest": "tests/saas-phase3/admin-login-security/baseline-manifest.json"
+  },
+  "completionRetention": "Every validated command opportunistically removes encrypted completions from at most100 expired pending/management rows total; original audit/operation bindings and session assurance remain.",
+  "managementIdempotency": "Actor/session/action/input-bound operation tombstones serialize device revocation and management starts. Only the first preparation permits external OIDC creation; prepared retries require explicit restart. Encrypted completion escrow expires within10minutes and is removed by bounded cleanup."
+}

@@ -18,6 +18,8 @@ import {
 } from "./initial-callback-grant.ts";
 import {
   createFreshLoginRequiredResult,
+  createPasswordLoginRequiredResult,
+  createWhatsAppRequiredResult,
   createOnboardingPendingResult,
   createSessionReadyResult,
   createSessionHandoffReadyResult,
@@ -96,6 +98,8 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       browserBindingCredential: string,
     ): Promise<Readonly<
       | { kind: "not_panel_login" }
+      | { kind: "password_login_required"; destinationOrigin:string }
+      | { kind: "whatsapp_required";pendingCookie:string;expiresAt:string }
       | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
       | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
     >>;
@@ -105,6 +109,8 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       browserBindingCredential: string,
     ): Promise<Readonly<
       | { kind: "not_panel_login" }
+      | { kind: "password_login_required"; destinationOrigin:string }
+      | { kind: "whatsapp_required";pendingCookie:string;expiresAt:string }
       | { kind: "session_ready"; credential: string; activeStoreId: string; destinationOrigin: string; issuedAt: string; expiresAt: string }
       | { kind: "fresh_login_required"; code: "callback_not_granted" | "callback_replayed" | "callback_unavailable" | "membership_denied" }
     >>;
@@ -188,6 +194,18 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
                 code: callback.code,
                 ...(callback.responseIssuer ? { responseIssuer: callback.responseIssuer } : {}),
               }, browserCredential);
+          if (returning.kind === "password_login_required") {
+            const result = createPasswordLoginRequiredResult(returning.destinationOrigin);
+            auditSafely(audit, { stage: "handoff", outcome: "accepted" });
+            return result;
+          }
+          if (returning.kind === "whatsapp_required") {
+            const now=trustedNow(clock).getTime();const expires=canonicalExpiry(returning.expiresAt);
+            if(expires<=now || expires>now+MAXIMUM_HANDOFF_MS)invalid();
+            const result=createWhatsAppRequiredResult(returning.pendingCookie,returning.expiresAt);
+            auditSafely(audit,{stage:"handoff",outcome:"accepted"});
+            return result;
+          }
           if (returning.kind === "session_ready") {
             auditSafely(audit, { stage: "handoff", outcome: "accepted" });
             return createSessionReadyResult(
@@ -273,6 +291,16 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
         return createFreshLoginRequiredResult("callback_not_granted");
       }
       if (executed.value.kind === "onboarding_pending") return createOnboardingPendingResult(input.onboarding!.ownerOrigin);
+      if(executed.value.kind==="password_login_required") {
+        try {
+          const result=createPasswordLoginRequiredResult(executed.value.completion.panelUrl);
+          auditSafely(audit,{stage:"handoff",outcome:"accepted"});
+          return result;
+        } catch {
+          auditSafely(audit,{stage:"handoff",outcome:"rejected"});
+          return createFreshLoginRequiredResult("handoff_rejected");
+        }
+      }
       const handoff = executed.value.handoff;
       if (handoff.kind !== "handoff_created" && handoff.kind !== "handoff_replayed") {
         auditSafely(audit, { stage: "handoff", outcome: handoff.kind === "unavailable" ? "unavailable" : "rejected" });

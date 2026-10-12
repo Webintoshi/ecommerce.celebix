@@ -14,6 +14,7 @@ test("settings navigation exposes appearance destinations without legacy banner 
     { label: "Alan Adı", href: "/settings/domains" },
     { label: "Dil", href: "/settings/language" },
     { label: "Yöneticiler", href: "/settings/administrators" },
+    { label: "Giriş güvenliği", href: "/settings/security" },
     { label: "Ödeme", href: "/settings/payment" },
     { label: "Fiyatlandırma", href: "/settings/pricing" },
     { label: "Kargo", href: "/settings/shipping" },
@@ -34,7 +35,7 @@ test("store tools follows design in the shared appearance group used by search a
   const tools = SETTINGS_DESTINATIONS.find(({ href }) => href === "/settings/store-tools");
   assert.equal(tools?.label, "Mağaza araçları");
   assert.equal(tools?.icon, "settings");
-  assert.match(tools?.description ?? "", /İletişim balonu/);
+  assert.match(tools?.description ?? "", /İletişim ve stok bildirimleri/);
 });
 
 test("settings index is a quiet grouped row workspace without decorative card copy", async () => {

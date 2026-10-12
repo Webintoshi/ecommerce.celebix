@@ -242,3 +242,13 @@ test("signed canonical pending202 is accepted only for configured Owner status U
  await assert.rejects(()=>fixture(async request=>signedResponse(request,{body,status:202,signature:null})).complete(CALLBACK,BINDING));
  await assert.rejects(()=>fixture(async request=>signedResponse(request,{body,status:200,signedStatus:202})).complete(CALLBACK,BINDING));
 });
+
+test("authenticated WhatsApp pending and password-only first-factor results remain private",async()=>{
+ const pendingCookie=`apc1.${Buffer.from('{"pending":"private","destinationOrigin":"https://admin.guzidekuyumcu.com.tr"}').toString("base64url")}`;
+ const pending=JSON.stringify({schemaVersion:1,kind:"whatsapp_required",pendingCookie,expiresAt:EXPIRES});
+ const transport=fixture(async request=>signedResponse(request,{body:pending,status:202}));
+ assert.deepEqual(await transport.complete(CALLBACK,BINDING),{schemaVersion:1,kind:"whatsapp_required",pendingCookie,expiresAt:EXPIRES});
+ const password=JSON.stringify({schemaVersion:1,kind:"password_login_required",destinationOrigin:DESTINATION_ORIGIN});
+ assert.deepEqual(await fixture(async request=>signedResponse(request,{body:password})).complete(CALLBACK,BINDING),{schemaVersion:1,kind:"password_login_required",destinationOrigin:DESTINATION_ORIGIN});
+ for(const body of [JSON.stringify({schemaVersion:1,kind:"whatsapp_required",pendingCookie:"bad;cookie",expiresAt:EXPIRES}),JSON.stringify({schemaVersion:1,kind:"password_login_required",destinationOrigin:"https://evil.test/path"})])await assert.rejects(fixture(async request=>signedResponse(request,{body})).complete(CALLBACK,BINDING));
+});
