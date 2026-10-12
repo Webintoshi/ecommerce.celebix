@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-12",
+  "verified": true,
+  "sourceSha": "983a88a13be3131bd98cd7901c25ea04307d2e0b",
+  "baselineSha": "5f36c075560e26909bbe6f4d35b02358ee5f769d",
+  "scope": "Visible button names, accessibility labels and dialog headings only",
+  "labels": [
+    "Satış kanalı",
+    "Teslimat türü"
+  ],
+  "behaviorTestsPassed": 42,
+  "customerPanelBuildPassed": true,
+  "selectedInstagramReferenceAndShippingPreservedByExistingTests": true,
+  "deployments": {
+    "NET": "bsfvl0jrs2h5oje4i1dr4g2g",
+    "SITE": "ehxr8fkul91pryvc5fur04hq"
+  },
+  "bothRunningImagesAndSourceCommitsVerified": true,
+  "globalQueueIdle": true,
+  "protectedEnvironmentAndPaymentGoogleConfigurationPreserved": true,
+  "fourOwnerStorefrontContainersPreserved": true,
+  "authorizedBrowserTenant": "butik-siora",
+  "bothDialogsOpenAndCancelAccepted": true,
+  "responsiveWidths": [
+    1440,
+    1024,
+    390
+  ],
+  "pageOverflow": 0,
+  "buttonHeights": 44,
+  "applicationConsoleErrors": 0,
+  "newSchemaOrBusinessDataMutation": false,
+  "paymentOrGoogleProviderMutation": false,
+  "siteAuthorizedBrowserAcceptance": false,
+  "siteVerification": "Running image/source and compiled runtime preservation; authorized browser acceptance was performed on NET."
+}
