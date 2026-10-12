@@ -252,7 +252,7 @@ test("real product cart and native checkout boundaries emit fail-open canonical 
     checkoutForm,
   ] = await Promise.all([
     readFile(
-      new URL("../../app/products/[slug]/page.tsx", import.meta.url),
+      new URL("../../app/products/[slug]/render.tsx", import.meta.url),
       "utf8",
     ),
     readFile(

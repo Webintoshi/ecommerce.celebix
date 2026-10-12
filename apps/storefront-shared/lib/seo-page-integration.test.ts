@@ -30,13 +30,11 @@ const links = [{ anchorText: "Published care page", path: "/pages/care" }];
 const content = { id: "real-id", slug: "news", locale: "en-US", title: "Visible news", body: "<p>Body</p>", bodyFormat: "normalized_html", excerpt: null, seoTitle: null, seoDescription: null, publishedAt: "2026-09-29T00:00:00.000Z", updatedAt: "2026-09-30T00:00:00.000Z" };
 class RepositoryError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function pageModule(filename: string, kind: string, withSeo = true, storefrontId = "unrelated-store") {
+async function pageModule(filename: string, kind: string, withSeo = true, storefrontId = "unrelated-store", locale = "tr") {
   const calls: Array<{ kind: string; id: string; hostname: string }> = [];
   const seoReader = { settings: async () => settings, key: async () => ({ key: null }), get: async (input: { kind: string; id: string; hostname: string }) => { calls.push(input); return { resource: { ...resource, effectiveCanonicalPath: kind === "category" ? "/kategori/canonical" : kind === "product" ? "/urun/canonical" : `/${kind === "blog" ? "blog" : "pages"}/canonical?lang=en-US` }, settings, links }; } };
-  const context = { storefront: { ...storefront, id: storefrontId }, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
+  const context = { storefront: { ...storefront, id: storefrontId, locale }, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
   const source = await readFile(new URL(filename, import.meta.url), "utf8");
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
-  const compiled: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
   const dependencies: Record<string, unknown> = {
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "next/navigation": { notFound: () => { throw new Error("not_found"); }, permanentRedirect: () => { throw new Error("redirect"); } },
     "@/lib/public-seo.ts": seo, "@/lib/public-seo-read.ts": seoRead, "@/lib/storefront-routes.ts": routes, "@/lib/product-seo.ts": productSeo, "@/lib/blog-page.ts": contentSeo, "@/lib/content-page.ts": contentPage, "@/lib/content-locale.ts": locales, "@/lib/product-catalog-query.ts": catalogQuery,
@@ -54,15 +52,39 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     "../../../themes/guzide/guzide-product-explorer.module.css": { __esModule: true, default: { breadcrumb: "guzide-breadcrumb", section: "guzide-section" } },
     "../../../themes/guzide/GuzideProductDetailExperience": { GuzideProductDetailExperience: "GuzideProductDetailExperience" },
   };
-  Function("require", "module", "exports", output)((name: string) => {
-    if (name in dependencies) return dependencies[name];
-    if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
-    if (name === "../themes/lilyum/theme.ts") return { lilyumThemeFor: () => undefined };
-    if (name === "../themes/lilyum/LilyumHome") return { LilyumHome: () => null };
-    throw new Error(`unexpected_dependency:${name}`);
-  }, compiled, compiled.exports);
-  return { exports: compiled.exports, calls };
+  function compile(source: string) {
+    const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+    const compiled: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
+    Function("require", "module", "exports", output)((name: string) => {
+      if (name in dependencies) return dependencies[name];
+      if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
+      if (name === "../themes/lilyum/theme.ts") return { lilyumThemeFor: () => undefined };
+      if (name === "../themes/lilyum/LilyumHome") return { LilyumHome: () => null };
+      throw new Error(`unexpected_dependency:${name}`);
+    }, compiled, compiled.exports);
+    return compiled.exports;
+  }
+  if (["../app/products/[slug]/page.tsx", "../app/urun/[slug]/page.tsx"].includes(filename)) {
+    const renderer = compile(await readFile(new URL("../app/products/[slug]/render.tsx", import.meta.url), "utf8"));
+    dependencies["./render.tsx"] = renderer;
+    dependencies["../../products/[slug]/render.tsx"] = renderer;
+  }
+  return { exports: compile(source), calls };
 }
+
+test("product detail entry points keep allowed Next exports, product identity and saved SEO", async () => {
+  for (const [filename, locale] of [["../app/products/[slug]/page.tsx", "en-US"], ["../app/urun/[slug]/page.tsx", "tr"]]) {
+    const { exports, calls } = await pageModule(filename!, "product", true, "unrelated-store", locale);
+    assert.deepEqual(Object.keys(exports).sort(), ["default", "generateMetadata"]);
+    const params = Promise.resolve({ slug: "ring" });
+    const tree = nodes(await exports.default!({ params } as never));
+    assert.equal((tree.find(({ type }) => type === "ProductDetailExperience")?.props.product as { id: string }).id, "real-id");
+    const metadata = await exports.generateMetadata!({ params } as never) as { title: unknown; alternates: unknown };
+    assert.deepEqual(metadata.title, { absolute: "Saved SEO | Pilot" });
+    assert.deepEqual(metadata.alternates, { canonical: "https://shop.example.test/urun/canonical" });
+    assert.ok(calls.every(({ kind, id, hostname }) => kind === "product" && id === "real-id" && hostname === "shop.example.test"));
+  }
+});
 
 test("category route reads the actual category SEO record and renders its published links", async () => {
   const { exports, calls } = await pageModule("../app/categories/[slug]/render-category-page.tsx", "category");
@@ -80,7 +102,7 @@ test("category route reads the actual category SEO record and renders its publis
 });
 
 test("product page and localized content use their saved canonical and indexing fields", async () => {
-  for (const [filename, kind, slug, canonical] of [["../app/products/[slug]/page.tsx", "product", "ring", "https://shop.example.test/urun/canonical"], ["../app/pages/[slug]/page.tsx", "page", "news", "https://shop.example.test/pages/canonical?lang=en-US"], ["../app/blog/[slug]/page.tsx", "blog", "news", "https://shop.example.test/blog/canonical?lang=en-US"]]) {
+  for (const [filename, kind, slug, canonical] of [["../app/products/[slug]/render.tsx", "product", "ring", "https://shop.example.test/urun/canonical"], ["../app/pages/[slug]/page.tsx", "page", "news", "https://shop.example.test/pages/canonical?lang=en-US"], ["../app/blog/[slug]/page.tsx", "blog", "news", "https://shop.example.test/blog/canonical?lang=en-US"]]) {
     const { exports, calls } = await pageModule(filename!, kind!);
     const metadata = await exports.generateMetadata!({ params: Promise.resolve({ slug }), searchParams: Promise.resolve({ lang: "en-US" }) } as never) as { alternates: unknown; title: unknown; robots: unknown };
     assert.deepEqual(metadata.alternates, { canonical });
@@ -105,7 +127,7 @@ test("home metadata retains legacy SEO before reader registration and reads new 
 test("tenant product experiences preserve published SEO while only the resolved Siora tenant is immersive", async () => {
   const guzideId = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
   for (const id of [sioraTheme.SIORA_STOREFRONT_ID, alplerTheme.ALPLER_STOREFRONT_ID, guzideId, lilyumTheme.LILYUM_STOREFRONT_ID, "89e1e15f-8282-4e9b-ae3e-f417501bd54b", "a828862c-4cc1-475a-89cc-5fbee31eb4400", "unrelated-store"]) {
-    const { exports } = await pageModule("../app/products/[slug]/page.tsx", "product", true, id);
+    const { exports } = await pageModule("../app/products/[slug]/render.tsx", "product", true, id);
     const tree = await exports.renderProductPage!({ params: Promise.resolve({ slug: "ring" }), routeVariant: "localized" } as never);
     const rendered = nodes(tree);
     assert.equal(rendered.some(({ type }) => type === "SioraProductDetailExperience"), id === sioraTheme.SIORA_STOREFRONT_ID);

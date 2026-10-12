@@ -20,9 +20,9 @@ function nodes(value: unknown): Node[] {
   return [node, ...[node.props.children].flat(Infinity).flatMap(nodes)];
 }
 class RepositoryError extends Error { constructor(readonly code: string) { super(code); } }
-async function loadRoute(id: string, options: { queryAvailable?: boolean; queryError?: Error; savedSeo?: boolean } = {}, filename = "../app/categories/[slug]/render-category-page.tsx") {
+async function loadRoute(id: string, options: { queryAvailable?: boolean; queryError?: Error; savedSeo?: boolean; locale?: string } = {}, filename = "../app/categories/[slug]/render-category-page.tsx") {
   const listCalls: Record<string, unknown>[] = [], queryCalls: Record<string, unknown>[] = [];
-  const storefront = { id, hostname: "guzide.example.test", canonicalUrl: "https://guzide.example.test/", locale: "tr", presentation: { displayName: "Güzide Kuyumcu", navigation, theme: { productCardStyle: "compact", productImageRatio: "portrait" }, seo: { allowIndex: true } } };
+  const storefront = { id, hostname: "guzide.example.test", canonicalUrl: "https://guzide.example.test/", locale: options.locale ?? "tr", presentation: { displayName: "Güzide Kuyumcu", navigation, theme: { productCardStyle: "compact", productImageRatio: "portrait" }, seo: { allowIndex: true } } };
   const product = { id: "server-product" };
   const repository = {
     async listPublicProductsByCategory(input: Record<string, unknown>) { listCalls.push(input); return { category: { id: "real-category", slug: "kolyeler", name: "Admin Kolyeler" }, items: [product] }; },
@@ -42,14 +42,22 @@ async function loadRoute(id: string, options: { queryAvailable?: boolean; queryE
     "../../themes/guzide/guzide-product-explorer.module.css": { __esModule: true, default: { section: "guzide-section" } },
   };
   const source = await readFile(new URL(filename, import.meta.url), "utf8");
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
-  const module: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
-  Function("require", "module", "exports", output)((name: string) => {
-    if (name in dependencies) return dependencies[name];
-    if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
-    throw new Error(`unexpected_dependency:${name}`);
-  }, module, module.exports);
-  return { module: module.exports, listCalls, queryCalls, navigation, product };
+  function compile(source: string) {
+    const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+    const module: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
+    Function("require", "module", "exports", output)((name: string) => {
+      if (name in dependencies) return dependencies[name];
+      if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
+      throw new Error(`unexpected_dependency:${name}`);
+    }, module, module.exports);
+    return module.exports;
+  }
+  if (["../app/products/page.tsx", "../app/urunler/page.tsx"].includes(filename)) {
+    const renderer = compile(await readFile(new URL("../app/products/render.tsx", import.meta.url), "utf8"));
+    dependencies["./render.tsx"] = renderer;
+    dependencies["../products/render.tsx"] = renderer;
+  }
+  return { module: compile(source), listCalls, queryCalls, navigation, product };
 }
 
 test("Güzide category queries the real validated category and existing URL filters with 24-item paging", async () => {
@@ -95,12 +103,27 @@ test("Güzide category query preserves unavailable and not-found semantics", asy
 
 test("Güzide product index selects the approved catalog while other tenants retain their visual themes", async () => {
   for (const id of [GUZIDE, "unrelated", siora.SIORA_STOREFRONT_ID, alpler.ALPLER_STOREFRONT_ID]) {
-    const { module } = await loadRoute(id, {}, "../app/products/page.tsx");
+    const { module } = await loadRoute(id, {}, "../app/products/render.tsx");
     const tree = await module.renderProductsPage!("localized" as never, Promise.resolve({}) as never);
     const explorer = nodes(tree).find(({ type }) => type === "ProductExplorer");
     assert.ok(explorer);
     assert.equal(explorer.props.visualTheme, id === GUZIDE ? "guzide-deniz" : id === siora.SIORA_STOREFRONT_ID ? "siora-deniz" : id === alpler.ALPLER_STOREFRONT_ID ? "alpler-deniz" : undefined);
     assert.deepEqual(explorer.props.catalog, id === GUZIDE ? { title: "Ürünler", navigation } : undefined);
+  }
+});
+
+test("product index entry points keep allowed Next exports and actual localized catalog queries", async () => {
+  for (const [filename, locale, path] of [["../app/products/page.tsx", "en-US", "/products"], ["../app/urunler/page.tsx", "tr", "/urunler"]]) {
+    const { module, queryCalls } = await loadRoute(GUZIDE, { locale }, filename);
+    assert.deepEqual(Object.keys(module).sort(), ["default", "generateMetadata"]);
+    const tree = await module.default!({ searchParams: Promise.resolve({ q: "  taşlı  ", filter: "available", sort: "price-desc", offset: "24" }) } as never);
+    const explorer = nodes(tree).find(({ type }) => type === "ProductExplorer")!;
+    assert.deepEqual(explorer.props.catalog, { title: "Ürünler", navigation });
+    assert.equal(explorer.props.path, path);
+    assert.deepEqual(queryCalls.map(({ query, filter, order, offset, limit }) => ({ query, filter, order, offset, limit })), [{ query: "taşlı", filter: "available", order: "price-desc", offset: 24, limit: 24 }]);
+    const metadata = await module.generateMetadata!() as { title: unknown; alternates: unknown };
+    assert.deepEqual(metadata.title, { absolute: "Ürünler | Güzide Kuyumcu" });
+    assert.deepEqual(metadata.alternates, { canonical: `https://guzide.example.test${path}` });
   }
 });
 

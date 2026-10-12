@@ -285,8 +285,8 @@ test("health response is safe and carries no tenant data", () => {
 test("starter storefront consumes the public presentation and exposes no inert cart control", async () => {
   const [home, listing, detail, category, categoryShowcase, header, footer, frame, card] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/render.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/products/[slug]/render.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/categories/[slug]/render-category-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/CategoryShowcase.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Header.tsx", import.meta.url), "utf8"),
@@ -375,7 +375,7 @@ test("secondary storefront pages omit oversized listing headers without losing a
   const [pages, account, accountDashboard] = await Promise.all([
     Promise.all([
       readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/products/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/products/render.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/categories/[slug]/render-category-page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/cart/page.tsx", import.meta.url), "utf8"),
@@ -709,7 +709,7 @@ test("application configuration defines baseline security headers", async () => 
 });
 
 test("starter product detail owns one ordered sanitized rich-information surface", async () => {
-  const page = await readFile(new URL("../app/products/[slug]/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/products/[slug]/render.tsx", import.meta.url), "utf8");
   const experience = await readFile(new URL("../components/ProductDetailExperience.tsx", import.meta.url), "utf8");
   const disclosures = await readFile(new URL("../components/ProductInformationDisclosures.tsx", import.meta.url), "utf8");
 

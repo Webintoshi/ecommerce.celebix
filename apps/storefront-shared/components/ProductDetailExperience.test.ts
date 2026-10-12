@@ -123,7 +123,7 @@ test("related product recommendations render sold-out products after available p
 });
 
 test("product detail resolves schema-v3 controls and published policy authority", async () => {
-  const page = await read("../app/products/[slug]/page.tsx");
+  const page = await read("../app/products/[slug]/render.tsx");
   assert.match(page, /presentation[.]schemaVersion === 3/u);
   assert.match(page, /LEGACY_PRODUCT_DETAIL/u);
   assert.match(page, /runtime[.]content[.]getPolicy/u);

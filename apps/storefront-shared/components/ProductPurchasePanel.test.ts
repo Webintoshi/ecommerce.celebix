@@ -11,7 +11,7 @@ const experienceSource = await readFile(
   "utf8",
 );
 const pageSource = await readFile(
-  new URL("../app/products/[slug]/page.tsx", import.meta.url),
+  new URL("../app/products/[slug]/render.tsx", import.meta.url),
   "utf8",
 );
 

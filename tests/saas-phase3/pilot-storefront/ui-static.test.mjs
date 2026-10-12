@@ -7,8 +7,8 @@ const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("shared storefront exposes the required Hemenaku-derived public routes", async () => {
   const [home, products, detail, detailExperience, purchasePanel, card, gallery, styles] = await Promise.all([
-    read("apps/storefront-shared/app/page.tsx"), read("apps/storefront-shared/app/products/page.tsx"),
-    read("apps/storefront-shared/app/products/[slug]/page.tsx"), read("apps/storefront-shared/components/ProductDetailExperience.tsx"), read("apps/storefront-shared/components/ProductPurchasePanel.tsx"),
+    read("apps/storefront-shared/app/page.tsx"), read("apps/storefront-shared/app/products/render.tsx"),
+    read("apps/storefront-shared/app/products/[slug]/render.tsx"), read("apps/storefront-shared/components/ProductDetailExperience.tsx"), read("apps/storefront-shared/components/ProductPurchasePanel.tsx"),
     read("apps/storefront-shared/components/ProductCard.tsx"), read("apps/storefront-shared/components/ProductGallery.tsx"),
     read("apps/storefront-shared/app/globals.css"),
   ]);
@@ -28,7 +28,7 @@ test("shared storefront exposes the required Hemenaku-derived public routes", as
 test("storefront pages use only persisted public projections and domain-scoped canonical metadata", async () => {
   const sources = await Promise.all([
     read("apps/storefront-shared/lib/public-storefront.ts"), read("apps/storefront-shared/lib/default-runtime.ts"),
-    read("apps/storefront-shared/app/page.tsx"), read("apps/storefront-shared/app/products/page.tsx"), read("apps/storefront-shared/app/products/[slug]/page.tsx"),
+    read("apps/storefront-shared/app/page.tsx"), read("apps/storefront-shared/app/products/render.tsx"), read("apps/storefront-shared/app/products/[slug]/render.tsx"),
   ]);
   const combined = sources.join("\n");
   assert.match(combined, /PostgresPublicStorefrontRepository/);

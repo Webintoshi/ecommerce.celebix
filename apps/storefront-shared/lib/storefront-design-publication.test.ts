@@ -25,8 +25,8 @@ test("storefront runtime requires the reviewed public design authority", async (
 test("published design augments the complete storefront without removing commerce chrome", async () => {
   const frame = await source("../components/StorefrontFrame.tsx");
   const home = await source("../app/page.tsx");
-  const products = await source("../app/products/page.tsx");
-  const product = await source("../app/products/[slug]/page.tsx");
+  const products = await source("../app/products/render.tsx");
+  const product = await source("../app/products/[slug]/render.tsx");
   const globals = await source("../app/globals.css");
   const campaignHome = await source("../components/CampaignHome.tsx");
   const campaignSections = await source("../components/campaign-home-sections.ts");
