@@ -55,7 +55,9 @@
 [data-storefront-theme="siora-deniz"] .siora-mobile-shell { display: contents; }
 [data-storefront-theme="siora-deniz"] :is(.siora-header-mobile-tools, .siora-header-account, .siora-mobile-bottom, .siora-mobile-bottom-space) { display: none; }
 [data-storefront-theme="siora-deniz"] .siora-mobile-dialog { border: 0; padding: 0; color: var(--ink, #171717); background: var(--white, #fff); }
-[data-storefront-theme="siora-deniz"] :is(.siora-header a, .siora-header button, .siora-header summary, .siora-header input):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+[data-storefront-theme="siora-deniz"] :is(.siora-header a, .siora-header button, .siora-header summary):focus-visible { outline: 1px solid color-mix(in srgb, currentColor 40%, transparent); outline-offset: 2px; }
+[data-storefront-theme="siora-deniz"] .siora-header input:focus-visible { outline: 0; box-shadow: none; }
+[data-storefront-theme="siora-deniz"] .siora-header-search input:focus { box-shadow: 0 1px currentColor; }
 [data-storefront-theme="siora-deniz"] .siora-header[data-header-style="overlay"][data-siora-home="true"] { position: absolute; inset-inline: 0; width: 100%; border-color: transparent; background: color-mix(in srgb, var(--siora-header-paper) 92%, transparent); }
 [data-storefront-theme="siora-deniz"] .siora-header[data-header-style="overlay"][data-siora-home="true"][data-siora-scrolled="true"] { position: fixed; border-color: var(--line, #e7e7e7); background: var(--siora-header-paper); }
 [data-storefront-theme="siora-deniz"] .siora-header .siora-navigation-panel { color: var(--ink, #171717); background: var(--siora-header-paper); }
@@ -144,7 +146,8 @@
   [data-storefront-theme="siora-deniz"] .siora-mobile-search-submit .siora-icon { width: 20px; height: 20px; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search > a { display: flex; min-height: 44px; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; color: var(--muted, #555); font-size: 12px; text-decoration: none; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search > a .siora-icon { width: 18px; height: 18px; }
-  [data-storefront-theme="siora-deniz"] :is(.siora-mobile-bottom, .siora-mobile-dialog) :is(a, button, summary, input):focus-visible { outline: 2px solid var(--ink, #171717); outline-offset: 3px; }
+  [data-storefront-theme="siora-deniz"] :is(.siora-mobile-bottom, .siora-mobile-dialog) :is(a, button, summary):focus-visible { outline: 1px solid color-mix(in srgb, var(--ink, #171717) 40%, transparent); outline-offset: 2px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-dialog input:focus-visible { outline: 0; }
 }
 
 @keyframes siora-panel-enter { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }

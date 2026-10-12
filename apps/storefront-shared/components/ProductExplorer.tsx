@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "@/lib/product-catalog-query.ts";
-import { ProductGrid } from "./ProductGrid";
+import { CatalogProductList } from "./CatalogProductList";
 import { SioraProductExplorer } from "../themes/siora/SioraProductExplorer";
 import { GuzideProductExplorer } from "../themes/guzide/GuzideProductExplorer";
 import type { GuzideCatalogContext } from "../themes/guzide/guzide-catalog.ts";
@@ -59,10 +59,6 @@ function StandardProductExplorer({ products, locale, cardStyle, imageRatio, sele
       {FILTERS.map(([value, label]) => <button aria-pressed={selection.filter === value} key={value} type="button" onClick={() => router.push(catalogHref(path, { ...selection, query: query.trim(), order, filter: value }, 0))}>{label}</button>)}
     </div>
     <p className="explorer-count" aria-live="polite">{total} ürün bulundu</p>
-    <ProductGrid products={products} preserveOrder={preserveOrder} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
-    {selection.offset > 0 || nextOffset !== null ? <nav aria-label="Ürün sayfaları" className="explorer-pagination">
-      {selection.offset > 0 ? <a href={catalogHref(path,selection,Math.max(0,selection.offset-24))}>Önceki</a> : null}
-      {nextOffset !== null ? <a href={catalogHref(path,selection,nextOffset)}>Sonraki</a> : null}
-    </nav> : null}
+    <CatalogProductList products={products} preserveOrder={preserveOrder} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} selection={selection} total={total} nextOffset={nextOffset} path={path} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
   </div>;
 }

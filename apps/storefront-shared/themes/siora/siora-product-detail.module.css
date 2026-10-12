@@ -8,7 +8,7 @@
 .cart svg { width: 21px; height: 21px; }
 .cart > span { position: absolute; top: -3px; right: -3px; padding: 2px 5px; font-size: 10px; color: white; background: #22221f; border-radius: 12px; }
 :global([data-siora-product="true"]:has(> .siora-header)) .cart { display: none; }
-.purchase { position: absolute; z-index: 2; right: 1.45vw; bottom: 4.6vh; width: clamp(340px,22.4vw,460px); padding: clamp(24px,1.45vw,30px); background: #fffcf7; }
+.purchase { position: absolute; z-index: 2; right: 1.45vw; bottom: 4.6vh; width: clamp(340px,22.4vw,460px); padding: clamp(24px,1.45vw,30px); background: rgb(255 252 247 / .90); border: 1px solid rgb(255 255 255 / .65); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .titleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 25px; }
 .experience .titleRow h1 { font-family: var(--store-body-font, Arial, sans-serif); margin: 0; font-size: 20px; font-weight: 400; line-height: 1.4; letter-spacing: -.025em; text-transform: none; }
 .favorite { flex: none; }
@@ -29,7 +29,7 @@
 .price { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin: 24px 0 12px; font-size: 16px; }
 .price del { color: #777771; font-size: 12px; }
 .actions { display: grid; grid-template-columns: 35% 65%; }
-.actions button, .sticky button { display: flex; justify-content: center; align-items: center; gap: 9px; height: 52px; margin: 0; padding: 8px; border: 1px solid #22221f; border-radius: 0; background: #fffcf7; color: #22221f; font: inherit; font-size: 10px; cursor: pointer; }
+.actions button, .sticky button { display: flex; justify-content: center; align-items: center; gap: 9px; height: 52px; margin: 0; padding: 8px; border: 1px solid #22221f; border-radius: 0; background: transparent; color: #22221f; font: inherit; font-size: 10px; cursor: pointer; }
 .actions button + button, .sticky button { background: #11110f; color: white; font-size: 11px; letter-spacing: .035em; }
 .actions svg, .sticky svg { width: 17px; height: 17px; }
 .actions button:disabled, .sticky button:disabled { opacity: .5; cursor: default; }
@@ -67,7 +67,8 @@
 .optionList small { font-size: 11px; }
 .guide { font-size: 13px; line-height: 1.8; }
 .sticky { display: none; }
-.experience button:focus-visible, .experience a:focus-visible, .dialog button:focus-visible, .sticky button:focus-visible { outline: 2px solid #22221f; outline-offset: 3px; }
+.experience button:focus-visible, .experience a:focus-visible, .dialog button:focus-visible, .sticky button:focus-visible { outline: 1px solid #22221f66; outline-offset: 2px; }
+.experience .selector:focus-visible { outline: 0; border-bottom-color: #22221f; box-shadow: 0 1px #22221f; }
 @media (max-width: 1050px) and (min-width: 768px) { .purchase { right: 20px; bottom: 28px; padding: 24px; } }
 @media (max-width: 767px) {
   .experience { padding-bottom: 76px; }
@@ -75,7 +76,7 @@
   .back, .cart { top: 20px; }
   .back { left: 16px; padding: 10px 14px; }
   .cart { right: 16px; width: 38px; height: 38px; }
-  .purchase { position: relative; right: auto; bottom: auto; width: calc(100% - 32px); margin: 0 16px; padding: 26px 24px 28px; }
+  .purchase { position: relative; right: auto; bottom: auto; width: calc(100% - 32px); margin: 0 16px; padding: 26px 24px 28px; background: #fffcf7; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .titleRow { margin-bottom: 24px; }
   .experience .titleRow h1 { font-size: 19px; }
   .swatches button, .swatches img { width: 61px; }
