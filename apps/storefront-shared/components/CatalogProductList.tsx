@@ -33,6 +33,7 @@ function InfiniteProducts({ products, selection, total, nextOffset, path, locale
   const [error, setError] = useState(false);
   const [manual, setManual] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
+  const appendPosition = useRef<{ x: number; y: number } | null>(null);
   const current = useRef({ page, error });
   current.current = { page, error };
   const live = useRef(true);
@@ -57,10 +58,19 @@ function InfiniteProducts({ products, selection, total, nextOffset, path, locale
     live.current = true;
     return () => { live.current = false; if (request.current) { clearTimeout(request.current.timer); request.current.controller.abort(); request.current = null; } };
   }, []);
+  useLayoutEffect(() => {
+    const position = appendPosition.current;
+    if (!position) return;
+    // Flush the expanded list's layout, then suppress footer scroll anchoring.
+    // This runs only on append; browser Back remains owned by theme restoration.
+    sentinel.current?.getBoundingClientRect();
+    window.scrollTo({ left: position.x, top: position.y, behavior: "instant" });
+    appendPosition.current = null;
+  }, [page.items]);
 
   const load = useCallback(async () => {
     const offset = current.current.page.nextOffset;
-    if (!live.current || request.current || offset === null) return;
+    if (!live.current || request.current || appendPosition.current || offset === null) return;
     const controller = new AbortController();
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
@@ -73,7 +83,10 @@ function InfiniteProducts({ products, selection, total, nextOffset, path, locale
       if (!response.ok || !response.headers.get("content-type")?.startsWith("application/json")) throw new Error("catalog_unavailable");
       const next = readPage(await response.json(), offset);
       if (controller.signal.aborted || !live.current) return;
-      setPage(previous => ({ ...next, items: append(previous.items, next.items) }));
+      appendPosition.current = { x: window.scrollX, y: window.scrollY };
+      const expanded = { ...next, items: append(current.current.page.items, next.items) };
+      current.current = { page: expanded, error: false };
+      setPage(expanded);
     } catch {
       if (live.current && (!controller.signal.aborted || timedOut)) setError(true);
     } finally {

@@ -66,3 +66,13 @@ test("a non-advancing continuation cannot create an automatic request loop",asyn
     await notify(); assert.equal(requests.length,1);
   });
 });
+test("appending a page preserves the viewport instead of following the browser's footer anchor",async()=>{
+  await withList(async({notify,queue})=>{
+    window.scrollTo({left:0,top:1600});
+    const scrolls: unknown[]=[];
+    const original=window.scrollTo.bind(window);
+    window.scrollTo=((position:any)=>{scrolls.push(position);original(position);}) as typeof window.scrollTo;
+    await notify(); await React.act(async()=>queue[0].resolve(Response.json({items:[product(3)],total:4,nextOffset:48})));
+    assert.deepEqual(scrolls,[{left:0,top:1600,behavior:'instant'}]);
+  });
+});
