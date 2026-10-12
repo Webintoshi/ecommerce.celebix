@@ -13,7 +13,7 @@ export function CampaignCategories({ section, locale, prefetch }: Readonly<{ sec
   const layoutClass = section.layout === "duo" ? styles.categoryGridDuo : styles.categoryGridGrid;
   return (
     <section className={styles.categories} data-campaign-categories aria-labelledby="campaign-category-title">
-      <div className={styles.sectionHeading} data-campaign-section-heading><div><span>KOLEKSİYONLAR</span><h2 id="campaign-category-title">{section.heading}</h2></div></div>
+      <div className={styles.sectionHeading} data-campaign-section-heading><div><h2 id="campaign-category-title">{section.heading}</h2></div></div>
       <div className={`${styles.categoryGrid} ${layoutClass}`} data-layout={section.layout}>
         {section.items.map((item) => (
           <Link href={categoryPath(locale, item.slug)} prefetch={prefetch} key={item.slug}>

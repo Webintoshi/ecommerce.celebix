@@ -14,6 +14,7 @@ async function withExplorer(run: (browser: Parameters<Parameters<typeof withProd
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
     "next/navigation": { useRouter: () => ({ push(href: string, options: unknown) { pushes.push({ href, options }); } }) },
     "../../components/ProductGrid": { ProductGrid: ({ products, preserveOrder }: { products: readonly { id: string }[]; preserveOrder: boolean }) => React.createElement("div", { "data-test-products": products.map(({ id }) => id).join(","), "data-preserve-order": preserveOrder }) },
+    "./ProductGrid": { ProductGrid: ({ products, preserveOrder }: { products: readonly { id: string }[]; preserveOrder: boolean }) => React.createElement("div", { "data-test-products": products.map(({ id }) => id).join(","), "data-preserve-order": preserveOrder }) },
   });
   const { GuzideProductExplorer: Explorer } = load<{ GuzideProductExplorer: Component }>(new URL("../themes/guzide/GuzideProductExplorer.tsx", import.meta.url));
   await withProductBrowser(async (browser) => {
@@ -27,14 +28,15 @@ async function withExplorer(run: (browser: Parameters<Parameters<typeof withProd
   });
 }
 
-test("Güzide catalog presents the real title, admin child tabs, server order and client pagination", async () => {
+test("Güzide catalog presents the real title, admin child tabs, server order and automatic continuation", async () => {
   await withExplorer(async ({ container }) => {
     assert.equal(container.querySelector("h1")?.textContent, "Kolyeler");
     assert.equal(container.querySelector('nav[aria-label="Kategoriler"] a[aria-current="page"]')?.getAttribute("href"), "/kategori/kolyeler");
     assert.ok(container.querySelector('a[href="/kategori/tasli-kolyeler"]'));
     assert.equal(container.querySelector("[data-test-products]")?.getAttribute("data-test-products"), "first,second");
     assert.equal(container.querySelector("[data-test-products]")?.getAttribute("data-preserve-order"), "true");
-    assert.deepEqual([...container.querySelectorAll('nav[aria-label="Ürün sayfaları"] a')].map(a => a.getAttribute("href")), ["/kategori/kolyeler", "/kategori/kolyeler?offset=48"]);
+    assert.equal(container.querySelector('nav[aria-label="Ürün sayfaları"]'), null);
+    assert.ok(container.querySelector('[data-catalog-continuation]'));
     assert.ok(!container.textContent?.includes("gram"));
   });
 });

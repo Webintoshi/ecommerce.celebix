@@ -27,7 +27,7 @@ export function CampaignProductRowFrame({ section, products, locale, visualTheme
   return (
     <section className={styles.productRow} id={visualTheme ? rowId : undefined} data-campaign-product-row aria-labelledby={`campaign-row-${section.key}`}>
       <div className={styles.sectionHeading} data-campaign-section-heading>
-        <div><span>{section.source === "sale" ? "FIRSATLAR" : section.source === "category" ? "KOLEKSİYON" : section.source === "manual" ? "SEÇKİ" : "YENİ GELENLER"}</span><h2 id={`campaign-row-${section.key}`}>{section.heading}</h2></div>
+        <div><h2 id={`campaign-row-${section.key}`}>{section.heading}</h2></div>
         {visualTheme ? <div className="guzide-rail-actions">{allProducts}<GuzideRailControls rowId={rowId} label={section.heading} /></div> : allProducts}
       </div>
       {renderProductGrid(products)}

@@ -18,7 +18,7 @@
 }
 .starter-storefront[data-storefront-theme="siora-deniz"] { min-height: 100dvh; }
 [data-storefront-theme="siora-deniz"] :is(button, input, select, textarea) { font-family: inherit; }
-[data-storefront-theme="siora-deniz"] :is(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+[data-storefront-theme="siora-deniz"] :is(a, button, input, select, textarea, summary):focus-visible { outline: 1px solid color-mix(in srgb, currentColor 40%, transparent); outline-offset: 2px; }
 [data-storefront-theme="siora-deniz"] :is(.store-container, [data-campaign-product-row], [data-campaign-categories]) { width: min(calc(100% - var(--siora-gutter) * 2), 1440px); }
 [data-storefront-theme="siora-deniz"] .store-section { padding-block: 52px 80px; }
 [data-storefront-theme="siora-deniz"] .store-button { min-height: 52px; border-radius: 0; box-shadow: none; border: 1px solid var(--ink); color: var(--paper); background: var(--ink); font-size: 11px; font-weight: 550; letter-spacing: .1em; text-transform: uppercase; }
@@ -48,8 +48,8 @@
 [data-storefront-theme="siora-deniz"] .price-row { justify-content: start; gap: 9px; font-size: 12px; }
 [data-storefront-theme="siora-deniz"] .price-row strong { font-size: 12px; font-weight: 550; }
 [data-storefront-theme="siora-deniz"] .price-row del { font-size: 11px; }
-[data-storefront-theme="siora-deniz"] .product-card-cart { min-height: 44px; border: 0; border-bottom: 1px solid var(--siora-line); padding: 0; color: var(--ink); background: transparent; font-size: 9px; font-weight: 500; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
-[data-storefront-theme="siora-deniz"] .product-card-cart:hover { background: transparent; color: var(--muted); border-bottom-color: var(--ink); }
+[data-storefront-theme="siora-deniz"] .product-card .product-card-cart { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 1px solid var(--siora-line); border-radius: 2px; padding: 10px 12px; color: var(--ink); background: transparent; font-size: 10px; font-weight: 500; letter-spacing: .06em; text-align: center; text-transform: uppercase; transition: background-color .16s ease, border-color .16s ease; }
+[data-storefront-theme="siora-deniz"] .product-card .product-card-cart:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 4%, var(--paper)); color: var(--ink); border-color: color-mix(in srgb, var(--ink) 38%, var(--paper)); }
 [data-storefront-theme="siora-deniz"] .favorite-button { top: 6px; right: 6px; min-width: 44px; min-height: 44px; border-radius: 0; background: rgb(255 255 255 / .9); }
 [data-storefront-theme="siora-deniz"] .favorite-button svg { width: 19px; height: 19px; stroke-width: 1.4; }
 [data-storefront-theme="siora-deniz"] .favorite-button[aria-pressed="true"] { color: #fff; background: var(--ink); }

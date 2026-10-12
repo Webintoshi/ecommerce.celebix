@@ -13,7 +13,8 @@ test("shared campaign row keeps manual order and Güzide rails with inert previe
     renderProductGrid: (items: readonly { id: string }[]) => { selected = items; return React.createElement("div", { className: "product-grid", "data-inert-cards": true }, ...items.map(item => React.createElement("article", { key: item.id }, item.id))); },
   }));
   assert.equal(selected, products);
-  assert.match(markup, /SEÇKİ/);
+  assert.doesNotMatch(markup, /SEÇKİ/);
+  assert.match(markup, /<h2[^>]*>Seçilenler<\/h2>/);
   assert.match(markup, /id="guzide-product-row-manual_row"/);
   assert.match(markup, /Seçilenler, önceki ürünler/);
   assert.match(markup, /<article>second<\/article><article>first<\/article>/);

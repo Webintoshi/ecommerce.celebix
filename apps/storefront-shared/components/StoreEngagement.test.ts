@@ -112,7 +112,12 @@ test("empty cart promotional coupon is remembered without a quote and applied on
   }, { popup: true, emptyCart: true });
 });
 test("empty-cart wheel code survives minimum-basket rejection then requotes on later add; revoked code is cleared", async () => {
-  for (const revoked of [false, true]) await fixture(async ({ bridge, add, pendingCoupon, quoteCalls }) => { bridge.rememberPendingWheelCoupon(STORE, wheelAward); assert.equal(pendingCoupon(), wheelAward.couponCode); assert.deepEqual(quoteCalls, []); await add(); assert.equal(pendingCoupon(), revoked ? null : wheelAward.couponCode); await add(); assert.equal(quoteCalls.length, revoked ? 1 : 2); }, { emptyCart: true, ineligible: true, revoked });
+  const originalNow = Date.now;
+  // This fixture represents an active award; real calendar time must not expire it.
+  Date.now = () => Date.parse(wheelAward.awardedAt) + 1000;
+  try {
+    for (const revoked of [false, true]) await fixture(async ({ bridge, add, pendingCoupon, quoteCalls }) => { bridge.rememberPendingWheelCoupon(STORE, wheelAward); assert.equal(pendingCoupon(), wheelAward.couponCode); assert.deepEqual(quoteCalls, []); await add(); assert.equal(pendingCoupon(), revoked ? null : wheelAward.couponCode); await add(); assert.equal(quoteCalls.length, revoked ? 1 : 2); }, { emptyCart: true, ineligible: true, revoked });
+  } finally { Date.now = originalNow; }
 });
 test("double submit makes one contact command while pending, with cancel always available", async () => {
   await fixture(async ({ container, add, captures, releaseCapture, click }) => {

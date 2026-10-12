@@ -11,6 +11,7 @@ browserTests.push("components/StoreEngagement.test.ts");
 browserTests.push("components/LuckyWheel.test.ts", "components/LuckyWheelLauncher.test.ts");
 browserTests.push("components/GoogleMarketingConsent.test.ts");
 browserTests.push("components/OrderBumpOffers.test.ts");
+browserTests.push("components/CatalogProductList.test.ts", "components/FavoritesPageClient.test.ts");
 const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))
