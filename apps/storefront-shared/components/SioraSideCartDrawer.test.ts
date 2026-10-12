@@ -132,9 +132,14 @@ test("continue shopping closes the drawer directly without a cart-page destinati
   });
 });
 
-test("the footer preserves the published admin trust message without adding an unconfigured message", async () => {
-  await withDrawer(async ({ container }) => { assert.doesNotMatch(text(container.querySelector("footer")), /Güvenli ödeme/u); });
-  await withDrawer(async ({ container }) => { assert.match(text(container.querySelector("footer")), /Güvenli ödeme · Siora güvencesi/u); }, { trustMessage: "Güvenli ödeme · Siora güvencesi" });
+test("both drawer footers omit a deleted trust message and preserve a configured message", async () => {
+  for (const defaultDrawer of [false, true]) {
+    await withDrawer(async ({ container }) => {
+      assert.doesNotMatch(text(container.querySelector("footer")), /Güvenli ödeme/u);
+      assert.equal(container.querySelector(defaultDrawer ? ".side-cart-trust" : ".trust"), null);
+    }, { defaultDrawer });
+    await withDrawer(async ({ container }) => { assert.match(text(container.querySelector("footer")), /Güvenli ödeme · Siora güvencesi/u); }, { defaultDrawer, trustMessage: "Güvenli ödeme · Siora güvencesi" });
+  }
 });
 
 test("recommendations are fetched only on opening a nonempty drawer and exclude every cart product with a two-item limit", async () => {

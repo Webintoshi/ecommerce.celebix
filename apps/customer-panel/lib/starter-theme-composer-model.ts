@@ -31,10 +31,12 @@ export function buildStarterThemeCompositionFromSession(
   session: StarterThemeEditorSession,
   patch: Partial<StarterThemeEditorState> = {},
 ): StarterThemeCompositionConfigV2 | StarterThemeCompositionConfigV3 {
+  const cart = { ...session.state.cart, ...patch.cart };
+  if (patch.cart && !Object.hasOwn(patch.cart, "trustMessage")) delete cart.trustMessage;
   const parsed = parseStarterThemeCompositionConfig({
     ...session.state,
     ...patch,
-    cart: { ...session.state.cart, ...patch.cart },
+    cart,
     schemaVersion: session.schemaVersion,
   });
   if (parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) throw new Error("starter_theme_editor_version_invalid");
