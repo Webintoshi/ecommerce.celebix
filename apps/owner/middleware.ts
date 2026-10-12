@@ -38,6 +38,8 @@ const INTERNAL_HMAC_PATHS = new Set([
   PANEL_BROWSER_BINDING_INTERNAL_PATH,
   SELF_SERVE_INTERNAL_CALLBACK_PATH,
   "/api/internal/platform-invitations",
+  "/api/internal/admin-login-security",
+  "/api/security/admin-login/logto-events",
 ]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
   "/branding",
