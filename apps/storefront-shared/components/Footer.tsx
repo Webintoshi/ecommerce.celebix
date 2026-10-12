@@ -5,8 +5,10 @@ import type {
   PublicDesignMedia,
 } from "@celebix/saas-contracts";
 import Link from "next/link";
+import { cache } from "react";
 
 import { mergePublishedPolicyFooterGroups } from "@/lib/footer-policies.ts";
+import { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks } from "@/lib/footer-required-pages.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
@@ -34,20 +36,29 @@ const LEGACY_GROUPS = Object.freeze([
   }),
 ]) satisfies PublicStarterThemePresentationV3["footer"]["groups"];
 
-async function publicPolicyIndex(storefront: PublicStorefront) {
+const publicPolicyIndex = cache(async (hostname: string) => {
   const resolution = await resolveStorefrontPage();
   if (
     resolution.kind !== "active"
-    || resolution.context.storefront.hostname !== storefront.hostname
+    || resolution.context.storefront.hostname !== hostname
   ) return EMPTY_POLICY_INDEX;
   return resolution.context.runtime.content.listPolicies({
-    hostname: storefront.hostname,
+    hostname,
     now: new Date(),
   }).catch(() => Object.freeze([]) as readonly PublicPolicyPage[]);
-}
+});
+
+const publicRequiredPageIndex = cache(async (hostname: string) => {
+  const resolution = await resolveStorefrontPage();
+  if (resolution.kind !== "active" || resolution.context.storefront.hostname !== hostname) return Object.freeze([]);
+  return readPublishedRequiredPageFooterLinks(resolution.context.runtime.content, hostname, new Date());
+});
 
 export async function Footer({ storefront, logo, checkout = false }: { storefront: PublicStorefront; logo?: PublicDesignMedia; checkout?: boolean }) {
-  const policies = await publicPolicyIndex(storefront);
+  const [policies, requiredPages] = await Promise.all([
+    publicPolicyIndex(storefront.hostname),
+    checkout ? Promise.resolve(Object.freeze([])) : publicRequiredPageIndex(storefront.hostname),
+  ]);
   const signature = <SharedFooterSignature />;
   if (checkout) {
     const groups = mergePublishedPolicyFooterGroups(
@@ -57,7 +68,9 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
     return <CheckoutFooter groups={groups} storefront={storefront} signature={signature} />;
   }
   if (storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4) {
-    const groups = mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies);
+    const groups = mergePublishedRequiredPageFooterGroups(
+      mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies), requiredPages,
+    );
     if (lilyumThemeFor(storefront)) return <LilyumFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
     if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
     if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
@@ -74,7 +87,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
     );
   }
   const { displayName, supportEmail } = storefront.presentation;
-  const groups = mergePublishedPolicyFooterGroups(LEGACY_GROUPS, policies);
+  const groups = mergePublishedRequiredPageFooterGroups(mergePublishedPolicyFooterGroups(LEGACY_GROUPS, policies), requiredPages);
   return (
     <footer className="store-footer">
       <div className="store-container footer-grid">

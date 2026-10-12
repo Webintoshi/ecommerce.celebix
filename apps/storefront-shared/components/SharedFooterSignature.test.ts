@@ -5,6 +5,7 @@ import test from "node:test";
 import React from "react";
 import { buildDefaultStarterPresentation, FIXED_STOREFRONT_POLICIES, type PublicStorefront } from "@celebix/saas-contracts";
 import { mergePublishedPolicyFooterGroups } from "../lib/footer-policies.ts";
+import { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks } from "../lib/footer-required-pages.ts";
 import { localizeStorefrontPath } from "../lib/storefront-routes.ts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
@@ -13,6 +14,7 @@ const tenantCases = [
   { name: "Alpler", id: "9f1f6aed-8719-407e-b64c-fd8e956d3277", footerClass: "alpler-footer" },
   { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "guzide-footer" },
   { name: "Generic", id: "00000000-0000-4000-8000-000000000001", footerClass: "retail-footer" },
+  { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "lf-footer" },
 ] as const;
 
 function storefront(id: string, name: string, legacy = false): PublicStorefront {
@@ -29,10 +31,11 @@ function storefront(id: string, name: string, legacy = false): PublicStorefront 
   };
 }
 
-async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>) {
+async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>, content: Record<string, unknown> = {}) {
   const load = componentLoader({
-    "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context: { storefront: store, runtime: { content: { listPolicies: async () => FIXED_STOREFRONT_POLICIES.map(definition => ({ ...definition, published: definition.key === "kvkk" })) } } } }) },
+    "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context: { storefront: store, runtime: { content: { listPolicies: async () => FIXED_STOREFRONT_POLICIES.map(definition => ({ ...definition, published: definition.key === "kvkk" })), ...content } } } }) },
     "@/lib/footer-policies.ts": { mergePublishedPolicyFooterGroups },
+    "@/lib/footer-required-pages.ts": { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks },
     "@/lib/storefront-routes.ts": { localizeStorefrontPath },
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
   });
@@ -40,6 +43,49 @@ async function renderFooter(store: PublicStorefront, checkout: boolean, run: (co
   const element = await Footer({ storefront: store, checkout, logo: { url: "https://media.example/tenant-logo.png", altText: "Mağaza logosu" } });
   await withProductBrowser(async ({ container, render }) => { await render(element); await run(container); });
 }
+
+function requiredContent(calls: string[]) {
+  return {
+    getLocales: async () => { calls.push("locales"); return { defaultLocale: "tr", enabledLocales: ["tr"] }; },
+    getRequiredPage: async ({ key, locale }: { key: string; locale: string }) => {
+      calls.push(key);
+      return {
+        id: `page-${key}`, kind: "page", requiredPageKey: key, locale,
+        slug: key === "about" ? "biz-kimiz" : key === "contact" ? "bize-ulasin" : "haberler",
+        title: key === "about" ? "Hakkımızda" : key === "contact" ? "İletişim" : "Blog",
+        body: "<p>Mağazamızın yayımlanmış gerçek içeriği.</p>", bodyFormat: "normalized_html",
+        excerpt: null, seoTitle: null, seoDescription: null,
+        publishedAt: "2026-10-12T00:00:00.000Z", updatedAt: "2026-10-12T00:00:00.000Z",
+      };
+    },
+  };
+}
+
+for (const tenant of [...tenantCases, { name: "Legacy", id: tenantCases[3].id, footerClass: "store-footer" }]) {
+  test(`${tenant.name} footer automatically links exactly the three published required pages`, async () => {
+    const calls: string[] = [];
+    const store = storefront(tenant.id, tenant.name, tenant.name === "Legacy");
+    await renderFooter(store, false, async container => {
+      assertSignature(container);
+      for (const destination of ["/pages/biz-kimiz", "/pages/bize-ulasin", "/blog"]) {
+        assert.ok(container.querySelector(`footer a[href="${destination}"]`), destination);
+      }
+      assert.equal(container.querySelector('footer a[href="/pages/haberler"]'), null, "Blog uses its index route");
+      assert.ok(container.querySelector(`footer.${tenant.footerClass}`));
+    }, requiredContent(calls));
+    assert.deepEqual(calls, ["locales", "about", "contact", "blog"]);
+  });
+}
+
+test("checkout remains policy-only and never reads required content pages", async () => {
+  const calls: string[] = [];
+  await renderFooter(storefront(tenantCases[1].id, "Alpler"), true, async container => {
+    assertSignature(container);
+    assert.equal(container.querySelector('a[href="/blog"]'), null);
+    assert.equal(container.querySelector('a[href^="/pages/"]'), null);
+  }, requiredContent(calls));
+  assert.deepEqual(calls, []);
+});
 
 function assertSignature(container: HTMLElement) {
   const footer = container.querySelector("footer");
