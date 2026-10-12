@@ -1,4 +1,39 @@
 import assert from "node:assert/strict";
+test("sales filter RPCs keep bounded server pagination and filter-bound cursor replay", async () => {
+  const metadata = { customerId: null, currentCustomer: null, salesChannel: "social", socialPlatform: "instagram", socialReference: null, fulfillmentMethod: "pickup" };
+  const makeClient = () => new FakeClient(sql => sql.includes("saas.orders_list_filtered_v2(") || sql.includes("saas.orders_list_archived_filtered_v2(")
+    ? [{ outcome: "listed", result_payload: { items: [{ ...listItem(), source: "in_store", ...metadata }], nextCursor: { totalCents: 13000, createdAt: "2026-07-20T10:00:00.000000Z", id: ORDER_ID } } }] : []);
+  const firstClient = makeClient();
+  const authority = { tenantContext: tenantContext(), now: NOW, pageSize: 1, ordersVersion: 2 as const, salesChannel: "social" as const, socialPlatform: "instagram" as const };
+  const first = await repository(new FakePool(firstClient)).listOrders(authority);
+  assert.equal(first.items[0]!.socialPlatform, "instagram");
+  assert.deepEqual(functionCall(firstClient, "orders_list_filtered_v2").values.slice(7), [null, null, "newest", 1, null, null, null, "social", "instagram"]);
+  const secondClient = makeClient();
+  await repository(new FakePool(secondClient)).listOrders({ ...authority, cursor: first.nextCursor });
+  assert.deepEqual(functionCall(secondClient, "orders_list_filtered_v2").values.slice(11), [13000, "2026-07-20T10:00:00.000000Z", ORDER_ID, "social", "instagram"]);
+  const pool = new FakePool(); const repo = repository(pool);
+  for (const changed of [{ socialPlatform: "facebook" }, { salesChannel: "manual", socialPlatform: undefined }]) {
+    await assert.rejects(repo.listOrders({ ...authority, ...changed, cursor: first.nextCursor } as never), e => e instanceof OrderRepositoryError && e.code === "invalid_input");
+  }
+  await assert.rejects(repo.listOrders({ tenantContext: tenantContext(), now: NOW, pageSize: 1, ordersVersion: 2, cursor: first.nextCursor }), e => e instanceof OrderRepositoryError && e.code === "invalid_input");
+  await assert.rejects(repo.listArchivedOrders({ ...authority, cursor: first.nextCursor }), e => e instanceof OrderRepositoryError && e.code === "invalid_input");
+  assert.equal(pool.connects, 0);
+  const archived = makeClient();
+  await repository(new FakePool(archived)).listArchivedOrders(authority);
+  assert.equal(functionCall(archived, "orders_list_archived_filtered_v2").values.at(-2), "social");
+});
+
+test("sales filters preserve the legacy response contract and reject invalid combinations before acquiring a database client", async () => {
+  const v2 = { ...listItem(), source: "in_store", customerId: null, currentCustomer: null, salesChannel: "manual", socialPlatform: null, socialReference: null, fulfillmentMethod: "pickup" };
+  const client = new FakeClient(sql => sql.includes("saas.orders_list_filtered_v2(") ? [{ outcome: "listed", result_payload: { items: [v2] } }] : []);
+  const listed = await repository(new FakePool(client)).listOrders({ tenantContext: tenantContext(), now: NOW, pageSize: 20, salesChannel: "manual" } as never);
+  assert.deepEqual(listed.items, [{ ...listItem(), source: "in_store" }]);
+  const pool = new FakePool(); const repo = repository(pool);
+  for (const filters of [{ salesChannel: "all" }, { socialPlatform: "instagram" }, { salesChannel: "manual", socialPlatform: "instagram" }, { salesChannel: "social", socialPlatform: "unknown" }]) {
+    await assert.rejects(repo.listOrders({ tenantContext: tenantContext(), now: NOW, pageSize: 20, ...filters } as never), e => e instanceof OrderRepositoryError && e.code === "invalid_input");
+  }
+  assert.equal(pool.connects, 0);
+});
 test("orders reader 2 selects additive list and detail RPCs while reader 1 retains its shape", async () => {
   const metadata = { customerId: NOTE_ID, currentCustomer: { id: NOTE_ID, name: "Corrected name", email: null, phone: null, archived: true }, salesChannel: null, socialPlatform: null, socialReference: null, fulfillmentMethod: null };
   const client = () => new FakeClient(sql => {

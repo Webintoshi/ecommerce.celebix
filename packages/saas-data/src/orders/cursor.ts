@@ -1,4 +1,4 @@
-import type { OrderListItem, OrderSort, OrderStatus } from "@celebix/saas-contracts";
+import type { OrderListItem, OrderSalesFilters, OrderSort, OrderStatus } from "@celebix/saas-contracts";
 
 import { orderFingerprint } from "./canonical.ts";
 import { OrderRepositoryError } from "./errors.ts";
@@ -31,6 +31,7 @@ function binding(
   search: string | undefined,
   sort: OrderSort,
   cursor: DatabaseOrderCursor,
+  filters: OrderSalesFilters = {},
 ): string {
   return orderFingerprint("list_cursor", storeId, {
     status: status ?? null,
@@ -39,6 +40,7 @@ function binding(
     totalCents: cursor.totalCents,
     createdAt: cursor.createdAt,
     id: cursor.id,
+    ...(filters.salesChannel === undefined ? {} : { salesChannel: filters.salesChannel, socialPlatform: filters.socialPlatform ?? null }),
   });
 }
 
@@ -80,10 +82,11 @@ export function encodeOrderCursor(
   search: string | undefined,
   sort: OrderSort,
   cursor: DatabaseOrderCursor,
+  filters: OrderSalesFilters = {},
 ): string {
   return Buffer.from(JSON.stringify({
     version: 2,
-    binding: binding(storeId, status, search, sort, cursor),
+    binding: binding(storeId, status, search, sort, cursor, filters),
     sort,
     totalCents: cursor.totalCents,
     createdAt: cursor.createdAt,
@@ -97,6 +100,7 @@ export function decodeOrderCursor(
   status: OrderStatus | undefined,
   search: string | undefined,
   sort: OrderSort,
+  filters: OrderSalesFilters = {},
 ): OrderCursor | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || value.length < 1 || value.length > 1_024 || !/^[A-Za-z0-9_-]+$/.test(value)) fail();
@@ -117,7 +121,7 @@ export function decodeOrderCursor(
       createdAt: timestamp(parsed.createdAt),
       id: parsed.id,
     });
-    if (parsed.binding !== binding(storeId, status, search, sort, cursor)) fail();
+    if (parsed.binding !== binding(storeId, status, search, sort, cursor, filters)) fail();
     return Object.freeze(parsed) as unknown as OrderCursor;
   } catch (error) {
     if (error instanceof OrderRepositoryError) throw error;

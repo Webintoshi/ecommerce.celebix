@@ -6,12 +6,14 @@ import {
   STORE_DOMAIN_TYPES,
   STORE_MEMBERSHIP_ROLES,
   parseOrderDetail,
+  parseOrderSalesFilters,
   parseOrderDeliveryId,
   parseOrderDraftSaveIntent,
   type OrderAddress,
   type OrderDraftSaveIntent,
   type OrderPaymentStatus,
   type OrderSort,
+  type OrderSalesFilters,
   type OrderStatus,
   type OrderTracking,
   type PlanFeatureKey,
@@ -166,6 +168,10 @@ export function exactOrderInput(
   optional: readonly string[] = [],
 ): Readonly<Record<string, unknown>> {
   return exact(value, required, optional, "invalid_input");
+}
+
+export function orderSalesFilters(salesChannel: unknown, socialPlatform: unknown): OrderSalesFilters {
+  return contain(() => parseOrderSalesFilters({ salesChannel, socialPlatform }), "invalid_input");
 }
 
 export function orderUuid(value: unknown): string {

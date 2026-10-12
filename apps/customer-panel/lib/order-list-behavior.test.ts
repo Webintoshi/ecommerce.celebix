@@ -101,3 +101,54 @@ test("search stays submit-based and clearing a submitted query restores the serv
   (view.props.onClearSearch as () => void)(); view = await runtime.flush(Console);
   assert.equal(view.props.search, ""); assert.deepEqual(requests[2], { pageSize: 20, sort: "newest" });
 });
+
+test("channel and platform selections filter server pages and leaving social clears its platform", async () => {
+  const runtime = hooks(); const requests: unknown[] = [];
+  const instagram: OrderListItem = { ...item, source: "in_store", salesChannel: "social", socialPlatform: "instagram" };
+  const instagramNext: OrderListItem = { ...instagram, id: second.id, orderNumber: "POS-000002" };
+  const manual: OrderListItem = { ...second, source: "in_store", salesChannel: "manual", socialPlatform: null };
+  const exported = await compile({ async listOrders(input) {
+    requests.push(input);
+    const selection = input as { salesChannel?: string; socialPlatform?: string; cursor?: string };
+    if (selection.salesChannel === "manual") return { items: [manual] };
+    if (selection.socialPlatform === "instagram") return selection.cursor ? { items: [instagramNext] } : { items: [instagram], nextCursor: "instagram-page-2" };
+    return { items: [item], nextCursor: "all-page-2" };
+  } }, runtime.runtime);
+  const Console = exported.OrderListConsole as () => React.ReactElement<Record<string, unknown>>;
+  let view = await runtime.flush(Console);
+  assert.equal(typeof view.props.onSalesChannelChange, "function", "the server channel selection must be available");
+  (view.props.onSalesChannelChange as (value: string) => void)("social"); view = await runtime.flush(Console);
+  (view.props.onSocialPlatformChange as (value: string) => void)("instagram"); view = await runtime.flush(Console);
+  assert.equal(view.props.salesChannel, "social"); assert.equal(view.props.socialPlatform, "instagram");
+  assert.deepEqual(view.props.items, [instagram]);
+  (view.props.onLoadMore as () => void)(); view = await runtime.flush(Console);
+  assert.deepEqual(view.props.items, [instagram, instagramNext]);
+  assert.deepEqual(requests[3], { pageSize: 20, cursor: "instagram-page-2", salesChannel: "social", socialPlatform: "instagram", sort: "newest" });
+  (view.props.onSalesChannelChange as (value: string) => void)("manual"); view = await runtime.flush(Console);
+  assert.equal(view.props.socialPlatform, "all"); assert.deepEqual(view.props.items, [manual]);
+  assert.deepEqual(requests[4], { pageSize: 20, salesChannel: "manual", sort: "newest" });
+  (view.props.onReset as () => void)(); view = await runtime.flush(Console);
+  assert.equal(view.props.salesChannel, "all"); assert.equal(view.props.socialPlatform, "all");
+  assert.deepEqual(requests[5], { pageSize: 20, sort: "newest" });
+});
+
+test("a delayed social page cannot append after switching to manual sales", async () => {
+  const runtime = hooks(); const delayed = defer<{ items: OrderListItem[] }>(); const requests: unknown[] = [];
+  const social: OrderListItem = { ...item, source: "in_store", salesChannel: "social", socialPlatform: "instagram" };
+  const manual: OrderListItem = { ...second, source: "in_store", salesChannel: "manual", socialPlatform: null };
+  const exported = await compile({ async listOrders(input) {
+    requests.push(input);
+    const selection = input as { salesChannel?: string; cursor?: string };
+    if (selection.cursor) return delayed.promise;
+    return selection.salesChannel === "social" ? { items: [social], nextCursor: "social-page-2" } : { items: [manual] };
+  } }, runtime.runtime);
+  const Console = exported.OrderListConsole as () => React.ReactElement<Record<string, unknown>>;
+  let view = await runtime.flush(Console);
+  assert.equal(typeof view.props.onSalesChannelChange, "function", "channel changes must invalidate pending pages");
+  (view.props.onSalesChannelChange as (value: string) => void)("social"); view = await runtime.flush(Console);
+  (view.props.onLoadMore as () => void)(); view = await runtime.flush(Console);
+  (view.props.onSalesChannelChange as (value: string) => void)("manual"); view = await runtime.flush(Console);
+  delayed.resolve({ items: [social] }); view = await runtime.flush(Console);
+  assert.equal(view.props.salesChannel, "manual"); assert.equal(view.props.loadingMore, false);
+  assert.deepEqual(view.props.items, [manual]); assert.equal(view.props.nextCursor, undefined);
+});

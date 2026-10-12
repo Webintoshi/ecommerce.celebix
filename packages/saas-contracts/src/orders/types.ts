@@ -11,6 +11,11 @@ export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number];
 export const ORDER_SOURCES = Object.freeze(["storefront", "quick_link", "marketplace", "manual_import", "manual", "in_store"] as const);
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
+export const ORDER_SALES_CHANNEL_FILTERS = Object.freeze(["manual", "social", "storefront", "quick_link", "marketplace", "manual_import"] as const);
+export type OrderSalesChannelFilter = (typeof ORDER_SALES_CHANNEL_FILTERS)[number];
+export const ORDER_SOCIAL_PLATFORMS = Object.freeze(["instagram", "facebook", "x", "pinterest", "tiktok", "whatsapp", "other"] as const);
+export type OrderSalesFilters = Readonly<{ salesChannel?: OrderSalesChannelFilter; socialPlatform?: OrderSocialPlatform }>;
+
 export const ORDER_EMAIL_EVENT_TYPES = Object.freeze([
   "order_received", "payment_completed", "order_shipped", "order_delivered",
   "order_cancelled", "refund_completed", "merchant_new_order",
@@ -121,7 +126,7 @@ export interface OrderDetail extends OrderListItem {
   readonly notes: readonly OrderNote[];
 }
 
-export type OrderSocialPlatform = "instagram" | "facebook" | "x" | "pinterest" | "tiktok" | "whatsapp" | "other";
+export type OrderSocialPlatform = (typeof ORDER_SOCIAL_PLATFORMS)[number];
 export interface OrderCurrentCustomer {
   readonly id: string;
   readonly name: string;

@@ -4,6 +4,8 @@ import {
   ORDER_EMAIL_EVENT_TYPES,
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
+  ORDER_SALES_CHANNEL_FILTERS,
+  ORDER_SOCIAL_PLATFORMS,
   ORDER_STATUSES,
   type OrderAddress,
   type OrderDashboardSummary,
@@ -22,6 +24,8 @@ import {
   type OrderDetailV2,
   type OrderListItemV2,
   type OrderSocialPlatform,
+  type OrderSalesChannelFilter,
+  type OrderSalesFilters,
   type OrderEvent,
   type OrderItem,
   type OrderListItem,
@@ -66,6 +70,17 @@ function exact(value: unknown, required: readonly string[], optional: readonly s
   const keys = Object.keys(parsed);
   if (required.some((key) => !Object.hasOwn(parsed, key)) || keys.some((key) => !allowed.has(key))) invalid();
   return parsed;
+}
+
+export function parseOrderSalesFilters(value: unknown): OrderSalesFilters {
+  const parsed = exact(value, [], ["salesChannel", "socialPlatform"]);
+  const salesChannel = parsed.salesChannel === undefined ? undefined : status<OrderSalesChannelFilter>(parsed.salesChannel, ORDER_SALES_CHANNEL_FILTERS);
+  const socialPlatform = parsed.socialPlatform === undefined ? undefined : status<OrderSocialPlatform>(parsed.socialPlatform, ORDER_SOCIAL_PLATFORMS);
+  if (socialPlatform !== undefined && salesChannel !== "social") invalid();
+  return Object.freeze({
+    ...(salesChannel === undefined ? {} : { salesChannel }),
+    ...(socialPlatform === undefined ? {} : { socialPlatform }),
+  });
 }
 
 function string(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
@@ -276,7 +291,7 @@ function readerV2(value: unknown) {
   };
   if (currentCustomer !== null && currentCustomer.id !== customerId) invalid();
   const salesChannel = parsed.salesChannel === null ? null : status<"manual" | "social">(parsed.salesChannel, ["manual", "social"]);
-  const socialPlatform = parsed.socialPlatform === null ? null : status<OrderSocialPlatform>(parsed.socialPlatform, ["instagram", "facebook", "x", "pinterest", "tiktok", "whatsapp", "other"]);
+  const socialPlatform = parsed.socialPlatform === null ? null : status<OrderSocialPlatform>(parsed.socialPlatform, ORDER_SOCIAL_PLATFORMS);
   const socialReference = parsed.socialReference === null ? null : string(parsed.socialReference, 1, 500);
   if ((salesChannel === "social") !== (socialPlatform !== null) || (salesChannel !== "social" && socialReference !== null)) invalid();
   const fulfillmentMethod = parsed.fulfillmentMethod === null ? null : status<"pickup" | "shipping">(parsed.fulfillmentMethod, ["pickup", "shipping"]);

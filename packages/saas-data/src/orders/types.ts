@@ -11,6 +11,8 @@ import type {
   OrderNeighbors,
   OrderPaymentStatus,
   OrderSort,
+  OrderSalesChannelFilter,
+  OrderSocialPlatform,
   OrderStatus,
   OrderTracking,
   PermanentDeletionCommand,
@@ -33,6 +35,8 @@ export interface ListOrdersInput extends OrderAuthorityInput {
   readonly status?: OrderStatus;
   readonly search?: string;
   readonly sort?: OrderSort;
+  readonly salesChannel?: OrderSalesChannelFilter;
+  readonly socialPlatform?: OrderSocialPlatform;
 }
 
 export interface GetOrderInput extends OrderAuthorityInput {

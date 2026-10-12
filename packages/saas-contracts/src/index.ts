@@ -304,6 +304,8 @@ export {
   ORDER_EMAIL_EVENT_TYPES,
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
+  ORDER_SALES_CHANNEL_FILTERS,
+  ORDER_SOCIAL_PLATFORMS,
   ORDER_STATUSES,
   ORDER_SORTS,
   parseOrderDashboardSummary,
@@ -318,6 +320,7 @@ export {
   parseOrderDraftListItem,
   parseOrderDraftSaveIntent,
   parseOrderListItem,
+  parseOrderSalesFilters,
   parseOrderNeighbors,
 } from "./orders/index.ts";
 export {
@@ -454,6 +457,8 @@ export type {
   OrderListItemV2,
   OrderCurrentCustomer,
   OrderSocialPlatform,
+  OrderSalesChannelFilter,
+  OrderSalesFilters,
   OrderDraftConversionResult,
   OrderDraftDetail,
   OrderDraftLine,

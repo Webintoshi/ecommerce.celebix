@@ -1,4 +1,22 @@
 import assert from "node:assert/strict";
+test("order list and archive accept validated sale channel and social platform query filters", async () => {
+  const calls: unknown[] = [];
+  const metadata = { customerId: null, currentCustomer: null, salesChannel: "social", socialPlatform: "instagram", socialReference: null, fulfillmentMethod: "pickup" } as const;
+  const handlers = createOrderHttpHandlers(dependencies(repository({
+    async listOrders(input) { calls.push(input); return { items: [{ ...listItem(), source: "in_store", ...metadata }] }; },
+    async listArchivedOrders(input) { calls.push(input); return { items: [{ ...listItem(), source: "in_store", ...metadata }] }; },
+  })));
+  for (const [path, read] of [[ORDERS, handlers.listOrders], [`${ORDERS}/archive`, handlers.listArchivedOrders]] as const) {
+    const response = await read(request(`${path}?salesChannel=social&socialPlatform=instagram`, { headers: { "X-Celebix-Orders-Version": "2" } }));
+    assert.equal(response.status, 200);
+    assert.equal((await body(response)).items[0].socialPlatform, "instagram");
+    assert.deepEqual(calls.at(-1), { tenantContext: tenantContext(), now: NOW, pageSize: 20, sort: "newest", salesChannel: "social", socialPlatform: "instagram", ordersVersion: 2 });
+    for (const query of ["salesChannel=all", "salesChannel=", "socialPlatform=instagram", "salesChannel=manual&socialPlatform=instagram", "salesChannel=social&socialPlatform=unknown", "salesChannel=social&socialPlatform=", "salesChannel=social&salesChannel=manual", "salesChannel=social&socialPlatform=instagram&socialPlatform=facebook"]) {
+      assert.equal((await read(request(`${path}?${query}`))).status, 400, query);
+    }
+  }
+  assert.equal(calls.length, 2);
+});
 test("orders version 2 negotiates current customer for list archive and detail without widening legacy responses", async () => {
   const metadata = { customerId: NOTE_ID, currentCustomer: { id: NOTE_ID, name: "Corrected name", email: null, phone: null, archived: true }, salesChannel: null, socialPlatform: null, socialReference: null, fulfillmentMethod: null };
   const calls: unknown[] = [];

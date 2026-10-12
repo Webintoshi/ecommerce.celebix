@@ -4,6 +4,7 @@ import {
   ORDER_SORTS,
   ORDER_STATUSES,
   parseOrderDetail,
+  parseOrderSalesFilters,
   parseOrderDraftSaveIntent,
   parsePermanentDeletionCommand,
   type PermanentDeletionCommand,
@@ -11,6 +12,7 @@ import {
   type OrderDraftSaveIntent,
   type OrderPaymentStatus,
   type OrderSort,
+  type OrderSalesFilters,
   type OrderStatus,
   type OrderTracking,
 } from "@celebix/saas-contracts";
@@ -205,7 +207,7 @@ export type OrderListInput = Readonly<{
   status?: OrderStatus;
   search?: string;
   sort: OrderSort;
-}>;
+}> & OrderSalesFilters;
 
 export function readOrderListInput(request: Request): Invalid | Readonly<{ kind: "valid"; value: OrderListInput }> {
   let url: URL;
@@ -217,7 +219,7 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
   ) return INVALID;
   const entries = [...url.searchParams.entries()];
   if (
-    entries.some(([key]) => !["pageSize", "cursor", "status", "search", "sort"].includes(key)) ||
+    entries.some(([key]) => !["pageSize", "cursor", "status", "search", "sort", "salesChannel", "socialPlatform"].includes(key)) ||
     new Set(entries.map(([key]) => key)).size !== entries.length
   ) return INVALID;
   const rawPageSize = url.searchParams.get("pageSize");
@@ -228,6 +230,13 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
   const rawStatus = url.searchParams.get("status");
   const search = url.searchParams.get("search");
   const rawSort = url.searchParams.get("sort");
+  let salesFilters: OrderSalesFilters;
+  try {
+    salesFilters = parseOrderSalesFilters({
+      ...(url.searchParams.has("salesChannel") ? { salesChannel: url.searchParams.get("salesChannel") } : {}),
+      ...(url.searchParams.has("socialPlatform") ? { socialPlatform: url.searchParams.get("socialPlatform") } : {}),
+    });
+  } catch { return INVALID; }
   if (
     pageSize === null || (cursor !== null && !CURSOR.test(cursor)) ||
     (rawStatus !== null && !ORDER_STATUSES.includes(rawStatus as OrderStatus)) ||
@@ -244,6 +253,7 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
       ...(rawStatus === null ? {} : { status: rawStatus as OrderStatus }),
       ...(search === null ? {} : { search }),
       sort: (rawSort ?? "newest") as OrderSort,
+      ...salesFilters,
     }),
   });
 }

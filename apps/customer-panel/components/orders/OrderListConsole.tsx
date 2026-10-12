@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { OrderListItem, OrderPaymentStatus, OrderSort, OrderStatus } from "@celebix/saas-contracts";
+import type { OrderListItem, OrderPaymentStatus, OrderSalesChannelFilter, OrderSocialPlatform, OrderSort, OrderStatus } from "@celebix/saas-contracts";
 
 import { PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
@@ -17,6 +17,8 @@ export type OrderDateRange = "all" | "today" | "last7" | "last30";
 export type OrderFulfillment = "all" | "unfulfilled" | "preparing" | "shipped" | "delivered" | "not_applicable";
 export type OrderColumnKey = "date" | "customer" | "status" | "payment" | "items" | "source" | "total";
 export type OrderColumnVisibility = Readonly<Record<OrderColumnKey, boolean>>;
+export type OrderSalesChannelSelection = OrderSalesChannelFilter | "all";
+export type OrderSocialPlatformSelection = OrderSocialPlatform | "all";
 
 const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
   pending: "Oluşturuldu",
@@ -41,6 +43,19 @@ const SOURCE_LABELS: Readonly<Record<OrderListItem["source"], string>> = Object.
   manual_import: "Manuel aktarım",
   manual: "Manuel satış",
   in_store: "Manuel satış",
+});
+const SALES_CHANNEL_FILTER_LABELS: Readonly<Record<OrderSalesChannelSelection, string>> = Object.freeze({
+  all: "Tüm kanallar",
+  manual: "Manuel satış",
+  social: "Sosyal medya",
+  storefront: "Online mağaza",
+  quick_link: "Ödeme bağlantısı",
+  marketplace: "Pazar yeri",
+  manual_import: "Manuel aktarım",
+});
+const SOCIAL_PLATFORM_LABELS: Readonly<Record<OrderSocialPlatform, string>> = Object.freeze({
+  instagram: "Instagram", facebook: "Facebook", x: "X", pinterest: "Pinterest",
+  tiktok: "TikTok", whatsapp: "WhatsApp", other: "Diğer",
 });
 const FULFILLMENT_FILTER_LABELS: Readonly<Record<OrderFulfillment, string>> = Object.freeze({
   all: "Tüm teslimatlar",
@@ -160,13 +175,15 @@ export function serializeOrderListCsv(items: readonly OrderListItem[]) {
 
 export async function requestOrderListPage(
   api: Pick<typeof orderApi, "listOrders">,
-  input: Readonly<{ cursor?: string; status: OrderStatus | "all"; search: string; sort: OrderSort }>,
+  input: Readonly<{ cursor?: string; status: OrderStatus | "all"; search: string; sort: OrderSort; salesChannel?: OrderSalesChannelSelection; socialPlatform?: OrderSocialPlatformSelection }>,
 ): Promise<OrderListPage> {
   return api.listOrders({
     pageSize: 20,
     ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
     ...(input.status === "all" ? {} : { status: input.status }),
     ...(input.search === "" ? {} : { search: input.search }),
+    ...(input.salesChannel === undefined || input.salesChannel === "all" ? {} : { salesChannel: input.salesChannel }),
+    ...(input.salesChannel !== "social" || input.socialPlatform === undefined || input.socialPlatform === "all" ? {} : { socialPlatform: input.socialPlatform }),
     sort: input.sort,
   });
 }
@@ -189,6 +206,8 @@ export interface OrderListPresentationProps {
   readonly dateRange: OrderDateRange;
   readonly payment: OrderPaymentStatus | "all";
   readonly fulfillment: OrderFulfillment;
+  readonly salesChannel?: OrderSalesChannelSelection;
+  readonly socialPlatform?: OrderSocialPlatformSelection;
   readonly loadedCount: number;
   readonly visibleColumns: OrderColumnVisibility;
   readonly nextCursor?: string;
@@ -201,6 +220,8 @@ export interface OrderListPresentationProps {
   readonly onDateRangeChange: (value: OrderDateRange) => void;
   readonly onPaymentChange: (value: OrderPaymentStatus | "all") => void;
   readonly onFulfillmentChange: (value: OrderFulfillment) => void;
+  readonly onSalesChannelChange?: (value: OrderSalesChannelSelection) => void;
+  readonly onSocialPlatformChange?: (value: OrderSocialPlatformSelection) => void;
   readonly onColumnVisibilityChange: (column: OrderColumnKey, visible: boolean) => void;
   readonly onExport: () => void;
   readonly onLoadMore: () => void;
@@ -233,9 +254,11 @@ function OrderCard({ order, visibleColumns }: { order: OrderListItem; visibleCol
 
 export function OrderListPresentation(props: OrderListPresentationProps) {
   const [dialog, setDialog] = useState<"filters" | "columns" | "export" | null>(null);
-  const [draft, setDraft] = useState({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment });
+  const salesChannel = props.salesChannel ?? "all";
+  const socialPlatform = props.socialPlatform ?? "all";
+  const [draft, setDraft] = useState({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment, salesChannel, socialPlatform });
   const searchRef = useRef<HTMLInputElement>(null);
-  const activeFilters = Number(props.status !== "all") + Number(props.dateRange !== "all") + Number(props.payment !== "all") + Number(props.fulfillment !== "all");
+  const activeFilters = Number(props.status !== "all") + Number(props.dateRange !== "all") + Number(props.payment !== "all") + Number(props.fulfillment !== "all") + Number(salesChannel !== "all") + Number(socialPlatform !== "all");
   const hasLocalFilter = props.dateRange !== "all" || props.payment !== "all" || props.fulfillment !== "all";
 
   useEffect(() => {
@@ -253,10 +276,11 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     if (props.onReset) props.onReset();
     else {
       props.onStatusChange("all"); props.onDateRangeChange("all"); props.onPaymentChange("all"); props.onFulfillmentChange("all");
+      props.onSalesChannelChange?.("all"); props.onSocialPlatformChange?.("all");
     }
   }
   function openFilters() {
-    setDraft({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment });
+    setDraft({ status: props.status, dateRange: props.dateRange, payment: props.payment, fulfillment: props.fulfillment, salesChannel, socialPlatform });
     setDialog("filters");
   }
   function clearSearch() {
@@ -267,6 +291,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
   function applyFilters(event: FormEvent) {
     event.preventDefault();
     props.onStatusChange(draft.status); props.onDateRangeChange(draft.dateRange); props.onPaymentChange(draft.payment); props.onFulfillmentChange(draft.fulfillment);
+    props.onSalesChannelChange?.(draft.salesChannel); props.onSocialPlatformChange?.(draft.salesChannel === "social" ? draft.socialPlatform : "all");
     setDialog(null);
   }
 
@@ -303,11 +328,25 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
         <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/quick-links"><Plus aria-hidden="true" /><span>Manuel satış</span></Link></div>
       </div>
       <div className={styles.viewbar}><div className={styles.statusShortcuts} aria-label="Sipariş durumu">{([ ["all", "Tümü"], ["pending", "Onay bekleyen"], ["preparing", "Hazırlanıyor"], ["shipped", "Kargolandı"], ["delivered", "Teslim edildi"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={props.status === value} className={props.status === value ? styles.activeShortcut : styles.shortcut} onClick={() => props.onStatusChange(value)}>{label}</button>)}</div><div className={styles.viewTools}><button className={styles.quietButton} type="button" onClick={openFilters} aria-haspopup="dialog"><SlidersHorizontal aria-hidden="true" />Filtreler{activeFilters ? <span className={styles.filterCount}>{activeFilters}</span> : null}</button><label className={styles.sortControl}><ArrowDownUp aria-hidden="true" /><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten</option><option value="lowest">Tutar: düşükten</option></select></label></div></div>
-      {activeFilters > 0 ? <div className={styles.appliedFilters}><span>{props.state === "loaded" ? `${props.items.length} gösteriliyor` : "Filtreler uygulanıyor"}{hasLocalFilter ? " · Yüklenen siparişlerde" : ""}</span><button className={styles.quietButton} type="button" onClick={resetFilters}>Filtreleri temizle <X aria-hidden="true" /></button></div> : null}
+      {activeFilters > 0 ? <div className={styles.appliedFilters}><span>{props.state === "loaded" ? `${props.items.length} gösteriliyor` : "Filtreler uygulanıyor"}{hasLocalFilter ? " · Yüklenen siparişlerde" : ""}</span>{salesChannel !== "all" ? <span>Satış kanalı: {SALES_CHANNEL_FILTER_LABELS[salesChannel]}</span> : null}{socialPlatform !== "all" ? <span>Platform: {SOCIAL_PLATFORM_LABELS[socialPlatform]}</span> : null}<button className={styles.quietButton} type="button" onClick={resetFilters}>Filtreleri temizle <X aria-hidden="true" /></button></div> : null}
       <div className={styles.dataSurface} aria-busy={props.state === "loading"}>{content}</div>
       {props.state === "loaded" ? <footer className={styles.listFooter}><span>{props.items.length} gösteriliyor · {props.loadedCount} sipariş yüklendi</span><div>{props.loadMoreError ? <div className={styles.loadMoreError} role="alert"><span>{props.loadMoreError}</span></div> : null}{props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : props.loadMoreError ? "Tekrar dene" : "Daha fazla sipariş yükle"}<ChevronDown aria-hidden="true" /></button> : null}</div></footer> : null}
     </section>
-    <OrderActionDialog open={dialog === "filters"} title="Filtreler" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDraft({ status: "all", dateRange: "all", payment: "all", fulfillment: "all" })}>Temizle</button><button className={styles.primaryAction} type="submit" form="order-filter-form">Uygula</button></>}><form id="order-filter-form" onSubmit={applyFilters} className={styles.filterForm}><label>Sipariş durumu<select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as OrderStatus | "all" }))}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className={styles.loadedScope}>Tarih, ödeme ve teslimat: yüklenen siparişlerde.</div><div className={styles.localFilters}><label>Tarih aralığı<select value={draft.dateRange} onChange={(event) => setDraft((current) => ({ ...current, dateRange: event.target.value as OrderDateRange }))}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label><label>Ödeme durumu<select value={draft.payment} onChange={(event) => setDraft((current) => ({ ...current, payment: event.target.value as OrderPaymentStatus | "all" }))}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Teslimat durumu<select value={draft.fulfillment} onChange={(event) => setDraft((current) => ({ ...current, fulfillment: event.target.value as OrderFulfillment }))}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></form></OrderActionDialog>
+    <OrderActionDialog open={dialog === "filters"} title="Filtreler" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDraft({ status: "all", dateRange: "all", payment: "all", fulfillment: "all", salesChannel: "all", socialPlatform: "all" })}>Temizle</button><button className={styles.primaryAction} type="submit" form="order-filter-form">Uygula</button></>}>
+      <form id="order-filter-form" onSubmit={applyFilters} className={styles.filterForm}>
+        <label>Sipariş durumu<select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as OrderStatus | "all" }))}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <div className={styles.localFilters}>
+          <label>Satış kanalı<select value={draft.salesChannel} onChange={(event) => setDraft((current) => ({ ...current, salesChannel: event.target.value as OrderSalesChannelSelection, socialPlatform: "all" }))}>{Object.entries(SALES_CHANNEL_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {draft.salesChannel === "social" ? <label>Sosyal medya platformu<select value={draft.socialPlatform} onChange={(event) => setDraft((current) => ({ ...current, socialPlatform: event.target.value as OrderSocialPlatformSelection }))}><option value="all">Tüm platformlar</option>{Object.entries(SOCIAL_PLATFORM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
+        </div>
+        <div className={styles.loadedScope}>Tarih, ödeme ve teslimat: yüklenen siparişlerde.</div>
+        <div className={styles.localFilters}>
+          <label>Tarih aralığı<select value={draft.dateRange} onChange={(event) => setDraft((current) => ({ ...current, dateRange: event.target.value as OrderDateRange }))}><option value="all">Tüm tarihler</option><option value="today">Bugün</option><option value="last7">Son 7 gün</option><option value="last30">Son 30 gün</option></select></label>
+          <label>Ödeme durumu<select value={draft.payment} onChange={(event) => setDraft((current) => ({ ...current, payment: event.target.value as OrderPaymentStatus | "all" }))}><option value="all">Tüm ödemeler</option>{Object.entries(PAYMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Teslimat durumu<select value={draft.fulfillment} onChange={(event) => setDraft((current) => ({ ...current, fulfillment: event.target.value as OrderFulfillment }))}>{Object.entries(FULFILLMENT_FILTER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        </div>
+      </form>
+    </OrderActionDialog>
     <OrderActionDialog open={dialog === "columns"} title="Sütunlar" onClose={() => setDialog(null)} footer={<button className={styles.button} type="button" onClick={() => setDialog(null)}>Tamam</button>}><div className={styles.columnPicker}>{(Object.entries(COLUMN_LABELS) as [OrderColumnKey, string][]).map(([column, label]) => <label key={column}><input type="checkbox" checked={props.visibleColumns[column]} onChange={(event) => props.onColumnVisibilityChange(column, event.target.checked)} aria-label={`${label} sütununu göster`} />{label}</label>)}</div></OrderActionDialog>
     <OrderActionDialog open={dialog === "export"} title="CSV dışa aktar" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDialog(null)}>Vazgeç</button><button className={styles.primaryAction} type="button" disabled={props.state !== "loaded" || !props.items.length} onClick={() => { props.onExport(); setDialog(null); }}><Download aria-hidden="true" />CSV indir</button></>}><p className={styles.exportScope}>Mevcut filtrelerle görüntülenen <strong>{props.items.length} sipariş</strong> dışa aktarılacak.</p><p className={styles.loadedScope}>Yalnızca yüklenen siparişler dahil.</p></OrderActionDialog>
   </PanelPageShell>;
@@ -331,6 +370,8 @@ export function OrderListConsole() {
   const [dateRange, setDateRange] = useState<OrderDateRange>("all");
   const [payment, setPayment] = useState<OrderPaymentStatus | "all">("all");
   const [fulfillmentFilter, setFulfillmentFilter] = useState<OrderFulfillment>("all");
+  const [salesChannel, setSalesChannel] = useState<OrderSalesChannelSelection>("all");
+  const [socialPlatform, setSocialPlatform] = useState<OrderSocialPlatformSelection>("all");
   const [visibleColumns, setVisibleColumns] = useState<OrderColumnVisibility>(DEFAULT_VISIBLE_COLUMNS);
   const sequence = useRef(0);
   const appendRequest = useRef(false);
@@ -343,7 +384,7 @@ export function OrderListConsole() {
     if (!cursor) setState("loading");
     setError(""); setLoadMoreError("");
     try {
-      const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort });
+      const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort, salesChannel, socialPlatform });
       if (request !== sequence.current) return;
       setItems((current) => mergeOrderListPage(current, result, cursor !== undefined));
       setNextCursor(result.nextCursor);
@@ -355,7 +396,7 @@ export function OrderListConsole() {
     } finally {
       if (request === sequence.current) { appendRequest.current = false; setLoadingMore(false); }
     }
-  }, [search, sort, status]);
+  }, [search, sort, status, salesChannel, socialPlatform]);
 
   useEffect(() => { void load(); return () => { sequence.current += 1; appendRequest.current = false; }; }, [load]);
 
@@ -391,7 +432,9 @@ export function OrderListConsole() {
   }
 
   function clearSearch() { setSearchInput(""); setSearch(""); }
-  function resetFilters() { setStatus("all"); setDateRange("all"); setPayment("all"); setFulfillmentFilter("all"); }
+  function changeSalesChannel(value: OrderSalesChannelSelection) { setSalesChannel(value); if (value !== "social") setSocialPlatform("all"); }
+  function changeSocialPlatform(value: OrderSocialPlatformSelection) { setSocialPlatform(value); if (value !== "all") setSalesChannel("social"); }
+  function resetFilters() { setStatus("all"); setDateRange("all"); setPayment("all"); setFulfillmentFilter("all"); setSalesChannel("all"); setSocialPlatform("all"); }
 
-  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} loadMoreError={loadMoreError} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onClearSearch={clearSearch} onReset={resetFilters} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
+  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} loadMoreError={loadMoreError} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} salesChannel={salesChannel} socialPlatform={socialPlatform} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onClearSearch={clearSearch} onReset={resetFilters} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onSalesChannelChange={changeSalesChannel} onSocialPlatformChange={changeSocialPlatform} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
 }

@@ -76,6 +76,7 @@ import {
   orderPageSize,
   orderPaymentStatus,
   orderSearch,
+  orderSalesFilters,
   orderSort,
   orderShipping,
   orderStatus,
@@ -492,7 +493,7 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   private async listOrderScope(input: ListOrdersInput, archived: boolean): Promise<ListOrdersResult> {
-    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort", "ordersVersion"]);
+    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort", "ordersVersion", "salesChannel", "socialPlatform"]);
     if (exact.ordersVersion !== undefined && exact.ordersVersion !== 2) throw new OrderRepositoryError("invalid_input");
     const readerV2 = exact.ordersVersion === 2;
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
@@ -500,16 +501,19 @@ export class PostgresOrderRepository implements OrderRepository {
     const status = orderStatusFilter(exact.status);
     const search = orderSearch(exact.search);
     const sort = orderSort(exact.sort);
+    const salesFilters = orderSalesFilters(exact.salesChannel, exact.socialPlatform);
+    const filtered = salesFilters.salesChannel !== undefined;
     const cursorScope = (archived ? `${authority.storeId}:archive` : authority.storeId) + (readerV2 ? ":reader2" : "");
-    const cursor = decodeOrderCursor(exact.cursor as string | undefined, cursorScope, status, search, sort);
+    const cursor = decodeOrderCursor(exact.cursor as string | undefined, cursorScope, status, search, sort, salesFilters);
     return this.read(authority, {
-      text: `SELECT outcome, result_payload FROM saas.${(archived ? "orders_list_archived" : "orders_list") + (readerV2 ? "_v2" : "")}(
+      text: `SELECT outcome, result_payload FROM saas.${(archived ? "orders_list_archived" : "orders_list") + (filtered ? "_filtered_v2" : readerV2 ? "_v2" : "")}(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::text,$9::text,$10::text,$11::bigint,$12::bigint,$13::timestamptz,$14::uuid
+        $8::text,$9::text,$10::text,$11::bigint,$12::bigint,$13::timestamptz,$14::uuid${filtered ? ",$15::text,$16::text" : ""}
       )`,
       values: [
         ...authorityValues(authority), status ?? null, search ?? null, sort, pageSize,
         cursor?.totalCents ?? null, cursor?.createdAt ?? null, cursor?.id ?? null,
+        ...(filtered ? [salesFilters.salesChannel, salesFilters.socialPlatform ?? null] : []),
       ],
     }, "listed", (value) => {
       const envelope = (() => {
@@ -519,7 +523,13 @@ export class PostgresOrderRepository implements OrderRepository {
         return value as Record<string, unknown>;
       })();
       if (!Array.isArray(envelope.items) || envelope.items.length > pageSize) throw unavailable();
-      const items = Object.freeze(envelope.items.map(item => readerV2 ? parseOrderListItemV2(item) : safeListItem(item)));
+      const items = Object.freeze(envelope.items.map(item => {
+        if (readerV2) return parseOrderListItemV2(item);
+        if (!filtered) return safeListItem(item);
+        // The new SQL reader has V2 metadata; legacy callers keep their exact public response shape.
+        const { customerId, currentCustomer, salesChannel, socialPlatform, socialReference, fulfillmentMethod, ...legacy } = parseOrderListItemV2(item);
+        return safeListItem(legacy);
+      }));
       for (let index = 1; index < items.length; index += 1) {
         const previous = items[index - 1]!;
         const current = items[index]!;
@@ -530,7 +540,7 @@ export class PostgresOrderRepository implements OrderRepository {
       let databaseCursor;
       try { databaseCursor = parseDatabaseCursor(envelope.nextCursor, items.at(-1)!); }
       catch { throw unavailable(); }
-      return Object.freeze({ items, nextCursor: encodeOrderCursor(cursorScope, status, search, sort, databaseCursor) });
+      return Object.freeze({ items, nextCursor: encodeOrderCursor(cursorScope, status, search, sort, databaseCursor, salesFilters) });
     });
   }
 
