@@ -13,12 +13,12 @@ test('binding client has fixed authenticated self paths and phone-bound completi
 });
 
 test('phone access errors provide safe setup/restart guidance while genuine unavailability keeps generic retry',async()=>{
- const messages:Record<string,readonly string[]>={fresh_login_required:['kişisel giriş telefon','Güvenlik','mağaza sahibi','merkez destek','yeniden başlat'],phone_conflict:['Telefon tanımı','mağaza sahibi','merkez destek'],not_ready:['yeni kod','yeniden başlat']};
+ const messages:Record<string,readonly string[]>={fresh_login_required:['Bu numaralı yönetici hesabı tanımlı değildir. Lütfen mağaza sahibi ile iletişime geçin.'],phone_conflict:['Telefon tanımı','mağaza sahibi','merkez destek'],not_ready:['yeni kod','yeniden başlat']};
  for(const [code,parts]of Object.entries(messages)){
   const client=createMerchantPhoneLoginClient({fetch:async(_path,init)=>init?.method==='POST'?Response.json({code,message:'PHONE_NOT_REGISTERED SECRET'},{status:401}):Response.json({code:'ok',state:phoneState,csrfToken:'c'.repeat(43)})});
   await client.state();
   await assert.rejects(client.verify({code:'001234',operationId:KEY}),error=>{
-   assert(error instanceof MerchantPhoneLoginError);assert.equal(error.code,code);for(const part of parts)assert(error.message.toLowerCase().includes(part.toLowerCase()));assert(!/SECRET|kayıtlı değil|başka hesap|PHONE_NOT_REGISTERED/u.test(error.message));return true;
+   assert(error instanceof MerchantPhoneLoginError);assert.equal(error.code,code);if(code==='fresh_login_required')assert.equal(error.message,parts[0]);for(const part of parts)assert(error.message.toLowerCase().includes(part.toLowerCase()));assert(!/SECRET|kayıtlı değil|başka hesap|PHONE_NOT_REGISTERED/u.test(error.message));return true;
   });
  }
  assert.equal(new MerchantPhoneLoginError('unavailable').message,'Giriş tamamlanamadı. Bilgileriniz korunuyor; yeniden deneyebilirsiniz.');
