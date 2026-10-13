@@ -1,11 +1,11 @@
 import { getDefaultCustomerPanelAuthRouteSet } from "../../../lib/panel-auth-route-mount/route-set.ts";
 
-const routeSet = getDefaultCustomerPanelAuthRouteSet();
+import {retireMerchantPasswordEntry} from "../../../lib/merchant-phone/runtime.ts";
 
 export async function GET(request: Request) {
-  return routeSet.browserLogin(request);
+  return retireMerchantPasswordEntry(request) ?? getDefaultCustomerPanelAuthRouteSet().browserLogin(request);
 }
 
 export async function POST(request: Request) {
-  return routeSet.browserLogin(request);
+  return retireMerchantPasswordEntry(request) ?? getDefaultCustomerPanelAuthRouteSet().browserLogin(request);
 }

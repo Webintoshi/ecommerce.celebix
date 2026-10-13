@@ -1,5 +1,7 @@
+import { parseMerchantWhatsAppCommand } from "@celebix/saas-contracts";
 import type {
   CreateStarterTenantInput,
+  CreatePhoneStarterTenantInput,
   CreateStarterTenantResult,
   PlanEntitlements,
   SaaSContractError,
@@ -101,7 +103,7 @@ function isCanonicalUtcTimestamp(value: unknown): value is string {
   }
 }
 
-function validateInput(value: unknown): CreateStarterTenantInput {
+function validateInput(value: unknown): CreateStarterTenantInput | CreatePhoneStarterTenantInput {
   if (!isRecord(value) || !hasOnlyKeys(value, ["schemaVersion", "idempotencyKey", "principal", "store", "consents", "requestedAt"])) {
     throw new TenantCoreFailure("invalid_input");
   }
@@ -116,20 +118,26 @@ function validateInput(value: unknown): CreateStarterTenantInput {
   ) {
     throw new TenantCoreFailure("invalid_input", "idempotencyKey");
   }
-  if (!isRecord(value.principal) || !hasOnlyKeys(value.principal, ["issuer", "subject", "email", "emailVerified"])) {
-    throw new TenantCoreFailure("invalid_input", "principal");
-  }
-  if (value.principal.emailVerified !== true) {
-    throw new TenantCoreFailure("identity_unverified", "principal.emailVerified");
-  }
-  if (!isNonEmptyString(value.principal.issuer)) {
-    throw new TenantCoreFailure("invalid_input", "principal.issuer");
-  }
-  if (!isNonEmptyString(value.principal.subject)) {
-    throw new TenantCoreFailure("invalid_input", "principal.subject");
-  }
-  if (!isNonEmptyString(value.principal.email) || !value.principal.email.includes("@")) {
-    throw new TenantCoreFailure("invalid_input", "principal.email");
+  if (isRecord(value.principal) && value.principal.kind === "whatsapp") {
+    if (!hasOnlyKeys(value.principal, ["kind", "proof"])) throw new TenantCoreFailure("invalid_input", "principal");
+    try { parseMerchantWhatsAppCommand({ action: "read", input: value.principal.proof }); }
+    catch { throw new TenantCoreFailure("identity_unverified", "principal.proof"); }
+  } else {
+    if (!isRecord(value.principal) || !hasOnlyKeys(value.principal, ["issuer", "subject", "email", "emailVerified"])) {
+      throw new TenantCoreFailure("invalid_input", "principal");
+    }
+    if (value.principal.emailVerified !== true) {
+      throw new TenantCoreFailure("identity_unverified", "principal.emailVerified");
+    }
+    if (!isNonEmptyString(value.principal.issuer)) {
+      throw new TenantCoreFailure("invalid_input", "principal.issuer");
+    }
+    if (!isNonEmptyString(value.principal.subject)) {
+      throw new TenantCoreFailure("invalid_input", "principal.subject");
+    }
+    if (!isNonEmptyString(value.principal.email) || !value.principal.email.includes("@")) {
+      throw new TenantCoreFailure("invalid_input", "principal.email");
+    }
   }
   if (!isRecord(value.store) || !hasOnlyKeys(value.store, ["name", "slug", "locale", "currency", "themeKey"])) {
     throw new TenantCoreFailure("invalid_input", "store");
@@ -173,7 +181,7 @@ function validateInput(value: unknown): CreateStarterTenantInput {
     throw new TenantCoreFailure("invalid_input", "requestedAt");
   }
 
-  return value as unknown as CreateStarterTenantInput;
+  return value as unknown as CreateStarterTenantInput | CreatePhoneStarterTenantInput;
 }
 
 function safeError(code: SaaSErrorCode, field?: string, retryable = false): SaaSContractError {
@@ -245,7 +253,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
   }
 
   async execute(rawInput: unknown): Promise<CreateStarterTenantOutcome> {
-    let input: CreateStarterTenantInput;
+    let input: CreateStarterTenantInput | CreatePhoneStarterTenantInput;
     try {
       input = validateInput(rawInput);
       assertNormalizedExactHostname(`${input.store.slug}.${this.platformDomainSuffix}`);
@@ -296,26 +304,35 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       }
 
       stage = "principal_lookup";
-      let principal = await transaction.principals.findByIdentity(input.principal.issuer, input.principal.subject);
-      if (principal && principal.email.trim().toLowerCase() !== input.principal.email.trim().toLowerCase()) {
-        stage = "principal_create_or_update";
-        principal = await transaction.principals.updateVerifiedEmail(
-          principal.id,
-          input.principal.email,
-          timestamp,
-        );
-      }
-      if (!principal) {
-        stage = "principal_create_or_update";
-        principal = await transaction.principals.create({
-          id: transaction.generateId("principal"),
-          issuer: input.principal.issuer,
-          subject: input.principal.subject,
-          email: input.principal.email,
-          emailVerified: true,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        });
+      const phoneStoreId = 'kind' in input.principal ? transaction.generateId('store') : null;
+      let principal:import('@celebix/saas-data').PrincipalRecord|import('@celebix/saas-contracts').MerchantPhonePrincipalRecord;
+      if ('kind' in input.principal) {
+        if(!transaction.principals.authorizePhoneSignup)throw new TenantCoreFailure('identity_unverified','principal.proof');
+        principal=await transaction.principals.authorizePhoneSignup({proof:input.principal.proof,operationId,storeId:phoneStoreId!});
+      } else {
+        let oidcPrincipal = await transaction.principals.findByIdentity(input.principal.issuer, input.principal.subject);
+        if (oidcPrincipal && oidcPrincipal.email.trim().toLowerCase() !== input.principal.email.trim().toLowerCase()) {
+          stage = "principal_create_or_update";
+          oidcPrincipal = await transaction.principals.updateVerifiedEmail(
+            oidcPrincipal.id,
+            input.principal.email,
+            timestamp,
+          );
+        }
+        if (!oidcPrincipal) {
+          stage = "principal_create_or_update";
+          oidcPrincipal = await transaction.principals.create({
+            id: transaction.generateId("principal"),
+            issuer: input.principal.issuer,
+            subject: input.principal.subject,
+            email: input.principal.email,
+            emailVerified: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+        }
+
+        principal = oidcPrincipal;
       }
 
       stage = "store_lookup";
@@ -324,7 +341,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       }
       stage = "store_create";
       const store = await transaction.stores.create({
-        id: transaction.generateId("store"),
+        id: phoneStoreId ?? transaction.generateId("store"),
         name: input.store.name,
         slug: input.store.slug,
         status: "active",

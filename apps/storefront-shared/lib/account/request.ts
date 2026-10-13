@@ -17,7 +17,7 @@ function exactRootObject(value: unknown): void {
   for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) if (descriptor.get || descriptor.set) invalid();
 }
 
-export async function readAccountJsonRequest<T>(request: Request, configuredOrigin: string, shape: (value: unknown) => T): Promise<T> {
+export async function readAccountJsonRequest<T>(request: Request, configuredOrigin: string, shape: (value: unknown) => T,options:Readonly<{authenticatedIngress?:true}>={}): Promise<T> {
   try {
     const url = new URL(request.url);
     const origin = canonicalOrigin(configuredOrigin);
@@ -25,7 +25,7 @@ export async function readAccountJsonRequest<T>(request: Request, configuredOrig
     if (request.headers.get("origin") !== origin || request.headers.get("content-type") !== "application/json" || request.headers.has("authorization") || request.headers.has("transfer-encoding") || request.body === null) invalid();
     const fetchSite = request.headers.get("sec-fetch-site");
     if (fetchSite !== null && fetchSite !== "same-origin") invalid();
-    for (const name of request.headers.keys()) if (name.startsWith("x-celebix-") && name !== "x-celebix-storefront-proxy" && name !== "x-celebix-account-csrf") invalid();
+    for (const name of request.headers.keys()) if (name.startsWith("x-celebix-") && name !== "x-celebix-storefront-proxy" && name !== "x-celebix-account-csrf" && !(options.authenticatedIngress===true&&url.pathname==="/api/account/auth/start"&&["x-celebix-admin-ip","x-celebix-admin-ip-time","x-celebix-admin-ip-signature"].includes(name))) invalid();
     const declared = request.headers.get("content-length");
     if (declared !== null && (!/^(?:0|[1-9]\d*)$/.test(declared) || Number(declared) > MAXIMUM_BODY_BYTES)) invalid();
 

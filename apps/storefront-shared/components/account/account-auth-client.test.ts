@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as client from "./account-auth-client.ts";
+function publicBody(options:RequestInit|undefined){const body=JSON.parse(String(options?.body));assert.match(body.operationId,/^[a-f0-9]{8}-[a-f0-9-]{27}$/u);assert.equal(new Headers(options?.headers).get('idempotency-key'),body.operationId);const {operationId,...input}=body;return input;}
 
 test("phone challenge only enters verification after confirmed WhatsApp delivery", async () => {
   const body = { phone: "05551112233", firstName: "Ada", lastName: "Yılmaz", returnTo: "/account" };
   const delivered = await client.startAccountPhoneChallenge(body, async (path, options) => {
     assert.equal(path, "/api/account/auth/start");
-    assert.deepEqual(JSON.parse(String(options?.body)), body);
+    assert.deepEqual(publicBody(options), body);
     assert.equal(options?.credentials, "same-origin");
     return Response.json({ deliveryRequired: true, message: "Kod gönderildi.", retryAfterSeconds: 70 });
   });
@@ -32,12 +33,12 @@ test("only an explicit phone binding start sends the existing account CSRF cooki
   try {
     await client.startAccountPhoneChallenge({ phone: "+905551112233", returnTo: "/account/profile", bindPhone: true }, async (_path, options) => {
       assert.equal(new Headers(options?.headers).get("x-celebix-account-csrf"), token);
-      assert.equal(JSON.parse(String(options?.body)).bindPhone, true);
+      assert.equal(publicBody(options).bindPhone, true);
       return Response.json({ deliveryRequired: true });
     });
     await client.startAccountPhoneChallenge({ phone: "+905551112233", returnTo: "/account" }, async (_path, options) => {
       assert.equal(new Headers(options?.headers).has("x-celebix-account-csrf"), false);
-      assert.equal(Object.hasOwn(JSON.parse(String(options?.body)), "bindPhone"), false);
+      assert.equal(Object.hasOwn(publicBody(options), "bindPhone"), false);
       return Response.json({ deliveryRequired: true });
     });
     await client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/account/profile" }, async (_path, options) => {
@@ -50,7 +51,7 @@ test("only an explicit phone binding start sends the existing account CSRF cooki
 test("verification sends only the code and return path and exposes the confirmed destination", async () => {
   const result = await client.postAccountAuth("/api/account/auth/verify", { code: "123456", returnTo: "/account/orders" }, async (path, options) => {
     assert.equal(path, "/api/account/auth/verify");
-    assert.deepEqual(JSON.parse(String(options?.body)), { code: "123456", returnTo: "/account/orders" });
+    assert.deepEqual(publicBody(options), { code: "123456", returnTo: "/account/orders" });
     return Response.json({ outcome: "authenticated", profileRequired: false, destination: "/account/orders" });
   });
   assert.equal(result.destination, "/account/orders");

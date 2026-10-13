@@ -3,7 +3,21 @@ import {createServer} from 'node:http';
 import {isIP} from 'node:net';
 import {pathToFileURL} from 'node:url';
 
-const hosts=new Set(['panel.saas-staging.celebix.net','panel.saas-staging.celebix.site']);
+const legacyHosts=new Set(['panel.saas-staging.celebix.net','panel.saas-staging.celebix.site']);
+const signupHosts=new Set(['owner.saas-staging.celebix.net','owner.saas-staging.celebix.site']);
+const signupPaths=new Set(['/api/merchant-signup/start','/api/merchant-signup/resend']);
+const tenantPaths=new Set(['/api/merchant-login/start','/api/merchant-login/resend','/api/merchant-login/bind/start','/api/merchant-login/bind/resend','/api/account/auth/start']);
+function canonicalHost(host){
+ if(typeof host!=='string'||host.length>253||isIP(host)||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(host))return false;
+ try{return new URL('https://'+host).hostname===host;}catch{return false;}
+}
+function permittedRoute(host,path){
+ if(path==='/api/admin-login/send')return legacyHosts.has(host);
+ if(signupPaths.has(path))return signupHosts.has(host);
+ // Attestation proves proxy ingress only. The application/native authority
+ // must resolve this exact registered host before reserving or delivering OTP.
+ return tenantPaths.has(path)&&canonicalHost(host);
+}
 const denied=()=>({statusCode:403,headers:{}});
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const normalizePeer=value=>typeof value==='string'&&value.startsWith('::ffff:')?value.slice(7):value;
@@ -22,8 +36,8 @@ export function createIngressSigner({keyHex,traefikIpv4,clock=()=>new Date()}){
     if(typeof name!=='string'||typeof value!=='string'||value.length>512)return denied();
     const lower=name.toLowerCase();if(headers.has(lower))return denied();headers.set(lower,value);
    }
-   const host=headers.get('x-forwarded-host'),origin='https://'+host,operation=headers.get('idempotency-key');
-   if(headers.get('x-forwarded-method')!=='POST'||headers.get('x-forwarded-uri')!=='/api/admin-login/send'||headers.get('x-forwarded-proto')!=='https'||!hosts.has(host)||headers.get('origin')!==origin||!uuid.test(operation??'')||headers.has('cookie')||headers.has('authorization')||headers.has('transfer-encoding')||(headers.has('content-length')&&headers.get('content-length')!=='0'))return denied();
+   const host=headers.get('x-forwarded-host'),origin='https://'+host,path=headers.get('x-forwarded-uri'),operation=headers.get('idempotency-key');
+   if(headers.get('x-forwarded-method')!=='POST'||!permittedRoute(host,path)||headers.get('x-forwarded-proto')!=='https'||headers.get('origin')!==origin||!uuid.test(operation??'')||headers.has('cookie')||headers.has('authorization')||headers.has('transfer-encoding')||(headers.has('content-length')&&headers.get('content-length')!=='0'))return denied();
    // ForwardAuth regenerates XFF from req.RemoteAddr AFTER Connection stripping
    // when trustForwardHeader=false. Never forward incoming XFF in its whitelist.
    const sourceIp=headers.has('x-forwarded-for')?headers.get('x-forwarded-for'):headers.get('x-real-ip');
@@ -31,7 +45,7 @@ export function createIngressSigner({keyHex,traefikIpv4,clock=()=>new Date()}){
    const ip=sourceIp??'unknown';
    const date=clock();if(!(date instanceof Date)||!Number.isFinite(date.getTime()))return denied();
    const time=date.toISOString();
-   const signature=createHmac('sha256',key).update(['celebix/admin-login/ingress/v1',origin,'/api/admin-login/send',operation,ip,time].join('\n')).digest('hex');
+   const signature=createHmac('sha256',key).update(['celebix/admin-login/ingress/v1',origin,path,operation,ip,time].join('\n')).digest('hex');
    return{statusCode:204,headers:{'x-celebix-admin-ip':ip,'x-celebix-admin-ip-time':time,'x-celebix-admin-ip-signature':signature}};
   }catch{return denied();}
  };

@@ -4,8 +4,8 @@ const routeSet = getDefaultCustomerPanelAuthRouteSet();
 
 export async function GET(request: Request) {
   if (new URL(request.url).searchParams.get("state")?.startsWith("inv_")) {
-    const { invitationBrowserHandlers } = await import("../../../lib/platform-invitations/runtime.ts");
-    return invitationBrowserHandlers.callback(request);
+    const { retiredInvitationResponse } = await import("../../../lib/platform-invitations/handlers.ts");
+    return retiredInvitationResponse();
   }
   return routeSet.browserCallback(request);
 }

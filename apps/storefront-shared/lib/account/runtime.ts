@@ -1,36 +1,25 @@
-import { createHash } from "node:crypto";
+import { createHash,createHmac } from "node:crypto";
 
 import type {
   StorefrontAccountAddress,
   StorefrontAccountMutationResult,
   StorefrontAccountOrder,
 } from "@celebix/saas-contracts";
-import type { StorefrontIdentityRepository, StorefrontIdentitySessionResult } from "@celebix/saas-data";
+import {StorefrontIdentityRepositoryError,type StorefrontIdentityRepository,type StorefrontIdentitySessionResult} from "@celebix/saas-data";
 
 import {
   accountCredentialDigestCandidates,
   accountCsrfDigest,
-  accountHostnameCodeDigest,
-  accountHostnameEmailDigest,
-  accountHostnameTicketDigest,
-  accountRequestDigest,
   accountUserAgentDigest,
   createAccountSessionCredential,
-  createStorefrontMagicTicket,
-  openAccountChallenge,
-  openAccountMagicTicket,
   readAccountCookie,
-  sealAccountChallenge,
-  serializeAccountChallengeCookie,
   serializeAccountChallengeCookieDeletion,
-  serializeAccountMagicTicket,
   serializeAccountCookie,
   serializeAccountCookieDeletion,
   type StorefrontIdentityKeyring,
 } from "./credential.ts";
-import { normalizeStorefrontAccountEmail } from "./email.ts";
 import { normalizeStorefrontAccountPhone } from "./phone.ts";
-import { openPhoneChallenge, phoneCodeDigest, phoneRecipientDigest, phoneRequestDigest, sealPhoneChallenge, serializePhoneChallengeCookie } from "./phone-credential.ts";
+import { openPhoneChallenge, phoneCodeDigest, phoneRecipientDigest, phoneRequestDigest, sealPhoneChallenge, serializePhoneChallengeCookie,phoneOperationBytes,phoneOperationUuid,phoneBudgetDigest,sealPhoneCompletion,openPhoneCompletion } from "./phone-credential.ts";
 import type { WhatsAppOtpDelivery } from "./whatsapp-delivery.ts";
 
 const CODE = /^[0-9]{6}$/u;
@@ -47,6 +36,7 @@ export type StorefrontIdentityRuntimeDependencies = Readonly<{
   randomLoginCode: () => string;
   deliverLoginCode: (message: Readonly<{ email: string; ticket: string; code: string; storeName: string; storeOrigin: string; returnTo: string; idempotencyKey: string }>) => Promise<void>;
   emailDeliveryDispositionSupported?: boolean;
+  whatsappRateKey?:Uint8Array;
   deliverWhatsAppCode?: WhatsAppOtpDelivery;
 }>;
 
@@ -57,8 +47,8 @@ type MutationResponse = Readonly<{ result: StorefrontAccountMutationResult }>;
 export interface StorefrontIdentityRuntime {
   readonly whatsappEnabled?: boolean;
   start(input: Readonly<{ hostname: string; email: string; requestAuthority: string; returnTo: string; brand: Readonly<{ storeName: string; logoUrl: string | null; primaryColor: string | null }> }>): Promise<Readonly<{ result: Readonly<{ outcome: "accepted"; retryAfterSeconds: number; deliveryRequired?:boolean }>; setCookie: string }>>;
-  startPhone?(input: Readonly<{ hostname:string;phone:string;firstName?:string;lastName?:string;bindPhone?:true;cookieHeader?:string|null;requestAuthority:string;returnTo:string;brand:Readonly<{storeName:string;logoUrl:string|null;primaryColor:string|null}> }>):Promise<Readonly<{result:Readonly<{outcome:"accepted";retryAfterSeconds:number;deliveryRequired:boolean}>;setCookie:string}>>;
-  verify(input: Readonly<{ hostname: string; deviceLabel: string; userAgent: string }> & Readonly<{ ticket: string } | { challengeCookie: string | null; code: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
+  startPhone?(input: Readonly<{ hostname:string;phone:string;operationId:string;trustedIp?:string|null;firstName?:string;lastName?:string;bindPhone?:true;cookieHeader?:string|null;requestAuthority:string;returnTo:string;brand:Readonly<{storeName:string;logoUrl:string|null;primaryColor:string|null}> }>):Promise<Readonly<{result:Readonly<{outcome:"accepted";retryAfterSeconds:number;deliveryRequired:boolean}>;setCookie:string}>>;
+  verify(input: Readonly<{ hostname: string; deviceLabel: string; userAgent: string;operationId?:string }> & Readonly<{ ticket: string } | { challengeCookie: string | null; code: string }>): Promise<Readonly<{ result: Readonly<{ outcome: "authenticated"; profileRequired: false } | { outcome: "profile_required"; profileRequired: true }>; setCookies: readonly string[] }>>;
   completeProfile(input: OperationAuthority & Readonly<{ firstName: string; lastName: string; phone?: string; deviceLabel: string; userAgent: string }>): Promise<Readonly<{ result: StorefrontAccountMutationResult; setCookies: readonly string[] }>>;
   session(hostname: string, cookieHeader: string | null): Promise<StorefrontIdentitySessionResult & Readonly<{ setCookie?: string }>>;
   logout(hostname: string, cookieHeader: string | null): Promise<Readonly<{ setCookies: readonly string[] }>>;
@@ -96,8 +86,8 @@ function challengeValue(value: string | null): string | null {
 }
 
 export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentityRuntimeDependencies): StorefrontIdentityRuntime {
-  const { repository, hmacKeyring, sealKeyring, now, randomBytes, randomUuid, randomLoginCode, deliverLoginCode } = dependencies;
-  if (!repository || typeof repository.start !== "function" || typeof deliverLoginCode !== "function") invalid();
+  const { repository, hmacKeyring, sealKeyring, now, randomBytes, randomUuid } = dependencies;
+  if (!repository) invalid();
 
   function credentials(cookieHeader: string | null) {
     const cookie = readAccountCookie(cookieHeader);
@@ -113,78 +103,54 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
   }
 
   const runtime: StorefrontIdentityRuntime = {
-    whatsappEnabled: typeof dependencies.deliverWhatsAppCode === "function" && typeof repository.startPhone === "function" && typeof repository.verifyPhone === "function" && typeof repository.markPhoneDelivery === "function",
-    async start(input) {
-      const current = nowValue(now); const email = normalizeStorefrontAccountEmail(input.email); const challengeId = uuid(randomUuid); const outboxId = uuid(randomUuid); const code = randomLoginCode(); const ticket = createStorefrontMagicTicket(randomBytes);
-      if (!CODE.test(code)) invalid();
-      const emailAuthority = accountHostnameEmailDigest(input.hostname, email, hmacKeyring);
-      const requestAuthority = accountRequestDigest(input.hostname, input.requestAuthority, hmacKeyring);
-      const codeAuthority = accountHostnameCodeDigest({ challengeId, hostname: input.hostname, email, code }, hmacKeyring);
-      const ticketAuthority = accountHostnameTicketDigest({ challengeId, hostname: input.hostname, ticket }, hmacKeyring);
-      const expiresAt = new Date(current.getTime() + 600_000);
-      const sealed = sealAccountChallenge(Object.freeze({ challengeId, email, expiresAt: expiresAt.toISOString() }), sealKeyring, randomBytes);
-      const startEmail = dependencies.emailDeliveryDispositionSupported !== false ? repository.startEmail?.bind(repository) : undefined;
-      const result = await (startEmail ?? repository.start.bind(repository))({
-        hostname: input.hostname, now: current, challengeId, emailDigest: emailAuthority.digest, requestDigest: requestAuthority.digest,
-        codeKeyId: codeAuthority.keyId, codeDigest: codeAuthority.digest, ticketKeyId: ticketAuthority.keyId, ticketDigest: ticketAuthority.digest, expiresAt, outboxId, recipientCiphertext: sealed,
-        brandSnapshot: Object.freeze({ name: input.brand.storeName, logoUrl: input.brand.logoUrl, primaryColor: input.brand.primaryColor }), correlationId: correlation("auth", challengeId),
-      });
-      if ("deliveryRequired" in result && result.deliveryRequired === false) return Object.freeze({result,setCookie:""});
-      await deliverLoginCode(Object.freeze({ email, ticket: serializeAccountMagicTicket(sealed, ticket), code, storeName: input.brand.storeName, storeOrigin: `https://${input.hostname}`, returnTo: input.returnTo, idempotencyKey: outboxId }));
-      return Object.freeze({ result, setCookie: serializeAccountChallengeCookie(sealed) });
-    },
+    whatsappEnabled: typeof dependencies.deliverWhatsAppCode === "function" && typeof repository.phoneCommand === "function" && dependencies.whatsappRateKey instanceof Uint8Array && dependencies.whatsappRateKey.length===32,
+    async start(_input) { throw new Error("storefront_email_login_retired"); },
     async startPhone(input) {
-      if(!runtime.whatsappEnabled || !repository.startPhone || !repository.markPhoneDelivery || !dependencies.deliverWhatsAppCode) throw new Error("storefront_whatsapp_unavailable");
-      const phone=normalizeStorefrontAccountPhone(input.phone),current=nowValue(now),challengeId=uuid(randomUuid),code=randomLoginCode();
-      if(!CODE.test(code)||(input.firstName===undefined)!==(input.lastName===undefined))invalid();
-      if(input.bindPhone) {
-        const currentAccount=await runtime.session(input.hostname,input.cookieHeader??null);
-        if(currentAccount.outcome!=="found" || typeof currentAccount.snapshot.profile.email!=="string"
-          || currentAccount.snapshot.profile.phone!==phone || currentAccount.snapshot.profile.phoneVerified===true)invalid();
-      }
-      const expiresAt=new Date(current.getTime()+600_000);
+      if(!runtime.whatsappEnabled||!repository.phoneCommand||!dependencies.deliverWhatsAppCode||!dependencies.whatsappRateKey)throw new Error('storefront_whatsapp_unavailable');
+      const phone=normalizeStorefrontAccountPhone(input.phone),operationId=input.operationId;if(!UUID.test(operationId)||(input.firstName===undefined)!==(input.lastName===undefined))invalid();
+      const current=nowValue(now),challengeId=operationId,expiresAt=new Date(current.getTime()+600000);
+      const candidates=input.bindPhone?requiredCredentials(input.cookieHeader??null):undefined;
+      if(input.bindPhone){const account=await runtime.session(input.hostname,input.cookieHeader??null);if(account.outcome!=='found'||account.snapshot.profile.phone!==phone||account.snapshot.profile.phoneVerified===true)invalid();}
+      let code='';for(let counter=0;counter<128;counter++){const bytes=phoneOperationBytes(`code/${counter}`,input.hostname,challengeId,operationId,hmacKeyring);const number=bytes.readUInt32BE();bytes.fill(0);if(number<4294000000){code=String(number%1000000).padStart(6,'0');break;}}if(!code)invalid();
       const sealed=sealPhoneChallenge({challengeId,hostname:input.hostname,phone,...(input.firstName!==undefined?{firstName:input.firstName,lastName:input.lastName!}:{}),...(input.bindPhone?{bindAccount:true as const}:{}),expiresAt:expiresAt.toISOString(),hmacKeyId:hmacKeyring.activeKeyId},sealKeyring,randomBytes);
-      const phoneDigest=phoneRecipientDigest(phone,hmacKeyring).digest;
-      const codeAuthority=phoneCodeDigest({hostname:input.hostname,phone,challengeId,code},hmacKeyring);
-      const result=await repository.startPhone({hostname:input.hostname,now:current,challengeId,phoneDigest,requestDigest:phoneRequestDigest(input.requestAuthority,hmacKeyring).digest,codeKeyId:codeAuthority.keyId,codeDigest:codeAuthority.digest,expiresAt,correlationId:correlation("phone_start",challengeId)});
-      if(!result.deliveryRequired)return Object.freeze({result,setCookie:""});
-      try {await dependencies.deliverWhatsAppCode({phone,code,storeName:input.brand.storeName,idempotencyKey:challengeId});}
-      catch {await repository.markPhoneDelivery({hostname:input.hostname,now:nowValue(now),challengeId,phoneDigest,accepted:false}).catch(()=>{});throw new Error("storefront_whatsapp_delivery_unavailable");}
-      await repository.markPhoneDelivery({hostname:input.hostname,now:nowValue(now),challengeId,phoneDigest,accepted:true});
-      return Object.freeze({result,setCookie:serializePhoneChallengeCookie(sealed)});
+      const key=hmacKeyring.keys.find(k=>k.keyId===hmacKeyring.activeKeyId);if(!key)invalid();
+      const start={operationId,hostname:input.hostname,phoneDigest:phoneRecipientDigest(phone,hmacKeyring).digest,requestDigest:phoneRequestDigest(input.trustedIp??'authenticated_unknown_ip',hmacKeyring).digest,recipientBudgetDigest:phoneBudgetDigest('recipient',phone,dependencies.whatsappRateKey),...(input.trustedIp?{ipBudgetDigest:phoneBudgetDigest('ip',input.trustedIp,dependencies.whatsappRateKey)}:{}),inputFingerprint:createHmac('sha256',key.key).update(JSON.stringify(['celebix/storefront-phone-start/v1',input.hostname,phone,input.firstName??null,input.lastName??null,candidates??null])).digest('hex'),codeKeyId:hmacKeyring.activeKeyId,codeDigest:phoneCodeDigest({hostname:input.hostname,phone,challengeId,code},hmacKeyring).digest,challengeCookie:sealed,...(candidates?{bindingCredentials:candidates}:{})};
+      const begun=await repository.phoneCommand('start',start);
+      if(begun.outcome==='rate_limited')return {result:{outcome:'accepted',retryAfterSeconds:Number(begun.result?.retryAfterSeconds??60),deliveryRequired:false},setCookie:''};
+      if(begun.outcome==='accepted'&&typeof begun.result?.challengeCookie==='string'){const recovered=openPhoneChallenge(begun.result.challengeCookie,sealKeyring);if(!recovered||recovered.hostname!==input.hostname||recovered.phone!==phone||Date.parse(recovered.expiresAt)<=current.getTime())invalid();return {result:{outcome:'accepted',retryAfterSeconds:60,deliveryRequired:true},setCookie:serializePhoneChallengeCookie(begun.result.challengeCookie)};}
+      if(begun.outcome!=='prepared')throw new Error('storefront_whatsapp_delivery_uncertain');
+      const deliveryBinding={hostname:input.hostname,challengeId,phoneDigest:start.phoneDigest};
+      try{await dependencies.deliverWhatsAppCode({phone,code,storeName:input.brand.storeName,idempotencyKey:operationId});}
+      catch{await repository.phoneCommand('finish_delivery',{...deliveryBinding,status:'ambiguous'}).catch(()=>undefined);throw new Error('storefront_whatsapp_delivery_uncertain');}
+      let finished;try{finished=await repository.phoneCommand('finish_delivery',{...deliveryBinding,status:'accepted'});}catch{finished=await repository.phoneCommand('start',start).catch(()=>null);}
+      if(finished?.outcome!=='accepted')throw new Error('storefront_whatsapp_delivery_uncertain');
+      return {result:{outcome:'accepted',retryAfterSeconds:60,deliveryRequired:true},setCookie:serializePhoneChallengeCookie(typeof finished.result?.challengeCookie==='string'?finished.result.challengeCookie:sealed)};
     },
     async verify(input) {
-      const current = nowValue(now);
-      const phoneRaw="ticket" in input?null:challengeValue(input.challengeCookie);
-      if(phoneRaw?.startsWith("ph1.")) {
-        const challenge=openPhoneChallenge(phoneRaw,sealKeyring);
-        if(!challenge || challenge.hostname!==input.hostname || new Date(challenge.expiresAt)<=current || "ticket" in input || !CODE.test(input.code) || !repository.verifyPhone)invalid();
-        const sessionId=uuid(randomUuid),credential=createAccountSessionCredential(hmacKeyring,randomBytes),csrf=csrfValue(randomBytes);
-        const accountCandidates=challenge.bindAccount?requiredCredentials(input.challengeCookie):[];
-        const result=await repository.verifyPhone({hostname:input.hostname,now:current,challengeId:challenge.challengeId,phoneDigest:phoneRecipientDigest(challenge.phone,hmacKeyring,challenge.hmacKeyId).digest,codeDigest:phoneCodeDigest({hostname:input.hostname,phone:challenge.phone,challengeId:challenge.challengeId,code:input.code},hmacKeyring,challenge.hmacKeyId).digest,phone:challenge.phone,...(challenge.firstName!==undefined?{firstName:challenge.firstName,lastName:challenge.lastName!}:{}),...(accountCandidates.length>0?{candidates:accountCandidates}:{}),customerId:uuid(randomUuid),accountId:uuid(randomUuid),sessionId,sessionKeyId:credential.keyId,sessionDigest:credential.digest,csrfDigest:accountCsrfDigest(sessionId,csrf,hmacKeyring).digest,deviceLabel:input.deviceLabel,userAgentDigest:accountUserAgentDigest(input.hostname,input.userAgent,hmacKeyring).digest,correlationId:correlation("phone_verify",sessionId)});
-        return Object.freeze({result,setCookies:Object.freeze([serializeAccountCookie(credential.value),serializeCsrf(csrf),serializeAccountChallengeCookieDeletion()])});
-      }
-      const ticketAuthority = "ticket" in input ? openAccountMagicTicket(input.ticket, sealKeyring) : null;
-      const raw = "ticket" in input ? null : challengeValue(input.challengeCookie);
-      const challenge = ticketAuthority?.challenge ?? (raw ? openAccountChallenge(raw, sealKeyring) : null);
-      if (!challenge || new Date(challenge.expiresAt) <= current || (!("ticket" in input) && !CODE.test(input.code))) invalid();
-      const emailAuthority = accountHostnameEmailDigest(input.hostname, challenge.email, hmacKeyring);
-      const verifier = "ticket" in input
-        ? accountHostnameTicketDigest({ challengeId: challenge.challengeId, hostname: input.hostname, ticket: ticketAuthority!.ticket }, hmacKeyring)
-        : accountHostnameCodeDigest({ challengeId: challenge.challengeId, hostname: input.hostname, email: challenge.email, code: input.code }, hmacKeyring);
-      const accountId = uuid(randomUuid); const sessionId = uuid(randomUuid); const sessionCredential = createAccountSessionCredential(hmacKeyring, randomBytes); const csrf = csrfValue(randomBytes);
-      const result = await repository.verify({
-        hostname: input.hostname, now: current, challengeId: challenge.challengeId, emailDigest: emailAuthority.digest, verifierKind: "ticket" in input ? "ticket" : "code", verifierDigest: verifier.digest,
-        email: challenge.email, accountId, sessionId, sessionKeyId: sessionCredential.keyId, sessionDigest: sessionCredential.digest,
-        csrfDigest: accountCsrfDigest(sessionId, csrf, hmacKeyring).digest, deviceLabel: input.deviceLabel,
-        userAgentDigest: accountUserAgentDigest(input.hostname, input.userAgent, hmacKeyring).digest, correlationId: correlation("verify", sessionId),
-      });
-      return Object.freeze({ result, setCookies: Object.freeze([serializeAccountCookie(sessionCredential.value), serializeCsrf(csrf), serializeAccountChallengeCookieDeletion()]) });
+      const current=nowValue(now),phoneRaw='ticket' in input?null:challengeValue(input.challengeCookie),operationId=input.operationId;
+      if(!phoneRaw?.startsWith('ph1.')||!operationId||!UUID.test(operationId)||'ticket' in input||!CODE.test(input.code)||!repository.phoneCommand)invalid();
+      const challenge=openPhoneChallenge(phoneRaw,sealKeyring);if(!challenge||challenge.hostname!==input.hostname||Date.parse(challenge.expiresAt)<=current.getTime())invalid();
+      const sessionId=phoneOperationUuid('session',input.hostname,challenge.challengeId,operationId,hmacKeyring,challenge.hmacKeyId),bytes=phoneOperationBytes('credential',input.hostname,challenge.challengeId,operationId,hmacKeyring,challenge.hmacKeyId);
+      const credential=createAccountSessionCredential({...hmacKeyring,activeKeyId:challenge.hmacKeyId},()=>bytes);bytes.fill(0);const csrfBytes=phoneOperationBytes('csrf',input.hostname,challenge.challengeId,operationId,hmacKeyring,challenge.hmacKeyId),csrf=csrfBytes.toString('base64url');csrfBytes.fill(0);
+      const cookies=[serializeAccountCookie(credential.value),serializeCsrf(csrf),serializeAccountChallengeCookieDeletion()];
+      const base={hostname:input.hostname,operationId,challengeId:challenge.challengeId,phoneDigest:phoneRecipientDigest(challenge.phone,hmacKeyring,challenge.hmacKeyId).digest,codeDigest:phoneCodeDigest({hostname:input.hostname,phone:challenge.phone,challengeId:challenge.challengeId,code:input.code},hmacKeyring,challenge.hmacKeyId).digest,phone:challenge.phone,...(challenge.firstName!==undefined?{firstName:challenge.firstName,lastName:challenge.lastName!}:{}),...(challenge.bindAccount?{candidates:requiredCredentials(input.challengeCookie)}:{}),customerId:phoneOperationUuid('customer',input.hostname,challenge.challengeId,operationId,hmacKeyring,challenge.hmacKeyId),accountId:phoneOperationUuid('account',input.hostname,challenge.challengeId,operationId,hmacKeyring,challenge.hmacKeyId),sessionId,sessionKeyId:credential.keyId,sessionDigest:credential.digest,csrfDigest:accountCsrfDigest(sessionId,csrf,hmacKeyring,challenge.hmacKeyId).digest,deviceLabel:input.deviceLabel,userAgentDigest:accountUserAgentDigest(input.hostname,input.userAgent,hmacKeyring,challenge.hmacKeyId).digest,correlationId:correlation('phone_verify',sessionId)};
+      // The repository commits OTP rejection counters. It never repeats a
+      // send or an uncertain verify; recovery reads the exact encrypted result.
+      const completionCiphertext=sealPhoneCompletion({profileRequired:challenge.firstName===undefined,setCookies:cookies},input.hostname,challenge.challengeId,operationId,sealKeyring,randomBytes);
+      const verification={...base,completionCiphertext};let verified;
+      try{verified=await repository.phoneCommand('verify',verification);}catch{verified=await repository.phoneCommand('read_completion',verification).catch(()=>null);}
+      if(!verified||!['authenticated','profile_required','completed'].includes(verified.outcome)||typeof verified.result?.completionCiphertext!=='string')throw new StorefrontIdentityRepositoryError(verified?.outcome==='identity_conflict'?'identity_conflict':'challenge_invalid');
+      const recovered=openPhoneCompletion(verified.result.completionCiphertext,input.hostname,challenge.challengeId,operationId,sealKeyring);if(!recovered)invalid();
+      const profileRequired=verified.result.profileRequired===true;
+      return {result:profileRequired?{outcome:'profile_required',profileRequired:true}:{outcome:'authenticated',profileRequired:false},setCookies:recovered.setCookies};
     },
     async completeProfile(input) {
-      const nextSession = uuid(randomUuid); const customerId = uuid(randomUuid); const credential = createAccountSessionCredential(hmacKeyring, randomBytes); const csrf = csrfValue(randomBytes);
+      const source=readAccountCookie(input.cookieHeader);if(source.kind!=='present'||!UUID.test(input.operationId))invalid();const keyId=source.value.split('.')[1]!,key=hmacKeyring.keys.find(k=>k.keyId===keyId);if(!key)invalid();
+      const master=createHmac('sha256',key.key).update(JSON.stringify(['celebix/storefront-profile-completion/v1',input.hostname,input.operationId,accountCredentialDigestCandidates(source.value,hmacKeyring).find(candidate=>candidate.keyId===keyId)])).digest(),derivedRing={activeKeyId:keyId,keys:[{keyId,key:master}]};
+      const nextSession=phoneOperationUuid('profile-session',input.hostname,input.operationId,input.operationId,derivedRing),customerId=phoneOperationUuid('profile-customer',input.hostname,input.operationId,input.operationId,derivedRing),sessionBytes=phoneOperationBytes('profile-token',input.hostname,input.operationId,input.operationId,derivedRing),csrfBytes=phoneOperationBytes('profile-csrf',input.hostname,input.operationId,input.operationId,derivedRing);
+      const credential=createAccountSessionCredential({...hmacKeyring,activeKeyId:keyId},()=>sessionBytes),csrf=csrfBytes.toString('base64url');sessionBytes.fill(0);csrfBytes.fill(0);master.fill(0);
       const payload = { firstName: input.firstName, lastName: input.lastName, phone: input.phone ?? null };
-      const result = await repository.completeProfile({ ...operationBase(input, payload, "profile_complete"), customerId, firstName: input.firstName, lastName: input.lastName, ...(input.phone ? { phone: input.phone } : {}), fullSessionId: nextSession, sessionKeyId: credential.keyId, sessionDigest: credential.digest, csrfDigest: accountCsrfDigest(nextSession, csrf, hmacKeyring).digest, deviceLabel: input.deviceLabel, userAgentDigest: accountUserAgentDigest(input.hostname, input.userAgent, hmacKeyring).digest });
+      const result = await repository.completeProfile({ ...operationBase(input, payload, "profile_complete"), customerId, firstName: input.firstName, lastName: input.lastName, ...(input.phone ? { phone: input.phone } : {}), fullSessionId: nextSession, sessionKeyId: credential.keyId, sessionDigest: credential.digest, csrfDigest: accountCsrfDigest(nextSession, csrf, hmacKeyring,keyId).digest, deviceLabel: input.deviceLabel, userAgentDigest: accountUserAgentDigest(input.hostname, input.userAgent, hmacKeyring).digest });
       return Object.freeze({ result, setCookies: Object.freeze([serializeAccountCookie(credential.value), serializeCsrf(csrf)]) });
     },
     async session(hostname, cookieHeader) {

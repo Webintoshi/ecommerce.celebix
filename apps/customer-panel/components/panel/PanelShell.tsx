@@ -31,6 +31,7 @@ export async function PanelShell(props: PanelShellProps) {
   const model = Object.freeze({
     ...entitledModel,
     analyticsAvailable,
+    staffManagementAvailable: Boolean(context && context.membership.role === 'store_owner' && !props.support),
     ...(context ? {
       storeDisplayName: activeStoreName ?? branding?.storeDisplayName ?? entitledModel.storeSlug,
       storeLogoUrl: branding?.storeLogoUrl ?? null,

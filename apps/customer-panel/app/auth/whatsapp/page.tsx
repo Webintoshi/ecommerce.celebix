@@ -6,6 +6,7 @@ import {resolveAdminLoginSecurityConfig} from "../../../lib/admin-login-security
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
 export default async function AdminWhatsAppPage(){
+ if(process.env.CELEBIX_MERCHANT_WHATSAPP_ENABLED==="true")redirect("/login");
  let config;try{config=resolveAdminLoginSecurityConfig(process.env);}catch{config=null;}
  if(!config)return <main><h1>Güvenli giriş</h1><p>Giriş doğrulaması şu anda kullanılamıyor. Tekrar deneyin.</p></main>;
  const requestHeaders=await headers();

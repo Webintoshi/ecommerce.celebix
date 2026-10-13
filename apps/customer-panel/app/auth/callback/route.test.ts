@@ -4,7 +4,7 @@ import * as route from './route.ts';
 
 test('registered callback rejects an invitation state without configured, bound invitation transport',async()=>{
  const response=await route.GET(new Request('https://panel.celebix.site/auth/callback?state=inv_'+ 'a'.repeat(43)+'&code=code',{headers:{host:'panel.celebix.site'}}));
- assert.equal(response.status,403);assert.equal(response.headers.get('set-cookie'),null);assert.equal(response.headers.get('location'),null);assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.equal(response.status,410);assert.equal(response.headers.get('set-cookie'),null);assert.equal(response.headers.get('location'),null);assert.equal(response.headers.get('cache-control'),'no-store');
 });
 test('normal GET and POST callback mounts retain the existing disabled-mode gate',async()=>{
  for(const [method,handler] of [['GET',route.GET],['POST',route.POST]] as const){

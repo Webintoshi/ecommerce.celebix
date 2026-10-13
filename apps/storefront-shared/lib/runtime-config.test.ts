@@ -55,16 +55,16 @@ test("storefront identity config activates only one isolated staging authority",
   assert.equal(parsed.allowedOriginSuffix, ".saas-staging.celebix.site");
   assert.equal(parsed.hmacKeyring.activeKeyId, "hmac_01");
   assert.equal(parsed.sealKeyring.activeKeyId, "seal_01");
-  assert.deepEqual(parsed.email, { mode: "platform_resend", from: "accounts@celebix.test", apiKey: "re_test_authority_0000000000000001" });
+  assert.equal(Object.hasOwn(parsed,"email"),false);
 });
 
-test("storefront identity config accepts the verified Celebix Resend sender domain", () => {
+test("retired delivery settings do not alter the phone-only account authority", () => {
   const parsed = parseStorefrontIdentityConfig({
     ...identity,
     CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM: "hesap@noreply.celebix.net",
   });
 
-  assert.equal(parsed.email.from, "hesap@noreply.celebix.net");
+  assert.equal(Object.hasOwn(parsed,"email"),false);
 });
 
 test("storefront identity accepts the isolated Celebix .net staging authority", () => {
@@ -83,7 +83,10 @@ test("storefront identity config fails closed on incomplete or production settin
     { ...identity, CELEBIX_STOREFRONT_ACCOUNTS_MODE: undefined },
     { ...identity, CELEBIX_STOREFRONT_ACCOUNT_ALLOWED_ORIGIN_SUFFIX: ".celebix.site" },
     { ...identity, CELEBIX_STOREFRONT_ACCOUNT_SEAL_ACTIVE_KEY_ID: "missing_01" },
-    { ...identity, CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE: "merchant_smtp" },
-    { ...identity, CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY: undefined },
   ]) assert.throws(() => parseStorefrontIdentityConfig(candidate), /storefront_identity_config_invalid/u);
+});
+
+test("phone-only customer identity does not require or publish a retired email delivery credential",()=>{
+ const source:Record<string,string|undefined>={...identity};delete source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_MODE;delete source.CELEBIX_STOREFRONT_ACCOUNT_EMAIL_FROM;delete source.CELEBIX_STOREFRONT_ACCOUNT_RESEND_API_KEY;
+ const parsed=parseStorefrontIdentityConfig(source);assert.equal(parsed.hmacKeyring.activeKeyId,'hmac_01');assert.equal(Object.hasOwn(parsed,'email'),false);
 });

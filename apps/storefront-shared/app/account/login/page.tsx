@@ -32,7 +32,7 @@ export default async function LoginPage({
       design={design}
       title="Giriş"
     >
-      <AccountAuthForm mode={runtime?.identity?.whatsappEnabled ? "phone" : "email"} returnTo={returnTo} />
+      <AccountAuthForm mode={runtime?.identity?.whatsappEnabled ? "phone" : "unavailable"} returnTo={returnTo} />
     </AccountAuthShell>
   );
 }

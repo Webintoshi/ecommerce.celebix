@@ -6,15 +6,23 @@ import Link from "next/link";
 
 export default function KayitPage() {
   const registrationEnabled = resolveSelfServeRegistrationUiEnabled(process.env);
+  let merchantLoginHref: string | null = null;
+  try {
+    const value = process.env.CELEBIX_PANEL_ORIGIN;
+    if (value) {
+      const origin = new URL(value);
+      if (origin.protocol === 'https:' && origin.origin === value && !origin.port && !origin.username && !origin.password && origin.hostname.includes('.')) merchantLoginHref = value + '/login';
+    }
+  } catch { /* An unconfigured merchant authority has no login link. */ }
   const registrationState = registrationEnabled ? "enabled" : "disabled";
 
   return (
     <main className="self-serve-public-page self-serve-register-page">
       <header className="self-serve-register-header">
         <img src="/branding/celebix-logo.svg" alt="Celebix" className="self-serve-logo" />
-        <Link className="self-serve-register-login" href="/login">
+        {merchantLoginHref && <Link className="self-serve-register-login" href={merchantLoginHref}>
           Zaten hesabınız var mı? <strong>Giriş Yap</strong>
-        </Link>
+        </Link>}
       </header>
 
       <section className="self-serve-register-hero" aria-labelledby="self-serve-register-title">

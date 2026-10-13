@@ -5,56 +5,6 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, root), "utf8"); }
 
-test("customer account forms are accessible and use the passwordless private routes", async () => {
-  const auth = await source("components/account/AccountAuthForm.tsx");
-  assert.match(auth, /type="email"/u);
-  assert.match(auth, /autoComplete="email"/u);
-  assert.match(auth, /inputMode="numeric"/u);
-  assert.match(auth, /autoComplete="one-time-code"/u);
-  assert.match(auth, /role="status"/u);
-  assert.match(auth, /\/api\/account\/auth\/start/u);
-  assert.match(auth, /method="post" action="\/api\/account\/auth\/verify-browser"/u);
-  assert.match(auth, /type="hidden" name="ticket"/u);
-  assert.match(auth, /type="hidden" name="returnTo"/u);
-  assert.match(auth, /name="code"/u);
-  assert.match(auth, /Bağlantı gönder/u);
-  assert.doesNotMatch(auth, /Güvenilir Giriş|%100 Korumalı|HESAP ERİŞİMİ/u);
-  assert.match(auth, /E-postanı kontrol et/u);
-  assert.match(auth, /maskAccountEmail/u);
-  assert.match(auth, /E-postayı değiştir/u);
-  assert.match(auth, /Kod ile giriş/u);
-  assert.match(auth, />Devam et</u);
-  assert.match(auth, />Giriş yap</u);
-  assert.doesNotMatch(auth, /Bağlantı 10 dakika geçerlidir|<b>\{email\}<\/b>/u);
-  const emailTicketVerify = auth.slice(auth.indexOf("function EmailTicketVerify"));
-  assert.doesNotMatch(emailTicketVerify, /postAccountAuth|window[.]location[.]assign/u);
-  assert.doesNotMatch(auth, /window[.]location[.]assign\(`\/account\/verify/u);
-  assert.doesNotMatch(auth, /Şifre gerekmez/u);
-  assert.doesNotMatch(auth, /password/u);
-});
-
-test("account entry uses one neutral shared shell with only a tenant logo", async () => {
-  const login = await source("app/account/login/page.tsx");
-  const verify = await source("app/account/verify/page.tsx");
-  const shell = await source("components/account/AccountAuthShell.tsx");
-  const form = await source("components/account/AccountAuthForm.tsx");
-  assert.match(login, /AccountAuthShell/u);
-  assert.match(verify, /AccountAuthShell/u);
-  assert.doesNotMatch(login, /StorefrontFrame|Siparişlerinizi takip edin|Adreslerinizi saklayın/u);
-  assert.doesNotMatch(verify, /StorefrontFrame|Bu isteği siz yapmadıysanız/u);
-  assert.match(shell, /resolveAccountAuthBranding/u);
-  assert.doesNotMatch(shell, /<h1/u);
-  assert.match(shell, /aria-label=.*ana sayfa/u);
-  assert.match(shell, /Mağazaya dön/u);
-  assert.doesNotMatch(shell, /themeClasses|data-font|data-published-design|createStorefrontTypographyResources|--store-|shellFooter|brandCaption/u);
-  assert.match(shell, /account-auth[.]module[.]css/u);
-  assert.match(form, /account-auth[.]module[.]css/u);
-  assert.match(login, /title="Giriş"/u);
-  assert.match(form, /HOŞ GELDİN\./u);
-  assert.match(verify, /Güvenli giriş/u);
-  assert.match(verify, /ticket=/u);
-});
-
 test("account auth styles keep focus and reduced-motion support local to the shared screen", async () => {
   const css = await source("components/account/account-auth.module.css");
   const globalCss = await source("app/globals.css");

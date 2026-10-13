@@ -122,6 +122,19 @@ export class PostgresStorefrontIdentityRepository implements StorefrontIdentityR
     }
   }
 
+  async phoneCommand(action:'start'|'finish_delivery'|'verify'|'read_completion',input:Readonly<Record<string,unknown>>) {
+    if(!['start','finish_delivery','verify','read_completion'].includes(action)||!input||typeof input!=='object'||Array.isArray(input)||JSON.stringify(input).length>32768)throw failure('invalid_input');
+    const client=await this.acquire();let terminal=false,began=false;
+    try {
+      await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');began=true;await this.configure(client);
+      const selected=envelope(await client.query('SELECT outcome,result_payload FROM saas.public_account_phone_command($1::text,$2::jsonb)',[action,JSON.stringify(input)]));
+      if(!['prepared','pending','accepted','failed','ambiguous','rate_limited','operation_replayed','operation_mismatch','challenge_invalid','invalid_input','authenticated','profile_required','completed','identity_conflict','account_suspended'].includes(selected.outcome)||selected.result!==null&&(!selected.result||typeof selected.result!=='object'||Array.isArray(selected.result)))throw failure();
+      // Rejected codes update their durable wrong-attempt counter too.
+      try{await client.query('COMMIT');terminal=true;release(client);}catch{terminal=true;release(client,true);throw failure('commit_unknown');}
+      return Object.freeze({outcome:selected.outcome,result:selected.result as Readonly<Record<string,unknown>>|null});
+    }catch(error){if(began&&!terminal)await this.rollback(client);else if(!terminal)release(client,true);if(error instanceof StorefrontIdentityRepositoryError)throw error;throw failure();}
+  }
+
   async start(input: Parameters<StorefrontIdentityRepository["start"]>[0]) {
     try {
       const p = exactCommerceInput(input, ["hostname", "now", "challengeId", "emailDigest", "requestDigest", "codeKeyId", "codeDigest", "ticketKeyId", "ticketDigest", "expiresAt", "outboxId", "recipientCiphertext", "brandSnapshot", "correlationId"]);

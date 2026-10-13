@@ -1,0 +1,28 @@
+{
+  "migrationId": "native229",
+  "description": "Disabled-by-default merchant phone-only WhatsApp authority; central platform TOTP unchanged",
+  "up": "202610130229_merchant_whatsapp_authority.up.sql",
+  "down": "202610130229_merchant_whatsapp_authority.down.sql",
+  "assertions": "202610130229_merchant_whatsapp_authority_assertions.sql",
+  "dependencies": [
+    "native228"
+  ],
+  "isolatedAcceptance": "node --experimental-transform-types tests/saas-phase3/merchant-whatsapp/native.test.mjs",
+  "functions": [
+    "whatsapp_otp_reserve_send",
+    "merchant_whatsapp_policy_enabled",
+    "merchant_whatsapp_principal_enforced",
+    "merchant_phone_staff_projection",
+    "merchant_phone_projection",
+    "merchant_whatsapp_command",
+    "merchant_whatsapp_capture_cutover",
+    "merchant_whatsapp_bootstrap_principal",
+    "merchant_whatsapp_cleanup",
+    "merchant_phone_security_reset"
+  ],
+  "rollback": "Only completely unused authority, no cutover ever; preserves used phone authority rather than restoring a password bypass.",
+  "isolatedChecks": 40,
+  "sharedBudget": "Recipient cooldown60seconds,5/15min,IP30/15min across merchant and customer; null IP skips only IP budget. Dedicated stable HMAC key; no proof crossover.",
+  "invitationRetirement": "All invitation creation/start/claim/completion/acceptance and generic administrator_invite mutations are withdrawn on installation, independently of phone-only activation flags. Historical rows and accepted memberships remain.",
+  "bindContinuationAuthority": "Read, resend and verify of bind_phone require the current authenticated session actor and active store to match the persisted initiating actor/store, with current active ordinary membership. Checks precede pending state, OTP counters and completed escrow replay. Login/signup reject unexpected actor pairs."
+}

@@ -40,6 +40,7 @@ export type StorefrontIdentitySessionResult = Readonly<
 export interface StorefrontIdentityRepository {
   // Optional so legacy email-only fixtures remain compatible during deployment.
   startEmail?(input: Parameters<StorefrontIdentityRepository["start"]>[0]): Promise<StorefrontIdentityStartDisposition>;
+  phoneCommand?(action:'start'|'finish_delivery'|'verify'|'read_completion',input:Readonly<Record<string,unknown>>):Promise<Readonly<{outcome:string;result:Readonly<Record<string,unknown>>|null}>>;
   startPhone?(input: StorefrontPhoneStartInput): Promise<StorefrontIdentityStartDisposition>;
   verifyPhone?(input: StorefrontPhoneVerifyInput): Promise<StorefrontAuthVerifyResult>;
   markPhoneDelivery?(input: StorefrontPhoneDeliveryInput): Promise<void>;

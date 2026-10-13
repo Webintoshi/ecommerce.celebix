@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PostgresAdminDomainRepository } from "@celebix/saas-data";
 
-import type { PostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
+import type { PostgresCrossHostSessionHandoffRepository, PreparedPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
 import type { PostgresPanelStoreOptionRepository } from "../panel-store-options/postgres-repository.ts";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 
@@ -12,21 +12,22 @@ type ApprovedAccessRuntime = ServerPanelAccessRuntime & Readonly<{
 }>;
 
 type AdminDomainAuthority = Pick<PostgresAdminDomainRepository, "resolvePublicBrand">;
-type HandoffAuthority = PostgresCrossHostSessionHandoffRepository;
+type HandoffAuthority = PostgresCrossHostSessionHandoffRepository & Partial<Pick<PreparedPostgresCrossHostSessionHandoffRepository, "issuePreparedHandoff">>;
+type PreparedHandoffAuthority = PreparedPostgresCrossHostSessionHandoffRepository;
 type StoreOptionAuthority = PostgresPanelStoreOptionRepository;
 type LogoutAuthority = Readonly<{ endSessionEndpoint: string; clientId: string; stateKey: Uint8Array }>;
 
 export type ServerAdminHostAuthRuntime = Readonly<{
   access: ApprovedAccessRuntime;
   adminDomains: AdminDomainAuthority;
-  handoffs: HandoffAuthority;
+  handoffs: PreparedHandoffAuthority;
   storeOptions: StoreOptionAuthority;
   logout: LogoutAuthority;
 }>;
 
 const runtimes = new WeakMap<ServerPanelAccessRuntime, Readonly<{
   adminDomains: AdminDomainAuthority;
-  handoffs: HandoffAuthority;
+  handoffs: PreparedHandoffAuthority;
   storeOptions: StoreOptionAuthority;
   logout: LogoutAuthority;
 }>>();
@@ -42,7 +43,7 @@ function adminDomainFacade(repository: AdminDomainAuthority): AdminDomainAuthori
   });
 }
 
-function handoffFacade(repository: HandoffAuthority): HandoffAuthority {
+function handoffFacade(repository: HandoffAuthority): PreparedHandoffAuthority {
   if (
     !repository
     || typeof repository.issueHandoff !== "function"
@@ -51,6 +52,10 @@ function handoffFacade(repository: HandoffAuthority): HandoffAuthority {
     || typeof repository.recoverRedemption !== "function"
   ) invalid();
   return Object.freeze({
+    issuePreparedHandoff: (input: Parameters<PreparedHandoffAuthority["issuePreparedHandoff"]>[0]) =>
+      typeof repository.issuePreparedHandoff === "function"
+        ? repository.issuePreparedHandoff(input)
+        : Promise.resolve({ kind: "unavailable" as const }),
     issueHandoff: (input: Parameters<HandoffAuthority["issueHandoff"]>[0]) => repository.issueHandoff(input),
     recoverIssuedHandoff: (input: Parameters<HandoffAuthority["recoverIssuedHandoff"]>[0]) => repository.recoverIssuedHandoff(input),
     redeemHandoff: (input: Parameters<HandoffAuthority["redeemHandoff"]>[0]) => repository.redeemHandoff(input),

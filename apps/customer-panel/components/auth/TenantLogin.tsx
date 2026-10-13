@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+
+import { MerchantPhoneLoginForm } from "./MerchantPhoneLoginForm.tsx";
 
 import type { TenantAdminLoginModel } from "../../lib/tenant-admin-login-model.ts";
 
@@ -24,9 +26,7 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
           </div>
 
           <div className="tenant-login-actions">
-            <Link className="tenant-login-button" href={model.loginHref} prefetch={false}>
-              Güvenli giriş yap <ArrowRight size={20} aria-hidden="true" />
-            </Link>
+            <MerchantPhoneLoginForm />
             <Link className="tenant-login-secondary" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
               Yeni mağaza oluştur
             </Link>

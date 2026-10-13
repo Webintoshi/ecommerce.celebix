@@ -878,3 +878,14 @@ test("result is assignable to the frozen CreateStarterTenantResult contract", as
   );
   assert.equal(result.schemaVersion, 1);
 });
+
+test('phone signup uses native-bound principal without manufacturing verified email',async()=>{
+ const repository=createInMemorySaaSDataRepository();let called=0;
+ const proof={pendingId:'11111111-1111-4111-8111-111111111111',pendingDigest:'a'.repeat(64),browserDigest:'b'.repeat(64),environment:'test'};
+ const service=createStarterTenantService({repository:transformTransactions(repository,tx=>{
+  const original=tx.principals;return overrideTransaction(tx,{principals:{...original,authorizePhoneSignup:async(input:any)=>{called++;assert.deepEqual(input.proof,proof);assert.ok(input.storeId);assert.ok(input.operationId);const value={id:'phone-principal',issuer:'urn:celebix:merchant-phone',subject:'phone-principal',email:null,emailVerified:false,authorityKind:'phone',createdAt:baseInput.requestedAt,updatedAt:baseInput.requestedAt};return value;}}as any});
+ })});
+ const input={...baseInput,principal:{kind:'whatsapp',proof}};
+ const result=await service.execute(input);assert.equal(result.ok,true);assert.equal(called,1);assert.equal(repository.inspectState().principals.length,0);
+ assert.equal((await service.execute({...input,principal:{...input.principal,email:'fake@example.test'}})).ok,false);
+});

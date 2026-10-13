@@ -347,7 +347,8 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       randomBytes: (size) => new Uint8Array(randomBytes(size)),
       randomUuid: randomUUID,
       randomLoginCode: () => createStorefrontLoginCode(),
-      deliverLoginCode: createResendStorefrontIdentityEmailDelivery({ apiKey: identityConfig.email.apiKey, from: identityConfig.email.from, fetch: (request) => fetch(request), timeoutMs: 5_000 }),
+      deliverLoginCode:async()=>{throw Error('storefront_email_login_retired');},
+      ...(/^[a-f0-9]{64}$/u.test(process.env.CELEBIX_WHATSAPP_OTP_RATE_KEY??'')?{whatsappRateKey:Buffer.from(process.env.CELEBIX_WHATSAPP_OTP_RATE_KEY!,'hex')} : {}),
       ...(whatsappConfig!==null && whatsappMigration?{deliverWhatsAppCode:createVatanSmsWhatsAppDelivery({apiKey:whatsappConfig.apiKey,regId:whatsappConfig.regId,fetch:request=>fetch(request),timeoutMs:12000})}:{}),
     }) : null;
     return Object.freeze({

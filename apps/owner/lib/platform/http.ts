@@ -24,9 +24,10 @@ function publicError(error:unknown){if(error instanceof BodyTooLarge)return json
  if(code==='invalid_input'||r?.message==='Bilgileri kontrol edip yeniden deneyin.')return json({error:'Bilgileri kontrol edip yeniden deneyin.',code:'invalid_input'},400);
  return json({error:'Hizmete ulaşılamadı. Aynı işlemden yeniden deneyin; girilen bilgiler korunuyor.',code:'unavailable'},503);
 }
-const allowedActions:Record<string,readonly string[]>={plans:['plan.publish'],subscriptions:['subscription.assign'],billing:['billing.period.create','billing.period.adjust','billing.receipt.record','billing.receipt.reverse'],stores:['sales.pause','sales.resume'],memberships:['membership.update'],invitations:['ownership.invite'],'support-sessions':['support.issue','support.revoke'],operations:['operations.retry']};
+const allowedActions:Record<string,readonly string[]>={plans:['plan.publish'],subscriptions:['subscription.assign'],billing:['billing.period.create','billing.period.adjust','billing.receipt.record','billing.receipt.reverse'],stores:['sales.pause','sales.resume'],memberships:['membership.update'],invitations:[],'support-sessions':['support.issue','support.revoke'],operations:['operations.retry']};
 export async function handlePlatformHttp(request:Request,segments:readonly string[],deps:PlatformHttpDependencies):Promise<Response>{
  try{
+  if(request.method==='POST'&&segments[0]==='invitations')return json({code:'invitations_retired',error:'Davet bağlantıları artık kullanılmıyor.'},410);
   const auth=await deps.resolveOperator();
   if(auth.kind!=='authorized'||!auth.operator)return json({error:auth.kind==='mfa_required'?'İki aşamalı doğrulama gerekli.':auth.kind==='unavailable'?'Platform bağlantısı kullanılamıyor.':'Doğrulanmış platform sahibi girişi gerekli.',code:auth.kind},auth.kind==='unavailable'?503:auth.kind==='unauthenticated'?401:403);
   const [resource,id]=segments;

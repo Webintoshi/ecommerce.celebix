@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createMerchantPhoneHandlers,MerchantActorUnavailable} from './handler.ts';
+const origin='https://shop.admin.example.com',operation='12345678-1234-4234-8234-123456789abc';
+function fixture(){const calls:any[]=[];let authorized=true;const handlers=createMerchantPhoneHandlers({clock:()=>new Date('2026-10-13T10:00:00.000Z'),randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=>{if(!authorized)throw Error();return 'v1.session1.'+Buffer.alloc(32,3).toString('base64url');},authenticateIngress:()=>({authenticated:true,trustedIp:'203.0.113.4'}),transport:{async command(input){calls.push(input);return {schemaVersion:1,code:'ok',state:input.action==='self_state'?{phoneMasked:null,phoneVerified:false}:{phase:'phone'}};}}});return {handlers,calls,unauthorize(){authorized=false;}};}
+function request(path:string,init:RequestInit={}){return new Request(origin+path,{...init,headers:{host:'shop.admin.example.com',...init.headers}});}
+async function setup(f:ReturnType<typeof fixture>){const response=await f.handlers.state(request('/api/merchant-login/state'));const body=await response.json();const cookie=response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');return {cookie,csrf:body.csrfToken};}
+test('state exposes only public phase plus memory CSRF and HttpOnly host cookies',async()=>{const f=fixture();const response=await f.handlers.state(request('/api/merchant-login/state'));assert.equal(response.status,200);const body=await response.json();assert.deepEqual(Object.keys(body).sort(),['code','csrfToken','state']);assert.match(body.csrfToken,/^[A-Za-z0-9_-]{43}$/);assert.equal(response.headers.get('cache-control'),'no-store');assert(response.headers.getSetCookie().every(v=>v.includes('HttpOnly; Secure; SameSite=Lax; Path=/')));});
+test('CSRF, same origin and idempotency are required before broker',async()=>{const f=fixture(),s=await setup(f);const base={method:'POST',headers:{origin,'content-type':'application/json',cookie:s.cookie,'idempotency-key':operation},body:JSON.stringify({phone:'+905551234567',operationId:operation})};const missing=await f.handlers.start(request('/api/merchant-login/start',base));assert.equal(missing.status,403);assert.equal(f.calls.length,1);const good=await f.handlers.start(request('/api/merchant-login/start',{...base,headers:{...base.headers,'x-celebix-merchant-phone-csrf':s.csrf}}));assert.equal(good.status,200);assert.equal(f.calls.at(-1).ingressAuthenticated,true);assert.equal(f.calls.at(-1).hostname,'shop.admin.example.com');});
+test('cross origin, duplicate cookies and browser verified fields fail before native access',async()=>{const f=fixture(),s=await setup(f);for(const [extra,body]of [[{origin:'https://evil.example.com'},{phone:'+905551234567',operationId:operation}],[{}, {phone:'+905551234567',operationId:operation,verified:true}]]as const){const response=await f.handlers.start(request('/api/merchant-login/start',{method:'POST',headers:{origin,'content-type':'application/json',cookie:s.cookie,'idempotency-key':operation,'x-celebix-merchant-phone-csrf':s.csrf,...extra},body:JSON.stringify(body)}));assert.equal(response.status,403);}assert.equal(f.calls.length,1);});
+test('binding requires actual panel session and combines only safe self fields',async()=>{const f=fixture();const response=await f.handlers.bindState(request('/api/merchant-login/bind/state'));const body=await response.json();assert.deepEqual(body.state,{phase:'phone',phoneMasked:null,phoneVerified:false});f.unauthorize();const denied=await f.handlers.bindState(request('/api/merchant-login/bind/state'));assert.equal(denied.status,401);});
+test('verify never releases private completion credential into JSON',async()=>{const f=fixture(),s=await setup(f);const privateToken='v1.session1.'+Buffer.alloc(32,6).toString('base64url');const handlers=createMerchantPhoneHandlers({randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=>'',authenticateIngress:()=>({authenticated:true}),transport:{async command(){return {schemaVersion:1,code:'complete',completion:{sessionCredential:privateToken,sessionId:operation,sessionIssuedAt:'2026-10-13T10:00:00.000Z',sessionExpiresAt:'2026-10-13T18:00:00.000Z',destinationStoreId:operation,destinationOrigin:origin,purpose:'login'}};}}});const response=await handlers.verify(request('/api/merchant-login/verify',{method:'POST',headers:{origin,'content-type':'application/json',cookie:s.cookie,'idempotency-key':operation,'x-celebix-merchant-phone-csrf':s.csrf},body:JSON.stringify({code:'000001',operationId:operation})}));assert.deepEqual(await response.json(),{code:'complete'});assert.equal(response.headers.get('set-cookie'),null);});
+test('authority or broker outages remain retryable503 without masquerading as authorization failures',async()=>{const options={requireActor:async()=>{throw new MerchantActorUnavailable();},authenticateIngress:()=>({authenticated:true}),transport:{async command():Promise<any>{throw Error('private transport detail');}}};const h=createMerchantPhoneHandlers(options);assert.equal((await h.bindState(request('/api/merchant-login/bind/state'))).status,503);const r=await h.state(request('/api/merchant-login/state'));assert.equal(r.status,503);assert.deepEqual(await r.json(),{code:'unavailable'});});
+test('internal HTTPS listener does not replace actual canonical public Host authority',async()=>{const f=fixture();for(const listener of ['https://internal:3400','https://0.0.0.0:3400']){const r=await f.handlers.state(new Request(listener+'/api/merchant-login/state',{headers:{host:'shop.admin.example.com'}}));assert.equal(r.status,200);assert.equal(f.calls.at(-1).hostname,'shop.admin.example.com');}assert.equal((await f.handlers.state(new Request('https://evil.example.com/api/merchant-login/state',{headers:{host:'shop.admin.example.com'}}))).status,403);});
+test('every binding route including completion forwards current actorB alongside prior browser pendingA',async()=>{
+ const actorB='v1.sessionB.'+Buffer.alloc(32,9).toString('base64url'),pendingA='mwc1.pending_a',calls:any[]=[];
+ const handlers=createMerchantPhoneHandlers({clock:()=>new Date('2026-10-13T10:00:00.000Z'),randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=>actorB,authenticateIngress:()=>({authenticated:true}),transport:{async command(input){calls.push(input);return{schemaVersion:1,code:'ok',state:input.action==='self_state'?{phoneMasked:null,phoneVerified:false}:{phase:'phone'}};}}});
+ const initial=await handlers.bindState(request('/api/merchant-login/bind/state'));
+ const csrf=(await initial.json()).csrfToken,cookies=initial.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ')+`; __Host-celebix_merchant_pending=${pendingA}; __Host-celebix_merchant_purpose=bind_phone`;
+ calls.length=0;
+ const routes=[
+  {action:'state',handler:handlers.bindState},
+  {action:'start',handler:handlers.bindStart,body:{phone:'+905551234567',operationId:operation}},
+  {action:'resend',handler:handlers.bindResend,body:{operationId:operation}},
+  {action:'verify',handler:handlers.bindVerify,body:{code:'001234',operationId:operation}},
+  {action:'complete',handler:handlers.complete},
+ ];
+ for(const {action,handler,body}of routes){
+  const path=action==='complete'?'/auth/merchant-phone/complete':`/api/merchant-login/bind/${action}`;
+  const headers={cookie:cookies,...(body?{origin,'content-type':'application/json','idempotency-key':operation,'x-celebix-merchant-phone-csrf':csrf}:{})};
+  await handler(request(path,{method:body?'POST':'GET',headers,...(body?{body:JSON.stringify(body)}:{})}));
+  const command=[...calls].reverse().find(value=>value.action===action);
+  assert.ok(command);assert.equal(command.purpose,'bind_phone');assert.equal(command.pendingCookie,pendingA);assert.equal(command.sessionCredential,actorB,action);
+ }
+});
+test('binding completion denies an unauthenticated current actor before broker or cookies',async()=>{
+ const f=fixture(),initial=await f.handlers.bindState(request('/api/merchant-login/bind/state'));
+ const cookies=initial.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ')+'; __Host-celebix_merchant_pending=mwc1.pending_a; __Host-celebix_merchant_purpose=bind_phone';
+ f.unauthorize();const before=f.calls.length;
+ const denied=await f.handlers.complete(request('/auth/merchant-phone/complete',{headers:{cookie:cookies}}));
+ assert.equal(denied.status,401);assert.deepEqual(await denied.json(),{code:'unauthorized'});assert.equal(f.calls.length,before);assert.equal(denied.headers.has('set-cookie'),false);
+});
+test('invalid completion purpose fails before current actor resolution or broker',async()=>{
+ let actorCalls=0,brokerCalls=0;
+ const h=createMerchantPhoneHandlers({requireActor:async()=>{actorCalls++;throw Error();},authenticateIngress:()=>({authenticated:true}),transport:{async command(){brokerCalls++;return {schemaVersion:1,code:'not_ready'};}}});
+ const browser=Buffer.alloc(32,7).toString('base64url');
+ for(const purpose of ['signup','unexpected']){
+  const denied=await h.complete(request('/auth/merchant-phone/complete',{headers:{cookie:`__Host-celebix_merchant_browser=${browser}; __Host-celebix_merchant_purpose=${purpose}`}}));
+  assert.equal(denied.status,403);assert.deepEqual(await denied.json(),{code:'request_invalid'});assert.equal(denied.headers.has('set-cookie'),false);
+ }
+ assert.equal(actorCalls,0);assert.equal(brokerCalls,0);
+});

@@ -17,7 +17,7 @@ const { TenantLogin } = compile("components/auth/TenantLogin.tsx", {
   },
 });
 
-test("login presentation keeps tenant identity and the supplied secure entry destination", async () => {
+test("phone login presentation keeps tenant branding and removes the password redirect", async () => {
   const models: TenantAdminLoginModel[] = [
     { kind: "tenant", displayName: "Güzide Kuyumcu", logoUrl: null, accentColor: "#b58a4a", canonicalAdminOrigin: "https://admin.guzidekuyumcu.com", loginHref: "https://panel.saas-staging.celebix.site/auth/login?destination=admin.guzidekuyumcu.com" },
     { kind: "tenant", displayName: "Butik Siora", logoUrl: "https://assets.example.test/store.svg", accentColor: "#ff6500", canonicalAdminOrigin: "https://butik-siora.admin.saas-staging.celebix.net", loginHref: "https://panel.saas-staging.celebix.net/auth/login?destination=butik-siora.admin.saas-staging.celebix.net" },
@@ -31,7 +31,8 @@ test("login presentation keeps tenant identity and the supplied secure entry des
       const document = window.document;
       assert.equal(document.querySelectorAll("h1").length, 1);
       assert.equal(document.querySelector("h1")?.textContent, model.displayName);
-      assert.equal(document.querySelector(".tenant-login-button")?.getAttribute("href"), model.loginHref);
+      assert.equal(document.querySelector('a[href*="auth/login"]'), null);
+      assert.match(document.body.textContent!, /Giriş hazırlanıyor/);
       assert.equal(document.querySelector(".tenant-login-secondary")?.getAttribute("href"), "https://ecommerce.celebix.co/kayit");
       assert.equal(document.querySelectorAll("input, form").length, 0);
       assert.equal(document.querySelector(".tenant-login-artwork")?.getAttribute("aria-hidden"), "true");

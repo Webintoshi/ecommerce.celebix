@@ -40,6 +40,16 @@ import {createAdminLoginInternalGateway} from '../../../../packages/saas-data/sr
 import {createAdminSecurityBridge} from '../../../../packages/saas-data/src/admin-login-security/bridge.ts';
 import {createAdminLoginInvalidationWebhookHandler} from '../admin-login-security/webhook.ts';
 import {createAdminLoginSupportResetHandler} from '../admin-login-security/support-reset.ts';
+import type {MerchantWhatsAppConfig} from '../merchant-whatsapp/config.ts';
+import {createMerchantWhatsAppCodec} from '../merchant-whatsapp/codec.ts';
+import {createOwnerMerchantWhatsAppService} from '../merchant-whatsapp/service.ts';
+import {createMerchantInternalGateway} from '../merchant-whatsapp/internal.ts';
+import {createPostgresMerchantWhatsAppRepository} from '../../../../packages/saas-data/src/merchant-whatsapp/repository.ts';
+import {createOwnerMerchantSignupHandlers} from '../merchant-whatsapp/public.ts';
+import {createMerchantPhoneRegistrationHandler} from '../merchant-whatsapp/registration.ts';
+import {createMerchantSignupCompletion} from '../merchant-whatsapp/completion.ts';
+import {createPostgresCrossHostSessionHandoffRepository} from '../../../customer-panel/lib/cross-host-session-handoff/postgres-repository.ts';
+import {createPanelSessionPersistenceApproval} from '../../../customer-panel/lib/panel-session-persistence/activation.ts';
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({
@@ -85,7 +95,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
 
 export async function initializeOwnerStagingAuthRouteSet(
   config: OwnerStagingAuthConfig,
-  rollout: {onboardingStatusEnabled?:boolean;adminLoginSecurity?:OwnerAdminLoginSecurityConfig|null} = {},
+  rollout: {onboardingStatusEnabled?:boolean;adminLoginSecurity?:OwnerAdminLoginSecurityConfig|null;merchantWhatsApp?:MerchantWhatsAppConfig|null} = {},
 ): Promise<OwnerSelfServeAuthRouteSet> {
   const pool = new Pool({
     ...createOwnerStagingDatabasePoolConfig(config.database),
@@ -112,6 +122,15 @@ export async function initializeOwnerStagingAuthRouteSet(
         for(const existing of [config.keys.identityHmac,config.keys.identityEncryption,config.keys.browserBootstrap,config.keys.browserBinding,config.keys.browserInternal,config.keys.callbackInternal,config.keys.handoff,config.keys.session])
           if(Buffer.from(master).equals(Buffer.from(existing)))throw Error('admin_login_security_key_separation_failed');
     } catch(error) {await pool.end().catch(()=>undefined);throw error;}
+  }
+  if(rollout.merchantWhatsApp){
+    try{
+      const client=await pool.connect();
+      try{const checked=await client.query("SELECT to_regprocedure('saas.merchant_whatsapp_command(text,jsonb)') IS NOT NULL AS commands, to_regprocedure('saas.merchant_whatsapp_bootstrap_principal(uuid,text,text,text,uuid,uuid)') IS NOT NULL AS bootstrap");if(checked.rows[0]?.commands!==true||checked.rows[0]?.bootstrap!==true)throw Error('merchant_whatsapp_preflight_failed');}finally{client.release();}
+      for(const merchantKey of [rollout.merchantWhatsApp.phoneLookupKey,rollout.merchantWhatsApp.recipientRateKey])
+        for(const existing of [config.keys.identityHmac,config.keys.identityEncryption,config.keys.browserBootstrap,config.keys.browserBinding,config.keys.browserInternal,config.keys.callbackInternal,config.keys.handoff,config.keys.session])
+          if(Buffer.from(merchantKey).equals(Buffer.from(existing)))throw Error('merchant_whatsapp_key_separation_failed');
+    }catch(error){await pool.end().catch(()=>undefined);throw error;}
   }
 
   const clock = () => new Date();
@@ -297,7 +316,23 @@ export async function initializeOwnerStagingAuthRouteSet(
   });
   if(!adminSecurity||!adminConfig)return routes;
   const invalidation=new PostgresAdminLoginInvalidationRepository({pool,role:'celebix_saas_workflow',timeouts:TIMEOUTS});
+  const merchantConfig=rollout.merchantWhatsApp;
+  const merchantPhoneService=merchantConfig?createOwnerMerchantWhatsAppService({
+    codec:createMerchantWhatsAppCodec({environment:'staging',masterKeyId:merchantConfig.masterKeyId,masterKeys:merchantConfig.masterKeys,phoneLookupKeyId:merchantConfig.phoneLookupKeyId,phoneLookupKey:merchantConfig.phoneLookupKey,recipientRateKey:merchantConfig.recipientRateKey,sessionKeyId:config.keys.sessionKeyId,sessionKeys:new Map([[config.keys.sessionKeyId,config.keys.session]])}),
+    repository:createPostgresMerchantWhatsAppRepository({pool,role:'celebix_saas_identity',timeouts:TIMEOUTS}),
+    recipientRateKey:merchantConfig.recipientRateKey,sessionKeys:new Map([[config.keys.sessionKeyId,config.keys.session]]),clock,centralLoginHostnames:new Set([new URL(config.authority.panelOrigin).hostname]),
+    delivery:createAdminVatanSmsWhatsAppDelivery({apiKey:merchantConfig.whatsAppApiKey,regId:merchantConfig.whatsAppRegId,fetch:globalThis.fetch}),
+  }):undefined;
+  const merchantSignup=merchantPhoneService&&merchantConfig?createOwnerMerchantSignupHandlers({ownerOrigin:config.authority.ownerOrigin,service:merchantPhoneService,ingressKey:merchantConfig.ingressKey,clock}):undefined;
+  const merchantStarterTenant=merchantPhoneService?createStarterTenantService({repository:tenantRepository,platformDomainSuffix:config.authority.platformDomainSuffix,panelBaseUrl:config.authority.panelOrigin,adminOriginEnvironment}):undefined;
+  const merchantRegistration=merchantPhoneService&&merchantSignup&&merchantStarterTenant?createMerchantPhoneRegistrationHandler({
+    ownerOrigin:config.authority.ownerOrigin,clock,getSignupProof:request=>merchantSignup.getSignupProof(request),starterTenant:merchantStarterTenant,claimSignup:input=>merchantPhoneService.claimSignup(input),
+    complete:createMerchantSignupCompletion({clock,randomBytes:bytes,secret:config.keys.callbackInternal,handoffKeyId:config.keys.handoffKeyId,
+      repository:createPostgresCrossHostSessionHandoffRepository(createPanelSessionPersistenceApproval('approved_staging'),{pool,handoffKeys:new Map([[config.keys.handoffKeyId,config.keys.handoff]]),activeHandoffKeyId:config.keys.handoffKeyId,sessionKeys:new Map([[config.keys.sessionKeyId,config.keys.session]]),activeSessionKeyId:config.keys.sessionKeyId,clock,randomBytes:bytes,timeouts:TIMEOUTS,audit:()=>undefined})}),
+  }):undefined;
   return Object.freeze({...routes,
+    ...(merchantPhoneService?{merchantPhoneService,merchantStarterTenant,internalMerchantWhatsApp:createMerchantInternalGateway({ownerOrigin:config.authority.ownerOrigin,keys:new Map([[config.keys.callbackInternalKeyId,config.keys.callbackInternal]]),clock,handle:input=>merchantPhoneService.command(input)})}:{}),
+    ...(merchantSignup&&merchantRegistration?{publicRegistration:merchantRegistration,merchantSignupState:merchantSignup.state,merchantSignupStart:merchantSignup.start,merchantSignupResend:merchantSignup.resend,merchantSignupVerify:merchantSignup.verify}:{}),
     internalAdminLoginSecurity:createAdminLoginInternalGateway({ownerOrigin:config.authority.ownerOrigin,keys:new Map([[config.keys.callbackInternalKeyId,config.keys.callbackInternal]]),clock,handle:command=>adminSecurity.command(command)}),
     adminLoginWebhook:createAdminLoginInvalidationWebhookHandler({issuer:config.logto.issuer,signingSecret:adminConfig.webhookSecret,clock,invalidate:input=>invalidation.invalidate(input)}),
     adminLoginSupportReset:createAdminLoginSupportResetHandler({issuer:config.logto.issuer,allowedOrigin:config.authority.ownerOrigin,async requireOperator(){const {resolvePlatformIdentity}=await import('../platform/auth.ts');const identity=await resolvePlatformIdentity();if(identity.kind!=='authorized')throw Error('platform_access_denied');return {operatorId:identity.operator.operatorId,totpVerified:true};},invalidate:input=>invalidation.invalidate(input)}),

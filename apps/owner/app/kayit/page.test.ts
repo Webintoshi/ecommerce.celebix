@@ -96,7 +96,7 @@ test("/kayit does not consume browser authority or render staging secrets", () =
   ]) assert.doesNotMatch(pageSource, prohibited);
 });
 
-test("the direct form collects no browser identity credentials or authority IDs", () => {
+test("server business fields accept no password or authority IDs", () => {
   assert.match(formSource, /\.\{domainSuffix\}/);
   for (const prohibited of [
     /name="email"/,
@@ -132,3 +132,4 @@ test("/kayit and legacy public aliases bypass Owner admin shell chrome", () => {
   assert.match(middlewareSource, /SELF_SERVE_PUBLIC_PREFIXES/);
   assert.match(middlewareSource, /return withSecurity\(request, nextResponse\(request\)\)/);
 });
+test('existing merchant signup header goes to exact configured panel phone login and never central Owner TOTP',()=>{const ui=registrationUiFixture(approvedRegistrationEnvironment());const link=ui.elements(ui.page()).find(node=>node.props.className==='self-serve-register-login');assert.equal(link?.props.href,'https://panel.staging.example.test/login');for(const panel of [undefined,'https://evil.example.test/path','http://panel.example.test','https://user:pass@panel.example.test']){const environment={...approvedRegistrationEnvironment(),CELEBIX_PANEL_ORIGIN:panel};const invalid=registrationUiFixture(environment).elements(registrationUiFixture(environment).page()).find(node=>node.props.className==='self-serve-register-login');assert.equal(invalid,undefined);}});

@@ -1,0 +1,35 @@
+# WhatsApp-only merchant and customer login
+
+## Human direction and scope
+
+Supersedes the 2026-10-12 password→WhatsApp MFA plan. Merchant store owners and staff sign in with personal phone→6-digit WhatsApp OTP→authorized store. Storefront customers sign in with phone→WhatsApp OTP→customer account. No email invitations or password, trust-cookie or backup-code alternative for new merchant/customer login. Human explicitly keeps existing central Celebix Owner/support TOTP security. Merchant store owners alone add/update/revoke staff by phone, name and role. User authorized direct implementation and asked to avoid further design approval loops.
+
+## Identity and tenancy
+
+Customer accounts, challenges and cookies remain separate from merchant principals/memberships. A customer OTP never grants panel access. Preserve all existing principal/membership/customer/order IDs. New phone identities use explicit verified-phone authority, nullable real email, and no fabricated password proof/email verification. A unique merchant verified personal phone resolves an authorized principal and active store memberships. The browser cannot select a target principal or grant a role. A registered tenant hostname resolves its store on the server; a central login with multiple authorized memberships may use the existing store selector. All session/handoff/switch/refresh readers preserve an immutable eight-hour family expiry and current membership/revocation checks.
+
+## Owner-managed staff
+
+Use a dedicated native owner-only command; require an ordinary active store_owner session, exclude support sessions, derive store/actor from verified session. Add by personal phone, display name, and admin/editor/analyst/cashier role; no ownership grant. Enforce subscription feature/staff limit, optimistic version, idempotent operation and transaction locks. First successful OTP confirms the added phone and activates its assigned staff access; there is no invitation link or acceptance flow. Preserve existing staff memberships and POS capability controls.
+
+## Existing accounts and enrollment
+
+An already authenticated merchant can explicitly verify and bind their own personal phone. Every bind read, resend, verify and completed replay revalidates the current ordinary session against the original pending actor and store in the native transaction. Switching the browser to another account cannot complete or recover the previous account's binding. Store owners can associate their existing staff record with the phone they authorize; first OTP proves phone possession, with global identity conflicts rejected. Never infer merchant ownership from a shop contact phone, customer phone or matching email. Central TOTP support can preassign an existing ordinary principal's explicitly confirmed phone with an operation and recorded reason; this preserves memberships and still requires fresh WhatsApp OTP before login. Replacing a phone revokes old sessions and trusts, preserves the old phone reservation, and requires fresh OTP on the new phone. Public login cannot bind an arbitrary phone to a chosen old principal.
+
+Central merchant phone login deterministically selects an existing eligible active membership with a verified canonical admin domain. It transfers that verified native session through the existing prepared cross-host handoff; repeated completion recovers the same handoff and never emits a full tenant session cookie on the central host. No eligible store means no session. The existing store selector allows switching among other current authorized memberships after login. Tenant-host login never adopts a foreign store destination.
+
+Existing verified-phone customer accounts continue. Existing authenticated customers may verify their own phone. A mutable customer contact match alone must not transfer historical account/order ownership. Allow phone-only customer login without requiring email; preserve historical identities, and use explicit owner-mediated account reconciliation for unresolved historic duplicates rather than automatically merging contacts.
+
+## OTP and transport
+
+Reuse VatanSMS WhatsApp adapter and existing crypto/durable delivery safeguards. Six digits, ten minutes, sixty-second resend, six wrong attempts, five recipient sends per fifteen minutes and thirty trusted-IP sends per fifteen minutes. Apply recipient budgets across affected surfaces/stores; authenticated unknown-IP retains recipient/account limits. Use trusted ingress proof on actual direct proxy rather than unauthenticated forwarded headers. Reserve send before provider call, no DB transaction held during delivery, unknown results never auto-repeat, failed resend preserves an existing valid challenge. Bind OTP to audience, phone identity, registered host/store, pending/browser nonce and operation. Persist encrypted recipient and digested OTP; never log/URL codes or credentials. Verify/consume/recover session atomically with exact idempotency; no customer/merchant proof interchange.
+
+## Invitation retirement and compatibility
+
+Remove merchant and central invitation UI, creation/recovery/start/bootstrap/callback/acceptance routes and native authority; old bearer links cannot add memberships. Preserve historical audit rows and existing accepted memberships; revoke pending access invitations during controlled retirement. Keep central TOTP initial store administration/recovery secure. Existing native228 remains immutable historical migration; add compatible phone authority/readers and staged phone-only policy, do not manufacture old passwordProofDigest or silently enable old MFA mode. Existing sessions run only to original expiry; old new-session issuance and renewal fail closed after cutover. New tenant merchant signup/enrollment must establish phone authority before activating its owner session; central platform login remains TOTP.
+
+## Verification and rollout
+
+Tests: phone normalization; unknown/known same generic start response; owner-only staff create and caps; customer proof cannot create admin session; another store phone/membership rejection; wrong/expired/reused OTP; membership revoked while pending; ambiguous/failed send; double-click/concurrent verification; fixed session expiry; custom domains; new merchant signup; existing account binding; historical orders preserved; old invitation/password/trust/backup login rejection after cutover; central TOTP unaffected. Use real PostgreSQL contracts plus rendered UI and actual isolated WhatsApp test. Publish compatible data/readers before UI, shared NET→SITE, isolated then Alpler acceptance before global/current/new-store default. Stop activation on a failed gate.
+
+Migration order is native229 (merchant phone authority), native230 (customer phone-only authority), then native231 (central operator enrollment and canonical central-login destination). Unused rollback restores captured predecessors exactly; historical phone authority use or changed successor definitions blocks unsafe rollback. Existing customer contact/order ownership is never merged based on a phone contact match.

@@ -42,6 +42,13 @@ export type OwnerSelfServeAuthRouteReadiness = Readonly<{
 }>;
 
 export type OwnerSelfServeAuthRouteSet = Readonly<{
+  internalMerchantWhatsApp?:RouteHandler;
+  merchantPhoneService?:ReturnType<typeof import('../merchant-whatsapp/service.ts').createOwnerMerchantWhatsAppService>;
+  merchantStarterTenant?:import('@celebix/saas-tenant-core').CreateStarterTenantService;
+  merchantSignupState?:RouteHandler;
+  merchantSignupStart?:RouteHandler;
+  merchantSignupResend?:RouteHandler;
+  merchantSignupVerify?:RouteHandler;
   internalAdminLoginSecurity?:RouteHandler;
   adminLoginWebhook?:RouteHandler;
   adminLoginSupportReset?:RouteHandler;

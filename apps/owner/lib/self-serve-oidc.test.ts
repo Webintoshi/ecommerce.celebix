@@ -582,7 +582,7 @@ test("password proof authorization rejects missing, duplicate, or weakened fresh
   ]) {
     const provider = new FakeProvider();
     const build = provider.buildAuthorizationUrl.bind(provider);
-    provider.buildAuthorizationUrl = async (input) => { const url = await build(input); mutation(url); return url; };
+    provider.buildAuthorizationUrl = (input) => { const url = build(input); mutation(url); return url; };
     await assert.rejects(() => oidc.beginOidcAuthorization({ provider, transactionStore: new oidc.InMemoryOidcTransactionStore(),
       redirectUri: REDIRECT_URI, returnTo: "/login", panelLoginBinding: { keyId: "browser-active", digest: "a".repeat(64) },
       panelLoginDestinationHostname: "admin.example.test", expectedIssuer: EXPECTED_ISSUER,

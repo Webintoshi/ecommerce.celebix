@@ -1,0 +1,24 @@
+{
+  "migrationId": "native231",
+  "description": "Central active platform operator pre-enrollment and recovery of existing ordinary merchant principals; phone OTP required and memberships unchanged",
+  "up": "202610130231_merchant_phone_operator_enrollment.up.sql",
+  "down": "202610130231_merchant_phone_operator_enrollment.down.sql",
+  "assertions": "202610130231_merchant_phone_operator_enrollment_assertions.sql",
+  "dependencies": [
+    "native229",
+    "native230"
+  ],
+  "functions": [
+    "merchant_phone_operator_enroll"
+  ],
+  "capturedReplacements": [
+    "merchant_whatsapp_command(text,jsonb)",
+    "merchant_whatsapp_bootstrap_principal(uuid,text,text,text,uuid,uuid)"
+  ],
+  "isolatedAcceptance": "node --experimental-transform-types tests/saas-phase3/merchant-whatsapp/enrollment.test.mjs",
+  "isolatedChecks": 23,
+  "rollback": "Refuses any enrollment journal/use or changed successor function. Before use restores exact captured definitions, grants/config/owners and prior identity constraint; native229/230 files remain unchanged.",
+  "authority": "EXECUTE platform_operator only; actual active central operator required. No membership or role creation/update. Original phone remains globally reserved after replacement.",
+  "centralLogin": "Deterministic eligible ordinary active membership ordered by store slug and id, active matching subscription/plan and verified active canonical admin domain. No eligible store denies before session issuance. Direct tenant login unchanged.",
+  "freshness": "Any OTP challenge or signup proof created before operator assignment is rejected."
+}

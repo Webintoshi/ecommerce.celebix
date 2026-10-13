@@ -300,13 +300,20 @@ export function PanelNavigation({
   mode,
   analyticsAvailable = false,
   navigationMode,
+  staffManagementAvailable = false,
 }: {
   mode: "desktop" | "drawer";
   analyticsAvailable?: boolean;
   navigationMode?: "register";
+  staffManagementAvailable?: boolean;
 }) {
   const pathname = usePathname() ?? "";
-  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode }).filter(({ key }) => key !== "setup");
+  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode }).filter(({ key }) => key !== "setup").map((item) => ({
+    ...item,
+    ...(item.children ? { children: item.children
+      .filter((child) => child.href !== "/settings/administrators" || staffManagementAvailable)
+      .map((child) => child.href === "/settings/administrators" ? { ...child, label: "Personel" } : child) } : {}),
+  }));
   const currentHref = getCurrentNavigationHref(pathname, navigation);
   const searchRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLElement>(null);

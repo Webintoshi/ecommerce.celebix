@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
+import type { CreateStarterTenantInput, CreatePhoneStarterTenantInput } from "@celebix/saas-contracts";
 
 import type { CanonicalTenantFingerprint, PrincipalIdentityKey } from "./types.ts";
 
@@ -22,7 +22,7 @@ function stableSerialize(value: unknown): string {
     .join(",")}}`;
 }
 
-export function canonicalCreateStarterTenantInput(input: CreateStarterTenantInput): string {
+export function canonicalCreateStarterTenantInput(input: CreateStarterTenantInput | CreatePhoneStarterTenantInput): string {
   return stableSerialize({
     schemaVersion: input.schemaVersion,
     principal: input.principal,
@@ -33,7 +33,7 @@ export function canonicalCreateStarterTenantInput(input: CreateStarterTenantInpu
 }
 
 export function createCanonicalTenantFingerprint(
-  input: CreateStarterTenantInput,
+  input: CreateStarterTenantInput | CreatePhoneStarterTenantInput,
 ): CanonicalTenantFingerprint {
   return createHash("sha256")
     .update(canonicalCreateStarterTenantInput(input), "utf8")

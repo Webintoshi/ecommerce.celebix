@@ -18,6 +18,7 @@ export interface PanelClientStoreOption {
 
 export interface PanelClientChromeModel extends PanelPublicChromeModel {
   readonly analyticsAvailable: boolean;
+  readonly staffManagementAvailable?: boolean;
   readonly activeStoreSelectionKey?: string;
   readonly storeOptions?: readonly PanelClientStoreOption[];
 }

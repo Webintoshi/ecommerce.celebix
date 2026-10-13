@@ -1,3 +1,4 @@
+import {parseMerchantWhatsAppCommand,type MerchantWhatsAppBinding,type MerchantPhonePrincipalRecord} from '@celebix/saas-contracts';
 import type { QueryResult } from "pg";
 
 import { STORE_MEMBERSHIP_ROLES, type PlanFeatureKey, type StoreMembershipRole } from "@celebix/saas-contracts";
@@ -92,6 +93,11 @@ class PostgresTransaction implements SaaSDataTransaction {
     this.adminOriginEnvironment = adminOriginEnvironment;
     this.failAt = failAt;
     this.principals = {
+      authorizePhoneSignup: async (input:{proof:MerchantWhatsAppBinding;operationId:string;storeId:string}) => {
+        const proof=parseMerchantWhatsAppCommand({action:'read',input:input.proof}).input as MerchantWhatsAppBinding;
+        const row=await this.required('SELECT saas.merchant_whatsapp_bootstrap_principal($1::uuid,$2::text,$3::text,$4::text,$5::uuid,$6::uuid) AS principal',[proof.pendingId,proof.pendingDigest,proof.browserDigest,proof.environment,input.operationId,input.storeId],value=>exactRow(value,['principal']).principal);
+        return phoneSignupPrincipalRow(row);
+      },
       findByIdentity: async (issuer: string, subject: string) => this.optional(
         `SELECT id, issuer, subject, email, email_verified, created_at, updated_at
          FROM saas.principals WHERE issuer = $1 AND subject = $2`, [issuer, subject], principalRow,
@@ -401,6 +407,13 @@ function dbInteger(value: unknown, minimum = 0): number {
   return parse.integer(numeric, minimum);
 }
 
+function phoneSignupPrincipalRow(value:unknown):PrincipalRecord|MerchantPhonePrincipalRecord{
+ const row=exactRow(value,['id','issuer','subject','authority_kind','email','email_verified','created_at','updated_at']);
+ const {authority_kind,...base}=row;
+ if(authority_kind==='oidc')return principalRow(base);
+ if(authority_kind!=='phone'||row.email!==null||row.email_verified!==false||row.issuer!=='urn:celebix:merchant-phone'||row.subject!==row.id)throw new SaaSDataCorruptionError();
+ return {id:parse.uuid(row.id) as MerchantPhonePrincipalRecord['id'],issuer:text(row.issuer),subject:text(row.subject),authorityKind:'phone',email:null,emailVerified:false,createdAt:parse.timestamp(row.created_at),updatedAt:parse.timestamp(row.updated_at)};
+}
 function principalRow(value: unknown): PrincipalRecord {
   const row = exactRow(value, ["id", "issuer", "subject", "email", "email_verified", "created_at", "updated_at"]);
   if (row.email_verified !== true) throw new SaaSDataCorruptionError();

@@ -17,3 +17,30 @@ test('real HTTP server signs only the allowed loopback peer and rejects bodies w
 test('real HTTP handler refuses a peer outside configured Traefik address',async()=>{const server=createIngressSignerServer({keyHex,traefikIpv4:peer,clock:()=>now});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));try{const result=await new Promise((resolve,reject)=>{const req=request({host:'127.0.0.1',port:server.address().port,path:'/authenticate',method:'GET',headers:[...make().rawHeaders,'Host','private-signer']},res=>{res.resume();res.on('end',()=>resolve(res));});req.on('error',reject);req.end();});assert.equal(result.statusCode,403);assert.equal(result.headers['x-celebix-admin-ip-signature'],undefined);}finally{await new Promise(resolve=>server.close(resolve));}});
 
 test('regenerated ForwardAuth socket IP survives Connection suppression of X-Real-IP',()=>{for(const removeRealIp of [true,false]){const input=make();if(removeRealIp)input.rawHeaders.splice(-2);input.rawHeaders.push('X-Forwarded-For','198.51.100.8');const result=signer()(input);assert.equal(result.statusCode,204);assert.equal(result.headers['x-celebix-admin-ip'],'198.51.100.8');}for(const ip of ['', 'invalid','198.51.100.8, 203.0.113.5','fe80::1%eth0']){const input=make();input.rawHeaders.push('X-Forwarded-For',ip);assert.deepEqual(signer()(input),{statusCode:403,headers:{}});}});
+
+const merchantPaths=['/api/merchant-login/start','/api/merchant-login/resend','/api/merchant-login/bind/start','/api/merchant-login/bind/resend'];
+const signupPaths=['/api/merchant-signup/start','/api/merchant-signup/resend'];
+const customerPath='/api/account/auth/start';
+const routed=(host,path)=>set(make(host),'x-forwarded-uri',path);
+test('merchant and customer send routes attest canonical custom and newly created tenant hosts without configuration edits',()=>{
+ for(const host of ['new-shop.admin.saas-staging.celebix.net','new-shop.saas-staging.celebix.site','admin.guzidekuyumcu.com.tr','shop.example.com','xn--bcher-kva.example'])for(const path of [...merchantPaths,customerPath]){
+  const r=signer()(routed(host,path));assert.equal(r.statusCode,204,host+path);
+  assert.equal(r.headers['x-celebix-admin-ip-signature'],createHmac('sha256',Buffer.from(keyHex,'hex')).update(['celebix/admin-login/ingress/v1','https://'+host,path,operation,'203.0.113.5',now.toISOString()].join('\n')).digest('hex'));
+ }
+});
+test('signup sends remain restricted to two exact Owner hosts and legacy sends to two central panel hosts',()=>{
+ for(const host of ['owner.saas-staging.celebix.net','owner.saas-staging.celebix.site'])for(const path of signupPaths)assert.equal(signer()(routed(host,path)).statusCode,204);
+ for(const host of ['panel.saas-staging.celebix.net','store.admin.saas-staging.celebix.net','owner.example.com','owner.saas-staging.celebix.net.evil.test'])for(const path of signupPaths)assert.deepEqual(signer()(routed(host,path)),{statusCode:403,headers:{}});
+ for(const host of ['owner.saas-staging.celebix.net','store.admin.saas-staging.celebix.net','admin.guzidekuyumcu.com.tr'])assert.equal(signer()(routed(host,'/api/admin-login/send')).statusCode,403);
+});
+test('new routes reject noncanonical hosts, aliases and queries and cannot bypass peer or credential guards',()=>{
+ for(const host of ['Shop.example.com','shop.example.com.','shop.example.com:443','127.0.0.1','localhost','shop..example.com','-shop.example.com','shop_.example.com','shop.example.com/path','shop.example.com@evil.test','shop.example.com,evil.test'])assert.deepEqual(signer()(routed(host,merchantPaths[0])),{statusCode:403,headers:{}});
+ for(const path of [...merchantPaths,...signupPaths,customerPath]){
+  const host=signupPaths.includes(path)?'owner.saas-staging.celebix.net':'shop.example.com';
+  for(const bad of [path+'?',path+'?x=1',path+'/',path.replace('/api/','/api/%6d'),path.toUpperCase()])assert.equal(signer()(routed(host,bad)).statusCode,403);
+  const base=routed(host,path);assert.equal(signer()({...base,remoteAddress:'127.0.0.1'}).statusCode,403);
+  for(const pair of [['Authorization','Bearer private'],['Cookie','private=value'],['Transfer-Encoding','chunked'],['Content-Length','2'],['X-Forwarded-Host',host]])assert.deepEqual(signer()({...base,rawHeaders:[...base.rawHeaders,...pair]}),{statusCode:403,headers:{}});
+  assert.equal(signer()(set(base,'origin','https://other.example.com')).statusCode,403);
+ }
+ for(const path of ['/api/merchant-login/verify','/api/merchant-signup/verify','/api/account/auth/resend','/api/account/auth/verify','/api/self-serve/register'])assert.equal(signer()(routed('shop.example.com',path)).statusCode,403);
+});

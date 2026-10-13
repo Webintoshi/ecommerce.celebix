@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import React from 'react';
+import {compile,withEditor} from './design/design-editor-test-utils.ts';
+const loginModule=compile<any>(new URL('../auth/merchant-phone-login-client.ts',import.meta.url));
+const {PhoneSecurityConsole:Console}=compile<any>(new URL('./PhoneSecurityConsole.tsx',import.meta.url),{'../auth/merchant-phone-login-client.ts':loginModule,'./merchant-phone-login-client.ts':loginModule});
+const NOW=Date.parse('2026-10-13T12:00:00Z');
+const state={phase:'phone',phoneMasked:null,phoneVerified:false};
+async function settle(){await React.act(async()=>{await new Promise(r=>setTimeout(r,0));});}
+test('ordinary authenticated personal setup preserves phone/code and uses fixed completion after binding',async()=>{
+ const calls:any[]=[],destinations:string[]=[];const client={selfState:async()=>state,state:async()=>state,start:async(input:any)=>{calls.push(input);return {phase:'code',maskedPhone:'+90 ••• 2233',resendAt:new Date(NOW+60000).toISOString(),expiresAt:new Date(NOW+600000).toISOString()};},resend:async()=>state,verify:async(input:any)=>{calls.push(input);return{phase:'complete'};}};
+ await withEditor(async({window,container,render,change})=>{await render(React.createElement(Console,{client,clock:()=>NOW,navigate:(path:string)=>destinations.push(path)}));await settle();await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await React.act(async()=>container.querySelector('form')!.dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}) as unknown as Event));await change(container.querySelector<HTMLInputElement>('[name="code"]')!,'001234');await React.act(async()=>container.querySelector('form')!.dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(calls[0].phone,'+905551112233');assert.equal(calls[1].code,'001234');assert.match(container.textContent!,/Telefonunuz doğrulandı/);assert.doesNotMatch(container.textContent!,/Mağaza erişiminiz hazırlanıyor/);assert.deepEqual(destinations,['/auth/merchant-phone/complete']);assert.doesNotMatch(container.textContent!,/şifre|yedek kod|hatırlanan cihaz/i);});
+});
+test('verified personal phone is status only with recovery information and no change or old MFA controls',async()=>{let writes=0;await withEditor(async({container,render})=>{await render(React.createElement(Console,{client:{selfState:async()=>({...state,phoneMasked:'+90 ••• 2233',phoneVerified:true}),start:async()=>{writes++;}}}));await settle();assert.match(container.textContent!,/\+90 ••• 2233/);assert.match(container.textContent!,/Doğrulandı/);assert.equal(container.querySelector('form'),null);assert.equal(container.querySelector('input'),null);assert.doesNotMatch(container.textContent!,/yedek kod|hatırlanan cihaz|telefon numarasını değiştir/i);assert.equal(writes,0);});});

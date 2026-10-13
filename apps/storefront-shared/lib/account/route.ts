@@ -3,7 +3,6 @@ import { timingSafeEqual } from "node:crypto";
 import { StorefrontIdentityRepositoryError } from "@celebix/saas-data";
 
 import type { TrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
-import { normalizeStorefrontAccountEmail } from "./email.ts";
 import { normalizeStorefrontAccountPhone } from "./phone.ts";
 import { accountProfileCompletionDestination, readAccountFormRequest, readAccountJsonRequest, safeAccountReturnTo } from "./request.ts";
 import type { StorefrontIdentityRuntime } from "./runtime.ts";
@@ -14,11 +13,11 @@ type Dependencies = Readonly<{
   resolveRuntime(): Promise<StorefrontIdentityRuntime | null>;
   resolveBrand(hostname: string): Promise<Brand | null>;
   requestAuthority(headers: Headers): string;
+  authenticateIngress?(request:Request):Readonly<{authenticated:boolean;trustedIp:string|null}>;
 }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const CODE = /^[0-9]{6}$/u;
-const MAGIC_TICKET = /^ch1[.][a-z][a-z0-9_-]{2,31}[.][A-Za-z0-9_-]{16}[.][A-Za-z0-9_-]{1,1024}[.][A-Za-z0-9_-]{22}[.]tk1[.][A-Za-z0-9_-]{43}$/u;
 const PHONE = /^\+[1-9][0-9]{7,14}$/u;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 
@@ -41,13 +40,14 @@ function authority(dependencies: Dependencies, request: Request): Readonly<{ hos
 }
 async function selectedRuntime(dependencies: Dependencies): Promise<StorefrontIdentityRuntime | null> { try { return await dependencies.resolveRuntime(); } catch { return null; } }
 function failure(error: unknown): Response {
+  if(error instanceof Error&&error.message==="storefront_whatsapp_delivery_uncertain")return json({code:"delivery_uncertain",message:"Gönderim durumu doğrulanamadı. Bir dakika bekleyip yeniden kod isteyin.",retryAfterSeconds:60},503);
   const code = error instanceof StorefrontIdentityRepositoryError ? error.code : error instanceof TypeError ? "invalid_input" : "unavailable";
-  if (code === "challenge_invalid") return json({ code, message: "Bağlantı veya kod geçersiz ya da süresi dolmuş." }, 401);
+  if (code === "challenge_invalid") return json({ code, message: "Kod geçersiz veya süresi dolmuş." }, 401);
   if (code === "unauthenticated") return json({ code, message: "Oturumunuz sona erdi." }, 401);
   if (code === "account_suspended") return json({ code, message: "Bu hesap şu anda kullanılamıyor." }, 403);
   if (code === "invalid_input") return json({ code, message: "Bilgileri kontrol edin." }, 400);
   if (code === "not_found") return json({ code, message: "Kayıt bulunamadı." }, 404);
-  if (code === "identity_conflict") return json({code,message:"Bu telefon mevcut bir müşteri kaydıyla eşleşiyor. Mevcut e-posta hesabınızla giriş yapıp Profil bölümünden telefonunuzu WhatsApp ile doğrulayın. E-posta hesabınız yoksa mağazayla iletişime geçin."},409);
+  if (code === "identity_conflict") return json({code,message:"Hesap bağlantısı güvenli biçimde tamamlanamadı. Mağaza sahibiyle iletişime geçin."},409);
   if (["version_conflict", "operation_mismatch"].includes(code)) return json({ code, message: "Bilgiler değişti. Sayfayı yenileyip tekrar deneyin." }, 409);
   return json({ code: "unavailable", message: "İşlem şu anda tamamlanamadı. Lütfen tekrar deneyin." }, 503);
 }
@@ -64,24 +64,24 @@ function requireCsrf(request: Request): Response | null { return csrf(request) ?
 export function createAccountAuthStartRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return json({ code: "unavailable", message: "İşlem şu anda tamamlanamadı. Lütfen tekrar deneyin." }, 503);
-    let input: ({email:string}|{phone:string;firstName?:string;lastName?:string;bindPhone?:true}) & {returnTo:string};
+    const ingress=dependencies.authenticateIngress?.(request);if(!ingress?.authenticated)return failure(new Error());
+    let input: {operationId:string;phone:string;firstName?:string;lastName?:string;bindPhone?:true;returnTo:string};
     try { input = await readAccountJsonRequest(request, selected.origin, (value) => {
-      const p=exact(value,[],["email","phone","firstName","lastName","bindPhone","returnTo"]);
-      if(Object.hasOwn(p,"email")===Object.hasOwn(p,"phone"))invalid();
+      const p=exact(value,["phone","operationId"],["firstName","lastName","bindPhone","returnTo"]);
       const returnTo=Object.hasOwn(p,"returnTo")?safeAccountReturnTo(p.returnTo):"/account";
-      if(Object.hasOwn(p,"email")){if(Object.hasOwn(p,"firstName")||Object.hasOwn(p,"lastName")||Object.hasOwn(p,"bindPhone"))invalid();return{email:normalizeStorefrontAccountEmail(p.email),returnTo};}
       if(Object.hasOwn(p,"firstName")!==Object.hasOwn(p,"lastName"))invalid();
       if(Object.hasOwn(p,"bindPhone") && p.bindPhone!==true)invalid();
-      return{phone:normalizeStorefrontAccountPhone(p.phone),...(Object.hasOwn(p,"firstName")?{firstName:text(p.firstName,1,100),lastName:text(p.lastName,1,100)}:{}),...(p.bindPhone===true?{bindPhone:true as const}:{}),returnTo};
-    }); } catch { return failure(new TypeError()); }
-    if("phone" in input && input.bindPhone) {const csrfFailure=requireCsrf(request);if(csrfFailure)return csrfFailure;}
+      const operationId=text(p.operationId,36,36);if(!UUID.test(operationId)||request.headers.get("idempotency-key")!==operationId)invalid();
+      return{operationId,phone:normalizeStorefrontAccountPhone(p.phone),...(Object.hasOwn(p,"firstName")?{firstName:text(p.firstName,1,100),lastName:text(p.lastName,1,100)}:{}),...(p.bindPhone===true?{bindPhone:true as const}:{}),returnTo};
+    },{authenticatedIngress:true}); } catch { return failure(new TypeError()); }
+    if(input.bindPhone) {const csrfFailure=requireCsrf(request);if(csrfFailure)return csrfFailure;}
     const [runtime, brand] = await Promise.all([selectedRuntime(dependencies), dependencies.resolveBrand(selected.hostname).catch(() => null)]); if (!runtime || !brand) return failure(new Error());
     try {
-      const base={hostname:selected.hostname,requestAuthority:dependencies.requestAuthority(request.headers),returnTo:input.returnTo,brand};
-      if("phone" in input && (!runtime.whatsappEnabled||!runtime.startPhone))return failure(new Error());
-      const result="phone" in input?await runtime.startPhone!({...base,...input,...(input.bindPhone?{cookieHeader:request.headers.get("cookie")}:{} )}):await runtime.start({...base,email:input.email});
+      const base={hostname:selected.hostname,requestAuthority:ingress.trustedIp??"authenticated_unknown_ip",trustedIp:ingress.trustedIp,returnTo:input.returnTo,brand};
+      if(!runtime.whatsappEnabled||!runtime.startPhone)return failure(new Error());
+      const result=await runtime.startPhone!({...base,...input,...(input.bindPhone?{cookieHeader:request.headers.get("cookie")}:{} )});
       if(result.result.deliveryRequired===false){const limited=json({code:"rate_limited",message:"Yeni kod istemeden önce lütfen bekleyin.",retryAfterSeconds:result.result.retryAfterSeconds},429);limited.headers.set("retry-after",String(result.result.retryAfterSeconds));return limited;}
-      return json({ ...result.result, message: "phone" in input?"Doğrulama kodu WhatsApp gönderimi için kabul edildi.":"Giriş bağlantısı gönderildi. Gelen kutunuzu kontrol edin.", returnTo: input.returnTo }, 200, result.setCookie?[result.setCookie]:[]);
+      return json({ ...result.result, message: "Doğrulama kodu WhatsApp gönderimi için kabul edildi.", returnTo: input.returnTo }, 200, result.setCookie?[result.setCookie]:[]);
     } catch (error) { return failure(error); }
   };
 }
@@ -89,20 +89,19 @@ export function createAccountAuthStartRoute(dependencies: Dependencies) {
 export function createAccountAuthVerifyRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return failure(new Error());
-    let input: ({ ticket: string } | { code: string }) & { returnTo: string };
+    let input: {operationId:string;code:string;returnTo:string};
     try {
       input = await readAccountJsonRequest(request, selected.origin, (value) => {
-        const p = exact(value, [], ["ticket", "code", "returnTo"]); const hasTicket = Object.hasOwn(p, "ticket"); const hasCode = Object.hasOwn(p, "code");
-        if (hasTicket === hasCode) invalid();
+        const p = exact(value, ["code","operationId"], ["returnTo"]);
+        const operationId=text(p.operationId,36,36);if(!UUID.test(operationId)||request.headers.get("idempotency-key")!==operationId)invalid();
         const returnTo = Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account";
-        if (hasTicket) { const ticket = text(p.ticket, 100, 1_600); if (!MAGIC_TICKET.test(ticket)) invalid(); return { ticket, returnTo }; }
-        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { code, returnTo };
+        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { operationId,code, returnTo };
       });
     } catch { return failure(new TypeError()); }
     const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
     try {
       const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
-      const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
+      const result = await runtime.verify({ ...base,operationId:input.operationId, challengeCookie: request.headers.get("cookie"), code: input.code });
       return json({ ...result.result, destination: result.result.profileRequired ? accountProfileCompletionDestination(input.returnTo) : input.returnTo }, 200, result.setCookies);
     } catch (error) { return failure(error); }
   };
@@ -111,20 +110,19 @@ export function createAccountAuthVerifyRoute(dependencies: Dependencies) {
 export function createAccountAuthVerifyBrowserRoute(dependencies: Dependencies) {
   return async function POST(request: Request): Promise<Response> {
     const selected = authority(dependencies, request); if (!selected) return failure(new Error());
-    let input: ({ ticket: string } | { code: string }) & { returnTo: string };
+    let input: {operationId:string;code:string;returnTo:string};
     try {
       input = await readAccountFormRequest(request, selected.origin, "/api/account/auth/verify-browser", (value) => {
-        const p = exact(value, [], ["ticket", "code", "returnTo"]); const hasTicket = Object.hasOwn(p, "ticket"); const hasCode = Object.hasOwn(p, "code");
-        if (hasTicket === hasCode) invalid();
+        const p = exact(value, ["code","operationId"], ["returnTo"]);
+        const operationId=text(p.operationId,36,36);if(!UUID.test(operationId)||request.headers.get("idempotency-key")!==operationId)invalid();
         const returnTo = Object.hasOwn(p, "returnTo") ? safeAccountReturnTo(p.returnTo) : "/account";
-        if (hasTicket) { const ticket = text(p.ticket, 100, 1_600); if (!MAGIC_TICKET.test(ticket)) invalid(); return { ticket, returnTo }; }
-        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { code, returnTo };
+        const code = text(p.code, 6, 6); if (!CODE.test(code)) invalid(); return { operationId,code, returnTo };
       });
     } catch { return failure(new TypeError()); }
     const runtime = await selectedRuntime(dependencies); if (!runtime) return failure(new Error());
     try {
       const base = { hostname: selected.hostname, deviceLabel: "Web tarayıcısı", userAgent: request.headers.get("user-agent") || "Bilinmeyen tarayıcı" };
-      const result = await runtime.verify("ticket" in input ? { ...base, ticket: input.ticket } : { ...base, challengeCookie: request.headers.get("cookie"), code: input.code });
+      const result = await runtime.verify({ ...base,operationId:input.operationId, challengeCookie: request.headers.get("cookie"), code: input.code });
       const destination = result.result.profileRequired ? accountProfileCompletionDestination(input.returnTo) : input.returnTo;
       const headers = new Headers({ "cache-control": "no-store, max-age=0", location: `${selected.origin}${destination}`, "referrer-policy": "no-referrer", "x-content-type-options": "nosniff" });
       for (const cookie of result.setCookies) headers.append("set-cookie", cookie);

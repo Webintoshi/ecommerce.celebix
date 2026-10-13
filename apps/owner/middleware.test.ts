@@ -120,7 +120,7 @@ function post(path: string, sameOrigin = false) {
   });
 }
 
-for (const path of [internalPath, webhookPath]) {
+for (const path of [internalPath, webhookPath, '/api/internal/merchant-whatsapp']) {
   test(`signature-owned ${path} reaches its handler without Owner cookies or Origin`, async () => {
     for (const missingAuthority of [false, true]) {
       const fixture = routingFixture({ missingAuthority });
@@ -135,13 +135,20 @@ for (const path of [internalPath, webhookPath]) {
 }
 
 test("signature-owned paths do not make neighboring paths or support reset public", async () => {
-  for (const path of [internalPath + "/", internalPath + "/extra", internalPath + "-extra", webhookPath + "/extra", webhookPath + "-extra", resetPath]) {
+  for (const path of [internalPath + "/", internalPath + "/extra", internalPath + "-extra", webhookPath + "/extra", webhookPath + "-extra", resetPath, '/api/internal/merchant-whatsapp/extra','/api/merchant-signup/state/extra','/api/merchant-signup/unknown']) {
     const fixture = routingFixture();
     const response = await fixture.middleware(post(path, true));
     assert.equal(response.status, 401, path);
     assert.equal(response.headers.has("x-middleware-next"), false);
     assert.equal(fixture.calls.ownerUser, 1, path);
   }
+});
+
+test('only the four closed phone signup routes are public without an Owner session',async()=>{
+ for(const path of ['/api/merchant-signup/state','/api/merchant-signup/start','/api/merchant-signup/resend','/api/merchant-signup/verify']){
+  const fixture=routingFixture({missingAuthority:true}),response=await fixture.middleware(post(path));
+  assert.equal(response.status,200,path);assert.equal(response.headers.get('x-middleware-next'),'1');assert.deepEqual(fixture.calls,{authorityEnvironment:0,ownerClient:0,ownerUser:0,ownerFetch:0});
+ }
 });
 
 test("neighboring mutations and support reset still require the Owner Origin", async () => {

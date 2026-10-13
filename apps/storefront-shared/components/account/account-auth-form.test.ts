@@ -16,14 +16,16 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
   const { AccountAuthForm } = load<{ AccountAuthForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountAuthForm.tsx", import.meta.url));
   const { AccountProfileForm } = load<{ AccountProfileForm: React.ComponentType<Record<string, unknown>> }>(new URL("./AccountProfileForm.tsx", import.meta.url));
 
+  function publicBody(options:RequestInit|undefined){const body=JSON.parse(String(options?.body));assert.match(body.operationId,/^[a-f0-9]{8}-[a-f0-9-]{27}$/u);assert.equal(new Headers(options?.headers).get('idempotency-key'),body.operationId);const {operationId,...input}=body;return input;}
+
   async function withFetch(transport: typeof fetch, run: () => Promise<void>) {
     const previous = globalThis.fetch;
     globalThis.fetch = transport;
     try { await run(); } finally { globalThis.fetch = previous; }
   }
 
-  test("phone and email entry use POST before client JavaScript initializes", () => {
-    for (const mode of ["phone", "email"]) {
+  test("phone entry uses POST before client JavaScript initializes", () => {
+    for (const mode of ["phone"]) {
       const markup = renderToStaticMarkup(React.createElement(AccountAuthForm, { mode, returnTo: "/account" }));
       const forms = markup.match(/<form\b[^>]*>/gu) ?? [];
       assert.equal(forms.length, 1, `${mode} renders one form`);
@@ -31,7 +33,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     }
   });
 
-  test("code verification and resend forms use POST, including legacy browser verification", async () => {
+  test("phone code verification and resend forms use POST", async () => {
     await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
       await change('input[type="tel"]', "5551112233");
@@ -40,25 +42,12 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       assert.equal(forms.length, 2);
       for (const form of forms) assert.equal(form.getAttribute("method"), "post");
     }));
-    await withProductBrowser(async ({ container, render }) => {
-      await render(React.createElement(AccountAuthForm, { mode: "verify", returnTo: "/account", ticket: "example-ticket" }));
-      for (const form of container.querySelectorAll("form")) {
-        assert.equal(form.getAttribute("method"), "post");
-        assert.equal(form.getAttribute("action"), "/api/account/auth/verify-browser");
-      }
-    });
-    await withFetch(async () => Response.json({ deliveryRequired: true, retryAfterSeconds: 60 }), () => withProductBrowser(async ({ container, render, change, click }) => {
-      await render(React.createElement(AccountAuthForm, { mode: "email", returnTo: "/account" }));
-      await change('input[type="email"]', "ada@example.com");
-      await click('button[type="submit"]');
-      assert.equal(container.querySelector("form")?.getAttribute("method"), "post");
-    }));
   });
 
   test("single phone entry sends only canonical phone and focuses the masked WhatsApp code step", async () => {
     await withFetch(async (path, options) => {
       assert.equal(path, "/api/account/auth/start");
-      assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+905551112233", returnTo: "/account/orders" });
+      assert.deepEqual(publicBody(options), { phone: "+905551112233", returnTo: "/account/orders" });
       return Response.json({ deliveryRequired: true, message: "Kod gönderildi.", retryAfterSeconds: 60 });
     }, () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account/orders" }));
@@ -73,8 +62,8 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
       assert.equal(container.querySelector('input[type="tel"]')?.getAttribute("placeholder"), "5xx xxx xx xx");
       assert.equal(container.querySelector("#account-phone-transport")?.textContent, "Giriş kodun WhatsApp’a gönderilecek.");
       assert.equal(container.querySelector('button[type="submit"]')?.textContent, "KOD GÖNDER");
-      assert.equal(container.querySelector("button.emailAlternative")?.textContent, "E-posta ile giriş yap");
-      assert.equal(container.querySelector(".divider")?.textContent, "veya");
+      assert.ok(container.querySelector("button.emailAlternative") === null);
+      assert.ok(container.querySelector(".divider") === null);
       assert.equal(container.querySelector('select[aria-label="Telefon ülke kodu"]')?.querySelectorAll("option").length, 245);
       assert.equal((container.querySelector('select[aria-label="Telefon ülke kodu"]') as HTMLSelectElement).value, "TR");
       await change('input[type="tel"]', "5551112233");
@@ -92,7 +81,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     const calls: unknown[] = [];
     await withFetch(async (path, options) => {
       assert.equal(options?.credentials, "same-origin");
-      const body = JSON.parse(String(options?.body));
+      const body = publicBody(options);
       calls.push({ path, body });
       if (path === "/api/account/auth/start") assert.equal(new Headers(options?.headers).get("x-celebix-account-csrf"), "c".repeat(43));
       return path === "/api/account/auth/start"
@@ -152,7 +141,7 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
 
   test("country selection updates the visible dial code and the submitted phone", async () => {
     await withFetch(async (_path, options) => {
-      assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+447911123456", returnTo: "/checkout" });
+      assert.deepEqual(publicBody(options), { phone: "+447911123456", returnTo: "/checkout" });
       return Response.json({ deliveryRequired: true, retryAfterSeconds: 60 });
     }, () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/checkout" }));
@@ -167,11 +156,11 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
   test("phone verification keeps the code after rejection and returns to the preserved phone entry", async () => {
     await withFetch(async (path, options) => {
       if (path === "/api/account/auth/start") {
-        assert.deepEqual(JSON.parse(String(options?.body)), { phone: "+905551112233", returnTo: "/account" });
+        assert.deepEqual(publicBody(options), { phone: "+905551112233", returnTo: "/account" });
         return Response.json({ deliveryRequired: true, retryAfterSeconds: 60 });
       }
       assert.equal(path, "/api/account/auth/verify");
-      assert.deepEqual(JSON.parse(String(options?.body)), { code: "123456", returnTo: "/account" });
+      assert.deepEqual(publicBody(options), { code: "123456", returnTo: "/account" });
       return Response.json({ message: "Kod geçersiz veya süresi dolmuş." }, { status: 400 });
     }, () => withProductBrowser(async ({ container, render, change, click }) => {
       await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
@@ -312,47 +301,13 @@ if (process.env.NODE_OPTIONS?.includes("--conditions=react-server")) {
     }));
   });
 
-  test("email fallback hides WhatsApp and keeps legacy email account access", async () => {
-    await withFetch(async (path, options) => {
-      assert.equal(path, "/api/account/auth/start");
-      assert.deepEqual(JSON.parse(String(options?.body)), { email: "ada@example.com", returnTo: "/account" });
-      return Response.json({ deliveryRequired: true, retryAfterSeconds: 60 });
-    }, () => withProductBrowser(async ({ container, render, change, click }) => {
-      await render(React.createElement(AccountAuthForm, { mode: "email", returnTo: "/account" }));
-      assert.equal(container.querySelector('input[type="tel"]'), null);
-      assert.doesNotMatch(container.textContent ?? "", /WhatsApp/u);
-      assert.equal(container.querySelector("h1")?.textContent, "E-posta ile giriş");
-      assert.doesNotMatch(container.textContent ?? "", /Güvenilir Giriş|%100 Korumalı/u);
-      await change('input[type="email"]', "ada@example.com");
-      await click('button[type="submit"]');
-      assert.match(container.textContent ?? "", /E-postanı kontrol et/u);
-      assert.match(container.textContent ?? "", /ad\*\*\*@example.com/u);
-      assert.equal(document.activeElement?.textContent, "E-postanı kontrol et");
-    }));
-  });
-
-  test("secondary email access retains the phone entry when returning", async () => {
-    await withProductBrowser(async ({ container, render, change, click }) => {
-      await render(React.createElement(AccountAuthForm, { mode: "phone", returnTo: "/account" }));
-      await change('input[type="tel"]', "5551112233");
-      await click('button.emailAlternative');
-      assert.ok(container.querySelector('input[type="email"]'));
-      assert.equal(document.activeElement, container.querySelector('input[type="email"]'));
-      await click('button.textButton');
-      assert.equal(document.activeElement, container.querySelector('input[type="tel"]'));
-      assert.equal((container.querySelector('input[type="tel"]') as HTMLInputElement).value, "5551112233");
+  test("phone-only entry has no email action and old ticket screens cannot submit a grant",async()=>{
+    await withProductBrowser(async({container,render})=>{
+      await render(React.createElement(AccountAuthForm,{mode:"phone",returnTo:"/account"}));
+      assert.ok(container.querySelector('button.emailAlternative')===null);assert.equal(container.querySelector('input[type="email"]'),null);
+      await render(React.createElement(AccountAuthForm,{mode:"verify",ticket:"old-bearer",returnTo:"/account"}));
+      assert.ok(container.querySelector('form')===null);assert.equal(container.querySelector('input[name="ticket"]'),null);assert.equal(container.querySelector('a')?.getAttribute('href'),'/account/login');
     });
   });
 
-  test("legacy email ticket confirmation still submits to its browser verification route", async () => {
-    await withProductBrowser(async ({ container, render }) => {
-      await render(React.createElement(AccountAuthForm, { mode: "verify", returnTo: "/account/orders", ticket: "example-ticket" }));
-      const form = container.querySelector("form");
-      assert.equal(form?.getAttribute("action"), "/api/account/auth/verify-browser");
-      assert.equal(form?.getAttribute("method"), "post");
-      assert.equal((form?.querySelector('input[name="ticket"]') as HTMLInputElement).value, "example-ticket");
-      assert.equal((form?.querySelector('input[name="returnTo"]') as HTMLInputElement).value, "/account/orders");
-      assert.equal(container.querySelector('input[autocomplete="one-time-code"]')?.getAttribute("maxlength"), "6");
-    });
-  });
 }

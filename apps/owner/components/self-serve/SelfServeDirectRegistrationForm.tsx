@@ -1,3 +1,4 @@
+import {MerchantSignupPhoneGate} from './MerchantSignupPhoneGate.tsx';
 interface SelfServeDirectRegistrationFormProps {
   enabled: boolean;
   domainSuffix?: string;
@@ -8,7 +9,7 @@ export function SelfServeDirectRegistrationForm({
   domainSuffix,
 }: SelfServeDirectRegistrationFormProps) {
   return (
-    <form
+    <MerchantSignupPhoneGate enabled={enabled}><form
       className="self-serve-direct-form"
       action="/api/self-serve/register"
       method="post"
@@ -60,6 +61,6 @@ export function SelfServeDirectRegistrationForm({
       >
         Kimliğimi doğrula ve mağazamı kur
       </button>
-    </form>
+    </form></MerchantSignupPhoneGate>
   );
 }

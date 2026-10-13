@@ -21,6 +21,7 @@ test("registers frozen public-brand and handoff facades only for approved access
       async resolvePublicBrand() { calls.push("brand"); return { kind: "admin_host_unknown" as const }; },
     },
     handoffs: {
+      async issuePreparedHandoff() { calls.push("issue_prepared"); return { kind: "unavailable" as const }; },
       async issueHandoff() { calls.push("issue"); return { kind: "unavailable" as const }; },
       async recoverIssuedHandoff() { calls.push("recover_issue"); return { kind: "unavailable" as const }; },
       async redeemHandoff() { calls.push("redeem"); return { kind: "unavailable" as const }; },
@@ -40,11 +41,12 @@ test("registers frozen public-brand and handoff facades only for approved access
   assert.equal(Object.isFrozen(runtime.logout), true);
   await runtime.adminDomains.resolvePublicBrand({ hostname: "x", now: new Date() });
   await runtime.handoffs.issueHandoff({} as never);
+  await runtime.handoffs.issuePreparedHandoff({} as never);
   await runtime.handoffs.recoverIssuedHandoff({} as never);
   await runtime.handoffs.redeemHandoff({} as never);
   await runtime.handoffs.recoverRedemption({} as never);
   await runtime.storeOptions.listForCredential({} as never);
-  assert.deepEqual(calls, ["brand", "issue", "recover_issue", "redeem", "recover_redeem", "stores"]);
+  assert.deepEqual(calls, ["brand", "issue", "issue_prepared", "recover_issue", "redeem", "recover_redeem", "stores"]);
   for (const forbidden of ["pool", "keys", "database", "connectionString"]) assert.equal(forbidden in runtime, false);
 });
 
@@ -56,6 +58,7 @@ test("disabled, missing, and duplicate registrations fail closed", () => {
   const repositories = {
     adminDomains: { async resolvePublicBrand() { return { kind: "unavailable" as const }; } },
     handoffs: {
+      async issuePreparedHandoff() { return { kind: "unavailable" as const }; },
       async issueHandoff() { return { kind: "unavailable" as const }; },
       async recoverIssuedHandoff() { return { kind: "unavailable" as const }; },
       async redeemHandoff() { return { kind: "unavailable" as const }; },
@@ -67,3 +70,5 @@ test("disabled, missing, and duplicate registrations fail closed", () => {
   registerServerAdminHostAuthRuntime(approved, repositories);
   assert.throws(() => registerServerAdminHostAuthRuntime(approved, repositories), /server_admin_host_auth_runtime_invalid/);
 });
+
+test("legacy handoff repositories fail closed for prepared issuance without falling back to random issuance",async()=>{const approved=access();let randomIssues=0;registerServerAdminHostAuthRuntime(approved,{adminDomains:{resolvePublicBrand:async()=>({kind:"unavailable"})},handoffs:{issueHandoff:async()=>{randomIssues++;return{kind:"unavailable"};},recoverIssuedHandoff:async()=>({kind:"unavailable"}),redeemHandoff:async()=>({kind:"unavailable"}),recoverRedemption:async()=>({kind:"unavailable"})},storeOptions:{listForCredential:async()=>({kind:"unavailable"})},logout:{endSessionEndpoint:"https://auth.celebix.co/oidc/session/end",clientId:"fixture",stateKey:new Uint8Array(32).fill(1)}});const runtime=resolveServerAdminHostAuthRuntime(approved)!;assert.deepEqual(await runtime.handoffs.issuePreparedHandoff({}as never),{kind:"unavailable"});assert.equal(randomIssues,0);});

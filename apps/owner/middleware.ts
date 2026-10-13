@@ -39,6 +39,7 @@ const INTERNAL_HMAC_PATHS = new Set([
   SELF_SERVE_INTERNAL_CALLBACK_PATH,
   "/api/internal/platform-invitations",
   "/api/internal/admin-login-security",
+  "/api/internal/merchant-whatsapp",
   "/api/security/admin-login/logto-events",
 ]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
@@ -50,6 +51,12 @@ const SELF_SERVE_PUBLIC_PREFIXES = [
   "/api/self-serve/register",
   "/api/self-serve/requests",
 ];
+const MERCHANT_SIGNUP_PUBLIC_PATHS = new Set([
+  '/api/merchant-signup/state',
+  '/api/merchant-signup/start',
+  '/api/merchant-signup/resend',
+  '/api/merchant-signup/verify',
+]);
 
 
 function withSecurity(
@@ -90,7 +97,7 @@ function isProtectedOwnerPage(pathname: string) {
 }
 
 function isPublicSelfServeRoute(pathname: string) {
-  return SELF_SERVE_PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return MERCHANT_SIGNUP_PUBLIC_PATHS.has(pathname) || SELF_SERVE_PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function isInternalHmacRoute(pathname: string) {

@@ -1,0 +1,34 @@
+{
+  "migrationId": "native230",
+  "description": "Customer WhatsApp-only durable OTP authority with shared send budgets; merchant proof and sessions remain separate",
+  "up": "202610130230_customer_whatsapp_only.up.sql",
+  "down": "202610130230_customer_whatsapp_only.down.sql",
+  "assertions": "202610130230_customer_whatsapp_only_assertions.sql",
+  "dependencies": [
+    "native229"
+  ],
+  "functions": [
+    "public_account_phone_command",
+    "customer_phone_verify_isolated"
+  ],
+  "capturedReplacements": [
+    "public_account_profile_complete",
+    "public_account_profile_update"
+  ],
+  "retiredGrants": "All public_account_auth_* functions lose workload EXECUTE; public_account_phone_command is host_resolver-only. Private verification is not workload-callable.",
+  "isolatedAcceptance": "node --experimental-transform-types --test --test-concurrency=1 tests/saas-phase3/customer-whatsapp-only/native.test.mjs",
+  "isolatedTestGroups": 1,
+  "coverage": [
+    "Unused DOWN exact full routine definition/owner/ACL/config/security equality and exact reapply",
+    "Changed installed successor refuses rollback",
+    "Any used operation including expired refuses rollback without restoring old auth grants",
+    "Concurrent start and verify exactly once; destroyed connection and lost COMMIT acknowledgment recovery",
+    "Wrong-code counters persist; ambiguous delivery does not auto-resend",
+    "Historic mutable contact and order ownership unchanged; no auto-link and no panel sessions",
+    "Real runtime signed ingress, WhatsApp challenge, profile completion and lost HTTP replay",
+    "Changed profile input and revoked issued session reject completion recovery",
+    "Shared merchant/customer recipient budget and least-role assertions"
+  ],
+  "rollback": "Only before ANY operation. Checks exact installed definitions for all captured predecessors and new functions; restores original routines, owner and ACL. Historical operations permanently prevent rollback.",
+  "retentionLimitation": "Expired challenge and completion escrows remain encrypted in the private journal; reads reject expiry. Bounded ciphertext cleanup is not implemented. Do not delete operation rows used as rollback witness."
+}
