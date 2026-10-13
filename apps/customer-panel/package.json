@@ -14,7 +14,7 @@
     "test:google": "node --experimental-transform-types --test components/google-marketing/*.test.ts lib/google-marketing-http/*.test.ts lib/server-google-marketing/config.test.ts",
     "test:email": "node --experimental-transform-types --test lib/email-marketing-ui/*.test.ts components/email-marketing/*.behavior.test.ts lib/email-marketing-http/*.test.ts lib/server-email-marketing/*.test.ts",
     "test:lucky-wheel": "node --experimental-transform-types --test lib/lucky-wheel-ui/*.test.ts lib/lucky-wheel-http/*.test.ts lib/server-lucky-wheel/*.test.ts components/promotions/LuckyWheel*.behavior.test.ts",
-    "test:admin-login": "node --experimental-transform-types --test --test-concurrency=1 lib/admin-login-security-ui/*.test.ts lib/admin-login-security/*.test.ts components/auth/AdminWhatsAppVerification.behavior.test.ts components/settings/AdminLoginSecurityConsole.behavior.test.ts lib/panel-session-completion/*.test.ts lib/cross-host-session-handoff/*.test.ts"
+    "test:admin-login": "node --experimental-transform-types --test --test-concurrency=1 lib/admin-login-security-ui/*.test.ts lib/admin-login-security/*.test.ts components/auth/AdminWhatsAppVerification.behavior.test.ts components/settings/AdminLoginSecurityConsole.behavior.test.ts lib/panel-session-completion/*.test.ts lib/cross-host-session-handoff/*.test.ts lib/platform-invitations/*.test.ts"
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.4",
