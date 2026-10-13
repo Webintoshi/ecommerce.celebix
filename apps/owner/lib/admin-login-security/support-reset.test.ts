@@ -31,6 +31,18 @@ test('authorized platform TOTP operator submits a fixed-issuer reason-recorded i
   assert.deepEqual(f.calls, [{ issuer, subject, eventId: 'support:80000000-0000-4000-8000-000000000001', reason: 'support_reset', operatorId, supportReason: reason }, { issuer, subject, eventId: 'support:80000000-0000-4000-8000-000000000001', reason: 'support_reset', operatorId, supportReason: reason }]);
 });
 
+test('internal HTTPS proxy URL preserves canonical Origin, Host and TOTP authority', async () => {
+  const f = fixture();
+  const proxied = new Request('https://localhost:3100/api/security/admin-login/reset', { method: 'POST', headers: { origin: allowedOrigin, host: 'owner.example.test', 'content-type': 'application/json', 'idempotency-key': operationId }, body: JSON.stringify(body) });
+  const deniedRequest = proxied.clone();
+  assert.equal((await f.handler(proxied)).status, 200);
+  assert.equal(f.operatorCalls(), 1);
+  assert.equal(f.calls.length, 1);
+  const denied = fixture({ operator: { operatorId, totpVerified: false } });
+  assert.equal((await denied.handler(deniedRequest)).status, 401);
+  assert.equal(denied.calls.length, 0);
+});
+
 test('denied, merchant, AAL1 and malformed operator assurance cannot mutate', async () => {
   for (const operator of [{ operatorId, totpVerified: false }, { operatorId, totpVerified: 'true' }, { operatorId }, { operatorId: 'merchant', totpVerified: true }, []]) {
     const f = fixture({ operator });
@@ -50,7 +62,7 @@ test('non-POST, absent or cross-origin requests are rejected before operator res
   assert.equal(get.status, 405);
   assert.equal(get.headers.get('allow'), 'POST');
   for (const origin of ['', 'null', 'https://attacker.example.test', `${allowedOrigin}/`, `${allowedOrigin}, https://attacker.example.test`]) assert.equal((await f.handler(request(body, { origin }))).status, 403);
-  const wrongAuthority = new Request('https://attacker.example.test/reset', { method: 'POST', headers: { origin: allowedOrigin }, body: JSON.stringify(body) });
+  const wrongAuthority = new Request('https://localhost:3100/reset', { method: 'POST', headers: { origin: allowedOrigin, host: 'attacker.example.test' }, body: JSON.stringify(body) });
   assert.equal((await f.handler(wrongAuthority)).status, 403);
   assert.equal(f.operatorCalls(), 0);
   assert.equal(f.calls.length, 0);

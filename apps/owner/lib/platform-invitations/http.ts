@@ -3,7 +3,10 @@ import type {createInvitationTransport} from '../../../../packages/saas-data/src
 export function createInvitationInternalHandler(resolve:()=>Promise<{transport:ReturnType<typeof createInvitationTransport>;service:ReturnType<typeof createInvitationService>;ownerOrigin:string}>){
  return async(request:Request):Promise<Response>=>{
   const headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'};
-  try{const runtime=await resolve();if(new URL(request.url).origin!==runtime.ownerOrigin)throw Error('invitation_denied');const payload=await runtime.transport.verify(request);
+  try{const runtime=await resolve();const publicOrigin=new URL(runtime.ownerOrigin),requestUrl=new URL(request.url);
+   // Next's proxy-facing URL uses the internal server authority. Bind the
+   // actual public Host to configuration; retain all signed transport guards.
+   if(publicOrigin.protocol!=='https:'||publicOrigin.origin!==runtime.ownerOrigin||!['http:','https:'].includes(requestUrl.protocol)||request.headers.get('host')!==publicOrigin.host)throw Error('invitation_denied');const payload=await runtime.transport.verify(request);
    if(payload.action==='start'&&Object.keys(payload).sort().join(',')==='action,adminHost,token'&&typeof payload.token==='string'&&typeof payload.adminHost==='string')return Response.json(await runtime.service.start(payload.token,payload.adminHost),{headers});
    if(payload.action==='complete'&&Object.keys(payload).sort().join(',')==='action,binding,code,state'&&typeof payload.state==='string'&&typeof payload.code==='string'&&typeof payload.binding==='string')return Response.json(await runtime.service.complete(payload.state,payload.code,payload.binding),{headers});
    throw Error('invitation_denied');

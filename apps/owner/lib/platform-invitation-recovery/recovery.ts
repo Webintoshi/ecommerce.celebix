@@ -59,7 +59,9 @@ export function createInvitationRecoveryHandler(options:HandlerOptions) {
    if(auth.kind!=='authorized'||!auth.operator||auth.operator.assuranceLevel!=='aal2')return response({code:auth.kind==='unauthenticated'?'unauthenticated':'operator_denied',message:'Doğrulanmış Owner hesabı ve iki aşamalı doğrulama gerekli.'},auth.kind==='unauthenticated'?401:auth.kind==='unavailable'?503:403);
    if(request.method!=='POST')return response({code:'method_not_allowed'},405);
    const origin=options.origin(request),url=new URL(request.url);
-   if(!origin||request.headers.get('origin')!==origin||(url.protocol==='https:'&&url.origin!==origin))return response({code:'origin_denied'},403);
+   // Next's standalone server uses its internal hostname in request.url behind
+   // the proxy. Trust only the configured public origin, never that internal URL.
+   if(!origin||request.headers.get('origin')!==origin)return response({code:'origin_denied'},403);
    requireValue(url.pathname==='/api/platform/invitations/recover'&&!url.search&&!url.hash&&request.headers.get('content-type')?.split(';')[0].trim()==='application/json');
    const bytes=await readBoundedBody(request,2048);const parsed=input(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));
    const now=options.now();requireValue(now instanceof Date&&Number.isFinite(now.getTime()));

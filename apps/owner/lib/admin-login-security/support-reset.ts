@@ -68,7 +68,9 @@ export function createAdminLoginSupportResetHandler(options: AdminLoginSupportRe
   return async request => {
     if (request.method !== 'POST') return response(405);
     const requestUrl=new URL(request.url),host=request.headers.get('host');
-    if(request.headers.get('origin')!==allowedOrigin||(requestUrl.protocol==='https:'&&requestUrl.origin!==allowedOrigin)||(requestUrl.protocol!=='https:'&&requestUrl.protocol!=='http:')||(host!==null&&host!==new URL(allowedOrigin).host))return response(403);
+    // The standalone server's URL authority is internal behind the proxy.
+    // Public Origin and Host remain bound to the configured Owner origin.
+    if(request.headers.get('origin')!==allowedOrigin||(requestUrl.protocol!=='https:'&&requestUrl.protocol!=='http:')||(host!==null&&host!==new URL(allowedOrigin).host))return response(403);
     let operatorId: string;
     try {
       const operator = record(await options.requireOperator(request));
