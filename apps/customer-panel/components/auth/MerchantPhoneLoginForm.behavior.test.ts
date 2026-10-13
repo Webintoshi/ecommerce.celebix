@@ -24,3 +24,17 @@ test('refresh resumes code through server pending phone and rate-limited first s
  const calls:any[]=[];
  await withEditor(async({container,render,click})=>{await render(React.createElement(Form,{client:client({state:async()=>({...code,resendAt:new Date(NOW-1000).toISOString()}),resend:async input=>{calls.push(input);return code;}}),clock:()=>NOW}));await settle();await click(container.querySelector('[data-resend]')!);assert.equal(calls.length,1);assert.deepEqual(Object.keys(calls[0]),['operationId']);});
 });
+
+test('phone access error preserves code and retry operation until an explicit manual restart',async()=>{
+ const {MerchantPhoneLoginError}=loginModule;
+ for(const errorCode of ['fresh_login_required','phone_conflict','not_ready']){
+  const calls:any[]=[],destinations:string[]=[];let sends=0;
+  await withEditor(async({window,container,render,change,click})=>{
+   await render(React.createElement(Form,{client:client({start:async()=>{sends++;return code;},verify:async body=>{calls.push(body);throw new MerchantPhoneLoginError(errorCode);}}),clock:()=>NOW,navigate:(path:string)=>destinations.push(path)}));await settle();
+   await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await submit(window,container);await change(container.querySelector<HTMLInputElement>('[name="code"]')!,'001234');await submit(window,container);await submit(window,container);
+   assert.equal(calls[0].operationId,calls[1].operationId);assert.equal(container.querySelector<HTMLInputElement>('[name="code"]')!.value,'001234');assert.equal(sends,1);assert.deepEqual(destinations,[]);
+   const restart=container.querySelector<HTMLButtonElement>('[data-change-phone]')!;assert.equal(restart.textContent,'Girişi yeniden başlat');assert.ok(container.querySelector('[role="alert"]'));
+   await click(restart);assert.equal(container.querySelector<HTMLInputElement>('[name="phone"]')!.value,'0555 111 22 33');assert.equal(container.querySelector('[role="alert"]'),null);assert.equal(sends,1);assert.deepEqual(destinations,[]);
+  });
+ }
+});

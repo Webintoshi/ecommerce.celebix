@@ -11,3 +11,16 @@ test('binding client has fixed authenticated self paths and phone-bound completi
  assert.equal((await client.selfState()).phoneVerified,false);await client.start({phone:'+905551112233',operationId:KEY});await client.resend({operationId:KEY});assert.deepEqual(await client.verify({code:'001234',operationId:KEY}),{phase:'complete'});assert.deepEqual(calls.map(c=>c.path),['/api/merchant-login/bind/state','/api/merchant-login/bind/start','/api/merchant-login/bind/resend','/api/merchant-login/bind/verify']);for(const call of calls.slice(1))assert.equal(new Headers(call.init.headers).get('idempotency-key'),KEY);
  const bad=createMerchantPhoneBindingClient({fetch:async()=>Response.json({code:'ok',state:{phase:'phone',phoneMasked:null,phoneVerified:true},csrfToken:'c'.repeat(43)})});await assert.rejects(bad.selfState(),MerchantPhoneLoginError);
 });
+
+test('phone access errors provide safe setup/restart guidance while genuine unavailability keeps generic retry',async()=>{
+ const messages:Record<string,readonly string[]>={fresh_login_required:['kişisel giriş telefon','Güvenlik','mağaza sahibi','merkez destek','yeniden başlat'],phone_conflict:['Telefon tanımı','mağaza sahibi','merkez destek'],not_ready:['yeni kod','yeniden başlat']};
+ for(const [code,parts]of Object.entries(messages)){
+  const client=createMerchantPhoneLoginClient({fetch:async(_path,init)=>init?.method==='POST'?Response.json({code,message:'PHONE_NOT_REGISTERED SECRET'},{status:401}):Response.json({code:'ok',state:phoneState,csrfToken:'c'.repeat(43)})});
+  await client.state();
+  await assert.rejects(client.verify({code:'001234',operationId:KEY}),error=>{
+   assert(error instanceof MerchantPhoneLoginError);assert.equal(error.code,code);for(const part of parts)assert(error.message.toLowerCase().includes(part.toLowerCase()));assert(!/SECRET|kayıtlı değil|başka hesap|PHONE_NOT_REGISTERED/u.test(error.message));return true;
+  });
+ }
+ assert.equal(new MerchantPhoneLoginError('unavailable').message,'Giriş tamamlanamadı. Bilgileriniz korunuyor; yeniden deneyebilirsiniz.');
+ assert.equal(new MerchantPhoneLoginError('unknown_server_error').message,new MerchantPhoneLoginError('unavailable').message);
+});
