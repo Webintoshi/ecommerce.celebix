@@ -2,11 +2,44 @@ import assert from 'node:assert/strict';import test from 'node:test';import Reac
 import {compile,withEditor} from '../settings/design/design-editor-test-utils.ts';
 import type {MerchantPhoneLoginClient,MerchantPhoneLoginState} from './merchant-phone-login-client.ts';
 const loginModule=compile<any>(new URL('./merchant-phone-login-client.ts',import.meta.url));
-const {MerchantPhoneLoginForm:Form}=compile<any>(new URL('./MerchantPhoneLoginForm.tsx',import.meta.url),{'./merchant-phone-login-client.ts':loginModule});
+const {MerchantPhoneLoginForm:DefaultForm}=compile<any>(new URL('./MerchantPhoneLoginForm.tsx',import.meta.url),{'./merchant-phone-login-client.ts':loginModule});
+const Form=(props:any)=>React.createElement(DefaultForm,{inline:true,...props});
 const NOW=Date.parse('2026-10-13T12:00:00Z');const phone:MerchantPhoneLoginState={phase:'phone'};const code:MerchantPhoneLoginState={...phone,phase:'code',maskedPhone:'+90 ••• 2233',resendAt:new Date(NOW+60000).toISOString(),expiresAt:new Date(NOW+600000).toISOString()};
 function client(overrides:Partial<MerchantPhoneLoginClient>={}):MerchantPhoneLoginClient{return{state:async()=>phone,start:async()=>code,resend:async()=>code,verify:async()=>({...phone,phase:'complete'}),...overrides};}
 async function settle(){await React.act(async()=>{await new Promise(r=>setTimeout(r,0));});}
 async function submit(window:any,container:HTMLElement){await React.act(async()=>container.querySelector('form')!.dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));}
+test('existing phone binding consumers keep their labeled field and submit button',async()=>{
+ await withEditor(async({container,render})=>{await render(React.createElement(DefaultForm,{client:client(),clock:()=>NOW}));await settle();
+ assert.equal(container.querySelector('label span')?.textContent,'Kişisel telefon numarası');
+ assert.equal(container.querySelector('button[type="submit"]')?.textContent,'WhatsApp kodu gönder');
+ assert.equal(container.querySelector('select'),null);
+ });
+});
+test('inline accessible arrow sends the selected country number without a visible label or separate CTA',async()=>{
+ const calls:any[]=[];
+ await withEditor(async({window,container,render,change})=>{
+  await render(React.createElement(Form,{client:client({start:async input=>{calls.push(input);return code;}}),clock:()=>NOW}));await settle();
+  const select=container.querySelector<HTMLSelectElement>('select[aria-label="Telefon ülke kodu"]')!;
+  assert.ok(select);assert.equal(select.value,'TR');assert.equal(select.options.length,245);
+  const input=container.querySelector<HTMLInputElement>('[name="phone"]')!;
+  assert.equal(input.getAttribute('aria-label'),'Telefon numarası');
+  const send=container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  assert.equal(send.getAttribute('aria-label'),'WhatsApp kodu gönder');assert.equal(send.textContent,'');
+  await change(select,'GB');await change(input,'07911 123456');await submit(window,container);
+  assert.equal(calls[0].phone,'+447911123456');assert.equal(container.querySelector('[name="code"]')?.getAttribute('aria-label'),'Doğrulama kodu');
+ });
+});
+test('international paste changes the prefix once and retains the number after a failed send',async()=>{
+ const calls:any[]=[];
+ await withEditor(async({window,container,render,change})=>{
+  await render(React.createElement(Form,{client:client({start:async input=>{calls.push(input);throw Error('failed');}}),clock:()=>NOW}));await settle();
+  const input=container.querySelector<HTMLInputElement>('[name="phone"]')!;
+  await change(input,'0044 7911 123456');await submit(window,container);
+  assert.equal(container.querySelector<HTMLSelectElement>('select')!.value,'GB');
+  assert.equal(input.value,'7911123456');assert.equal(calls[0].phone,'+447911123456');
+  await submit(window,container);assert.equal(calls[1].operationId,calls[0].operationId);
+ });
+});
 test('manual phone then six-digit pasted leading-zero code focuses and completes through fixed path',async()=>{const calls:any[]=[],destinations:string[]=[];await withEditor(async({window,container,render,change})=>{await render(React.createElement(Form,{client:client({start:async body=>{calls.push(body);return code;},verify:async body=>{calls.push(body);return{...phone,phase:'complete'};}}),clock:()=>NOW,navigate:(path:string)=>destinations.push(path)}));await settle();assert.equal(calls.length,0);await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await submit(window,container);assert.equal(calls[0].phone,'+905551112233');const field=container.querySelector<HTMLInputElement>('[name="code"]')!;assert.equal(window.document.activeElement,field);assert.equal(field.autocomplete,'one-time-code');await change(field,'00 12-34');await submit(window,container);assert.equal(calls[1].code,'001234');assert.deepEqual(destinations,['/auth/merchant-phone/complete']);assert.equal(container.querySelector('[name="password"]'),null);assert.equal(container.querySelector('[name="rememberDevice"]'),null);});});
 test('failed request retains phone/code and original operation; no polling or automatic send',async()=>{const calls:any[]=[];await withEditor(async({window,container,render,change})=>{await render(React.createElement(Form,{client:client({start:async body=>{calls.push(body);throw Error('DATABASE SECRET');}}),clock:()=>NOW}));await settle();await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await submit(window,container);await submit(window,container);assert.equal(calls[0].operationId,calls[1].operationId);assert.equal(container.querySelector<HTMLInputElement>('[name="phone"]')!.value,'0555 111 22 33');assert.ok(!container.textContent!.includes('SECRET'));assert.ok(container.querySelector('[role="alert"]'));await new Promise(r=>setTimeout(r,25));assert.equal(calls.length,2);});});
 test('resend waits60 seconds manually; phone change retains original input and code verification buffer',async()=>{let now=NOW,sends=0;await withEditor(async({window,container,render,click,change})=>{await render(React.createElement(Form,{client:client({start:async()=>{sends++;return code;},resend:async()=>{sends++;return code;},verify:async()=>{throw Error();}}),clock:()=>now}));await settle();await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await submit(window,container);const resend=container.querySelector<HTMLButtonElement>('[data-resend]')!;assert.equal(resend.disabled,true);await change(container.querySelector<HTMLInputElement>('[name="code"]')!,'001234');await submit(window,container);assert.equal(container.querySelector<HTMLInputElement>('[name="code"]')!.value,'001234');await click(resend);assert.equal(sends,1);now+=61000;await React.act(async()=>window.document.dispatchEvent(new window.Event('visibilitychange')));await click(container.querySelector('[data-resend]')!);assert.equal(sends,2);await click(container.querySelector('[data-change-phone]')!);assert.equal(container.querySelector<HTMLInputElement>('[name="phone"]')!.value,'0555 111 22 33');});});

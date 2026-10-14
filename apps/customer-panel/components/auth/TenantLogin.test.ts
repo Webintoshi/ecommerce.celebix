@@ -33,13 +33,16 @@ test("phone login presentation keeps tenant branding and removes the password re
       assert.equal(document.querySelector("h1")?.textContent, model.displayName);
       assert.equal(document.querySelector('a[href*="auth/login"]'), null);
       assert.match(document.body.textContent!, /Giriş hazırlanıyor/);
-      assert.equal(document.querySelector(".tenant-login-secondary")?.getAttribute("href"), "https://ecommerce.celebix.co/kayit");
+      assert.equal(document.querySelector("header h1")?.textContent, model.displayName);
+      assert.deepEqual([...document.querySelectorAll('[data-login-action]')].map(link => [link.textContent, link.getAttribute('href')]), [
+        ['Yeni mağaza aç', 'https://ecommerce.celebix.co/kayit'],
+        ['Şube ekle', 'https://ecommerce.celebix.co/kayit'],
+      ]);
       assert.equal(document.querySelectorAll("input, form").length, 0);
       assert.equal(document.querySelector(".tenant-login-artwork")?.getAttribute("aria-hidden"), "true");
       assert.equal(document.querySelector(".tenant-login-illustration")?.getAttribute("alt"), "");
-      const logo = document.querySelector(".tenant-login-mark img");
-      assert.equal(logo?.getAttribute("src") ?? null, model.logoUrl);
-      if (!model.logoUrl) assert.equal(document.querySelector(".tenant-login-mark")?.textContent, model.displayName.charAt(0));
+      assert.equal(document.querySelector(".tenant-login-mark"), null);
+      assert.equal(document.body.textContent!.includes('Güvenli, mağazaya özel erişim'), false);
     } finally {
       await window.happyDOM.close();
     }
