@@ -3,6 +3,7 @@ import {GOOGLE_MARKETING_SERVICES,parseGoogleMarketingService,parseGoogleMarketi
 import {acquirePostgresClient} from '../postgres/pool.ts';
 import {GoogleMarketingProvider,GOOGLE_SCOPES,GTM_INSTALL_SCOPES} from './provider.ts';
 import {GoogleMerchantProvider} from '../google-merchant/provider.ts';
+import {createMerchantHomepageRedirectProof} from '../google-merchant/redirect-proof.ts';
 import {sealGoogleCredential,openGoogleCredential,validateGoogleCredentialKeyring,type GoogleCredential,type SealedGoogleCredential} from './credential-crypto.ts';
 import {googleError,googleMarketingErrorCode,GOOGLE_MARKETING_ERROR_CODES,GoogleMarketingRepositoryError} from './errors.ts';
 import type {GoogleMarketingRepository,GoogleMarketingAuthorityInput,PostgresGoogleMarketingRepositoryOptions} from './types.ts';
@@ -40,7 +41,21 @@ export function createPostgresGoogleMarketingRepository(options:PostgresGoogleMa
    try{const selected=await privateConnection(input,service);let validated:GoogleMarketingSelection,verificationToken:string|undefined;
     if(service==='gtm'){const credential=await installCredential(input,selected);const ads=await privateConnection(input,'ads');validated=await provider.applyGtm(credential.accessToken,selection,selected.domain,operationId,progress,checkpoint,ads.connection.status==='connected'?ads.connection.selection??undefined:undefined);}
     else{const credential=await access(input,service,selected);if(service==='ads'){validated=await provider.validateSelection(service,credential.accessToken,selection,selected.domain);const gtm=await privateConnection(input,'gtm');if(gtm.connection.status==='connected'&&gtm.connection.selection){const gtmCredential=await installCredential(input,gtm);await provider.applyGtm(gtmCredential.accessToken,gtm.connection.selection,gtm.domain,operationId,progress,checkpoint,validated);}}
-     else if(service==='merchant'){validated=await new GoogleMerchantProvider(options.fetch).setup(credential.accessToken,selection,selected.domain,input.tenantContext.store.id,progress,checkpoint);}
+     else if(service==='merchant'){
+      let redirectHostname:string|undefined;
+      const sameTenant=async(hostname:string)=>{
+       const r=await query('SELECT outcome,result_payload FROM saas.resolve_public_storefront($1::text,$2::timestamptz)',[hostname,date(new Date())],true);
+       return r.outcome==='not_found'||r.outcome==='found'&&r.result_payload?.id===input.tenantContext.store.id;
+      };
+      const proof=options.merchantHomepageRedirectProof??createMerchantHomepageRedirectProof();
+      validated=await new GoogleMerchantProvider(options.fetch,async(homepage,domain)=>{
+       if(!await sameTenant(homepage.hostname)||!await proof(homepage,domain))return false;
+       redirectHostname=homepage.hostname;return true;
+      }).setup(credential.accessToken,selection,selected.domain,input.tenantContext.store.id,progress,checkpoint);
+      // Recheck the registered host after provider work before connecting.
+      // The native finalize also rechecks the canonical tenant/domain proof.
+      if(redirectHostname&&!await sameTenant(redirectHostname))googleError('wrong_domain');
+     }
      else{const result=await provider.applySearchConsole(credential.accessToken,selection,selected.domain,progress,checkpoint);validated=result.selection;verificationToken=result.verificationToken;}}
     const result=await command(input,'finalize',{service,operationId,leaseToken,selection:validated,...(verificationToken?{verificationToken}:{})},['saved','operation_replayed']);return parseGoogleMarketingConnection(result.result);
    }catch(error){const code=googleMarketingErrorCode(error);try{await command(input,'fail',{service,operationId,leaseToken,code},['saved']);}catch{}throw error instanceof GoogleMarketingRepositoryError?error:new GoogleMarketingRepositoryError('unavailable');}

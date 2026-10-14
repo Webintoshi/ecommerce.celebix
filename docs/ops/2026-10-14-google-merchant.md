@@ -39,3 +39,13 @@ Host root disk filled during the first build. Root reclaimed 12.72 GB reconstruc
 
 ## Final runtime acceptance
 All four shared apps published source `b4ece71accb913b576c2c5a6ed641701abda2e7b`; owner apps remained at `4f290ad33f8b921d3184782a10c6ef85350c7be0`. NET worker emitted `google_merchant_worker_ready`. Both storefronts are healthy. Direct HTTPS origin probe of Alpler adizero-boston selected variant `02de2066-59de-5d53-ac25-24ab833b2485` returned exactly one offer at TRY 2600.00, matching native effective price 260000 cents. Delivery singleton activated after this acceptance. Anonymous Merchant API returns 401. No real Merchant account connected and no live product upload claimed. Remaining Google API/developer registration and real account onboarding require account-level acceptance.
+
+## Claimed www homepage correction
+
+- Google platform developer registration for project `130968698835` completed; account list and registration GET returned 200. These are platform prerequisites, not product approval.
+- The selected Güzide account claims `https://www.guzidekuyumcu.com`; the native verified canonical storefront is `guzidekuyumcu.com`. Public www responds with a TLS-valid permanent redirect to that canonical root. Strict hostname comparison rejected this working alias.
+- Shared setup now permits only a single www/apex difference after a credential-free, DNS-pinned HTTPS HEAD proves an exact 301/308 redirect to the canonical root. All DNS answers must be public; certificate/SNI verification, a combined five-second deadline and a 16 KiB header limit apply. No redirect is followed and no body is read.
+- The existing public host resolver rejects another active tenant's hostname before probing and again before finalizing. The canonical native checkpoint remains unchanged. These separate reads do not provide an atomic alias reassignment guarantee; native finalize continues to fence the canonical store/domain.
+- No Google website claim is transferred or rewritten. Product links remain canonical; this connection proof does not imply Google's product acceptance or approval. Reference-priced/invalid-identifier products remain excluded.
+- Candidate includes the already live `fc30b107` login design. Only NET/SITE panel source is published; schema, storefronts, owner apps, worker and payment/Google settings remain compatible.
+- Focused Google/provider/redirect checks and production data/panel TypeScript checks pass. Full data-package typecheck has five pre-existing test-only `admin-login-security/internal.test.ts` fetch typing errors; no production source error is present. The local wrapper build requires payment build metadata; the panel's direct production compile and actual Coolify build are checked separately.

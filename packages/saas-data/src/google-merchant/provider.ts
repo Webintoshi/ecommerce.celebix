@@ -1,6 +1,7 @@
 import type { GoogleMarketingResourceOption, GoogleMarketingResources, GoogleMarketingSelection, GoogleMerchantOffer } from '@celebix/saas-contracts';
 import { createHash } from 'node:crypto';
 import { GoogleMarketingRepositoryError, googleError } from '../google-marketing/errors.ts';
+import {isMerchantWwwPair} from './redirect-proof.ts';
 
 const BASE = 'https://merchantapi.googleapis.com';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -41,7 +42,8 @@ export function googleMerchantOfferRevision(offer:GoogleMerchantOffer):string {r
 /** Fixed-origin, bounded Merchant API adapter. Authority and credential storage remain native. */
 export class GoogleMerchantProvider {
  private readonly transport:typeof fetch;
- constructor(transport:typeof fetch=fetch){this.transport=transport;}
+ private readonly homepageProof:((homepage:URL,canonicalDomain:string)=>Promise<boolean>)|undefined;
+ constructor(transport:typeof fetch=fetch,homepageProof?:((homepage:URL,canonicalDomain:string)=>Promise<boolean>)){this.transport=transport;this.homepageProof=homepageProof;}
  private async request(path:string,token:string,init:RequestInit={},notFound=false):Promise<Json|null> {
   if(!/^\/(?:accounts|datasources|products)\/v1\//.test(path)||/[\u0000-\u0020\u007f]/.test(token)||!token||token.length>8192)googleError('invalid_input');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
@@ -82,9 +84,10 @@ export class GoogleMerchantProvider {
   if(!/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/.test(domain)||!domain.includes('.'))googleError('wrong_domain');
   const homepage=(await this.request(`/accounts/v1/accounts/${accountId}/homepage`,token))!;
   let uri:URL;try{uri=new URL(String(homepage.uri));}catch{googleError('merchant_domain_unverified');}
-  if(uri.protocol!=='https:'||uri.hostname!==domain||uri.username||uri.password||uri.port||uri.pathname!=='/'||uri.search||uri.hash)googleError('wrong_domain');
+  if(uri.protocol!=='https:'||uri.username||uri.password||uri.port||uri.pathname!=='/'||uri.search||uri.hash||uri.hostname!==domain&&!isMerchantWwwPair(uri.hostname,domain))googleError('wrong_domain');
   if(homepage.claimed!==true)googleError('merchant_domain_unverified');
   if(progress.merchantDomain!==undefined&&progress.merchantDomain!==domain)googleError('wrong_domain');
+  if(uri.hostname!==domain&&(!this.homepageProof||!await this.homepageProof(uri,domain)))googleError('wrong_domain');
   progress={...progress,merchantDomain:domain};await checkpoint(progress);
   const marker=`Celebix ${storeId}`;
   if(progress.merchantSourceName!==undefined&&progress.merchantSourceName!==marker)googleError('operation_mismatch');

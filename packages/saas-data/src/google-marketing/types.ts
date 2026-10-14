@@ -13,4 +13,4 @@ export interface GoogleMarketingRepository{
  disconnect(input:GoogleMarketingAuthorityInput&Readonly<{service:GoogleMarketingService;expectedVersion:number;operationId:string}>):Promise<GoogleMarketingConnection>;
  publicProjection(storeId:string):Promise<PublicGoogleMarketingProjection>;
 }
-export type PostgresGoogleMarketingRepositoryOptions=Readonly<{pool:PostgresPoolLike;configuration:GoogleMarketingConfiguration;fetch?:typeof fetch;role?:'celebix_saas_app';timeouts?:PostgresTimeoutOptions}>;
+export type PostgresGoogleMarketingRepositoryOptions=Readonly<{pool:PostgresPoolLike;configuration:GoogleMarketingConfiguration;fetch?:typeof fetch;merchantHomepageRedirectProof?:(homepage:URL,canonicalDomain:string)=>Promise<boolean>;role?:'celebix_saas_app';timeouts?:PostgresTimeoutOptions}>;

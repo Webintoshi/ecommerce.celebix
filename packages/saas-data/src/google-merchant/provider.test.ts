@@ -22,6 +22,43 @@ test('Merchant setup rejects a foreign or unclaimed homepage before any Google m
  }
 });
 
+test('Merchant accepts a claimed www homepage only after proving its redirect to the canonical store',async()=>{
+ let proofs=0,posts=0;const progress:Record<string,unknown>[]=[];
+ const provider=new GoogleMerchantProvider(async(url,init)=>{
+  const path=new URL(String(url)).pathname;
+  if(path.endsWith('/accounts'))return Response.json({accounts:[{accountId:'123',accountName:'Store'}]});
+  if(path.endsWith('/homepage'))return Response.json({uri:'https://www.store.example.com',claimed:true});
+  if(init?.method==='POST'){posts++;return Response.json({name:'accounts/123/dataSources/456',dataSourceId:'456',displayName:`Celebix ${storeId}`,input:'API',primaryProductDataSource:{feedLabel:'TR',contentLanguage:'tr',countries:['TR']}});}
+  return Response.json({dataSources:[]});
+ },async(homepage,canonical)=>{proofs++;assert.equal(homepage.hostname,'www.store.example.com');assert.equal(canonical,'store.example.com');return true;});
+ const result=await provider.setup('SECRET',{accountId:'123',resourceId:'123',resourceName:'Store'},'store.example.com',storeId,{},async p=>{progress.push(p);});
+ assert.equal(result.resourceId,'456');assert.equal(proofs,1);assert.equal(posts,1);
+ assert.ok(progress.every(p=>p.merchantDomain==='store.example.com'));
+});
+
+test('Merchant www proof never permits other domains or malformed and unclaimed Google homepages',async()=>{
+ for(const [uri,claimed,expected,proofsExpected]of [
+  ['https://www.store.example.com/',true,'wrong_domain',1],
+  ['https://other.example.com/',true,'wrong_domain',0],
+  ['https://shop.store.example.com/',true,'wrong_domain',0],
+  ['https://www.store.example.com.attacker.test/',true,'wrong_domain',0],
+  ['http://www.store.example.com/',true,'wrong_domain',0],
+  ['https://user@www.store.example.com/',true,'wrong_domain',0],
+  ['https://www.store.example.com:444/',true,'wrong_domain',0],
+  ['https://www.store.example.com/shop',true,'wrong_domain',0],
+  ['https://www.store.example.com/?x=1',true,'wrong_domain',0],
+  ['https://www.store.example.com/#x',true,'wrong_domain',0],
+  ['https://www.store.example.com/',false,'merchant_domain_unverified',0],
+ ] as const){
+  let proofs=0,writes=0;const provider=new GoogleMerchantProvider(async(url,init)=>{
+   if((init?.method??'GET')!=='GET')writes++;
+   return Response.json(new URL(String(url)).pathname.endsWith('/accounts')?{accounts:[{accountId:'123',accountName:'Store'}]}:{uri,claimed});
+  },async()=>{proofs++;return false;});
+  await assert.rejects(()=>provider.setup('SECRET',{accountId:'123',resourceId:'123',resourceName:'Store'},'store.example.com',storeId,{},async()=>{}),errorCode(expected));
+  assert.equal(writes,0);assert.equal(proofs,proofsExpected,uri);
+ }
+});
+
 test('Merchant refuses a caller data source that was never selected from its owned source before creation',async()=>{
  let writes=0;const provider=new GoogleMerchantProvider(async(url,init)=>{if((init?.method??'GET')!=='GET')writes++;const path=new URL(String(url)).pathname;return Response.json(path.endsWith('/accounts')?{accounts:[{accountId:'123',accountName:'Store'}]}:path.endsWith('/homepage')?{uri:'https://store.example.com/',claimed:true}:{dataSources:[]});});
  await assert.rejects(()=>provider.setup('token',{accountId:'123',resourceId:'999',resourceName:'Caller title'},'store.example.com',storeId,{},async()=>{}),errorCode('resource_denied'));
