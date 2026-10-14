@@ -35,12 +35,15 @@ test("phone login presentation keeps tenant branding and removes the password re
       assert.match(document.body.textContent!, /Giriş hazırlanıyor/);
       assert.equal(document.querySelector("header h1")?.textContent, model.displayName);
       assert.deepEqual([...document.querySelectorAll('[data-login-action]')].map(link => [link.textContent, link.getAttribute('href')]), [
-        ['Yeni mağaza aç', 'https://ecommerce.celebix.co/kayit'],
-        ['Şube ekle', 'https://ecommerce.celebix.co/kayit'],
+        ['Yeni mağaza açKendi mağazanı dakikalar içinde aç.', 'https://ecommerce.celebix.co/kayit'],
+        ['Şube ekleMevcut mağazana şube ekle.', 'https://ecommerce.celebix.co/kayit'],
       ]);
       assert.equal(document.querySelectorAll("input, form").length, 0);
-      assert.equal(document.querySelector(".tenant-login-artwork")?.getAttribute("aria-hidden"), "true");
-      assert.equal(document.querySelector(".tenant-login-illustration")?.getAttribute("alt"), "");
+      assert.equal(document.querySelector(".tenant-login-illustration")?.getAttribute("alt"), "İşinizi kolaylaştıran teknoloji. Celebix — daha fazlası seninle.");
+      assert.deepEqual([...document.querySelectorAll('nav[aria-label="Celebix bağlantıları"] a')].map(link => link.getAttribute('href')), [
+        'https://celebix.net/tr/gizlilik', 'https://celebix.net/tr/kullanim-kosullari', 'https://celebix.net/tr/iletisim',
+      ]);
+      assert.equal(document.querySelectorAll('aside li').length, 3);
       assert.equal(document.querySelector(".tenant-login-mark"), null);
       assert.equal(document.body.textContent!.includes('Güvenli, mağazaya özel erişim'), false);
     } finally {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CirclePlus, Store } from "lucide-react";
+import { ChartNoAxesColumnIncreasing, ChevronDown, Clock3, ShieldCheck, Store } from "lucide-react";
 
 import { MerchantPhoneLoginForm } from "./MerchantPhoneLoginForm.tsx";
 import styles from "./TenantLogin.module.css";
@@ -19,32 +19,45 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
           <MerchantPhoneLoginForm inline />
           <nav className={styles.actions} aria-label="Mağaza açılışı">
             <Link className={styles.action} data-login-action="store" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
-              <span className={styles.glyph} aria-hidden="true"><Store size={32} strokeWidth={1.5} /><CirclePlus className={styles.addMark} size={14} strokeWidth={1.5} /></span>
-              <span>Yeni mağaza aç</span>
+              <Store className={styles.glyph} aria-hidden="true" size={40} strokeWidth={1.5} />
+              <span className={styles.actionCopy}><span className={styles.actionTitle}>Yeni mağaza aç</span><span className={styles.actionDescription}>Kendi mağazanı dakikalar içinde aç.</span></span>
             </Link>
             <Link className={styles.action} data-login-action="branch" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
-              <svg className={styles.glyph} aria-hidden="true" width="32" height="32" viewBox="0 0 40 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 2v5M9 12V7h22v5" />
-                {[0, 22].map(x => <g key={x} transform={`translate(${x} 0)`}><path d="m2 21 2-7h10l2 7M3 24v9h12v-9M7 33v-6h4v6" /><path d="M2 21a2.3 2.3 0 0 0 4.6 0 2.3 2.3 0 0 0 4.8 0 2.3 2.3 0 0 0 4.6 0M7 14l-.4 7M11 14l.4 7" /></g>)}
+              <svg className={styles.glyph} aria-hidden="true" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 10V5h26v5M4 18l3-8h26l3 8M6 22v13h28V22M16 35V25h8v10M13 10l-1 8M20 10v8M27 10l1 8" />
+                <path d="M4 18a4 4 0 0 0 8 0 4 4 0 0 0 8 0 4 4 0 0 0 8 0 4 4 0 0 0 8 0M10 27h2M28 27h2" />
               </svg>
-              <span>Şube ekle</span>
+              <span className={styles.actionCopy}><span className={styles.actionTitle}>Şube ekle</span><span className={styles.actionDescription}>Mevcut mağazana şube ekle.</span></span>
             </Link>
           </nav>
         </div>
       </section>
 
-      <div className="tenant-login-artwork" aria-hidden="true">
-        <img
-          className="tenant-login-illustration"
-          src="/illustrations/login-helper-960.webp"
-          srcSet="/illustrations/login-helper-480.webp 480w, /illustrations/login-helper-960.webp 960w, /illustrations/login-helper-1393.webp 1393w"
-          sizes="(max-width: 760px) 100vw, calc(56vw + 128px)"
-          width={1393}
-          height={1129}
-          alt=""
-          decoding="async"
-        />
-      </div>
+      <aside className={styles.presentation} aria-label="Celebix ile mağaza yönetimi">
+        <div className={styles.language} aria-label="Arayüz dili: Türkçe"><span lang="tr">Türkçe</span><ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" /></div>
+        <div className={`tenant-login-artwork ${styles.artwork}`}>
+          <img
+            className={`tenant-login-illustration ${styles.illustration}`}
+            src="/illustrations/login-celebix-scene-960.webp"
+            srcSet="/illustrations/login-celebix-scene-480.webp 480w, /illustrations/login-celebix-scene-960.webp 960w, /illustrations/login-celebix-scene-1254.webp 1254w"
+            sizes="(max-width: 760px) 100vw, 52vw"
+            width={1254}
+            height={1254}
+            alt="İşinizi kolaylaştıran teknoloji. Celebix — daha fazlası seninle."
+            decoding="async"
+          />
+        </div>
+        <ul className={styles.benefits}>
+          <li><ChartNoAxesColumnIncreasing size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Mağazanızı yönetin</strong><span>Ürün, stok ve siparişler tek panelde</span></span></li>
+          <li><Clock3 size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Zamandan tasarruf edin</strong><span>Daha verimli, daha güçlü bir yönetim</span></span></li>
+          <li><ShieldCheck size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Güvenle büyüyün</strong><span>Sizin başarınız, bizim önceliğimiz</span></span></li>
+        </ul>
+        <nav className={styles.footer} aria-label="Celebix bağlantıları">
+          <a href="https://celebix.net/tr/gizlilik">Gizlilik</a>
+          <a href="https://celebix.net/tr/kullanim-kosullari">Kullanım Şartları</a>
+          <a href="https://celebix.net/tr/iletisim">Destek</a>
+        </nav>
+      </aside>
     </main>
   );
 }
