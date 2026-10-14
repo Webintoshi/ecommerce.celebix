@@ -144,6 +144,16 @@ test('Merchant status is approved only from Google free listing evidence for Tur
  const missing=new GoogleMerchantProvider(async()=>new Response(null,{status:404}));assert.equal(await missing.getProduct('SECRET','123',`tr~TR~${offerId}`),null);
 });
 
+test('Merchant pending image crawl follows Turkey free listing destination status',async()=>{
+ const base={name:`accounts/123/products/tr~TR~${offerId}`,offerId,contentLanguage:'tr',feedLabel:'TR',dataSource:'accounts/123/dataSources/456'};
+ const issue={code:'image_link_pending_crawl',severity:'DISAPPROVED',reportingContext:'FREE_LISTINGS',applicableCountries:['TR']};
+ for(const [disapprovedCountries,status]of [[[],'pending'],[['TR'],'disapproved']] as const){
+  const productStatus={destinationStatuses:[{reportingContext:'FREE_LISTINGS',pendingCountries:['TR'],disapprovedCountries}],itemLevelIssues:[issue]};
+  const provider=new GoogleMerchantProvider(async()=>Response.json({...base,productStatus}));
+  assert.equal((await provider.getProduct('SECRET','123',`tr~TR~${offerId}`))!.status,status);
+ }
+});
+
 test('Merchant developer/API prerequisites are actionable and provider details remain private',async()=>{
  for(const [status,payload,code]of [[401,{error:{message:'GCP project with id SECRET and number 123 is not registered with the merchant account.'}},'merchant_developer_unregistered'],[403,{error:{details:[{'@type':'type.googleapis.com/google.rpc.ErrorInfo',reason:'SERVICE_DISABLED'}]}},'merchant_api_disabled'],[403,{error:{details:[{'@type':'type.googleapis.com/google.rpc.ErrorInfo',reason:'PERMISSION_DENIED_TERMS_OF_SERVICE_UNSIGNED'}]}},'merchant_business_incomplete'],[401,{error:{message:'SECRET token expired'}},'needs_reconnect']] as const){
   const provider=new GoogleMerchantProvider(async()=>Response.json(payload,{status}));await assert.rejects(()=>provider.resources('SECRET'),errorCode(code));

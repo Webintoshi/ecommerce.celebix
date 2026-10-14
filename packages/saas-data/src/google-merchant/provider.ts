@@ -135,7 +135,7 @@ export class GoogleMerchantProvider {
   let status:GoogleMerchantProviderProduct['status']='pending';
   const approved=destinations.some(d=>list(d.approvedCountries).includes('TR')),disapproved=destinations.some(d=>list(d.disapprovedCountries).includes('TR')),pending=destinations.some(d=>list(d.pendingCountries).includes('TR'));
   const issues=list(state.itemLevelIssues).map(record).filter(issue=>issue.reportingContext===undefined||issue.reportingContext==='FREE_LISTINGS').filter(issue=>issue.applicableCountries===undefined||list(issue.applicableCountries).includes('TR'));
-  if(disapproved||issues.some(i=>i.severity==='DISAPPROVED'))status='disapproved';else if(approved&&!pending)status=issues.some(i=>i.severity==='DEMOTED')?'limited':'approved';
+  if(disapproved||(!pending&&issues.some(i=>i.severity==='DISAPPROVED')))status='disapproved';else if(approved&&!pending)status=issues.some(i=>i.severity==='DEMOTED')?'limited':'approved';
   const expiresAt=typeof state.googleExpirationDate==='string'&&Number.isFinite(Date.parse(state.googleExpirationDate))?state.googleExpirationDate:null;
   const processedAttributes=response.productAttributes===undefined?{}:record(response.productAttributes),label=processedAttributes.customLabel4;
   const revision=typeof label==='string'&&/^cbxrev_[a-f0-9]{64}$/.test(label)?label.slice(7):null;
