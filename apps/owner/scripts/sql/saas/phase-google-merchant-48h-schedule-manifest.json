@@ -1,0 +1,41 @@
+{
+  "migrationId": "native236-google-merchant-48h-schedule",
+  "description": "Shared per-offer48h Google status checks with immediate first uploads and actual changed-offer delivery",
+  "up": "202610150236_google_merchant_48h_schedule.up.sql",
+  "down": "202610150236_google_merchant_48h_schedule.down.sql",
+  "assertions": "202610150236_google_merchant_48h_schedule_assertions.sql",
+  "dependencies": [
+    "202610140232_google_merchant_retail_identity.up.sql",
+    "202610140234_google_merchant_queue_progress.up.sql"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/google-merchant-48h-schedule.native.test.mjs",
+  "isolatedChecks": 20,
+  "privateColumn": "saas.google_merchant_outbox.next_status_check_at timestamptz NULL; scheduleddeadline, not an asserted Google read timestamp",
+  "policy": {
+    "firstUpload": "immediate",
+    "routineStatusHours": 48,
+    "realPriceAvailabilityChanges": "immediate affected-offer upsert",
+    "unchangedOffer": "no upsert; preserve its scheduled status deadline through noop events",
+    "invalidatedOffer": "existing immediate delete path",
+    "renewalDays": 25,
+    "providerConcurrency": 2,
+    "localCandidateScanLimit": 100
+  },
+  "backfill": "Current-connection acknowledged tracked rows receive a new install+48h scheduled deadline, capped by25d renewal. Only routine final/status states reschedule; pending/leased due time and generation remain unchanged.",
+  "retry": "Due GET attempts retained. Only future local noop skip resets obsolete attempts. Existing bounded backoff and8-attempt cap preserved.",
+  "compatibility": "No public API/DTO/job JSON, env, app or identity change; original function OID/owner/ACL/security-definer/search_path retained. Shared native policy automatically covers future tenants.",
+  "rollback": "Guarded exact two-function restore; preserve all provider receipts and restore conservative legacy deadlines before dropping only the private deadline column.",
+  "releaseValidation": [
+    "20 behavior scenarios on actual native232+234 functions; original15m behavior and retry reset regression reproduced before fixes",
+    "independent review, final20/20",
+    "actual schema up/assert/down/up/assert",
+    "real tenant rollback-only noop/changedexport/lease/48h finish rehearsal; zero provider HTTP"
+  ],
+  "runtimeBuildRequired": false,
+  "filesSha256": {
+    "202610150236_google_merchant_48h_schedule.up.sql": "5dadb7549bee3e3c6f8cb5fdaa0b7aa73d707bd6bcecabaeed53dbefa682895f",
+    "202610150236_google_merchant_48h_schedule.down.sql": "e425d6122501abcd469c489f32a4aa5c5a711b733bc78e2aa7249b4575a0772a",
+    "202610150236_google_merchant_48h_schedule_assertions.sql": "9977719dda75575d360f90e68918a6306e19ceb79d8699a14cc4a5037705c6ed",
+    "google-merchant-48h-schedule.native.test.mjs": "acca55ec107017b7be40db81cbd3da477ab5d526f76fd81872ce361efcd8ef9f"
+  }
+}
