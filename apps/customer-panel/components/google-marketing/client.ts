@@ -11,7 +11,7 @@ import {
 
 export type ApplyInput = Readonly<{ service: GoogleMarketingService; expectedVersion: number; selection: GoogleMarketingSelection }>;
 export type DisconnectInput = Readonly<{ service: GoogleMarketingService; expectedVersion: number }>;
-const SAFE_CODES = new Set(["invalid_input", "membership_denied", "store_inactive", "durable_authority_invalid", "feature_not_enabled", "oauth_unconfigured", "crypto_unavailable", "oauth_denied", "oauth_state_invalid", "needs_reconnect", "provider_denied", "provider_timeout", "provider_unavailable", "provider_limit", "ads_project_unapproved", "resource_denied", "wrong_domain", "unsafe_container", "live_version_conflict", "version_conflict", "operation_mismatch", "operation_busy", "incremental_authorization_required", "verification_pending", "unavailable", "commit_unknown"]);
+const SAFE_CODES = new Set(["invalid_input", "membership_denied", "store_inactive", "durable_authority_invalid", "feature_not_enabled", "oauth_unconfigured", "crypto_unavailable", "oauth_denied", "oauth_state_invalid", "needs_reconnect", "provider_denied", "provider_timeout", "provider_unavailable", "provider_limit", "ads_project_unapproved", "resource_denied", "wrong_domain", "unsafe_container", "live_version_conflict", "version_conflict", "operation_mismatch", "operation_busy", "incremental_authorization_required", "verification_pending", "unavailable", "commit_unknown", "merchant_domain_unverified", "merchant_domain_claimed_elsewhere", "merchant_business_incomplete", "merchant_source_conflict", "merchant_developer_unregistered", "merchant_api_disabled"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class GoogleMarketingApiError extends Error {
@@ -80,7 +80,7 @@ export function createGoogleMarketingClient(fetcher: typeof fetch = fetch) {
         const v = object(await request("", { method: "GET" }), ["storeDomain", "oauthConfigured", "connections"]);
         if (typeof v.storeDomain !== "string" || v.storeDomain.length > 253 || (v.storeDomain && !/^[a-z0-9.-]+$/i.test(v.storeDomain)) || typeof v.oauthConfigured !== "boolean") return invalid();
         const connections = array(v.connections).map(parseGoogleMarketingConnection);
-        if (connections.length > 3 || new Set(connections.map(item => item.service)).size !== connections.length) return invalid();
+        if (connections.length > 4 || new Set(connections.map(item => item.service)).size !== connections.length) return invalid();
         return { storeDomain: v.storeDomain, oauthConfigured: v.oauthConfigured, connections };
       } catch (error) { if (error instanceof GoogleMarketingApiError) throw error; return invalid(); }
     },

@@ -17,8 +17,8 @@ function RichText({ body, label }: Readonly<{ body?: string; label: string }>) {
   return html ? <div className="product-description-rich-text" dangerouslySetInnerHTML={{ __html: html }} /> : null;
 }
 
-export function SioraProductDetailExperience({ product, storefrontId, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector }: Readonly<{
-  product: PublicProduct; storefrontId: string; locale: string; relatedProducts: readonly PublicProduct[];
+export function SioraProductDetailExperience({ product, initialVariantId,storefrontId, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector }: Readonly<{
+  product: PublicProduct;initialVariantId?:string; storefrontId: string; locale: string; relatedProducts: readonly PublicProduct[];
   publishedPolicies: readonly PublicPolicyPage[]; options: StarterProductDetailConfigV2;
   cardStyle: PublicStarterThemePresentationV2["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentationV2["theme"]["productImageRatio"]; showQuantitySelector: boolean;
@@ -34,10 +34,10 @@ export function SioraProductDetailExperience({ product, storefrontId, locale, re
   const sizeGuide = guide && renderStarterProductDescription(guide.body, guide.heading) ? <RichText body={guide.body} label={guide.heading} /> : undefined;
   const related = availableProductsFirst(relatedProducts);
   return <div className={styles.experience} data-siora-product-experience>
-    <ProductVariantMediaProvider key={product.id} product={product} initialVariantId={sioraInitialVariant(product)?.id}>
+    <ProductVariantMediaProvider key={`${product.id}:${initialVariantId??''}`} product={product} initialVariantId={initialVariantId??sioraInitialVariant(product)?.id}>
       <section className={styles.stage} aria-label="Ürün detayları">
         <SioraProductGallery product={product} />
-        <SioraProductPurchase product={product} storefrontId={storefrontId} locale={locale} options={options} showQuantitySelector={showQuantitySelector} sizeGuide={sizeGuide} sizeGuideHeading={guide?.heading} />
+        <SioraProductPurchase product={product} initialVariantId={initialVariantId} storefrontId={storefrontId} locale={locale} options={options} showQuantitySelector={showQuantitySelector} sizeGuide={sizeGuide} sizeGuideHeading={guide?.heading} />
       </section>
     </ProductVariantMediaProvider>
     {options.showBreadcrumbs || information.length || product.merchandising?.highlights.length ? <section className={styles.details} aria-label="Ürün bilgileri">

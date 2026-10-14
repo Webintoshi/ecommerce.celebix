@@ -6,8 +6,9 @@ import type { GoogleMarketingConnection, GoogleMarketingOverview, GoogleMarketin
 import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
 import { PanelSkeletonBlock, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { googleMarketingClient, type GoogleMarketingClient } from "./client";
-import { SERVICES, createSelection, draftKey, emptyConnection, errorCode, errorMessage, readDraft, statusLabel, storeDraft, type Draft } from "./model";
+import { ALL_SERVICES, SERVICES, createSelection, draftKey, emptyConnection, errorCode, errorMessage, readDraft, statusLabel, storeDraft, type Draft } from "./model";
 import { GoogleConnectionArtwork } from "./GoogleConnectionArtwork";
+import { GoogleMerchantLogo } from "./GoogleMerchantLogo";
 import styles from "./google-marketing.module.css";
 
 type Editor = {
@@ -26,6 +27,7 @@ const PURPOSES = {
   gtm: "Google etiketlerini tek yerden yönetin.",
   ads: "Tamamlanan siparişleri dönüşüm olarak ölçün.",
   search_console: "Mağazanızı doğrulayın, site haritasını gönderin.",
+  merchant: "Ürünleri aktarın; fiyat ve stok değişiklikleri otomatik işlensin.",
 };
 function readFailureMessage(code: string, fallback: string) {
   return ["unavailable", "provider_unavailable", "provider_timeout", "commit_unknown"].includes(code) ? fallback : errorMessage(code);
@@ -34,7 +36,8 @@ function SelectionSummary({ selection, detailed = false }: { selection: GoogleMa
   return selection ? <div className={styles.selectionSummary}><strong>{selection.resourceName}</strong>{detailed ? <span>{selection.tagId ?? selection.resourceId}</span> : null}</div> : null;
 }
 
-export function GoogleMarketingConnections({ canManage, onAuthorize, client = googleMarketingClient }: Readonly<{ canManage: boolean; onAuthorize?: (url: string) => void; client?: GoogleMarketingClient }>) {
+export function GoogleMarketingConnections({ canManage, services, onChange, onAuthorize, client = googleMarketingClient }: Readonly<{ canManage: boolean; services?: readonly GoogleMarketingService[]; onChange?: () => void; onAuthorize?: (url: string) => void; client?: GoogleMarketingClient }>) {
+  const visibleServices = services ? ALL_SERVICES.filter(item => services.includes(item.service)) : SERVICES;
   const [overview, setOverview] = useState<GoogleMarketingOverview | null>(null);
   const [overviewError, setOverviewError] = useState("");
   const [overviewLoading, setOverviewLoading] = useState(true);
@@ -85,7 +88,12 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
       setEditor(value => {
         if (!value || value.service !== current.service) return value;
         const sameAccount = !value.draft.selection || value.draft.selection.accountId === selectedAccount;
-        const draft = sameAccount || value.draft.apply || value.draft.disconnect ? value.draft : { selection: null };
+        let draft = sameAccount || value.draft.apply || value.draft.disconnect ? value.draft : { selection: null };
+        if (current.service === "merchant" && !draft.apply && !draft.disconnect) {
+          const account = data.accounts.find(item => item.id === selectedAccount);
+          draft = { selection: account ? { accountId: account.id, resourceId: account.id, resourceName: account.name } : null };
+          saveDraft(current.service, current.connection, draft);
+        }
         return { ...value, accountId: selectedAccount, resources: { ...data, accounts: data.accounts.length ? data.accounts : value.resources.accounts }, draft, loading: false };
       });
     } catch (error) {
@@ -126,7 +134,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
           const key = `celebix-google:resume:${value.storeDomain}`;
           const resume = window.sessionStorage.getItem(key);
           window.sessionStorage.removeItem(key);
-          if (SERVICES.some(item => item.service === resume)) openService(resume as GoogleMarketingService, value);
+          if (visibleServices.some(item => item.service === resume)) openService(resume as GoogleMarketingService, value);
         } catch { /* Optional local recovery is unavailable. */ }
       }
     } catch (error) { if (alive.current) setOverviewError(errorCode(error)); }
@@ -191,7 +199,8 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
       const key = draftKey(overviewRef.current?.storeDomain ?? "", current.connection.googleEmail, current.service);
       drafts.current.delete(key); storeDraft(key, null);
       discovery.current++; setEditor(null);
-      setNotice(kind === "apply" ? "Bağlantı uygulandı." : "Bağlantı kaldırıldı.");
+      setNotice(kind === "apply" ? current.service === "merchant" ? "Bağlantı uygulandı. Ürün aktarımı sıraya alındı." : "Bağlantı uygulandı." : "Bağlantı kaldırıldı.");
+      onChange?.();
     } catch (error) {
       if (alive.current) {
         const code = errorCode(error);
@@ -203,12 +212,12 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
     } finally { busyRef.current = false; if (alive.current) setBusy(null); }
   }
 
-  const definition = SERVICES.find(item => item.service === editor?.service);
-  const accountLabel = editor?.service === "gtm" ? "Tag Manager hesabı" : "Google hesabı";
+  const definition = ALL_SERVICES.find(item => item.service === editor?.service);
+  const accountLabel = editor?.service === "gtm" ? "Tag Manager hesabı" : editor?.service === "merchant" ? "Merchant hesabı" : "Google hesabı";
   const reconnect = editor && (!editor.connection.googleEmail || editor.connection.status === "needs_reconnect" || ["needs_reconnect", "incremental_authorization_required", "oauth_denied", "oauth_state_invalid"].includes(editor.error));
   const conflict = editor && CONFLICTS.has(editor.error);
   const selection = editor?.draft.selection;
-  const knownSelection = selection?.create || editor?.resources.resources.some(item => item.id === selection?.resourceId && (!item.parentId || item.parentId === editor.accountId));
+  const knownSelection = editor?.service === "merchant" ? editor.resources.accounts.some(item => item.id === selection?.accountId) && selection?.resourceId === selection?.accountId : selection?.create || editor?.resources.resources.some(item => item.id === selection?.resourceId && (!item.parentId || item.parentId === editor.accountId));
   const canApply = Boolean(editor && !editor.loading && !busy && !reconnect && !conflict && !editor.draft.disconnect && selection && (knownSelection || editor.draft.apply));
   const locked = Boolean(busy || editor?.draft.apply || editor?.draft.disconnect);
   const connectLabel = busy === "connect" ? "Google’a yönlendiriliyor…" : editor?.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor?.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan";
@@ -219,10 +228,10 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
     {overview && !overview.oauthConfigured ? <p className={styles.feedback} role="status">{errorMessage("oauth_unconfigured")}</p> : null}
     {!canManage ? <p className={styles.help}>Bağlantıları değiştirmek için entegrasyon yönetimi yetkisi gerekir.</p> : null}
     <div className={styles.services} aria-busy={overviewLoading || undefined}>
-      {SERVICES.map(item => {
+      {visibleServices.map(item => {
         const connection = overview?.connections.find(value => value.service === item.service) ?? emptyConnection(item.service);
         return <article className={styles.serviceRow} key={item.service}>
-          <GoogleConnectionArtwork service={item.service} />
+          {item.service === "merchant" ? <GoogleMerchantLogo className={styles.merchantLogo} /> : <GoogleConnectionArtwork service={item.service} />}
           <div className={styles.serviceContent}>
             <div className={styles.serviceHeading}><h2>{item.name}</h2>{!overviewLoading || overview ? <PanelStatusBadge tone={connection.status === "connected" ? "success" : connection.status === "needs_reconnect" || connection.status === "error" ? "warning" : "neutral"}>{statusLabel(connection)}</PanelStatusBadge> : null}</div>
             <p className={styles.description}>{PURPOSES[item.service]}</p>
@@ -257,7 +266,7 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
         {conflict ? <button type="button" className="button button-secondary" disabled={Boolean(busy) || overviewLoading} onClick={() => void loadOverview(true)}>Güncel bağlantıyı yükle</button> : null}
         {confirmRemove ? <section className={styles.removePrompt} aria-label="Bağlantıyı kaldırma onayı"><h3>Bağlantı kaldırılsın mı?</h3><p>Celebix bağlantısı durur. Google hesabınız ve Google’daki kaynaklarınız silinmez.</p></section> : <>
           {reconnect ? <div className={styles.connectPrompt}>
-            <GoogleConnectionArtwork service={editor.service} />
+            {editor.service === "merchant" ? <GoogleMerchantLogo className={styles.merchantLogo} /> : <GoogleConnectionArtwork service={editor.service} />}
             <div><h3>Google hesabınızı bağlayın</h3><p>{editor.connection.googleEmail ? "Erişimi tamamlayın; seçiminiz korunur." : "Google’da hesabınızı seçin. Dönüşte buradan devam edin."}</p></div>
           </div> : <>
             <div className={styles.scope}><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></div>
@@ -266,15 +275,20 @@ export function GoogleMarketingConnections({ canManage, onAuthorize, client = go
               {editor.loading ? <div role="status" className={styles.loading}><PanelSkeletonBlock /><span>Google kaynakları yükleniyor…</span></div> : null}
               {!editor.loading && !editor.error && editor.resources.accounts.length === 0 ? <p className={styles.help}>Bu Google hesabında erişebildiğiniz bir kaynak bulunamadı. Hesap izinlerinizi kontrol edin.</p> : null}
               {editor.accountId ? <>
-                <label className={styles.field}>{definition?.resourceLabel}<select aria-label={definition?.resourceLabel} value={selection?.create ? "__create__" : selection?.resourceId ?? ""} disabled={locked || editor.loading} onChange={event => chooseResource(event.target.value)}><option value="">{definition?.resourceLabel} seçin</option>{editor.resources.resources.map(resource => <option value={resource.id} key={resource.id}>{resource.name}{editor.resources.resources.some(other => other.id !== resource.id && other.name === resource.name) ? ` · ${resource.tagId ?? resource.id}` : ""}</option>)}{editor.service !== "ads" && overview?.storeDomain ? <option value="__create__">{editor.service === "gtm" ? "Yeni mağaza konteyneri oluştur" : "Mağazanın sitesini doğrula"}</option> : null}</select></label>
-                {editor.service !== "ads" && overview?.storeDomain && !selection?.create ? <button className={`button button-text ${styles.createResource}`} type="button" disabled={locked || editor.loading} onClick={() => chooseResource("__create__")}>{editor.service === "gtm" ? "Mağazam için yeni konteyner oluştur" : "Bu mağazanın sitesini doğrula"}<ChevronRight size={16} aria-hidden="true" /></button> : null}
+                {editor.service !== "merchant" ? <label className={styles.field}>{definition?.resourceLabel}<select aria-label={definition?.resourceLabel} value={selection?.create ? "__create__" : selection?.resourceId ?? ""} disabled={locked || editor.loading} onChange={event => chooseResource(event.target.value)}><option value="">{definition?.resourceLabel} seçin</option>{editor.resources.resources.map(resource => <option value={resource.id} key={resource.id}>{resource.name}{editor.resources.resources.some(other => other.id !== resource.id && other.name === resource.name) ? ` · ${resource.tagId ?? resource.id}` : ""}</option>)}{editor.service !== "ads" && overview?.storeDomain ? <option value="__create__">{editor.service === "gtm" ? "Yeni mağaza konteyneri oluştur" : "Mağazanın sitesini doğrula"}</option> : null}</select></label> : null}
+                {(editor.service === "gtm" || editor.service === "search_console") && overview?.storeDomain && !selection?.create ? <button className={`button button-text ${styles.createResource}`} type="button" disabled={locked || editor.loading} onClick={() => chooseResource("__create__")}>{editor.service === "gtm" ? "Mağazam için yeni konteyner oluştur" : "Bu mağazanın sitesini doğrula"}<ChevronRight size={16} aria-hidden="true" /></button> : null}
                 {editor.service === "ads" && !editor.loading && editor.resources.resources.length === 0 && !editor.error ? <div className={styles.empty}><p>Bu hesapta satın alma dönüşümü bulunamadı.</p><a className={styles.link} href="https://ads.google.com/aw/conversions" target="_blank" rel="noopener noreferrer">Google Ads’te satın alma dönüşümü oluştur<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a><p className={styles.help}>Web sitesi için manuel dönüşüm oluşturun, sonra listeyi yenileyin.</p></div> : null}
-                {selection ? <div className={styles.applySummary}><ShieldCheck size={20} aria-hidden="true" /><div><SelectionSummary selection={selection} /><p>{editor.service === "gtm" ? "Standart etiketler kurulup yayımlanır. Mevcut etiketler korunur." : editor.service === "ads" ? "Ödemesi tamamlanan web siparişleri ölçülür. Bağlı Tag Manager’ın etiketleri de güncellenip yayımlanır." : "Mağazanız doğrulanır ve site haritası Google’a gönderilir."}</p></div></div> : null}
+                {selection ? <div className={styles.applySummary}><ShieldCheck size={20} aria-hidden="true" /><div><SelectionSummary selection={selection} /><p>{editor.service === "gtm" ? "Standart etiketler kurulup yayımlanır. Mevcut etiketler korunur." : editor.service === "ads" ? "Ödemesi tamamlanan web siparişleri ölçülür. Bağlı Tag Manager’ın etiketleri de güncellenip yayımlanır." : editor.service === "merchant" ? "Uygula, uygun ürünleri otomatik olarak aktarım sırasına alır. Ürünleri Google inceler." : "Mağazanız doğrulanır ve site haritası Google’a gönderilir."}</p></div></div> : null}
               </> : null}
             </section>
             <div className={styles.resourceActions}><button className="button button-text" type="button" disabled={Boolean(busy) || editor.loading || locked} onClick={() => void discover(editor, editor.accountId || undefined)}><RefreshCw size={16} aria-hidden="true" />Listeyi yenile</button><button className="button button-text" type="button" disabled={Boolean(busy) || Boolean(editor.draft.disconnect)} onClick={() => void connect()}>Google hesabını değiştir</button></div>
           </>}
           {editor.service === "gtm" ? <div className={styles.externalHelp}><a className={styles.link} href="https://tagmanager.google.com/" target="_blank" rel="noopener noreferrer">Yeni Tag Manager hesabı oluştur<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a>{reconnect || editor.resources.accounts.length === 0 ? <p className={styles.help}>{reconnect ? "Hesabınız yoksa Google’da oluşturun, sonra buradan bağlanın." : "Aynı Google hesabıyla oluşturun, sonra listeyi yenileyin."}</p> : null}</div> : null}
+          {editor.service === "merchant" ? <div className={styles.externalHelp}>
+            <a className={styles.link} href="https://merchants.google.com/start/" target="_blank" rel="noopener noreferrer">Yeni Merchant hesabı oluştur<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a>
+            <p className={styles.help}>Mağazanızın alan adını, işletme, kargo ve iade bilgilerini Google’da tamamlayın. Sonra buradan hesabınızı seçin.</p>
+            {editor.accountId ? <a data-merchant-setup className={styles.link} href={`https://merchants.google.com/mc/overview?a=${encodeURIComponent(editor.accountId)}`} target="_blank" rel="noopener noreferrer">Merchant Center’da kurulumu tamamla<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only"> (yeni sekme)</span></a> : null}
+          </div> : null}
         </>}
         <div className={styles.metaLinks}><details className={styles.details}><summary>Ayrıntılar</summary><div className={styles.scope}><span>Mağaza</span><strong>{overview?.storeDomain || "Alan adı bulunamadı"}</strong>{editor.connection.googleEmail ? <><span>Google hesabı</span><strong>{editor.connection.googleEmail}</strong></> : null}{selection?.accountId && editor.service !== "search_console" ? <><span>Hesap kimliği</span><strong>{selection.accountId}</strong></> : null}</div><SelectionSummary selection={selection ?? null} detailed /></details>
         <a className={styles.privacy} href="https://celebix.net/tr/gizlilik" target="_blank" rel="noopener noreferrer">Gizlilik politikası<span className="sr-only"> (yeni sekme)</span></a></div>

@@ -38,7 +38,7 @@ const product = { id: "product-id", title: "Ring", currency: "TRY", priceCents: 
 test("Product offers expose each persisted variant price and stock without invented reviews", () => {
   const schema = buildProductStructuredData(product, "https://shop.example.test/urun/ring", "Saved copy");
   assert.equal(schema.name, "Ring");
-  assert.deepEqual(schema.offers, [{ "@type": "Offer", url: "https://shop.example.test/urun/ring", priceCurrency: "TRY", price: "125.00", availability: "https://schema.org/InStock", sku: "RING-1" }, { "@type": "Offer", url: "https://shop.example.test/urun/ring", priceCurrency: "TRY", price: "150.00", availability: "https://schema.org/OutOfStock" }]);
+  assert.deepEqual(schema.offers, [{ "@type": "Offer", url: "https://shop.example.test/urun/ring?variant=one", priceCurrency: "TRY", price: "125.00", availability: "https://schema.org/InStock", sku: "RING-1" }, { "@type": "Offer", url: "https://shop.example.test/urun/ring?variant=two", priceCurrency: "TRY", price: "150.00", availability: "https://schema.org/OutOfStock" }]);
   assert.equal("aggregateRating" in schema, false);
   assert.equal("review" in schema, false);
   assert.deepEqual(schema.brand, { "@type": "Brand", name: "Real brand" });
@@ -76,4 +76,11 @@ test("resource sharing keeps its own SEO and product image when store social def
   const home = buildPublicSeoMetadata({ storefront, fallback: { title: "Homepage", description: "Homepage copy", path: "/" }, settings: socialSettings, suffixBrand: false });
   assert.deepEqual(home.twitter, { card: "summary_large_image", title: "Store sharing title", description: "Store sharing description", images: ["https://media.example.test/social.webp"] });
   assert.deepEqual(home.openGraph, { title: "Store sharing title", description: "Store sharing description", url: "https://shop.example.test/", type: "website", images: ["https://media.example.test/social.webp"] });
+});
+
+test("Merchant landing structured data describes only the selected offer and gallery", () => {
+ const schema=buildProductStructuredData(product,"https://shop.example.test/urun/ring","Saved copy","two",["https://media.example.test/variant.webp"]);
+ assert.equal(schema.url,"https://shop.example.test/urun/ring?variant=two");
+ assert.equal(schema.offers.length,1);assert.equal(schema.offers[0].price,"150.00");assert.equal(schema.offers[0].availability,"https://schema.org/OutOfStock");
+ assert.deepEqual(schema.image,["https://media.example.test/variant.webp"]);
 });

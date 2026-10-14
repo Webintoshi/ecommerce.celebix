@@ -1,0 +1,34 @@
+-- Refuse rollback once Merchant credentials or external source selections exist.
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+SET LOCAL lock_timeout='5s';
+DO $guard$ BEGIN
+ IF EXISTS(SELECT 1 FROM saas.google_marketing_connections WHERE service='merchant') OR EXISTS(SELECT 1 FROM saas.google_marketing_oauth_states WHERE service='merchant') OR EXISTS(SELECT 1 FROM saas.google_marketing_operations WHERE service='merchant') THEN RAISE EXCEPTION 'MERCHANT230_ROLLBACK_REQUIRES_UNUSED_INTEGRATION';END IF;
+END $guard$;
+DROP TRIGGER google_merchant_price_list_changed ON saas.price_lists;
+DROP TRIGGER google_merchant_price_list_item_changed ON saas.price_list_items;
+DROP TRIGGER google_merchant_price_list_rule_changed ON saas.price_list_rules;
+DROP TRIGGER google_merchant_connection_changed ON saas.google_marketing_connections;
+DROP TRIGGER google_merchant_product_changed ON saas.products;
+DROP TRIGGER google_merchant_variant_changed ON saas.product_variants;
+DROP TRIGGER google_merchant_media_changed ON saas.product_media;
+DROP TRIGGER google_merchant_gallery_changed ON saas.product_variant_gallery_state;
+DROP TRIGGER google_merchant_variant_gallery_changed ON saas.variant_media_galleries;
+DROP TRIGGER google_merchant_variant_media_changed ON saas.variant_media_links;
+DROP TRIGGER google_merchant_inventory_changed ON saas.inventory_balances;
+DROP TRIGGER google_merchant_profile_changed ON saas.catalog_product_profiles;
+DROP TRIGGER google_merchant_variant_profile_changed ON saas.catalog_variant_commerce_profiles;
+DROP TRIGGER google_merchant_brand_assignment_changed ON saas.catalog_admin_resource_products;
+DROP TRIGGER google_merchant_brand_changed ON saas.catalog_admin_resources;
+DROP TRIGGER google_merchant_price_policy_changed ON saas.pricing_variant_policy_state;
+DROP TRIGGER google_merchant_domain_changed ON saas.store_domains;
+DO $restore$ DECLARE entry record;BEGIN FOR entry IN SELECT * FROM saas.google_merchant_230_backup LOOP EXECUTE entry.definition;END LOOP;END $restore$;
+DROP FUNCTION saas.google_merchant_price_changed(),saas.google_merchant_advance_price_boundaries(timestamptz),saas.google_merchant_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb),saas.google_merchant_claim(timestamptz,integer,uuid),saas.google_merchant_read(uuid,uuid,bigint,bigint,uuid,timestamptz),saas.google_merchant_finish(uuid,uuid,bigint,bigint,uuid,timestamptz,text,text,jsonb),saas.google_merchant_defer(uuid,uuid,bigint,bigint,uuid,timestamptz,text,integer),saas.google_merchant_save_credential(uuid,uuid,bigint,bigint,uuid,timestamptz,jsonb,text),saas.google_merchant_job_projection(uuid,uuid,timestamptz),saas.google_merchant_product_row(uuid,uuid,timestamptz),saas.google_merchant_changed(),saas.google_merchant_enqueue_product(uuid,uuid),saas.google_merchant_enqueue(uuid,uuid,uuid),saas.google_merchant_projection(uuid,uuid,timestamptz),saas.google_merchant_attributes_valid(jsonb),saas.google_merchant_gtin_valid(text),saas.google_merchant_plain(text,integer);
+DROP TABLE saas.google_merchant_price_boundaries,saas.google_merchant_preferences,saas.google_merchant_outbox,saas.google_merchant_operations,saas.google_merchant_accounts,saas.google_merchant_230_backup;
+ALTER TABLE saas.google_marketing_connections DROP CONSTRAINT google_marketing_connections_service_check;
+ALTER TABLE saas.google_marketing_connections ADD CONSTRAINT google_marketing_connections_service_check CHECK(service IN('gtm','ads','search_console'));
+ALTER TABLE saas.google_marketing_oauth_states DROP CONSTRAINT google_marketing_oauth_states_service_check;
+ALTER TABLE saas.google_marketing_oauth_states ADD CONSTRAINT google_marketing_oauth_states_service_check CHECK(service IN('gtm','ads','search_console'));
+ALTER TABLE saas.google_marketing_operations DROP CONSTRAINT google_marketing_operations_service_check;
+ALTER TABLE saas.google_marketing_operations ADD CONSTRAINT google_marketing_operations_service_check CHECK(service IN('gtm','ads','search_console'));
+COMMIT;

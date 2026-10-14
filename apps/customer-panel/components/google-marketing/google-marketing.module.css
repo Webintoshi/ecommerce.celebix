@@ -67,6 +67,7 @@
 .loading { display: grid; gap: 8px; font-size: 13px; color: var(--cp-text-secondary); }
 .loading > span { max-width: 240px; }
 .artwork { display: block; width: 180px; height: auto; flex: none; }
+.merchantLogo { display: block; width: 64px; height: 64px; justify-self: center; flex: none; }
 .artOutline { fill: var(--cp-surface); stroke: var(--cp-art-outline); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .artLine { fill: none; stroke: var(--cp-art-outline); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .artAccent { fill: none; stroke: var(--cp-brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

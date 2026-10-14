@@ -1,4 +1,4 @@
-export const GOOGLE_MARKETING_SERVICES = ['gtm','ads','search_console'] as const;
+export const GOOGLE_MARKETING_SERVICES = ['gtm','ads','search_console','merchant'] as const;
 export type GoogleMarketingService = typeof GOOGLE_MARKETING_SERVICES[number];
 export type GoogleMarketingSelection = Readonly<{accountId:string;resourceId:string;resourceName:string;tagId?:string;conversionLabel?:string;create?:boolean}>;
 export type GoogleMarketingConnection = Readonly<{service:GoogleMarketingService;version:number;status:'disconnected'|'connected'|'needs_reconnect'|'error';googleEmail:string|null;selection:GoogleMarketingSelection|null;lastCheckedAt:string|null;errorCode:string|null}>;

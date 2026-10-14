@@ -6,8 +6,8 @@ export type GoogleMarketingAuthorityInput=Readonly<{tenantContext:TenantContext;
 export interface GoogleMarketingRepository{
  overview(input:GoogleMarketingAuthorityInput):Promise<GoogleMarketingOverview>;
  begin(input:GoogleMarketingAuthorityInput&Readonly<{service:GoogleMarketingService;operationId:string;sessionBinding:string;returnOrigin:string}>):Promise<{authorizationUrl:string}>;
- resolveOAuthReturn(input:Readonly<{state:string;now:Date}>):Promise<{returnOrigin:string}|null>;
- complete(input:GoogleMarketingAuthorityInput&Readonly<{sessionBinding:string;state:string;code:string}>):Promise<{returnOrigin:string}>;
+ resolveOAuthReturn(input:Readonly<{state:string;now:Date}>):Promise<{returnOrigin:string;service?:GoogleMarketingService}|null>;
+ complete(input:GoogleMarketingAuthorityInput&Readonly<{sessionBinding:string;state:string;code:string}>):Promise<{returnOrigin:string;returnPath?:'/marketplaces/google-merchant'}>;
  resources(input:GoogleMarketingAuthorityInput&Readonly<{service:GoogleMarketingService;accountId?:string}>):Promise<GoogleMarketingResources>;
  apply(input:GoogleMarketingAuthorityInput&Readonly<{service:GoogleMarketingService;expectedVersion:number;selection:GoogleMarketingSelection;operationId:string}>):Promise<GoogleMarketingConnection>;
  disconnect(input:GoogleMarketingAuthorityInput&Readonly<{service:GoogleMarketingService;expectedVersion:number;operationId:string}>):Promise<GoogleMarketingConnection>;

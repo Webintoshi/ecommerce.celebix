@@ -21,6 +21,7 @@ import styles from "./guzide-product-detail.module.css";
 
 type Props = Readonly<{
   product: PublicProduct;
+  initialVariantId?:string;
   locale: string;
   relatedProducts: readonly PublicProduct[];
   publishedPolicies: readonly PublicPolicyPage[];
@@ -41,7 +42,7 @@ function Chevron() {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="m6 9 6 6 6-6" /></svg>;
 }
 
-export function GuzideProductDetailExperience({ product, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector, supportEmail, storefrontId = "a828862c-4cc1-475a-89cc-5fbee31eb43f" }: Props) {
+export function GuzideProductDetailExperience({ product,initialVariantId, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector, supportEmail, storefrontId = "a828862c-4cc1-475a-89cc-5fbee31eb43f" }: Props) {
   const information: { key: string; label: string; content: ReactNode }[] = [];
   for (const section of options.informationSections) {
     if (section === "description" && renderStarterProductDescription(product.description, "Ürün bilgileri")) {
@@ -68,7 +69,7 @@ export function GuzideProductDetailExperience({ product, locale, relatedProducts
   return <div className={`${styles.experience} store-container`} data-guzide-product-experience data-mobile-sticky={options.mobileStickyPurchase ? "true" : undefined}>
     <GuzideProductReturn storefrontId={storefrontId} fallbackHref={backHref} fallbackLabel={backLabel} />
     {options.showBreadcrumbs ? <nav className={styles.breadcrumb} aria-label="İçerik yolu"><Link href="/">Ana sayfa</Link><span aria-hidden="true">/</span>{(product.categoryPath ?? []).map(category => <span key={category.slug}><Link href={categoryPath(locale, category.slug)}>{category.name}</Link><span aria-hidden="true">/</span></span>)}<span aria-current="page">{product.title}</span></nav> : null}
-    <ProductVariantMediaProvider key={product.id} product={product}>
+    <ProductVariantMediaProvider key={`${product.id}:${initialVariantId??''}`} product={product} initialVariantId={initialVariantId}>
       <section className={styles.stage} aria-label={`${product.title} ürün ayrıntıları`}>
         <GuzideProductGallery product={product} supportHref={supportHref} />
         <GuzideProductPurchase product={product} options={options} showQuantitySelector={showQuantitySelector}>

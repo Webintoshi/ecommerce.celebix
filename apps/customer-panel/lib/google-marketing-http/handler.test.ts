@@ -51,6 +51,14 @@ test('fragment completion bridge cleans URL, posts same-origin, is nonce guarded
   const h=setup({});const response=await h.callback(request('/api/marketing/google/callback'));
   const html=await response.text();assert.equal(response.status,200);assert.match(response.headers.get('content-security-policy')!,/script-src 'nonce-/);assert.match(html,/history.replaceState/);assert.match(html,/credentials: 'same-origin'/);assert.match(html,/\/api\/marketing\/google\/complete/);assert.doesNotMatch(html,/unsafe-inline|access_token|refresh_token/);
 });
+test('Merchant callback restores its trusted marketplace destination while old services keep their route',async()=>{
+ const state='s'.repeat(43);const h=setup({resolveOAuthReturn:async()=>({returnOrigin:'https://admin.store.test',service:'merchant'})});
+ const response=await h.callback(request('/api/marketing/google/callback?state='+state+'&code=google-code'));
+ assert.match(response.headers.get('location')!,/service=merchant/);
+ const html=await(await h.callback(request('/api/marketing/google/callback'))).text();
+ assert.match(html,/result\.returnPath/);assert.match(html,/\/marketplaces\/google-merchant/);
+ assert.doesNotMatch(html,/location\.replace\(result\.returnPath\)/);
+});
 test('complete requires current session even after successful Google login; error messages are redacted',async()=>{
   const calls:any[]=[];const h=setup({complete:async(input:unknown)=>{calls.push(input);return {returnOrigin:ORIGIN};}});
   const input={state:'s'.repeat(43),code:'google-code'};

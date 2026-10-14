@@ -22,8 +22,8 @@ function BagIcon() {
 }
 function Chevron() { return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="m9 5 7 7-7 7" /></svg>; }
 
-export function SioraProductPurchase({ product, storefrontId, locale, options, showQuantitySelector, sizeGuide, sizeGuideHeading = "Ölçü rehberi" }: Readonly<{
-  product: PublicProduct; storefrontId: string; locale: string; options: StarterProductDetailConfigV2;
+export function SioraProductPurchase({ product, initialVariantId,storefrontId, locale, options, showQuantitySelector, sizeGuide, sizeGuideHeading = "Ölçü rehberi" }: Readonly<{
+  product: PublicProduct;initialVariantId?:string; storefrontId: string; locale: string; options: StarterProductDetailConfigV2;
   showQuantitySelector: boolean; sizeGuide?: ReactNode; sizeGuideHeading?: string;
 }>) {
   const router = useRouter();
@@ -36,7 +36,7 @@ export function SioraProductPurchase({ product, storefrontId, locale, options, s
   const selectedVariant = product.variants.find(({ id }) => id === selectedId);
   const group = groups.find(({ variants }) => variants.some(({ id }) => id === selectedId)) ?? groups[0];
   const needsChoice = group ? sioraNeedsOptionChoice(group) : false;
-  const [choiceId, setChoiceId] = useState<string | null>(needsChoice && group?.variants.length !== 1 ? null : selectedId);
+  const [choiceId, setChoiceId] = useState<string | null>(initialVariantId===selectedId?selectedId:needsChoice && group?.variants.length !== 1 ? null : selectedId);
   const variant = group?.variants.find(({ id }) => id === choiceId) ?? (!needsChoice ? selectedVariant : undefined);
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState<"add" | "buy" | null>(null);

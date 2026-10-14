@@ -718,3 +718,4 @@ export * from "./lucky-wheel/index.ts";
 
 export * from "./admin-login-security/index.ts";
 export * from "./merchant-whatsapp/index.ts";
+export * from "./google-merchant/index.ts";

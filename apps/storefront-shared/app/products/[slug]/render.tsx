@@ -24,6 +24,7 @@ import { buildPublicSeoMetadata, effectivePublicSeo, buildProductStructuredData,
 import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { resolveProductSeo } from "@/lib/product-seo.ts";
 import { productViewEvent } from "@/lib/analytics/events.ts";
+import {merchantLandingProduct} from '@/lib/merchant-landing.ts';
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { buildPublicPolicyPage } from "@/lib/policy-page.ts";
@@ -91,20 +92,24 @@ export async function generateMetadata({
 }
 export async function renderProductPage({
   params,
+  searchParams,
   routeVariant,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?:Promise<Record<string,string|string[]|undefined>>;
   routeVariant: StorefrontRouteVariant;
 }) {
   const selected = await product((await params).slug);
-  const { storefront, product: item } = selected;
+  const { storefront } = selected;
+  let landing;try{landing=merchantLandingProduct(selected.product,await (searchParams??Promise.resolve({})));}catch{notFound();}
+  const item=landing.product,initialVariantId=landing.variantId;
   const restock = await selected.runtime.restockAlerts?.getForHost({hostname:storefront.hostname,now:new Date()}).catch(()=>null);
   const restockConfig = restock?.storeId === storefront.id ? restock.config : null;
   const siora = Boolean(sioraThemeFor(storefront));
   const guzide = Boolean(guzideThemeFor(storefront));
   const lilyum = Boolean(lilyumThemeFor(storefront));
   if (storefrontRouteVariant(storefront.locale) !== routeVariant) {
-    permanentRedirect(productPath(storefront.locale, item.slug));
+    permanentRedirect(productPath(storefront.locale, item.slug)+(initialVariantId?`?variant=${initialVariantId}`:''));
   }
   const presentation =
     selected.campaign?.presentation ?? storefront.presentation;
@@ -158,28 +163,28 @@ export async function renderProductPage({
   return (
     <StorefrontFrame storefront={storefront} design={selected.design} immersiveProduct={siora}>
       <span hidden data-contact-product-title={item.title} data-contact-product-path={productPath(storefront.locale, item.slug)} data-contact-product-canonical={seo.canonical} />
-      <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description)} />
+      <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description,initialVariantId,landing.imageUrls)} />
       <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
-        event={productViewEvent(item.id, siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id, item.primaryCategoryId, item.currency, item.priceCents)}
+        event={productViewEvent(item.id, initialVariantId??(siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id), item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
-      <RestockAlertsProvider config={restockConfig}>{siora ? <SioraProductDetailExperience product={item} storefrontId={storefront.id}
+      <RestockAlertsProvider config={restockConfig}>{siora ? <SioraProductDetailExperience product={item} initialVariantId={initialVariantId} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
-      /> : guzide ? <GuzideProductDetailExperience product={item} storefrontId={storefront.id}
-        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
-        options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
-        supportEmail={presentation.supportEmail}
-        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
-      /> : lilyum ? <LilyumProductDetailExperience product={item}
+      /> : guzide ? <GuzideProductDetailExperience product={item} initialVariantId={initialVariantId} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         supportEmail={presentation.supportEmail}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
-      /> : <ProductDetailExperience product={item}
+      /> : lilyum ? <LilyumProductDetailExperience product={item} initialVariantId={initialVariantId}
+        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
+        options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        supportEmail={presentation.supportEmail}
+        showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
+      /> : <ProductDetailExperience product={item} initialVariantId={initialVariantId}
         locale={storefront.locale}
         relatedProducts={relatedProducts}
         publishedPolicies={publishedPolicies}

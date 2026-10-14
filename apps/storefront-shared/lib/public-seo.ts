@@ -50,14 +50,16 @@ export function buildPublicSeoMetadata(input: SeoInput): Metadata {
 export function serializeStructuredData(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
-type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{ priceCents: number; available: boolean; sku?: string }>[]; brand?: Readonly<{ name: string }> }>;
-export function buildProductStructuredData(product: SchemaProduct, canonical: string, description: string) {
-  const variants = product.variants.length ? product.variants : [{ priceCents: product.priceCents, available: product.available }];
+type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{id?:string; priceCents: number; available: boolean; sku?: string }>[]; brand?: Readonly<{ name: string }> }>;
+export function buildProductStructuredData(product: SchemaProduct, canonical: string, description: string,selectedVariantId?:string,selectedImageUrls?:readonly string[]) {
+  const selected=selectedVariantId?product.variants.find(v=>v.id===selectedVariantId):undefined;
+  const variants = selected?[selected]:product.variants.length ? product.variants : [{ priceCents: product.priceCents, available: product.available }];
+  const variantUrl=(id?:string)=>{const url=new URL(canonical);if(id)url.searchParams.set('variant',id);return url.toString();};
   return {
-    "@context": "https://schema.org", "@type": "Product", "@id": `${canonical}#product`, name: plain(product.title), description: plain(description), url: canonical,
-    ...(product.media.length ? { image: product.media.map(({ url }) => imageUrl(url)).filter((url): url is string => url !== null) } : {}),
+    "@context": "https://schema.org", "@type": "Product", "@id": `${variantUrl(selected?.id)}#product`, name: plain(product.title), description: plain(description), url: variantUrl(selected?.id),
+    ...(product.media.length ? { image: (selectedImageUrls??product.media.map(({url})=>url)).map(url=>imageUrl(url)).filter((url): url is string => url !== null) } : {}),
     ...(product.brand ? { brand: { "@type": "Brand", name: plain(product.brand.name) } } : {}),
-    offers: variants.map((variant) => ({ "@type": "Offer", url: canonical, priceCurrency: product.currency, price: (variant.priceCents / 100).toFixed(2), availability: `https://schema.org/${variant.available ? "InStock" : "OutOfStock"}`, ...(variant.sku ? { sku: variant.sku } : {}) })),
+    offers: variants.map((variant) => ({ "@type": "Offer", url: variantUrl(variant.id), priceCurrency: product.currency, price: (variant.priceCents / 100).toFixed(2), availability: `https://schema.org/${variant.available ? "InStock" : "OutOfStock"}`, ...(variant.sku ? { sku: variant.sku } : {}) })),
   };
 }
 export function buildBreadcrumbStructuredData(canonicalUrl: string, entries: readonly Readonly<{ name: string; path: string }>[]) {

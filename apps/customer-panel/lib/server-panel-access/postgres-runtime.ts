@@ -22,6 +22,7 @@ import {
   PostgresMerchantContentRepository,
   PostgresSeoRepository,
   createPostgresGoogleMarketingRepository,
+  createPostgresGoogleMerchantRepository,
   PostgresStorePolicyAdminRepository,
   PostgresMerchantProviderProfileRepository,
   PostgresPaymentMethodRepository,
@@ -78,6 +79,7 @@ import { registerServerMerchantContentRepository } from "../server-merchant-cont
 import { registerServerSeoRepository } from "../server-seo/runtime.ts";
 import { registerServerGoogleMarketingRepository } from "../server-google-marketing/runtime.ts";
 import { googleMarketingConfiguration } from "../server-google-marketing/config.ts";
+import {registerServerGoogleMerchantRepository} from '../server-google-merchant/runtime.ts';
 import { merchantContentReady } from "../server-merchant-content/readiness.ts";
 import { registerServerStorePolicyRepository } from "../server-store-policy/runtime.ts";
 import { registerServerPaymentMethodRepository } from "../server-payment-methods/runtime.ts";
@@ -1136,6 +1138,8 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         createPostgresGoogleMarketingRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS,configuration:googleMarketingConfiguration(process.env,providerCredentialKeyring)}),
         {apply:['settings'],disconnect:['settings']},
       ));
+      const merchantReady=await pool.query("SELECT to_regprocedure('saas.google_merchant_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)') IS NOT NULL AS ready").then(r=>r.rows[0]?.ready===true).catch(()=>false);
+      if(merchantReady)registerServerGoogleMerchantRepository(access,createPostgresGoogleMerchantRepository({pool,timeouts:TIMEOUTS}));
     }
     if (typedMerchantContentReady) {
       registerServerMerchantContentRepository(access, createPostCommitInvalidatingRepository(

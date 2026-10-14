@@ -6,6 +6,8 @@ export const SERVICES = Object.freeze([
   { service: "ads" as const, name: "Google Ads", description: "Ödemesi tamamlanan web siparişlerini satın alma dönüşümü olarak ölçün.", resourceLabel: "Satın alma dönüşümü" },
   { service: "search_console" as const, name: "Google Search Console", description: "Mağazanızın sitesini doğrulayın ve site haritasını gönderin.", resourceLabel: "Site" },
 ]);
+export const MERCHANT_SERVICE = Object.freeze({ service: "merchant" as const, name: "Google Merchant Center", description: "Ürünlerinizi Google’da ücretsiz listelemeye hazırlayın.", resourceLabel: "Merchant hesabı" });
+export const ALL_SERVICES = Object.freeze([...SERVICES, MERCHANT_SERVICE]);
 export function emptyConnection(service: GoogleMarketingService): GoogleMarketingConnection { return { service, version: 0, status: "disconnected", googleEmail: null, selection: null, lastCheckedAt: null, errorCode: null }; }
 export function statusLabel(connection: GoogleMarketingConnection): string {
   if (connection.status === "connected") return "Bağlı";
@@ -37,13 +39,19 @@ export function errorMessage(code: string): string {
     operation_busy: "Bu işlem hâlâ tamamlanıyor. Seçiminiz korundu; tekrar deneyin.",
     operation_mismatch: "İşlem kaydı bu seçimle eşleşmiyor. Güncel bağlantıyı yükleyin.",
     invalid_input: "Hesap ve kaynak seçiminizi kontrol edin.",
+    merchant_domain_unverified: "Merchant Center’da mağazanızın alan adını doğrulayın ve bu hesaba bağlayın. Ardından tekrar uygulayın.",
+    merchant_domain_claimed_elsewhere: "Alan adı başka bir Merchant hesabına bağlı. Doğru hesabı seçin veya Google’da sahipliği kontrol edin.",
+    merchant_business_incomplete: "Merchant Center’da işletme bilgilerini ve Google’ın istediği kurulum adımlarını tamamlayın. Ardından tekrar uygulayın.",
+    merchant_source_conflict: "Bu hesaptaki ürün kaynağı Celebix bağlantısıyla eşleşmiyor. Platform desteğiyle iletişime geçin.",
+    merchant_developer_unregistered: "Merchant API geliştirici kaydı platform için henüz tamamlanmadı. Platform desteğiyle iletişime geçin.",
+    merchant_api_disabled: "Google Merchant API platform için henüz etkinleştirilmedi. Platform desteğiyle iletişime geçin.",
   };
   return messages[code] ?? "İşlemin sonucu doğrulanamadı. Seçiminiz korundu; aynı işlemi tekrar deneyin.";
 }
 export type Attempt<T> = Readonly<{ operationId: string; input: T }>;
 export type Draft = Readonly<{ selection: GoogleMarketingSelection | null; apply?: Attempt<ApplyInput>; disconnect?: Attempt<DisconnectInput> }>;
 export function createSelection(service: GoogleMarketingService, accountId: string, storeDomain: string): GoogleMarketingSelection | null {
-  if (!storeDomain || service === "ads" || (service === "gtm" && !accountId)) return null;
+  if (!storeDomain || service === "ads" || service === "merchant" || (service === "gtm" && !accountId)) return null;
   return { accountId: service === "search_console" ? "site" : accountId, resourceId: service === "search_console" ? `https://${storeDomain}/` : storeDomain, resourceName: storeDomain, create: true };
 }
 export function draftKey(domain: string, email: string | null, service: GoogleMarketingService): string { return `celebix-google:${domain}:${email ?? "unconnected"}:${service}`; }
@@ -54,7 +62,7 @@ export function readDraft(key: string): Draft | null {
     const value = JSON.parse(raw);
     const selection = value.selection === null ? null : parseGoogleMarketingSelection(value.selection);
     const parseAttempt = (v: any, selectionRequired: boolean) => {
-      if (!v || typeof v.operationId !== "string" || !/^[0-9a-f-]{36}$/i.test(v.operationId) || !v.input || !Number.isSafeInteger(v.input.expectedVersion) || v.input.expectedVersion < 0 || !SERVICES.some(item => item.service === v.input.service)) return undefined;
+      if (!v || typeof v.operationId !== "string" || !/^[0-9a-f-]{36}$/i.test(v.operationId) || !v.input || !Number.isSafeInteger(v.input.expectedVersion) || v.input.expectedVersion < 0 || !ALL_SERVICES.some(item => item.service === v.input.service)) return undefined;
       return { operationId: v.operationId, input: { service: v.input.service, expectedVersion: v.input.expectedVersion, ...(selectionRequired ? { selection: parseGoogleMarketingSelection(v.input.selection) } : {}) } };
     };
     return { selection, ...(value.apply ? { apply: parseAttempt(value.apply, true) as Attempt<ApplyInput> } : {}), ...(value.disconnect ? { disconnect: parseAttempt(value.disconnect, false) as Attempt<DisconnectInput> } : {}) };
