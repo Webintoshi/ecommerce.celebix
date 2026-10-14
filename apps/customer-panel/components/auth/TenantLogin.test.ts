@@ -39,7 +39,8 @@ test("phone login presentation keeps tenant branding and removes the password re
         ['Şube ekleMevcut mağazana şube ekle.', 'https://ecommerce.celebix.co/kayit'],
       ]);
       assert.equal(document.querySelectorAll("input, form").length, 0);
-      assert.equal(document.querySelector(".tenant-login-illustration")?.getAttribute("alt"), "İşinizi kolaylaştıran teknoloji. Celebix — daha fazlası seninle.");
+      assert.equal(document.querySelector(".tenant-login-illustration")?.getAttribute("alt"), "");
+      assert.equal(document.querySelector("aside h2")?.textContent, "İşinizi kolaylaştıran teknoloji.");
       assert.deepEqual([...document.querySelectorAll('nav[aria-label="Celebix bağlantıları"] a')].map(link => link.getAttribute('href')), [
         'https://celebix.net/tr/gizlilik', 'https://celebix.net/tr/kullanim-kosullari', 'https://celebix.net/tr/iletisim',
       ]);
