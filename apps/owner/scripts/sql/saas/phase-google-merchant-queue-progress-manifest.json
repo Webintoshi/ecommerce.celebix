@@ -1,0 +1,32 @@
+{
+  "migrationId": "native234-google-merchant-queue-progress",
+  "description": "Bounded local reconciliation without starving actual provider work or deferring due approval reads",
+  "up": "202610140234_google_merchant_queue_progress.up.sql",
+  "down": "202610140234_google_merchant_queue_progress.down.sql",
+  "assertions": "202610140234_google_merchant_queue_progress_assertions.sql",
+  "dependencies": [
+    "202610140232_google_merchant_retail_identity.up.sql"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/google-merchant-queue-progress.native.test.mjs",
+  "isolatedChecks": 19,
+  "claimBudget": {
+    "localCandidates": 100,
+    "actualJobs": "p_limit, unchanged; live worker uses 2"
+  },
+  "contract": "Same function OID, owner, ACL, security-definer search path, signature and job JSON array. No app, env, auth, public API or provider limit change.",
+  "reconciliation": "Exact acknowledged approved content restored locally until 25-day renewal. Other unchanged acknowledged content claims immediate status GET; actual pending response retains existing four-hour cadence.",
+  "fences": "Delivery gate, catalog batch and price boundary advancement, connection credentials/version, exact export fingerprint, generation, catalog revision and lease authority unchanged.",
+  "rollback": "Restores exact original function only if source, OID, owner and ACL match the installation receipt. Private backup is inaccessible to runtime roles.",
+  "releaseValidation": [
+    "19 isolated scenarios",
+    "fresh actual schema clone up/assert/down/up/assert",
+    "real tenant claim and lease rehearsal in ROLLBACK; no provider HTTP"
+  ],
+  "runtimeBuildRequired": false,
+  "filesSha256": {
+    "202610140234_google_merchant_queue_progress.up.sql": "2c34681f2020e4c9c145cdfb7ecd10954a64186fdeb781fc6eb7a611389354df",
+    "202610140234_google_merchant_queue_progress.down.sql": "38891a23c7f51624c020a565021448c050dc67ed41418d56a281e4320351dfd0",
+    "202610140234_google_merchant_queue_progress_assertions.sql": "3bac11b05ca70078e2675ad4ecfaf91d06c02056889ca773bb5b1cca53585d49",
+    "google-merchant-queue-progress.native.test.mjs": "6f85a9373c4156ef87213dfd2945ca3ba634061c19c921d6a03c20d5fa2b7181"
+  }
+}
