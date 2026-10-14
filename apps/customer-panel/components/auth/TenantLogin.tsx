@@ -35,7 +35,6 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
       </section>
 
       <aside className={styles.presentation} aria-label="Celebix ile mağaza yönetimi">
-        <span className={styles.language} lang="tr">Türkçe</span>
         <div className={styles.statement}>
           <svg width="40" height="8" viewBox="0 0 40 8" fill="none" aria-hidden="true"><path d="M2 4h36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           <h2>İşinizi kolaylaştıran<br /> teknoloji.</h2>
@@ -45,7 +44,7 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
             className={`tenant-login-illustration ${styles.illustration}`}
             src="/illustrations/login-toshi-shop-960.webp"
             srcSet="/illustrations/login-toshi-shop-640.webp 640w, /illustrations/login-toshi-shop-960.webp 960w, /illustrations/login-toshi-shop-1448.webp 1448w"
-            sizes="(max-width: 760px) 100vw, 52vw"
+            sizes="(max-width: 760px) 100vw, (max-width: 1100px) calc(52vw + 80px), calc(52vw + 128px)"
             width={1448}
             height={1086}
             alt=""
@@ -53,9 +52,9 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
           />
         </div>
         <ul className={styles.benefits}>
-          <li><ChartNoAxesColumnIncreasing size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Mağazanızı yönetin</strong><span>Ürün, stok ve siparişler tek panelde</span></span></li>
-          <li><Clock3 size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Zamandan tasarruf edin</strong><span>Daha verimli, daha güçlü bir yönetim</span></span></li>
-          <li><ShieldCheck size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Güvenle büyüyün</strong><span>Sizin başarınız, bizim önceliğimiz</span></span></li>
+          <li><ChartNoAxesColumnIncreasing size={20} strokeWidth={1.5} aria-hidden="true" /><span>Tek panelde yönetim</span></li>
+          <li><Clock3 size={20} strokeWidth={1.5} aria-hidden="true" /><span>Zaman kazandırır</span></li>
+          <li><ShieldCheck size={20} strokeWidth={1.5} aria-hidden="true" /><span>Güvenle büyüyün</span></li>
         </ul>
       </aside>
       <nav className={styles.footer} aria-label="Celebix bağlantıları">
