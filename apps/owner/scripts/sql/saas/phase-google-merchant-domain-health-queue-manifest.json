@@ -1,0 +1,33 @@
+{
+  "migrationId": "native235-google-merchant-domain-health-queue",
+  "description": "Ignore routine domain health metadata updates when Merchant storefront authority is unchanged",
+  "up": "202610150235_google_merchant_domain_health_queue.up.sql",
+  "down": "202610150235_google_merchant_domain_health_queue.down.sql",
+  "assertions": "202610150235_google_merchant_domain_health_queue_assertions.sql",
+  "dependencies": [
+    "202610140230_google_merchant.up.sql"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/google-merchant-domain-health-queue.native.test.mjs",
+  "isolatedChecks": 15,
+  "guardFields": [
+    "store_id",
+    "hostname",
+    "status",
+    "is_primary",
+    "verified_at"
+  ],
+  "preserved": "Domain INSERT/DELETE, actual routing or verification changes, product/inventory/price/connection trigger branches, provider receipts and revisions. No job/DTO/API/env/limit changes.",
+  "contract": "Existing function OID, security-definer, search_path, owner and ACL preserved; no app rebuild required.",
+  "rollback": "Private exact predecessor backup. Refuses function identity, source, owner or ACL drift before restoring.",
+  "releaseValidation": [
+    "15 isolated actual-native-function scenarios including reproduced failure",
+    "actual schema clone up/assert/down/up/assert",
+    "actual successful domain health write in ROLLBACK; no external provider calls or requeue"
+  ],
+  "filesSha256": {
+    "202610150235_google_merchant_domain_health_queue.up.sql": "5b7b22d879d5cf48d63b9dd8846c48265819917b5354b3b16241156a95ff12ba",
+    "202610150235_google_merchant_domain_health_queue.down.sql": "337af5dbc701360a7ac7bebe65eafcd774b4a16a4a71512fe99a207de28528a6",
+    "202610150235_google_merchant_domain_health_queue_assertions.sql": "d8e48da276c177326fd3b08d15c3881365cedfa1b817a6a450c44a5dd957527f",
+    "google-merchant-domain-health-queue.native.test.mjs": "535449bc4c51a61925dc5ca7979f01df80053e322aa3f4cf7c642076d2ce2d05"
+  }
+}
