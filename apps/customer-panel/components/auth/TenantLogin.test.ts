@@ -34,6 +34,7 @@ test("phone login presentation keeps tenant branding and removes the password re
       assert.equal(document.querySelector('a[href*="auth/login"]'), null);
       assert.match(document.body.textContent!, /Giriş hazırlanıyor/);
       assert.equal(document.querySelector("header h1")?.textContent, model.displayName);
+      assert.equal(document.querySelector(".tenant-login-entry h2")?.textContent, "Giriş");
       assert.deepEqual([...document.querySelectorAll('[data-login-action]')].map(link => [link.textContent, link.getAttribute('href')]), [
         ['Yeni mağaza açKendi mağazanı dakikalar içinde aç.', 'https://ecommerce.celebix.co/kayit'],
         ['Şube ekleMevcut mağazana şube ekle.', 'https://ecommerce.celebix.co/kayit'],

@@ -4,6 +4,7 @@
 .header img { width: 176px; height: 80px; flex: none; }
 .entry { padding: 40px 32px 24px; }
 .content { width: min(100%, 592px); }
+.entryTitle { margin: 0 0 20px; color: var(--cp-text-primary); font-size: 20px; font-weight: 500; line-height: 1.4; letter-spacing: -.025em; }
 .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 32px; }
 .action { display: flex; min-height: 64px; min-width: 0; align-items: center; gap: 20px; padding: 4px 16px 4px 0; color: var(--cp-text-primary); text-align: left; }
 .action + .action { border-left: 1px solid var(--cp-border); padding: 4px 0 4px 24px; }
@@ -19,7 +20,7 @@
 .statement svg { display: block; margin-bottom: 24px; color: var(--cp-brand); }
 .statement h2 { margin: 0; color: var(--cp-text-primary); font-size: clamp(32px, 3.4vw, 48px); font-weight: 500; line-height: 1.08; letter-spacing: -.045em; }
 .artwork { position: relative; display: flex; grid-column: auto; grid-row: auto; min-width: 0; min-height: 0; align-items: flex-end; }
-.illustration { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; object-position: center bottom; }
+.illustration { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; object-position: center bottom; mask-image: linear-gradient(to right, transparent, black 10%), linear-gradient(to bottom, transparent, black 12%); -webkit-mask-composite: source-in; mask-composite: intersect; }
 .benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 24px 32px 48px; list-style: none; }
 .benefits li { display: flex; flex-direction: column; min-width: 0; gap: 12px; padding-right: 16px; }
 .benefits li + li { border-left: 1px solid var(--cp-border); padding-left: 24px; }
