@@ -7,6 +7,17 @@ const offerId='40000000-0000-4000-8000-000000000001';
 const offer={offerId,contentLanguage:'tr',feedLabel:'TR',title:'Pamuklu gömlek',description:'Mavi pamuklu gömlek',link:`https://store.example.com/products/gomlek?variant=${offerId}`,imageLink:'https://media.example.com/gomlek.webp',additionalImageLinks:[],price:{amountMicros:'99000000',currencyCode:'TRY'},availability:'in_stock',condition:'new',brand:'Gerçek Marka',gtin:'8680000000006',itemGroupId:'50000000-0000-4000-8000-000000000001',color:'Mavi',size:'M'} as const;
 const errorCode=(code:string)=>(error:any)=>error.code===code&&!String(error).includes('SECRET');
 
+test('Merchant rejects restricted and coupon GTIN ranges before any transmission',async()=>{
+ let calls=0;const provider=new GoogleMerchantProvider(async()=>{calls++;return Response.json({});});
+ const checked=(prefix:string)=>{const stem=prefix.padEnd(12,'0');let sum=0;for(let i=stem.length-1,w=3;i>=0;i--,w=w===3?1:3)sum+=Number(stem[i])*w;return stem+String((10-sum%10)%10);};
+ for(const prefix of ['02','04','05','2','98','99']){
+  const gtin=checked(prefix);
+  await assert.rejects(()=>provider.sendProduct('SECRET','123','456',{...offer,gtin},1),errorCode('invalid_input'));
+  await assert.rejects(()=>provider.sendProduct('SECRET','123','456',{...offer,gtin:'0'+gtin},1),errorCode('invalid_input'));
+ }
+ assert.equal(calls,0);
+});
+
 test('Merchant discovers Google-authorized accounts and rejects an unlisted caller selection',async()=>{
  const calls:string[]=[];const provider=new GoogleMerchantProvider(async url=>{calls.push(String(url));return Response.json({accounts:[{name:'accounts/123',accountId:'123',accountName:'My store',homePageUri:'https://store.example.com/'}]});});
  assert.deepEqual(await provider.resources('token'),{accounts:[{id:'123',name:'My store'}],resources:[]});

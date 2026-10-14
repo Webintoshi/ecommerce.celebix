@@ -659,7 +659,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now")
         throw failure("invalid_input");
       const hasAttribution = Object.hasOwn(parsed, "attribution");
-      return await this.read(
+      return await this.write(
         "SELECT outcome,result_payload FROM saas.public_checkout_quote_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::text[],$7::jsonb)",
         [
           commerceHostname(parsed.hostname), commerceDate(parsed.now), parsed.intentKind,
@@ -672,7 +672,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
             landingPathGroup: "/unknown", deviceGroup: "unknown" as const,
           })),
         ],
-        "quoted",
+        ["quoted"],
         (value) => {
           const selected = exactResult(value, ["quote", "authorityDigest", "quoteDigest"]);
           return Object.freeze({

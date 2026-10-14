@@ -663,7 +663,8 @@ test("V3 quote returns an opaque confirmation digest without exposing private au
   assert.equal(selected?.text,
     "SELECT outcome,result_payload FROM saas.public_checkout_quote_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::jsonb,$6::text[],$7::jsonb)");
   assert.deepEqual(selected?.values?.[5], []);
-  assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
+  assert.equal(client.calls.at(-1)?.text, "COMMIT");
 });
 
 test("V3 completion carries the customer-confirmed digest as final SQL argument", async () => {

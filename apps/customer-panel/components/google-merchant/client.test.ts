@@ -35,3 +35,10 @@ test("unknown server errors cannot expose provider payloads; invalid barcode sta
   await assert.rejects(api.preferences(variantId, { productId, enabled: true, attributes: { gtin: "9900000000000" } }, key), error => { assert.equal((error as any).code, "invalid_input"); return true; });
   assert.equal(writes, 1);
 });
+test('identity retries retain operation and version while rejecting contradictory declarations before sending',async()=>{
+ const requests:any[]=[];const api=await client(async(url,init)=>{requests.push({url,key:new Headers(init?.headers).get('Idempotency-Key'),body:JSON.parse(String(init?.body))});return Response.json({saved:true,replayed:true});}) as any;
+ assert.equal(typeof api.identity,'function');const body={ownBrand:true,brandName:'Atölye',expectedVersion:3};
+ await api.identity(body,key);await api.identity(body,key);
+ assert.equal(requests[0].url,'/api/marketplaces/google-merchant/identity');assert.deepEqual(requests.map(x=>x.key),[key,key]);assert.deepEqual(requests[0].body,body);
+ await assert.rejects(()=>api.identity({...body,ownBrand:false},key),(error:any)=>error.code==='invalid_input');assert.equal(requests.length,2);
+});

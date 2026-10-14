@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import type { GoogleMerchantOverview, GoogleMerchantProduct, GoogleMerchantProducts } from "@celebix/saas-contracts";
+import type { GoogleMerchantOverview, GoogleMerchantProduct, GoogleMerchantProducts, GoogleMerchantIdentityInput } from "@celebix/saas-contracts";
 import { GoogleMarketingConnections } from "@/components/google-marketing/GoogleMarketingConnections";
 import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
 import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
@@ -15,6 +15,7 @@ const MERCHANT_ONLY = Object.freeze(["merchant"] as const);
 const currency = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" });
 type PreferenceAttempt = { input: GoogleMerchantPreferences; operationId: string };
 type Editor = { product: GoogleMerchantProduct; draft: AttributeDraft; error: string; attempt?: PreferenceAttempt };
+type IdentityEditor = {ownBrand:boolean;brandName:string;version:number;dirty:boolean;error:string;attempt?:{input:GoogleMerchantIdentityInput;operationId:string}};
 function code(error: unknown): string { return error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : "unavailable"; }
 
 export function GoogleMerchantConsole({ canManage, client = googleMerchantClient }: Readonly<{ canManage: boolean; client?: GoogleMerchantClient }>) {
@@ -31,6 +32,8 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
   const [saving, setSaving] = useState(false);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [identity,setIdentity]=useState<IdentityEditor|null>(null);
+  const [identitySaving,setIdentitySaving]=useState(false);
   const alive = useRef(true);
   const reads = useRef(0);
   const mutation = useRef(false);
@@ -39,13 +42,19 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
   const rowAttempts = useRef(new Map<string, PreferenceAttempt>());
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  const identityRef=useRef(identity);
+  identityRef.current=identity;
 
-  async function load(cursor: string | null = cursors[pageIndex] ?? null) {
+  async function load(cursor: string | null = cursors[pageIndex] ?? null,refreshIdentityVersion=false) {
     const ticket = ++reads.current;
     setLoading(true); setError("");
     const results = await Promise.allSettled([client.overview(), client.products(cursor ?? undefined)]);
     if (!alive.current || ticket !== reads.current) return;
-    if (results[0].status === "fulfilled") setOverview(results[0].value);
+    if (results[0].status === "fulfilled") {
+      setOverview(results[0].value);
+      const profile=results[0].value.identityProfile;
+      if(profile)setIdentity(current=>current?.dirty||current?.attempt?refreshIdentityVersion&&!current.attempt?{...current,version:profile.version}:current:{ownBrand:profile.ownBrand,brandName:profile.brandName??'',version:profile.version,dirty:false,error:''});
+    }
     if (results[1].status === "fulfilled") setPage(results[1].value);
     const failure = results.find(result => result.status === "rejected");
     if (failure?.status === "rejected") setError(code(failure.reason));
@@ -59,6 +68,29 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     // One local read at entry. Subsequent reads require a user action or a completed mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
+
+  function changeIdentity(field:'ownBrand'|'brandName',value:boolean|string){
+    if(mutation.current)return;
+    setIdentity(current=>!current||current.attempt?current:{...current,[field]:value,dirty:true,error:''});
+  }
+  async function saveIdentity(){
+    const current=identityRef.current;
+    if(!canManage||!current||mutation.current)return;
+    const brandName=current.ownBrand?current.brandName.trim():null;
+    if(current.ownBrand&&(!brandName||brandName.length>70||/[\x00-\x1f\x7f<>]/u.test(brandName))){setIdentity({...current,error:'invalid_input'});return;}
+    const attempt=current.attempt??{input:{ownBrand:current.ownBrand,brandName,expectedVersion:current.version},operationId:crypto.randomUUID()};
+    const pending={...current,dirty:true,attempt,error:''};
+    setIdentity(pending);mutation.current=true;setIdentitySaving(true);
+    try{
+      await client.identity(attempt.input,attempt.operationId);
+      if(!alive.current)return;
+      setIdentity({...pending,dirty:false,attempt:undefined});
+      setNotice('Marka ayarı kaydedildi. Ürünler otomatik yeniden kontrol ediliyor.');
+      await load();
+    }catch(caught){
+      if(alive.current){const error=code(caught);const definitive=['invalid_input','membership_denied','durable_authority_invalid','not_found','version_conflict','operation_mismatch'].includes(error);setIdentity({...pending,error,...(definitive?{attempt:undefined}:{})});if(error==='version_conflict')await load(undefined,true);}
+    }finally{mutation.current=false;if(alive.current)setIdentitySaving(false);}
+  }
 
   async function sync() {
     if (!canManage || mutation.current || overview?.connection.status !== "connected") return;
@@ -141,7 +173,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     if (await load(next[nextIndex] ?? null)) { setCursors(next); setPageIndex(nextIndex); }
   }
   const counts = overview?.counts;
-  const busy = syncing || saving || Boolean(rowBusy);
+  const busy = syncing || saving || identitySaving || Boolean(rowBusy);
   const metrics = counts ? [
     ["Google onayladı", counts.approved], ["Google’a gönderildi", counts.submitted], ["Aktarıma hazır", counts.ready], ["Sırada", counts.pending],
     ["Sınırlı gösterim", counts.limited], ["Google reddetti", counts.disapproved], ["Aktarılmıyor", counts.excluded], ["Aktarılamadı", counts.failed],
@@ -152,6 +184,16 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
     {notice ? <p className={styles.notice} role="status"><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {error ? <div className={styles.feedback}><p role="alert">Ürün durumu yüklenemedi. {failureMessage(error)}</p><button className="button button-secondary" type="button" disabled={loading} onClick={() => void load()}>Listeyi yeniden yükle</button></div> : null}
+    {identity?<section className={styles.identity} aria-labelledby="merchant-identity-heading" aria-busy={identitySaving||undefined}>
+      <h2 id="merchant-identity-heading">Ürün markası</h2>
+      {canManage?<>
+        <label className={styles.exportChoice}><input type="checkbox" aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz" checked={identity.ownBrand} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('ownBrand',event.target.checked)}/>Markası olmayan ürünleri kendi markamızla satıyoruz</label>
+        <p className={styles.help}>Yalnız ürettiğiniz veya kendi markanızla sattığınız ürünlerde stok kodu otomatik MPN olur. Mevcut üretici markası ve barkodu korunur.</p>
+        {identity.ownBrand?<label className={`${styles.field} ${styles.brandField}`}>Marka adı<input aria-label="Marka adı" autoComplete="organization" value={identity.brandName} maxLength={70} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('brandName',event.target.value)}/></label>:null}
+        {identity.error?<p role="alert" className={styles.feedback}>{identity.error==='invalid_input'?'Geçerli marka adını yazın.':identity.error==='version_conflict'?'Marka ayarı değişti. Yazdığınız bilgiler korundu; güncel ayarla tekrar kaydedebilirsiniz.':failureMessage(identity.error)}</p>:null}
+        <div><button className="button button-secondary" type="button" disabled={busy||loading||!identity.dirty} onClick={()=>void saveIdentity()}>{identitySaving?'Kaydediliyor…':identity.attempt?'Marka kaydını tekrar dene':'Marka ayarını kaydet'}</button></div>
+      </>:<p className={styles.help}>{identity.ownBrand?identity.brandName:'Ürünlerin mevcut üretici bilgileri kullanılır.'}</p>}
+    </section>:null}
     <section className={styles.products} aria-labelledby="merchant-products-heading" aria-busy={loading || undefined}>
       <div className={styles.toolbar}>
         <div><h2 id="merchant-products-heading">Ürünler</h2><p>Son tamamlanan aktarım: <strong>{lastSyncLabel(overview?.lastSyncedAt ?? null)}</strong></p></div>

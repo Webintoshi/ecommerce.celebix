@@ -59,3 +59,22 @@ test("failed attribute save preserves the form and retries the same operation", 
     await act(async () => {});
   });
 });
+test('own-brand declaration saves directly and retains frozen fields and key after an uncertain result',async()=>{
+ const calls:any[]=[];let reads=0;
+ const Component=component({overview:async()=>{reads++;return {...overview,identityProfile:{ownBrand:false,brandName:null,version:0}};},products:async()=>({items:[product],nextCursor:null}),identity:async(body:unknown,key:string)=>{calls.push({body,key});if(calls.length===1)throw Object.assign(new Error('unknown'),{code:'commit_unknown'});return {saved:true,replayed:true};}});
+ await mounted(Component,{canManage:true},async(host:HTMLElement,window)=>{
+  const checkbox=host.querySelector<HTMLInputElement>('input[aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz"]');assert.ok(checkbox);
+  await act(async()=>checkbox.click());const brand=host.querySelector<HTMLInputElement>('input[aria-label="Marka adı"]');assert.ok(brand);await input(window,brand,'Atölye');
+  await click(host,'Marka ayarını kaydet');assert.equal(brand.value,'Atölye');assert.equal(brand.disabled,true);
+  await click(host,'Marka kaydını tekrar dene');assert.equal(calls.length,2);assert.equal(calls[0].key,calls[1].key);assert.deepEqual(calls[0].body,{ownBrand:true,brandName:'Atölye',expectedVersion:0});assert.deepEqual(calls[0].body,calls[1].body);assert.equal(reads,2);
+ });
+});
+test('version conflict refreshes CAS authority without clearing the merchant brand form or silently retrying',async()=>{
+ const calls:any[]=[];let reads=0;
+ const Component=component({overview:async()=>({...overview,identityProfile:{ownBrand:false,brandName:null,version:reads++?4:0}}),products:async()=>({items:[product],nextCursor:null}),identity:async(body:unknown,key:string)=>{calls.push({body,key});if(calls.length===1)throw Object.assign(new Error('changed'),{code:'version_conflict'});return {saved:true,replayed:false};}});
+ await mounted(Component,{canManage:true},async(host:HTMLElement,window)=>{
+  const checkbox=host.querySelector<HTMLInputElement>('input[aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz"]');assert.ok(checkbox);await act(async()=>checkbox.click());const brand=host.querySelector<HTMLInputElement>('input[aria-label="Marka adı"]');assert.ok(brand);await input(window,brand,'Atölye');
+  await click(host,'Marka ayarını kaydet');assert.equal(calls.length,1);assert.equal(brand.value,'Atölye');assert.equal(brand.disabled,false);
+  await click(host,'Marka ayarını kaydet');assert.equal(calls[1].body.expectedVersion,4);assert.notEqual(calls[0].key,calls[1].key);
+ });
+});

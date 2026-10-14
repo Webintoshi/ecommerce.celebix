@@ -316,6 +316,7 @@ export type PublicProductMedia = Readonly<{
 export type PublicProductVariant = Readonly<{
   id: string;
   mediaIds?: readonly string[];
+  merchantIdentifiers?: import('../google-merchant/index.ts').GoogleMerchantPublicIdentifiers;
   title: string;
   sku?: string;
   priceCents: number;

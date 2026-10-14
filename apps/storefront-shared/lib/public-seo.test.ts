@@ -84,3 +84,10 @@ test("Merchant landing structured data describes only the selected offer and gal
  assert.equal(schema.offers.length,1);assert.equal(schema.offers[0].price,"150.00");assert.equal(schema.offers[0].availability,"https://schema.org/OutOfStock");
  assert.deepEqual(schema.image,["https://media.example.test/variant.webp"]);
 });
+test('selected Merchant variant exposes only verified identifiers, preserves retailer brand and never treats SKU as GTIN',()=>{
+ const value={...product,variants:[{...product.variants[0],merchantIdentifiers:{brand:'Atölye',mpn:'9800000000004'}},{...product.variants[1],merchantIdentifiers:{brand:'Manufacturer',gtin:'4006381333931'}}]};
+ const own=buildProductStructuredData(value,'https://shop.example.test/urun/ring','Ring','one') as any;
+ assert.equal(own.mpn,'9800000000004');assert.equal(own.gtin,undefined);assert.deepEqual(own.brand,{'@type':'Brand',name:'Atölye'});
+ const real=buildProductStructuredData(value,'https://shop.example.test/urun/ring','Ring','two') as any;assert.equal(real.gtin13,'4006381333931');assert.equal(real.mpn,undefined);assert.deepEqual(real.brand,{'@type':'Brand',name:'Manufacturer'});
+ const legacy=buildProductStructuredData(product,'https://shop.example.test/urun/ring','Ring','one') as any;assert.equal(legacy.gtin13,undefined);assert.equal(legacy.mpn,undefined);
+});

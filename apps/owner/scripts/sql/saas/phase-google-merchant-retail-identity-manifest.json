@@ -1,0 +1,38 @@
+{
+  "migrationId": "native232-google-merchant-retail-identity",
+  "description": "Common retail TRY pricing, explicit tenant manufacturer declaration, safe public identifiers and reference/profile delivery fencing",
+  "up": "202610140232_google_merchant_retail_identity.up.sql",
+  "down": "202610140232_google_merchant_retail_identity.down.sql",
+  "assertions": "202610140232_google_merchant_retail_identity_assertions.sql",
+  "dependencies": [
+    "202610140230_google_merchant.up.sql",
+    "202610140231_google_merchant_delivery_gate.up.sql",
+    "202609200130_reference_pricing.up.sql"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/google-merchant-retail-identity.native.test.mjs",
+  "isolatedChecks": 22,
+  "isolation": "Disposable Unix socket PostgreSQL16; actual native230 delivery functions and native130 price engine, explicit lightweight external authority/journal/publiccatalog fixture seams; never production DSN or external Google",
+  "legacyCompatibility": "Original overview{} and old worker job JSON retained. includeIdentity:true opts into profile. Lease catalog revision stays private to SQL. Existing delivery gate retained.",
+  "profileDefault": {
+    "ownBrand": false,
+    "brandName": null,
+    "version": 0
+  },
+  "priceAuthority": "saas.resolve_effective_variant_price(store,variant,storefront,now,NULL); no cached base fallback or private Merchant-only price",
+  "identifierAuthority": "Confirmed ownbrand plusmatching/absentassignedbrand. PreserveactualGTIN/MPN/identifierExistsfalse. ValidatefullSKU theninternalbarcode asMPN; no truncation orfakeGTIN. DerivedMPN offer-only; editableDTO reflects sanitizedstoredpreferences so toggles cannotpromote inferredID.",
+  "catalogBatch": "One coalesced row/store. Five pending stores maximum; materialized first101 tenant/id rows then policy lookup, 100scanned variants/store per tick. Cursor advances skippedfixeds; reference-only enqueues currentdynamic rows. Identity enqueuesall.",
+  "deliveryFence": "Reference/profile/dynamicactivation revision fences read/finish/defer; store advisory lock precedes connection/outbox locks; same lock spans finish revision and fingerprint. Actual two-backend finish/defer race tested. No network in transaction.",
+  "publicIdentifiers": "Host-resolver-only helper returns public active variant map of sanitized brand,gtin,mpn,identifierExists; no cost, attributes, credential or private preferences",
+  "explicitBullionCategory": {
+    "id": "7565",
+    "source": "https://www.google.com/basepages/producttype/taxonomy-with-ids.en-US.txt",
+    "rule": "Only explicit Bullion category; no title heuristic or blanket exclusion of gold jewelry"
+  },
+  "rollback": "Unused automation only; refuses any saved manufacturer profile, positive catalog revision, revision-bound lease or post-install submission. Restores exact captured predecessor function definitions.",
+  "filesSha256": {
+    "202610140232_google_merchant_retail_identity.up.sql": "f67b0cd1464d440ac77dd502c802ba4b2baefc2fd6d7c149d92f17321f388ca5",
+    "202610140232_google_merchant_retail_identity.down.sql": "6336f14ed4596c933c819e2f321e440ea11f84c24d6c85107bc8b747499ec665",
+    "202610140232_google_merchant_retail_identity_assertions.sql": "60703dce42171b0785690b1b8110a89aaf9cea56a86ba01a29a0dd0b28b56409",
+    "google-merchant-retail-identity.native.test.mjs": "ae1c7847b8a7bd70d2972ab9c69ffabe23f3744fd083bd8be9ee3b5d7a887e43"
+  }
+}

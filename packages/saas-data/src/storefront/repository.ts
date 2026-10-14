@@ -1,6 +1,7 @@
 import { parsePublicProduct, parsePublicProductV2, parsePublicProductMedia, parsePublicStarterThemePresentation, parsePublicStorefront, type PublicProduct, type PublicProductV2, type PublicProductMedia, type PublicStarterThemePresentation, type PublicStorefront } from "../../../saas-contracts/src/storefront/index.ts";
 import { parsePublicStorefrontDesign, type PublicStorefrontDesign } from "../../../saas-contracts/src/storefront-design/index.ts";
 import { parsePublicCollectionPage } from "../../../saas-contracts/src/storefront/collections.ts";
+import {parseGoogleMerchantPublicIdentifiers} from '../../../saas-contracts/src/google-merchant/index.ts';
 import type { PublicCollectionQuery } from "./types.ts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { PublicStorefrontRepositoryError } from "./errors.ts";
@@ -75,7 +76,7 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
     await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
     await client.query("SET LOCAL ROLE celebix_saas_host_resolver");
   }
-  private async read(text: string, values: unknown[], galleryContext?: { store: PublicStorefront; now: Date }): Promise<{ outcome: string; resultPayload: unknown }> {
+  private async read(text: string, values: unknown[], galleryContext?: { store: PublicStorefront; now: Date; merchantIdentifiers?: boolean }): Promise<{ outcome: string; resultPayload: unknown }> {
     let client: PostgresClientLike;
     try { client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs); } catch { throw failure("unavailable"); }
     let began = false;
@@ -83,12 +84,27 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); began = true; await this.configure(client);
       let result = row((await client.query(text, values)).rows);
       if (galleryContext && result.outcome === "found") result = { ...result, resultPayload: await this.hydrateVariantMedia(client, result.resultPayload, galleryContext.store, galleryContext.now) };
+      if (galleryContext?.merchantIdentifiers && result.outcome === 'found') result={...result,resultPayload:await this.hydrateMerchantIdentifiers(client,result.resultPayload,galleryContext.store,galleryContext.now)};
       await client.query("COMMIT"); client.release(); return result;
     } catch (caught) {
       if (began) { try { await client.query("ROLLBACK"); client.release(); } catch { client.release(true); } } else client.release(true);
       if (caught instanceof PublicStorefrontRepositoryError) throw caught;
       throw failure("unavailable");
     }
+  }
+  private async hydrateMerchantIdentifiers(client: PostgresClientLike, payload: unknown, store: PublicStorefront, now: Date): Promise<unknown> {
+    // Authorize and validate the public detail first; never enrich catalog lists or private products.
+    let product:PublicProduct;
+    try {product=payload&&typeof payload==='object'&&Object.hasOwn(payload,'seoTitle')?parsePublicProductV2(payload):parsePublicProduct(payload);}catch{throw failure('unavailable');}
+    const result=await client.query('SELECT saas.google_merchant_public_product_identifiers($1::uuid,$2::uuid,$3::timestamptz) AS identifiers',[store.id,product.id,now]);
+    if(result.rows.length!==1)throw failure('unavailable');
+    const row=result.rows[0];
+    if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).join(',')!=='identifiers')throw failure('unavailable');
+    const raw=(row as {identifiers:unknown}).identifiers;
+    if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).length>100)throw failure('unavailable');
+    const identities=new Map();const visible=new Set(product.variants.map(variant=>variant.id));
+    try {for(const [id,value]of Object.entries(raw)){uuid(id);if(!visible.has(id))throw failure('unavailable');identities.set(id,parseGoogleMerchantPublicIdentifiers(value));}}catch{throw failure('unavailable');}
+    return Object.freeze({...product,variants:Object.freeze(product.variants.map(variant=>{const identity=identities.get(variant.id);return identity&&Object.keys(identity).length?Object.freeze({...variant,merchantIdentifiers:identity}):variant;}))});
   }
   private async hydrateVariantMedia(client: PostgresClientLike, payload: unknown, store: PublicStorefront, now: Date): Promise<unknown> {
     const products: Record<string, unknown>[] = [];
@@ -199,12 +215,12 @@ export class PostgresPublicStorefrontRepository implements PublicStorefrontRepos
   }
   async getPublicProductBySlug(input: Parameters<PublicStorefrontRepository["getPublicProductBySlug"]>[0]): Promise<PublicProduct> {
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now) });
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now), merchantIdentifiers:true });
     try { return parsePublicProduct(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async getPublicProductWithSeoBySlug(input: Parameters<NonNullable<PublicStorefrontRepository["getPublicProductWithSeoBySlug"]>>[0]): Promise<PublicProductV2> {
     const parsed = exact(input, ["storefront", "now", "slug"]); const store = context({ storefront: parsed.storefront });
-    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail_v2($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now) });
+    const result = await this.read("SELECT outcome, result_payload FROM saas.public_starter_product_detail_v2($1::uuid,$2::text,$3::timestamptz,$4::text)", [store.id, store.hostname, date(parsed.now), slug(parsed.slug)], { store, now: date(parsed.now), merchantIdentifiers:true });
     try { return parsePublicProductV2(this.projection(result)); } catch (caught) { if (caught instanceof PublicStorefrontRepositoryError) throw caught; throw failure("unavailable"); }
   }
   async listPublicProductMedia(input: Parameters<PublicStorefrontRepository["listPublicProductMedia"]>[0]): Promise<readonly PublicProductMedia[]> {

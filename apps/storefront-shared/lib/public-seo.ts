@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { resolveProductSeo } from "./product-seo.ts";
+import type {GoogleMerchantPublicIdentifiers} from '@celebix/saas-contracts';
 
 // This projection keeps public V1 product/content contracts unchanged.
 export type PublicSeoSettings = Readonly<{ allowIndex: boolean; eligible: boolean; socialTitle: string | null; socialDescription: string | null; socialImageUrl: string | null; googleVerification: string | null; bingVerification: string | null }>;
@@ -50,15 +51,19 @@ export function buildPublicSeoMetadata(input: SeoInput): Metadata {
 export function serializeStructuredData(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
-type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{id?:string; priceCents: number; available: boolean; sku?: string }>[]; brand?: Readonly<{ name: string }> }>;
+type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{id?:string; priceCents: number; available: boolean; sku?: string;merchantIdentifiers?:GoogleMerchantPublicIdentifiers }>[]; brand?: Readonly<{ name: string }> }>;
 export function buildProductStructuredData(product: SchemaProduct, canonical: string, description: string,selectedVariantId?:string,selectedImageUrls?:readonly string[]) {
   const selected=selectedVariantId?product.variants.find(v=>v.id===selectedVariantId):undefined;
+  const identifiers=selected?.merchantIdentifiers;
+  const brand=identifiers?.brand??product.brand?.name;
   const variants = selected?[selected]:product.variants.length ? product.variants : [{ priceCents: product.priceCents, available: product.available }];
   const variantUrl=(id?:string)=>{const url=new URL(canonical);if(id)url.searchParams.set('variant',id);return url.toString();};
   return {
     "@context": "https://schema.org", "@type": "Product", "@id": `${variantUrl(selected?.id)}#product`, name: plain(product.title), description: plain(description), url: variantUrl(selected?.id),
     ...(product.media.length ? { image: (selectedImageUrls??product.media.map(({url})=>url)).map(url=>imageUrl(url)).filter((url): url is string => url !== null) } : {}),
-    ...(product.brand ? { brand: { "@type": "Brand", name: plain(product.brand.name) } } : {}),
+    ...(brand ? { brand: { "@type": "Brand", name: plain(brand) } } : {}),
+    ...(identifiers?.gtin?{[`gtin${identifiers.gtin.length}`]:identifiers.gtin}:{}),
+    ...(identifiers?.mpn?{mpn:identifiers.mpn}:{}),
     offers: variants.map((variant) => ({ "@type": "Offer", url: variantUrl(variant.id), priceCurrency: product.currency, price: (variant.priceCents / 100).toFixed(2), availability: `https://schema.org/${variant.available ? "InStock" : "OutOfStock"}`, ...(variant.sku ? { sku: variant.sku } : {}) })),
   };
 }

@@ -1,4 +1,4 @@
-import { parseGoogleMerchantAttributes, parseGoogleMerchantOverview, parseGoogleMerchantProducts, parseGoogleMerchantSyncResult, type GoogleMerchantAttributes } from "@celebix/saas-contracts";
+import { parseGoogleMerchantAttributes, parseGoogleMerchantOverview, parseGoogleMerchantProducts, parseGoogleMerchantSyncResult, parseGoogleMerchantIdentityInput, type GoogleMerchantAttributes, type GoogleMerchantIdentityInput } from "@celebix/saas-contracts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_CODES = new Set(["invalid_input", "membership_denied", "durable_authority_invalid", "store_inactive", "not_found", "connection_required", "needs_reconnect", "version_conflict", "operation_mismatch", "operation_busy", "provider_limit", "unavailable", "commit_unknown"]);
@@ -56,6 +56,14 @@ export function createGoogleMerchantClient(fetcher: typeof fetch = fetch) {
       return parsed(() => request(`/products?${params}`), parseGoogleMerchantProducts);
     },
     sync: (operationId: string) => parsed(() => write("/sync", {}, operationId), parseGoogleMerchantSyncResult),
+    async identity(input: GoogleMerchantIdentityInput, operationId: string): Promise<{saved:true;replayed:boolean}> {
+      let body: GoogleMerchantIdentityInput;
+      try { body = parseGoogleMerchantIdentityInput(input); } catch { throw new GoogleMerchantApiError("invalid_input"); }
+      return parsed(() => write("/identity", body, operationId), value => {
+        if (!value || typeof value !== "object" || !("saved" in value) || value.saved !== true || !("replayed" in value) || typeof value.replayed !== "boolean" || Object.keys(value).some(key => !["saved", "replayed"].includes(key))) throw new GoogleMerchantApiError("unavailable");
+        return {saved:true,replayed:value.replayed};
+      });
+    },
     async preferences(variantId: string, input: GoogleMerchantPreferences, operationId: string): Promise<{ saved: true; replayed: boolean }> {
       if (!UUID.test(variantId) || !UUID.test(input.productId) || typeof input.enabled !== "boolean") throw new GoogleMerchantApiError("invalid_input");
       let attributes: GoogleMerchantAttributes;

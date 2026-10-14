@@ -1,11 +1,12 @@
-import type {TenantContext,GoogleMerchantOverview,GoogleMerchantProducts,GoogleMerchantSyncResult,GoogleMerchantOffer,GoogleMerchantIssue,GoogleMerchantAttributes} from '@celebix/saas-contracts';
+import type {TenantContext,GoogleMerchantOverview,GoogleMerchantProducts,GoogleMerchantSyncResult,GoogleMerchantOffer,GoogleMerchantIssue,GoogleMerchantAttributes,GoogleMerchantIdentityInput} from '@celebix/saas-contracts';
 import type {PostgresPoolLike,PostgresTimeoutOptions} from '../postgres/pool.ts';
 import type {SealedGoogleCredential} from '../google-marketing/credential-crypto.ts';
 export type GoogleMerchantAuthority=Readonly<{tenantContext:TenantContext;now:Date}>;
 export interface GoogleMerchantRepository{
- overview(input:GoogleMerchantAuthority):Promise<GoogleMerchantOverview>;
+ overview(input:GoogleMerchantAuthority&Readonly<{includeIdentity?:true}>):Promise<GoogleMerchantOverview>;
  products(input:GoogleMerchantAuthority&Readonly<{cursor?:string;limit?:number}>):Promise<GoogleMerchantProducts>;
  sync(input:GoogleMerchantAuthority&Readonly<{operationId:string}>):Promise<GoogleMerchantSyncResult>;
+ setIdentityProfile(input:GoogleMerchantAuthority&GoogleMerchantIdentityInput&Readonly<{operationId:string}>):Promise<Readonly<{saved:true;replayed:boolean}>>;
  setProductPreferences(input:GoogleMerchantAuthority&Readonly<{operationId:string;productId:string;variantId:string;enabled:boolean;attributes?:GoogleMerchantAttributes}>):Promise<Readonly<{saved:true;replayed:boolean}>>;
 }
 export type PostgresGoogleMerchantRepositoryOptions=Readonly<{pool:PostgresPoolLike;timeouts?:PostgresTimeoutOptions}>;

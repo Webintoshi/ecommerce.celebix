@@ -1,11 +1,11 @@
-import {isMerchantActionAllowed,parseGoogleMerchantAttributes} from '@celebix/saas-contracts';
+import {isMerchantActionAllowed,parseGoogleMerchantAttributes,parseGoogleMerchantIdentityInput} from '@celebix/saas-contracts';
 import {googleMerchantErrorCode} from '@celebix/saas-data';
 import {readOrderPanelSessionCookie} from '../order-http/request-input.ts';
 import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from '../panel-origin-authority.ts';
 import type {ServerGoogleMerchantRuntime} from '../server-google-merchant/runtime.ts';
 const ROOT='/api/marketplaces/google-merchant';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const STATUS:Record<string,number>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,wrong_domain:409,not_connected:409,needs_reconnect:409,operation_mismatch:409,commit_unknown:503,unavailable:503};
+const STATUS:Record<string,number>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,wrong_domain:409,not_connected:409,needs_reconnect:409,operation_mismatch:409,version_conflict:409,commit_unknown:503,unavailable:503};
 type Deps=Readonly<{resolveRuntime():Promise<ServerGoogleMerchantRuntime|null>;now():Date;requestId():string}>;
 function json(value:unknown,status=200){return Response.json(value,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});}
 function error(code:string,status:number){return json({code},status);}
@@ -36,13 +36,14 @@ export function createGoogleMerchantHttpHandlers(deps:Deps){
  return Object.freeze({
   async get(request:Request,area:'overview'|'products'){
    const authorized=await authorize(request,'GET',area==='overview'?ROOT:ROOT+'/products',area==='products');if(authorized instanceof Response)return authorized;
-   const {runtime,tenantContext,now}=authorized;if(area==='overview')return execute(()=>runtime.merchant.overview({tenantContext,now}));
+   const {runtime,tenantContext,now}=authorized;if(area==='overview')return execute(()=>runtime.merchant.overview({tenantContext,now,includeIdentity:true}));
    try{const params=new URL(request.url).searchParams;if([...params.keys()].some(k=>!['cursor','limit'].includes(k)||params.getAll(k).length!==1))throw TypeError();const cursor=params.has('cursor')?uuid(params.get('cursor')):undefined;const raw=params.get('limit')??'25';if(!/^[1-9][0-9]?$/.test(raw)||Number(raw)>50)throw TypeError();return execute(()=>runtime.merchant.products({tenantContext,now,limit:Number(raw),...(cursor?{cursor}:{})}));}catch{return error('invalid_input',400);}
   },
-  async post(request:Request,area:'sync'|'preferences',variantId?:string){
-   let path;try{path=area==='sync'?ROOT+'/sync':ROOT+'/products/'+uuid(variantId)+'/preferences';}catch{return error('invalid_input',400);}
+  async post(request:Request,area:'sync'|'preferences'|'identity',variantId?:string){
+   let path;try{path=area==='sync'?ROOT+'/sync':area==='identity'?ROOT+'/identity':ROOT+'/products/'+uuid(variantId)+'/preferences';}catch{return error('invalid_input',400);}
    const authorized=await authorize(request,'POST',path);if(authorized instanceof Response)return authorized;const {runtime,tenantContext,now}=authorized;
    try{const operationId=uuid(request.headers.get('idempotency-key')),value=await body(request);if(area==='sync'){exact(value,[]);return execute(()=>runtime.merchant.sync({tenantContext,now,operationId}));}
+    if(area==='identity'){const profile=parseGoogleMerchantIdentityInput(value);return execute(()=>runtime.merchant.setIdentityProfile({tenantContext,now,operationId,...profile}));}
     const v=exact(value,['productId','enabled'],['attributes']);if(typeof v.enabled!=='boolean')throw TypeError();const productId=uuid(v.productId),attributes=v.attributes===undefined?undefined:parseGoogleMerchantAttributes(v.attributes);
     return execute(()=>runtime.merchant.setProductPreferences({tenantContext,now,operationId,productId,variantId:variantId!,enabled:v.enabled as boolean,...(attributes?{attributes}:{})}));
    }catch{return error('invalid_input',400);}

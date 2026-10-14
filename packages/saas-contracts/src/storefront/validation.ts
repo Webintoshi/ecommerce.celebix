@@ -1,3 +1,4 @@
+import {parseGoogleMerchantPublicIdentifiers} from "../google-merchant/index.ts";
 import type { BannerDestination, BannerMediaReference, HomepageBannerSlide, HomepageSectionStyle, StarterThemeCompositionConfigV4, StarterThemeSectionConfigV4, PublicStarterThemePresentationV4, PublicHomepageBannerSlide, HomepageSectionId, PublicImageMediaType, PublicProduct, PublicProductV2, PublicProductMedia, PublicProductMerchandising, PublicProductVariant, PublicStarterFooter, PublicStarterHomeSection, PublicStarterHomeSectionV2, PublicStarterNavigation, PublicStarterNavigationItem, PublicStarterReview, PublicStarterThemePresentation, PublicStarterThemePresentationV1, PublicStarterThemePresentationV2, PublicStarterThemePresentationV3, PublicStorefront, PublicStorefrontAsset, StarterCampaignPanelConfig, StarterFooterConfig, StarterHeroSlideConfig, StarterProductDetailConfigV2, StarterThemeComposition, StarterThemeCompositionConfig, StarterThemeCompositionConfigV2, StarterThemeCompositionConfigV3, StarterThemeSectionConfig, StarterThemeSectionConfigV2, StarterThemeSectionConfigV3, StarterThemeVisual, StarterThemeVisualV2 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -847,12 +848,13 @@ export function parsePublicProductMedia(value: unknown): PublicProductMedia {
 }
 
 export function parsePublicProductVariant(value: unknown): PublicProductVariant {
-  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents", "mediaIds"]);
+  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents", "mediaIds", "merchantIdentifiers"]);
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
   const mediaIds = Object.hasOwn(parsed, "mediaIds") ? Object.freeze(arrayValues(parsed.mediaIds, 0, 16).map(uuid)) : undefined;
   if (mediaIds !== undefined && new Set(mediaIds).size !== mediaIds.length) invalid();
-  return Object.freeze({ id: uuid(parsed.id), ...(mediaIds === undefined ? {} : { mediaIds }), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
+  const merchantIdentifiers=Object.hasOwn(parsed,'merchantIdentifiers')?parseGoogleMerchantPublicIdentifiers(parsed.merchantIdentifiers):undefined;
+  return Object.freeze({ id: uuid(parsed.id), ...(mediaIds === undefined ? {} : { mediaIds }), ...(merchantIdentifiers===undefined?{}:{merchantIdentifiers}), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
 }
 
 function parsePublicProductMerchandising(value: unknown): PublicProductMerchandising {

@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {parseGoogleMerchantOverview,parseGoogleMerchantProducts,parseGoogleMerchantSyncResult,parseGoogleMerchantAttributes,parseGoogleMerchantIssues,type GoogleMerchantOffer} from '@celebix/saas-contracts';
+import {parseGoogleMerchantOverview,parseGoogleMerchantProducts,parseGoogleMerchantSyncResult,parseGoogleMerchantAttributes,parseGoogleMerchantIssues,parseGoogleMerchantIdentityInput,type GoogleMerchantOffer} from '@celebix/saas-contracts';
 import {acquirePostgresClient} from '../postgres/pool.ts';
 import {GOOGLE_MERCHANT_ERROR_CODES,GoogleMerchantRepositoryError,merchantFailure} from './errors.ts';
 import type {GoogleMerchantAuthority,GoogleMerchantRepository,GoogleMerchantJobRepository,GoogleMerchantJob,PostgresGoogleMerchantRepositoryOptions} from './types.ts';
@@ -17,9 +17,10 @@ function base(options:PostgresGoogleMerchantRepositoryOptions,role:'celebix_saas
 export function createPostgresGoogleMerchantRepository(options:PostgresGoogleMerchantRepositoryOptions):GoogleMerchantRepository{
  const execute=base(options,'celebix_saas_app');const command=<T>(input:GoogleMerchantAuthority,action:string,payload:unknown,success:readonly string[],parse:(value:unknown,outcome:string)=>T)=>execute('SELECT outcome,result_payload FROM saas.google_merchant_command($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::jsonb)',[...authority(input),action,JSON.stringify(payload)],success,parse);
  return{
- overview:input=>command(input,'overview',{},['found'],parseGoogleMerchantOverview),
+ overview:input=>command(input,'overview',input.includeIdentity===true?{includeIdentity:true}:{},['found'],parseGoogleMerchantOverview),
  products:input=>command(input,'products',{limit:integer(input.limit??20,1,50),cursor:input.cursor===undefined?null:uuid(input.cursor)},['found'],parseGoogleMerchantProducts),
  sync:input=>command(input,'sync',{operationId:uuid(input.operationId),fingerprint:fingerprint({kind:'sync'})},['queued'],parseGoogleMerchantSyncResult),
+ setIdentityProfile(input){let profile;try{profile=parseGoogleMerchantIdentityInput({ownBrand:input.ownBrand,brandName:input.brandName,expectedVersion:input.expectedVersion});}catch{merchantFailure('invalid_input');}const payload={operationId:uuid(input.operationId),...profile};return command(input,'identity',{...payload,fingerprint:fingerprint({kind:'identity',...payload})},['saved'],value=>{const v=object(value);if(v.saved!==true||typeof v.replayed!=='boolean'||Object.keys(v).some(k=>!['saved','replayed'].includes(k)))merchantFailure();return Object.freeze({saved:true as const,replayed:v.replayed});});},
  setProductPreferences(input){if(typeof input.enabled!=='boolean')merchantFailure('invalid_input');let attributes;try{attributes=parseGoogleMerchantAttributes(input.attributes??{});}catch{merchantFailure('invalid_input');}const payload={operationId:uuid(input.operationId),productId:uuid(input.productId),variantId:uuid(input.variantId),enabled:input.enabled,attributes};return command(input,'preferences',{...payload,fingerprint:fingerprint({kind:'preferences',...payload})},['saved'],value=>{const v=object(value);if(v.saved!==true||typeof v.replayed!=='boolean')merchantFailure();return Object.freeze({saved:true as const,replayed:v.replayed});});}
  };
 }
