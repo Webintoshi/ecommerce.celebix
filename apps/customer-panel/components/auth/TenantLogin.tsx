@@ -16,6 +16,7 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
 
       <section className={`tenant-login-entry ${styles.entry}`} aria-labelledby="tenant-login-name">
         <div className={`tenant-login-content ${styles.content}`}>
+          <h2 className={styles.entryTitle}>Giriş</h2>
           <MerchantPhoneLoginForm inline />
           <nav className={styles.actions} aria-label="Mağaza açılışı">
             <Link className={styles.action} data-login-action="store" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
@@ -42,8 +43,8 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
         <div className={`tenant-login-artwork ${styles.artwork}`}>
           <img
             className={`tenant-login-illustration ${styles.illustration}`}
-            src="/illustrations/login-mascot-premium-960.webp"
-            srcSet="/illustrations/login-mascot-premium-640.webp 640w, /illustrations/login-mascot-premium-960.webp 960w, /illustrations/login-mascot-premium-1448.webp 1448w"
+            src="/illustrations/login-toshi-shop-960.webp"
+            srcSet="/illustrations/login-toshi-shop-640.webp 640w, /illustrations/login-toshi-shop-960.webp 960w, /illustrations/login-toshi-shop-1448.webp 1448w"
             sizes="(max-width: 760px) 100vw, 52vw"
             width={1448}
             height={1086}
