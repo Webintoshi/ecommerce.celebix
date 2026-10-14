@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChartNoAxesColumnIncreasing, ChevronDown, Clock3, ShieldCheck, Store } from "lucide-react";
+import { ChartNoAxesColumnIncreasing, Clock3, ShieldCheck, Store } from "lucide-react";
 
 import { MerchantPhoneLoginForm } from "./MerchantPhoneLoginForm.tsx";
 import styles from "./TenantLogin.module.css";
@@ -34,16 +34,20 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
       </section>
 
       <aside className={styles.presentation} aria-label="Celebix ile mağaza yönetimi">
-        <div className={styles.language} aria-label="Arayüz dili: Türkçe"><span lang="tr">Türkçe</span><ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" /></div>
+        <span className={styles.language} lang="tr">Türkçe</span>
+        <div className={styles.statement}>
+          <svg width="40" height="8" viewBox="0 0 40 8" fill="none" aria-hidden="true"><path d="M2 4h36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          <h2>İşinizi kolaylaştıran<br /> teknoloji.</h2>
+        </div>
         <div className={`tenant-login-artwork ${styles.artwork}`}>
           <img
             className={`tenant-login-illustration ${styles.illustration}`}
-            src="/illustrations/login-celebix-scene-960.webp"
-            srcSet="/illustrations/login-celebix-scene-480.webp 480w, /illustrations/login-celebix-scene-960.webp 960w, /illustrations/login-celebix-scene-1254.webp 1254w"
+            src="/illustrations/login-mascot-premium-960.webp"
+            srcSet="/illustrations/login-mascot-premium-640.webp 640w, /illustrations/login-mascot-premium-960.webp 960w, /illustrations/login-mascot-premium-1448.webp 1448w"
             sizes="(max-width: 760px) 100vw, 52vw"
-            width={1254}
-            height={1254}
-            alt="İşinizi kolaylaştıran teknoloji. Celebix — daha fazlası seninle."
+            width={1448}
+            height={1086}
+            alt=""
             decoding="async"
           />
         </div>
@@ -52,12 +56,12 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
           <li><Clock3 size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Zamandan tasarruf edin</strong><span>Daha verimli, daha güçlü bir yönetim</span></span></li>
           <li><ShieldCheck size={28} strokeWidth={1.5} aria-hidden="true" /><span><strong>Güvenle büyüyün</strong><span>Sizin başarınız, bizim önceliğimiz</span></span></li>
         </ul>
-        <nav className={styles.footer} aria-label="Celebix bağlantıları">
+      </aside>
+      <nav className={styles.footer} aria-label="Celebix bağlantıları">
           <a href="https://celebix.net/tr/gizlilik">Gizlilik</a>
           <a href="https://celebix.net/tr/kullanim-kosullari">Kullanım Şartları</a>
           <a href="https://celebix.net/tr/iletisim">Destek</a>
-        </nav>
-      </aside>
+      </nav>
     </main>
   );
 }
