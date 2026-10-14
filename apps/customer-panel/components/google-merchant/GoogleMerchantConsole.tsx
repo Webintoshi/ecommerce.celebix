@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Barcode, Check, ChevronLeft, ChevronRight, Package, RefreshCw, SlidersHorizontal } from "lucide-react";
 import type { GoogleMerchantOverview, GoogleMerchantProduct, GoogleMerchantProducts, GoogleMerchantIdentityInput } from "@celebix/saas-contracts";
 import { GoogleMarketingConnections } from "@/components/google-marketing/GoogleMarketingConnections";
 import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
 import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { MarketplaceArtwork } from "@/components/marketplaces/MarketplaceArtwork";
 import { googleMerchantClient, type GoogleMerchantClient, type GoogleMerchantPreferences } from "./client";
 import { attributeDraft, attributesFromDraft, failureMessage, lastSyncLabel, productStatus, type AttributeDraft } from "./model";
 import styles from "./google-merchant.module.css";
@@ -178,21 +179,24 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     ["Google onayladı", counts.approved], ["Google’a gönderildi", counts.submitted], ["Aktarıma hazır", counts.ready], ["Sırada", counts.pending],
     ["Sınırlı gösterim", counts.limited], ["Google reddetti", counts.disapproved], ["Aktarılmıyor", counts.excluded], ["Aktarılamadı", counts.failed],
   ] as const : [];
+  const maxMetricCount = Math.max(1, ...metrics.map(([, value]) => value));
 
   return <div className={styles.workspace}>
     <h1 className="sr-only">Google Merchant Center</h1>
+    <nav className={styles.back} aria-label="Pazaryeri gezinme"><Link href="/marketplaces"><ArrowLeft size={16} aria-hidden="true" />Pazaryerleri</Link></nav>
     <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
     {notice ? <p className={styles.notice} role="status"><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {error ? <div className={styles.feedback}><p role="alert">Ürün durumu yüklenemedi. {failureMessage(error)}</p><button className="button button-secondary" type="button" disabled={loading} onClick={() => void load()}>Listeyi yeniden yükle</button></div> : null}
     {identity?<section className={styles.identity} aria-labelledby="merchant-identity-heading" aria-busy={identitySaving||undefined}>
-      <h2 id="merchant-identity-heading">Ürün markası</h2>
-      {canManage?<>
+      <div className={styles.sectionLabel}><Package size={20} aria-hidden="true" /><h2 id="merchant-identity-heading">Ürün markası</h2></div>
+      <div className={styles.identityContent}>{canManage?<>
         <label className={styles.exportChoice}><input type="checkbox" aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz" checked={identity.ownBrand} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('ownBrand',event.target.checked)}/>Markası olmayan ürünleri kendi markamızla satıyoruz</label>
         <p className={styles.help}>Yalnız ürettiğiniz veya kendi markanızla sattığınız ürünlerde stok kodu otomatik MPN olur. Mevcut üretici markası ve barkodu korunur.</p>
-        {identity.ownBrand?<label className={`${styles.field} ${styles.brandField}`}>Marka adı<input aria-label="Marka adı" autoComplete="organization" value={identity.brandName} maxLength={70} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('brandName',event.target.value)}/></label>:null}
+        <div className={styles.identityActions}>{identity.ownBrand?<label className={`${styles.field} ${styles.brandField}`}>Marka adı<input aria-label="Marka adı" autoComplete="organization" value={identity.brandName} maxLength={70} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('brandName',event.target.value)}/></label>:null}
+          <button className="button button-secondary" type="button" disabled={busy||loading||!identity.dirty} onClick={()=>void saveIdentity()}>{identitySaving?'Kaydediliyor…':identity.attempt?'Marka kaydını tekrar dene':'Marka ayarını kaydet'}</button>
+        </div>
         {identity.error?<p role="alert" className={styles.feedback}>{identity.error==='invalid_input'?'Geçerli marka adını yazın.':identity.error==='version_conflict'?'Marka ayarı değişti. Yazdığınız bilgiler korundu; güncel ayarla tekrar kaydedebilirsiniz.':failureMessage(identity.error)}</p>:null}
-        <div><button className="button button-secondary" type="button" disabled={busy||loading||!identity.dirty} onClick={()=>void saveIdentity()}>{identitySaving?'Kaydediliyor…':identity.attempt?'Marka kaydını tekrar dene':'Marka ayarını kaydet'}</button></div>
-      </>:<p className={styles.help}>{identity.ownBrand?identity.brandName:'Ürünlerin mevcut üretici bilgileri kullanılır.'}</p>}
+      </>:<p className={styles.help}>{identity.ownBrand?identity.brandName:'Ürünlerin mevcut üretici bilgileri kullanılır.'}</p>}</div>
     </section>:null}
     <section className={styles.products} aria-labelledby="merchant-products-heading" aria-busy={loading || undefined}>
       <div className={styles.toolbar}>
@@ -203,8 +207,8 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
         </div>
       </div>
       {syncError ? <p role="alert" className={styles.feedback}>{failureMessage(syncError)}</p> : null}
-      {counts ? <dl className={styles.metrics}>{metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : null}
-      {loading && !page ? <p role="status" className={styles.empty}>Ürünler yükleniyor…</p> : page?.items.length ? <>
+      {counts ? <dl className={styles.metrics}>{metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value.toLocaleString("tr-TR")}</dd><span className={styles.metricTrack} aria-hidden="true"><span style={{ width: `${value / maxMetricCount * 100}%` }} /></span></div>)}</dl> : null}
+      {loading && !page ? <div role="status" className={styles.loading}><span>Ürünler yükleniyor…</span><div aria-hidden="true">{[0, 1, 2].map(row => <span className={styles.loadingRow} key={row}><span /><span /><span /></span>)}</div></div> : page?.items.length ? <>
         <div className={styles.tableScroll} role="region" aria-label="Google ürün tablosu" tabIndex={0}>
           <table aria-label="Google Merchant ürünleri" className={styles.table}><thead><tr><th scope="col">Ürün / varyant</th><th scope="col">Fiyat</th><th scope="col">Google durumu</th>{canManage ? <th scope="col">Aktarım</th> : null}<th scope="col"><span className="sr-only">İşlemler</span></th></tr></thead><tbody>
             {page.items.map(product => {
@@ -212,26 +216,31 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
               const attempt = rowAttempts.current.get(product.variantId);
               return <tr key={product.variantId}>
                 <td className={styles.productCell}><strong>{product.title}</strong>{product.sku ? <span>{product.sku}</span> : null}</td>
-                <td data-label="Fiyat">{product.priceCents === null ? "Fiyat eksik" : currency.format(product.priceCents / 100)}</td>
-                <td className={styles.statusCell}><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{product.issues.length ? <ul>{product.issues.map((issue, i) => <li key={`${issue.code}:${i}`}>{issue.message}</li>)}</ul> : null}{rowErrors[product.variantId] ? <div className={styles.rowError}><p role="alert">{failureMessage(rowErrors[product.variantId])}</p>{attempt ? <button type="button" className="button button-text" disabled={busy} onClick={() => void setEnabled(product, attempt.input.enabled)}>Aktarımı tekrar dene</button> : null}</div> : null}</td>
-                {canManage ? <td><label className={styles.exportChoice}><input type="checkbox" checked={attempt?.input.enabled ?? product.enabled} aria-label={`${product.title} Google’a aktarılsın`} disabled={busy || Boolean(attempt)} onChange={event => void setEnabled(product, event.target.checked)} />Aktar</label></td> : null}
-                <td className={styles.rowActions}>{canManage ? <button data-merchant-edit type="button" className="button button-text" aria-label={`${product.title} Google bilgilerini düzenle`} disabled={busy || Boolean(attempt)} onClick={() => openEditor(product)}>Google bilgileri</button> : null}<Link href={`/products/${product.productId}`} className={styles.productLink}>Ürünü düzenle</Link></td>
+                <td data-label="Fiyat" className={styles.price}>{product.priceCents === null ? "Fiyat eksik" : currency.format(product.priceCents / 100)}</td>
+                <td className={styles.statusCell} data-label="Google durumu"><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{product.issues.length ? <ul>{product.issues.map((issue, i) => <li key={`${issue.code}:${i}`}>{issue.message}</li>)}</ul> : null}{rowErrors[product.variantId] ? <div className={styles.rowError}><p role="alert">{failureMessage(rowErrors[product.variantId])}</p>{attempt ? <button type="button" className="button button-text" disabled={busy} onClick={() => void setEnabled(product, attempt.input.enabled)}>Aktarımı tekrar dene</button> : null}</div> : null}</td>
+                {canManage ? <td className={styles.transferCell}><label className={styles.exportChoice}><input type="checkbox" checked={attempt?.input.enabled ?? product.enabled} aria-label={`${product.title} Google’a aktarılsın`} disabled={busy || Boolean(attempt)} onChange={event => void setEnabled(product, event.target.checked)} />Aktar</label></td> : null}
+                <td className={styles.rowActions}>{canManage ? <button data-merchant-edit type="button" className="button button-secondary" aria-label={`${product.title} Google bilgilerini düzenle`} disabled={busy || Boolean(attempt)} onClick={() => openEditor(product)}><SlidersHorizontal size={16} aria-hidden="true" />Google bilgileri</button> : null}<Link href={`/products/${product.productId}`} className={styles.productLink}>Ürünü düzenle<ArrowUpRight size={14} aria-hidden="true" /></Link></td>
               </tr>;
             })}
           </tbody></table>
         </div>
         <div className={styles.pagination}><button type="button" className="button button-secondary" disabled={loading || pageIndex === 0} onClick={() => move(pageIndex - 1)}><ChevronLeft size={16} aria-hidden="true" />Önceki</button><span>{pageIndex + 1}. sayfa</span><button type="button" className="button button-secondary" disabled={loading || !page.nextCursor} onClick={() => move(pageIndex + 1, page.nextCursor ?? undefined)}>Sonraki<ChevronRight size={16} aria-hidden="true" /></button></div>
-      </> : !error && page ? <div className={styles.empty}><p>Henüz ürün aktarımı yok.</p><p>{overview?.connection.status === "connected" ? "Yayımlanmış ürünler otomatik kontrol edilir. Ürünleri yeniden kontrol edebilirsiniz." : "Önce Google Merchant bağlantısını tamamlayın."}</p><Link className={styles.productLink} href="/products">Ürünleri aç</Link></div> : null}
+      </> : !error && page ? <div className={styles.empty}><MarketplaceArtwork variant="products" className={styles.emptyArtwork} /><div><h3>Henüz ürün aktarımı yok.</h3><p>{overview?.connection.status === "connected" ? "Yayımlanmış ürünler otomatik kontrol edilir. Ürünleri yeniden kontrol edebilirsiniz." : "Önce Google Merchant bağlantısını tamamlayın."}</p><Link className="button button-secondary" href="/products">Ürünleri aç<ArrowUpRight size={16} aria-hidden="true" /></Link></div></div> : null}
       <p className={styles.help}>Google’a gönderilmesi, ürünün onaylandığı anlamına gelmez. Google inceleme sonucunu ürün durumunda gösterir.</p>
     </section>
     <OrderActionDialog open={Boolean(editor)} title="Google ürün bilgileri" className={styles.dialog} busy={saving} onClose={closeEditor} footer={editor ? <div className={styles.dialogActions}><button className="button button-secondary" type="button" disabled={saving} onClick={closeEditor}>Vazgeç</button><button className="button button-primary" type="button" disabled={saving} onClick={() => void saveAttributes()}>{saving ? "Kaydediliyor…" : editor.attempt ? "Tekrar kaydet" : "Kaydet"}</button></div> : null}>
       {editor ? <div className={styles.form}>
-        <strong>{editor.product.title}</strong>{editor.product.sku ? <p className={styles.help}>{editor.product.sku}</p> : null}
+        <div className={styles.editorProduct}><Package size={20} aria-hidden="true" /><div><strong>{editor.product.title}</strong>{editor.product.sku ? <p className={styles.help}>{editor.product.sku}</p> : null}</div></div>
         {editor.error ? <p role="alert" className={styles.feedback}>{failureMessage(editor.error)}</p> : null}
-        <p className={styles.help}>Üreticinin gerçek ürün bilgilerini kullanın. Stok kodu, üretici barkodu yerine geçmez.</p>
-        <label className={styles.field}>Ürün tanımlayıcıları<select value={editor.draft.identifierExists} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("identifierExists", event.target.value)}><option value="">Katalog bilgisini kullan</option><option value="yes">Üretici tanımlayıcıları var</option><option value="no">Üretici tanımlayıcısı yok</option></select></label>
-        <div className={styles.formGrid}>{([ ["gtin", "Üretici barkodu (GTIN)"], ["mpn", "Üretici parça kodu (MPN)"], ["color", "Renk"], ["size", "Beden / ölçü"], ["material", "Malzeme"] ] as const).map(([key, label]) => <label key={key} className={styles.field}>{label}<input aria-label={label} value={editor.draft[key]} maxLength={key === "gtin" ? 14 : 70} inputMode={key === "gtin" ? "numeric" : undefined} disabled={saving || Boolean(editor.attempt) || ((key === "gtin" || key === "mpn") && editor.draft.identifierExists === "no")} onChange={event => changeDraft(key, event.target.value)} /></label>)}</div>
-        <div className={styles.formGrid}><label className={styles.field}>Cinsiyet<select value={editor.draft.gender} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("gender", event.target.value)}><option value="">Belirtilmedi</option><option value="male">Erkek</option><option value="female">Kadın</option><option value="unisex">Unisex</option></select></label><label className={styles.field}>Yaş grubu<select value={editor.draft.ageGroup} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("ageGroup", event.target.value)}><option value="">Belirtilmedi</option><option value="newborn">Yenidoğan</option><option value="infant">Bebek</option><option value="toddler">Küçük çocuk</option><option value="kids">Çocuk</option><option value="adult">Yetişkin</option></select></label></div>
+        <fieldset className={styles.formSection}><legend><Barcode size={16} aria-hidden="true" />Tanımlayıcılar</legend>
+          <p className={styles.help}>Üreticinin gerçek ürün bilgilerini kullanın. Stok kodu, üretici barkodu yerine geçmez.</p>
+          <label className={styles.field}>Ürün tanımlayıcıları<select value={editor.draft.identifierExists} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("identifierExists", event.target.value)}><option value="">Katalog bilgisini kullan</option><option value="yes">Üretici tanımlayıcıları var</option><option value="no">Üretici tanımlayıcısı yok</option></select></label>
+          <div className={styles.formGrid}>{([ ["gtin", "Üretici barkodu (GTIN)"], ["mpn", "Üretici parça kodu (MPN)"] ] as const).map(([key, label]) => <label key={key} className={styles.field}>{label}<input aria-label={label} value={editor.draft[key]} maxLength={key === "gtin" ? 14 : 70} inputMode={key === "gtin" ? "numeric" : undefined} disabled={saving || Boolean(editor.attempt) || editor.draft.identifierExists === "no"} onChange={event => changeDraft(key, event.target.value)} /></label>)}</div>
+        </fieldset>
+        <fieldset className={styles.formSection}><legend><SlidersHorizontal size={16} aria-hidden="true" />Ürün özellikleri</legend>
+          <div className={styles.formGrid}>{([ ["color", "Renk"], ["size", "Beden / ölçü"], ["material", "Malzeme"] ] as const).map(([key, label]) => <label key={key} className={styles.field}>{label}<input aria-label={label} value={editor.draft[key]} maxLength={70} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft(key, event.target.value)} /></label>)}</div>
+          <div className={styles.formGrid}><label className={styles.field}>Cinsiyet<select value={editor.draft.gender} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("gender", event.target.value)}><option value="">Belirtilmedi</option><option value="male">Erkek</option><option value="female">Kadın</option><option value="unisex">Unisex</option></select></label><label className={styles.field}>Yaş grubu<select value={editor.draft.ageGroup} disabled={saving || Boolean(editor.attempt)} onChange={event => changeDraft("ageGroup", event.target.value)}><option value="">Belirtilmedi</option><option value="newborn">Yenidoğan</option><option value="infant">Bebek</option><option value="toddler">Küçük çocuk</option><option value="kids">Çocuk</option><option value="adult">Yetişkin</option></select></label></div>
+        </fieldset>
       </div> : null}
     </OrderActionDialog>
   </div>;

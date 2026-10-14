@@ -15,6 +15,7 @@ import {
   Archive,
   Ban,
   CircleDashed,
+  ChevronDown,
   DatabaseZap,
   Eye,
   Pencil,
@@ -46,6 +47,8 @@ import {
 import { ProviderConnectionPanel } from "@/components/merchant-admin/ProviderConnectionPanel";
 import { ContentPagesList, ContentPagesLoading, ContentPagesToolbar, PageArtwork } from "@/components/content/ContentPagesList";
 import pages from "@/components/content/content-pages.module.css";
+import { MarketplaceArtwork } from "@/components/marketplaces/MarketplaceArtwork";
+import marketplaceStyles from "@/components/marketplaces/marketplaces.module.css";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import { providerExecutionApi } from "@/lib/provider-execution-ui/client";
 import { createRouteFor, editRouteFor } from "@/lib/merchant-admin-ui/record-route";
@@ -182,7 +185,7 @@ function formErrorMessage(error: unknown): string {
 
 function statusPresentation(record: MerchantAdminRecord) {
   const status = merchantRecordPresentationStatus(record);
-  if (status === "active") return Object.freeze({ label: record.kind === "page" ? "Yayında" : "Aktif", tone: "success" as const });
+  if (status === "active") return Object.freeze({ label: record.kind === "page" ? "Yayında" : record.kind === "marketplace_connection" ? "Hazırlığa açık" : "Aktif", tone: record.kind === "marketplace_connection" ? "neutral" as const : "success" as const });
   if (status === "draft") return Object.freeze({ label: "Kapalı", tone: "neutral" as const });
   return Object.freeze({ label: "Arşivlendi", tone: "neutral" as const });
 }
@@ -292,6 +295,7 @@ export function MerchantModuleConsole({
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const operational = definition.family !== "settings";
+  const marketplace = kind === "marketplace_connection";
   const compactAdministrators = kind === "administrator_invite";
   const quietSettings = kind === "general_setting" || kind === "language_setting" || kind === "notification_setting";
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -591,7 +595,7 @@ export function MerchantModuleConsole({
   function clearFilters() { setQuery(""); setStatusFilter("all"); }
 
   return (
-    <div className={operational ? operations.workspace : undefined} data-merchant-kind={kind}>
+    <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""}`} data-merchant-kind={kind}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className={styles.srOnly}>{definition.title}</h1> : null}
       {kind !== "page" ? <PanelPageHeader
@@ -599,7 +603,8 @@ export function MerchantModuleConsole({
         description={operational || quietSettings || compactAdministrators ? undefined : definition.description}
         embedded={embedded}
         actions={(
-          <div className={styles.headerActions}>
+          <div className={`${styles.headerActions} ${marketplace ? marketplaceStyles.sectionHeading : ""}`}>
+            {marketplace ? <h2>Diğer pazar yerleri</h2> : null}
             <button type="button" className={styles.button} disabled={loading || busy || quietSettings && settingsDirty} title={settingsDirty ? "Önce değişiklikleri kaydet veya vazgeç" : undefined} onClick={() => void load()}>
               <RefreshCcw aria-hidden="true" /> Yenile
             </button>
@@ -623,7 +628,7 @@ export function MerchantModuleConsole({
       {kind !== "page" && !singleton && !compactAdministrators && operational ? <section className={operations.metrics} aria-label={`${definition.title} özeti`} aria-busy={loading}>
         {([
           ["all", "Toplam", summary.total, ""],
-          ["active", definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
+          ["active", marketplace ? "Açık" : definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
           ["draft", "Kapalı", summary.draft, ""],
           ["archived", "Arşiv", summary.archived, ""],
         ] as const).map(([filter, label, count, detail]) => <button type="button" className={operations.metric} key={filter} aria-pressed={statusFilter === filter} onClick={() => setStatusFilter(filter)}><span>{label}</span><strong>{hasLoaded ? count.toLocaleString("tr-TR") : "—"}</strong>{detail ? <small>{detail}</small> : null}</button>)}
@@ -634,7 +639,7 @@ export function MerchantModuleConsole({
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
       </section> : null}
 
-      {operational && definition.execution === "provider_required" ? <aside className={operations.providerNotice} aria-label="Sağlayıcı durumu"><ShieldCheck aria-hidden="true" /><details><summary>Harici işlem için doğrulanmış bağlantı gerekli</summary><p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p></details></aside> : definition.execution === "provider_required" ? (
+      {!marketplace && operational && definition.execution === "provider_required" ? <aside className={operations.providerNotice} aria-label="Sağlayıcı durumu"><ShieldCheck aria-hidden="true" /><details><summary>Harici işlem için doğrulanmış bağlantı gerekli</summary><p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p></details></aside> : !marketplace && definition.execution === "provider_required" ? (
         <aside className={styles.providerNotice} aria-label="Sağlayıcı durumu">
           <ShieldCheck aria-hidden="true" />
           <div>
@@ -642,9 +647,9 @@ export function MerchantModuleConsole({
             <p>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p>
           </div>
         </aside>
-      ) : definition.notice && !compactAdministrators ? <p className={styles.notice}>{definition.notice}</p> : null}
+      ) : !marketplace && definition.notice && !compactAdministrators ? <p className={styles.notice}>{definition.notice}</p> : null}
 
-      {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
+      {providerCapability && !marketplace ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
 
       {message ? <p className={styles.success} role="status">{message}</p> : null}
       {error && !editorOpen ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}</p>{!quietSettings || !hasLoaded ? <button type="button" className={styles.button} disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
@@ -744,7 +749,12 @@ export function MerchantModuleConsole({
         {loading ? (
           kind === "page" ? <ContentPagesLoading /> : <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
         ) : !hasLoaded && error ? null : summary.visible.length === 0 ? (
-          <>{kind === "page" ? <div className={pages.emptyArt}><PageArtwork /></div> : null}<PanelEmptyState
+          marketplace ? <div className={marketplaceStyles.empty}>
+            <MarketplaceArtwork variant="connect" />
+            <h2>{items.length ? "Eşleşen bağlantı yok" : "Diğer mağazalarınızı bağlayın"}</h2>
+            <p>{items.length ? "Aramayı veya filtreyi temizleyin." : "Pazar yeri hesabınızı ekleyin, aktarım hazırlığını buradan yönetin."}</p>
+            {items.length ? <button type="button" className="button button-secondary" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? <Link href="/marketplaces/new" className="button button-secondary"><Plus size={16} aria-hidden="true" />Bağlantı ekle</Link> : <p>Bağlantı eklemek için mağaza yöneticinize ulaşın.</p>}
+          </div> : <>{kind === "page" ? <div className={pages.emptyArt}><PageArtwork /></div> : null}<PanelEmptyState
             title={items.length ? "Filtreyle eşleşen kayıt yok" : `Henüz ${definition.singular} yok`}
             description={items.length ? "Aramayı veya filtreyi temizleyin." : "Eklediğiniz kayıtlar burada görünür."}
             action={items.length ? <button type="button" className={styles.button} onClick={clearFilters}>Filtreleri temizle</button> : canManage ? createRoute ? (
@@ -806,6 +816,10 @@ export function MerchantModuleConsole({
           </>
         )}</>}
 
+        {marketplace ? <section data-provider-settings="">
+          <details><summary className={marketplaceStyles.settingsSummary}><ShieldCheck aria-hidden="true" />Aktarım koşulları<ChevronDown aria-hidden="true" /></summary><p className={marketplaceStyles.providerHelp}>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p></details>
+          {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
+        </section> : null}
         {compactAdministrators ? <details className={styles.adminRoleHelp}><summary>Rol bilgisi</summary><AdministratorRoleGuide /></details> : null}
         <details className={styles.audit}>
           <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({events.length})</summary>
@@ -814,6 +828,11 @@ export function MerchantModuleConsole({
           ) : <p>Henüz kalıcı işlem kaydı yok.</p>}
         </details>
         {definition.workflow ? (
+          marketplace ? <details className={marketplaceStyles.history}><summary className={marketplaceStyles.settingsSummary}><CircleDashed aria-hidden="true" />Hazırlık kayıtları ({providerJobs.length.toLocaleString("tr-TR")})<ChevronDown aria-hidden="true" /></summary>
+            <section className={styles.providerHistory} data-provider-history="" aria-label="Hazırlık kayıtları">
+              {providerJobs.length ? <ul>{providerJobs.map(job => { const status = providerJobStatus(job); return <li key={job.id}><div><strong>{definition.workflow?.actionLabel}</strong><time dateTime={job.updatedAt}>{new Date(job.updatedAt).toLocaleString("tr-TR")}</time></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></li>; })}</ul> : <p>Henüz hazırlık kaydı yok. Harici sağlayıcıya hiçbir çağrı yapılmadı.</p>}
+            </section>
+          </details> :
           <section className={styles.providerHistory} data-provider-history="" aria-labelledby="provider-preparation-title">
             <header><div><span>Harici iş akışı</span><h2 id="provider-preparation-title">Hazırlık kayıtları</h2></div><strong>{providerJobs.length.toLocaleString("tr-TR")}</strong></header>
             {providerJobs.length ? (

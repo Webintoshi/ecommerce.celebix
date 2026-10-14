@@ -1,0 +1,62 @@
+.artwork { display: block; width: 200px; max-width: 100%; height: auto; flex: none; }
+.artPaper { fill: var(--cp-surface); stroke: var(--cp-art-outline); stroke-width: 2.5; stroke-linejoin: round; }
+.artLine { fill: none; stroke: var(--cp-art-outline); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.artAccent { fill: none; stroke: var(--cp-brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.artSoft { fill: var(--cp-art-soft); }
+.artMuted { fill: var(--cp-art-muted); }
+.artInk { fill: var(--cp-art-outline); }
+.entry { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; align-items: center; gap: 32px; padding: 8px 0 24px; border-bottom: 1px solid var(--cp-border); }
+.entryArtwork { width: 160px; }
+.entryIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.entryLogo { width: 32px; height: 32px; flex: none; }
+.entry h2 { margin: 0; color: var(--cp-text-primary); font-size: 18px; font-weight: 600; }
+.entry p { margin: 12px 0 0; max-width: 480px; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; }
+.entry a { white-space: nowrap; }
+.workspace { display: grid; gap: 20px; min-width: 0; color: var(--cp-text-primary); }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
+.sectionHeading { width: 100%; }
+.sectionHeading h2 { flex: 1; margin: 0; font-size: 16px; font-weight: 600; }
+.workspace .sectionHeading > :is(a, button) { min-height: var(--cp-control-height); border-radius: var(--cp-control-radius); font-size: var(--cp-control-font-size); font-weight: var(--cp-control-font-weight); }
+.workspace .sectionHeading > button { min-width: var(--cp-control-height); background: var(--cp-control-background); }
+.sectionHeading p { margin: 4px 0 0; color: var(--cp-text-secondary); font-size: 12px; }
+.workspace :is([data-merchant-toolbar], [data-merchant-workspace]) { min-width: 0; }
+.workspace [data-merchant-toolbar] { padding-top: 0; }
+.workspace [data-merchant-toolbar] input { font-size: 14px; }
+.workspace [aria-label="Pazar Yerleri özeti"] { display: flex; gap: 8px; flex-wrap: wrap; padding: 0; border: 0; }
+.workspace [aria-label="Pazar Yerleri özeti"] > button { display: flex; align-items: center; gap: 8px; min-height: 44px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); }
+.workspace [aria-label="Pazar Yerleri özeti"] > button[aria-pressed="true"] { background: var(--cp-soft); color: var(--cp-text-primary); }
+.workspace [aria-label="Pazar Yerleri özeti"] > button::after { display: none; }
+.workspace [aria-label="Pazar Yerleri özeti"] strong { font-size: 13px; font-weight: 600; }
+.workspace [aria-label="Pazar Yerleri özeti"] small { font-size: 12px; }
+.workspace [aria-label="Pazar Yerleri özeti"] span { color: inherit; font-size: 13px; }
+.empty { display: grid; justify-items: center; gap: 12px; padding: 32px 16px; text-align: center; }
+.empty h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.empty p { max-width: 400px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
+.empty .artwork { width: 176px; margin-bottom: 4px; }
+.workspace [data-provider-settings] { border-top: 1px solid var(--cp-border); padding-block: 12px; }
+.settingsSummary { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 13px; font-weight: 500; cursor: pointer; list-style: none; }
+.settingsSummary::-webkit-details-marker { display: none; }
+.settingsSummary > svg { width: 18px; height: 18px; flex: none; }
+.settingsSummary > svg:last-child { margin-left: auto; transition: transform 140ms ease; }
+.workspace details[open] > .settingsSummary > svg:last-child { transform: rotate(180deg); }
+.providerHelp { margin: 8px 0 16px; max-width: 760px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
+.history { margin-top: 16px; }
+@media (max-width: 1024px) { .entry { grid-template-columns: 120px minmax(0, 1fr); gap: 16px 24px; } .entryArtwork { width: 120px; grid-row: span 2; } .entry > a { justify-self: start; grid-column: 2; } }
+@media (max-width: 640px) {
+  .entry { grid-template-columns: minmax(0, 1fr) 80px; gap: 16px; padding-bottom: 20px; }
+  .entryArtwork { grid-column: 2; grid-row: 1; width: 80px; }
+  .entryContent { grid-column: 1; grid-row: 1; }
+  .entryIdentity { gap: 8px; }
+  .entryLogo { width: 24px; height: 24px; }
+  .entry h2 { font-size: 16px; }
+  .entry p { font-size: 13px; }
+  .entry > a { grid-column: 1 / -1; width: 100%; }
+  .workspace { gap: 16px; }
+  .sectionHeading { align-items: start; }
+  .workspace [aria-label="Pazar Yerleri özeti"] { gap: 4px; }
+  .workspace [aria-label="Pazar Yerleri özeti"] > button { padding-inline: 8px; }
+  .workspace [aria-label="Pazar Yerleri özeti"] > button:has(small) { display: grid; grid-template-columns: auto auto; gap: 0 8px; }
+  .workspace [aria-label="Pazar Yerleri özeti"] small { grid-column: 1 / -1; line-height: 1.4; }
+  .empty { padding: 24px 0; }
+}
+@media (prefers-reduced-motion: reduce) { .settingsSummary > svg { transition: none; } }

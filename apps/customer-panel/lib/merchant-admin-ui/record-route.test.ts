@@ -8,8 +8,12 @@ import ts from "typescript";
 
 import { getMerchantModuleDefinition } from "./presentation.ts";
 import { getMerchantRecordRouteDefinition } from "./record-route.ts";
+import { createRouteFor, editRouteFor } from "./record-route.ts";
 
 test("locks each editor route to one merchant record kind", () => {
+  assert.equal(getMerchantRecordRouteDefinition("marketplace").kind, "marketplace_connection");
+  assert.equal(createRouteFor("marketplace_connection"), "/marketplaces/new");
+  assert.equal(editRouteFor("marketplace_connection", "record-a"), "/marketplaces/record-a/edit");
   assert.equal(getMerchantRecordRouteDefinition("content-blog").kind, "blog_post");
   assert.equal(getMerchantRecordRouteDefinition("payment").kind, "payment_setting");
   assert.equal(getMerchantRecordRouteDefinition("discount").kind, "discount");
@@ -126,6 +130,7 @@ async function compileMerchantRecordEditor(overrides: Readonly<{
     if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError: CompiledMerchantAdminApiError, merchantAdminApi: Object.freeze({ record: overrides.record, save: overrides.save }) };
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
     if (specifier === "@/components/settings/SettingsRecordForm") return { SettingsRecordForm: () => null };
+    if (specifier === "@/components/marketplaces/MarketplaceConnectionForm") return { MarketplaceConnectionForm: () => null };
     if (specifier.endsWith(".module.css")) return styles;
     throw new Error(`unexpected_merchant_record_editor_import:${specifier}`);
   };

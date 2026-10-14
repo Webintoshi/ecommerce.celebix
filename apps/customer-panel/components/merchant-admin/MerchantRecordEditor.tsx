@@ -15,6 +15,7 @@ import {
 } from "@/lib/merchant-admin-ui/presentation";
 
 import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
+import { MarketplaceConnectionForm } from "@/components/marketplaces/MarketplaceConnectionForm";
 import styles from "./merchant-module-console.module.css";
 import operations from "./merchant-operations.module.css";
 
@@ -261,6 +262,15 @@ export function MerchantRecordEditor({
   </PanelPageShell>;
 
   const title = recordId === undefined ? `Yeni ${definition.singular}` : `${definition.singular} düzenle`;
+
+  if (kind === "marketplace_connection") return <div className={operations.workspace}><PanelPageShell>
+    <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
+    <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Pazaryerleri</Link>
+    {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+      {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
+      {loadSucceeded ? <MarketplaceConnectionForm key={`${kind}:${recordId ?? "new"}`} record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
+    </>}
+  </PanelPageShell></div>;
 
   if (definition.family !== "settings") {
     const contentFields = definition.fields.filter(field => field.type === "textarea" || field.type === "string-list");

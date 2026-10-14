@@ -7,6 +7,7 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 export default async function MarketplacesPage() {
   const { tenantContext } = await requireServerPanelAccess();
   return <PanelPageShell><PanelPageHeader title="Pazaryeri" />
+    <h1 className="sr-only">Pazar yerleri</h1>
     {isMerchantActionAllowed(tenantContext.membership.role, "integrations.read") ? <GoogleMerchantMarketplaceCard /> : null}
     <MerchantModuleConsole kind="marketplace_connection" canManage={isMerchantActionAllowed(tenantContext.membership.role, "integrations.manage")} embedded />
   </PanelPageShell>;
