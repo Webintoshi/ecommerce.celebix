@@ -169,7 +169,7 @@ CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_authority_v3(
  p_customer_candidates jsonb,p_normalized_codes jsonb,p_order_id uuid,p_prospective_customer_id uuid,p_operation_id uuid
 ) RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
-DECLARE v_store_id uuid;quote saas.merchant_checkout_quotes_233;response record;quoted record;codes text[];token text;
+DECLARE v_store_id uuid;quote saas.merchant_checkout_quotes_233;response record;scope record;codes text[];token text;
 BEGIN
  IF p_operation_id IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
@@ -182,13 +182,21 @@ BEGIN
  END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('saas.catalog.store:'||v_store_id::text,0));
  SELECT coalesce(array_agg(value ORDER BY ordinality),ARRAY[]::text[]) INTO codes FROM jsonb_array_elements_text(p_normalized_codes) WITH ORDINALITY code(value,ordinality);
- -- Authority is still read-only regarding customers/payments. The only new
- -- write records the same server-issued retail quote exposed by quote V3.
- SELECT * INTO quoted FROM saas.public_checkout_quote_v3(p_hostname,p_now,p_kind,p_credentials,p_customer_candidates,codes,
-  '{"firstTouch":{"source":"unknown","medium":"unknown"},"lastTouch":{"source":"unknown","medium":"unknown"},"landingPathGroup":"/unknown","deviceGroup":"unknown"}'::jsonb);
- IF quoted.outcome IS DISTINCT FROM 'quoted' THEN RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb;RETURN;END IF;
- SELECT * INTO quote FROM saas.merchant_checkout_quote_match_233(quoted.result_payload->>'quoteDigest',v_store_id,p_kind,p_credentials,p_customer_candidates,codes,p_now);
- IF FOUND THEN PERFORM saas.merchant_checkout_price_enter_233(quote.quote_digest);END IF;
+ -- Hosted authority must never issue a new opaque quote that the browser did
+ -- not receive. Old READ ONLY storefronts still hold the exact legacy seal.
+ -- Only a previously issued, currently eligible protected quote is honored.
+ SELECT * INTO scope FROM saas.merchant_checkout_quote_scope_233(v_store_id,p_kind,p_credentials,p_customer_candidates,p_now);
+ IF FOUND THEN
+  SELECT saved.* INTO quote FROM saas.merchant_checkout_quotes_233 saved
+  WHERE saved.store_id=v_store_id AND saved.source_kind=p_kind AND saved.source_id=(scope.price_trace->>'sourceId')::uuid
+   AND saved.source_version=(scope.price_trace->>'sourceVersion')::bigint AND saved.structural_digest=scope.structural_digest
+   AND saved.customer_id IS NOT DISTINCT FROM scope.customer_id AND saved.normalized_codes=codes
+   AND saved.issued_at<=p_now AND saved.expires_at>p_now ORDER BY saved.issued_at DESC,saved.quote_digest LIMIT 1;
+ END IF;
+ IF quote.quote_digest IS NULL THEN
+  RETURN QUERY SELECT * FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);RETURN;
+ END IF;
+ PERFORM saas.merchant_checkout_price_enter_233(quote.quote_digest);
  SELECT * INTO response FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);
  PERFORM saas.merchant_checkout_price_leave_233();
  RETURN QUERY SELECT response.outcome,CASE WHEN response.outcome='found' AND quote.quote_digest IS NOT NULL THEN response.result_payload||jsonb_build_object('pricingDigest',quote.quote_digest) ELSE response.result_payload END;

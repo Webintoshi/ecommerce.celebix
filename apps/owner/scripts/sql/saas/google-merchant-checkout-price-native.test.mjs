@@ -138,6 +138,10 @@ test('233 server-issued quote protects reference activation without trusting cus
     }
     const oldReplica=json(`BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_checkout_quote_v3('a.example.test',date_trunc('milliseconds',now()),'cart','${CREDS}','[]',ARRAY[]::text[],'${ATTR}') q;COMMIT;`);
     assert.equal(oldReplica.outcome,'quoted','native-first deployment keeps old READ ONLY replicas working');
+    const oldHosted=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_storefront_hosted_checkout_authority_v3('a.example.test',date_trunc('milliseconds',now()),'cart','${CREDS}',1,'{}','${CUSTOMER}','[]','[]','90000000-0000-4000-8000-000000000013','${CUSTOMER}','80000000-0000-4000-8000-000000000013') q;`);
+    assert.equal(oldHosted.outcome,'found');
+    assert.equal(oldHosted.result_payload.pricingDigest,oldReplica.result_payload.quoteDigest,'old READ ONLY quote and existing writable hosted authority must keep the same legacy seal');
+    assert.equal(query('SELECT count(*) FROM saas.merchant_checkout_quotes_233;').stdout.trim(),'0','hosted authority must not invent a protected quote the client never received');
     const buyFirst=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_checkout_quote_v3('a.example.test',date_trunc('milliseconds',now()),'buy_now','${INTENT_CREDS}','[]',ARRAY[]::text[],'${ATTR}') q;`);assert.equal(buyFirst.outcome,'quoted');
     const first=quote();assert.equal(first.outcome,'quoted');const token=first.result_payload.quoteDigest;
     query(`SET ROLE celebix_saas_owner;UPDATE saas.pricing_reference_state SET active_set_id='${S2}',version=2 WHERE store_id='${A}'`);
