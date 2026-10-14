@@ -144,6 +144,17 @@ test('233 server-issued quote protects reference activation without trusting cus
     assert.equal(query('SELECT count(*) FROM saas.merchant_checkout_quotes_233;').stdout.trim(),'0','hosted authority must not invent a protected quote the client never received');
     const buyFirst=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_checkout_quote_v3('a.example.test',date_trunc('milliseconds',now()),'buy_now','${INTENT_CREDS}','[]',ARRAY[]::text[],'${ATTR}') q;`);assert.equal(buyFirst.outcome,'quoted');
     const first=quote();assert.equal(first.outcome,'quoted');const token=first.result_payload.quoteDigest;
+    const mixedOldHosted=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_storefront_hosted_checkout_authority_v3('a.example.test',date_trunc('milliseconds',now()),'cart','${CREDS}',1,'{}','${CUSTOMER}','[]','[]','90000000-0000-4000-8000-000000000014','${CUSTOMER}','80000000-0000-4000-8000-000000000014') q;`);
+    assert.equal(mixedOldHosted.outcome,'found');
+    assert.equal(mixedOldHosted.result_payload.pricingDigest,oldReplica.result_payload.quoteDigest,'12-argument old client must keep legacy digest even when a protected quote already exists');
+    const explicitHosted=(digest,time="date_trunc('milliseconds',now())",codes="'[]'",customers="'[]'") => json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_storefront_hosted_checkout_authority_v3('a.example.test',${time},'cart','${CREDS}',1,'{}','${CUSTOMER}',${customers},${codes},'90000000-0000-4000-8000-000000000015','${CUSTOMER}','80000000-0000-4000-8000-000000000015',${digest===null?'NULL':`'${digest}'`}) q;`);
+    const missingExplicit=explicitHosted(null);assert.equal(missingExplicit.outcome,'found');assert.equal(missingExplicit.result_payload.pricingDigest,oldReplica.result_payload.quoteDigest,'an explicit NULL retains legacy/no-confirmation compatibility, even with a protected row');
+    assert.equal(explicitHosted('not-a-seal').outcome,'invalid_input','a malformed non-NULL quote remains invalid');
+    const explicit=explicitHosted(token);assert.equal(explicit.outcome,'found');assert.equal(explicit.result_payload.pricingDigest,token);assert.equal(explicit.result_payload.totalMinor,2100);
+    assert.equal(explicitHosted(oldReplica.result_payload.quoteDigest).result_payload.pricingDigest,oldReplica.result_payload.quoteDigest,'explicit legacy digest uses only legacy authority despite existing protected row');
+    assert.equal(explicitHosted('f'.repeat(64)).outcome,'price_changed','13 arguments reject a forged client quote');
+    assert.equal(explicitHosted(token,"date_trunc('milliseconds',now())+interval '11 minutes'").outcome,'price_changed','13 arguments reject an expired protected quote');
+    assert.equal(explicitHosted(token,"date_trunc('milliseconds',now())","'[\"OTHER\"]'").outcome,'price_changed','13 arguments bind the exact coupon set');
     query(`SET ROLE celebix_saas_owner;UPDATE saas.pricing_reference_state SET active_set_id='${S2}',version=2 WHERE store_id='${A}'`);
     assert.equal(complete(buyFirst.result_payload.quoteDigest,25,'bank_transfer','[]',"date_trunc('milliseconds',now())",INTENT_CREDS,'ARRAY[]::text[]','a.example.test','buy_now').outcome,'committed','buy-now intent quote also protects its server price');
     assert.equal(complete(token,1).outcome,'committed','a valid server quote must survive a manual 10→20 TRY reference activation');
@@ -165,7 +176,7 @@ test('233 server-issued quote protects reference activation without trusting cus
     query('SET ROLE celebix_saas_owner;UPDATE saas.fixture_settings SET discount_cents=100;');
     assert.equal(complete(token,11,'cash_on_delivery').outcome,'committed','COD uses the same protected unit price');
     assert.equal(complete(token,1).outcome,'replayed','committed operation remains replayable');
-    const prepared=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_storefront_hosted_checkout_authority_v3('a.example.test',date_trunc('milliseconds',now()),'cart','${CREDS}',1,'{}','${CUSTOMER}','[]','[]','90000000-0000-4000-8000-000000000012','${CUSTOMER}','80000000-0000-4000-8000-000000000012') q;`);
+    const prepared=json(`SET ROLE celebix_saas_host_resolver;SELECT to_jsonb(q) FROM saas.public_storefront_hosted_checkout_authority_v3('a.example.test',date_trunc('milliseconds',now()),'cart','${CREDS}',1,'{}','${CUSTOMER}','[]','[]','90000000-0000-4000-8000-000000000012','${CUSTOMER}','80000000-0000-4000-8000-000000000012','${token}') q;`);
     assert.equal(prepared.outcome,'found','hosted authority survives the same activation');
     assert.equal(prepared.result_payload.pricingDigest,token);
     assert.equal(prepared.result_payload.totalMinor,2100);

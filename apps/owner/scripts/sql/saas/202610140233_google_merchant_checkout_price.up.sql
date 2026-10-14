@@ -164,45 +164,78 @@ EXCEPTION WHEN OTHERS THEN
  PERFORM saas.merchant_checkout_price_leave_233();RETURN QUERY SELECT 'unavailable',NULL::jsonb;
 END $fn$;
 
+-- The original 12-argument contract always returns the original legacy seal.
+-- Explicit client quote authority is additive; no default can silently select it.
 CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_authority_v3(
  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,
  p_customer_candidates jsonb,p_normalized_codes jsonb,p_order_id uuid,p_prospective_customer_id uuid,p_operation_id uuid
 ) RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
-DECLARE v_store_id uuid;quote saas.merchant_checkout_quotes_233;response record;scope record;codes text[];token text;
 BEGIN
- IF p_operation_id IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+ RETURN QUERY SELECT * FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);
+END $fn$;
+
+DO $overload_guard$
+DECLARE sig text:='saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text)';saved saas.merchant_checkout_price_233_backup;
+BEGIN
+ SELECT * INTO saved FROM saas.merchant_checkout_price_233_backup WHERE signature=sig;
+ IF FOUND THEN
+  IF saved.original_definition<>'' OR saved.published_sha256 IS NULL OR to_regprocedure(sig) IS NULL
+   OR encode(sha256(convert_to(pg_get_functiondef(sig::regprocedure),'UTF8')),'hex')<>saved.published_sha256
+  THEN RAISE EXCEPTION 'MERCHANT_CHECKOUT_233_OVERLOAD_DRIFT';END IF;
+ ELSIF to_regprocedure(sig) IS NOT NULL THEN RAISE EXCEPTION 'MERCHANT_CHECKOUT_233_OVERLOAD_COLLISION';END IF;
+END $overload_guard$;
+
+CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_authority_v3(
+ p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,
+ p_customer_candidates jsonb,p_normalized_codes jsonb,p_order_id uuid,p_prospective_customer_id uuid,p_operation_id uuid,p_expected_quote_digest text
+) RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,saas AS $fn$
+DECLARE v_store_id uuid;quote saas.merchant_checkout_quotes_233;response record;codes text[];bound_token text;
+BEGIN
+ IF p_operation_id IS NULL OR p_expected_quote_digest IS NOT NULL AND p_expected_quote_digest!~'^[a-f0-9]{64}$'
+ THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
+ -- Fixed-price/no-confirmation callers can explicitly pass NULL. This keeps
+ -- the original contract; the HTTP layer still requires dynamic confirmation.
+ IF p_expected_quote_digest IS NULL THEN
+  RETURN QUERY SELECT * FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);RETURN;
+ END IF;
  v_store_id:=saas.storefront_public_store(p_hostname,p_now);
  IF v_store_id IS NULL THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;RETURN;END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('saas.storefront.hosted.checkout.operation:'||p_operation_id::text,0));
  IF EXISTS(SELECT 1 FROM saas.storefront_hosted_checkout_operations WHERE operation_id=p_operation_id) THEN
+  SELECT binding.quote_digest INTO bound_token FROM saas.merchant_checkout_quote_operations_233 binding WHERE binding.store_id=v_store_id AND binding.operation_id=p_operation_id AND binding.operation_kind='hosted';
+  IF bound_token IS NOT NULL AND p_expected_quote_digest IS DISTINCT FROM bound_token THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;RETURN;END IF;
   SELECT * INTO response FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);
-  SELECT binding.quote_digest INTO token FROM saas.merchant_checkout_quote_operations_233 binding WHERE binding.store_id=v_store_id AND binding.operation_id=p_operation_id AND binding.operation_kind='hosted';
-  RETURN QUERY SELECT response.outcome,CASE WHEN response.outcome='found' AND token IS NOT NULL THEN response.result_payload||jsonb_build_object('pricingDigest',token) ELSE response.result_payload END;RETURN;
+  IF response.outcome='found' AND bound_token IS NULL AND response.result_payload->>'pricingDigest' IS DISTINCT FROM p_expected_quote_digest THEN RETURN QUERY SELECT 'price_changed',NULL::jsonb;RETURN;END IF;
+  RETURN QUERY SELECT response.outcome,CASE WHEN response.outcome='found' AND bound_token IS NOT NULL THEN response.result_payload||jsonb_build_object('pricingDigest',bound_token) ELSE response.result_payload END;RETURN;
+ END IF;
+ -- An unknown digest belongs to the backwards-compatible legacy contract.
+ -- Its actual current server seal must still equal the explicitly supplied one.
+ IF NOT EXISTS(SELECT 1 FROM saas.merchant_checkout_quotes_233 WHERE quote_digest=p_expected_quote_digest) THEN
+  SELECT * INTO response FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);
+  IF response.outcome='found' AND response.result_payload->>'pricingDigest' IS DISTINCT FROM p_expected_quote_digest THEN RETURN QUERY SELECT 'price_changed',NULL::jsonb;RETURN;END IF;
+  RETURN QUERY SELECT response.outcome,response.result_payload;RETURN;
  END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('saas.catalog.store:'||v_store_id::text,0));
  SELECT coalesce(array_agg(value ORDER BY ordinality),ARRAY[]::text[]) INTO codes FROM jsonb_array_elements_text(p_normalized_codes) WITH ORDINALITY code(value,ordinality);
- -- Hosted authority must never issue a new opaque quote that the browser did
- -- not receive. Old READ ONLY storefronts still hold the exact legacy seal.
- -- Only a previously issued, currently eligible protected quote is honored.
- SELECT * INTO scope FROM saas.merchant_checkout_quote_scope_233(v_store_id,p_kind,p_credentials,p_customer_candidates,p_now);
- IF FOUND THEN
-  SELECT saved.* INTO quote FROM saas.merchant_checkout_quotes_233 saved
-  WHERE saved.store_id=v_store_id AND saved.source_kind=p_kind AND saved.source_id=(scope.price_trace->>'sourceId')::uuid
-   AND saved.source_version=(scope.price_trace->>'sourceVersion')::bigint AND saved.structural_digest=scope.structural_digest
-   AND saved.customer_id IS NOT DISTINCT FROM scope.customer_id AND saved.normalized_codes=codes
-   AND saved.issued_at<=p_now AND saved.expires_at>p_now ORDER BY saved.issued_at DESC,saved.quote_digest LIMIT 1;
- END IF;
- IF quote.quote_digest IS NULL THEN
-  RETURN QUERY SELECT * FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);RETURN;
- END IF;
+ SELECT * INTO quote FROM saas.merchant_checkout_quote_match_233(p_expected_quote_digest,v_store_id,p_kind,p_credentials,p_customer_candidates,codes,p_now);
+ IF NOT FOUND THEN RETURN QUERY SELECT 'price_changed',NULL::jsonb;RETURN;END IF;
  PERFORM saas.merchant_checkout_price_enter_233(quote.quote_digest);
  SELECT * INTO response FROM saas.public_storefront_hosted_checkout_authority_v3_unprotected_233(p_hostname,p_now,p_kind,p_credentials,p_expected_version,p_delivery,p_payment_method_id,p_customer_candidates,p_normalized_codes,p_order_id,p_prospective_customer_id,p_operation_id);
  PERFORM saas.merchant_checkout_price_leave_233();
- RETURN QUERY SELECT response.outcome,CASE WHEN response.outcome='found' AND quote.quote_digest IS NOT NULL THEN response.result_payload||jsonb_build_object('pricingDigest',quote.quote_digest) ELSE response.result_payload END;
+ -- Coupon/shipping changes must not be presented under a stale opaque seal.
+ IF response.outcome='found' AND response.result_payload->>'pricingDigest' IS DISTINCT FROM quote.legacy_quote_digest THEN RETURN QUERY SELECT 'price_changed',NULL::jsonb;RETURN;END IF;
+ RETURN QUERY SELECT response.outcome,CASE WHEN response.outcome='found' THEN response.result_payload||jsonb_build_object('pricingDigest',quote.quote_digest) ELSE response.result_payload END;
 EXCEPTION WHEN OTHERS THEN
  PERFORM saas.merchant_checkout_price_leave_233();RETURN QUERY SELECT 'authority_unavailable',NULL::jsonb;
 END $fn$;
+REVOKE ALL ON FUNCTION saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text) FROM PUBLIC,celebix_saas_app,celebix_saas_host_resolver,celebix_saas_workflow,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability;
+GRANT EXECUTE ON FUNCTION saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text) TO celebix_saas_host_resolver;
+INSERT INTO saas.merchant_checkout_price_233_backup(signature,engine_signature,original_definition,engine_sha256,published_sha256)
+SELECT 'saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text)',engine_signature,'',engine_sha256,NULL
+FROM saas.merchant_checkout_price_233_backup WHERE signature='saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid)'
+ON CONFLICT(signature) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION saas.public_storefront_hosted_checkout_begin_v3(
  p_hostname text,p_now timestamptz,p_kind text,p_credentials jsonb,p_expected_version bigint,p_delivery jsonb,p_payment_method_id uuid,

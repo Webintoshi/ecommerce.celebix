@@ -903,6 +903,7 @@ test("V3 hosted start binds customer, order, codes and evaluator and pricing dig
     digest: authenticatedCustomer.digest,
   })]);
   assert.deepEqual(prepared.normalizedCodes, NORMALIZED_CODES);
+  assert.equal(prepared.expectedQuoteDigest, PRICING_DIGEST);
   assert.match(String(prepared.orderId), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/u);
   assert.match(String(prepared.prospectiveCustomerId), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/u);
   assert.equal(begun.orderId, prepared.orderId);

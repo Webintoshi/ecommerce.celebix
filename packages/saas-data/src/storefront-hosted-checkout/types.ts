@@ -37,6 +37,9 @@ export type HostedCheckoutAuthorityV2Input = HostedCheckoutAuthorityInput & Read
   orderId: string;
   prospectiveCustomerId: string;
 }>;
+export type HostedCheckoutAuthorityV3Input = HostedCheckoutAuthorityV2Input & Readonly<{
+  expectedQuoteDigest?: string;
+}>;
 
 export type HostedCheckoutAuthority = Readonly<{
   authorityDigest: string;
@@ -178,7 +181,7 @@ export type HostedCheckoutResumeState = Readonly<{
 export interface StorefrontHostedCheckoutRepository {
   authority(input: HostedCheckoutAuthorityInput): Promise<HostedCheckoutAuthority>;
   authorityV2(input: HostedCheckoutAuthorityV2Input): Promise<HostedCheckoutAuthorityV2>;
-  authorityV3(input: HostedCheckoutAuthorityV2Input): Promise<HostedCheckoutAuthorityV3>;
+  authorityV3(input: HostedCheckoutAuthorityV3Input): Promise<HostedCheckoutAuthorityV3>;
   begin(input: HostedCheckoutBeginInput): Promise<HostedCheckoutBeginResult>;
   beginV2(input: HostedCheckoutBeginV2Input): Promise<HostedCheckoutBeginV2Result>;
   beginV3(input: HostedCheckoutBeginV3Input): Promise<HostedCheckoutBeginV2Result>;

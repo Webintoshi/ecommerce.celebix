@@ -9,6 +9,7 @@ export type {
   HostedCheckoutAuthorityV2,
   HostedCheckoutAuthorityV3,
   HostedCheckoutAuthorityV2Input,
+  HostedCheckoutAuthorityV3Input,
   HostedCheckoutBeginInput,
   HostedCheckoutBeginResult,
   HostedCheckoutBeginV2Input,

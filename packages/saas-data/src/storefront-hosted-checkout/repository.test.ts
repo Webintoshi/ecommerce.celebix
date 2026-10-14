@@ -535,13 +535,14 @@ test("V3 hosted authority includes only the opaque pricing proof and uses the na
   const prepared = { ...authorityV2(), pricingDigest: PRICING_DIGEST, requiresQuoteConfirmation: true };
   const client = new Client((text) => text.includes("public_storefront_hosted_checkout_authority_v3")
     ? row("found", prepared) : []);
-  const result = await repository(new Pool([client])).authorityV3({ ...authorityV2Input(), normalizedCodes: [] });
+  const result = await repository(new Pool([client])).authorityV3({ ...authorityV2Input(), normalizedCodes: [], expectedQuoteDigest: PRICING_DIGEST });
   const { postalCode: _nullablePostalCode, ...normalized } = prepared;
   assert.deepEqual(result, normalized);
   const call = client.calls.find(({ text }) => text.includes("public_storefront_hosted_checkout_authority_v3"));
   assert.equal(call?.text,
-    "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid)");
+    "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid,$13::text)");
   assert.deepEqual(call?.values?.[8], JSON.stringify([]));
+  assert.equal(call?.values?.[12], PRICING_DIGEST);
 });
 
 test("V3 hosted begin binds the authority proof at final argument while preserving the V2 durable result shape", async () => {

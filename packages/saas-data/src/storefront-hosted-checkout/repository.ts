@@ -19,6 +19,7 @@ import type {
   HostedCheckoutAuthority,
   HostedCheckoutAuthorityInput,
   HostedCheckoutAuthorityV2Input,
+  HostedCheckoutAuthorityV3Input,
   HostedCheckoutBeginInput,
   HostedCheckoutBeginV2Input,
   HostedCheckoutBeginV3Input,
@@ -227,12 +228,12 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
-  async authorityV3(input: HostedCheckoutAuthorityV2Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
+  async authorityV3(input: HostedCheckoutAuthorityV3Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
     try {
       const parsed = hostedExact(input, [
         "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
         "customerCandidates", "normalizedCodes", "orderId", "prospectiveCustomerId", "operationId",
-      ]);
+      ], ["expectedQuoteDigest"]);
       const base = this.authorityValues({
         hostname: parsed.hostname as string, now: parsed.now as Date,
         intentKind: parsed.intentKind as "cart" | "buy_now",
@@ -247,8 +248,9 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         JSON.stringify(hostedInput.candidates(parsed.customerCandidates, true)),
         JSON.stringify(hostedPromotionCodes(parsed.normalizedCodes)),
         orderId, hostedInput.uuid(parsed.prospectiveCustomerId), hostedInput.uuid(parsed.operationId),
+        parsed.expectedQuoteDigest === undefined ? null : hostedInput.digest(parsed.expectedQuoteDigest),
       ];
-      const text = "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid)";
+      const text = "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid,$13::text)";
       const client = await this.acquire(); let began = false; let terminal = false;
       try {
         await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);

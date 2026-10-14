@@ -437,6 +437,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           normalizedCodes,
           orderId: preparedOrderId,
           prospectiveCustomerId: derivedV2Uuid("prospective-customer", input.hostname, input.request.operationId),
+          ...(input.request.expectedQuoteDigest === undefined ? {} : { expectedQuoteDigest: input.request.expectedQuoteDigest }),
         });
         if (authority.orderId !== preparedOrderId || !UUID.test(authority.customerId)
           || !DIGEST.test(authority.authorityDigest) || !DIGEST.test(authority.evaluatorAuthorityDigest)

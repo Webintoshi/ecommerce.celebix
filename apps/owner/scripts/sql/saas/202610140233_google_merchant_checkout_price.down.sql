@@ -17,8 +17,9 @@ BEGIN
    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(saved.engine_signature::regprocedure),'UTF8')),'hex') IS DISTINCT FROM saved.engine_sha256
   THEN RAISE EXCEPTION 'MERCHANT_CHECKOUT_233_SOURCE_DRIFT';END IF;
  END LOOP;
- FOR saved IN SELECT * FROM saas.merchant_checkout_price_233_backup LOOP EXECUTE saved.original_definition;END LOOP;
- FOR saved IN SELECT * FROM saas.merchant_checkout_price_233_backup LOOP EXECUTE 'DROP FUNCTION '||saved.engine_signature;END LOOP;
+ FOR saved IN SELECT * FROM saas.merchant_checkout_price_233_backup WHERE original_definition<>'' LOOP EXECUTE saved.original_definition;END LOOP;
+ DROP FUNCTION IF EXISTS saas.public_storefront_hosted_checkout_authority_v3(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text);
+ FOR saved IN SELECT DISTINCT engine_signature FROM saas.merchant_checkout_price_233_backup LOOP EXECUTE 'DROP FUNCTION '||saved.engine_signature;END LOOP;
 END $rollback$;
 DROP FUNCTION IF EXISTS saas.merchant_checkout_quote_match_233(text,uuid,text,jsonb,jsonb,text[],timestamptz);
 DROP FUNCTION IF EXISTS saas.merchant_checkout_quote_scope_233(uuid,text,jsonb,jsonb,timestamptz);
