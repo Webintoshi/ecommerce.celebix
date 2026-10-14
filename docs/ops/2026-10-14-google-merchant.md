@@ -36,3 +36,6 @@
 
 ## Capacity incident during publication
 Host root disk filled during the first build. Root reclaimed 12.72 GB reconstructible build cache and 3.18 GB unused image content; database volumes and 8.7 GB backup directory were preserved. Both databases recovered healthy. The stalled owned publication was cancelled and rebuilt. The NET worker strict-environment parser was corrected after live startup validation; its readiness log contains no private data. Remaining free space is checked between publications.
+
+## Final runtime acceptance
+All four shared apps published source `b4ece71accb913b576c2c5a6ed641701abda2e7b`; owner apps remained at `4f290ad33f8b921d3184782a10c6ef85350c7be0`. NET worker emitted `google_merchant_worker_ready`. Both storefronts are healthy. Direct HTTPS origin probe of Alpler adizero-boston selected variant `02de2066-59de-5d53-ac25-24ab833b2485` returned exactly one offer at TRY 2600.00, matching native effective price 260000 cents. Delivery singleton activated after this acceptance. Anonymous Merchant API returns 401. No real Merchant account connected and no live product upload claimed. Remaining Google API/developer registration and real account onboarding require account-level acceptance.

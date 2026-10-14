@@ -46,5 +46,5 @@
 - [x] Implement authenticated merchant HTTP routes and server runtime registration using existing origin/session/role/idempotency boundaries.
 - [x] Wire bounded durable worker into existing deployed worker runtime, with encrypted credential refresh, quota backoff and Google status reconciliation.
 - [x] Ensure variant-specific shared storefront landing and structured data are truthful; add missing safe query selection if needed.
-- [ ] Scoped independent review, TypeScript and affected build. Apply compatible SQL safely, deploy shared apps NET → SITE and verify running source/live page.
-- [ ] Report code/release completion separately from Google's external account/approval requirements; do not send live product data under a new user's account without their OAuth/Apply action.
+- [x] Scoped independent review, TypeScript and affected build. Apply compatible SQL safely, deploy shared apps NET → SITE and verify running source/live page.
+- [x] Report code/release completion separately from Google's external account/approval requirements; do not send live product data under a new user's account without their OAuth/Apply action.
