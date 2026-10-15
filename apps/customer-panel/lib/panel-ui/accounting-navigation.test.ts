@@ -11,3 +11,5 @@ test('accounting menu reaches each financial workspace and retains legal/invoice
   assert.equal(isPanelNavigationPathActive('/accounting/receivables','/accounting'),true);
   assert.equal(getPanelNavigation({analyticsAvailable:false,navigationMode:'register'}).some(item=>item.key==='accounting'),false);
 });
+
+test('customer debt navigation uses the same plain label in the menu and route',()=>{const group=getPanelNavigation({analyticsAvailable:false}).find(item=>item.key==='accounting');assert.equal(group?.children?.find(item=>item.href==='/accounting/receivables')?.label,'Müşteri borçları');assert.equal(getPanelRoutePresentation('/accounting/receivables').title,'Müşteri borçları');});

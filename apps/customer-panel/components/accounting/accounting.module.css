@@ -22,3 +22,26 @@
 .collectionLoading>div:first-of-type{height:80px}
 .financeLoading{min-height:224px}
 .financeLoading>div{height:24px}
+.effects{display:grid;gap:12px;min-width:0;padding:16px;border:1px solid var(--cp-border);border-radius:12px;background:var(--cp-canvas)}
+.effects h3{margin:0;font-size:14px;font-weight:600;color:var(--cp-text-primary)}
+.effectRow{display:grid;gap:12px;min-width:0;padding-top:12px;border-top:1px solid var(--cp-border)}
+.effectRow>strong{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.effectAmounts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;min-width:0}
+.effectAmounts>div{display:grid;gap:4px;min-width:0}
+.effectAmounts dt{font-size:12px;color:var(--cp-text-secondary)}
+.effectAmounts dd{margin:0;font-size:14px;font-weight:500;color:var(--cp-text-primary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.effectNote{margin:0;font-size:12px;line-height:1.6;color:var(--cp-text-secondary)}
+.balanceMetrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.currencyLabel{margin:0}
+.subheading{margin:0;font-size:14px;font-weight:600}
+.accountBalances{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0}
+.accountBalances>div{display:grid;gap:8px;min-width:0;padding:16px 0;border-top:1px solid var(--cp-border)}
+.accountBalances dt{font-size:13px;font-weight:500;overflow-wrap:anywhere}
+.accountBalances small{display:block;margin-top:4px;font-size:12px;font-weight:400;color:var(--cp-text-secondary)}
+.accountBalances dd{margin:0;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.loadingCurrency{height:16px;width:40px;border-radius:4px;background:var(--cp-border)}
+.loadingAccountBalances{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.loadingAccountBalances>div{display:grid;gap:8px;padding:16px 0;border-top:1px solid var(--cp-border)}
+.dialogActions .primary{white-space:normal;text-align:center;max-width:100%}
+@media(max-width:1280px){.balanceMetrics,.accountBalances,.loadingAccountBalances{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.effectAmounts{grid-template-columns:minmax(0,1fr);gap:8px}.effectAmounts>div{display:flex;justify-content:space-between;gap:16px}.balanceMetrics,.accountBalances,.loadingAccountBalances{grid-template-columns:minmax(0,1fr)}.dialogHeader h2{font-size:16px;overflow-wrap:anywhere}.dialogActions{flex-wrap:wrap}.dialogActions .primary{flex:1;min-width:0}.rowActions>button{white-space:normal;text-align:left}.effects{padding:12px}.accountBalances dd{font-size:20px}}

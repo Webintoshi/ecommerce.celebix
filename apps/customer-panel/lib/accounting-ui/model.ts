@@ -11,7 +11,7 @@ export function previewCollection(rows:readonly AccountingReceivable[],amountCen
 export const accountingMoney=(cents:number,currency="TRY")=>new Intl.NumberFormat("tr-TR",{style:"currency",currency}).format(cents/100);
 export const accountingDate=(value:string)=>new Intl.DateTimeFormat("tr-TR",{dateStyle:"short",timeStyle:value.length>10?"short":undefined}).format(new Date(value));
 export const ACCOUNT_TYPE_LABELS={cash:"Kasa",bank:"Banka",card:"Kart hesabı"};
-export const EVENT_LABELS:Readonly<Record<string,string>>={sale:"Satış",collection:"Tahsilat",opening_debt:"Açılış borcu",opening_balance:"Açılış bakiyesi",expense:"Ödenmiş gider",transfer:"Transfer",transfer_out:"Transfer çıkışı",transfer_in:"Transfer girişi",card_settlement:"Kart aktarımı",commission:"Komisyon",reversal:"Ters kayıt",return_credit:"İade alacağı",refund:"Para iadesi"};
+export const EVENT_LABELS:Readonly<Record<string,string>>={sale:"Satış",collection:"Alınan ödeme",opening_debt:"Önceden kalan borç",account_opening:"Başlangıç parası",opening_balance:"Başlangıç parası",expense:"Ödenmiş gider",transfer:"Hesaplar arası aktarım",transfer_out:"Hesaptan çıkan aktarım",transfer_in:"Hesaba gelen aktarım",card_settlement:"Bankaya geçen kart ödemesi",commission:"Kart komisyonu",reversal:"Düzeltme kaydı",return_credit:"İade kaydı",refund:"Yapılan para iadesi"};
 export function accountingEventContext(event: AccountingEvent) {
   const allocatedOrders = Array.from(new Set(event.allocations.map(row => row.orderId).filter((id): id is string => Boolean(id))));
   const orderId = event.orderId ?? (allocatedOrders.length === 1 ? allocatedOrders[0]! : null);
@@ -29,4 +29,4 @@ export function accountingFilterQuery(draft: Readonly<Record<string, string>>): 
   }
   return values as AccountingFilters;
 }
-export function toExpenseCsv(events:readonly AccountingEvent[]):string{const cell=(value:string)=>`"${(/^[=+@\-\t\r]/.test(value)?"'":"")+value.replaceAll('"','""')}"`;return '\uFEFF'+[["Tarih","Kategori","Belge numarası","Açıklama","Tutar","Para birimi","Durum"],...events.map(event=>[accountingDate(event.occurredAt),event.category??"",event.documentNumber??"",event.note??"",(event.amountCents/100).toFixed(2).replace(".",","),event.currency,event.reversed?"Ters kaydedildi":"Ödendi"])].map(row=>row.map(cell).join(";")).join("\r\n");}
+export function toExpenseCsv(events:readonly AccountingEvent[]):string{const cell=(value:string)=>`"${(/^[=+@\-\t\r]/.test(value)?"'":"")+value.replaceAll('"','""')}"`;return '\uFEFF'+[["Tarih","Kategori","Belge numarası","Açıklama","Tutar","Para birimi","Durum"],...events.map(event=>[accountingDate(event.occurredAt),event.category??"",event.documentNumber??"",event.note??"",(event.amountCents/100).toFixed(2).replace(".",","),event.currency,event.reversed?"Geri alındı":"Ödendi"])].map(row=>row.map(cell).join(";")).join("\r\n");}

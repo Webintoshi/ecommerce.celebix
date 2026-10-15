@@ -241,7 +241,7 @@ const SETTINGS_CHILDREN = Object.freeze([
 
 const ACCOUNTING_CHILDREN = Object.freeze([
   item("accounting-summary", "Özet", "/accounting", "accounting"),
-  item("accounting-receivables", "Müşteri Hesapları", "/accounting/receivables", "customers"),
+  item("accounting-receivables", "Müşteri borçları", "/accounting/receivables", "customers"),
   item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounts"),
   item("accounting-expenses", "Giderler", "/accounting/expenses", "expenses"),
   item("accounting-settings", "İşletme Bilgileri", "/accounting/settings", "business"),
@@ -359,7 +359,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/analytics": presentation("Analitik ve sepet"),
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
-  "/accounting/receivables": presentation("Müşteri Hesapları"),
+  "/accounting/receivables": presentation("Müşteri borçları"),
   "/accounting/accounts": presentation("Kasa ve Banka"),
   "/accounting/expenses": presentation("Giderler"),
   "/accounting/settings": presentation("İşletme Bilgileri"),

@@ -177,7 +177,7 @@ test("marks only real in-application workflows durable and external execution pr
   ] as const) {
     const definition = getMerchantModuleDefinition(kind);
     assert.equal(definition.execution, "provider_required");
-    assert.match(definition.notice ?? "", /sağlayıcı/i);
+    assert.match(definition.notice ?? "", /sağlayıcı|hizmet bağlantısı/i);
   }
 
   for (const kind of [
