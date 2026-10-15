@@ -57,3 +57,35 @@
 .scheduleLoading>div{height:44px;border-radius:8px;background:var(--cp-border)}
 .scheduleLoading>div:first-of-type{height:80px}
 @media(max-width:700px){.dueViews{gap:8px}.dueViews button{flex:1;padding:8px 12px}.scheduleRow{grid-template-columns:minmax(0,1fr) 44px}.scheduleRow .field{grid-column:1}.scheduleRow .iconButton{grid-column:2;grid-row:2}.scheduleTable table{min-width:480px}}
+.cashAccountPicker{display:flex;align-items:end;gap:12px;min-width:0;flex-wrap:wrap}
+.cashAccountPicker .field{min-width:200px;max-width:100%}
+.cashData{display:grid;gap:24px;min-width:0;min-height:400px;align-content:start}
+.cashCurrent{min-height:280px;align-content:start;display:grid;gap:16px;min-width:0;padding:20px;border:1px solid var(--cp-border);border-radius:12px;background:var(--cp-surface)}
+.cashState{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cashState h2{margin:0;font-size:16px;font-weight:600}
+.cashState>span{font-size:12px;color:var(--cp-text-secondary)}
+.cashMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:0;min-width:0}
+.cashMetrics>div{display:grid;align-content:start;gap:8px;min-width:0}
+.cashMetrics dt{font-size:12px;color:var(--cp-text-secondary)}
+.cashMetrics dd{margin:0;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cashDifferences{display:grid;gap:12px;margin:0;min-width:0}
+.cashDifferences>div{display:flex;justify-content:space-between;gap:16px;padding-top:12px;border-top:1px solid var(--cp-border);min-width:0}
+.cashDifferences dt{font-size:13px;color:var(--cp-text-secondary)}
+.cashDifferences dd{margin:0;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cashHistory table{min-width:880px}
+.cashDetails{max-width:280px;min-width:160px;font-size:12px}
+.cashDetails summary{display:flex;align-items:center;min-height:44px;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.cashDetails summary:focus-visible{outline:2px solid var(--cp-graphite);outline-offset:2px}
+.cashDetails dl{display:grid;gap:12px;margin:12px 0}
+.cashDetails dl>div{display:grid;gap:4px}
+.cashDetails dt{color:var(--cp-text-secondary)}
+.cashDetails dd{margin:0}
+.cashDetails p{white-space:normal;overflow-wrap:anywhere;line-height:1.6}
+.cashLoading{display:grid;gap:24px;min-height:400px}
+.cashHistorySection{min-height:400px;align-content:start}
+.cashSkeletonLine{height:20px;width:64%;border-radius:4px;background:var(--cp-border)}
+.cashLoading i,.cashLoading b{display:block;height:12px;border-radius:4px;background:var(--cp-border)}
+.cashLoading b{height:32px;width:64%}
+.rowActions>a.quiet{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
+@media(max-width:1280px){.cashMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.cashAccountPicker{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;gap:8px}.cashAccountPicker .field{min-width:0}.cashCurrent{min-height:420px;padding:16px}.cashMetrics{gap:20px 12px}.cashMetrics dd{font-size:20px}.cashDifferences>div{display:grid;gap:8px}.cashDifferences dd{text-align:left}.cashLoading{gap:20px}.cashData{gap:20px}.cashState{align-items:start;flex-direction:column}}

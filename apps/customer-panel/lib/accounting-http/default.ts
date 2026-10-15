@@ -10,10 +10,12 @@ type Context=Readonly<{params:Promise<Readonly<{path:readonly string[]}>>}>;
 function missing(){return Response.json({code:'not_found'},{status:404,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});}
 export async function handleDefaultAccountingGet(request:Request,context:Context){
   const {path}=await context.params;
+  if(path.length===1&&path[0]==='cash-sessions')return handlers.cashSessions(request);
+  if(path.length===2&&path[0]==='cash-session-operations')return handlers.cashOperation(request,path[1]);
   if(path.length===1&&path[0]==='schedules')return handlers.schedules(request);
   if(path.length===1&&path[0]==='collection-preview')return handlers.preview(request);
   if(path.length===1&&['overview','receivables','accounts','expenses','collection-accounts'].includes(path[0]!))return handlers.get(request,path[0] as AccountingReadArea);
   if(path.length===2){if(path[0]==='schedules')return handlers.schedule(request,path[1]);if(path[0]==='schedule-operations')return handlers.scheduleOperation(request,path[1]);if(path[0]==='customers')return handlers.customer(request,path[1]);if(path[0]==='orders')return handlers.order(request,path[1]);if(path[0]==='operations')return handlers.operation(request,path[1]);}
   return missing();
 }
-export async function handleDefaultAccountingPost(request:Request,context:Context){const {path}=await context.params;if(path.length===1&&path[0]==='schedules')return handlers.saveSchedule(request);const kind=path.length===1?MUTATIONS[path[0]!]:undefined;return kind?handlers.mutate(request,kind):missing();}
+export async function handleDefaultAccountingPost(request:Request,context:Context){const {path}=await context.params;if(path.length===2&&path[0]==='cash-sessions'&&(path[1]==='open'||path[1]==='close'))return handlers.cashMutate(request,path[1]);if(path.length===1&&path[0]==='schedules')return handlers.saveSchedule(request);const kind=path.length===1?MUTATIONS[path[0]!]:undefined;return kind?handlers.mutate(request,kind):missing();}

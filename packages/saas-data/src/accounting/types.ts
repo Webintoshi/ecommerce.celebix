@@ -2,6 +2,7 @@ import type { TenantContext } from '@celebix/saas-contracts';
 import type { AccountingAccounts,AccountingCollectionAccounts,AccountingCollectionPreview,AccountingCustomerAccount,AccountingExpenses,AccountingFilters,AccountingIntentMap,AccountingMutation,AccountingMutationResult,AccountingOrderFinance,AccountingOverview,AccountingReceivables } from '../../../saas-contracts/src/accounting/index.ts';
 import type { PostgresPoolLike,PostgresTimeoutOptions } from '../postgres/pool.ts';
 import type {AccountingScheduleFilters,AccountingDebtSchedule,AccountingSchedules,AccountingScheduleIntent,AccountingScheduleResult} from '../../../saas-contracts/src/accounting/index.ts';
+import type {AccountingCashAction,AccountingCashIntentMap,AccountingCashResult,AccountingCashSessions} from '../../../saas-contracts/src/accounting/index.ts';
 export interface AccountingAuthorityInput { readonly tenantContext:TenantContext; readonly now:Date; }
 export interface AccountingReadInput extends AccountingAuthorityInput { readonly filters?:AccountingFilters; }
 export interface AccountingCustomerInput extends AccountingAuthorityInput { readonly customerId:string; readonly currency?:string; }
@@ -12,8 +13,13 @@ export interface AccountingOperationInput extends AccountingAuthorityInput { rea
 export interface AccountingSchedulesInput extends AccountingAuthorityInput {readonly filters?:AccountingScheduleFilters;}
 export interface AccountingScheduleInput extends AccountingAuthorityInput {readonly receivableId:string;}
 export interface AccountingScheduleSaveInput extends AccountingAuthorityInput {readonly operationId:string;readonly intent:AccountingScheduleIntent;}
+export interface AccountingCashListInput extends AccountingAuthorityInput {readonly accountId:string;}
+export interface AccountingCashMutationInput<K extends AccountingCashAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingCashIntentMap[K];}
 export interface PostgresAccountingRepositoryOptions { readonly pool:PostgresPoolLike; readonly role:'celebix_saas_app'; readonly timeouts:PostgresTimeoutOptions; }
 export interface AccountingRepository {
+ cashSessions(input:AccountingCashListInput):Promise<AccountingCashSessions>;
+ cashMutate<K extends AccountingCashAction>(input:AccountingCashMutationInput<K>):Promise<AccountingCashResult>;
+ cashOperation(input:AccountingOperationInput):Promise<AccountingCashResult|null>;
  schedules(input:AccountingSchedulesInput):Promise<AccountingSchedules>;
  schedule(input:AccountingScheduleInput):Promise<AccountingDebtSchedule>;
  saveSchedule(input:AccountingScheduleSaveInput):Promise<AccountingScheduleResult>;

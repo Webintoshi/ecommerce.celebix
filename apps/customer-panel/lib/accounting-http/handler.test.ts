@@ -77,3 +77,14 @@ test('schedule routes bind manager authority, trusted tenant and a dedicated ope
  assert.equal((await setup({},'cashier').saveSchedule(request('/api/accounting/schedules','POST',intent))).status,403);
  assert.equal(calls.length,4);
 });
+test('cash count routes bind one cash account and reject cashier origin and extra authority',async()=>{
+ const calls:any[]=[];const h=setup({cashSessions:async(v:unknown)=>{calls.push(v);return{};},cashMutate:async(v:unknown)=>{calls.push(v);return{};},cashOperation:async(v:unknown)=>{calls.push(v);return null;}});assert.equal(typeof (h as any).cashSessions,'function');
+ assert.equal((await (h as any).cashSessions(request(`/api/accounting/cash-sessions?accountId=${ID}`))).status,200);assert.equal(calls[0].accountId,ID);
+ const intent={accountId:ID,expectedVersion:1,expectedLastSessionId:null,countedCents:0,note:null};assert.equal((await (h as any).cashMutate(request('/api/accounting/cash-sessions/open','POST',intent),'open')).status,200);assert.equal(calls[1].operationId,OP);assert.equal(calls[1].kind,'open');
+ assert.equal((await (h as any).cashOperation(request(`/api/accounting/cash-session-operations/${OP}`),OP)).status,200);
+ assert.equal((await (h as any).cashSessions(request(`/api/accounting/cash-sessions?accountId=${ID}&accountId=${OP}`))).status,400);
+ assert.equal((await (h as any).cashMutate(request('/api/accounting/cash-sessions/open','POST',{...intent,storeId:ID}),'open')).status,400);
+ assert.equal((await (h as any).cashMutate(request('/api/accounting/cash-sessions/open','POST',intent,{origin:'https://evil.example'}),'open')).status,403);
+ for(const role of ['cashier','analyst','editor'])assert.equal((await (setup({},role) as any).cashSessions(request(`/api/accounting/cash-sessions?accountId=${ID}`))).status,403);
+ assert.equal(calls.length,3);
+});

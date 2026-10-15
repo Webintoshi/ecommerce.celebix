@@ -1,5 +1,6 @@
 import {accountingUuid,accountingInteger,parseAccountingFilters,parseAccountingIntent,isMerchantActionAllowed,type AccountingMutation,type TenantContext} from '@celebix/saas-contracts';
 import {parseAccountingScheduleIntent,parseAccountingScheduleFilters} from '@celebix/saas-contracts';
+import {parseAccountingCashIntent,type AccountingCashAction} from '@celebix/saas-contracts';
 import {readOrderPanelSessionCookie} from '../order-http/request-input.ts';
 import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from '../panel-origin-authority.ts';
 import type {ServerAccountingRuntime} from '../server-accounting/runtime.ts';
@@ -42,6 +43,9 @@ async function execute(run:()=>Promise<unknown>){try{return json({data:await run
 export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
   if(!deps||typeof deps.resolveRuntime!=='function'||typeof deps.now!=='function'||typeof deps.requestId!=='function')throw TypeError('accounting_http_invalid');
   return Object.freeze({
+    async cashSessions(request:Request){const auth=await authorize(deps,request,'GET','/api/accounting/cash-sessions',true);if(auth instanceof Response)return auth;let accountId;try{const params=new URL(request.url).searchParams;if(params.size!==1||params.getAll('accountId').length!==1)throw TypeError('invalid_input');accountId=accountingUuid(params.get('accountId'));}catch{return failure('invalid_input');}return execute(()=>auth.runtime.accounting.cashSessions({tenantContext:auth.tenantContext,now:auth.now,accountId}));},
+    async cashOperation(request:Request,rawId:unknown){let operationId;try{operationId=accountingUuid(rawId);}catch{return failure('invalid_input');}const auth=await authorize(deps,request,'GET',`/api/accounting/cash-session-operations/${operationId}`);if(auth instanceof Response)return auth;return execute(()=>auth.runtime.accounting.cashOperation({tenantContext:auth.tenantContext,now:auth.now,operationId}));},
+    async cashMutate(request:Request,kind:AccountingCashAction){if(kind!=='open'&&kind!=='close')return failure('invalid_input');const auth=await authorize(deps,request,'POST',`/api/accounting/cash-sessions/${kind}`);if(auth instanceof Response)return auth;let operationId,intent;try{operationId=accountingUuid(request.headers.get('idempotency-key'));intent=parseAccountingCashIntent(kind,await body(request));}catch{return failure('invalid_input');}return execute(()=>auth.runtime.accounting.cashMutate({tenantContext:auth.tenantContext,now:auth.now,operationId,kind,intent}));},
     async schedules(request:Request){
       const auth=await authorize(deps,request,'GET','/api/accounting/schedules',true,true);if(auth instanceof Response)return auth;
       let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingScheduleFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}
