@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {existsSync} from 'node:fs';
+import {compile} from '../mira-final-test-support.ts';
+const load=()=>{assert.ok(existsSync(new URL('./supplier-model.ts',import.meta.url)),'supplier preview and recovery model exists');return compile('lib/accounting-ui/supplier-model.ts')};
+const debt={id:'9d000000-0000-4000-8000-000000000001',currency:'TRY',amountCents:100000,paidCents:20000,dueCents:80000,status:'partial'},account={id:'9d000000-0000-4000-8000-000000000002',type:'cash',currency:'TRY',balanceCents:150000};
+test('partial payment preview changes debt and cash by the same exact amount',()=>{const{supplierPaymentPreview}=load();assert.deepEqual(supplierPaymentPreview(debt,account,30000),{dueBeforeCents:80000,dueAfterCents:50000,balanceBeforeCents:150000,balanceAfterCents:120000,error:null});});
+test('payment preview refuses overpayment, insufficient funds, currencies and cards',()=>{const{supplierPaymentPreview}=load();assert.match(supplierPaymentPreview(debt,account,80001).error,/kalan borcu aşamaz/);assert.match(supplierPaymentPreview(debt,{...account,balanceCents:29999},30000).error,/hesapta yeterli para yok/);assert.ok(supplierPaymentPreview(debt,{...account,currency:'USD'},30000).error);assert.ok(supplierPaymentPreview(debt,{...account,type:'card'},30000).error);assert.ok(supplierPaymentPreview(debt,account,null).error);});
+test('reversal preview restores debt and money without safe-integer overflow',()=>{const{supplierPaymentPreview}=load();assert.equal(supplierPaymentPreview(debt,account,20000,true).dueAfterCents,100000);assert.equal(supplierPaymentPreview(debt,account,20000,true).balanceAfterCents,170000);assert.ok(supplierPaymentPreview(debt,{...account,balanceCents:Number.MAX_SAFE_INTEGER},1,true).error);});
+test('persisted amount text does not round a maximum safe integer cent',()=>{const{supplierAmountText}=load();assert.equal(supplierAmountText(Number.MAX_SAFE_INTEGER),'90071992547409.91');});
+test('supplier balance display preserves the last cent at the safe integer limit',()=>{const model=load();assert.equal(typeof model.supplierMoney,'function');assert.match(model.supplierMoney(Number.MAX_SAFE_INTEGER,'TRY'),/90\.071\.992\.547\.409,91/);assert.match(model.supplierMoney(1,'TRY'),/0,01/);});

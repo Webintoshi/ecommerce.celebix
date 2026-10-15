@@ -1,3 +1,4 @@
+import type {AccountingSupplierAction,AccountingSupplierIntentMap,AccountingSupplierFilters,AccountingSupplierList,AccountingSupplierDetail,AccountingSupplierResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type { TenantContext } from '@celebix/saas-contracts';
 import type { AccountingAccounts,AccountingCollectionAccounts,AccountingCollectionPreview,AccountingCustomerAccount,AccountingExpenses,AccountingFilters,AccountingIntentMap,AccountingMutation,AccountingMutationResult,AccountingOrderFinance,AccountingOverview,AccountingReceivables } from '../../../saas-contracts/src/accounting/index.ts';
 import type { PostgresPoolLike,PostgresTimeoutOptions } from '../postgres/pool.ts';
@@ -16,7 +17,14 @@ export interface AccountingScheduleSaveInput extends AccountingAuthorityInput {r
 export interface AccountingCashListInput extends AccountingAuthorityInput {readonly accountId:string;}
 export interface AccountingCashMutationInput<K extends AccountingCashAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingCashIntentMap[K];}
 export interface PostgresAccountingRepositoryOptions { readonly pool:PostgresPoolLike; readonly role:'celebix_saas_app'; readonly timeouts:PostgresTimeoutOptions; }
+export interface AccountingSuppliersInput extends AccountingAuthorityInput {readonly filters?:AccountingSupplierFilters;}
+export interface AccountingSupplierInput extends AccountingAuthorityInput {readonly debtId:string;}
+export interface AccountingSupplierMutationInput<K extends AccountingSupplierAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingSupplierIntentMap[K];}
 export interface AccountingRepository {
+ suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;
+ supplier(input:AccountingSupplierInput):Promise<AccountingSupplierDetail>;
+ supplierMutate<K extends AccountingSupplierAction>(input:AccountingSupplierMutationInput<K>):Promise<AccountingSupplierResult>;
+ supplierOperation(input:AccountingOperationInput):Promise<AccountingSupplierResult|null>;
  cashSessions(input:AccountingCashListInput):Promise<AccountingCashSessions>;
  cashMutate<K extends AccountingCashAction>(input:AccountingCashMutationInput<K>):Promise<AccountingCashResult>;
  cashOperation(input:AccountingOperationInput):Promise<AccountingCashResult|null>;
