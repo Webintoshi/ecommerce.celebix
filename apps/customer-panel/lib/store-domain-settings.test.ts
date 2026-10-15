@@ -7,7 +7,7 @@ const source = (path: string) => readFile(new URL(path, root), "utf8");
 
 test("settings domain route is tenant-authorized and uses the live domain client", async () => {
   const [page, component, css, navigation, overview] = await Promise.all([
-    source("app/settings/domains/page.tsx"),
+    source("app/(panel)/settings/domains/page.tsx"),
     source("components/settings/domains/StoreDomainSettings.tsx"),
     source("components/settings/domains/store-domain-settings.module.css"),
     source("lib/panel-ui/navigation.ts"),

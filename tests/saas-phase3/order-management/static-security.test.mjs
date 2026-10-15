@@ -27,8 +27,8 @@ const ORDER_ROUTE_FILES = Object.freeze([
   "apps/customer-panel/app/api/orders/[orderId]/status/route.ts",
   "apps/customer-panel/app/api/orders/route.ts",
   "apps/customer-panel/app/api/orders/summary/route.ts",
-  "apps/customer-panel/app/orders/[orderId]/page.tsx",
-  "apps/customer-panel/app/orders/page.tsx",
+  "apps/customer-panel/app/(panel)/orders/[orderId]/page.tsx",
+  "apps/customer-panel/app/(panel)/orders/page.tsx",
 ]);
 
 const SQL_ARTIFACTS = Object.freeze({
@@ -74,8 +74,8 @@ test("keeps tenant principal membership and plan IDs out of browser DTO and DOM 
     "apps/customer-panel/components/orders/OrderListConsole.tsx",
     "apps/customer-panel/components/orders/OrderDetailConsole.tsx",
     "apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx",
-    "apps/customer-panel/app/orders/page.tsx",
-    "apps/customer-panel/app/orders/[orderId]/page.tsx",
+    "apps/customer-panel/app/(panel)/orders/page.tsx",
+    "apps/customer-panel/app/(panel)/orders/[orderId]/page.tsx",
   ];
   const source = (await Promise.all(browserSources.map(read))).join("\n");
   assert.doesNotMatch(source, /\b(?:tenantId|storeId|principalId|membershipId|planId|domainId|requestId)\b/);

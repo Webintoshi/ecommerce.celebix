@@ -789,7 +789,13 @@ export function ProductListConsole({
       {rowsStale ? <div id="product-stale-warning" className="feedback feedback-error" role="alert"><div><strong>Ürün satırları doğrulanamadı</strong><p>Uzlaştırma başarısız; görüntülenen satırlar güncel olmayabilir.</p></div><button className="button button-secondary" type="button" onClick={() => void retryStaleRows()} disabled={loading || busy}>Yeniden dene</button></div> : null}
 
       {loading ? (
-        <div className="catalog-loading" role="status" aria-live="polite"><span className="spinner" aria-hidden="true" /> Ürünler güvenli mağaza bağlamından yükleniyor…</div>
+        <div className={catalogStyles.listLoading} role="status" aria-live="polite">
+          <span className="sr-only">Ürünler yükleniyor…</span>
+          <div className={catalogStyles.loadingHeader} aria-hidden="true" />
+          <div aria-hidden="true">{Array.from({ length: 8 }, (_, index) => (
+            <div className={catalogStyles.loadingRow} key={index}><span /><span /><span /><span /></div>
+          ))}</div>
+        </div>
       ) : queryUnavailable ? (
         <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Search /></span><h2>Bu sorgunun ürünleri yüklenemedi</h2><p>Önceki sorgunun satırları güvenlik için gizlendi. Yeniden deneyin.</p></div>
       ) : visibleRows.length === 0 ? (

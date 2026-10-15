@@ -6,6 +6,8 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -38,6 +40,12 @@ export function usePanelChromeModel(): PanelClientChromeModel {
 
 export function PanelLayoutClient({ model, children }: { model: PanelClientChromeModel; children: ReactNode }) {
   const [chrome, setChrome] = useState<PublishedPanelTopbarChrome | null>(null);
+  const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
+  const [contextTarget, setContextTarget] = useState<HTMLDivElement | null>(null);
+  const topbarTargets = useMemo(() => ({
+    "panel-topbar-actions": actionsTarget,
+    "panel-topbar-context": contextTarget,
+  }), [actionsTarget, contextTarget]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerPresent, setDrawerPresent] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -98,7 +106,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
     };
   }, [drawerOpen]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const workspace = workspaceRef.current;
     const topbar = topbarRef.current;
     if (
@@ -169,13 +177,13 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
                 {activeChrome?.subtitle ? <span className={styles.desktopTopbarSubtitle} role="status">{activeChrome.subtitle}</span> : null}
               </div>
             )}
-            <div id="panel-topbar-context" className={styles.desktopTopbarContext} />
+            <div ref={setContextTarget} id="panel-topbar-context" className={styles.desktopTopbarContext} />
             <div className={styles.desktopTopbarCommands}>
-              <div id="panel-topbar-actions" />
+              <div ref={setActionsTarget} id="panel-topbar-actions" />
               <PanelTopbarUtilities storefrontHostname={model.storefrontHostname} />
             </div>
           </header>
-          <PanelTopbarChromeProvider onChange={handleChromeChange}>
+          <PanelTopbarChromeProvider onChange={handleChromeChange} targets={topbarTargets} scopeKey={pathname}>
             <main
               ref={desktopFocusRef}
               className={`${styles.content} ${pathname === "/discounts/new" ? styles.compactContent : ""}`}

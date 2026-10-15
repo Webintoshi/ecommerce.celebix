@@ -282,14 +282,14 @@ test("new brand asks only for a name and generates an available URL during save"
 
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {
   for (const segment of ["collections", "brands", "attributes", "extras", "definitions"]) {
-    await access(new URL(`app/products/${segment}/new/page.tsx`, root));
-    await access(new URL(`app/products/${segment}/[resourceId]/edit/page.tsx`, root));
-    const create = await source(`app/products/${segment}/new/page.tsx`);
-    const edit = await source(`app/products/${segment}/[resourceId]/edit/page.tsx`);
+    await access(new URL(`app/(panel)/products/${segment}/new/page.tsx`, root));
+    await access(new URL(`app/(panel)/products/${segment}/[resourceId]/edit/page.tsx`, root));
+    const create = await source(`app/(panel)/products/${segment}/new/page.tsx`);
+    const edit = await source(`app/(panel)/products/${segment}/[resourceId]/edit/page.tsx`);
     assert.match(create, /requireServerPanelAccess/);
     assert.match(edit, /requireServerPanelAccess/);
   }
-  await access(new URL("app/products/extras/[resourceId]/preview/page.tsx", root));
+  await access(new URL("app/(panel)/products/extras/[resourceId]/preview/page.tsx", root));
 });
 
 test("editor only writes an exact resource selected from the fixed-kind API result", async () => {

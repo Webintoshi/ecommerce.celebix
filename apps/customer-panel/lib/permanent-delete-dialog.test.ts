@@ -17,8 +17,8 @@ test("shared permanent deletion dialog requires exact label and irreversible ack
 
 test("product and category surfaces receive server-derived delete capability and keep archive separate", async () => {
   const [productPage, categoryPage, product, category] = await Promise.all([
-    source("app/products/[productId]/page.tsx"),
-    source("app/products/categories/page.tsx"),
+    source("app/(panel)/products/[productId]/page.tsx"),
+    source("app/(panel)/products/categories/page.tsx"),
     source("components/catalog/ProductDetailConsole.tsx"),
     source("components/catalog-onboarding/CategoryManager.tsx"),
   ]);

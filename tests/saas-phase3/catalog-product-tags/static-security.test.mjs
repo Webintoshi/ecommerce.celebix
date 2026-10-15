@@ -24,7 +24,7 @@ test("migration 042 alone extends the finite catalog resource authority", () => 
 
 test("barcode studio uses server projection and isolated output authority", () => {
   const component = read("apps/customer-panel/components/catalog-admin/BarcodeLabelStudio.tsx");
-  const page = read("apps/customer-panel/app/products/barcode-labels/page.tsx");
+  const page = read("apps/customer-panel/app/(panel)/products/barcode-labels/page.tsx");
   const handler = read("apps/customer-panel/lib/barcode-label-http/handler.ts");
   const migration = read("apps/owner/scripts/sql/saas/202609020123_barcode_label_studio.up.sql");
   assert.match(component, /\/api\/catalog\/barcode-labels/);

@@ -20,32 +20,32 @@ const git = (...args) => execFileSync("git", args, {
 
 const PAGE_GROUPS = Object.freeze({
   tags: Object.freeze([
-    "apps/customer-panel/app/products/tags/page.tsx",
-    "apps/customer-panel/app/products/tags/new/page.tsx",
-    "apps/customer-panel/app/products/tags/[resourceId]/edit/page.tsx",
+    "apps/customer-panel/app/(panel)/products/tags/page.tsx",
+    "apps/customer-panel/app/(panel)/products/tags/new/page.tsx",
+    "apps/customer-panel/app/(panel)/products/tags/[resourceId]/edit/page.tsx",
   ]),
   barcodeLabels: Object.freeze([
-    "apps/customer-panel/app/products/barcode-labels/page.tsx",
+    "apps/customer-panel/app/(panel)/products/barcode-labels/page.tsx",
   ]),
   purchasing: Object.freeze([
-    "apps/customer-panel/app/products/purchasing/page.tsx",
-    "apps/customer-panel/app/products/purchasing/new/page.tsx",
-    "apps/customer-panel/app/products/purchasing/[purchaseOrderId]/page.tsx",
+    "apps/customer-panel/app/(panel)/products/purchasing/page.tsx",
+    "apps/customer-panel/app/(panel)/products/purchasing/new/page.tsx",
+    "apps/customer-panel/app/(panel)/products/purchasing/[purchaseOrderId]/page.tsx",
   ]),
   inventoryCounts: Object.freeze([
-    "apps/customer-panel/app/products/inventory-counts/page.tsx",
-    "apps/customer-panel/app/products/inventory-counts/new/page.tsx",
-    "apps/customer-panel/app/products/inventory-counts/[countId]/page.tsx",
+    "apps/customer-panel/app/(panel)/products/inventory-counts/page.tsx",
+    "apps/customer-panel/app/(panel)/products/inventory-counts/new/page.tsx",
+    "apps/customer-panel/app/(panel)/products/inventory-counts/[countId]/page.tsx",
   ]),
   transfers: Object.freeze([
-    "apps/customer-panel/app/products/transfers/page.tsx",
-    "apps/customer-panel/app/products/transfers/new/page.tsx",
-    "apps/customer-panel/app/products/transfers/[transferId]/page.tsx",
+    "apps/customer-panel/app/(panel)/products/transfers/page.tsx",
+    "apps/customer-panel/app/(panel)/products/transfers/new/page.tsx",
+    "apps/customer-panel/app/(panel)/products/transfers/[transferId]/page.tsx",
   ]),
   priceLists: Object.freeze([
-    "apps/customer-panel/app/products/price-lists/page.tsx",
-    "apps/customer-panel/app/products/price-lists/new/page.tsx",
-    "apps/customer-panel/app/products/price-lists/[priceListId]/page.tsx",
+    "apps/customer-panel/app/(panel)/products/price-lists/page.tsx",
+    "apps/customer-panel/app/(panel)/products/price-lists/new/page.tsx",
+    "apps/customer-panel/app/(panel)/products/price-lists/[priceListId]/page.tsx",
   ]),
 });
 

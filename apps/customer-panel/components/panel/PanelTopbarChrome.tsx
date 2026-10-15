@@ -4,9 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -27,10 +27,19 @@ type Registration = Readonly<{
 }>;
 type RegisterOwner = () => Registration;
 
-const Context = createContext<RegisterOwner | null>(null);
+type PanelTopbarTargets = Readonly<{
+  "panel-topbar-actions": HTMLElement | null;
+  "panel-topbar-context": HTMLElement | null;
+}>;
+
+const Context = createContext<Readonly<{
+  registerOwner: RegisterOwner;
+  scopeKey?: string;
+  targets?: PanelTopbarTargets;
+}> | null>(null);
 
 export function PanelTopbarChromeProvider(
-  { children, onChange }: { children: ReactNode; onChange: Setter },
+  { children, onChange, targets, scopeKey }: { children: ReactNode; onChange: Setter; targets?: PanelTopbarTargets; scopeKey?: string },
 ) {
   const registrationsRef = useRef(new Map<symbol, PanelTopbarChromeSnapshot>());
   const onChangeRef = useRef(onChange);
@@ -58,14 +67,16 @@ export function PanelTopbarChromeProvider(
     return Object.freeze({ publish, release });
   }, []);
 
-  return <Context.Provider value={registerOwner}>{children}</Context.Provider>;
+  const value = useMemo(() => ({ registerOwner, targets, scopeKey }), [registerOwner, targets, scopeKey]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
 export function usePanelTopbarChrome(state: PanelTopbarChromeState) {
-  const registerOwner = useContext(Context);
+  const context = useContext(Context);
+  const registerOwner = context?.registerOwner;
   const registrationRef = useRef<Registration | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const registration = registerOwner?.();
     if (!registration) return;
 
@@ -76,35 +87,17 @@ export function usePanelTopbarChrome(state: PanelTopbarChromeState) {
     };
   }, [registerOwner]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     registrationRef.current?.publish({ title: state.title, subtitle: state.subtitle, hideHeading: state.hideHeading });
-  }, [registerOwner, state.hideHeading, state.subtitle, state.title]);
+  }, [registerOwner, context?.scopeKey, state.hideHeading, state.subtitle, state.title]);
 }
 
-type PanelTopbarTargetId = "panel-topbar-actions" | "panel-topbar-context";
-
-function useTopbarTarget(id: PanelTopbarTargetId) {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    let frame = window.requestAnimationFrame(() => {
-      setTarget(document.getElementById(id));
-    });
-    const observer = new MutationObserver(() => {
-      setTarget(document.getElementById(id));
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [id]);
-  return target;
-}
 
 export function PanelTopbarBridge(state: PanelTopbarChromeState) {
   usePanelTopbarChrome(state);
-  const actionsTarget = useTopbarTarget("panel-topbar-actions");
-  const contextTarget = useTopbarTarget("panel-topbar-context");
+  const targets = useContext(Context)?.targets;
+  const actionsTarget = targets?.["panel-topbar-actions"];
+  const contextTarget = targets?.["panel-topbar-context"];
   return (
     <>
       {contextTarget && state.context ? createPortal(state.context, contextTarget) : null}

@@ -196,6 +196,19 @@ function createPanelInteractionHarness(
     useContext<T>(context: { current: T }): T {
       return context.current;
     },
+    useMemo<T>(create: () => T, deps: readonly unknown[]): T {
+      const instance = requireActiveInstance();
+      const index = nextHook(instance);
+      const previous = instance.hooks[index] as { value: T; deps: readonly unknown[] } | undefined;
+      if (previous && sameDependencies(previous.deps, deps)) return previous.value;
+      const value = create();
+      instance.hooks[index] = { value, deps };
+      return value;
+    },
+    useLayoutEffect(create: () => void | (() => void), deps?: readonly unknown[]): void {
+      // Paint ordering is covered by the real React/happy-dom topbar tests.
+      react.useEffect(create, deps);
+    },
     useEffect(create: () => void | (() => void), deps?: readonly unknown[]): void {
       const instance = requireActiveInstance();
       const index = nextHook(instance);

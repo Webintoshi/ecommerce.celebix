@@ -4,12 +4,12 @@ import test from "node:test";
 
 test("abandoned-cart list and detail pages stay behind durable server access", async () => {
   for (const path of [
-    "../app/orders/abandoned-carts/page.tsx",
-    "../app/orders/abandoned-carts/[cartId]/page.tsx",
+    "../app/(panel)/orders/abandoned-carts/page.tsx",
+    "../app/(panel)/orders/abandoned-carts/[cartId]/page.tsx",
   ]) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
-    assert.match(source, /createPanelChromeModel\(access\.tenantContext\)/);
+    assert.doesNotMatch(source, /PanelShell|createPanelChromeModel/);
     assert.doesNotMatch(source, /tenantContext=|storeId=|membershipId=/);
   }
 });

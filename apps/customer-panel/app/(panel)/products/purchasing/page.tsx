@@ -1,0 +1,7 @@
+import { requireServerPanelAccess } from "@/lib/server-access";
+import { redirect } from "next/navigation";
+
+export default async function LegacyInventoryPage() {
+  await requireServerPanelAccess();
+  redirect("/products/stock?tab=purchases");
+}

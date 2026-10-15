@@ -881,3 +881,15 @@
 .catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button) { transition: none; }
 }
+
+.listLoading { min-height: calc(100svh - 280px); background: var(--cp-surface); }
+.loadingHeader { height: 40px; border-bottom: 1px solid var(--cp-border); background: var(--cp-soft); }
+.loadingRow { display: grid; grid-template-columns: 40px minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 24px; height: 70px; padding: 8px 12px; border-bottom: 1px solid var(--cp-border); }
+.loadingRow span { height: 12px; border-radius: 4px; background: var(--cp-soft); }
+.loadingRow span:first-child { height: 40px; border-radius: 6px; }
+.loadingRow span:nth-child(2) { width: 75%; }
+@media (max-width: 640px) {
+  .loadingHeader { display: none; }
+  .loadingRow { grid-template-columns: 40px minmax(0, 1fr); gap: 16px; }
+  .loadingRow span:nth-child(n+3) { display: none; }
+}

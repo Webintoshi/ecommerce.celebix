@@ -1418,7 +1418,7 @@ test("order detail offers only authorized SQL 023 status and payment transitions
   );
   assert.deepEqual(calls, ["transition", "reload:false"]);
   assert.equal(outcome.state, "success");
-  const detailPage = await source("app/orders/[orderId]/page.tsx");
+  const detailPage = await source("app/(panel)/orders/[orderId]/page.tsx");
   assert.match(detailPage, /manage:\s*isMerchantActionAllowed\(role,\s*"orders[.]manage"\)/);
 });
 
@@ -1573,9 +1573,9 @@ test("legacy manual draft routes redirect creation and preserve a read-only hist
   const list = await source("components/orders/OrderDraftListConsole.tsx");
   const editor = await source("components/orders/OrderDraftEditor.tsx");
   const styles = await source("components/orders/order-drafts.module.css");
-  const listPage = await source("app/orders/drafts/page.tsx");
-  const newPage = await source("app/orders/drafts/new/page.tsx");
-  const detailPage = await source("app/orders/drafts/[draftId]/page.tsx");
+  const listPage = await source("app/(panel)/orders/drafts/page.tsx");
+  const newPage = await source("app/(panel)/orders/drafts/new/page.tsx");
+  const detailPage = await source("app/(panel)/orders/drafts/[draftId]/page.tsx");
   const orderList = await source("components/orders/OrderListConsole.tsx");
   const combined = [list, editor, listPage, newPage, detailPage].join("\n");
 
@@ -1604,8 +1604,8 @@ test("dashboard and order pages expose only durable order facts without private 
   const { readyAuthority } = await import("./panel-ui/authority-slice.ts");
   const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
-  const listPage = await source("app/orders/page.tsx");
-  const detailPage = await source("app/orders/[orderId]/page.tsx");
+  const listPage = await source("app/(panel)/orders/page.tsx");
+  const detailPage = await source("app/(panel)/orders/[orderId]/page.tsx");
   const combined = [dashboard, model, listPage, detailPage].join("\n");
   const catalogSummary = Object.freeze({
     totalProducts: 4, activeProducts: 3, draftProducts: 1, productLimit: 10, activeVariants: 6,
@@ -1648,4 +1648,56 @@ test("dashboard and order pages expose only durable order facts without private 
   assert.match(listPage, /OrderListConsole/);
   assert.match(detailPage, /OrderDetailConsole/);
   assert.doesNotMatch(combined, /TenantContext[^\n]*(?:prop|client)|storeId|principalId|membershipId|\/api\/admin/i);
+});
+
+test("focus refresh preserves a loaded order table while a changed query hides prior rows", async () => {
+  const priorWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const priorDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const target = new EventTarget();
+  Object.defineProperty(globalThis, "window", { configurable: true, value: target });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { querySelector: () => null } });
+  try {
+    const hooks = createHookRuntime();
+    const requests: { resolve: (page: { items: readonly OrderListItem[] }) => void; reject: (error: Error) => void }[] = [];
+    const compiled = await compileOrderModule("components/orders/OrderListConsole.tsx", {
+      react: hooks.runtime,
+      orderApi: { listOrders: () => new Promise((resolve, reject) => requests.push({ resolve, reject })) },
+    });
+    const Console = compiled.exports.OrderListConsole as () => ReactNode;
+    const paint = () => hooks.flush(Console) as Promise<React.ReactElement<Record<string, unknown>>>;
+    assert.equal((await paint()).props.state, "loading");
+    requests[0]!.resolve({ items: [item] });
+    let view = await paint();
+    assert.equal(view.props.state, "loaded");
+    target.dispatchEvent(new Event("focus"));
+    view = await paint();
+    assert.equal(requests.length, 2);
+    assert.equal(view.props.state, "loaded", "background refresh must not replace existing rows with a skeleton");
+    assert.deepEqual(view.props.items, [item]);
+    requests[1]!.resolve({ items: [item] });
+    view = await paint();
+    const restored = new Event("pageshow");
+    Object.defineProperty(restored, "persisted", { value: true });
+    target.dispatchEvent(restored);
+    view = await paint();
+    assert.equal(view.props.state, "loading", "history cache restoration must revalidate authority before showing private rows");
+    requests[2]!.resolve({ items: [item] });
+    view = await paint();
+    (view.props.onSortChange as (sort: string) => void)("lowest");
+    view = await paint();
+    assert.equal(view.props.state, "loading", "a different server query must not expose old rows");
+    requests[3]!.resolve({ items: [] });
+    view = await paint();
+    assert.equal(view.props.state, "loaded");
+    assert.deepEqual(view.props.items, []);
+    target.dispatchEvent(new Event("focus"));
+    requests[4]!.reject(new Error("request failed"));
+    view = await paint();
+    assert.equal(view.props.state, "error", "refresh failure keeps the existing fail-closed error behavior");
+  } finally {
+    for (const [key, descriptor] of [["window", priorWindow], ["document", priorDocument]] as const) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
 });

@@ -4,7 +4,7 @@ import test from "node:test";
 
 const COMPONENT = new URL("./ShippingSettingsConsole.tsx", import.meta.url);
 const CSS = new URL("./shipping-settings.module.css", import.meta.url);
-const PAGE = new URL("../../app/settings/shipping/page.tsx", import.meta.url);
+const PAGE = new URL("../../app/(panel)/settings/shipping/page.tsx", import.meta.url);
 
 test("shipping settings replaces the generic record console with the dedicated workspace", async () => {
   const page = await readFile(PAGE, "utf8");

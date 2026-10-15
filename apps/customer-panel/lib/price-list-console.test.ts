@@ -73,9 +73,9 @@ test("price-list console uses durable API results for conflict permission empty 
 
 test("price-list pages derive pricing capabilities server-side and pass no TenantContext to clients", async () => {
   for (const [path, mode] of [
-    ["app/products/price-lists/page.tsx", "pricing.read"],
-    ["app/products/price-lists/new/page.tsx", "pricing.manage"],
-    ["app/products/price-lists/[priceListId]/page.tsx", "pricing.read"],
+    ["app/(panel)/products/price-lists/page.tsx", "pricing.read"],
+    ["app/(panel)/products/price-lists/new/page.tsx", "pricing.manage"],
+    ["app/(panel)/products/price-lists/[priceListId]/page.tsx", "pricing.read"],
   ] as const) {
     const page = await source(path);
     assert.match(page, /resolveServerPanelAccess\(\)/);
@@ -83,7 +83,7 @@ test("price-list pages derive pricing capabilities server-side and pass no Tenan
     assert.match(page, /<PriceListConsole/);
     assert.doesNotMatch(page, /tenantContext=|storeId=|currency=|customerId=|searchParams|headers\(\)/);
   }
-  const detail = await source("app/products/price-lists/[priceListId]/page.tsx");
+  const detail = await source("app/(panel)/products/price-lists/[priceListId]/page.tsx");
   assert.match(detail, /notFound\(\)/);
   assert.match(detail, /PRICE_LIST_ID/);
 });

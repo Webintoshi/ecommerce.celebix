@@ -110,7 +110,7 @@ test("historical runtime content has no credentials, private browser authority, 
   const browserAndRsc = await Promise.all([
     read("apps/customer-panel/components/orders/QuickOrderLinksConsole.tsx"),
     read("apps/customer-panel/lib/quick-link-ui/client.ts"),
-    read("apps/customer-panel/app/orders/quick-links/page.tsx"),
+    read("apps/customer-panel/app/(panel)/orders/quick-links/page.tsx"),
     read("apps/storefront-shared/app/odeme/hizli/[token]/route.ts"),
     read("apps/storefront-shared/app/odeme/hizli/page.tsx"),
     read("apps/storefront-shared/app/odeme/hizli/sonuc/page.tsx"),

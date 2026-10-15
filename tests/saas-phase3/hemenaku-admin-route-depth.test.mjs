@@ -7,31 +7,31 @@ const BASE = "959de29d2ceb7a4ec8296f3f0b967fadbb3d1d61";
 const ROOT = new URL("../../", import.meta.url);
 
 const routeDepthPages = Object.freeze([
-  "apps/customer-panel/app/content/page.tsx",
-  "apps/customer-panel/app/settings/page.tsx",
+  "apps/customer-panel/app/(panel)/content/page.tsx",
+  "apps/customer-panel/app/(panel)/settings/page.tsx",
   "apps/customer-panel/app/orders/[orderId]/print/page.tsx",
-  "apps/customer-panel/app/customers/[customerId]/edit/page.tsx",
-  "apps/customer-panel/app/products/collections/new/page.tsx",
-  "apps/customer-panel/app/products/collections/[resourceId]/edit/page.tsx",
-  "apps/customer-panel/app/products/brands/new/page.tsx",
-  "apps/customer-panel/app/products/brands/[resourceId]/edit/page.tsx",
-  "apps/customer-panel/app/products/attributes/new/page.tsx",
-  "apps/customer-panel/app/products/attributes/[resourceId]/edit/page.tsx",
-  "apps/customer-panel/app/products/extras/new/page.tsx",
-  "apps/customer-panel/app/products/extras/[resourceId]/edit/page.tsx",
-  "apps/customer-panel/app/products/extras/[resourceId]/preview/page.tsx",
-  "apps/customer-panel/app/products/definitions/new/page.tsx",
-  "apps/customer-panel/app/products/definitions/[resourceId]/edit/page.tsx",
-  "apps/customer-panel/app/discounts/[recordId]/edit/page.tsx",
-  "apps/customer-panel/app/content/blog/new/page.tsx",
-  "apps/customer-panel/app/content/blog/[recordId]/edit/page.tsx",
-  "apps/customer-panel/app/content/pages/new/page.tsx",
-  "apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx",
-  "apps/customer-panel/app/content/policies/new/page.tsx",
-  "apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx",
-  "apps/customer-panel/app/settings/payment/page.tsx",
-  "apps/customer-panel/app/settings/payment/new/page.tsx",
-  "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/customers/[customerId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/products/collections/new/page.tsx",
+  "apps/customer-panel/app/(panel)/products/collections/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/products/brands/new/page.tsx",
+  "apps/customer-panel/app/(panel)/products/brands/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/products/attributes/new/page.tsx",
+  "apps/customer-panel/app/(panel)/products/attributes/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/products/extras/new/page.tsx",
+  "apps/customer-panel/app/(panel)/products/extras/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/products/extras/[resourceId]/preview/page.tsx",
+  "apps/customer-panel/app/(panel)/products/definitions/new/page.tsx",
+  "apps/customer-panel/app/(panel)/products/definitions/[resourceId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/discounts/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/content/blog/new/page.tsx",
+  "apps/customer-panel/app/(panel)/content/blog/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/content/pages/new/page.tsx",
+  "apps/customer-panel/app/(panel)/content/pages/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/content/policies/new/page.tsx",
+  "apps/customer-panel/app/(panel)/content/policies/[policyKey]/edit/page.tsx",
+  "apps/customer-panel/app/(panel)/settings/payment/page.tsx",
+  "apps/customer-panel/app/(panel)/settings/payment/new/page.tsx",
+  "apps/customer-panel/app/(panel)/settings/payment/[recordId]/edit/page.tsx",
 ]);
 
 const clientWorkflowFiles = Object.freeze([
@@ -83,12 +83,9 @@ test("route-depth pages remain authority-safe and server-gated", async () => {
 
   for (const file of routeDepthPages) {
     const source = await read(file);
-    if (file === "apps/customer-panel/app/content/policies/new/page.tsx") {
-      assert.equal(
-        source,
-        'import { permanentRedirect } from "next/navigation";\n\nexport default async function NewPolicyPage() {\n  permanentRedirect("/content/policies");\n}\n',
-        `${file} must remain a finite redirect to the protected fixed-policy console`,
-      );
+    if (file === "apps/customer-panel/app/(panel)/content/policies/new/page.tsx") {
+      assertExecutedServerAccess(source, file);
+      assert.match(source, /permanentRedirect\("\/content\/policies"\)/);
       continue;
     }
     assertExecutedServerAccess(source, file);
@@ -105,24 +102,24 @@ test("route-depth pages remain authority-safe and server-gated", async () => {
 
 test("route-depth mutations receive a concrete server-derived capability or server rejection", async () => {
   const capabilityBoundRoutes = [
-    ["apps/customer-panel/app/content/page.tsx", "MerchantFamilyOverview", "content.manage"],
-    ["apps/customer-panel/app/settings/page.tsx", "MerchantFamilyOverview", "configuration.manage"],
-    ["apps/customer-panel/app/products/collections/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/collections/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/brands/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/brands/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/attributes/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/attributes/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/extras/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/extras/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/definitions/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/products/definitions/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
-    ["apps/customer-panel/app/discounts/[recordId]/edit/page.tsx", "MerchantRecordEditor", "promotions.manage"],
-    ["apps/customer-panel/app/content/blog/new/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/blog/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/pages/new/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
-    ["apps/customer-panel/app/content/policies/[policyKey]/edit/page.tsx", "PolicyConsole", "content.manage"],
+    ["apps/customer-panel/app/(panel)/content/page.tsx", "MerchantFamilyOverview", "content.manage"],
+    ["apps/customer-panel/app/(panel)/settings/page.tsx", "MerchantFamilyOverview", "configuration.manage"],
+    ["apps/customer-panel/app/(panel)/products/collections/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/collections/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/brands/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/brands/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/attributes/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/attributes/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/extras/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/extras/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/definitions/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/products/definitions/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/(panel)/discounts/[recordId]/edit/page.tsx", "MerchantRecordEditor", "promotions.manage"],
+    ["apps/customer-panel/app/(panel)/content/blog/new/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/(panel)/content/blog/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/(panel)/content/pages/new/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/(panel)/content/pages/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/(panel)/content/policies/[policyKey]/edit/page.tsx", "PolicyConsole", "content.manage"],
   ];
 
   for (const [file, component, action] of capabilityBoundRoutes) {
@@ -135,15 +132,15 @@ test("route-depth mutations receive a concrete server-derived capability or serv
     );
   }
 
-  const paymentPage = await read("apps/customer-panel/app/settings/payment/page.tsx");
+  const paymentPage = await read("apps/customer-panel/app/(panel)/settings/payment/page.tsx");
   assert.match(paymentPage, /const \{ tenantContext \} = access;/);
   assert.match(paymentPage, /isMerchantActionAllowed\(tenantContext\.membership\.role, "configuration\.manage"\)/);
   assert.match(paymentPage, /isMerchantActionAllowed\(tenantContext\.membership\.role, "integrations\.manage"\)/);
   assert.match(paymentPage, /<PaymentSettingsConsole\b[^>]*\bcanManage=\{canManage\}/);
 
   for (const file of [
-    "apps/customer-panel/app/settings/payment/new/page.tsx",
-    "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
+    "apps/customer-panel/app/(panel)/settings/payment/new/page.tsx",
+    "apps/customer-panel/app/(panel)/settings/payment/[recordId]/edit/page.tsx",
   ]) {
     const source = await read(file);
     assert.match(source, /requireServerPanelAccess\(\)/, file);
@@ -151,7 +148,7 @@ test("route-depth mutations receive a concrete server-derived capability or serv
     assert.doesNotMatch(source, /MerchantRecordEditor|PaymentSettingsConsole/, file);
   }
 
-  const customerEdit = await read("apps/customer-panel/app/customers/[customerId]/edit/page.tsx");
+  const customerEdit = await read("apps/customer-panel/app/(panel)/customers/[customerId]/edit/page.tsx");
   assert.match(customerEdit, /const \[\{ customerId \}, access\] = await Promise\.all\(\[params, requireServerPanelAccess\(\)\]\);/);
   assert.match(customerEdit, /const canManage = isMerchantActionAllowed\(access\.tenantContext\.membership\.role, "customers\.manage"\);/);
   assert.match(customerEdit, /if \(!canManage\) return <p role="alert">/);

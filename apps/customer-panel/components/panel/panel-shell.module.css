@@ -1001,6 +1001,7 @@
 
   .desktopTopbar {
     display: grid;
+    height: 4rem;
   }
 
   .mobileDock,

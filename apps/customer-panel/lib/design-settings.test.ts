@@ -6,7 +6,7 @@ const source = (path: string) => readFile(new URL(`../${path}`, import.meta.url)
 
 test("design settings is one server-authorized visual storefront workspace", async () => {
   const [page, workspace, stepEditor, inspector, preview, canvas, drawer, css] = await Promise.all([
-    source("app/settings/design/page.tsx"),
+    source("app/(panel)/settings/design/page.tsx"),
     source("components/settings/design/DesignWorkspace.tsx"),
     source("components/settings/design/DesignStepEditor.tsx"),
     source("components/settings/design/DesignInspector.tsx"),
@@ -39,8 +39,8 @@ test("design settings is one server-authorized visual storefront workspace", asy
 
 test("legacy starter theme editors converge on the unified design workspace", async () => {
   for (const path of [
-    "app/settings/theme/page.tsx",
-    "app/settings/category-showcase/page.tsx",
+    "app/(panel)/settings/theme/page.tsx",
+    "app/(panel)/settings/category-showcase/page.tsx",
   ]) {
     const page = await source(path);
     assert.match(page, /requireServerPanelAccess\(\)/);

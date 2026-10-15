@@ -324,14 +324,13 @@ export function PanelNavigation({
   const activeGroupKeys = navigation.filter((item) => (
     item.children?.length && isPanelNavigationPathActive(pathname, item.href)
   )).map(({ key }) => key);
-  const [expandedGroup, setExpandedGroup] = useState<string | undefined>(
-    () => activeGroupKeys[0],
-  );
-
-  useEffect(() => {
-    if (!activeGroupKeys.length) return;
-    setExpandedGroup(activeGroupKeys[0]);
-  }, [pathname]);
+  const [expansion, setExpansion] = useState(() => ({ pathname, group: activeGroupKeys[0] as string | undefined }));
+  let expandedGroup = expansion.group;
+  if (expansion.pathname !== pathname) {
+    expandedGroup = activeGroupKeys[0] ?? expansion.group;
+    // Adjust before committing this route, so the old group is never painted.
+    setExpansion({ pathname, group: expandedGroup });
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -348,7 +347,7 @@ export function PanelNavigation({
   }, []);
 
   function toggleGroup(key: string) {
-    setExpandedGroup((current) => current === key ? undefined : key);
+    setExpansion((current) => ({ pathname, group: current.group === key ? undefined : key }));
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {

@@ -6,16 +6,16 @@ const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
 
 test("the shared Stock route derives separate server permissions and old create routes preserve their action", async () => {
-  const page = await source("app/products/stock/page.tsx");
+  const page = await source("app/(panel)/products/stock/page.tsx");
   assert.match(page, /resolveServerPanelAccess\(\)/);
   for (const action of ["inventory.read", "inventory.manage", "purchasing.read", "purchasing.manage"]) {
     assert.ok(page.includes(JSON.stringify(action)));
   }
   assert.doesNotMatch(page, /tenantContext=|storeId=|tenantId=|headers\(\)|cookies\(\)/);
   for (const [path, destination] of [
-    ["app/products/purchasing/new/page.tsx", "/products/stock?tab=purchases&kind=purchase&new=1"],
-    ["app/products/inventory-counts/new/page.tsx", "/products/stock?tab=counts&kind=count&new=1"],
-    ["app/products/transfers/new/page.tsx", "/products/stock?tab=transfers&kind=transfer&new=1"],
+    ["app/(panel)/products/purchasing/new/page.tsx", "/products/stock?tab=purchases&kind=purchase&new=1"],
+    ["app/(panel)/products/inventory-counts/new/page.tsx", "/products/stock?tab=counts&kind=count&new=1"],
+    ["app/(panel)/products/transfers/new/page.tsx", "/products/stock?tab=transfers&kind=transfer&new=1"],
   ] as const) {
     const legacy = await source(path);
     assert.ok(legacy.includes(JSON.stringify(destination)));

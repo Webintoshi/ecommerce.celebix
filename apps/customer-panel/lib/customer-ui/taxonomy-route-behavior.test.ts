@@ -183,7 +183,7 @@ async function compileConsole(react: typeof React, api: ReturnType<typeof create
 }
 
 async function compilePage(kind: TaxonomyKind, Console: (props: { kind: TaxonomyKind; canManage: boolean }) => ReactNode, role: Role) {
-  const source = await readFile(new URL(`../../app/customers/${kind}/page.tsx`, import.meta.url), "utf8");
+  const source = await readFile(new URL(`../../app/(panel)/customers/${kind}/page.tsx`, import.meta.url), "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,

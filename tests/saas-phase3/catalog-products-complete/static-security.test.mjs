@@ -24,7 +24,7 @@ test("preview tokens are short lived, key rotated and bound to server authority"
   const token = read("apps/customer-panel/lib/product-preview/token.ts");
   const config = read("apps/customer-panel/lib/product-preview/config.ts");
   const server = read("apps/customer-panel/lib/product-preview/server.ts");
-  const route = read("apps/customer-panel/app/products/[productId]/preview/page.tsx");
+  const route = read("apps/customer-panel/app/(panel)/products/[productId]/preview/page.tsx");
   assert.match(token, /ttl=options[.]ttlSeconds[?][?]300/);
   assert.match(token, /ttl>300/);
   assert.match(token, /storeId.*productId.*principalId.*version/);

@@ -1297,7 +1297,7 @@ test("shared Stock server page independently derives four permissions without te
   for (const allowed of [new Set(["inventory.read"]), new Set(["purchasing.read", "purchasing.manage"]), new Set<string>()]) {
     const actions: string[] = [];
     const Console = (props: Record<string, unknown>) => createElement("output", props);
-    const page = await compileWith(React, "app/products/stock/page.tsx", (specifier) => {
+    const page = await compileWith(React, "app/(panel)/products/stock/page.tsx", (specifier) => {
       if (specifier === "@celebix/saas-contracts") return { isMerchantActionAllowed(_role: string, action: string) { actions.push(action); return allowed.has(action); } };
       if (specifier === "@/components/inventory/StockWorkspace") return { StockWorkspace: Console };
       if (specifier === "@/components/panel/PanelPageShell") return { PanelLoadingState: () => null };
@@ -1322,7 +1322,8 @@ test("legacy stock list, create and detail URLs preserve the exact operation in 
     ["transfers", "transfers", "transfer", "transferId", TRANSFER],
   ] as const) {
     for (const suffix of ["", "/new", `/[${parameter}]`]) {
-      const page = await compileWith(React, `app/products/${folder}${suffix}/page.tsx`, (specifier) => {
+      const page = await compileWith(React, `app/(panel)/products/${folder}${suffix}/page.tsx`, (specifier) => {
+        if (specifier === "@/lib/server-access") return { async requireServerPanelAccess() { return {}; } };
         if (specifier === "next/navigation") return { redirect(destination: string) { throw new Error(`redirect:${destination}`); }, notFound() { throw new Error("not_found"); } };
         throw new Error(`unexpected_redirect_import:${specifier}`);
       });

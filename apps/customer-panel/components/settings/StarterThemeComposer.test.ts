@@ -102,7 +102,7 @@ test("composition preview removes the quantity surface when its authority is dis
   assert.doesNotMatch(value, /<span>1 adet<\/span>/);
 });
 test("legacy theme route stays server-authorized and redirects into the unified design workspace", async () => {
-  const value = await source("../../app/settings/theme/page.tsx");
+  const value = await source("../../app/(panel)/settings/theme/page.tsx");
   assert.match(value, /requireServerPanelAccess\(\)/);
   assert.match(value, /redirect\("\/settings\/design[?]section=theme"\)/);
   assert.doesNotMatch(value, /StarterThemeComposer|tenantContext=|storeId=|membershipId=/);

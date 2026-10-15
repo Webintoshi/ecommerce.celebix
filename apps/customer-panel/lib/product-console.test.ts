@@ -254,13 +254,13 @@ function deferred<T>() {
 }
 
 test("product routes stay behind the durable server panel access guard", async () => {
-  const layout = await source("app/products/layout.tsx");
+  const layout = await source("app/(panel)/layout.tsx");
   assert.match(layout, /requireServerPanelAccess/);
   assert.match(layout, /tenantContext/);
   for (const path of [
-    "app/products/page.tsx",
-    "app/products/new/page.tsx",
-    "app/products/[productId]/page.tsx",
+    "app/(panel)/products/page.tsx",
+    "app/(panel)/products/new/page.tsx",
+    "app/(panel)/products/[productId]/page.tsx",
   ]) {
     assert.ok((await source(path)).length > 0, path);
   }
@@ -321,9 +321,9 @@ test("product UI includes safe states and responsive catalog behavior without fa
 });
 
 test("product lifecycle UI exposes archived filter, exact warning, restore, and shared capability props", async () => {
-  const listPage = await source("app/products/page.tsx");
-  const detailPage = await source("app/products/[productId]/page.tsx");
-  const newPage = await source("app/products/new/page.tsx");
+  const listPage = await source("app/(panel)/products/page.tsx");
+  const detailPage = await source("app/(panel)/products/[productId]/page.tsx");
+  const newPage = await source("app/(panel)/products/new/page.tsx");
   const list = await source("components/catalog/ProductListConsole.tsx");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   for (const page of [listPage, detailPage, newPage]) {
@@ -1531,7 +1531,7 @@ test("store selection is omitted when no authorized server projection exists", a
 
 test("server access remains the sole protected-page redirect authority", async () => {
   const access = await source("lib/server-access.ts");
-  const layout = await source("app/products/layout.tsx");
+  const layout = await source("app/(panel)/layout.tsx");
   assert.match(access, /decideServerPanelAccess/);
   assert.match(access, /redirect\(decision\.destination\)/);
   assert.doesNotMatch(layout, /searchParams|headers\(|cookies\(/);

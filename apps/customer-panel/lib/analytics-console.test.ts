@@ -19,7 +19,7 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
   const [componentSource, workspaceModel, page, chart] = await Promise.all([
     source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
     source("lib/analytics-ui/workspace.ts"),
-    source("app/analytics/page.tsx"),
+    source("app/(panel)/analytics/page.tsx"),
     source("components/analytics/SalesTrendChart.tsx"),
   ]);
   const component = `${componentSource}\n${workspaceModel}\n${chart}`;
@@ -207,7 +207,7 @@ test("sales chart renders positive geometry before browser measurement", async (
 test("analytics settings show durable thresholds without exposing provider authority and keep automation fail-closed", async () => {
   const [component, page] = await Promise.all([
     source("components/analytics/AnalyticsSettingsConsole.tsx"),
-    source("app/settings/analytics/page.tsx"),
+    source("app/(panel)/settings/analytics/page.tsx"),
   ]);
   for (const label of [
     "Analitik ayarları",
@@ -734,7 +734,7 @@ test("analytics dashboard root preserves the page-shell grid contract", async ()
 });
 
 test("analytics page is behind server access and analytics capability only", async () => {
-  const page = await source("app/analytics/page.tsx");
+  const page = await source("app/(panel)/analytics/page.tsx");
   assert.match(page, /requireServerPanelAccess\(\)/);
   assert.match(page, /analytics[.]read/);
   assert.match(page, /<CommerceAnalyticsWorkspace/);
@@ -824,7 +824,7 @@ test("five typed storefront settings expose exact safe field contracts without s
 });
 
 test("typed setting pages remain server-authorized and do not send TenantContext to clients", async () => {
-  const notifications = await source("app/settings/notifications/page.tsx");
+  const notifications = await source("app/(panel)/settings/notifications/page.tsx");
   assert.match(notifications, /requireServerPanelAccess\(\)/);
   assert.match(notifications, /kind="notification_setting"/);
   assert.match(notifications, /configuration[.]manage/);
@@ -834,9 +834,9 @@ test("typed setting pages remain server-authorized and do not send TenantContext
   );
 
   for (const [path, section] of [
-    ["app/settings/hero-banner/page.tsx", "hero"],
-    ["app/settings/promotion-banner/page.tsx", "promotion"],
-    ["app/settings/marquee/page.tsx", "announcement"],
+    ["app/(panel)/settings/hero-banner/page.tsx", "hero"],
+    ["app/(panel)/settings/promotion-banner/page.tsx", "promotion"],
+    ["app/(panel)/settings/marquee/page.tsx", "announcement"],
   ] as const) {
     const value = await source(path);
     assert.match(value, /requireServerPanelAccess\(\)/);
@@ -849,7 +849,7 @@ test("typed setting pages remain server-authorized and do not send TenantContext
       /tenantContext=|storeId=|membershipId=|secret|password|token/i,
     );
   }
-  const themePage = await source("app/settings/theme/page.tsx");
+  const themePage = await source("app/(panel)/settings/theme/page.tsx");
   const designWorkspace = await source(
     "components/settings/design/DesignWorkspace.tsx",
   );

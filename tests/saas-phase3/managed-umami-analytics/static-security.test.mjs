@@ -50,7 +50,7 @@ function addedApplicationLines() {
 }
 
 const PANEL_CLIENT_AND_RSC = [
-  "apps/customer-panel/app/analytics/page.tsx",
+  "apps/customer-panel/app/(panel)/analytics/page.tsx",
   "apps/customer-panel/components/analytics/PanelAnalyticsView.tsx",
   "apps/customer-panel/lib/analytics-ui/client.ts",
   "apps/customer-panel/lib/analytics-ui/presentation.ts",

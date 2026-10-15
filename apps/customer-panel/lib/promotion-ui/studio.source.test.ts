@@ -116,7 +116,7 @@ test("editor keeps dirty protection through unload, links, cancel and close, and
 
 test("one canonical dynamic route owns view/edit and resolves exactly one legacy record without scans", async () => {
   const [view, edit] = await Promise.all([
-    source("app/discounts/[promotionId]/page.tsx"), source("app/discounts/[promotionId]/edit/page.tsx"),
+    source("app/(panel)/discounts/[promotionId]/page.tsx"), source("app/(panel)/discounts/[promotionId]/edit/page.tsx"),
   ]);
   const editor = await source("components/promotions/PromotionEditor.tsx");
   const client = await source("lib/promotion-ui/client.ts");

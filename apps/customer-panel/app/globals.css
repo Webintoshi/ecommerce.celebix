@@ -1,5 +1,7 @@
 @import "@celebix/storefront-design-ui/styles.css";
 
+html { scrollbar-gutter: stable; }
+
 :root {
   color-scheme: light;
   --cp-brand: #FE6100;

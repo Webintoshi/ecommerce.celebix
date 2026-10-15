@@ -375,19 +375,22 @@ export function OrderListConsole() {
   const [visibleColumns, setVisibleColumns] = useState<OrderColumnVisibility>(DEFAULT_VISIBLE_COLUMNS);
   const sequence = useRef(0);
   const appendRequest = useRef(false);
+  const loadedQuery = useRef<string | null>(null);
 
-  const load = useCallback(async (cursor?: string) => {
+  const load = useCallback(async (cursor?: string, background = false) => {
     if (cursor && appendRequest.current) return;
     const request = ++sequence.current;
     appendRequest.current = cursor !== undefined;
     setLoadingMore(cursor !== undefined);
-    if (!cursor) setState("loading");
+    const queryKey = JSON.stringify([status, search, sort, salesChannel, socialPlatform]);
+    if (!cursor && (!background || loadedQuery.current !== queryKey)) setState("loading");
     setError(""); setLoadMoreError("");
     try {
       const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort, salesChannel, socialPlatform });
       if (request !== sequence.current) return;
       setItems((current) => mergeOrderListPage(current, result, cursor !== undefined));
       setNextCursor(result.nextCursor);
+      loadedQuery.current = queryKey;
       setState("loaded");
     } catch (failure) {
       if (request !== sequence.current) return;
@@ -405,7 +408,7 @@ export function OrderListConsole() {
     const refresh = (event: Event) => {
       if (event.type === "pageshow" && !(event as PageTransitionEvent).persisted) return;
       if (appendRequest.current || document.querySelector("dialog[open]")) return;
-      void load();
+      void load(undefined, event.type === "focus");
     };
     window.addEventListener("focus", refresh);
     window.addEventListener("pageshow", refresh);

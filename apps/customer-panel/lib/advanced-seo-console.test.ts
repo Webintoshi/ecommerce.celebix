@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("canonical SEO screens retain server capability gates and legacy routes redirect safely", async () => {
-  for (const [path, component] of [["../app/seo/page.tsx", "SeoOverview"], ["../app/seo/content/page.tsx", "SeoContent"], ["../app/seo/settings/page.tsx", "SeoSettings"]]) {
+  for (const [path, component] of [["../app/(panel)/seo/page.tsx", "SeoOverview"], ["../app/(panel)/seo/content/page.tsx", "SeoContent"], ["../app/(panel)/seo/settings/page.tsx", "SeoSettings"]]) {
     const source = await readFile(new URL(path!, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
     assert.match(source, new RegExp(component!));
@@ -11,7 +11,7 @@ test("canonical SEO screens retain server capability gates and legacy routes red
     assert.doesNotMatch(source, /x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin/i);
   }
   for (const route of ["geo-optimization", "internal-linking", "categories", "pages", "products", "social-preview", "code-integrations", "sitemap", "fast-indexing"]) {
-    const source = await readFile(new URL(`../app/seo/${route}/page.tsx`, import.meta.url), "utf8");
+    const source = await readFile(new URL(`../app/(panel)/seo/${route}/page.tsx`, import.meta.url), "utf8");
     assert.match(source, /redirectLegacySeo/);
     assert.doesNotMatch(source, /MerchantModuleConsole/);
   }
@@ -19,7 +19,7 @@ test("canonical SEO screens retain server capability gates and legacy routes red
 
 test("the AI preference page delegates provider connections without embedding secrets", async () => {
   const page = await readFile(
-    new URL("../app/settings/artificial-intelligence/page.tsx", import.meta.url),
+    new URL("../app/(panel)/settings/artificial-intelligence/page.tsx", import.meta.url),
     "utf8",
   );
   const client = await readFile(

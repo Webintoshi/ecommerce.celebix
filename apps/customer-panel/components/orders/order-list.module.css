@@ -89,6 +89,7 @@
 .emptyState > svg { width: 32px; height: 32px; stroke-width: 1.4; }
 .emptyState h2 { margin: 0; color: var(--mira-text); font-size: 15px; font-weight: 600; text-align: center; }
 .loading { padding: 0; }
+.loading::before { display: block; height: 44px; border-bottom: 1px solid var(--mira-border); content: ""; }
 .skeletonRows { display: grid; }
 .skeletonRows > div { display: grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; align-items: center; gap: 24px; height: 80px; padding: 12px 8px; border-bottom: 1px solid var(--mira-border); }
 .skeletonRows span { height: 12px; border-radius: 4px; background: rgb(43 43 43 / 6%); }
@@ -114,6 +115,7 @@
   .sortControl select { max-width: 120px; }
 }
 @media (max-width: 1024px) {
+  .loading::before { display: none; }
   .desktopTable { display: none; }
   .mobileCards { display: grid; }
   .orderCard { border-bottom: 1px solid var(--mira-border); padding: 20px 0; }

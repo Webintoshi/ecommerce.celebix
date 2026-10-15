@@ -6,9 +6,9 @@ const root = new URL("../../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, root), "utf8"); }
 
 test("discount routes mount the dedicated studio and lucky wheel mounts its dedicated campaign adapter", async () => {
-  const discounts = await source("app/discounts/page.tsx");
-  const create = await source("app/discounts/new/page.tsx");
-  const wheel = await source("app/discounts/lucky-wheel/page.tsx");
+  const discounts = await source("app/(panel)/discounts/page.tsx");
+  const create = await source("app/(panel)/discounts/new/page.tsx");
+  const wheel = await source("app/(panel)/discounts/lucky-wheel/page.tsx");
 
   assert.match(discounts, /<PromotionStudio mode="list"/);
   assert.match(create, /<PromotionStudio mode="create"/);

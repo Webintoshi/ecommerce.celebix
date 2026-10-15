@@ -42,21 +42,21 @@ test("exports only the finite authenticated pricing catch-all methods", async ()
 });
 
 test("analytics and legacy appearance redirects are server-authorized routes", async () => {
-  const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
+  const analytics = await readFile(new URL("../app/(panel)/analytics/page.tsx", import.meta.url), "utf8");
   assert.match(analytics, /requireServerPanelAccess\(\)/);
   assert.match(analytics, /analytics[.]read/);
   assert.match(analytics, /<CommerceAnalyticsWorkspace/);
   assert.doesNotMatch(analytics, /<AnalyticsDashboard|<PanelAnalyticsView/);
-  const notification = await readFile(new URL("../app/settings/notifications/page.tsx", import.meta.url), "utf8");
+  const notification = await readFile(new URL("../app/(panel)/settings/notifications/page.tsx", import.meta.url), "utf8");
   assert.match(notification, /requireServerPanelAccess\(\)/);
   assert.match(notification, /notification_setting/);
   assert.match(notification, /configuration[.]manage/);
   for (const [path, section] of [
-    ["../app/settings/hero-banner/page.tsx", "hero"],
-    ["../app/settings/promotion-banner/page.tsx", "promotion"],
-    ["../app/settings/marquee/page.tsx", "announcement"],
-    ["../app/settings/theme/page.tsx", "theme"],
-    ["../app/settings/category-showcase/page.tsx", "theme"],
+    ["../app/(panel)/settings/hero-banner/page.tsx", "hero"],
+    ["../app/(panel)/settings/promotion-banner/page.tsx", "promotion"],
+    ["../app/(panel)/settings/marquee/page.tsx", "announcement"],
+    ["../app/(panel)/settings/theme/page.tsx", "theme"],
+    ["../app/(panel)/settings/category-showcase/page.tsx", "theme"],
   ] as const) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
@@ -66,7 +66,7 @@ test("analytics and legacy appearance redirects are server-authorized routes", a
 });
 
 test("Toshi workspace is mounted behind server panel access without client authority props", async () => {
-  const page = await readFile(new URL("../app/toshi/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/(panel)/toshi/page.tsx", import.meta.url), "utf8");
   const accessIndex = page.indexOf("await requireServerPanelAccess()");
   const workspaceIndex = page.indexOf("<ToshiWorkspace />");
 
@@ -76,24 +76,25 @@ test("Toshi workspace is mounted behind server panel access without client autho
   assert.doesNotMatch(page, /tenantContext|storeId|tenantId|principalId|membershipId|planId/);
 });
 
-test("analytics mounts one shared shell while orders keep their existing page-owned and print-safe boundaries", async () => {
-  const analyticsLayout = await readFile(new URL("../app/analytics/layout.tsx", import.meta.url), "utf8");
+test("analytics and orders share one persistent shell while print retains its independent boundary", async () => {
+  const analyticsLayout = await readFile(new URL("../app/(panel)/layout.tsx", import.meta.url), "utf8");
   assert.match(analyticsLayout, /requireServerPanelAccess\(\)/);
-  assert.match(analyticsLayout, /<PanelShell tenantContext=\{tenantContext\}>\{children\}<\/PanelShell>/);
+  assert.match(analyticsLayout, /<PanelShell tenantContext=\{tenantContext\} support=\{support\}>\{children\}<\/PanelShell>/);
   await assert.rejects(
-    readFile(new URL("../app/orders/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/(panel)/orders/layout.tsx", import.meta.url), "utf8"),
     (error: NodeJS.ErrnoException) => error.code === "ENOENT",
   );
-  for (const path of ["../app/orders/page.tsx", "../app/orders/[orderId]/page.tsx"] as const) {
+  for (const path of ["../app/(panel)/orders/page.tsx", "../app/(panel)/orders/[orderId]/page.tsx"] as const) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
-    assert.match(page, /<PanelShell model=\{createPanelChromeModel\(access[.]tenantContext\)\}>/);
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.doesNotMatch(page, /PanelShell|createPanelChromeModel/);
   }
   const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(printPage, /PanelShell|createPanelChromeModel/);
 });
 
 test("SEO pages bind dedicated screens with server authorization", async () => {
-  for (const [path, name] of [["../app/seo/page.tsx", "SeoOverview"], ["../app/seo/content/page.tsx", "SeoContent"], ["../app/seo/settings/page.tsx", "SeoSettings"]]) {
+  for (const [path, name] of [["../app/(panel)/seo/page.tsx", "SeoOverview"], ["../app/(panel)/seo/content/page.tsx", "SeoContent"], ["../app/(panel)/seo/settings/page.tsx", "SeoSettings"]]) {
     const source = await readFile(new URL(path!, import.meta.url), "utf8");
     assert.match(source, /requireServerPanelAccess\(\)/);
     assert.match(source, new RegExp(name!));
@@ -103,7 +104,7 @@ test("SEO pages bind dedicated screens with server authorization", async () => {
 });
 
 test("AI settings route renders only its server-authorized provider surface", async () => {
-  const source = await readFile(new URL("../app/settings/artificial-intelligence/page.tsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../app/(panel)/settings/artificial-intelligence/page.tsx", import.meta.url), "utf8");
   assert.match(source, /requireServerPanelAccess\(\)/);
   assert.match(source, /configuration[.]manage/);
   assert.match(source, /ArtificialIntelligenceSettings/);
@@ -112,9 +113,9 @@ test("AI settings route renders only its server-authorized provider surface", as
 
 test("product import preparation pages use fixed formats and server-owned capability", async () => {
   const pages = [
-    ["../app/products/auto-import/page.tsx", "native_csv"],
-    ["../app/products/shopify-converter/page.tsx", "shopify_csv"],
-    ["../app/products/bulk-upload/page.tsx", "native_csv"],
+    ["../app/(panel)/products/auto-import/page.tsx", "native_csv"],
+    ["../app/(panel)/products/shopify-converter/page.tsx", "shopify_csv"],
+    ["../app/(panel)/products/bulk-upload/page.tsx", "native_csv"],
   ] as const;
   for (const [path, format] of pages) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
@@ -378,10 +379,10 @@ test("state-changing routes reject near-match and cross-site origins", async () 
 });
 
 test("quick-order console is directly routable behind panel access and linked by exact navigation", async () => {
-  const page = await readFile(new URL("../app/orders/payment-links/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/(panel)/orders/payment-links/page.tsx", import.meta.url), "utf8");
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
   assert.match(page, /requireServerPanelAccess\(\)/);
-  assert.match(page, /createPanelChromeModel\(access\.tenantContext\)/);
+  assert.doesNotMatch(page, /PanelShell|createPanelChromeModel/);
   assert.match(page, /<QuickOrderLinksConsole\s*\/>/);
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
   assert.match(navigation, /item\("payment-links",\s*"Ödeme bağlantıları",\s*"\/orders\/payment-links"/);
@@ -389,7 +390,7 @@ test("quick-order console is directly routable behind panel access and linked by
 
 test("order print and customer edit pages remain server-authorized route depth", async () => {
   const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
-  const customerEditPage = await readFile(new URL("../app/customers/[customerId]/edit/page.tsx", import.meta.url), "utf8");
+  const customerEditPage = await readFile(new URL("../app/(panel)/customers/[customerId]/edit/page.tsx", import.meta.url), "utf8");
   assert.match(printPage, /requireServerPanelAccess\(\)/);
   assert.match(printPage, /<OrderPrintView orderId=\{orderId\} \/>/);
   assert.match(customerEditPage, /requireServerPanelAccess\(\)/);
@@ -404,20 +405,20 @@ test("catalog subresource pages lock resource kinds in server-authorized routes"
   ] as const;
   for (const [segment, kind] of cases) {
     for (const suffix of ["new/page.tsx", "[resourceId]/edit/page.tsx"]) {
-      const page = await readFile(new URL(`../app/products/${segment}/${suffix}`, import.meta.url), "utf8");
+      const page = await readFile(new URL(`../app/(panel)/products/${segment}/${suffix}`, import.meta.url), "utf8");
       assert.match(page, /requireServerPanelAccess\(\)/);
       assert.match(page, new RegExp(`kind=["']${kind}["']`));
       assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
     }
   }
-  const preview = await readFile(new URL("../app/products/extras/[resourceId]/preview/page.tsx", import.meta.url), "utf8");
+  const preview = await readFile(new URL("../app/(panel)/products/extras/[resourceId]/preview/page.tsx", import.meta.url), "utf8");
   assert.match(preview, /requireServerPanelAccess\(\)/);
   assert.match(preview, /<CatalogExtraPreview resourceId=\{resourceId\}/);
 });
 
 test("tag and barcode routes remain panel-session guarded with fixed server authority", async () => {
-  const tags = await readFile(new URL("../app/products/tags/page.tsx", import.meta.url), "utf8");
-  const labels = await readFile(new URL("../app/products/barcode-labels/page.tsx", import.meta.url), "utf8");
+  const tags = await readFile(new URL("../app/(panel)/products/tags/page.tsx", import.meta.url), "utf8");
+  const labels = await readFile(new URL("../app/(panel)/products/barcode-labels/page.tsx", import.meta.url), "utf8");
   for (const source of [tags, labels]) {
     assert.match(source, /requireServerPanelAccess\(\)/);
     assert.match(source, /tenantContext/);
@@ -454,10 +455,10 @@ test("completed index and configuration routes have literal navigation destinati
 
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
   const cases = [
-    ["../app/content/blog/new/page.tsx", "blog_post"],
-    ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
-    ["../app/content/pages/new/page.tsx", "page"],
-    ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
+    ["../app/(panel)/content/blog/new/page.tsx", "blog_post"],
+    ["../app/(panel)/content/blog/[recordId]/edit/page.tsx", "blog_post"],
+    ["../app/(panel)/content/pages/new/page.tsx", "page"],
+    ["../app/(panel)/content/pages/[recordId]/edit/page.tsx", "page"],
   ] as const;
   for (const [path, kind] of cases) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
@@ -465,14 +466,14 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
     assert.match(page, new RegExp(`kind=["']${kind}["']`));
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
-  for (const path of ["../app/discounts/page.tsx", "../app/discounts/new/page.tsx", "../app/discounts/[promotionId]/page.tsx", "../app/discounts/[promotionId]/edit/page.tsx"]) {
+  for (const path of ["../app/(panel)/discounts/page.tsx", "../app/(panel)/discounts/new/page.tsx", "../app/(panel)/discounts/[promotionId]/page.tsx", "../app/(panel)/discounts/[promotionId]/edit/page.tsx"]) {
     const page = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(page, /requirePromotionPageContext/);
     assert.match(page, /PromotionStudio/);
     assert.doesNotMatch(page, /MerchantModuleConsole|MerchantRecordEditor|searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
-  const policyNew = await readFile(new URL("../app/content/policies/new/page.tsx", import.meta.url), "utf8");
-  const policyEdit = await readFile(new URL("../app/content/policies/[policyKey]/edit/page.tsx", import.meta.url), "utf8");
+  const policyNew = await readFile(new URL("../app/(panel)/content/policies/new/page.tsx", import.meta.url), "utf8");
+  const policyEdit = await readFile(new URL("../app/(panel)/content/policies/[policyKey]/edit/page.tsx", import.meta.url), "utf8");
   assert.match(policyNew, /permanentRedirect\("\/content\/policies"\)/);
   assert.match(policyEdit, /requireServerPanelAccess\(\)/);
   assert.match(policyEdit, /FIXED_STOREFRONT_POLICIES/);
@@ -482,9 +483,9 @@ test("merchant record route-depth pages expose only fixed server-authorized edit
 
 test("dedicated payment settings route validates hints and retires generic editors", async () => {
   const [page, create, edit] = await Promise.all([
-    readFile(new URL("../app/settings/payment/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/settings/payment/new/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/settings/payment/[recordId]/edit/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/(panel)/settings/payment/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/(panel)/settings/payment/new/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/(panel)/settings/payment/[recordId]/edit/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(page, /<PaymentSettingsConsole/);
   assert.match(page, /searchParams: Promise/);
@@ -499,7 +500,7 @@ test("dedicated payment settings route validates hints and retires generic edito
 });
 
 test("content and settings family hubs render behind server panel access", async () => {
-  for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
+  for (const file of ["../app/(panel)/content/page.tsx", "../app/(panel)/settings/page.tsx"]) {
     const page = await readFile(new URL(file, import.meta.url), "utf8");
     assert.match(page, /requireServerPanelAccess\(\)/);
     assert.match(page, /<MerchantFamilyOverview[^>]+family=[\"'][a-z]+[\"'][^>]+canManage=/);

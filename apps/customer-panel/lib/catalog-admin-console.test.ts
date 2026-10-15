@@ -8,9 +8,9 @@ test("tag and barcode consoles use fixed tenant-safe catalog surfaces", async ()
     source("components/catalog-admin/CatalogResourceConsole.tsx"),
     source("components/catalog-admin/BarcodeLabelStudio.tsx"),
     source("lib/barcode-label-http/handler.ts"),
-    source("app/products/barcode-labels/print/route.ts"),
-    source("app/products/tags/page.tsx"),
-    source("app/products/barcode-labels/page.tsx"),
+    source("app/(panel)/products/barcode-labels/print/route.ts"),
+    source("app/(panel)/products/tags/page.tsx"),
+    source("app/(panel)/products/barcode-labels/page.tsx"),
   ]);
   assert.match(resource, /tag:\s*\{\s*title:\s*"Etiketler"/);
   for (const marker of ["Ürünleri seç", "Etiketi düzenle", "Yazdır", "Dahili barkod oluştur", "ZPL 203", "ZPL 300"]) assert.match(studio, new RegExp(marker));
@@ -44,7 +44,7 @@ test("tag and barcode consoles use fixed tenant-safe catalog surfaces", async ()
   assert.doesNotMatch(barcodePage, /ProductDetailsResult|getProductDetails|projectBarcodeLabelProducts/);
   for (const page of [tagPage, barcodePage]) assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
 });
-test("every catalog administration route is backed by a real console and action authority", async () => { for (const [path, marker] of [["app/products/collections/page.tsx", "collection"], ["app/products/brands/page.tsx", "brand"], ["app/products/attributes/page.tsx", "attribute"], ["app/products/extras/page.tsx", "extra"], ["app/products/definitions/page.tsx", "definition"], ["app/products/reviews/page.tsx", "catalog_admin.moderate"], ["app/products/auto-import/page.tsx", "catalog_admin.import"], ["app/products/shopify-converter/page.tsx", "catalog_admin.import"], ["app/products/bulk-upload/page.tsx", "catalog_admin.import"]] as const) { const value = await source(path); assert.match(value, new RegExp(marker.replace(".", "\\."))); assert.match(value, /requireServerPanelAccess/); } });
+test("every catalog administration route is backed by a real console and action authority", async () => { for (const [path, marker] of [["app/(panel)/products/collections/page.tsx", "collection"], ["app/(panel)/products/brands/page.tsx", "brand"], ["app/(panel)/products/attributes/page.tsx", "attribute"], ["app/(panel)/products/extras/page.tsx", "extra"], ["app/(panel)/products/definitions/page.tsx", "definition"], ["app/(panel)/products/reviews/page.tsx", "catalog_admin.moderate"], ["app/(panel)/products/auto-import/page.tsx", "catalog_admin.import"], ["app/(panel)/products/shopify-converter/page.tsx", "catalog_admin.import"], ["app/(panel)/products/bulk-upload/page.tsx", "catalog_admin.import"]] as const) { const value = await source(path); assert.match(value, new RegExp(marker.replace(".", "\\."))); assert.match(value, /requireServerPanelAccess/); } });
 test("catalog consoles use durable APIs and expose no browser tenant authority", async () => { const value = (await Promise.all(["components/catalog-admin/CatalogResourceConsole.tsx", "components/catalog-admin/ProductReviewConsole.tsx", "components/catalog-admin/CatalogBulkImportConsole.tsx", "components/catalog-admin/CatalogImportPreparationConsole.tsx", "lib/catalog-admin-ui/import-preparation-controller.ts"].map(source))).join("\n"); assert.match(value, /catalogAdminApi/); assert.doesNotMatch(value, /x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin/); });
 test("bulk import console exposes the complete four-step file and feed workflow", async () => {
   const component = await source("components/catalog-admin/CatalogBulkImportConsole.tsx");
@@ -142,7 +142,7 @@ test("catalog import controls are abortable, race-safe, double-submit-safe, and 
 });
 
 test("Shopify import is explicitly local file conversion and never claims a provider connection", async () => {
-  const value = (await Promise.all(["components/catalog-admin/CatalogImportPreparationConsole.tsx", "app/products/shopify-converter/page.tsx"].map(source))).join("\n");
+  const value = (await Promise.all(["components/catalog-admin/CatalogImportPreparationConsole.tsx", "app/(panel)/products/shopify-converter/page.tsx"].map(source))).join("\n");
   assert.match(value, /dosya dönüştürme/i);
   assert.doesNotMatch(value, /Shopify bağlandı|senkronizasyon tamamlandı/i);
   assert.doesNotMatch(value, /fetch\(["'`]https?:|shopify[.]com|apiKey|clientSecret|accessToken|<iframe/i);
@@ -150,7 +150,7 @@ test("Shopify import is explicitly local file conversion and never claims a prov
 
 test("AI exposes provider setup without claiming content generation", async () => {
   const value = (await Promise.all([
-    "app/settings/artificial-intelligence/page.tsx",
+    "app/(panel)/settings/artificial-intelligence/page.tsx",
     "components/toshi-settings/ArtificialIntelligenceSettings.tsx",
   ].map(source))).join("\n");
   assert.match(value, /ArtificialIntelligenceSettings/);

@@ -36,7 +36,7 @@ test("quick create makes category selection obvious before publishing", async ()
 });
 
 test("new product page opens a choice before either creation form", async () => {
-  const page = await source("app/products/new/page.tsx");
+  const page = await source("app/(panel)/products/new/page.tsx");
   const create = await source("components/catalog/ProductCreateForm.tsx");
   assert.match(page, /mode === "advanced"/);
   assert.match(create, /Hızlı ürün yükle/i);

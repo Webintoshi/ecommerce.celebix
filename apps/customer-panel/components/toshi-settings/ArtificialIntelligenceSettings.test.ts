@@ -8,7 +8,7 @@ import { Window } from "happy-dom";
 import ts from "typescript";
 
 const COMPONENT = new URL("./ArtificialIntelligenceSettings.tsx", import.meta.url);
-const PAGE = new URL("../../app/settings/artificial-intelligence/page.tsx", import.meta.url);
+const PAGE = new URL("../../app/(panel)/settings/artificial-intelligence/page.tsx", import.meta.url);
 const CSS = new URL("./artificial-intelligence-settings.module.css", import.meta.url);
 
 test("AI settings page uses the dedicated provider surface and removes old warning copy", async () => {

@@ -136,10 +136,10 @@ function firstElement(node: ReactNode, type: string) {
 }
 
 test("customer pages stay behind durable server panel access and role capabilities", async () => {
-  const layout = await source("app/customers/layout.tsx");
-  const detail = await source("app/customers/[customerId]/page.tsx");
-  const segments = await source("app/customers/segments/page.tsx");
-  const tags = await source("app/customers/tags/page.tsx");
+  const layout = await source("app/(panel)/layout.tsx");
+  const detail = await source("app/(panel)/customers/[customerId]/page.tsx");
+  const segments = await source("app/(panel)/customers/segments/page.tsx");
+  const tags = await source("app/(panel)/customers/tags/page.tsx");
   assert.match(layout, /requireServerPanelAccess\(\)/);
   assert.match(layout, /tenantContext/);
   assert.match(detail, /customers[.]manage/);
@@ -250,7 +250,7 @@ test("customer detail presentation exposes linked orders navigation and truthful
 test("customer edit route sends the loaded version and leaves stale conflicts visible", async () => {
   const editor = await source("components/customers/CustomerEditConsole.tsx");
   const detail = await source("components/customers/CustomerDetailConsole.tsx");
-  const page = await source("app/customers/[customerId]/edit/page.tsx");
+  const page = await source("app/(panel)/customers/[customerId]/edit/page.tsx");
   assert.match(editor, /export function CustomerEditConsole/);
   assert.match(editor, /customerApi[.]get\(customerId\)/);
   assert.match(editor, /customerApi[.]update\(customerId/);
