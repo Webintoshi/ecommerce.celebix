@@ -8,6 +8,7 @@
     "/accounting/invoicing-integration",
     "/accounting/invoicing-integration/[recordId]/edit",
     "/accounting/invoicing-integration/new",
+    "/accounting/profitability",
     "/accounting/receivables",
     "/accounting/settings",
     "/accounting/suppliers",

@@ -61,6 +61,7 @@ export type PanelNavigationHref =
   | "/settings/marquee"
   | "/settings/artificial-intelligence"
   | "/accounting"
+  | "/accounting/profitability"
   | "/accounting/receivables"
   | "/accounting/suppliers"
   | "/accounting/accounts"
@@ -242,6 +243,7 @@ const SETTINGS_CHILDREN = Object.freeze([
 
 const ACCOUNTING_CHILDREN = Object.freeze([
   item("accounting-summary", "Özet", "/accounting", "accounting"),
+  item("accounting-profitability", "Gelir ve kâr", "/accounting/profitability", "analytics"),
   item("accounting-receivables", "Müşteri borçları", "/accounting/receivables", "customers"),
   item("accounting-suppliers", "Tedarikçi borçları", "/accounting/suppliers", "expenses"),
   item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounts"),
@@ -361,6 +363,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/analytics": presentation("Analitik ve sepet"),
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
+  "/accounting/profitability": presentation("Gelir ve kâr"),
   "/accounting/receivables": presentation("Müşteri borçları"),
   "/accounting/suppliers": presentation("Tedarikçi borçları"),
   "/accounting/accounts": presentation("Kasa ve Banka"),

@@ -1,3 +1,4 @@
+import type {AccountingProfitability,AccountingProfitabilityFilters} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingSupplierAction,AccountingSupplierIntentMap,AccountingSupplierFilters,AccountingSupplierList,AccountingSupplierDetail,AccountingSupplierResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type { TenantContext } from '@celebix/saas-contracts';
 import type { AccountingAccounts,AccountingCollectionAccounts,AccountingCollectionPreview,AccountingCustomerAccount,AccountingExpenses,AccountingFilters,AccountingIntentMap,AccountingMutation,AccountingMutationResult,AccountingOrderFinance,AccountingOverview,AccountingReceivables } from '../../../saas-contracts/src/accounting/index.ts';
@@ -6,6 +7,7 @@ import type {AccountingScheduleFilters,AccountingDebtSchedule,AccountingSchedule
 import type {AccountingCashAction,AccountingCashIntentMap,AccountingCashResult,AccountingCashSessions} from '../../../saas-contracts/src/accounting/index.ts';
 export interface AccountingAuthorityInput { readonly tenantContext:TenantContext; readonly now:Date; }
 export interface AccountingReadInput extends AccountingAuthorityInput { readonly filters?:AccountingFilters; }
+export interface AccountingProfitabilityInput extends AccountingAuthorityInput {readonly filters:AccountingProfitabilityFilters;}
 export interface AccountingCustomerInput extends AccountingAuthorityInput { readonly customerId:string; readonly currency?:string; }
 export interface AccountingOrderInput extends AccountingAuthorityInput { readonly orderId:string; }
 export interface AccountingPreviewInput extends AccountingCustomerInput { readonly amountCents:number; readonly orderId?:string; }
@@ -21,6 +23,7 @@ export interface AccountingSuppliersInput extends AccountingAuthorityInput {read
 export interface AccountingSupplierInput extends AccountingAuthorityInput {readonly debtId:string;}
 export interface AccountingSupplierMutationInput<K extends AccountingSupplierAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingSupplierIntentMap[K];}
 export interface AccountingRepository {
+ profitability(input:AccountingProfitabilityInput):Promise<AccountingProfitability>;
  suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;
  supplier(input:AccountingSupplierInput):Promise<AccountingSupplierDetail>;
  supplierMutate<K extends AccountingSupplierAction>(input:AccountingSupplierMutationInput<K>):Promise<AccountingSupplierResult>;
