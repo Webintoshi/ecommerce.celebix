@@ -180,7 +180,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             <div ref={setContextTarget} id="panel-topbar-context" className={styles.desktopTopbarContext} />
             <div className={styles.desktopTopbarCommands}>
               <div ref={setActionsTarget} id="panel-topbar-actions" />
-              <PanelTopbarUtilities storefrontHostname={model.storefrontHostname} />
+              {model.navigationMode !== "register" ? <PanelTopbarUtilities storefrontHostname={model.storefrontHostname} /> : null}
             </div>
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange} targets={topbarTargets} scopeKey={pathname}>
@@ -191,7 +191,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             >{children}</main>
           </PanelTopbarChromeProvider>
         </div>
-        <PanelMobileDock navigationMode={model.navigationMode}
+        <PanelMobileDock navigationMode={model.navigationMode} analyticsAvailable={model.analyticsAvailable}
           pathname={pathname}
           menuOpen={drawerOpen}
           menuButtonRef={menuButtonRef}

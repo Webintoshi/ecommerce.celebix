@@ -283,7 +283,12 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
 ]);
 
 export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register" }>): readonly PanelNavigationItem[] {
-  if (input?.navigationMode === "register") return Object.freeze([item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders")]);
+  if (input?.navigationMode === "register") return Object.freeze([
+    item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
+    item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers"),
+    ...(input.analyticsAvailable ? [item("analytics", "Analizler", "/analytics", "analytics")] : []),
+    item("catalog", "Ürünler", "/products", "products", Object.freeze(CATALOG_CHILDREN.filter(entry => entry.href === "/products" || entry.href === "/products/new"))),
+  ]);
   return input?.analyticsAvailable === true
     ? PANEL_NAVIGATION
     : Object.freeze(PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"));

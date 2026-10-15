@@ -34,3 +34,17 @@ test('desktop drawer and navigation search expose staff only with server availab
   assert.equal(Boolean(container.querySelector('a[href="/settings/administrators"]')),available);
  });
 });
+test('cashier shell hides storefront notification and assistant utilities while keeping its workspace',()=>{
+ const {PanelLayoutClient}=compile<any>(new URL('./PanelLayoutClient.tsx',import.meta.url),{
+  'next/navigation':{usePathname:()=>'/products'},
+  './PanelSidebar':{PanelSidebar:()=>null},
+  './PanelMobileDock':{PanelMobileDock:()=>null},
+  './PanelTopbarUtilities':{PanelTopbarUtilities:()=>React.createElement('aside',{'data-ecommerce-utilities':true})},
+  './PanelTopbarChrome':{PanelTopbarChromeProvider:({children}:any)=>children},
+ });
+ for(const mode of [undefined,'register']){
+  const html=renderToStaticMarkup(React.createElement(PanelLayoutClient,{model:{...model,navigationMode:mode},children:React.createElement('p',null,'Ürünler')}));
+  assert.equal(html.includes('data-ecommerce-utilities'),mode!=='register');
+  assert.match(html,/Ürünler/);
+ }
+});

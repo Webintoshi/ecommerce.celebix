@@ -87,16 +87,19 @@ test("denies unknown merchant actions", () => {
   );
 });
 
-test("cashier can sell and discount only in the in-store workflow", () => {
-  for (const action of ["in_store.read", "in_store.sell", "in_store.discount"] as const) {
-    assert.equal(isMerchantActionAllowed("cashier", action), true, action);
-  }
+test("cashier can use analytics, catalog and in-store sales without other merchant permissions", () => {
+  const allowedActions = new Set<string>([
+    "analytics.read",
+    "catalog_admin.read",
+    "catalog_admin.manage",
+    "catalog_admin.archive",
+    "catalog_admin.delete",
+    "in_store.read",
+    "in_store.sell",
+    "in_store.discount",
+  ]);
   for (const action of MERCHANT_ACTIONS) {
-    if (["in_store.read", "in_store.sell", "in_store.discount"].includes(action)) continue;
-    assert.equal(isMerchantActionAllowed("cashier", action), false, action);
-  }
-  for (const operation of CATALOG_PRODUCT_OPERATIONS) {
-    assert.equal(isCatalogProductOperationAllowed("cashier", operation), false, operation);
+    assert.equal(isMerchantActionAllowed("cashier", action), allowedActions.has(action), action);
   }
 });
 
@@ -174,7 +177,7 @@ test("cannot mutate the frozen merchant action root value", () => {
 });
 
 test("analytics is readable by every merchant role and never mutable", () => {
-  for (const role of ["store_owner", "admin", "editor", "analyst"] as const) {
+  for (const role of ["store_owner", "admin", "editor", "analyst", "cashier"] as const) {
     assert.equal(isMerchantActionAllowed(role, "analytics.read" as never), true);
   }
   assert.equal(MERCHANT_ACTIONS.some((action) => action.startsWith("analytics.") && action !== "analytics.read"), false);
@@ -221,7 +224,7 @@ test("maps every product operation to one immutable merchant action", () => {
 });
 
 test("enforces the exact product lifecycle role matrix", () => {
-  for (const role of ["store_owner", "admin"] as const) {
+  for (const role of ["store_owner", "admin", "cashier"] as const) {
     for (const operation of CATALOG_PRODUCT_OPERATIONS) {
       assert.equal(isCatalogProductOperationAllowed(role, operation), true, `${role}:${operation}`);
     }

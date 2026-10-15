@@ -148,6 +148,11 @@ const ROLE_ACTIONS: Readonly<
     "pricing.read",
   ]),
   cashier: new Set<MerchantAction>([
+    "analytics.read",
+    "catalog_admin.read",
+    "catalog_admin.manage",
+    "catalog_admin.archive",
+    "catalog_admin.delete",
     "in_store.read",
     "in_store.sell",
     "in_store.discount",

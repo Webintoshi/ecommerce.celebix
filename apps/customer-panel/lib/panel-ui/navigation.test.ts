@@ -9,9 +9,11 @@ import {
   isPanelNavigationPathActive,
 } from "./navigation.ts";
 
-test('cashier chrome exposes only the shared store register and preserves separate payment links for managers',()=>{
-  const navigation=getPanelNavigation({analyticsAvailable:false,navigationMode:'register'});
-  assert.deepEqual(navigation.map(item=>item.href),['/orders/quick-links']);
+test('cashier navigation exposes manual sales, product management and available analytics without ecommerce tools',()=>{
+  const navigation=getPanelNavigation({analyticsAvailable:true,navigationMode:'register'});
+  assert.deepEqual(navigation.map(item=>item.href),['/orders/quick-links','/accounting/receivables','/analytics','/products']);
+  assert.deepEqual(navigation.find(item=>item.href==='/products')?.children?.map(item=>item.href),['/products','/products/new']);
+  assert.equal(getPanelNavigation({analyticsAvailable:false,navigationMode:'register'}).some(item=>item.href==='/analytics'),false);
   const general=getPanelNavigation({analyticsAvailable:false}).flatMap(item=>[item,...(item.children??[])]);
   assert.ok(general.some(item=>item.href==='/orders/payment-links'));
   assert.equal(getPanelRoutePresentation('/orders/quick-links').title,'Manuel satış');

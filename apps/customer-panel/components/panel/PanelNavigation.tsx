@@ -390,7 +390,7 @@ export function PanelNavigation({
               <NavigationLink key={item.key} item={item} currentHref={currentHref} context={context} />
             )) : <p className={styles.navigationEmpty}>Sonuç bulunamadı. Başka bir kelime deneyin.</p>}
           </section>
-        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['quick-orders']}] : NAVIGATION_SECTIONS).map((section) => {
+        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['quick-orders','cashier-receivables','analytics','catalog']}] : NAVIGATION_SECTIONS).map((section) => {
           const sectionItems = section.items.map((key) => navigationByKey.get(key)).filter((item): item is PanelNavigationItem => Boolean(item));
           if (!sectionItems.length) return null;
           const headingId = `panel-nav-section-${section.key}-${mode}`;

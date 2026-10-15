@@ -179,9 +179,21 @@ test("matcher and handler preserve auth handoff, callbacks and API health withou
   for (const pathname of ["/", "/login", "/login?next=home"]) {
     assert.equal(unstable_doesMiddlewareMatch({ config, url: `https://panel.example${pathname}` }), true);
   }
-  for (const pathname of ["/auth/handoff", "/auth/login", "/auth/callback", "/auth/logout", "/api/health", "/api/session/switch", "/_next/static/chunk.js", "/orders"]) {
+  for (const pathname of ["/auth/handoff", "/auth/login", "/auth/callback", "/auth/logout", "/api/health", "/api/session/switch", "/_next/static/chunk.js"]) {
     assert.equal(unstable_doesMiddlewareMatch({ config, url: `https://panel.example${pathname}` }), false, pathname);
     assert.equal((await handler(request(ENVIRONMENTS[0].unknown, pathname))).headers.get("x-middleware-next"), "1", pathname);
   }
   assert.equal(resolutions, 0);
+});
+
+test('panel page pathname comes from the proxy and cannot be spoofed by a cashier request',async()=>{
+  let resolutions=0;
+  const handler=createCustomerPanelProxy({clock:()=>NOW,async resolveRuntime(){resolutions++;return null;}});
+  for(const path of ['/orders','/analytics','/products/new','/settings/design','/marketing/google','/products/11111111-1111-4111-8111-111111111111']){
+    assert.equal(unstable_doesMiddlewareMatch({config,url:`https://panel.example${path}`}),true,path);
+    const response=await handler(request(ENVIRONMENTS[0].tenant,path,{'x-celebix-panel-pathname':'/orders/quick-links'}));
+    assert.equal(response.headers.get('x-middleware-request-x-celebix-panel-pathname'),path);
+    assert.equal(response.headers.get('x-middleware-next'),'1');
+  }
+  assert.equal(resolutions,0);
 });

@@ -68,7 +68,7 @@ function publicMedia(media: ProductMedia): ProductMediaLifecycle {
   });
 }
 async function lifecycle(runtime: ServerMediaRuntime, tenantContext: Authorized["tenantContext"], now: Date, productId: string) {
-  const includeArchived = ["store_owner", "admin"].includes(tenantContext.membership.role);
+  const includeArchived = isCatalogProductOperationAllowed(tenantContext.membership.role, "archive_media");
   if (typeof runtime.media.listProductMediaLifecycle === "function") return runtime.media.listProductMediaLifecycle({ tenantContext, now, productId, includeArchived });
   return Object.freeze((await runtime.media.listProductMedia({ tenantContext, now, productId, includeArchived })).map(publicMedia));
 }

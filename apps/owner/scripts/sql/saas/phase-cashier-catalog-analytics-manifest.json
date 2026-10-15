@@ -1,0 +1,11 @@
+{
+  "name": "cashier-catalog-analytics",
+  "migration": "202610150238_cashier_catalog_analytics",
+  "requires": ["202609260158_in_store_cashier_role", "202610020200_accounting_ledger", "202610150237_merchant_phone_staff_delete"],
+  "artifacts": ["202610150238_cashier_catalog_analytics.up.sql", "202610150238_cashier_catalog_analytics_assertions.sql", "202610150238_cashier_catalog_analytics.down.sql"],
+  "test": "node tests/saas-phase3/cashier-catalog-analytics/native.test.mjs",
+  "database": "PostgreSQL 16 disposable socket only",
+  "authority": ["analytics.read", "catalog_admin.read", "catalog_admin.manage", "catalog_admin.archive", "catalog_admin.delete", "in_store.read", "in_store.sell", "in_store.discount"],
+  "collectionBackfill": "Only false flags on enabled sales grants belonging to active cashier memberships; version increments; disabled grants, depot assignments, other roles and existing true flags are preserved.",
+  "rollback": "Exact function/default restoration; changed collection rows restore only when untouched since migration. No historical sales, accounting or operation records are removed."
+}

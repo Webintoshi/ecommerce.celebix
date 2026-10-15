@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Menu, Package, ShoppingBag } from "lucide-react";
+import { BarChart3, Home, Menu, Package, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import type { RefObject } from "react";
 import { isPanelNavigationPathActive } from "@/lib/panel-ui/navigation";
@@ -9,11 +9,16 @@ import styles from "./panel-shell.module.css";
 export function PanelMobileDock(props: {
   pathname: string;
   navigationMode?: "register";
+  analyticsAvailable?: boolean;
   menuOpen: boolean;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
   onMenuToggle: () => void;
 }) {
-  const items = props.navigationMode === "register" ? [{href: "/orders/quick-links" as const,label:"Mağaza satışı",Icon:ShoppingBag}] : [
+  const items = props.navigationMode === "register" ? [
+    {href: "/orders/quick-links" as const,label:"Manuel satış",Icon:ShoppingBag},
+    {href: "/products" as const,label:"Ürünler",Icon:Package},
+    ...(props.analyticsAvailable ? [{href: "/analytics" as const,label:"Analizler",Icon:BarChart3}] : []),
+  ] : [
     { href: "/" as const, label: "Özet", Icon: Home },
     { href: "/orders" as const, label: "Siparişler", Icon: ShoppingBag },
     { href: "/products" as const, label: "Ürünler", Icon: Package },

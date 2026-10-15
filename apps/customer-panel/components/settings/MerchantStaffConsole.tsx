@@ -3,14 +3,16 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createMerchantStaffClient, type MerchantStaffClient } from '../../lib/merchant-staff-ui/client.ts';
 import { MerchantStaffError, STAFF_ROLES, STAFF_ROLE_LABELS, staffErrorMessage, staffName, staffPhone, type MerchantStaff, type MerchantStaffState, type StaffRole } from '../../lib/merchant-staff-ui/model.ts';
 import styles from './MerchantStaffConsole.module.css';
+import { CashierSalesPermissions, type CashierSalesPermissionsClient } from './CashierSalesPermissions';
 type Edit = Readonly<{
     mode: 'create' | 'update' | 'revoke' | 'delete';
     staff?: MerchantStaff;
     expectedVersion: number;
     existingMembershipId?: string;
 }>;
-export function MerchantStaffConsole({ client: provided }: Readonly<{
+export function MerchantStaffConsole({ client: provided, salesClient }: Readonly<{
     client?: MerchantStaffClient;
+    salesClient?: CashierSalesPermissionsClient;
 }>) {
     const client = useMemo(() => provided ?? createMerchantStaffClient(), [provided]);
     const [state, setState] = useState<MerchantStaffState | null>(null), [edit, setEdit] = useState<Edit | null>(null), [phone, setPhone] = useState(''), [name, setName] = useState(''), [role, setRole] = useState<StaffRole>('editor'), [error, setError] = useState<string | null>(null), [errorCode, setErrorCode] = useState<string | null>(null), [busy, setBusy] = useState(false), [status, setStatus] = useState<string | null>(null), [conflictReloaded, setConflictReloaded] = useState(false);
@@ -19,6 +21,8 @@ export function MerchantStaffConsole({ client: provided }: Readonly<{
         operationId: string;
     } | null>(null), trigger = useRef<HTMLElement | null>(null), titleId = useId();
     const deleteUnavailable = edit?.mode === 'delete' && state?.staff.find(row => row.staffId === edit.staff?.staffId)?.enabled !== false;
+    const [salesMembershipId, setSalesMembershipId] = useState<string | null>(null);
+    const salesStaff = state?.staff.find(row => row.membershipId === salesMembershipId);
     useEffect(() => { let active = true; mounted.current = true; readPromise.current ??= client.state(); void readPromise.current.then(value => { if (active)
         setState(value); }).catch(() => { if (active)
         setError(staffErrorMessage('unavailable')); }); return () => { active = false; mounted.current = false; }; }, [client]);
@@ -106,7 +110,8 @@ export function MerchantStaffConsole({ client: provided }: Readonly<{
   {state && !state.enabled && <p className={styles.note} role="status">Personel yönetimi bu mağazada henüz etkin değil.</p>}
   {error && !edit && <p className={styles.error} role="alert">{error}</p>}{status && <p className={styles.note} role="status">{status}</p>}
   {!state && !error && <div role="status" aria-label="Personel bilgileri yükleniyor…" className={styles.listLoading}><span className={styles.srOnly}>Personel bilgileri yükleniyor…</span>{[0,1,2].map(index=><div key={index} aria-hidden="true"><span/><span/><span/><span/></div>)}</div>}
-  {state?.staff.length ? <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Personel</th><th>Telefon</th><th>Rol</th><th>Durum</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead><tbody>{state.staff.map(row => <tr key={row.staffId}><td data-label="Personel"><strong>{row.displayName}</strong></td><td data-label="Telefon">{row.phoneMasked || 'Telefon bağlanmadı'}</td><td data-label="Rol">{STAFF_ROLE_LABELS[row.role]}</td><td data-label="Durum">{!row.enabled ? 'Erişim kapalı' : row.phoneVerified ? 'Etkin' : 'Telefon doğrulaması bekleniyor'}</td><td className={styles.rowActions}>{state.enabled && <><button type="button" className={styles.secondary} data-edit-staff disabled={busy} onClick={() => open({ mode: 'update', staff: row, expectedVersion: row.version })}>Düzenle</button>{row.enabled && <button type="button" className={styles.secondary} data-revoke-staff disabled={busy} onClick={() => open({ mode: 'revoke', staff: row, expectedVersion: row.version })}>Erişimi kaldır</button>}{row.enabled === false && <button type="button" className={styles.secondary} data-delete-staff disabled={busy} onClick={() => open({ mode: 'delete', staff: row, expectedVersion: row.version })}>Sil</button>}</>}</td></tr>)}</tbody></table></div> : state && <div className={styles.empty}><h2>Personel kaydı yok</h2><p>Telefon numarası, ad ve rol girerek mağaza erişimi oluşturabilirsiniz.</p></div>}
+  {state?.staff.length ? <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Personel</th><th>Telefon</th><th>Rol</th><th>Durum</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead><tbody>{state.staff.map(row => <tr key={row.staffId}><td data-label="Personel"><strong>{row.displayName}</strong></td><td data-label="Telefon">{row.phoneMasked || 'Telefon bağlanmadı'}</td><td data-label="Rol">{STAFF_ROLE_LABELS[row.role]}</td><td data-label="Durum">{!row.enabled ? 'Erişim kapalı' : row.phoneVerified ? 'Etkin' : 'Telefon doğrulaması bekleniyor'}</td><td className={styles.rowActions}>{state.enabled && <><button type="button" className={styles.secondary} data-edit-staff disabled={busy} onClick={() => open({ mode: 'update', staff: row, expectedVersion: row.version })}>Düzenle</button>{row.enabled && row.role === 'cashier' && row.membershipId ? <button type="button" className={styles.secondary} data-sales-permissions disabled={busy} onClick={() => { setStatus(null); setSalesMembershipId(row.membershipId!); }}>Satış yetkileri</button> : null}{row.enabled && <button type="button" className={styles.secondary} data-revoke-staff disabled={busy} onClick={() => open({ mode: 'revoke', staff: row, expectedVersion: row.version })}>Erişimi kaldır</button>}{row.enabled === false && <button type="button" className={styles.secondary} data-delete-staff disabled={busy} onClick={() => open({ mode: 'delete', staff: row, expectedVersion: row.version })}>Sil</button>}</>}</td></tr>)}</tbody></table></div> : state && <div className={styles.empty}><h2>Personel kaydı yok</h2><p>Telefon numarası, ad ve rol girerek mağaza erişimi oluşturabilirsiniz.</p></div>}
+  {salesMembershipId ? <CashierSalesPermissions key={salesMembershipId} membershipId={salesMembershipId} staff={salesStaff} active={state?.enabled === true} client={salesClient} onClose={() => setSalesMembershipId(null)} onSaved={() => { setSalesMembershipId(null); setStatus('Satış yetkileri kaydedildi.'); }}/> : null}
   <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onKeyDown={keyboard} onCancel={event => { event.preventDefault(); close(); }}>
    {edit && <form onSubmit={event => void save(event)} className={styles.form}>
     <header className={styles.dialogHeader}><h2 id={titleId}>{edit.mode === 'delete' ? 'Personeli sil' : edit.mode === 'revoke' ? 'Personel erişimini kaldır' : edit.mode === 'update' ? 'Personeli düzenle' : edit.existingMembershipId ? 'Personelin telefonunu tanımla' : 'Personel ekle'}</h2><button type="button" className={styles.secondary} disabled={busy} onClick={close} aria-label="Pencereyi kapat">Kapat</button></header>

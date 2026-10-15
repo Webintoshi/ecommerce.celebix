@@ -29,12 +29,19 @@ function denied(status: 404 | 503): NextResponse {
   });
 }
 
+function continuePage(request: NextRequest): NextResponse {
+  const headers = new Headers(request.headers);
+  // Page authorization must use the real route, never a caller supplied header.
+  headers.set("x-celebix-panel-pathname", request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers } });
+}
+
 export function createCustomerPanelProxy(dependencies: AdminHostGateDependencies) {
   return async (request: NextRequest): Promise<NextResponse> => {
-    if (request.nextUrl.pathname !== "/" && request.nextUrl.pathname !== "/login") return NextResponse.next();
+    if (request.nextUrl.pathname !== "/" && request.nextUrl.pathname !== "/login") return continuePage(request);
     const originalHost = request.headers.get("host");
     if (dependencies.development === true && originalHost !== null && LOCAL_DEVELOPMENT_HOSTS.has(originalHost)) {
-      return NextResponse.next();
+      return continuePage(request);
     }
     let hostname: string;
     try { hostname = normalizeAdminRequestHostname(originalHost); }
@@ -45,13 +52,13 @@ export function createCustomerPanelProxy(dependencies: AdminHostGateDependencies
       if (!runtime) return denied(503);
       const panelOrigin = runtime.access.panelOrigin;
       adminOriginEnvironmentFromPanelOrigin(panelOrigin);
-      if (hostname === new URL(panelOrigin).hostname) return NextResponse.next();
+      if (hostname === new URL(panelOrigin).hostname) return continuePage(request);
 
       const now = dependencies.clock();
       if (!(now instanceof Date) || !Number.isFinite(now.getTime())) return denied(503);
       const resolved = await runtime.adminDomains.resolvePublicBrand({ hostname, now: new Date(now) });
       if (resolved.kind === "admin_host_unknown") return denied(404);
-      return resolved.kind === "resolved" ? NextResponse.next() : denied(503);
+      return resolved.kind === "resolved" ? continuePage(request) : denied(503);
     } catch { return denied(503); }
   };
 }
@@ -67,4 +74,4 @@ const defaultProxy = createCustomerPanelProxy({
 
 export function proxy(request: NextRequest): Promise<NextResponse> { return defaultProxy(request); }
 
-export const config = { matcher: ["/", "/login"] };
+export const config = { matcher: ["/((?!api(?:/|$)|auth(?:/|$)|_next(?:/|$)|favicon.ico).*)"] };

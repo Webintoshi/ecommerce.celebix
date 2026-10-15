@@ -854,17 +854,40 @@ test("repository enforces product operation roles before checking out a SQL clie
   }
 });
 
-test("cashier catalog reads and writes fail as permission denial before pool checkout", async () => {
-  const pool = new FakePool();
-  const catalog = repository(pool);
+test("cashier catalog reads, creation, archive and deletion use the tenant-bound SQL gates", async () => {
   const context = tenantContext({ membership: { id: MEMBERSHIP_ID, role: "cashier", status: "active" } });
-  for (const invoke of [
-    () => catalog.getProduct({ tenantContext: context, now: NOW, productId: PRODUCT_ID }),
-    () => catalog.createProduct({ ...createInput(), tenantContext: context }),
-  ]) {
-    await assert.rejects(invoke, (error: unknown) => error instanceof CatalogRepositoryError && error.code === "membership_denied");
+  const archived = product({ status: "archived", version: 2 });
+  const deleted = { resourceKind: "product", resourceId: PRODUCT_ID, deleted: true, auditId: OPERATION_ID, replayed: false } as const;
+  const cases = [
+    {
+      sqlFunction: "saas.catalog_get_product(", outcome: "found", payload: { product: product() }, expected: product(),
+      invoke: (catalog: PostgresCatalogRepository) => catalog.getProduct({ tenantContext: context, now: NOW, productId: PRODUCT_ID }),
+    },
+    {
+      sqlFunction: "saas.catalog_create_product(", outcome: "created", payload: { product: product(), initialVariant: variant() },
+      expected: { product: product(), initialVariant: variant(), replayed: false },
+      invoke: (catalog: PostgresCatalogRepository) => catalog.createProduct({ ...createInput(), tenantContext: context }),
+    },
+    {
+      sqlFunction: "saas.catalog_archive_product(", outcome: "archived", payload: { product: archived },
+      expected: { product: archived, replayed: false },
+      invoke: (catalog: PostgresCatalogRepository) => catalog.archiveProduct({ tenantContext: context, now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, expectedVersion: 1 }),
+    },
+    {
+      sqlFunction: "saas.delete_product(", outcome: "deleted", payload: deleted, expected: deleted,
+      invoke: (catalog: PostgresCatalogRepository) => catalog.deleteProduct({ tenantContext: context, now: NOW, operationId: OPERATION_ID, productId: PRODUCT_ID, expectedVersion: 1, confirmation: "Atlas Mug" }),
+    },
+  ];
+  for (const entry of cases) {
+    const client = new FakeClient((text) => text.includes(entry.sqlFunction)
+      ? [{ outcome: entry.outcome, result_payload: entry.payload }]
+      : []);
+    assert.deepEqual(await entry.invoke(repository(new FakePool(client))), entry.expected, entry.sqlFunction);
+    const queries = client.calls.filter(({ text }) => text.includes(entry.sqlFunction));
+    assert.equal(queries.length, 1, entry.sqlFunction);
+    assert.deepEqual(queries[0]?.values.slice(0, 8), [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "free_starter", 1, 10, NOW]);
+    assert.deepEqual(client.releases, [undefined]);
   }
-  assert.equal(pool.connects, 0);
 });
 
 test("owner and admin archive while editor cannot, using the secured SQL boundary", async () => {
