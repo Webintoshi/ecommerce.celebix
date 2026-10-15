@@ -6,7 +6,7 @@ import type {createMerchantWhatsAppCodec,MerchantPhonePending} from './codec.ts'
 
 type Row=Readonly<Record<string,unknown>>;
 export type MerchantInternalInput=Readonly<{
- schemaVersion:1;action:'state'|'start'|'resend'|'verify'|'complete'|'self_state'|'staff_list'|'staff_create'|'staff_update';
+ schemaVersion:1;action:'state'|'start'|'resend'|'verify'|'complete'|'self_state'|'staff_list'|'staff_create'|'staff_update'|'staff_delete';
  purpose:'login'|'bind_phone'|'signup';hostname:string;browserCredential?:string;pendingCookie?:string;
  sessionCredential?:string;operationId?:string;ingressAuthenticated?:boolean;trustedIp?:string;payload?:Row;
 }>;
@@ -18,7 +18,7 @@ function str(value:unknown,max=2048){if(typeof value!=='string'||!value||value.l
 function uuid(value:unknown){const v=str(value,36);if(!UUID.test(v))unavailable();return v;}
 function iso(value:unknown){const v=str(value,40);if(!Number.isFinite(Date.parse(v)))unavailable();return new Date(v).toISOString();}
 function fields(value:Row|undefined,required:readonly string[],optional:readonly string[]=[]):Row{const row=value??{};if(required.some(k=>!Object.hasOwn(row,k))||Object.keys(row).some(k=>![...required,...optional].includes(k)))unavailable();return row;}
-function failure(outcome:string):string{return ({unauthenticated:'fresh_login_required',membership_denied:'fresh_login_required',owner_required:'unauthorized',invalid_input:'invalid_input',invalid_code:'invalid_code',locked:'locked',rate_limited:'rate_limited',phone_conflict:'phone_conflict',staff_limit_reached:'staff_limit_reached',version_conflict:'version_conflict',operation_mismatch:'operation_mismatch',disabled:'feature_not_enabled',not_ready:'not_ready'} as Record<string,string>)[outcome]??'operation_uncertain';}
+function failure(outcome:string):string{return ({unauthenticated:'fresh_login_required',membership_denied:'fresh_login_required',owner_required:'unauthorized',invalid_input:'invalid_input',invalid_code:'invalid_code',locked:'locked',rate_limited:'rate_limited',phone_conflict:'phone_conflict',staff_limit_reached:'staff_limit_reached',version_conflict:'version_conflict',staff_not_disabled:'staff_not_disabled',operation_mismatch:'operation_mismatch',disabled:'feature_not_enabled',not_ready:'not_ready'} as Record<string,string>)[outcome]??'operation_uncertain';}
 
 export function createOwnerMerchantWhatsAppService(options:Readonly<{
  codec:ReturnType<typeof createMerchantWhatsAppCodec>;
@@ -106,18 +106,20 @@ export function createOwnerMerchantWhatsAppService(options:Readonly<{
   const auth=actor(input);
   if(input.action==='self_state'){fields(input.payload,[]);const r=await call('self_state',auth);return r.outcome==='listed'&&r.authority?result('ok',{state:r.authority}):result(failure(r.outcome));}
   if(input.action==='staff_list'){fields(input.payload,[]);const r=await call('staff_list',auth);return r.outcome==='listed'&&r.authority?result('ok',{state:{...r.authority,enabled:true}}):result(failure(r.outcome));}
-  const payload=input.action==='staff_create'?fields(input.payload,['phone','displayName','role','expectedVersion'],['existingMembershipId']):fields(input.payload,['staffId','expectedVersion','action'],['displayName','role']);
+  const payload=input.action==='staff_create'?fields(input.payload,['phone','displayName','role','expectedVersion'],['existingMembershipId']):input.action==='staff_delete'?fields(input.payload,['staffId','expectedVersion']):fields(input.payload,['staffId','expectedVersion','action'],['displayName','role']);
   let r:MerchantWhatsAppResult;
   if(input.action==='staff_create'){
    const identity=codec.phoneIdentity(payload.phone),{phone:_phone,recipientBudgetDigest:_budget,...encrypted}=identity;
    r=await call('staff_create',{...auth,operationId:uuid(input.operationId),...encrypted,displayName:payload.displayName,role:payload.role,expectedVersion:payload.expectedVersion,...(payload.existingMembershipId?{existingMembershipId:payload.existingMembershipId}:{})});
+  }else if(input.action==='staff_delete'){
+   r=await call('staff_delete',{...auth,operationId:uuid(input.operationId),staffId:payload.staffId,expectedVersion:payload.expectedVersion});
   }else{
    if(!['update','revoke'].includes(String(payload.action)))unavailable();
    const current=await call('staff_list',auth);if(current.outcome!=='listed'||!Array.isArray(current.authority?.staff))return result(failure(current.outcome));
    const original=(current.authority.staff as Row[]).find(row=>row.staffId===payload.staffId);if(!original)return result('version_conflict');
    r=await call('staff_update',{...auth,operationId:uuid(input.operationId),staffId:payload.staffId,expectedVersion:payload.expectedVersion,displayName:payload.displayName??original.displayName,role:payload.role??original.role,enabled:payload.action==='revoke'?false:original.enabled});
   }
-  return ['created','updated','operation_replayed'].includes(r.outcome)&&r.authority?result('ok',{state:{...r.authority,enabled:true}}):result(failure(r.outcome));
+  return ['created','updated','deleted','operation_replayed'].includes(r.outcome)&&r.authority?result('ok',{state:{...r.authority,enabled:true}}):result(failure(r.outcome));
  }
  return Object.freeze({codec,
   async getSignupProof(input:Readonly<{pendingCookie:string;browserCredential:string;hostname:string}>){
@@ -134,7 +136,7 @@ export function createOwnerMerchantWhatsAppService(options:Readonly<{
    return result(failure(r.outcome));
   },
   async command(input:MerchantInternalInput):Promise<MerchantInternalResult>{
-  try{if(input.schemaVersion!==1||!['login','bind_phone','signup'].includes(input.purpose))unavailable();return ['self_state','staff_list','staff_create','staff_update'].includes(input.action)?await staff(input):await login(input);}
+  try{if(input.schemaVersion!==1||!['login','bind_phone','signup'].includes(input.purpose))unavailable();return ['self_state','staff_list','staff_create','staff_update','staff_delete'].includes(input.action)?await staff(input):await login(input);}
   catch{return result('unavailable');}
  }});
 }

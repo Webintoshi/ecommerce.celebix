@@ -50,3 +50,17 @@ test('invalid completion purpose fails before current actor resolution or broker
  }
  assert.equal(actorCalls,0);assert.equal(brokerCalls,0);
 });
+
+test('staff delete bridges only row identity and version behind actor, CSRF and operation checks',async()=>{
+ const staffId='33333333-3333-4333-8333-333333333333',calls:any[]=[];
+ const handlers=createMerchantPhoneHandlers({randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=> 'private-actor',authenticateIngress:()=>({authenticated:true}),transport:{async command(input){calls.push(input);return {schemaVersion:1,code:'ok',state:{version:4,enabled:true,staff:[]}};}}});
+ const initial=await handlers.staff(request('/api/merchant-staff')),csrf=(await initial.json()).csrfToken,cookie=initial.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+ const headers={origin,'content-type':'application/json',cookie,'idempotency-key':operation,'x-celebix-merchant-staff-csrf':csrf};
+ const input={action:'delete',operationId:operation,expectedVersion:2};
+ const response=await handlers.staff(request(`/api/merchant-staff/${staffId}`,{method:'POST',headers,body:JSON.stringify(input)}),staffId);
+ assert.equal(response.status,200);assert.deepEqual(calls.at(-1),{schemaVersion:1,action:'staff_delete',purpose:'login',hostname:'shop.admin.example.com',sessionCredential:'private-actor',operationId:operation,payload:{staffId,expectedVersion:2}});assert.deepEqual(await response.json(),{code:'ok',state:{version:4,enabled:true,staff:[]}});
+ const count=calls.length;
+ for(const change of [{role:'admin'},{displayName:'Ada'},{phone:'+905551112233'},{storeId:staffId}]){assert.equal((await handlers.staff(request(`/api/merchant-staff/${staffId}`,{method:'POST',headers,body:JSON.stringify({...input,...change})}),staffId)).status,403);}
+ assert.equal(calls.length,count);
+ const denied=await handlers.staff(request(`/api/merchant-staff/${staffId}`,{method:'POST',headers:{...headers,'x-celebix-merchant-staff-csrf':'invalid'},body:JSON.stringify(input)}),staffId);assert.equal(denied.status,403);assert.equal(calls.length,count);
+});

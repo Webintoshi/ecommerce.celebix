@@ -14,10 +14,11 @@ export type MerchantWhatsAppInputs={
  self_state:MerchantWhatsAppActor;
  staff_list:MerchantWhatsAppActor;
  staff_create:MerchantWhatsAppActor&Readonly<{operationId:string;expectedVersion:number;phoneKeyId:string;phoneDigest:string;phoneCiphertext:string;phoneMasked:string;displayName:string;role:MerchantStaffRole;existingMembershipId?:string}>;
+ staff_delete:MerchantWhatsAppActor&Readonly<{operationId:string;staffId:string;expectedVersion:number}>;
  staff_update:MerchantWhatsAppActor&Readonly<{operationId:string;staffId:string;expectedVersion:number;displayName:string;role:MerchantStaffRole;enabled:boolean}>;
 };
 export type MerchantWhatsAppCommand={[A in keyof MerchantWhatsAppInputs]:Readonly<{action:A;input:MerchantWhatsAppInputs[A]}>}[keyof MerchantWhatsAppInputs];
-export type MerchantWhatsAppOutcome='prepared'|'pending'|'accepted'|'failed'|'ambiguous'|'completed'|'issued'|'phone_bound'|'phone_verified'|'operation_replayed'|'operation_mismatch'|'consumed'|'invalid_input'|'unauthenticated'|'membership_denied'|'owner_required'|'phone_conflict'|'not_ready'|'invalid_code'|'locked'|'rate_limited'|'staff_limit_reached'|'version_conflict'|'created'|'updated'|'listed'|'disabled'|'invalidated';
+export type MerchantWhatsAppOutcome='prepared'|'pending'|'accepted'|'failed'|'ambiguous'|'completed'|'issued'|'phone_bound'|'phone_verified'|'operation_replayed'|'operation_mismatch'|'consumed'|'invalid_input'|'unauthenticated'|'membership_denied'|'owner_required'|'phone_conflict'|'not_ready'|'invalid_code'|'locked'|'rate_limited'|'staff_limit_reached'|'version_conflict'|'created'|'updated'|'deleted'|'staff_not_disabled'|'listed'|'disabled'|'invalidated';
 export type MerchantWhatsAppAuthority=Readonly<Record<string,unknown>>;
 export type MerchantWhatsAppResult=Readonly<{outcome:MerchantWhatsAppOutcome;authority:MerchantWhatsAppAuthority|null}>;
 
