@@ -66,6 +66,7 @@ export function registrationUiFixture(environment: Record<string, string | undef
       Buffer,
       URL,
       require(specifier: string) {
+        if (specifier.endsWith(".css")) return {__esModule:true,default:new Proxy({}, {get:(_target,key)=>String(key)})};
         if (specifier === "node:process") return { env: environment };
         // Next Link needs a router context unavailable in the node:test server
         // condition. Navigation is outside these registration-state checks.

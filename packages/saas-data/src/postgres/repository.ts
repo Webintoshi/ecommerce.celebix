@@ -93,9 +93,13 @@ class PostgresTransaction implements SaaSDataTransaction {
     this.adminOriginEnvironment = adminOriginEnvironment;
     this.failAt = failAt;
     this.principals = {
-      authorizePhoneSignup: async (input:{proof:MerchantWhatsAppBinding;operationId:string;storeId:string}) => {
+      authorizePhoneSignup: async (input:{proof:MerchantWhatsAppBinding;operationId:string;storeId:string;profile?:Readonly<{firstName:string;lastName:string}>}) => {
         const proof=parseMerchantWhatsAppCommand({action:'read',input:input.proof}).input as MerchantWhatsAppBinding;
-        const row=await this.required('SELECT saas.merchant_whatsapp_bootstrap_principal($1::uuid,$2::text,$3::text,$4::text,$5::uuid,$6::uuid) AS principal',[proof.pendingId,proof.pendingDigest,proof.browserDigest,proof.environment,input.operationId,input.storeId],value=>exactRow(value,['principal']).principal);
+        const values=[proof.pendingId,proof.pendingDigest,proof.browserDigest,proof.environment,input.operationId,input.storeId];
+        const query=input.profile
+          ? 'SELECT saas.merchant_whatsapp_bootstrap_profile($1::uuid,$2::text,$3::text,$4::text,$5::uuid,$6::uuid,$7::text,$8::text) AS principal'
+          : 'SELECT saas.merchant_whatsapp_bootstrap_principal($1::uuid,$2::text,$3::text,$4::text,$5::uuid,$6::uuid) AS principal';
+        const row=await this.required(query,input.profile ? [...values,input.profile.firstName,input.profile.lastName] : values,value=>exactRow(value,['principal']).principal);
         return phoneSignupPrincipalRow(row);
       },
       findByIdentity: async (issuer: string, subject: string) => this.optional(
