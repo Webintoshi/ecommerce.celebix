@@ -928,6 +928,45 @@ function filterFocusTargets(panel: HTMLElement) {
   )).filter((element) => !element.closest("[hidden]"));
 }
 
+function ReportLoading({ tab }: Readonly<{ tab: Tab }>) {
+  const metrics = <div className={styles.skeletonGrid}><span /><span /><span /><span /></div>;
+  const rows = (products = false) => <div className={products ? `${styles.skeletonRows} ${styles.productRows}` : styles.skeletonRows}>{[0, 1, 2].map((row) => <div className={styles.listRow} key={row}><span className={styles.skeletonLine} /></div>)}</div>;
+  return <div className={styles.loading} role="status" aria-label="Analizler yükleniyor">
+    <div className={tab === "overview" ? styles.overview : styles.detailPage} aria-hidden="true">
+      {tab === "overview" || tab === "carts" || tab === "acquisition" ? metrics : null}
+      {tab === "overview" ? <>
+        <div className={styles.heroGrid}>
+          <span className={`${styles.skeletonChart} ${styles.overviewChartSlot}`} />
+          <div className={styles.insight}>
+            <div className={styles.insightContent}><span className={`${styles.insightLabel} ${styles.skeletonLine}`} /><h2><span className={styles.skeletonLine} /></h2><strong><span className={styles.skeletonLine} /></strong><p className={styles.filterHint}><span className={styles.skeletonLine} /></p></div>
+            <span className={`${styles.insightArtwork} ${styles.skeletonSurface}`} />
+            <span className={styles.skeletonControl} />
+          </div>
+        </div>
+        <section className={styles.journeySection}>
+          <div className={styles.sectionHeading}><span className={styles.skeletonHeading} /></div>
+          <div className={styles.journeyState}>{[0, 1, 2, 3].map((row) => <div className={styles.journeyItem} key={row}><small><span className={styles.skeletonLine} /></small><span className={styles.journeyTrack} /><strong><span className={styles.skeletonLine} /></strong></div>)}</div>
+          <p className={styles.slotStatus} />
+        </section>
+        <div className={styles.lowerGrid}>{[0, 1, 2].map((card) => <section className={styles.listPanel} key={card}><div className={styles.sectionHeading}><span className={card === 2 ? styles.skeletonMetricHeading : styles.skeletonHeading} /></div>{rows(card === 1)}</section>)}</div>
+        <span className={styles.skeletonDisclosure} />
+      </> : tab === "funnel" ? <section className={`${styles.panel} ${styles.skeletonFunnel}`}>
+        <div className={styles.panelHeading}><span className={styles.skeletonHeading} /></div>
+        <ol className={styles.funnel}>{FUNNEL_STEPS.map(([key]) => <li key={key}><span className={styles.skeletonLine} /><span className={styles.funnelTrack} /><strong><span className={styles.skeletonLine} /></strong><small><span className={styles.skeletonLine} /></small></li>)}</ol>
+        <span className={styles.skeletonDisclosure} />
+      </section> : <>
+        {tab === "carts" ? <span className={styles.skeletonDisclosure} /> : null}
+        <section className={styles.tablePanel}>
+          <div className={styles.sectionHeading}><span className={styles.skeletonHeading} /></div>
+          <div className={styles.skeletonTable}>{[0, 1, 2, 3, 4].map((row) => <div key={row}>{[0, 1, 2, 3].map((cell) => <span className={styles.skeletonLine} key={cell} />)}</div>)}</div>
+        </section>
+        {tab === "carts" || tab === "products" ? <span className={styles.skeletonPagination} /> : null}
+      </>}
+    </div>
+    <span className={styles.skeletonDisclosure} aria-hidden="true" />
+  </div>;
+}
+
 export function CommerceAnalyticsWorkspace({
   tab,
   range,
@@ -1284,10 +1323,7 @@ export function CommerceAnalyticsWorkspace({
         {error && viewState !== "error" ? <p className={styles.inlineError} role="alert">{error}</p> : null}
         <div id="analytics-report" role="tabpanel" aria-labelledby={`analytics-tab-${tab}`} aria-busy={viewState === "loading"} tabIndex={0} className={styles.reportPanel}>
         {viewState === "loading" ? (
-          <div className={styles.loading} role="status" aria-label="Analizler yükleniyor">
-            <div className={styles.skeletonGrid}><span /><span /><span /><span /></div>
-            <span className={styles.skeletonChart} />
-          </div>
+          <ReportLoading tab={tab} />
         ) : null}
         {viewState === "error" ? (
           <section className={styles.errorState} role="alert">
@@ -1501,7 +1537,8 @@ function Overview({
         </div>
       ) : null}
 
-      <div className={`${styles.heroGrid} ${largestDrop || abandonedCarts || !journeyEvents ? "" : styles.heroSolo}`}>
+      <div className={styles.heroGrid}>
+        <div className={styles.overviewChartSlot}>
         {selectedCurrency ? (
           <SalesTrendChart
             points={chartPoints}
@@ -1517,75 +1554,63 @@ function Overview({
             {range !== "90d" ? <Link className={styles.outlineAction} href={wideRangeHref}>Son 90 güne bak</Link> : null}
           </section>
         )}
-        {largestDrop ? (
-          <aside className={styles.insight} aria-label="Dönüşüm içgörüsü">
-            <div className={styles.insightContent}>
-              <span className={styles.insightLabel}>EN BÜYÜK KAYIP</span>
-              <h2>{largestDrop.to}</h2>
-              <strong>{largestDrop.lost.toLocaleString("tr-TR")} oturum · {percent(largestDrop.rate)}</strong>
-              <p className={styles.filterHint}>{largestDrop.from} → {largestDrop.to}</p>
-            </div>
-            <InsightIllustration kind="funnel" />
-            <Link href={funnelHref}>Huniyi incele <ArrowRight size={16} aria-hidden="true" /></Link>
-          </aside>
-        ) : abandonedCarts ? (
-          <aside className={styles.insight} aria-label="Sepet içgörüsü">
-            <div className={styles.insightContent}>
-              <span className={styles.insightLabel}>SEPET HAREKETİ</span>
-              <h2>{abandonedCarts.toLocaleString("tr-TR")} terk edilen sepet</h2>
-              <strong>{recoveredCarts.toLocaleString("tr-TR")} geri kazanım</strong>
-            </div>
-            <InsightIllustration kind="cart" />
-            <Link href={cartsHref}>Sepetleri incele <ArrowRight size={16} aria-hidden="true" /></Link>
-          </aside>
-        ) : !journeyEvents ? (
-          <aside className={`${styles.panel} ${styles.journeyUnavailable}`} aria-label="Etkileşim adımları">
-            <Route size={24} aria-hidden="true" /><h2>{!detailsData || detailsData.funnelState === "loading" ? "Etkileşimler yükleniyor" : "Etkileşim ölçümü bekleniyor"}</h2>
-            {detailsData && detailsData.funnelState !== "loading" ? <><p>Bu durum sıfır ziyaretçi anlamına gelmez.</p><Link className={styles.outlineAction} href={funnelHref}>Huniyi incele</Link></> : null}
-          </aside>
-        ) : null}
+        </div>
+        <aside className={styles.insight} aria-label={largestDrop ? "Dönüşüm içgörüsü" : "Sepet içgörüsü"}>
+          <div className={styles.insightContent}>
+            <span className={styles.insightLabel}>{largestDrop ? "EN BÜYÜK KAYIP" : "SEPET HAREKETİ"}</span>
+            <h2>{largestDrop ? largestDrop.to : `${abandonedCarts.toLocaleString("tr-TR")} terk edilen sepet`}</h2>
+            <strong>{largestDrop ? `${largestDrop.lost.toLocaleString("tr-TR")} oturum · ${percent(largestDrop.rate)}` : `${recoveredCarts.toLocaleString("tr-TR")} geri kazanım`}</strong>
+            <p className={styles.filterHint}>{largestDrop ? `${largestDrop.from} → ${largestDrop.to}` : ""}</p>
+          </div>
+          <InsightIllustration kind={largestDrop ? "funnel" : "cart"} />
+          <Link href={largestDrop ? funnelHref : cartsHref}>{largestDrop ? "Huniyi incele" : "Sepetleri incele"} <ArrowRight size={16} aria-hidden="true" /></Link>
+        </aside>
       </div>
 
-      {journeyEvents ? (
-        <section className={styles.journeySection}>
-          <div className={styles.sectionHeading}>
-            <h2>Etkileşim adımları</h2>
-            <Link href={funnelHref}>6 adımı gör <ArrowRight size={14} aria-hidden="true" /></Link>
-          </div>
-          <div className={styles.journey}>
-            {journey.map(([key, label], index) => {
-              const value = journeyEvents[key] ?? null;
-              return <div className={styles.journeyItem} key={key}>
-                <small>{label}</small>
-                <span className={styles.journeyTrack} aria-hidden="true"><span style={{ width: `${Math.min(100, ((value ?? 0) / journeyPeak) * 100)}%` }} data-final={index === journey.length - 1} /></span>
-                <strong>{value?.toLocaleString("tr-TR") ?? "—"}</strong>
-              </div>;
-            })}
-          </div>
-        </section>
-      ) : null}
+      <section className={styles.journeySection}>
+        <div className={styles.sectionHeading}>
+          <h2>Etkileşim adımları</h2>
+          <Link href={funnelHref}>6 adımı gör <ArrowRight size={14} aria-hidden="true" /></Link>
+        </div>
+        <div className={journeyEvents ? styles.journey : styles.journeyState} aria-busy={!detailsData || detailsData.funnelState === "loading"}>
+          {journey.map(([key, label], index) => {
+            const value = journeyEvents?.[key] ?? null;
+            return <div className={styles.journeyItem} key={key}>
+              <small>{label}</small>
+              <span className={styles.journeyTrack} aria-hidden="true">{value !== null ? <span style={{ width: `${Math.min(100, (value / journeyPeak) * 100)}%` }} data-final={index === journey.length - 1} /> : null}</span>
+              <strong>{value?.toLocaleString("tr-TR") ?? "—"}</strong>
+            </div>;
+          })}
+        </div>
+        <p className={styles.slotStatus} role="status">{journeyEvents ? "" : !detailsData || detailsData.funnelState === "loading" ? "Etkileşimler yükleniyor" : "Etkileşim ölçümü bekleniyor. Bu durum sıfır ziyaretçi anlamına gelmez."}</p>
+      </section>
 
       <div className={styles.lowerGrid}>
         {(
           <section className={styles.listPanel}>
             <div className={styles.sectionHeading}><h2>Başlıca kaynaklar</h2><Link href={sourcesHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
-            {sources.length ? sources.map((row) => <div className={styles.listRow} key={row.label}><span>{sourceLabel(row.label)}</span><strong>{row.value.toLocaleString("tr-TR")}</strong></div>) : <p className={styles.quietState}>{analyticsTrafficSources(data.traffic) === null ? "Kaynak ölçümü alınamıyor." : "Bu dönemde kaynak kaydı yok."}</p>}
+            <div className={styles.listRows}>{sources.length ? sources.map((row) => <div className={styles.listRow} key={row.label}><span>{sourceLabel(row.label)}</span><strong>{row.value.toLocaleString("tr-TR")}</strong></div>) : <p className={styles.quietState}>{analyticsTrafficSources(data.traffic) === null ? "Kaynak ölçümü alınamıyor." : "Bu dönemde kaynak kaydı yok."}</p>}</div>
           </section>
         )}
         {(
           <section className={styles.listPanel}>
             <div className={styles.sectionHeading}><h2>Öne çıkan ürünler</h2><Link href={productsHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
-            {products.length ? products.map((row) => <div className={styles.listRow} key={`${row.productId}:${row.currency}`}><span className={styles.listProduct}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} />{row.title}</span><strong>{money(row.revenueMinor, row.currency)}</strong></div>) : <p className={styles.quietState}>{!detailsData || detailsData.productsState === "loading" ? "Ürünler yükleniyor" : detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p>}
+            <div className={styles.productRows} aria-busy={!detailsData || detailsData.productsState === "loading"}>
+              {products.length ? products.map((row) => <div className={styles.listRow} key={`${row.productId}:${row.currency}`}><span className={styles.listProduct}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} />{row.title}</span><strong>{money(row.revenueMinor, row.currency)}</strong></div>) : !detailsData || detailsData.productsState === "loading" ? <>
+                <span className="sr-only" role="status">Ürünler yükleniyor</span>
+                {[0, 1, 2].map((row) => <div className={styles.listRow} key={row} aria-hidden="true"><span className={styles.skeletonLine} /></div>)}
+              </> : <p className={styles.quietState}>{detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p>}
+            </div>
           </section>
         )}
-        {!sources.length && !products.length ? (
-          <section className={styles.listPanel}>
+        <section className={styles.listPanel}>
             <div className={styles.sectionHeading}><h2>Ticari hareket</h2></div>
+            <div className={styles.listRows}>
             <div className={styles.listRow}><span>Ödenen sipariş</span><strong>{paidOrders.toLocaleString("tr-TR")}</strong></div>
             <div className={styles.listRow}><span>Terk edilen sepet</span><strong>{total(currencies, "abandonedCarts").toLocaleString("tr-TR")}</strong></div>
             <div className={styles.listRow}><span>Geri kazanılan sepet</span><strong>{total(currencies, "recoveredCarts").toLocaleString("tr-TR")}</strong></div>
-          </section>
-        ) : null}
+            </div>
+        </section>
       </div>
       <details className={styles.secondaryMetrics}>
         <summary>Diğer ölçümler</summary>

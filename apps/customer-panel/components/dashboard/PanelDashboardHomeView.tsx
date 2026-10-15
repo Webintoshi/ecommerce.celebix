@@ -290,6 +290,7 @@ interface DashboardPresentationProps {
   readonly onPeriodChange?: (period: AnalyticsPeriod) => void;
   readonly recentOrders?: readonly OrderListItem[];
   readonly recentOrdersState?: LoadState;
+  readonly recentOrdersResolved?: boolean;
   readonly activeVisitorsEnabled?: boolean;
 }
 
@@ -372,12 +373,12 @@ function DashboardKpiGrid({ metrics }: Readonly<{ metrics: readonly DashboardKpi
 function SalesChartCard({ analytics, state, period, onRetry }: Readonly<{ analytics?: AnalyticsView; state: OptionalLoadState; period: AnalyticsPeriod; onRetry: () => void }>) {
   const hasSales = Boolean(analytics && (analytics.revenueCents > 0 || analytics.series.some((point) => point.revenueCents > 0)));
   return (
-    <article className={`${styles.panelCard} ${styles.salesCard}`}>
+    <article className={`${styles.panelCard} ${styles.salesCard}`} aria-busy={state === "loading"}>
       <header className={styles.cardHeader}><span className={styles.sectionIcon} aria-hidden="true"><BarChart3 /></span><div><h2>Satış ritmi</h2><p>{PERIOD_LABELS[period]} ödenmiş sipariş geliri</p></div><strong>{analytics ? formatMoney(analytics.revenueCents, analytics.currency) : "—"}</strong></header>
-      <div className={styles.salesChart} role="group" aria-label="Satış grafiği; seçili dönemde ödenmiş sipariş gelirini gösterir">
-        {state === "loading" ? <div className={styles.chartSkeleton} role="status"><span />Satış verisi yükleniyor…</div> : null}
+      <div className={styles.salesChart} data-dashboard-body="sales-chart" role="group" aria-label="Satış grafiği; seçili dönemde ödenmiş sipariş gelirini gösterir">
+        {state === "loading" && !analytics ? <div className={styles.chartSkeleton} role="status"><span />Satış verisi yükleniyor…</div> : null}
         {state === "error" || state === "unsupported" ? <div className={styles.chartError} role="alert"><div><strong>Satış verisi alınamıyor</strong><span>Diğer dashboard bölümleri çalışmaya devam ediyor.</span></div><SummaryRetryButton onRetry={onRetry} /></div> : null}
-        {state === "loaded" && analytics ? (
+        {(state === "loaded" || state === "loading") && analytics ? (
           hasSales && analytics.series.length > 0 ? (
             <>
               <SalesSeriesChart series={analytics.series} currency={analytics.currency} />
@@ -399,11 +400,12 @@ function OrderStatusCard({ dashboard, state }: Readonly<{ dashboard: MerchantDas
   const fulfilledPercent = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
   const pendingPercent = total > 0 ? Math.round((pending / total) * 100) : 0;
   return (
-    <article className={`${styles.panelCard} ${styles.orderStatusCard}`}>
+    <article className={`${styles.panelCard} ${styles.orderStatusCard}`} aria-busy={state === "loading"}>
       <header className={styles.cardHeader}><div><h2>Sipariş Durumları</h2><p>Güncel sipariş özeti</p></div></header>
-      {state === "loading" ? <p className={styles.inlineState} role="status">Sipariş özeti yükleniyor…</p> : null}
+      <div className={styles.orderStatusContent} data-dashboard-body="order-status">
+      {state === "loading" && !orders ? <p className={styles.inlineState} role="status">Sipariş özeti yükleniyor…</p> : null}
       {state === "error" || state === "unsupported" ? <p className={styles.inlineState}>Sipariş özeti kullanılamıyor.</p> : null}
-      {state === "loaded" && orders ? (
+      {(state === "loaded" || state === "loading") && orders ? (
         <div className={styles.orderStatusBody}>
           <div className={styles.orderRing} role="img" aria-label={`${total} sipariş; ${pending} işlem bekliyor, ${fulfilled} tamamlandı, ${other} diğer`}>
             <svg viewBox="0 0 120 120" aria-hidden="true"><circle className={styles.ringTrack} cx="60" cy="60" r="48" pathLength="100" /><circle className={styles.ringFulfilled} cx="60" cy="60" r="48" pathLength="100" strokeDasharray={`${fulfilledPercent} ${100 - fulfilledPercent}`} /><circle className={styles.ringPending} cx="60" cy="60" r="48" pathLength="100" strokeDasharray={`${pendingPercent} ${100 - pendingPercent}`} strokeDashoffset={-fulfilledPercent} /></svg>
@@ -412,6 +414,7 @@ function OrderStatusCard({ dashboard, state }: Readonly<{ dashboard: MerchantDas
           <dl className={styles.orderLegend}><div data-tone="pending"><dt>İşlem bekliyor</dt><dd>{pending.toLocaleString("tr-TR")}</dd></div><div data-tone="fulfilled"><dt>Tamamlanan</dt><dd>{fulfilled.toLocaleString("tr-TR")}</dd></div>{other > 0 ? <div data-tone="other"><dt>Diğer</dt><dd>{other.toLocaleString("tr-TR")}</dd></div> : null}</dl>
         </div>
       ) : null}
+      </div>
     </article>
   );
 }
@@ -448,7 +451,7 @@ function FocusBanner({ task, taskState, hasStorefront }: Readonly<{ task?: Dashb
   );
 }
 
-function ActionItemsCard({ analyticsState, onRetry, state, tasks }: Readonly<{ analyticsState: OptionalLoadState; onRetry: () => void; state: TaskState; tasks: readonly DashboardTask[] }>) {
+function ActionItemsCard({ analyticsState, busy, onRetry, state, tasks }: Readonly<{ analyticsState: OptionalLoadState; busy: boolean; onRetry: () => void; state: TaskState; tasks: readonly DashboardTask[] }>) {
   const notice = state === "loading"
     ? "Operasyon sinyalleri yükleniyor…"
     : state === "partial-loading"
@@ -462,21 +465,24 @@ function ActionItemsCard({ analyticsState, onRetry, state, tasks }: Readonly<{ a
   return (
     <aside className={`${styles.panelCard} ${styles.actionItemsCard}`} aria-labelledby="attention-title">
       <header className={styles.cardHeader}><div><h2 id="attention-title">Mağaza durumu</h2><p>Yapılacaklar ve canlı veriler</p></div>{tasks.length > 0 ? <span>{tasks.length}</span> : null}</header>
+      <div className={styles.taskBody} data-dashboard-body="tasks" aria-busy={busy}>
       {tasks.length > 0 ? <ul className={styles.attentionList}>{tasks.map((task) => <li key={task.key}><span className={styles.attentionIcon} aria-hidden="true">{task.key === "media" ? <Package /> : task.key === "orders" ? <ShoppingBag /> : task.key === "stock" ? <Store /> : <Users />}</span><div><strong>{task.label}</strong><small>{task.detail}</small></div><Link href={task.href} aria-label={task.actionLabel}><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : null}
       {analyticsState === "error" || analyticsState === "unsupported" ? <div className={styles.dataNotice}><span className={styles.dataNoticeIcon} aria-hidden="true"><Activity /></span><div><strong>Canlı veri alınamıyor</strong><small>Satış analizleri şu anda gösterilemiyor.</small></div></div> : null}
       {notice ? <div className={styles.taskNotice} role={isLoading ? "status" : "alert"}><span>{notice}</span>{isLoading ? null : <SummaryRetryButton onRetry={onRetry} />}</div> : null}
       {tasks.length === 0 && state === "loaded" ? <p className={styles.attentionEmpty}>Şu anda acil işlem görünmüyor.</p> : null}
+      </div>
     </aside>
   );
 }
 
-function RecentOrdersCard({ orders, state, onRetry }: Readonly<{ orders: readonly OrderListItem[]; state: LoadState; onRetry: () => void }>) {
+function RecentOrdersCard({ orders, state, resolved = false, onRetry }: Readonly<{ orders: readonly OrderListItem[]; state: LoadState; resolved?: boolean; onRetry: () => void }>) {
   return (
-    <section className={`${styles.panelCard} ${styles.recentOrders}`} aria-labelledby="recent-orders-title">
+    <section className={`${styles.panelCard} ${styles.recentOrders}`} aria-labelledby="recent-orders-title" aria-busy={state === "loading"}>
       <header className={styles.cardHeader}><div><h2 id="recent-orders-title">Son Siparişler</h2><p>En yeni beş sipariş</p></div><Link className={styles.textAction} href="/orders">Tüm siparişleri gör<ArrowRight aria-hidden="true" /></Link></header>
-      {state === "loading" ? <p className={styles.inlineState} role="status">Son siparişler yükleniyor…</p> : null}
+      <div className={styles.recentOrdersBody} data-dashboard-body="recent-orders" data-empty={(state === "loaded" || (state === "loading" && resolved)) && orders.length === 0}>
+      {state === "loading" && !resolved ? <p className={styles.inlineState} role="status">Son siparişler yükleniyor…</p> : null}
       {state === "error" ? <div className={styles.recentOrdersError} role="alert"><span>Son siparişler şu anda kullanılamıyor.</span><SummaryRetryButton onRetry={onRetry} /></div> : null}
-      {state === "loaded" ? (
+      {state === "loaded" || (state === "loading" && resolved) ? (
         orders.length > 0 ? (
           <div className={styles.recentOrdersViewport}><table className={styles.recentOrdersTable}>
             <caption className={styles.visuallyHidden}>En yeni siparişler</caption>
@@ -492,32 +498,36 @@ function RecentOrdersCard({ orders, state, onRetry }: Readonly<{ orders: readonl
           </table></div>
         ) : <div className={styles.emptyState}><OrdersEmptyArtwork /><strong>Henüz sipariş bulunmuyor.</strong><span>Siparişleriniz oluştuğunda burada listelenecek.</span></div>
       ) : null}
+      </div>
     </section>
   );
 }
 
 function TopProductsCard({ analytics, state }: Readonly<{ analytics?: AnalyticsView; state: OptionalLoadState }>) {
   return (
-    <section className={`${styles.panelCard} ${styles.topProducts}`} aria-labelledby="best-sellers-title">
+    <section className={`${styles.panelCard} ${styles.topProducts}`} aria-labelledby="best-sellers-title" aria-busy={state === "loading"}>
       <header className={styles.cardHeader}><div><h2 id="best-sellers-title">En Çok Satan Ürünler</h2><p>Seçili dönem performansı</p></div><Link className={styles.textAction} href="/products">Tümünü gör<ArrowRight aria-hidden="true" /></Link></header>
-      {state === "loading" ? <p className={styles.inlineState} role="status">Ürünler yükleniyor…</p> : null}
+      <div className={styles.topProductsBody} data-dashboard-body="top-products">
+      {state === "loading" && !analytics ? <p className={styles.inlineState} role="status">Ürünler yükleniyor…</p> : null}
       {state === "error" || state === "unsupported" ? <p className={styles.inlineState}>En çok satan ürünler şu anda kullanılamıyor.</p> : null}
-      {state === "loaded" && analytics ? (
+      {(state === "loaded" || state === "loading") && analytics ? (
         analytics.topProducts.length > 0 ? <ol className={styles.productList}>{analytics.topProducts.slice(0, 5).map((product, index) => <li key={product.productId}><span className={styles.productRank}>{index + 1}</span><ProductThumbnail imageUrl={product.imageUrl} className={styles.productThumb} /><div><strong>{product.title}</strong><small>{product.quantity.toLocaleString("tr-TR")} adet</small></div><span>{formatMoney(product.revenueCents, analytics.currency)}</span></li>)}</ol>
           : <div className={styles.emptyState}><ProductsEmptyArtwork /><strong>Bu tarih aralığında satış verisi bulunmuyor.</strong><span>Ürün satışı oluştuğunda liste burada görünür.</span></div>
       ) : null}
+      </div>
     </section>
   );
 }
 
 function DashboardInsights({ analytics, cartsState, customersState, dashboard }: Readonly<{ analytics?: AnalyticsView; cartsState: OptionalLoadState; customersState: OptionalLoadState; dashboard: MerchantDashboardViewModel }>) {
-  const customers = dashboard.customers.state === "ready" ? dashboard.customers.value : undefined;
-  const carts = dashboard.carts.state === "ready" ? dashboard.carts.value : undefined;
+  const customers = (customersState === "loaded" || customersState === "loading") && dashboard.customers.state === "ready" ? dashboard.customers.value : undefined;
+  const carts = (cartsState === "loaded" || cartsState === "loading") && dashboard.carts.state === "ready" ? dashboard.carts.value : undefined;
+  const notice = (!customers || !carts) && (customersState !== "loaded" || cartsState !== "loaded");
   const empty = "—";
   return (
     <div className={styles.insightGrid}>
       <section className={`${styles.panelCard} ${styles.insightCard}`} aria-labelledby="growth-title"><header className={styles.cardHeader}><div><h2 id="growth-title">Büyüme Özeti</h2><p>Güncel operasyon metrikleri</p></div></header><dl><div><dt>İade edilen sipariş</dt><dd>{analytics ? analytics.growth.refundedOrders.toLocaleString("tr-TR") : empty}</dd></div><div><dt>Ortalama sipariş</dt><dd>{analytics?.growth.averageOrderValueCents == null ? empty : formatMoney(analytics.growth.averageOrderValueCents, analytics.currency)}</dd></div><div><dt>Düşük stok</dt><dd>{analytics ? analytics.growth.lowStockVariants.toLocaleString("tr-TR") : empty}</dd></div><div><dt>Toplam müşteri</dt><dd>{analytics ? analytics.growth.totalCustomers.toLocaleString("tr-TR") : empty}</dd></div></dl></section>
-      <section className={`${styles.panelCard} ${styles.insightCard}`} aria-labelledby="customer-view-title"><header className={styles.cardHeader}><div><h2 id="customer-view-title">Müşteri ve Sepet Özeti</h2><p>Gerçek müşteri hareketleri</p></div><Link className={styles.textAction} href="/customers">Müşterileri gör<ArrowRight aria-hidden="true" /></Link></header><dl><div><dt>Aktif müşteri</dt><dd>{customers ? customers.active.toLocaleString("tr-TR") : empty}</dd></div><div><dt>E-posta izni</dt><dd>{customers ? customers.consentedEmail.toLocaleString("tr-TR") : empty}</dd></div><div><dt>Toplam harcama</dt><dd>{customers ? formatMoney(customers.totalSpentCents, customers.currency) : empty}</dd></div><div><dt>Terk edilen sepet</dt><dd>{carts ? carts.abandoned.toLocaleString("tr-TR") : empty}</dd></div></dl>{customersState !== "loaded" || cartsState !== "loaded" ? <p className={styles.sliceNotice} role="status">Müşteri veya sepet verilerinin bir bölümü {customersState === "loading" || cartsState === "loading" ? "yükleniyor" : "kullanılamıyor"}.</p> : null}</section>
+      <section className={`${styles.panelCard} ${styles.insightCard}`} aria-labelledby="customer-view-title"><header className={styles.cardHeader}><div><h2 id="customer-view-title">Müşteri ve Sepet Özeti</h2><p>Gerçek müşteri hareketleri</p></div><Link className={styles.textAction} href="/customers">Müşterileri gör<ArrowRight aria-hidden="true" /></Link></header><dl><div><dt>Aktif müşteri</dt><dd>{customers ? customers.active.toLocaleString("tr-TR") : empty}</dd></div><div><dt>E-posta izni</dt><dd>{customers ? customers.consentedEmail.toLocaleString("tr-TR") : empty}</dd></div><div><dt>Toplam harcama</dt><dd>{customers ? formatMoney(customers.totalSpentCents, customers.currency) : empty}</dd></div><div><dt>Terk edilen sepet</dt><dd>{carts ? carts.abandoned.toLocaleString("tr-TR") : empty}</dd></div></dl><p className={styles.sliceNotice} data-dashboard-insight-status="" role={notice ? "status" : undefined} aria-hidden={!notice}>{notice ? <>Müşteri veya sepet verilerinin bir bölümü {customersState === "loading" || cartsState === "loading" ? "yükleniyor" : "kullanılamıyor"}.</> : null}</p></section>
     </div>
   );
 }
@@ -536,14 +546,15 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
   const analyticsState = props.analyticsState ?? (props.dashboard.analytics.state === "ready" ? "loaded" : "unsupported");
   const rawAnalytics = props.dashboard.analytics.state === "ready" ? props.dashboard.analytics.value : undefined;
   const period = props.period ?? rawAnalytics?.period ?? "month";
-  const analytics = analyticsState === "loaded" && rawAnalytics?.period === period ? rawAnalytics : undefined;
-  const catalog = props.dashboard.catalog.state === "ready" ? props.dashboard.catalog.value : undefined;
-  const carts = props.dashboard.carts.state === "ready" ? props.dashboard.carts.value : undefined;
-  const orders = props.dashboard.orders.state === "ready" ? props.dashboard.orders.value : undefined;
+  // A refresh may reuse only the still-authoritative value for the selected period.
+  const analytics = (analyticsState === "loaded" || analyticsState === "loading") && rawAnalytics?.period === period ? rawAnalytics : undefined;
+  const catalog = props.state !== "error" && props.dashboard.catalog.state === "ready" ? props.dashboard.catalog.value : undefined;
+  const carts = props.cartsState !== "error" && props.cartsState !== "unsupported" && props.dashboard.carts.state === "ready" ? props.dashboard.carts.value : undefined;
+  const orders = props.ordersState !== "error" && props.ordersState !== "unsupported" && props.dashboard.orders.state === "ready" ? props.dashboard.orders.value : undefined;
   const operationStates: readonly OptionalLoadState[] = [
-    props.state,
-    props.ordersState ?? (orders ? "loaded" : "unsupported"),
-    props.cartsState ?? (carts ? "loaded" : "unsupported"),
+    props.state === "loading" && catalog ? "loaded" : props.state,
+    props.ordersState === "loading" && orders ? "loaded" : props.ordersState ?? (orders ? "loaded" : "unsupported"),
+    props.cartsState === "loading" && carts ? "loaded" : props.cartsState ?? (carts ? "loaded" : "unsupported"),
   ];
   const availableOperationSlices = operationStates.filter((value) => value === "loaded").length;
   const taskState: TaskState = operationStates.some((value) => value === "loading")
@@ -562,9 +573,9 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
     ...((carts?.abandoned ?? 0) > 0 ? [{ key: "carts", label: `${carts?.abandoned.toLocaleString("tr-TR")} terk edilen sepet`, detail: `${formatMoney(carts?.lostValueCents ?? 0, carts?.currency ?? "TRY")} bekleyen değer`, href: "/orders/abandoned-carts", actionLabel: "Sepetleri görüntüle" }] : []),
   ];
   const metrics: readonly DashboardKpi[] = [
-    { key: "sales", label: "Toplam satış", value: analytics ? formatMoney(analytics.revenueCents, analytics.currency) : "—", detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState), icon: CircleDollarSign, loading: analyticsState === "loading" },
-    { key: "orders", label: "Toplam sipariş", value: analytics ? analytics.orders.total.toLocaleString("tr-TR") : orders ? orders.totalOrders.toLocaleString("tr-TR") : "—", detail: analytics ? `${analytics.orders.paid.toLocaleString("tr-TR")} ödenmiş` : orders ? "Güncel sipariş özeti" : stateDetail(props.ordersState ?? "unsupported"), icon: ShoppingBag, loading: analyticsState === "loading" && !orders },
-    { key: "customers", label: "Yeni müşteri", value: analytics ? analytics.customers.newInPeriod.toLocaleString("tr-TR") : "—", detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState), icon: Users, loading: analyticsState === "loading" },
+    { key: "sales", label: "Toplam satış", value: analytics ? formatMoney(analytics.revenueCents, analytics.currency) : "—", detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState), icon: CircleDollarSign, loading: analyticsState === "loading" && !analytics },
+    { key: "orders", label: "Toplam sipariş", value: analytics ? analytics.orders.total.toLocaleString("tr-TR") : orders ? orders.totalOrders.toLocaleString("tr-TR") : "—", detail: analytics ? `${analytics.orders.paid.toLocaleString("tr-TR")} ödenmiş` : orders ? "Güncel sipariş özeti" : stateDetail(props.ordersState ?? "unsupported"), icon: ShoppingBag, loading: analyticsState === "loading" && !analytics && !orders },
+    { key: "customers", label: "Yeni müşteri", value: analytics ? analytics.customers.newInPeriod.toLocaleString("tr-TR") : "—", detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState), icon: Users, loading: analyticsState === "loading" && !analytics },
     { key: "conversion", label: "Dönüşüm oranı", value: "—", detail: "Canlı veri alınamıyor", icon: Percent, loading: false },
   ];
   const storefront = props.dashboard.chromeCards.find(({ key }) => key === "storefront");
@@ -577,8 +588,8 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
         <h1 className={styles.visuallyHidden}>Genel bakış</h1>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />
         <DashboardKpiGrid metrics={metrics} />
-        <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><ActionItemsCard tasks={tasks} state={taskState} analyticsState={analyticsState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
-        <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>
+        <div className={styles.primaryGrid}><SalesChartCard analytics={analytics} state={analyticsState} period={period} onRetry={props.onRefreshAnalytics ?? props.onRefresh} /><ActionItemsCard tasks={tasks} state={taskState} busy={props.state === "loading" || props.ordersState === "loading" || props.cartsState === "loading"} analyticsState={analyticsState} onRetry={props.onRefreshOperations ?? props.onRefresh} /></div>
+        <div className={styles.operationsGrid}><RecentOrdersCard orders={props.recentOrders ?? Object.freeze([])} state={props.recentOrdersState ?? "loading"} resolved={props.recentOrdersResolved} onRetry={props.onRefreshRecentOrders ?? props.onRefresh} /><TopProductsCard analytics={analytics} state={analyticsState} /></div>
         <div className={styles.detailGrid}><OrderStatusCard dashboard={props.dashboard} state={props.ordersState ?? (orders ? "loaded" : "unsupported")} /><StoreStatusBar dashboard={props.dashboard} analytics={analytics} analyticsState={analyticsState} /></div>
         <DashboardInsights dashboard={props.dashboard} analytics={analytics} customersState={props.customersState ?? (props.dashboard.customers.state === "ready" ? "loaded" : "unsupported")} cartsState={props.cartsState ?? (carts ? "loaded" : "unsupported")} />
         <DashboardQuickActions />
@@ -595,6 +606,7 @@ export function PanelDashboardHomeView() {
   const [ordersState, setOrdersState] = useState<LoadState>("loading");
   const [recentOrders, setRecentOrders] = useState<readonly OrderListItem[]>(() => Object.freeze([]));
   const [recentOrdersState, setRecentOrdersState] = useState<LoadState>("loading");
+  const [recentOrdersResolved, setRecentOrdersResolved] = useState(false);
   const [carts, setCarts] = useState<AuthoritySlice<AbandonedCartSummary>>(() => unavailableCarts(false));
   const [cartsState, setCartsState] = useState<LoadState>("loading");
   const [customers, setCustomers] = useState<AuthoritySlice<CustomerSummary>>(() => unavailableCustomers(false));
@@ -656,8 +668,8 @@ export function PanelDashboardHomeView() {
       const request = ++generation;
       setRecentOrdersState("loading");
       void orderApi.listOrders({ pageSize: 5, sort: "newest" }).then(
-        (result) => { if (disposed || request !== generation) return; setRecentOrders(result.items); setRecentOrdersState("loaded"); },
-        () => { if (disposed || request !== generation) return; setRecentOrders(Object.freeze([])); setRecentOrdersState("error"); },
+        (result) => { if (disposed || request !== generation) return; setRecentOrders(result.items); setRecentOrdersResolved(true); setRecentOrdersState("loaded"); },
+        () => { if (disposed || request !== generation) return; setRecentOrders(Object.freeze([])); setRecentOrdersResolved(false); setRecentOrdersState("error"); },
       );
     };
     recentOrdersReload.current = load;
@@ -673,5 +685,5 @@ export function PanelDashboardHomeView() {
   }, []);
 
   const dashboard = createMerchantDashboardViewModel(chrome, catalog, orders, carts, customers, analytics);
-  return <PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} />;
+  return <PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} recentOrdersResolved={recentOrdersResolved} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} />;
 }

@@ -1304,6 +1304,39 @@
   min-height: 220px;
 }
 
+/* Reserve the normal data footprint while loading or displaying an error. */
+.recentOrdersBody {
+  min-height: 336px;
+}
+
+.orderStatusContent {
+  display: grid;
+  min-height: 233px;
+  align-items: center;
+}
+
+.taskBody {
+  min-height: 288px;
+}
+
+.topProductsBody {
+  min-height: 280px;
+}
+
+.recentOrdersBody > .inlineState,
+.orderStatusContent > .inlineState,
+.topProductsBody > .inlineState {
+  margin: 0;
+}
+
+.sliceNotice {
+  min-height: 36px;
+}
+
+.sliceNotice:empty {
+  visibility: hidden;
+}
+
 .seriesChart {
   display: block;
   width: 100%;
@@ -1635,6 +1668,7 @@
 }
 
 @media (max-width: 640px) {
+  .salesChart { min-height: 376px; }
   .seriesChart { min-height: 170px; }
   .seriesChart text { display: none; }
   .mobileSeriesList {
@@ -1660,6 +1694,11 @@
 
 @media (max-width: 520px) {
   .periodFilter select { font-size: 16px; }
+  .recentOrdersBody { min-height: 900px; }
+  .recentOrdersBody[data-empty="true"] { min-height: 336px; }
+  .recentOrdersTable { min-width: 0; }
+  .recentOrdersTable td { padding: 0; }
+  .topProductsBody { min-height: 410px; }
   .focusBanner { min-height: 210px; align-items: flex-start; }
   .focusCopy { max-width: 100%; }
   .focusCopy h2 { padding-right: 30px; font-size: 19px; }
@@ -1669,6 +1708,8 @@
   .kpiIcon { width: 34px; height: 34px; flex-basis: 34px; }
   .kpiIcon svg { width: 18px; height: 18px; }
   .kpiCard strong { font-size: 20px; }
+  .kpiCard strong { min-height: 26px; line-height: 26px; }
+  .metricSkeleton { height: 26px; }
   .kpiCard strong { overflow-wrap: anywhere; text-overflow: unset; white-space: normal; }
   .kpiCard span, .kpiCard small { font-size: 11px; }
   .cardHeader h2 { font-size: 17px; }

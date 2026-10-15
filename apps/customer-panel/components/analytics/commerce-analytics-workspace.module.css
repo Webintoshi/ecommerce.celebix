@@ -95,7 +95,7 @@
 
 .reportPanel { display: grid; min-width: 0; gap: 20px; border-radius: 8px; }
 .loading { display: grid; min-width: 0; gap: 16px; }
-.skeletonGrid { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-line); }
+.skeletonGrid { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; overflow: hidden; border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-line); }
 .skeletonGrid > span { min-height: 104px; background: var(--analytics-soft); }
 .skeletonChart { min-height: 320px; border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-soft); }
 .errorState, .warning { display: flex; min-width: 0; align-items: center; gap: 12px; border: 1px solid var(--analytics-orange-border); border-radius: 12px; background: var(--analytics-orange-soft); padding: 12px 16px; }
@@ -129,15 +129,33 @@
 .currencySelector { display: flex; min-width: 0; flex-wrap: wrap; gap: 8px; }
 .currencySelector button { border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; cursor: pointer; }
 .currencySelector button[aria-pressed="true"] { border-color: var(--analytics-brand); background: var(--analytics-orange-soft); }
+.overviewChartSlot { display: grid; min-width: 0; min-height: 448px; }
 .heroGrid { display: grid; min-width: 0; grid-template-columns: minmax(0, 2fr) minmax(256px, 1fr); gap: 16px; }
-.heroSolo { grid-template-columns: minmax(0, 1fr); }
-.panel, .insight, .journey, .listPanel, .tablePanel { min-width: 0; border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-surface); padding: 16px; }
+.panel, .insight, .journey, .journeyState, .listPanel, .tablePanel { min-width: 0; border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-surface); padding: 16px; }
 .panelHeading { align-items: flex-start; flex-wrap: wrap; }
 .panel h2, .insight h2, .sectionHeading h2, .tablePanel h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .softBadge { display: inline-flex; max-width: 100%; align-items: center; border-radius: 999px; background: var(--analytics-orange-soft); padding: 4px 8px; color: var(--analytics-ink); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .insight { display: grid; align-self: start; justify-items: start; gap: 12px; padding: 20px; }
 .insightContent { display: grid; min-width: 0; align-content: start; gap: 8px; }
 .insightContent h2, .insightContent strong, .insightContent p { overflow-wrap: anywhere; }
+.insightContent > .insightLabel { min-height: 18px; }
+.insightContent > h2 { min-height: 1.35em; }
+.insightContent > strong { min-height: 21px; }
+.insightContent > p { min-height: 18px; }
+.listRows, .productRows, .skeletonRows { min-height: 171px; }
+.productRows > .listRow { min-height: 57px; }
+.slotStatus { min-height: 18px; margin-top: 4px; color: var(--analytics-muted); font-size: 12px; line-height: 1.5; }
+.skeletonLine { display: block; width: 65%; min-width: 32px; height: 12px; border-radius: 4px; background: var(--analytics-soft); }
+.skeletonSurface { border-radius: 8px; background: var(--analytics-soft); }
+.skeletonHeading { display: block; width: 45%; height: 44px; border-radius: 4px; background: var(--analytics-soft); }
+.skeletonMetricHeading { display: block; width: 45%; height: 1.35em; font-size: 18px; border-radius: 4px; background: var(--analytics-soft); }
+.skeletonControl { display: block; width: 140px; height: 44px; border-radius: 8px; background: var(--analytics-soft); }
+.skeletonDisclosure, .skeletonPagination { display: block; height: 44px; border-top: 1px solid var(--analytics-line); }
+.skeletonPagination { margin-left: auto; width: 240px; }
+.skeletonTable { display: grid; min-width: 0; }
+.skeletonTable > div { display: grid; min-height: 64px; grid-template-columns: 2fr repeat(3, 1fr); align-items: center; gap: 16px; border-top: 1px solid var(--analytics-line); }
+.skeletonTable .skeletonLine { width: 75%; }
+
 .insightLabel { color: var(--analytics-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
 .insightContent > strong { color: var(--analytics-muted); font-size: 14px; font-weight: 500; }
 .insightArtwork { display: block; justify-self: center; width: 160px; max-width: 100%; height: 160px; }
@@ -151,14 +169,14 @@
 .sectionHeading a { flex: 0 0 auto; padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; font-weight: 500; text-decoration: none; }
 .sectionHeading a:hover, .technical a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .journeySection { min-width: 0; }
-.journey { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.journey, .journeyState { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .journeyItem { min-width: 0; }
-.journeyItem small { display: block; color: var(--analytics-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.journeyItem small { display: block; min-height: 18px; color: var(--analytics-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .journeyTrack, .funnelTrack { display: block; height: 8px; overflow: hidden; border-radius: 999px; background: var(--analytics-track); }
 .journeyTrack { margin: 8px 0; }
 .journeyTrack span, .funnelTrack span { display: block; height: 100%; border-radius: inherit; background: var(--analytics-ink); }
 .journeyTrack span[data-final="true"], .funnel li:last-child .funnelTrack span { background: var(--analytics-brand); }
-.journeyItem strong { color: var(--analytics-ink); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.journeyItem strong { display: block; min-height: 24px; color: var(--analytics-ink); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .journeyUnavailable { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--analytics-muted); font-size: 14px; }
 .journeyUnavailable svg { flex: 0 0 auto; }
 .lowerGrid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -224,6 +242,9 @@
 .technical > div { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; overflow-wrap: anywhere; }
 .technical a { padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; text-decoration: none; }
 
+@media (min-width: 1440px) {
+  .lowerGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 1200px) {
   .pageTop { align-items: stretch; flex-wrap: wrap-reverse; gap: 8px; }
   .tabs { width: 100%; }
@@ -272,14 +293,15 @@
   }
   .filterGrid, .advancedControls form, .timezoneControl { grid-template-columns: minmax(0, 1fr); }
   .filterGrid button, .advancedControls button { width: 100%; }
+  .slotStatus { min-height: 54px; }
   .metricTile { min-height: 104px; padding: 12px; }
   .metricValue { font-size: 24px; }
   .metricValue .metricUnavailable { font-size: 14px; }
-  .panel, .journey, .listPanel, .tablePanel, .insight { padding: 16px; }
+  .panel, .journey, .journeyState, .listPanel, .tablePanel, .insight { padding: 16px; }
   .insight { grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; }
   .insightArtwork { width: 104px; height: 104px; grid-row: 1; }
   .insight a { grid-column: 1 / -1; }
-  .journey { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .journey, .journeyState { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .listRow { align-items: flex-start; }
   .listRow strong { max-width: 45%; text-align: right; overflow-wrap: anywhere; }
   .dataList > div { flex-wrap: wrap; }
@@ -306,7 +328,7 @@
   .tableScroll a { justify-self: start; }
   .pagination { justify-content: space-between; }
   .pagination > span:not([aria-disabled]) { flex: 1 1 100%; order: -1; }
-  .skeletonChart { min-height: 256px; }
+  .skeletonChart, .overviewChartSlot { min-height: 364px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .root *, .topbarLiveMetric * { scroll-behavior: auto; animation: none; transition: none; }

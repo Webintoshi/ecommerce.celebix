@@ -403,3 +403,75 @@ test("mobile filter sheet contains focus and restores background access while de
     assert.equal(window.document.activeElement.id, "outside-analytics");
   }, undefined, setup(1440));
 });
+
+test("overview detail arrivals keep the chart, journey and all three lower cards in their original slots", async () => {
+  const pending = new Map<string, (response: Response) => void>();
+  await workspace("/analytics?range=30d", async ({ host, requests }) => {
+    assert.deepEqual(requests.map(({ url }) => url.pathname).sort(), ["/api/analytics/funnel", "/api/analytics/overview", "/api/analytics/products"]);
+    const overview: any = analyticsFixturePayload("overview");
+    overview.traffic.sources.items = [];
+    overview.commerce.currencies.forEach((row: any) => { row.abandonedCarts = 0; });
+    await act(async () => pending.get("overview")!(Response.json(overview))); await settle();
+    assert.ok(textOf(host).includes(money(12_845_000)), "main facts must not wait for detail requests");
+    const hero = host.querySelector(".heroGrid"), chart = hero.firstElementChild;
+    const journey = host.querySelector(".journeySection");
+    assert.ok(journey, "pending cohort keeps its future section footprint");
+    const lower = host.querySelector(".lowerGrid"), cards = [...lower.children];
+    assert.equal(cards.length, 3);
+    assert.match(cards[2].textContent, /Ticari hareket/);
+    assert.equal(host.querySelectorAll('.productRows [aria-hidden="true"]').length, 3);
+    const initialHeroClass = hero.className;
+    const funnel: any = analyticsFixturePayload("funnel");
+    funnel.traffic.events.items.forEach((row: any) => { row.value = 0; });
+    await act(async () => pending.get("funnel")!(Response.json(funnel))); await settle();
+    assert.equal(hero.className, initialHeroClass, "zero-loss cohorts must not widen the chart after paint");
+    assert.equal(hero.children.length, 2); assert.equal(hero.firstElementChild, chart);
+    assert.equal(host.querySelector(".journeySection"), journey);
+    await act(async () => pending.get("products")!(Response.json(analyticsFixturePayload("products")))); await settle();
+    assert.match(host.querySelector(".productRows").textContent, /Keten Ceket/);
+    assert.deepEqual([...lower.children], cards, "product arrival must not remove or move the commerce card");
+  }, async ({ url }) => new Promise<Response>((resolve) => pending.set(url.pathname.split("/").at(-1)!, resolve)));
+});
+
+test("initial analytics loading follows the selected report rather than showing a chart for every tab", async () => {
+  for (const tab of ["overview", "funnel", "carts", "acquisition", "products"]) {
+    await workspace(`/analytics?tab=${tab}`, async ({ host }) => {
+      const loading = host.querySelector('[aria-label="Analizler yükleniyor"]'); assert.ok(loading);
+      assert.equal(loading.querySelector(".heroGrid") !== null, tab === "overview");
+      assert.equal(loading.querySelector(".journeySection") !== null, tab === "overview");
+      assert.equal(loading.querySelector(".skeletonTable") !== null, ["carts", "acquisition", "products"].includes(tab));
+      assert.equal(loading.querySelector(".skeletonFunnel") !== null, tab === "funnel");
+      assert.equal(loading.querySelector(".skeletonChart") !== null, tab === "overview");
+      if (tab === "overview") assert.equal(loading.querySelector(".lowerGrid").children.length, 3);
+      assert.equal(loading.querySelectorAll("button, a, input, select").length, 0, "loading does not fabricate working controls");
+    }, async () => new Promise<Response>(() => {}));
+  }
+});
+
+test("a changed query hides the prior ready report and ignores its late supplementary replies", async () => {
+  const pending = new Map<string, (response: Response) => void>();
+  await workspace("/analytics?range=30d", async ({ host, navigate }) => {
+    assert.ok(textOf(host).includes(money(12_845_000)));
+    await navigate("/analytics?range=7d");
+    assert.ok(host.querySelector('[aria-label="Analizler yükleniyor"]'));
+    assert.ok(!textOf(host).includes(money(12_845_000)), "old period must not be presented as the selected period");
+    await act(async () => {
+      pending.get("funnel:30d")!(Response.json(analyticsFixturePayload("funnel")));
+      pending.get("products:30d")!(Response.json(analyticsFixturePayload("products")));
+    }); await settle();
+    assert.doesNotMatch(textOf(host), /Keten Ceket|4\.250 oturum/);
+    await act(async () => pending.get("overview:7d")!(Response.json(analyticsFixturePayload("overview", new URLSearchParams("range=7d"))))); await settle();
+    assert.match(textOf(host), /Bu dönemde satış yok/);assert.ok(!textOf(host).includes(money(12_845_000)));
+  }, async ({ url }) => url.pathname.endsWith("/overview") && url.searchParams.get("range") === "30d"
+    ? Response.json(analyticsFixturePayload("overview"))
+    : new Promise<Response>((resolve) => pending.set(`${url.pathname.split("/").at(-1)}:${url.searchParams.get("range")}`, resolve)));
+});
+
+test("an unchanged report query retains ready nodes without a new poll or request", async () => {
+  await workspace("/analytics?range=30d", async ({ host, navigate, requests }) => {
+    const chart = host.querySelector('section[aria-label="Satış ritmi"]'), calls = requests.length;
+    await navigate("/analytics?range=30d&tab=overview");
+    assert.equal(requests.length, calls);assert.equal(host.querySelector('section[aria-label="Satış ritmi"]'), chart);
+    assert.equal(host.querySelector('[aria-label="Analizler yükleniyor"]'), null);
+  });
+});
