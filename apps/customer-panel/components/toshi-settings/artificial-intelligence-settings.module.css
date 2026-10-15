@@ -61,5 +61,5 @@
 
 /* Keep each provider's identity and key field anchored while model metadata arrives. */
 .providerRow{align-items:start;min-height:144px}.connectionControls{min-height:92px;align-content:start}
-@media(max-width:1180px) and (min-width:721px){.providerRow{grid-template-rows:auto 92px}.connectionControls:has(.emptyControl){display:grid}}
-@media(max-width:720px){.connectionControls{min-height:144px}.connectionControls:has(.emptyControl){display:grid}}
+@media(max-width:1180px) and (min-width:721px){.connectionControls{min-height:92px}}
+@media(max-width:720px){.connectionControls{min-height:0}}

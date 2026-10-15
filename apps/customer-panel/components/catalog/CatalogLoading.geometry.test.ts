@@ -23,3 +23,14 @@ test("catalog loading fixtures reserve matching list, editor and preview regions
   }
  });
 });
+
+test("product list wrapper can shrink at 1024px while the table keeps its local horizontal scroller",()=>{
+ const html='<section class="catalogRoot catalog-page product-operations-page"><div class="listBody"><div class="catalog-table-shell"><table class="catalog-table"><tbody><tr><td>Ürün</td></tr></tbody></table></div></div></section>';
+ const wrapper=effectiveCss("components/catalog/catalog-operations.module.css",html,'.listBody',1024);
+ assert.equal(wrapper.minWidth,"0");
+ assert.equal(wrapper.minHeight,"600px");
+ assert.notEqual(wrapper.overflow,"hidden");
+ assert.equal(effectiveCss("app/globals.css",html,'.catalog-page',1024).display,"grid");
+ assert.equal(effectiveCss("app/globals.css",html,'.catalog-table-shell',1024).overflowX,"auto");
+ assert.equal(effectiveCss("components/catalog/catalog-operations.module.css",html,'.catalog-table',1024).minWidth,"1120px");
+});

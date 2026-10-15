@@ -894,4 +894,4 @@
   .loadingRow span:nth-child(n+3) { display: none; }
 }
 
-.listBody { min-height: 600px; }
+.listBody { min-width: 0; min-height: 600px; }
